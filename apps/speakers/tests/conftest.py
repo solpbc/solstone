@@ -20,13 +20,13 @@ def speakers_env(tmp_path, monkeypatch):
 
     Provides helpers to create:
     - Day directories with sentence embeddings
-    - Facets with entities and voiceprints
+    - Journal-level entities with voiceprints
 
     Usage:
         def test_example(speakers_env):
             env = speakers_env()
             env.create_segment("20240101", "143022_300", ["mic_audio"])
-            env.create_entity("test", "Alice Test")
+            env.create_entity("Alice Test")
             # Now JOURNAL_PATH is set and data exists
     """
 
@@ -107,21 +107,16 @@ def speakers_env(tmp_path, monkeypatch):
 
         def create_entity(
             self,
-            facet: str,
             name: str,
             voiceprints: list[tuple[str, str, str, int]] | None = None,
         ) -> Path:
-            """Create an entity with optional voiceprint files.
+            """Create a journal-level entity with optional voiceprint files.
 
             Args:
-                facet: Facet name
                 name: Entity name
                 voiceprints: Optional list of (day, segment_key, source, sentence_id)
                             tuples for voiceprints
             """
-            facet_dir = self.journal / "facets" / facet
-            facet_dir.mkdir(parents=True, exist_ok=True)
-
             # Create journal-level entity
             entity_id = entity_slug(name)
             journal_entity_dir = self.journal / "entities" / entity_id
@@ -135,19 +130,8 @@ def speakers_env(tmp_path, monkeypatch):
             with open(journal_entity_dir / "entity.json", "w", encoding="utf-8") as f:
                 json.dump(journal_entity, f)
 
-            # Create facet relationship
-            entity_dir = facet_dir / "entities" / entity_id
-            entity_dir.mkdir(parents=True, exist_ok=True)
-            relationship = {
-                "entity_id": entity_id,
-                "description": "Test entity",
-            }
-            with open(entity_dir / "entity.json", "w", encoding="utf-8") as f:
-                json.dump(relationship, f)
-
-            # Create voiceprints.npz if specified
+            # Create voiceprints.npz at journal level if specified
             if voiceprints:
-
                 all_embeddings = []
                 all_metadata = []
                 for day, segment_key, source, sentence_id in voiceprints:
@@ -163,12 +147,12 @@ def speakers_env(tmp_path, monkeypatch):
                     all_metadata.append(json.dumps(metadata))
 
                 np.savez_compressed(
-                    entity_dir / "voiceprints.npz",
+                    journal_entity_dir / "voiceprints.npz",
                     embeddings=np.array(all_embeddings, dtype=np.float32),
                     metadata=np.array(all_metadata, dtype=str),
                 )
 
-            return facet_dir
+            return journal_entity_dir
 
         def create_speakers_json(
             self, day: str, segment_key: str, speakers: list[str]

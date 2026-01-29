@@ -4,7 +4,7 @@
 """Entity matching and resolution.
 
 This module provides entity lookup functions:
-- find_matching_attached_entity: Low-level fuzzy matching
+- find_matching_entity: Low-level fuzzy matching
 - resolve_entity: High-level resolution with candidates
 - validate_aka_uniqueness: Check for aka collisions
 """
@@ -21,7 +21,7 @@ def validate_aka_uniqueness(
 ) -> str | None:
     """Check if an aka collides with another entity's name or aka.
 
-    Uses the same fuzzy matching logic as find_matching_attached_entity to
+    Uses the same fuzzy matching logic as find_matching_entity to
     catch collisions that would cause ambiguous lookups.
 
     Args:
@@ -54,19 +54,21 @@ def validate_aka_uniqueness(
         return None
 
     # Use the existing matching function to detect collisions
-    match = find_matching_attached_entity(aka, check_entities, fuzzy_threshold)
+    match = find_matching_entity(aka, check_entities, fuzzy_threshold)
     if match:
         return match.get("name")
 
     return None
 
 
-def find_matching_attached_entity(
+def find_matching_entity(
     detected_name: str,
-    attached_entities: list[EntityDict],
+    entities: list[EntityDict],
     fuzzy_threshold: int = 90,
 ) -> EntityDict | None:
-    """Find an attached entity matching a detected name.
+    """Find an entity matching a detected name.
+
+    Works with any list of entity dicts (journal-level or facet-attached).
 
     Uses tiered matching strategy (in order of precedence):
     1. Exact name, id, or aka match
@@ -77,20 +79,20 @@ def find_matching_attached_entity(
 
     Args:
         detected_name: Name, id (slug), or aka to search for
-        attached_entities: List of attached entity dicts to search
+        entities: List of entity dicts to search
         fuzzy_threshold: Minimum score (0-100) for fuzzy matching (default: 90)
 
     Returns:
         Matched entity dict, or None if no match found
 
     Example:
-        >>> attached = [{"id": "robert_johnson", "name": "Robert Johnson", "aka": ["Bob", "Bobby"]}]
-        >>> find_matching_attached_entity("Bob", attached)
+        >>> entities = [{"id": "robert_johnson", "name": "Robert Johnson", "aka": ["Bob", "Bobby"]}]
+        >>> find_matching_entity("Bob", entities)
         {"id": "robert_johnson", "name": "Robert Johnson", "aka": ["Bob", "Bobby"]}
-        >>> find_matching_attached_entity("robert_johnson", attached)
+        >>> find_matching_entity("robert_johnson", entities)
         {"id": "robert_johnson", "name": "Robert Johnson", "aka": ["Bob", "Bobby"]}
     """
-    if not detected_name or not attached_entities:
+    if not detected_name or not entities:
         return None
 
     detected_lower = detected_name.lower()
@@ -106,7 +108,7 @@ def find_matching_attached_entity(
     # All candidate strings for fuzzy matching -> entity
     fuzzy_candidates: dict[str, EntityDict] = {}
 
-    for entity in attached_entities:
+    for entity in entities:
         name = entity.get("name", "")
         entity_id = entity.get("id", "")
         if not name:
@@ -242,7 +244,7 @@ def resolve_entity(
         return None, []
 
     # Try to find a match
-    match = find_matching_attached_entity(query, entities, fuzzy_threshold)
+    match = find_matching_entity(query, entities, fuzzy_threshold)
     if match:
         return match, None
 

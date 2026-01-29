@@ -6,9 +6,11 @@
 Facet relationships link journal entities to specific facets with context:
     facets/<facet>/entities/<id>/entity.json
 
-Entity memory (observations, voiceprints) is stored alongside relationships:
+Facet entity memory (observations) is stored alongside relationships:
     facets/<facet>/entities/<id>/observations.jsonl
-    facets/<facet>/entities/<id>/voiceprints.npz
+
+Note: Voiceprints are stored at journal level (entities/<id>/voiceprints.npz)
+since they are identity-specific, not facet-specific.
 """
 
 import json
@@ -145,10 +147,10 @@ def enrich_relationship_with_journal(
 
 
 def entity_memory_path(facet: str, name: str) -> Path:
-    """Return path to entity's memory folder.
+    """Return path to entity's facet-scoped memory folder.
 
-    Entity memory folders store persistent data about attached entities:
-    observations (durable facts), voiceprints (voice recognition), etc.
+    Facet entity memory folders store facet-specific data about entities,
+    such as observations (durable facts learned in this facet's context).
 
     Args:
         facet: Facet name (e.g., "personal", "work")

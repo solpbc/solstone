@@ -5,9 +5,10 @@
 
 Entity System Architecture:
 - Journal-level entities: entities/<id>/entity.json - canonical identity (name, type, aka)
+- Journal-level memory: entities/<id>/ - voiceprints (identity-specific, cross-facet)
 - Facet relationships: facets/<facet>/entities/<id>/entity.json - per-facet data
 - Detected entities: facets/<facet>/entities/<day>.jsonl - ephemeral daily discoveries
-- Entity memory: facets/<facet>/entities/<id>/ - voiceprints, observations (per-facet)
+- Facet entity memory: facets/<facet>/entities/<id>/ - observations (facet-specific)
 
 This package is organized into focused modules:
 - core: Types, constants, validation, slug generation
@@ -49,8 +50,10 @@ from think.entities.formatting import format_entities
 from think.entities.journal import (
     block_journal_entity,
     delete_journal_entity,
+    ensure_journal_entity_memory,
     get_or_create_journal_entity,
     has_journal_principal,
+    journal_entity_memory_path,
     journal_entity_path,
     load_all_journal_entities,
     load_journal_entity,
@@ -71,7 +74,7 @@ from think.entities.loading import (
 
 # Entity matching and resolution
 from think.entities.matching import (
-    find_matching_attached_entity,
+    find_matching_entity,
     resolve_entity,
     validate_aka_uniqueness,
 )
@@ -116,8 +119,10 @@ __all__ = [
     # Journal
     "block_journal_entity",
     "delete_journal_entity",
+    "ensure_journal_entity_memory",
     "get_or_create_journal_entity",
     "has_journal_principal",
+    "journal_entity_memory_path",
     "journal_entity_path",
     "load_all_journal_entities",
     "load_journal_entity",
@@ -143,7 +148,7 @@ __all__ = [
     "save_entities",
     "update_entity_description",
     # Matching
-    "find_matching_attached_entity",
+    "find_matching_entity",
     "resolve_entity",
     "validate_aka_uniqueness",
     # Activity

@@ -336,17 +336,6 @@
   color: #991b1b;
 }
 
-/* Facet indicator */
-.spk-facet-badge {
-  display: inline-block;
-  padding: 4px 10px;
-  background: var(--facet-bg, #e5e7eb);
-  border: 1px solid var(--facet-color, #d1d5db);
-  border-radius: 16px;
-  font-size: 12px;
-  color: var(--facet-color, #6b7280);
-}
-
 /* Speaker count badge in segment list */
 .spk-speaker-count {
   display: inline-block;
@@ -406,24 +395,6 @@
   opacity: 0.8;
 }
 
-/* All-facet mode message */
-.spk-facet-required {
-  padding: 32px;
-  text-align: center;
-  background: #fefce8;
-  border: 1px solid #fde047;
-  border-radius: 8px;
-  color: #854d0e;
-}
-
-.spk-facet-required-icon {
-  font-size: 24px;
-  margin-bottom: 8px;
-}
-
-.spk-facet-required-text {
-  font-size: 14px;
-}
 </style>
 
 <div class="spk-wrap">
@@ -467,13 +438,6 @@
   window.addEventListener('hashchange', () => {
     const hash = window.location.hash.slice(1);
     if (hash) selectSegmentByKey(hash);
-  });
-
-  // Listen for facet changes
-  window.addEventListener('facet.switch', () => {
-    if (selectedSegment) {
-      renderDetail(selectedSegment);
-    }
   });
 
   function loadSegments() {
@@ -542,27 +506,9 @@
       return;
     }
 
-    // Check for all-facet mode
-    const facet = window.selectedFacet;
-    if (!facet) {
-      detailPanel.innerHTML = `
-        <div class="spk-detail-header">
-          <div class="spk-detail-title">${seg.start} - ${seg.end}</div>
-        </div>
-        <div class="spk-facet-required">
-          <div class="spk-facet-required-icon">👤</div>
-          <div class="spk-facet-required-text">
-            Select a facet to view speaker details and voiceprint matching
-          </div>
-        </div>
-      `;
-      return;
-    }
-
     let html = `
       <div class="spk-detail-header">
         <div class="spk-detail-title">${seg.start} - ${seg.end}</div>
-        <span class="spk-facet-badge" id="spkFacetBadge">${escapeHtml(facet)}</span>
       </div>
     `;
 
@@ -609,13 +555,7 @@
     const container = document.getElementById('spkSpeakers');
     if (!container) return;
 
-    const facet = window.selectedFacet;
-    if (!facet) {
-      container.innerHTML = '<div class="spk-empty">Select a facet to view speaker details</div>';
-      return;
-    }
-
-    fetch(`/app/speakers/api/speakers/${day}/${seg.key}?facet=${encodeURIComponent(facet)}`)
+    fetch(`/app/speakers/api/speakers/${day}/${seg.key}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) {
@@ -694,7 +634,7 @@
   }
 
   function renderSentences(data) {
-    const { sentences, all_entities, audio_file, facet, source } = data;
+    const { sentences, all_entities, audio_file, source } = data;
 
     // Store sentences for time-based tracking
     currentSentences = sentences;
@@ -729,7 +669,7 @@
     `;
 
     // Setup event handlers
-    setupSentenceHandlers(facet, source);
+    setupSentenceHandlers(source);
   }
 
   function setupAudioListeners() {
@@ -856,7 +796,7 @@
     `;
   }
 
-  function setupSentenceHandlers(facet, source) {
+  function setupSentenceHandlers(source) {
     // Play/Pause button
     detailPanel.querySelectorAll('.spk-play-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -903,7 +843,7 @@
 
         if (!entityName || entityName === '__new__') return;
 
-        saveVoiceprint(facet, entityName, source, sentenceId, row);
+        saveVoiceprint(entityName, source, sentenceId, row);
       });
     });
 
@@ -931,17 +871,16 @@
           return;
         }
 
-        createEntityWithVoiceprint(facet, type, name, source, sentenceId, row);
+        createEntityWithVoiceprint(type, name, source, sentenceId, row);
       });
     });
   }
 
-  function saveVoiceprint(facet, entityName, source, sentenceId, row) {
+  function saveVoiceprint(entityName, source, sentenceId, row) {
     fetch('/app/speakers/api/save-voiceprint', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        facet,
         entity_name: entityName,
         day,
         segment_key: selectedSegment.key,
@@ -964,15 +903,13 @@
       });
   }
 
-  function createEntityWithVoiceprint(facet, type, name, source, sentenceId, row) {
+  function createEntityWithVoiceprint(type, name, source, sentenceId, row) {
     fetch('/app/speakers/api/create-entity-voiceprint', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        facet,
         type,
         name,
-        description: '',
         day,
         segment_key: selectedSegment.key,
         source,

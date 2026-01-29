@@ -204,7 +204,6 @@ def test_scan_entity_voiceprints(speakers_env):
 
     env = speakers_env()
     env.create_entity(
-        "test",
         "Alice Test",
         voiceprints=[
             ("20240101", "120000_300", "mic_audio", 1),
@@ -212,7 +211,7 @@ def test_scan_entity_voiceprints(speakers_env):
         ],
     )
 
-    voiceprints = _scan_entity_voiceprints("test")
+    voiceprints = _scan_entity_voiceprints()
 
     assert "Alice Test" in voiceprints
     avg_emb = voiceprints["Alice Test"]
@@ -226,7 +225,6 @@ def test_load_entity_voiceprints_file(speakers_env):
 
     env = speakers_env()
     env.create_entity(
-        "test",
         "Bob Test",
         voiceprints=[
             ("20240101", "120000_300", "mic_audio", 1),
@@ -234,7 +232,7 @@ def test_load_entity_voiceprints_file(speakers_env):
         ],
     )
 
-    result = _load_entity_voiceprints_file("test", "Bob Test")
+    result = _load_entity_voiceprints_file("bob_test")
 
     assert result is not None
     embeddings, metadata_list = result
@@ -252,11 +250,11 @@ def test_load_entity_voiceprints_file_not_found(speakers_env):
 
     env = speakers_env()
 
-    # Create facet but no entity
-    facet_dir = env.journal / "facets" / "test"
-    facet_dir.mkdir(parents=True)
+    # Create entities dir but no entity
+    entities_dir = env.journal / "entities"
+    entities_dir.mkdir(parents=True)
 
-    result = _load_entity_voiceprints_file("test", "Nobody")
+    result = _load_entity_voiceprints_file("nobody")
     assert result is None
 
 
@@ -268,14 +266,14 @@ def test_save_voiceprint(speakers_env):
 
     env = speakers_env()
 
-    # Create facet
-    facet_dir = env.journal / "facets" / "test"
-    facet_dir.mkdir(parents=True)
+    # Create entities dir
+    entities_dir = env.journal / "entities"
+    entities_dir.mkdir(parents=True)
 
     emb = np.array([1.0, 0.0, 0.0] + [0.0] * 253, dtype=np.float32)
 
     path = _save_voiceprint(
-        "test", "John Doe", emb, "20240101", "143022_300", "mic_audio", 5
+        "john_doe", emb, "20240101", "143022_300", "mic_audio", 5
     )
 
     assert path.exists()
@@ -305,21 +303,21 @@ def test_save_voiceprint_appends(speakers_env):
 
     env = speakers_env()
 
-    # Create facet
-    facet_dir = env.journal / "facets" / "test"
-    facet_dir.mkdir(parents=True)
+    # Create entities dir
+    entities_dir = env.journal / "entities"
+    entities_dir.mkdir(parents=True)
 
     emb1 = np.array([1.0, 0.0, 0.0] + [0.0] * 253, dtype=np.float32)
     emb2 = np.array([0.0, 1.0, 0.0] + [0.0] * 253, dtype=np.float32)
 
     # Save first voiceprint
     path = _save_voiceprint(
-        "test", "John Doe", emb1, "20240101", "143022_300", "mic_audio", 5
+        "john_doe", emb1, "20240101", "143022_300", "mic_audio", 5
     )
 
     # Save second voiceprint
     path2 = _save_voiceprint(
-        "test", "John Doe", emb2, "20240102", "150000_300", "audio", 3
+        "john_doe", emb2, "20240102", "150000_300", "audio", 3
     )
 
     assert path == path2  # Same file

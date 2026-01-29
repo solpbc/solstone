@@ -335,3 +335,41 @@ def delete_journal_entity(entity_id: str) -> dict[str, Any]:
         shutil.rmtree(journal_dir)
 
     return {"success": True, "facets_deleted": facets_deleted}
+
+
+def journal_entity_memory_path(entity_id: str) -> Path:
+    """Return path to journal entity's memory folder.
+
+    Journal entity memory stores data that is identity-specific and not
+    facet-scoped, such as voiceprints (voice recognition embeddings).
+
+    Args:
+        entity_id: Entity ID (slug)
+
+    Returns:
+        Path to entities/<id>/
+
+    Raises:
+        ValueError: If entity_id is empty
+    """
+    if not entity_id:
+        raise ValueError("Entity ID cannot be empty")
+
+    return Path(get_journal()) / "entities" / entity_id
+
+
+def ensure_journal_entity_memory(entity_id: str) -> Path:
+    """Create journal entity memory folder if needed, return path.
+
+    Args:
+        entity_id: Entity ID (slug)
+
+    Returns:
+        Path to the created/existing folder
+
+    Raises:
+        ValueError: If entity_id is empty
+    """
+    folder = journal_entity_memory_path(entity_id)
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder

@@ -16,7 +16,7 @@ from typing import Any
 
 from think.entities.core import EntityDict
 from think.entities.loading import load_entities, parse_entity_file
-from think.entities.matching import find_matching_attached_entity
+from think.entities.matching import find_matching_entity
 from think.entities.saving import save_entities
 from think.utils import get_journal
 
@@ -157,7 +157,7 @@ def touch_entities_from_activity(
     needs_update: dict[str, str] = {}  # attached_name -> most_recent_day
 
     for activity_name in names:
-        entity = find_matching_attached_entity(activity_name, attached)
+        entity = find_matching_entity(activity_name, attached)
         if entity:
             attached_name = entity.get("name", "")
             if attached_name:
@@ -224,7 +224,7 @@ def load_detected_entities_recent(facet: str, days: int = 30) -> list[EntityDict
         """Check if a detected name matches any attached entity."""
         if name in exclusion_cache:
             return exclusion_cache[name]
-        match = find_matching_attached_entity(name, attached)
+        match = find_matching_entity(name, attached)
         excluded = match is not None
         exclusion_cache[name] = excluded
         return excluded

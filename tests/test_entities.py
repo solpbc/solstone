@@ -18,7 +18,7 @@ from think.entities import (
     entity_last_active_ts,
     entity_memory_path,
     entity_slug,
-    find_matching_attached_entity,
+    find_matching_entity,
     get_identity_names,
     load_all_attached_entities,
     load_detected_entities_recent,
@@ -1240,130 +1240,130 @@ def test_rename_entity_memory_target_exists(fixture_journal, tmp_path):
         rename_entity_memory("work", "Alice", "Bob")
 
 
-# Tests for find_matching_attached_entity
+# Tests for find_matching_entity
 
 
-def test_find_matching_attached_entity_exact_name():
+def test_find_matching_entity_exact_name():
     """Test exact name matching."""
     attached = [
         {"name": "Alice Johnson", "type": "Person"},
         {"name": "Bob Smith", "type": "Person"},
     ]
-    result = find_matching_attached_entity("Alice Johnson", attached)
+    result = find_matching_entity("Alice Johnson", attached)
     assert result is not None
     assert result["name"] == "Alice Johnson"
 
 
-def test_find_matching_attached_entity_exact_aka():
+def test_find_matching_entity_exact_aka():
     """Test exact aka matching."""
     attached = [
         {"name": "Robert Johnson", "type": "Person", "aka": ["Bob", "Bobby"]},
     ]
-    result = find_matching_attached_entity("Bob", attached)
+    result = find_matching_entity("Bob", attached)
     assert result is not None
     assert result["name"] == "Robert Johnson"
 
 
-def test_find_matching_attached_entity_case_insensitive():
+def test_find_matching_entity_case_insensitive():
     """Test case-insensitive matching."""
     attached = [
         {"name": "Alice Johnson", "type": "Person"},
     ]
-    result = find_matching_attached_entity("alice johnson", attached)
+    result = find_matching_entity("alice johnson", attached)
     assert result is not None
     assert result["name"] == "Alice Johnson"
 
 
-def test_find_matching_attached_entity_case_insensitive_aka():
+def test_find_matching_entity_case_insensitive_aka():
     """Test case-insensitive aka matching."""
     attached = [
         {"name": "Robert Johnson", "type": "Person", "aka": ["Bob"]},
     ]
-    result = find_matching_attached_entity("bob", attached)
+    result = find_matching_entity("bob", attached)
     assert result is not None
     assert result["name"] == "Robert Johnson"
 
 
-def test_find_matching_attached_entity_normalized():
+def test_find_matching_entity_normalized():
     """Test normalized (slugified) matching."""
     attached = [
         {"name": "José García", "type": "Person"},
     ]
     # "Jose Garcia" should match via normalization
-    result = find_matching_attached_entity("Jose Garcia", attached)
+    result = find_matching_entity("Jose Garcia", attached)
     assert result is not None
     assert result["name"] == "José García"
 
 
-def test_find_matching_attached_entity_first_word_unambiguous():
+def test_find_matching_entity_first_word_unambiguous():
     """Test first-word matching when unambiguous."""
     attached = [
         {"name": "Sarah Chen", "type": "Person"},
         {"name": "Bob Smith", "type": "Person"},
     ]
     # "Sarah" should match "Sarah Chen" (only one Sarah)
-    result = find_matching_attached_entity("Sarah", attached)
+    result = find_matching_entity("Sarah", attached)
     assert result is not None
     assert result["name"] == "Sarah Chen"
 
 
-def test_find_matching_attached_entity_first_word_ambiguous():
+def test_find_matching_entity_first_word_ambiguous():
     """Test first-word matching skipped when ambiguous."""
     attached = [
         {"name": "John Smith", "type": "Person"},
         {"name": "John Doe", "type": "Person"},
     ]
     # "John" matches multiple entities - should not match
-    result = find_matching_attached_entity("John", attached)
+    result = find_matching_entity("John", attached)
     assert result is None
 
 
-def test_find_matching_attached_entity_first_word_too_short():
+def test_find_matching_entity_first_word_too_short():
     """Test first-word matching requires minimum 3 characters."""
     attached = [
         {"name": "Al Smith", "type": "Person"},
     ]
     # "Al" is too short (< 3 chars)
-    result = find_matching_attached_entity("Al", attached)
+    result = find_matching_entity("Al", attached)
     assert result is None
 
 
-def test_find_matching_attached_entity_fuzzy():
+def test_find_matching_entity_fuzzy():
     """Test fuzzy matching catches typos."""
     attached = [
         {"name": "Robert Johnson", "type": "Person"},
     ]
     # Typo: "Robet Johnson" should match "Robert Johnson"
-    result = find_matching_attached_entity("Robet Johnson", attached)
+    result = find_matching_entity("Robet Johnson", attached)
     assert result is not None
     assert result["name"] == "Robert Johnson"
 
 
-def test_find_matching_attached_entity_fuzzy_word_order():
+def test_find_matching_entity_fuzzy_word_order():
     """Test fuzzy matching handles word order differences."""
     attached = [
         {"name": "Sarah Chen", "type": "Person"},
     ]
     # Different word order
-    result = find_matching_attached_entity("Chen Sarah", attached)
+    result = find_matching_entity("Chen Sarah", attached)
     assert result is not None
     assert result["name"] == "Sarah Chen"
 
 
-def test_find_matching_attached_entity_no_match():
+def test_find_matching_entity_no_match():
     """Test no match returns None."""
     attached = [
         {"name": "Alice Johnson", "type": "Person"},
     ]
-    result = find_matching_attached_entity("Charlie Brown", attached)
+    result = find_matching_entity("Charlie Brown", attached)
     assert result is None
 
 
-def test_find_matching_attached_entity_empty_inputs():
+def test_find_matching_entity_empty_inputs():
     """Test empty inputs return None."""
-    assert find_matching_attached_entity("", []) is None
-    assert find_matching_attached_entity("Alice", []) is None
-    assert find_matching_attached_entity("", [{"name": "Alice"}]) is None
+    assert find_matching_entity("", []) is None
+    assert find_matching_entity("Alice", []) is None
+    assert find_matching_entity("", [{"name": "Alice"}]) is None
 
 
 # Tests for validate_aka_uniqueness

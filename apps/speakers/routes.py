@@ -1,7 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Speaker voiceprint management app - sentence-based embeddings."""
+"""Speaker voiceprint management app - sentence-based embeddings.
+
+Voiceprints are stored at the journal level (not per-facet) since a person's
+voice is the same regardless of which facet they appear in.
+"""
 
 from __future__ import annotations
 
@@ -29,11 +33,15 @@ from apps.utils import log_app_action
 from convey import state
 from convey.utils import DATE_RE, error_response, format_date, success_response
 from think.entities import (
-    ensure_entity_memory,
-    entity_memory_path,
-    find_matching_attached_entity,
-    load_entities,
-    save_entities,
+    entity_slug,
+    find_matching_entity,
+)
+from think.entities.journal import (
+    ensure_journal_entity_memory,
+    get_or_create_journal_entity,
+    journal_entity_memory_path,
+    load_all_journal_entities,
+    load_journal_entity,
 )
 from think.utils import day_dirs, day_path
 from think.utils import segment_key as validate_segment_key
@@ -119,16 +127,23 @@ def _load_segment_speakers(segment_dir: Path) -> list[str]:
 
 
 def _load_entity_voiceprints_file(
-    facet: str, entity_name: str
+    entity_id: str,
 ) -> tuple[np.ndarray, list[dict]] | None:
-    """Load voiceprints for an entity from consolidated voiceprints.npz.
+    """Load voiceprints for an entity from journal-level voiceprints.npz.
 
-    Returns tuple of (embeddings, metadata_list) or None if not found.
-    - embeddings: (N, 256) float32 array
-    - metadata_list: List of dicts parsed from JSON metadata strings
+    Voiceprints are stored at the journal level (entities/<id>/voiceprints.npz)
+    since a person's voice is the same across all facets.
+
+    Args:
+        entity_id: Entity ID (slug)
+
+    Returns:
+        Tuple of (embeddings, metadata_list) or None if not found.
+        - embeddings: (N, 256) float32 array
+        - metadata_list: List of dicts parsed from JSON metadata strings
     """
     try:
-        folder = entity_memory_path(facet, entity_name)
+        folder = journal_entity_memory_path(entity_id)
     except (RuntimeError, ValueError):
         return None
 
@@ -148,24 +163,35 @@ def _load_entity_voiceprints_file(
         metadata_list = [json.loads(m) for m in metadata_arr]
         return embeddings, metadata_list
     except Exception as e:
-        logger.warning("Failed to load voiceprints for %s: %s", entity_name, e)
+        logger.warning("Failed to load voiceprints for entity %s: %s", entity_id, e)
         return None
 
 
 def _save_voiceprint(
-    facet: str,
-    entity_name: str,
+    entity_id: str,
     embedding: np.ndarray,
     day: str,
     segment_key: str,
     source: str,
     sentence_id: int,
 ) -> Path:
-    """Save a voiceprint to the entity's consolidated voiceprints.npz.
+    """Save a voiceprint to the entity's journal-level voiceprints.npz.
 
-    Appends to existing file or creates new one.
+    Voiceprints are stored at entities/<id>/voiceprints.npz since a person's
+    voice is the same across all facets.
+
+    Args:
+        entity_id: Entity ID (slug)
+        embedding: Normalized embedding vector (256-dim)
+        day: Day string (YYYYMMDD)
+        segment_key: Segment directory name
+        source: Audio source stem
+        sentence_id: Sentence ID within transcript
+
+    Returns:
+        Path to the voiceprints.npz file
     """
-    folder = ensure_entity_memory(facet, entity_name)
+    folder = ensure_journal_entity_memory(entity_id)
     npz_path = folder / "voiceprints.npz"
 
     # Build metadata for this voiceprint
@@ -358,24 +384,25 @@ def _get_sentence_embedding(
     return None
 
 
-def _scan_entity_voiceprints(facet: str) -> dict[str, np.ndarray]:
-    """Scan entities in a facet for voiceprints.
+def _scan_entity_voiceprints() -> dict[str, np.ndarray]:
+    """Scan all journal entities for voiceprints.
 
     Returns dict mapping entity name to averaged embedding.
     """
-    try:
-        entities = load_entities(facet)
-    except RuntimeError:
-        return {}
+    entities = load_all_journal_entities()
 
     voiceprints = {}
-    for entity in entities:
+    for entity_id, entity in entities.items():
         name = entity.get("name", "")
         if not name:
             continue
 
-        # Load voiceprints from consolidated file
-        result = _load_entity_voiceprints_file(facet, name)
+        # Skip blocked entities
+        if entity.get("blocked"):
+            continue
+
+        # Load voiceprints from journal-level file
+        result = _load_entity_voiceprints_file(entity_id)
         if result is None:
             continue
 
@@ -475,8 +502,7 @@ def api_segments(day: str) -> Any:
 def api_segment_speakers(day: str, segment_key: str) -> Any:
     """Return speaker names with entity matching for a segment.
 
-    Requires a facet (via query param or cookie) for entity matching.
-    Returns matched and unmatched speakers.
+    Matches detected speaker names against all journal entities.
     """
     if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 400)
@@ -484,29 +510,24 @@ def api_segment_speakers(day: str, segment_key: str) -> Any:
     if not validate_segment_key(segment_key):
         return error_response("Invalid segment key", 400)
 
-    # Require facet for entity matching (query param takes precedence over cookie)
-    selected_facet = request.args.get("facet") or request.cookies.get("selectedFacet")
-    if not selected_facet:
-        return error_response("Select a facet to view speaker details", 400)
-
     # Load speakers from speakers.json
     segment_dir = day_path(day) / segment_key
     speakers = _load_segment_speakers(segment_dir)
     if not speakers:
         return error_response("No speakers found for segment", 404)
 
-    # Load attached entities for matching
-    try:
-        attached_entities = load_entities(selected_facet)
-    except RuntimeError:
-        attached_entities = []
+    # Load all journal entities for matching
+    journal_entities = load_all_journal_entities()
+    entities_list = [
+        e for e in journal_entities.values() if not e.get("blocked")
+    ]
 
     # Match each speaker name to an entity
     matched = []
     unmatched = []
 
     for speaker_name in speakers:
-        entity = find_matching_attached_entity(speaker_name, attached_entities)
+        entity = find_matching_entity(speaker_name, entities_list)
         if entity:
             matched.append(
                 {
@@ -522,7 +543,6 @@ def api_segment_speakers(day: str, segment_key: str) -> Any:
         {
             "matched": matched,
             "unmatched": unmatched,
-            "facet": selected_facet,
         }
     )
 
@@ -536,18 +556,13 @@ def api_sentences(day: str, segment_key: str, source: str) -> Any:
     if not validate_segment_key(segment_key):
         return error_response("Invalid segment key", 400)
 
-    # Get selected facet from cookie (optional - sentences work without it)
-    selected_facet = request.cookies.get("selectedFacet")
-
     # Load sentences and embeddings
     sentences, emb_data = _load_sentences(day, segment_key, source)
     if not sentences:
         return error_response("No transcript found", 404)
 
-    # Load known voiceprints for matching (only if facet selected)
-    known_voiceprints = {}
-    if selected_facet:
-        known_voiceprints = _scan_entity_voiceprints(selected_facet)
+    # Load known voiceprints for matching (journal-level)
+    known_voiceprints = _scan_entity_voiceprints()
 
     # Compute best match for each sentence with embedding
     if emb_data is not None:
@@ -567,14 +582,13 @@ def api_sentences(day: str, segment_key: str, source: str) -> Any:
     # Filter to only sentences with embeddings
     sentences = [s for s in sentences if s.get("has_embedding")]
 
-    # Load ALL entities in the facet for dropdown (only if facet selected)
-    all_entity_names = []
-    if selected_facet:
-        try:
-            all_entities = load_entities(selected_facet)
-            all_entity_names = [e.get("name") for e in all_entities if e.get("name")]
-        except RuntimeError:
-            pass
+    # Load ALL journal entities for dropdown (filter to Person types for voice)
+    journal_entities = load_all_journal_entities()
+    all_entity_names = [
+        e.get("name")
+        for e in journal_entities.values()
+        if e.get("name") and not e.get("blocked")
+    ]
 
     # Get audio file URL
     segment_dir = day_path(day) / segment_key
@@ -607,7 +621,6 @@ def api_sentences(day: str, segment_key: str, source: str) -> Any:
             "sentences": sentences,
             "all_entities": all_entity_names,
             "audio_file": audio_file,
-            "facet": selected_facet,
         }
     )
 
@@ -638,19 +651,18 @@ def serve_audio(day: str, encoded_path: str) -> Any:
 
 @speakers_bp.route("/api/save-voiceprint", methods=["POST"])
 def api_save_voiceprint() -> Any:
-    """Save a sentence voiceprint to an existing entity."""
+    """Save a sentence voiceprint to an existing journal entity."""
     data = request.get_json()
     if not data:
         return error_response("No data provided", 400)
 
-    facet = data.get("facet")
     entity_name = data.get("entity_name")
     day = data.get("day")
     segment_key = data.get("segment_key")
     source = data.get("source")
     sentence_id = data.get("sentence_id")
 
-    if not all([facet, entity_name, day, segment_key, source, sentence_id]):
+    if not all([entity_name, day, segment_key, source, sentence_id]):
         return error_response("Missing required fields", 400)
 
     # Validate formats
@@ -659,30 +671,32 @@ def api_save_voiceprint() -> Any:
     if not validate_segment_key(segment_key):
         return error_response("Invalid segment key", 400)
 
-    # Validate entity exists
-    entities = load_entities(facet)
-    entity_names = [e.get("name") for e in entities]
-    if entity_name not in entity_names:
-        return error_response(
-            f"Entity '{entity_name}' not found in facet '{facet}'", 404
-        )
+    # Validate entity exists in journal
+    entity_id = entity_slug(entity_name)
+    journal_entity = load_journal_entity(entity_id)
+    if not journal_entity:
+        return error_response(f"Entity '{entity_name}' not found", 404)
+
+    if journal_entity.get("blocked"):
+        return error_response(f"Entity '{entity_name}' is blocked", 400)
 
     # Load sentence embedding
     emb = _get_sentence_embedding(day, segment_key, source, sentence_id)
     if emb is None:
         return error_response("Sentence embedding not found", 404)
 
-    # Save voiceprint
+    # Save voiceprint to journal-level storage
     try:
         emb_path = _save_voiceprint(
-            facet, entity_name, emb, day, segment_key, source, sentence_id
+            entity_id, emb, day, segment_key, source, sentence_id
         )
 
         log_app_action(
             app="speakers",
-            facet=facet,
+            facet=None,  # Journal-level action
             action="voiceprint_save",
             params={
+                "entity_id": entity_id,
                 "entity_name": entity_name,
                 "day": day,
                 "segment_key": segment_key,
@@ -699,21 +713,19 @@ def api_save_voiceprint() -> Any:
 
 @speakers_bp.route("/api/create-entity-voiceprint", methods=["POST"])
 def api_create_entity_voiceprint() -> Any:
-    """Create a new entity with a voiceprint."""
+    """Create a new journal entity with a voiceprint."""
     data = request.get_json()
     if not data:
         return error_response("No data provided", 400)
 
-    facet = data.get("facet")
     entity_type = data.get("type", "Person")
     entity_name = data.get("name")
-    entity_description = data.get("description", "")
     day = data.get("day")
     segment_key = data.get("segment_key")
     source = data.get("source")
     sentence_id = data.get("sentence_id")
 
-    if not all([facet, entity_name, day, segment_key, source, sentence_id]):
+    if not all([entity_name, day, segment_key, source, sentence_id]):
         return error_response("Missing required fields", 400)
 
     # Validate formats
@@ -722,40 +734,36 @@ def api_create_entity_voiceprint() -> Any:
     if not validate_segment_key(segment_key):
         return error_response("Invalid segment key", 400)
 
-    # Check entity doesn't already exist
-    entities = load_entities(facet, include_detached=True)
-    entity_names = [e.get("name") for e in entities]
-    if entity_name in entity_names:
-        return error_response(
-            f"Entity '{entity_name}' already exists in facet '{facet}'", 409
-        )
+    # Check entity doesn't already exist in journal
+    entity_id = entity_slug(entity_name)
+    existing = load_journal_entity(entity_id)
+    if existing:
+        return error_response(f"Entity '{entity_name}' already exists", 409)
 
     # Load sentence embedding
     emb = _get_sentence_embedding(day, segment_key, source, sentence_id)
     if emb is None:
         return error_response("Sentence embedding not found", 404)
 
-    # Create new entity
-    new_entity = {
-        "type": entity_type,
-        "name": entity_name,
-        "description": entity_description,
-        "attached_at": int(time.time() * 1000),
-    }
-    entities.append(new_entity)
-    save_entities(facet, entities)
+    # Create new journal entity
+    new_entity = get_or_create_journal_entity(
+        entity_id=entity_id,
+        name=entity_name,
+        entity_type=entity_type,
+    )
 
-    # Save voiceprint
+    # Save voiceprint to journal-level storage
     try:
         emb_path = _save_voiceprint(
-            facet, entity_name, emb, day, segment_key, source, sentence_id
+            entity_id, emb, day, segment_key, source, sentence_id
         )
 
         log_app_action(
             app="speakers",
-            facet=facet,
+            facet=None,  # Journal-level action
             action="entity_voiceprint_create",
             params={
+                "entity_id": entity_id,
                 "entity_name": entity_name,
                 "entity_type": entity_type,
                 "day": day,
