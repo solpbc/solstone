@@ -146,7 +146,7 @@ See **Quick Reference** below for all `make` commands. Key patterns:
 - `make test` for unit tests, `make test-integration` for integration tests
 - `make test-only TEST=path` to run specific tests
 - `make check-all` before committing (formats, lints, tests)
-- Always run `sol restart` after editing `convey/` or `apps/` to reload code
+- Always run `sol restart-convey` after editing `convey/` or `apps/` to reload code
 - Use `sol screenshot <route>` to capture UI screenshots for visual testing
 
 ---
@@ -213,7 +213,7 @@ make coverage               # Generate coverage report
 make ci            # Full CI check (format check + lint + test)
 
 # Debugging
-sol restart                   # Restart Convey service (after code changes)
+sol restart-convey            # Restart Convey service (after code changes)
 sol screenshot <route>        # Capture Convey view screenshot (use -h for options)
 
 # Cleanup
