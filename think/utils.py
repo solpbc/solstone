@@ -529,6 +529,22 @@ def format_day(day: str) -> str:
         return day
 
 
+def iso_date(day: str) -> str:
+    """Convert a day string (YYYYMMDD) to ISO format (YYYY-MM-DD).
+
+    Parameters
+    ----------
+    day:
+        Day in YYYYMMDD format.
+
+    Returns
+    -------
+    str
+        ISO formatted date like "2026-01-24".
+    """
+    return f"{day[:4]}-{day[4:6]}-{day[6:8]}"
+
+
 def format_segment_times(segment: str) -> tuple[str, str] | tuple[None, None]:
     """Format segment start and end times as human-readable strings.
 
@@ -817,7 +833,7 @@ def _load_prompt_metadata(md_path: Path) -> dict[str, object]:
     Returns
     -------
     dict
-        Metadata dict with path, mtime, color, hook_path (if exists), and frontmatter fields.
+        Metadata dict with path, mtime, color, and frontmatter fields.
     """
     mtime = int(md_path.stat().st_mtime)
     info: dict[str, object] = {
@@ -838,66 +854,7 @@ def _load_prompt_metadata(md_path: Path) -> dict[str, object]:
     if "color" not in info:
         info["color"] = "#6c757d"
 
-    # Resolve hook path - named hook takes precedence over co-located .py
-    hook_name = info.get("hook")
-    if hook_name and isinstance(hook_name, str):
-        # Named hook: look in muse/{hook}.py
-        named_hook_path = MUSE_DIR / f"{hook_name}.py"
-        if named_hook_path.exists():
-            info["hook_path"] = str(named_hook_path)
-    else:
-        # Co-located hook: check for .py file next to the .md file
-        hook_path = md_path.with_suffix(".py")
-        if hook_path.exists():
-            info["hook_path"] = str(hook_path)
-
     return info
-
-
-def load_output_hook(hook_path: str | Path) -> Callable[[str, dict], str | None]:
-    """Load an output post-processing hook from a Python file.
-
-    Hooks are Python modules with a ``process(result, context)`` function that
-    transforms generator output. The hook is loaded in isolation without polluting
-    sys.modules.
-
-    Parameters
-    ----------
-    hook_path:
-        Path to the .py hook file.
-
-    Returns
-    -------
-    Callable
-        The ``process`` function from the hook module.
-
-    Raises
-    ------
-    ValueError
-        If the hook file doesn't define a ``process`` function.
-    ImportError
-        If the hook file cannot be loaded.
-    """
-    import importlib.util
-
-    hook_path = Path(hook_path)
-    spec = importlib.util.spec_from_file_location(
-        f"output_hook_{hook_path.stem}", hook_path
-    )
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load hook from {hook_path}")
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    if not hasattr(module, "process"):
-        raise ValueError(f"Hook {hook_path} must define a 'process' function")
-
-    process_func = getattr(module, "process")
-    if not callable(process_func):
-        raise ValueError(f"Hook {hook_path} 'process' must be callable")
-
-    return process_func
 
 
 def get_muse_configs(
