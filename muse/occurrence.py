@@ -68,8 +68,8 @@ def process(result: str, context: dict) -> str | None:
             contents=contents,
             context=f"agent.{name}.extraction",
             temperature=0.3,
-            max_output_tokens=8192 * 6,
-            thinking_budget=8192 * 3,
+            max_output_tokens=16384,
+            thinking_budget=0,
             system_instruction=prompt_content.text,
             json_output=True,
         )
