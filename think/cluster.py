@@ -288,7 +288,7 @@ def cluster_scan(day: str) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]
     return audio_ranges, screen_ranges
 
 
-def cluster_segments(day: str) -> List[Dict[str, any]]:
+def cluster_segments(day: str) -> List[Dict[str, Any]]:
     """Return individual recording segments for a day with their content types.
 
     Unlike ``cluster_scan()`` which collapses segments into 15-minute ranges,
@@ -311,7 +311,7 @@ def cluster_segments(day: str) -> List[Dict[str, any]]:
         return []
 
     day_path_obj = Path(day_dir)
-    segments: List[Dict[str, any]] = []
+    segments: List[Dict[str, Any]] = []
 
     for item in day_path_obj.iterdir():
         start_time, end_time = segment_parse(item.name)
@@ -511,8 +511,6 @@ def cluster_span(
     return markdown, len(entries)
 
 
-# Deprecated alias for backwards compatibility
-cluster_segments_multi = cluster_span
 
 
 def _segments_overlap(
@@ -561,55 +559,6 @@ def cluster_range(
     ]
     groups = _group_entries(entries)
     return _groups_to_markdown(groups)
-
-
-def get_entries_for_range(
-    day: str,
-    start: str,
-    end: str,
-    audio: bool = True,
-    screen: bool = True,
-    agents: bool = False,
-) -> List[Dict[str, Any]]:
-    """Return filtered transcript entries for a time range.
-
-    Public API for routes/tools that need raw entry data (not markdown).
-    Returns entries with metadata for further processing (e.g., media file lookup).
-
-    Args:
-        day: Day in YYYYMMDD format
-        start: Start time in HHMMSS format
-        end: End time in HHMMSS format
-        audio: Whether to include audio transcripts
-        screen: Whether to include raw screen data from *screen.jsonl files
-        agents: Whether to include agent output summaries from *.md files
-
-    Returns:
-        List of entry dicts with keys:
-        - timestamp: datetime of segment start
-        - segment_key: segment directory name
-        - segment_start: datetime of segment start
-        - segment_end: datetime of segment end
-        - prefix: "audio", "screen", or "agent_output"
-        - output_name: (agents only) stem of the .md filename
-        - content: formatted transcript text
-        - name: relative path like "HHMMSS_LEN/audio.jsonl"
-    """
-
-    day_dir = str(day_path(day))
-    if not os.path.isdir(day_dir):
-        return []
-
-    date_str = _date_str(day_dir)
-    start_dt = datetime.strptime(date_str + start, "%Y%m%d%H%M%S")
-    end_dt = datetime.strptime(date_str + end, "%Y%m%d%H%M%S")
-
-    entries = _load_entries(day_dir, audio, screen, agents)
-    return [
-        e
-        for e in entries
-        if _segments_overlap(e["segment_start"], e["segment_end"], start_dt, end_dt)
-    ]
 
 
 def main():

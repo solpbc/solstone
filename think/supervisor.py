@@ -648,20 +648,6 @@ def _handle_supervisor_request(message: dict) -> None:
     logging.warning(f"Cannot restart {service}: not found in managed processes")
 
 
-def cancel_task(ref: str) -> bool:
-    """Cancel a running task.
-
-    Args:
-        ref: Task correlation ID
-
-    Returns:
-        True if task was found and terminated, False otherwise
-    """
-    if _task_queue:
-        return _task_queue.cancel(ref)
-    return False
-
-
 def get_task_status(ref: str) -> dict:
     """Get status of a task.
 

@@ -14,7 +14,7 @@ You have knowledge of these tools for planning purposes:
 
 ### Resource Access
 - **get_resource**: Retrieves complete journal resources:
-  - `journal://insight/{day}/{topic}` - Full markdown insight for a specific topic on a day
+  - `journal://agents/{day}/{topic}` - Full markdown insight for a specific topic on a day
   - `journal://transcripts/full/{day}/{time}/{length}` - Full transcripts for specific time windows (audio + raw screen)
   - `journal://transcripts/audio/{day}/{time}/{length}` - Audio transcripts only for specific time windows
   - `journal://transcripts/screen/{day}/{time}/{length}` - Screen summaries only for specific time windows
@@ -39,7 +39,7 @@ Plan research using this progression:
 - Use `get_events(day)` when you need all events for a specific day
 
 **Deep Analysis Phase** (Use resources for complete information):
-- Access full insights via `journal://insight/{day}/{topic}` for identified topics
+- Access full insights via `journal://agents/{day}/{topic}` for identified topics
 - Retrieve raw transcripts via `journal://transcripts/full/{day}/{time}/{length}` for detailed reconstruction
 - Access media files if visual/audio context is needed
 
