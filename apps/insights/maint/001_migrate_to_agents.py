@@ -1,51 +1,28 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
 """Migrate journal from insights/ to agents/ directory structure.
 
-This script performs the following migrations:
+This migration:
 1. Renames YYYYMMDD/insights/ -> YYYYMMDD/agents/ for all day directories
 2. Updates config/journal.json: "insights" key -> "agents" key
-3. Updates source paths in facets/*/events/*.jsonl files
+3. Renames apps/*/insights/ -> apps/*/agents/ for app-specific outputs
+4. Updates source paths in facets/*/events/*.jsonl files
 
-Usage:
-    python scripts/migrate_insights_to_agents.py [--journal PATH] [--dry-run]
-
-Options:
-    --journal PATH  Path to journal directory (default: JOURNAL_PATH env or .env)
-    --dry-run       Show what would be done without making changes
+All operations are idempotent - safe to re-run if interrupted or run manually.
 """
+
+from __future__ import annotations
 
 import argparse
 import json
-import os
+import logging
 import re
-import sys
 from pathlib import Path
 
+from think.utils import get_journal, setup_cli
 
-def load_env_journal_path() -> str | None:
-    """Load JOURNAL_PATH from .env file if present."""
-    env_file = Path(".env")
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            if line.startswith("JOURNAL_PATH="):
-                return line.split("=", 1)[1].strip().strip('"').strip("'")
-    return None
-
-
-def get_journal_path(args_path: str | None) -> Path:
-    """Resolve journal path from args, env, or .env file."""
-    if args_path:
-        return Path(args_path)
-    if os.environ.get("JOURNAL_PATH"):
-        return Path(os.environ["JOURNAL_PATH"])
-    env_path = load_env_journal_path()
-    if env_path:
-        return Path(env_path)
-    print("ERROR: No journal path specified. Use --journal or set JOURNAL_PATH.")
-    sys.exit(1)
+logger = logging.getLogger(__name__)
 
 
 def is_day_directory(name: str) -> bool:
@@ -74,7 +51,7 @@ def migrate_day_directories(journal: Path, dry_run: bool) -> int:
                 print(f"  Renamed: {insights_dir} -> {agents_dir}")
             count += 1
         elif insights_dir.is_dir() and agents_dir.exists():
-            print(f"  WARNING: Both insights/ and agents/ exist in {day_dir.name}")
+            logger.warning(f"Both insights/ and agents/ exist in {day_dir.name}")
 
     return count
 
@@ -91,14 +68,14 @@ def migrate_config(journal: Path, dry_run: bool) -> bool:
     try:
         config = json.loads(config_file.read_text())
     except json.JSONDecodeError as e:
-        print(f"  WARNING: Could not parse config file: {e}")
+        logger.warning(f"Could not parse config file: {e}")
         return False
 
     if "insights" not in config:
         return False
 
     if "agents" in config:
-        print("  WARNING: Both 'insights' and 'agents' keys exist in config")
+        logger.warning("Both 'insights' and 'agents' keys exist in config")
         return False
 
     if dry_run:
@@ -136,7 +113,7 @@ def migrate_app_directories(journal: Path, dry_run: bool) -> int:
                 print(f"  Renamed: {insights_dir} -> {agents_dir}")
             count += 1
         elif insights_dir.is_dir() and agents_dir.exists():
-            print(f"  WARNING: Both insights/ and agents/ exist in apps/{app_dir.name}")
+            logger.warning(f"Both insights/ and agents/ exist in apps/{app_dir.name}")
 
     return count
 
@@ -182,28 +159,21 @@ def migrate_event_sources(journal: Path, dry_run: bool) -> int:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Migrate journal from insights/ to agents/ directory structure."
-    )
-    parser.add_argument(
-        "--journal",
-        type=str,
-        help="Path to journal directory (default: JOURNAL_PATH env or .env)",
+        description=__doc__.split("\n")[0],
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would be done without making changes",
     )
-    args = parser.parse_args()
+    args = setup_cli(parser)
 
-    journal = get_journal_path(args.journal)
-    if not journal.is_dir():
-        print(f"ERROR: Journal directory does not exist: {journal}")
-        sys.exit(1)
+    journal = Path(get_journal())
 
     print(f"Migrating journal: {journal}")
     if args.dry_run:
-        print("DRY-RUN MODE: No changes will be made\n")
+        print("[DRY-RUN MODE - No changes will be made]\n")
 
     # Step 1: Rename day directories
     print("\nStep 1: Renaming insights/ -> agents/ in day directories...")
@@ -240,6 +210,10 @@ def main():
         print(f"  - {app_count} app directories renamed")
         print(f"  - Config {'updated' if config_updated else 'unchanged'}")
         print(f"  - {event_count} event files updated")
+
+    logger.info(
+        f"Migration complete: {day_count} days, {app_count} apps, {event_count} events"
+    )
 
 
 if __name__ == "__main__":
