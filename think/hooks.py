@@ -20,7 +20,7 @@ def should_skip_extraction(result: str, context: dict) -> str | None:
 
     Args:
         result: The generated output markdown content.
-        context: Hook context dict with meta and multi_segment.
+        context: Hook context dict with meta and span.
 
     Returns:
         Skip reason string if extraction should be skipped, None otherwise.
@@ -35,9 +35,9 @@ def should_skip_extraction(result: str, context: dict) -> str | None:
     if meta.get("output") == "json":
         return "JSON output (already structured)"
 
-    # Skip in multi-segment mode
-    if context.get("multi_segment"):
-        return "multi-segment mode"
+    # Skip in span mode (multiple sequential segments)
+    if context.get("span"):
+        return "span mode"
 
     # Skip for minimal content
     if len(result.strip()) < MIN_EXTRACTION_CHARS:

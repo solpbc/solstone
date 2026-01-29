@@ -299,7 +299,7 @@ The `occurrences` field (optional string) provides topic-specific extraction gui
 - Or use `"hook": "my_hook"` to reference `muse/my_hook.py`
 - Hook must define a `process(result, context)` function
 - `result` is the LLM output (markdown or JSON string)
-- `context` dict contains: `day`, `segment`, `multi_segment`, `name`, `output_path`, `meta`, `transcript`
+- `context` dict contains: `day`, `segment`, `span`, `name`, `output_path`, `meta`, `transcript`
 - Return modified string, or `None` to use original result
 - Hook errors are logged but don't crash the pipeline (falls back to original)
 

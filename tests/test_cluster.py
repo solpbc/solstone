@@ -289,8 +289,8 @@ def test_cluster_segments_with_split_screen(tmp_path, monkeypatch):
     assert "screen" in segments[0]["types"]
 
 
-def test_cluster_segments_multi(tmp_path, monkeypatch):
-    """Test cluster_segments_multi processes multiple segments."""
+def test_cluster_span(tmp_path, monkeypatch):
+    """Test cluster_span processes a span of segments."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     day_dir = day_path("20240101")
 
@@ -316,8 +316,8 @@ def test_cluster_segments_multi(tmp_path, monkeypatch):
         '{"raw": "audio.flac"}\n{"start": "00:00:01", "text": "late morning segment"}\n'
     )
 
-    # Process only first and third segments
-    result, count = mod.cluster_segments_multi("20240101", ["090000_300", "110000_300"])
+    # Process only first and third segments as a span
+    result, count = mod.cluster_span("20240101", ["090000_300", "110000_300"])
 
     # Should have 2 entries (one per segment with audio)
     assert count == 2
@@ -328,8 +328,8 @@ def test_cluster_segments_multi(tmp_path, monkeypatch):
     assert "code_editor" not in result
 
 
-def test_cluster_segments_multi_missing_segment(tmp_path, monkeypatch):
-    """Test cluster_segments_multi fails fast when segment is missing."""
+def test_cluster_span_missing_segment(tmp_path, monkeypatch):
+    """Test cluster_span fails fast when segment is missing."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     day_dir = day_path("20240101")
 
@@ -341,7 +341,7 @@ def test_cluster_segments_multi_missing_segment(tmp_path, monkeypatch):
 
     # Try to process existing and non-existing segments
     with pytest.raises(ValueError) as exc_info:
-        mod.cluster_segments_multi("20240101", ["090000_300", "100000_300"])
+        mod.cluster_span("20240101", ["090000_300", "100000_300"])
 
     assert "100000_300" in str(exc_info.value)
     assert "not found" in str(exc_info.value)

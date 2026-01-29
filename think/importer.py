@@ -467,7 +467,7 @@ def _run_import_summary(
             name="importer",
             config={
                 "day": day,
-                "segments": segments,
+                "span": segments,
                 "output": "md",
                 "output_path": str(summary_path),
             },

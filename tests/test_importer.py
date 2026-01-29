@@ -291,7 +291,7 @@ def test_run_import_summary(tmp_path, monkeypatch):
         # Verify cortex_request was called with correct config
         assert captured_request["name"] == "importer"
         assert captured_request["config"]["day"] == "20240101"
-        assert captured_request["config"]["segments"] == ["120000_300", "120500_300"]
+        assert captured_request["config"]["span"] == ["120000_300", "120500_300"]
         assert captured_request["config"]["output"] == "md"
         assert (
             str(import_dir / "summary.md") in captured_request["config"]["output_path"]

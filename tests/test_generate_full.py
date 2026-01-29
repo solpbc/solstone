@@ -117,7 +117,7 @@ def test_generate_output_ndjson(tmp_path, monkeypatch):
 
 
 def test_generate_hook_invoked_with_context(tmp_path, monkeypatch):
-    """Test that hooks receive correct context including multi_segment flag."""
+    """Test that hooks receive correct context including span flag."""
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
@@ -134,7 +134,7 @@ def process(result, context):
     ctx_copy = {
         "day": context.get("day"),
         "segment": context.get("segment"),
-        "multi_segment": context.get("multi_segment"),
+        "span": context.get("span"),
         "name": context.get("name"),
         "has_transcript": bool(context.get("transcript")),
         "has_meta": bool(context.get("meta")),
@@ -181,7 +181,7 @@ def process(result, context):
 
         assert captured["day"] == "20240101"
         assert captured["segment"] is None
-        assert captured["multi_segment"] is False
+        assert captured["span"] is False
         assert captured["name"] == "hooked_gen"
         assert captured["has_transcript"] is True
         assert captured["has_meta"] is True

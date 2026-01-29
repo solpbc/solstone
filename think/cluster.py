@@ -448,19 +448,22 @@ def _load_entries_from_segment(
     return entries
 
 
-def cluster_segments_multi(
+def cluster_span(
     day: str,
-    segments: List[str],
+    span: List[str],
     sources: Dict[str, bool] | None = None,
 ) -> Tuple[str, int]:
-    """Return Markdown summary for multiple segments and the number of entries processed.
+    """Return Markdown summary for a span of segments and the number of entries processed.
+
+    A span is a list of sequential segment keys (e.g., from an import that created
+    multiple 5-minute segments from one audio file).
 
     By default uses raw screen data for segment generators (more granular than summaries).
     Validates all segments exist before processing; raises ValueError if any are missing.
 
     Args:
         day: Day in YYYYMMDD format
-        segments: List of segment keys in HHMMSS_LEN format (e.g., ["163045_300", "170000_600"])
+        span: List of segment keys in HHMMSS_LEN format (e.g., ["163045_300", "170000_600"])
         sources: Optional dict with keys "audio", "screen", "agents" (bools).
             Defaults to {"audio": True, "screen": True, "agents": False}.
 
@@ -476,20 +479,20 @@ def cluster_segments_multi(
 
     day_dir = str(day_path(day))
 
-    # Validate all segments exist upfront (fail fast)
+    # Validate all segments in span exist upfront (fail fast)
     missing = []
-    for segment in segments:
-        segment_dir = Path(day_dir) / segment
+    for segment_key in span:
+        segment_dir = Path(day_dir) / segment_key
         if not segment_dir.is_dir():
-            missing.append(segment)
+            missing.append(segment_key)
 
     if missing:
         raise ValueError(f"Segment directories not found: {', '.join(missing)}")
 
-    # Load entries from all segments
+    # Load entries from all segments in span
     entries: List[Dict[str, Any]] = []
-    for segment in segments:
-        segment_dir = Path(day_dir) / segment
+    for segment_key in span:
+        segment_dir = Path(day_dir) / segment_key
         segment_entries = _load_entries_from_segment(
             str(segment_dir),
             audio=sources.get("audio", True),
@@ -499,13 +502,17 @@ def cluster_segments_multi(
         entries.extend(segment_entries)
 
     if not entries:
-        return f"No audio or screen files found in segments: {', '.join(segments)}", 0
+        return f"No audio or screen files found in span: {', '.join(span)}", 0
 
     # Sort all entries by timestamp, group, and render
     entries.sort(key=lambda e: e["timestamp"])
     groups = _group_entries(entries)
     markdown = _groups_to_markdown(groups)
     return markdown, len(entries)
+
+
+# Deprecated alias for backwards compatibility
+cluster_segments_multi = cluster_span
 
 
 def _segments_overlap(

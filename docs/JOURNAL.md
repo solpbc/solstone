@@ -46,6 +46,7 @@ solstone transforms raw recordings into actionable understanding through a three
 |------|------------|----------|
 | **Day** | 24-hour activity directory | `20250119/` |
 | **Segment** | 5-minute time window | `143022_300/` (14:30:22, 5 min) |
+| **Span** | Sequential segment group | Import creating 3 segments |
 | **Facet** | Project/context scope | `#work`, `#personal` |
 
 **Extracted Data**

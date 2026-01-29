@@ -76,7 +76,7 @@ Generators are spawned via Cortex when a request has an `output` field but no `t
   "day": "20250109",                // Required: day in YYYYMMDD format
   "output": "md",                   // Required: output format ("md" or "json")
   "segment": "120000_300",          // Optional: single segment key (HHMMSS_duration)
-  "segments": ["120000_300", "120500_300"],  // Optional: multiple segment keys
+  "span": ["120000_300", "120500_300"],  // Optional: list of sequential segment keys
   "output_path": "/path/to/file.md", // Optional: override output location
   "force": false,                   // Optional: regenerate even if output exists
   "provider": "google",             // Optional: AI provider override

@@ -37,7 +37,7 @@ def process(result: str, context: dict) -> str | None:
             - output_path: absolute path to output file
             - meta: dict with frontmatter
             - transcript: the clustered transcript markdown
-            - multi_segment: True if processing multiple segments
+            - span: True if processing a span of segments
 
     Returns:
         None - this hook does not modify the output result.

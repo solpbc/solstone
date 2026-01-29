@@ -28,7 +28,7 @@ from google import genai
 from google.genai import types
 from typing_extensions import Required
 
-from think.cluster import cluster, cluster_period, cluster_segments_multi
+from think.cluster import cluster, cluster_period, cluster_span
 from think.utils import (
     compose_instructions,
     day_log,
@@ -482,7 +482,7 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
             - name: Generator key (e.g., 'activity', 'chat:sentiment')
             - day: Day in YYYYMMDD format
             - segment: Optional single segment key
-            - segments: Optional list of segment keys
+            - span: Optional list of sequential segment keys
             - output: Output format ('md' or 'json')
             - output_path: Optional custom output path
             - force: Whether to regenerate existing output
@@ -493,7 +493,7 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
     name = config.get("name", "default")
     day = config.get("day")
     segment = config.get("segment")
-    segments = config.get("segments")  # List of segment keys
+    span = config.get("span")  # List of sequential segment keys
     output_format = config.get("output", "md")
     output_path_override = config.get("output_path")
     force = config.get("force", False)
@@ -518,8 +518,8 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
     # Set segment key for token usage logging
     if segment:
         os.environ["SEGMENT_KEY"] = segment
-    elif segments:
-        os.environ["SEGMENT_KEY"] = segments[0]
+    elif span:
+        os.environ["SEGMENT_KEY"] = span[0]
 
     # Load generator metadata
     all_generators = get_muse_configs(has_tools=False, has_output=True)
@@ -552,12 +552,12 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
     system_prompt_name = instructions.get("system_prompt_name", "journal")
     system_instruction = instructions["system_instruction"]
 
-    # Track multi-segment mode
-    multi_segment_mode = bool(segments)
+    # Track span mode (multiple sequential segments)
+    span_mode = bool(span)
 
     # Build transcript via clustering
-    if segments:
-        markdown, file_count = cluster_segments_multi(day, segments, sources=sources)
+    if span:
+        markdown, file_count = cluster_span(day, span, sources=sources)
     elif segment:
         markdown, file_count = cluster_period(day, segment, sources=sources)
     else:
@@ -604,9 +604,9 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
             prompt_context["segment"] = segment
             prompt_context["segment_start"] = start_str
             prompt_context["segment_end"] = end_str
-    elif segments:
+    elif span:
         all_times = []
-        for seg in segments:
+        for seg in span:
             start_time, end_time = segment_parse(seg)
             if start_time and end_time:
                 all_times.append((start_time, end_time))
@@ -646,7 +646,7 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
     output_exists = output_path.exists() and output_path.stat().st_size > 0
 
     # Determine cache settings
-    if multi_segment_mode:
+    if span_mode:
         cache_display_name = None
     elif segment:
         cache_display_name = f"{system_prompt_name}_{day}_{segment}"
@@ -695,7 +695,7 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
                 hook_context = {
                     "day": day,
                     "segment": segment,
-                    "multi_segment": multi_segment_mode,
+                    "span": span_mode,
                     "name": name,
                     "output_path": str(output_path),
                     "meta": dict(meta),
