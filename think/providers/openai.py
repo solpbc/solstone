@@ -204,13 +204,13 @@ def _extract_text_parts(raw: Any, attr: str) -> str | None:
         return None
 
 
-async def run_agent(
+async def run_tools(
     config: dict[str, Any],
     on_event: Callable[[dict], None] | None = None,
 ) -> str:
-    """
-    Run a single prompt through the OpenAI Agents SDK using streaming.
-    Emits JSON events and returns the final text output.
+    """Run a prompt with MCP tool-calling support via OpenAI Agents SDK.
+
+    Uses streaming and emits JSON events.
 
     Args:
         config: Complete configuration dictionary including prompt, system_instruction,
@@ -682,7 +682,7 @@ async def run_agenerate(
 
 
 __all__ = [
-    "run_agent",
+    "run_tools",
     "run_generate",
     "run_agenerate",
 ]

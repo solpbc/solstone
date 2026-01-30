@@ -8,7 +8,7 @@ and agent execution. Each provider module exposes:
 
 - run_generate(): Sync text generation, returns GenerateResult
 - run_agenerate(): Async text generation, returns GenerateResult
-- run_agent(): Agent execution with MCP tools
+- run_tools(): Tool-calling execution with MCP integration
 
 GenerateResult is a TypedDict with: text, usage, finish_reason, thinking.
 The wrapper functions in think.models handle token logging and JSON validation.
@@ -30,7 +30,7 @@ from typing import Any, Dict, List
 # All registered providers must implement:
 #   - run_generate(contents, model, ...) -> GenerateResult
 #   - run_agenerate(contents, model, ...) -> GenerateResult
-#   - run_agent(config, on_event) -> str
+#   - run_tools(config, on_event) -> str
 # ---------------------------------------------------------------------------
 
 PROVIDER_REGISTRY: Dict[str, str] = {
@@ -64,7 +64,7 @@ def get_provider_module(provider: str) -> ModuleType:
     Returns
     -------
     ModuleType
-        The provider module with run_generate, run_agenerate, and run_agent functions.
+        The provider module with run_generate, run_agenerate, and run_tools functions.
 
     Raises
     ------

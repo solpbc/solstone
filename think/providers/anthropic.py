@@ -247,11 +247,11 @@ async def _get_mcp_tools(
     return tools
 
 
-async def run_agent(
+async def run_tools(
     config: dict[str, Any],
     on_event: Callable[[dict], None] | None = None,
 ) -> str:
-    """Run a single prompt through the Anthropic Claude agent and return the response.
+    """Run a prompt with MCP tool-calling support via Anthropic Claude.
 
     Args:
         config: Complete configuration dictionary including prompt, system_instruction,
@@ -673,7 +673,7 @@ async def run_agenerate(
 
 
 __all__ = [
-    "run_agent",
+    "run_tools",
     "run_generate",
     "run_agenerate",
 ]

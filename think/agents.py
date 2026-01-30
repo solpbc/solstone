@@ -1272,7 +1272,7 @@ async def main_async() -> None:
                         emit_event(data)
 
                     # Pass complete config to provider
-                    await provider_mod.run_agent(
+                    await provider_mod.run_tools(
                         config=config,
                         on_event=agent_emit_event,
                     )

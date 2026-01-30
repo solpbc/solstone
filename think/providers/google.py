@@ -537,11 +537,11 @@ class ToolLoggingHooks:
         session.call_tool = wrapped  # type: ignore[assignment]
 
 
-async def run_agent(
+async def run_tools(
     config: dict[str, Any],
     on_event: Callable[[dict], None] | None = None,
 ) -> str:
-    """Run a single prompt through the Google Gemini agent and return the response.
+    """Run a prompt with MCP tool-calling support via Google Gemini.
 
     Args:
         config: Complete configuration dictionary including prompt, system_instruction,
@@ -769,7 +769,7 @@ async def run_agent(
 
 
 __all__ = [
-    "run_agent",
+    "run_tools",
     "run_generate",
     "run_agenerate",
     "get_or_create_client",

@@ -26,8 +26,8 @@ def mock_journal(tmp_path, monkeypatch):
     return journal_path
 
 
-async def mock_run_agent(config, on_event=None):
-    """Mock run_agent function for testing."""
+async def mock_run_tools(config, on_event=None):
+    """Mock run_tools function for testing."""
     prompt = config.get("prompt", "")
     provider = config.get("provider", "")
     model = config.get("model", "")
@@ -68,14 +68,14 @@ def mock_hydrate_config(request: dict) -> dict:
 
 
 def mock_all_providers(monkeypatch):
-    """Mock all provider modules uniformly with mock_run_agent.
+    """Mock all provider modules uniformly with mock_run_tools.
 
     This ensures tests are not fragile to changes in default provider.
     """
     # Mock providers in think.providers (google, openai, anthropic)
     for provider_name in ("openai", "anthropic", "google"):
         mock_module = MagicMock()
-        mock_module.run_agent = mock_run_agent
+        mock_module.run_tools = mock_run_tools
         monkeypatch.setitem(
             sys.modules, f"think.providers.{provider_name}", mock_module
         )
