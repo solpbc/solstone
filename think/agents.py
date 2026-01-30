@@ -548,13 +548,20 @@ def validate_config(config: dict) -> str | None:
         Error message string if invalid, None if valid
     """
     has_tools = bool(config.get("tools"))
-    has_output = bool(config.get("output"))
+    has_prompt = bool(config.get("prompt"))
+    has_day = bool(config.get("day"))
 
-    if not has_tools and not has_output:
-        return "Invalid config: must have 'tools' or 'output' field"
-
-    if has_tools and not config.get("prompt"):
+    # Tools path requires prompt
+    if has_tools and not has_prompt:
         return "Missing 'prompt' field for tool agent"
+
+    # Generate path requires at least prompt or day
+    if not has_tools and not has_prompt and not has_day:
+        return "Invalid config: must have 'tools', 'prompt', or 'day' field"
+
+    # Segment/span requires day
+    if (config.get("segment") or config.get("span")) and not has_day:
+        return "Invalid config: 'segment' or 'span' requires 'day' field"
 
     # Validate continue_from if present
     continue_from = config.get("continue_from")
@@ -735,18 +742,27 @@ def generate_agent_output(
     return result["text"]
 
 
-def _run_generator(
+def _run_generate(
     config: dict, emit_event: Callable[[dict], None], *, dry_run: bool = False
 ) -> None:
-    """Execute generator pipeline with config from cortex.
+    """Execute single-shot generation with optional features based on config.
+
+    This is the unified generation path for all non-tool requests. Features are
+    opt-in based on config fields:
+    - day: Load transcript from journal (enables caching, source filtering)
+    - segment/span: Specific time period clustering (requires day)
+    - output: Write result to file
+    - prompt: User prompt (required if no day, optional with day)
+    - hook.pre/post: Pre/post processing hooks
 
     Args:
         config: Merged config from cortex containing:
-            - name: Generator key (e.g., 'activity', 'chat:sentiment')
-            - day: Day in YYYYMMDD format
-            - segment: Optional single segment key
-            - span: Optional list of sequential segment keys
-            - output: Output format ('md' or 'json')
+            - name: Config key (e.g., 'activity', 'chat:sentiment', 'default')
+            - prompt: Optional user prompt
+            - day: Optional day in YYYYMMDD format (enables transcript loading)
+            - segment: Optional single segment key (requires day)
+            - span: Optional list of sequential segment keys (requires day)
+            - output: Optional output format ('md' or 'json')
             - output_path: Optional custom output path
             - force: Whether to regenerate existing output
             - provider: AI provider
@@ -755,47 +771,51 @@ def _run_generator(
         dry_run: If True, emit dry_run event instead of calling LLM
     """
     name = config.get("name", "default")
-    day = config.get("day")
+    day = config.get("day")  # Optional - enables transcript loading
     segment = config.get("segment")
     span = config.get("span")  # List of sequential segment keys
-    output_format = config.get("output", "md")
+    output_format = config.get("output")  # Optional - enables file writing
     output_path_override = config.get("output_path")
     force = config.get("force", False)
     provider = config.get("provider", "google")
     model = config.get("model")
-
-    if not day:
-        raise ValueError("Missing 'day' field in generator config")
+    user_prompt = config.get("prompt", "")  # User prompt from request
 
     # Emit start event
     emit_event(
         {
             "event": "start",
             "ts": now_ms(),
-            "prompt": "",  # Generators don't have user prompts
+            "prompt": user_prompt,
             "name": name,
             "model": model or "unknown",
             "provider": provider,
         }
     )
 
-    # Set segment key for token usage logging
-    if segment:
-        os.environ["SEGMENT_KEY"] = segment
-    elif span:
-        os.environ["SEGMENT_KEY"] = span[0]
+    # Set segment key for token usage logging (only if day-based)
+    if day:
+        if segment:
+            os.environ["SEGMENT_KEY"] = segment
+        elif span:
+            os.environ["SEGMENT_KEY"] = span[0]
 
-    # Load generator metadata
-    all_generators = get_muse_configs(has_tools=False, has_output=True)
-    if name in all_generators:
-        meta = all_generators[name]
+    # Load config metadata (for hooks, system prompt, etc.)
+    # First try tool-less configs, then try all configs
+    all_configs = get_muse_configs(has_tools=False)
+    if name not in all_configs:
+        all_configs = get_muse_configs()  # Include tool configs for prompt-only
+    if name in all_configs:
+        meta = all_configs[name]
         agent_path = Path(meta["path"])
     else:
-        raise ValueError(f"Generator not found: {name}")
+        # No config found - use empty metadata (prompt-only with defaults)
+        meta = {}
+        agent_path = None
 
-    # Check if generator is disabled
+    # Check if config is disabled
     if meta.get("disabled"):
-        logging.info("Generator %s is disabled, skipping", name)
+        logging.info("Config %s is disabled, skipping", name)
         emit_event(
             {
                 "event": "finish",
@@ -809,10 +829,10 @@ def _run_generator(
     # Extract instructions config for source filtering and system prompt
     instructions_config = meta.get("instructions")
     instructions = compose_instructions(
-        include_datetime=False,
+        include_datetime=not day,  # Include datetime for prompt-only, not for day-based
         config_overrides=instructions_config,
     )
-    sources = instructions.get("sources")
+    sources = instructions.get("sources", {})
     system_prompt_name = instructions.get("system_prompt_name", "journal")
     system_instruction = instructions["system_instruction"]
 
@@ -824,125 +844,145 @@ def _run_generator(
     # Track span mode (multiple sequential segments)
     span_mode = bool(span)
 
-    # Convert sources for clustering (both True and "required" mean load)
-    cluster_sources = {k: source_is_enabled(v) for k, v in sources.items()}
+    # Initialize transcript variables
+    markdown = ""
+    source_counts: dict[str, int] = {}
+    total_count = 0
 
-    # Build transcript via clustering
-    if span:
-        markdown, source_counts = cluster_span(day, span, sources=cluster_sources)
-    elif segment:
-        markdown, source_counts = cluster_period(day, segment, sources=cluster_sources)
-    else:
-        markdown, source_counts = cluster(day, sources=cluster_sources)
+    # Transcript loading (only if day is provided)
+    if day:
+        # Convert sources for clustering (both True and "required" mean load)
+        cluster_sources = {k: source_is_enabled(v) for k, v in sources.items()}
 
-    day_dir = str(day_path(day))
-    total_count = sum(source_counts.values())
+        # Build transcript via clustering
+        if span:
+            markdown, source_counts = cluster_span(day, span, sources=cluster_sources)
+        elif segment:
+            markdown, source_counts = cluster_period(
+                day, segment, sources=cluster_sources
+            )
+        else:
+            markdown, source_counts = cluster(day, sources=cluster_sources)
 
-    # Check required sources have content
-    for source_type, mode in sources.items():
-        if source_is_required(mode) and source_counts.get(source_type, 0) == 0:
+        total_count = sum(source_counts.values())
+
+        # Check required sources have content
+        for source_type, mode in sources.items():
+            if source_is_required(mode) and source_counts.get(source_type, 0) == 0:
+                logging.info(
+                    "Required source '%s' has no content, skipping",
+                    source_type,
+                )
+                emit_event(
+                    {
+                        "event": "finish",
+                        "ts": now_ms(),
+                        "result": "",
+                        "skipped": f"missing_required_{source_type}",
+                    }
+                )
+                day_log(day, f"generate {name} skipped (no {source_type})")
+                return
+
+        # Skip generation when there's nothing to analyze (only for day-based)
+        if total_count == 0 or len(markdown.strip()) < MIN_INPUT_CHARS:
             logging.info(
-                "Required source '%s' has no content, skipping",
-                source_type,
+                "Insufficient input (files=%d, chars=%d), skipping",
+                total_count,
+                len(markdown.strip()),
             )
             emit_event(
                 {
                     "event": "finish",
                     "ts": now_ms(),
                     "result": "",
-                    "skipped": f"missing_required_{source_type}",
+                    "skipped": "no_input",
                 }
             )
-            day_log(day, f"generate {name} skipped (no {source_type})")
+            day_log(day, f"generate {name} skipped (no input)")
             return
 
-    # Skip generation when there's nothing to analyze
-    if total_count == 0 or len(markdown.strip()) < MIN_INPUT_CHARS:
-        logging.info(
-            "Insufficient input (files=%d, chars=%d), skipping",
-            total_count,
-            len(markdown.strip()),
-        )
-        emit_event(
-            {
-                "event": "finish",
-                "ts": now_ms(),
-                "result": "",
-                "skipped": "no_input",
-            }
-        )
-        day_log(day, f"generate {name} skipped (no input)")
-        return
-
-    # Prepend input context note for limited recordings
-    if total_count < 3:
-        input_note = (
-            "**Input Note:** Limited recordings for this day. "
-            "Scale analysis to available input.\n\n"
-        )
-        markdown = input_note + markdown
+        # Prepend input context note for limited recordings
+        if total_count < 3:
+            input_note = (
+                "**Input Note:** Limited recordings for this day. "
+                "Scale analysis to available input.\n\n"
+            )
+            markdown = input_note + markdown
 
     # Build context for template substitution
-    prompt_context: dict[str, str] = {
-        "day": day,
-        "date": format_day(day),
-    }
+    prompt_context: dict[str, str] = {}
+    if day:
+        prompt_context["day"] = day
+        prompt_context["date"] = format_day(day)
 
-    # Add segment context
-    if segment:
-        start_str, end_str = format_segment_times(segment)
-        if start_str and end_str:
-            prompt_context["segment"] = segment
-            prompt_context["segment_start"] = start_str
-            prompt_context["segment_end"] = end_str
-    elif span:
-        all_times = []
-        for seg in span:
-            start_time, end_time = segment_parse(seg)
-            if start_time and end_time:
-                all_times.append((start_time, end_time))
+        # Add segment context
+        if segment:
+            start_str, end_str = format_segment_times(segment)
+            if start_str and end_str:
+                prompt_context["segment"] = segment
+                prompt_context["segment_start"] = start_str
+                prompt_context["segment_end"] = end_str
+        elif span:
+            all_times = []
+            for seg in span:
+                start_time, end_time = segment_parse(seg)
+                if start_time and end_time:
+                    all_times.append((start_time, end_time))
 
-        if all_times:
-            earliest_start = min(t[0] for t in all_times)
-            latest_end = max(t[1] for t in all_times)
-            start_str = (
-                datetime.combine(datetime.today(), earliest_start)
-                .strftime("%I:%M %p")
-                .lstrip("0")
-            )
-            end_str = (
-                datetime.combine(datetime.today(), latest_end)
-                .strftime("%I:%M %p")
-                .lstrip("0")
-            )
-            prompt_context["segment_start"] = start_str
-            prompt_context["segment_end"] = end_str
+            if all_times:
+                earliest_start = min(t[0] for t in all_times)
+                latest_end = max(t[1] for t in all_times)
+                start_str = (
+                    datetime.combine(datetime.today(), earliest_start)
+                    .strftime("%I:%M %p")
+                    .lstrip("0")
+                )
+                end_str = (
+                    datetime.combine(datetime.today(), latest_end)
+                    .strftime("%I:%M %p")
+                    .lstrip("0")
+                )
+                prompt_context["segment_start"] = start_str
+                prompt_context["segment_end"] = end_str
 
-    # Load prompt
-    agent_prompt = load_prompt(
-        agent_path.stem, base_dir=agent_path.parent, context=prompt_context
-    )
-    prompt = agent_prompt.text
-
-    # Determine output path
-    is_json_output = output_format == "json"
-    if output_path_override:
-        output_path = Path(output_path_override)
-    else:
-        output_path = get_output_path(
-            day_dir, name, segment=segment, output_format=output_format
+    # Load prompt from agent file if available, otherwise use user prompt
+    if agent_path and agent_path.exists():
+        agent_prompt_obj = load_prompt(
+            agent_path.stem, base_dir=agent_path.parent, context=prompt_context
         )
-
-    # Check if output exists (force check happens in cortex, but we handle it here too)
-    output_exists = output_path.exists() and output_path.stat().st_size > 0
-
-    # Determine cache settings
-    if span_mode:
-        cache_display_name = None
-    elif segment:
-        cache_display_name = f"{system_prompt_name}_{day}_{segment}"
+        prompt = agent_prompt_obj.text
     else:
-        cache_display_name = f"{system_prompt_name}_{day}"
+        # No agent file - use user prompt directly
+        prompt = user_prompt
+
+    # Append user prompt if both agent prompt and user prompt exist
+    if agent_path and user_prompt and prompt != user_prompt:
+        prompt = f"{prompt}\n\n{user_prompt}"
+
+    # Determine output path (only if output format specified)
+    output_path: Path | None = None
+    output_exists = False
+    is_json_output = output_format == "json"
+    if output_format:
+        if output_path_override:
+            output_path = Path(output_path_override)
+        elif day:
+            day_dir = str(day_path(day))
+            output_path = get_output_path(
+                day_dir, name, segment=segment, output_format=output_format
+            )
+        # Check if output exists (force check happens in cortex, but we handle it here too)
+        if output_path:
+            output_exists = output_path.exists() and output_path.stat().st_size > 0
+
+    # Determine cache settings (only for day-based requests)
+    cache_display_name = None
+    if day and not span_mode:
+        if segment:
+            cache_display_name = f"{system_prompt_name}_{day}_{segment}"
+        else:
+            cache_display_name = f"{system_prompt_name}_{day}"
 
     # Extract generation parameters from metadata
     meta_thinking_budget = meta.get("thinking_budget")
@@ -985,7 +1025,7 @@ def _run_generator(
                 day=day,
                 segment=segment,
                 span=span_mode,
-                output_path=str(output_path),
+                output_path=str(output_path) if output_path else "",
                 transcript=markdown,
                 prompt=prompt,
                 system_instruction=system_instruction,
@@ -1006,21 +1046,24 @@ def _run_generator(
             dry_run_event: dict[str, Any] = {
                 "event": "dry_run",
                 "ts": now_ms(),
-                "type": "generator",
+                "type": "generate",
                 "name": name,
                 "provider": provider,
                 "model": model or "unknown",
-                "day": day,
-                "segment": segment,
                 "system_instruction": system_instruction,
                 "system_instruction_source": system_prompt_name,
                 "prompt": prompt,
-                "prompt_source": str(agent_path),
-                "transcript": markdown,
-                "transcript_chars": len(markdown),
-                "transcript_files": total_count,
-                "output_path": str(output_path),
+                "prompt_source": str(agent_path) if agent_path else "request",
             }
+            # Include day-based fields only if present
+            if day:
+                dry_run_event["day"] = day
+                dry_run_event["segment"] = segment
+                dry_run_event["transcript"] = markdown
+                dry_run_event["transcript_chars"] = len(markdown)
+                dry_run_event["transcript_files"] = total_count
+            if output_path:
+                dry_run_event["output_path"] = str(output_path)
             # Include pre-hook before/after if hook was run
             if pre_hook_info:
                 dry_run_event["pre_hook"] = pre_hook_info.get("name")
@@ -1063,7 +1106,7 @@ def _run_generator(
                 day=day,
                 segment=segment,
                 span=span_mode,
-                output_path=str(output_path),
+                output_path=str(output_path) if output_path else "",
                 transcript=markdown,
             )
             result = run_post_hook(result, hook_context, post_hook)
@@ -1082,11 +1125,12 @@ def _run_generator(
 
     emit_event(finish_event)
 
-    # Log completion
-    msg = f"generate {name} ok"
-    if force:
-        msg += " --force"
-    day_log(day, msg)
+    # Log completion (only for day-based requests)
+    if day:
+        msg = f"generate {name} ok"
+        if force:
+            msg += " --force"
+        day_log(day, msg)
 
 
 # =============================================================================
@@ -1144,14 +1188,13 @@ async def main_async() -> None:
                     emit_event({"event": "error", "error": error, "ts": now_ms()})
                     continue
 
-                # Route based on config type
+                # Route based on config type: tools → run_tools, else → run_generate
                 has_tools = bool(config.get("tools"))
-                has_output = bool(config.get("output"))
 
-                if has_output and not has_tools:
-                    # Generator: transcript analysis without tools
-                    app_logger.debug(f"Processing generator: {config.get('name')}")
-                    _run_generator(config, emit_event, dry_run=dry_run)
+                if not has_tools:
+                    # Generate path: single-shot generation with opt-in features
+                    app_logger.debug(f"Processing generate: {config.get('name')}")
+                    _run_generate(config, emit_event, dry_run=dry_run)
 
                 else:
                     # Agent: with or without tools (conversational or tool-using)

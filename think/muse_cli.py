@@ -401,19 +401,15 @@ def show_prompt_context(
         sys.exit(1)
 
     info = configs[name]
-    has_output = bool(info.get("output"))
     has_tools = bool(info.get("tools"))
     schedule = info.get("schedule")
     is_multi_facet = info.get("multi_facet", False)
 
-    # Determine prompt type
-    if has_output and not has_tools:
-        prompt_type = "generator"
-    elif has_tools:
+    # Determine prompt type: tools → agent, no tools → generator
+    if has_tools:
         prompt_type = "agent"
     else:
-        print(f"Prompt '{name}' has no output or tools field", file=sys.stderr)
-        sys.exit(1)
+        prompt_type = "generator"
 
     # Validate day format if provided
     if day and (len(day) != 8 or not day.isdigit()):

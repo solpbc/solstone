@@ -546,10 +546,9 @@ def run_single_prompt(
         logging.warning(f"Prompt '{name}' is disabled")
         return False
 
-    # Determine if this is a generator (has output, no tools) or agent (has tools)
+    # Determine if this is a generator (no tools) or tool agent (has tools)
     has_tools = bool(config.get("tools"))
-    has_output = bool(config.get("output"))
-    is_generator = has_output and not has_tools
+    is_generator = not has_tools
 
     # Validate segment compatibility with schedule
     prompt_schedule = config.get("schedule")
