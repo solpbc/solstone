@@ -88,6 +88,7 @@ def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
 
     mock_args = MagicMock()
     mock_args.verbose = False
+    mock_args.dry_run = False
 
     mock_all_providers(monkeypatch)
 
@@ -145,6 +146,7 @@ def test_ndjson_multiple_requests(mock_journal, monkeypatch, capsys):
 
     mock_args = MagicMock()
     mock_args.verbose = False
+    mock_args.dry_run = False
 
     mock_all_providers(monkeypatch)
 
@@ -180,6 +182,7 @@ not valid json
 
     mock_args = MagicMock()
     mock_args.verbose = False
+    mock_args.dry_run = False
 
     mock_all_providers(monkeypatch)
 
@@ -216,6 +219,7 @@ def test_ndjson_missing_prompt(mock_journal, monkeypatch, capsys):
 
     mock_args = MagicMock()
     mock_args.verbose = False
+    mock_args.dry_run = False
 
     mock_all_providers(monkeypatch)
 
@@ -246,6 +250,7 @@ def test_ndjson_empty_lines(mock_journal, monkeypatch, capsys):
 
     mock_args = MagicMock()
     mock_args.verbose = False
+    mock_args.dry_run = False
 
     mock_all_providers(monkeypatch)
 

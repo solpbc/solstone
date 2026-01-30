@@ -682,8 +682,8 @@ def generate_agent_output(
         max_output_tokens = 8192 * 6
 
     # Build context for provider routing and token logging
-    output_type = "json" if json_output else "markdown"
-    context = f"agent.{name}.{output_type}" if name else "agent.unknown"
+    # Use muse.system.{name} pattern for generators
+    context = f"muse.system.{name}" if name else "muse.system.unknown"
 
     # Try to use cache if display name provided
     # Note: caching is Google-specific, so we check provider first
@@ -731,7 +731,9 @@ def generate_agent_output(
     return result["text"]
 
 
-def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
+def _run_generator(
+    config: dict, emit_event: Callable[[dict], None], *, dry_run: bool = False
+) -> None:
     """Execute generator pipeline with config from cortex.
 
     Args:
@@ -746,6 +748,7 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
             - provider: AI provider
             - model: Model name
         emit_event: Callback to emit JSONL events
+        dry_run: If True, emit dry_run event instead of calling LLM
     """
     name = config.get("name", "default")
     day = config.get("day")
@@ -919,7 +922,8 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
 
     usage_data = None
 
-    if output_exists and not force:
+    # Dry-run always goes through prompt assembly, regardless of existing output
+    if output_exists and not force and not dry_run:
         # Load existing content (no LLM call)
         logging.info("Output exists, loading: %s", output_path)
         with open(output_path, "r") as f:
@@ -929,9 +933,19 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
         if output_exists and force:
             logging.info("Force regenerating: %s", output_path)
 
+        # Capture state before pre-hook for dry-run comparison
+        pre_hook_info: dict[str, Any] = {}
+        before_transcript = markdown
+        before_prompt = prompt
+        before_system = system_instruction
+
         # Run pre-processing hook if present (before LLM call)
         pre_hook = load_pre_hook(meta)
         if pre_hook:
+            hook_config = meta.get("hook", {})
+            pre_hook_name = hook_config.get("pre") if isinstance(hook_config, dict) else None
+            pre_hook_info["name"] = pre_hook_name
+
             pre_context = build_pre_hook_context(
                 meta,
                 name=name,
@@ -951,6 +965,46 @@ def _run_generator(config: dict, emit_event: Callable[[dict], None]) -> None:
                 system_instruction = modifications.get(
                     "system_instruction", system_instruction
                 )
+                # Track what was modified
+                pre_hook_info["modifications"] = list(modifications.keys())
+
+        # Dry-run mode: emit context and return without LLM call
+        if dry_run:
+            dry_run_event: dict[str, Any] = {
+                "event": "dry_run",
+                "ts": int(time.time() * 1000),
+                "type": "generator",
+                "name": name,
+                "provider": provider,
+                "model": model or "unknown",
+                "day": day,
+                "segment": segment,
+                "system_instruction": system_instruction,
+                "system_instruction_source": system_prompt_name,
+                "prompt": prompt,
+                "prompt_source": str(agent_path),
+                "transcript": markdown,
+                "transcript_chars": len(markdown),
+                "transcript_files": file_count,
+                "output_path": str(output_path),
+            }
+            # Include pre-hook before/after if hook was run
+            if pre_hook_info:
+                dry_run_event["pre_hook"] = pre_hook_info.get("name")
+                dry_run_event["pre_hook_modifications"] = pre_hook_info.get(
+                    "modifications", []
+                )
+                # Include before values if they changed
+                if markdown != before_transcript:
+                    dry_run_event["transcript_before"] = before_transcript
+                    dry_run_event["transcript_before_chars"] = len(before_transcript)
+                if prompt != before_prompt:
+                    dry_run_event["prompt_before"] = before_prompt
+                if system_instruction != before_system:
+                    dry_run_event["system_instruction_before"] = before_system
+
+            emit_event(dry_run_event)
+            return
 
         gen_result = generate_agent_output(
             markdown,
@@ -1014,8 +1068,14 @@ async def main_async() -> None:
     parser = argparse.ArgumentParser(
         description="solstone Agent CLI - Accepts NDJSON input via stdin"
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be sent to the provider without calling the LLM",
+    )
 
     args = setup_cli(parser)
+    dry_run = args.dry_run
 
     app_logger = setup_logging(args.verbose)
 
@@ -1046,7 +1106,7 @@ async def main_async() -> None:
                 if has_output and not has_tools:
                     # Generator: transcript analysis without tools
                     app_logger.debug(f"Processing generator: {config.get('name')}")
-                    _run_generator(config, emit_event)
+                    _run_generator(config, emit_event, dry_run=dry_run)
 
                 elif has_tools:
                     # Tool-using agent: validate prompt exists
@@ -1086,9 +1146,24 @@ async def main_async() -> None:
                             f"Unknown provider: {provider!r}. Valid providers: {valid}"
                         )
 
+                    # Capture state before pre-hook for dry-run comparison
+                    pre_hook_info: dict[str, Any] = {}
+                    before_prompt = config.get("prompt", "")
+                    before_system = config.get("system_instruction", "")
+                    before_user = config.get("user_instruction", "")
+                    before_extra = config.get("extra_context", "")
+
                     # Load pre hook if configured (before LLM call)
                     pre_hook = load_pre_hook(config)
                     if pre_hook:
+                        hook_config = config.get("hook", {})
+                        pre_hook_name = (
+                            hook_config.get("pre")
+                            if isinstance(hook_config, dict)
+                            else None
+                        )
+                        pre_hook_info["name"] = pre_hook_name
+
                         pre_context = build_pre_hook_context(config)
                         modifications = run_pre_hook(pre_context, pre_hook)
                         if modifications:
@@ -1101,6 +1176,43 @@ async def main_async() -> None:
                             ):
                                 if key in modifications:
                                     config[key] = modifications[key]
+                            pre_hook_info["modifications"] = list(modifications.keys())
+
+                    # Dry-run mode: emit context and return without LLM call
+                    if dry_run:
+                        dry_run_event: dict[str, Any] = {
+                            "event": "dry_run",
+                            "ts": int(time.time() * 1000),
+                            "type": "agent",
+                            "name": config.get("name", "default"),
+                            "provider": provider,
+                            "model": config.get("model", "unknown"),
+                            "system_instruction": config.get("system_instruction", ""),
+                            "system_instruction_source": config.get(
+                                "system_prompt_name", "journal"
+                            ),
+                            "user_instruction": config.get("user_instruction", ""),
+                            "extra_context": config.get("extra_context", ""),
+                            "prompt": config.get("prompt", ""),
+                            "tools": config.get("tools", []),
+                        }
+                        # Include pre-hook before/after if hook was run
+                        if pre_hook_info:
+                            dry_run_event["pre_hook"] = pre_hook_info.get("name")
+                            dry_run_event["pre_hook_modifications"] = pre_hook_info.get(
+                                "modifications", []
+                            )
+                            if config.get("prompt") != before_prompt:
+                                dry_run_event["prompt_before"] = before_prompt
+                            if config.get("system_instruction") != before_system:
+                                dry_run_event["system_instruction_before"] = before_system
+                            if config.get("user_instruction") != before_user:
+                                dry_run_event["user_instruction_before"] = before_user
+                            if config.get("extra_context") != before_extra:
+                                dry_run_event["extra_context_before"] = before_extra
+
+                        emit_event(dry_run_event)
+                        continue
 
                     # Load post hook if configured
                     post_hook = load_post_hook(config)

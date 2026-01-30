@@ -9,7 +9,9 @@ import pytest
 
 from think.muse_cli import (
     _collect_configs,
-    _property_tags,
+    _format_output_path,
+    _format_tags,
+    _format_tools,
     _scan_variables,
     json_output,
     list_prompts,
@@ -61,31 +63,72 @@ def test_collect_configs_filter_source():
         assert info.get("source") == "app", f"{key} should be app"
 
 
-def test_property_tags_output():
-    """Property tags show output, tools, hook."""
-    assert _property_tags({"output": "md"}) == "output:md"
-    assert _property_tags({"tools": "journal, todo"}) == "tools:journal, todo"
-
-    # New dict-based hook format
-    assert _property_tags({"hook": {"post": "occurrence"}}) == "hook:post=occurrence"
-    assert _property_tags({"hook": {"pre": "prep"}}) == "hook:pre=prep"
+def test_format_tags_hook():
+    """Format tags shows hook and disabled status."""
+    # Dict-based hook format
+    assert _format_tags({"hook": {"post": "occurrence"}}) == "hook:post=occurrence"
+    assert _format_tags({"hook": {"pre": "prep"}}) == "hook:pre=prep"
     assert (
-        _property_tags({"hook": {"pre": "prep", "post": "process"}})
+        _format_tags({"hook": {"pre": "prep", "post": "process"}})
         == "hook:pre=prep,post=process"
     )
 
-    tags = _property_tags({"output": "md", "hook": {"post": "occurrence"}})
-    assert "output:md" in tags
+    assert _format_tags({}) == ""
+    assert "disabled" in _format_tags({"disabled": True})
+
+    # Hook + disabled combined
+    tags = _format_tags({"hook": {"post": "occurrence"}, "disabled": True})
     assert "hook:post=occurrence" in tags
-
-    assert _property_tags({}) == ""
-    assert "disabled" in _property_tags({"disabled": True})
+    assert "disabled" in tags
 
 
-def test_property_tags_tools_list():
-    """Property tags handle tools as a list."""
-    tags = _property_tags({"tools": ["journal", "todo"]})
-    assert tags == "tools:journal,todo"
+def test_format_output_path_segment():
+    """Output path for segment-scheduled prompts."""
+    assert _format_output_path("activity", {"schedule": "segment", "output": "md"}) == (
+        "<segment>/activity.md"
+    )
+    assert _format_output_path(
+        "speakers", {"schedule": "segment", "output": "json"}
+    ) == ("<segment>/speakers.json")
+
+
+def test_format_output_path_daily():
+    """Output path for daily-scheduled prompts."""
+    assert _format_output_path("flow", {"schedule": "daily", "output": "md"}) == (
+        "<day>/agents/flow.md"
+    )
+    assert _format_output_path(
+        "schedule", {"schedule": "daily", "output": "json"}
+    ) == ("<day>/agents/schedule.json")
+
+
+def test_format_output_path_unscheduled():
+    """Unscheduled prompts with output go to agents/."""
+    assert _format_output_path("importer", {"output": "md"}) == (
+        "<day>/agents/importer.md"
+    )
+
+
+def test_format_output_path_no_output():
+    """Prompts without output field return dash."""
+    assert _format_output_path("default", {"tools": "journal"}) == "-"
+    assert _format_output_path("joke_bot", {}) == "-"
+
+
+def test_format_output_path_app_namespaced():
+    """App-namespaced prompts use underscore prefix in filename."""
+    # This tests the get_output_topic integration
+    assert _format_output_path(
+        "entities:entities", {"schedule": "daily", "output": "md"}
+    ) == ("<day>/agents/_entities_entities.md")
+
+
+def test_format_tools():
+    """Format tools extracts tools field or returns dash."""
+    assert _format_tools({"tools": "journal, todo"}) == "journal, todo"
+    assert _format_tools({"tools": ["journal", "todo"]}) == "journal, todo"
+    assert _format_tools({}) == "-"
+    assert _format_tools({"output": "md"}) == "-"
 
 
 def test_scan_variables():
@@ -99,14 +142,31 @@ def test_scan_variables():
 
 
 def test_list_prompts_output(capsys):
-    """List view outputs expected groups and prompts."""
+    """List view outputs expected groups and prompts with column layout."""
     list_prompts()
     output = capsys.readouterr().out
 
+    # Column header
+    assert "NAME" in output
+    assert "TITLE" in output
+    assert "OUTPUT" in output
+    assert "TOOLS" in output
+    assert "TAGS" in output
+
+    # Group headers
     assert "segment:" in output
     assert "daily:" in output
+
+    # Prompt names
     assert "activity" in output
     assert "flow" in output
+
+    # Output path column shows path patterns
+    assert "<segment>/activity.md" in output
+    assert "<day>/agents/flow.md" in output
+
+    # Tools column shows tools or dash
+    assert "journal, todo, entities" in output  # default prompt
 
 
 def test_list_prompts_schedule_filter(capsys):
@@ -208,3 +268,72 @@ def test_show_prompt_as_json(capsys):
     assert "schedule" in record
     # Should not contain expanded instruction text
     assert "system_instruction" not in record
+
+
+def test_truncate_content():
+    """Content truncation works correctly."""
+    from think.muse_cli import _truncate_content
+
+    # Short content not truncated
+    short = "line1\nline2\nline3"
+    result, omitted = _truncate_content(short, max_lines=10)
+    assert result == short
+    assert omitted == 0
+
+    # Long content truncated
+    long = "\n".join(f"line{i}" for i in range(200))
+    result, omitted = _truncate_content(long, max_lines=100)
+    assert omitted == 100
+    assert "lines omitted" in result
+    assert "line0" in result  # First lines kept
+    assert "line199" in result  # Last lines kept
+
+
+def test_yesterday():
+    """Yesterday helper returns correct format."""
+    from think.muse_cli import _yesterday
+
+    result = _yesterday()
+    assert len(result) == 8
+    assert result.isdigit()
+
+
+def test_show_prompt_context_segment_validation(capsys):
+    """Segment-scheduled prompts require --segment."""
+    from think.muse_cli import show_prompt_context
+
+    with pytest.raises(SystemExit):
+        show_prompt_context("activity", day="20260101")
+
+    output = capsys.readouterr().err
+    assert "segment-scheduled" in output.lower()
+
+
+def test_show_prompt_context_multi_facet_validation(capsys):
+    """Multi-facet prompts require --facet."""
+    from think.muse_cli import show_prompt_context
+
+    with pytest.raises(SystemExit):
+        show_prompt_context("entities:entities")
+
+    output = capsys.readouterr().err
+    assert "multi-facet" in output.lower()
+
+
+def test_show_prompt_context_day_format_validation(capsys):
+    """Day argument must be YYYYMMDD format."""
+    from think.muse_cli import show_prompt_context
+
+    # Too short
+    with pytest.raises(SystemExit):
+        show_prompt_context("flow", day="2026")
+
+    output = capsys.readouterr().err
+    assert "invalid --day format" in output.lower()
+
+    # Non-numeric
+    with pytest.raises(SystemExit):
+        show_prompt_context("flow", day="abcdefgh")
+
+    output = capsys.readouterr().err
+    assert "invalid --day format" in output.lower()
