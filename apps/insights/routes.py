@@ -85,7 +85,9 @@ def insights_day(day: str) -> str:
             meta = info["meta"]
 
             # Get generation cost for this generator
-            cost_data = get_usage_cost(day, context=f"agent.{key}")
+            from think.utils import key_to_context
+
+            cost_data = get_usage_cost(day, context=key_to_context(key))
             cost = cost_data["cost"] if cost_data["cost"] > 0 else None
 
             files.append(

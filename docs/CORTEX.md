@@ -60,7 +60,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
 }
 ```
 
-The model is automatically resolved based on the agent context (`agent.{app}.{name}`)
+The model is automatically resolved based on the muse context (`muse.{source}.{name}`)
 and the configured tier in `journal.json`. Provider can optionally be overridden at
 request time, which will resolve the appropriate model for that provider at the same tier.
 
@@ -303,7 +303,7 @@ The JSON frontmatter for an agent can include:
 ### Model Resolution
 
 Models are resolved automatically based on context and tier:
-1. Each agent has a context pattern: `agent.{app}.{name}` (e.g., `agent.system.default`)
+1. Each muse config has a context pattern: `muse.{source}.{name}` (e.g., `muse.system.default`)
 2. The context determines the tier (pro/flash/lite) from `journal.json` or system defaults
 3. The tier + provider determines the actual model to use
 
@@ -312,8 +312,8 @@ This allows controlling model selection via tier configuration rather than hardc
 {
   "providers": {
     "contexts": {
-      "agent.system.default": {"tier": 1},
-      "agent.*": {"tier": 2}
+      "muse.system.default": {"tier": 1},
+      "muse.*": {"tier": 2}
     }
   }
 }
@@ -347,15 +347,20 @@ All providers:
 - Use consistent event structures across providers
 - Process events are written to stdout for Cortex to capture
 
-## Scheduled Agents
+## Scheduled Agents and Generators
 
-Agents with `"schedule": "daily"` run automatically via `sol dream` at midnight each day:
+Both agents and generators support scheduling via `sol dream`. Agents have `"schedule": "daily"` and generators have `"schedule": "segment"` or `"schedule": "daily"`.
 
 ### Execution Order
-Scheduled agents run in priority order (lower numbers first):
-1. Agents are sorted by their `priority` field (default: 50)
-2. Agents with the same priority run in alphabetical order by filename
-3. Each agent completes before the next begins
+Scheduled items run in priority order (lower numbers first):
+1. Items are sorted by their `priority` field (default: 50)
+2. Items with the same priority run in alphabetical order by filename
+3. Each item completes before the next begins
+
+**Priority ranges (recommended):**
+- **1-20**: Foundation tasks (early processing)
+- **50**: Default (most generators and agents)
+- **80-99**: Synthesis tasks that consume other outputs
 
 ### Multi-Facet Agents
 When an agent has `"multi_facet": true`:

@@ -323,14 +323,10 @@ class CortexService:
             config["agent_id"] = agent_id
 
             # Resolve provider and model from context
-            # Context format: agent.{app}.{name} where app="system" for system agents
             from think.models import resolve_model_for_provider, resolve_provider
+            from think.utils import key_to_context
 
-            if ":" in name:
-                app, name = name.split(":", 1)
-            else:
-                app, name = "system", name
-            agent_context = f"agent.{app}.{name}"
+            agent_context = key_to_context(name)
 
             # Resolve default provider and model from context
             default_provider, model = resolve_provider(agent_context)
@@ -600,17 +596,11 @@ class CortexService:
                                 if usage_data and original_request:
                                     try:
                                         from think.models import log_token_usage
+                                        from think.utils import key_to_context
 
                                         model = original_request.get("model", "unknown")
                                         name = original_request.get("name", "unknown")
-
-                                        # Build context in same format as model resolution:
-                                        # agent.{app}.{name} where app="system" for system agents
-                                        if ":" in name:
-                                            app, name = name.split(":", 1)
-                                        else:
-                                            app, name = "system", name
-                                        context = f"agent.{app}.{name}"
+                                        context = key_to_context(name)
 
                                         # Extract segment from env if set (flat merge puts env at top level)
                                         env_config = original_request.get("env", {})

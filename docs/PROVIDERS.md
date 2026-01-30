@@ -242,16 +242,21 @@ usage_dict = {
 
 Context strings determine provider and model selection. Providers receive already-resolved models, but understanding the system helps:
 
-**Context naming convention:** `{module}.{feature}[.{operation}]`
+**Context naming convention:**
+- Muse configs (agents/generators): `muse.{source}.{name}` where source is `system` or app name
+  - System: `muse.system.meetings`, `muse.system.default`
+  - App: `muse.entities.observer`, `muse.chat.helper`
+- Other contexts: `{module}.{feature}[.{operation}]`
+  - Examples: `observe.describe.frame`, `app.chat.title`
 
-**Dynamic discovery:** Categories and agents can express their own tier/label/group in their configs:
+**Dynamic discovery:** Categories and muse configs express their own tier/label/group in their configs:
 - Categories: `observe/categories/*.json` - add `tier`, `label`, `group` fields
-- System agents: `muse/*.md` - add `tier`, `label`, `group` fields in frontmatter
-- App agents: `apps/*/muse/*.md` - add `tier`, `label`, `group` fields in frontmatter
+- System muse: `muse/*.md` - add `tier`, `label`, `group` fields in frontmatter
+- App muse: `apps/*/muse/*.md` - add `tier`, `label`, `group` fields in frontmatter
 
 These are discovered at runtime and merged with static defaults. Use `get_context_registry()` to get the complete context map including discovered entries.
 
-See `CONTEXT_DEFAULTS` in `think/models.py` for static context patterns (non-discoverable contexts like `observe.detect.*`, `agent.*`).
+See `CONTEXT_DEFAULTS` in `think/models.py` for static context patterns (non-discoverable contexts like `observe.detect.*`).
 
 **Resolution** (handled by `think/models.py` `resolve_provider()`):
 1. Exact match in journal.json `providers.contexts`

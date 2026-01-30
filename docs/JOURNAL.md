@@ -276,8 +276,9 @@ The `providers` block enables fine-grained control over which LLM provider and m
     },
     "contexts": {
       "observe.*": {"provider": "google", "tier": 3},
-      "agent.*": {"tier": 1},
-      "agent.helper": {"provider": "openai", "model": "gpt-5-mini"}
+      "muse.system.*": {"tier": 1},
+      "muse.system.meetings": {"provider": "anthropic", "disabled": true},
+      "muse.entities.observer": {"tier": 2, "extract": false}
     },
     "models": {
       "google": {
@@ -307,9 +308,19 @@ If a requested tier is unavailable for a provider, the system falls back to more
 #### Context matching
 
 Contexts are matched in order of specificity:
-1. **Exact match** – `"agent.meetings"` matches only that exact context
+1. **Exact match** – `"muse.system.meetings"` matches only that exact context
 2. **Glob pattern** – `"observe.*"` matches any context starting with `observe.`
 3. **Default** – Falls back to the `default` configuration
+
+#### Context naming convention
+
+Muse configs (agents and generators) use the pattern `muse.{source}.{name}`:
+- System configs: `muse.system.{name}` (e.g., `muse.system.meetings`, `muse.system.default`)
+- App configs: `muse.{app}.{name}` (e.g., `muse.entities.observer`, `muse.chat.helper`)
+
+Other contexts follow the pattern `{module}.{feature}[.{operation}]`:
+- Observe pipeline: `observe.describe.frame`, `observe.enrich`, `observe.transcribe.gemini`
+- Apps: `app.chat.title`
 
 #### Configuration options
 
@@ -322,6 +333,8 @@ Contexts are matched in order of specificity:
 - `provider` (string) – Override provider (optional, inherits from default).
 - `tier` (integer) – Tier number (optional).
 - `model` (string) – Explicit model name (optional, overrides tier).
+- `disabled` (boolean) – Disable this muse config (optional, muse contexts only).
+- `extract` (boolean) – Enable/disable event extraction for generators with occurrence/anticipation hooks (optional).
 
 **models** – Per-provider tier overrides. Maps provider name to tier-model mappings:
 ```json

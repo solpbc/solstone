@@ -60,7 +60,7 @@ def post_process(result: str, context: dict) -> str | None:
     try:
         response_text = generate(
             contents=contents,
-            context=f"agent.{name}.extraction",
+            context=f"muse.system.{name}",
             temperature=0.3,
             max_output_tokens=16384,
             thinking_budget=0,

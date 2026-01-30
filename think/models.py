@@ -108,7 +108,8 @@ class IncompleteJSONError(ValueError):
 # Examples:
 #   - observe.describe.frame    -> observe module, describe feature, frame operation
 #   - observe.enrich            -> observe module, enrich feature (no sub-operation)
-#   - agent.*                   -> agent module, all features (wildcard)
+#   - muse.system.meetings      -> muse module, system source, meetings config
+#   - muse.entities.observer    -> muse module, entities app, observer config
 #   - app.chat.title            -> apps module, chat app, title operation
 #
 # DYNAMIC DISCOVERY:
@@ -169,22 +170,6 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "label": "Summarization",
         "group": "Import",
     },
-    # Generator pipeline - daily analysis and summaries
-    "agent.entities.*": {
-        "tier": TIER_LITE,
-        "label": "Entity Extraction",
-        "group": "Think",
-    },
-    "agent.daily_schedule.*": {
-        "tier": TIER_LITE,
-        "label": "Maintenance Window",
-        "group": "Think",
-    },
-    "agent.*": {
-        "tier": TIER_FLASH,
-        "label": "Agent Outputs",
-        "group": "Think",
-    },
     # Utilities - miscellaneous processing tasks
     "detect.created": {
         "tier": TIER_LITE,
@@ -213,46 +198,42 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
 _context_registry: Optional[Dict[str, Dict[str, Any]]] = None
 
 
-def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
-    """Discover agent context defaults from JSON config files.
+def _discover_muse_contexts() -> Dict[str, Dict[str, Any]]:
+    """Discover muse context defaults from muse/*.md config files.
 
-    Scans system agents (muse/*.md) and app agents (apps/*/muse/*.md)
-    for tier/label/group metadata. This is a lightweight scan that only reads
-    the JSON metadata, not the full agent configuration.
+    Scans system muse configs (muse/*.md) and app muse configs (apps/*/muse/*.md)
+    for tier/label/group metadata. Includes both tool-using agents and generators.
 
     Returns
     -------
     Dict[str, Dict[str, Any]]
-        Mapping of context patterns to {tier, label, group} dicts.
-        Context patterns are: agent.system.{name} or agent.{app}.{name}
+        Mapping of context patterns to {tier, label, group, has_tools} dicts.
+        Context patterns are: muse.system.{name} or muse.{app}.{name}
     """
     contexts = {}
 
-    # System agents from muse/ (agents have "tools" field, generators don't)
+    # System muse configs from muse/
     muse_dir = Path(__file__).parent.parent / "muse"
     if muse_dir.exists():
         for md_path in muse_dir.glob("*.md"):
-            agent_name = md_path.stem
+            config_name = md_path.stem
             try:
                 post = frontmatter.load(
                     md_path,
                 )
                 config = post.metadata if post.metadata else {}
 
-                # Only include agents (they have "tools" field)
-                if "tools" not in config:
-                    continue
-
-                context = f"agent.system.{agent_name}"
+                context = f"muse.system.{config_name}"
                 contexts[context] = {
                     "tier": config.get("tier", TIER_FLASH),
-                    "label": config.get("label", config.get("title", agent_name)),
-                    "group": config.get("group", "Agents"),
+                    "label": config.get("label", config.get("title", config_name)),
+                    "group": config.get("group", "Think"),
+                    "has_tools": "tools" in config,
                 }
             except Exception:
-                pass  # Skip agents that can't be loaded
+                pass  # Skip configs that can't be loaded
 
-    # App agents from apps/*/muse/
+    # App muse configs from apps/*/muse/
     apps_dir = Path(__file__).parent.parent / "apps"
     if apps_dir.is_dir():
         for app_path in apps_dir.iterdir():
@@ -263,25 +244,22 @@ def _discover_agent_contexts() -> Dict[str, Dict[str, Any]]:
                 continue
             app_name = app_path.name
             for md_path in muse_subdir.glob("*.md"):
-                agent_name = md_path.stem
+                config_name = md_path.stem
                 try:
                     post = frontmatter.load(
                         md_path,
                     )
                     config = post.metadata if post.metadata else {}
 
-                    # Only include agents (they have "tools" field)
-                    if "tools" not in config:
-                        continue
-
-                    context = f"agent.{app_name}.{agent_name}"
+                    context = f"muse.{app_name}.{config_name}"
                     contexts[context] = {
                         "tier": config.get("tier", TIER_FLASH),
-                        "label": config.get("label", config.get("title", agent_name)),
-                        "group": config.get("group", "Agents"),
+                        "label": config.get("label", config.get("title", config_name)),
+                        "group": config.get("group", "Think"),
+                        "has_tools": "tools" in config,
                     }
                 except Exception:
-                    pass  # Skip agents that can't be loaded
+                    pass  # Skip configs that can't be loaded
 
     return contexts
 
@@ -316,9 +294,9 @@ def _build_context_registry() -> Dict[str, Dict[str, Any]]:
     except ImportError:
         pass  # observe module not available
 
-    # Merge agent contexts
-    agent_contexts = _discover_agent_contexts()
-    registry.update(agent_contexts)
+    # Merge muse contexts (agents + generators)
+    muse_contexts = _discover_muse_contexts()
+    registry.update(muse_contexts)
 
     return registry
 
@@ -345,7 +323,7 @@ def _resolve_tier(context: str) -> int:
     Parameters
     ----------
     context
-        Context string (e.g., "agent.system.default", "agent.meetings").
+        Context string (e.g., "muse.system.default", "observe.describe.frame").
 
     Returns
     -------
@@ -436,7 +414,7 @@ def resolve_model_for_provider(context: str, provider: str) -> str:
     Parameters
     ----------
     context
-        Context string (e.g., "agent.system.default").
+        Context string (e.g., "muse.system.default").
     provider
         Provider name ("google", "openai", "anthropic").
 
@@ -472,7 +450,7 @@ def resolve_provider(context: str) -> tuple[str, str]:
     Parameters
     ----------
     context
-        Context string (e.g., "observe.describe.frame", "agent.meetings").
+        Context string (e.g., "observe.describe.frame", "muse.system.meetings").
 
     Returns
     -------
@@ -588,7 +566,7 @@ def log_token_usage(
                           cached_tokens, reasoning_tokens, requests}
         Response objects: Gemini GenerateContentResponse with usage_metadata attribute
     context : str, optional
-        Context string (e.g., "module.function:123" or "agent.name.id").
+        Context string (e.g., "module.function:123" or "muse.system.default").
         If None, auto-detects from call stack.
     segment : str, optional
         Segment key (e.g., "143022_300") for attribution.
@@ -897,7 +875,7 @@ def get_usage_cost(
         Filter to entries with this exact segment key.
     context : str, optional
         Filter to entries where context starts with this prefix.
-        For example, "agent.system" matches "agent.system.default".
+        For example, "muse.system" matches "muse.system.default".
 
     Returns
     -------
@@ -980,7 +958,7 @@ def generate(
     contents : str or List
         The content to send to the model.
     context : str
-        Context string for routing and token logging (e.g., "agent.meetings").
+        Context string for routing and token logging (e.g., "muse.system.meetings").
         This is required and determines which provider/model to use.
     temperature : float
         Temperature for generation (default: 0.3).
@@ -1117,7 +1095,7 @@ async def agenerate(
     contents : str or List
         The content to send to the model.
     context : str
-        Context string for routing and token logging (e.g., "agent.meetings").
+        Context string for routing and token logging (e.g., "muse.system.meetings").
         This is required and determines which provider/model to use.
     temperature : float
         Temperature for generation (default: 0.3).

@@ -225,9 +225,8 @@ def test_context_defaults_known_entries():
     assert CONTEXT_DEFAULTS["observe.describe.frame"]["tier"] == TIER_LITE
     assert CONTEXT_DEFAULTS["observe.describe.frame"]["group"] == "Observe"
 
-    assert "agent.*" in CONTEXT_DEFAULTS
-    assert CONTEXT_DEFAULTS["agent.*"]["tier"] == TIER_FLASH
-    assert CONTEXT_DEFAULTS["agent.*"]["group"] == "Think"
+    # agent.* static defaults removed - now discovered from muse/*.md
+    assert "agent.*" not in CONTEXT_DEFAULTS
 
     assert "app.chat.title" in CONTEXT_DEFAULTS
     assert CONTEXT_DEFAULTS["app.chat.title"]["tier"] == TIER_LITE
@@ -393,29 +392,31 @@ def test_context_registry_includes_categories():
         assert registry[context]["tier"] in (TIER_PRO, TIER_FLASH, TIER_LITE)
 
 
-def test_context_registry_includes_agents():
-    """Test that registry includes discovered agent contexts."""
+def test_context_registry_includes_muse_configs():
+    """Test that registry includes discovered muse contexts (agents + generators)."""
     registry = get_context_registry()
 
-    # Should have agent entries (from muse/*.md and apps/*/muse/*.md)
-    agent_contexts = [k for k in registry if k.startswith("agent.")]
+    # Should have muse entries (from muse/*.md and apps/*/muse/*.md)
+    muse_contexts = [k for k in registry if k.startswith("muse.")]
 
-    # Should have more than just the fallback pattern
-    assert len(agent_contexts) > 1, "Should discover agent contexts"
+    # Should have multiple muse contexts (agents + generators)
+    assert len(muse_contexts) > 1, "Should discover muse contexts"
 
-    # Should have system agents
-    system_agents = [k for k in agent_contexts if k.startswith("agent.system.")]
-    assert len(system_agents) > 0, "Should discover system agents"
+    # Should have system muse configs
+    system_muse = [k for k in muse_contexts if k.startswith("muse.system.")]
+    assert len(system_muse) > 0, "Should discover system muse configs"
 
-    # Should have app agents
-    app_agents = [
+    # Should have app muse configs
+    app_muse = [
         k
-        for k in agent_contexts
-        if k.startswith("agent.")
-        and not k.startswith("agent.system.")
-        and k != "agent.*"
+        for k in muse_contexts
+        if k.startswith("muse.") and not k.startswith("muse.system.")
     ]
-    assert len(app_agents) > 0, "Should discover app agents"
+    assert len(app_muse) > 0, "Should discover app muse configs"
+
+    # Should include has_tools field for muse contexts
+    for context in muse_contexts:
+        assert "has_tools" in registry[context], f"{context} missing has_tools field"
 
 
 def test_context_registry_structure():

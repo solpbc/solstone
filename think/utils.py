@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from string import Template
-from typing import Any, Callable, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import frontmatter
 import platformdirs
@@ -779,6 +779,32 @@ def get_output_topic(key: str) -> str:
     return key
 
 
+def key_to_context(key: str) -> str:
+    """Convert muse config key to context pattern.
+
+    Parameters
+    ----------
+    key:
+        Muse config key in format "name" (system) or "app:name" (app).
+
+    Returns
+    -------
+    str
+        Context pattern: "muse.system.{name}" or "muse.{app}.{name}".
+
+    Examples
+    --------
+    >>> key_to_context("meetings")
+    'muse.system.meetings'
+    >>> key_to_context("entities:observer")
+    'muse.entities.observer'
+    """
+    if ":" in key:
+        app, name = key.split(":", 1)
+        return f"muse.{app}.{name}"
+    return f"muse.system.{key}"
+
+
 def get_output_path(
     day_dir: os.PathLike[str],
     key: str,
@@ -948,14 +974,25 @@ def get_muse_configs(
                 info["app"] = app_name
                 configs[key] = info
 
-    # Merge journal config overrides (applies to generators)
-    overrides = get_config().get("agents", {})
-    for key, override in overrides.items():
-        if key in configs and isinstance(override, dict):
+    # Merge journal config overrides from providers.contexts
+    providers_config = get_config().get("providers", {})
+    contexts = providers_config.get("contexts", {})
+
+    for key, info in configs.items():
+        context_key = key_to_context(key)
+
+        # Check for exact match in contexts
+        override = contexts.get(context_key)
+        if override and isinstance(override, dict):
+            # Merge supported override fields
             if "disabled" in override:
-                configs[key]["disabled"] = override["disabled"]
+                info["disabled"] = override["disabled"]
             if "extract" in override:
-                configs[key]["extract"] = override["extract"]
+                info["extract"] = override["extract"]
+            if "tier" in override:
+                info["tier"] = override["tier"]
+            if "provider" in override:
+                info["provider"] = override["provider"]
 
     return configs
 

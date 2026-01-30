@@ -251,6 +251,7 @@ def get_providers() -> Any:
         - default: Current default provider and tier
         - contexts: Configured context overrides from journal.json
         - context_defaults: Context registry with labels/groups for UI
+          (includes muse configs with has_tools, schedule, disabled, extract)
         - api_keys: Boolean status for each provider's API key
     """
     try:
@@ -260,6 +261,7 @@ def get_providers() -> Any:
             get_context_registry,
         )
         from think.providers import get_provider_list
+        from think.utils import get_muse_configs
 
         config = get_journal_config()
         providers_config = config.get("providers", {})
@@ -280,6 +282,30 @@ def get_providers() -> Any:
                 "label": ctx_config["label"],
                 "group": ctx_config["group"],
             }
+            # Include has_tools for muse contexts
+            if "has_tools" in ctx_config:
+                context_defaults[pattern]["has_tools"] = ctx_config["has_tools"]
+
+        # Enhance muse contexts with additional metadata from get_muse_configs
+        from think.utils import key_to_context
+
+        muse_configs = get_muse_configs(include_disabled=True)
+        for key, info in muse_configs.items():
+            context_key = key_to_context(key)
+
+            if context_key in context_defaults:
+                # Add muse-specific fields
+                if "schedule" in info:
+                    context_defaults[context_key]["schedule"] = info["schedule"]
+                context_defaults[context_key]["disabled"] = info.get("disabled", False)
+                # Include extract for generators with occurrence/anticipation hooks
+                hook = info.get("hook")
+                has_extraction = (
+                    isinstance(hook, dict)
+                    and hook.get("post") in ("occurrence", "anticipation")
+                ) or hook in ("occurrence", "anticipation")
+                if has_extraction:
+                    context_defaults[context_key]["extract"] = info.get("extract", True)
 
         # Get providers list from registry
         providers_list = get_provider_list()
@@ -313,12 +339,13 @@ def update_providers() -> Any:
 
     Accepts JSON with optional keys:
         - default: {provider, tier} - Set default provider and/or tier
-        - contexts: {pattern: {provider?, tier?} | null} - Set or clear context overrides
+        - contexts: {pattern: {provider?, tier?, disabled?, extract?} | null}
+          Set or clear context overrides
 
     Setting a context to null removes the override.
+    For muse contexts, disabled and extract can also be set.
     """
     try:
-        from think.models import get_context_registry
         from think.providers import PROVIDER_REGISTRY
 
         request_data = request.get_json()
@@ -391,16 +418,8 @@ def update_providers() -> Any:
                 config["providers"]["contexts"] = {}
 
             old_contexts = old_providers.get("contexts", {})
-            context_registry = get_context_registry()
 
             for pattern, ctx_config in contexts_data.items():
-                # Validate pattern exists in context registry
-                if pattern not in context_registry:
-                    return (
-                        jsonify({"error": f"Unknown context pattern: {pattern}"}),
-                        400,
-                    )
-
                 old_ctx = old_contexts.get(pattern)
 
                 # null means remove the override
@@ -433,6 +452,26 @@ def update_providers() -> Any:
                             400,
                         )
 
+                # Validate disabled if specified (must be boolean)
+                if "disabled" in ctx_config:
+                    if not isinstance(ctx_config["disabled"], bool):
+                        return (
+                            jsonify(
+                                {"error": f"disabled for {pattern} must be a boolean"}
+                            ),
+                            400,
+                        )
+
+                # Validate extract if specified (must be boolean)
+                if "extract" in ctx_config:
+                    if not isinstance(ctx_config["extract"], bool):
+                        return (
+                            jsonify(
+                                {"error": f"extract for {pattern} must be a boolean"}
+                            ),
+                            400,
+                        )
+
                 # Only store if there's something to override
                 if ctx_config:
                     if old_ctx != ctx_config:
@@ -458,6 +497,159 @@ def update_providers() -> Any:
 
         # Return updated providers config
         return get_providers()
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Generators API (compatibility layer for Settings UI)
+# ---------------------------------------------------------------------------
+
+
+def _build_generator_info(key: str, info: dict) -> dict:
+    """Build generator info dict from muse config for Settings UI.
+
+    Transforms muse config metadata into the format expected by the
+    Settings UI Insights section.
+    """
+    # Determine if extraction is supported (occurrence/anticipation hooks)
+    hook = info.get("hook")
+    has_extraction = (
+        isinstance(hook, dict) and hook.get("post") in ("occurrence", "anticipation")
+    ) or hook in ("occurrence", "anticipation")
+
+    return {
+        "key": key,
+        "title": info.get("title", info.get("label", key)),
+        "description": info.get("description", ""),
+        "source": info.get("source", "system"),
+        "app": info.get("app"),
+        "disabled": info.get("disabled", False),
+        "extract": info.get("extract", True) if has_extraction else None,
+        "has_extraction": has_extraction,
+    }
+
+
+@settings_bp.route("/api/generators")
+def get_generators() -> Any:
+    """Return generators grouped by schedule for Settings UI.
+
+    This is a compatibility layer that transforms the unified muse config
+    into the format expected by the Settings UI Insights section.
+
+    Returns:
+        - segment: List of segment-schedule generators
+        - daily: List of daily-schedule generators
+    """
+    try:
+        from think.utils import get_muse_configs
+
+        # Get all generators (has output but no tools)
+        all_generators = get_muse_configs(
+            has_tools=False, has_output=True, include_disabled=True
+        )
+
+        segment = []
+        daily = []
+
+        for key, info in all_generators.items():
+            gen_info = _build_generator_info(key, info)
+            schedule = info.get("schedule")
+
+            if schedule == "segment":
+                segment.append(gen_info)
+            elif schedule == "daily":
+                daily.append(gen_info)
+            # Skip generators without valid schedule
+
+        return jsonify({"segment": segment, "daily": daily})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/generators", methods=["PUT"])
+def update_generators() -> Any:
+    """Update generator settings via providers.contexts.
+
+    This is a compatibility layer that accepts the old generators API
+    format and stores settings in the unified providers.contexts location.
+
+    Accepts JSON with generator keys mapping to {disabled?, extract?}.
+    """
+    try:
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({"error": "No data provided"}), 400
+
+        config_dir = Path(state.journal_root) / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = config_dir / "journal.json"
+
+        # Load existing config
+        config = get_journal_config()
+        old_providers = copy.deepcopy(config.get("providers", {}))
+
+        if "providers" not in config:
+            config["providers"] = {}
+        if "contexts" not in config["providers"]:
+            config["providers"]["contexts"] = {}
+
+        old_contexts = old_providers.get("contexts", {})
+        changed_fields = {}
+
+        from think.utils import key_to_context
+
+        for key, updates in request_data.items():
+            if not isinstance(updates, dict):
+                continue
+
+            context_key = key_to_context(key)
+
+            # Get or create context config
+            ctx_config = config["providers"]["contexts"].get(context_key, {})
+            old_ctx = old_contexts.get(context_key, {})
+
+            # Apply updates
+            if "disabled" in updates:
+                if not isinstance(updates["disabled"], bool):
+                    return (
+                        jsonify({"error": f"disabled must be boolean for {key}"}),
+                        400,
+                    )
+                ctx_config["disabled"] = updates["disabled"]
+
+            if "extract" in updates:
+                if not isinstance(updates["extract"], bool):
+                    return jsonify({"error": f"extract must be boolean for {key}"}), 400
+                ctx_config["extract"] = updates["extract"]
+
+            # Only store if there's something to override
+            if ctx_config:
+                if old_ctx != ctx_config:
+                    changed_fields[f"contexts.{context_key}"] = {
+                        "old": old_ctx if old_ctx else None,
+                        "new": ctx_config,
+                    }
+                config["providers"]["contexts"][context_key] = ctx_config
+
+        # Write back to file
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+
+        # Log if something changed
+        if changed_fields:
+            log_app_action(
+                app="settings",
+                facet=None,
+                action="generators_update",
+                params={"changed_fields": changed_fields},
+            )
+
+        # Return updated generators
+        return get_generators()
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -774,206 +966,6 @@ def update_observe() -> Any:
             )
 
         return get_observe()
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# ---------------------------------------------------------------------------
-# Generators API
-# ---------------------------------------------------------------------------
-
-
-def _build_generator_info(key: str, meta: dict) -> dict:
-    """Build generator info dict for API response."""
-    # Determine if insight supports extraction via named hook
-    hook = meta.get("hook")
-    has_extraction = hook in ("occurrence", "anticipation")
-
-    info = {
-        "key": key,
-        "title": meta.get("title", key.replace("_", " ").title()),
-        "description": meta.get("description", ""),
-        "color": meta.get("color", "#6c757d"),
-        "source": meta.get("source", "system"),
-        "schedule": meta.get("schedule"),
-        "disabled": bool(meta.get("disabled", False)),
-        "extract": (meta.get("extract", True) if has_extraction else None),
-        "has_extraction": has_extraction,
-    }
-
-    # Add app name if applicable
-    if meta.get("app"):
-        info["app"] = meta["app"]
-
-    return info
-
-
-@settings_bp.route("/api/generators")
-def get_generators() -> Any:
-    """Return generators grouped by schedule with config overrides.
-
-    Returns:
-        - segment: List of segment-level generators
-        - daily: List of daily generators
-
-    Each generator contains:
-        - key: Generator identifier
-        - title, description, color: Display metadata
-        - source: "system" or "app"
-        - app: App name (if source is "app")
-        - schedule: "segment" or "daily"
-        - disabled: Whether generator is disabled
-        - extract: Whether event extraction is enabled
-        - has_extraction: Whether generator supports event extraction
-
-    Generators with missing or invalid schedule are excluded.
-    """
-    try:
-        from think.utils import get_muse_configs
-
-        # Get generators by schedule (include disabled for settings toggle UI)
-        segment_generators = [
-            _build_generator_info(key, meta)
-            for key, meta in sorted(
-                get_muse_configs(
-                    has_tools=False,
-                    has_output=True,
-                    schedule="segment",
-                    include_disabled=True,
-                ).items()
-            )
-        ]
-        daily_generators = [
-            _build_generator_info(key, meta)
-            for key, meta in sorted(
-                get_muse_configs(
-                    has_tools=False,
-                    has_output=True,
-                    schedule="daily",
-                    include_disabled=True,
-                ).items()
-            )
-        ]
-
-        # Sort within each group: system first, then by key
-        def sort_key(x: dict) -> tuple:
-            return (0 if x["source"] == "system" else 1, x.get("app", ""), x["key"])
-
-        segment_generators.sort(key=sort_key)
-        daily_generators.sort(key=sort_key)
-
-        return jsonify({"segment": segment_generators, "daily": daily_generators})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@settings_bp.route("/api/generators", methods=["PUT"])
-def update_generators() -> Any:
-    """Update generator configuration overrides.
-
-    Accepts JSON mapping generator keys to override settings:
-        {
-            "<generator_key>": {
-                "disabled": bool,      # Disable generator entirely
-                "extract": bool   # Disable event extraction
-            } | null                   # Remove overrides (reset to default)
-        }
-
-    Only boolean values are accepted for disabled and extract.
-    Setting a generator to null removes all overrides for that generator.
-    """
-    try:
-        from think.utils import get_muse_configs
-
-        request_data = request.get_json()
-        if not request_data:
-            return jsonify({"error": "No data provided"}), 400
-
-        if not isinstance(request_data, dict):
-            return jsonify({"error": "Request must be an object"}), 400
-
-        # Get valid generator keys
-        all_generators = get_muse_configs(has_tools=False, has_output=True)
-        valid_keys = set(all_generators.keys())
-
-        config_dir = Path(state.journal_root) / "config"
-        config_dir.mkdir(parents=True, exist_ok=True)
-        config_path = config_dir / "journal.json"
-
-        # Load existing config
-        config = get_journal_config()
-        old_config = copy.deepcopy(config.get("agents", {}))
-
-        # Ensure agents section exists
-        if "agents" not in config:
-            config["agents"] = {}
-
-        changed_fields = {}
-
-        for key, override in request_data.items():
-            # Validate generator key exists
-            if key not in valid_keys:
-                return (
-                    jsonify({"error": f"Unknown generator: {key}"}),
-                    400,
-                )
-
-            # Handle null - remove overrides
-            if override is None:
-                if key in config["agents"]:
-                    changed_fields[key] = {"old": config["agents"][key], "new": None}
-                    del config["agents"][key]
-                continue
-
-            if not isinstance(override, dict):
-                return (
-                    jsonify({"error": f"Override for {key} must be an object or null"}),
-                    400,
-                )
-
-            # Validate and apply fields
-            old_override = old_config.get(key, {})
-            new_override = config["agents"].get(key, {})
-
-            for field in ["disabled", "extract"]:
-                if field in override:
-                    value = override[field]
-                    if not isinstance(value, bool):
-                        return (
-                            jsonify({"error": f"{field} must be a boolean"}),
-                            400,
-                        )
-                    old_val = old_override.get(field)
-                    if old_val != value:
-                        if key not in changed_fields:
-                            changed_fields[key] = {}
-                        changed_fields[key][field] = {"old": old_val, "new": value}
-                    new_override[field] = value
-
-            if new_override:
-                config["agents"][key] = new_override
-
-        # Clean up empty agents section
-        if not config["agents"]:
-            del config["agents"]
-
-        # Write updated config
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2, ensure_ascii=False)
-            f.write("\n")
-
-        # Log changes if any
-        if changed_fields:
-            log_app_action(
-                app="settings",
-                facet=None,
-                action="generators_update",
-                params={"changed_fields": changed_fields},
-            )
-
-        return get_generators()
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

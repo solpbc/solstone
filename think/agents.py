@@ -682,8 +682,9 @@ def generate_agent_output(
         max_output_tokens = 8192 * 6
 
     # Build context for provider routing and token logging
-    # Use muse.system.{name} pattern for generators
-    context = f"muse.system.{name}" if name else "muse.system.unknown"
+    from think.utils import key_to_context
+
+    context = key_to_context(name) if name else "muse.system.unknown"
 
     # Try to use cache if display name provided
     # Note: caching is Google-specific, so we check provider first
@@ -943,7 +944,9 @@ def _run_generator(
         pre_hook = load_pre_hook(meta)
         if pre_hook:
             hook_config = meta.get("hook", {})
-            pre_hook_name = hook_config.get("pre") if isinstance(hook_config, dict) else None
+            pre_hook_name = (
+                hook_config.get("pre") if isinstance(hook_config, dict) else None
+            )
             pre_hook_info["name"] = pre_hook_name
 
             pre_context = build_pre_hook_context(
@@ -1205,7 +1208,9 @@ async def main_async() -> None:
                             if config.get("prompt") != before_prompt:
                                 dry_run_event["prompt_before"] = before_prompt
                             if config.get("system_instruction") != before_system:
-                                dry_run_event["system_instruction_before"] = before_system
+                                dry_run_event["system_instruction_before"] = (
+                                    before_system
+                                )
                             if config.get("user_instruction") != before_user:
                                 dry_run_event["user_instruction_before"] = before_user
                             if config.get("extra_context") != before_extra:
