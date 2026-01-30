@@ -57,7 +57,7 @@ These functions handle direct LLM text generation. The unified API in `think/mod
 
 **Function signature:**
 ```python
-from think.agents import GenerateResult
+from think.providers.shared import GenerateResult
 
 def run_generate(
     contents: Union[str, List[Any]],
@@ -336,7 +336,7 @@ This allows reusing much of the OpenAI provider's patterns for request/response 
 **Core implementation:**
 1. Create `think/providers/<name>.py` with `__all__ = ["run_generate", "run_agenerate", "run_agent"]`
 2. Implement `run_generate()`, `run_agenerate()`, `run_agent()` following signatures above
-3. Import `GenerateResult` from `think.agents` and return it from generate functions
+3. Import `GenerateResult` from `think.providers.shared` and return it from generate functions
 
 **Model constants** in `think/models.py`:
 4. Add model constants using the pattern `{PROVIDER}_{TIER}` (e.g., `DO_LLAMA_70B`, `DO_MISTRAL_NEMO`)

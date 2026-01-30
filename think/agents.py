@@ -21,13 +21,13 @@ import sys
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Literal, Optional, TypedDict, Union
+from typing import Any, Callable, Optional, TypedDict
 
 from google import genai
 from google.genai import types
-from typing_extensions import Required
 
 from think.cluster import cluster, cluster_period, cluster_span
+from think.providers.shared import Event, GenerateResult
 from think.utils import (
     compose_instructions,
     day_log,
@@ -40,6 +40,8 @@ from think.utils import (
     now_ms,
     segment_parse,
     setup_cli,
+    source_is_enabled,
+    source_is_required,
 )
 
 LOG = logging.getLogger("think.agents")
@@ -50,107 +52,6 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(level=level, stream=sys.stdout)
     return LOG
-
-
-class ToolStartEvent(TypedDict, total=False):
-    """Event emitted when a tool starts."""
-
-    event: Literal["tool_start"]
-    ts: int
-    tool: str
-    args: Optional[dict[str, Any]]
-    call_id: Optional[str]  # Unique ID to pair with tool_end event
-
-
-class ToolEndEvent(TypedDict, total=False):
-    """Event emitted when a tool finishes."""
-
-    event: Literal["tool_end"]
-    ts: int
-    tool: str
-    args: Optional[dict[str, Any]]
-    result: Any
-    call_id: Optional[str]  # Matches the call_id from tool_start
-
-
-class StartEvent(TypedDict):
-    """Event emitted when an agent run begins."""
-
-    event: Literal["start"]
-    ts: int
-    prompt: str
-    name: str
-    model: str
-    provider: str
-
-
-class FinishEvent(TypedDict):
-    """Event emitted when an agent run finishes successfully."""
-
-    event: Literal["finish"]
-    ts: int
-    result: str
-
-
-class ErrorEvent(TypedDict, total=False):
-    """Event emitted when an error occurs."""
-
-    event: Literal["error"]
-    ts: int
-    error: str
-    trace: Optional[str]
-
-
-class AgentUpdatedEvent(TypedDict):
-    """Event emitted when the agent context changes."""
-
-    event: Literal["agent_updated"]
-    ts: int
-    agent: str
-
-
-class ThinkingEvent(TypedDict, total=False):
-    """Event emitted when thinking/reasoning summaries are available.
-
-    For Anthropic models, may include a signature for verification when
-    passing thinking blocks back during tool use continuations.
-    For redacted thinking, summary will contain "[redacted]" and
-    redacted_data will contain the encrypted content.
-    """
-
-    event: Required[Literal["thinking"]]
-    ts: Required[int]
-    summary: Required[str]
-    model: Optional[str]
-    signature: Optional[str]  # Anthropic thinking block signature
-    redacted_data: Optional[str]  # Encrypted data for redacted thinking
-
-
-Event = Union[
-    ToolStartEvent,
-    ToolEndEvent,
-    StartEvent,
-    FinishEvent,
-    ErrorEvent,
-    ThinkingEvent,
-    AgentUpdatedEvent,
-]
-
-
-class GenerateResult(TypedDict, total=False):
-    """Result from provider run_generate/run_agenerate functions.
-
-    Structured result that allows the wrapper to handle cross-cutting concerns
-    like token logging and JSON validation centrally.
-
-    The thinking field contains dicts with: summary (str), signature (optional str),
-    redacted_data (optional str for Anthropic redacted thinking).
-    """
-
-    text: Required[str]  # Response text
-    usage: Optional[dict]  # Normalized usage dict (input_tokens, output_tokens, etc.)
-    finish_reason: Optional[str]  # Normalized: "stop", "max_tokens", "safety", etc.
-    thinking: Optional[list]  # List of thinking block dicts
 
 
 class JSONEventWriter:
@@ -183,22 +84,6 @@ class JSONEventWriter:
                 self.file.close()
             except Exception:
                 pass
-
-
-class JSONEventCallback:
-    """Emit JSON events via a callback."""
-
-    def __init__(self, callback: Optional[Callable[[Event], None]] = None) -> None:
-        self.callback = callback
-
-    def emit(self, data: Event) -> None:
-        if "ts" not in data:
-            data = {**data, "ts": now_ms()}
-        if self.callback:
-            self.callback(data)
-
-    def close(self) -> None:
-        pass
 
 
 def format_tool_summary(tool_calls: list) -> str:
@@ -541,19 +426,13 @@ def run_post_hook(
 
 
 __all__ = [
-    "ToolStartEvent",
-    "ToolEndEvent",
-    "StartEvent",
-    "FinishEvent",
-    "ErrorEvent",
-    "AgentUpdatedEvent",
-    "ThinkingEvent",
-    "GenerateResult",
+    # Re-exported from think.providers.shared
     "Event",
+    "GenerateResult",
+    # Local definitions
     "HookContext",
     "PreHookContext",
     "JSONEventWriter",
-    "JSONEventCallback",
     "format_tool_summary",
     "parse_agent_events_to_turns",
     "load_post_hook",
@@ -821,21 +700,43 @@ def _run_generator(
     # Track span mode (multiple sequential segments)
     span_mode = bool(span)
 
+    # Convert sources for clustering (both True and "required" mean load)
+    cluster_sources = {k: source_is_enabled(v) for k, v in sources.items()}
+
     # Build transcript via clustering
     if span:
-        markdown, file_count = cluster_span(day, span, sources=sources)
+        markdown, source_counts = cluster_span(day, span, sources=cluster_sources)
     elif segment:
-        markdown, file_count = cluster_period(day, segment, sources=sources)
+        markdown, source_counts = cluster_period(day, segment, sources=cluster_sources)
     else:
-        markdown, file_count = cluster(day, sources=sources)
+        markdown, source_counts = cluster(day, sources=cluster_sources)
 
     day_dir = str(day_path(day))
+    total_count = sum(source_counts.values())
+
+    # Check required sources have content
+    for source_type, mode in sources.items():
+        if source_is_required(mode) and source_counts.get(source_type, 0) == 0:
+            logging.info(
+                "Required source '%s' has no content, skipping",
+                source_type,
+            )
+            emit_event(
+                {
+                    "event": "finish",
+                    "ts": now_ms(),
+                    "result": "",
+                    "skipped": f"missing_required_{source_type}",
+                }
+            )
+            day_log(day, f"generate {name} skipped (no {source_type})")
+            return
 
     # Skip generation when there's nothing to analyze
-    if file_count == 0 or len(markdown.strip()) < MIN_INPUT_CHARS:
+    if total_count == 0 or len(markdown.strip()) < MIN_INPUT_CHARS:
         logging.info(
             "Insufficient input (files=%d, chars=%d), skipping",
-            file_count,
+            total_count,
             len(markdown.strip()),
         )
         emit_event(
@@ -850,7 +751,7 @@ def _run_generator(
         return
 
     # Prepend input context note for limited recordings
-    if file_count < 3:
+    if total_count < 3:
         input_note = (
             "**Input Note:** Limited recordings for this day. "
             "Scale analysis to available input.\n\n"

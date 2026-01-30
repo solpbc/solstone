@@ -49,7 +49,13 @@ from anthropic.types import (
 from think.models import CLAUDE_SONNET_4
 from think.utils import create_mcp_client, now_ms
 
-from ..agents import GenerateResult, JSONEventCallback, ThinkingEvent
+from .shared import (
+    GenerateResult,
+    JSONEventCallback,
+    ThinkingEvent,
+    extract_agent_config,
+    extract_tool_result,
+)
 
 # Default values are now handled internally
 _DEFAULT_MODEL = CLAUDE_SONNET_4
@@ -176,30 +182,7 @@ class ToolExecutor:
                     arguments=tool_use.input,
                     meta=meta,
                 )
-            # Extract content from CallToolResult if needed
-            if hasattr(result, "content"):
-                # MCP CallToolResult object - extract text from TextContent objects
-                if isinstance(result.content, list):
-                    # Handle array of content items
-                    extracted_content = []
-                    for item in result.content:
-                        if hasattr(item, "text"):
-                            # TextContent object - extract the text
-                            extracted_content.append(item.text)
-                        else:
-                            # Other content types - keep as is
-                            extracted_content.append(item)
-                    # If single text content, return as string, otherwise as list
-                    result_data = (
-                        extracted_content[0]
-                        if len(extracted_content) == 1
-                        else extracted_content
-                    )
-                else:
-                    result_data = result.content
-            else:
-                # Direct result (dict, string, etc.)
-                result_data = result
+            result_data = extract_tool_result(result)
             self.callback.emit(
                 {
                     "event": "tool_end",
@@ -275,23 +258,7 @@ async def run_agent(
             user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
-    # Extract values from unified config
-    prompt = config.get("prompt", "")
-    if not prompt:
-        raise ValueError("Missing 'prompt' in config")
-
-    # Model is required - Cortex always provides it via resolve_provider()
-    model = config.get("model")
-    if not model:
-        raise ValueError("Missing 'model' in config - should be set by Cortex")
-
-    max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
-    thinking_budget_config = config.get(
-        "thinking_budget"
-    )  # None = use computed default
-    disable_mcp = config.get("disable_mcp", False)
-    name = config.get("name", "default")
-
+    ac = extract_agent_config(config, default_max_tokens=_DEFAULT_MAX_TOKENS)
     callback = JSONEventCallback(on_event)
 
     try:
@@ -304,67 +271,54 @@ async def run_agent(
         callback.emit(
             {
                 "event": "start",
-                "prompt": prompt,
-                "name": name,
-                "model": model,
+                "prompt": ac.prompt,
+                "name": ac.name,
+                "model": ac.model,
                 "provider": "anthropic",
             }
         )
 
-        # Extract instruction components from config
-        # Structure: system=journal.md, user1=extra_context, user2=user_instruction, user3=prompt
-        system_instruction = config.get("system_instruction", "")
-        extra_context = config.get("extra_context", "")
-        user_instruction = config.get("user_instruction", "")
-
         # Build initial messages - check for continuation first
-        continue_from = config.get("continue_from")
-        if continue_from:
+        if ac.continue_from:
             # Load previous conversation history using shared function
             from ..agents import parse_agent_events_to_turns
 
-            messages = parse_agent_events_to_turns(continue_from)
+            messages = parse_agent_events_to_turns(ac.continue_from)
             # Add new prompt as continuation
-            messages.append({"role": "user", "content": prompt})
+            messages.append({"role": "user", "content": ac.prompt})
         else:
             # Fresh conversation
             messages: list[MessageParam] = []
-            if extra_context:
-                messages.append({"role": "user", "content": extra_context})
-            if user_instruction:
-                messages.append({"role": "user", "content": user_instruction})
-            messages.append({"role": "user", "content": prompt})
+            if ac.extra_context:
+                messages.append({"role": "user", "content": ac.extra_context})
+            if ac.user_instruction:
+                messages.append({"role": "user", "content": ac.user_instruction})
+            messages.append({"role": "user", "content": ac.prompt})
 
         # Initialize tools and executor based on disable_mcp flag
-        if not disable_mcp:
-            mcp_url = config.get("mcp_server_url")
-            if not mcp_url:
+        if not ac.disable_mcp:
+            if not ac.mcp_server_url:
                 raise RuntimeError("MCP server URL not provided in config")
 
-            async with create_mcp_client(str(mcp_url)) as mcp:
-                # Extract allowed tools from config
-                allowed_tools = config.get("tools", None)
-                if allowed_tools and isinstance(allowed_tools, list):
-                    logger.info(
-                        f"Using tool filter with allowed tools: {allowed_tools}"
-                    )
+            async with create_mcp_client(str(ac.mcp_server_url)) as mcp:
+                if ac.tools and isinstance(ac.tools, list):
+                    logger.info(f"Using tool filter with allowed tools: {ac.tools}")
 
-                tools = await _get_mcp_tools(mcp, allowed_tools)
-                agent_id = config.get("agent_id")
+                tools = await _get_mcp_tools(mcp, ac.tools)
                 tool_executor = ToolExecutor(
-                    mcp, callback, agent_id=agent_id, name=name
+                    mcp, callback, agent_id=ac.agent_id, name=ac.name
                 )
 
                 thinking_budget, effective_max_tokens = _resolve_agent_thinking_params(
-                    max_output_tokens, thinking_budget_config
+                    ac.max_output_tokens, ac.thinking_budget
                 )
 
                 for _ in range(_MAX_TOOL_ITERATIONS):
                     # Build request params - thinking always enabled
                     create_params = {
-                        "model": model,
+                        "model": ac.model,
                         "max_tokens": effective_max_tokens,
-                        "system": system_instruction,
+                        "system": ac.system_instruction,
                         "messages": messages,
                         "thinking": {
                             "type": "enabled",
@@ -384,7 +338,7 @@ async def run_agent(
                         elif getattr(block, "type", None) == "tool_use":
                             tool_uses.append(block)
                         elif isinstance(block, (ThinkingBlock, RedactedThinkingBlock)):
-                            _emit_thinking_event(block, model, callback)
+                            _emit_thinking_event(block, ac.model, callback)
 
                     messages.append({"role": "assistant", "content": response.content})
 
@@ -431,12 +385,12 @@ async def run_agent(
         else:
             # No MCP tools - single response only
             thinking_budget, effective_max_tokens = _resolve_agent_thinking_params(
-                max_output_tokens, thinking_budget_config
+                ac.max_output_tokens, ac.thinking_budget
             )
             create_params = {
-                "model": model,
+                "model": ac.model,
                 "max_tokens": effective_max_tokens,
-                "system": system_instruction,
+                "system": ac.system_instruction,
                 "messages": messages,
                 "thinking": {
                     "type": "enabled",
@@ -451,7 +405,7 @@ async def run_agent(
                 if getattr(block, "type", None) == "text":
                     final_text += block.text
                 elif isinstance(block, (ThinkingBlock, RedactedThinkingBlock)):
-                    _emit_thinking_event(block, model, callback)
+                    _emit_thinking_event(block, ac.model, callback)
 
             callback.emit(
                 {

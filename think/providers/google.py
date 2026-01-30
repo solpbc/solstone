@@ -43,7 +43,13 @@ from google.genai import types
 from think.models import GEMINI_FLASH
 from think.utils import create_mcp_client, now_ms
 
-from ..agents import GenerateResult, JSONEventCallback, ThinkingEvent
+from .shared import (
+    GenerateResult,
+    JSONEventCallback,
+    ThinkingEvent,
+    extract_agent_config,
+    extract_tool_result,
+)
 
 _DEFAULT_MAX_TOKENS = 8192
 _DEFAULT_MODEL = GEMINI_FLASH
@@ -515,30 +521,7 @@ class ToolLoggingHooks:
                 **kwargs,
             )
 
-            # Extract content from CallToolResult if needed
-            if hasattr(result, "content"):
-                # MCP CallToolResult object - extract text from TextContent objects
-                if isinstance(result.content, list):
-                    # Handle array of content items
-                    extracted_content = []
-                    for item in result.content:
-                        if hasattr(item, "text"):
-                            # TextContent object - extract the text
-                            extracted_content.append(item.text)
-                        else:
-                            # Other content types - keep as is
-                            extracted_content.append(item)
-                    # If single text content, return as string, otherwise as list
-                    result_data = (
-                        extracted_content[0]
-                        if len(extracted_content) == 1
-                        else extracted_content
-                    )
-                else:
-                    result_data = result.content
-            else:
-                # Direct result (dict, string, etc.)
-                result_data = result
+            result_data = extract_tool_result(result)
 
             self.writer.emit(
                 {
@@ -565,21 +548,7 @@ async def run_agent(
             user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
-    # Extract values from unified config
-    prompt = config.get("prompt", "")
-    if not prompt:
-        raise ValueError("Missing 'prompt' in config")
-
-    # Model is required - Cortex always provides it via resolve_provider()
-    model = config.get("model")
-    if not model:
-        raise ValueError("Missing 'model' in config - should be set by Cortex")
-
-    max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
-    thinking_budget = config.get("thinking_budget")  # None = dynamic (-1)
-    disable_mcp = config.get("disable_mcp", False)
-    name = config.get("name", "default")
-
+    ac = extract_agent_config(config, default_max_tokens=_DEFAULT_MAX_TOKENS)
     callback = JSONEventCallback(on_event)
 
     try:
@@ -591,26 +560,19 @@ async def run_agent(
         callback.emit(
             {
                 "event": "start",
-                "prompt": prompt,
-                "name": name,
-                "model": model,
+                "prompt": ac.prompt,
+                "name": ac.name,
+                "model": ac.model,
                 "provider": "google",
             }
         )
 
-        # Extract instruction components from config
-        # Structure: system=journal.md, user1=extra_context, user2=user_instruction, user3=prompt
-        system_instruction = config.get("system_instruction", "")
-        extra_context = config.get("extra_context", "")
-        user_instruction = config.get("user_instruction", "")
-
         # Build history - check for continuation first
-        continue_from = config.get("continue_from")
-        if continue_from:
+        if ac.continue_from:
             # Load previous conversation history using shared function
             from ..agents import parse_agent_events_to_turns
 
-            turns = parse_agent_events_to_turns(continue_from)
+            turns = parse_agent_events_to_turns(ac.continue_from)
             # Convert to Google's format
             history = []
             for turn in turns:
@@ -619,16 +581,18 @@ async def run_agent(
                     types.Content(role=role, parts=[types.Part(text=turn["content"])])
                 )
         else:
-            # Fresh conversation
+            # Fresh conversation - convert generic turns to Google format
             history = []
-            if extra_context:
-                history.append(
-                    types.Content(role="user", parts=[types.Part(text=extra_context)])
-                )
-            if user_instruction:
+            if ac.extra_context:
                 history.append(
                     types.Content(
-                        role="user", parts=[types.Part(text=user_instruction)]
+                        role="user", parts=[types.Part(text=ac.extra_context)]
+                    )
+                )
+            if ac.user_instruction:
+                history.append(
+                    types.Content(
+                        role="user", parts=[types.Part(text=ac.user_instruction)]
                     )
                 )
 
@@ -640,8 +604,10 @@ async def run_agent(
 
         # Create fresh chat session
         chat = client.aio.chats.create(
-            model=model,
-            config=types.GenerateContentConfig(system_instruction=system_instruction),
+            model=ac.model,
+            config=types.GenerateContentConfig(
+                system_instruction=ac.system_instruction
+            ),
             history=history,
         )
 
@@ -649,33 +615,32 @@ async def run_agent(
         tool_call_count = 0
 
         # Configure tools based on disable_mcp flag
-        if not disable_mcp:
-            mcp_url = config.get("mcp_server_url")
-            if not mcp_url:
+        if not ac.disable_mcp:
+            if not ac.mcp_server_url:
                 raise RuntimeError("MCP server URL not provided in config")
 
             # Create MCP client and attach hooks
-            async with create_mcp_client(str(mcp_url)) as mcp:
+            async with create_mcp_client(str(ac.mcp_server_url)) as mcp:
                 # Attach tool logging hooks to the MCP session
-                agent_id = config.get("agent_id")
-                tool_hooks = ToolLoggingHooks(callback, agent_id=agent_id, name=name)
+                tool_hooks = ToolLoggingHooks(
+                    callback, agent_id=ac.agent_id, name=ac.name
+                )
                 tool_hooks.attach(mcp.session)
 
-                # Extract allowed tools from config
-                allowed_tools = config.get("tools", None)
-
                 # Configure function calling mode based on tool filtering
-                if allowed_tools and isinstance(allowed_tools, list):
-                    logger.info(f"Filtering tools to: {allowed_tools}")
+                if ac.tools and isinstance(ac.tools, list):
+                    logger.info(f"Filtering tools to: {ac.tools}")
                     function_calling_config = types.FunctionCallingConfig(
                         mode="ANY",  # Restrict to only allowed functions
-                        allowed_function_names=allowed_tools,
+                        allowed_function_names=ac.tools,
                     )
                 else:
                     function_calling_config = types.FunctionCallingConfig(mode="AUTO")
 
                 total_tokens, effective_thinking_budget = (
-                    _compute_agent_thinking_params(max_output_tokens, thinking_budget)
+                    _compute_agent_thinking_params(
+                        ac.max_output_tokens, ac.thinking_budget
+                    )
                 )
 
                 cfg = types.GenerateContentConfig(
@@ -691,15 +656,15 @@ async def run_agent(
                 )
 
                 # Send the message - SDK handles automatic function calling
-                response = await chat.send_message(prompt, config=cfg)
-                _emit_thinking_events(response, model, callback)
+                response = await chat.send_message(ac.prompt, config=cfg)
+                _emit_thinking_events(response, ac.model, callback)
 
                 # Capture tool call count from hooks
                 tool_call_count = tool_hooks._counter
         else:
             # No MCP tools - just basic config
             total_tokens, effective_thinking_budget = _compute_agent_thinking_params(
-                max_output_tokens, thinking_budget
+                ac.max_output_tokens, ac.thinking_budget
             )
 
             cfg = types.GenerateContentConfig(
@@ -710,8 +675,8 @@ async def run_agent(
                 ),
             )
 
-            response = await chat.send_message(prompt, config=cfg)
-            _emit_thinking_events(response, model, callback)
+            response = await chat.send_message(ac.prompt, config=cfg)
+            _emit_thinking_events(response, ac.model, callback)
 
         # Extract finish reason for diagnostics and user-friendly messages
         finish_reason = _extract_finish_reason(response)

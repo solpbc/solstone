@@ -70,7 +70,12 @@ except Exception:  # pragma: no cover
 from think.models import GPT_5
 from think.utils import now_ms
 
-from ..agents import GenerateResult, JSONEventCallback, ThinkingEvent
+from .shared import (
+    GenerateResult,
+    JSONEventCallback,
+    ThinkingEvent,
+    extract_agent_config,
+)
 
 
 def _convert_turns_to_items(turns: list[dict]) -> list[dict]:
@@ -212,33 +217,21 @@ async def run_agent(
             user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
-    # Extract values from unified config
-    prompt = config.get("prompt", "")
-    if not prompt:
-        raise ValueError("Missing 'prompt' in config")
-
-    # Model is required - Cortex always provides it via resolve_provider()
-    model = config.get("model")
-    if not model:
-        raise ValueError("Missing 'model' in config - should be set by Cortex")
-
-    max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
+    ac = extract_agent_config(config, default_max_tokens=_DEFAULT_MAX_TOKENS)
     max_turns = config.get("max_turns", _DEFAULT_MAX_TURNS)
-    disable_mcp = config.get("disable_mcp", False)
-    continue_from = config.get("continue_from")
 
     LOG.info(
         "Running agent with model %s (MCP: %s)",
-        model,
-        "disabled" if disable_mcp else "enabled",
+        ac.model,
+        "disabled" if ac.disable_mcp else "enabled",
     )
     cb = JSONEventCallback(on_event)
     cb.emit(
         {
             "event": "start",
-            "prompt": prompt,
-            "name": config.get("name", "default"),
-            "model": model,
+            "prompt": ac.prompt,
+            "name": ac.name,
+            "model": ac.model,
             "provider": "openai",
             "ts": now_ms(),
         }
@@ -246,38 +239,34 @@ async def run_agent(
 
     # Model settings: always enable reasoning with detailed summaries
     model_settings = ModelSettings(
-        max_tokens=max_output_tokens,
+        max_tokens=ac.max_output_tokens,
         reasoning=_DEFAULT_REASONING,
     )
 
     # Initialize MCP server only if not disabled
     mcp_server = None
-    if not disable_mcp:
-        http_uri_raw = config.get("mcp_server_url")
-        if not http_uri_raw:
+    if not ac.disable_mcp:
+        if not ac.mcp_server_url:
             raise RuntimeError("MCP server URL not provided in config")
-        http_uri = _normalize_streamable_http_uri(str(http_uri_raw))
+        http_uri = _normalize_streamable_http_uri(str(ac.mcp_server_url))
 
-        # Extract allowed tools from config
-        allowed_tools = config.get("tools", None)
+        # Configure tool filter if tools are specified
         tool_filter = None
-        if allowed_tools and isinstance(allowed_tools, list) and ToolFilterStatic:
+        if ac.tools and isinstance(ac.tools, list) and ToolFilterStatic:
             # Create a tool filter with allowed tools
-            tool_filter = ToolFilterStatic(allowed_tool_names=allowed_tools)
-            LOG.info(f"Using tool filter with allowed tools: {allowed_tools}")
-        elif allowed_tools:
+            tool_filter = ToolFilterStatic(allowed_tool_names=ac.tools)
+            LOG.info(f"Using tool filter with allowed tools: {ac.tools}")
+        elif ac.tools:
             LOG.warning(
                 "Tool filtering requested but ToolFilterStatic not available in this version"
             )
 
-        agent_id = str(config.get("agent_id", "")).strip()
-        name = str(config.get("name", "")).strip()
         mcp_params = {"url": http_uri}
         headers: dict[str, str] = {}
-        if agent_id:
-            headers["X-Agent-Id"] = agent_id
-        if name:
-            headers["X-Agent-Name"] = name
+        if ac.agent_id:
+            headers["X-Agent-Id"] = str(ac.agent_id)
+        if ac.name:
+            headers["X-Agent-Name"] = ac.name
         if headers:
             mcp_params["headers"] = headers
 
@@ -289,12 +278,6 @@ async def run_agent(
             client_session_timeout_seconds=15.0,
         )
 
-    # Extract instruction components from config
-    # Structure: system=journal.md, user1=extra_context, user2=user_instruction, user3=prompt
-    system_instruction = config.get("system_instruction", "")
-    extra_context = config.get("extra_context", "")
-    user_instruction = config.get("user_instruction", "")
-
     # Keep a map of in-flight tools so we can pair outputs with args
     pending_tools: dict[str, dict[str, Any]] = {}
 
@@ -302,24 +285,24 @@ async def run_agent(
     streamed_text: list[str] = []
 
     # Create session and load history if continuing conversation
-    session_id = continue_from or config.get("agent_id", f"session-{int(time.time())}")
+    session_id = ac.continue_from or ac.agent_id or f"session-{int(time.time())}"
     session = SQLiteSession(session_id=session_id, db_path=":memory:")
 
     # Load conversation history if continuing
-    if continue_from:
+    if ac.continue_from:
         from ..agents import parse_agent_events_to_turns
 
-        turns = parse_agent_events_to_turns(continue_from)
+        turns = parse_agent_events_to_turns(ac.continue_from)
         if turns:
             items = _convert_turns_to_items(turns)
             await session.add_items(items)
     else:
         # Fresh conversation - add context and user instruction as initial messages
         initial_turns = []
-        if extra_context:
-            initial_turns.append({"role": "user", "content": extra_context})
-        if user_instruction:
-            initial_turns.append({"role": "user", "content": user_instruction})
+        if ac.extra_context:
+            initial_turns.append({"role": "user", "content": ac.extra_context})
+        if ac.user_instruction:
+            initial_turns.append({"role": "user", "content": ac.user_instruction})
         if initial_turns:
             initial_items = _convert_turns_to_items(initial_turns)
             await session.add_items(initial_items)
@@ -343,15 +326,15 @@ async def run_agent(
             mcp_servers_list = [mcp_server] if mcp_server else []
             agent = Agent(
                 name="solstoneCLI",
-                instructions=system_instruction,
-                model=model,
+                instructions=ac.system_instruction,
+                model=ac.model,
                 model_settings=model_settings,
                 mcp_servers=mcp_servers_list,
             )
 
             result = Runner.run_streamed(
                 agent,
-                input=prompt,
+                input=ac.prompt,
                 session=session,
                 run_config=RunConfig(tracing_disabled=True),  # per docs
                 max_turns=max_turns,
@@ -444,7 +427,7 @@ async def run_agent(
                             thinking_event: ThinkingEvent = {
                                 "event": "thinking",
                                 "summary": summary_text,
-                                "model": model,
+                                "model": ac.model,
                                 "ts": now_ms(),
                             }
                             cb.emit(thinking_event)
