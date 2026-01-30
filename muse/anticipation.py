@@ -46,7 +46,7 @@ def post_process(result: str, context: dict) -> str | None:
     prompt_content = load_prompt("anticipation", base_dir=Path(__file__).parent)
 
     # Build context with facets (anticipations don't have topic-specific instructions)
-    facets_context = facet_summaries(detailed_entities=True)
+    facets_context = facet_summaries(detailed=True)
 
     # Extract events
     name = context.get("name", "unknown")

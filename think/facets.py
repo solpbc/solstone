@@ -65,6 +65,55 @@ def _format_principal_role(
     return role_line, other_entities
 
 
+def _format_entity_name_with_aka(entity: dict[str, Any]) -> str:
+    """Format entity name, appending aka values in parentheses if present.
+
+    Args:
+        entity: Entity dict with 'name' and optional 'aka' list
+
+    Returns:
+        Formatted name string, e.g. "John Smith" or "John Smith (JS, Johnny)"
+    """
+    name = entity.get("name", "")
+    aka_list = entity.get("aka", [])
+    if isinstance(aka_list, list) and aka_list:
+        aka_str = ", ".join(aka_list)
+        return f"{name} ({aka_str})"
+    return name
+
+
+def _format_activity_line(activity: dict[str, Any], *, bold_name: bool = False) -> str:
+    """Format a single activity as a markdown list item.
+
+    Args:
+        activity: Activity dict with 'name'/'id', 'description', 'priority'
+        bold_name: If True, wraps name in **bold**
+
+    Returns:
+        Formatted string like "**Meetings** (high): Description" or "Meetings (high): Description"
+    """
+    name = activity.get("name", activity.get("id", ""))
+    desc = activity.get("description", "")
+    priority = activity.get("priority", "normal")
+
+    # Format with priority tag if non-normal
+    if priority == "high":
+        priority_suffix = " (high)"
+    elif priority == "low":
+        priority_suffix = " (low)"
+    else:
+        priority_suffix = ""
+
+    if bold_name:
+        name_part = f"**{name}**{priority_suffix}"
+    else:
+        name_part = f"{name}{priority_suffix}"
+
+    if desc:
+        return f"{name_part}: {desc}"
+    return name_part
+
+
 def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
     """Extract actor (name) and agent_id from meta or HTTP headers.
 
@@ -258,11 +307,15 @@ def facet_summary(facet: str) -> str:
         facet: The facet name to summarize
 
     Returns:
-        Formatted markdown string with facet title, description, and entities
+        Formatted markdown string with facet title, description, entities,
+        and activities
 
     Raises:
         FileNotFoundError: If the facet doesn't exist
     """
+    from think.activities import get_facet_activities
+    from think.entities import load_entities
+
     facet_path = Path(get_journal()) / "facets" / facet
     if not facet_path.exists():
         raise FileNotFoundError(f"Facet '{facet}' not found at {facet_path}")
@@ -296,9 +349,7 @@ def facet_summary(facet: str) -> str:
         lines.append(f"**Description:** {description}")
         lines.append("")
 
-    # Load entities if available using load_entities
-    from think.entities import load_entities
-
+    # Load entities if available
     entities = load_entities(facet)
     if entities:
         # Extract principal role line and filter principal from list
@@ -313,21 +364,23 @@ def facet_summary(facet: str) -> str:
             lines.append("")
             for entity in display_entities:
                 entity_type = entity.get("type", "")
-                name = entity.get("name", "")
+                formatted_name = _format_entity_name_with_aka(entity)
                 desc = entity.get("description", "")
-                # Include aka values in parentheses after name
-                aka_list = entity.get("aka", [])
-                if isinstance(aka_list, list) and aka_list:
-                    aka_str = ", ".join(aka_list)
-                    formatted_name = f"{name} ({aka_str})"
-                else:
-                    formatted_name = name
 
                 if desc:
                     lines.append(f"- **{entity_type}**: {formatted_name} - {desc}")
                 else:
                     lines.append(f"- **{entity_type}**: {formatted_name}")
             lines.append("")
+
+    # Load activities if available
+    activities = get_facet_activities(facet)
+    if activities:
+        lines.append("## Activities")
+        lines.append("")
+        for activity in activities:
+            lines.append(f"- {_format_activity_line(activity, bold_name=True)}")
+        lines.append("")
 
     return "\n".join(lines)
 
@@ -549,25 +602,27 @@ def set_facet_muted(facet: str, muted: bool) -> None:
     )
 
 
-def facet_summaries(*, detailed_entities: bool = False) -> str:
+def facet_summaries(*, detailed: bool = False) -> str:
     """Generate a formatted list summary of all facets for use in agent prompts.
 
     Returns a markdown-formatted string with each facet as a list item including:
     - Facet name and hashtag ID
     - Description
     - Entity names (if available)
+    - Activity names (if available)
 
     Parameters
     ----------
-    detailed_entities:
-        If True, includes full entity details (name: description).
-        If False (default), includes only entity names as a comma-separated list.
+    detailed:
+        If True, includes full entity and activity details (name: description).
+        If False (default), includes only names as semicolon-separated lists.
 
     Returns
     -------
     str
-        Formatted markdown string with all facets and their entities
+        Formatted markdown string with all facets, entities, and activities
     """
+    from think.activities import get_facet_activities
     from think.entities import load_entities
 
     facets = get_facets()
@@ -590,7 +645,7 @@ def facet_summaries(*, detailed_entities: bool = False) -> str:
 
         # Load entities for this facet
         try:
-            if detailed_entities:
+            if detailed:
                 entities = load_entities(facet_name)
                 if entities:
                     # Extract principal role and filter from list
@@ -602,15 +657,8 @@ def facet_summaries(*, detailed_entities: bool = False) -> str:
                     if display_entities:
                         lines.append(f"  - **{title} Entities**:")
                         for entity in display_entities:
-                            name = entity.get("name", "")
+                            formatted_name = _format_entity_name_with_aka(entity)
                             desc = entity.get("description", "")
-                            # Include aka values in parentheses after name
-                            aka_list = entity.get("aka", [])
-                            if isinstance(aka_list, list) and aka_list:
-                                aka_str = ", ".join(aka_list)
-                                formatted_name = f"{name} ({aka_str})"
-                            else:
-                                formatted_name = name
 
                             if desc:
                                 lines.append(f"    - {formatted_name}: {desc}")
@@ -633,6 +681,26 @@ def facet_summaries(*, detailed_entities: bool = False) -> str:
                         lines.append(f"  - **{title} Entities**: {entity_names}")
         except Exception:
             # No entities file or error loading - that's fine, skip it
+            pass
+
+        # Load activities for this facet
+        try:
+            activities = get_facet_activities(facet_name)
+            if activities:
+                if detailed:
+                    lines.append(f"  - **{title} Activities**:")
+                    for activity in activities:
+                        lines.append(
+                            f"    - {_format_activity_line(activity, bold_name=False)}"
+                        )
+                else:
+                    # Simple mode: activity names only
+                    activity_names = "; ".join(
+                        a.get("name", a.get("id", "")) for a in activities
+                    )
+                    lines.append(f"  - **{title} Activities**: {activity_names}")
+        except Exception:
+            # No activities file or error loading - that's fine, skip it
             pass
 
         lines.append("")  # Empty line between facets

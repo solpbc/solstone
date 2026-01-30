@@ -46,7 +46,7 @@ def post_process(result: str, context: dict) -> str | None:
     prompt_content = load_prompt("occurrence", base_dir=Path(__file__).parent)
 
     # Build context with facets + topic-specific instructions
-    facets_context = facet_summaries(detailed_entities=True)
+    facets_context = facet_summaries(detailed=True)
     topic_instructions = context.get("meta", {}).get("occurrences")
     if topic_instructions and isinstance(topic_instructions, str):
         extra_instructions = f"{facets_context}\n\n{topic_instructions}"

@@ -1154,8 +1154,8 @@ def compose_instructions(
         try:
             from think.facets import facet_summaries
 
-            detailed_entities = facets_mode == "detailed"
-            facets_summary = facet_summaries(detailed_entities=detailed_entities)
+            detailed = facets_mode == "detailed"
+            facets_summary = facet_summaries(detailed=detailed)
             if facets_summary and facets_summary != "No facets found.":
                 extra_parts.append(facets_summary)
         except Exception:

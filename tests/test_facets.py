@@ -84,6 +84,13 @@ def test_facet_summary_full(monkeypatch):
     assert "**Entity 2**: Second test entity" in summary
     assert "**Entity 3**: Third test entity with description" in summary
 
+    # Check activities section
+    assert "## Activities" in summary
+    assert "**Meetings** (high)" in summary
+    assert "**Coding**" in summary
+    assert "**Custom Activity**:" in summary
+    assert "A custom test activity" in summary
+
 
 def test_facet_summary_minimal(monkeypatch):
     """Test facet_summary with minimal metadata."""
@@ -231,6 +238,12 @@ def test_facet_summaries(monkeypatch):
     # Check other facets are included
     assert "(`full-featured`)" in summary
     assert "(`minimal-facet`)" in summary
+
+    # Check activities are included (short mode - names only)
+    assert (
+        "**Full Featured Facet Activities**: Meetings; Coding; Custom Activity"
+        in summary
+    )
 
 
 def test_facet_summaries_no_facets(monkeypatch, tmp_path):
@@ -598,7 +611,7 @@ def test_facet_summaries_detailed_with_principal(tmp_path, monkeypatch):
         ],
     )
 
-    summary = facet_summaries(detailed_entities=True)
+    summary = facet_summaries(detailed=True)
 
     # Should have principal role
     assert "**Tester's Role**: Project lead" in summary
@@ -636,7 +649,7 @@ def test_facet_summaries_simple_mode_with_principal(tmp_path, monkeypatch):
         ],
     )
 
-    summary = facet_summaries(detailed_entities=False)
+    summary = facet_summaries(detailed=False)
 
     # Simple mode now shows principal role (consistent with detailed mode)
     assert "**Tester's Role**: Me" in summary
@@ -644,3 +657,18 @@ def test_facet_summaries_simple_mode_with_principal(tmp_path, monkeypatch):
     assert "Test User" not in summary
     # Other entities should appear
     assert "Bob" in summary
+
+
+def test_facet_summaries_detailed_with_activities(monkeypatch):
+    """Test facet_summaries detailed mode includes activity details."""
+    monkeypatch.setenv("JOURNAL_PATH", str(FIXTURES_PATH))
+
+    summary = facet_summaries(detailed=True)
+
+    # Check activities are included with details
+    assert "**Full Featured Facet Activities**:" in summary
+    assert "Meetings (high):" in summary
+    assert "Video calls, in-person meetings, and conferences" in summary
+    assert "Coding:" in summary
+    assert "Custom Activity:" in summary
+    assert "A custom test activity" in summary
