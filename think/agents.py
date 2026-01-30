@@ -813,6 +813,11 @@ def _run_generator(
     system_prompt_name = instructions.get("system_prompt_name", "journal")
     system_instruction = instructions["system_instruction"]
 
+    # Append extra_context (facets, etc.) to system instruction if present
+    extra_context = instructions.get("extra_context")
+    if extra_context:
+        system_instruction = f"{system_instruction}\n\n{extra_context}"
+
     # Track span mode (multiple sequential segments)
     span_mode = bool(span)
 
