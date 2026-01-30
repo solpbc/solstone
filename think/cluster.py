@@ -377,7 +377,7 @@ def cluster_segments(day: str) -> List[Dict[str, Any]]:
 
 def cluster(
     day: str,
-    sources: Dict[str, bool] | None = None,
+    sources: Dict[str, bool | str] | None = None,
 ) -> Tuple[str, Dict[str, int]]:
     """Return Markdown summary for one day's JSON files and counts by source.
 
@@ -386,7 +386,8 @@ def cluster(
 
     Args:
         day: Day in YYYYMMDD format
-        sources: Optional dict with keys "audio", "screen", "agents" (bools).
+        sources: Optional dict with keys "audio", "screen", "agents".
+            Values can be bool or "required" string (see source_is_enabled).
             Defaults to {"audio": True, "screen": False, "agents": True}.
 
     Returns:
@@ -424,7 +425,7 @@ def cluster(
 def cluster_period(
     day: str,
     segment: str,
-    sources: Dict[str, bool] | None = None,
+    sources: Dict[str, bool | str] | None = None,
 ) -> Tuple[str, Dict[str, int]]:
     """Return Markdown summary for one segment's JSON files and counts by source.
 
@@ -434,7 +435,8 @@ def cluster_period(
     Args:
         day: Day in YYYYMMDD format
         segment: Segment key in HHMMSS_LEN format (e.g., "163045_300")
-        sources: Optional dict with keys "audio", "screen", "agents" (bools).
+        sources: Optional dict with keys "audio", "screen", "agents".
+            Values can be bool or "required" string (see source_is_enabled).
             Defaults to {"audio": True, "screen": True, "agents": False}.
 
     Returns:
@@ -491,7 +493,7 @@ def _load_entries_from_segment(
 def cluster_span(
     day: str,
     span: List[str],
-    sources: Dict[str, bool] | None = None,
+    sources: Dict[str, bool | str] | None = None,
 ) -> Tuple[str, Dict[str, int]]:
     """Return Markdown summary for a span of segments and counts by source.
 
@@ -504,7 +506,8 @@ def cluster_span(
     Args:
         day: Day in YYYYMMDD format
         span: List of segment keys in HHMMSS_LEN format (e.g., ["163045_300", "170000_600"])
-        sources: Optional dict with keys "audio", "screen", "agents" (bools).
+        sources: Optional dict with keys "audio", "screen", "agents".
+            Values can be bool or "required" string (see source_is_enabled).
             Defaults to {"audio": True, "screen": True, "agents": False}.
 
     Returns:
