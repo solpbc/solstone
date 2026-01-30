@@ -97,9 +97,9 @@ def test_format_output_path_daily():
     assert _format_output_path("flow", {"schedule": "daily", "output": "md"}) == (
         "<day>/agents/flow.md"
     )
-    assert _format_output_path(
-        "schedule", {"schedule": "daily", "output": "json"}
-    ) == ("<day>/agents/schedule.json")
+    assert _format_output_path("schedule", {"schedule": "daily", "output": "json"}) == (
+        "<day>/agents/schedule.json"
+    )
 
 
 def test_format_output_path_unscheduled():
