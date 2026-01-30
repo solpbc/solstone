@@ -174,6 +174,9 @@ class AgentConfig:
     tools: Optional[list[str]]
     provider: str
 
+    # Transcript from journal (if day/segment specified)
+    transcript: str
+
     # Original config for provider-specific access
     raw_config: dict
 
@@ -220,6 +223,7 @@ def extract_agent_config(config: dict, default_max_tokens: int = 8192) -> AgentC
         user_instruction=config.get("user_instruction", ""),
         tools=config.get("tools"),
         provider=config.get("provider", "google"),
+        transcript=config.get("transcript", ""),
         raw_config=config,
     )
 

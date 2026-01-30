@@ -292,8 +292,11 @@ async def run_tools(
             items = _convert_turns_to_items(turns)
             await session.add_items(items)
     else:
-        # Fresh conversation - add context and user instruction as initial messages
+        # Fresh conversation - add transcript, context and user instruction as initial messages
         initial_turns = []
+        # Prepend transcript if provided (from day/segment input assembly)
+        if ac.transcript:
+            initial_turns.append({"role": "user", "content": ac.transcript})
         if ac.extra_context:
             initial_turns.append({"role": "user", "content": ac.extra_context})
         if ac.user_instruction:

@@ -290,6 +290,9 @@ async def run_tools(
         else:
             # Fresh conversation
             messages: list[MessageParam] = []
+            # Prepend transcript if provided (from day/segment input assembly)
+            if ac.transcript:
+                messages.append({"role": "user", "content": ac.transcript})
             if ac.extra_context:
                 messages.append({"role": "user", "content": ac.extra_context})
             if ac.user_instruction:

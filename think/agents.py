@@ -19,6 +19,7 @@ import logging
 import os
 import sys
 import traceback
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional, TypedDict
@@ -432,6 +433,7 @@ __all__ = [
     # Local definitions
     "HookContext",
     "PreHookContext",
+    "InputContext",
     "JSONEventWriter",
     "format_tool_summary",
     "parse_agent_events_to_turns",
@@ -441,6 +443,7 @@ __all__ = [
     "build_pre_hook_context",
     "run_post_hook",
     "run_pre_hook",
+    "assemble_inputs",
     "scan_day",
     "generate_agent_output",
     "hydrate_config",
@@ -578,11 +581,271 @@ def validate_config(config: dict) -> str | None:
 
 
 # =============================================================================
-# Generator Functions (for transcript analysis without tools)
+# Unified Input Assembly (shared by generate and tools paths)
 # =============================================================================
 
-# Minimum content length for generator output
+# Minimum content length for transcript-based generation
 MIN_INPUT_CHARS = 50
+
+
+@dataclass
+class InputContext:
+    """Assembled inputs for generation or tool execution.
+
+    Contains all resolved inputs ready for LLM call, including transcript,
+    prompts, and output path. Used by both generate and tools paths.
+    """
+
+    # Transcript (from day/segment/span clustering)
+    transcript: str
+    source_counts: dict[str, int]
+
+    # Prompts
+    prompt: str  # Final prompt (with template substitution)
+    system_instruction: str
+    system_prompt_name: str  # For cache key construction
+
+    # Output
+    output_path: Optional[Path]
+    output_format: Optional[str]  # 'md' or 'json'
+
+    # Metadata for hooks and logging
+    meta: dict  # Agent config metadata
+    agent_path: Optional[Path]  # Path to agent .md file
+
+    # Skip reason (if should skip execution)
+    skip_reason: Optional[str]
+
+    # Day/segment context
+    day: Optional[str]
+    segment: Optional[str]
+    span_mode: bool
+
+
+def assemble_inputs(config: dict) -> InputContext:
+    """Assemble all inputs for generation or tool execution.
+
+    Handles:
+    - Loading agent config metadata
+    - Transcript loading from journal (if day specified)
+    - Source filtering and required source validation
+    - Minimum content checks
+    - Prompt template substitution
+    - System instruction composition
+    - Output path resolution
+
+    Args:
+        config: Hydrated config dict from cortex
+
+    Returns:
+        InputContext with all resolved inputs, or skip_reason if should skip
+    """
+    name = config.get("name", "default")
+    day = config.get("day")
+    segment = config.get("segment")
+    span = config.get("span")  # List of sequential segment keys
+    output_format = config.get("output")
+    output_path_override = config.get("output_path")
+    user_prompt = config.get("prompt", "")
+
+    # Load config metadata (for hooks, system prompt, etc.)
+    all_configs = get_muse_configs(has_tools=False)
+    if name not in all_configs:
+        all_configs = get_muse_configs()  # Include tool configs
+    if name in all_configs:
+        meta = all_configs[name]
+        agent_path = Path(meta["path"])
+    else:
+        meta = {}
+        agent_path = None
+
+    # Check if config is disabled
+    if meta.get("disabled"):
+        return InputContext(
+            transcript="",
+            source_counts={},
+            prompt=user_prompt,
+            system_instruction="",
+            system_prompt_name="journal",
+            output_path=None,
+            output_format=output_format,
+            meta=meta,
+            agent_path=agent_path,
+            skip_reason="disabled",
+            day=day,
+            segment=segment,
+            span_mode=bool(span),
+        )
+
+    # Extract instructions config for source filtering and system prompt
+    instructions_config = meta.get("instructions")
+    instructions = compose_instructions(
+        include_datetime=not day,
+        config_overrides=instructions_config,
+    )
+    sources = instructions.get("sources", {})
+    system_prompt_name = instructions.get("system_prompt_name", "journal")
+    system_instruction = instructions["system_instruction"]
+
+    # Append extra_context (facets, etc.) to system instruction if present
+    extra_context = instructions.get("extra_context")
+    if extra_context:
+        system_instruction = f"{system_instruction}\n\n{extra_context}"
+
+    # Track span mode
+    span_mode = bool(span)
+
+    # Initialize transcript variables
+    transcript = ""
+    source_counts: dict[str, int] = {}
+
+    # Transcript loading (only if day is provided)
+    if day:
+        # Set segment key for token usage logging
+        if segment:
+            os.environ["SEGMENT_KEY"] = segment
+        elif span:
+            os.environ["SEGMENT_KEY"] = span[0]
+
+        # Convert sources for clustering
+        cluster_sources = {k: source_is_enabled(v) for k, v in sources.items()}
+
+        # Build transcript via clustering
+        if span:
+            transcript, source_counts = cluster_span(day, span, sources=cluster_sources)
+        elif segment:
+            transcript, source_counts = cluster_period(
+                day, segment, sources=cluster_sources
+            )
+        else:
+            transcript, source_counts = cluster(day, sources=cluster_sources)
+
+        total_count = sum(source_counts.values())
+
+        # Check required sources have content
+        for source_type, mode in sources.items():
+            if source_is_required(mode) and source_counts.get(source_type, 0) == 0:
+                return InputContext(
+                    transcript=transcript,
+                    source_counts=source_counts,
+                    prompt=user_prompt,
+                    system_instruction=system_instruction,
+                    system_prompt_name=system_prompt_name,
+                    output_path=None,
+                    output_format=output_format,
+                    meta=meta,
+                    agent_path=agent_path,
+                    skip_reason=f"missing_required_{source_type}",
+                    day=day,
+                    segment=segment,
+                    span_mode=span_mode,
+                )
+
+        # Skip when there's nothing to analyze
+        if total_count == 0 or len(transcript.strip()) < MIN_INPUT_CHARS:
+            return InputContext(
+                transcript=transcript,
+                source_counts=source_counts,
+                prompt=user_prompt,
+                system_instruction=system_instruction,
+                system_prompt_name=system_prompt_name,
+                output_path=None,
+                output_format=output_format,
+                meta=meta,
+                agent_path=agent_path,
+                skip_reason="no_input",
+                day=day,
+                segment=segment,
+                span_mode=span_mode,
+            )
+
+        # Prepend input context note for limited recordings
+        if total_count < 3:
+            input_note = (
+                "**Input Note:** Limited recordings for this day. "
+                "Scale analysis to available input.\n\n"
+            )
+            transcript = input_note + transcript
+
+    # Build context for template substitution
+    prompt_context: dict[str, str] = {}
+    if day:
+        prompt_context["day"] = day
+        prompt_context["date"] = format_day(day)
+
+        if segment:
+            start_str, end_str = format_segment_times(segment)
+            if start_str and end_str:
+                prompt_context["segment"] = segment
+                prompt_context["segment_start"] = start_str
+                prompt_context["segment_end"] = end_str
+        elif span:
+            all_times = []
+            for seg in span:
+                start_time, end_time = segment_parse(seg)
+                if start_time and end_time:
+                    all_times.append((start_time, end_time))
+
+            if all_times:
+                earliest_start = min(t[0] for t in all_times)
+                latest_end = max(t[1] for t in all_times)
+                start_str = (
+                    datetime.combine(datetime.today(), earliest_start)
+                    .strftime("%I:%M %p")
+                    .lstrip("0")
+                )
+                end_str = (
+                    datetime.combine(datetime.today(), latest_end)
+                    .strftime("%I:%M %p")
+                    .lstrip("0")
+                )
+                prompt_context["segment_start"] = start_str
+                prompt_context["segment_end"] = end_str
+
+    # Load prompt from agent file if available, otherwise use user prompt
+    if agent_path and agent_path.exists():
+        agent_prompt_obj = load_prompt(
+            agent_path.stem, base_dir=agent_path.parent, context=prompt_context
+        )
+        prompt = agent_prompt_obj.text
+    else:
+        prompt = user_prompt
+
+    # Append user prompt if both agent prompt and user prompt exist
+    if agent_path and user_prompt and prompt != user_prompt:
+        prompt = f"{prompt}\n\n{user_prompt}"
+
+    # Determine output path
+    output_path: Optional[Path] = None
+    if output_format:
+        if output_path_override:
+            output_path = Path(output_path_override)
+        elif day:
+            day_dir = str(day_path(day))
+            output_path = get_output_path(
+                day_dir, name, segment=segment, output_format=output_format
+            )
+
+    return InputContext(
+        transcript=transcript,
+        source_counts=source_counts,
+        prompt=prompt,
+        system_instruction=system_instruction,
+        system_prompt_name=system_prompt_name,
+        output_path=output_path,
+        output_format=output_format,
+        meta=meta,
+        agent_path=agent_path,
+        skip_reason=None,
+        day=day,
+        segment=segment,
+        span_mode=span_mode,
+    )
+
+
+# =============================================================================
+# Generator Functions (for transcript analysis without tools)
+# =============================================================================
 
 
 def scan_day(day: str) -> dict[str, list[str]]:
@@ -743,43 +1006,28 @@ def generate_agent_output(
 
 
 def _run_generate(
-    config: dict, emit_event: Callable[[dict], None], *, dry_run: bool = False
+    config: dict,
+    emit_event: Callable[[dict], None],
+    *,
+    dry_run: bool = False,
+    inputs: InputContext | None = None,
 ) -> None:
     """Execute single-shot generation with optional features based on config.
 
-    This is the unified generation path for all non-tool requests. Features are
-    opt-in based on config fields:
-    - day: Load transcript from journal (enables caching, source filtering)
-    - segment/span: Specific time period clustering (requires day)
-    - output: Write result to file
-    - prompt: User prompt (required if no day, optional with day)
-    - hook.pre/post: Pre/post processing hooks
+    This is the generation path for non-tool requests. Uses assemble_inputs() for
+    input assembly, which can be shared with the tools path.
 
     Args:
-        config: Merged config from cortex containing:
-            - name: Config key (e.g., 'activity', 'chat:sentiment', 'default')
-            - prompt: Optional user prompt
-            - day: Optional day in YYYYMMDD format (enables transcript loading)
-            - segment: Optional single segment key (requires day)
-            - span: Optional list of sequential segment keys (requires day)
-            - output: Optional output format ('md' or 'json')
-            - output_path: Optional custom output path
-            - force: Whether to regenerate existing output
-            - provider: AI provider
-            - model: Model name
+        config: Merged config from cortex
         emit_event: Callback to emit JSONL events
         dry_run: If True, emit dry_run event instead of calling LLM
+        inputs: Pre-assembled InputContext (if None, will call assemble_inputs)
     """
     name = config.get("name", "default")
-    day = config.get("day")  # Optional - enables transcript loading
-    segment = config.get("segment")
-    span = config.get("span")  # List of sequential segment keys
-    output_format = config.get("output")  # Optional - enables file writing
-    output_path_override = config.get("output_path")
     force = config.get("force", False)
     provider = config.get("provider", "google")
     model = config.get("model")
-    user_prompt = config.get("prompt", "")  # User prompt from request
+    user_prompt = config.get("prompt", "")
 
     # Emit start event
     emit_event(
@@ -793,190 +1041,46 @@ def _run_generate(
         }
     )
 
-    # Set segment key for token usage logging (only if day-based)
-    if day:
-        if segment:
-            os.environ["SEGMENT_KEY"] = segment
-        elif span:
-            os.environ["SEGMENT_KEY"] = span[0]
+    # Assemble inputs if not provided
+    if inputs is None:
+        inputs = assemble_inputs(config)
 
-    # Load config metadata (for hooks, system prompt, etc.)
-    # First try tool-less configs, then try all configs
-    all_configs = get_muse_configs(has_tools=False)
-    if name not in all_configs:
-        all_configs = get_muse_configs()  # Include tool configs for prompt-only
-    if name in all_configs:
-        meta = all_configs[name]
-        agent_path = Path(meta["path"])
-    else:
-        # No config found - use empty metadata (prompt-only with defaults)
-        meta = {}
-        agent_path = None
-
-    # Check if config is disabled
-    if meta.get("disabled"):
-        logging.info("Config %s is disabled, skipping", name)
+    # Handle skip conditions
+    if inputs.skip_reason:
+        logging.info("Config %s skipped: %s", name, inputs.skip_reason)
         emit_event(
             {
                 "event": "finish",
                 "ts": now_ms(),
                 "result": "",
-                "skipped": "disabled",
+                "skipped": inputs.skip_reason,
             }
         )
+        if inputs.day:
+            day_log(inputs.day, f"generate {name} skipped ({inputs.skip_reason})")
         return
 
-    # Extract instructions config for source filtering and system prompt
-    instructions_config = meta.get("instructions")
-    instructions = compose_instructions(
-        include_datetime=not day,  # Include datetime for prompt-only, not for day-based
-        config_overrides=instructions_config,
-    )
-    sources = instructions.get("sources", {})
-    system_prompt_name = instructions.get("system_prompt_name", "journal")
-    system_instruction = instructions["system_instruction"]
+    # Extract values from InputContext
+    day = inputs.day
+    segment = inputs.segment
+    span_mode = inputs.span_mode
+    transcript = inputs.transcript
+    prompt = inputs.prompt
+    system_instruction = inputs.system_instruction
+    system_prompt_name = inputs.system_prompt_name
+    output_path = inputs.output_path
+    output_format = inputs.output_format
+    meta = inputs.meta
+    agent_path = inputs.agent_path
+    total_count = sum(inputs.source_counts.values())
 
-    # Append extra_context (facets, etc.) to system instruction if present
-    extra_context = instructions.get("extra_context")
-    if extra_context:
-        system_instruction = f"{system_instruction}\n\n{extra_context}"
-
-    # Track span mode (multiple sequential segments)
-    span_mode = bool(span)
-
-    # Initialize transcript variables
-    markdown = ""
-    source_counts: dict[str, int] = {}
-    total_count = 0
-
-    # Transcript loading (only if day is provided)
-    if day:
-        # Convert sources for clustering (both True and "required" mean load)
-        cluster_sources = {k: source_is_enabled(v) for k, v in sources.items()}
-
-        # Build transcript via clustering
-        if span:
-            markdown, source_counts = cluster_span(day, span, sources=cluster_sources)
-        elif segment:
-            markdown, source_counts = cluster_period(
-                day, segment, sources=cluster_sources
-            )
-        else:
-            markdown, source_counts = cluster(day, sources=cluster_sources)
-
-        total_count = sum(source_counts.values())
-
-        # Check required sources have content
-        for source_type, mode in sources.items():
-            if source_is_required(mode) and source_counts.get(source_type, 0) == 0:
-                logging.info(
-                    "Required source '%s' has no content, skipping",
-                    source_type,
-                )
-                emit_event(
-                    {
-                        "event": "finish",
-                        "ts": now_ms(),
-                        "result": "",
-                        "skipped": f"missing_required_{source_type}",
-                    }
-                )
-                day_log(day, f"generate {name} skipped (no {source_type})")
-                return
-
-        # Skip generation when there's nothing to analyze (only for day-based)
-        if total_count == 0 or len(markdown.strip()) < MIN_INPUT_CHARS:
-            logging.info(
-                "Insufficient input (files=%d, chars=%d), skipping",
-                total_count,
-                len(markdown.strip()),
-            )
-            emit_event(
-                {
-                    "event": "finish",
-                    "ts": now_ms(),
-                    "result": "",
-                    "skipped": "no_input",
-                }
-            )
-            day_log(day, f"generate {name} skipped (no input)")
-            return
-
-        # Prepend input context note for limited recordings
-        if total_count < 3:
-            input_note = (
-                "**Input Note:** Limited recordings for this day. "
-                "Scale analysis to available input.\n\n"
-            )
-            markdown = input_note + markdown
-
-    # Build context for template substitution
-    prompt_context: dict[str, str] = {}
-    if day:
-        prompt_context["day"] = day
-        prompt_context["date"] = format_day(day)
-
-        # Add segment context
-        if segment:
-            start_str, end_str = format_segment_times(segment)
-            if start_str and end_str:
-                prompt_context["segment"] = segment
-                prompt_context["segment_start"] = start_str
-                prompt_context["segment_end"] = end_str
-        elif span:
-            all_times = []
-            for seg in span:
-                start_time, end_time = segment_parse(seg)
-                if start_time and end_time:
-                    all_times.append((start_time, end_time))
-
-            if all_times:
-                earliest_start = min(t[0] for t in all_times)
-                latest_end = max(t[1] for t in all_times)
-                start_str = (
-                    datetime.combine(datetime.today(), earliest_start)
-                    .strftime("%I:%M %p")
-                    .lstrip("0")
-                )
-                end_str = (
-                    datetime.combine(datetime.today(), latest_end)
-                    .strftime("%I:%M %p")
-                    .lstrip("0")
-                )
-                prompt_context["segment_start"] = start_str
-                prompt_context["segment_end"] = end_str
-
-    # Load prompt from agent file if available, otherwise use user prompt
-    if agent_path and agent_path.exists():
-        agent_prompt_obj = load_prompt(
-            agent_path.stem, base_dir=agent_path.parent, context=prompt_context
-        )
-        prompt = agent_prompt_obj.text
-    else:
-        # No agent file - use user prompt directly
-        prompt = user_prompt
-
-    # Append user prompt if both agent prompt and user prompt exist
-    if agent_path and user_prompt and prompt != user_prompt:
-        prompt = f"{prompt}\n\n{user_prompt}"
-
-    # Determine output path (only if output format specified)
-    output_path: Path | None = None
+    # Check if output exists
     output_exists = False
     is_json_output = output_format == "json"
-    if output_format:
-        if output_path_override:
-            output_path = Path(output_path_override)
-        elif day:
-            day_dir = str(day_path(day))
-            output_path = get_output_path(
-                day_dir, name, segment=segment, output_format=output_format
-            )
-        # Check if output exists (force check happens in cortex, but we handle it here too)
-        if output_path:
-            output_exists = output_path.exists() and output_path.stat().st_size > 0
+    if output_path:
+        output_exists = output_path.exists() and output_path.stat().st_size > 0
 
-    # Determine cache settings (only for day-based requests)
+    # Determine cache settings (only for day-based, non-span requests)
     cache_display_name = None
     if day and not span_mode:
         if segment:
@@ -1006,7 +1110,7 @@ def _run_generate(
 
         # Capture state before pre-hook for dry-run comparison
         pre_hook_info: dict[str, Any] = {}
-        before_transcript = markdown
+        before_transcript = transcript
         before_prompt = prompt
         before_system = system_instruction
 
@@ -1026,14 +1130,14 @@ def _run_generate(
                 segment=segment,
                 span=span_mode,
                 output_path=str(output_path) if output_path else "",
-                transcript=markdown,
+                transcript=transcript,
                 prompt=prompt,
                 system_instruction=system_instruction,
             )
             modifications = run_pre_hook(pre_context, pre_hook)
             if modifications:
                 # Apply modifications to inputs
-                markdown = modifications.get("transcript", markdown)
+                transcript = modifications.get("transcript", transcript)
                 prompt = modifications.get("prompt", prompt)
                 system_instruction = modifications.get(
                     "system_instruction", system_instruction
@@ -1059,8 +1163,8 @@ def _run_generate(
             if day:
                 dry_run_event["day"] = day
                 dry_run_event["segment"] = segment
-                dry_run_event["transcript"] = markdown
-                dry_run_event["transcript_chars"] = len(markdown)
+                dry_run_event["transcript"] = transcript
+                dry_run_event["transcript_chars"] = len(transcript)
                 dry_run_event["transcript_files"] = total_count
             if output_path:
                 dry_run_event["output_path"] = str(output_path)
@@ -1071,7 +1175,7 @@ def _run_generate(
                     "modifications", []
                 )
                 # Include before values if they changed
-                if markdown != before_transcript:
+                if transcript != before_transcript:
                     dry_run_event["transcript_before"] = before_transcript
                     dry_run_event["transcript_before_chars"] = len(before_transcript)
                 if prompt != before_prompt:
@@ -1083,7 +1187,7 @@ def _run_generate(
             return
 
         gen_result = generate_agent_output(
-            markdown,
+            transcript,
             prompt,
             api_key,
             cache_display_name=cache_display_name,
@@ -1107,7 +1211,7 @@ def _run_generate(
                 segment=segment,
                 span=span_mode,
                 output_path=str(output_path) if output_path else "",
-                transcript=markdown,
+                transcript=transcript,
             )
             result = run_post_hook(result, hook_context, post_hook)
 
@@ -1202,6 +1306,7 @@ async def main_async() -> None:
                     from .providers import PROVIDER_REGISTRY, get_provider_module
 
                     provider = config.get("provider", "google")
+                    name = config.get("name", "default")
 
                     # Set OpenAI key if needed
                     if provider == "openai":
@@ -1223,17 +1328,57 @@ async def main_async() -> None:
                             f"Unknown provider: {provider!r}. Valid providers: {valid}"
                         )
 
+                    # Assemble inputs if day is specified (transcript loading)
+                    inputs: InputContext | None = None
+                    if config.get("day"):
+                        inputs = assemble_inputs(config)
+
+                        # Handle skip conditions from input assembly
+                        if inputs.skip_reason:
+                            logging.info(
+                                "Config %s skipped: %s", name, inputs.skip_reason
+                            )
+                            emit_event(
+                                {
+                                    "event": "finish",
+                                    "ts": now_ms(),
+                                    "result": "",
+                                    "skipped": inputs.skip_reason,
+                                }
+                            )
+                            if inputs.day:
+                                day_log(
+                                    inputs.day,
+                                    f"agent {name} skipped ({inputs.skip_reason})",
+                                )
+                            continue
+
+                        # Warn if both day and continue_from are specified
+                        if config.get("continue_from"):
+                            logging.warning(
+                                "Both 'day' and 'continue_from' specified; "
+                                "continue_from takes precedence, transcript ignored"
+                            )
+                        else:
+                            # Pass transcript and system instruction to provider via config
+                            config["transcript"] = inputs.transcript
+                            # Use assembled system instruction if not already set
+                            if not config.get("system_instruction"):
+                                config["system_instruction"] = inputs.system_instruction
+
                     # Capture state before pre-hook for dry-run comparison
                     pre_hook_info: dict[str, Any] = {}
                     before_prompt = config.get("prompt", "")
                     before_system = config.get("system_instruction", "")
                     before_user = config.get("user_instruction", "")
                     before_extra = config.get("extra_context", "")
+                    before_transcript = config.get("transcript", "")
 
                     # Load pre hook if configured (before LLM call)
-                    pre_hook = load_pre_hook(config)
+                    meta = inputs.meta if inputs else config
+                    pre_hook = load_pre_hook(meta)
                     if pre_hook:
-                        hook_config = config.get("hook", {})
+                        hook_config = meta.get("hook", {})
                         pre_hook_name = (
                             hook_config.get("pre")
                             if isinstance(hook_config, dict)
@@ -1241,7 +1386,10 @@ async def main_async() -> None:
                         )
                         pre_hook_info["name"] = pre_hook_name
 
-                        pre_context = build_pre_hook_context(config)
+                        pre_context = build_pre_hook_context(
+                            meta,
+                            transcript=config.get("transcript", ""),
+                        )
                         modifications = run_pre_hook(pre_context, pre_hook)
                         if modifications:
                             # Apply modifications to config
@@ -1250,6 +1398,7 @@ async def main_async() -> None:
                                 "system_instruction",
                                 "user_instruction",
                                 "extra_context",
+                                "transcript",
                             ):
                                 if key in modifications:
                                     config[key] = modifications[key]
@@ -1261,7 +1410,7 @@ async def main_async() -> None:
                             "event": "dry_run",
                             "ts": now_ms(),
                             "type": "agent",
-                            "name": config.get("name", "default"),
+                            "name": name,
                             "provider": provider,
                             "model": config.get("model", "unknown"),
                             "system_instruction": config.get("system_instruction", ""),
@@ -1273,6 +1422,20 @@ async def main_async() -> None:
                             "prompt": config.get("prompt", ""),
                             "tools": config.get("tools", []),
                         }
+                        # Include day-based fields if inputs were assembled
+                        if inputs:
+                            dry_run_event["day"] = inputs.day
+                            dry_run_event["segment"] = inputs.segment
+                            if config.get("transcript"):
+                                dry_run_event["transcript"] = config["transcript"]
+                                dry_run_event["transcript_chars"] = len(
+                                    config["transcript"]
+                                )
+                                dry_run_event["transcript_files"] = sum(
+                                    inputs.source_counts.values()
+                                )
+                            if inputs.output_path:
+                                dry_run_event["output_path"] = str(inputs.output_path)
                         # Include pre-hook before/after if hook was run
                         if pre_hook_info:
                             dry_run_event["pre_hook"] = pre_hook_info.get("name")
@@ -1289,12 +1452,14 @@ async def main_async() -> None:
                                 dry_run_event["user_instruction_before"] = before_user
                             if config.get("extra_context") != before_extra:
                                 dry_run_event["extra_context_before"] = before_extra
+                            if config.get("transcript") != before_transcript:
+                                dry_run_event["transcript_before"] = before_transcript
 
                         emit_event(dry_run_event)
                         continue
 
                     # Load post hook if configured
-                    post_hook = load_post_hook(config)
+                    post_hook = load_post_hook(meta)
                     handoff_config = config.get("handoff")
 
                     # Create event handler that intercepts finish for hooks and handoff
@@ -1303,7 +1468,10 @@ async def main_async() -> None:
                             # Apply post hook if configured
                             if post_hook:
                                 result = data.get("result", "")
-                                hook_context = build_hook_context(config)
+                                hook_context = build_hook_context(
+                                    meta,
+                                    transcript=config.get("transcript", ""),
+                                )
                                 transformed = run_post_hook(
                                     result, hook_context, post_hook
                                 )
@@ -1319,6 +1487,10 @@ async def main_async() -> None:
                         config=config,
                         on_event=agent_emit_event,
                     )
+
+                    # Log completion for day-based requests
+                    if inputs and inputs.day:
+                        day_log(inputs.day, f"agent {name} ok")
 
             except json.JSONDecodeError as e:
                 emit_event(

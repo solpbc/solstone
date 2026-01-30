@@ -584,6 +584,11 @@ async def run_tools(
         else:
             # Fresh conversation - convert generic turns to Google format
             history = []
+            # Prepend transcript if provided (from day/segment input assembly)
+            if ac.transcript:
+                history.append(
+                    types.Content(role="user", parts=[types.Part(text=ac.transcript)])
+                )
             if ac.extra_context:
                 history.append(
                     types.Content(
