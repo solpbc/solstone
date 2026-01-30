@@ -21,6 +21,7 @@ The package exposes several commands:
 - `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
 - `sol mcp` starts an MCP server exposing search capabilities for both summary text and raw transcripts.
 - `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
+- `sol muse` lists available agents and generators with their configuration. Use `sol muse <name>` to see details, and `sol muse <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
 
 ```bash
 sol cluster YYYYMMDD [--start HHMMSS --length MINUTES]
@@ -28,6 +29,8 @@ sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--skip-generators] 
 sol supervisor [--no-observers]
 sol mcp [--transport http] [--port PORT] [--path PATH]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
+sol muse [--schedule daily|segment] [--json]
+sol muse <name> [--prompt] [--day YYYYMMDD] [--segment HHMMSS_LEN] [--full]
 ```
 
 Use `--force` to overwrite existing files, and `-v` for verbose logs.
