@@ -1195,6 +1195,193 @@ input:checked + .slider:before {
   cursor: default;
 }
 
+/* Activities section */
+.activities-section {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.activities-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75em 1em;
+  background: #f8f8f8;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.activities-title {
+  font-weight: 600;
+  font-size: 0.95em;
+  color: #333;
+}
+
+.activities-count {
+  font-weight: normal;
+  color: #888;
+  font-size: 0.85em;
+}
+
+.activities-list {
+  padding: 0.5em;
+}
+
+.activities-empty {
+  padding: 1.5em;
+  text-align: center;
+  color: #888;
+  font-size: 0.9em;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75em;
+  padding: 0.75em;
+  border-radius: 6px;
+  margin-bottom: 0.5em;
+  background: #fafafa;
+  transition: background 0.15s;
+}
+
+.activity-item:last-child {
+  margin-bottom: 0;
+}
+
+.activity-item:hover {
+  background: #f0f0f0;
+}
+
+.activity-icon {
+  font-size: 1.5em;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.activity-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-name {
+  font-weight: 600;
+  font-size: 0.95em;
+  color: #333;
+  margin-bottom: 0.2em;
+}
+
+.activity-desc {
+  font-size: 0.85em;
+  color: #666;
+  line-height: 1.3;
+}
+
+.activity-desc.activity-desc-editable {
+  cursor: pointer;
+  padding: 0.2em 0.4em;
+  margin: -0.2em -0.4em;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.activity-desc.activity-desc-editable:hover {
+  background: #e8e8e8;
+}
+
+.activity-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  flex-shrink: 0;
+}
+
+.activity-priority {
+  padding: 0.25em 0.5em;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.8em;
+  background: white;
+  cursor: pointer;
+}
+
+.activity-remove {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 1.1em;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.activity-remove:hover {
+  color: #d32f2f;
+  background: #ffebee;
+}
+
+/* Add activities panel */
+.activities-add-panel {
+  padding: 0.75em;
+}
+
+.activities-defaults {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  margin-bottom: 0.75em;
+}
+
+.activity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.4em 0.75em;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.activity-chip:hover {
+  background: #e0e0e0;
+  border-color: #bbb;
+}
+
+.activity-chip.activity-chip-attached {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.activity-chip-icon {
+  font-size: 1.1em;
+}
+
+.activities-custom {
+  padding-top: 0.5em;
+  border-top: 1px solid #eee;
+}
+
+.activities-add-custom-btn {
+  background: none;
+  border: 1px dashed #ccc;
+  border-radius: 20px;
+  padding: 0.4em 0.75em;
+  font-size: 0.85em;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.activities-add-custom-btn:hover {
+  border-color: var(--facet-color, #667eea);
+  color: var(--facet-color, #667eea);
+  background: var(--facet-bg, rgba(102, 126, 234, 0.05));
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .settings-wrap {
@@ -1232,7 +1419,8 @@ input:checked + .slider:before {
       </optgroup>
       <optgroup label="Facet" id="navSelectFacetGroup" style="display:none">
         <option value="facet-appearance">Appearance</option>
-        <option value="facet-activity">Activity</option>
+        <option value="facet-activities">Activities</option>
+        <option value="facet-activity">Activity Log</option>
       </optgroup>
     </select>
   </div>
@@ -1253,7 +1441,8 @@ input:checked + .slider:before {
     <div class="settings-nav-group" id="facetNavGroup" style="display:none">
       <div class="settings-nav-label" id="facetNavLabel">Facet</div>
       <button class="settings-nav-item" data-section="facet-appearance">Appearance</button>
-      <button class="settings-nav-item" data-section="facet-activity">Activity</button>
+      <button class="settings-nav-item" data-section="facet-activities">Activities</button>
+      <button class="settings-nav-item" data-section="facet-activity">Activity Log</button>
     </div>
   </nav>
 
@@ -1711,9 +1900,62 @@ input:checked + .slider:before {
       </div>
     </section>
 
+    <!-- Facet Activities Section -->
+    <section class="settings-section" id="section-facet-activities" data-requires-facet>
+      <h2>Activities</h2>
+      <p class="settings-section-desc">Configure which activities are tracked for this facet.</p>
+
+      <!-- Attached Activities -->
+      <div class="activities-section">
+        <div class="activities-header">
+          <span class="activities-title">Attached Activities</span>
+          <span class="activities-count" id="attachedActivitiesCount"></span>
+        </div>
+        <div class="activities-list" id="attachedActivitiesList">
+          <div class="activities-empty">No activities attached yet</div>
+        </div>
+      </div>
+
+      <!-- Add Activities -->
+      <div class="activities-section" style="margin-top: 1.5em;">
+        <div class="activities-header">
+          <span class="activities-title">Add Activity</span>
+        </div>
+        <div class="activities-add-panel">
+          <div class="activities-defaults" id="defaultActivitiesList">
+            Loading...
+          </div>
+          <div class="activities-custom">
+            <button class="activities-add-custom-btn" id="addCustomActivityBtn">+ Add Custom Activity</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Activity Modal -->
+      <div id="customActivityModal" class="color-modal">
+        <div class="color-modal-content" style="max-width: 400px;">
+          <span class="color-close" id="customActivityClose">&times;</span>
+          <h3>Add Custom Activity</h3>
+          <div class="settings-field">
+            <label for="customActivityName">Name</label>
+            <input type="text" id="customActivityName" placeholder="e.g., Research">
+          </div>
+          <div class="settings-field">
+            <label for="customActivityDesc">Description</label>
+            <textarea id="customActivityDesc" rows="2" placeholder="Brief description of this activity"></textarea>
+          </div>
+          <div class="settings-field">
+            <label for="customActivityIcon">Icon (emoji)</label>
+            <input type="text" id="customActivityIcon" placeholder="e.g., 🔬" maxlength="4" style="max-width: 100px;">
+          </div>
+          <button class="save-color-btn" id="saveCustomActivityBtn">Add Activity</button>
+        </div>
+      </div>
+    </section>
+
     <!-- Facet Activity Section -->
     <section class="settings-section" id="section-facet-activity" data-requires-facet>
-      <h2>Activity</h2>
+      <h2>Activity Log</h2>
       <p class="settings-section-desc">Recent actions and changes to this facet.</p>
 
       <div class="log-panel">
@@ -1762,7 +2004,7 @@ let logNextCursor = null;
 let insightsData = null;
 
 // ========== NAVIGATION ==========
-const VALID_SECTIONS = ['profile', 'providers', 'apikeys', 'transcription', 'vision', 'insights', 'security', 'facet-appearance', 'facet-activity'];
+const VALID_SECTIONS = ['profile', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'facet-appearance', 'facet-activities', 'facet-activity'];
 
 function switchSection(sectionId, updateHash = true) {
   // Validate section exists
@@ -1800,6 +2042,9 @@ function switchSection(sectionId, updateHash = true) {
     }
     if (sectionId === 'facet-activity') {
       loadLogs(window.selectedFacet);
+    }
+    if (sectionId === 'facet-activities') {
+      loadActivities(window.selectedFacet);
     }
   }
 }
@@ -1857,6 +2102,7 @@ function updateFacetNav() {
 // Listen for facet switches
 window.addEventListener('facet.switch', (e) => {
   facetConfig = null; // Reset so it reloads
+  activitiesData = null; // Reset activities too
   updateFacetNav();
   // If currently viewing a facet section, reload
   const activeSection = document.querySelector('.settings-section.active');
@@ -1864,6 +2110,9 @@ window.addEventListener('facet.switch', (e) => {
     loadFacetConfig(e.detail.facet);
     if (activeSection.id === 'section-facet-activity') {
       loadLogs(e.detail.facet);
+    }
+    if (activeSection.id === 'section-facet-activities') {
+      loadActivities(e.detail.facet);
     }
   }
 });
@@ -3404,6 +3653,260 @@ document.getElementById('segmentInsightsHeader').addEventListener('click', () =>
 document.getElementById('dailyInsightsHeader').addEventListener('click', () => {
   document.getElementById('dailyInsightsGroup').classList.toggle('expanded');
 });
+
+// ========== ACTIVITIES ==========
+let activitiesData = null;
+
+async function loadActivities(facetName) {
+  if (!facetName) return;
+
+  try {
+    const response = await fetch(`/app/settings/api/facet/${facetName}/activities`);
+    activitiesData = await response.json();
+    if (activitiesData.error) throw new Error(activitiesData.error);
+    renderActivities(activitiesData);
+  } catch (err) {
+    console.error('Error loading activities:', err);
+    document.getElementById('attachedActivitiesList').innerHTML = '<div class="activities-empty">Error loading activities</div>';
+  }
+}
+
+function renderActivities(data) {
+  const attachedList = document.getElementById('attachedActivitiesList');
+  const defaultsList = document.getElementById('defaultActivitiesList');
+  const countEl = document.getElementById('attachedActivitiesCount');
+
+  const attached = data.activities || [];
+  const defaults = data.defaults || [];
+
+  // Render attached activities
+  if (attached.length === 0) {
+    attachedList.innerHTML = '<div class="activities-empty">No activities attached yet. Add activities below.</div>';
+    countEl.textContent = '';
+  } else {
+    countEl.textContent = `(${attached.length})`;
+    attachedList.innerHTML = attached.map(a => `
+      <div class="activity-item" data-id="${a.id}">
+        <span class="activity-icon">${a.icon || '📌'}</span>
+        <div class="activity-info">
+          <div class="activity-name">${escapeHtml(a.name)}</div>
+          <div class="activity-desc activity-desc-editable" data-id="${a.id}" title="Double-click to edit">${escapeHtml(a.description) || '<em>No description</em>'}</div>
+        </div>
+        <div class="activity-controls">
+          <select class="activity-priority" data-id="${a.id}">
+            <option value="high" ${a.priority === 'high' ? 'selected' : ''}>High</option>
+            <option value="normal" ${a.priority === 'normal' ? 'selected' : ''}>Normal</option>
+            <option value="low" ${a.priority === 'low' ? 'selected' : ''}>Low</option>
+          </select>
+          <button class="activity-remove" data-id="${a.id}" title="Remove">&times;</button>
+        </div>
+      </div>
+    `).join('');
+
+    // Set up event listeners for attached activities
+    setupAttachedActivityListeners();
+  }
+
+  // Render default activities as chips (exclude already attached)
+  const attachedIds = new Set(attached.map(a => a.id));
+  const availableDefaults = defaults.filter(d => !attachedIds.has(d.id));
+
+  if (availableDefaults.length === 0 && attached.length > 0) {
+    defaultsList.innerHTML = '<span style="color:#888;font-size:0.85em;">All default activities attached</span>';
+  } else {
+    defaultsList.innerHTML = defaults.map(d => {
+      const isAttached = attachedIds.has(d.id);
+      return `
+        <span class="activity-chip ${isAttached ? 'activity-chip-attached' : ''}" data-id="${d.id}" ${isAttached ? '' : 'title="Click to add"'}>
+          <span class="activity-chip-icon">${d.icon || '📌'}</span>
+          <span>${escapeHtml(d.name)}</span>
+        </span>
+      `;
+    }).join('');
+
+    // Set up click handlers for chips
+    defaultsList.querySelectorAll('.activity-chip:not(.activity-chip-attached)').forEach(chip => {
+      chip.addEventListener('click', () => addDefaultActivity(chip.dataset.id));
+    });
+  }
+}
+
+function setupAttachedActivityListeners() {
+  // Priority change
+  document.querySelectorAll('.activity-priority').forEach(select => {
+    select.addEventListener('change', async () => {
+      const activityId = select.dataset.id;
+      const priority = select.value;
+      await updateActivity(activityId, { priority });
+    });
+  });
+
+  // Remove button
+  document.querySelectorAll('.activity-remove').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const activityId = btn.dataset.id;
+      await removeActivity(activityId);
+    });
+  });
+
+  // Double-click description to edit
+  document.querySelectorAll('.activity-desc-editable').forEach(desc => {
+    let tapTimeout = null;
+    desc.addEventListener('click', () => {
+      if (!tapTimeout) {
+        tapTimeout = setTimeout(() => tapTimeout = null, 300);
+      } else {
+        clearTimeout(tapTimeout);
+        tapTimeout = null;
+        startEditDescription(desc);
+      }
+    });
+  });
+}
+
+function startEditDescription(descEl) {
+  const activityId = descEl.dataset.id;
+  const currentText = descEl.textContent.trim();
+  const isPlaceholder = descEl.querySelector('em') !== null;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'activity-desc-input';
+  input.value = isPlaceholder ? '' : currentText;
+  input.style.cssText = 'width:100%;padding:0.3em;font-size:0.85em;border:1px solid var(--facet-color,#667eea);border-radius:4px;';
+
+  descEl.style.display = 'none';
+  descEl.parentNode.insertBefore(input, descEl.nextSibling);
+  input.focus();
+  input.select();
+
+  const finishEdit = async () => {
+    const newDesc = input.value.trim();
+    input.remove();
+    descEl.style.display = '';
+    descEl.innerHTML = newDesc ? escapeHtml(newDesc) : '<em>No description</em>';
+
+    if (newDesc !== currentText && !(isPlaceholder && !newDesc)) {
+      await updateActivity(activityId, { description: newDesc });
+    }
+  };
+
+  input.addEventListener('blur', finishEdit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = isPlaceholder ? '' : currentText; input.blur(); }
+  });
+}
+
+async function addDefaultActivity(activityId) {
+  if (!window.selectedFacet) return;
+
+  try {
+    const response = await fetch(`/app/settings/api/facet/${window.selectedFacet}/activities`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: activityId })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    // Reload activities
+    await loadActivities(window.selectedFacet);
+  } catch (err) {
+    console.error('Error adding activity:', err);
+    notifyError('Add Failed', err.message);
+  }
+}
+
+async function updateActivity(activityId, updates) {
+  if (!window.selectedFacet) return;
+
+  try {
+    const response = await fetch(`/app/settings/api/facet/${window.selectedFacet}/activities/${activityId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+  } catch (err) {
+    console.error('Error updating activity:', err);
+    notifyError('Update Failed', err.message);
+    // Reload to revert
+    await loadActivities(window.selectedFacet);
+  }
+}
+
+async function removeActivity(activityId) {
+  if (!window.selectedFacet) return;
+
+  try {
+    const response = await fetch(`/app/settings/api/facet/${window.selectedFacet}/activities/${activityId}`, {
+      method: 'DELETE'
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    // Reload activities
+    await loadActivities(window.selectedFacet);
+  } catch (err) {
+    console.error('Error removing activity:', err);
+    notifyError('Remove Failed', err.message);
+  }
+}
+
+// Custom activity modal
+document.getElementById('addCustomActivityBtn').addEventListener('click', () => {
+  document.getElementById('customActivityModal').style.display = 'block';
+  document.getElementById('customActivityName').value = '';
+  document.getElementById('customActivityDesc').value = '';
+  document.getElementById('customActivityIcon').value = '';
+  document.getElementById('customActivityName').focus();
+});
+
+document.getElementById('customActivityClose').addEventListener('click', () => {
+  document.getElementById('customActivityModal').style.display = 'none';
+});
+
+document.getElementById('saveCustomActivityBtn').addEventListener('click', async () => {
+  const name = document.getElementById('customActivityName').value.trim();
+  const description = document.getElementById('customActivityDesc').value.trim();
+  const icon = document.getElementById('customActivityIcon').value.trim();
+
+  if (!name) {
+    notifyError('Validation Error', 'Name is required');
+    return;
+  }
+
+  if (!window.selectedFacet) return;
+
+  try {
+    const response = await fetch(`/app/settings/api/facet/${window.selectedFacet}/activities`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, description, icon: icon || undefined })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    document.getElementById('customActivityModal').style.display = 'none';
+    await loadActivities(window.selectedFacet);
+  } catch (err) {
+    console.error('Error adding custom activity:', err);
+    notifyError('Add Failed', err.message);
+  }
+});
+
+// Close modal on outside click
+window.addEventListener('click', (e) => {
+  const modal = document.getElementById('customActivityModal');
+  if (e.target === modal) modal.style.display = 'none';
+});
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 // ========== INIT ==========
 updateFacetNav();

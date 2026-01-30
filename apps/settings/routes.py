@@ -1193,3 +1193,220 @@ def get_facet_logs(facet_name: str) -> Any:
     logs_dir = Path(state.journal_root) / "facets" / facet_name / "logs"
     cursor = request.args.get("cursor")
     return jsonify(_get_logs_from_dir(logs_dir, cursor))
+
+
+# ---------------------------------------------------------------------------
+# Activities API
+# ---------------------------------------------------------------------------
+
+
+@settings_bp.route("/api/activities/defaults")
+def get_default_activities() -> Any:
+    """Return the list of predefined default activities.
+
+    These are common activities that users can attach to facets.
+    """
+    try:
+        from think.activities import get_default_activities as _get_defaults
+
+        return jsonify({"activities": _get_defaults()})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/facet/<facet_name>/activities")
+def get_facet_activities(facet_name: str) -> Any:
+    """Get activities attached to a facet.
+
+    Returns:
+        - activities: List of attached activities with full metadata
+        - defaults: List of predefined activities for reference
+    """
+    try:
+        from think.activities import get_default_activities as _get_defaults
+        from think.activities import get_facet_activities as _get_facet_activities
+        from think.facets import get_facets
+
+        # Verify facet exists
+        facets = get_facets()
+        if facet_name not in facets:
+            return jsonify({"error": "Facet not found"}), 404
+
+        attached = _get_facet_activities(facet_name)
+        defaults = _get_defaults()
+
+        return jsonify({"activities": attached, "defaults": defaults})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/facet/<facet_name>/activities", methods=["POST"])
+def add_facet_activity(facet_name: str) -> Any:
+    """Add an activity to a facet.
+
+    For predefined activities, only 'id' is required.
+    For custom activities, 'name' and 'description' should be provided.
+
+    Accepts JSON with:
+        id: Activity identifier (required for predefined)
+        name: Display name (required for custom, optional for predefined)
+        description: Activity description (optional)
+        priority: "high", "normal", or "low" (optional, default: "normal")
+        icon: Emoji icon (optional, for custom activities)
+    """
+    try:
+        from think.activities import (
+            add_activity_to_facet,
+            generate_activity_id,
+        )
+        from think.activities import get_default_activities as _get_defaults
+        from think.facets import get_facets
+
+        # Verify facet exists
+        facets = get_facets()
+        if facet_name not in facets:
+            return jsonify({"error": "Facet not found"}), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        # Determine activity ID
+        activity_id = data.get("id")
+        name = data.get("name")
+
+        if not activity_id:
+            if not name:
+                return jsonify({"error": "Either 'id' or 'name' is required"}), 400
+            # Generate ID from name for custom activity
+            activity_id = generate_activity_id(name)
+
+        # Validate priority if provided
+        priority = data.get("priority", "normal")
+        if priority not in ("high", "normal", "low"):
+            return (
+                jsonify({"error": "priority must be 'high', 'normal', or 'low'"}),
+                400,
+            )
+
+        # Check if it's a predefined activity
+        defaults_by_id = {a["id"]: a for a in _get_defaults()}
+        is_predefined = activity_id in defaults_by_id
+
+        # For custom activities, name is required
+        if not is_predefined and not name:
+            return jsonify({"error": "'name' is required for custom activities"}), 400
+
+        activity = add_activity_to_facet(
+            facet_name,
+            activity_id,
+            name=name,
+            description=data.get("description"),
+            priority=priority,
+            icon=data.get("icon"),
+        )
+
+        log_app_action(
+            app="settings",
+            facet=facet_name,
+            action="activity_add",
+            params={"activity_id": activity_id},
+        )
+
+        return jsonify({"success": True, "activity": activity}), 201
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/facet/<facet_name>/activities/<activity_id>", methods=["PUT"])
+def update_facet_activity(facet_name: str, activity_id: str) -> Any:
+    """Update an activity's configuration in a facet.
+
+    Accepts JSON with optional fields:
+        description: New description
+        priority: "high", "normal", or "low"
+        name: New name (only for custom activities)
+        icon: New icon (only for custom activities)
+    """
+    try:
+        from think.activities import update_activity_in_facet
+        from think.facets import get_facets
+
+        # Verify facet exists
+        facets = get_facets()
+        if facet_name not in facets:
+            return jsonify({"error": "Facet not found"}), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        # Validate priority if provided
+        priority = data.get("priority")
+        if priority is not None and priority not in ("high", "normal", "low"):
+            return (
+                jsonify({"error": "priority must be 'high', 'normal', or 'low'"}),
+                400,
+            )
+
+        activity = update_activity_in_facet(
+            facet_name,
+            activity_id,
+            description=data.get("description"),
+            priority=priority,
+            name=data.get("name"),
+            icon=data.get("icon"),
+        )
+
+        if activity is None:
+            return jsonify({"error": "Activity not found in facet"}), 404
+
+        log_app_action(
+            app="settings",
+            facet=facet_name,
+            action="activity_update",
+            params={"activity_id": activity_id, "updates": data},
+        )
+
+        return jsonify({"success": True, "activity": activity})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route(
+    "/api/facet/<facet_name>/activities/<activity_id>", methods=["DELETE"]
+)
+def remove_facet_activity(facet_name: str, activity_id: str) -> Any:
+    """Remove an activity from a facet.
+
+    This detaches the activity from the facet. For predefined activities,
+    it can be re-added later. For custom activities, this deletes it.
+    """
+    try:
+        from think.activities import remove_activity_from_facet
+        from think.facets import get_facets
+
+        # Verify facet exists
+        facets = get_facets()
+        if facet_name not in facets:
+            return jsonify({"error": "Facet not found"}), 404
+
+        removed = remove_activity_from_facet(facet_name, activity_id)
+
+        if not removed:
+            return jsonify({"error": "Activity not found in facet"}), 404
+
+        log_app_action(
+            app="settings",
+            facet=facet_name,
+            action="activity_remove",
+            params={"activity_id": activity_id},
+        )
+
+        return jsonify({"success": True})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

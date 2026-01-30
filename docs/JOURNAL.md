@@ -355,6 +355,7 @@ The `facets/` directory provides a way to organize journal content by scope or f
 Each facet is organized as `facets/<facet>/` where `<facet>` is a descriptive short unique name. When referencing facets in the system, use hashtags (e.g., `#personal` for the "Personal Life" facet, `#ml_research` for "Machine Learning Research"). Each facet folder contains:
 
 - `facet.json` – metadata file with facet title and description.
+- `activities/` – configured activities for this facet (optional).
 - `entities/` – entity relationships and detected entities (see [Facet Entities](#facet-entities)).
 - `todos/` – daily todo lists (see [Facet-Scoped Todos](#facet-scoped-todos)).
 - `events/` – extracted events per day (see [Event extracts](#event-extracts)).
