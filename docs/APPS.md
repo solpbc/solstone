@@ -368,9 +368,12 @@ Both insights and agents support an optional `instructions` key for customizing 
 
 - `system` - System prompt file name (loads from `think/{name}.txt`)
 - `facets` - `"none"` | `"short"` | `"detailed"` for unfocused facet summaries
-- `sources` - Insights only: which content types to cluster
+- `sources` - Generators only: which content types to cluster. Values can be:
+  - `false` - don't load this source type
+  - `true` - load if available
+  - `"required"` - load, and skip generation if no content found (useful for generators that only make sense with specific input types, e.g., `"audio": "required"` for speaker detection)
 
-**Authoritative source:** `think/utils.py` - `compose_instructions()`, `_DEFAULT_INSTRUCTIONS`
+**Authoritative source:** `think/utils.py` - `compose_instructions()`, `_DEFAULT_INSTRUCTIONS`, `source_is_enabled()`, `source_is_required()`
 
 ---
 

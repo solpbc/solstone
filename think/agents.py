@@ -894,7 +894,7 @@ def _run_generator(
                 "prompt_source": str(agent_path),
                 "transcript": markdown,
                 "transcript_chars": len(markdown),
-                "transcript_files": file_count,
+                "transcript_files": total_count,
                 "output_path": str(output_path),
             }
             # Include pre-hook before/after if hook was run

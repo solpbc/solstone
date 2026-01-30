@@ -1182,6 +1182,37 @@ def compose_instructions(
     return result
 
 
+def source_is_enabled(value: bool | str) -> bool:
+    """Check if a source should be loaded based on its config value.
+
+    Sources can be configured as:
+    - False: don't load
+    - True: load if available
+    - "required": load (and generation will fail if none found)
+
+    Both True and "required" mean the source should be loaded.
+
+    Args:
+        value: The source config value (bool or "required" string)
+
+    Returns:
+        True if the source should be loaded, False otherwise.
+    """
+    return value is True or value == "required"
+
+
+def source_is_required(value: bool | str) -> bool:
+    """Check if a source must have content for generation to proceed.
+
+    Args:
+        value: The source config value (bool or "required" string)
+
+    Returns:
+        True if the source is required (generation should skip if no content).
+    """
+    return value == "required"
+
+
 def get_agent(name: str = "default", facet: str | None = None) -> dict:
     """Return complete agent configuration by name.
 

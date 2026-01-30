@@ -5,7 +5,7 @@ import argparse
 import os
 import re
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
@@ -167,6 +167,34 @@ def _group_entries(
     for e in entries:
         grouped[e["segment_key"]].append(e)
     return grouped
+
+
+def _count_by_source(entries: List[Dict[str, Any]]) -> Dict[str, int]:
+    """Count entries by source type (prefix).
+
+    Maps the internal prefix names to source config names:
+    - "audio" -> "audio"
+    - "screen" -> "screen"
+    - "agent_output" -> "agents"
+
+    Returns:
+        Dict with counts for each source type, e.g., {"audio": 2, "screen": 1, "agents": 0}
+    """
+    # Map internal prefix to source config name
+    prefix_to_source = {
+        "audio": "audio",
+        "screen": "screen",
+        "agent_output": "agents",
+    }
+
+    counts = Counter(prefix_to_source.get(e["prefix"], e["prefix"]) for e in entries)
+
+    # Ensure all standard sources are present (even if 0)
+    return {
+        "audio": counts.get("audio", 0),
+        "screen": counts.get("screen", 0),
+        "agents": counts.get("agents", 0),
+    }
 
 
 def _groups_to_markdown(groups: Dict[str, List[Dict[str, Any]]]) -> str:
@@ -350,8 +378,8 @@ def cluster_segments(day: str) -> List[Dict[str, Any]]:
 def cluster(
     day: str,
     sources: Dict[str, bool] | None = None,
-) -> Tuple[str, int]:
-    """Return Markdown summary for one day's JSON files and the number processed.
+) -> Tuple[str, Dict[str, int]]:
+    """Return Markdown summary for one day's JSON files and counts by source.
 
     By default uses insight summaries (*.md files) rather than raw screen data
     for daily view. Override with sources parameter.
@@ -360,15 +388,21 @@ def cluster(
         day: Day in YYYYMMDD format
         sources: Optional dict with keys "audio", "screen", "agents" (bools).
             Defaults to {"audio": True, "screen": False, "agents": True}.
+
+    Returns:
+        Tuple of (markdown, source_counts) where source_counts is a dict
+        with keys "audio", "screen", "agents" mapping to entry counts.
     """
     # Default sources for daily generators: audio + agent summaries, no raw screen
     if sources is None:
         sources = {"audio": True, "screen": False, "agents": True}
 
+    empty_counts = {"audio": 0, "screen": 0, "agents": 0}
+
     day_dir = str(day_path(day))
     # day_path now ensures dir exists, but check anyway for safety
     if not os.path.isdir(day_dir):
-        return f"Day folder not found: {day_dir}", 0
+        return f"Day folder not found: {day_dir}", empty_counts
 
     entries = _load_entries(
         day_dir,
@@ -377,19 +411,22 @@ def cluster(
         agents=sources.get("agents", True),
     )
     if not entries:
-        return f"No audio or screen files found for date {day} in {day_dir}.", 0
+        return (
+            f"No audio or screen files found for date {day} in {day_dir}.",
+            empty_counts,
+        )
 
     groups = _group_entries(entries)
     markdown = _groups_to_markdown(groups)
-    return markdown, len(entries)
+    return markdown, _count_by_source(entries)
 
 
 def cluster_period(
     day: str,
     segment: str,
     sources: Dict[str, bool] | None = None,
-) -> Tuple[str, int]:
-    """Return Markdown summary for one segment's JSON files and the number processed.
+) -> Tuple[str, Dict[str, int]]:
+    """Return Markdown summary for one segment's JSON files and counts by source.
 
     By default uses raw screen data for segment generators (more granular than summaries).
     Override with sources parameter.
@@ -401,17 +438,20 @@ def cluster_period(
             Defaults to {"audio": True, "screen": True, "agents": False}.
 
     Returns:
-        (markdown, file_count) tuple
+        Tuple of (markdown, source_counts) where source_counts is a dict
+        with keys "audio", "screen", "agents" mapping to entry counts.
     """
     # Default sources for segment generators: audio + raw screen, no agent summaries
     if sources is None:
         sources = {"audio": True, "screen": True, "agents": False}
 
+    empty_counts = {"audio": 0, "screen": 0, "agents": 0}
+
     day_dir = str(day_path(day))
     segment_dir = Path(day_dir) / segment
 
     if not segment_dir.is_dir():
-        return f"Segment folder not found: {segment_dir}", 0
+        return f"Segment folder not found: {segment_dir}", empty_counts
 
     entries = _load_entries_from_segment(
         str(segment_dir),
@@ -420,11 +460,11 @@ def cluster_period(
         agents=sources.get("agents", False),
     )
     if not entries:
-        return f"No audio or screen files found for segment {segment}", 0
+        return f"No audio or screen files found for segment {segment}", empty_counts
 
     groups = _group_entries(entries)
     markdown = _groups_to_markdown(groups)
-    return markdown, len(entries)
+    return markdown, _count_by_source(entries)
 
 
 def _load_entries_from_segment(
@@ -452,8 +492,8 @@ def cluster_span(
     day: str,
     span: List[str],
     sources: Dict[str, bool] | None = None,
-) -> Tuple[str, int]:
-    """Return Markdown summary for a span of segments and the number of entries processed.
+) -> Tuple[str, Dict[str, int]]:
+    """Return Markdown summary for a span of segments and counts by source.
 
     A span is a list of sequential segment keys (e.g., from an import that created
     multiple 5-minute segments from one audio file).
@@ -468,7 +508,8 @@ def cluster_span(
             Defaults to {"audio": True, "screen": True, "agents": False}.
 
     Returns:
-        (markdown, file_count) tuple
+        Tuple of (markdown, source_counts) where source_counts is a dict
+        with keys "audio", "screen", "agents" mapping to entry counts.
 
     Raises:
         ValueError: If any segment directories are missing
@@ -477,6 +518,7 @@ def cluster_span(
     if sources is None:
         sources = {"audio": True, "screen": True, "agents": False}
 
+    empty_counts = {"audio": 0, "screen": 0, "agents": 0}
     day_dir = str(day_path(day))
 
     # Validate all segments in span exist upfront (fail fast)
@@ -502,13 +544,16 @@ def cluster_span(
         entries.extend(segment_entries)
 
     if not entries:
-        return f"No audio or screen files found in span: {', '.join(span)}", 0
+        return (
+            f"No audio or screen files found in span: {', '.join(span)}",
+            empty_counts,
+        )
 
     # Sort all entries by timestamp, group, and render
     entries.sort(key=lambda e: e["timestamp"])
     groups = _group_entries(entries)
     markdown = _groups_to_markdown(groups)
-    return markdown, len(entries)
+    return markdown, _count_by_source(entries)
 
 
 def _segments_overlap(
@@ -595,7 +640,7 @@ def main():
     elif args.start or args.length is not None:
         parser.error("--start and --length must be used together")
     else:
-        markdown, _ = cluster(args.day)
+        markdown, _counts = cluster(args.day)
         print(markdown)
 
 

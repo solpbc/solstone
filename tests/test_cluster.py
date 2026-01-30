@@ -19,8 +19,9 @@ def test_cluster(tmp_path, monkeypatch):
     (day_dir / "120000_300" / "audio.jsonl").write_text('{}\n{"text": "hi"}\n')
     (day_dir / "120500_300").mkdir()
     (day_dir / "120500_300" / "screen.md").write_text("screen summary")
-    result, count = mod.cluster("20240101")
-    assert count == 2
+    result, counts = mod.cluster("20240101")
+    assert counts["audio"] == 1
+    assert counts["agents"] == 1
     assert "Audio Transcript" in result
     # Now uses insight rendering: "### {stem} summary"
     assert "screen summary" in result
@@ -144,10 +145,11 @@ def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
     # Also create screen.md (insight) to verify it's NOT used by cluster_period
     (segment / "screen.md").write_text("This insight should NOT appear")
 
-    result, count = mod.cluster_period("20240101", "100000_300")
+    result, counts = mod.cluster_period("20240101", "100000_300")
 
     # Should have both audio and screen entries
-    assert count == 2
+    assert counts["audio"] == 1
+    assert counts["screen"] == 1
     assert "Audio Transcript" in result
     # Should use raw screen format header
     assert "Screen Activity" in result
@@ -317,10 +319,11 @@ def test_cluster_span(tmp_path, monkeypatch):
     )
 
     # Process only first and third segments as a span
-    result, count = mod.cluster_span("20240101", ["090000_300", "110000_300"])
+    result, counts = mod.cluster_span("20240101", ["090000_300", "110000_300"])
 
-    # Should have 2 entries (one per segment with audio)
-    assert count == 2
+    # Should have 2 audio entries (one per segment)
+    assert counts["audio"] == 2
+    assert counts["screen"] == 0
     assert "morning segment" in result
     assert "late morning segment" in result
     # Should NOT include the skipped segment
