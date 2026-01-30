@@ -296,11 +296,8 @@ async def run_tools(
                 messages.append({"role": "user", "content": ac.user_instruction})
             messages.append({"role": "user", "content": ac.prompt})
 
-        # Initialize tools and executor based on disable_mcp flag
-        if not ac.disable_mcp:
-            if not ac.mcp_server_url:
-                raise RuntimeError("MCP server URL not provided in config")
-
+        # Initialize tools and executor if MCP server URL provided
+        if ac.mcp_server_url:
             async with create_mcp_client(str(ac.mcp_server_url)) as mcp:
                 if ac.tools and isinstance(ac.tools, list):
                     logger.info(f"Using tool filter with allowed tools: {ac.tools}")

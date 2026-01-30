@@ -220,11 +220,7 @@ async def run_tools(
     ac = extract_agent_config(config, default_max_tokens=_DEFAULT_MAX_TOKENS)
     max_turns = config.get("max_turns", _DEFAULT_MAX_TURNS)
 
-    LOG.info(
-        "Running agent with model %s (MCP: %s)",
-        ac.model,
-        "disabled" if ac.disable_mcp else "enabled",
-    )
+    LOG.info("Running agent with model %s", ac.model)
     cb = JSONEventCallback(on_event)
     start_event: dict = {
         "event": "start",
@@ -244,11 +240,9 @@ async def run_tools(
         reasoning=_DEFAULT_REASONING,
     )
 
-    # Initialize MCP server only if not disabled
+    # Initialize MCP server
     mcp_server = None
-    if not ac.disable_mcp:
-        if not ac.mcp_server_url:
-            raise RuntimeError("MCP server URL not provided in config")
+    if ac.mcp_server_url:
         http_uri = _normalize_streamable_http_uri(str(ac.mcp_server_url))
 
         # Configure tool filter if tools are specified
@@ -313,7 +307,7 @@ async def run_tools(
         if mcp_server:
             mcp_context = mcp_server
         else:
-            # Create a dummy context manager when MCP is disabled
+            # Create a dummy context manager when no MCP server URL provided
             from contextlib import asynccontextmanager
 
             @asynccontextmanager

@@ -283,8 +283,8 @@ class CortexService:
         with self.lock:
             self.agent_requests[agent_id] = request
 
-        # Inject MCP server URL (agents.py decides whether to use it)
-        if self.mcp_server_url and not request.get("disable_mcp", False):
+        # Inject MCP server URL
+        if self.mcp_server_url:
             request["mcp_server_url"] = self.mcp_server_url
 
         # Spawn agent process - it handles all validation/hydration

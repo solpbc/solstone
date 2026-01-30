@@ -615,11 +615,8 @@ async def run_tools(
         # Track tool usage for diagnostics
         tool_call_count = 0
 
-        # Configure tools based on disable_mcp flag
-        if not ac.disable_mcp:
-            if not ac.mcp_server_url:
-                raise RuntimeError("MCP server URL not provided in config")
-
+        # Configure tools if MCP server URL provided
+        if ac.mcp_server_url:
             # Create MCP client and attach hooks
             async with create_mcp_client(str(ac.mcp_server_url)) as mcp:
                 # Attach tool logging hooks to the MCP session

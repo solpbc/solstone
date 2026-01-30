@@ -49,7 +49,7 @@ def test_openai_provider_basic():
     env["JOURNAL_PATH"] = journal_path
     env["OPENAI_API_KEY"] = api_key
 
-    # Create NDJSON input with disable_mcp
+    # Create NDJSON input (no mcp_server_url = no MCP tools)
     ndjson_input = json.dumps(
         {
             "prompt": "what is 1+1? Just give me the number.",
@@ -57,7 +57,6 @@ def test_openai_provider_basic():
             "name": "default",
             "model": GPT_5_MINI,  # Use cheap model for testing
             "max_output_tokens": 100,
-            "disable_mcp": True,
         }
     )
 
@@ -154,7 +153,6 @@ def test_openai_provider_with_reasoning():
             "name": "default",
             "model": GPT_5_MINI,
             "max_output_tokens": 500,
-            "disable_mcp": True,
         }
     )
 
@@ -240,7 +238,6 @@ def test_openai_provider_with_extra_context():
             "name": "default",
             "model": GPT_5_MINI,
             "max_output_tokens": 50,
-            "disable_mcp": True,
             "extra_context": "## Project Context\nYou are working on Project Moonshot.",
         }
     )

@@ -49,7 +49,7 @@ def test_google_provider_basic():
     env["JOURNAL_PATH"] = journal_path
     env["GOOGLE_API_KEY"] = api_key
 
-    # Create NDJSON input with disable_mcp
+    # Create NDJSON input (no mcp_server_url = no MCP tools)
     ndjson_input = json.dumps(
         {
             "prompt": "what is 1+1? Just give me the number.",
@@ -57,7 +57,6 @@ def test_google_provider_basic():
             "name": "default",
             "model": GEMINI_FLASH,
             "max_output_tokens": 100,
-            "disable_mcp": True,
         }
     )
 
@@ -149,7 +148,6 @@ def test_google_provider_with_thinking():
             "name": "default",
             "model": GEMINI_PRO,  # Pro model for thinking
             "max_output_tokens": 2000,
-            "disable_mcp": True,
         }
     )
 

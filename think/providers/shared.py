@@ -166,7 +166,6 @@ class AgentConfig:
     agent_id: Optional[str]
     max_output_tokens: int
     thinking_budget: Optional[int]
-    disable_mcp: bool
     mcp_server_url: Optional[str]
     continue_from: Optional[str]
     system_instruction: str
@@ -214,7 +213,6 @@ def extract_agent_config(config: dict, default_max_tokens: int = 8192) -> AgentC
         agent_id=config.get("agent_id"),
         max_output_tokens=config.get("max_output_tokens", default_max_tokens),
         thinking_budget=config.get("thinking_budget"),
-        disable_mcp=config.get("disable_mcp", False),
         mcp_server_url=config.get("mcp_server_url"),
         continue_from=config.get("continue_from"),
         system_instruction=config.get("system_instruction", ""),

@@ -124,8 +124,7 @@ async def run_tools(
 - `system_instruction`: System instruction (journal.md for agents)
 - `extra_context`: Runtime context (facets, insights list, datetime) as first user message
 - `user_instruction`: Agent-specific prompt as second user message
-- `mcp_server_url`: URL for MCP tool server
-- `disable_mcp`: Skip MCP tool integration
+- `mcp_server_url`: URL for MCP tool server (tools enabled when present)
 - `tools`: Optional list of allowed tool names
 - `agent_id`, `name`: Identity for logging and tool calls
 - `continue_from`: Agent ID for conversation continuation

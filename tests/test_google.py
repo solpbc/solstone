@@ -43,7 +43,6 @@ def test_google_main(monkeypatch, tmp_path, capsys):
             "prompt": "hello",
             "provider": "google",
             "model": GEMINI_FLASH,
-            "disable_mcp": True,
             "tools": ["search_insights"],
         }
     )
