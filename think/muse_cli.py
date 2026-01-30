@@ -276,11 +276,12 @@ def show_prompt(name: str, *, as_json: bool = False) -> None:
     print(f"\n{rel_path}\n")
 
     # Display frontmatter fields
-    # Order: title, description, then alphabetical for the rest
+    # Order: title, description, key config fields, then alphabetical for the rest
     priority_keys = [
         "title",
         "description",
         "schedule",
+        "priority",
         "output",
         "tools",
         "hook",
@@ -350,7 +351,11 @@ def _truncate_content(text: str, max_lines: int = 100) -> tuple[str, int]:
         return text, 0
     # Show first half and last half
     half = max_lines // 2
-    truncated = lines[:half] + ["", f"... ({len(lines) - max_lines} lines omitted)"] + lines[-half:]
+    truncated = (
+        lines[:half]
+        + ["", f"... ({len(lines) - max_lines} lines omitted)"]
+        + lines[-half:]
+    )
     return "\n".join(truncated), len(lines) - max_lines
 
 
@@ -530,7 +535,9 @@ def show_prompt_context(
     # Pre-hook info
     if dry_run_event.get("pre_hook"):
         mods = dry_run_event.get("pre_hook_modifications", [])
-        print(f"  Pre-hook: {dry_run_event.get('pre_hook')} (modified: {', '.join(mods) or 'none'})")
+        print(
+            f"  Pre-hook: {dry_run_event.get('pre_hook')} (modified: {', '.join(mods) or 'none'})"
+        )
 
     # System instruction (show before first if pre-hook modified it)
     if dry_run_event.get("system_instruction_before"):
@@ -553,19 +560,29 @@ def show_prompt_context(
                 dry_run_event.get("user_instruction_before", ""),
                 full=full,
             )
-        _format_section("USER INSTRUCTION", dry_run_event.get("user_instruction", ""), full=full)
+        _format_section(
+            "USER INSTRUCTION", dry_run_event.get("user_instruction", ""), full=full
+        )
 
     # Extra context (agents only)
     if dry_run_event.get("extra_context"):
-        _format_section("EXTRA CONTEXT", dry_run_event.get("extra_context", ""), full=full)
+        _format_section(
+            "EXTRA CONTEXT", dry_run_event.get("extra_context", ""), full=full
+        )
 
     # Prompt (show before first if pre-hook modified it)
     prompt_source = dry_run_event.get("prompt_source", "")
     if prompt_source:
         prompt_source = f" (source: {_relative_path(prompt_source)})"
     if dry_run_event.get("prompt_before"):
-        _format_section("PROMPT (before pre-hook)", dry_run_event.get("prompt_before", ""), full=full)
-    _format_section(f"PROMPT{prompt_source}", dry_run_event.get("prompt", ""), full=full)
+        _format_section(
+            "PROMPT (before pre-hook)",
+            dry_run_event.get("prompt_before", ""),
+            full=full,
+        )
+    _format_section(
+        f"PROMPT{prompt_source}", dry_run_event.get("prompt", ""), full=full
+    )
 
     # Transcript (generators only, show before first if pre-hook modified it)
     if "transcript" in dry_run_event:

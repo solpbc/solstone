@@ -178,7 +178,11 @@ def build_post_generator_commands(
 def run_generators_via_cortex(
     day: str, force: bool, segment: str | None = None
 ) -> tuple[int, int]:
-    """Run generators via cortex requests sequentially.
+    """Run generators via cortex requests sequentially in priority order.
+
+    Generators are sorted by their `priority` field (default: 50), with lower
+    numbers running first. This allows generators that depend on other outputs
+    to run after those outputs are created.
 
     Args:
         day: YYYYMMDD format
@@ -198,18 +202,24 @@ def run_generators_via_cortex(
         logging.info("No generators found for schedule: %s", target_schedule)
         return (0, 0)
 
+    # Sort generators by priority (lower numbers first, default 50)
+    sorted_generators = sorted(
+        generators.items(),
+        key=lambda x: (x[1].get("priority", 50), x[0]),
+    )
+
     logging.info(
         "Running %d generators for %s via cortex: %s",
         len(generators),
         day,
-        list(generators.keys()),
+        [name for name, _ in sorted_generators],
     )
 
     success_count = 0
     fail_count = 0
 
-    # Run generators sequentially
-    for generator_name, generator_data in generators.items():
+    # Run generators sequentially in priority order
+    for generator_name, generator_data in sorted_generators:
         logging.info("Starting generator: %s", generator_name)
 
         # Build config for cortex request
