@@ -54,6 +54,19 @@ async def mock_run_agent(config, on_event=None):
     return f"Response to: {prompt}"
 
 
+def mock_hydrate_config(request: dict) -> dict:
+    """Mock hydrate_config that passes through request with minimal additions."""
+    config = dict(request)
+    # Add required fields if not present
+    if "name" not in config:
+        config["name"] = "default"
+    if "provider" not in config:
+        config["provider"] = "google"
+    if "model" not in config:
+        config["model"] = "gpt-5-mini"
+    return config
+
+
 def mock_all_providers(monkeypatch):
     """Mock all provider modules uniformly with mock_run_agent.
 
@@ -68,6 +81,9 @@ def mock_all_providers(monkeypatch):
         )
 
     monkeypatch.setitem(sys.modules, "agents", MagicMock())
+
+    # Mock hydrate_config to avoid needing real agent configs
+    monkeypatch.setattr("think.agents.hydrate_config", mock_hydrate_config)
 
 
 def test_ndjson_single_request(mock_journal, monkeypatch, capsys):

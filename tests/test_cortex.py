@@ -94,7 +94,9 @@ def test_cortex_service_initialization(cortex_service, mock_journal):
 @patch("think.cortex.subprocess.Popen")
 @patch("think.cortex.threading.Thread")
 @patch("think.cortex.threading.Timer")
-def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_journal):
+def test_spawn_subprocess(
+    mock_timer, mock_thread, mock_popen, cortex_service, mock_journal
+):
     """Test spawning an agent subprocess."""
     mock_process = MagicMock()
     mock_process.pid = 12345
@@ -120,10 +122,12 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
         "model": GPT_5,
     }
 
-    cortex_service._spawn_agent(
+    cortex_service._spawn_subprocess(
         agent_id,
         file_path,
         request,
+        ["sol", "agents"],
+        "agent",
     )
 
     # Check subprocess was called
@@ -164,10 +168,10 @@ def test_spawn_agent(mock_timer, mock_thread, mock_popen, cortex_service, mock_j
 @patch("think.cortex.subprocess.Popen")
 @patch("think.cortex.threading.Thread")
 @patch("think.cortex.threading.Timer")
-def test_spawn_generator_via_agent(
+def test_spawn_generator_via_subprocess(
     mock_timer, mock_thread, mock_popen, cortex_service, mock_journal
 ):
-    """Test spawning a generator subprocess via _spawn_agent."""
+    """Test spawning a generator subprocess via _spawn_subprocess."""
     mock_process = MagicMock()
     mock_process.pid = 54321
     mock_process.poll.return_value = None
@@ -192,11 +196,13 @@ def test_spawn_generator_via_agent(
         "output": "md",
     }
 
-    # Generators now route through _spawn_agent
-    cortex_service._spawn_agent(
+    # Generators route through _spawn_subprocess
+    cortex_service._spawn_subprocess(
         agent_id,
         file_path,
         config,
+        ["sol", "agents"],
+        "agent",
     )
 
     # Check subprocess was called with agents command (generators route through agents)
@@ -234,7 +240,7 @@ def test_spawn_generator_via_agent(
 
 
 @patch("think.cortex.subprocess.Popen")
-def test_spawn_agent_with_handoff_from(mock_popen, cortex_service, mock_journal):
+def test_spawn_subprocess_with_handoff_from(mock_popen, cortex_service, mock_journal):
     """Test spawning an agent with handoff_from parameter."""
     mock_process = MagicMock()
     mock_process.pid = 12345
@@ -256,7 +262,9 @@ def test_spawn_agent_with_handoff_from(mock_popen, cortex_service, mock_journal)
     }
 
     with patch("think.cortex.threading.Thread"):
-        cortex_service._spawn_agent(agent_id, file_path, request)
+        cortex_service._spawn_subprocess(
+            agent_id, file_path, request, ["sol", "agents"], "agent"
+        )
 
     # Check handoff_from was included in NDJSON
     written_data = mock_process.stdin.write.call_args[0][0]
@@ -340,18 +348,20 @@ def test_monitor_stdout_with_handoff(cortex_service, mock_journal):
     agent_id = "123456789"
     log_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
 
+    # Handoff config is now in the finish event itself
+    finish_event = {
+        "event": "finish",
+        "ts": 1234567890,
+        "result": "Create matter",
+        "handoff": {"name": "matter_editor", "facet": "test"},
+    }
+
     mock_process = MagicMock()
     mock_process.poll.return_value = 0
-    mock_process.stdout = StringIO(
-        '{"event": "finish", "ts": 1234567890, "result": "Create matter"}\n'
-    )
+    mock_process.stdout = StringIO(json.dumps(finish_event) + "\n")
 
     agent = AgentProcess(agent_id, mock_process, log_path)
     cortex_service.running_agents[agent_id] = agent
-    cortex_service.agent_handoffs[agent_id] = {
-        "name": "matter_editor",
-        "facet": "test",
-    }
 
     with patch.object(cortex_service, "_spawn_handoff") as mock_handoff:
         with patch.object(cortex_service, "_complete_agent_file"):
@@ -362,8 +372,6 @@ def test_monitor_stdout_with_handoff(cortex_service, mock_journal):
                 "Create matter",
                 {"name": "matter_editor", "facet": "test"},
             )
-
-    assert agent_id not in cortex_service.agent_handoffs
 
 
 def test_monitor_stdout_no_finish_event(cortex_service, mock_journal):

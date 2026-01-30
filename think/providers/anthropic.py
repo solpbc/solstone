@@ -268,15 +268,16 @@ async def run_agent(
 
         client = AsyncAnthropic(api_key=api_key)
 
-        callback.emit(
-            {
-                "event": "start",
-                "prompt": ac.prompt,
-                "name": ac.name,
-                "model": ac.model,
-                "provider": "anthropic",
-            }
-        )
+        start_event: dict = {
+            "event": "start",
+            "prompt": ac.prompt,
+            "name": ac.name,
+            "model": ac.model,
+            "provider": "anthropic",
+        }
+        if ac.continue_from:
+            start_event["continue_from"] = ac.continue_from
+        callback.emit(start_event)
 
         # Build initial messages - check for continuation first
         if ac.continue_from:

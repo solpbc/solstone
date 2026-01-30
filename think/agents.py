@@ -443,7 +443,131 @@ __all__ = [
     "run_pre_hook",
     "scan_day",
     "generate_agent_output",
+    "hydrate_config",
+    "expand_tools",
+    "validate_config",
 ]
+
+
+# =============================================================================
+# Config Hydration and Validation (moved from cortex.py)
+# =============================================================================
+
+
+def hydrate_config(request: dict) -> dict:
+    """Load agent config and merge with request.
+
+    Takes the raw request from cortex and returns a fully hydrated config with:
+    - Base agent config loaded from muse/*.md
+    - Request values merged (request overrides defaults)
+    - Provider and model resolved from context
+    - Tools expanded from pack names to tool list
+
+    Args:
+        request: Raw request dict from cortex with at least 'name' field
+
+    Returns:
+        Fully hydrated config dict ready for routing
+    """
+    from think.models import resolve_model_for_provider, resolve_provider
+    from think.utils import get_agent, key_to_context
+
+    name = request.get("name", "default")
+    facet = request.get("facet")
+
+    # Load base config from agent definition
+    config = get_agent(name, facet=facet)
+
+    # Merge request into config (request values override agent defaults)
+    # Only override with non-None values to preserve agent defaults
+    config.update({k: v for k, v in request.items() if v is not None})
+
+    # Resolve provider and model from context
+    context = key_to_context(name)
+    default_provider, default_model = resolve_provider(context)
+
+    # Provider can be overridden by request or agent config
+    provider = config.get("provider") or default_provider
+
+    # Model: use explicit model from request/config, or resolve from provider
+    model = config.get("model")
+    if not model:
+        if provider != default_provider:
+            model = resolve_model_for_provider(context, provider)
+        else:
+            model = default_model
+
+    config["provider"] = provider
+    config["model"] = model
+
+    # Expand tools if it's a string (tool pack name)
+    tools_config = config.get("tools")
+    if isinstance(tools_config, str):
+        config["tools"] = expand_tools(tools_config)
+
+    return config
+
+
+def expand_tools(tools_config: str) -> list[str]:
+    """Expand tool pack names to a list of tool names.
+
+    Args:
+        tools_config: Comma-separated tool pack names (e.g., "default,entities")
+
+    Returns:
+        List of unique tool names from all packs
+    """
+    from think.mcp import get_tools
+
+    pack_names = [p.strip() for p in tools_config.split(",") if p.strip()]
+    if not pack_names:
+        pack_names = ["default"]
+
+    expanded: list[str] = []
+    for pack in pack_names:
+        try:
+            for tool in get_tools(pack):
+                if tool not in expanded:
+                    expanded.append(tool)
+        except KeyError:
+            LOG.warning(f"Invalid tool pack '{pack}', using default")
+            for tool in get_tools("default"):
+                if tool not in expanded:
+                    expanded.append(tool)
+
+    return expanded
+
+
+def validate_config(config: dict) -> str | None:
+    """Validate agent config.
+
+    Args:
+        config: Hydrated config dict
+
+    Returns:
+        Error message string if invalid, None if valid
+    """
+    has_tools = bool(config.get("tools"))
+    has_output = bool(config.get("output"))
+
+    if not has_tools and not has_output:
+        return "Invalid config: must have 'tools' or 'output' field"
+
+    if has_tools and not config.get("prompt"):
+        return "Missing 'prompt' field for tool agent"
+
+    # Validate continue_from if present
+    continue_from = config.get("continue_from")
+    if continue_from:
+        from think.cortex_client import get_agent_log_status
+
+        status = get_agent_log_status(continue_from)
+        if status == "running":
+            return f"Cannot continue from {continue_from}: agent is still running"
+        if status == "not_found":
+            return f"Cannot continue from {continue_from}: agent not found"
+
+    return None
 
 
 # =============================================================================
@@ -945,13 +1069,16 @@ def _run_generator(
             result = run_post_hook(result, hook_context, post_hook)
 
     # Emit finish event with result (cortex handles file writing)
-    finish_event = {
+    finish_event: dict[str, Any] = {
         "event": "finish",
         "ts": now_ms(),
         "result": result,
     }
     if usage_data:
         finish_event["usage"] = usage_data
+    # Include handoff config for cortex to spawn follow-up agent
+    if config.get("handoff"):
+        finish_event["handoff"] = config["handoff"]
 
     emit_event(finish_event)
 
@@ -1005,8 +1132,17 @@ async def main_async() -> None:
                 continue
 
             try:
-                # Parse NDJSON line - this is the complete merged config from Cortex
-                config = json.loads(line)
+                # Parse NDJSON line - raw request from cortex
+                request = json.loads(line)
+
+                # Hydrate config: load agent definition, merge request, resolve provider
+                config = hydrate_config(request)
+
+                # Validate config
+                error = validate_config(config)
+                if error:
+                    emit_event({"event": "error", "error": error, "ts": now_ms()})
+                    continue
 
                 # Route based on config type
                 has_tools = bool(config.get("tools"))
@@ -1019,17 +1155,6 @@ async def main_async() -> None:
 
                 else:
                     # Agent: with or without tools (conversational or tool-using)
-                    prompt = config.get("prompt")
-                    if not prompt:
-                        emit_event(
-                            {
-                                "event": "error",
-                                "error": "Missing 'prompt' field for agent",
-                                "ts": now_ms(),
-                            }
-                        )
-                        continue
-
                     # Extract provider to route to correct module
                     from .providers import PROVIDER_REGISTRY, get_provider_module
 
@@ -1127,15 +1252,23 @@ async def main_async() -> None:
 
                     # Load post hook if configured
                     post_hook = load_post_hook(config)
+                    handoff_config = config.get("handoff")
 
-                    # Create event handler that intercepts finish for hooks
+                    # Create event handler that intercepts finish for hooks and handoff
                     def agent_emit_event(data: Event) -> None:
-                        if post_hook and data.get("event") == "finish":
-                            result = data.get("result", "")
-                            hook_context = build_hook_context(config)
-                            transformed = run_post_hook(result, hook_context, post_hook)
-                            if transformed != result:
-                                data = {**data, "result": transformed}
+                        if data.get("event") == "finish":
+                            # Apply post hook if configured
+                            if post_hook:
+                                result = data.get("result", "")
+                                hook_context = build_hook_context(config)
+                                transformed = run_post_hook(
+                                    result, hook_context, post_hook
+                                )
+                                if transformed != result:
+                                    data = {**data, "result": transformed}
+                            # Include handoff config for cortex
+                            if handoff_config:
+                                data = {**data, "handoff": handoff_config}
                         emit_event(data)
 
                     # Pass complete config to provider

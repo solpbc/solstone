@@ -557,15 +557,16 @@ async def run_agent(
         if not api_key:
             raise RuntimeError("GOOGLE_API_KEY not set")
 
-        callback.emit(
-            {
-                "event": "start",
-                "prompt": ac.prompt,
-                "name": ac.name,
-                "model": ac.model,
-                "provider": "google",
-            }
-        )
+        start_event: dict = {
+            "event": "start",
+            "prompt": ac.prompt,
+            "name": ac.name,
+            "model": ac.model,
+            "provider": "google",
+        }
+        if ac.continue_from:
+            start_event["continue_from"] = ac.continue_from
+        callback.emit(start_event)
 
         # Build history - check for continuation first
         if ac.continue_from:

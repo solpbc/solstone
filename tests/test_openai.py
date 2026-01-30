@@ -6,9 +6,22 @@ import importlib
 import json
 import sys
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from tests.agents_stub import install_agents_stub
 from think.models import GPT_5
+
+
+def _mock_hydrate_config(request: dict) -> dict:
+    """Mock hydrate_config that passes through request with minimal additions."""
+    config = dict(request)
+    if "name" not in config:
+        config["name"] = "default"
+    if "provider" not in config:
+        config["provider"] = "openai"
+    if "model" not in config:
+        config["model"] = GPT_5
+    return config
 
 
 async def run_main(mod, argv, stdin_data=None):
@@ -17,7 +30,9 @@ async def run_main(mod, argv, stdin_data=None):
         import io
 
         sys.stdin = io.StringIO(stdin_data)
-    await mod.main_async()
+    # Mock hydrate_config to avoid needing real agent configs
+    with patch.object(mod, "hydrate_config", _mock_hydrate_config):
+        await mod.main_async()
 
 
 def _setup_openai_mocks(monkeypatch, tmp_path):

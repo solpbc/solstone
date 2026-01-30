@@ -79,8 +79,7 @@ class CortexService:
 
         self.logger = logging.getLogger(__name__)
         self.running_agents: Dict[str, AgentProcess] = {}
-        self.agent_requests: Dict[str, Dict[str, Any]] = {}  # Store agent configs
-        self.agent_handoffs: Dict[str, Dict[str, Any]] = {}
+        self.agent_requests: Dict[str, Dict[str, Any]] = {}  # Store agent requests
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
         self.shutdown_requested = threading.Event()
@@ -246,188 +245,56 @@ class CortexService:
             self.logger.exception(f"Error handling request: {e}")
 
     def _handle_request(self, request: Dict[str, Any]) -> None:
-        """Handle a new agent request from Callosum."""
+        """Handle a new agent request from Callosum.
+
+        Cortex is a minimal process manager - it only handles:
+        - File lifecycle (_active.jsonl -> .jsonl)
+        - Process spawning and monitoring
+        - Event relay to Callosum
+
+        All config loading, validation, and hydration is done by agents.py.
+        """
         agent_id = request.get("agent_id")
         if not agent_id:
             self.logger.error("Received request without agent_id")
             return
 
-        try:
-            # Skip if this agent is already being processed
-            with self.lock:
-                if agent_id in self.running_agents:
-                    self.logger.debug(
-                        f"Agent {agent_id} already running, skipping duplicate"
-                    )
-                    return
-
-            # Create _active.jsonl file (exclusive creation to prevent race conditions)
-            file_path = self.agents_dir / f"{agent_id}_active.jsonl"
-            if file_path.exists():
-                self.logger.debug(
-                    f"Agent {agent_id} already claimed by another process"
-                )
+        # Skip if this agent is already being processed
+        with self.lock:
+            if agent_id in self.running_agents:
+                self.logger.debug(f"Agent {agent_id} already running, skipping")
                 return
 
-            # Write request as first line
+        # Create _active.jsonl file (exclusive creation to prevent race conditions)
+        file_path = self.agents_dir / f"{agent_id}_active.jsonl"
+        if file_path.exists():
+            self.logger.debug(f"Agent {agent_id} already claimed by another process")
+            return
+
+        try:
             with open(file_path, "x") as f:  # 'x' mode fails if file exists
                 f.write(json.dumps(request) + "\n")
+        except FileExistsError:
+            return
 
-            self.logger.info(f"Processing agent request: {agent_id}")
+        self.logger.info(f"Processing agent request: {agent_id}")
 
-            # Validate request format
-            if request.get("event") != "request":
-                self._write_error_and_complete(file_path, "Invalid request format")
-                self.logger.error("Invalid request format: missing 'request' event")
-                return
+        # Store request for later use (handoffs, output writing)
+        with self.lock:
+            self.agent_requests[agent_id] = request
 
-            # Validate and link continue_from if specified
-            continue_from = request.get("continue_from")
-            if continue_from:
-                from think.cortex_client import get_agent_log_status
+        # Inject MCP server URL (agents.py decides whether to use it)
+        if self.mcp_server_url and not request.get("disable_mcp", False):
+            request["mcp_server_url"] = self.mcp_server_url
 
-                status = get_agent_log_status(continue_from)
-                if status != "completed":
-                    error_msg = f"Cannot continue from agent {continue_from}: " + (
-                        "agent is still running"
-                        if status == "running"
-                        else "agent not found"
-                    )
-                    self.logger.error(error_msg)
-                    self._write_error_and_complete(file_path, error_msg)
-                    return
-
-                # Append continue event to the source agent's file
-                continue_event = {
-                    "event": "continue",
-                    "ts": now_ms(),
-                    "agent_id": continue_from,
-                    "to": agent_id,
-                }
-                source_file = self.agents_dir / f"{continue_from}.jsonl"
-                with open(source_file, "a") as f:
-                    f.write(json.dumps(continue_event) + "\n")
-                self.logger.info(f"Linked continuation: {continue_from} -> {agent_id}")
-
-            # Load agent config and merge with request
-            from think.mcp import get_tools
-            from think.utils import get_agent
-
-            name = request.get("name", "default")
-            facet = request.get("facet")
-            config = get_agent(name, facet=facet)
-
-            # Merge request into config (request values override agent defaults)
-            # Only override with non-None values from request to preserve agent defaults
-            config.update({k: v for k, v in request.items() if v is not None})
-            config["agent_id"] = agent_id
-
-            # Resolve provider and model from context
-            from think.models import resolve_model_for_provider, resolve_provider
-            from think.utils import key_to_context
-
-            agent_context = key_to_context(name)
-
-            # Resolve default provider and model from context
-            default_provider, model = resolve_provider(agent_context)
-
-            # Provider can be overridden by request or agent config
-            # Model is always resolved from context tier + final provider
-            provider = config.get("provider") or default_provider
-
-            # If provider was overridden, re-resolve model for that provider
-            if provider != default_provider:
-                model = resolve_model_for_provider(agent_context, provider)
-
-            config["provider"] = provider
-            config["model"] = model
-
-            # Capture handoff configuration for post-run processing while
-            # leaving it in the merged config for logging transparency.
-            handoff_config = config.get("handoff")
-            with self.lock:
-                if handoff_config:
-                    self.agent_handoffs[agent_id] = copy.deepcopy(handoff_config)
-                else:
-                    self.agent_handoffs.pop(agent_id, None)
-
-            # Validate config has either tools or output
-            has_tools = bool(config.get("tools"))
-            has_output = bool(config.get("output"))
-
-            if not has_tools and not has_output:
-                self.logger.error(
-                    f"Invalid agent config for {agent_id}: "
-                    "must have 'tools' or 'output' field"
-                )
-                self._write_error_and_complete(
-                    file_path,
-                    "Invalid agent config: must have 'tools' or 'output' field",
-                )
-                return
-
-            # For tool agents: validate prompt and expand tool packs
-            if has_tools:
-                prompt = config.get("prompt")
-                if not prompt:
-                    self.logger.error(f"Empty prompt in agent request {agent_id}")
-                    self._write_error_and_complete(
-                        file_path, "Empty prompt in agent request"
-                    )
-                    return
-
-                # Expand tools if it's a string (tool pack name)
-                tools_config = config.get("tools")
-                if isinstance(tools_config, str):
-                    pack_names = [
-                        p.strip() for p in tools_config.split(",") if p.strip()
-                    ]
-                    if not pack_names:
-                        pack_names = ["default"]
-
-                    expanded: list[str] = []
-                    for pack in pack_names:
-                        try:
-                            for tool in get_tools(pack):
-                                if tool not in expanded:
-                                    expanded.append(tool)
-                        except KeyError as e:
-                            self.logger.warning(
-                                f"Invalid tool pack '{pack}': {e}, using default"
-                            )
-                            for tool in get_tools("default"):
-                                if tool not in expanded:
-                                    expanded.append(tool)
-
-                    config["tools"] = expanded
-
-            # Spawn agent process (handles both tool agents and generators)
-            self._spawn_agent(agent_id, file_path, config)
-
-        except json.JSONDecodeError as e:
-            self.logger.error(f"Invalid JSON in request file {file_path}: {e}")
-            self._write_error_and_complete(file_path, f"Invalid JSON in request: {e}")
+        # Spawn agent process - it handles all validation/hydration
+        try:
+            self._spawn_subprocess(
+                agent_id, file_path, request, ["sol", "agents"], "agent"
+            )
         except Exception as e:
-            self.logger.exception(f"Error handling active file {file_path}: {e}")
+            self.logger.exception(f"Failed to spawn agent {agent_id}: {e}")
             self._write_error_and_complete(file_path, f"Failed to spawn agent: {e}")
-
-    def _spawn_agent(
-        self,
-        agent_id: str,
-        file_path: Path,
-        config: Dict[str, Any],
-    ) -> None:
-        """Spawn an agent subprocess and monitor its output.
-
-        Handles both tool-using agents and generators - routing is done by
-        the agents CLI based on config (tools vs output field).
-        """
-        # Only inject MCP server URL for tool agents (not generators)
-        has_tools = bool(config.get("tools"))
-        if has_tools and self.mcp_server_url and not config.get("disable_mcp", False):
-            config.setdefault("mcp_server_url", self.mcp_server_url)
-
-        self._spawn_subprocess(agent_id, file_path, config, ["sol", "agents"], "agent")
 
     def _spawn_subprocess(
         self,
@@ -569,8 +436,9 @@ class CortexService:
                                 f"Failed to broadcast event to Callosum: {e}"
                             )
 
-                        # Capture model from start event (needed for token usage logging)
+                        # Handle start event
                         if event.get("event") == "start":
+                            # Capture model for token usage logging
                             model = event.get("model")
                             if model:
                                 with self.lock:
@@ -578,6 +446,23 @@ class CortexService:
                                         self.agent_requests[agent.agent_id][
                                             "model"
                                         ] = model
+
+                            # Write continue event to source file if continuing
+                            continue_from = event.get("continue_from")
+                            if continue_from:
+                                continue_event = {
+                                    "event": "continue",
+                                    "ts": now_ms(),
+                                    "agent_id": continue_from,
+                                    "to": agent.agent_id,
+                                }
+                                source_file = self.agents_dir / f"{continue_from}.jsonl"
+                                if source_file.exists():
+                                    with open(source_file, "a") as f:
+                                        f.write(json.dumps(continue_event) + "\n")
+                                    self.logger.info(
+                                        f"Linked continuation: {continue_from} -> {agent.agent_id}"
+                                    )
 
                         # Handle finish or error event
                         if event.get("event") in ["finish", "error"]:
@@ -629,14 +514,8 @@ class CortexService:
                                         original_request,
                                     )
 
-                                # Handle handoff (prefer stored config captured at startup)
-                                handoff_config = None
-                                with self.lock:
-                                    if agent.agent_id in self.agent_handoffs:
-                                        handoff_config = copy.deepcopy(
-                                            self.agent_handoffs.pop(agent.agent_id)
-                                        )
-
+                                # Handle handoff from finish event
+                                handoff_config = event.get("handoff")
                                 if handoff_config:
                                     self._spawn_handoff(
                                         agent.agent_id, result, handoff_config
@@ -687,8 +566,6 @@ class CortexService:
                 # Clean up stored request
                 if agent.agent_id in self.agent_requests:
                     del self.agent_requests[agent.agent_id]
-                # Ensure any pending handoff config is discarded
-                self.agent_handoffs.pop(agent.agent_id, None)
 
     def _monitor_stderr(self, agent: AgentProcess) -> None:
         """Monitor agent stderr for errors."""

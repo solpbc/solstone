@@ -226,16 +226,17 @@ async def run_agent(
         "disabled" if ac.disable_mcp else "enabled",
     )
     cb = JSONEventCallback(on_event)
-    cb.emit(
-        {
-            "event": "start",
-            "prompt": ac.prompt,
-            "name": ac.name,
-            "model": ac.model,
-            "provider": "openai",
-            "ts": now_ms(),
-        }
-    )
+    start_event: dict = {
+        "event": "start",
+        "prompt": ac.prompt,
+        "name": ac.name,
+        "model": ac.model,
+        "provider": "openai",
+        "ts": now_ms(),
+    }
+    if ac.continue_from:
+        start_event["continue_from"] = ac.continue_from
+    cb.emit(start_event)
 
     # Model settings: always enable reasoning with detailed summaries
     model_settings = ModelSettings(
