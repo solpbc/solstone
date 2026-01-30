@@ -9,7 +9,6 @@ from think.models import (
     CLAUDE_HAIKU_4,
     CLAUDE_OPUS_4,
     CLAUDE_SONNET_4,
-    CONTEXT_DEFAULTS,
     DEFAULT_PROVIDER,
     DEFAULT_TIER,
     GEMINI_FLASH,
@@ -18,6 +17,7 @@ from think.models import (
     GPT_5,
     GPT_5_MINI,
     GPT_5_NANO,
+    PROMPT_PATHS,
     PROVIDER_DEFAULTS,
     TIER_FLASH,
     TIER_LITE,
@@ -196,41 +196,56 @@ def test_tier_constants():
     assert DEFAULT_PROVIDER == "google"
 
 
-def test_context_defaults_structure():
-    """Test CONTEXT_DEFAULTS has required fields for each entry."""
-    required_keys = {"tier", "label", "group"}
+def test_prompt_paths_exist():
+    """Test all PROMPT_PATHS files exist and have valid frontmatter."""
+    from pathlib import Path
 
-    for context, config in CONTEXT_DEFAULTS.items():
-        assert isinstance(config, dict), f"{context} should be a dict"
+    import frontmatter
+
+    base_dir = Path(__file__).parent.parent  # Project root
+    required_keys = {"context", "tier", "label", "group"}
+
+    for rel_path in PROMPT_PATHS:
+        path = base_dir / rel_path
+        assert path.exists(), f"Prompt file not found: {rel_path}"
+
+        post = frontmatter.load(path)
+        meta = post.metadata or {}
+
         assert required_keys <= set(
-            config.keys()
-        ), f"{context} missing keys: {required_keys - set(config.keys())}"
-        assert config["tier"] in (
+            meta.keys()
+        ), f"{rel_path} missing keys: {required_keys - set(meta.keys())}"
+        assert meta["tier"] in (
             TIER_PRO,
             TIER_FLASH,
             TIER_LITE,
-        ), f"{context} has invalid tier: {config['tier']}"
+        ), f"{rel_path} has invalid tier: {meta['tier']}"
         assert (
-            isinstance(config["label"], str) and config["label"]
-        ), f"{context} has invalid label: {config['label']}"
+            isinstance(meta["label"], str) and meta["label"]
+        ), f"{rel_path} has invalid label: {meta['label']}"
         assert (
-            isinstance(config["group"], str) and config["group"]
-        ), f"{context} has invalid group: {config['group']}"
+            isinstance(meta["group"], str) and meta["group"]
+        ), f"{rel_path} has invalid group: {meta['group']}"
 
 
-def test_context_defaults_known_entries():
-    """Test specific known CONTEXT_DEFAULTS entries."""
-    # Verify some known entries exist with correct values
-    assert "observe.describe.frame" in CONTEXT_DEFAULTS
-    assert CONTEXT_DEFAULTS["observe.describe.frame"]["tier"] == TIER_LITE
-    assert CONTEXT_DEFAULTS["observe.describe.frame"]["group"] == "Observe"
+def test_prompt_contexts_in_registry():
+    """Test prompt contexts are discovered and in registry."""
+    registry = get_context_registry()
 
-    # agent.* static defaults removed - now discovered from muse/*.md
-    assert "agent.*" not in CONTEXT_DEFAULTS
+    # Verify known prompt contexts exist with correct values
+    assert "observe.describe.frame" in registry
+    assert registry["observe.describe.frame"]["tier"] == TIER_LITE
+    assert registry["observe.describe.frame"]["group"] == "Observe"
 
-    assert "app.chat.title" in CONTEXT_DEFAULTS
-    assert CONTEXT_DEFAULTS["app.chat.title"]["tier"] == TIER_LITE
-    assert CONTEXT_DEFAULTS["app.chat.title"]["group"] == "Apps"
+    assert "app.chat.title" in registry
+    assert registry["app.chat.title"]["tier"] == TIER_LITE
+    assert registry["app.chat.title"]["group"] == "Apps"
+
+    assert "observe.enrich" in registry
+    assert registry["observe.enrich"]["tier"] == TIER_FLASH
+
+    assert "detect.created" in registry
+    assert registry["detect.created"]["tier"] == TIER_LITE
 
 
 def test_provider_defaults_structure():
@@ -362,30 +377,38 @@ def test_resolve_provider_invalid_tier(use_fixtures_journal, monkeypatch, tmp_pa
 # ---------------------------------------------------------------------------
 
 
-def test_context_registry_includes_static_defaults():
-    """Test that registry includes all static CONTEXT_DEFAULTS entries."""
-    registry = get_context_registry()
+def test_context_registry_includes_prompt_contexts():
+    """Test that registry includes all contexts from PROMPT_PATHS."""
+    from pathlib import Path
 
-    # All static defaults should be in registry
-    for context in CONTEXT_DEFAULTS:
-        assert context in registry, f"Static default {context} not in registry"
-        assert registry[context]["tier"] == CONTEXT_DEFAULTS[context]["tier"]
+    import frontmatter
+
+    registry = get_context_registry()
+    base_dir = Path(__file__).parent.parent
+
+    # All prompt contexts should be in registry with correct tier
+    for rel_path in PROMPT_PATHS:
+        path = base_dir / rel_path
+        post = frontmatter.load(path)
+        meta = post.metadata or {}
+        context = meta.get("context")
+
+        assert context in registry, f"Prompt context {context} not in registry"
+        assert registry[context]["tier"] == meta["tier"]
 
 
 def test_context_registry_includes_categories():
     """Test that registry includes discovered category contexts."""
     registry = get_context_registry()
 
-    # Should have category entries (from observe/categories/*.json)
+    # Should have category entries (from observe/categories/*.md)
     category_contexts = [k for k in registry if k.startswith("observe.describe.")]
 
-    # Should have more than just the static entries (frame and wildcard)
-    assert len(category_contexts) > 2, "Should discover category contexts"
+    # Should have frame + all categories (browsing, code, gaming, etc.)
+    assert len(category_contexts) > 5, "Should discover category contexts"
 
     # Each category context should have required fields
     for context in category_contexts:
-        if context == "observe.describe.*":
-            continue  # Skip wildcard
         assert "tier" in registry[context]
         assert "label" in registry[context]
         assert "group" in registry[context]

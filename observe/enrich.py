@@ -101,7 +101,7 @@ def enrich_transcript(
                 types.Part.from_bytes(data=audio_bytes, mime_type="audio/flac")
             )
 
-        # Call LLM (tier defaults to LITE via CONTEXT_DEFAULTS)
+        # Call LLM (tier from enrich.md frontmatter)
         logger.info(f"Enriching {len(statements)} statements...")
         t0 = time.perf_counter()
 

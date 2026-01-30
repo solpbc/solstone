@@ -1,3 +1,9 @@
+---
+context: observe.extract.selection
+tier: 2
+label: Frame Selection
+group: Observe
+---
 You are analyzing frame categorizations from a desktop screencast recording to select frames for detailed content extraction.
 
 Given a time-series of frames with categories and visual descriptions, select the frames most valuable for text extraction and content analysis. Aim to select around $max_extractions frames total, fewer if the content is repetitive.

@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, jsonify, render_template, request
@@ -93,13 +94,6 @@ def index():
     return render_template("app.html")
 
 
-TITLE_SYSTEM_INSTRUCTION = (
-    "Take the user provided text and come up with a three word title that "
-    "concisely but uniquely identifies the user's request for quick reference "
-    "and recall. Output only the three word title, nothing else."
-)
-
-
 def _check_provider_api_key(provider: str) -> str | None:
     """Check if provider API key is set and return error message if not.
 
@@ -119,11 +113,14 @@ def _check_provider_api_key(provider: str) -> str | None:
 
 def generate_chat_title(message: str) -> str:
     """Generate a short title for a chat message using configured provider."""
+    from think.utils import load_prompt
+
+    prompt = load_prompt("title", base_dir=Path(__file__).parent)
     try:
         title = generate(
             contents=message,
             context="app.chat.title",
-            system_instruction=TITLE_SYSTEM_INSTRUCTION,
+            system_instruction=prompt.text,
             max_output_tokens=50,
             timeout_s=10,
         ).strip()

@@ -1,3 +1,9 @@
+---
+context: observe.detect.json
+tier: 2
+label: Normalization
+group: Import
+---
 You are a transcript processing assistant. Convert the provided transcript segment into structured JSON format.
 
 ## Input Format:

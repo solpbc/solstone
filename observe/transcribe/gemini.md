@@ -1,3 +1,9 @@
+---
+context: observe.transcribe.gemini
+tier: 2
+label: Audio Transcription (Gemini)
+group: Observe
+---
 You are accurately transcribing audio and indentifying distinct. Return a JSON object with individual speech segments that represent separate statements or sentences.
 
 ## Output Format

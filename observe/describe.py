@@ -420,7 +420,7 @@ class VideoProcessor:
                 output_file.write(json.dumps(metadata) + "\n")
                 output_file.flush()
 
-            # Resolve model for frame description (tier comes from CONTEXT_DEFAULTS)
+            # Resolve model for frame description (tier from describe.md frontmatter)
             _, frame_model = resolve_provider("observe.describe.frame")
 
             # Create vision requests for all qualified frames

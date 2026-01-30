@@ -249,19 +249,18 @@ Context strings determine provider and model selection. Providers receive alread
 - Other contexts: `{module}.{feature}[.{operation}]`
   - Examples: `observe.describe.frame`, `app.chat.title`
 
-**Dynamic discovery:** Categories and muse configs express their own tier/label/group in their configs:
-- Categories: `observe/categories/*.json` - add `tier`, `label`, `group` fields
+**Dynamic discovery:** All context metadata (tier/label/group) is defined in prompt .md files via YAML frontmatter:
+- Prompt files: Listed in `PROMPT_PATHS` in `think/models.py` - add `context`, `tier`, `label`, `group` fields
+- Categories: `observe/categories/*.md` - add `tier`, `label`, `group` fields
 - System muse: `muse/*.md` - add `tier`, `label`, `group` fields in frontmatter
 - App muse: `apps/*/muse/*.md` - add `tier`, `label`, `group` fields in frontmatter
 
-These are discovered at runtime and merged with static defaults. Use `get_context_registry()` to get the complete context map including discovered entries.
-
-See `CONTEXT_DEFAULTS` in `think/models.py` for static context patterns (non-discoverable contexts like `observe.detect.*`).
+All contexts are discovered at runtime. Use `get_context_registry()` to get the complete context map.
 
 **Resolution** (handled by `think/models.py` `resolve_provider()`):
 1. Exact match in journal.json `providers.contexts`
 2. Glob pattern match (fnmatch) with specificity ranking
-3. Dynamic context registry (static defaults + discovered categories/agents)
+3. Dynamic context registry (discovered prompts, categories, muse configs)
 4. Default provider/tier from config
 
 Providers don't implement routing - they receive the resolved model.

@@ -1,3 +1,9 @@
+---
+context: observe.detect.segment
+tier: 2
+label: Segmentation
+group: Import
+---
 You are a transcript analyzer that identifies 5-minute segment boundaries with absolute timestamps.
 
 TASK: Find ~5-minute segment boundaries and return their line numbers with absolute time-of-day timestamps.

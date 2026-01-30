@@ -92,15 +92,10 @@ class IncompleteJSONError(ValueError):
 
 
 # ---------------------------------------------------------------------------
-# Context defaults: context pattern -> {tier, label, group}
+# Prompt context discovery
 #
-# These define the default tier for each context when not overridden in config.
-# Patterns support glob-style matching (fnmatch).
-#
-# Each entry contains:
-#   - tier: Default tier (TIER_PRO, TIER_FLASH, TIER_LITE)
-#   - label: Human-readable name for settings UI
-#   - group: Category for grouping in settings UI
+# Context metadata (tier, label, group) is defined in prompt .md files via
+# YAML frontmatter. This eliminates duplication between code and config.
 #
 # NAMING CONVENTION:
 #   {module}.{feature}[.{operation}]
@@ -112,82 +107,31 @@ class IncompleteJSONError(ValueError):
 #   - muse.entities.observer    -> muse module, entities app, observer config
 #   - app.chat.title            -> apps module, chat app, title operation
 #
-# DYNAMIC DISCOVERY:
-#   Categories (observe/categories/*.json) and agents (muse/*.md,
-#   apps/*/muse/*.md) can express tier/label/group in their frontmatter.
-#   These are discovered at runtime and merged with the static defaults below.
+# DISCOVERY SOURCES:
+#   1. Prompt files listed in PROMPT_PATHS (with context in frontmatter)
+#   2. Categories from observe/categories/*.md (tier/label/group in frontmatter)
+#   3. Muse configs from muse/*.md and apps/*/muse/*.md
 #
 # When adding new contexts:
-#   1. Use module prefix matching the package (observe, think, app)
-#   2. Add specific operations as suffixes when granular control is needed
-#   3. Use wildcards sparingly - prefer explicit entries for clarity
-#   4. If not listed here, context falls back to DEFAULT_TIER (FLASH)
-#   5. For categories/agents, prefer adding tier/label/group to JSON configs
+#   1. Create a .md prompt file with YAML frontmatter containing:
+#      context, tier, label, group
+#   2. Add the path to PROMPT_PATHS
+#   3. If not listed, context falls back to DEFAULT_TIER (FLASH)
 # ---------------------------------------------------------------------------
 
-# Static context defaults - non-discoverable contexts only
-# Categories and agents express their own tier/label/group in JSON configs
-CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
-    # Observe pipeline - screen and audio capture processing
-    "observe.describe.frame": {
-        "tier": TIER_LITE,
-        "label": "Screen Categorization",
-        "group": "Observe",
-    },
-    # Fallback for categories without explicit tier in their JSON
-    "observe.describe.*": {
-        "tier": TIER_FLASH,
-        "label": "Screen Extraction",
-        "group": "Observe",
-    },
-    "observe.detect.segment": {
-        "tier": TIER_FLASH,
-        "label": "Segmentation",
-        "group": "Import",
-    },
-    "observe.detect.json": {
-        "tier": TIER_FLASH,
-        "label": "Normalization",
-        "group": "Import",
-    },
-    "observe.enrich": {
-        "tier": TIER_FLASH,
-        "label": "Audio Enrichment",
-        "group": "Observe",
-    },
-    "observe.transcribe.gemini": {
-        "tier": TIER_FLASH,
-        "label": "Audio Transcription (Gemini)",
-        "group": "Observe",
-    },
-    "observe.extract.selection": {
-        "tier": TIER_FLASH,
-        "label": "Frame Selection",
-        "group": "Observe",
-    },
-    "observe.summarize": {
-        "tier": TIER_FLASH,
-        "label": "Summarization",
-        "group": "Import",
-    },
-    # Utilities - miscellaneous processing tasks
-    "detect.created": {
-        "tier": TIER_LITE,
-        "label": "Date Detection",
-        "group": "Import",
-    },
-    "planner.generate": {
-        "tier": TIER_FLASH,
-        "label": "Agent Prompt Generation",
-        "group": "Think",
-    },
-    # Apps - application-specific contexts
-    "app.chat.title": {
-        "tier": TIER_LITE,
-        "label": "Chat Title Generation",
-        "group": "Apps",
-    },
-}
+# Flat list of prompt files that define context metadata in frontmatter.
+# Each must have: context, tier, label, group in YAML frontmatter.
+PROMPT_PATHS: List[str] = [
+    "observe/describe.md",
+    "observe/enrich.md",
+    "observe/extract.md",
+    "observe/transcribe/gemini.md",
+    "think/detect_created.md",
+    "think/detect_transcript_segment.md",
+    "think/detect_transcript_json.md",
+    "think/planner.md",
+    "apps/chat/title.md",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +140,49 @@ CONTEXT_DEFAULTS: Dict[str, Dict[str, Any]] = {
 
 # Cached context registry (built lazily on first use)
 _context_registry: Optional[Dict[str, Dict[str, Any]]] = None
+
+
+def _discover_prompt_contexts() -> Dict[str, Dict[str, Any]]:
+    """Load context metadata from prompt files listed in PROMPT_PATHS.
+
+    Each file must have YAML frontmatter with:
+    - context: The context string (e.g., "observe.enrich")
+    - tier: Tier number (1=pro, 2=flash, 3=lite)
+    - label: Human-readable name
+    - group: Settings UI category
+
+    Returns
+    -------
+    Dict[str, Dict[str, Any]]
+        Mapping of context patterns to {tier, label, group} dicts.
+    """
+    contexts = {}
+    base_dir = Path(__file__).parent.parent  # Project root
+
+    for rel_path in PROMPT_PATHS:
+        path = base_dir / rel_path
+        if not path.exists():
+            logging.getLogger(__name__).warning(f"Prompt file not found: {path}")
+            continue
+
+        try:
+            post = frontmatter.load(path)
+            meta = post.metadata or {}
+
+            context = meta.get("context")
+            if not context:
+                logging.getLogger(__name__).warning(f"No context in {path}")
+                continue
+
+            contexts[context] = {
+                "tier": meta.get("tier", TIER_FLASH),
+                "label": meta.get("label", context),
+                "group": meta.get("group", "Other"),
+            }
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Failed to load {path}: {e}")
+
+    return contexts
 
 
 def _discover_muse_contexts() -> Dict[str, Dict[str, Any]]:
@@ -265,20 +252,20 @@ def _discover_muse_contexts() -> Dict[str, Dict[str, Any]]:
 
 
 def _build_context_registry() -> Dict[str, Dict[str, Any]]:
-    """Build complete context registry from static defaults and discovered configs.
+    """Build complete context registry from discovered configs.
 
     Merges:
-    1. Static CONTEXT_DEFAULTS (non-discoverable contexts)
+    1. Prompt contexts from _discover_prompt_contexts()
     2. Category contexts from observe/describe.py CATEGORIES
-    3. Agent contexts from _discover_agent_contexts()
+    3. Muse contexts from _discover_muse_contexts()
 
     Returns
     -------
     Dict[str, Dict[str, Any]]
         Complete context registry mapping patterns to {tier, label, group}.
     """
-    # Start with static defaults
-    registry = dict(CONTEXT_DEFAULTS)
+    # Start with prompt contexts (from PROMPT_PATHS)
+    registry = _discover_prompt_contexts()
 
     # Merge category contexts (lazy import to avoid circular dependency)
     try:
@@ -336,7 +323,7 @@ def _resolve_tier(context: str) -> int:
     providers_config = journal_config.get("providers", {})
     contexts = providers_config.get("contexts", {})
 
-    # Get dynamic context registry (includes static defaults + discovered categories/agents)
+    # Get dynamic context registry (discovered prompts, categories, muse configs)
     registry = get_context_registry()
 
     # Check journal config contexts first (exact match)
@@ -496,7 +483,7 @@ def resolve_provider(context: str) -> tuple[str, str]:
 
     # No context match - check dynamic context registry for this context
     if match_config is None:
-        # Get dynamic context registry (includes static defaults + discovered categories/agents)
+        # Get dynamic context registry (discovered prompts, categories, muse configs)
         registry = get_context_registry()
 
         # Check for matching context default (exact match first, then glob)
@@ -1163,7 +1150,7 @@ __all__ = [
     # Provider configuration
     "DEFAULT_TIER",
     "DEFAULT_PROVIDER",
-    "CONTEXT_DEFAULTS",
+    "PROMPT_PATHS",
     "get_context_registry",
     # Model constants (used by provider backends for defaults)
     "GEMINI_FLASH",

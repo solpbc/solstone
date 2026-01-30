@@ -1,3 +1,9 @@
+---
+context: observe.enrich
+tier: 2
+label: Audio Enrichment
+group: Observe
+---
 You are correcting and enriching an audio transcript. You receive numbered statements with transcribed text and corresponding audio clips.
 
 For each statement:

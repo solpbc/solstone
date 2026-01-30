@@ -1,3 +1,9 @@
+---
+context: observe.describe.frame
+tier: 3
+label: Screen Categorization
+group: Observe
+---
 You have one job: identify the primary foreground and (if present) secondary app categories in this desktop screenshot, and return ONLY this JSON:
 
 {
