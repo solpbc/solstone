@@ -4,7 +4,7 @@
 """Unified agent and generator CLI for solstone.
 
 Spawned by cortex for both:
-- Tool-using agents (configs with 'tools' field)
+- Agents (with or without tools, conversational or tool-using)
 - Transcript generators (configs with 'output' field, no 'tools')
 
 Reads NDJSON config from stdin, emits JSONL events to stdout.
@@ -971,8 +971,8 @@ async def main_async() -> None:
     """NDJSON-based CLI for agents and generators.
 
     Routes based on config:
-    - 'tools' field present -> tool-using agent (via provider)
     - 'output' field present (no 'tools') -> generator (transcript analysis)
+    - Everything else -> agent (with or without tools, via provider)
     """
     parser = argparse.ArgumentParser(
         description="solstone Agent CLI - Accepts NDJSON input via stdin"
@@ -1017,14 +1017,14 @@ async def main_async() -> None:
                     app_logger.debug(f"Processing generator: {config.get('name')}")
                     _run_generator(config, emit_event, dry_run=dry_run)
 
-                elif has_tools:
-                    # Tool-using agent: validate prompt exists
+                else:
+                    # Agent: with or without tools (conversational or tool-using)
                     prompt = config.get("prompt")
                     if not prompt:
                         emit_event(
                             {
                                 "event": "error",
-                                "error": "Missing 'prompt' field for tool agent",
+                                "error": "Missing 'prompt' field for agent",
                                 "ts": now_ms(),
                             }
                         )
@@ -1142,16 +1142,6 @@ async def main_async() -> None:
                     await provider_mod.run_agent(
                         config=config,
                         on_event=agent_emit_event,
-                    )
-
-                else:
-                    # Neither tools nor output - invalid config
-                    emit_event(
-                        {
-                            "event": "error",
-                            "error": "Invalid config: must have 'tools' or 'output' field",
-                            "ts": now_ms(),
-                        }
                     )
 
             except json.JSONDecodeError as e:

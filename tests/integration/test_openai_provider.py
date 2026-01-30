@@ -287,12 +287,12 @@ def test_openai_provider_with_extra_context():
 
 @pytest.mark.integration
 @pytest.mark.requires_api
-def test_openai_json_truncation_error():
-    """Test that OpenAI provider raises IncompleteJSONError when JSON response is truncated.
+def test_openai_json_truncation_detection():
+    """Test that OpenAI provider detects JSON response truncation via finish_reason.
 
     Uses a small max_output_tokens to force truncation, verifying that
-    the provider correctly detects non-stop finish reasons and raises an error
-    with the partial text available for debugging.
+    the provider returns finish_reason='max_tokens' which callers can use
+    to detect incomplete responses.
     """
     fixtures_env, api_key, _ = get_fixtures_env()
 
@@ -303,19 +303,20 @@ def test_openai_json_truncation_error():
         pytest.skip("OPENAI_API_KEY not found in fixtures/.env file")
 
     # Import provider directly for this test
-    from think.models import IncompleteJSONError
     from think.providers import openai as openai_provider
 
     # Request JSON output with small token limit to force truncation
-    with pytest.raises(IncompleteJSONError) as exc_info:
-        openai_provider.generate(
-            contents="Return a JSON array of the first 50 prime numbers.",
-            model=GPT_5_MINI,
-            json_output=True,
-            max_output_tokens=50,  # Too small to complete the response
-        )
+    # Use run_generate which returns GenerateResult, then check finish_reason
+    result = openai_provider.run_generate(
+        contents="Return a JSON array of the first 50 prime numbers.",
+        model=GPT_5_MINI,
+        json_output=True,
+        max_output_tokens=50,  # Too small to complete the response
+    )
 
-    # Verify error message and partial_text attribute
-    assert "JSON response incomplete" in str(exc_info.value)
-    assert exc_info.value.reason is not None
-    assert isinstance(exc_info.value.partial_text, str)
+    # Verify truncation was detected via finish_reason
+    assert result["finish_reason"] == "max_tokens", (
+        f"Expected max_tokens finish_reason, got: {result['finish_reason']}"
+    )
+    # Partial text should be present
+    assert isinstance(result["text"], str)

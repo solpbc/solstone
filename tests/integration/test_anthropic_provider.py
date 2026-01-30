@@ -218,12 +218,12 @@ def test_anthropic_provider_with_thinking():
 
 @pytest.mark.integration
 @pytest.mark.requires_api
-def test_anthropic_json_truncation_error():
-    """Test that Anthropic provider raises IncompleteJSONError when JSON response is truncated.
+def test_anthropic_json_truncation_detection():
+    """Test that Anthropic provider detects JSON response truncation via finish_reason.
 
     Uses a very small max_output_tokens to force truncation, verifying that
-    the provider correctly detects non-end_turn stop reasons and raises an error
-    with the partial text available for debugging.
+    the provider returns finish_reason='max_tokens' which callers can use
+    to detect incomplete responses.
     """
     fixtures_env, api_key, _ = get_fixtures_env()
 
@@ -234,19 +234,20 @@ def test_anthropic_json_truncation_error():
         pytest.skip("ANTHROPIC_API_KEY not found in fixtures/.env file")
 
     # Import provider directly for this test
-    from think.models import IncompleteJSONError
     from think.providers import anthropic as anthropic_provider
 
     # Request JSON output with very small token limit to force truncation
-    with pytest.raises(IncompleteJSONError) as exc_info:
-        anthropic_provider.generate(
-            contents="Return a JSON array of the first 50 prime numbers.",
-            model=CLAUDE_SONNET_4,
-            json_output=True,
-            max_output_tokens=10,  # Too small to complete the response
-        )
+    # Use run_generate which returns GenerateResult, then check finish_reason
+    result = anthropic_provider.run_generate(
+        contents="Return a JSON array of the first 50 prime numbers.",
+        model=CLAUDE_SONNET_4,
+        json_output=True,
+        max_output_tokens=10,  # Too small to complete the response
+    )
 
-    # Verify error message and partial_text attribute
-    assert "JSON response incomplete" in str(exc_info.value)
-    assert exc_info.value.reason is not None
-    assert isinstance(exc_info.value.partial_text, str)
+    # Verify truncation was detected via finish_reason
+    assert result["finish_reason"] == "max_tokens", (
+        f"Expected max_tokens finish_reason, got: {result['finish_reason']}"
+    )
+    # Partial text should be present
+    assert isinstance(result["text"], str)
