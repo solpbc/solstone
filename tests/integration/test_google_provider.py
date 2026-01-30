@@ -238,8 +238,8 @@ def test_google_json_truncation_detection():
     )
 
     # Verify truncation was detected via finish_reason
-    assert result["finish_reason"] == "max_tokens", (
-        f"Expected max_tokens finish_reason, got: {result['finish_reason']}"
-    )
+    assert (
+        result["finish_reason"] == "max_tokens"
+    ), f"Expected max_tokens finish_reason, got: {result['finish_reason']}"
     # Partial text should be present
     assert isinstance(result["text"], str)
