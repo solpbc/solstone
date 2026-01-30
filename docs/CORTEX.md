@@ -16,9 +16,8 @@ For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLO
 
 ### Key Components
 - **Message Bus Integration**: Cortex connects to Callosum to receive requests and broadcast events
-- **Configuration Loading**: Cortex loads and merges agent configuration with request parameters
-- **Request Routing**: Validates config has either `tools` or `output` field, then spawns `sol agents`
-- **Process Management**: Spawns agent subprocesses with merged configuration (both tool agents and generators)
+- **Process Management**: Spawns agent subprocesses (both tool agents and generators)
+- **Configuration Delegation**: Passes raw requests to `sol agents`, which handles all config loading, validation, and hydration
 - **Event Capture**: Monitors agent stdout/stderr and appends to JSONL files
 - **Dual Event Distribution**: Events go to both persistent files and real-time message bus
 - **NDJSON Input Mode**: Agent processes accept newline-delimited JSON via stdin containing the full merged configuration
@@ -264,13 +263,17 @@ Agents use configurations stored in the `muse/` directory. Each agent is a `.md`
 - The agent-specific prompt and instructions in the content
 
 When spawning an agent:
-1. Cortex loads the agent configuration using `get_agent()` from `think/utils.py`
-2. The configuration is built with three instruction components:
+1. Cortex passes the raw request to `sol agents` via stdin (NDJSON format)
+2. The agent process (`think/agents.py`) handles all config loading via `hydrate_config()`:
+   - Loads agent configuration using `get_agent()` from `think/utils.py`
+   - Merges request parameters with agent defaults
+   - Resolves provider and model based on context
+   - Expands tool pack names to tool lists
+3. The agent validates the config via `validate_config()` before execution
+4. Instructions are built with three components:
    - `system_instruction`: `journal.md` (shared base prompt, cacheable)
    - `extra_context`: Runtime context (facets, generators list, datetime)
    - `user_instruction`: The agent's `.md` file content
-3. Request parameters override agent defaults in the merged configuration
-4. The full configuration is passed to the agent process
 
 Agents define specialized behaviors, tool usage patterns, and facet expertise. Available agents can be discovered using `get_muse_configs(has_tools=True)` or by listing files in the `muse/` directory (agents are `.md` files with a `tools` field).
 
