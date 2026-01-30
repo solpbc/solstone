@@ -33,6 +33,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from think.utils import now_ms
+
 logger = logging.getLogger(__name__)
 
 
@@ -219,7 +221,7 @@ def run_task(
                         f,
                         {
                             "event": "line",
-                            "ts": int(time.time() * 1000),
+                            "ts": now_ms(),
                             "line": line,
                         },
                     )
@@ -235,7 +237,7 @@ def run_task(
                 f,
                 {
                     "event": "exit",
-                    "ts": int(time.time() * 1000),
+                    "ts": now_ms(),
                     "exit_code": exit_code,
                     "duration_ms": duration_ms,
                 },
@@ -276,7 +278,7 @@ def run_task(
                     f,
                     {
                         "event": "exit",
-                        "ts": int(time.time() * 1000),
+                        "ts": now_ms(),
                         "exit_code": -1,
                         "error": str(e),
                     },

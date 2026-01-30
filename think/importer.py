@@ -26,6 +26,7 @@ from think.importer_utils import (
 from think.utils import (
     day_path,
     get_journal,
+    now_ms,
     segment_key,
     setup_cli,
 )
@@ -552,12 +553,12 @@ def _setup_import(
     )
 
     # Build metadata matching app structure
-    now_ms = int(time.time() * 1000)
+    upload_ts = now_ms()
     ext = os.path.splitext(filename)[1].lower()
     metadata = {
         "original_filename": filename,
-        "upload_timestamp": now_ms,
-        "upload_datetime": dt.datetime.fromtimestamp(now_ms / 1000).isoformat(),
+        "upload_timestamp": upload_ts,
+        "upload_datetime": dt.datetime.fromtimestamp(upload_ts / 1000).isoformat(),
         "detection_result": detection_result,
         "detected_timestamp": timestamp,
         "user_timestamp": timestamp,

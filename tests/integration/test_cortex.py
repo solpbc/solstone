@@ -13,6 +13,7 @@ import pytest
 from think.callosum import CallosumServer
 from think.cortex import CortexService
 from think.cortex_client import cortex_agents, cortex_request
+from think.utils import now_ms
 
 
 @pytest.fixture
@@ -152,7 +153,7 @@ def test_cortex_agents_listing(integration_journal_path):
     initial_result = cortex_agents()
     initial_count = len(initial_result["agents"])
 
-    ts = int(time.time() * 1000)
+    ts = now_ms()
 
     # Create completed agent
     completed_file = agents_dir / f"{ts}.jsonl"

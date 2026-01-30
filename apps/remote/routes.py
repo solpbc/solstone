@@ -17,7 +17,6 @@ import json
 import logging
 import re
 import secrets
-import time
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +30,7 @@ from observe.utils import (
     compute_bytes_sha256,
     find_available_segment,
 )
-from think.utils import day_path
+from think.utils import day_path, now_ms
 
 from .utils import (
     append_history_record,
@@ -66,7 +65,7 @@ def _revoke_remote(key: str) -> bool:
     if not remote:
         return False
     remote["revoked"] = True
-    remote["revoked_at"] = int(time.time() * 1000)
+    remote["revoked_at"] = now_ms()
     return save_remote(remote)
 
 
@@ -111,7 +110,7 @@ def api_create() -> Any:
     remote_data = {
         "key": key,
         "name": name,
-        "created_at": int(time.time() * 1000),
+        "created_at": now_ms(),
         "last_seen": None,
         "last_segment": None,
         "enabled": True,
@@ -268,7 +267,7 @@ def _save_to_failed(
         Path to the failed directory where files were saved
     """
     # Use segment in path for easier identification of failed uploads
-    failed_dir = day_dir / "remote" / "failed" / segment / str(int(time.time() * 1000))
+    failed_dir = day_dir / "remote" / "failed" / segment / str(now_ms())
     failed_dir.mkdir(parents=True, exist_ok=True)
 
     for submitted_filename, _simple_filename, content, _sha256 in file_data:
@@ -388,7 +387,7 @@ def ingest_upload(key: str) -> Any:
         )
 
         # Update last_seen and increment duplicates_rejected stat
-        remote["last_seen"] = int(time.time() * 1000)
+        remote["last_seen"] = now_ms()
         remote["stats"]["duplicates_rejected"] = (
             remote["stats"].get("duplicates_rejected", 0) + 1
         )
@@ -479,7 +478,7 @@ def ingest_upload(key: str) -> Any:
 
     # Write sync history record
     sync_record = {
-        "ts": int(time.time() * 1000),
+        "ts": now_ms(),
         "segment": segment,
         "files": file_records,
     }
@@ -491,7 +490,7 @@ def ingest_upload(key: str) -> Any:
     append_history_record(key_prefix, day, sync_record)
 
     # Update remote stats
-    remote["last_seen"] = int(time.time() * 1000)
+    remote["last_seen"] = now_ms()
     remote["last_segment"] = segment
     remote["stats"]["segments_received"] = (
         remote["stats"].get("segments_received", 0) + 1
@@ -570,7 +569,7 @@ def ingest_event(key: str) -> Any:
 
     # Update last_seen on status events
     if tract == "observe" and event == "status":
-        remote["last_seen"] = int(time.time() * 1000)
+        remote["last_seen"] = now_ms()
         save_remote(remote)
 
     return jsonify({"status": "ok"})

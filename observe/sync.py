@@ -28,7 +28,7 @@ from urllib.parse import urlparse
 import requests
 
 from think.callosum import CallosumConnection
-from think.utils import day_path, setup_cli
+from think.utils import day_path, now_ms, setup_cli
 
 from .utils import compute_file_sha256
 
@@ -433,7 +433,7 @@ class SyncService:
 
         # Write pending record (include meta for crash recovery)
         record: dict[str, Any] = {
-            "ts": int(time.time() * 1000),
+            "ts": now_ms(),
             "segment": segment,
             "status": "pending",
             "files": file_info,
@@ -487,7 +487,7 @@ class SyncService:
             )
             # Write confirmed record and cleanup
             record = {
-                "ts": int(time.time() * 1000),
+                "ts": now_ms(),
                 "segment": segment,
                 "status": "confirmed",
             }
@@ -552,7 +552,7 @@ class SyncService:
             if confirmed:
                 # Write confirmed record
                 record = {
-                    "ts": int(time.time() * 1000),
+                    "ts": now_ms(),
                     "segment": segment,
                     "status": "confirmed",
                 }

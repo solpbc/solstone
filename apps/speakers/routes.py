@@ -13,7 +13,6 @@ import json
 import logging
 import os
 import re
-import time
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -43,7 +42,7 @@ from think.entities.journal import (
     load_all_journal_entities,
     load_journal_entity,
 )
-from think.utils import day_dirs, day_path
+from think.utils import day_dirs, day_path, now_ms
 from think.utils import segment_key as validate_segment_key
 from think.utils import segment_parse
 
@@ -200,7 +199,7 @@ def _save_voiceprint(
         "segment_key": segment_key,
         "source": source,
         "sentence_id": sentence_id,
-        "added_at": int(time.time() * 1000),
+        "added_at": now_ms(),
     }
     metadata_json = json.dumps(metadata)
 

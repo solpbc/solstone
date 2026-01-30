@@ -6,12 +6,11 @@
 import json
 import logging
 import threading
-import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from think.callosum import CallosumConnection, callosum_send
-from think.utils import get_journal
+from think.utils import get_journal, now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ def cortex_request(
 
     # Generate monotonic timestamp in milliseconds, ensuring uniqueness
     global _last_ts
-    ts = int(time.time() * 1000)
+    ts = now_ms()
 
     # If same or earlier than last used, increment to ensure uniqueness
     if ts <= _last_ts:
@@ -108,7 +107,7 @@ def create_synthetic_agent(result: str) -> str:
 
     # Generate unique monotonic timestamp
     global _last_ts
-    ts = int(time.time() * 1000)
+    ts = now_ms()
     if ts <= _last_ts:
         ts = _last_ts + 1
     _last_ts = ts

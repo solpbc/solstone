@@ -12,14 +12,13 @@ from __future__ import annotations
 import json
 import logging
 import re
-import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from think.facets import get_facets
-from think.utils import get_journal
+from think.utils import get_journal, now_ms
 
 __all__ = [
     "TodoChecklist",
@@ -37,11 +36,6 @@ __all__ = [
 
 # Regex for extracting time annotation from text
 TIME_RE = re.compile(r"\((\d{1,2}:[0-5]\d)\)\s*$")
-
-
-def _now_ms() -> int:
-    """Return current time as epoch milliseconds."""
-    return int(time.time() * 1000)
 
 
 class TodoError(Exception):
@@ -269,7 +263,7 @@ class TodoChecklist:
                 except ValueError:
                     pass
 
-        now = _now_ms()
+        now = now_ms()
         item = TodoItem(
             index=len(self.items) + 1,
             text=body,
@@ -296,7 +290,7 @@ class TodoChecklist:
         _, item = self._get_item(line_number)
 
         item.cancelled = True
-        item.updated_at = _now_ms()
+        item.updated_at = now_ms()
         self.save()
         return item
 
@@ -312,7 +306,7 @@ class TodoChecklist:
         _, item = self._get_item(line_number)
 
         item.completed = True
-        item.updated_at = _now_ms()
+        item.updated_at = now_ms()
         self.save()
         return item
 
@@ -328,7 +322,7 @@ class TodoChecklist:
         _, item = self._get_item(line_number)
 
         item.completed = False
-        item.updated_at = _now_ms()
+        item.updated_at = now_ms()
         self.save()
         return item
 
@@ -359,7 +353,7 @@ class TodoChecklist:
 
         item.text = body
         item.time = time
-        item.updated_at = _now_ms()
+        item.updated_at = now_ms()
         self.save()
         return item
 

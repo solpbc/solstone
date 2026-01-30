@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 from think.callosum import CallosumConnection
 from think.runner import ManagedProcess as RunnerManagedProcess
-from think.utils import day_path, get_journal, setup_cli
+from think.utils import day_path, get_journal, now_ms, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -261,7 +261,7 @@ class FileSensor:
                     return
 
         # Generate correlation ID for this handler run
-        ref = str(int(time.time() * 1000))
+        ref = str(now_ms())
 
         # Emit detected event with file and ref (skip for CPU fallback)
         if self.callosum and not cpu_fallback:

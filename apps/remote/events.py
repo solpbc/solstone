@@ -9,9 +9,9 @@ to verify end-to-end processing success via the segments endpoint.
 """
 
 import logging
-import time
 
 from apps.events import EventContext, on_event
+from think.utils import now_ms
 
 from .utils import append_history_record, find_remote_by_name, increment_stat
 
@@ -48,7 +48,7 @@ def handle_observed(ctx: EventContext) -> None:
 
     # Append observed record to history
     record = {
-        "ts": int(time.time() * 1000),
+        "ts": now_ms(),
         "type": "observed",
         "segment": segment,
     }

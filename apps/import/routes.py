@@ -22,6 +22,7 @@ from think.importer_utils import (
     update_import_metadata_fields,
     write_import_metadata,
 )
+from think.utils import now_ms
 
 import_bp = Blueprint(
     "app:import",
@@ -40,7 +41,7 @@ def import_save() -> Any:
     setting = request.form.get("setting", "").strip() or None
 
     # Generate timestamp for folder name
-    timestamp_ms = int(time.time() * 1000)
+    timestamp_ms = now_ms()
 
     # Determine filename
     if upload and upload.filename:
@@ -316,7 +317,7 @@ def import_start() -> Any:
         return jsonify({"error": "missing params"}), 400
 
     # Generate task ID
-    task_id = str(int(time.time() * 1000))
+    task_id = str(now_ms())
 
     # Extract original timestamp from path and handle timestamp changes
     file_path = Path(path)

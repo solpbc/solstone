@@ -34,7 +34,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import time
 import traceback
 from typing import Any, Callable
 
@@ -48,7 +47,7 @@ from anthropic.types import (
 )
 
 from think.models import CLAUDE_SONNET_4
-from think.utils import create_mcp_client
+from think.utils import create_mcp_client, now_ms
 
 from ..agents import GenerateResult, JSONEventCallback, ThinkingEvent
 
@@ -109,7 +108,7 @@ def _emit_thinking_event(
     if isinstance(block, ThinkingBlock):
         thinking_event: ThinkingEvent = {
             "event": "thinking",
-            "ts": int(time.time() * 1000),
+            "ts": now_ms(),
             "summary": block.thinking,
             "model": model,
             "signature": block.signature,
@@ -118,7 +117,7 @@ def _emit_thinking_event(
     elif isinstance(block, RedactedThinkingBlock):
         redacted_event: ThinkingEvent = {
             "event": "thinking",
-            "ts": int(time.time() * 1000),
+            "ts": now_ms(),
             "summary": "[redacted]",
             "model": model,
             "redacted_data": block.data,
@@ -402,7 +401,7 @@ async def run_agent(
                             "event": "finish",
                             "result": final_text,
                             "usage": _extract_usage_dict(response),
-                            "ts": int(time.time() * 1000),
+                            "ts": now_ms(),
                         }
                         if tool_only:
                             finish_event["tool_only"] = True
@@ -425,7 +424,7 @@ async def run_agent(
                             "event": "finish",
                             "result": "Done.",
                             "tool_only": True,
-                            "ts": int(time.time() * 1000),
+                            "ts": now_ms(),
                         }
                     )
                     return "Done."
@@ -459,7 +458,7 @@ async def run_agent(
                     "event": "finish",
                     "result": final_text,
                     "usage": _extract_usage_dict(response),
-                    "ts": int(time.time() * 1000),
+                    "ts": now_ms(),
                 }
             )
             return final_text

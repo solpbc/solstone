@@ -22,6 +22,12 @@ from timefhuman import timefhuman
 DATE_RE = re.compile(r"\d{8}")
 _journal_path_cache: str | None = None
 
+
+def now_ms() -> int:
+    """Return current time as Unix epoch milliseconds."""
+    return int(time.time() * 1000)
+
+
 MUSE_DIR = Path(__file__).parent.parent / "muse"
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 

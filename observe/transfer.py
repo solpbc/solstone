@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from think.callosum import callosum_send
-from think.utils import get_journal, segment_key, setup_cli
+from think.utils import get_journal, now_ms, segment_key, setup_cli
 
 from .utils import compute_file_sha256, find_available_segment
 
@@ -108,7 +108,7 @@ def create_archive(day: str, output_path: Path | None = None) -> Path:
     manifest: dict[str, Any] = {
         "version": MANIFEST_VERSION,
         "day": day,
-        "created_at": int(time.time() * 1000),
+        "created_at": now_ms(),
         "host": _get_hostname(),
         "segments": {},
     }

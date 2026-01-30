@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from think.callosum import CallosumConnection
-from think.utils import get_journal
+from think.utils import get_journal, now_ms
 
 
 class AgentProcess:
@@ -159,7 +159,7 @@ class CortexService:
         """Create standardized error event."""
         event = {
             "event": "error",
-            "ts": int(time.time() * 1000),
+            "ts": now_ms(),
             "agent_id": agent_id,
             "error": error,
         }
@@ -300,7 +300,7 @@ class CortexService:
                 # Append continue event to the source agent's file
                 continue_event = {
                     "event": "continue",
-                    "ts": int(time.time() * 1000),
+                    "ts": now_ms(),
                     "agent_id": continue_from,
                     "to": agent_id,
                 }
@@ -551,7 +551,7 @@ class CortexService:
 
                         # Ensure event has timestamp and agent_id
                         if "ts" not in event:
-                            event["ts"] = int(time.time() * 1000)
+                            event["ts"] = now_ms()
                         if "agent_id" not in event:
                             event["agent_id"] = agent.agent_id
 
@@ -648,7 +648,7 @@ class CortexService:
                         # Non-JSON output becomes info event
                         info_event = {
                             "event": "info",
-                            "ts": int(time.time() * 1000),
+                            "ts": now_ms(),
                             "message": line,
                             "agent_id": agent.agent_id,
                         }

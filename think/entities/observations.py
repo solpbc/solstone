@@ -11,12 +11,12 @@ and biographical facts that help with future interactions.
 """
 
 import json
-import time
 from pathlib import Path
 from typing import Any
 
 from think.entities.core import atomic_write
 from think.entities.relationships import entity_memory_path
+from think.utils import now_ms
 
 
 class ObservationNumberError(Exception):
@@ -147,7 +147,7 @@ def add_observation(
     # Create new observation
     observation: dict[str, Any] = {
         "content": content,
-        "observed_at": int(time.time() * 1000),
+        "observed_at": now_ms(),
     }
     if source_day:
         observation["source_day"] = source_day

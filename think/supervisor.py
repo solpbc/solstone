@@ -20,7 +20,7 @@ from desktop_notifier import DesktopNotifier, Urgency
 from observe.sync import check_remote_health
 from think.callosum import CallosumConnection, CallosumServer
 from think.runner import ManagedProcess as RunnerManagedProcess
-from think.utils import get_journal, get_journal_info, setup_cli
+from think.utils import get_journal, get_journal_info, now_ms, setup_cli
 
 DEFAULT_THRESHOLD = 60
 CHECK_INTERVAL = 30
@@ -137,7 +137,7 @@ class TaskQueue:
         Returns:
             ref if task was started/queued, None if already tracked (no change)
         """
-        ref = ref or str(int(time.time() * 1000))
+        ref = ref or str(now_ms())
         cmd_name = self.get_command_name(cmd)
 
         should_notify = False
@@ -442,7 +442,7 @@ def _launch_process(
         policy = _get_restart_policy(name)
 
     # Generate ref if not provided
-    ref = ref if ref else str(int(time.time() * 1000))
+    ref = ref if ref else str(now_ms())
 
     # Use unified runner to spawn process (share supervisor's callosum)
     try:

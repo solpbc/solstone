@@ -12,12 +12,11 @@ Facet-specific data (description, timestamps) is stored in facet relationships.
 
 import json
 import shutil
-import time
 from pathlib import Path
 from typing import Any
 
 from think.entities.core import EntityDict, atomic_write, get_identity_names
-from think.utils import get_journal
+from think.utils import get_journal, now_ms
 
 
 def journal_entity_path(entity_id: str) -> Path:
@@ -183,7 +182,7 @@ def get_or_create_journal_entity(
         "id": entity_id,
         "name": name,
         "type": entity_type,
-        "created_at": int(time.time() * 1000),
+        "created_at": now_ms(),
     }
     if aka:
         entity["aka"] = aka
@@ -234,7 +233,7 @@ def block_journal_entity(entity_id: str) -> dict[str, Any]:
 
     # Set blocked flag on journal entity
     journal_entity["blocked"] = True
-    journal_entity["updated_at"] = int(time.time() * 1000)
+    journal_entity["updated_at"] = now_ms()
     save_journal_entity(journal_entity)
 
     # Detach all facet relationships
@@ -249,7 +248,7 @@ def block_journal_entity(entity_id: str) -> dict[str, Any]:
             relationship = load_facet_relationship(facet_name, entity_id)
             if relationship and not relationship.get("detached"):
                 relationship["detached"] = True
-                relationship["updated_at"] = int(time.time() * 1000)
+                relationship["updated_at"] = now_ms()
                 save_facet_relationship(facet_name, entity_id, relationship)
                 facets_detached.append(facet_name)
 
@@ -281,7 +280,7 @@ def unblock_journal_entity(entity_id: str) -> dict[str, Any]:
 
     # Clear blocked flag
     journal_entity.pop("blocked", None)
-    journal_entity["updated_at"] = int(time.time() * 1000)
+    journal_entity["updated_at"] = now_ms()
     save_journal_entity(journal_entity)
 
     return {"success": True}

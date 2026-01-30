@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-from think.utils import get_journal
+from think.utils import get_journal, now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +197,7 @@ class CallosumServer:
 
         # Add timestamp if not present
         if "ts" not in message:
-            message["ts"] = int(time.time() * 1000)
+            message["ts"] = now_ms()
 
         # Queue for writer thread
         try:

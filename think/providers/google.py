@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import logging
 import os
-import time
 import traceback
 from typing import Any, Callable
 
@@ -42,7 +41,7 @@ from google.genai import errors as google_errors
 from google.genai import types
 
 from think.models import GEMINI_FLASH
-from think.utils import create_mcp_client
+from think.utils import create_mcp_client, now_ms
 
 from ..agents import GenerateResult, JSONEventCallback, ThinkingEvent
 
@@ -464,7 +463,7 @@ def _emit_thinking_events(
             if getattr(part, "thought", False) and getattr(part, "text", None):
                 thinking_event: ThinkingEvent = {
                     "event": "thinking",
-                    "ts": int(time.time() * 1000),
+                    "ts": now_ms(),
                     "summary": part.text,
                     "model": model,
                 }
@@ -753,7 +752,7 @@ async def run_agent(
             "event": "finish",
             "result": text,
             "usage": usage_dict,
-            "ts": int(time.time() * 1000),
+            "ts": now_ms(),
         }
         if tool_only:
             finish_event["tool_only"] = True

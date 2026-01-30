@@ -29,7 +29,7 @@ from think.entities import (
     save_facet_relationship,
     save_journal_entity,
 )
-from think.utils import get_journal, setup_cli
+from think.utils import get_journal, now_ms, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -57,13 +57,11 @@ class CanonicalEntity:
 
     def to_journal_entity(self) -> dict[str, Any]:
         """Convert to journal entity dict for saving."""
-        import time
-
         entity = {
             "id": self.id,
             "name": self.name,
             "type": self.entity_type,
-            "created_at": int(time.time() * 1000),
+            "created_at": now_ms(),
         }
         if self.aka:
             # Sort for deterministic output

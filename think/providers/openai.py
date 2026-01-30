@@ -68,6 +68,7 @@ except Exception:  # pragma: no cover
 # Agent configuration is now loaded via get_agent() in cortex.py
 
 from think.models import GPT_5
+from think.utils import now_ms
 
 from ..agents import GenerateResult, JSONEventCallback, ThinkingEvent
 
@@ -108,10 +109,6 @@ LOG = logging.getLogger("think.providers.openai")
 
 # Default reasoning config for all GPT-5 models
 _DEFAULT_REASONING = Reasoning(effort="medium", summary="detailed")
-
-
-def _now_ms() -> int:
-    return int(time.time() * 1000)
 
 
 def _normalize_streamable_http_uri(http_uri: str) -> str:
@@ -243,7 +240,7 @@ async def run_agent(
             "name": config.get("name", "default"),
             "model": model,
             "provider": "openai",
-            "ts": _now_ms(),
+            "ts": now_ms(),
         }
     )
 
@@ -378,7 +375,7 @@ async def run_agent(
                         {
                             "event": "agent_updated",
                             "agent": getattr(new_agent, "name", None),
-                            "ts": _now_ms(),
+                            "ts": now_ms(),
                         }
                     )
                     continue
@@ -401,7 +398,7 @@ async def run_agent(
                                 "tool": tool_name,
                                 "args": args,
                                 "call_id": call_id,
-                                "ts": _now_ms(),
+                                "ts": now_ms(),
                             }
                         )
 
@@ -429,7 +426,7 @@ async def run_agent(
                                 "args": meta.get("args"),
                                 "result": item.output,
                                 "call_id": call_id,
-                                "ts": _now_ms(),
+                                "ts": now_ms(),
                             }
                         )
 
@@ -448,7 +445,7 @@ async def run_agent(
                                 "event": "thinking",
                                 "summary": summary_text,
                                 "model": model,
-                                "ts": _now_ms(),
+                                "ts": now_ms(),
                             }
                             cb.emit(thinking_event)
 
@@ -499,7 +496,7 @@ async def run_agent(
                 "event": "finish",
                 "result": final_text,
                 "usage": usage_dict,
-                "ts": _now_ms(),
+                "ts": now_ms(),
             }
             if tool_only:
                 finish_event["tool_only"] = True
@@ -508,7 +505,7 @@ async def run_agent(
 
     except Exception as exc:
         trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-        cb.emit({"event": "error", "error": str(exc), "trace": trace, "ts": _now_ms()})
+        cb.emit({"event": "error", "error": str(exc), "trace": trace, "ts": now_ms()})
         setattr(exc, "_evented", True)
         raise
     finally:

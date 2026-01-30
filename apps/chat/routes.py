@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import logging
 import os
-import time
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +14,7 @@ from apps.utils import get_app_storage_path
 from convey.config import get_selected_facet
 from convey.utils import load_json, save_json
 from think.models import generate
+from think.utils import now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +188,7 @@ def send_message() -> Any:
             config=config,
         )
 
-        ts = int(time.time() * 1000)
+        ts = now_ms()
 
         if is_continuation:
             # Continuation: update timestamp only (thread is derived from agents)
@@ -511,7 +511,7 @@ def retry_chat(chat_id: str) -> Any:
 
         # Update chat timestamp
         if chat_data:
-            chat_data["updated_ts"] = int(time.time() * 1000)
+            chat_data["updated_ts"] = now_ms()
             save_json(chats_dir / f"{chat_id}.json", chat_data)
 
         return jsonify(agent_id=agent_id)

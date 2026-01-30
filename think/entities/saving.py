@@ -9,12 +9,12 @@ This module handles saving entities to storage:
 """
 
 import json
-import time
 
 from think.entities.core import EntityDict, atomic_write, entity_slug
 from think.entities.journal import get_or_create_journal_entity, save_journal_entity
 from think.entities.loading import detected_entities_path, load_entities
 from think.entities.relationships import save_facet_relationship
+from think.utils import now_ms
 
 
 def _save_entities_detected(facet: str, entities: list[EntityDict], day: str) -> None:
@@ -196,7 +196,7 @@ def update_entity_description(
                     f"found '{current_desc}'"
                 )
             entity["description"] = new_description
-            entity["updated_at"] = int(time.time() * 1000)
+            entity["updated_at"] = now_ms()
             save_entities(facet, entities, day)
             return entity
 

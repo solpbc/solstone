@@ -18,7 +18,6 @@ import json
 import logging
 import os
 import sys
-import time
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -38,6 +37,7 @@ from think.utils import (
     get_muse_configs,
     get_output_path,
     load_prompt,
+    now_ms,
     segment_parse,
     setup_cli,
 )
@@ -193,7 +193,7 @@ class JSONEventCallback:
 
     def emit(self, data: Event) -> None:
         if "ts" not in data:
-            data = {**data, "ts": int(time.time() * 1000)}
+            data = {**data, "ts": now_ms()}
         if self.callback:
             self.callback(data)
 
@@ -768,7 +768,7 @@ def _run_generator(
     emit_event(
         {
             "event": "start",
-            "ts": int(time.time() * 1000),
+            "ts": now_ms(),
             "prompt": "",  # Generators don't have user prompts
             "name": name,
             "model": model or "unknown",
@@ -796,7 +796,7 @@ def _run_generator(
         emit_event(
             {
                 "event": "finish",
-                "ts": int(time.time() * 1000),
+                "ts": now_ms(),
                 "result": "",
                 "skipped": "disabled",
             }
@@ -841,7 +841,7 @@ def _run_generator(
         emit_event(
             {
                 "event": "finish",
-                "ts": int(time.time() * 1000),
+                "ts": now_ms(),
                 "result": "",
                 "skipped": "no_input",
             }
@@ -980,7 +980,7 @@ def _run_generator(
         if dry_run:
             dry_run_event: dict[str, Any] = {
                 "event": "dry_run",
-                "ts": int(time.time() * 1000),
+                "ts": now_ms(),
                 "type": "generator",
                 "name": name,
                 "provider": provider,
@@ -1046,7 +1046,7 @@ def _run_generator(
     # Emit finish event with result (cortex handles file writing)
     finish_event = {
         "event": "finish",
-        "ts": int(time.time() * 1000),
+        "ts": now_ms(),
         "result": result,
     }
     if usage_data:
@@ -1092,7 +1092,7 @@ async def main_async() -> None:
 
     def emit_event(data: Event) -> None:
         if "ts" not in data:
-            data["ts"] = int(time.time() * 1000)
+            data["ts"] = now_ms()
         event_writer.emit(data)
 
     try:
@@ -1124,7 +1124,7 @@ async def main_async() -> None:
                             {
                                 "event": "error",
                                 "error": "Missing 'prompt' field for tool agent",
-                                "ts": int(time.time() * 1000),
+                                "ts": now_ms(),
                             }
                         )
                         continue
@@ -1190,7 +1190,7 @@ async def main_async() -> None:
                     if dry_run:
                         dry_run_event: dict[str, Any] = {
                             "event": "dry_run",
-                            "ts": int(time.time() * 1000),
+                            "ts": now_ms(),
                             "type": "agent",
                             "name": config.get("name", "default"),
                             "provider": provider,
@@ -1249,7 +1249,7 @@ async def main_async() -> None:
                         {
                             "event": "error",
                             "error": "Invalid config: must have 'tools' or 'output' field",
-                            "ts": int(time.time() * 1000),
+                            "ts": now_ms(),
                         }
                     )
 
@@ -1258,7 +1258,7 @@ async def main_async() -> None:
                     {
                         "event": "error",
                         "error": f"Invalid JSON: {str(e)}",
-                        "ts": int(time.time() * 1000),
+                        "ts": now_ms(),
                     }
                 )
             except Exception as e:
@@ -1267,7 +1267,7 @@ async def main_async() -> None:
                         "event": "error",
                         "error": str(e),
                         "trace": traceback.format_exc(),
-                        "ts": int(time.time() * 1000),
+                        "ts": now_ms(),
                     }
                 )
 

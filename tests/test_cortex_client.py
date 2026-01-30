@@ -23,6 +23,7 @@ from think.cortex_client import (
     wait_for_agents,
 )
 from think.models import GPT_5
+from think.utils import now_ms
 
 
 @pytest.fixture
@@ -189,7 +190,7 @@ def test_cortex_agents_with_active(tmp_path, monkeypatch):
     agents_dir.mkdir()
 
     # Create active agent files
-    ts1 = int(time.time() * 1000)
+    ts1 = now_ms()
     ts2 = ts1 + 1000
 
     active_file1 = agents_dir / f"{ts1}_active.jsonl"
@@ -234,7 +235,7 @@ def test_cortex_agents_with_completed(tmp_path, monkeypatch):
     agents_dir.mkdir()
 
     # Create completed agent files
-    ts1 = int(time.time() * 1000)
+    ts1 = now_ms()
 
     completed_file1 = agents_dir / f"{ts1}.jsonl"
     with open(completed_file1, "w") as f:
@@ -267,7 +268,7 @@ def test_cortex_agents_pagination(tmp_path, monkeypatch):
     agents_dir.mkdir()
 
     # Create multiple agents
-    base_ts = int(time.time() * 1000)
+    base_ts = now_ms()
     for i in range(5):
         ts = base_ts + (i * 1000)
         file = agents_dir / f"{ts}.jsonl"

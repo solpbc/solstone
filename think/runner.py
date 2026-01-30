@@ -28,7 +28,7 @@ from datetime import datetime
 from pathlib import Path
 
 from think.callosum import CallosumConnection
-from think.utils import get_journal
+from think.utils import get_journal, now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -229,7 +229,7 @@ class ManagedProcess:
             name = Path(cmd[0]).name
 
         # Generate correlation ID (use provided ref, else timestamp)
-        ref = ref if ref else str(int(time.time() * 1000))
+        ref = ref if ref else str(now_ms())
         start_time = time.time()
 
         # Use provided callosum or create new one

@@ -3,12 +3,13 @@
 
 import importlib
 import sys
-import time
 import types
 from unittest.mock import Mock
 
 import numpy as np
 import pytest
+
+from think.utils import now_ms
 
 
 @pytest.fixture(autouse=True)
@@ -303,7 +304,7 @@ def mock_callosum(monkeypatch):
             # Build message
             msg = {"tract": tract, "event": event, **kwargs}
             if "ts" not in msg:
-                msg["ts"] = int(time.time() * 1000)
+                msg["ts"] = now_ms()
 
             # Broadcast to all listeners
             for listener in all_listeners:
