@@ -645,6 +645,7 @@ def assemble_inputs(config: dict) -> InputContext:
     day = config.get("day")
     segment = config.get("segment")
     span = config.get("span")  # List of sequential segment keys
+    facet = config.get("facet")  # For multi-facet agents
     output_format = config.get("output")
     output_path_override = config.get("output_path")
     user_prompt = config.get("prompt", "")
@@ -824,7 +825,7 @@ def assemble_inputs(config: dict) -> InputContext:
         elif day:
             day_dir = str(day_path(day))
             output_path = get_output_path(
-                day_dir, name, segment=segment, output_format=output_format
+                day_dir, name, segment=segment, output_format=output_format, facet=facet
             )
 
     return InputContext(
@@ -1110,6 +1111,10 @@ def scan_day(day: str) -> dict[str, list[str]]:
 
     Only scans daily generators (schedule='daily'). Segment generators are
     stored within segment directories and are not included here.
+
+    Note: Multi-facet generators would produce {topic}_{facet}.{ext} files,
+    but currently no multi-facet generators exist (all multi-facet agents
+    have tools, not output).
     """
     day_dir = day_path(day)
     daily_generators = get_muse_configs(

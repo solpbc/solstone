@@ -126,7 +126,7 @@ def compute_output_source(context: dict) -> str:
     """Compute relative source output path from hook context.
 
     Args:
-        context: Hook context dict with day, segment, name, output_path.
+        context: Hook context dict with day, segment, name, output_path, meta.
 
     Returns:
         Relative path like "20240101/agents/meetings.md".
@@ -143,8 +143,15 @@ def compute_output_source(context: dict) -> str:
     except ValueError:
         segment = context.get("segment")
         topic = get_output_topic(name)
+        # Check for facet in meta (for multi-facet agents)
+        meta = context.get("meta", {})
+        facet = meta.get("facet") if meta else None
+        if facet:
+            filename = f"{topic}_{facet}.md"
+        else:
+            filename = f"{topic}.md"
         return os.path.join(
             day,
             "agents" if not segment else segment,
-            f"{topic}.md",
+            filename,
         )

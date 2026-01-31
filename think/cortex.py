@@ -651,9 +651,10 @@ class CortexService:
 
         Output path is either:
         - Explicit: config["output_path"] (for multi-segment and custom paths)
-        - Derived: from name + output format + schedule:
+        - Derived: from name + output format + schedule + facet:
           - Daily agents: YYYYMMDD/agents/{name}.{ext}
           - Segment agents: YYYYMMDD/{segment}/{name}.{ext}
+          - Multi-facet: {name}_{facet}.{ext} instead of {name}.{ext}
         """
         try:
             from think.utils import day_path, get_output_path
@@ -665,6 +666,7 @@ class CortexService:
                 output_format = config.get("output", "md")
                 name = config.get("name", "default")
                 segment = config.get("segment")  # Set for segment agents
+                facet = config.get("facet")  # Set for multi-facet agents
                 day = config.get("day")
 
                 # Get day directory
@@ -672,7 +674,11 @@ class CortexService:
 
                 # Derive output path using shared utility
                 output_path = get_output_path(
-                    day_dir, name, segment=segment, output_format=output_format
+                    day_dir,
+                    name,
+                    segment=segment,
+                    output_format=output_format,
+                    facet=facet,
                 )
 
             # Ensure parent directory exists

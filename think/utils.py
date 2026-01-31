@@ -816,11 +816,12 @@ def get_output_path(
     key: str,
     segment: str | None = None,
     output_format: str | None = None,
+    facet: str | None = None,
 ) -> Path:
     """Return output path for generator agent output.
 
     Shared utility for determining where to write generator results.
-    Used by both think/generate.py and think/cortex.py.
+    Used by think/agents.py and think/cortex.py.
 
     Parameters
     ----------
@@ -833,6 +834,9 @@ def get_output_path(
         Optional segment key (HHMMSS_LEN) for segment-level output.
     output_format:
         Output format - "json" for JSON, anything else for markdown.
+    facet:
+        Optional facet name for multi-facet agents. When provided, the facet
+        is appended to the filename (e.g., "newsletter_work.md").
 
     Returns
     -------
@@ -840,18 +844,25 @@ def get_output_path(
         Output file path:
         - With segment: YYYYMMDD/{segment}/{topic}.{ext}
         - Without segment: YYYYMMDD/agents/{topic}.{ext}
+        - With facet: {topic}_{facet}.{ext} instead of {topic}.{ext}
         Where topic is derived from key and ext is "json" or "md".
     """
     day = Path(day_dir)
     topic = get_output_topic(key)
     ext = "json" if output_format == "json" else "md"
 
+    # Append facet suffix for multi-facet agent outputs
+    if facet:
+        filename = f"{topic}_{facet}.{ext}"
+    else:
+        filename = f"{topic}.{ext}"
+
     if segment:
         # Segment output goes directly in segment directory
-        return day / segment / f"{topic}.{ext}"
+        return day / segment / filename
     else:
         # Daily output goes in agents/ subdirectory
-        return day / "agents" / f"{topic}.{ext}"
+        return day / "agents" / filename
 
 
 def _load_prompt_metadata(md_path: Path) -> dict[str, object]:
