@@ -300,6 +300,15 @@ def get_facets() -> dict[str, dict[str, object]]:
     return facets
 
 
+def get_enabled_facets() -> dict[str, dict[str, object]]:
+    """Return non-muted facets only.
+
+    Convenience wrapper around get_facets() that filters out muted facets.
+    Used by scheduled agents to skip processing for muted facets.
+    """
+    return {k: v for k, v in get_facets().items() if not v.get("muted", False)}
+
+
 def facet_summary(facet: str) -> str:
     """Generate a nicely formatted markdown summary of a facet.
 

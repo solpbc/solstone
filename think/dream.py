@@ -2,6 +2,7 @@
 # Copyright (c) 2026 sol pbc
 
 import argparse
+import json
 import logging
 import sys
 import time
@@ -10,7 +11,7 @@ from pathlib import Path
 
 from think.callosum import CallosumConnection
 from think.cortex_client import cortex_request, wait_for_agents
-from think.facets import get_active_facets, get_facets
+from think.facets import get_active_facets, get_enabled_facets, get_facets
 from think.runner import run_task
 from think.utils import (
     day_input_summary,
@@ -349,16 +350,8 @@ def run_daily_agents(day: str) -> tuple[int, int]:
     # Pre-compute shared data for multi-facet agents
     day_formatted = iso_date(day)
     input_summary = day_input_summary(day)
-    facets = get_facets()
-    enabled_facets = {k: v for k, v in facets.items() if not v.get("muted", False)}
+    enabled_facets = get_enabled_facets()
     active_facets = get_active_facets(day)
-
-    # Log muted facets once (applies to all multi_facet agents)
-    muted_facets = [k for k, v in facets.items() if v.get("muted", False)]
-    if muted_facets:
-        logging.info(
-            f"Excluding {len(muted_facets)} muted facet(s): {', '.join(muted_facets)}"
-        )
 
     total_agents = sum(len(agents_list) for agents_list in priority_groups.values())
     num_groups = len(priority_groups)
@@ -478,11 +471,54 @@ def run_daily_agents(day: str) -> tuple[int, int]:
     return (total_completed, total_failed)
 
 
+def load_segment_facets(day: str, segment: str) -> list[str]:
+    """Load facet IDs from a segment's facets.json output.
+
+    Reads the facets.json file written by the facets generator and extracts
+    the list of facet IDs that were active in this segment.
+
+    Args:
+        day: Day in YYYYMMDD format
+        segment: Segment key in HHMMSS_LEN format
+
+    Returns:
+        List of facet IDs (e.g., ["work", "personal"]). Returns empty list if
+        file is missing, empty, or malformed.
+    """
+    facets_file = day_path(day) / segment / "facets.json"
+
+    if not facets_file.exists():
+        logging.debug(f"No facets.json found for segment {segment}")
+        return []
+
+    try:
+        content = facets_file.read_text().strip()
+        if not content:
+            return []
+
+        data = json.loads(content)
+        if not isinstance(data, list):
+            logging.warning(f"facets.json is not an array: {facets_file}")
+            return []
+
+        # Extract facet IDs from the array of objects
+        facet_ids = [item.get("facet") for item in data if item.get("facet")]
+        return facet_ids
+
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to parse facets.json for {segment}: {e}")
+        return []
+    except Exception as e:
+        logging.error(f"Error reading facets.json for {segment}: {e}")
+        return []
+
+
 def run_segment_agents(day: str, segment: str) -> int:
     """Spawn segment agents (fire-and-forget).
 
     Loads agents with schedule="segment" and spawns each with SEGMENT_KEY env var.
-    Does NOT wait for completion.
+    Multi-facet agents are spawned once per facet detected in the segment's
+    facets.json output. Does NOT wait for completion.
 
     Args:
         day: Day in YYYYMMDD format
@@ -494,9 +530,43 @@ def run_segment_agents(day: str, segment: str) -> int:
     agents = get_muse_configs(has_tools=True)
     spawned = 0
 
+    # Lazy-load segment facets and enabled facets for multi-facet agents
+    segment_facets: list[str] | None = None
+
     for agent_name, config in agents.items():
-        if config.get("schedule") == "segment":
-            try:
+        if config.get("schedule") != "segment":
+            continue
+
+        try:
+            if config.get("multi_facet"):
+                # Lazy-load and filter segment facets on first multi-facet agent
+                if segment_facets is None:
+                    enabled_facet_names = set(get_enabled_facets().keys())
+                    raw_facets = load_segment_facets(day, segment)
+                    # Filter out muted facets (consistent with daily behavior)
+                    segment_facets = [f for f in raw_facets if f in enabled_facet_names]
+                    if segment_facets:
+                        logging.info(
+                            f"Segment {segment} facets: {', '.join(segment_facets)}"
+                        )
+                    else:
+                        logging.debug(f"No enabled facets for segment {segment}")
+
+                # Spawn once per enabled facet
+                for facet_name in segment_facets:
+                    cortex_request(
+                        prompt=f"Processing facet '{facet_name}' in segment {segment} from {day}. Use get_facet('{facet_name}') to load context.",
+                        name=agent_name,
+                        config={
+                            "segment": segment,
+                            "facet": facet_name,
+                            "env": {"SEGMENT_KEY": segment},
+                        },
+                    )
+                    spawned += 1
+                    logging.info(f"Spawned {agent_name} for facet {facet_name}")
+            else:
+                # Regular segment agent - spawn once
                 cortex_request(
                     prompt=f"Processing segment {segment} from {day}. Use available tools to analyze this specific recording window.",
                     name=agent_name,
@@ -504,8 +574,8 @@ def run_segment_agents(day: str, segment: str) -> int:
                 )
                 spawned += 1
                 logging.info(f"Spawned segment agent: {agent_name}")
-            except Exception as e:
-                logging.error(f"Failed to spawn {agent_name}: {e}")
+        except Exception as e:
+            logging.error(f"Failed to spawn {agent_name}: {e}")
 
     return spawned
 

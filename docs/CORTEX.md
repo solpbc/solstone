@@ -371,7 +371,9 @@ When an agent has `"multi_facet": true`:
 3. The agent should call `get_facet(facet_name)` to load facet context
 4. This enables per-facet reports, newsletters, and analyses
 
-**Active Facet Detection**: By default, multi-facet agents only run for facets that had activity the previous day. Activity is determined by the presence of occurrence events (not anticipations) in `facets/{facet}/events/{day}.jsonl`. This prevents unnecessary agent runs for inactive facets.
+#### Daily Multi-Facet Agents
+
+**Active Facet Detection**: By default, daily multi-facet agents only run for facets that had activity the previous day. Activity is determined by the presence of occurrence events (not anticipations) in `facets/{facet}/events/{day}.jsonl`. This prevents unnecessary agent runs for inactive facets.
 
 To force an agent to run for all facets regardless of activity, set `"always": true`:
 
@@ -394,6 +396,31 @@ To force an agent to run for all facets regardless of activity, set `"always": t
   "tools": "journal,facets"
 }
 ```
+
+#### Segment Multi-Facet Agents
+
+Segment agents can also be multi-facet. Active facets are determined from the `facets.json` output written by the facets generator (priority 90) during segment processing.
+
+```json
+{
+  "title": "Facet Activity Tracker",
+  "schedule": "segment",
+  "multi_facet": true,
+  "tools": "journal,facets"
+}
+```
+
+The facets generator outputs an array of detected facets for each segment:
+```json
+[
+  {"facet": "work", "activity": "Code review", "level": "high"},
+  {"facet": "personal", "activity": "Email check", "level": "low"}
+]
+```
+
+Multi-facet segment agents spawn once per non-muted facet in this array. Muted facets are filtered out, consistent with daily agent behavior. If no enabled facets are detected (empty array, missing file, or all facets muted), the agent simply doesn't spawn for that segment.
+
+**Note**: The `"always"` flag is not supported for segment agents since facet detection is inherent to the segment content.
 
 ## Process Management
 
