@@ -516,7 +516,9 @@ def test_api_sentences_principal_first(speakers_env):
     app.register_blueprint(speakers_bp)
 
     with app.test_client() as client:
-        response = client.get("/app/speakers/api/sentences/20240101/143022_300/mic_audio")
+        response = client.get(
+            "/app/speakers/api/sentences/20240101/143022_300/mic_audio"
+        )
         assert response.status_code == 200
         data = response.get_json()
 

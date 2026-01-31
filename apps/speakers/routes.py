@@ -581,7 +581,9 @@ def api_sentences(day: str, segment_key: str, source: str) -> Any:
 
     # Load ALL journal entities for dropdown, principal (self) first
     journal_entities = load_all_journal_entities()
-    principal = next((e for e in journal_entities.values() if e.get("is_principal")), None)
+    principal = next(
+        (e for e in journal_entities.values() if e.get("is_principal")), None
+    )
     principal_name = principal.get("name") if principal else None
 
     all_entity_names = []
