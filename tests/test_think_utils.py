@@ -890,3 +890,83 @@ class TestComposeInstructions:
         assert result["sources"]["audio"] is False
         assert result["sources"]["screen"] is True  # Default preserved
         assert result["sources"]["agents"] is True  # Overridden
+
+
+class TestPortDiscovery:
+    """Tests for service port discovery utilities."""
+
+    def test_find_available_port_returns_valid_port(self):
+        """Test that find_available_port returns a valid port number."""
+        from think.utils import find_available_port
+
+        port = find_available_port()
+        assert isinstance(port, int)
+        assert 1024 <= port <= 65535  # User-space port range
+
+    def test_find_available_port_different_each_call(self):
+        """Test that multiple calls can return different ports."""
+        from think.utils import find_available_port
+
+        # Get multiple ports - they may or may not be unique, but should all be valid
+        ports = [find_available_port() for _ in range(3)]
+        for port in ports:
+            assert isinstance(port, int)
+            assert 1024 <= port <= 65535
+
+    def test_write_and_read_service_port(self, monkeypatch, tmp_path):
+        """Test writing and reading a service port file."""
+        from think.utils import read_service_port, write_service_port
+
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        # Write port
+        write_service_port("test_service", 12345)
+
+        # Read port back
+        port = read_service_port("test_service")
+        assert port == 12345
+
+        # Verify file exists in correct location
+        port_file = tmp_path / "health" / "test_service.port"
+        assert port_file.exists()
+        assert port_file.read_text() == "12345"
+
+    def test_read_service_port_missing_file(self, monkeypatch, tmp_path):
+        """Test that reading missing port file returns None."""
+        from think.utils import read_service_port
+
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        port = read_service_port("nonexistent")
+        assert port is None
+
+    def test_read_service_port_invalid_content(self, monkeypatch, tmp_path):
+        """Test that reading invalid port file content returns None."""
+        from think.utils import read_service_port
+
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        # Create port file with invalid content
+        health_dir = tmp_path / "health"
+        health_dir.mkdir()
+        port_file = health_dir / "bad_service.port"
+        port_file.write_text("not a number")
+
+        port = read_service_port("bad_service")
+        assert port is None
+
+    def test_write_service_port_creates_health_dir(self, monkeypatch, tmp_path):
+        """Test that write_service_port creates health directory if needed."""
+        from think.utils import write_service_port
+
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        # Health dir doesn't exist yet
+        health_dir = tmp_path / "health"
+        assert not health_dir.exists()
+
+        write_service_port("new_service", 9999)
+
+        # Now it should exist
+        assert health_dir.exists()
+        assert (health_dir / "new_service.port").read_text() == "9999"

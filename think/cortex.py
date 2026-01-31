@@ -98,9 +98,11 @@ class CortexService:
             return
 
         from think.mcp import mcp
+        from think.utils import find_available_port
 
         host = os.getenv("SOLSTONE_MCP_HOST", "127.0.0.1")
-        port = int(os.getenv("SOLSTONE_MCP_PORT", "6270"))
+        port_env = os.getenv("SOLSTONE_MCP_PORT", "0")
+        port = int(port_env) if port_env != "0" else find_available_port(host)
         path = os.getenv("SOLSTONE_MCP_PATH", "/mcp") or "/mcp"
         if not path.startswith("/"):
             path = f"/{path}"

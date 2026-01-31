@@ -13,7 +13,7 @@ import threading
 import time
 
 from think.callosum import CallosumConnection
-from think.utils import setup_cli
+from think.utils import read_service_port, setup_cli
 
 
 def _format_log(timestamp: float, stream: str, line: str) -> str:
@@ -197,8 +197,12 @@ def main() -> None:
             print("-" * 60, file=sys.stderr)
         sys.exit(1)
 
-    # Success - print the URL
-    print("Convey running at http://localhost:8000/")
+    # Success - print the URL with discovered port
+    port = read_service_port("convey")
+    if port:
+        print(f"Convey running at http://localhost:{port}/")
+    else:
+        print("Convey restarted successfully (port unknown)")
 
 
 if __name__ == "__main__":

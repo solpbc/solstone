@@ -1407,3 +1407,61 @@ def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:
         mime = "application/octet-stream"
 
     return rel, mime, meta
+
+
+# =============================================================================
+# Service Port Discovery
+# =============================================================================
+
+
+def find_available_port(host: str = "127.0.0.1") -> int:
+    """Find an available port by binding to port 0.
+
+    Uses the socket bind/getsockname/close pattern to let the OS assign
+    an available port.
+
+    Args:
+        host: Host address to bind to (default: 127.0.0.1)
+
+    Returns:
+        Available port number
+    """
+    import socket
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((host, 0))
+    _, port = sock.getsockname()
+    sock.close()
+    return port
+
+
+def write_service_port(service: str, port: int) -> None:
+    """Write a service's port to the health directory.
+
+    Creates $JOURNAL_PATH/health/{service}.port with the port number.
+
+    Args:
+        service: Service name (e.g., "convey", "mcp")
+        port: Port number to write
+    """
+    health_dir = Path(get_journal()) / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    port_file = health_dir / f"{service}.port"
+    port_file.write_text(str(port))
+
+
+def read_service_port(service: str) -> int | None:
+    """Read a service's port from the health directory.
+
+    Args:
+        service: Service name (e.g., "convey", "mcp")
+
+    Returns:
+        Port number if file exists and is valid, None otherwise
+    """
+    port_file = Path(get_journal()) / "health" / f"{service}.port"
+    try:
+        return int(port_file.read_text().strip())
+    except (FileNotFoundError, ValueError):
+        return None

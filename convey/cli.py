@@ -65,13 +65,23 @@ def main() -> None:
     """Main CLI entry point for convey command."""
     from pathlib import Path
 
-    from think.utils import get_journal, setup_cli
+    from think.utils import (
+        find_available_port,
+        get_journal,
+        setup_cli,
+        write_service_port,
+    )
 
     from . import create_app
     from .maint import run_pending_tasks
 
     parser = argparse.ArgumentParser(description="Convey web interface")
-    parser.add_argument("--port", type=int, default=8000, help="Port to serve on")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=0,
+        help="Port to serve on (0 = auto-select available port)",
+    )
     parser.add_argument(
         "--skip-maint",
         action="store_true",
@@ -95,4 +105,11 @@ def main() -> None:
             "No password configured - add to config/journal.json to enable authentication"
         )
 
-    run_service(app, host="0.0.0.0", port=args.port, debug=args.debug)
+    # Determine port: use specified port or find an available one
+    port = args.port if args.port != 0 else find_available_port()
+
+    # Write port to health directory for discovery by other tools
+    write_service_port("convey", port)
+    logger.info(f"Convey starting on port {port}")
+
+    run_service(app, host="0.0.0.0", port=port, debug=args.debug)

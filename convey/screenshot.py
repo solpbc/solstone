@@ -12,7 +12,7 @@ import sys
 
 from playwright.sync_api import sync_playwright
 
-from think.utils import setup_cli
+from think.utils import read_service_port, setup_cli
 
 
 class _HelpOnErrorParser(argparse.ArgumentParser):
@@ -136,7 +136,12 @@ def main() -> None:
         default="logs/screenshot.png",
         help="Output path (default: logs/screenshot.png)",
     )
-    parser.add_argument("--port", type=int, default=8000, help="Server port")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Server port (default: read from Convey port file)",
+    )
     parser.add_argument("--width", type=int, default=1440, help="Viewport width")
     parser.add_argument("--height", type=int, default=900, help="Viewport height")
     parser.add_argument(
@@ -156,6 +161,19 @@ def main() -> None:
 
     args = setup_cli(parser)
 
+    # Determine port: CLI arg takes precedence, then port file, then error
+    if args.port is not None:
+        port = args.port
+    else:
+        port = read_service_port("convey")
+        if port is None:
+            print(
+                "Error: Convey port not found. Is Convey running? "
+                "Use --port to specify manually.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
     # Auto-set delay for fragment routes if not explicitly specified
     if args.delay is None:
         args.delay = 500 if "#" in args.route else 0
@@ -167,7 +185,7 @@ def main() -> None:
     screenshot(
         route=args.route,
         output_path=args.output,
-        port=args.port,
+        port=port,
         width=args.width,
         height=args.height,
         script=args.script,
