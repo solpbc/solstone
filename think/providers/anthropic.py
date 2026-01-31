@@ -268,16 +268,7 @@ async def run_tools(
 
         client = AsyncAnthropic(api_key=api_key)
 
-        start_event: dict = {
-            "event": "start",
-            "prompt": ac.prompt,
-            "name": ac.name,
-            "model": ac.model,
-            "provider": "anthropic",
-        }
-        if ac.continue_from:
-            start_event["continue_from"] = ac.continue_from
-        callback.emit(start_event)
+        # Note: Start event is emitted by agents.py (unified event ownership)
 
         # Build initial messages - check for continuation first
         if ac.continue_from:
@@ -360,6 +351,11 @@ async def run_tools(
                         }
                         if tool_only:
                             finish_event["tool_only"] = True
+                        finish_reason = _normalize_finish_reason(
+                            getattr(response, "stop_reason", None)
+                        )
+                        if finish_reason:
+                            finish_event["reason"] = finish_reason
                         callback.emit(finish_event)
                         return final_text
 
@@ -379,6 +375,7 @@ async def run_tools(
                             "event": "finish",
                             "result": "Done.",
                             "tool_only": True,
+                            "reason": "max_iterations",
                             "ts": now_ms(),
                         }
                     )
@@ -408,14 +405,18 @@ async def run_tools(
                 elif isinstance(block, (ThinkingBlock, RedactedThinkingBlock)):
                     _emit_thinking_event(block, ac.model, callback)
 
-            callback.emit(
-                {
-                    "event": "finish",
-                    "result": final_text,
-                    "usage": _extract_usage_dict(response),
-                    "ts": now_ms(),
-                }
+            finish_event = {
+                "event": "finish",
+                "result": final_text,
+                "usage": _extract_usage_dict(response),
+                "ts": now_ms(),
+            }
+            finish_reason = _normalize_finish_reason(
+                getattr(response, "stop_reason", None)
             )
+            if finish_reason:
+                finish_event["reason"] = finish_reason
+            callback.emit(finish_event)
             return final_text
     except Exception as exc:
         callback.emit(
@@ -423,6 +424,7 @@ async def run_tools(
                 "event": "error",
                 "error": str(exc),
                 "trace": traceback.format_exc(),
+                "ts": now_ms(),
             }
         )
         setattr(exc, "_evented", True)

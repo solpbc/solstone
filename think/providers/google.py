@@ -557,16 +557,7 @@ async def run_tools(
         if not api_key:
             raise RuntimeError("GOOGLE_API_KEY not set")
 
-        start_event: dict = {
-            "event": "start",
-            "prompt": ac.prompt,
-            "name": ac.name,
-            "model": ac.model,
-            "provider": "google",
-        }
-        if ac.continue_from:
-            start_event["continue_from"] = ac.continue_from
-        callback.emit(start_event)
+        # Note: Start event is emitted by agents.py (unified event ownership)
 
         # Build history - check for continuation first
         if ac.continue_from:
@@ -725,7 +716,7 @@ async def run_tools(
         if tool_only:
             finish_event["tool_only"] = True
         if finish_reason:
-            finish_event["finish_reason"] = finish_reason
+            finish_event["reason"] = finish_reason
         callback.emit(finish_event)
         return text
     except google_errors.ServerError as exc:

@@ -239,6 +239,17 @@
   font-size: 1.1em;
 }
 
+/* Retry button variant for unlikely-to-succeed retries */
+.retry-button.retry-unlikely {
+  background: #fafafa;
+  border-color: #bdbdbd;
+  color: #757575;
+}
+.retry-button.retry-unlikely:hover {
+  background: #f5f5f5;
+  border-color: #9e9e9e;
+}
+
 /* Recent chats panel */
 .recent-chats-panel {
   display: flex;
@@ -1089,7 +1100,31 @@ function enrichEvent(event) {
 
   // Render finish events
   if (event.event === 'finish') {
-    const resultText = event.result || '';
+    let resultText = event.result || '';
+
+    // Handle tool-only completion with no text
+    if (event.tool_only && (!event.result || event.result === 'Done.')) {
+      resultText = '*Agent completed using tools*';
+    }
+
+    // Add notice for non-normal finish reasons
+    const reason = event.reason;
+    if (reason && reason !== 'stop') {
+      let notice = '';
+      if (reason === 'max_tokens') {
+        notice = '⚠️ *Response may be truncated (reached token limit)*';
+      } else if (reason === 'safety' || reason === 'content_filter') {
+        notice = '⚠️ *Response was filtered for safety reasons*';
+      } else if (reason === 'recitation') {
+        notice = '⚠️ *Response was filtered (recitation detected)*';
+      } else if (reason === 'max_iterations') {
+        notice = '⚠️ *Agent reached maximum tool iterations*';
+      }
+      if (notice) {
+        resultText = resultText ? `${resultText}\n\n${notice}` : notice;
+      }
+    }
+
     enriched.html = marked.parse(resultText, {
       breaks: true,  // nl2br equivalent
       gfm: true      // GitHub Flavored Markdown
@@ -1101,12 +1136,32 @@ function enrichEvent(event) {
   else if (event.event === 'error') {
     const errorMsg = event.error || 'Unknown error';
     const trace = event.trace || '';
+    const errorType = event.error_type;
+    const retryable = event.retryable;
+
+    // Build error prefix based on type
+    let prefix = '❌';
+    if (retryable === true) {
+      prefix = '⚠️';  // Warning for retryable errors
+    }
+
+    // Build error text with type hint if available
+    let typeHint = '';
+    if (errorType === 'server_error') {
+      typeHint = ' (server error - may be temporary)';
+    } else if (errorType === 'client_error') {
+      typeHint = ' (configuration error)';
+    }
+
     const errorText = trace
-      ? `❌ **Error**: ${errorMsg}\n\n\`\`\`\n${trace}\n\`\`\``
-      : `❌ **Error**: ${errorMsg}`;
+      ? `${prefix} **Error**${typeHint}: ${errorMsg}\n\n\`\`\`\n${trace}\n\`\`\``
+      : `${prefix} **Error**${typeHint}: ${errorMsg}`;
     enriched.html = marked.parse(errorText, {breaks: true, gfm: true});
     enriched.rawMarkdown = errorText;
     enriched.result = errorText;
+
+    // Preserve retryable flag for retry button styling
+    enriched.retryable = retryable;
   }
 
   return enriched;
@@ -1294,8 +1349,9 @@ function enableContinuation(chatId) {
 /**
  * Show retry button after an error. Adds button inline after the last message.
  * @param {string} chatId - The chat ID to retry
+ * @param {boolean} retryable - Whether the error is likely retryable (affects styling)
  */
-function showRetryButton(chatId) {
+function showRetryButton(chatId, retryable = true) {
   // Remove any existing retry button
   hideRetryButton();
 
@@ -1303,9 +1359,14 @@ function showRetryButton(chatId) {
   const retryDiv = document.createElement('div');
   retryDiv.id = 'retry-container';
   retryDiv.className = 'retry-container';
+
+  // Style button based on retryability
+  const buttonClass = retryable !== false ? 'retry-button' : 'retry-button retry-unlikely';
+  const buttonText = retryable !== false ? 'Retry' : 'Retry anyway';
+
   retryDiv.innerHTML = `
-    <button class="retry-button" onclick="retryChat('${chatId}')">
-      <span class="retry-icon">↻</span> Retry
+    <button class="${buttonClass}" onclick="retryChat('${chatId}')">
+      <span class="retry-icon">↻</span> ${buttonText}
     </button>
   `;
   messagesDiv.appendChild(retryDiv);
@@ -1314,7 +1375,7 @@ function showRetryButton(chatId) {
   // Keep input disabled
   if (input) {
     input.disabled = true;
-    input.placeholder = 'Retry failed message...';
+    input.placeholder = retryable !== false ? 'Retry failed message...' : 'Error unlikely to be resolved by retry...';
     delete input.dataset.continueChat;
   }
 }
@@ -1840,8 +1901,9 @@ function processEvent(event) {
       forceHideActivityIndicator();
 
       // Show retry button instead of enabling input
+      // Pass retryable hint to style button appropriately
       if(currentChatId){
-        showRetryButton(currentChatId);
+        showRetryButton(currentChatId, event.retryable);
       }
       break;
   }

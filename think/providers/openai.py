@@ -65,6 +65,12 @@ try:
 except Exception:  # pragma: no cover
     ResponseTextDeltaEvent = object  # type: ignore
 
+# Optional: used for capturing finish_reason from completed responses
+try:
+    from openai.types.responses import ResponseCompletedEvent  # type: ignore
+except Exception:  # pragma: no cover
+    ResponseCompletedEvent = object  # type: ignore
+
 # Agent configuration is now loaded via get_agent() in cortex.py
 
 from think.models import GPT_5
@@ -222,17 +228,8 @@ async def run_tools(
 
     LOG.info("Running agent with model %s", ac.model)
     cb = JSONEventCallback(on_event)
-    start_event: dict = {
-        "event": "start",
-        "prompt": ac.prompt,
-        "name": ac.name,
-        "model": ac.model,
-        "provider": "openai",
-        "ts": now_ms(),
-    }
-    if ac.continue_from:
-        start_event["continue_from"] = ac.continue_from
-    cb.emit(start_event)
+
+    # Note: Start event is emitted by agents.py (unified event ownership)
 
     # Model settings: always enable reasoning with detailed summaries
     model_settings = ModelSettings(
@@ -278,6 +275,9 @@ async def run_tools(
 
     # Accumulate streamed text chunks as a fallback (if final_output missing)
     streamed_text: list[str] = []
+
+    # Track last finish_reason from raw response events (list for mutability in nested scope)
+    finish_reason_holder = [None]
 
     # Create session and load history if continuing conversation
     session_id = ac.continue_from or ac.agent_id or f"session-{int(time.time())}"
@@ -347,6 +347,19 @@ async def run_tools(
                         getattr(data, "delta", None), str
                     ):
                         streamed_text.append(data.delta)
+                    # Capture finish_reason from completed response events
+                    if isinstance(data, ResponseCompletedEvent):
+                        response = getattr(data, "response", None)
+                        if response:
+                            # Try output array first (newer API), then choices
+                            output = getattr(response, "output", None)
+                            if output and len(output) > 0:
+                                last_item = output[-1]
+                                reason = getattr(last_item, "stop_reason", None)
+                                if reason:
+                                    finish_reason_holder[0] = _normalize_finish_reason(
+                                        reason
+                                    )
                     continue
 
                 # 2) Agent updates (handoffs)
@@ -481,6 +494,8 @@ async def run_tools(
             }
             if tool_only:
                 finish_event["tool_only"] = True
+            if finish_reason_holder[0]:
+                finish_event["reason"] = finish_reason_holder[0]
             cb.emit(finish_event)
             return final_text
 
