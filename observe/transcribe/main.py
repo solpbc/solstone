@@ -461,15 +461,34 @@ def process_audio(
         except json.JSONDecodeError:
             logging.warning(f"Invalid SEGMENT_META JSON: {segment_meta_str[:100]}")
 
-    # Use reduced audio for STT if available, otherwise full buffer
-    if reduced_audio is not None:
+    # Gemini uses chunk-based transcription with VAD segments for timestamp accuracy
+    # Other backends use reduced audio with post-hoc timestamp restoration
+    use_gemini_chunks = backend == "gemini" and vad_result.speech_segments
+
+    if use_gemini_chunks:
+        # Gemini: use full audio buffer with VAD segments for chunking
+        stt_buffer = audio_buffer
+    elif reduced_audio is not None:
+        # Other backends: use reduced audio
         stt_buffer = reduced_audio
     else:
         stt_buffer = audio_buffer
 
     try:
         # Dispatch to STT backend
-        statements = stt_transcribe(backend, stt_buffer, SAMPLE_RATE, backend_config)
+        if use_gemini_chunks:
+            # Pass VAD segments to Gemini for chunk-based transcription
+            statements = stt_transcribe(
+                backend,
+                stt_buffer,
+                SAMPLE_RATE,
+                backend_config,
+                speech_segments=vad_result.speech_segments,
+            )
+        else:
+            statements = stt_transcribe(
+                backend, stt_buffer, SAMPLE_RATE, backend_config
+            )
 
         # Get model info for metadata (dynamic import based on backend)
         backend_module = get_backend(backend)
@@ -535,8 +554,9 @@ def process_audio(
             stt_buffer, statements, SAMPLE_RATE, model_info.get("device", "cpu")
         )
 
-        # Restore original timestamps if audio was reduced
-        if reduction:
+        # Restore original timestamps if audio was reduced (non-Gemini backends only)
+        # Gemini with chunks already has timestamps in original audio time
+        if reduction and not use_gemini_chunks:
             statements = restore_statement_timestamps(statements, reduction)
             logging.info(
                 f"  Restored timestamps from reduced audio "

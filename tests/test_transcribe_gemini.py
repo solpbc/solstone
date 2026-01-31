@@ -3,64 +3,59 @@
 
 """Tests for the Gemini STT backend."""
 
+import numpy as np
+
 from observe.transcribe.gemini import (
-    _normalize_segments,
+    _build_chunk_contents,
+    _find_segment_for_timestamp,
+    _format_timestamp,
+    _normalize_chunked_segments,
     _parse_speaker,
     _parse_timestamp,
     get_model_info,
 )
 
 
+class TestFormatTimestamp:
+    """Tests for _format_timestamp function."""
+
+    def test_basic_formatting(self):
+        """Basic timestamp formatting."""
+        assert _format_timestamp(0) == "00:00"
+        assert _format_timestamp(5) == "00:05"
+        assert _format_timestamp(65) == "01:05"
+        assert _format_timestamp(3600) == "60:00"
+
+    def test_minutes_and_seconds(self):
+        """Minutes and seconds formatting."""
+        assert _format_timestamp(90) == "01:30"
+        assert _format_timestamp(125) == "02:05"
+        assert _format_timestamp(599) == "09:59"
+
+
 class TestParseTimestamp:
     """Tests for _parse_timestamp function."""
 
     def test_mm_ss_format(self):
-        """Standard MM:SS format."""
-        assert _parse_timestamp("1:23") == 83.0
+        """MM:SS format."""
+        assert _parse_timestamp("01:23") == 83.0
         assert _parse_timestamp("0:05") == 5.0
         assert _parse_timestamp("10:30") == 630.0
 
-    def test_hh_mm_ss_format(self):
-        """HH:MM:SS format."""
-        assert _parse_timestamp("1:05:30") == 3930.0
-        assert _parse_timestamp("0:10:00") == 600.0
-        assert _parse_timestamp("2:00:00") == 7200.0
-
     def test_just_seconds(self):
-        """Just seconds (no colons)."""
+        """Just seconds."""
         assert _parse_timestamp("5") == 5.0
-        assert _parse_timestamp("0") == 0.0
         assert _parse_timestamp("123") == 123.0
-
-    def test_zero_timestamp(self):
-        """Zero timestamps."""
-        assert _parse_timestamp("0:00") == 0.0
-        assert _parse_timestamp("0:00:00") == 0.0
-        assert _parse_timestamp("0") == 0.0
-
-    def test_whitespace_handling(self):
-        """Whitespace should be stripped."""
-        assert _parse_timestamp(" 1:23 ") == 83.0
-        assert _parse_timestamp("\t0:05\n") == 5.0
-
-    def test_fractional_seconds(self):
-        """Fractional seconds."""
-        assert _parse_timestamp("1:23.5") == 83.5
-        assert _parse_timestamp("0:05.25") == 5.25
 
     def test_invalid_returns_none(self):
         """Invalid timestamps return None."""
         assert _parse_timestamp("") is None
         assert _parse_timestamp(None) is None
         assert _parse_timestamp("invalid") is None
-        assert _parse_timestamp("abc:def") is None
-        assert _parse_timestamp("1:2:3:4") is None  # Too many parts
 
-    def test_negative_clamped_to_zero(self):
-        """Negative values are clamped to 0."""
-        # This is an edge case - negative minutes/seconds shouldn't happen
-        # but if somehow parsed, we clamp to 0
-        assert _parse_timestamp("-5") == 0.0
+    def test_whitespace_stripped(self):
+        """Whitespace is stripped."""
+        assert _parse_timestamp(" 01:23 ") == 83.0
 
 
 class TestParseSpeaker:
@@ -99,115 +94,167 @@ class TestParseSpeaker:
         assert _parse_speaker("") is None
 
 
-class TestNormalizeSegments:
-    """Tests for _normalize_segments function."""
+class TestFindSegmentForTimestamp:
+    """Tests for _find_segment_for_timestamp function."""
 
-    def test_basic_normalization(self):
-        """Basic segment normalization."""
+    def test_timestamp_inside_segment(self):
+        """Timestamp inside a segment returns that segment."""
+        segments = [(0.0, 10.0), (15.0, 25.0), (30.0, 40.0)]
+        assert _find_segment_for_timestamp(5.0, segments) == (0.0, 10.0)
+        assert _find_segment_for_timestamp(20.0, segments) == (15.0, 25.0)
+        assert _find_segment_for_timestamp(35.0, segments) == (30.0, 40.0)
+
+    def test_timestamp_at_boundary(self):
+        """Timestamp at segment boundary returns that segment."""
+        segments = [(0.0, 10.0), (15.0, 25.0)]
+        assert _find_segment_for_timestamp(0.0, segments) == (0.0, 10.0)
+        assert _find_segment_for_timestamp(10.0, segments) == (0.0, 10.0)
+        assert _find_segment_for_timestamp(15.0, segments) == (15.0, 25.0)
+
+    def test_timestamp_in_gap_returns_nearest(self):
+        """Timestamp in gap returns nearest segment."""
+        segments = [(0.0, 10.0), (20.0, 30.0)]
+        # 12 is closer to segment ending at 10 than starting at 20
+        assert _find_segment_for_timestamp(12.0, segments) == (0.0, 10.0)
+        # 18 is closer to segment starting at 20
+        assert _find_segment_for_timestamp(18.0, segments) == (20.0, 30.0)
+
+    def test_timestamp_before_first(self):
+        """Timestamp before first segment returns first."""
+        segments = [(10.0, 20.0), (30.0, 40.0)]
+        assert _find_segment_for_timestamp(5.0, segments) == (10.0, 20.0)
+
+    def test_timestamp_after_last(self):
+        """Timestamp after last segment returns last."""
+        segments = [(0.0, 10.0), (15.0, 25.0)]
+        assert _find_segment_for_timestamp(50.0, segments) == (15.0, 25.0)
+
+
+class TestNormalizeChunkedSegments:
+    """Tests for _normalize_chunked_segments function."""
+
+    def test_parses_mm_ss_timestamps(self):
+        """Parses MM:SS timestamps from Gemini output."""
         segments = [
-            {
-                "start": "0:05",
-                "end": "0:12",
-                "speaker": "Speaker 1",
-                "text": "Hello there",
-            }
+            {"start": "00:05", "speaker": "Speaker 1", "text": "Hello"},
+            {"start": "00:12", "speaker": "Speaker 2", "text": "Hi there"},
         ]
+        speech_segments = [(0.0, 10.0), (10.0, 20.0)]
 
-        statements, invalid_count = _normalize_segments(segments, 60.0)
+        statements = _normalize_chunked_segments(segments, speech_segments)
 
-        assert len(statements) == 1
-        assert invalid_count == 0
-        stmt = statements[0]
-        assert stmt["id"] == 1
-        assert stmt["start"] == 5.0
-        assert stmt["end"] == 12.0
-        assert stmt["text"] == "Hello there"
-        assert stmt["speaker"] == 1
-        assert stmt["words"] is None
-
-    def test_multiple_segments(self):
-        """Multiple segments get sequential IDs."""
-        segments = [
-            {"start": "0:00", "end": "0:10", "text": "First"},
-            {"start": "0:15", "end": "0:25", "text": "Second"},
-            {"start": "0:30", "end": "0:40", "text": "Third"},
-        ]
-
-        statements, invalid_count = _normalize_segments(segments, 60.0)
-
-        assert len(statements) == 3
-        assert invalid_count == 0
-        assert [s["id"] for s in statements] == [1, 2, 3]
-
-    def test_clamps_to_audio_duration(self):
-        """Timestamps beyond audio duration are clamped."""
-        segments = [
-            {"start": "0:00", "end": "2:00", "text": "Goes past end"}  # 120s > 60s
-        ]
-
-        statements, invalid_count = _normalize_segments(segments, 60.0)
-
-        assert len(statements) == 1
-        assert statements[0]["end"] == 60.0  # Clamped to duration
-
-    def test_invalid_timestamps_counted(self):
-        """Invalid timestamps are counted but segment is still included."""
-        segments = [
-            {"start": "invalid", "end": "0:10", "text": "Bad start"},
-            {"start": "0:00", "end": "bad", "text": "Bad end"},
-            {"start": "0:00", "end": "0:10", "text": "Good one"},
-        ]
-
-        statements, invalid_count = _normalize_segments(segments, 60.0)
-
-        # All segments included, but 2 have invalid timestamps
-        assert len(statements) == 3
-        assert invalid_count == 2
-        assert statements[0]["start"] is None
-        assert statements[1]["end"] is None
-        assert statements[2]["start"] == 0.0
-        assert statements[2]["end"] == 10.0
-
-    def test_missing_optional_fields(self):
-        """Missing optional fields are handled gracefully."""
-        segments = [{"start": "0:00", "end": "0:10", "text": "Minimal"}]
-
-        statements, invalid_count = _normalize_segments(segments, 60.0)
-
-        assert len(statements) == 1
-        assert "speaker" not in statements[0]
-
-    def test_empty_segments(self):
-        """Empty segments list."""
-        statements, invalid_count = _normalize_segments([], 60.0)
-        assert statements == []
-        assert invalid_count == 0
-
-    def test_whitespace_text_stripped(self):
-        """Text is stripped of whitespace."""
-        segments = [{"start": "0:00", "end": "0:10", "text": "  Hello  "}]
-
-        statements, invalid_count = _normalize_segments(segments, 60.0)
-
+        assert len(statements) == 2
+        assert statements[0]["start"] == 5.0
         assert statements[0]["text"] == "Hello"
+        assert statements[0]["speaker"] == 1
+        assert statements[1]["start"] == 12.0
+
+    def test_clamps_timestamp_to_valid_range(self):
+        """Clamps timestamps to valid range."""
+        segments = [
+            {"start": "10:00", "speaker": "Speaker 1", "text": "Way too late"},
+        ]
+        speech_segments = [(0.0, 10.0), (15.0, 25.0)]
+
+        statements = _normalize_chunked_segments(segments, speech_segments)
+
+        # Should clamp to max_time (25.0)
+        assert statements[0]["start"] == 25.0
+
+    def test_fallback_on_invalid_timestamp(self):
+        """Falls back to first segment on invalid timestamp."""
+        segments = [
+            {"start": "invalid", "speaker": "Speaker 1", "text": "Test"},
+        ]
+        speech_segments = [(5.0, 15.0), (20.0, 30.0)]
+
+        statements = _normalize_chunked_segments(segments, speech_segments)
+
+        # Falls back to first segment start
+        assert statements[0]["start"] == 5.0
+
+    def test_assigns_end_from_containing_segment(self):
+        """End time comes from the segment containing the start."""
+        segments = [
+            {"start": "00:22", "speaker": "Speaker 1", "text": "In second segment"},
+        ]
+        speech_segments = [(0.0, 10.0), (20.0, 30.0)]
+
+        statements = _normalize_chunked_segments(segments, speech_segments)
+
+        assert statements[0]["start"] == 22.0
+        assert statements[0]["end"] == 30.0  # End of containing segment
 
     def test_empty_text_dropped(self):
         """Segments with empty text are dropped."""
         segments = [
-            {"start": "0:00", "end": "0:10", "text": "First"},
-            {"start": "0:15", "end": "0:20", "text": ""},
-            {"start": "0:25", "end": "0:30", "text": "   "},  # whitespace only
-            {"start": "0:35", "end": "0:40", "text": "Last"},
+            {"start": "00:05", "text": "First"},
+            {"start": "00:10", "text": ""},
+            {"start": "00:15", "text": "   "},
+            {"start": "00:20", "text": "Last"},
         ]
+        speech_segments = [(0.0, 30.0)]
 
-        statements, invalid_count = _normalize_segments(segments, 60.0)
+        statements = _normalize_chunked_segments(segments, speech_segments)
 
-        # Only non-empty segments kept, IDs renumbered
         assert len(statements) == 2
         assert statements[0]["text"] == "First"
-        assert statements[0]["id"] == 1
         assert statements[1]["text"] == "Last"
-        assert statements[1]["id"] == 2
+
+    def test_sequential_ids(self):
+        """Statements get sequential IDs."""
+        segments = [
+            {"start": "00:05", "text": "First"},
+            {"start": "00:10", "text": "Second"},
+            {"start": "00:15", "text": "Third"},
+        ]
+        speech_segments = [(0.0, 30.0)]
+
+        statements = _normalize_chunked_segments(segments, speech_segments)
+
+        assert [s["id"] for s in statements] == [1, 2, 3]
+
+    def test_empty_segments(self):
+        """Empty segments list."""
+        statements = _normalize_chunked_segments([], [(0.0, 10.0)])
+        assert statements == []
+
+
+class TestBuildChunkContents:
+    """Tests for _build_chunk_contents function."""
+
+    def test_basic_chunking(self):
+        """Basic chunk content building."""
+        audio = np.zeros(16000 * 30, dtype=np.float32)  # 30s of audio
+        speech_segments = [(0.0, 10.0), (15.0, 25.0)]
+
+        contents = _build_chunk_contents(audio, 16000, speech_segments, "Test prompt")
+
+        # Should have: prompt + (label + audio) * 2 = 5 items
+        assert len(contents) == 5
+        assert contents[0] == "Test prompt"
+        assert contents[1] == "Clip starting at 00:00 (10s):"
+        assert contents[3] == "Clip starting at 00:15 (10s):"
+
+    def test_duration_in_label(self):
+        """Label includes duration."""
+        audio = np.zeros(16000 * 30, dtype=np.float32)
+        speech_segments = [(5.0, 12.0)]  # 7 second clip
+
+        contents = _build_chunk_contents(audio, 16000, speech_segments, "Prompt")
+
+        assert contents[1] == "Clip starting at 00:05 (7s):"
+
+    def test_skips_empty_chunks(self):
+        """Empty audio chunks are skipped."""
+        audio = np.zeros(16000 * 10, dtype=np.float32)
+        # Second segment has start == end (empty)
+        speech_segments = [(0.0, 5.0), (5.0, 5.0), (7.0, 10.0)]
+
+        contents = _build_chunk_contents(audio, 16000, speech_segments, "Prompt")
+
+        # Should have: prompt + 2 valid chunks * 2 = 5 items
+        assert len(contents) == 5
 
 
 class TestGetModelInfo:

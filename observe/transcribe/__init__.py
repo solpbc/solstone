@@ -135,6 +135,7 @@ def transcribe(
     audio: "np.ndarray",
     sample_rate: int,
     config: dict,
+    speech_segments: list[tuple[float, float]] | None = None,
 ) -> list[dict]:
     """Dispatch transcription to the specified backend.
 
@@ -143,11 +144,18 @@ def transcribe(
         audio: Audio buffer (float32, mono)
         sample_rate: Sample rate in Hz (typically 16000)
         config: Backend-specific configuration dict
+        speech_segments: Optional VAD speech segments for chunk-based transcription.
+            Currently only used by the Gemini backend for timestamp anchoring.
 
     Returns:
         List of statement dicts with id, start, end, text, and optionally words
     """
     backend_mod = get_backend(backend)
+
+    # Pass speech_segments to backends that support it (currently only Gemini)
+    if backend == "gemini" and speech_segments is not None:
+        return backend_mod.transcribe(audio, sample_rate, config, speech_segments)
+
     return backend_mod.transcribe(audio, sample_rate, config)
 
 
