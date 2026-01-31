@@ -593,7 +593,8 @@ class InputContext:
     """Assembled inputs for generation or tool execution.
 
     Contains all resolved inputs ready for LLM call, including transcript,
-    prompts, and output path. Used by both generate and tools paths.
+    prompts, and output path. Used by generate path always, and by tools path
+    when day is specified for transcript loading.
     """
 
     # Transcript (from day/segment/span clustering)
@@ -844,6 +845,262 @@ def assemble_inputs(config: dict) -> InputContext:
 
 
 # =============================================================================
+# Unified Execution Helpers (shared by generate and tools paths)
+# =============================================================================
+
+
+def _emit_start_event(
+    emit_event: Callable[[dict], None],
+    name: str,
+    model: str,
+    provider: str,
+    prompt: str,
+    continue_from: Optional[str] = None,
+) -> None:
+    """Emit a unified start event for both generate and tools paths."""
+    start_event: dict[str, Any] = {
+        "event": "start",
+        "ts": now_ms(),
+        "prompt": prompt,
+        "name": name,
+        "model": model or "unknown",
+        "provider": provider,
+    }
+    if continue_from:
+        start_event["continue_from"] = continue_from
+    emit_event(start_event)
+
+
+def _handle_skip(
+    inputs: InputContext,
+    name: str,
+    path_type: str,
+    emit_event: Callable[[dict], None],
+) -> bool:
+    """Handle skip conditions from input assembly.
+
+    Args:
+        inputs: InputContext with skip_reason set
+        name: Agent/generator name
+        path_type: "generate" or "agent" for logging
+        emit_event: Event emitter callback
+
+    Returns:
+        True if skipped and caller should return/continue, False otherwise
+    """
+    if not inputs.skip_reason:
+        return False
+
+    logging.info("Config %s skipped: %s", name, inputs.skip_reason)
+    emit_event(
+        {
+            "event": "finish",
+            "ts": now_ms(),
+            "result": "",
+            "skipped": inputs.skip_reason,
+        }
+    )
+    if inputs.day:
+        day_log(inputs.day, f"{path_type} {name} skipped ({inputs.skip_reason})")
+    return True
+
+
+def _execute_pre_hooks(
+    meta: dict,
+    modifiable: dict[str, str],
+    output_path: Optional[Path] = None,
+    day: Optional[str] = None,
+    segment: Optional[str] = None,
+    span_mode: bool = False,
+) -> tuple[dict[str, str], dict[str, Any]]:
+    """Execute pre-processing hooks and return modified values.
+
+    Args:
+        meta: Agent metadata containing hook config
+        modifiable: Dict of modifiable field values (prompt, system_instruction,
+            transcript, etc.) - these are passed to the hook context
+        output_path: Output path for context
+        day: Day string for context
+        segment: Segment string for context
+        span_mode: Whether in span mode
+
+    Returns:
+        Tuple of (modified_values, hook_info for dry-run)
+        modified_values contains only fields that were modified
+        hook_info contains name and list of modifications for dry-run display
+    """
+    hook_info: dict[str, Any] = {}
+    modified: dict[str, str] = {}
+
+    pre_hook = load_pre_hook(meta)
+    if not pre_hook:
+        return modified, hook_info
+
+    # Get hook name for logging
+    hook_config = meta.get("hook", {})
+    hook_name = hook_config.get("pre") if isinstance(hook_config, dict) else None
+    hook_info["name"] = hook_name
+
+    # Build context with all modifiable fields
+    # Note: modifiable may contain transcript, so we don't pass it separately
+    pre_context = build_pre_hook_context(
+        meta,
+        output_path=str(output_path) if output_path else "",
+        day=day,
+        segment=segment,
+        span=span_mode,
+        **modifiable,
+    )
+
+    modifications = run_pre_hook(pre_context, pre_hook)
+    if modifications:
+        # Only include fields that were actually modified
+        for key in modifiable:
+            if key in modifications:
+                modified[key] = modifications[key]
+        hook_info["modifications"] = list(modifications.keys())
+
+    return modified, hook_info
+
+
+def _build_dry_run_event(
+    run_type: str,
+    name: str,
+    provider: str,
+    model: str,
+    config: dict,
+    inputs: Optional[InputContext],
+    hook_info: dict[str, Any],
+    before_values: dict[str, str],
+    current_values: dict[str, str],
+) -> dict[str, Any]:
+    """Build a dry-run event with all context.
+
+    Args:
+        run_type: "generate" or "agent"
+        name: Agent/generator name
+        provider: Provider name
+        model: Model name
+        config: Full config dict
+        inputs: InputContext if available
+        hook_info: Pre-hook info from _execute_pre_hooks
+        before_values: Values before hook execution
+        current_values: Values after hook execution
+
+    Returns:
+        Complete dry-run event dict
+    """
+    event: dict[str, Any] = {
+        "event": "dry_run",
+        "ts": now_ms(),
+        "type": run_type,
+        "name": name,
+        "provider": provider,
+        "model": model or "unknown",
+        "system_instruction": current_values.get("system_instruction", ""),
+        "prompt": current_values.get("prompt", ""),
+    }
+
+    # Add agent-specific fields
+    if run_type == "agent":
+        event["user_instruction"] = current_values.get("user_instruction", "")
+        event["extra_context"] = current_values.get("extra_context", "")
+        event["tools"] = config.get("tools", [])
+
+    # Add generate-specific fields
+    if run_type == "generate":
+        event["system_instruction_source"] = (
+            inputs.system_prompt_name if inputs else "journal"
+        )
+        event["prompt_source"] = (
+            str(inputs.agent_path) if inputs and inputs.agent_path else "request"
+        )
+
+    # Add day-based fields if inputs available
+    if inputs:
+        event["day"] = inputs.day
+        event["segment"] = inputs.segment
+        transcript = current_values.get("transcript", "")
+        if transcript:
+            event["transcript"] = transcript
+            event["transcript_chars"] = len(transcript)
+            event["transcript_files"] = sum(inputs.source_counts.values())
+        if inputs.output_path:
+            event["output_path"] = str(inputs.output_path)
+
+    # Add hook before/after info
+    if hook_info:
+        event["pre_hook"] = hook_info.get("name")
+        event["pre_hook_modifications"] = hook_info.get("modifications", [])
+        # Include before values for modified fields
+        for key, before_val in before_values.items():
+            current_val = current_values.get(key, "")
+            if current_val != before_val:
+                if key == "transcript":
+                    event["transcript_before"] = before_val
+                    event["transcript_before_chars"] = len(before_val)
+                else:
+                    event[f"{key}_before"] = before_val
+
+    return event
+
+
+def _write_output(output_path: Path, result: str, output_format: str) -> None:
+    """Write result to output file.
+
+    Args:
+        output_path: Path to write to
+        result: Content to write
+        output_format: Format type ('md' or 'json')
+    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(result)
+    logging.info("Wrote output to %s", output_path)
+
+
+def _execute_post_hooks(
+    result: str,
+    meta: dict,
+    transcript: str = "",
+    output_path: Optional[Path] = None,
+    day: Optional[str] = None,
+    segment: Optional[str] = None,
+    span_mode: bool = False,
+    name: str = "",
+) -> str:
+    """Execute post-processing hooks and return transformed result.
+
+    Args:
+        result: LLM output text
+        meta: Agent metadata containing hook config
+        transcript: Transcript for context
+        output_path: Output path for context
+        day: Day for context
+        segment: Segment for context
+        span_mode: Span mode flag
+        name: Agent name
+
+    Returns:
+        Transformed result (or original if no hook or hook returns None)
+    """
+    post_hook = load_post_hook(meta)
+    if not post_hook:
+        return result
+
+    hook_context = build_hook_context(
+        meta,
+        name=name,
+        day=day,
+        segment=segment,
+        span=span_mode,
+        output_path=str(output_path) if output_path else "",
+        transcript=transcript,
+    )
+    return run_post_hook(result, hook_context, post_hook)
+
+
+# =============================================================================
 # Generator Functions (for transcript analysis without tools)
 # =============================================================================
 
@@ -1029,35 +1286,15 @@ def _run_generate(
     model = config.get("model")
     user_prompt = config.get("prompt", "")
 
-    # Emit start event
-    emit_event(
-        {
-            "event": "start",
-            "ts": now_ms(),
-            "prompt": user_prompt,
-            "name": name,
-            "model": model or "unknown",
-            "provider": provider,
-        }
-    )
-
-    # Assemble inputs if not provided
+    # Assemble inputs first (before start event, so we can skip cleanly)
     if inputs is None:
         inputs = assemble_inputs(config)
 
-    # Handle skip conditions
-    if inputs.skip_reason:
-        logging.info("Config %s skipped: %s", name, inputs.skip_reason)
-        emit_event(
-            {
-                "event": "finish",
-                "ts": now_ms(),
-                "result": "",
-                "skipped": inputs.skip_reason,
-            }
-        )
-        if inputs.day:
-            day_log(inputs.day, f"generate {name} skipped ({inputs.skip_reason})")
+    # Emit unified start event
+    _emit_start_event(emit_event, name, model, provider, user_prompt)
+
+    # Handle skip conditions using helper
+    if _handle_skip(inputs, name, "generate", emit_event):
         return
 
     # Extract values from InputContext
@@ -1071,8 +1308,6 @@ def _run_generate(
     output_path = inputs.output_path
     output_format = inputs.output_format
     meta = inputs.meta
-    agent_path = inputs.agent_path
-    total_count = sum(inputs.source_counts.values())
 
     # Check if output exists
     output_exists = False
@@ -1109,80 +1344,51 @@ def _run_generate(
             logging.info("Force regenerating: %s", output_path)
 
         # Capture state before pre-hook for dry-run comparison
-        pre_hook_info: dict[str, Any] = {}
-        before_transcript = transcript
-        before_prompt = prompt
-        before_system = system_instruction
+        before_values = {
+            "transcript": transcript,
+            "prompt": prompt,
+            "system_instruction": system_instruction,
+        }
 
-        # Run pre-processing hook if present (before LLM call)
-        pre_hook = load_pre_hook(meta)
-        if pre_hook:
-            hook_config = meta.get("hook", {})
-            pre_hook_name = (
-                hook_config.get("pre") if isinstance(hook_config, dict) else None
-            )
-            pre_hook_info["name"] = pre_hook_name
+        # Run pre-processing hooks using helper
+        modifications, hook_info = _execute_pre_hooks(
+            meta,
+            modifiable={
+                "prompt": prompt,
+                "system_instruction": system_instruction,
+                "transcript": transcript,
+            },
+            output_path=output_path,
+            day=day,
+            segment=segment,
+            span_mode=span_mode,
+        )
 
-            pre_context = build_pre_hook_context(
-                meta,
-                name=name,
-                day=day,
-                segment=segment,
-                span=span_mode,
-                output_path=str(output_path) if output_path else "",
-                transcript=transcript,
-                prompt=prompt,
-                system_instruction=system_instruction,
-            )
-            modifications = run_pre_hook(pre_context, pre_hook)
-            if modifications:
-                # Apply modifications to inputs
-                transcript = modifications.get("transcript", transcript)
-                prompt = modifications.get("prompt", prompt)
-                system_instruction = modifications.get(
-                    "system_instruction", system_instruction
-                )
-                # Track what was modified
-                pre_hook_info["modifications"] = list(modifications.keys())
+        # Apply modifications
+        transcript = modifications.get("transcript", transcript)
+        prompt = modifications.get("prompt", prompt)
+        system_instruction = modifications.get("system_instruction", system_instruction)
+
+        # Current values after hook
+        current_values = {
+            "transcript": transcript,
+            "prompt": prompt,
+            "system_instruction": system_instruction,
+        }
 
         # Dry-run mode: emit context and return without LLM call
         if dry_run:
-            dry_run_event: dict[str, Any] = {
-                "event": "dry_run",
-                "ts": now_ms(),
-                "type": "generate",
-                "name": name,
-                "provider": provider,
-                "model": model or "unknown",
-                "system_instruction": system_instruction,
-                "system_instruction_source": system_prompt_name,
-                "prompt": prompt,
-                "prompt_source": str(agent_path) if agent_path else "request",
-            }
-            # Include day-based fields only if present
-            if day:
-                dry_run_event["day"] = day
-                dry_run_event["segment"] = segment
-                dry_run_event["transcript"] = transcript
-                dry_run_event["transcript_chars"] = len(transcript)
-                dry_run_event["transcript_files"] = total_count
-            if output_path:
-                dry_run_event["output_path"] = str(output_path)
-            # Include pre-hook before/after if hook was run
-            if pre_hook_info:
-                dry_run_event["pre_hook"] = pre_hook_info.get("name")
-                dry_run_event["pre_hook_modifications"] = pre_hook_info.get(
-                    "modifications", []
-                )
-                # Include before values if they changed
-                if transcript != before_transcript:
-                    dry_run_event["transcript_before"] = before_transcript
-                    dry_run_event["transcript_before_chars"] = len(before_transcript)
-                if prompt != before_prompt:
-                    dry_run_event["prompt_before"] = before_prompt
-                if system_instruction != before_system:
-                    dry_run_event["system_instruction_before"] = before_system
-
+            dry_run_event = _build_dry_run_event(
+                "generate",
+                name,
+                provider,
+                model,
+                config,
+                inputs,
+                hook_info,
+                before_values,
+                current_values,
+            )
             emit_event(dry_run_event)
             return
 
@@ -1201,21 +1407,23 @@ def _run_generate(
         result = gen_result["text"]
         usage_data = gen_result.get("usage")
 
-        # Run post-processing hook if present
-        post_hook = load_post_hook(meta)
-        if post_hook:
-            hook_context = build_hook_context(
-                meta,
-                name=name,
-                day=day,
-                segment=segment,
-                span=span_mode,
-                output_path=str(output_path) if output_path else "",
-                transcript=transcript,
-            )
-            result = run_post_hook(result, hook_context, post_hook)
+        # Run post-processing hooks using helper
+        result = _execute_post_hooks(
+            result,
+            meta,
+            transcript=transcript,
+            output_path=output_path,
+            day=day,
+            segment=segment,
+            span_mode=span_mode,
+            name=name,
+        )
 
-    # Emit finish event with result (cortex handles file writing)
+    # Write output file (agents.py owns output writing)
+    if output_path and result:
+        _write_output(output_path, result, output_format or "md")
+
+    # Emit finish event with result
     finish_event: dict[str, Any] = {
         "event": "finish",
         "ts": now_ms(),
@@ -1307,6 +1515,7 @@ async def main_async() -> None:
 
                     provider = config.get("provider", "google")
                     name = config.get("name", "default")
+                    model = config.get("model")
 
                     # Set OpenAI key if needed
                     if provider == "openai":
@@ -1333,26 +1542,25 @@ async def main_async() -> None:
                     if config.get("day"):
                         inputs = assemble_inputs(config)
 
-                        # Handle skip conditions from input assembly
-                        if inputs.skip_reason:
-                            logging.info(
-                                "Config %s skipped: %s", name, inputs.skip_reason
-                            )
-                            emit_event(
-                                {
-                                    "event": "finish",
-                                    "ts": now_ms(),
-                                    "result": "",
-                                    "skipped": inputs.skip_reason,
-                                }
-                            )
-                            if inputs.day:
-                                day_log(
-                                    inputs.day,
-                                    f"agent {name} skipped ({inputs.skip_reason})",
-                                )
-                            continue
+                    # Get metadata for hooks (from inputs if available, else from config)
+                    meta = inputs.meta if inputs else config
 
+                    # Emit unified start event (agents.py owns this)
+                    _emit_start_event(
+                        emit_event,
+                        name,
+                        model,
+                        provider,
+                        config.get("prompt", ""),
+                        continue_from=config.get("continue_from"),
+                    )
+
+                    # Handle skip conditions using helper
+                    if inputs and _handle_skip(inputs, name, "agent", emit_event):
+                        continue
+
+                    # Pass transcript and system instruction to provider if inputs assembled
+                    if inputs and not config.get("continue_from"):
                         # Warn if both day and continue_from are specified
                         if config.get("continue_from"):
                             logging.warning(
@@ -1360,126 +1568,106 @@ async def main_async() -> None:
                                 "continue_from takes precedence, transcript ignored"
                             )
                         else:
-                            # Pass transcript and system instruction to provider via config
                             config["transcript"] = inputs.transcript
-                            # Use assembled system instruction if not already set
                             if not config.get("system_instruction"):
                                 config["system_instruction"] = inputs.system_instruction
 
                     # Capture state before pre-hook for dry-run comparison
-                    pre_hook_info: dict[str, Any] = {}
-                    before_prompt = config.get("prompt", "")
-                    before_system = config.get("system_instruction", "")
-                    before_user = config.get("user_instruction", "")
-                    before_extra = config.get("extra_context", "")
-                    before_transcript = config.get("transcript", "")
+                    before_values = {
+                        "prompt": config.get("prompt", ""),
+                        "system_instruction": config.get("system_instruction", ""),
+                        "user_instruction": config.get("user_instruction", ""),
+                        "extra_context": config.get("extra_context", ""),
+                        "transcript": config.get("transcript", ""),
+                    }
 
-                    # Load pre hook if configured (before LLM call)
-                    meta = inputs.meta if inputs else config
-                    pre_hook = load_pre_hook(meta)
-                    if pre_hook:
-                        hook_config = meta.get("hook", {})
-                        pre_hook_name = (
-                            hook_config.get("pre")
-                            if isinstance(hook_config, dict)
-                            else None
-                        )
-                        pre_hook_info["name"] = pre_hook_name
+                    # Run pre-processing hooks using helper
+                    # Note: before_values already contains transcript
+                    modifications, hook_info = _execute_pre_hooks(
+                        meta,
+                        modifiable=before_values.copy(),
+                        output_path=inputs.output_path if inputs else None,
+                        day=inputs.day if inputs else None,
+                        segment=inputs.segment if inputs else None,
+                        span_mode=inputs.span_mode if inputs else False,
+                    )
 
-                        pre_context = build_pre_hook_context(
-                            meta,
-                            transcript=config.get("transcript", ""),
-                        )
-                        modifications = run_pre_hook(pre_context, pre_hook)
-                        if modifications:
-                            # Apply modifications to config
-                            for key in (
-                                "prompt",
-                                "system_instruction",
-                                "user_instruction",
-                                "extra_context",
-                                "transcript",
-                            ):
-                                if key in modifications:
-                                    config[key] = modifications[key]
-                            pre_hook_info["modifications"] = list(modifications.keys())
+                    # Apply modifications to config
+                    for key in (
+                        "prompt",
+                        "system_instruction",
+                        "user_instruction",
+                        "extra_context",
+                        "transcript",
+                    ):
+                        if key in modifications:
+                            config[key] = modifications[key]
+
+                    # Current values after hook
+                    current_values = {
+                        "prompt": config.get("prompt", ""),
+                        "system_instruction": config.get("system_instruction", ""),
+                        "user_instruction": config.get("user_instruction", ""),
+                        "extra_context": config.get("extra_context", ""),
+                        "transcript": config.get("transcript", ""),
+                    }
 
                     # Dry-run mode: emit context and return without LLM call
                     if dry_run:
-                        dry_run_event: dict[str, Any] = {
-                            "event": "dry_run",
-                            "ts": now_ms(),
-                            "type": "agent",
-                            "name": name,
-                            "provider": provider,
-                            "model": config.get("model", "unknown"),
-                            "system_instruction": config.get("system_instruction", ""),
-                            "system_instruction_source": config.get(
-                                "system_prompt_name", "journal"
-                            ),
-                            "user_instruction": config.get("user_instruction", ""),
-                            "extra_context": config.get("extra_context", ""),
-                            "prompt": config.get("prompt", ""),
-                            "tools": config.get("tools", []),
-                        }
-                        # Include day-based fields if inputs were assembled
-                        if inputs:
-                            dry_run_event["day"] = inputs.day
-                            dry_run_event["segment"] = inputs.segment
-                            if config.get("transcript"):
-                                dry_run_event["transcript"] = config["transcript"]
-                                dry_run_event["transcript_chars"] = len(
-                                    config["transcript"]
-                                )
-                                dry_run_event["transcript_files"] = sum(
-                                    inputs.source_counts.values()
-                                )
-                            if inputs.output_path:
-                                dry_run_event["output_path"] = str(inputs.output_path)
-                        # Include pre-hook before/after if hook was run
-                        if pre_hook_info:
-                            dry_run_event["pre_hook"] = pre_hook_info.get("name")
-                            dry_run_event["pre_hook_modifications"] = pre_hook_info.get(
-                                "modifications", []
-                            )
-                            if config.get("prompt") != before_prompt:
-                                dry_run_event["prompt_before"] = before_prompt
-                            if config.get("system_instruction") != before_system:
-                                dry_run_event["system_instruction_before"] = (
-                                    before_system
-                                )
-                            if config.get("user_instruction") != before_user:
-                                dry_run_event["user_instruction_before"] = before_user
-                            if config.get("extra_context") != before_extra:
-                                dry_run_event["extra_context_before"] = before_extra
-                            if config.get("transcript") != before_transcript:
-                                dry_run_event["transcript_before"] = before_transcript
-
+                        dry_run_event = _build_dry_run_event(
+                            "agent",
+                            name,
+                            provider,
+                            model,
+                            config,
+                            inputs,
+                            hook_info,
+                            before_values,
+                            current_values,
+                        )
                         emit_event(dry_run_event)
                         continue
 
-                    # Load post hook if configured
-                    post_hook = load_post_hook(meta)
                     handoff_config = config.get("handoff")
+                    output_path = inputs.output_path if inputs else None
+                    output_format = inputs.output_format if inputs else None
 
-                    # Create event handler that intercepts finish for hooks and handoff
+                    # Create event handler that intercepts finish for post-hooks,
+                    # output writing, and handoff
                     def agent_emit_event(data: Event) -> None:
                         if data.get("event") == "finish":
-                            # Apply post hook if configured
-                            if post_hook:
-                                result = data.get("result", "")
-                                hook_context = build_hook_context(
-                                    meta,
-                                    transcript=config.get("transcript", ""),
+                            result = data.get("result", "")
+
+                            # Apply post-processing hooks using helper
+                            result = _execute_post_hooks(
+                                result,
+                                meta,
+                                transcript=config.get("transcript", ""),
+                                output_path=output_path,
+                                day=inputs.day if inputs else None,
+                                segment=inputs.segment if inputs else None,
+                                span_mode=inputs.span_mode if inputs else False,
+                                name=name,
+                            )
+
+                            # Update data if result was transformed
+                            if result != data.get("result", ""):
+                                data = {**data, "result": result}
+
+                            # Write output file (agents.py owns output writing)
+                            if output_path and result:
+                                _write_output(
+                                    output_path, result, output_format or "md"
                                 )
-                                transformed = run_post_hook(
-                                    result, hook_context, post_hook
-                                )
-                                if transformed != result:
-                                    data = {**data, "result": transformed}
+
                             # Include handoff config for cortex
                             if handoff_config:
                                 data = {**data, "handoff": handoff_config}
+
+                        # Filter out start events from providers (we already emitted ours)
+                        if data.get("event") == "start":
+                            return
+
                         emit_event(data)
 
                     # Pass complete config to provider
