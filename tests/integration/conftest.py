@@ -18,6 +18,14 @@ def pytest_configure(config):
     )
 
 
+def pytest_collection_modifyitems(config, items):
+    """Extend timeout for tests that require external API access."""
+    for item in items:
+        if item.get_closest_marker("requires_api"):
+            # Override global 5s timeout for API tests (real API calls need more time)
+            item.add_marker(pytest.mark.timeout(60))
+
+
 @pytest.fixture(scope="session")
 def integration_journal_path(tmp_path_factory):
     """Create a temporary journal path for integration tests."""
