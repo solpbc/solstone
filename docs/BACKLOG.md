@@ -25,8 +25,7 @@ Tactical work items prioritized for implementation.
 
 - [ ] Add OpenRouter provider support with observe integration for multimodal models
 - [ ] Automated Fireflies importer
-
-## Indexer
+- [ ] Investigate Gemini stopping early in chats
 
 ## Infrastructure
 

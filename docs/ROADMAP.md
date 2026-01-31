@@ -20,6 +20,7 @@ Strategic direction and planned capabilities.
 ## Platform Support
 
 - Windows native observer
+- iPhone and iPad apps
 
 ## Deployment
 
