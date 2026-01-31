@@ -34,7 +34,7 @@ def run_service(
     app: Flask,
     *,
     host: str = "0.0.0.0",
-    port: int = 8000,
+    port: int,
     debug: bool = False,
     start_watcher: bool = True,
 ) -> None:
@@ -66,7 +66,6 @@ def main() -> None:
     from pathlib import Path
 
     from think.utils import (
-        find_available_port,
         get_journal,
         setup_cli,
         write_service_port,
@@ -79,8 +78,8 @@ def main() -> None:
     parser.add_argument(
         "--port",
         type=int,
-        default=0,
-        help="Port to serve on (0 = auto-select available port)",
+        required=True,
+        help="Port to serve on",
     )
     parser.add_argument(
         "--skip-maint",
@@ -105,11 +104,8 @@ def main() -> None:
             "No password configured - add to config/journal.json to enable authentication"
         )
 
-    # Determine port: use specified port or find an available one
-    port = args.port if args.port != 0 else find_available_port()
-
     # Write port to health directory for discovery by other tools
-    write_service_port("convey", port)
-    logger.info(f"Convey starting on port {port}")
+    write_service_port("convey", args.port)
+    logger.info(f"Convey starting on port {args.port}")
 
-    run_service(app, host="0.0.0.0", port=port, debug=args.debug)
+    run_service(app, host="0.0.0.0", port=args.port, debug=args.debug)

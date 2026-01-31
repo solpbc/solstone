@@ -20,7 +20,13 @@ from desktop_notifier import DesktopNotifier, Urgency
 from observe.sync import check_remote_health
 from think.callosum import CallosumConnection, CallosumServer
 from think.runner import ManagedProcess as RunnerManagedProcess
-from think.utils import get_journal, get_journal_info, now_ms, setup_cli
+from think.utils import (
+    find_available_port,
+    get_journal,
+    get_journal_info,
+    now_ms,
+    setup_cli,
+)
 
 DEFAULT_THRESHOLD = 60
 CHECK_INTERVAL = 30
@@ -787,15 +793,24 @@ def start_cortex_server() -> ManagedProcess:
     return _launch_process("cortex", cmd, restart=True)
 
 
-def start_convey_server(verbose: bool, debug: bool = False) -> ManagedProcess:
-    """Launch the Convey web application with optional verbose and debug logging."""
+def start_convey_server(
+    verbose: bool, debug: bool = False, port: int = 0
+) -> tuple[ManagedProcess, int]:
+    """Launch the Convey web application with optional verbose and debug logging.
 
-    cmd = ["sol", "convey"]
+    Returns:
+        Tuple of (ManagedProcess, resolved_port) where resolved_port is the
+        actual port being used (auto-selected if port was 0).
+    """
+    # Resolve port 0 to an available port before launching
+    resolved_port = port if port != 0 else find_available_port()
+
+    cmd = ["sol", "convey", "--port", str(resolved_port)]
     if debug:
         cmd.append("-d")
     elif verbose:
         cmd.append("-v")
-    return _launch_process("convey", cmd, restart=True)
+    return _launch_process("convey", cmd, restart=True), resolved_port
 
 
 def check_runner_exits(procs: list[ManagedProcess]) -> list[ManagedProcess]:
@@ -1190,6 +1205,13 @@ async def supervise(
 def parse_args() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Monitor journaling health")
     parser.add_argument(
+        "port",
+        nargs="?",
+        type=int,
+        default=0,
+        help="Convey port (0 = auto-select available port)",
+    )
+    parser.add_argument(
         "--threshold",
         type=int,
         default=DEFAULT_THRESHOLD,
@@ -1331,16 +1353,24 @@ def main() -> None:
         if not args.no_observers:
             procs.append(start_observer())
     # Cortex and Convey only run in local mode (remote has no data to serve)
+    convey_port = None
     if not _is_remote_mode and not args.no_cortex:
         procs.append(start_cortex_server())
     if not _is_remote_mode and not args.no_convey:
-        procs.append(start_convey_server(verbose=args.verbose, debug=args.debug))
+        proc, convey_port = start_convey_server(
+            verbose=args.verbose, debug=args.debug, port=args.port
+        )
+        procs.append(proc)
 
     # Make procs accessible to restart handler
     _managed_procs = procs
 
     # Initialize daily state to today - dream only triggers at midnight when day changes
     _daily_state["last_day"] = datetime.now().date()
+
+    # Show Convey URL if running
+    if convey_port:
+        print(f"Convey: http://localhost:{convey_port}/")
 
     logging.info(f"Started {len(procs)} processes, entering supervision loop")
     daily_enabled = not args.no_daily and not _is_remote_mode

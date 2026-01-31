@@ -208,7 +208,7 @@ def main() -> None:
         "--port",
         type=int,
         default=6270,
-        help="Port to bind to for HTTP transport (default: 6270)",
+        help="Port to bind to for HTTP transport (default: 6270; cortex uses dynamic port)",
     )
     parser.add_argument(
         "--path", default="/mcp", help="HTTP path for MCP endpoints (default: /mcp)"

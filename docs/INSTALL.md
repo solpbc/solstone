@@ -195,7 +195,7 @@ Replace `your-password-here` with a secure password.
 
 ### Access the Interface
 
-Open http://localhost:8000/ in your browser and log in with your password.
+Open the Convey URL shown in the terminal (port is dynamically assigned) and log in with your password.
 
 ### Configure Your Identity
 

@@ -26,9 +26,9 @@ class _HelpOnErrorParser(argparse.ArgumentParser):
 
 def screenshot(
     route: str,
+    port: int,
     output_path: str = "logs/screenshot.png",
     host: str = "localhost",
-    port: int = 8000,
     width: int = 1440,
     height: int = 900,
     script: str | None = None,
@@ -40,9 +40,9 @@ def screenshot(
 
     Args:
         route: The route to screenshot (e.g., "/", "/facets")
+        port: Server port
         output_path: Where to save the screenshot (default: logs/screenshot.png)
         host: Server host (default: localhost)
-        port: Server port (default: 8000)
         width: Viewport width (default: 1440)
         height: Viewport height (default: 900)
         script: Optional JavaScript to execute before taking screenshot
