@@ -226,11 +226,11 @@ def _save_voiceprint(
 
 
 def _scan_segment_embeddings(day: str) -> list[dict]:
-    """Scan a day for segments with embeddings and 2+ speakers.
+    """Scan a day for segments with embeddings and 1+ speakers.
 
     Only includes segments that have:
     1. Audio embedding NPZ files
-    2. A speakers.json file with 2 or more speaker names
+    2. A speakers.json file with 1 or more speaker names
 
     Returns list of segment info dicts with keys:
         - key: segment directory name (HHMMSS_LEN)
@@ -271,9 +271,9 @@ def _scan_segment_embeddings(day: str) -> list[dict]:
         if not sources:
             continue
 
-        # Load speakers.json - require 2+ speakers
+        # Load speakers.json - require at least one speaker
         speakers = _load_segment_speakers(item_path)
-        if len(speakers) < 2:
+        if not speakers:
             continue
 
         # Calculate duration from start and end times
@@ -469,7 +469,7 @@ def speakers_day(day: str) -> str:
 def api_stats(month: str) -> Any:
     """Return segment counts for each day in a month.
 
-    Used by calendar heatmap to show days with multi-speaker segments.
+    Used by calendar heatmap to show days with speaker segments.
     """
     if not re.fullmatch(r"\d{6}", month):
         return error_response("Invalid month format, expected YYYYMM", 400)
@@ -489,7 +489,7 @@ def api_stats(month: str) -> Any:
 
 @speakers_bp.route("/api/segments/<day>")
 def api_segments(day: str) -> Any:
-    """Return segments with embeddings and 2+ speakers for a day."""
+    """Return segments with embeddings and 1+ speakers for a day."""
     if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 400)
 
@@ -579,13 +579,18 @@ def api_sentences(day: str, segment_key: str, source: str) -> Any:
     # Filter to only sentences with embeddings
     sentences = [s for s in sentences if s.get("has_embedding")]
 
-    # Load ALL journal entities for dropdown (filter to Person types for voice)
+    # Load ALL journal entities for dropdown, principal (self) first
     journal_entities = load_all_journal_entities()
-    all_entity_names = [
-        e.get("name")
-        for e in journal_entities.values()
-        if e.get("name") and not e.get("blocked")
-    ]
+    principal = next((e for e in journal_entities.values() if e.get("is_principal")), None)
+    principal_name = principal.get("name") if principal else None
+
+    all_entity_names = []
+    if principal_name:
+        all_entity_names.append(principal_name)
+    for e in journal_entities.values():
+        name = e.get("name")
+        if name and not e.get("blocked") and name != principal_name:
+            all_entity_names.append(name)
 
     # Get audio file URL
     segment_dir = day_path(day) / segment_key

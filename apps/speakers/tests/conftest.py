@@ -109,6 +109,7 @@ def speakers_env(tmp_path, monkeypatch):
             self,
             name: str,
             voiceprints: list[tuple[str, str, str, int]] | None = None,
+            is_principal: bool = False,
         ) -> Path:
             """Create a journal-level entity with optional voiceprint files.
 
@@ -116,6 +117,7 @@ def speakers_env(tmp_path, monkeypatch):
                 name: Entity name
                 voiceprints: Optional list of (day, segment_key, source, sentence_id)
                             tuples for voiceprints
+                is_principal: If True, mark this entity as the principal (self)
             """
             # Create journal-level entity
             entity_id = entity_slug(name)
@@ -127,6 +129,8 @@ def speakers_env(tmp_path, monkeypatch):
                 "type": "Person",
                 "created_at": 1700000000000,
             }
+            if is_principal:
+                journal_entity["is_principal"] = True
             with open(journal_entity_dir / "entity.json", "w", encoding="utf-8") as f:
                 json.dump(journal_entity, f)
 

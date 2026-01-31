@@ -117,11 +117,20 @@ def has_journal_principal() -> bool:
     Returns:
         True if a principal entity exists, False otherwise
     """
+    return get_journal_principal() is not None
+
+
+def get_journal_principal() -> EntityDict | None:
+    """Get the principal (self) journal entity.
+
+    Returns:
+        The principal entity dict, or None if no principal exists
+    """
     for entity_id in scan_journal_entities():
         entity = load_journal_entity(entity_id)
         if entity and entity.get("is_principal"):
-            return True
-    return False
+            return entity
+    return None
 
 
 def _should_be_principal(name: str, aka: list[str] | None) -> bool:

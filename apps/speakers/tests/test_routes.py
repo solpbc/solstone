@@ -428,13 +428,27 @@ def test_scan_segment_embeddings_requires_speakers(speakers_env):
     assert segments == []
 
 
-def test_scan_segment_embeddings_requires_two_speakers(speakers_env):
-    """Test that segments with <2 speakers are filtered out."""
+def test_scan_segment_embeddings_single_speaker(speakers_env):
+    """Test that segments with 1 speaker are included."""
     from apps.speakers.routes import _scan_segment_embeddings
 
     env = speakers_env()
     env.create_segment("20240101", "143022_300", ["mic_audio"])
     env.create_speakers_json("20240101", "143022_300", ["OnlyAlice"])  # Just 1 speaker
+
+    segments = _scan_segment_embeddings("20240101")
+    assert len(segments) == 1
+    assert segments[0]["speakers"] == ["OnlyAlice"]
+    assert segments[0]["speaker_count"] == 1
+
+
+def test_scan_segment_embeddings_empty_speakers(speakers_env):
+    """Test that segments with 0 speakers are filtered out."""
+    from apps.speakers.routes import _scan_segment_embeddings
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_speakers_json("20240101", "143022_300", [])  # No speakers
 
     segments = _scan_segment_embeddings("20240101")
     assert segments == []
@@ -453,3 +467,61 @@ def test_scan_segment_embeddings_includes_speaker_data(speakers_env):
     assert len(segments) == 1
     assert segments[0]["speakers"] == ["Alice", "Bob"]
     assert segments[0]["speaker_count"] == 2
+
+
+def test_get_journal_principal(speakers_env):
+    """Test get_journal_principal returns the principal entity."""
+    from think.entities.journal import get_journal_principal
+
+    env = speakers_env()
+    # Create some entities, one as principal
+    env.create_entity("Alice Test")
+    env.create_entity("Self Person", is_principal=True)
+    env.create_entity("Bob Test")
+
+    principal = get_journal_principal()
+    assert principal is not None
+    assert principal["name"] == "Self Person"
+    assert principal["is_principal"] is True
+
+
+def test_get_journal_principal_none(speakers_env):
+    """Test get_journal_principal returns None when no principal exists."""
+    from think.entities.journal import get_journal_principal
+
+    env = speakers_env()
+    # Create entities without principal
+    env.create_entity("Alice Test")
+    env.create_entity("Bob Test")
+
+    principal = get_journal_principal()
+    assert principal is None
+
+
+def test_api_sentences_principal_first(speakers_env):
+    """Test that principal entity appears first in all_entities dropdown."""
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"], num_sentences=2)
+
+    # Create entities - principal created last but should appear first
+    env.create_entity("Alice Test")
+    env.create_entity("Bob Test")
+    env.create_entity("Self Person", is_principal=True)
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        response = client.get("/app/speakers/api/sentences/20240101/143022_300/mic_audio")
+        assert response.status_code == 200
+        data = response.get_json()
+
+        all_entities = data["all_entities"]
+        assert len(all_entities) == 3
+        assert all_entities[0] == "Self Person"  # Principal first
+        assert "Alice Test" in all_entities
+        assert "Bob Test" in all_entities
