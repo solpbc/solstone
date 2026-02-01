@@ -7,7 +7,11 @@
   "color": "#28a745",
   "schedule": "daily",
   "disabled": true,
-  "output": "md"
+  "output": "md",
+  "instructions": {
+    "sources": {"audio": true, "screen": false, "agents": true},
+    "facets": "short"
+  }
 
 }
 

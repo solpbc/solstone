@@ -5,7 +5,11 @@
   "hook": {"post": "anticipation"},
   "color": "#5e35b1",
   "schedule": "daily",
-  "output": "md"
+  "output": "md",
+  "instructions": {
+    "sources": {"audio": true, "screen": false, "agents": true},
+    "facets": "short"
+  }
 
 }
 

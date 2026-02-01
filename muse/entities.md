@@ -9,9 +9,8 @@
   "max_output_tokens": 1024,
   "output": "md",
   "instructions": {
-    "system": "journal",
-    "facets": "none",
-    "sources": {"audio": true, "screen": true, "agents": false}
+    "sources": {"audio": true, "screen": true, "agents": false},
+    "facets": "none"
   }
 
 }

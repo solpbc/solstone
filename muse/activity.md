@@ -4,7 +4,11 @@
   "description": "Synthesizes segment activity from screenshots and audio, focusing on observable changes and searchability.",
   "color": "#00bcd4",
   "schedule": "segment",
-  "output": "md"
+  "output": "md",
+  "instructions": {
+    "sources": {"audio": true, "screen": true, "agents": false},
+    "facets": "short"
+  }
 
 }
 

@@ -6,7 +6,11 @@
   "hook": {"post": "occurrence"},
   "color": "#7b1fa2",
   "schedule": "daily",
-  "output": "md"
+  "output": "md",
+  "instructions": {
+    "sources": {"audio": true, "screen": false, "agents": true},
+    "facets": "short"
+  }
 
 }
 

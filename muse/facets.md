@@ -10,9 +10,8 @@
   "max_output_tokens": 512,
   "output": "json",
   "instructions": {
-    "system": "journal",
-    "facets": "short",
-    "sources": {"audio": false, "screen": false, "agents": true}
+    "sources": {"audio": false, "screen": false, "agents": true},
+    "facets": "short"
   }
 
 }

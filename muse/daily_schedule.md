@@ -7,7 +7,11 @@
   "hook": {"pre": "daily_schedule"},
   "color": "#455a64",
   "thinking_budget": 4096,
-  "max_output_tokens": 512
+  "max_output_tokens": 512,
+  "instructions": {
+    "sources": {"audio": true, "screen": false, "agents": true},
+    "facets": "short"
+  }
 
 }
 
