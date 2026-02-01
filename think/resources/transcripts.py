@@ -49,9 +49,7 @@ def _get_transcript_resource(
                 day=day,
                 start=time,
                 end=end_time,
-                audio=True,
-                screen=True,
-                agents=False,
+                sources={"audio": True, "screen": True, "agents": False},
             )
             description = f"Raw audio and screencast transcripts from {day} at {time} for {length} minutes"
         elif mode == "audio":
@@ -59,9 +57,7 @@ def _get_transcript_resource(
                 day=day,
                 start=time,
                 end=end_time,
-                audio=True,
-                screen=False,
-                agents=False,
+                sources={"audio": True, "screen": False, "agents": False},
             )
             description = (
                 f"Raw audio transcripts from {day} at {time} for {length} minutes"
@@ -71,9 +67,7 @@ def _get_transcript_resource(
                 day=day,
                 start=time,
                 end=end_time,
-                audio=False,
-                screen=True,
-                agents=False,
+                sources={"audio": False, "screen": True, "agents": False},
             )
             description = (
                 f"Raw screencast transcripts from {day} at {time} for {length} minutes"
@@ -83,9 +77,7 @@ def _get_transcript_resource(
                 day=day,
                 start=time,
                 end=end_time,
-                audio=False,
-                screen=False,
-                agents=True,
+                sources={"audio": False, "screen": False, "agents": True},
             )
             description = (
                 f"AI-generated summaries from {day} at {time} for {length} minutes"

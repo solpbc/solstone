@@ -19,7 +19,9 @@ def test_cluster(tmp_path, monkeypatch):
     (day_dir / "120000_300" / "audio.jsonl").write_text('{}\n{"text": "hi"}\n')
     (day_dir / "120500_300").mkdir()
     (day_dir / "120500_300" / "screen.md").write_text("screen summary")
-    result, counts = mod.cluster("20240101")
+    result, counts = mod.cluster(
+        "20240101", sources={"audio": True, "screen": False, "agents": True}
+    )
     assert counts["audio"] == 1
     assert counts["agents"] == 1
     assert "Audio Transcript" in result
@@ -28,7 +30,7 @@ def test_cluster(tmp_path, monkeypatch):
 
 
 def test_cluster_range(tmp_path, monkeypatch):
-    """Test cluster_range with audio and agents parameters."""
+    """Test cluster_range with audio and agents sources."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     day_dir = day_path("20240101")
 
@@ -41,7 +43,12 @@ def test_cluster_range(tmp_path, monkeypatch):
     )
     (day_dir / "120000_300" / "screen.md").write_text("screen summary content")
     # Test with agents=True to include *.md files
-    md = mod.cluster_range("20240101", "120000", "120100", audio=True, agents=True)
+    md = mod.cluster_range(
+        "20240101",
+        "120000",
+        "120100",
+        sources={"audio": True, "screen": False, "agents": True},
+    )
     # Check that the function works and includes expected sections
     assert "Audio Transcript" in md
     # Now uses insight rendering: "### {stem} summary"
@@ -145,7 +152,11 @@ def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
     # Also create screen.md (insight) to verify it's NOT used by cluster_period
     (segment / "screen.md").write_text("This insight should NOT appear")
 
-    result, counts = mod.cluster_period("20240101", "100000_300")
+    result, counts = mod.cluster_period(
+        "20240101",
+        "100000_300",
+        sources={"audio": True, "screen": True, "agents": False},
+    )
 
     # Should have both audio and screen entries
     assert counts["audio"] == 1
@@ -160,7 +171,7 @@ def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
 
 
 def test_cluster_range_with_agents(tmp_path, monkeypatch):
-    """Test cluster_range with agents=True loads all *.md files."""
+    """Test cluster_range with agents source loads all *.md files."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     day_dir = day_path("20240101")
 
@@ -182,7 +193,10 @@ def test_cluster_range_with_agents(tmp_path, monkeypatch):
 
     # Test agents=True returns *.md summaries, not raw screen data
     result = mod.cluster_range(
-        "20240101", "100000", "100500", audio=True, screen=False, agents=True
+        "20240101",
+        "100000",
+        "100500",
+        sources={"audio": True, "screen": False, "agents": True},
     )
 
     assert "Audio Transcript" in result
@@ -196,7 +210,7 @@ def test_cluster_range_with_agents(tmp_path, monkeypatch):
 
 
 def test_cluster_range_with_screen(tmp_path, monkeypatch):
-    """Test cluster_range with screen=True loads raw screen.jsonl data."""
+    """Test cluster_range with screen source loads raw screen.jsonl data."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     day_dir = day_path("20240101")
 
@@ -213,7 +227,10 @@ def test_cluster_range_with_screen(tmp_path, monkeypatch):
 
     # Test screen=True returns raw screen data, not agent outputs
     result = mod.cluster_range(
-        "20240101", "100000", "100500", audio=False, screen=True, agents=False
+        "20240101",
+        "100000",
+        "100500",
+        sources={"audio": False, "screen": True, "agents": False},
     )
 
     assert "Screen Activity" in result
@@ -246,7 +263,10 @@ def test_cluster_range_with_multiple_screen_files(tmp_path, monkeypatch):
 
     # Test screen=True returns data from both screen files
     result = mod.cluster_range(
-        "20240101", "100000", "100500", audio=False, screen=True, agents=False
+        "20240101",
+        "100000",
+        "100500",
+        sources={"audio": False, "screen": True, "agents": False},
     )
 
     # Should include content from both screen files
@@ -318,8 +338,12 @@ def test_cluster_span(tmp_path, monkeypatch):
         '{"raw": "audio.flac"}\n{"start": "00:00:01", "text": "late morning segment"}\n'
     )
 
-    # Process only first and third segments as a span
-    result, counts = mod.cluster_span("20240101", ["090000_300", "110000_300"])
+    # Process only first and third segments as a span (audio only, no screen)
+    result, counts = mod.cluster_span(
+        "20240101",
+        ["090000_300", "110000_300"],
+        sources={"audio": True, "screen": False, "agents": False},
+    )
 
     # Should have 2 audio entries (one per segment)
     assert counts["audio"] == 2
@@ -344,7 +368,11 @@ def test_cluster_span_missing_segment(tmp_path, monkeypatch):
 
     # Try to process existing and non-existing segments
     with pytest.raises(ValueError) as exc_info:
-        mod.cluster_span("20240101", ["090000_300", "100000_300"])
+        mod.cluster_span(
+            "20240101",
+            ["090000_300", "100000_300"],
+            sources={"audio": True, "screen": False, "agents": False},
+        )
 
     assert "100000_300" in str(exc_info.value)
     assert "not found" in str(exc_info.value)

@@ -28,7 +28,9 @@ def test_cluster_full(tmp_path, monkeypatch):
     mod = importlib.import_module("think.cluster")
     copy_day(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    md, counts = mod.cluster("20240101")
+    md, counts = mod.cluster(
+        "20240101", sources={"audio": True, "screen": False, "agents": True}
+    )
     # Count: audio.jsonl (1) + audio.md (1) + screen.md (1) = 3 entries
     assert counts["audio"] == 1
     assert counts["agents"] == 2  # audio.md + screen.md

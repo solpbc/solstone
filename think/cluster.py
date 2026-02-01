@@ -377,27 +377,19 @@ def cluster_segments(day: str) -> List[Dict[str, Any]]:
 
 def cluster(
     day: str,
-    sources: Dict[str, bool | str] | None = None,
+    sources: Dict[str, bool | str],
 ) -> Tuple[str, Dict[str, int]]:
     """Return Markdown summary for one day's JSON files and counts by source.
 
-    By default uses insight summaries (*.md files) rather than raw screen data
-    for daily view. Override with sources parameter.
-
     Args:
         day: Day in YYYYMMDD format
-        sources: Optional dict with keys "audio", "screen", "agents".
+        sources: Dict with keys "audio", "screen", "agents".
             Values can be bool or "required" string (see source_is_enabled).
-            Defaults to {"audio": True, "screen": False, "agents": True}.
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
         with keys "audio", "screen", "agents" mapping to entry counts.
     """
-    # Default sources for daily generators: audio + agent summaries, no raw screen
-    if sources is None:
-        sources = {"audio": True, "screen": False, "agents": True}
-
     empty_counts = {"audio": 0, "screen": 0, "agents": 0}
 
     day_dir = str(day_path(day))
@@ -407,9 +399,9 @@ def cluster(
 
     entries = _load_entries(
         day_dir,
-        audio=sources.get("audio", True),
+        audio=sources.get("audio", False),
         screen=sources.get("screen", False),
-        agents=sources.get("agents", True),
+        agents=sources.get("agents", False),
     )
     if not entries:
         return (
@@ -425,28 +417,20 @@ def cluster(
 def cluster_period(
     day: str,
     segment: str,
-    sources: Dict[str, bool | str] | None = None,
+    sources: Dict[str, bool | str],
 ) -> Tuple[str, Dict[str, int]]:
     """Return Markdown summary for one segment's JSON files and counts by source.
-
-    By default uses raw screen data for segment generators (more granular than summaries).
-    Override with sources parameter.
 
     Args:
         day: Day in YYYYMMDD format
         segment: Segment key in HHMMSS_LEN format (e.g., "163045_300")
-        sources: Optional dict with keys "audio", "screen", "agents".
+        sources: Dict with keys "audio", "screen", "agents".
             Values can be bool or "required" string (see source_is_enabled).
-            Defaults to {"audio": True, "screen": True, "agents": False}.
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
         with keys "audio", "screen", "agents" mapping to entry counts.
     """
-    # Default sources for segment generators: audio + raw screen, no agent summaries
-    if sources is None:
-        sources = {"audio": True, "screen": True, "agents": False}
-
     empty_counts = {"audio": 0, "screen": 0, "agents": 0}
 
     day_dir = str(day_path(day))
@@ -457,8 +441,8 @@ def cluster_period(
 
     entries = _load_entries_from_segment(
         str(segment_dir),
-        audio=sources.get("audio", True),
-        screen=sources.get("screen", True),
+        audio=sources.get("audio", False),
+        screen=sources.get("screen", False),
         agents=sources.get("agents", False),
     )
     if not entries:
@@ -493,22 +477,20 @@ def _load_entries_from_segment(
 def cluster_span(
     day: str,
     span: List[str],
-    sources: Dict[str, bool | str] | None = None,
+    sources: Dict[str, bool | str],
 ) -> Tuple[str, Dict[str, int]]:
     """Return Markdown summary for a span of segments and counts by source.
 
     A span is a list of sequential segment keys (e.g., from an import that created
     multiple 5-minute segments from one audio file).
 
-    By default uses raw screen data for segment generators (more granular than summaries).
     Validates all segments exist before processing; raises ValueError if any are missing.
 
     Args:
         day: Day in YYYYMMDD format
         span: List of segment keys in HHMMSS_LEN format (e.g., ["163045_300", "170000_600"])
-        sources: Optional dict with keys "audio", "screen", "agents".
+        sources: Dict with keys "audio", "screen", "agents".
             Values can be bool or "required" string (see source_is_enabled).
-            Defaults to {"audio": True, "screen": True, "agents": False}.
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
@@ -517,10 +499,6 @@ def cluster_span(
     Raises:
         ValueError: If any segment directories are missing
     """
-    # Default sources for segment generators: audio + raw screen, no agent summaries
-    if sources is None:
-        sources = {"audio": True, "screen": True, "agents": False}
-
     empty_counts = {"audio": 0, "screen": 0, "agents": 0}
     day_dir = str(day_path(day))
 
@@ -540,8 +518,8 @@ def cluster_span(
         segment_dir = Path(day_dir) / segment_key
         segment_entries = _load_entries_from_segment(
             str(segment_dir),
-            audio=sources.get("audio", True),
-            screen=sources.get("screen", True),
+            audio=sources.get("audio", False),
+            screen=sources.get("screen", False),
             agents=sources.get("agents", False),
         )
         entries.extend(segment_entries)
@@ -573,9 +551,7 @@ def cluster_range(
     day: str,
     start: str,
     end: str,
-    audio: bool = True,
-    screen: bool = False,
-    agents: bool = True,
+    sources: Dict[str, bool],
 ) -> str:
     """Return markdown for ``day`` limited to ``start``-``end`` (HHMMSS).
 
@@ -586,17 +562,19 @@ def cluster_range(
         day: Day in YYYYMMDD format
         start: Start time in HHMMSS format
         end: End time in HHMMSS format
-        audio: Whether to include audio transcripts
-        screen: Whether to include raw screen data from *screen.jsonl files
-        agents: Whether to include agent output summaries from *.md files
+        sources: Dict with keys "audio", "screen", "agents" (all bool).
     """
-
     day_dir = str(day_path(day))
     date_str = _date_str(day_dir)
     start_dt = datetime.strptime(date_str + start, "%Y%m%d%H%M%S")
     end_dt = datetime.strptime(date_str + end, "%Y%m%d%H%M%S")
 
-    entries = _load_entries(day_dir, audio, screen, agents)
+    entries = _load_entries(
+        day_dir,
+        audio=sources.get("audio", False),
+        screen=sources.get("screen", False),
+        agents=sources.get("agents", False),
+    )
     # Include segments that overlap with the requested range
     entries = [
         e
@@ -631,19 +609,21 @@ def main():
     if args.start and args.length is not None:
         start_dt = datetime.strptime(args.start, "%H%M%S")
         end_dt = start_dt + timedelta(minutes=args.length)
+        # CLI range view: show raw data (audio + screen, no summaries)
         markdown = cluster_range(
             args.day,
             args.start,
             end_dt.strftime("%H%M%S"),
-            audio=True,
-            screen=True,
-            agents=False,
+            sources={"audio": True, "screen": True, "agents": False},
         )
         print(markdown)
     elif args.start or args.length is not None:
         parser.error("--start and --length must be used together")
     else:
-        markdown, _counts = cluster(args.day)
+        # CLI default: show audio + agent summaries (daily view)
+        markdown, _counts = cluster(
+            args.day, sources={"audio": True, "screen": False, "agents": True}
+        )
         print(markdown)
 
 
