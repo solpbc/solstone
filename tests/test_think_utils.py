@@ -970,3 +970,100 @@ class TestPortDiscovery:
         # Now it should exist
         assert health_dir.exists()
         assert (health_dir / "new_service.port").read_text() == "9999"
+
+
+# =============================================================================
+# source_is_enabled / source_is_required / get_agent_filter tests
+# =============================================================================
+
+
+def test_source_is_enabled_bool():
+    """Test source_is_enabled with bool values."""
+    from think.utils import source_is_enabled
+
+    assert source_is_enabled(True) is True
+    assert source_is_enabled(False) is False
+
+
+def test_source_is_enabled_required_string():
+    """Test source_is_enabled with 'required' string."""
+    from think.utils import source_is_enabled
+
+    assert source_is_enabled("required") is True
+
+
+def test_source_is_enabled_dict():
+    """Test source_is_enabled with dict values for agents source."""
+    from think.utils import source_is_enabled
+
+    # Dict with at least one True value -> enabled
+    assert source_is_enabled({"entities": True, "meetings": False}) is True
+
+    # Dict with at least one "required" value -> enabled
+    assert source_is_enabled({"entities": "required", "meetings": False}) is True
+
+    # Dict with all False values -> disabled
+    assert source_is_enabled({"entities": False, "meetings": False}) is False
+
+    # Empty dict -> disabled
+    assert source_is_enabled({}) is False
+
+
+def test_source_is_required_bool():
+    """Test source_is_required with bool values."""
+    from think.utils import source_is_required
+
+    assert source_is_required(True) is False
+    assert source_is_required(False) is False
+
+
+def test_source_is_required_string():
+    """Test source_is_required with 'required' string."""
+    from think.utils import source_is_required
+
+    assert source_is_required("required") is True
+
+
+def test_source_is_required_dict():
+    """Test source_is_required with dict values."""
+    from think.utils import source_is_required
+
+    # Dict with at least one "required" value -> required
+    assert source_is_required({"entities": "required", "meetings": False}) is True
+
+    # Dict with no "required" values -> not required
+    assert source_is_required({"entities": True, "meetings": False}) is False
+
+    # Empty dict -> not required
+    assert source_is_required({}) is False
+
+
+def test_get_agent_filter_bool():
+    """Test get_agent_filter with bool values."""
+    from think.utils import get_agent_filter
+
+    # True -> None (all agents)
+    assert get_agent_filter(True) is None
+
+    # False -> empty dict (no agents)
+    assert get_agent_filter(False) == {}
+
+
+def test_get_agent_filter_required_string():
+    """Test get_agent_filter with 'required' string."""
+    from think.utils import get_agent_filter
+
+    # "required" -> None (all agents, required)
+    assert get_agent_filter("required") is None
+
+
+def test_get_agent_filter_dict():
+    """Test get_agent_filter with dict values."""
+    from think.utils import get_agent_filter
+
+    # Dict -> returned as-is for filtering
+    filter_dict = {"entities": True, "meetings": "required", "flow": False}
+    assert get_agent_filter(filter_dict) == filter_dict
+
+    # Empty dict -> empty dict (no agents)
+    assert get_agent_filter({}) == {}

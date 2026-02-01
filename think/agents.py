@@ -35,6 +35,7 @@ from think.utils import (
     day_path,
     format_day,
     format_segment_times,
+    get_agent_filter,
     get_muse_configs,
     get_output_path,
     load_prompt,
@@ -710,7 +711,23 @@ def assemble_inputs(config: dict) -> InputContext:
             os.environ["SEGMENT_KEY"] = span[0]
 
         # Convert sources for clustering
-        cluster_sources = {k: source_is_enabled(v) for k, v in sources.items()}
+        # For audio/screen: use source_is_enabled to get bool
+        # For agents: pass through dict for selective filtering, or use source_is_enabled
+        cluster_sources: dict = {}
+        for k, v in sources.items():
+            if k == "agents":
+                agent_filter = get_agent_filter(v)
+                if agent_filter is None:
+                    # All agents (True or "required")
+                    cluster_sources[k] = source_is_enabled(v)
+                elif not agent_filter:
+                    # No agents (False or empty dict)
+                    cluster_sources[k] = False
+                else:
+                    # Selective filtering - pass dict through
+                    cluster_sources[k] = agent_filter
+            else:
+                cluster_sources[k] = source_is_enabled(v)
 
         # Build transcript via clustering
         if span:

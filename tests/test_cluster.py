@@ -376,3 +376,153 @@ def test_cluster_span_missing_segment(tmp_path, monkeypatch):
 
     assert "100000_300" in str(exc_info.value)
     assert "not found" in str(exc_info.value)
+
+
+def test_cluster_with_agent_filter_dict(tmp_path, monkeypatch):
+    """Test cluster() with dict-valued agents source for selective filtering."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_dir = day_path("20240101")
+
+    mod = importlib.import_module("think.cluster")
+
+    # Create segment with multiple agent output files
+    segment = day_dir / "120000_300"
+    segment.mkdir()
+    (segment / "audio.jsonl").write_text('{}\n{"text": "hello"}\n')
+    (segment / "entities.md").write_text("Entity extraction results")
+    (segment / "meetings.md").write_text("Meeting summary results")
+    (segment / "flow.md").write_text("Flow analysis results")
+
+    # Test filtering to only include entities
+    result, counts = mod.cluster(
+        "20240101",
+        sources={"audio": True, "screen": False, "agents": {"entities": True}},
+    )
+
+    assert counts["audio"] == 1
+    assert counts["agents"] == 1  # Only entities should be counted
+    assert "Entity extraction results" in result
+    assert "Meeting summary results" not in result
+    assert "Flow analysis results" not in result
+
+
+def test_cluster_with_agent_filter_multiple(tmp_path, monkeypatch):
+    """Test cluster() with dict selecting multiple agents."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_dir = day_path("20240101")
+
+    mod = importlib.import_module("think.cluster")
+
+    # Create segment with multiple agent output files
+    segment = day_dir / "120000_300"
+    segment.mkdir()
+    (segment / "audio.jsonl").write_text('{}\n{"text": "hello"}\n')
+    (segment / "entities.md").write_text("Entity extraction results")
+    (segment / "meetings.md").write_text("Meeting summary results")
+    (segment / "flow.md").write_text("Flow analysis results")
+
+    # Test filtering to include entities and meetings but not flow
+    result, counts = mod.cluster(
+        "20240101",
+        sources={
+            "audio": True,
+            "screen": False,
+            "agents": {"entities": True, "meetings": "required", "flow": False},
+        },
+    )
+
+    assert counts["audio"] == 1
+    assert counts["agents"] == 2  # entities + meetings
+    assert "Entity extraction results" in result
+    assert "Meeting summary results" in result
+    assert "Flow analysis results" not in result
+
+
+def test_cluster_with_agent_filter_app_namespaced(tmp_path, monkeypatch):
+    """Test cluster() with dict filtering app-namespaced agent outputs."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_dir = day_path("20240101")
+
+    mod = importlib.import_module("think.cluster")
+
+    # Create segment with app-namespaced agent output files
+    # App agent output naming: "app:topic" -> "_app_topic.md"
+    segment = day_dir / "120000_300"
+    segment.mkdir()
+    (segment / "audio.jsonl").write_text('{}\n{"text": "hello"}\n')
+    (segment / "entities.md").write_text("System entity results")
+    (segment / "_todos_review.md").write_text("Todos review results")
+
+    # Test filtering to include app-namespaced agent
+    result, counts = mod.cluster(
+        "20240101",
+        sources={
+            "audio": True,
+            "screen": False,
+            "agents": {"entities": False, "todos:review": True},
+        },
+    )
+
+    assert counts["audio"] == 1
+    assert counts["agents"] == 1  # Only todos:review
+    assert "System entity results" not in result
+    assert "Todos review results" in result
+
+
+def test_cluster_with_empty_agent_filter(tmp_path, monkeypatch):
+    """Test cluster() with empty dict means no agents."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    day_dir = day_path("20240101")
+
+    mod = importlib.import_module("think.cluster")
+
+    segment = day_dir / "120000_300"
+    segment.mkdir()
+    (segment / "audio.jsonl").write_text('{}\n{"text": "hello"}\n')
+    (segment / "entities.md").write_text("Entity extraction results")
+
+    # Empty dict should mean no agents
+    result, counts = mod.cluster(
+        "20240101",
+        sources={"audio": True, "screen": False, "agents": {}},
+    )
+
+    assert counts["audio"] == 1
+    assert counts["agents"] == 0
+    assert "Entity extraction results" not in result
+
+
+def test_filename_to_agent_key():
+    """Test _filename_to_agent_key conversion."""
+    from think.cluster import _filename_to_agent_key
+
+    # System agents
+    assert _filename_to_agent_key("entities") == "entities"
+    assert _filename_to_agent_key("flow") == "flow"
+
+    # App-namespaced agents
+    assert _filename_to_agent_key("_todos_review") == "todos:review"
+    assert _filename_to_agent_key("_entities_observer") == "entities:observer"
+
+    # Edge case: single underscore component
+    assert _filename_to_agent_key("_app") == "_app"  # No second part, returns as-is
+
+
+def test_agent_matches_filter():
+    """Test _agent_matches_filter logic."""
+    from think.cluster import _agent_matches_filter
+
+    # None filter means all agents
+    assert _agent_matches_filter("entities", None) is True
+    assert _agent_matches_filter("_todos_review", None) is True
+
+    # Empty dict means no agents
+    assert _agent_matches_filter("entities", {}) is False
+    assert _agent_matches_filter("_todos_review", {}) is False
+
+    # Specific filtering
+    filter_dict = {"entities": True, "meetings": False, "todos:review": "required"}
+    assert _agent_matches_filter("entities", filter_dict) is True
+    assert _agent_matches_filter("meetings", filter_dict) is False
+    assert _agent_matches_filter("_todos_review", filter_dict) is True
+    assert _agent_matches_filter("flow", filter_dict) is False  # Not in filter

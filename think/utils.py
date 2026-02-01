@@ -1116,7 +1116,11 @@ def compose_instructions(
         Optional dict from .json "instructions" key. Supported keys:
         - "system": prompt name for system instruction (default: "journal")
         - "facets": "none" | "short" | "detailed" (default: "short")
-        - "sources": {"audio": bool, "screen": bool, "agents": bool}
+        - "sources": {"audio": bool, "screen": bool, "agents": bool|dict}
+          The "agents" source can be:
+          - bool: True (all agents), False (no agents)
+          - "required": all agents, fail if none found
+          - dict: selective filtering, e.g., {"entities": true, "meetings": "required"}
 
     Returns
     -------
@@ -1126,7 +1130,7 @@ def compose_instructions(
         - system_prompt_name: str - name of system prompt (for cache keys)
         - user_instruction: str | None - loaded from user_prompt if provided
         - extra_context: str | None - facets + datetime
-        - sources: dict - {"audio": bool, "screen": bool, "agents": bool}
+        - sources: dict - {"audio": bool, "screen": bool, "agents": bool|dict}
     """
     # Merge defaults with overrides
     cfg = _merge_instructions_config(_DEFAULT_INSTRUCTIONS, config_overrides)
@@ -1193,35 +1197,72 @@ def compose_instructions(
     return result
 
 
-def source_is_enabled(value: bool | str) -> bool:
+def source_is_enabled(value: bool | str | dict) -> bool:
     """Check if a source should be loaded based on its config value.
 
     Sources can be configured as:
     - False: don't load
     - True: load if available
     - "required": load (and generation will fail if none found)
+    - dict: for agents source, selective loading (e.g., {"entities": true})
 
     Both True and "required" mean the source should be loaded.
+    A non-empty dict means the source should be loaded (with filtering).
 
     Args:
-        value: The source config value (bool or "required" string)
+        value: The source config value (bool, "required" string, or dict for agents)
 
     Returns:
         True if the source should be loaded, False otherwise.
     """
+    if isinstance(value, dict):
+        # Dict means selective loading - enabled if any agent is enabled
+        return any(v is True or v == "required" for v in value.values())
     return value is True or value == "required"
 
 
-def source_is_required(value: bool | str) -> bool:
+def source_is_required(value: bool | str | dict) -> bool:
     """Check if a source must have content for generation to proceed.
 
     Args:
-        value: The source config value (bool or "required" string)
+        value: The source config value (bool, "required" string, or dict for agents)
 
     Returns:
         True if the source is required (generation should skip if no content).
+        For dict values, returns True if any agent is marked "required".
     """
+    if isinstance(value, dict):
+        return any(v == "required" for v in value.values())
     return value == "required"
+
+
+def get_agent_filter(value: bool | str | dict) -> dict[str, bool | str] | None:
+    """Extract agent filter from sources config.
+
+    When agents source is a dict, returns it as filter mapping agent names
+    to their enabled/required status. When agents source is bool or "required",
+    returns None to indicate all agents should be loaded.
+
+    Args:
+        value: The agents source config value
+
+    Returns:
+        Dict mapping agent names to bool/"required", or None for all agents.
+        Returns empty dict if value is False (no agents).
+
+    Examples:
+        >>> get_agent_filter(True)
+        None  # All agents
+        >>> get_agent_filter(False)
+        {}  # No agents
+        >>> get_agent_filter({"entities": True, "meetings": "required"})
+        {"entities": True, "meetings": "required"}
+    """
+    if isinstance(value, dict):
+        return value
+    if value is False:
+        return {}  # No agents
+    return None  # All agents (True or "required")
 
 
 def get_agent(name: str = "default", facet: str | None = None) -> dict:

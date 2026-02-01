@@ -22,12 +22,61 @@ def _date_str(day_dir: str) -> str:
     return base
 
 
+def _filename_to_agent_key(filename: str) -> str:
+    """Convert output filename stem to agent key.
+
+    Reverse of get_output_topic(): converts filesystem names back to agent keys.
+
+    Args:
+        filename: Filename stem (e.g., "entities" or "_todos_review")
+
+    Returns:
+        Agent key (e.g., "entities" or "todos:review")
+    """
+    if filename.startswith("_"):
+        # App agent: "_app_topic" -> "app:topic"
+        parts = filename[1:].split("_", 1)
+        if len(parts) == 2:
+            return f"{parts[0]}:{parts[1]}"
+    return filename
+
+
+def _agent_matches_filter(
+    filename: str, agent_filter: Dict[str, bool | str] | None
+) -> bool:
+    """Check if an agent output file matches the filter.
+
+    Args:
+        filename: Filename stem (e.g., "entities" or "_todos_review")
+        agent_filter: Dict mapping agent keys to bool/"required", or None for all
+
+    Returns:
+        True if the file should be included
+    """
+    if agent_filter is None:
+        # None means include all agents
+        return True
+
+    if not agent_filter:
+        # Empty dict means no agents
+        return False
+
+    agent_key = _filename_to_agent_key(filename)
+
+    # Check if this agent is enabled in the filter
+    if agent_key in agent_filter:
+        value = agent_filter[agent_key]
+        return value is True or value == "required"
+
+    return False
+
+
 def _process_segment(
     segment_path: Path,
     date_str: str,
     audio: bool,
     screen: bool,
-    agents: bool,
+    agents: bool | Dict[str, bool | str],
 ) -> List[Dict[str, Any]]:
     """Process a single segment directory and return entries.
 
@@ -36,7 +85,9 @@ def _process_segment(
         date_str: Date in YYYYMMDD format
         audio: Whether to load audio transcripts
         screen: Whether to load raw screen data from *screen.jsonl files
-        agents: Whether to load agent output summaries from *.md files
+        agents: Whether to load agent output summaries from *.md files.
+            Can be bool (all/none) or dict for selective filtering
+            (e.g., {"entities": True, "meetings": "required"}).
 
     Returns:
         List of entry dicts with timestamp, segment_key, prefix, content, name, etc.
@@ -107,11 +158,21 @@ def _process_segment(
                     file=sys.stderr,
                 )
 
-    # Process agent output summaries from all *.md files
+    # Process agent output summaries from *.md files (with optional filtering)
     if agents:
+        # Convert bool to filter: True -> None (all), False handled by outer if
+        agent_filter = (
+            None if agents is True else agents if isinstance(agents, dict) else None
+        )
+
         for md_file in sorted(segment_path.glob("*.md")):
             if not md_file.is_file():
                 continue
+
+            # Check if this agent matches the filter
+            if not _agent_matches_filter(md_file.stem, agent_filter):
+                continue
+
             try:
                 content = md_file.read_text()
                 if content.strip():
@@ -137,7 +198,7 @@ def _process_segment(
 
 
 def _load_entries(
-    day_dir: str, audio: bool, screen: bool, agents: bool
+    day_dir: str, audio: bool, screen: bool, agents: bool | Dict[str, bool | str]
 ) -> List[Dict[str, Any]]:
     """Load all transcript entries from a day directory."""
     from think.utils import segment_parse
@@ -377,14 +438,16 @@ def cluster_segments(day: str) -> List[Dict[str, Any]]:
 
 def cluster(
     day: str,
-    sources: Dict[str, bool | str],
+    sources: Dict[str, bool | str | Dict],
 ) -> Tuple[str, Dict[str, int]]:
     """Return Markdown summary for one day's JSON files and counts by source.
 
     Args:
         day: Day in YYYYMMDD format
         sources: Dict with keys "audio", "screen", "agents".
-            Values can be bool or "required" string (see source_is_enabled).
+            Values can be bool, "required" string, or dict (for agents).
+            The "agents" source can be a dict for selective filtering,
+            e.g., {"entities": True, "meetings": "required"}.
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
@@ -417,7 +480,7 @@ def cluster(
 def cluster_period(
     day: str,
     segment: str,
-    sources: Dict[str, bool | str],
+    sources: Dict[str, bool | str | Dict],
 ) -> Tuple[str, Dict[str, int]]:
     """Return Markdown summary for one segment's JSON files and counts by source.
 
@@ -425,7 +488,7 @@ def cluster_period(
         day: Day in YYYYMMDD format
         segment: Segment key in HHMMSS_LEN format (e.g., "163045_300")
         sources: Dict with keys "audio", "screen", "agents".
-            Values can be bool or "required" string (see source_is_enabled).
+            Values can be bool, "required" string, or dict (for agents).
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
@@ -454,7 +517,7 @@ def cluster_period(
 
 
 def _load_entries_from_segment(
-    segment_dir: str, audio: bool, screen: bool, agents: bool
+    segment_dir: str, audio: bool, screen: bool, agents: bool | Dict[str, bool | str]
 ) -> List[Dict[str, Any]]:
     """Load entries from a single segment directory.
 
@@ -477,7 +540,7 @@ def _load_entries_from_segment(
 def cluster_span(
     day: str,
     span: List[str],
-    sources: Dict[str, bool | str],
+    sources: Dict[str, bool | str | Dict],
 ) -> Tuple[str, Dict[str, int]]:
     """Return Markdown summary for a span of segments and counts by source.
 
@@ -490,7 +553,7 @@ def cluster_span(
         day: Day in YYYYMMDD format
         span: List of segment keys in HHMMSS_LEN format (e.g., ["163045_300", "170000_600"])
         sources: Dict with keys "audio", "screen", "agents".
-            Values can be bool or "required" string (see source_is_enabled).
+            Values can be bool, "required" string, or dict (for agents).
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
@@ -551,7 +614,7 @@ def cluster_range(
     day: str,
     start: str,
     end: str,
-    sources: Dict[str, bool],
+    sources: Dict[str, bool | str | Dict],
 ) -> str:
     """Return markdown for ``day`` limited to ``start``-``end`` (HHMMSS).
 
@@ -562,7 +625,8 @@ def cluster_range(
         day: Day in YYYYMMDD format
         start: Start time in HHMMSS format
         end: End time in HHMMSS format
-        sources: Dict with keys "audio", "screen", "agents" (all bool).
+        sources: Dict with keys "audio", "screen", "agents".
+            Values can be bool, "required" string, or dict (for agents).
     """
     day_dir = str(day_path(day))
     date_str = _date_str(day_dir)
