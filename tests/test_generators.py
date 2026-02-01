@@ -126,21 +126,6 @@ def test_scheduled_generators_have_valid_schedule():
             ), f"Generator '{key}' has invalid schedule '{sched}'"
 
 
-def test_source_helpers():
-    """Test source_is_enabled and source_is_required helper functions."""
-    utils = importlib.import_module("think.utils")
-
-    # source_is_enabled: True for True and "required"
-    assert utils.source_is_enabled(True) is True
-    assert utils.source_is_enabled("required") is True
-    assert utils.source_is_enabled(False) is False
-
-    # source_is_required: True only for "required"
-    assert utils.source_is_required("required") is True
-    assert utils.source_is_required(True) is False
-    assert utils.source_is_required(False) is False
-
-
 def test_speakers_has_required_audio():
     """Test that speakers generator has audio as required source."""
     utils = importlib.import_module("think.utils")

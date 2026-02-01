@@ -8,7 +8,7 @@ import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
 from observe.screen import format_screen_text
 
@@ -42,7 +42,7 @@ def _filename_to_agent_key(filename: str) -> str:
 
 
 def _agent_matches_filter(
-    filename: str, agent_filter: Dict[str, bool | str] | None
+    filename: str, agent_filter: dict[str, bool | str] | None
 ) -> bool:
     """Check if an agent output file matches the filter.
 
@@ -76,8 +76,8 @@ def _process_segment(
     date_str: str,
     audio: bool,
     screen: bool,
-    agents: bool | Dict[str, bool | str],
-) -> List[Dict[str, Any]]:
+    agents: bool | dict[str, bool | str],
+) -> list[dict[str, Any]]:
     """Process a single segment directory and return entries.
 
     Args:
@@ -94,7 +94,7 @@ def _process_segment(
     """
     from think.utils import segment_parse
 
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
 
     start_time, end_time = segment_parse(segment_path.name)
     if not start_time or not end_time:
@@ -198,13 +198,13 @@ def _process_segment(
 
 
 def _load_entries(
-    day_dir: str, audio: bool, screen: bool, agents: bool | Dict[str, bool | str]
-) -> List[Dict[str, Any]]:
+    day_dir: str, audio: bool, screen: bool, agents: bool | dict[str, bool | str]
+) -> list[dict[str, Any]]:
     """Load all transcript entries from a day directory."""
     from think.utils import segment_parse
 
     date_str = _date_str(day_dir)
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     day_path_obj = Path(day_dir)
 
     for item in day_path_obj.iterdir():
@@ -218,19 +218,19 @@ def _load_entries(
 
 
 def _group_entries(
-    entries: List[Dict[str, Any]],
-) -> Dict[str, List[Dict[str, Any]]]:
+    entries: list[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
     """Group entries by segment key.
 
     Returns dict mapping segment_key to list of entries for that segment.
     """
-    grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for e in entries:
         grouped[e["segment_key"]].append(e)
     return grouped
 
 
-def _count_by_source(entries: List[Dict[str, Any]]) -> Dict[str, int]:
+def _count_by_source(entries: list[dict[str, Any]]) -> dict[str, int]:
     """Count entries by source type (prefix).
 
     Maps the internal prefix names to source config names:
@@ -258,9 +258,9 @@ def _count_by_source(entries: List[Dict[str, Any]]) -> Dict[str, int]:
     }
 
 
-def _groups_to_markdown(groups: Dict[str, List[Dict[str, Any]]]) -> str:
+def _groups_to_markdown(groups: dict[str, list[dict[str, Any]]]) -> str:
     """Render grouped entries as markdown with segment-based headers."""
-    lines: List[str] = []
+    lines: list[str] = []
 
     # Sort by segment start time (entries within each group have same segment_start)
     def sort_key(segment_key: str) -> datetime:
@@ -298,7 +298,7 @@ def _groups_to_markdown(groups: Dict[str, List[Dict[str, Any]]]) -> str:
     return "\n".join(lines)
 
 
-def _slots_to_ranges(slots: List[datetime]) -> List[Tuple[str, str]]:
+def _slots_to_ranges(slots: list[datetime]) -> list[tuple[str, str]]:
     """Collapse 15-minute slots into start/end pairs.
 
     Args:
@@ -309,7 +309,7 @@ def _slots_to_ranges(slots: List[datetime]) -> List[Tuple[str, str]]:
         contiguous 15-minute ranges.
     """
 
-    ranges: List[Tuple[str, str]] = []
+    ranges: list[tuple[str, str]] = []
     if not slots:
         return ranges
 
@@ -330,7 +330,7 @@ def _slots_to_ranges(slots: List[datetime]) -> List[Tuple[str, str]]:
     return ranges
 
 
-def cluster_scan(day: str) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+def cluster_scan(day: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     """Return 15-minute ranges with audio and screen transcripts for ``day``.
 
     Args:
@@ -347,8 +347,8 @@ def cluster_scan(day: str) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]
         return [], []
 
     date_str = _date_str(day_dir)
-    audio_slots: Set[datetime] = set()
-    screen_slots: Set[datetime] = set()
+    audio_slots: set[datetime] = set()
+    screen_slots: set[datetime] = set()
     day_path_obj = Path(day_dir)
 
     # Check timestamp subdirectories for transcript files
@@ -377,7 +377,7 @@ def cluster_scan(day: str) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]
     return audio_ranges, screen_ranges
 
 
-def cluster_segments(day: str) -> List[Dict[str, Any]]:
+def cluster_segments(day: str) -> list[dict[str, Any]]:
     """Return individual recording segments for a day with their content types.
 
     Unlike ``cluster_scan()`` which collapses segments into 15-minute ranges,
@@ -400,7 +400,7 @@ def cluster_segments(day: str) -> List[Dict[str, Any]]:
         return []
 
     day_path_obj = Path(day_dir)
-    segments: List[Dict[str, Any]] = []
+    segments: list[dict[str, Any]] = []
 
     for item in day_path_obj.iterdir():
         start_time, end_time = segment_parse(item.name)
@@ -438,8 +438,8 @@ def cluster_segments(day: str) -> List[Dict[str, Any]]:
 
 def cluster(
     day: str,
-    sources: Dict[str, bool | str | Dict],
-) -> Tuple[str, Dict[str, int]]:
+    sources: dict[str, bool | str | dict],
+) -> tuple[str, dict[str, int]]:
     """Return Markdown summary for one day's JSON files and counts by source.
 
     Args:
@@ -480,8 +480,8 @@ def cluster(
 def cluster_period(
     day: str,
     segment: str,
-    sources: Dict[str, bool | str | Dict],
-) -> Tuple[str, Dict[str, int]]:
+    sources: dict[str, bool | str | dict],
+) -> tuple[str, dict[str, int]]:
     """Return Markdown summary for one segment's JSON files and counts by source.
 
     Args:
@@ -517,8 +517,8 @@ def cluster_period(
 
 
 def _load_entries_from_segment(
-    segment_dir: str, audio: bool, screen: bool, agents: bool | Dict[str, bool | str]
-) -> List[Dict[str, Any]]:
+    segment_dir: str, audio: bool, screen: bool, agents: bool | dict[str, bool | str]
+) -> list[dict[str, Any]]:
     """Load entries from a single segment directory.
 
     Args:
@@ -539,9 +539,9 @@ def _load_entries_from_segment(
 
 def cluster_span(
     day: str,
-    span: List[str],
-    sources: Dict[str, bool | str | Dict],
-) -> Tuple[str, Dict[str, int]]:
+    span: list[str],
+    sources: dict[str, bool | str | dict],
+) -> tuple[str, dict[str, int]]:
     """Return Markdown summary for a span of segments and counts by source.
 
     A span is a list of sequential segment keys (e.g., from an import that created
@@ -576,7 +576,7 @@ def cluster_span(
         raise ValueError(f"Segment directories not found: {', '.join(missing)}")
 
     # Load entries from all segments in span
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     for segment_key in span:
         segment_dir = Path(day_dir) / segment_key
         segment_entries = _load_entries_from_segment(
@@ -614,7 +614,7 @@ def cluster_range(
     day: str,
     start: str,
     end: str,
-    sources: Dict[str, bool | str | Dict],
+    sources: dict[str, bool | str | dict],
 ) -> str:
     """Return markdown for ``day`` limited to ``start``-``end`` (HHMMSS).
 

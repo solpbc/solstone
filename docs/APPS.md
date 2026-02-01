@@ -372,8 +372,9 @@ Both insights and agents support an optional `instructions` key for customizing 
   - `false` - don't load this source type
   - `true` - load if available
   - `"required"` - load, and skip generation if no content found (useful for generators that only make sense with specific input types, e.g., `"audio": "required"` for speaker detection)
+  - For `agents` only: a dict for selective filtering, e.g., `{"entities": true, "meetings": "required", "flow": false}`. Keys are agent names (system) or `"app:topic"` (app-namespaced). An empty dict `{}` means no agents.
 
-**Authoritative source:** `think/utils.py` - `compose_instructions()`, `_DEFAULT_INSTRUCTIONS`, `source_is_enabled()`, `source_is_required()`
+**Authoritative source:** `think/utils.py` - `compose_instructions()`, `_DEFAULT_INSTRUCTIONS`, `source_is_enabled()`, `source_is_required()`, `get_agent_filter()`
 
 ---
 
