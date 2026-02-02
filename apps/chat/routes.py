@@ -113,7 +113,7 @@ def _check_provider_api_key(provider: str) -> str | None:
 
 def generate_chat_title(message: str) -> str:
     """Generate a short title for a chat message using configured provider."""
-    from think.muse import load_prompt
+    from think.prompts import load_prompt
 
     prompt = load_prompt("title", base_dir=Path(__file__).parent)
     try:

@@ -16,7 +16,6 @@ from think.muse import (
     source_is_required,
 )
 
-
 # =============================================================================
 # _merge_instructions_config tests
 # =============================================================================
@@ -80,16 +79,12 @@ class TestComposeInstructions:
         think_dir = tmp_path / "think"
         think_dir.mkdir()
 
-        import think.muse
+        import think.prompts
 
-        original_file = think.muse.__file__
-        monkeypatch.setattr(think.muse, "__file__", str(think_dir / "muse.py"))
+        monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
         result = compose_instructions()
-
-        # Restore
-        monkeypatch.setattr(think.muse, "__file__", original_file)
 
         assert "system_instruction" in result
         assert result["system_instruction"] == ""
@@ -102,9 +97,9 @@ class TestComposeInstructions:
         custom_txt = think_dir / "custom.md"
         custom_txt.write_text("Custom system instruction")
 
-        import think.muse
+        import think.prompts
 
-        monkeypatch.setattr(think.muse, "__file__", str(think_dir / "muse.py"))
+        monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
         result = compose_instructions(
@@ -124,7 +119,11 @@ class TestComposeInstructions:
         user_txt.write_text("User instruction content")
 
         import think.muse
+        import think.prompts
 
+        # Monkeypatch both modules since compose_instructions uses muse.__file__ for
+        # default user_prompt_dir, and load_prompt uses prompts.__file__ for defaults
+        monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
         monkeypatch.setattr(think.muse, "__file__", str(think_dir / "muse.py"))
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
@@ -139,9 +138,9 @@ class TestComposeInstructions:
         journal_txt = think_dir / "journal.md"
         journal_txt.write_text("System instruction")
 
-        import think.muse
+        import think.prompts
 
-        monkeypatch.setattr(think.muse, "__file__", str(think_dir / "muse.py"))
+        monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
         result = compose_instructions()
@@ -155,9 +154,9 @@ class TestComposeInstructions:
         journal_txt = think_dir / "journal.md"
         journal_txt.write_text("System instruction")
 
-        import think.muse
+        import think.prompts
 
-        monkeypatch.setattr(think.muse, "__file__", str(think_dir / "muse.py"))
+        monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
         result = compose_instructions(
@@ -175,9 +174,9 @@ class TestComposeInstructions:
         journal_txt = think_dir / "journal.md"
         journal_txt.write_text("System instruction")
 
-        import think.muse
+        import think.prompts
 
-        monkeypatch.setattr(think.muse, "__file__", str(think_dir / "muse.py"))
+        monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
         result = compose_instructions(
@@ -195,9 +194,9 @@ class TestComposeInstructions:
         journal_txt = think_dir / "journal.md"
         journal_txt.write_text("System instruction")
 
-        import think.muse
+        import think.prompts
 
-        monkeypatch.setattr(think.muse, "__file__", str(think_dir / "muse.py"))
+        monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
         result = compose_instructions(
@@ -212,9 +211,9 @@ class TestComposeInstructions:
         think_dir = tmp_path / "think"
         think_dir.mkdir()
 
-        import think.muse
+        import think.prompts
 
-        monkeypatch.setattr(think.muse, "__file__", str(think_dir / "muse.py"))
+        monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
         result = compose_instructions()
@@ -229,9 +228,9 @@ class TestComposeInstructions:
         think_dir = tmp_path / "think"
         think_dir.mkdir()
 
-        import think.muse
+        import think.prompts
 
-        monkeypatch.setattr(think.muse, "__file__", str(think_dir / "muse.py"))
+        monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
         result = compose_instructions(

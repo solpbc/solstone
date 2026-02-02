@@ -35,7 +35,7 @@ from observe.aruco import detect_markers, mask_convey_region, polygon_area
 from observe.extract import DEFAULT_MAX_EXTRACTIONS, select_frames_for_extraction
 from observe.utils import get_segment_key
 from think.callosum import callosum_send
-from think.muse import load_prompt
+from think.prompts import load_prompt
 from think.utils import get_config, get_journal, setup_cli
 
 logger = logging.getLogger(__name__)

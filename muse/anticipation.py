@@ -19,7 +19,8 @@ from think.hooks import (
     write_events_jsonl,
 )
 from think.models import generate
-from think.muse import get_output_topic, load_prompt
+from think.muse import get_output_topic
+from think.prompts import load_prompt
 
 
 def post_process(result: str, context: dict) -> str | None:

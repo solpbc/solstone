@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 
-from .muse import load_prompt
+from .prompts import load_prompt
 from .utils import setup_cli
 
 

@@ -4,7 +4,7 @@ This document describes solstone's template variable system for personalizing pr
 
 ## Overview
 
-Prompts are stored as `.md` files with optional JSON frontmatter for metadata. The prompt content is loaded via `load_prompt()` from `think/muse.py`, which uses Python's `string.Template` with `safe_substitute`. This means:
+Prompts are stored as `.md` files with optional JSON frontmatter for metadata. The prompt content is loaded via `load_prompt()` from `think/prompts.py`, which uses Python's `string.Template` with `safe_substitute`. This means:
 
 - Variables use `$name` or `${name}` syntax
 - Undefined variables are left as-is (no errors)
@@ -62,7 +62,7 @@ The flattening logic converts nested objects using underscore separators. For ex
 
 **References:**
 - Identity configuration: [JOURNAL.md](JOURNAL.md) (identity section)
-- Flattening implementation: `think/muse.py` → `_flatten_identity_to_template_vars()`
+- Flattening implementation: `think/prompts.py` → `_flatten_identity_to_template_vars()`
 
 ### Template Variables
 
@@ -159,7 +159,7 @@ load_prompt(
 
 Returns a `PromptContent` named tuple with `text` (substituted content), `path` (source file), and `metadata` (frontmatter dict).
 
-**Reference:** `think/muse.py` → `load_prompt()`
+**Reference:** `think/prompts.py` → `load_prompt()`
 
 ## Adding New Variables
 
@@ -184,9 +184,9 @@ load_prompt("myprompt", context={"custom_var": "value"})
 | Category | Authoritative Source |
 |----------|---------------------|
 | Identity config schema | [JOURNAL.md](JOURNAL.md) (identity section) |
-| Identity flattening | `think/muse.py` (`_flatten_identity_to_template_vars`) |
-| Template loading | `think/muse.py` (`_load_templates`) |
-| Core load function | `think/muse.py` (`load_prompt`) |
+| Identity flattening | `think/prompts.py` (`_flatten_identity_to_template_vars`) |
+| Template loading | `think/prompts.py` (`_load_templates`) |
+| Core load function | `think/prompts.py` (`load_prompt`) |
 | Template files | `think/templates/*.md` |
 | Test coverage | `tests/test_template_substitution.py` |
 | Generator prompts | `muse/*.md` (files with `schedule` field but no `tools`) |
