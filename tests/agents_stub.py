@@ -75,7 +75,6 @@ def install_agents_stub():
     agents_stub.SQLiteSession = DummySession
     agents_stub.OpenAIConversationsSession = DummyConversationSession
     agents_stub.TResponseInputItem = dict
-    agents_stub.set_default_openai_key = lambda key: None
     agents_run_stub.RunConfig = lambda **kwargs: SimpleNamespace(**kwargs)
     agents_model_settings_stub.ModelSettings = lambda **kwargs: SimpleNamespace(
         **kwargs

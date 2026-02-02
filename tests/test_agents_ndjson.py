@@ -111,8 +111,7 @@ def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
     from think.agents import main_async
 
     with patch("think.agents.setup_cli", return_value=mock_args):
-        with patch("agents.set_default_openai_key"):
-            asyncio.run(main_async())
+        asyncio.run(main_async())
 
     captured = capsys.readouterr()
     lines = captured.out.strip().split("\n")
@@ -169,8 +168,7 @@ def test_ndjson_multiple_requests(mock_journal, monkeypatch, capsys):
     from think.agents import main_async
 
     with patch("think.agents.setup_cli", return_value=mock_args):
-        with patch("agents.set_default_openai_key"):
-            asyncio.run(main_async())
+        asyncio.run(main_async())
 
     captured = capsys.readouterr()
     lines = [line for line in captured.out.strip().split("\n") if line]
@@ -205,8 +203,7 @@ not valid json
     from think.agents import main_async
 
     with patch("think.agents.setup_cli", return_value=mock_args):
-        with patch("agents.set_default_openai_key"):
-            asyncio.run(main_async())
+        asyncio.run(main_async())
 
     captured = capsys.readouterr()
     lines = [line for line in captured.out.strip().split("\n") if line]
@@ -242,8 +239,7 @@ def test_ndjson_missing_prompt(mock_journal, monkeypatch, capsys):
     from think.agents import main_async
 
     with patch("think.agents.setup_cli", return_value=mock_args):
-        with patch("agents.set_default_openai_key"):
-            asyncio.run(main_async())
+        asyncio.run(main_async())
 
     captured = capsys.readouterr()
     lines = [line for line in captured.out.strip().split("\n") if line]
@@ -273,8 +269,7 @@ def test_ndjson_empty_lines(mock_journal, monkeypatch, capsys):
     from think.agents import main_async
 
     with patch("think.agents.setup_cli", return_value=mock_args):
-        with patch("agents.set_default_openai_key"):
-            asyncio.run(main_async())
+        asyncio.run(main_async())
 
     captured = capsys.readouterr()
     lines = [line for line in captured.out.strip().split("\n") if line]

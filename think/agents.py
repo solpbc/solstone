@@ -1366,14 +1366,6 @@ async def main_async() -> None:
                     name = config.get("name", "default")
                     model = config.get("model")
 
-                    # Set OpenAI key if needed
-                    if provider == "openai":
-                        api_key = os.getenv("OPENAI_API_KEY", "")
-                        if api_key:
-                            from agents import set_default_openai_key
-
-                            set_default_openai_key(api_key)
-
                     app_logger.debug(f"Processing agent: provider={provider}")
 
                     # Route to appropriate provider module
