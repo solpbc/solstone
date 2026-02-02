@@ -9,6 +9,7 @@ from typing import Any
 from think.utils import get_journal, journal_log, setup_cli
 
 from .journal import (
+    index_file,
     reset_journal_index,
     scan_journal,
     search_counts,
@@ -93,6 +94,11 @@ def main() -> None:
         help="Full rescan including all historical day directories",
     )
     parser.add_argument(
+        "--rescan-file",
+        metavar="PATH",
+        help="Index a specific file (absolute or journal-relative path)",
+    )
+    parser.add_argument(
         "--reset",
         action="store_true",
         help="Remove the index before rescan",
@@ -149,6 +155,7 @@ def main() -> None:
     if (
         not args.rescan
         and not args.rescan_full
+        and not args.rescan_file
         and not args.reset
         and args.query is None
     ):
@@ -158,7 +165,16 @@ def main() -> None:
     if args.reset:
         reset_journal_index(journal)
 
-    if args.rescan or args.rescan_full:
+    if args.rescan_file:
+        # Single file indexing (incompatible with --rescan/--rescan-full)
+        if args.rescan or args.rescan_full:
+            parser.error("--rescan-file cannot be used with --rescan or --rescan-full")
+        try:
+            index_file(journal, args.rescan_file, verbose=args.verbose)
+            journal_log(f"indexer file indexed: {args.rescan_file}")
+        except (ValueError, FileNotFoundError) as e:
+            parser.error(str(e))
+    elif args.rescan or args.rescan_full:
         changed = scan_journal(journal, verbose=args.verbose, full=args.rescan_full)
         if changed:
             journal_log("indexer journal rescan ok")

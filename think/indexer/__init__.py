@@ -13,6 +13,7 @@ from .cli import main
 from .journal import (
     get_events,
     get_journal_index,
+    index_file,
     reset_journal_index,
     sanitize_fts_query,
     scan_journal,
@@ -25,6 +26,7 @@ __all__ = [
     # Journal (unified index)
     "get_events",
     "get_journal_index",
+    "index_file",
     "reset_journal_index",
     "sanitize_fts_query",
     "scan_journal",

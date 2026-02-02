@@ -632,3 +632,82 @@ def test_full_scan_removes_historical_content(tmp_path):
     # Content should no longer be searchable
     total, _ = search_journal("historical_full_test")
     assert total == 0
+
+
+def test_index_file_valid(journal_fixture):
+    """Test indexing a single valid file."""
+    from think.indexer.journal import index_file, search_journal
+
+    # Index a specific file
+    result = index_file(
+        str(journal_fixture), "20240101/agents/flow.md", verbose=True
+    )
+    assert result is True
+
+    # Should be searchable
+    total, results = search_journal("project alpha")
+    assert total >= 1
+
+
+def test_index_file_absolute_path(journal_fixture):
+    """Test indexing with absolute path."""
+    from think.indexer.journal import index_file, search_journal
+
+    abs_path = str(journal_fixture / "20240101" / "agents" / "flow.md")
+    result = index_file(str(journal_fixture), abs_path, verbose=True)
+    assert result is True
+
+    # Should be searchable
+    total, _ = search_journal("project alpha")
+    assert total >= 1
+
+
+def test_index_file_updates_existing(journal_fixture):
+    """Test that re-indexing a file replaces existing chunks."""
+    from think.indexer.journal import index_file, search_journal
+
+    # Index the file
+    index_file(str(journal_fixture), "20240101/agents/flow.md")
+
+    # Get initial count
+    total1, _ = search_journal("project alpha")
+
+    # Re-index the same file
+    index_file(str(journal_fixture), "20240101/agents/flow.md")
+
+    # Count should be the same (not doubled)
+    total2, _ = search_journal("project alpha")
+    assert total2 == total1
+
+
+def test_index_file_not_found(journal_fixture):
+    """Test indexing non-existent file raises error."""
+    from think.indexer.journal import index_file
+
+    with pytest.raises(FileNotFoundError, match="File not found"):
+        index_file(str(journal_fixture), "nonexistent/file.md")
+
+
+def test_index_file_outside_journal(journal_fixture, tmp_path_factory):
+    """Test indexing file outside journal raises error."""
+    from think.indexer.journal import index_file
+
+    # Create a file in a separate temp directory (outside the journal)
+    outside_dir = tmp_path_factory.mktemp("outside")
+    outside_file = outside_dir / "outside.md"
+    outside_file.write_text("# Outside\n\nThis is outside the journal.\n")
+
+    with pytest.raises(ValueError, match="outside journal directory"):
+        index_file(str(journal_fixture), str(outside_file))
+
+
+def test_index_file_no_formatter(journal_fixture):
+    """Test indexing file without formatter raises error."""
+    from think.indexer.journal import index_file
+
+    # Create a file with no formatter (e.g., .txt)
+    txt_file = journal_fixture / "20240101" / "notes.txt"
+    txt_file.write_text("Just some text notes.\n")
+
+    with pytest.raises(ValueError, match="No formatter found"):
+        index_file(str(journal_fixture), str(txt_file))

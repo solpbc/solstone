@@ -26,6 +26,7 @@ from think.formatters import (
     extract_path_metadata,
     find_formattable_files,
     format_file,
+    get_formatter,
     load_jsonl,
 )
 from think.utils import DATE_RE, get_journal
@@ -88,6 +89,69 @@ def reset_journal_index(journal: str) -> None:
         os.unlink(db_path)
     except FileNotFoundError:
         pass
+
+
+def index_file(journal: str, file_path: str, verbose: bool = False) -> bool:
+    """Index a single file into the journal index.
+
+    Validates that the file exists, is under the journal directory, and has
+    a registered formatter. Then indexes it (replacing any existing chunks).
+
+    Args:
+        journal: Path to journal root directory
+        file_path: Absolute or journal-relative path to file
+        verbose: If True, log detailed progress
+
+    Returns:
+        True if file was indexed successfully
+
+    Raises:
+        ValueError: If file is outside journal or has no formatter
+        FileNotFoundError: If file doesn't exist
+    """
+    journal_path = Path(journal).resolve()
+
+    # Resolve file path (handle both absolute and relative)
+    if os.path.isabs(file_path):
+        abs_path = Path(file_path).resolve()
+    else:
+        abs_path = (journal_path / file_path).resolve()
+
+    # Validate file exists
+    if not abs_path.is_file():
+        raise FileNotFoundError(f"File not found: {abs_path}")
+
+    # Validate file is under journal
+    try:
+        rel_path = str(abs_path.relative_to(journal_path))
+    except ValueError:
+        raise ValueError(f"File is outside journal directory: {abs_path}") from None
+
+    # Validate formatter exists
+    if get_formatter(rel_path) is None:
+        raise ValueError(f"No formatter found for: {rel_path}")
+
+    # Get file mtime
+    mtime = int(os.path.getmtime(abs_path))
+
+    # Index the file
+    conn, _ = get_journal_index(journal)
+
+    # Delete existing chunks for this file
+    conn.execute("DELETE FROM chunks WHERE path=?", (rel_path,))
+
+    if verbose:
+        logger.info("Indexing %s", rel_path)
+
+    _index_file(conn, rel_path, str(abs_path), verbose)
+
+    # Update file mtime
+    conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel_path, mtime))
+
+    conn.commit()
+    conn.close()
+
+    return True
 
 
 def _index_file(
