@@ -639,9 +639,7 @@ def test_index_file_valid(journal_fixture):
     from think.indexer.journal import index_file, search_journal
 
     # Index a specific file
-    result = index_file(
-        str(journal_fixture), "20240101/agents/flow.md", verbose=True
-    )
+    result = index_file(str(journal_fixture), "20240101/agents/flow.md", verbose=True)
     assert result is True
 
     # Should be searchable

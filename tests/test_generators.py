@@ -81,8 +81,7 @@ def test_get_muse_configs_by_schedule():
 
     # Unknown schedule returns empty dict
     assert (
-        muse.get_muse_configs(has_tools=False, has_output=True, schedule="hourly")
-        == {}
+        muse.get_muse_configs(has_tools=False, has_output=True, schedule="hourly") == {}
     )
     assert muse.get_muse_configs(has_tools=False, has_output=True, schedule="") == {}
 

@@ -19,8 +19,8 @@ from pathlib import Path
 from think.callosum import CallosumConnection
 from think.cortex_client import cortex_request, get_agent_end_state, wait_for_agents
 from think.facets import get_active_facets, get_enabled_facets, get_facets
-from think.runner import run_task
 from think.muse import get_muse_configs, get_output_path
+from think.runner import run_task
 from think.utils import (
     day_input_summary,
     day_log,

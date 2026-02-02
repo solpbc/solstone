@@ -28,7 +28,6 @@ from google import genai
 from google.genai import types
 
 from think.cluster import cluster, cluster_period, cluster_span
-from think.providers.shared import Event, GenerateResult
 from think.muse import (
     compose_instructions,
     get_agent_filter,
@@ -40,6 +39,7 @@ from think.muse import (
     source_is_enabled,
     source_is_required,
 )
+from think.providers.shared import Event, GenerateResult
 from think.utils import (
     day_log,
     day_path,

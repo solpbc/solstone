@@ -116,7 +116,11 @@ class TestRunPromptsByPriority:
         def mock_get_muse_configs(schedule=None, **kwargs):
             return {
                 "low_priority": {"priority": 10, "output": "md", "schedule": "segment"},
-                "high_priority": {"priority": 90, "output": "md", "schedule": "segment"},
+                "high_priority": {
+                    "priority": 90,
+                    "output": "md",
+                    "schedule": "segment",
+                },
                 "mid_priority": {"priority": 50, "output": "md", "schedule": "segment"},
             }
 
