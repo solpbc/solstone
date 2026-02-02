@@ -188,6 +188,7 @@ See **Quick Reference** below for all `make` commands. Key patterns:
 * **Single Responsibility**: Functions/classes do one thing well
 * **Conciseness & Maintainability**: Clear code over clever code
 * **Robustness**: Minimize assumptions that must be kept in sync across the codebase, avoid fragility and increasing maintenance burden.
+* **Self-Contained Codebase**: All code that depends on this project lives within this repository—never add backwards-compatibility shims, fallback aliases, re-exports for moved symbols, deprecated parameter handling, or legacy support code. When renaming or removing something, update all usages directly. For journal data format changes, write a migration script (see [docs/APPS.md](docs/APPS.md) for `maint` commands) instead of adding compatibility layers.
 * **Security**: Never expose secrets, validate/sanitize all inputs
 * **Performance**: Profile before optimizing
 * **Git**: Small focused commits, descriptive branch names. Run git commands directly (not `git -C`) since you're already in the repo.
