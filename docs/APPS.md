@@ -308,13 +308,13 @@ The `occurrences` field (optional string) provides topic-specific extraction gui
 - Resolution: `"name"` → `muse/{name}.py`, `"app:name"` → `apps/{app}/muse/{name}.py`, or explicit path
 
 **Pre-hooks** (`pre_process`): Modify inputs before the LLM call
-- `context` is a `PreHookContext` with: `name`, `agent_id`, `provider`, `model`, `prompt`, `system_instruction`, `user_instruction`, `extra_context`, `output_format`, `meta`, and for generators: `day`, `segment`, `span`, `transcript`, `output_path`
+- `context` is the full config dict with: `name`, `agent_id`, `provider`, `model`, `prompt`, `system_instruction`, `user_instruction`, `extra_context`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
 - Return a dict of modified fields to merge back (e.g., `{"prompt": "modified"}`)
 - Return `None` for no changes
 
 **Post-hooks** (`post_process`): Transform output after the LLM call
 - `result` is the LLM output (markdown or JSON string)
-- `context` is a `HookContext` with: `name`, `agent_id`, `provider`, `model`, `prompt`, `output_format`, `meta`, and for generators: `day`, `segment`, `span`, `transcript`, `output_path`
+- `context` is the full config dict with: `name`, `agent_id`, `provider`, `model`, `prompt`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
 - Return modified string, or `None` to use original result
 
 Hook errors are logged but don't crash the pipeline (graceful degradation).

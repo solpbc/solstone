@@ -31,8 +31,8 @@ def post_process(result: str, context: dict) -> str | None:
 
     Args:
         result: The generated output markdown content.
-        context: HookContext with keys including day, segment, name,
-            output_path, meta, transcript, span.
+        context: Config dict with keys including day, segment, name,
+            output_path, meta, transcript, span, span_mode.
 
     Returns:
         None - this hook does not modify the output result.

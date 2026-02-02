@@ -71,7 +71,7 @@ def test_openai_main(monkeypatch, tmp_path, capsys):
     events = [json.loads(line) for line in out_lines]
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
-    assert events[0]["prompt"] == "hello"
+    assert "hello" in events[0]["prompt"]
     assert events[0]["name"] == "default"
     assert events[0]["model"] == GPT_5
     assert events[-1]["event"] == "finish"
@@ -128,7 +128,7 @@ def test_openai_thinking_events(monkeypatch, tmp_path, capsys):
     # Check that we have start, thinking, and finish events
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
-    assert events[0]["prompt"] == "hello"
+    assert "hello" in events[0]["prompt"]
 
     # Look for thinking event
     thinking_events = [e for e in events if e["event"] == "thinking"]
@@ -211,7 +211,7 @@ def test_openai_outfile(monkeypatch, tmp_path, capsys):
     events = [json.loads(line) for line in out_lines]
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
-    assert events[0]["prompt"] == "hello"
+    assert "hello" in events[0]["prompt"]
     assert events[0]["name"] == "default"
     assert events[0]["model"] == GPT_5
     assert events[-1]["event"] == "finish"
@@ -265,7 +265,7 @@ def test_openai_thinking_events_stdout(monkeypatch, tmp_path, capsys):
     # Check that we have start, thinking, and finish events
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
-    assert events[0]["prompt"] == "hello"
+    assert "hello" in events[0]["prompt"]
 
     # Look for thinking event
     thinking_events = [e for e in events if e["event"] == "thinking"]
@@ -375,7 +375,7 @@ def test_openai_thinking_events_error(monkeypatch, tmp_path, capsys):
     # Check that we have start, thinking, and finish events
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
-    assert events[0]["prompt"] == "hello"
+    assert "hello" in events[0]["prompt"]
 
     # Look for thinking event
     thinking_events = [e for e in events if e["event"] == "thinking"]
@@ -438,7 +438,7 @@ def test_openai_tool_call_events(monkeypatch, tmp_path, capsys):
 
     # Check start event
     assert events[0]["event"] == "start"
-    assert events[0]["prompt"] == "hello"
+    assert "hello" in events[0]["prompt"]
 
     # Look for tool_start event
     tool_start_events = [e for e in events if e["event"] == "tool_start"]

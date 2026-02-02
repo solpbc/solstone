@@ -50,7 +50,7 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
     # Check that we have start, thinking, and finish events
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
-    assert events[0]["prompt"] == "hello"
+    assert "hello" in events[0]["prompt"]
 
     # Look for thinking event
     thinking_events = [e for e in events if e["event"] == "thinking"]

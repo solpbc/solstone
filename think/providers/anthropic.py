@@ -53,7 +53,6 @@ from .shared import (
     GenerateResult,
     JSONEventCallback,
     ThinkingEvent,
-    extract_agent_config,
     extract_tool_result,
 )
 
@@ -258,7 +257,21 @@ async def run_tools(
             user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
-    ac = extract_agent_config(config, default_max_tokens=_DEFAULT_MAX_TOKENS)
+    # Extract config values directly
+    prompt = config.get("prompt", "")
+    model = config.get("model", _DEFAULT_MODEL)
+    system_instruction = config.get("system_instruction")
+    user_instruction = config.get("user_instruction")
+    extra_context = config.get("extra_context")
+    transcript = config.get("transcript")
+    mcp_server_url = config.get("mcp_server_url")
+    tools_filter = config.get("tools")
+    max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
+    thinking_budget_config = config.get("thinking_budget")
+    continue_from = config.get("continue_from")
+    agent_id = config.get("agent_id")
+    name = config.get("name")
+
     callback = JSONEventCallback(on_event)
 
     try:
@@ -271,46 +284,46 @@ async def run_tools(
         # Note: Start event is emitted by agents.py (unified event ownership)
 
         # Build initial messages - check for continuation first
-        if ac.continue_from:
+        if continue_from:
             # Load previous conversation history using shared function
             from ..agents import parse_agent_events_to_turns
 
-            messages = parse_agent_events_to_turns(ac.continue_from)
+            messages = parse_agent_events_to_turns(continue_from)
             # Add new prompt as continuation
-            messages.append({"role": "user", "content": ac.prompt})
+            messages.append({"role": "user", "content": prompt})
         else:
             # Fresh conversation
             messages: list[MessageParam] = []
             # Prepend transcript if provided (from day/segment input assembly)
-            if ac.transcript:
-                messages.append({"role": "user", "content": ac.transcript})
-            if ac.extra_context:
-                messages.append({"role": "user", "content": ac.extra_context})
-            if ac.user_instruction:
-                messages.append({"role": "user", "content": ac.user_instruction})
-            messages.append({"role": "user", "content": ac.prompt})
+            if transcript:
+                messages.append({"role": "user", "content": transcript})
+            if extra_context:
+                messages.append({"role": "user", "content": extra_context})
+            if user_instruction:
+                messages.append({"role": "user", "content": user_instruction})
+            messages.append({"role": "user", "content": prompt})
 
         # Initialize tools and executor if MCP server URL provided
-        if ac.mcp_server_url:
-            async with create_mcp_client(str(ac.mcp_server_url)) as mcp:
-                if ac.tools and isinstance(ac.tools, list):
-                    logger.info(f"Using tool filter with allowed tools: {ac.tools}")
+        if mcp_server_url:
+            async with create_mcp_client(str(mcp_server_url)) as mcp:
+                if tools_filter and isinstance(tools_filter, list):
+                    logger.info(f"Using tool filter with allowed tools: {tools_filter}")
 
-                tools = await _get_mcp_tools(mcp, ac.tools)
+                tools = await _get_mcp_tools(mcp, tools_filter)
                 tool_executor = ToolExecutor(
-                    mcp, callback, agent_id=ac.agent_id, name=ac.name
+                    mcp, callback, agent_id=agent_id, name=name
                 )
 
                 thinking_budget, effective_max_tokens = _resolve_agent_thinking_params(
-                    ac.max_output_tokens, ac.thinking_budget
+                    max_output_tokens, thinking_budget_config
                 )
 
                 for _ in range(_MAX_TOOL_ITERATIONS):
                     # Build request params - thinking always enabled
                     create_params = {
-                        "model": ac.model,
+                        "model": model,
                         "max_tokens": effective_max_tokens,
-                        "system": ac.system_instruction,
+                        "system": system_instruction,
                         "messages": messages,
                         "thinking": {
                             "type": "enabled",
@@ -330,7 +343,7 @@ async def run_tools(
                         elif getattr(block, "type", None) == "tool_use":
                             tool_uses.append(block)
                         elif isinstance(block, (ThinkingBlock, RedactedThinkingBlock)):
-                            _emit_thinking_event(block, ac.model, callback)
+                            _emit_thinking_event(block, model, callback)
 
                     messages.append({"role": "assistant", "content": response.content})
 
@@ -383,12 +396,12 @@ async def run_tools(
         else:
             # No MCP tools - single response only
             thinking_budget, effective_max_tokens = _resolve_agent_thinking_params(
-                ac.max_output_tokens, ac.thinking_budget
+                max_output_tokens, thinking_budget_config
             )
             create_params = {
-                "model": ac.model,
+                "model": model,
                 "max_tokens": effective_max_tokens,
-                "system": ac.system_instruction,
+                "system": system_instruction,
                 "messages": messages,
                 "thinking": {
                     "type": "enabled",
@@ -403,7 +416,7 @@ async def run_tools(
                 if getattr(block, "type", None) == "text":
                     final_text += block.text
                 elif isinstance(block, (ThinkingBlock, RedactedThinkingBlock)):
-                    _emit_thinking_event(block, ac.model, callback)
+                    _emit_thinking_event(block, model, callback)
 
             finish_event = {
                 "event": "finish",

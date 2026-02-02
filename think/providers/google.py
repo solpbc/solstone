@@ -47,7 +47,6 @@ from .shared import (
     GenerateResult,
     JSONEventCallback,
     ThinkingEvent,
-    extract_agent_config,
     extract_tool_result,
 )
 
@@ -540,7 +539,21 @@ async def run_tools(
             user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
-    ac = extract_agent_config(config, default_max_tokens=_DEFAULT_MAX_TOKENS)
+    # Extract config values directly
+    prompt = config.get("prompt", "")
+    model = config.get("model", _DEFAULT_MODEL)
+    system_instruction = config.get("system_instruction")
+    user_instruction = config.get("user_instruction")
+    extra_context = config.get("extra_context")
+    transcript = config.get("transcript")
+    mcp_server_url = config.get("mcp_server_url")
+    tools = config.get("tools")
+    max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
+    thinking_budget = config.get("thinking_budget")
+    continue_from = config.get("continue_from")
+    agent_id = config.get("agent_id")
+    name = config.get("name")
+
     callback = JSONEventCallback(on_event)
 
     try:
@@ -552,11 +565,11 @@ async def run_tools(
         # Note: Start event is emitted by agents.py (unified event ownership)
 
         # Build history - check for continuation first
-        if ac.continue_from:
+        if continue_from:
             # Load previous conversation history using shared function
             from ..agents import parse_agent_events_to_turns
 
-            turns = parse_agent_events_to_turns(ac.continue_from)
+            turns = parse_agent_events_to_turns(continue_from)
             # Convert to Google's format
             history = []
             for turn in turns:
@@ -568,20 +581,18 @@ async def run_tools(
             # Fresh conversation - convert generic turns to Google format
             history = []
             # Prepend transcript if provided (from day/segment input assembly)
-            if ac.transcript:
+            if transcript:
                 history.append(
-                    types.Content(role="user", parts=[types.Part(text=ac.transcript)])
+                    types.Content(role="user", parts=[types.Part(text=transcript)])
                 )
-            if ac.extra_context:
+            if extra_context:
+                history.append(
+                    types.Content(role="user", parts=[types.Part(text=extra_context)])
+                )
+            if user_instruction:
                 history.append(
                     types.Content(
-                        role="user", parts=[types.Part(text=ac.extra_context)]
-                    )
-                )
-            if ac.user_instruction:
-                history.append(
-                    types.Content(
-                        role="user", parts=[types.Part(text=ac.user_instruction)]
+                        role="user", parts=[types.Part(text=user_instruction)]
                     )
                 )
 
@@ -593,10 +604,8 @@ async def run_tools(
 
         # Create fresh chat session
         chat = client.aio.chats.create(
-            model=ac.model,
-            config=types.GenerateContentConfig(
-                system_instruction=ac.system_instruction
-            ),
+            model=model,
+            config=types.GenerateContentConfig(system_instruction=system_instruction),
             history=history,
         )
 
@@ -604,29 +613,25 @@ async def run_tools(
         tool_call_count = 0
 
         # Configure tools if MCP server URL provided
-        if ac.mcp_server_url:
+        if mcp_server_url:
             # Create MCP client and attach hooks
-            async with create_mcp_client(str(ac.mcp_server_url)) as mcp:
+            async with create_mcp_client(str(mcp_server_url)) as mcp:
                 # Attach tool logging hooks to the MCP session
-                tool_hooks = ToolLoggingHooks(
-                    callback, agent_id=ac.agent_id, name=ac.name
-                )
+                tool_hooks = ToolLoggingHooks(callback, agent_id=agent_id, name=name)
                 tool_hooks.attach(mcp.session)
 
                 # Configure function calling mode based on tool filtering
-                if ac.tools and isinstance(ac.tools, list):
-                    logger.info(f"Filtering tools to: {ac.tools}")
+                if tools and isinstance(tools, list):
+                    logger.info(f"Filtering tools to: {tools}")
                     function_calling_config = types.FunctionCallingConfig(
                         mode="ANY",  # Restrict to only allowed functions
-                        allowed_function_names=ac.tools,
+                        allowed_function_names=tools,
                     )
                 else:
                     function_calling_config = types.FunctionCallingConfig(mode="AUTO")
 
                 total_tokens, effective_thinking_budget = (
-                    _compute_agent_thinking_params(
-                        ac.max_output_tokens, ac.thinking_budget
-                    )
+                    _compute_agent_thinking_params(max_output_tokens, thinking_budget)
                 )
 
                 cfg = types.GenerateContentConfig(
@@ -642,15 +647,15 @@ async def run_tools(
                 )
 
                 # Send the message - SDK handles automatic function calling
-                response = await chat.send_message(ac.prompt, config=cfg)
-                _emit_thinking_events(response, ac.model, callback)
+                response = await chat.send_message(prompt, config=cfg)
+                _emit_thinking_events(response, model, callback)
 
                 # Capture tool call count from hooks
                 tool_call_count = tool_hooks._counter
         else:
             # No MCP tools - just basic config
             total_tokens, effective_thinking_budget = _compute_agent_thinking_params(
-                ac.max_output_tokens, ac.thinking_budget
+                max_output_tokens, thinking_budget
             )
 
             cfg = types.GenerateContentConfig(
@@ -661,8 +666,8 @@ async def run_tools(
                 ),
             )
 
-            response = await chat.send_message(ac.prompt, config=cfg)
-            _emit_thinking_events(response, ac.model, callback)
+            response = await chat.send_message(prompt, config=cfg)
+            _emit_thinking_events(response, model, callback)
 
         # Extract finish reason for diagnostics and user-friendly messages
         finish_reason = _extract_finish_reason(response)

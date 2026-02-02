@@ -131,7 +131,7 @@ async def run_tools(
 
 **Event emission:**
 
-Providers must emit events via the `on_event` callback. See `think/agents.py` for TypedDict definitions:
+Providers must emit events via the `on_event` callback. See `think/providers/shared.py` for TypedDict definitions:
 
 | Event | When |
 |-------|------|
@@ -142,7 +142,7 @@ Providers must emit events via the `on_event` callback. See `think/agents.py` fo
 | `FinishEvent` | Agent run completes successfully |
 | `ErrorEvent` | Error occurs |
 
-Use `JSONEventCallback` from `think/agents.py` to wrap the callback and auto-add timestamps.
+Use `JSONEventCallback` from `think/providers/shared.py` to wrap the callback and auto-add timestamps.
 
 **Finish event format:**
 

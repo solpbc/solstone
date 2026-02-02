@@ -122,7 +122,8 @@ def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
 
     start_event = events[0]
     assert start_event["event"] == "start"
-    assert start_event["prompt"] == "What is 2+2?"
+    # Prompt includes system instruction prepended during enrichment
+    assert "What is 2+2?" in start_event["prompt"]
     assert start_event["provider"] == "openai"
     assert start_event["model"] == GPT_5
 
@@ -179,10 +180,11 @@ def test_ndjson_multiple_requests(mock_journal, monkeypatch, capsys):
     start_events = [e for e in events if e["event"] == "start"]
 
     assert len(start_events) == 3
-    assert start_events[0]["prompt"] == "First question"
-    assert start_events[1]["prompt"] == "Second question"
+    # Prompts include system instruction prepended during enrichment
+    assert "First question" in start_events[0]["prompt"]
+    assert "Second question" in start_events[1]["prompt"]
     assert start_events[1]["provider"] == "anthropic"
-    assert start_events[2]["prompt"] == "Third question"
+    assert "Third question" in start_events[2]["prompt"]
     assert start_events[2]["name"] == "technical"
 
 

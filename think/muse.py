@@ -705,6 +705,6 @@ def load_pre_hook(config: dict) -> Callable[["PreHookContext"], dict | None] | N
     return _load_hook_function(config, "pre", "pre_process")
 
 
-# Type aliases for hook context (actual TypedDicts defined in agents.py)
+# Type aliases for hook context - hooks receive the full config dict
 HookContext = dict
 PreHookContext = dict

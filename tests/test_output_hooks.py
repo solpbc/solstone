@@ -4,7 +4,7 @@
 """Tests for the generator output hooks system.
 
 Tests cover:
-- Hook loading and validation via load_post_hook
+- Hook loading and validation via load_post_hook / load_pre_hook
 - Hook invocation via NDJSON protocol
 - Hook error handling
 """
@@ -16,6 +16,7 @@ import os
 import shutil
 from pathlib import Path
 
+from think.muse import load_post_hook, load_pre_hook
 from think.utils import day_path
 
 FIXTURES = Path("fixtures")
@@ -64,8 +65,6 @@ def run_generator_with_config(mod, config: dict, monkeypatch) -> list[dict]:
 
 def test_load_post_hook_success(tmp_path):
     """Test loading a valid hook with post_process function."""
-    agents = importlib.import_module("think.agents")
-
     hook_file = tmp_path / "test_hook.py"
     hook_file.write_text("""
 def post_process(result, context):
@@ -74,7 +73,7 @@ def post_process(result, context):
 
     # Config with explicit path
     config = {"hook": {"post": str(hook_file)}}
-    hook_fn = agents.load_post_hook(config)
+    hook_fn = load_post_hook(config)
     assert callable(hook_fn)
 
     # Test the hook transforms content
@@ -84,8 +83,6 @@ def post_process(result, context):
 
 def test_load_post_hook_missing_post_process(tmp_path):
     """Test that hook without post_process function raises ValueError."""
-    agents = importlib.import_module("think.agents")
-
     hook_file = tmp_path / "bad_hook.py"
     hook_file.write_text("""
 def other_function():
@@ -94,7 +91,7 @@ def other_function():
 
     config = {"hook": {"post": str(hook_file)}}
     try:
-        agents.load_post_hook(config)
+        load_post_hook(config)
         assert False, "Should have raised ValueError"
     except ValueError as e:
         assert "must define a 'post_process' function" in str(e)
@@ -102,8 +99,6 @@ def other_function():
 
 def test_load_post_hook_not_callable(tmp_path):
     """Test that hook with non-callable post_process raises ValueError."""
-    agents = importlib.import_module("think.agents")
-
     hook_file = tmp_path / "bad_hook.py"
     hook_file.write_text("""
 post_process = "not a function"
@@ -111,7 +106,7 @@ post_process = "not a function"
 
     config = {"hook": {"post": str(hook_file)}}
     try:
-        agents.load_post_hook(config)
+        load_post_hook(config)
         assert False, "Should have raised ValueError"
     except ValueError as e:
         assert "'post_process' must be callable" in str(e)
@@ -119,30 +114,24 @@ post_process = "not a function"
 
 def test_load_post_hook_no_hook_config():
     """Test that missing hook config returns None."""
-    agents = importlib.import_module("think.agents")
-
-    assert agents.load_post_hook({}) is None
-    assert agents.load_post_hook({"hook": {}}) is None
-    assert agents.load_post_hook({"hook": {"pre": "something"}}) is None
+    assert load_post_hook({}) is None
+    assert load_post_hook({"hook": {}}) is None
+    assert load_post_hook({"hook": {"pre": "something"}}) is None
 
 
 def test_load_post_hook_named_resolution():
     """Test that named hooks resolve to muse/{name}.py."""
-    agents = importlib.import_module("think.agents")
-
     # occurrence.py exists in muse/
     config = {"hook": {"post": "occurrence"}}
-    hook_fn = agents.load_post_hook(config)
+    hook_fn = load_post_hook(config)
     assert callable(hook_fn)
 
 
 def test_load_post_hook_file_not_found(tmp_path):
     """Test that nonexistent hook file raises ImportError."""
-    agents = importlib.import_module("think.agents")
-
     config = {"hook": {"post": str(tmp_path / "nonexistent.py")}}
     try:
-        agents.load_post_hook(config)
+        load_post_hook(config)
         assert False, "Should have raised ImportError"
     except ImportError as e:
         assert "not found" in str(e)
@@ -193,12 +182,13 @@ def post_process(result, context):
 """)
 
     try:
+        # Mock the underlying generation function in think.models
+        import think.models
+
         monkeypatch.setattr(
-            mod,
-            "generate_agent_output",
-            lambda *a, **k: (
-                MOCK_RESULT if k.get("return_result") else MOCK_RESULT["text"]
-            ),
+            think.models,
+            "generate_with_result",
+            lambda *a, **k: MOCK_RESULT,
         )
         monkeypatch.setenv("GOOGLE_API_KEY", "x")
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
@@ -247,12 +237,13 @@ def post_process(result, context):
 """)
 
     try:
+        # Mock the underlying generation function in think.models
+        import think.models
+
         monkeypatch.setattr(
-            mod,
-            "generate_agent_output",
-            lambda *a, **k: (
-                MOCK_RESULT if k.get("return_result") else MOCK_RESULT["text"]
-            ),
+            think.models,
+            "generate_with_result",
+            lambda *a, **k: MOCK_RESULT,
         )
         monkeypatch.setenv("GOOGLE_API_KEY", "x")
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
@@ -297,12 +288,13 @@ def post_process(result, context):
 """)
 
     try:
+        # Mock the underlying generation function in think.models
+        import think.models
+
         monkeypatch.setattr(
-            mod,
-            "generate_agent_output",
-            lambda *a, **k: (
-                MOCK_RESULT if k.get("return_result") else MOCK_RESULT["text"]
-            ),
+            think.models,
+            "generate_with_result",
+            lambda *a, **k: MOCK_RESULT,
         )
         monkeypatch.setenv("GOOGLE_API_KEY", "x")
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
@@ -329,81 +321,6 @@ def post_process(result, context):
             prompt_file.unlink()
 
 
-def test_build_hook_context():
-    """Test that build_hook_context creates correct context."""
-    agents = importlib.import_module("think.agents")
-
-    config = {
-        "name": "test_gen",
-        "agent_id": "123456",
-        "provider": "google",
-        "model": "gemini-2.0-flash",
-        "prompt": "test prompt",
-        "output": "md",
-        "day": "20240101",
-        "segment": "120000_3600",
-    }
-
-    context = agents.build_hook_context(
-        config,
-        transcript="test transcript",
-        output_path="/tmp/test.md",
-        span=False,
-    )
-
-    assert context["name"] == "test_gen"
-    assert context["agent_id"] == "123456"
-    assert context["provider"] == "google"
-    assert context["model"] == "gemini-2.0-flash"
-    assert context["prompt"] == "test prompt"
-    assert context["output_format"] == "md"
-    assert context["day"] == "20240101"
-    assert context["segment"] == "120000_3600"
-    assert context["transcript"] == "test transcript"
-    assert context["output_path"] == "/tmp/test.md"
-    assert context["span"] is False
-    assert context["meta"] == config
-
-
-def test_run_post_hook_transforms_result():
-    """Test that run_post_hook applies transformation."""
-    agents = importlib.import_module("think.agents")
-
-    def hook(result, context):
-        return result.upper()
-
-    context = agents.build_hook_context({"name": "test"})
-    output = agents.run_post_hook("hello world", context, hook)
-
-    assert output == "HELLO WORLD"
-
-
-def test_run_post_hook_none_keeps_original():
-    """Test that run_post_hook keeps original when hook returns None."""
-    agents = importlib.import_module("think.agents")
-
-    def hook(result, context):
-        return None
-
-    context = agents.build_hook_context({"name": "test"})
-    output = agents.run_post_hook("original", context, hook)
-
-    assert output == "original"
-
-
-def test_run_post_hook_error_keeps_original():
-    """Test that run_post_hook keeps original on error."""
-    agents = importlib.import_module("think.agents")
-
-    def hook(result, context):
-        raise RuntimeError("boom")
-
-    context = agents.build_hook_context({"name": "test"})
-    output = agents.run_post_hook("original", context, hook)
-
-    assert output == "original"
-
-
 # =============================================================================
 # Pre-hook Tests
 # =============================================================================
@@ -411,8 +328,6 @@ def test_run_post_hook_error_keeps_original():
 
 def test_load_pre_hook_success(tmp_path):
     """Test loading a valid hook with pre_process function."""
-    agents = importlib.import_module("think.agents")
-
     hook_file = tmp_path / "test_pre_hook.py"
     hook_file.write_text("""
 def pre_process(context):
@@ -420,7 +335,7 @@ def pre_process(context):
 """)
 
     config = {"hook": {"pre": str(hook_file)}}
-    hook_fn = agents.load_pre_hook(config)
+    hook_fn = load_pre_hook(config)
     assert callable(hook_fn)
 
     # Test the hook returns modifications
@@ -430,8 +345,6 @@ def pre_process(context):
 
 def test_load_pre_hook_missing_pre_process(tmp_path):
     """Test that hook without pre_process function raises ValueError."""
-    agents = importlib.import_module("think.agents")
-
     hook_file = tmp_path / "bad_hook.py"
     hook_file.write_text("""
 def other_function():
@@ -440,7 +353,7 @@ def other_function():
 
     config = {"hook": {"pre": str(hook_file)}}
     try:
-        agents.load_pre_hook(config)
+        load_pre_hook(config)
         assert False, "Should have raised ValueError"
     except ValueError as e:
         assert "must define a 'pre_process' function" in str(e)
@@ -448,8 +361,6 @@ def other_function():
 
 def test_load_pre_hook_not_callable(tmp_path):
     """Test that hook with non-callable pre_process raises ValueError."""
-    agents = importlib.import_module("think.agents")
-
     hook_file = tmp_path / "bad_hook.py"
     hook_file.write_text("""
 pre_process = "not a function"
@@ -457,7 +368,7 @@ pre_process = "not a function"
 
     config = {"hook": {"pre": str(hook_file)}}
     try:
-        agents.load_pre_hook(config)
+        load_pre_hook(config)
         assert False, "Should have raised ValueError"
     except ValueError as e:
         assert "'pre_process' must be callable" in str(e)
@@ -465,104 +376,19 @@ pre_process = "not a function"
 
 def test_load_pre_hook_no_hook_config():
     """Test that missing hook config returns None."""
-    agents = importlib.import_module("think.agents")
-
-    assert agents.load_pre_hook({}) is None
-    assert agents.load_pre_hook({"hook": {}}) is None
-    assert agents.load_pre_hook({"hook": {"post": "something"}}) is None
+    assert load_pre_hook({}) is None
+    assert load_pre_hook({"hook": {}}) is None
+    assert load_pre_hook({"hook": {"post": "something"}}) is None
 
 
 def test_load_pre_hook_file_not_found(tmp_path):
     """Test that nonexistent hook file raises ImportError."""
-    agents = importlib.import_module("think.agents")
-
     config = {"hook": {"pre": str(tmp_path / "nonexistent.py")}}
     try:
-        agents.load_pre_hook(config)
+        load_pre_hook(config)
         assert False, "Should have raised ImportError"
     except ImportError as e:
         assert "not found" in str(e)
-
-
-def test_build_pre_hook_context():
-    """Test that build_pre_hook_context creates correct context."""
-    agents = importlib.import_module("think.agents")
-
-    config = {
-        "name": "test_gen",
-        "agent_id": "123456",
-        "provider": "google",
-        "model": "gemini-2.0-flash",
-        "prompt": "test prompt",
-        "system_instruction": "be helpful",
-        "user_instruction": "answer questions",
-        "extra_context": "extra info",
-        "output": "md",
-        "day": "20240101",
-        "segment": "120000_3600",
-    }
-
-    context = agents.build_pre_hook_context(
-        config,
-        transcript="test transcript",
-        output_path="/tmp/test.md",
-        span=False,
-    )
-
-    assert context["name"] == "test_gen"
-    assert context["agent_id"] == "123456"
-    assert context["provider"] == "google"
-    assert context["model"] == "gemini-2.0-flash"
-    assert context["prompt"] == "test prompt"
-    assert context["system_instruction"] == "be helpful"
-    assert context["user_instruction"] == "answer questions"
-    assert context["extra_context"] == "extra info"
-    assert context["output_format"] == "md"
-    assert context["day"] == "20240101"
-    assert context["segment"] == "120000_3600"
-    assert context["transcript"] == "test transcript"
-    assert context["output_path"] == "/tmp/test.md"
-    assert context["span"] is False
-    assert context["meta"] == config
-
-
-def test_run_pre_hook_returns_modifications():
-    """Test that run_pre_hook returns modifications dict."""
-    agents = importlib.import_module("think.agents")
-
-    def hook(context):
-        return {"prompt": "modified prompt", "transcript": "modified transcript"}
-
-    context = agents.build_pre_hook_context({"name": "test", "prompt": "original"})
-    result = agents.run_pre_hook(context, hook)
-
-    assert result == {"prompt": "modified prompt", "transcript": "modified transcript"}
-
-
-def test_run_pre_hook_none_returns_none():
-    """Test that run_pre_hook returns None when hook returns None."""
-    agents = importlib.import_module("think.agents")
-
-    def hook(context):
-        return None
-
-    context = agents.build_pre_hook_context({"name": "test"})
-    result = agents.run_pre_hook(context, hook)
-
-    assert result is None
-
-
-def test_run_pre_hook_error_returns_none():
-    """Test that run_pre_hook returns None on error."""
-    agents = importlib.import_module("think.agents")
-
-    def hook(context):
-        raise RuntimeError("boom")
-
-    context = agents.build_pre_hook_context({"name": "test"})
-    result = agents.run_pre_hook(context, hook)
-
-    assert result is None
 
 
 def test_pre_hook_invocation(tmp_path, monkeypatch):
@@ -589,15 +415,17 @@ def pre_process(context):
 """)
 
     try:
-        # Track what generate_agent_output receives
-        received_args = {}
+        # Track what generate_with_result receives
+        received_kwargs = {}
 
         def mock_generate(*args, **kwargs):
-            received_args["transcript"] = args[0]
-            received_args["prompt"] = args[1]
-            return MOCK_RESULT if kwargs.get("return_result") else MOCK_RESULT["text"]
+            received_kwargs.update(kwargs)
+            received_kwargs["contents"] = args[0] if args else kwargs.get("contents")
+            return MOCK_RESULT
 
-        monkeypatch.setattr(mod, "generate_agent_output", mock_generate)
+        import think.models
+
+        monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
         monkeypatch.setenv("GOOGLE_API_KEY", "x")
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
@@ -611,8 +439,11 @@ def pre_process(context):
 
         events = run_generator_with_config(mod, config, monkeypatch)
 
-        # Verify pre-hook modified the prompt
-        assert "[pre-processed]" in received_args["prompt"]
+        # Verify pre-hook modified the prompt - check in contents
+        contents = received_kwargs.get("contents", [])
+        # The prompt should contain [pre-processed]
+        prompt_found = any("[pre-processed]" in str(c) for c in contents)
+        assert prompt_found, f"Expected [pre-processed] in contents: {contents}"
 
         # Verify generator still completed successfully
         finish_events = [e for e in events if e["event"] == "finish"]
@@ -647,13 +478,16 @@ def post_process(result, context):
 """)
 
     try:
-        received_args = {}
+        received_kwargs = {}
 
         def mock_generate(*args, **kwargs):
-            received_args["prompt"] = args[1]
-            return MOCK_RESULT if kwargs.get("return_result") else MOCK_RESULT["text"]
+            received_kwargs.update(kwargs)
+            received_kwargs["contents"] = args[0] if args else kwargs.get("contents")
+            return MOCK_RESULT
 
-        monkeypatch.setattr(mod, "generate_agent_output", mock_generate)
+        import think.models
+
+        monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
         monkeypatch.setenv("GOOGLE_API_KEY", "x")
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
@@ -667,8 +501,10 @@ def post_process(result, context):
 
         events = run_generator_with_config(mod, config, monkeypatch)
 
-        # Verify pre-hook modified the prompt
-        assert "[pre]" in received_args["prompt"]
+        # Verify pre-hook modified the prompt - check in contents
+        contents = received_kwargs.get("contents", [])
+        prompt_found = any("[pre]" in str(c) for c in contents)
+        assert prompt_found, f"Expected [pre] in contents: {contents}"
 
         # Verify post-hook modified the result
         finish_events = [e for e in events if e["event"] == "finish"]

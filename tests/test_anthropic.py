@@ -186,7 +186,8 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
     events = [json.loads(line) for line in out_lines]
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
-    assert events[0]["prompt"] == "hello"
+    # Prompt includes system instruction prepended during enrichment
+    assert "hello" in events[0]["prompt"]
     assert events[0]["name"] == "default"
     assert events[0]["model"] == CLAUDE_SONNET_4
     assert events[-1]["event"] == "finish"
@@ -230,7 +231,8 @@ def test_claude_outfile(monkeypatch, tmp_path, capsys):
     events = [json.loads(line) for line in out_lines]
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
-    assert events[0]["prompt"] == "hello"
+    # Prompt includes system instruction prepended during enrichment
+    assert "hello" in events[0]["prompt"]
     assert events[0]["name"] == "default"
     assert events[0]["model"] == CLAUDE_SONNET_4
     assert events[-1]["event"] == "finish"

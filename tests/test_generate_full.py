@@ -81,12 +81,13 @@ def test_generate_output_ndjson(tmp_path, monkeypatch):
     )
 
     try:
+        # Mock the underlying generation function in think.models
+        import think.models
+
         monkeypatch.setattr(
-            mod,
-            "generate_agent_output",
-            lambda *a, **k: (
-                MOCK_RESULT if k.get("return_result") else MOCK_RESULT["text"]
-            ),
+            think.models,
+            "generate_with_result",
+            lambda *a, **k: MOCK_RESULT,
         )
         monkeypatch.setenv("GOOGLE_API_KEY", "x")
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
@@ -134,7 +135,7 @@ def post_process(result, context):
     ctx_copy = {
         "day": context.get("day"),
         "segment": context.get("segment"),
-        "span": context.get("span"),
+        "span": context.get("span_mode"),
         "name": context.get("name"),
         "has_transcript": bool(context.get("transcript")),
         "has_meta": bool(context.get("meta")),
@@ -151,12 +152,13 @@ def post_process(result, context):
     )
 
     try:
+        # Mock the underlying generation function in think.models
+        import think.models
+
         monkeypatch.setattr(
-            mod,
-            "generate_agent_output",
-            lambda *a, **k: (
-                MOCK_RESULT if k.get("return_result") else MOCK_RESULT["text"]
-            ),
+            think.models,
+            "generate_with_result",
+            lambda *a, **k: MOCK_RESULT,
         )
         monkeypatch.setenv("GOOGLE_API_KEY", "x")
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
@@ -181,6 +183,7 @@ def post_process(result, context):
 
         assert captured["day"] == "20240101"
         assert captured["segment"] is None
+        # span_mode is a bool in the new config structure
         assert captured["span"] is False
         assert captured["name"] == "hooked_gen"
         assert captured["has_transcript"] is True
@@ -207,12 +210,13 @@ def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
     )
 
     try:
+        # Mock the underlying generation function in think.models
+        import think.models
+
         monkeypatch.setattr(
-            mod,
-            "generate_agent_output",
-            lambda *a, **k: (
-                MOCK_RESULT if k.get("return_result") else MOCK_RESULT["text"]
-            ),
+            think.models,
+            "generate_with_result",
+            lambda *a, **k: MOCK_RESULT,
         )
         monkeypatch.setenv("GOOGLE_API_KEY", "x")
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
@@ -301,11 +305,11 @@ def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
 
 def test_named_hook_resolution(tmp_path, monkeypatch):
     """Test that named hooks are resolved via load_post_hook."""
-    agents = importlib.import_module("think.agents")
+    from think.muse import load_post_hook
 
     # Config with named hook (new format)
     config = {"hook": {"post": "occurrence"}}
-    hook_fn = agents.load_post_hook(config)
+    hook_fn = load_post_hook(config)
 
     # Should resolve to muse/occurrence.py and be callable
     assert callable(hook_fn)

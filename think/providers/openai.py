@@ -80,7 +80,6 @@ from .shared import (
     GenerateResult,
     JSONEventCallback,
     ThinkingEvent,
-    extract_agent_config,
 )
 
 
@@ -223,42 +222,54 @@ async def run_tools(
             user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
-    ac = extract_agent_config(config, default_max_tokens=_DEFAULT_MAX_TOKENS)
+    # Extract config values directly
+    prompt = config.get("prompt", "")
+    model = config.get("model", GPT_5)
+    system_instruction = config.get("system_instruction")
+    user_instruction = config.get("user_instruction")
+    extra_context = config.get("extra_context")
+    transcript = config.get("transcript")
+    mcp_server_url = config.get("mcp_server_url")
+    tools = config.get("tools")
+    max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
+    continue_from = config.get("continue_from")
+    agent_id = config.get("agent_id")
+    name = config.get("name")
     max_turns = config.get("max_turns", _DEFAULT_MAX_TURNS)
 
-    LOG.info("Running agent with model %s", ac.model)
+    LOG.info("Running agent with model %s", model)
     cb = JSONEventCallback(on_event)
 
     # Note: Start event is emitted by agents.py (unified event ownership)
 
     # Model settings: always enable reasoning with detailed summaries
     model_settings = ModelSettings(
-        max_tokens=ac.max_output_tokens,
+        max_tokens=max_output_tokens,
         reasoning=_DEFAULT_REASONING,
     )
 
     # Initialize MCP server
     mcp_server = None
-    if ac.mcp_server_url:
-        http_uri = _normalize_streamable_http_uri(str(ac.mcp_server_url))
+    if mcp_server_url:
+        http_uri = _normalize_streamable_http_uri(str(mcp_server_url))
 
         # Configure tool filter if tools are specified
         tool_filter = None
-        if ac.tools and isinstance(ac.tools, list) and ToolFilterStatic:
+        if tools and isinstance(tools, list) and ToolFilterStatic:
             # Create a tool filter with allowed tools
-            tool_filter = ToolFilterStatic(allowed_tool_names=ac.tools)
-            LOG.info(f"Using tool filter with allowed tools: {ac.tools}")
-        elif ac.tools:
+            tool_filter = ToolFilterStatic(allowed_tool_names=tools)
+            LOG.info(f"Using tool filter with allowed tools: {tools}")
+        elif tools:
             LOG.warning(
                 "Tool filtering requested but ToolFilterStatic not available in this version"
             )
 
         mcp_params = {"url": http_uri}
         headers: dict[str, str] = {}
-        if ac.agent_id:
-            headers["X-Agent-Id"] = str(ac.agent_id)
-        if ac.name:
-            headers["X-Agent-Name"] = ac.name
+        if agent_id:
+            headers["X-Agent-Id"] = str(agent_id)
+        if name:
+            headers["X-Agent-Name"] = name
         if headers:
             mcp_params["headers"] = headers
 
@@ -280,14 +291,14 @@ async def run_tools(
     finish_reason_holder = [None]
 
     # Create session and load history if continuing conversation
-    session_id = ac.continue_from or ac.agent_id or f"session-{int(time.time())}"
+    session_id = continue_from or agent_id or f"session-{int(time.time())}"
     session = SQLiteSession(session_id=session_id, db_path=":memory:")
 
     # Load conversation history if continuing
-    if ac.continue_from:
+    if continue_from:
         from ..agents import parse_agent_events_to_turns
 
-        turns = parse_agent_events_to_turns(ac.continue_from)
+        turns = parse_agent_events_to_turns(continue_from)
         if turns:
             items = _convert_turns_to_items(turns)
             await session.add_items(items)
@@ -295,12 +306,12 @@ async def run_tools(
         # Fresh conversation - add transcript, context and user instruction as initial messages
         initial_turns = []
         # Prepend transcript if provided (from day/segment input assembly)
-        if ac.transcript:
-            initial_turns.append({"role": "user", "content": ac.transcript})
-        if ac.extra_context:
-            initial_turns.append({"role": "user", "content": ac.extra_context})
-        if ac.user_instruction:
-            initial_turns.append({"role": "user", "content": ac.user_instruction})
+        if transcript:
+            initial_turns.append({"role": "user", "content": transcript})
+        if extra_context:
+            initial_turns.append({"role": "user", "content": extra_context})
+        if user_instruction:
+            initial_turns.append({"role": "user", "content": user_instruction})
         if initial_turns:
             initial_items = _convert_turns_to_items(initial_turns)
             await session.add_items(initial_items)
@@ -324,15 +335,15 @@ async def run_tools(
             mcp_servers_list = [mcp_server] if mcp_server else []
             agent = Agent(
                 name="solstoneCLI",
-                instructions=ac.system_instruction,
-                model=ac.model,
+                instructions=system_instruction,
+                model=model,
                 model_settings=model_settings,
                 mcp_servers=mcp_servers_list,
             )
 
             result = Runner.run_streamed(
                 agent,
-                input=ac.prompt,
+                input=prompt,
                 session=session,
                 run_config=RunConfig(tracing_disabled=True),  # per docs
                 max_turns=max_turns,
@@ -438,7 +449,7 @@ async def run_tools(
                             thinking_event: ThinkingEvent = {
                                 "event": "thinking",
                                 "summary": summary_text,
-                                "model": ac.model,
+                                "model": model,
                                 "ts": now_ms(),
                             }
                             cb.emit(thinking_event)

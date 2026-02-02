@@ -52,7 +52,7 @@ def test_google_main(monkeypatch, tmp_path, capsys):
     events = [json.loads(line) for line in out_lines]
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
-    assert events[0]["prompt"] == "hello"
+    assert "hello" in events[0]["prompt"]
     assert events[0]["name"] == "default"
     assert events[0]["model"] == GEMINI_FLASH
     assert events[-1]["event"] == "finish"

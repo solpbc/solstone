@@ -465,5 +465,3 @@ async def test_batch_client_passthrough(mock_agenerate):
     # Verify client was passed through
     call_kwargs = mock_agenerate.call_args[1]
     assert call_kwargs["client"] is mock_client
-
-

@@ -12,7 +12,6 @@ This module contains:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Callable, Literal, Optional, Union
 
 from typing_extensions import Required, TypedDict
@@ -152,83 +151,6 @@ class JSONEventCallback:
 
 
 # ---------------------------------------------------------------------------
-# Agent Config Extraction
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class AgentConfig:
-    """Validated agent configuration extracted from config dict."""
-
-    prompt: str
-    model: str
-    name: str
-    agent_id: Optional[str]
-    max_output_tokens: int
-    thinking_budget: Optional[int]
-    mcp_server_url: Optional[str]
-    continue_from: Optional[str]
-    system_instruction: str
-    extra_context: str
-    user_instruction: str
-    tools: Optional[list[str]]
-    provider: str
-
-    # Transcript from journal (if day/segment specified)
-    transcript: str
-
-    # Original config for provider-specific access
-    raw_config: dict
-
-
-def extract_agent_config(config: dict, default_max_tokens: int = 8192) -> AgentConfig:
-    """Extract and validate agent configuration.
-
-    Parameters
-    ----------
-    config
-        Raw config dict from cortex.
-    default_max_tokens
-        Default max_output_tokens if not specified in config.
-
-    Returns
-    -------
-    AgentConfig
-        Validated configuration dataclass.
-
-    Raises
-    ------
-    ValueError
-        If required fields are missing.
-    """
-    prompt = config.get("prompt", "")
-    if not prompt:
-        raise ValueError("Missing 'prompt' in config")
-
-    model = config.get("model")
-    if not model:
-        raise ValueError("Missing 'model' in config - should be set by Cortex")
-
-    return AgentConfig(
-        prompt=prompt,
-        model=model,
-        name=config.get("name", "default"),
-        agent_id=config.get("agent_id"),
-        max_output_tokens=config.get("max_output_tokens", default_max_tokens),
-        thinking_budget=config.get("thinking_budget"),
-        mcp_server_url=config.get("mcp_server_url"),
-        continue_from=config.get("continue_from"),
-        system_instruction=config.get("system_instruction", ""),
-        extra_context=config.get("extra_context", ""),
-        user_instruction=config.get("user_instruction", ""),
-        tools=config.get("tools"),
-        provider=config.get("provider", "google"),
-        transcript=config.get("transcript", ""),
-        raw_config=config,
-    )
-
-
-# ---------------------------------------------------------------------------
 # MCP Tool Result Extraction
 # ---------------------------------------------------------------------------
 
@@ -275,6 +197,5 @@ __all__ = [
     "GenerateResult",
     "JSONEventCallback",
     "ThinkingEvent",
-    "extract_agent_config",
     "extract_tool_result",
 ]
