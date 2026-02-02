@@ -7,8 +7,8 @@ import os
 
 def test_get_muse_configs_generators():
     """Test that system generators are discovered with source field."""
-    utils = importlib.import_module("think.utils")
-    generators = utils.get_muse_configs(has_tools=False, has_output=True)
+    muse = importlib.import_module("think.muse")
+    generators = muse.get_muse_configs(has_tools=False, has_output=True)
     assert "flow" in generators
     info = generators["flow"]
     assert os.path.basename(info["path"]) == "flow.md"
@@ -22,20 +22,20 @@ def test_get_muse_configs_generators():
 
 def test_get_output_topic():
     """Test generator key to filename conversion."""
-    utils = importlib.import_module("think.utils")
+    muse = importlib.import_module("think.muse")
 
     # System generators: key unchanged
-    assert utils.get_output_topic("activity") == "activity"
-    assert utils.get_output_topic("flow") == "flow"
+    assert muse.get_output_topic("activity") == "activity"
+    assert muse.get_output_topic("flow") == "flow"
 
     # App generators: _app_topic format
-    assert utils.get_output_topic("chat:sentiment") == "_chat_sentiment"
-    assert utils.get_output_topic("my_app:weekly_summary") == "_my_app_weekly_summary"
+    assert muse.get_output_topic("chat:sentiment") == "_chat_sentiment"
+    assert muse.get_output_topic("my_app:weekly_summary") == "_my_app_weekly_summary"
 
 
 def test_get_muse_configs_app_discovery(tmp_path, monkeypatch):
     """Test that app generators are discovered from apps/*/muse/."""
-    utils = importlib.import_module("think.utils")
+    muse = importlib.import_module("think.muse")
 
     # Create a fake app with a generator
     app_dir = tmp_path / "apps" / "test_app" / "muse"
@@ -50,7 +50,7 @@ def test_get_muse_configs_app_discovery(tmp_path, monkeypatch):
     (tmp_path / "apps" / "test_app" / "workspace.html").write_text("<h1>Test</h1>")
 
     # For now, just verify system generators have correct source
-    generators = utils.get_muse_configs(has_tools=False, has_output=True)
+    generators = muse.get_muse_configs(has_tools=False, has_output=True)
     for key, info in generators.items():
         if ":" not in key:
             assert info.get("source") == "system", f"{key} should have source=system"
@@ -58,16 +58,16 @@ def test_get_muse_configs_app_discovery(tmp_path, monkeypatch):
 
 def test_get_muse_configs_by_schedule():
     """Test filtering generators by schedule."""
-    utils = importlib.import_module("think.utils")
+    muse = importlib.import_module("think.muse")
 
     # Get daily generators
-    daily = utils.get_muse_configs(has_tools=False, has_output=True, schedule="daily")
+    daily = muse.get_muse_configs(has_tools=False, has_output=True, schedule="daily")
     assert len(daily) > 0
     for key, meta in daily.items():
         assert meta.get("schedule") == "daily", f"{key} should have schedule=daily"
 
     # Get segment generators
-    segment = utils.get_muse_configs(
+    segment = muse.get_muse_configs(
         has_tools=False, has_output=True, schedule="segment"
     )
     assert len(segment) > 0
@@ -81,23 +81,23 @@ def test_get_muse_configs_by_schedule():
 
     # Unknown schedule returns empty dict
     assert (
-        utils.get_muse_configs(has_tools=False, has_output=True, schedule="hourly")
+        muse.get_muse_configs(has_tools=False, has_output=True, schedule="hourly")
         == {}
     )
-    assert utils.get_muse_configs(has_tools=False, has_output=True, schedule="") == {}
+    assert muse.get_muse_configs(has_tools=False, has_output=True, schedule="") == {}
 
 
 def test_get_muse_configs_include_disabled(monkeypatch):
     """Test include_disabled parameter."""
-    utils = importlib.import_module("think.utils")
+    muse = importlib.import_module("think.muse")
 
     # Get generators without disabled (default)
-    without_disabled = utils.get_muse_configs(
+    without_disabled = muse.get_muse_configs(
         has_tools=False, has_output=True, schedule="daily"
     )
 
     # Get generators with disabled included
-    with_disabled = utils.get_muse_configs(
+    with_disabled = muse.get_muse_configs(
         has_tools=False, has_output=True, schedule="daily", include_disabled=True
     )
 
@@ -113,9 +113,9 @@ def test_scheduled_generators_have_valid_schedule():
     Some generators (like importer) have output but no schedule - they're used
     for ad-hoc processing, not scheduled runs.
     """
-    utils = importlib.import_module("think.utils")
+    muse = importlib.import_module("think.muse")
 
-    generators = utils.get_muse_configs(has_tools=False, has_output=True)
+    generators = muse.get_muse_configs(has_tools=False, has_output=True)
     valid_schedules = ("segment", "daily")
 
     for key, meta in generators.items():
@@ -128,9 +128,9 @@ def test_scheduled_generators_have_valid_schedule():
 
 def test_speakers_has_required_audio():
     """Test that speakers generator has audio as required source."""
-    utils = importlib.import_module("think.utils")
+    muse = importlib.import_module("think.muse")
 
-    generators = utils.get_muse_configs(
+    generators = muse.get_muse_configs(
         has_tools=False, has_output=True, schedule="segment"
     )
     assert "speakers" in generators

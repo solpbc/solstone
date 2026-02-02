@@ -260,8 +260,8 @@ def get_providers() -> Any:
             DEFAULT_TIER,
             get_context_registry,
         )
+        from think.muse import get_muse_configs
         from think.providers import get_provider_list
-        from think.utils import get_muse_configs
 
         config = get_journal_config()
         providers_config = config.get("providers", {})
@@ -287,7 +287,7 @@ def get_providers() -> Any:
                 context_defaults[pattern]["has_tools"] = ctx_config["has_tools"]
 
         # Enhance muse contexts with additional metadata from get_muse_configs
-        from think.utils import key_to_context
+        from think.muse import key_to_context
 
         muse_configs = get_muse_configs(include_disabled=True)
         for key, info in muse_configs.items():
@@ -543,7 +543,7 @@ def get_generators() -> Any:
         - daily: List of daily-schedule generators
     """
     try:
-        from think.utils import get_muse_configs
+        from think.muse import get_muse_configs
 
         # Get all generators (has output but no tools)
         all_generators = get_muse_configs(
@@ -599,7 +599,7 @@ def update_generators() -> Any:
         old_contexts = old_providers.get("contexts", {})
         changed_fields = {}
 
-        from think.utils import key_to_context
+        from think.muse import key_to_context
 
         for key, updates in request_data.items():
             if not isinstance(updates, dict):

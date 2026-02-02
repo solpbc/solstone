@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from think.utils import get_agent
+from think.muse import get_agent
 
 
 @pytest.fixture

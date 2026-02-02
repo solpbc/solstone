@@ -8,7 +8,8 @@ import os
 import sys
 from pathlib import Path
 
-from .utils import load_prompt, setup_cli
+from .muse import load_prompt
+from .utils import setup_cli
 
 
 async def _get_mcp_tools() -> str:

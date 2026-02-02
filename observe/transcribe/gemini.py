@@ -32,7 +32,7 @@ from google.genai import types
 
 from observe.utils import audio_to_flac_bytes
 from think.models import generate
-from think.utils import load_prompt
+from think.muse import load_prompt
 
 logger = logging.getLogger(__name__)
 

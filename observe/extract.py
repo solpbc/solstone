@@ -205,7 +205,7 @@ def _ai_select_frames(
         If AI selection fails (will trigger fallback in caller).
     """
     from think.models import generate
-    from think.utils import load_prompt
+    from think.muse import load_prompt
 
     # Build extraction guidance with config overrides
     extraction_guidance = _build_extraction_guidance(categories, config_overrides)

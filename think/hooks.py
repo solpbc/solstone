@@ -131,7 +131,8 @@ def compute_output_source(context: dict) -> str:
     Returns:
         Relative path like "20240101/agents/meetings.md".
     """
-    from think.utils import get_journal, get_output_topic
+    from think.muse import get_output_topic
+    from think.utils import get_journal
 
     day = context.get("day", "")
     output_path = context.get("output_path", "")

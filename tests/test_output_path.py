@@ -5,7 +5,7 @@
 
 from pathlib import Path
 
-from think.utils import get_output_path, get_output_topic
+from think.muse import get_output_path, get_output_topic
 
 
 class TestGetOutputTopic:

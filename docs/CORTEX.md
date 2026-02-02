@@ -264,7 +264,7 @@ Agents use configurations stored in the `muse/` directory. Each agent is a `.md`
 When spawning an agent:
 1. Cortex passes the raw request to `sol agents` via stdin (NDJSON format)
 2. The agent process (`think/agents.py`) handles all config loading via `hydrate_config()`:
-   - Loads agent configuration using `get_agent()` from `think/utils.py`
+   - Loads agent configuration using `get_agent()` from `think/muse.py`
    - Merges request parameters with agent defaults
    - Resolves provider and model based on context
    - Expands tool pack names to tool lists

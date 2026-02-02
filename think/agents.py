@@ -29,21 +29,25 @@ from google.genai import types
 
 from think.cluster import cluster, cluster_period, cluster_span
 from think.providers.shared import Event, GenerateResult
-from think.utils import (
+from think.muse import (
     compose_instructions,
+    get_agent_filter,
+    get_muse_configs,
+    get_output_path,
+    load_post_hook,
+    load_pre_hook,
+    load_prompt,
+    source_is_enabled,
+    source_is_required,
+)
+from think.utils import (
     day_log,
     day_path,
     format_day,
     format_segment_times,
-    get_agent_filter,
-    get_muse_configs,
-    get_output_path,
-    load_prompt,
     now_ms,
     segment_parse,
     setup_cli,
-    source_is_enabled,
-    source_is_required,
 )
 
 LOG = logging.getLogger("think.agents")
@@ -248,92 +252,6 @@ class PreHookContext(TypedDict, total=False):
     meta: dict  # Full frontmatter/config
 
 
-# MUSE_DIR for hook resolution
-_MUSE_DIR = Path(__file__).parent.parent / "muse"
-
-
-def _resolve_hook_path(hook_name: str) -> Path:
-    """Resolve hook name to file path.
-
-    Resolution:
-    - Named: "name" -> muse/{name}.py
-    - App-qualified: "app:name" -> apps/{app}/muse/{name}.py
-    - Explicit path: "path/to/hook.py" -> direct path
-    """
-    if "/" in hook_name or hook_name.endswith(".py"):
-        return Path(hook_name)
-    elif ":" in hook_name:
-        app, name = hook_name.split(":", 1)
-        return Path(__file__).parent.parent / "apps" / app / "muse" / f"{name}.py"
-    else:
-        return _MUSE_DIR / f"{hook_name}.py"
-
-
-def _load_hook_function(config: dict, key: str, func_name: str) -> Callable | None:
-    """Load a hook function from config.
-
-    Args:
-        config: Agent/generator config dict
-        key: Hook key in config ("pre" or "post")
-        func_name: Function name to load ("pre_process" or "post_process")
-
-    Returns:
-        The hook function, or None if no hook configured.
-
-    Raises:
-        ValueError: If hook file doesn't define the required function.
-        ImportError: If hook file cannot be loaded.
-    """
-    import importlib.util
-
-    hook_config = config.get("hook")
-    if not hook_config or not isinstance(hook_config, dict):
-        return None
-
-    hook_name = hook_config.get(key)
-    if not hook_name:
-        return None
-
-    hook_path = _resolve_hook_path(hook_name)
-
-    if not hook_path.exists():
-        raise ImportError(f"Hook file not found: {hook_path}")
-
-    spec = importlib.util.spec_from_file_location(
-        f"{key}_hook_{hook_path.stem}", hook_path
-    )
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load hook from {hook_path}")
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    if not hasattr(module, func_name):
-        raise ValueError(f"Hook {hook_path} must define a '{func_name}' function")
-
-    process_func = getattr(module, func_name)
-    if not callable(process_func):
-        raise ValueError(f"Hook {hook_path} '{func_name}' must be callable")
-
-    return process_func
-
-
-def load_post_hook(config: dict) -> Callable[[str, HookContext], str | None] | None:
-    """Load post-processing hook from config if defined.
-
-    Hook config format: {"hook": {"post": "name"}}
-    """
-    return _load_hook_function(config, "post", "post_process")
-
-
-def load_pre_hook(config: dict) -> Callable[[PreHookContext], dict | None] | None:
-    """Load pre-processing hook from config if defined.
-
-    Hook config format: {"hook": {"pre": "name"}}
-    """
-    return _load_hook_function(config, "pre", "pre_process")
-
-
 def _build_base_context(config: dict) -> dict:
     """Build common context fields shared by pre and post hooks."""
     context = {
@@ -474,7 +392,7 @@ def hydrate_config(request: dict) -> dict:
         Fully hydrated config dict ready for routing
     """
     from think.models import resolve_model_for_provider, resolve_provider
-    from think.utils import get_agent, key_to_context
+    from think.muse import get_agent, key_to_context
 
     name = request.get("name", "default")
     facet = request.get("facet")
@@ -1235,7 +1153,7 @@ def generate_agent_output(
         max_output_tokens = 8192 * 6
 
     # Build context for provider routing and token logging
-    from think.utils import key_to_context
+    from think.muse import key_to_context
 
     context = key_to_context(name) if name else "muse.system.unknown"
 

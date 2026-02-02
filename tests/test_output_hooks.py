@@ -150,7 +150,7 @@ def test_load_post_hook_file_not_found(tmp_path):
 
 def test_prompt_metadata_no_hook_path(tmp_path):
     """Test that _load_prompt_metadata no longer sets hook_path."""
-    utils = importlib.import_module("think.utils")
+    muse = importlib.import_module("think.muse")
 
     md_file = tmp_path / "test_generator.md"
     md_file.write_text(
@@ -161,7 +161,7 @@ def test_prompt_metadata_no_hook_path(tmp_path):
     hook_file = tmp_path / "test_generator.py"
     hook_file.write_text("def post_process(r, c): return r")
 
-    meta = utils._load_prompt_metadata(md_file)
+    meta = muse._load_prompt_metadata(md_file)
 
     # hook_path should no longer be set (hooks are loaded via load_post_hook)
     assert "hook_path" not in meta

@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from .utils import load_prompt
+from .muse import load_prompt
 
 
 def _load_json_prompt() -> str:

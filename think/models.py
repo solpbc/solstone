@@ -188,8 +188,8 @@ def _discover_prompt_contexts() -> Dict[str, Dict[str, Any]]:
 def _discover_muse_contexts() -> Dict[str, Dict[str, Any]]:
     """Discover muse context defaults from muse/*.md config files.
 
-    Scans system muse configs (muse/*.md) and app muse configs (apps/*/muse/*.md)
-    for tier/label/group metadata. Includes both tool-using agents and generators.
+    Uses get_muse_configs() from think.muse to load all muse configurations
+    and converts them to context patterns with tier/label/group metadata.
 
     Returns
     -------
@@ -197,56 +197,21 @@ def _discover_muse_contexts() -> Dict[str, Dict[str, Any]]:
         Mapping of context patterns to {tier, label, group, has_tools} dicts.
         Context patterns are: muse.system.{name} or muse.{app}.{name}
     """
+    from think.muse import get_muse_configs, key_to_context
+
     contexts = {}
 
-    # System muse configs from muse/
-    muse_dir = Path(__file__).parent.parent / "muse"
-    if muse_dir.exists():
-        for md_path in muse_dir.glob("*.md"):
-            config_name = md_path.stem
-            try:
-                post = frontmatter.load(
-                    md_path,
-                )
-                config = post.metadata if post.metadata else {}
+    # Load all muse configs (including disabled for completeness)
+    all_configs = get_muse_configs(include_disabled=True)
 
-                context = f"muse.system.{config_name}"
-                contexts[context] = {
-                    "tier": config.get("tier", TIER_FLASH),
-                    "label": config.get("label", config.get("title", config_name)),
-                    "group": config.get("group", "Think"),
-                    "has_tools": "tools" in config,
-                }
-            except Exception:
-                pass  # Skip configs that can't be loaded
-
-    # App muse configs from apps/*/muse/
-    apps_dir = Path(__file__).parent.parent / "apps"
-    if apps_dir.is_dir():
-        for app_path in apps_dir.iterdir():
-            if not app_path.is_dir() or app_path.name.startswith("_"):
-                continue
-            muse_subdir = app_path / "muse"
-            if not muse_subdir.is_dir():
-                continue
-            app_name = app_path.name
-            for md_path in muse_subdir.glob("*.md"):
-                config_name = md_path.stem
-                try:
-                    post = frontmatter.load(
-                        md_path,
-                    )
-                    config = post.metadata if post.metadata else {}
-
-                    context = f"muse.{app_name}.{config_name}"
-                    contexts[context] = {
-                        "tier": config.get("tier", TIER_FLASH),
-                        "label": config.get("label", config.get("title", config_name)),
-                        "group": config.get("group", "Think"),
-                        "has_tools": "tools" in config,
-                    }
-                except Exception:
-                    pass  # Skip configs that can't be loaded
+    for key, config in all_configs.items():
+        context = key_to_context(key)
+        contexts[context] = {
+            "tier": config.get("tier", TIER_FLASH),
+            "label": config.get("label", config.get("title", key)),
+            "group": config.get("group", "Think"),
+            "has_tools": "tools" in config,
+        }
 
     return contexts
 

@@ -971,7 +971,7 @@ Post-processing generates day-level outputs in the `agents/` directory that synt
 - `muse/*.md` – system generator templates (files with `schedule` field but no `tools` field)
 - `apps/{app}/muse/*.md` – app-specific generator templates
 
-Each template is a `.md` file with JSON frontmatter containing metadata (title, description, schedule, output format). The `schedule` field is required and must be `"segment"` or `"daily"` - generators with missing or invalid schedule are skipped. Use `get_muse_configs(has_tools=False)` from `think/utils.py` to retrieve all available generators, or `get_muse_configs(has_tools=False, schedule="daily")` to get generators filtered by schedule.
+Each template is a `.md` file with JSON frontmatter containing metadata (title, description, schedule, output format). The `schedule` field is required and must be `"segment"` or `"daily"` - generators with missing or invalid schedule are skipped. Use `get_muse_configs(has_tools=False)` from `think/muse.py` to retrieve all available generators, or `get_muse_configs(has_tools=False, schedule="daily")` to get generators filtered by schedule.
 
 **Output naming:**
 - System outputs: `agents/{topic}.md` (e.g., `agents/flow.md`, `agents/meetings.md`)

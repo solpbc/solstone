@@ -28,13 +28,13 @@ from typing import Any
 
 import frontmatter
 
-from think.utils import (
+from think.muse import (
     MUSE_DIR,
     _load_prompt_metadata,
     get_muse_configs,
     get_output_topic,
-    setup_cli,
 )
+from think.utils import setup_cli
 
 # Project root for computing relative paths
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -460,7 +460,7 @@ def show_prompt_context(
             config["facet"] = facet
     else:
         # Tool agent - use get_agent() to build full config with instructions
-        from think.utils import get_agent
+        from think.muse import get_agent
 
         try:
             agent_config = get_agent(name, facet=facet)

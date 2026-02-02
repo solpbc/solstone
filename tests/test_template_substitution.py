@@ -8,7 +8,7 @@ import os
 
 import pytest
 
-from think.utils import _flatten_identity_to_template_vars, load_prompt
+from think.muse import _flatten_identity_to_template_vars, load_prompt
 
 
 @pytest.fixture

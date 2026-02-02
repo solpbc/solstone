@@ -483,7 +483,7 @@ class CortexService:
                                 if usage_data and original_request:
                                     try:
                                         from think.models import log_token_usage
-                                        from think.utils import key_to_context
+                                        from think.muse import key_to_context
 
                                         model = original_request.get("model", "unknown")
                                         name = original_request.get("name", "unknown")
@@ -659,7 +659,8 @@ class CortexService:
           - Multi-facet: {name}_{facet}.{ext} instead of {name}.{ext}
         """
         try:
-            from think.utils import day_path, get_output_path
+            from think.muse import get_output_path
+            from think.utils import day_path
 
             # Check for explicit output_path override first
             if config.get("output_path"):

@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from .utils import load_prompt
+from .muse import load_prompt
 
 
 def _load_system_prompt() -> str:

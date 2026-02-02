@@ -8,7 +8,7 @@ import os
 
 import pytest
 
-from think.utils import _resolve_agent_path, get_agent, get_muse_configs
+from think.muse import _resolve_agent_path, get_agent, get_muse_configs
 
 
 @pytest.fixture

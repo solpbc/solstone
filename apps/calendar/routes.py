@@ -55,7 +55,7 @@ def calendar_day_events(day: str) -> Any:
         return "", 404
 
     from think.indexer.journal import get_events
-    from think.utils import get_muse_configs
+    from think.muse import get_muse_configs
 
     generators = get_muse_configs(has_tools=False, has_output=True)
 

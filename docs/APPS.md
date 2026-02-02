@@ -333,8 +333,8 @@ def post_process(result: str, context: dict) -> str | None:
 **Reference implementations:**
 - System generator templates: `muse/*.md` (files with `schedule` field but no `tools` field)
 - Extraction hooks: `muse/occurrence.py`, `muse/anticipation.py`
-- Discovery logic: `think/utils.py` - `get_muse_configs(has_tools=False)`, `get_output_topic()`
-- Hook loading: `think/agents.py` - `load_pre_hook()`, `load_post_hook()`
+- Discovery logic: `think/muse.py` - `get_muse_configs(has_tools=False)`, `get_output_topic()`
+- Hook loading: `think/muse.py` - `load_pre_hook()`, `load_post_hook()`
 
 ---
 
@@ -356,7 +356,7 @@ Define custom agents and generator templates that integrate with solstone's Cort
 
 **Reference implementations:**
 - System agent examples: `muse/*.md` (files with `tools` field)
-- Discovery logic: `think/utils.py` - `get_muse_configs(has_tools=True)`, `get_agent()`
+- Discovery logic: `think/muse.py` - `get_muse_configs(has_tools=True)`, `get_agent()`
 
 #### Instructions Configuration
 
@@ -380,7 +380,7 @@ Both insights and agents support an optional `instructions` key for customizing 
   - `"required"` - load, and skip generation if no content found (useful for generators that only make sense with specific input types, e.g., `"audio": "required"` for speaker detection)
   - For `agents` only: a dict for selective filtering, e.g., `{"entities": true, "meetings": "required", "flow": false}`. Keys are agent names (system) or `"app:topic"` (app-namespaced). An empty dict `{}` means no agents.
 
-**Authoritative source:** `think/utils.py` - `compose_instructions()`, `_DEFAULT_INSTRUCTIONS`, `source_is_enabled()`, `source_is_required()`, `get_agent_filter()`
+**Authoritative source:** `think/muse.py` - `compose_instructions()`, `_DEFAULT_INSTRUCTIONS`, `source_is_enabled()`, `source_is_required()`, `get_agent_filter()`
 
 ---
 

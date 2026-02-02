@@ -179,7 +179,7 @@ which automatically routes to the configured provider based on context.
 
 ## Generator map keys
 
-`think.utils.get_muse_configs(has_tools=False)` reads the `.md` prompt files under `muse/` and
+`think.muse.get_muse_configs(has_tools=False)` reads the `.md` prompt files under `muse/` and
 returns a dictionary keyed by generator name. Each entry contains:
 
 - `path` – the prompt file path

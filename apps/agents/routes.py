@@ -18,7 +18,7 @@ from convey import state
 from convey.utils import DATE_RE, format_date
 from think.facets import get_facets
 from think.models import calc_agent_cost
-from think.utils import get_muse_configs
+from think.muse import get_muse_configs
 
 agents_bp = Blueprint(
     "app:agents",
@@ -357,7 +357,7 @@ def api_preview_prompt(name: str) -> Any:
         }
     """
     try:
-        from think.utils import get_agent
+        from think.muse import get_agent
 
         config = get_agent(name)
 

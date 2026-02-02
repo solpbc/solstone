@@ -15,7 +15,8 @@ from flask import Blueprint, jsonify, redirect, render_template, url_for
 
 from convey.utils import DATE_RE, format_date
 from think.models import get_usage_cost
-from think.utils import day_dirs, day_path, get_muse_configs, get_output_topic
+from think.muse import get_muse_configs, get_output_topic
+from think.utils import day_dirs, day_path
 
 insights_bp = Blueprint(
     "app:insights",
@@ -85,7 +86,7 @@ def insights_day(day: str) -> str:
             meta = info["meta"]
 
             # Get generation cost for this generator
-            from think.utils import key_to_context
+            from think.muse import key_to_context
 
             cost_data = get_usage_cost(day, context=key_to_context(key))
             cost = cost_data["cost"] if cost_data["cost"] > 0 else None
