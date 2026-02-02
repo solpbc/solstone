@@ -6,7 +6,8 @@
   "schedule": "daily",
   "priority": 40,
   "multi_facet": true,
-  "tools": "journal, facets"
+  "tools": "journal, facets",
+  "instructions": {"system": "journal", "facets": true}
 
 }
 

@@ -1047,13 +1047,13 @@ def _resolve_agent_path(name: str) -> tuple[Path, str]:
     return agent_dir, agent_name
 
 
-# Default instruction configuration
+# Default instruction configuration - all false, agents must explicitly opt-in
 _DEFAULT_INSTRUCTIONS = {
-    "system": "journal",
-    "facets": True,
+    "system": None,
+    "facets": False,
     "sources": {
-        "audio": True,
-        "screen": True,
+        "audio": False,
+        "screen": False,
         "agents": False,
     },
 }
@@ -1149,11 +1149,15 @@ def compose_instructions(
 
     result: dict = {}
 
-    # Load system instruction
-    system_name = cfg.get("system", "journal")
-    system_prompt = load_prompt(system_name)
-    result["system_instruction"] = system_prompt.text
-    result["system_prompt_name"] = system_name
+    # Load system instruction (None means no system prompt)
+    system_name = cfg.get("system")
+    if system_name:
+        system_prompt = load_prompt(system_name)
+        result["system_instruction"] = system_prompt.text
+        result["system_prompt_name"] = system_name
+    else:
+        result["system_instruction"] = ""
+        result["system_prompt_name"] = ""
 
     # Load user instruction if specified
     if user_prompt:
@@ -1166,7 +1170,7 @@ def compose_instructions(
     # Build extra_context based on facets setting
     # Values: false (skip), true (names only), "full" (with descriptions)
     extra_parts = []
-    facets_setting = cfg.get("facets", True)
+    facets_setting = cfg.get("facets", False)
     facets_full = facets_setting == "full"
 
     if facets_setting:

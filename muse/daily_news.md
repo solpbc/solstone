@@ -5,7 +5,8 @@
   "color": "#1565c0",
   "schedule": "daily",
   "priority": 45,
-  "tools": "journal, facets"
+  "tools": "journal, facets",
+  "instructions": {"system": "journal", "facets": true}
 
 }
 

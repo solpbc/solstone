@@ -715,15 +715,11 @@ class TestMergeInstructionsConfig:
 class TestComposeInstructions:
     """Tests for compose_instructions function."""
 
-    def test_default_system_instruction_is_journal(self, monkeypatch, tmp_path):
-        """Test that default system instruction loads from journal.md."""
-        # Create journal.md in think/ directory
+    def test_default_system_instruction_is_none(self, monkeypatch, tmp_path):
+        """Test that default system instruction is empty (agents must opt-in)."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
-        journal_txt = think_dir / "journal.md"
-        journal_txt.write_text("Test system instruction content")
 
-        # Mock the think module's parent to use our temp dir
         import think.utils
 
         original_file = think.utils.__file__
@@ -736,7 +732,8 @@ class TestComposeInstructions:
         monkeypatch.setattr(think.utils, "__file__", original_file)
 
         assert "system_instruction" in result
-        assert result["system_prompt_name"] == "journal"
+        assert result["system_instruction"] == ""
+        assert result["system_prompt_name"] == ""
 
     def test_custom_system_instruction(self, monkeypatch, tmp_path):
         """Test that custom system prompt can be loaded."""
@@ -851,11 +848,9 @@ class TestComposeInstructions:
         assert "Current Date and Time" in result["extra_context"]
 
     def test_sources_returned_from_defaults(self, monkeypatch, tmp_path):
-        """Test that sources config is returned with defaults."""
+        """Test that sources config is returned with defaults (all false)."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
-        journal_txt = think_dir / "journal.md"
-        journal_txt.write_text("System instruction")
 
         import think.utils
 
@@ -865,16 +860,14 @@ class TestComposeInstructions:
         result = compose_instructions()
 
         assert "sources" in result
-        assert result["sources"]["audio"] is True
-        assert result["sources"]["screen"] is True
+        assert result["sources"]["audio"] is False
+        assert result["sources"]["screen"] is False
         assert result["sources"]["agents"] is False
 
     def test_sources_can_be_overridden(self, monkeypatch, tmp_path):
         """Test that sources config can be overridden."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
-        journal_txt = think_dir / "journal.md"
-        journal_txt.write_text("System instruction")
 
         import think.utils
 
@@ -883,12 +876,12 @@ class TestComposeInstructions:
 
         result = compose_instructions(
             config_overrides={
-                "sources": {"audio": False, "agents": True},
+                "sources": {"audio": True, "agents": True},
             },
         )
 
-        assert result["sources"]["audio"] is False
-        assert result["sources"]["screen"] is True  # Default preserved
+        assert result["sources"]["audio"] is True  # Overridden
+        assert result["sources"]["screen"] is False  # Default preserved
         assert result["sources"]["agents"] is True  # Overridden
 
 

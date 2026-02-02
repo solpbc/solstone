@@ -121,8 +121,8 @@ def test_agent_context_with_facet_focus(fixture_journal):
     assert "Full Featured Facet" in extra_context
     assert "A facet for testing all features" in extra_context
 
-    # Should include full entity details from the focused facet
-    assert "## Entities" in extra_context
+    # Should include entity details from the focused facet (inline format)
+    assert "**Entities**:" in extra_context or "Entities:" in extra_context
     assert "Entity 1" in extra_context or "First test entity" in extra_context
 
 

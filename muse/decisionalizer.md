@@ -6,7 +6,8 @@
   "schedule": "daily",
   "priority": 60,
   "output": "md",
-  "tools": "default"
+  "tools": "default",
+  "instructions": {"system": "journal", "facets": true}
 
 }
 

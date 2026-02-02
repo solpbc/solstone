@@ -7,7 +7,8 @@
   "priority": 57,
   "tools": "journal, entities",
   "multi_facet": true,
-  "group": "Entities"
+  "group": "Entities",
+  "instructions": {"system": "journal", "facets": true}
 
 }
 

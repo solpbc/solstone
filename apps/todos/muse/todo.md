@@ -7,7 +7,8 @@
   "priority": 50,
   "tools": "journal, todo",
   "multi_facet": true,
-  "group": "Todos"
+  "group": "Todos",
+  "instructions": {"system": "journal", "facets": true}
 
 }
 

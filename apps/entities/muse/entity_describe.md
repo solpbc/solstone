@@ -4,7 +4,8 @@
   "description": "Research and generate single-sentence descriptions for attached entities",
   "color": "#26a69a",
   "tools": "journal",
-  "group": "Entities"
+  "group": "Entities",
+  "instructions": {"system": "journal", "facets": true}
 
 }
 

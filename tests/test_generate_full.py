@@ -73,11 +73,11 @@ def test_generate_output_ndjson(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    # Create a test generator in muse directory
+    # Create a test generator in muse directory (with explicit sources)
     muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
     test_generator = muse_dir / "test_gen.md"
     test_generator.write_text(
-        '{\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md"\n}\n\nTest prompt'
+        '{\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
     )
 
     try:
@@ -144,10 +144,10 @@ def post_process(result, context):
     return None
 """)
 
-    # Create generator with hook (new format)
+    # Create generator with hook (new format, with explicit sources)
     test_generator = muse_dir / "hooked_gen.md"
     test_generator.write_text(
-        '{\n  "title": "Hooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "test_hook"}\n}\n\nTest prompt'
+        '{\n  "title": "Hooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "test_hook"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
     )
 
     try:
@@ -199,11 +199,11 @@ def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    # Create generator without hook
+    # Create generator without hook (with explicit sources)
     muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
     test_generator = muse_dir / "nohook_gen.md"
     test_generator.write_text(
-        '{\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md"\n}\n\nNo hook prompt'
+        '{\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nNo hook prompt'
     )
 
     try:
@@ -268,11 +268,11 @@ def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
     day_dir = day_path("20240101")
     day_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create a test generator
+    # Create a test generator (with explicit sources)
     muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
     test_generator = muse_dir / "empty_gen.md"
     test_generator.write_text(
-        '{\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md"\n}\n\nTest prompt'
+        '{\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
     )
 
     try:

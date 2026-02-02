@@ -5,7 +5,8 @@
   "color": "#455a64",
   "label": "Chat Messages",
   "group": "Apps",
-  "tools": "journal, todo, entities"
+  "tools": "journal, todo, entities",
+  "instructions": {"system": "journal", "facets": true}
 
 }
 
