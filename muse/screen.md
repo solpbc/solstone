@@ -8,7 +8,7 @@
   "output": "md",
   "instructions": {
     "sources": {"audio": true, "screen": true, "agents": false},
-    "facets": "short"
+    "facets": true
   }
 
 }

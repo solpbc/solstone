@@ -683,6 +683,7 @@ def assemble_inputs(config: dict) -> InputContext:
     # Extract instructions config for source filtering and system prompt
     instructions_config = meta.get("instructions")
     instructions = compose_instructions(
+        facet=facet,
         include_datetime=not day,
         config_overrides=instructions_config,
     )

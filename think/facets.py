@@ -309,11 +309,13 @@ def get_enabled_facets() -> dict[str, dict[str, object]]:
     return {k: v for k, v in get_facets().items() if not v.get("muted", False)}
 
 
-def facet_summary(facet: str) -> str:
+def facet_summary(facet: str, *, detailed: bool = True) -> str:
     """Generate a nicely formatted markdown summary of a facet.
 
     Args:
         facet: The facet name to summarize
+        detailed: If True (default), include full descriptions for entities
+            and activities. If False, show names only.
 
     Returns:
         Formatted markdown string with facet title, description, entities,
@@ -369,27 +371,43 @@ def facet_summary(facet: str) -> str:
             lines.append("")
 
         if display_entities:
-            lines.append("## Entities")
-            lines.append("")
-            for entity in display_entities:
-                entity_type = entity.get("type", "")
-                formatted_name = _format_entity_name_with_aka(entity)
-                desc = entity.get("description", "")
+            if detailed:
+                lines.append("## Entities")
+                lines.append("")
+                for entity in display_entities:
+                    entity_type = entity.get("type", "")
+                    formatted_name = _format_entity_name_with_aka(entity)
+                    desc = entity.get("description", "")
 
-                if desc:
-                    lines.append(f"- **{entity_type}**: {formatted_name} - {desc}")
-                else:
-                    lines.append(f"- **{entity_type}**: {formatted_name}")
-            lines.append("")
+                    if desc:
+                        lines.append(f"- **{entity_type}**: {formatted_name} - {desc}")
+                    else:
+                        lines.append(f"- **{entity_type}**: {formatted_name}")
+                lines.append("")
+            else:
+                # Short mode: names only as semicolon-separated list
+                entity_names = "; ".join(
+                    _format_entity_name_with_aka(e) for e in display_entities
+                )
+                lines.append(f"**Entities**: {entity_names}")
+                lines.append("")
 
     # Load activities if available
     activities = get_facet_activities(facet)
     if activities:
-        lines.append("## Activities")
-        lines.append("")
-        for activity in activities:
-            lines.append(f"- {_format_activity_line(activity, bold_name=True)}")
-        lines.append("")
+        if detailed:
+            lines.append("## Activities")
+            lines.append("")
+            for activity in activities:
+                lines.append(f"- {_format_activity_line(activity, bold_name=True)}")
+            lines.append("")
+        else:
+            # Short mode: names only as semicolon-separated list
+            activity_names = "; ".join(
+                a.get("name", a.get("id", "")) for a in activities
+            )
+            lines.append(f"**Activities**: {activity_names}")
+            lines.append("")
 
     return "\n".join(lines)
 

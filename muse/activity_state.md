@@ -13,7 +13,7 @@
   "max_output_tokens": 512,
   "instructions": {
     "sources": {"audio": true, "screen": true, "agents": false},
-    "facets": "none"
+    "facets": false
   }
 
 }

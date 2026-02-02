@@ -663,7 +663,7 @@ class TestMergeInstructionsConfig:
 
     def test_returns_defaults_when_no_overrides(self):
         """Test that defaults are returned when overrides is None."""
-        defaults = {"system": "journal", "facets": "short"}
+        defaults = {"system": "journal", "facets": True}
         result = _merge_instructions_config(defaults, None)
         assert result == defaults
         # Should be a copy, not the same object
@@ -671,25 +671,25 @@ class TestMergeInstructionsConfig:
 
     def test_returns_defaults_when_empty_overrides(self):
         """Test that defaults are returned when overrides is empty dict."""
-        defaults = {"system": "journal", "facets": "short"}
+        defaults = {"system": "journal", "facets": True}
         result = _merge_instructions_config(defaults, {})
         assert result == defaults
 
     def test_overrides_system_key(self):
         """Test that system key can be overridden."""
-        defaults = {"system": "journal", "facets": "short"}
+        defaults = {"system": "journal", "facets": True}
         overrides = {"system": "custom_prompt"}
         result = _merge_instructions_config(defaults, overrides)
         assert result["system"] == "custom_prompt"
-        assert result["facets"] == "short"
+        assert result["facets"] is True
 
     def test_overrides_facets_key(self):
         """Test that facets key can be overridden."""
-        defaults = {"system": "journal", "facets": "short"}
-        overrides = {"facets": "detailed"}
+        defaults = {"system": "journal", "facets": True}
+        overrides = {"facets": "full"}
         result = _merge_instructions_config(defaults, overrides)
         assert result["system"] == "journal"
-        assert result["facets"] == "detailed"
+        assert result["facets"] == "full"
 
     def test_merges_sources_dict(self):
         """Test that sources dict is merged, not replaced."""
@@ -705,7 +705,7 @@ class TestMergeInstructionsConfig:
 
     def test_ignores_unknown_keys(self):
         """Test that unknown keys in overrides are ignored."""
-        defaults = {"system": "journal", "facets": "short"}
+        defaults = {"system": "journal", "facets": True}
         overrides = {"unknown_key": "value", "another": 123}
         result = _merge_instructions_config(defaults, overrides)
         assert "unknown_key" not in result
@@ -805,7 +805,7 @@ class TestComposeInstructions:
 
         result = compose_instructions(
             include_datetime=False,
-            config_overrides={"facets": "none"},
+            config_overrides={"facets": False},
         )
 
         # With no datetime and no facets, extra_context should be empty/None
@@ -825,7 +825,7 @@ class TestComposeInstructions:
 
         result = compose_instructions(
             include_datetime=False,
-            config_overrides={"facets": "none"},
+            config_overrides={"facets": False},
         )
 
         extra = result.get("extra_context") or ""
@@ -845,7 +845,7 @@ class TestComposeInstructions:
 
         result = compose_instructions(
             include_datetime=True,
-            config_overrides={"facets": "none"},
+            config_overrides={"facets": False},
         )
 
         assert "Current Date and Time" in result["extra_context"]

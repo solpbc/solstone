@@ -11,7 +11,7 @@
   "output": "json",
   "instructions": {
     "sources": {"audio": false, "screen": false, "agents": true},
-    "facets": "short"
+    "facets": true
   }
 
 }

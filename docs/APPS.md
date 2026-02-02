@@ -366,14 +366,14 @@ Both insights and agents support an optional `instructions` key for customizing 
 {
   "instructions": {
     "system": "journal",
-    "facets": "short",
+    "facets": true,
     "sources": {"audio": true, "screen": true, "agents": false}
   }
 }
 ```
 
 - `system` - System prompt file name (loads from `think/{name}.txt`)
-- `facets` - `"none"` | `"short"` | `"detailed"` for unfocused facet summaries
+- `facets` - `false` | `true` | `"full"` - whether to include facet context (true=names only, "full"=with descriptions)
 - `sources` - Generators only: which content types to cluster. Values can be:
   - `false` - don't load this source type
   - `true` - load if available

@@ -9,7 +9,7 @@
   "output": "md",
   "instructions": {
     "sources": {"audio": true, "screen": false, "agents": {"screen": true}},
-    "facets": "short"
+    "facets": true
   }
 
 }

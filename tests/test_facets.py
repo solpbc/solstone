@@ -92,6 +92,30 @@ def test_facet_summary_full(monkeypatch):
     assert "A custom test activity" in summary
 
 
+def test_facet_summary_short_mode(monkeypatch):
+    """Test facet_summary with detailed=False shows names only."""
+    monkeypatch.setenv("JOURNAL_PATH", str(FIXTURES_PATH))
+
+    summary = facet_summary("full-featured", detailed=False)
+
+    # Check title and description still present
+    assert "# Full Featured Facet" in summary
+    assert "**Description:** A facet for testing all features" in summary
+
+    # Should NOT have detailed entities section
+    assert "## Entities" not in summary
+    # Should have inline entities list
+    assert "**Entities**:" in summary
+
+    # Should NOT have detailed activities section
+    assert "## Activities" not in summary
+    # Should have inline activities list
+    assert "**Activities**:" in summary
+
+    # Should NOT have activity descriptions
+    assert "A custom test activity" not in summary
+
+
 def test_facet_summary_minimal(monkeypatch):
     """Test facet_summary with minimal metadata."""
     monkeypatch.setenv("JOURNAL_PATH", str(FIXTURES_PATH))

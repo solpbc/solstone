@@ -8,7 +8,7 @@
   "color": "#e64a19",
   "instructions": {
     "sources": {"audio": "required", "screen": true, "agents": false},
-    "facets": "short"
+    "facets": true
   }
 
 }

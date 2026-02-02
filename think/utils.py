@@ -1050,7 +1050,7 @@ def _resolve_agent_path(name: str) -> tuple[Path, str]:
 # Default instruction configuration
 _DEFAULT_INSTRUCTIONS = {
     "system": "journal",
-    "facets": "short",
+    "facets": True,
     "sources": {
         "audio": True,
         "screen": True,
@@ -1116,14 +1116,18 @@ def compose_instructions(
         Directory to load user_prompt from. If None, uses think/ directory.
     facet:
         Optional facet name to focus on. When provided, extra_context includes
-        detailed information for just this facet instead of all facets.
+        only this facet's info (detail level controlled by "facets" setting).
     include_datetime:
         Whether to include current date/time in extra_context. Default True
         for agents (real-time chat), typically False for generators (past analysis).
     config_overrides:
         Optional dict from .json "instructions" key. Supported keys:
         - "system": prompt name for system instruction (default: "journal")
-        - "facets": "none" | "short" | "detailed" (default: "short")
+        - "facets": false | true | "full" (default: true)
+          false = skip facet context
+          true = include facet context with names only
+          "full" = include facet context with full descriptions
+          For faceted generators, shows focused facet; for unfaceted, shows all facets.
         - "sources": {"audio": bool, "screen": bool, "agents": bool|dict}
           The "agents" source can be:
           - bool: True (all agents), False (no agents)
@@ -1160,29 +1164,31 @@ def compose_instructions(
         result["user_instruction"] = None
 
     # Build extra_context based on facets setting
+    # Values: false (skip), true (names only), "full" (with descriptions)
     extra_parts = []
-    facets_mode = cfg.get("facets", "short")
+    facets_setting = cfg.get("facets", True)
+    facets_full = facets_setting == "full"
 
-    # Focused facet always gets context (facets setting only affects plural)
-    if facet:
-        try:
-            from think.facets import facet_summary
+    if facets_setting:
+        if facet:
+            # Focused facet mode: include only this facet's context
+            try:
+                from think.facets import facet_summary
 
-            detailed = facet_summary(facet)
-            extra_parts.append(f"## Facet Focus\n{detailed}")
-        except Exception:
-            pass  # Ignore if facet can't be loaded
-    elif facets_mode != "none":
-        # General mode: all facets (controlled by facets setting)
-        try:
-            from think.facets import facet_summaries
+                summary = facet_summary(facet, detailed=facets_full)
+                extra_parts.append(f"## Facet Focus\n{summary}")
+            except Exception:
+                pass  # Ignore if facet can't be loaded
+        else:
+            # General mode: all facets
+            try:
+                from think.facets import facet_summaries
 
-            detailed = facets_mode == "detailed"
-            facets_summary = facet_summaries(detailed=detailed)
-            if facets_summary and facets_summary != "No facets found.":
-                extra_parts.append(facets_summary)
-        except Exception:
-            pass  # Ignore if facets can't be loaded
+                summary = facet_summaries(detailed=facets_full)
+                if summary and summary != "No facets found.":
+                    extra_parts.append(summary)
+            except Exception:
+                pass  # Ignore if facets can't be loaded
 
     # Add current date/time if requested
     if include_datetime:
