@@ -24,9 +24,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional, TypedDict
 
-from google import genai
-from google.genai import types
-
 from think.cluster import cluster, cluster_period, cluster_span
 from think.muse import (
     compose_instructions,
@@ -523,7 +520,7 @@ class InputContext:
     # Prompts
     prompt: str  # Final prompt (with template substitution)
     system_instruction: str
-    system_prompt_name: str  # For cache key construction
+    system_prompt_name: str  # For diagnostic output (dry-run)
 
     # Output
     output_path: Optional[Path]
@@ -1068,50 +1065,9 @@ def scan_day(day: str) -> dict[str, list[str]]:
     return {"processed": sorted(processed), "repairable": sorted(pending)}
 
 
-def _get_or_create_cache(
-    client: genai.Client,
-    model: str,
-    display_name: str,
-    transcript: str,
-    system_instruction: str,
-) -> str | None:
-    """Return cache name for ``display_name`` or None if content too small.
-
-    Creates cache with ``transcript`` and provided system instruction if needed.
-    Returns None if content is below estimated 2048 token minimum (~10k chars).
-
-    The cache contains the system instruction + transcript which are identical
-    for all topics on the same day with the same system prompt, so display_name
-    should include both day and system prompt name.
-    """
-    MIN_CACHE_CHARS = 10000  # Heuristic: ~4 chars/token → 2048 tokens ≈ 8k-10k chars
-
-    # Check existing caches first
-    for c in client.caches.list():
-        if c.model == model and c.display_name == display_name:
-            return c.name
-
-    # Skip cache creation for small content
-    if len(transcript) < MIN_CACHE_CHARS:
-        return None
-
-    cache = client.caches.create(
-        model=model,
-        config=types.CreateCachedContentConfig(
-            display_name=display_name,
-            system_instruction=system_instruction,
-            contents=[transcript],
-            ttl="1800s",  # 30 minutes to accommodate multiple topic analyses
-        ),
-    )
-    return cache.name
-
-
 def generate_agent_output(
     transcript: str,
     prompt: str,
-    api_key: str,
-    cache_display_name: str | None = None,
     name: str | None = None,
     json_output: bool = False,
     system_instruction: str | None = None,
@@ -1124,9 +1080,6 @@ def generate_agent_output(
     Args:
         transcript: Clustered transcript content (markdown format).
         prompt: Agent prompt text.
-        api_key: Google API key for caching.
-        cache_display_name: Optional cache key for Google content caching.
-            Should include system prompt name for proper cache isolation.
         name: Agent name for token logging context.
         json_output: If True, request JSON response format.
         system_instruction: System instruction text. If None, loads default
@@ -1139,7 +1092,7 @@ def generate_agent_output(
         Generated agent output content (markdown or JSON string), or
         GenerateResult dict if return_result=True.
     """
-    from think.models import generate_with_result, resolve_provider
+    from think.models import generate_with_result
 
     # Use provided system_instruction or fall back to default
     if system_instruction is None:
@@ -1157,46 +1110,15 @@ def generate_agent_output(
 
     context = key_to_context(name) if name else "muse.system.unknown"
 
-    # Try to use cache if display name provided
-    # Note: caching is Google-specific, so we check provider first
-    provider, model = resolve_provider(context)
-
-    client = None
-    cache_name = None
-    if cache_display_name and provider == "google":
-        client = genai.Client(
-            api_key=api_key,
-            http_options=types.HttpOptions(retry_options=types.HttpRetryOptions()),
-        )
-        cache_name = _get_or_create_cache(
-            client, model, cache_display_name, transcript, system_instruction
-        )
-
-    if cache_name:
-        # Cache hit: content already in cache, just send prompt.
-        # Google-specific params (cached_content, client) are passed via kwargs.
-        result = generate_with_result(
-            contents=[prompt],
-            context=context,
-            temperature=0.3,
-            max_output_tokens=max_output_tokens,
-            thinking_budget=thinking_budget,
-            model=model,
-            cached_content=cache_name,
-            client=client,
-            json_output=json_output,
-        )
-    else:
-        # No cache: use unified generate()
-        result = generate_with_result(
-            contents=[transcript, prompt],
-            context=context,
-            temperature=0.3,
-            max_output_tokens=max_output_tokens,
-            thinking_budget=thinking_budget,
-            system_instruction=system_instruction,
-            json_output=json_output,
-        )
+    result = generate_with_result(
+        contents=[transcript, prompt],
+        context=context,
+        temperature=0.3,
+        max_output_tokens=max_output_tokens,
+        thinking_budget=thinking_budget,
+        system_instruction=system_instruction,
+        json_output=json_output,
+    )
 
     if return_result:
         return result
@@ -1245,7 +1167,6 @@ def _run_generate(
     transcript = inputs.transcript
     prompt = inputs.prompt
     system_instruction = inputs.system_instruction
-    system_prompt_name = inputs.system_prompt_name
     output_path = inputs.output_path
     output_format = inputs.output_format
     meta = inputs.meta
@@ -1256,20 +1177,9 @@ def _run_generate(
     if output_path:
         output_exists = output_path.exists() and output_path.stat().st_size > 0
 
-    # Determine cache settings (only for day-based, non-span requests)
-    cache_display_name = None
-    if day and not span_mode:
-        if segment:
-            cache_display_name = f"{system_prompt_name}_{day}_{segment}"
-        else:
-            cache_display_name = f"{system_prompt_name}_{day}"
-
     # Extract generation parameters from metadata
     meta_thinking_budget = meta.get("thinking_budget")
     meta_max_output_tokens = meta.get("max_output_tokens")
-
-    # Get API key
-    api_key = os.getenv("GOOGLE_API_KEY", "")
 
     usage_data = None
 
@@ -1336,8 +1246,6 @@ def _run_generate(
         gen_result = generate_agent_output(
             transcript,
             prompt,
-            api_key,
-            cache_display_name=cache_display_name,
             name=name,
             json_output=is_json_output,
             system_instruction=system_instruction,

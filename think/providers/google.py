@@ -26,7 +26,7 @@ thinking_budget : int, optional
 timeout_s : float, optional
     Request timeout in seconds.
 **kwargs
-    Provider-specific options (cached_content, client).
+    Provider-specific options (client).
 """
 
 from __future__ import annotations
@@ -112,7 +112,6 @@ def _build_generate_config(
     system_instruction: str | None,
     json_output: bool,
     thinking_budget: int | None,
-    cached_content: str | None,
     timeout_s: float | None = None,
 ) -> types.GenerateContentConfig:
     """Build the GenerateContentConfig.
@@ -139,9 +138,6 @@ def _build_generate_config(
         config_args["thinking_config"] = types.ThinkingConfig(
             thinking_budget=thinking_budget
         )
-
-    if cached_content:
-        config_args["cached_content"] = cached_content
 
     if timeout_s:
         # Convert seconds to milliseconds for the SDK
@@ -366,7 +362,6 @@ def run_generate(
     Returns GenerateResult with text, usage, finish_reason, and thinking.
     See module docstring for parameter details.
     """
-    cached_content = kwargs.get("cached_content")
     client = kwargs.get("client")
 
     client = get_or_create_client(client)
@@ -378,7 +373,6 @@ def run_generate(
         system_instruction=system_instruction,
         json_output=json_output,
         thinking_budget=thinking_budget,
-        cached_content=cached_content,
         timeout_s=timeout_s,
     )
 
@@ -412,7 +406,6 @@ async def run_agenerate(
     Returns GenerateResult with text, usage, finish_reason, and thinking.
     See module docstring for parameter details.
     """
-    cached_content = kwargs.get("cached_content")
     client = kwargs.get("client")
 
     client = get_or_create_client(client)
@@ -424,7 +417,6 @@ async def run_agenerate(
         system_instruction=system_instruction,
         json_output=json_output,
         thinking_budget=thinking_budget,
-        cached_content=cached_content,
         timeout_s=timeout_s,
     )
 

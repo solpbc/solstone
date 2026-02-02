@@ -20,7 +20,6 @@ Example:
 
 Provider-specific features:
     - client: Optional client for connection reuse (Google only, others use singletons)
-    - cached_content: Content caching (Google only)
 """
 
 import asyncio
@@ -54,7 +53,6 @@ class BatchRequest:
         system_instruction: Optional[str] = None,
         json_output: bool = False,
         thinking_budget: Optional[int] = None,
-        cached_content: Optional[str] = None,
         timeout_s: Optional[float] = None,
     ):
         self.contents = contents
@@ -65,7 +63,6 @@ class BatchRequest:
         self.system_instruction = system_instruction
         self.json_output = json_output
         self.thinking_budget = thinking_budget
-        self.cached_content = cached_content
         self.timeout_s = timeout_s
 
         # Populated after execution
@@ -128,7 +125,6 @@ class Batch:
         system_instruction: Optional[str] = None,
         json_output: bool = False,
         thinking_budget: Optional[int] = None,
-        cached_content: Optional[str] = None,
         timeout_s: Optional[float] = None,
     ) -> BatchRequest:
         """
@@ -160,7 +156,6 @@ class Batch:
             system_instruction=system_instruction,
             json_output=json_output,
             thinking_budget=thinking_budget,
-            cached_content=cached_content,
             timeout_s=timeout_s,
         )
 
@@ -256,8 +251,6 @@ class Batch:
                 kwargs: dict = {}
                 if self.client is not None:
                     kwargs["client"] = self.client
-                if request.cached_content is not None:
-                    kwargs["cached_content"] = request.cached_content
                 if request.model is not None:
                     kwargs["model"] = request.model
 

@@ -467,26 +467,3 @@ async def test_batch_client_passthrough(mock_agenerate):
     assert call_kwargs["client"] is mock_client
 
 
-@pytest.mark.asyncio
-@patch("think.batch.agenerate", new_callable=AsyncMock)
-async def test_batch_cached_content_passthrough(mock_agenerate):
-    """Test that cached_content is passed through to agenerate."""
-    mock_agenerate.return_value = "Response"
-
-    batch = Batch(max_concurrent=5)
-    req = batch.create(
-        contents="Test",
-        context="test.context",
-        cached_content="my-cached-content",
-    )
-    batch.add(req)
-
-    results = []
-    async for completed_req in batch.drain_batch():
-        results.append(completed_req)
-
-    assert len(results) == 1
-
-    # Verify cached_content was passed through
-    call_kwargs = mock_agenerate.call_args[1]
-    assert call_kwargs["cached_content"] == "my-cached-content"
