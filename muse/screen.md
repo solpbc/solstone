@@ -4,6 +4,7 @@
   "description": "Creates a detailed documentary record of screen activity. Focuses on the 'what' - chronological account with preserved details, excerpts, and entities.",
   "color": "#9c27b0",
   "schedule": "segment",
+  "priority": 10,
   "output": "md",
   "instructions": {
     "sources": {"audio": true, "screen": true, "agents": false},

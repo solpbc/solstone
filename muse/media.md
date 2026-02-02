@@ -6,6 +6,7 @@
   "hook": {"post": "occurrence"},
   "color": "#fd7e14",
   "schedule": "daily",
+  "priority": 10,
   "disabled": true,
   "output": "md",
   "instructions": {

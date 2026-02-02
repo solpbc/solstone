@@ -5,6 +5,7 @@
   "hook": {"post": "anticipation"},
   "color": "#5e35b1",
   "schedule": "daily",
+  "priority": 10,
   "output": "md",
   "instructions": {
     "sources": {"audio": true, "screen": false, "agents": {"screen": true}},

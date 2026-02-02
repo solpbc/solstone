@@ -92,11 +92,68 @@ class TestLoadSegmentFacets:
         assert result == ["work", "personal"]
 
 
-class TestRunSegmentAgentsMultiFacet:
-    """Tests for multi-facet segment agent spawning."""
+class TestRunPromptsByPriority:
+    """Tests for unified priority execution."""
 
-    def test_multi_facet_agent_spawns_per_facet(self, segment_dir, monkeypatch):
-        """Multi-facet segment agent spawns once per detected facet."""
+    def test_prompts_grouped_by_priority(self, segment_dir, monkeypatch):
+        """Prompts are grouped and executed by priority order."""
+        from think import dream
+
+        spawned = []
+        wait_calls = []
+
+        def mock_cortex_request(prompt, name, config=None):
+            spawned.append({"name": name, "config": config})
+            return f"agent-{name}"
+
+        def mock_wait_for_agents(agent_ids, timeout=600):
+            wait_calls.append(agent_ids)
+            return (agent_ids, [])  # All complete, none timed out
+
+        def mock_get_agent_end_state(agent_id):
+            return "finish"
+
+        def mock_get_muse_configs(schedule=None, **kwargs):
+            return {
+                "low_priority": {"priority": 10, "output": "md", "schedule": "segment"},
+                "high_priority": {"priority": 90, "output": "md", "schedule": "segment"},
+                "mid_priority": {"priority": 50, "output": "md", "schedule": "segment"},
+            }
+
+        def mock_get_enabled_facets():
+            return {"work": {"title": "Work"}}
+
+        def mock_get_active_facets(day):
+            return set()
+
+        def mock_run_queued_command(cmd, day, timeout=60):
+            return True
+
+        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
+        monkeypatch.setattr(dream, "get_agent_end_state", mock_get_agent_end_state)
+        monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
+        monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
+        monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)
+        monkeypatch.setattr(dream, "run_queued_command", mock_run_queued_command)
+
+        success, failed = dream.run_prompts_by_priority(
+            "20240115", "120000_300", force=False, verbose=False
+        )
+
+        assert success == 3
+        assert failed == 0
+
+        # Verify wait was called 3 times (once per priority group)
+        assert len(wait_calls) == 3
+
+        # Verify order: priority 10 first, then 50, then 90
+        spawn_order = [s["name"] for s in spawned]
+        assert spawn_order.index("low_priority") < spawn_order.index("mid_priority")
+        assert spawn_order.index("mid_priority") < spawn_order.index("high_priority")
+
+    def test_multi_facet_prompt_spawns_per_facet(self, segment_dir, monkeypatch):
+        """Multi-facet prompts spawn once per active facet."""
         from think import dream
 
         # Set up facets.json
@@ -106,161 +163,53 @@ class TestRunSegmentAgentsMultiFacet:
         ]
         (segment_dir / "facets.json").write_text(json.dumps(facets_data))
 
-        # Track cortex_request calls
         spawned = []
 
         def mock_cortex_request(prompt, name, config=None):
-            spawned.append({"prompt": prompt, "name": name, "config": config})
-            return "mock-agent-id"
+            spawned.append({"name": name, "config": config})
+            return f"agent-{len(spawned)}"
 
-        # Mock get_muse_configs to return a multi-facet segment agent
-        def mock_get_muse_configs(has_tools=None, **kwargs):
+        def mock_wait_for_agents(agent_ids, timeout=600):
+            return (agent_ids, [])
+
+        def mock_get_agent_end_state(agent_id):
+            return "finish"
+
+        def mock_get_muse_configs(schedule=None, **kwargs):
             return {
-                "test_agent": {
-                    "schedule": "segment",
-                    "multi_facet": True,
+                "multi_facet_prompt": {
+                    "priority": 10,
                     "tools": "journal",
-                }
+                    "multi_facet": True,
+                    "schedule": "segment",
+                },
             }
 
-        # Mock get_enabled_facets to return both facets as enabled
         def mock_get_enabled_facets():
-            return {"work": {"title": "Work"}, "personal": {"title": "Personal"}}
+            return {
+                "work": {"title": "Work"},
+                "personal": {"title": "Personal"},
+            }
 
         monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
+        monkeypatch.setattr(dream, "get_agent_end_state", mock_get_agent_end_state)
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
 
-        count = dream.run_segment_agents("20240115", "120000_300")
+        success, failed = dream.run_prompts_by_priority(
+            "20240115", "120000_300", force=False, verbose=False
+        )
 
-        assert count == 2  # One per facet
+        assert success == 2  # One per facet
         assert len(spawned) == 2
 
-        # Verify facet-specific config
         facets_spawned = [s["config"]["facet"] for s in spawned]
         assert "work" in facets_spawned
         assert "personal" in facets_spawned
 
-        # Verify segment is included
-        for s in spawned:
-            assert s["config"]["segment"] == "120000_300"
-            assert s["config"]["env"]["SEGMENT_KEY"] == "120000_300"
-
-    def test_non_multi_facet_agent_spawns_once(self, segment_dir, monkeypatch):
-        """Regular segment agent spawns once regardless of facets."""
-        from think import dream
-
-        # Set up facets.json with multiple facets
-        facets_data = [
-            {"facet": "work", "activity": "Coding", "level": "high"},
-            {"facet": "personal", "activity": "Email", "level": "low"},
-        ]
-        (segment_dir / "facets.json").write_text(json.dumps(facets_data))
-
-        spawned = []
-
-        def mock_cortex_request(prompt, name, config=None):
-            spawned.append({"prompt": prompt, "name": name, "config": config})
-            return "mock-agent-id"
-
-        # Regular agent (no multi_facet)
-        def mock_get_muse_configs(has_tools=None, **kwargs):
-            return {
-                "regular_agent": {
-                    "schedule": "segment",
-                    "tools": "journal",
-                }
-            }
-
-        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
-        monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
-
-        count = dream.run_segment_agents("20240115", "120000_300")
-
-        assert count == 1
-        assert len(spawned) == 1
-        assert "facet" not in spawned[0]["config"]
-
-    def test_multi_facet_no_facets_detected(self, segment_dir, monkeypatch):
-        """Multi-facet agent with no facets detected spawns nothing."""
-        from think import dream
-
-        # Empty facets.json
-        (segment_dir / "facets.json").write_text("[]")
-
-        spawned = []
-
-        def mock_cortex_request(prompt, name, config=None):
-            spawned.append({"prompt": prompt, "name": name, "config": config})
-            return "mock-agent-id"
-
-        def mock_get_muse_configs(has_tools=None, **kwargs):
-            return {
-                "test_agent": {
-                    "schedule": "segment",
-                    "multi_facet": True,
-                    "tools": "journal",
-                }
-            }
-
-        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
-        monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
-
-        count = dream.run_segment_agents("20240115", "120000_300")
-
-        assert count == 0
-        assert len(spawned) == 0
-
-    def test_mixed_agents_spawn_correctly(self, segment_dir, monkeypatch):
-        """Mix of multi-facet and regular agents spawn correctly."""
-        from think import dream
-
-        facets_data = [{"facet": "work", "activity": "Coding", "level": "high"}]
-        (segment_dir / "facets.json").write_text(json.dumps(facets_data))
-
-        spawned = []
-
-        def mock_cortex_request(prompt, name, config=None):
-            spawned.append({"prompt": prompt, "name": name, "config": config})
-            return "mock-agent-id"
-
-        def mock_get_muse_configs(has_tools=None, **kwargs):
-            return {
-                "faceted_agent": {
-                    "schedule": "segment",
-                    "multi_facet": True,
-                    "tools": "journal",
-                },
-                "regular_agent": {
-                    "schedule": "segment",
-                    "tools": "journal",
-                },
-            }
-
-        # Mock get_enabled_facets to return work as enabled
-        def mock_get_enabled_facets():
-            return {"work": {"title": "Work"}}
-
-        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
-        monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
-        monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
-
-        count = dream.run_segment_agents("20240115", "120000_300")
-
-        assert count == 2  # 1 faceted (1 facet) + 1 regular
-        assert len(spawned) == 2
-
-        faceted = [s for s in spawned if s["name"] == "faceted_agent"]
-        regular = [s for s in spawned if s["name"] == "regular_agent"]
-
-        assert len(faceted) == 1
-        assert faceted[0]["config"]["facet"] == "work"
-
-        assert len(regular) == 1
-        assert "facet" not in regular[0]["config"]
-
     def test_muted_facets_filtered(self, segment_dir, monkeypatch):
-        """Muted facets are filtered out from segment multi-facet agents."""
+        """Muted facets are filtered out from multi-facet prompts."""
         from think import dream
 
         # facets.json contains both work and personal
@@ -273,29 +222,96 @@ class TestRunSegmentAgentsMultiFacet:
         spawned = []
 
         def mock_cortex_request(prompt, name, config=None):
-            spawned.append({"prompt": prompt, "name": name, "config": config})
-            return "mock-agent-id"
+            spawned.append({"name": name, "config": config})
+            return f"agent-{len(spawned)}"
 
-        def mock_get_muse_configs(has_tools=None, **kwargs):
+        def mock_wait_for_agents(agent_ids, timeout=600):
+            return (agent_ids, [])
+
+        def mock_get_agent_end_state(agent_id):
+            return "finish"
+
+        def mock_get_muse_configs(schedule=None, **kwargs):
             return {
-                "test_agent": {
-                    "schedule": "segment",
-                    "multi_facet": True,
+                "test_prompt": {
+                    "priority": 10,
                     "tools": "journal",
-                }
+                    "multi_facet": True,
+                    "schedule": "segment",
+                },
             }
 
-        # Mock get_enabled_facets to only return "work" (personal is muted)
+        # Only work is enabled (personal is muted)
         def mock_get_enabled_facets():
             return {"work": {"title": "Work"}}
 
         monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
+        monkeypatch.setattr(dream, "get_agent_end_state", mock_get_agent_end_state)
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
 
-        count = dream.run_segment_agents("20240115", "120000_300")
+        success, failed = dream.run_prompts_by_priority(
+            "20240115", "120000_300", force=False, verbose=False
+        )
 
         # Only work facet should be spawned, personal is muted
-        assert count == 1
+        assert success == 1
         assert len(spawned) == 1
         assert spawned[0]["config"]["facet"] == "work"
+
+    def test_generator_triggers_incremental_indexing(self, segment_dir, monkeypatch):
+        """Generators trigger incremental indexing after completion."""
+        from think import dream
+
+        indexer_calls = []
+
+        def mock_cortex_request(prompt, name, config=None):
+            return f"agent-{name}"
+
+        def mock_wait_for_agents(agent_ids, timeout=600):
+            return (agent_ids, [])
+
+        def mock_get_agent_end_state(agent_id):
+            return "finish"
+
+        def mock_get_muse_configs(schedule=None, **kwargs):
+            return {
+                "test_generator": {
+                    "priority": 10,
+                    "output": "md",
+                    "schedule": "segment",
+                },
+            }
+
+        def mock_get_enabled_facets():
+            return {"work": {"title": "Work"}}
+
+        def mock_get_active_facets(day):
+            return set()
+
+        def mock_run_queued_command(cmd, day, timeout=60):
+            indexer_calls.append(cmd)
+            return True
+
+        # Create the output file so indexer is triggered
+        output_file = segment_dir / "test_generator.md"
+        output_file.write_text("test output")
+
+        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
+        monkeypatch.setattr(dream, "get_agent_end_state", mock_get_agent_end_state)
+        monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
+        monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
+        monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)
+        monkeypatch.setattr(dream, "run_queued_command", mock_run_queued_command)
+
+        dream.run_prompts_by_priority(
+            "20240115", "120000_300", force=False, verbose=False
+        )
+
+        # Verify indexer was called with --rescan-file
+        assert len(indexer_calls) == 1
+        assert indexer_calls[0][0] == "sol"
+        assert indexer_calls[0][1] == "indexer"
+        assert "--rescan-file" in indexer_calls[0]

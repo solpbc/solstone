@@ -1011,6 +1011,14 @@ def get_muse_configs(
             if "provider" in override:
                 info["provider"] = override["provider"]
 
+    # Validate: scheduled prompts must have explicit priority
+    for key, info in configs.items():
+        if info.get("schedule") and "priority" not in info:
+            raise ValueError(
+                f"Scheduled prompt '{key}' is missing required 'priority' field. "
+                f"All prompts with 'schedule' must declare an explicit priority."
+            )
+
     return configs
 
 

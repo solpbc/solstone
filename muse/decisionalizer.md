@@ -4,7 +4,7 @@
   "description": "Analyzes yesterday's top decision-actions to create detailed dossiers identifying gaps and stakeholder impacts",
   "color": "#c62828",
   "schedule": "daily",
-  "priority": 30,
+  "priority": 60,
   "output": "md",
   "tools": "default"
 

@@ -25,7 +25,7 @@ The package exposes several commands:
 
 ```bash
 sol cluster YYYYMMDD [--start HHMMSS --length MINUTES]
-sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--skip-generators] [--skip-agents]
+sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--run NAME]
 sol supervisor [--no-observers]
 sol mcp [--transport http] [--port PORT] [--path PATH]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
@@ -78,6 +78,21 @@ WantedBy=timers.target
 ```
 
 ## Agent System
+
+### Unified Priority Execution
+
+All scheduled prompts (both generators and tool-using agents) share a unified priority system. The `sol dream` command executes prompts ordered by priority, from lowest (runs first) to highest (runs last).
+
+**Priority is required for all scheduled prompts.** Prompts without a `priority` field will fail validation. Suggested priority bands:
+
+| Band | Range | Use Case |
+|------|-------|----------|
+| Generators | 10-30 | Content-producing prompts that create `.md` files |
+| Analysis Agents | 40-60 | Agents that analyze generated content |
+| Late-stage | 90+ | Agents that run after most others complete |
+| Fun/Optional | 99 | Low-priority or experimental prompts |
+
+After each generator completes and creates output, the indexer runs `--rescan-file` for incremental indexing. A full `--rescan` runs in the post phase.
 
 ### Cortex: Central Agent Manager
 
@@ -244,7 +259,11 @@ Providers implement `run_generate()`, `run_agenerate()`, and `run_tools()` funct
 
 System prompts in `muse/*.md` (markdown with JSON frontmatter). Apps can add custom agents in `apps/{app}/muse/`.
 
-JSON metadata supports `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, and `instructions` keys. See [APPS.md](APPS.md#instructions-configuration) for the `instructions` schema that controls system prompts, facet context, and source filtering.
+JSON metadata supports `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, and `instructions` keys.
+
+**Important:** The `priority` field is **required** for all prompts with a `schedule`. Prompts without explicit priority will fail validation. See the [Unified Priority Execution](#unified-priority-execution) section for priority bands.
+
+See [APPS.md](APPS.md#instructions-configuration) for the `instructions` schema that controls system prompts, facet context, and source filtering.
 
 ## Documentation
 

@@ -4,7 +4,7 @@
   "description": "Validates checklist entries against journal evidence and marks items complete via MCP todo tools.",
   "color": "#e65100",
   "schedule": "daily",
-  "priority": 30,
+  "priority": 60,
   "tools": "journal, todo",
   "multi_facet": true,
   "group": "Todos"

@@ -4,7 +4,7 @@
   "description": "Creates comprehensive daily newsletters for each facet, capturing activities, progress, and insights",
   "color": "#0d47a1",
   "schedule": "daily",
-  "priority": 10,
+  "priority": 40,
   "multi_facet": true,
   "tools": "journal, facets"
 

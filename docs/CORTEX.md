@@ -287,9 +287,9 @@ The JSON frontmatter for an agent can include:
   - If omitted, defaults to "default" pack (alias for "journal")
 - `schedule`: Scheduling configuration for automated execution
   - `"daily"`: Run automatically at midnight each day
-- `priority`: Execution order for scheduled agents (integer, default: 50)
-  - Lower numbers run first (e.g., priority 10 runs before priority 50)
-  - Used to control the order when multiple agents have the same schedule
+- `priority`: Execution order for scheduled prompts (integer, **required** for scheduled prompts)
+  - Lower numbers run first (e.g., priority 10 runs before priority 40)
+  - See [THINK.md](THINK.md#unified-priority-execution) for priority bands
 - `multi_facet`: Boolean flag for facet-aware agents (default: false)
   - When true, the agent is spawned once for each **active** facet (see Multi-Facet Agents section)
   - Each instance receives a facet-specific prompt with the facet name
@@ -355,14 +355,15 @@ Both agents and generators support scheduling via `sol dream`. Agents have `"sch
 
 ### Execution Order
 Scheduled items run in priority order (lower numbers first):
-1. Items are sorted by their `priority` field (default: 50)
-2. Items with the same priority run in alphabetical order by filename
-3. Each item completes before the next begins
+1. Items are sorted by their `priority` field (required for all scheduled prompts)
+2. Items with the same priority run in parallel, then dream waits for completion
+3. After each generator completes, incremental indexing runs for its output
 
-**Priority ranges (recommended):**
-- **1-20**: Foundation tasks (early processing)
-- **50**: Default (most generators and agents)
-- **80-99**: Synthesis tasks that consume other outputs
+**Priority bands (recommended):**
+- **10-30**: Generators (content-producing prompts)
+- **40-60**: Analysis agents
+- **90+**: Late-stage agents
+- **99**: Fun/optional prompts
 
 ### Multi-Facet Agents
 When an agent has `"multi_facet": true`:

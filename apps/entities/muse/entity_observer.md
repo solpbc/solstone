@@ -4,7 +4,7 @@
   "description": "Extracts durable factoids about attached entities from journal content",
   "color": "#004d40",
   "schedule": "daily",
-  "priority": 27,
+  "priority": 57,
   "tools": "journal, entities",
   "multi_facet": true,
   "group": "Entities"

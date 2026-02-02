@@ -4,7 +4,7 @@
   "description": "Reviews detected entities and promotes recurring ones to attached status",
   "color": "#00796b",
   "schedule": "daily",
-  "priority": 26,
+  "priority": 56,
   "tools": "journal, entities",
   "multi_facet": true,
   "group": "Entities"

@@ -3,6 +3,7 @@
   "title": "Maintenance Window",
   "description": "Analyzes activity patterns to identify optimal times for scheduled maintenance tasks.",
   "schedule": "daily",
+  "priority": 10,
   "output": "json",
   "hook": {"pre": "daily_schedule"},
   "color": "#455a64",

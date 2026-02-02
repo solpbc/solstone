@@ -33,7 +33,7 @@ def test_entities_agent_config(fixture_journal):
     # Verify JSON metadata fields from entities.json
     assert config.get("title") == "Entity Detector"
     assert config.get("schedule") == "daily"
-    assert config.get("priority") == 25
+    assert config.get("priority") == 55
     assert config.get("tools") == "journal, entities"
     assert config.get("multi_facet") is True
 
@@ -53,7 +53,7 @@ def test_entities_review_agent_config(fixture_journal):
     # Verify JSON metadata fields from entities_review.json
     assert config.get("title") == "Entity Reviewer"
     assert config.get("schedule") == "daily"
-    assert config.get("priority") == 26
+    assert config.get("priority") == 56
     assert config.get("tools") == "journal, entities"
     assert config.get("multi_facet") is True
 
@@ -131,10 +131,10 @@ def test_agent_priority_ordering(fixture_journal):
     detection_config = get_agent("entities:entities")
     review_config = get_agent("entities:entities_review")
 
-    detection_priority = detection_config.get("priority", 50)
-    review_priority = review_config.get("priority", 50)
+    detection_priority = detection_config["priority"]
+    review_priority = review_config["priority"]
 
     # Review should run after detection
     assert review_priority > detection_priority
-    assert detection_priority == 25
-    assert review_priority == 26
+    assert detection_priority == 55
+    assert review_priority == 56

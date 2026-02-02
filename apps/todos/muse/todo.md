@@ -4,7 +4,7 @@
   "description": "Maintains the daily todos checklist by mining the journal, prioritising tasks, and applying updates via the todo_* tools.",
   "color": "#ef6c00",
   "schedule": "daily",
-  "priority": 20,
+  "priority": 50,
   "tools": "journal, todo",
   "multi_facet": true,
   "group": "Todos"
