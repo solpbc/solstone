@@ -14,9 +14,6 @@ Tactical work items prioritized for implementation.
 
 - [ ] Update supervisor/dream interaction to use dynamic daily schedule from daily schedule agent output
 - [ ] Create segment agent for voiceprint detection and updating via hooks
-- [ ] Refactor think/agents.py to use run_tools for all generation
-- [ ] Evaluate moving cortex.py logic into agents.py for better separation of concerns
-- [ ] Pass 'day' context through to tools in daily agents for correct storage location
 - [ ] Surface named hook outputs in agents app and sol muse CLI
 - [ ] Make daily schedule agents idempotent with state tracking (show existing vs new segments)
 - [ ] Add activities attach/update MCP tools for facet curation (like entity tools)

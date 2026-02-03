@@ -8,7 +8,7 @@
   "tools": "journal, entities",
   "multi_facet": true,
   "group": "Entities",
-  "instructions": {"system": "journal", "facets": true}
+  "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
 
 }
 

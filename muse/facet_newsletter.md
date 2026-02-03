@@ -7,7 +7,7 @@
   "priority": 40,
   "multi_facet": true,
   "tools": "journal, facets",
-  "instructions": {"system": "journal", "facets": true}
+  "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
 
 }
 

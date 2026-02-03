@@ -5,7 +5,7 @@
   "color": "#f4511e",
   "tools": "journal, todo",
   "group": "Todos",
-  "instructions": {"system": "journal", "facets": true}
+  "instructions": {"system": "journal", "facets": true, "now": true}
 
 }
 

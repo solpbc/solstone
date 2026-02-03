@@ -5,7 +5,7 @@
   "color": "#1976d2",
   "extract": false,
   "output": "md",
-  "instructions": {"system": "journal", "facets": true}
+  "instructions": {"system": "journal", "facets": true, "now": true}
 
 }
 

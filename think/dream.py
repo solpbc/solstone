@@ -255,9 +255,9 @@ def run_prompts_by_priority(
 
                         logging.info(f"Spawning {prompt_name} for facet: {facet_name}")
 
-                        request_config: dict = {"facet": facet_name}
+                        # Always pass day for instructions.day context
+                        request_config: dict = {"facet": facet_name, "day": day}
                         if is_generator:
-                            request_config["day"] = day
                             request_config["output"] = config.get("output", "md")
                             if force:
                                 request_config["force"] = True
@@ -284,9 +284,9 @@ def run_prompts_by_priority(
                     # Regular single-instance prompt
                     logging.info(f"Spawning {prompt_name}")
 
-                    request_config = {}
+                    # Always pass day for instructions.day context
+                    request_config: dict = {"day": day}
                     if is_generator:
-                        request_config["day"] = day
                         request_config["output"] = config.get("output", "md")
                         if force:
                             request_config["force"] = True
@@ -303,7 +303,7 @@ def run_prompts_by_priority(
                     agent_id = cortex_request(
                         prompt=prompt,
                         name=prompt_name,
-                        config=request_config if request_config else None,
+                        config=request_config,
                     )
                     spawned.append((agent_id, prompt_name, config))
                     logging.info(f"Started {prompt_name} (ID: {agent_id})")

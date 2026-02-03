@@ -5,7 +5,7 @@
   "color": "#26a69a",
   "tools": "journal",
   "group": "Entities",
-  "instructions": {"system": "journal", "facets": true}
+  "instructions": {"system": "journal", "facets": true, "now": true}
 
 }
 

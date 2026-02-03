@@ -6,7 +6,7 @@
   "label": "Chat Messages",
   "group": "Apps",
   "tools": "journal, todo, entities",
-  "instructions": {"system": "journal", "facets": true}
+  "instructions": {"system": "journal", "facets": true, "now": true}
 
 }
 
