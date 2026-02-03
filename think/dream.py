@@ -340,10 +340,11 @@ def run_prompts_by_priority(
                     logging.info(f"{prompt_name} completed successfully")
                     group_success += 1
 
-                    # Incremental indexing for generators
+                    # Incremental indexing for generators (skip JSON —
+                    # structured metadata not suitable for full-text index)
                     is_generator = not bool(config.get("tools"))
-                    if is_generator:
-                        output_format = config.get("output", "md")
+                    output_format = config.get("output", "md")
+                    if is_generator and output_format != "json":
                         output_path = get_output_path(
                             day_path(day),
                             prompt_name,
