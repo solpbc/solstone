@@ -12,8 +12,8 @@ from tests.agents_stub import install_agents_stub
 from think.models import GPT_5
 
 
-def _mock_hydrate_config(request: dict) -> dict:
-    """Mock hydrate_config that passes through request with minimal additions."""
+def _mock_prepare_config(request: dict) -> dict:
+    """Mock prepare_config that passes through request with minimal additions."""
     config = dict(request)
     if "name" not in config:
         config["name"] = "default"
@@ -21,6 +21,8 @@ def _mock_hydrate_config(request: dict) -> dict:
         config["provider"] = "openai"
     if "model" not in config:
         config["model"] = GPT_5
+    # Add empty meta for hooks
+    config["meta"] = {}
     return config
 
 
@@ -30,8 +32,8 @@ async def run_main(mod, argv, stdin_data=None):
         import io
 
         sys.stdin = io.StringIO(stdin_data)
-    # Mock hydrate_config to avoid needing real agent configs
-    with patch.object(mod, "hydrate_config", _mock_hydrate_config):
+    # Mock prepare_config to avoid needing real agent configs
+    with patch.object(mod, "prepare_config", _mock_prepare_config):
         await mod.main_async()
 
 

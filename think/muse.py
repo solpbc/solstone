@@ -552,7 +552,11 @@ def get_agent_filter(value: bool | str | dict) -> dict[str, bool | str] | None:
 # ---------------------------------------------------------------------------
 
 
-def get_agent(name: str = "default", facet: str | None = None) -> dict:
+def get_agent(
+    name: str = "default",
+    facet: str | None = None,
+    include_datetime: bool = True,
+) -> dict:
     """Return complete agent configuration by name.
 
     Loads configuration from .md file with JSON frontmatter and instruction text,
@@ -567,12 +571,19 @@ def get_agent(name: str = "default", facet: str | None = None) -> dict:
         Optional facet name to focus on. When provided, includes detailed
         information for just this facet (with full entity details) instead
         of summaries of all facets.
+    include_datetime:
+        Whether to include current datetime in extra_context. Default True
+        for interactive agents, set False for historical analysis (day-based).
 
     Returns
     -------
     dict
-        Complete agent configuration including system_instruction, user_instruction,
-        extra_context, model, backend, etc.
+        Complete agent configuration including:
+        - name: Agent name
+        - path: Path to the .md file
+        - system_instruction, user_instruction, extra_context: Composed prompts
+        - sources: Source config from instructions (for transcript loading)
+        - All frontmatter fields (tools, hook, disabled, thinking_budget, etc.)
     """
     # Resolve agent path based on namespace
     agent_dir, agent_name = _resolve_agent_path(name)
@@ -582,29 +593,34 @@ def get_agent(name: str = "default", facet: str | None = None) -> dict:
     if not md_path.exists():
         raise FileNotFoundError(f"Agent not found: {name}")
 
-    # Load config from frontmatter
-    post = frontmatter.load(
-        md_path,
-    )
+    # Load config from frontmatter - preserve all fields
+    post = frontmatter.load(md_path)
     config = dict(post.metadata) if post.metadata else {}
 
-    # Extract instructions config if present
-    instructions_config = config.pop("instructions", None)
+    # Store path for later use (e.g., load_prompt with template context)
+    config["path"] = str(md_path)
+
+    # Extract instructions config (but keep a copy for sources)
+    instructions_config = config.get("instructions")
 
     # Use compose_instructions for consistent prompt composition
     instructions = compose_instructions(
         user_prompt=agent_name,
         user_prompt_dir=agent_dir,
         facet=facet,
-        include_datetime=True,
+        include_datetime=include_datetime,
         config_overrides=instructions_config,
     )
 
     # Merge instruction results into config
     config["system_instruction"] = instructions["system_instruction"]
     config["user_instruction"] = instructions["user_instruction"]
+    config["system_prompt_name"] = instructions.get("system_prompt_name", "journal")
     if instructions["extra_context"]:
         config["extra_context"] = instructions["extra_context"]
+
+    # Preserve sources config for transcript loading
+    config["sources"] = instructions.get("sources", {})
 
     # Set agent name
     config["name"] = name

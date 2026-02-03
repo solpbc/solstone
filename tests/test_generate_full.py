@@ -138,7 +138,7 @@ def post_process(result, context):
         "span": context.get("span_mode"),
         "name": context.get("name"),
         "has_transcript": bool(context.get("transcript")),
-        "has_meta": bool(context.get("meta")),
+        "has_hook": bool(context.get("hook")),  # Frontmatter fields now directly in config
     }
     with open(out_path, "w") as f:
         json.dump(ctx_copy, f)
@@ -187,7 +187,7 @@ def post_process(result, context):
         assert captured["span"] is False
         assert captured["name"] == "hooked_gen"
         assert captured["has_transcript"] is True
-        assert captured["has_meta"] is True
+        assert captured["has_hook"] is True  # Frontmatter fields now directly in config
 
     finally:
         # Clean up test files

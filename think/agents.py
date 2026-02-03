@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Unified agent and generator CLI for solstone.
+"""Unified agent CLI for solstone.
 
-Spawned by cortex for both:
-- Agents (with or without tools, conversational or tool-using)
-- Transcript generators (configs with 'output' field, no 'tools')
+Spawned by cortex for all agent types:
+- Tool-using agents (with MCP tools)
+- Generators (transcript analysis, no tools)
 
+Both paths share unified config preparation and execution flow.
 Reads NDJSON config from stdin, emits JSONL events to stdout.
 """
 
@@ -25,7 +26,6 @@ from typing import Any, Callable, Optional
 
 from think.cluster import cluster, cluster_period, cluster_span
 from think.muse import (
-    compose_instructions,
     get_agent_filter,
     get_muse_configs,
     get_output_path,
@@ -180,65 +180,11 @@ def parse_agent_events_to_turns(conversation_id: str) -> list:
 
 
 # =============================================================================
-# Config Hydration, Enrichment, and Validation
+# Unified Config Preparation
 # =============================================================================
 
 
-def hydrate_config(request: dict) -> dict:
-    """Load agent config and merge with request.
-
-    Takes the raw request from cortex and returns a fully hydrated config with:
-    - Base agent config loaded from muse/*.md
-    - Request values merged (request overrides defaults)
-    - Provider and model resolved from context
-    - Tools expanded from pack names to tool list
-
-    Args:
-        request: Raw request dict from cortex with at least 'name' field
-
-    Returns:
-        Fully hydrated config dict ready for routing
-    """
-    from think.models import resolve_model_for_provider, resolve_provider
-    from think.muse import get_agent, key_to_context
-
-    name = request.get("name", "default")
-    facet = request.get("facet")
-
-    # Load base config from agent definition
-    config = get_agent(name, facet=facet)
-
-    # Merge request into config (request values override agent defaults)
-    # Only override with non-None values to preserve agent defaults
-    config.update({k: v for k, v in request.items() if v is not None})
-
-    # Resolve provider and model from context
-    context = key_to_context(name)
-    default_provider, default_model = resolve_provider(context)
-
-    # Provider can be overridden by request or agent config
-    provider = config.get("provider") or default_provider
-
-    # Model: use explicit model from request/config, or resolve from provider
-    model = config.get("model")
-    if not model:
-        if provider != default_provider:
-            model = resolve_model_for_provider(context, provider)
-        else:
-            model = default_model
-
-    config["provider"] = provider
-    config["model"] = model
-
-    # Expand tools if it's a string (tool pack name)
-    tools_config = config.get("tools")
-    if isinstance(tools_config, str):
-        config["tools"] = expand_tools(tools_config)
-
-    return config
-
-
-def expand_tools(tools_config: str) -> list[str]:
+def _expand_tools(tools_config: str) -> list[str]:
     """Expand tool pack names to a list of tool names.
 
     Args:
@@ -268,30 +214,274 @@ def expand_tools(tools_config: str) -> list[str]:
     return expanded
 
 
-def validate_config(config: dict) -> str | None:
-    """Validate agent config.
+def _build_prompt_context(
+    day: str | None, segment: str | None, span: list[str] | None
+) -> dict[str, str]:
+    """Build context dict for prompt template substitution.
 
     Args:
-        config: Hydrated config dict
+        day: Day in YYYYMMDD format
+        segment: Segment key (HHMMSS_LEN)
+        span: List of segment keys
+
+    Returns:
+        Dict with day, date, segment_start, segment_end as available
+    """
+    context: dict[str, str] = {}
+    if not day:
+        return context
+
+    context["day"] = day
+    context["date"] = format_day(day)
+
+    if segment:
+        start_str, end_str = format_segment_times(segment)
+        if start_str and end_str:
+            context["segment"] = segment
+            context["segment_start"] = start_str
+            context["segment_end"] = end_str
+    elif span:
+        all_times = []
+        for seg in span:
+            start_time, end_time = segment_parse(seg)
+            if start_time and end_time:
+                all_times.append((start_time, end_time))
+
+        if all_times:
+            earliest_start = min(t[0] for t in all_times)
+            latest_end = max(t[1] for t in all_times)
+            context["segment_start"] = (
+                datetime.combine(datetime.today(), earliest_start)
+                .strftime("%I:%M %p")
+                .lstrip("0")
+            )
+            context["segment_end"] = (
+                datetime.combine(datetime.today(), latest_end)
+                .strftime("%I:%M %p")
+                .lstrip("0")
+            )
+
+    return context
+
+
+def _load_transcript(
+    day: str,
+    segment: str | None,
+    span: list[str] | None,
+    sources: dict,
+) -> tuple[str, dict[str, int]]:
+    """Load and cluster transcript for day/segment/span.
+
+    Args:
+        day: Day in YYYYMMDD format
+        segment: Optional segment key
+        span: Optional list of segment keys
+        sources: Source config dict from instructions
+
+    Returns:
+        Tuple of (transcript text, source_counts dict)
+    """
+    # Set segment key for token usage logging
+    if segment:
+        os.environ["SEGMENT_KEY"] = segment
+    elif span:
+        os.environ["SEGMENT_KEY"] = span[0]
+
+    # Convert sources config for clustering
+    cluster_sources: dict = {}
+    for k, v in sources.items():
+        if k == "agents":
+            agent_filter = get_agent_filter(v)
+            if agent_filter is None:
+                cluster_sources[k] = source_is_enabled(v)
+            elif not agent_filter:
+                cluster_sources[k] = False
+            else:
+                cluster_sources[k] = agent_filter
+        else:
+            cluster_sources[k] = source_is_enabled(v)
+
+    # Build transcript via clustering
+    if span:
+        return cluster_span(day, span, sources=cluster_sources)
+    elif segment:
+        return cluster_period(day, segment, sources=cluster_sources)
+    else:
+        return cluster(day, sources=cluster_sources)
+
+
+def prepare_config(request: dict) -> dict:
+    """Prepare complete agent config from request.
+
+    Single unified preparation path for all agent types. Takes raw request
+    from cortex and returns fully prepared config ready for execution.
+
+    Config fields produced:
+    - name: Agent name
+    - provider, model: Resolved from context/request
+    - tools: Expanded tool list (if tool agent)
+    - system_instruction: System prompt
+    - user_instruction: Agent instruction from .md file
+    - extra_context: Facets, datetime context
+    - prompt: User's runtime query/request
+    - transcript: Clustered transcript (if day provided)
+    - output_path: Where to write output (if output format set)
+    - skip_reason: Why to skip (if applicable)
+
+    Day vs Non-Day Processing:
+    - Non-day (interactive): Includes current datetime in context, no transcript
+    - Day-based (historical): Excludes datetime, loads clustered transcript
+
+    Args:
+        request: Raw request dict from cortex
+
+    Returns:
+        Fully prepared config dict
+    """
+    from think.models import resolve_model_for_provider, resolve_provider
+    from think.muse import get_agent, key_to_context
+
+    name = request.get("name", "default")
+    facet = request.get("facet")
+    day = request.get("day")
+    segment = request.get("segment")
+    span = request.get("span")
+    output_format = request.get("output")
+    output_path_override = request.get("output_path")
+    user_prompt = request.get("prompt", "")
+
+    # Load complete agent config with appropriate datetime context:
+    # - Interactive (no day): include_datetime=True for current context
+    # - Day-based analysis: include_datetime=False for historical data
+    config = get_agent(name, facet=facet, include_datetime=not day)
+
+    # Config now contains all frontmatter fields plus:
+    # - path: Path to the .md file
+    # - system_instruction, user_instruction, extra_context
+    # - sources: Source config for transcript loading
+    # - All frontmatter: tools, hook, disabled, thinking_budget, max_output_tokens, etc.
+
+    # Convert path string to Path object for convenience
+    agent_path = Path(config["path"]) if config.get("path") else None
+    sources = config.get("sources", {})
+
+    # Merge request values (request overrides agent defaults)
+    config.update({k: v for k, v in request.items() if v is not None})
+
+    # Track additional state
+    config["span_mode"] = bool(span)
+    config["source_counts"] = {}
+
+    # Resolve provider and model from context
+    context = key_to_context(name)
+    default_provider, default_model = resolve_provider(context)
+
+    provider = config.get("provider") or default_provider
+    model = config.get("model")
+    if not model:
+        if provider != default_provider:
+            model = resolve_model_for_provider(context, provider)
+        else:
+            model = default_model
+
+    config["provider"] = provider
+    config["model"] = model
+
+    # Expand tools if string (pack name)
+    tools_config = config.get("tools")
+    if isinstance(tools_config, str):
+        config["tools"] = _expand_tools(tools_config)
+
+    # Check if disabled
+    if config.get("disabled"):
+        config["skip_reason"] = "disabled"
+        return config
+
+    # Day-based processing: load transcript and apply template substitution
+    if day:
+        # Merge extra_context into system_instruction for day-based analysis
+        if "system_instruction" not in request:
+            system_instruction = config.get("system_instruction", "")
+            extra_ctx = config.get("extra_context")
+            if extra_ctx:
+                system_instruction = f"{system_instruction}\n\n{extra_ctx}"
+            config["system_instruction"] = system_instruction
+
+        # Load transcript
+        transcript, source_counts = _load_transcript(day, segment, span, sources)
+        config["transcript"] = transcript
+        config["source_counts"] = source_counts
+        total_count = sum(source_counts.values())
+
+        # Check required sources
+        for source_type, mode in sources.items():
+            if source_is_required(mode) and source_counts.get(source_type, 0) == 0:
+                config["skip_reason"] = f"missing_required_{source_type}"
+                return config
+
+        # Skip if no content
+        if total_count == 0 or len(transcript.strip()) < MIN_INPUT_CHARS:
+            config["skip_reason"] = "no_input"
+            return config
+
+        # Note for limited recordings
+        if total_count < 3:
+            config["transcript"] = (
+                "**Input Note:** Limited recordings for this day. "
+                "Scale analysis to available input.\n\n" + transcript
+            )
+
+        # Reload agent instruction with template substitution for day/segment context
+        if agent_path and agent_path.exists():
+            prompt_context = _build_prompt_context(day, segment, span)
+            agent_prompt_obj = load_prompt(
+                agent_path.stem, base_dir=agent_path.parent, context=prompt_context
+            )
+            config["user_instruction"] = agent_prompt_obj.text
+
+    # Set prompt (user's runtime query)
+    # For tool agents: prompt is the user's question
+    # For generators: prompt is typically empty (instruction is in user_instruction)
+    config["prompt"] = user_prompt
+
+    # Determine output path
+    if output_format:
+        if output_path_override:
+            config["output_path"] = Path(output_path_override)
+        elif day:
+            day_dir = str(day_path(day))
+            config["output_path"] = get_output_path(
+                day_dir, name, segment=segment, output_format=output_format, facet=facet
+            )
+
+    return config
+
+
+def validate_config(config: dict) -> str | None:
+    """Validate prepared config.
+
+    Args:
+        config: Prepared config dict
 
     Returns:
         Error message string if invalid, None if valid
     """
     has_tools = bool(config.get("tools"))
     has_prompt = bool(config.get("prompt"))
+    has_user_instruction = bool(config.get("user_instruction"))
     has_day = bool(config.get("day"))
 
-    # Tools path requires prompt
+    # Tool agents need a prompt (user's question)
     if has_tools and not has_prompt:
         return "Missing 'prompt' field for tool agent"
 
-    # Generate path requires at least prompt or day
-    if not has_tools and not has_prompt and not has_day:
-        return "Invalid config: must have 'tools', 'prompt', or 'day' field"
+    # Generators need either day (transcript) or user_instruction
+    if not has_tools and not has_day and not has_user_instruction and not has_prompt:
+        return "Invalid config: must have 'tools', 'day', or 'prompt'"
 
     # Segment/span requires day
     if (config.get("segment") or config.get("span")) and not has_day:
-        return "Invalid config: 'segment' or 'span' requires 'day' field"
+        return "Invalid config: 'segment' or 'span' requires 'day'"
 
     # Validate continue_from if present
     continue_from = config.get("continue_from")
@@ -305,182 +495,6 @@ def validate_config(config: dict) -> str | None:
             return f"Cannot continue from {continue_from}: agent not found"
 
     return None
-
-
-def enrich_config(config: dict) -> None:
-    """Enrich config with transcript, system instruction, output path, etc.
-
-    Mutates config in place, adding:
-    - transcript: Clustered transcript content (if day specified)
-    - system_instruction: System prompt (if not already set)
-    - output_path: Where to write output (if output format specified)
-    - source_counts: Dict of source type -> count
-    - skip_reason: Why to skip execution (if applicable)
-    - span_mode: Whether in span mode
-    - meta: Agent metadata from muse config
-
-    Args:
-        config: Hydrated config dict to enrich
-    """
-    name = config.get("name", "default")
-    day = config.get("day")
-    segment = config.get("segment")
-    span = config.get("span")  # List of sequential segment keys
-    facet = config.get("facet")
-    output_format = config.get("output")
-    output_path_override = config.get("output_path")
-    user_prompt = config.get("prompt", "")
-
-    # Load config metadata (for hooks, system prompt, etc.)
-    all_configs = get_muse_configs(has_tools=False)
-    if name not in all_configs:
-        all_configs = get_muse_configs()  # Include tool configs
-    if name in all_configs:
-        meta = all_configs[name]
-        agent_path = Path(meta["path"])
-    else:
-        meta = {}
-        agent_path = None
-
-    config["meta"] = meta
-    config["agent_path"] = agent_path
-    config["span_mode"] = bool(span)
-    config["source_counts"] = {}
-
-    # Check if config is disabled
-    if meta.get("disabled"):
-        config["skip_reason"] = "disabled"
-        return
-
-    # Extract instructions config for source filtering and system prompt
-    instructions_config = meta.get("instructions")
-    instructions = compose_instructions(
-        facet=facet,
-        include_datetime=not day,
-        config_overrides=instructions_config,
-    )
-    sources = instructions.get("sources", {})
-    config["system_prompt_name"] = instructions.get("system_prompt_name", "journal")
-
-    # Set system_instruction if not already provided
-    if not config.get("system_instruction"):
-        system_instruction = instructions["system_instruction"]
-        # Append extra_context (facets, etc.) to system instruction if present
-        extra_context = instructions.get("extra_context")
-        if extra_context:
-            system_instruction = f"{system_instruction}\n\n{extra_context}"
-        config["system_instruction"] = system_instruction
-
-    # Transcript loading (only if day is provided)
-    if day:
-        # Set segment key for token usage logging
-        if segment:
-            os.environ["SEGMENT_KEY"] = segment
-        elif span:
-            os.environ["SEGMENT_KEY"] = span[0]
-
-        # Convert sources for clustering
-        cluster_sources: dict = {}
-        for k, v in sources.items():
-            if k == "agents":
-                agent_filter = get_agent_filter(v)
-                if agent_filter is None:
-                    cluster_sources[k] = source_is_enabled(v)
-                elif not agent_filter:
-                    cluster_sources[k] = False
-                else:
-                    cluster_sources[k] = agent_filter
-            else:
-                cluster_sources[k] = source_is_enabled(v)
-
-        # Build transcript via clustering
-        if span:
-            transcript, source_counts = cluster_span(day, span, sources=cluster_sources)
-        elif segment:
-            transcript, source_counts = cluster_period(
-                day, segment, sources=cluster_sources
-            )
-        else:
-            transcript, source_counts = cluster(day, sources=cluster_sources)
-
-        config["transcript"] = transcript
-        config["source_counts"] = source_counts
-        total_count = sum(source_counts.values())
-
-        # Check required sources have content
-        for source_type, mode in sources.items():
-            if source_is_required(mode) and source_counts.get(source_type, 0) == 0:
-                config["skip_reason"] = f"missing_required_{source_type}"
-                return
-
-        # Skip when there's nothing to analyze
-        if total_count == 0 or len(transcript.strip()) < MIN_INPUT_CHARS:
-            config["skip_reason"] = "no_input"
-            return
-
-        # Prepend input context note for limited recordings
-        if total_count < 3:
-            input_note = (
-                "**Input Note:** Limited recordings for this day. "
-                "Scale analysis to available input.\n\n"
-            )
-            config["transcript"] = input_note + transcript
-
-    # Build context for template substitution
-    prompt_context: dict[str, str] = {}
-    if day:
-        prompt_context["day"] = day
-        prompt_context["date"] = format_day(day)
-
-        if segment:
-            start_str, end_str = format_segment_times(segment)
-            if start_str and end_str:
-                prompt_context["segment"] = segment
-                prompt_context["segment_start"] = start_str
-                prompt_context["segment_end"] = end_str
-        elif span:
-            all_times = []
-            for seg in span:
-                start_time, end_time = segment_parse(seg)
-                if start_time and end_time:
-                    all_times.append((start_time, end_time))
-
-            if all_times:
-                earliest_start = min(t[0] for t in all_times)
-                latest_end = max(t[1] for t in all_times)
-                start_str = (
-                    datetime.combine(datetime.today(), earliest_start)
-                    .strftime("%I:%M %p")
-                    .lstrip("0")
-                )
-                end_str = (
-                    datetime.combine(datetime.today(), latest_end)
-                    .strftime("%I:%M %p")
-                    .lstrip("0")
-                )
-                prompt_context["segment_start"] = start_str
-                prompt_context["segment_end"] = end_str
-
-    # Load prompt from agent file if available, otherwise use user prompt
-    if agent_path and agent_path.exists():
-        agent_prompt_obj = load_prompt(
-            agent_path.stem, base_dir=agent_path.parent, context=prompt_context
-        )
-        prompt = agent_prompt_obj.text
-        # Append user prompt if both exist
-        if user_prompt and prompt != user_prompt:
-            prompt = f"{prompt}\n\n{user_prompt}"
-        config["prompt"] = prompt
-
-    # Determine output path
-    if output_format:
-        if output_path_override:
-            config["output_path"] = Path(output_path_override)
-        elif day:
-            day_dir = str(day_path(day))
-            config["output_path"] = get_output_path(
-                day_dir, name, segment=segment, output_format=output_format, facet=facet
-            )
 
 
 # =============================================================================
@@ -497,8 +511,7 @@ def _run_pre_hooks(config: dict) -> dict:
     Returns:
         Dict of field modifications to apply to config
     """
-    meta = config.get("meta", {})
-    pre_hook = load_pre_hook(meta)
+    pre_hook = load_pre_hook(config)
     if not pre_hook:
         return {}
 
@@ -523,8 +536,7 @@ def _run_post_hooks(result: str, config: dict) -> str:
     Returns:
         Transformed result (or original if no hook)
     """
-    meta = config.get("meta", {})
-    post_hook = load_post_hook(meta)
+    post_hook = load_post_hook(config)
     if not post_hook:
         return result
 
@@ -555,27 +567,22 @@ def _write_output(output_path: Path, result: str) -> None:
 def _build_dry_run_event(config: dict, before_values: dict) -> dict:
     """Build a dry-run event with all context."""
     has_tools = bool(config.get("tools"))
-    run_type = "agent" if has_tools else "generate"
 
     event: dict[str, Any] = {
         "event": "dry_run",
         "ts": now_ms(),
-        "type": run_type,
+        "type": "agent" if has_tools else "generate",
         "name": config.get("name", "default"),
         "provider": config.get("provider", ""),
         "model": config.get("model") or "unknown",
         "system_instruction": config.get("system_instruction", ""),
+        "user_instruction": config.get("user_instruction", ""),
         "prompt": config.get("prompt", ""),
     }
 
     if has_tools:
-        event["user_instruction"] = config.get("user_instruction", "")
         event["extra_context"] = config.get("extra_context", "")
         event["tools"] = config.get("tools", [])
-    else:
-        event["system_instruction_source"] = config.get("system_prompt_name", "journal")
-        agent_path = config.get("agent_path")
-        event["prompt_source"] = str(agent_path) if agent_path else "request"
 
     # Day-based fields
     if config.get("day"):
@@ -602,18 +609,137 @@ def _build_dry_run_event(config: dict, before_values: dict) -> dict:
     return event
 
 
+async def _execute_with_tools(
+    config: dict,
+    emit_event: Callable[[dict], None],
+) -> None:
+    """Execute tool-using agent via provider's run_tools.
+
+    Args:
+        config: Prepared config dict
+        emit_event: Event emission callback
+    """
+    from .providers import PROVIDER_REGISTRY, get_provider_module
+
+    provider = config.get("provider", "google")
+    output_path = config.get("output_path")
+
+    if provider not in PROVIDER_REGISTRY:
+        valid = ", ".join(sorted(PROVIDER_REGISTRY.keys()))
+        raise ValueError(f"Unknown provider: {provider!r}. Valid providers: {valid}")
+
+    provider_mod = get_provider_module(provider)
+
+    # Wrapper to intercept finish event for post-processing
+    def agent_emit_event(data: Event) -> None:
+        if data.get("event") == "finish":
+            result = data.get("result", "")
+            result = _run_post_hooks(result, config)
+            if result != data.get("result", ""):
+                data = {**data, "result": result}
+            if output_path and result:
+                _write_output(output_path, result)
+            if config.get("handoff"):
+                data = {**data, "handoff": config["handoff"]}
+
+        # Filter out start events from providers (we already emitted ours)
+        if data.get("event") == "start":
+            return
+
+        emit_event(data)
+
+    await provider_mod.run_tools(config=config, on_event=agent_emit_event)
+
+
+async def _execute_generate(
+    config: dict,
+    emit_event: Callable[[dict], None],
+) -> None:
+    """Execute single-shot generation (no tools).
+
+    Args:
+        config: Prepared config dict
+        emit_event: Event emission callback
+    """
+    from think.models import generate_with_result
+    from think.muse import key_to_context
+
+    name = config.get("name", "default")
+    transcript = config.get("transcript", "")
+    user_instruction = config.get("user_instruction", "")
+    prompt = config.get("prompt", "")
+    system_instruction = config.get("system_instruction", "")
+    output_path = config.get("output_path")
+    output_format = config.get("output")
+
+    # Get generation parameters from config (set in frontmatter)
+    thinking_budget = config.get("thinking_budget") or 8192 * 3
+    max_output_tokens = config.get("max_output_tokens") or 8192 * 6
+    is_json_output = output_format == "json"
+
+    # Build contents: transcript + instruction + prompt
+    contents = []
+    if transcript:
+        contents.append(transcript)
+    if user_instruction:
+        contents.append(user_instruction)
+    if prompt:
+        contents.append(prompt)
+
+    # Fallback if no contents
+    if not contents:
+        contents = ["No input provided."]
+
+    context = key_to_context(name)
+    gen_result = generate_with_result(
+        contents=contents,
+        context=context,
+        temperature=0.3,
+        max_output_tokens=max_output_tokens,
+        thinking_budget=thinking_budget,
+        system_instruction=system_instruction,
+        json_output=is_json_output,
+    )
+
+    result = gen_result["text"]
+    usage_data = gen_result.get("usage")
+
+    # Run post-hooks
+    result = _run_post_hooks(result, config)
+
+    # Write output
+    if output_path and result:
+        _write_output(output_path, result)
+
+    # Emit finish event
+    finish_event: dict[str, Any] = {
+        "event": "finish",
+        "ts": now_ms(),
+        "result": result,
+    }
+    if usage_data:
+        finish_event["usage"] = usage_data
+    if config.get("handoff"):
+        finish_event["handoff"] = config["handoff"]
+    emit_event(finish_event)
+
+
 async def _run_agent(
     config: dict,
     emit_event: Callable[[dict], None],
     dry_run: bool = False,
 ) -> None:
-    """Execute agent or generator based on config.
+    """Execute agent based on config.
 
-    Unified execution path for both tool-using agents and transcript generators.
-    The only branch is at the LLM call - everything else is shared.
+    Unified execution path for all agent types. Handles:
+    - Skip conditions (disabled, no input, etc.)
+    - Output existence checking (skip if exists unless force)
+    - Pre/post hooks
+    - Dry-run mode
+    - Routing to tool or generate execution
 
     Args:
-        config: Fully hydrated and enriched config dict
+        config: Fully prepared config dict
         emit_event: Callback to emit JSONL events
         dry_run: If True, emit dry_run event instead of calling LLM
     """
@@ -622,6 +748,7 @@ async def _run_agent(
     model = config.get("model")
     has_tools = bool(config.get("tools"))
     force = config.get("force", False)
+    output_path = config.get("output_path")
 
     # Emit start event
     start_event: dict[str, Any] = {
@@ -652,10 +779,8 @@ async def _run_agent(
             day_log(config["day"], f"agent {name} skipped ({skip_reason})")
         return
 
-    # Check if output already exists (generators only, not tool agents)
-    output_path = config.get("output_path")
-    output_format = config.get("output")
-    if not has_tools and output_path and not force and not dry_run:
+    # Check if output already exists (applies to both tool agents and generators)
+    if output_path and not force and not dry_run:
         if output_path.exists() and output_path.stat().st_size > 0:
             LOG.info("Output exists, loading: %s", output_path)
             with open(output_path, "r") as f:
@@ -673,10 +798,10 @@ async def _run_agent(
     before_values = {
         "prompt": config.get("prompt", ""),
         "system_instruction": config.get("system_instruction", ""),
+        "user_instruction": config.get("user_instruction", ""),
         "transcript": config.get("transcript", ""),
     }
     if has_tools:
-        before_values["user_instruction"] = config.get("user_instruction", "")
         before_values["extra_context"] = config.get("extra_context", "")
 
     # Run pre-hooks
@@ -689,86 +814,11 @@ async def _run_agent(
         emit_event(_build_dry_run_event(config, before_values))
         return
 
-    # Execute LLM call - this is the only real branch
+    # Execute based on agent type
     if has_tools:
-        # Tool-using agent path
-        from .providers import PROVIDER_REGISTRY, get_provider_module
-
-        if provider not in PROVIDER_REGISTRY:
-            valid = ", ".join(sorted(PROVIDER_REGISTRY.keys()))
-            raise ValueError(
-                f"Unknown provider: {provider!r}. Valid providers: {valid}"
-            )
-
-        provider_mod = get_provider_module(provider)
-
-        # Create wrapper to intercept finish event
-        def agent_emit_event(data: Event) -> None:
-            if data.get("event") == "finish":
-                result = data.get("result", "")
-                result = _run_post_hooks(result, config)
-                if result != data.get("result", ""):
-                    data = {**data, "result": result}
-                if output_path and result:
-                    _write_output(output_path, result)
-                if config.get("handoff"):
-                    data = {**data, "handoff": config["handoff"]}
-
-            # Filter out start events from providers (we already emitted ours)
-            if data.get("event") == "start":
-                return
-
-            emit_event(data)
-
-        await provider_mod.run_tools(config=config, on_event=agent_emit_event)
-
+        await _execute_with_tools(config, emit_event)
     else:
-        # Generator path - single-shot generation
-        from think.models import generate_with_result
-        from think.muse import key_to_context
-
-        transcript = config.get("transcript", "")
-        prompt = config.get("prompt", "")
-        system_instruction = config.get("system_instruction", "")
-        meta = config.get("meta", {})
-
-        # Get generation parameters
-        thinking_budget = meta.get("thinking_budget") or 8192 * 3
-        max_output_tokens = meta.get("max_output_tokens") or 8192 * 6
-        is_json_output = output_format == "json"
-
-        context = key_to_context(name)
-        gen_result = generate_with_result(
-            contents=[transcript, prompt] if transcript else [prompt],
-            context=context,
-            temperature=0.3,
-            max_output_tokens=max_output_tokens,
-            thinking_budget=thinking_budget,
-            system_instruction=system_instruction,
-            json_output=is_json_output,
-        )
-
-        result = gen_result["text"]
-        usage_data = gen_result.get("usage")
-
-        # Run post-hooks
-        result = _run_post_hooks(result, config)
-
-        # Write output
-        if output_path and result:
-            _write_output(output_path, result)
-
-        # Emit finish event
-        finish_event: dict[str, Any] = {
-            "event": "finish",
-            "ts": now_ms(),
-            "result": result,
-        }
-        if usage_data:
-            finish_event["usage"] = usage_data
-        if config.get("handoff"):
-            finish_event["handoff"] = config["handoff"]
-        emit_event(finish_event)
+        await _execute_generate(config, emit_event)
 
     # Log completion
     if config.get("day"):
@@ -794,11 +844,11 @@ def scan_day(day: str) -> dict[str, list[str]]:
     pending: list[str] = []
     for key, meta in sorted(daily_generators.items()):
         output_format = meta.get("output")
-        output_path = get_output_path(day_dir, key, output_format=output_format)
-        if output_path.exists():
-            processed.append(os.path.join("agents", output_path.name))
+        output_file = get_output_path(day_dir, key, output_format=output_format)
+        if output_file.exists():
+            processed.append(os.path.join("agents", output_file.name))
         else:
-            pending.append(os.path.join("agents", output_path.name))
+            pending.append(os.path.join("agents", output_file.name))
     return {"processed": sorted(processed), "repairable": sorted(pending)}
 
 
@@ -808,7 +858,7 @@ def scan_day(day: str) -> dict[str, list[str]]:
 
 
 async def main_async() -> None:
-    """NDJSON-based CLI for agents and generators."""
+    """NDJSON-based CLI for agents."""
     parser = argparse.ArgumentParser(
         description="solstone Agent CLI - Accepts NDJSON input via stdin"
     )
@@ -838,14 +888,13 @@ async def main_async() -> None:
 
             try:
                 request = json.loads(line)
-                config = hydrate_config(request)
+                config = prepare_config(request)
 
                 error = validate_config(config)
                 if error:
                     emit_event({"event": "error", "error": error, "ts": now_ms()})
                     continue
 
-                enrich_config(config)
                 await _run_agent(config, emit_event, dry_run=dry_run)
 
             except json.JSONDecodeError as e:
@@ -887,9 +936,7 @@ def main() -> None:
 __all__ = [
     "format_tool_summary",
     "parse_agent_events_to_turns",
-    "hydrate_config",
-    "expand_tools",
+    "prepare_config",
     "validate_config",
-    "enrich_config",
     "scan_day",
 ]
