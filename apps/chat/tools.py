@@ -9,7 +9,7 @@ from typing import Any
 
 from fastmcp import Context
 
-from think.facets import _get_actor_info
+from think.facets import get_agent_info
 from think.mcp import HINTS, register_tool
 from think.utils import get_journal
 
@@ -66,7 +66,8 @@ def send_message(
         title = generate_chat_title(body)
 
         # Extract caller's agent identity from context
-        actor, caller_agent_id = _get_actor_info(context)
+        agent_info = get_agent_info(context)
+        caller_agent_id = agent_info["agent_id"]
 
         chat_record = {
             "ts": int(agent_id),  # agent_id is already the timestamp

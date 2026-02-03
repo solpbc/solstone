@@ -142,11 +142,13 @@ class ToolExecutor:
         callback: JSONEventCallback,
         agent_id: str | None = None,
         name: str | None = None,
+        day: str | None = None,
     ) -> None:
         self.mcp = mcp_client
         self.callback = callback
         self.agent_id = agent_id
         self.name = name
+        self.day = day
 
     async def execute_tool(self, tool_use: ToolUseBlock) -> dict:
         """Execute ``tool_use`` and return a Claude ``tool_result`` block."""
@@ -160,12 +162,14 @@ class ToolExecutor:
             }
         )
 
-        # Build _meta dict for passing agent identity
+        # Build _meta dict for passing agent identity and context
         meta = {}
         if self.agent_id:
             meta["agent_id"] = self.agent_id
         if self.name:
             meta["name"] = self.name
+        if self.day:
+            meta["day"] = self.day
 
         try:
             try:
@@ -271,6 +275,7 @@ async def run_tools(
     continue_from = config.get("continue_from")
     agent_id = config.get("agent_id")
     name = config.get("name")
+    day = config.get("day")
 
     callback = JSONEventCallback(on_event)
 
@@ -311,7 +316,7 @@ async def run_tools(
 
                 tools = await _get_mcp_tools(mcp, tools_filter)
                 tool_executor = ToolExecutor(
-                    mcp, callback, agent_id=agent_id, name=name
+                    mcp, callback, agent_id=agent_id, name=name, day=day
                 )
 
                 thinking_budget, effective_max_tokens = _resolve_agent_thinking_params(

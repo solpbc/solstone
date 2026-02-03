@@ -114,8 +114,8 @@ def _format_activity_line(activity: dict[str, Any], *, bold_name: bool = False) 
     return name_part
 
 
-def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
-    """Extract actor (name) and agent_id from meta or HTTP headers.
+def get_agent_info(context: Context | None = None) -> dict[str, Any]:
+    """Extract agent identity from MCP context meta or HTTP headers.
 
     Priority: meta (stdio/anthropic/google) > HTTP headers (openai)
 
@@ -123,9 +123,13 @@ def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
         context: Optional FastMCP context with request metadata
 
     Returns:
-        Tuple of (actor, agent_id) where actor defaults to "mcp"
-        and agent_id may be None.
+        Dictionary with keys:
+        - agent_name: Agent name (defaults to "mcp")
+        - agent_id: Agent ID or None
+        - day: Day in YYYYMMDD format or None
     """
+    result: dict[str, Any] = {"agent_name": "mcp", "agent_id": None, "day": None}
+
     # First try meta from context (stdio transport)
     if context is not None:
         try:
@@ -135,11 +139,15 @@ def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
                 meta_dict = {
                     k: v for k, v in meta.model_dump().items() if v is not None
                 }
-                name = meta_dict.get("name")
-                agent_id = meta_dict.get("agent_id")
-                if name or agent_id:
-                    actor = name if name else "mcp"
-                    return actor, agent_id
+                if meta_dict.get("name"):
+                    result["agent_name"] = meta_dict["name"]
+                if meta_dict.get("agent_id"):
+                    result["agent_id"] = meta_dict["agent_id"]
+                if meta_dict.get("day"):
+                    result["day"] = meta_dict["day"]
+                # If we got any agent info from meta, return it
+                if result["agent_name"] != "mcp" or result["agent_id"] or result["day"]:
+                    return result
         except Exception:
             pass
 
@@ -149,14 +157,17 @@ def _get_actor_info(context: Context | None = None) -> tuple[str, str | None]:
         # Normalize headers to lowercase for case-insensitive lookup
         headers_lower = {k.lower(): v for k, v in headers.items()}
 
-        name = headers_lower.get("x-agent-name")
-        agent_id = headers_lower.get("x-agent-id")
-
-        actor = name if name else "mcp"
-        return actor, agent_id
+        if headers_lower.get("x-agent-name"):
+            result["agent_name"] = headers_lower["x-agent-name"]
+        if headers_lower.get("x-agent-id"):
+            result["agent_id"] = headers_lower["x-agent-id"]
+        if headers_lower.get("x-agent-day"):
+            result["day"] = headers_lower["x-agent-day"]
     except Exception:
         # Not in HTTP context (stdio, tests)
-        return "mcp", None
+        pass
+
+    return result
 
 
 def _write_action_log(
@@ -231,7 +242,7 @@ def log_tool_action(
     """Log an agent-initiated action from an MCP tool.
 
     Creates a JSONL log entry for tracking successful modifications made via
-    MCP tools. Automatically extracts actor identity (agent name) from FastMCP
+    MCP tools. Automatically extracts agent identity (agent name) from FastMCP
     context.
 
     When facet is provided, writes to facets/{facet}/logs/{day}.jsonl.
@@ -243,17 +254,19 @@ def log_tool_action(
         action: Action type (e.g., "todo_add", "entity_attach")
         params: Dictionary of action-specific parameters
         context: Optional FastMCP context for extracting agent name/agent_id
-        day: Day in YYYYMMDD format (defaults to today)
+        day: Day in YYYYMMDD format (defaults to context day, then today)
     """
-    actor, agent_id = _get_actor_info(context)
+    agent_info = get_agent_info(context)
+    # Use explicit day if provided, otherwise fall back to context day
+    effective_day = day if day is not None else agent_info["day"]
     _write_action_log(
         facet=facet,
         action=action,
         params=params,
         source="tool",
-        actor=actor,
-        day=day,
-        agent_id=agent_id,
+        actor=agent_info["agent_name"],
+        day=effective_day,
+        agent_id=agent_info["agent_id"],
     )
 
 

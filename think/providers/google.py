@@ -475,12 +475,14 @@ class ToolLoggingHooks:
         writer: JSONEventCallback,
         agent_id: str | None = None,
         name: str | None = None,
+        day: str | None = None,
     ) -> None:
         self.writer = writer
         self._counter = 0
         self.session = None
         self.agent_id = agent_id
         self.name = name
+        self.day = day
 
     def attach(self, session: Any) -> None:
         self.session = session
@@ -498,12 +500,14 @@ class ToolLoggingHooks:
                 }
             )
 
-            # Build _meta dict for passing agent identity
+            # Build _meta dict for passing agent identity and context
             meta = {}
             if self.agent_id:
                 meta["agent_id"] = self.agent_id
             if self.name:
                 meta["name"] = self.name
+            if self.day:
+                meta["day"] = self.day
 
             result = await original(
                 name=name,
@@ -553,6 +557,7 @@ async def run_tools(
     continue_from = config.get("continue_from")
     agent_id = config.get("agent_id")
     name = config.get("name")
+    day = config.get("day")
 
     callback = JSONEventCallback(on_event)
 
@@ -617,7 +622,9 @@ async def run_tools(
             # Create MCP client and attach hooks
             async with create_mcp_client(str(mcp_server_url)) as mcp:
                 # Attach tool logging hooks to the MCP session
-                tool_hooks = ToolLoggingHooks(callback, agent_id=agent_id, name=name)
+                tool_hooks = ToolLoggingHooks(
+                    callback, agent_id=agent_id, name=name, day=day
+                )
                 tool_hooks.attach(mcp.session)
 
                 # Configure function calling mode based on tool filtering

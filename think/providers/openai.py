@@ -235,6 +235,7 @@ async def run_tools(
     continue_from = config.get("continue_from")
     agent_id = config.get("agent_id")
     name = config.get("name")
+    day = config.get("day")
     max_turns = config.get("max_turns", _DEFAULT_MAX_TURNS)
 
     LOG.info("Running agent with model %s", model)
@@ -270,6 +271,8 @@ async def run_tools(
             headers["X-Agent-Id"] = str(agent_id)
         if name:
             headers["X-Agent-Name"] = name
+        if day:
+            headers["X-Agent-Day"] = day
         if headers:
             mcp_params["headers"] = headers
 
