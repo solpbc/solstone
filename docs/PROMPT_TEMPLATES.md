@@ -72,7 +72,7 @@ Template variables come from `.md` files in the `think/templates/` directory. Ea
 - `$daily_preamble` - Preamble for full-day output analysis
 - `$segment_preamble` - Preamble for single-segment analysis
 
-Templates can themselves use identity and context variables, enabling composable prompt construction. For example, `daily_preamble.md` uses `$preferred` and `$date`.
+Templates can themselves use identity and context variables, enabling composable prompt construction. For example, `daily_preamble.md` uses `$preferred` and `$day`.
 
 **Pattern:** To add a new template variable, create `think/templates/mytemplate.md` and it becomes available as `$mytemplate` in all prompts.
 
@@ -83,13 +83,14 @@ Templates can themselves use identity and context variables, enabling composable
 Context variables are passed at runtime by the code calling `load_prompt()`. These are use-case specific and not globally available.
 
 **Common generator context:**
-- `$day` - Day in YYYYMMDD format
-- `$date` - Human-readable date (e.g., "Friday, January 24, 2026")
+- `$day` - Human-readable date (e.g., "Friday, January 24, 2026")
+- `$day_YYYYMMDD` - Day in YYYYMMDD format (e.g., "20260124")
+- `$now` - Current date and time with timezone (e.g., "Monday, February 3, 2025 at 10:30 AM PST")
 - `$segment` - Segment key (e.g., "143022_300")
 - `$segment_start` - Formatted start time (e.g., "2:30 PM")
 - `$segment_end` - Formatted end time (e.g., "2:35 PM")
 
-Context variables also get automatic uppercase-first versions (`$Day`, `$Date`, etc.).
+Context variables also get automatic uppercase-first versions (`$Day`, `$Day_yyyymmdd`, etc.).
 
 **References:**
 - Generator context building: `think/generate.py` (search for `prompt_context`)

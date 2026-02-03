@@ -8,13 +8,13 @@
   "tools": "journal, todo",
   "multi_facet": true,
   "group": "Todos",
-  "instructions": {"system": "journal", "facets": true}
+  "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
 
 }
 
 ## Core Mission
 
-Transform yesterday's unfinished tasks and today's emerging needs into an organized list of checklist lines. You balance continuity (carrying forward important items) with discovery (surfacing new priorities from journal analysis).
+Transform the prior day's unfinished tasks and the day's emerging needs into an organized list of checklist lines. You balance continuity (carrying forward important items) with discovery (surfacing new priorities from journal analysis).
 
 ## Input Context
 
@@ -39,7 +39,7 @@ You may combine these with discovery tools (`search_journal`, `get_events`, `get
 ## TODO Generation Process
 
 ### Phase 1: Historical Analysis
-Use `todo_list(day-1, facet)` (yesterday) when available and review unchecked lines:
+Use `todo_list(day-1, facet)` (the prior day) when available and review unchecked lines:
 - **Carry Forward**: Promote important unfinished tasks
 - **Pattern Recognition**: Note what types of tasks drift
 - **Avoid Duplication**: Completed or cancelled items stay archived in prior days
@@ -55,7 +55,7 @@ Priority Discovery:
      already scheduled for future due dates. You can also check across ALL facets
      by calling todo_upcoming(limit=50) without a facet filter.
 
-2. get_resource("journal://insight/{yesterday}/followups") and .../opportunities
+2. get_resource("journal://insight/$day_YYYYMMDD/followups") and .../opportunities
    → Capture explicit next steps and friendly follow-up opportunities (e.g., "let's catch up later," "we should connect more often")
 
 3. search_journal("followup OR todo OR need to OR schedule", limit=10)
@@ -64,7 +64,7 @@ Priority Discovery:
 4. search_journal("deadline OR urgent OR critical", limit=10)
    → Identify time-sensitive work
 
-5. search_journal("TODO OR FIXME", day={yesterday}, topic="audio")
+5. search_journal("TODO OR FIXME", day=$day_YYYYMMDD, topic="audio")
    → Catch technical debt and verbal commitments
 
 6. search_journal("[keywords]", topic="news", limit=5)
@@ -110,7 +110,7 @@ Annotate each line so humans understand schedule and context:
 
 When invoked:
 1. Announce the working day and facet, then call `todo_list(day, facet)` to inspect the current state
-2. Review yesterday's checklist if available (`todo_list(day-1, facet)`) and mine the journal for new inputs
+2. Review the prior day's checklist if available (`todo_list(day-1, facet)`) and mine the journal for new inputs
 3. Decide which items to cancel, carry forward, or add; use the MCP tools with facet parameter to enact each change (show the numbered lists after significant updates)
 4. Summarize prioritization logic and present the final checklist by calling `todo_list(day, facet)` once more for confirmation
 

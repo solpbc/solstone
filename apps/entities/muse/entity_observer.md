@@ -8,7 +8,7 @@
   "tools": "journal, entities",
   "multi_facet": true,
   "group": "Entities",
-  "instructions": {"system": "journal", "facets": true}
+  "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
 
 }
 
@@ -58,7 +58,7 @@ Discovery tools:
 
 ### Phase 1: Load Context
 
-1. Compute today and yesterday's dates in YYYYMMDD format
+1. Use the provided current date and analysis day in YYYYMMDD format
 2. Call `entity_list(facet)` to get attached entities for THIS facet
 3. If no attached entities, report "No attached entities to observe" and finish
 
@@ -75,7 +75,7 @@ For each attached entity in this facet:
 
 2. **Mine recent content** for factoids about this entity:
    - Search transcripts: `search_journal("{name}", topic="audio", limit=5)`
-   - Check knowledge graph: `get_resource("journal://insight/YESTERDAY/knowledge_graph")`
+   - Check knowledge graph: `get_resource("journal://insight/$day_YYYYMMDD/knowledge_graph")`
    - Search insights: `search_journal("{name}", limit=5)`
 
 3. **Extract observations** from the content:

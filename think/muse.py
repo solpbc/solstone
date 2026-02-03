@@ -308,6 +308,8 @@ def _resolve_agent_path(name: str) -> tuple[Path, str]:
 _DEFAULT_INSTRUCTIONS = {
     "system": None,
     "facets": False,
+    "now": False,
+    "day": False,
     "sources": {
         "audio": False,
         "screen": False,
@@ -339,7 +341,7 @@ def _merge_instructions_config(defaults: dict, overrides: dict | None) -> dict:
     result = defaults.copy()
 
     # Merge top-level keys
-    for key in ("system", "facets"):
+    for key in ("system", "facets", "now", "day"):
         if key in overrides:
             result[key] = overrides[key]
 
@@ -355,7 +357,7 @@ def compose_instructions(
     user_prompt: str | None = None,
     user_prompt_dir: Path | None = None,
     facet: str | None = None,
-    include_datetime: bool = True,
+    analysis_day: str | None = None,
     config_overrides: dict | None = None,
 ) -> dict:
     """Compose instruction components for agents or generators.
@@ -374,17 +376,21 @@ def compose_instructions(
     facet:
         Optional facet name to focus on. When provided, extra_context includes
         only this facet's info (detail level controlled by "facets" setting).
-    include_datetime:
-        Whether to include current date/time in extra_context. Default True
-        for agents (real-time chat), typically False for generators (past analysis).
+    analysis_day:
+        Optional day in YYYYMMDD format for day-based analysis. Used when
+        instructions.day is true to include analysis day context.
     config_overrides:
         Optional dict from .json "instructions" key. Supported keys:
-        - "system": prompt name for system instruction (default: "journal")
-        - "facets": false | true | "full" (default: true)
+        - "system": prompt name for system instruction (default: None)
+        - "facets": false | true | "full" (default: false)
           false = skip facet context
           true = include facet context with names only
           "full" = include facet context with full descriptions
           For faceted generators, shows focused facet; for unfaceted, shows all facets.
+        - "now": false | true (default: false)
+          true = include current date/time in extra_context
+        - "day": false | true (default: false)
+          true = include analysis day context (requires analysis_day parameter)
         - "sources": {"audio": bool, "screen": bool, "agents": bool|dict}
           The "agents" source can be:
           - bool: True (all agents), False (no agents)
@@ -398,10 +404,10 @@ def compose_instructions(
         - system_instruction: str - loaded from "system" prompt
         - system_prompt_name: str - name of system prompt (for cache keys)
         - user_instruction: str | None - loaded from user_prompt if provided
-        - extra_context: str | None - facets + datetime
+        - extra_context: str | None - facets + now + day context
         - sources: dict - {"audio": bool, "screen": bool, "agents": bool|dict}
     """
-    from datetime import datetime
+    from think.utils import format_day
 
     # Merge defaults with overrides
     cfg = _merge_instructions_config(_DEFAULT_INSTRUCTIONS, config_overrides)
@@ -426,9 +432,10 @@ def compose_instructions(
     else:
         result["user_instruction"] = None
 
-    # Build extra_context based on facets setting
-    # Values: false (skip), true (names only), "full" (with descriptions)
+    # Build extra_context based on settings
     extra_parts = []
+
+    # Facets context
     facets_setting = cfg.get("facets", False)
     facets_full = facets_setting == "full"
 
@@ -453,18 +460,19 @@ def compose_instructions(
             except Exception:
                 pass  # Ignore if facets can't be loaded
 
-    # Add current date/time if requested
-    if include_datetime:
-        now = datetime.now()
-        try:
-            import tzlocal
+    # Current date/time context (instructions.now)
+    if cfg.get("now"):
+        from think.prompts import format_current_datetime
 
-            local_tz = tzlocal.get_localzone()
-            now_local = now.astimezone(local_tz)
-            time_str = now_local.strftime("%A, %B %d, %Y at %I:%M %p %Z")
-        except Exception:
-            time_str = now.strftime("%A, %B %d, %Y at %I:%M %p")
+        time_str = format_current_datetime()
         extra_parts.append(f"## Current Date and Time\nToday is {time_str}")
+
+    # Analysis day context (instructions.day)
+    if cfg.get("day") and analysis_day:
+        day_friendly = format_day(analysis_day)
+        extra_parts.append(
+            f"## Analysis Day\nYou are analyzing data from {day_friendly} ({analysis_day})."
+        )
 
     result["extra_context"] = "\n\n".join(extra_parts).strip() if extra_parts else None
 
@@ -555,7 +563,7 @@ def get_agent_filter(value: bool | str | dict) -> dict[str, bool | str] | None:
 def get_agent(
     name: str = "default",
     facet: str | None = None,
-    include_datetime: bool = True,
+    analysis_day: str | None = None,
 ) -> dict:
     """Return complete agent configuration by name.
 
@@ -571,9 +579,9 @@ def get_agent(
         Optional facet name to focus on. When provided, includes detailed
         information for just this facet (with full entity details) instead
         of summaries of all facets.
-    include_datetime:
-        Whether to include current datetime in extra_context. Default True
-        for interactive agents, set False for historical analysis (day-based).
+    analysis_day:
+        Optional day in YYYYMMDD format. When provided and instructions.day is
+        true, includes analysis day context in extra_context.
 
     Returns
     -------
@@ -608,7 +616,7 @@ def get_agent(
         user_prompt=agent_name,
         user_prompt_dir=agent_dir,
         facet=facet,
-        include_datetime=include_datetime,
+        analysis_day=analysis_day,
         config_overrides=instructions_config,
     )
 

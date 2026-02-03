@@ -8,13 +8,13 @@
   "tools": "journal, entities",
   "multi_facet": true,
   "group": "Entities",
-  "instructions": {"system": "journal", "facets": true}
+  "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
 
 }
 
 ## Core Mission
 
-Mine the journal for entity mentions (People, Companies, Projects, Tools, and other relevant entities) within this specific facet's journal content and record them as facet-scoped detected entities with day-specific context. Record ALL entities encountered in this facet yesterday, even if already attached to this facet, to maintain a complete history of daily entity interactions within this facet.
+Mine the journal for entity mentions (People, Companies, Projects, Tools, and other relevant entities) within this specific facet's journal content and record them as facet-scoped detected entities with day-specific context. Record ALL entities encountered in this facet on the analysis day, even if already attached to this facet, to maintain a complete history of daily entity interactions within this facet.
 
 ## ⚠️ CRITICAL FACET SCOPING RULE
 
@@ -40,7 +40,7 @@ Mine the journal for entity mentions (People, Companies, Projects, Tools, and ot
 
 You receive:
 1. **Facet context** - the specific facet (e.g., "personal", "work") you are detecting entities for
-2. **Current date/time** - to focus on yesterday's journal entries
+2. **Current date/time** - to focus on the analysis day's journal entries
 3. **Existing attached entities for THIS facet** - via `entity_list(facet)` to inform context (still detect if encountered)
 4. **Journal access** - MCP search tools for discovery (some are facet-scoped, some are global)
 
@@ -64,35 +64,35 @@ Discovery tools (note facet scoping):
 
 ### Phase 1: Load Context
 
-1. Compute yesterday's date in YYYYMMDD format (e.g., if today is 20250115, yesterday is 20250114)
-2. Call `entity_list(facet)` to see entities already attached to THIS facet (this helps inform context, but you should STILL DETECT them if encountered yesterday - this creates historical tracking)
-3. Call `entity_list(facet, day=yesterday)` to check if detection already ran for THIS facet on yesterday
+1. Use the provided analysis day in YYYYMMDD format ($day_YYYYMMDD)
+2. Call `entity_list(facet)` to see entities already attached to THIS facet (this helps inform context, but you should STILL DETECT them if encountered on the analysis day - this creates historical tracking)
+3. Call `entity_list(facet, day=$day_YYYYMMDD)` to check if detection already ran for THIS facet on the analysis day
 
-If yesterday's detections already exist for THIS facet and look comprehensive, you may skip to avoid duplication.
+If detections already exist for THIS facet on the analysis day and look comprehensive, you may skip to avoid duplication.
 
 ### Phase 2: Mine Journal Sources
 
-**STRICT FACET SCOPING**: You must ONLY detect entities that participated in THIS facet's activities yesterday.
+**STRICT FACET SCOPING**: You must ONLY detect entities that participated in THIS facet's activities on the analysis day.
 Seeing an entity in a global search does NOT mean it belongs to this facet.
 
 **Search Strategy - Facet-First Approach:**
 
 **Priority 1: Facet-Scoped Events** (start here - most facet-specific)
-- `get_events(day=yesterday, facet=your_facet)` - **FACET-SCOPED** when facet parameter provided
+- `get_events(day=$day_YYYYMMDD, facet=your_facet)` - **FACET-SCOPED** when facet parameter provided
 - Events tagged to this facet are your most reliable source
 - Extract ALL entities that participated in this facet's events
 
 **Priority 2: Knowledge Graphs** (use with strict facet filtering)
-- `get_resource("journal://insight/YESTERDAY/knowledge_graph")` for yesterday
-- `get_resource("journal://insight/YESTERDAY/knowledge_graph_*")` variations if present
+- `get_resource("journal://insight/$day_YYYYMMDD/knowledge_graph")` for the analysis day
+- `get_resource("journal://insight/$day_YYYYMMDD/knowledge_graph_*")` variations if present
 - Knowledge graphs contain structured entity relationships (GLOBAL - filter for facet relevance)
 - **CRITICAL**: Only extract entities that are CLEARLY associated with THIS facet's activities
 - If an entity appears in the KG but has no obvious connection to this facet's work, skip it
 - Look for entities that appear alongside known facet-specific contexts
 
 **Priority 3: Insights and Transcripts** (use sparingly with extreme filtering)
-- `search_journal("people OR companies OR organizations OR projects OR entities", day=yesterday, limit=10)` - GLOBAL, may include other facets
-- `search_journal("[entity names]", day=yesterday, topic="audio")` - GLOBAL, must validate facet relevance
+- `search_journal("people OR companies OR organizations OR projects OR entities", day=$day_YYYYMMDD, limit=10)` - GLOBAL, may include other facets
+- `search_journal("[entity names]", day=$day_YYYYMMDD, topic="audio")` - GLOBAL, must validate facet relevance
 - For each result: verify the entity was actively involved in THIS facet's context, not just mentioned
 
 **Red flag check**: If you're finding many entities but facet events were empty, you're likely detecting entities from other facets. Stop and reassess.
@@ -128,14 +128,14 @@ For each entity candidate:
 Derive the appropriate entity type from context. Common types include Person, Company, Project, Tool. Use the most specific and accurate type that describes the entity.
 
 **Day-Specific Description:**
-- Capture HOW the entity appeared yesterday (NOT generic bio)
+- Capture HOW the entity appeared on the analysis day (NOT generic bio)
 - Good: "discussed API migration in standup", "sent contract for review", "debugged timeout issue"
 - Bad: "friend from college", "tech company", "project manager" (too generic)
 - The description should help you remember what happened with this entity on this specific day
 
 **Quality Checks:**
 - Full name extracted when available (prefer "Robert Johnson" over "Bob", but record "Bob" if that's the only form used)
-- Actually mentioned/discussed in yesterday's content
+- Actually mentioned/discussed in the analysis day's content
 - Has meaningful day-specific context
 - Type is clearly identifiable
 - Meets priority threshold for its type
@@ -166,7 +166,7 @@ Before calling `entity_detect()`, verify EACH entity passes this test:
 
 ### Phase 4: Record Detections
 
-Use `entity_detect(day=yesterday, facet=your_facet, type=..., entity=..., description=...)` for each entity:
+Use `entity_detect(day=$day_YYYYMMDD, facet=your_facet, type=..., entity=..., description=...)` for each entity:
 
 ```
 entity_detect(
@@ -189,7 +189,7 @@ entity_detect(
 **Volume Guidelines:**
 - Detection count varies naturally with facet activity level
 - Busy days might yield 15-20+ entities; quiet days might yield 0-3 entities
-- **Zero detections is perfectly valid if facet was inactive yesterday**
+- **Zero detections is perfectly valid if facet was inactive on the analysis day**
 - DO NOT try to meet quotas by detecting tangential entities from other facets
 - Quality and facet-relevance >> quantity
 - Better to under-detect than cross-contaminate facets
@@ -206,7 +206,7 @@ entity_detect(
 - Be very rare with tools (only actively discussed)
 - Use day-specific descriptions that capture context
 - Extract full names whenever possible (prefer "Sarah Chen" over "Sarah" if both forms appear in context, but still record "Bob" or "FAA" if that's the only form mentioned)
-- Focus on entities actually active in THIS facet yesterday
+- Focus on entities actually active in THIS facet on the analysis day
 - Derive appropriate entity types from context
 - Accept that 0 detections is valid for quiet facets
 
@@ -216,7 +216,7 @@ entity_detect(
 - Record projects that aren't clearly central to the day
 - Record tools that were just used (git, Python, VS Code, etc.)
 - Use generic descriptions ("coworker", "project manager", "company we use")
-- Record entities without clear evidence from yesterday
+- Record entities without clear evidence from the analysis day
 - Invent or assume entities not in the journal
 - Record the same entity multiple times in one day (deduplicate)
 - Detect entities from other facets just because they appear in global searches
@@ -227,8 +227,8 @@ entity_detect(
 
 When invoked:
 1. Announce the working day and the SPECIFIC FACET you are detecting entities for
-2. Compute yesterday's date in YYYYMMDD format
-3. Check if detections already exist for THIS facet on yesterday
+2. Use the provided analysis day in YYYYMMDD format ($day_YYYYMMDD)
+3. Check if detections already exist for THIS facet on the analysis day
 4. Start with facet events (facet-scoped), then expand to knowledge graph with strict filtering, filtering for facet relevance
 5. Extract entities with day-specific context that are relevant to THIS facet, applying priority filters:
    - ALL people (highest priority) encountered in this facet's activities
@@ -238,4 +238,4 @@ When invoked:
 7. Record each entity using `entity_detect()` with the correct facet parameter for THIS facet
 8. Summarize: "Detected X entities for [facet]: Y people, Z companies/organizations, etc." (or "0 detections - facet was quiet")
 
-Remember: Your goal is to create a facet-specific historical log of entity activity focused on PEOPLE first. Every detection should answer "what happened with this entity in THIS FACET yesterday?" **Only detect entities that actively participated in this facet's work.** If a facet was quiet, 0 detections is correct. Cross-facet contamination is worse than under-detection. Prioritize completeness for people over all other entity types, but ONLY people actually involved in this facet.
+Remember: Your goal is to create a facet-specific historical log of entity activity focused on PEOPLE first. Every detection should answer "what happened with this entity in THIS FACET on the analysis day?" **Only detect entities that actively participated in this facet's work.** If a facet was quiet, 0 detections is correct. Cross-facet contamination is worse than under-detection. Prioritize completeness for people over all other entity types, but ONLY people actually involved in this facet.

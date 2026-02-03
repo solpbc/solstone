@@ -72,14 +72,14 @@ def _load_templates(template_vars: dict[str, str] | None = None) -> dict[str, st
     """Load and substitute template files from think/templates/ directory.
 
     Raw templates are cached, but substitution is performed on each call
-    to support context-dependent variables like $date and $segment_start.
+    to support context-dependent variables like $day and $segment_start.
 
     Parameters
     ----------
     template_vars:
         Optional variables to substitute into templates. Templates can use
-        identity vars ($name, $preferred), context vars ($day, $date,
-        $segment_start, $segment_end), and other template vars.
+        identity vars ($name, $preferred), context vars ($day, $day_YYYYMMDD,
+        $segment_start, $segment_end, $now), and other template vars.
 
     Returns
     -------
@@ -102,6 +102,28 @@ def _load_templates(template_vars: dict[str, str] | None = None) -> dict[str, st
             substituted[var_name] = content
 
     return substituted
+
+
+def format_current_datetime() -> str:
+    """Format current datetime with timezone for display.
+
+    Returns a human-readable string like "Monday, February 3, 2025 at 10:30 AM PST".
+    Falls back to timezone-naive format if tzlocal is unavailable.
+
+    This is the single source of truth for $now template variable and
+    instructions.now context formatting.
+    """
+    from datetime import datetime
+
+    now = datetime.now()
+    try:
+        import tzlocal
+
+        local_tz = tzlocal.get_localzone()
+        now_local = now.astimezone(local_tz)
+        return now_local.strftime("%A, %B %d, %Y at %I:%M %p %Z")
+    except Exception:
+        return now.strftime("%A, %B %d, %Y at %I:%M %p")
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +204,7 @@ def load_prompt(
       - Each file becomes a variable named after its stem
       - Example: daily_preamble.md -> $daily_preamble
       - Templates are pre-processed with identity and context vars, so templates
-        can use $date, $preferred, etc. before being substituted into prompts
+        can use $day, $preferred, $now, etc. before being substituted into prompts
 
     Callers can provide additional context variables via the ``context`` parameter.
     Context variables override identity and template variables if there's a collision.
@@ -238,6 +260,9 @@ def load_prompt(
         config = get_config()
         identity = config.get("identity", {})
         template_vars = _flatten_identity_to_template_vars(identity)
+
+        # Add $now template variable (current datetime)
+        template_vars["now"] = format_current_datetime()
 
         # Merge caller-provided context (overrides identity vars if collision)
         if context:

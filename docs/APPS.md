@@ -297,7 +297,7 @@ The `occurrences` field (optional string) provides topic-specific extraction gui
 
 **App-data outputs:** For outputs from app-specific data (not transcripts), store in `JOURNAL/apps/{app}/agents/*.md` - these are automatically indexed.
 
-**Template variables:** Generator prompts can use template variables like `$name`, `$preferred`, `$daily_preamble`, and context variables like `$day` and `$date`. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
+**Template variables:** Generator prompts can use template variables like `$name`, `$preferred`, `$daily_preamble`, and context variables like `$day` and `$day_YYYYMMDD`. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 
 **Custom hooks:** Both generators and tool-using agents support custom `.py` hooks for transforming inputs and outputs programmatically. Hooks support both pre-processing (before LLM call) and post-processing (after LLM call):
 

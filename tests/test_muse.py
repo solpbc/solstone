@@ -160,15 +160,14 @@ class TestComposeInstructions:
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
         result = compose_instructions(
-            include_datetime=False,
-            config_overrides={"facets": False},
+            config_overrides={"facets": False, "now": False, "day": False},
         )
 
         # With no datetime and no facets, extra_context should be empty/None
         assert result["extra_context"] is None or result["extra_context"] == ""
 
-    def test_include_datetime_false_excludes_time(self, monkeypatch, tmp_path):
-        """Test that include_datetime=False excludes time from context."""
+    def test_now_false_excludes_time(self, monkeypatch, tmp_path):
+        """Test that now=False excludes current datetime from context."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
         journal_txt = think_dir / "journal.md"
@@ -180,15 +179,14 @@ class TestComposeInstructions:
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
         result = compose_instructions(
-            include_datetime=False,
-            config_overrides={"facets": False},
+            config_overrides={"facets": False, "now": False},
         )
 
         extra = result.get("extra_context") or ""
         assert "Current Date and Time" not in extra
 
-    def test_include_datetime_true_includes_time(self, monkeypatch, tmp_path):
-        """Test that include_datetime=True includes time in context."""
+    def test_now_true_includes_time(self, monkeypatch, tmp_path):
+        """Test that now=True includes current datetime in context."""
         think_dir = tmp_path / "think"
         think_dir.mkdir()
         journal_txt = think_dir / "journal.md"
@@ -200,11 +198,31 @@ class TestComposeInstructions:
         monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
         result = compose_instructions(
-            include_datetime=True,
-            config_overrides={"facets": False},
+            config_overrides={"facets": False, "now": True},
         )
 
         assert "Current Date and Time" in result["extra_context"]
+
+    def test_day_true_includes_analysis_day(self, monkeypatch, tmp_path):
+        """Test that day=True includes analysis day in context."""
+        think_dir = tmp_path / "think"
+        think_dir.mkdir()
+        journal_txt = think_dir / "journal.md"
+        journal_txt.write_text("System instruction")
+
+        import think.prompts
+
+        monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
+        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+        result = compose_instructions(
+            analysis_day="20250115",
+            config_overrides={"facets": False, "day": True},
+        )
+
+        extra = result.get("extra_context") or ""
+        assert "Analysis Day" in extra
+        assert "20250115" in extra
 
     def test_sources_returned_from_defaults(self, monkeypatch, tmp_path):
         """Test that sources config is returned with defaults (all false)."""

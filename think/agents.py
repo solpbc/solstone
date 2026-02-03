@@ -225,14 +225,17 @@ def _build_prompt_context(
         span: List of segment keys
 
     Returns:
-        Dict with day, date, segment_start, segment_end as available
+        Dict with template variables:
+        - day: Friendly format (e.g., "Sunday, February 2, 2025")
+        - day_YYYYMMDD: Raw day string (e.g., "20250202")
+        - segment_start, segment_end: Time strings if segment/span provided
     """
     context: dict[str, str] = {}
     if not day:
         return context
 
-    context["day"] = day
-    context["date"] = format_day(day)
+    context["day"] = format_day(day)
+    context["day_YYYYMMDD"] = day
 
     if segment:
         start_str, end_str = format_segment_times(segment)
@@ -322,15 +325,16 @@ def prepare_config(request: dict) -> dict:
     - tools: Expanded tool list (if tool agent)
     - system_instruction: System prompt
     - user_instruction: Agent instruction from .md file
-    - extra_context: Facets, datetime context
+    - extra_context: Facets and context from instructions.now/day settings
     - prompt: User's runtime query/request
     - transcript: Clustered transcript (if day provided)
     - output_path: Where to write output (if output format set)
     - skip_reason: Why to skip (if applicable)
 
-    Day vs Non-Day Processing:
-    - Non-day (interactive): Includes current datetime in context, no transcript
-    - Day-based (historical): Excludes datetime, loads clustered transcript
+    Context is controlled by explicit frontmatter settings:
+    - instructions.now: Include current datetime in extra_context
+    - instructions.day: Include analysis day context (requires day parameter)
+    - Day-based calls also load clustered transcript
 
     Args:
         request: Raw request dict from cortex
@@ -350,10 +354,8 @@ def prepare_config(request: dict) -> dict:
     output_path_override = request.get("output_path")
     user_prompt = request.get("prompt", "")
 
-    # Load complete agent config with appropriate datetime context:
-    # - Interactive (no day): include_datetime=True for current context
-    # - Day-based analysis: include_datetime=False for historical data
-    config = get_agent(name, facet=facet, include_datetime=not day)
+    # Load complete agent config, passing day for instructions.day context
+    config = get_agent(name, facet=facet, analysis_day=day)
 
     # Config now contains all frontmatter fields plus:
     # - path: Path to the .md file

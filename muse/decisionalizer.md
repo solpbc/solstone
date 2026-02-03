@@ -1,18 +1,18 @@
 {
 
   "title": "Decision Dossier Generator",
-  "description": "Analyzes yesterday's top decision-actions to create detailed dossiers identifying gaps and stakeholder impacts",
+  "description": "Analyzes the day's top decision-actions to create detailed dossiers identifying gaps and stakeholder impacts",
   "color": "#c62828",
   "schedule": "daily",
   "priority": 60,
   "output": "md",
   "tools": "default",
-  "instructions": {"system": "journal", "facets": true}
+  "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
 
 }
 
 ## Mission
-From yesterday's "Top 10 Decision-Actions" list, you will:
+From the day's "Top 10 Decision-Actions" list, you will:
 1. Select the TWO most consequential decisions based on impact criteria
 2. Use MCP tools to research context, stakeholders, and follow-ups
 3. Identify gaps between expected and actual obligations
@@ -36,19 +36,19 @@ From yesterday's "Top 10 Decision-Actions" list, you will:
 **Query syntax**: Searches match ALL words by default; use `OR` between words to match ANY (e.g., `apple OR orange`), quote phrases for exact matches (e.g., `"project meeting"`), and append `*` for prefix matching (e.g., `debug*`).
 
 ## Inputs
-- Yesterday's date in YYYYMMDD format (provided as context)
-- Current day in YYYYMMDD format (provided as context)
+- The analysis day in YYYYMMDD format (provided as context)
+- Current date/time (provided as context)
 
-## PHASE 0: Load Yesterday's Decisions
+## PHASE 0: Load the Day's Decisions
 
-**CRITICAL FIRST STEP**: Before any analysis, retrieve yesterday's complete decisions topic:
+**CRITICAL FIRST STEP**: Before any analysis, retrieve the day's complete decisions topic:
 
 ```
-get_resource("journal://insight/YESTERDAY/decisions")
+get_resource("journal://insight/$day_YYYYMMDD/decisions")
 ```
 
-This will give you the full "Top 10 Decision-Actions" list from yesterday to analyze.
-If the decisions topic doesn't exist for yesterday, stop and report this clearly.
+This will give you the full "Top 10 Decision-Actions" list from the analysis day.
+If the decisions topic doesn't exist, stop and report this clearly.
 
 ## PHASE 1: Decision Selection
 
@@ -65,22 +65,22 @@ First, analyze all 10 decisions and select the TWO most consequential based on:
 Use these tools in sequence:
 
 1. **Find the decision moment:**
-   - `search_journal("decision keywords here", day="YESTERDAY", topic="audio", limit=10)`
+   - `search_journal("decision keywords here", day="$day_YYYYMMDD", topic="audio", limit=10)`
    - Goal: Pinpoint exact time of decision (HH:MM:SS)
 
 2. **Get full context:**
-   - `get_resource("journal://transcripts/full/YESTERDAY/HHMMSS/30")`
+   - `get_resource("journal://transcripts/full/$day_YYYYMMDD/HHMMSS/30")`
    - Goal: Extract 30 minutes of raw activity around decision time
 
 ### Step 2: Stakeholder & Dependency Mapping
 
 1. **Identify all entities:**
-   - `search_journal("entity names from decision", day="YESTERDAY")`
+   - `search_journal("entity names from decision", day="$day_YYYYMMDD")`
    - Goal: Find all people, teams, projects mentioned
 
 2. **Map meeting participants:**
-   - `get_events("YESTERDAY")` or `search_journal("[keywords]", day="YESTERDAY", topic="event")`
-   - `search_journal("[keywords]", topic="news", facet="work", day="YESTERDAY")` for public announcements
+   - `get_events("$day_YYYYMMDD")` or `search_journal("[keywords]", day="$day_YYYYMMDD", topic="event")`
+   - `search_journal("[keywords]", topic="news", facet="work", day="$day_YYYYMMDD")` for public announcements
    - Goal: Identify who needs to know about this decision
 
 ### Step 3: Historical Precedent Mining (30-day lookback)
@@ -96,26 +96,26 @@ Use these tools in sequence:
 ### Step 4: Forward Impact Assessment (2-6 hours post-decision)
 
 1. **Check for communications:**
-   - `search_journal("[keywords]", day="YESTERDAY", topic="audio", limit=10)`
-   - `search_journal("[keywords]", topic="news", day="YESTERDAY")` for decision announcements
+   - `search_journal("[keywords]", day="$day_YYYYMMDD", topic="audio", limit=10)`
+   - `search_journal("[keywords]", topic="news", day="$day_YYYYMMDD")` for decision announcements
    - Goal: Find follow-up notifications or discussions
 
 2. **Review meetings:**
-   - `search_journal("[keywords]", day="YESTERDAY", topic="event")`
+   - `search_journal("[keywords]", day="$day_YYYYMMDD", topic="event")`
    - Goal: See if decision was discussed
 
 3. **Check messaging:**
-   - `get_resource("journal://insight/YESTERDAY/messages")`
+   - `get_resource("journal://insight/$day_YYYYMMDD/messages")`
    - Goal: Verify notifications were sent
 
 ### Step 5: Gap Detection
 
 1. **Search for problems:**
-   - `search_journal("rollback revert issue problem", day="YESTERDAY")`
+   - `search_journal("rollback revert issue problem", day="$day_YYYYMMDD")`
    - Goal: Identify emerging issues
 
 2. **Verify updates:**
-   - `search_journal("document update change commit", day="YESTERDAY", topic="audio")`
+   - `search_journal("document update change commit", day="$day_YYYYMMDD", topic="audio")`
    - Goal: Confirm tracking artifacts were updated
 
 OBLIGATION CATEGORIES (derive expectations from decision type + precedents; adapt to what the data shows)
