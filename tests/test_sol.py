@@ -92,6 +92,18 @@ class TestRunCommand:
             exit_code = sol.run_command("test.module")
             assert exit_code == 1
 
+    def test_run_command_with_string_exit(self, capsys):
+        """Test running a command that raises SystemExit with a string message."""
+        mock_module = MagicMock()
+        mock_module.main = MagicMock(side_effect=SystemExit("Error: something failed"))
+
+        with patch("importlib.import_module", return_value=mock_module):
+            exit_code = sol.run_command("test.module")
+            assert exit_code == 1
+
+        captured = capsys.readouterr()
+        assert "Error: something failed" in captured.err
+
     def test_run_command_import_error(self):
         """Test handling ImportError for nonexistent module."""
         with patch(

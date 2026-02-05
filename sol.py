@@ -250,7 +250,14 @@ def run_command(module_path: str) -> int:
         return 0
     except SystemExit as e:
         # Preserve exit code from subcommand
-        return e.code if isinstance(e.code, int) else (1 if e.code else 0)
+        # SystemExit can have int code, string message, or None
+        if isinstance(e.code, int):
+            return e.code
+        elif isinstance(e.code, str):
+            print(e.code, file=sys.stderr)
+            return 1
+        else:
+            return 0 if not e.code else 1
 
 
 def main() -> None:

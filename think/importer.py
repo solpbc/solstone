@@ -8,6 +8,7 @@ import logging
 import os
 import queue
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -531,6 +532,7 @@ def _setup_import(
     facet: str | None,
     setting: str | None,
     detection_result: dict | None,
+    force: bool = False,
 ) -> str:
     """Copy file to imports/ and write metadata. Returns new file path."""
     journal_root = Path(get_journal())
@@ -538,10 +540,14 @@ def _setup_import(
 
     # Check for conflict
     if import_dir.exists():
-        raise SystemExit(
-            f"Error: Import already exists for timestamp {timestamp}\n"
-            f"Use a different timestamp or delete: {import_dir}"
-        )
+        if force:
+            logger.info(f"Removing existing import directory: {import_dir}")
+            shutil.rmtree(import_dir)
+        else:
+            raise SystemExit(
+                f"Error: Import already exists for timestamp {timestamp}\n"
+                f"To re-import, use --force to delete existing data and start over"
+            )
 
     # Copy file to imports/
     filename = os.path.basename(media_path)
@@ -620,6 +626,11 @@ def main() -> None:
         action="store_true",
         help="Skip waiting for transcription and summary generation",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force re-import by deleting existing import directory",
+    )
     args, extra = setup_cli(parser, parse_known=True)
     if extra and not args.timestamp:
         args.timestamp = extra[0]
@@ -657,9 +668,13 @@ def main() -> None:
 
     # Copy to imports/ if file is not already there
     if needs_setup:
-        print("Copying to journal...")
         args.media = _setup_import(
-            args.media, args.timestamp, args.facet, args.setting, detection_result
+            args.media,
+            args.timestamp,
+            args.facet,
+            args.setting,
+            detection_result,
+            force=args.force,
         )
         print("Starting import...")
 
