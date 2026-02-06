@@ -631,6 +631,11 @@ def main() -> None:
         action="store_true",
         help="Force re-import by deleting existing import directory",
     )
+    parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="Auto-accept detected timestamp and proceed with import",
+    )
     args, extra = setup_cli(parser, parse_known=True)
     if extra and not args.timestamp:
         args.timestamp = extra[0]
@@ -638,7 +643,7 @@ def main() -> None:
     # Track detection result for metadata
     detection_result = None
 
-    # If no timestamp provided, detect it and show instruction
+    # If no timestamp provided, detect it
     if not args.timestamp:
         # Pass the original filename for better detection
         detection_result = detect_created(
@@ -651,10 +656,16 @@ def main() -> None:
         ):
             detected_timestamp = f"{detection_result['day']}_{detection_result['time']}"
             display = _format_timestamp_display(detected_timestamp)
-            print(f"Detected timestamp: {detected_timestamp} ({display})")
-            print("\nRun:")
-            print(f"  sol import {args.media} --timestamp {detected_timestamp}")
-            return
+            if args.auto:
+                print(
+                    f"Detected timestamp: {detected_timestamp} ({display}) — auto-importing"
+                )
+                args.timestamp = detected_timestamp
+            else:
+                print(f"Detected timestamp: {detected_timestamp} ({display})")
+                print("\nRun:")
+                print(f"  sol import {args.media} --timestamp {detected_timestamp}")
+                return
         else:
             raise SystemExit(
                 "Could not detect timestamp. Please provide --timestamp YYYYMMDD_HHMMSS"
