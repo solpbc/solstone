@@ -10,6 +10,7 @@ import re
 import shutil
 from datetime import date
 from glob import glob
+from pathlib import Path
 from typing import Any
 
 from flask import (
@@ -336,11 +337,20 @@ def segment_content(day: str, segment_key: str) -> Any:
     # Get cost data for this segment
     cost_data = get_usage_cost(day, segment=segment_key)
 
+    # Collect agent .md files
+    md_files = {}
+    for md_path in sorted(Path(segment_dir).glob("*.md")):
+        try:
+            md_files[md_path.stem] = md_path.read_text()
+        except Exception:
+            continue
+
     return jsonify(
         {
             "chunks": chunks,
             "audio_file": audio_file_url,
             "video_files": video_files,
+            "md_files": md_files,
             "segment_key": segment_key,
             "cost": cost_data["cost"],
             "media_sizes": media_sizes,

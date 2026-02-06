@@ -198,19 +198,89 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   font-size: 14px;
 }
 
-.tr-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+.tr-tabs {
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+  display: none;
 }
 
-.tr-checkbox-label {
+.tr-tabs.visible {
   display: flex;
-  align-items: center;
-  gap: 4px;
+}
+
+.tr-tab {
+  padding: 6px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
   cursor: pointer;
+  background: #fff;
+  color: #374151;
+  transition: all 0.15s;
+}
+
+.tr-tab:hover {
+  background: #f9fafb;
+}
+
+.tr-tab.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.tr-tab-pane {
+  display: none;
+  height: 100%;
+}
+
+.tr-tab-pane.active {
+  display: block;
+}
+
+.tr-md-content {
+  padding: 16px;
+  line-height: 1.6;
   font-size: 14px;
+}
+
+.tr-md-content h1, .tr-md-content h2, .tr-md-content h3 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.tr-md-content p {
+  margin-bottom: 12px;
+}
+
+.tr-md-content ul, .tr-md-content ol {
+  margin-bottom: 12px;
+  padding-left: 24px;
+}
+
+.tr-md-content code {
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.tr-md-content pre {
+  background: #f3f4f6;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+
+.tr-screen-text {
+  padding: 8px 12px;
+  color: #6b7280;
+  font-size: 13px;
+  border-left: 3px solid #e5e7eb;
+  margin: 4px 0;
 }
 
 /* Delete button */
@@ -791,23 +861,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           <h2 class="tr-title">Transcript Preview</h2>
           <div class="tr-range-text" id="trRangeText">Select a segment to view</div>
         </div>
-        <div class="tr-controls">
-          <label class="tr-checkbox-label">
-            <input type="checkbox" id="trAudioCheck" checked>
-            <span>Audio</span>
-          </label>
-          <label class="tr-checkbox-label">
-            <input type="checkbox" id="trScreenCheck" checked>
-            <span>Screen</span>
-          </label>
-          <button type="button" id="trDeleteBtn" class="tr-delete-btn" title="Delete segment">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
-        </div>
+        <button type="button" id="trDeleteBtn" class="tr-delete-btn" title="Delete segment">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
       </div>
+      <div class="tr-tabs" id="trTabs"></div>
       <div class="tr-panel" id="trPanel"></div>
     </div>
   </div>
@@ -847,9 +908,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
   // Elements - content panel
   const rangeText = document.getElementById('trRangeText');
+  const tabsContainer = document.getElementById('trTabs');
   const panel = document.getElementById('trPanel');
-  const audioCheck = document.getElementById('trAudioCheck');
-  const screenCheck = document.getElementById('trScreenCheck');
   const deleteBtn = document.getElementById('trDeleteBtn');
 
   // State
@@ -1210,7 +1270,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
   }
 
-  // Build range text with cost and media size, reactive to audio/screen toggles
+  // Build range text with cost and total media size
   function updateRangeText() {
     if (!selectedSegment || !segmentData) return;
     const seg = selectedSegment;
@@ -1225,11 +1285,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     if (sizes) {
       let total = 0;
       const breakdown = [];
-      if (audioCheck.checked && sizes.audio) {
+      if (sizes.audio) {
         total += sizes.audio;
         breakdown.push('audio ' + formatSize(sizes.audio));
       }
-      if (screenCheck.checked && sizes.screen) {
+      if (sizes.screen) {
         total += sizes.screen;
         breakdown.push('screen ' + formatSize(sizes.screen));
       }
@@ -1434,137 +1494,237 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
   // Unified timeline state
   let segmentData = null;
-  let segmentAudioEl = null;
   let currentVideoFiles = {}; // filename -> video URL mapping
   let groupEntriesByIdx = new Map();
+  let activeTab = null;
+  let tabPanes = {}; // tabId -> pane element
+  let screenDecoded = false;
 
   function loadSegmentContent(seg) {
-    const showAudio = audioCheck.checked;
-    const showScreen = screenCheck.checked;
     const segmentToken = seg.key;
 
-    // Clear old data, videos, and show loading message immediately
+    // Clear old data, videos, tabs, and show loading message immediately
     segmentData = null;
     currentVideoFiles = {};
+    tabPanes = {};
+    activeTab = null;
+    screenDecoded = false;
     frameCapture.clear();
-    panel.innerHTML = '<div class="tr-unified-empty"><p id="trLoadingStatus">Loading segment...</p></div>';
+    tabsContainer.classList.remove('visible');
+    tabsContainer.innerHTML = '';
+    panel.innerHTML = '<div class="tr-unified-empty"><p>Loading segment...</p></div>';
 
-    // Use new unified segment endpoint
     fetch(`/app/transcripts/api/segment/${day}/${seg.key}`)
       .then(r => r.json())
       .then(data => {
-        if (selectedSegment && selectedSegment.key !== segmentToken) {
+        if (!selectedSegment || selectedSegment.key !== segmentToken) {
           return;
         }
         segmentData = data;
-        currentVideoFiles = showScreen ? (data.video_files || {}) : {};
-
-        // Update range text with cost and media sizes
         updateRangeText();
-
-        // Skip keyframe prefetching when screen is disabled
-        if (!showScreen) {
-          renderSegmentTimeline(data, showAudio, showScreen);
-          return;
-        }
-
-        const nonBasicByVideo = new Map();
-        (data.chunks || []).forEach(chunk => {
-          if (chunk.type !== 'screen') return;
-          if (chunk.basic === true) return;
-          const filename = chunk.source_ref?.filename;
-          const frameId = chunk.source_ref?.frame_id;
-          if (!filename || !frameId) return;
-          if (!nonBasicByVideo.has(filename)) {
-            nonBasicByVideo.set(filename, new Set());
-          }
-          nonBasicByVideo.get(filename).add(frameId);
-        });
-
-        const totalFrames = Array.from(nonBasicByVideo.values()).reduce(
-          (sum, frames) => sum + frames.size,
-          0
-        );
-        const perVideoProgress = new Map();
-        let lastStatusUpdate = 0;
-
-        const updateLoadingStatus = (done) => {
-          const statusEl = document.getElementById('trLoadingStatus');
-          if (!statusEl) return;
-          if (!totalFrames) {
-            statusEl.textContent = 'Loading segment...';
-            return;
-          }
-          const decoded = Array.from(perVideoProgress.values()).reduce((sum, count) => sum + count, 0);
-          const pct = Math.min(100, Math.round((decoded / totalFrames) * 100));
-          statusEl.textContent = done
-            ? 'Rendering transcript...'
-            : `Decoding key frames ${decoded}/${totalFrames} (${pct}%)...`;
-        };
-
-        const makeProgressHandler = (videoUrl) => (count) => {
-          const now = Date.now();
-          perVideoProgress.set(videoUrl, count);
-          if (now - lastStatusUpdate > 150) {
-            lastStatusUpdate = now;
-            updateLoadingStatus(false);
-          }
-        };
-
-        updateLoadingStatus(false);
-
-        const decodeJobs = [];
-        Object.entries(currentVideoFiles).forEach(([filename, url]) => {
-          const frameIds = Array.from(nonBasicByVideo.get(filename) || []);
-          if (frameIds.length > 0) {
-            decodeJobs.push(frameCapture.prefetchThumbnails(url, frameIds, makeProgressHandler(url)));
-          }
-        });
-
-        if (decodeJobs.length === 0) {
-          renderSegmentTimeline(data, showAudio, showScreen);
-          return;
-        }
-
-        Promise.all(decodeJobs)
-          .then(() => {
-            if (selectedSegment && selectedSegment.key !== segmentToken) {
-              return;
-            }
-            updateLoadingStatus(true);
-            renderSegmentTimeline(data, showAudio, showScreen);
-          })
-          .catch(() => {
-            if (selectedSegment && selectedSegment.key !== segmentToken) {
-              return;
-            }
-            updateLoadingStatus(true);
-            renderSegmentTimeline(data, showAudio, showScreen);
-          });
+        buildTabBar(data);
+        activateTab('transcript');
       })
       .catch(() => {
+        tabsContainer.classList.remove('visible');
+        tabsContainer.innerHTML = '';
         panel.innerHTML = '<p>Error loading transcript.</p>';
       });
   }
 
-  function renderSegmentTimeline(data, showAudio, showScreen) {
+  function prepareScreenFrames(data, targetEl, segmentToken) {
+    if (screenDecoded) {
+      return Promise.resolve();
+    }
+
+    const isStaleSegment = () => !selectedSegment || selectedSegment.key !== segmentToken;
+    if (isStaleSegment()) {
+      return Promise.resolve();
+    }
+
+    currentVideoFiles = data.video_files || {};
+
+    const nonBasicByVideo = new Map();
+    (data.chunks || []).forEach(chunk => {
+      if (chunk.type !== 'screen') return;
+      if (chunk.basic === true) return;
+      const filename = chunk.source_ref?.filename;
+      const frameId = chunk.source_ref?.frame_id;
+      if (!filename || !frameId) return;
+      if (!nonBasicByVideo.has(filename)) {
+        nonBasicByVideo.set(filename, new Set());
+      }
+      nonBasicByVideo.get(filename).add(frameId);
+    });
+
+    const totalFrames = Array.from(nonBasicByVideo.values()).reduce(
+      (sum, frames) => sum + frames.size,
+      0
+    );
+    const perVideoProgress = new Map();
+    let lastStatusUpdate = 0;
+
+    const updateLoadingStatus = (done) => {
+      if (isStaleSegment()) return;
+      const statusEl = targetEl.querySelector('[data-role="loading-status"]');
+      if (!statusEl) return;
+      if (!totalFrames) {
+        statusEl.textContent = 'Loading screen entries...';
+        return;
+      }
+      const decoded = Array.from(perVideoProgress.values()).reduce((sum, count) => sum + count, 0);
+      const pct = Math.min(100, Math.round((decoded / totalFrames) * 100));
+      statusEl.textContent = done
+        ? 'Rendering screen entries...'
+        : `Decoding key frames ${decoded}/${totalFrames} (${pct}%)...`;
+    };
+
+    const makeProgressHandler = (videoUrl) => (count) => {
+      if (isStaleSegment()) return;
+      const now = Date.now();
+      perVideoProgress.set(videoUrl, count);
+      if (now - lastStatusUpdate > 150) {
+        lastStatusUpdate = now;
+        updateLoadingStatus(false);
+      }
+    };
+
+    updateLoadingStatus(false);
+
+    const decodeJobs = [];
+    Object.entries(currentVideoFiles).forEach(([filename, url]) => {
+      const frameIds = Array.from(nonBasicByVideo.get(filename) || []);
+      if (frameIds.length > 0) {
+        decodeJobs.push(frameCapture.prefetchThumbnails(url, frameIds, makeProgressHandler(url)));
+      }
+    });
+
+    if (decodeJobs.length === 0) {
+      screenDecoded = true;
+      return Promise.resolve();
+    }
+
+    return Promise.all(decodeJobs)
+      .then(() => {
+        if (isStaleSegment()) return;
+        screenDecoded = true;
+        updateLoadingStatus(true);
+      })
+      .catch(() => {
+        if (isStaleSegment()) return;
+        screenDecoded = true;
+        updateLoadingStatus(true);
+      });
+  }
+
+  function buildTabBar(data) {
+    tabsContainer.innerHTML = '';
+    tabsContainer.classList.remove('visible');
+    panel.innerHTML = '';
+    tabPanes = {};
+    activeTab = null;
+    screenDecoded = false;
+
+    const addTab = (tabId, label) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tr-tab';
+      btn.dataset.tab = tabId;
+      btn.textContent = label;
+      btn.addEventListener('click', () => activateTab(tabId));
+      tabsContainer.appendChild(btn);
+    };
+
+    addTab('transcript', 'Transcript');
+    if (data.audio_file) {
+      addTab('audio', 'Audio');
+    }
+    if ((data.chunks || []).some(chunk => chunk.type === 'screen')) {
+      addTab('screen', 'Screen');
+    }
+
+    const mdStems = Object.keys(data.md_files || {}).sort((a, b) => a.localeCompare(b));
+    mdStems.forEach(stem => addTab(`md-${stem}`, stem));
+
+    tabsContainer.classList.add('visible');
+  }
+
+  function activateTab(tabId) {
+    if (!segmentData || tabId === activeTab) {
+      return;
+    }
+
+    tabsContainer.querySelectorAll('.tr-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.tab === tabId);
+    });
+
+    Object.values(tabPanes).forEach(pane => pane.classList.remove('active'));
+
+    let pane = tabPanes[tabId];
+    if (!pane) {
+      pane = document.createElement('div');
+      pane.className = 'tr-tab-pane';
+      pane.dataset.tab = tabId;
+      panel.appendChild(pane);
+      tabPanes[tabId] = pane;
+
+      if (tabId === 'transcript') {
+        renderSegmentTimeline(segmentData, true, true, pane);
+      } else if (tabId === 'audio') {
+        renderSegmentTimeline(segmentData, true, false, pane);
+      } else if (tabId === 'screen') {
+        const segmentToken = selectedSegment?.key;
+        pane.innerHTML = '<div class="tr-unified-empty"><p data-role="loading-status">Loading screen entries...</p></div>';
+        prepareScreenFrames(segmentData, pane, segmentToken)
+          .then(() => {
+            if (!selectedSegment || selectedSegment.key !== segmentToken) {
+              return;
+            }
+            if (tabPanes[tabId] !== pane) {
+              return;
+            }
+            renderSegmentTimeline(segmentData, false, true, pane);
+          })
+          .catch(() => {
+            if (!selectedSegment || selectedSegment.key !== segmentToken) {
+              return;
+            }
+            if (tabPanes[tabId] !== pane) {
+              return;
+            }
+            pane.innerHTML = '<p>Error loading screen entries.</p>';
+          });
+      } else if (tabId.startsWith('md-')) {
+        const stem = tabId.slice(3);
+        const content = (segmentData.md_files || {})[stem] || '';
+        pane.innerHTML = `<div class="tr-md-content">${marked.parse(content)}</div>`;
+      }
+    }
+
+    pane.classList.add('active');
+    activeTab = tabId;
+  }
+
+  function renderSegmentTimeline(data, showAudio, showScreen, targetEl) {
     const chunks = (data.chunks || []).filter(c => {
       if (c.type === 'audio' && !showAudio) return false;
       if (c.type === 'screen' && !showScreen) return false;
       return true;
     });
 
+    const textOnlyScreen = showScreen && Object.keys(currentVideoFiles).length === 0;
+
     // Build flat list of all screen frames for modal navigation
     allScreenFrames = chunks.filter(c => c.type === 'screen');
     currentFrameIndex = -1;
 
     if (chunks.length === 0) {
-      panel.innerHTML = '<div class="tr-unified-empty"><p>No entries to display. Enable Audio or Screen above.</p></div>';
+      targetEl.innerHTML = '<div class="tr-unified-empty"><p>No entries to display for this tab.</p></div>';
       return;
     }
 
     // Group sequential basic screen frames together
-    const displayItems = groupBasicScreenFrames(chunks);
+    const displayItems = textOnlyScreen ? chunks : groupBasicScreenFrames(chunks);
     groupEntriesByIdx = new Map();
 
     let html = '<div class="tr-unified">';
@@ -1574,7 +1734,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       html += '<div class="tr-audio-players">';
       html += '<div class="tr-audio-player">';
       html += '<div class="tr-audio-player-label">Segment Audio</div>';
-      html += `<audio id="trSegmentAudio" controls preload="metadata"><source src="${data.audio_file}" type="audio/flac">Your browser does not support audio.</audio>`;
+      html += `<audio data-role="segment-audio" controls preload="metadata"><source src="${data.audio_file}" type="audio/flac">Your browser does not support audio.</audio>`;
       html += '</div></div>';
     }
 
@@ -1592,32 +1752,42 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         html += `<div class="tr-entry-text">${escapeHtml(item.markdown)}</div>`;
         html += '</div></div>';
       } else if (item.type === 'screen') {
-        // Enhanced screen frame - render fully
-        html += renderEnhancedScreenEntry(item, idx);
+        if (textOnlyScreen) {
+          const timeStr = item.time || '';
+          const markdown = item.markdown ? marked.parse(item.markdown) : 'Screen activity';
+          html += '<div class="tr-entry">';
+          html += `<div class="tr-entry-time">${timeStr}</div>`;
+          html += '<div class="tr-entry-content">';
+          html += `<div class="tr-screen-text">${markdown}</div>`;
+          html += '</div></div>';
+        } else {
+          // Enhanced screen frame - render fully
+          html += renderEnhancedScreenEntry(item, idx);
+        }
       }
     });
 
     html += '</div>';
-    panel.innerHTML = html;
+    targetEl.innerHTML = html;
 
     // Get audio element reference
-    segmentAudioEl = document.getElementById('trSegmentAudio');
+    const paneAudioEl = targetEl.querySelector('audio[data-role="segment-audio"]');
 
     // Add click handlers for audio entries to seek
-    panel.querySelectorAll('.tr-entry-audio').forEach(entry => {
+    targetEl.querySelectorAll('.tr-entry-audio').forEach(entry => {
       entry.addEventListener('click', () => {
-        if (segmentAudioEl && segmentData?.audio_file) {
+        if (paneAudioEl && segmentData?.audio_file) {
           const timestamp = parseInt(entry.dataset.timestamp, 10);
           const baseTimestamp = chunks[0]?.timestamp || timestamp;
           const offsetSec = (timestamp - baseTimestamp) / 1000;
-          segmentAudioEl.currentTime = Math.max(0, offsetSec);
-          segmentAudioEl.play();
+          paneAudioEl.currentTime = Math.max(0, offsetSec);
+          paneAudioEl.play();
         }
       });
     });
 
     // Add click handlers for enhanced screen entries to open modal
-    panel.querySelectorAll('.tr-entry-screen').forEach(entry => {
+    targetEl.querySelectorAll('.tr-entry-screen').forEach(entry => {
       const thumb = entry.querySelector('.tr-entry-thumb');
       if (thumb) {
         thumb.style.cursor = 'pointer';
@@ -1630,7 +1800,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     });
 
     // Add click handlers for group headers to expand/collapse
-    panel.querySelectorAll('.tr-group-header').forEach(header => {
+    targetEl.querySelectorAll('.tr-group-header').forEach(header => {
       header.addEventListener('click', () => {
         const groupEl = header.parentElement;
         const isExpanded = groupEl.classList.toggle('expanded');
@@ -1639,12 +1809,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         const groupIdx = parseInt(groupEl.dataset.idx, 10);
         if (isNaN(groupIdx)) return;
         const entries = groupEntriesByIdx.get(groupIdx) || [];
-        prefetchGroupThumbnails(entries, groupEl);
+        prefetchGroupThumbnails(entries, groupEl, targetEl);
       });
     });
 
     // Add click handlers for group grid items to open modal
-    panel.querySelectorAll('.tr-group-item').forEach(item => {
+    targetEl.querySelectorAll('.tr-group-item').forEach(item => {
       item.addEventListener('click', () => {
         const frameIdx = parseInt(item.dataset.frameIdx, 10);
         if (!isNaN(frameIdx)) openImageModal(frameIdx);
@@ -1652,10 +1822,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     });
 
     // Set up lazy loading for canvas thumbnails using IntersectionObserver
-    setupLazyCanvasLoading();
+    if (!textOnlyScreen) {
+      setupLazyCanvasLoading(targetEl);
+    }
   }
 
-  function prefetchGroupThumbnails(entries, groupEl) {
+  function prefetchGroupThumbnails(entries, groupEl, targetEl) {
     const frameIdsByVideo = new Map();
     for (const entry of entries) {
       const filename = entry.source_ref?.filename;
@@ -1677,14 +1849,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     if (jobs.length > 0) {
       groupEl.dataset.prefetched = 'true';
       Promise.all(jobs).finally(() => {
-        setupLazyCanvasLoading();
+        setupLazyCanvasLoading(targetEl);
       });
     }
   }
 
   // Lazy load canvas thumbnails when they become visible
-  function setupLazyCanvasLoading() {
-    const canvases = panel.querySelectorAll('canvas[data-video-url]');
+  function setupLazyCanvasLoading(targetEl = panel) {
+    const canvases = targetEl.querySelectorAll('canvas[data-video-url]');
     if (canvases.length === 0) return;
 
     const observer = new IntersectionObserver((entries) => {
@@ -2125,40 +2297,21 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     return pos.charAt(0).toUpperCase() + pos.slice(1);
   }
 
-  // Re-render when checkboxes change (use cached data)
-  audioCheck.addEventListener('change', () => {
-    if (selectedSegment && segmentData) {
-      updateRangeText();
-      renderSegmentTimeline(segmentData, audioCheck.checked, screenCheck.checked);
-    }
-  });
-
-  screenCheck.addEventListener('change', () => {
-    if (selectedSegment && segmentData) {
-      // Restore video files when screen is re-enabled
-      if (screenCheck.checked && Object.keys(currentVideoFiles).length === 0) {
-        currentVideoFiles = segmentData.video_files || {};
-      }
-      updateRangeText();
-      renderSegmentTimeline(segmentData, audioCheck.checked, screenCheck.checked);
-    }
-  });
-
   // Clear selection and reset UI state
   function clearSegmentSelection() {
     selectedSegment = null;
     segmentData = null;
     currentVideoFiles = {};
+    activeTab = null;
+    tabPanes = {};
+    screenDecoded = false;
     frameCapture.clear();
     allScreenFrames = [];
     currentFrameIndex = -1;
     groupEntriesByIdx.clear();
 
     // Stop and clear audio player reference
-    if (segmentAudioEl) {
-      segmentAudioEl.pause();
-      segmentAudioEl = null;
-    }
+    panel.querySelectorAll('audio').forEach(audio => audio.pause());
 
     // Hide delete button
     deleteBtn.classList.remove('visible');
@@ -2168,6 +2321,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     // Reset UI
     rangeText.textContent = 'Select a segment to view';
+    tabsContainer.innerHTML = '';
+    tabsContainer.classList.remove('visible');
     panel.innerHTML = '';
 
     // Clear active state in zoom view
