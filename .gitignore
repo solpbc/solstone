@@ -10,11 +10,8 @@ logs/
 .coverage
 fixtures/journal/agents/*.jsonl
 fixtures/journal/tokens/*.json
-.deps-installed
-.package-installed
 *.sqlite
 *.log
 config*.py
 .installed
-.full-installed
 journal

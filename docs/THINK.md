@@ -5,7 +5,7 @@ Post-processing utilities for clustering and summarising captured data. The tool
 ## Installation
 
 ```bash
-pip install -e .
+make install
 ```
 
 All dependencies are listed in `pyproject.toml`.

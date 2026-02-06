@@ -12,7 +12,7 @@ Tracks remaining work for the macOS observer integration.
 ## Phase 4: Testing & Integration
 
 ### 4.1 Manual Testing
-- [x] Install PyObjC dependencies (now automatic via `pip install -e .`)
+- [x] Install PyObjC dependencies (now automatic via `make install`)
 - [ ] Build and install sck-cli to PATH
 - [ ] Run observer: `observe-macos --interval 60` (use 1 min for faster testing)
 - [ ] Verify files created in journal directory
@@ -77,5 +77,5 @@ Files are stored in segment directories: `YYYYMMDD/HHMMSS_LEN/`
 
 ### Dependencies
 - sck-cli must be built and available in PATH (or specified via --sck-cli-path)
-- PyObjC frameworks (core, Cocoa, Quartz) - installed automatically on macOS via pip
+- PyObjC frameworks (core, Cocoa, Quartz) - installed automatically on macOS via `make install`
 - observe.utils.assign_monitor_positions for position label computation

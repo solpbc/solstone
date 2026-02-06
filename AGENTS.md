@@ -145,7 +145,7 @@ Use `//` comments for JavaScript files.
 See **Quick Reference** below for all `make` commands. Key patterns:
 - `make test` for unit tests, `make test-integration` for integration tests
 - `make test-only TEST=path` to run specific tests
-- `make check-all` before committing (formats, lints, tests)
+- `make ci` before committing (formats, lints, tests)
 - Always run `sol restart-convey` after editing `convey/` or `apps/` to reload code
 - Use `sol screenshot <route>` to capture UI screenshots for visual testing
 
@@ -178,7 +178,9 @@ See **Quick Reference** below for all `make` commands. Key patterns:
 
 * **Minimize Dependencies**: Use standard library when possible
 * **All Dependencies**: Add to `dependencies` in `pyproject.toml`
-* **Installation**: `make install` (creates isolated `.venv/` and symlinks `sol` to `~/.local/bin`)
+* **Package Manager**: [uv](https://docs.astral.sh/uv/) — lock file (`uv.lock`) is committed, `make install` syncs from it
+* **Installation**: `make install` (creates isolated `.venv/`, syncs deps from lock file, symlinks `sol` to `~/.local/bin`)
+* **Updating**: `make update` upgrades all deps to latest and regenerates the lock file
 
 ---
 

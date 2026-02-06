@@ -5,32 +5,36 @@ Complete setup instructions for solstone on Linux and macOS.
 ## Prerequisites
 
 - Python 3.10 or later
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Git
 - ffmpeg (for audio processing)
 
 ### Linux (Fedora/RHEL)
 
 ```bash
-sudo dnf install python3 python3-pip git ffmpeg pipewire gstreamer1-plugins-base
+sudo dnf install python3 git ffmpeg pipewire gstreamer1-plugins-base
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### Linux (Ubuntu/Debian)
 
 ```bash
-sudo apt install python3 python3-pip git ffmpeg pipewire gstreamer1.0-tools
+sudo apt install python3 git ffmpeg pipewire gstreamer1.0-tools
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### Linux (Arch)
 
 ```bash
-sudo pacman -S python python-pip git ffmpeg pipewire gstreamer
+sudo pacman -S python git ffmpeg pipewire gstreamer
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### macOS
 
 ```bash
 xcode-select --install  # Command line tools
-brew install python git ffmpeg
+brew install python git ffmpeg uv
 ```
 
 **Screen/audio capture** requires [sck-cli](https://github.com/quartzjer/sck-cli):

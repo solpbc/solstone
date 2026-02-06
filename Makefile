@@ -1,7 +1,7 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update-deps update-prices pre-commit all
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit all
 
 # Default target - install package in editable mode
 all: install
@@ -10,29 +10,26 @@ all: install
 VENV := .venv
 VENV_BIN := $(VENV)/bin
 PYTHON := $(VENV_BIN)/python
-PIP := $(VENV_BIN)/pip
+
+# Require uv
+UV := $(shell command -v uv 2>/dev/null)
+ifndef UV
+$(error uv is not installed. Install it: curl -LsSf https://astral.sh/uv/install.sh | sh)
+endif
 
 # User bin directory for symlink (standard location, usually already in PATH)
 USER_BIN := $(HOME)/.local/bin
 
-# Create virtual environment
-$(VENV)/pyvenv.cfg:
-	@echo "Creating virtual environment in $(VENV)..."
-	python3 -m venv $(VENV)
-
 # Marker file to track installation
-.installed: pyproject.toml $(VENV)/pyvenv.cfg
-	@echo "Installing package in isolated virtual environment..."
-	$(PIP) install --upgrade pip
+.installed: pyproject.toml uv.lock
+	@echo "Installing package with uv..."
+	$(UV) sync
 	@# Python 3.14+ needs onnxruntime from nightly (not yet on PyPI)
 	@PY_MINOR=$$($(PYTHON) -c "import sys; print(sys.version_info.minor)"); \
 	if [ "$$PY_MINOR" -ge 14 ]; then \
 		echo "Python 3.14+ detected - installing onnxruntime from nightly feed..."; \
-		$(PIP) install --pre --no-deps --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime; \
+		$(UV) pip install --pre --no-deps --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime; \
 	fi
-	$(PIP) install -e .
-	@echo "Updating genai-prices to latest (for current model pricing)..."
-	$(PIP) install --upgrade genai-prices
 	@echo "Installing Playwright browser for sol screenshot..."
 	$(VENV_BIN)/playwright install chromium
 	@mkdir -p $(USER_BIN)
@@ -48,6 +45,10 @@ $(VENV)/pyvenv.cfg:
 		echo "Or run sol directly: $(CURDIR)/$(VENV_BIN)/sol"; \
 	fi
 	@touch .installed
+
+# Generate lock file if missing
+uv.lock: pyproject.toml
+	$(UV) lock
 
 # Install package in editable mode with isolated venv
 install: .installed
@@ -172,7 +173,7 @@ ci: .installed
 
 # Watch for changes and run tests (requires pytest-watch)
 watch: .installed
-	@$(PIP) show pytest-watch >/dev/null 2>&1 || { echo "Installing pytest-watch..."; $(PIP) install pytest-watch; }
+	@$(UV) pip show pytest-watch >/dev/null 2>&1 || { echo "Installing pytest-watch..."; $(UV) pip install pytest-watch; }
 	$(VENV_BIN)/ptw -- -q
 
 # Generate coverage report (core + apps, excluding core integration tests)
@@ -181,17 +182,19 @@ coverage: .installed
 	$(TEST_ENV) $(PYTEST) apps/ --cov=. --cov-report=html --cov-report=term --cov-append
 	@echo "Coverage report generated in htmlcov/index.html"
 
-# Update dependencies to latest versions
-update-deps: .installed
-	@echo "Updating dependencies to latest versions..."
-	$(PIP) install --upgrade pip setuptools wheel
-	$(PIP) install --upgrade -e .
+# Update all dependencies to latest versions and refresh genai-prices
+update: .installed
+	@echo "Updating all dependencies to latest versions..."
+	$(UV) lock --upgrade
+	$(UV) sync
+	@echo "Done. All packages updated to latest."
 
 # Update genai-prices to get latest model pricing data
 # Run this when adding new models or if pricing tests fail
 update-prices: .installed
 	@echo "Updating genai-prices to latest version..."
-	$(PIP) install --upgrade genai-prices
+	$(UV) lock --upgrade-package genai-prices
+	$(UV) sync
 	@echo "Done. Re-run tests to verify model pricing support."
 
 # Show installed package versions
@@ -200,10 +203,10 @@ versions: .installed
 	$(PYTHON) --version
 	@echo ""
 	@echo "=== Key package versions ==="
-	@$(PIP) list | grep -E "^(pytest|black|flake8|mypy|isort|Flask|numpy|Pillow|openai|anthropic|google-genai)" || true
+	@$(UV) pip list | grep -E "^(pytest|black|flake8|mypy|isort|Flask|numpy|Pillow|openai|anthropic|google-genai)" || true
 
 # Install pre-commit hooks (if using pre-commit)
 pre-commit: .installed
-	@$(PIP) show pre-commit >/dev/null 2>&1 || { echo "Installing pre-commit..."; $(PIP) install pre-commit; }
+	@$(UV) pip show pre-commit >/dev/null 2>&1 || { echo "Installing pre-commit..."; $(UV) pip install pre-commit; }
 	$(VENV_BIN)/pre-commit install
 	@echo "Pre-commit hooks installed!"

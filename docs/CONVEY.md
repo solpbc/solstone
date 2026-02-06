@@ -5,7 +5,7 @@ Web-based journal review interface built with Flask. It exposes a few small view
 ## Installation
 
 ```bash
-pip install -e .
+make install
 ```
 
 ## Usage

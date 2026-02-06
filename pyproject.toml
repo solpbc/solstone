@@ -141,6 +141,10 @@ exclude = ["tests", ".venv", "scratch", "logs", "build", "dist"]
 ignore_missing_imports = true
 ignore_errors = true
 
+[tool.uv]
+# resemblyzer -> librosa -> numba: force modern version (old numba only supports Python <3.10)
+constraint-dependencies = ["numba>=0.60"]
+
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
 testpaths = ["tests", "apps"]
