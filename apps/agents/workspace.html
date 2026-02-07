@@ -276,7 +276,18 @@
 .col-runtime { width: 80px; text-align: right; }
 .col-activity { width: 50px; text-align: center; }
 .col-facet { width: 120px; }
+.col-output { width: 120px; }
 .col-prompt { }
+
+.output-link {
+  color: #1a73e8;
+  text-decoration: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.output-link:hover {
+  text-decoration: underline;
+}
 
 .status-icon {
   font-size: 1.1rem;
@@ -631,6 +642,33 @@
   margin: 0;
 }
 
+/* Output viewer modal - larger than preview modal */
+#output-modal .modal-content {
+  max-width: 1000px;
+  max-height: 90vh;
+}
+
+#output-modal .modal-body .rendered-markdown {
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+#output-modal .modal-body .rendered-markdown h1,
+#output-modal .modal-body .rendered-markdown h2,
+#output-modal .modal-body .rendered-markdown h3 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+#output-modal .modal-body .rendered-markdown ul,
+#output-modal .modal-body .rendered-markdown ol {
+  padding-left: 1.5rem;
+}
+
+#output-modal .modal-body .rendered-markdown p {
+  margin-bottom: 0.5rem;
+}
+
 /* ============================================================================
    Empty States
    ============================================================================ */
@@ -724,6 +762,7 @@
           <th class="col-activity" title="Tool calls">🔧</th>
           <th class="col-activity" title="Cost">💰</th>
           <th class="col-facet">Facet</th>
+          <th class="col-output">Output</th>
           <th class="col-prompt">Prompt</th>
         </tr>
       </thead>
@@ -743,6 +782,18 @@
     </div>
     <div class="modal-body">
       <pre id="preview-modal-content"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- Output Viewer Modal -->
+<div id="output-modal" class="modal-backdrop">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 class="modal-title" id="output-modal-title">Output</h3>
+      <button class="modal-close" onclick="hideOutputModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="output-modal-body">
     </div>
   </div>
 </div>
@@ -1143,7 +1194,7 @@
     tbody.innerHTML = '';
 
     if (runs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" class="run-loading">No runs found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="run-loading">No runs found</td></tr>';
       return;
     }
 
@@ -1235,6 +1286,24 @@
       }
       row.appendChild(facetCell);
 
+      // Output file
+      const outputCell = document.createElement('td');
+      outputCell.className = 'col-output';
+      if (run.output_file) {
+        const link = document.createElement('a');
+        link.className = 'output-link';
+        link.textContent = run.output_file.split('/').pop();
+        link.title = run.output_file;
+        link.onclick = function(e) {
+          e.stopPropagation();
+          showOutputFile(currentDay, run.output_file);
+        };
+        outputCell.appendChild(link);
+      } else {
+        outputCell.textContent = '\u2014';
+      }
+      row.appendChild(outputCell);
+
       // Prompt + error preview
       const promptCell = document.createElement('td');
       promptCell.className = 'col-prompt';
@@ -1287,7 +1356,7 @@
     detailRow.dataset.runId = runId;
 
     const detailCell = document.createElement('td');
-    detailCell.colSpan = 9;
+    detailCell.colSpan = 10;
 
     const content = document.createElement('div');
     content.className = 'run-detail-content';
@@ -1607,6 +1676,54 @@
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
       hidePreview();
+      hideOutputModal();
+    }
+  });
+
+  // Output viewer modal
+  window.showOutputFile = async function(day, filename) {
+    const modal = document.getElementById('output-modal');
+    const body = document.getElementById('output-modal-body');
+    const title = document.getElementById('output-modal-title');
+
+    body.innerHTML = '<div class="run-loading"><div class="spinner"></div><div>Loading...</div></div>';
+    title.textContent = filename.split('/').pop();
+    modal.classList.add('show');
+
+    try {
+      const response = await fetch(`api/output/${day}/${filename}`);
+      const data = await response.json();
+
+      if (data.error) {
+        body.innerHTML = `<div class="run-loading">Error: ${data.error}</div>`;
+      } else if (data.format === 'json') {
+        const pre = document.createElement('pre');
+        try {
+          pre.textContent = JSON.stringify(JSON.parse(data.content), null, 2);
+        } catch (e) {
+          pre.textContent = data.content;
+        }
+        body.innerHTML = '';
+        body.appendChild(pre);
+      } else {
+        const div = document.createElement('div');
+        div.className = 'rendered-markdown';
+        div.innerHTML = marked.parse(data.content, { breaks: true, gfm: true });
+        body.innerHTML = '';
+        body.appendChild(div);
+      }
+    } catch (error) {
+      body.innerHTML = '<div class="run-loading">Error loading output file</div>';
+    }
+  };
+
+  window.hideOutputModal = function() {
+    document.getElementById('output-modal').classList.remove('show');
+  };
+
+  document.getElementById('output-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      hideOutputModal();
     }
   });
 

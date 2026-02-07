@@ -18,7 +18,7 @@ from convey import state
 from convey.utils import DATE_RE, format_date
 from think.facets import get_facets
 from think.models import calc_agent_cost
-from think.muse import get_muse_configs
+from think.muse import get_muse_configs, get_output_path
 
 agents_bp = Blueprint(
     "app:agents",
@@ -148,6 +148,28 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
             "error_message": event_data["error_message"],
         }
 
+        # Check for output file (generators only)
+        output_file = None
+        req_output = request_event.get("output")
+        if req_output:
+            req_day = request_event.get("day")
+            req_segment = request_event.get("segment")
+            req_facet = request_event.get("facet")
+            req_name = request_event.get("name", "default")
+            if req_day:
+                day_dir = Path(state.journal_root) / req_day
+                out_path = get_output_path(
+                    day_dir,
+                    req_name,
+                    segment=req_segment,
+                    output_format=req_output,
+                    facet=req_facet,
+                )
+                if out_path.exists():
+                    # Relative to day dir: "agents/activity.md" or "120000_1800/media.md"
+                    output_file = str(out_path.relative_to(day_dir))
+        agent_info["output_file"] = output_file
+
         # For completed agents, determine end state and calculate cost
         if not is_active:
             end_state = get_agent_end_state(agent_id)
@@ -231,6 +253,7 @@ def _build_agents_meta() -> dict[str, dict[str, Any]]:
             "schedule": config.get("schedule"),
             "has_tools": "tools" in config,
             "has_output": "output" in config,
+            "output_format": config.get("output"),
             "multi_facet": bool(config.get("multi_facet")),
         }
 
@@ -342,6 +365,39 @@ def api_agent_run(agent_id: str) -> Any:
         )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@agents_bp.route("/api/output/<day>/<path:filename>")
+def api_output_file(day: str, filename: str) -> Any:
+    """Serve output file content for the viewer modal.
+
+    Returns JSON with content, format, and filename.
+    Path is validated to stay within the day directory.
+    """
+    if not DATE_RE.fullmatch(day):
+        return jsonify(error="Invalid day format"), 400
+
+    day_dir = Path(state.journal_root) / day
+    file_path = (day_dir / filename).resolve()
+
+    # Security: ensure path is within the day directory
+    try:
+        file_path.relative_to(day_dir.resolve())
+    except ValueError:
+        return jsonify(error="Invalid path"), 403
+
+    if not file_path.is_file():
+        return jsonify(error="File not found"), 404
+
+    ext = file_path.suffix.lower()
+    fmt = "json" if ext == ".json" else "md"
+
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except IOError:
+        return jsonify(error="Could not read file"), 500
+
+    return jsonify(content=content, format=fmt, filename=file_path.name)
 
 
 @agents_bp.route("/api/preview/<path:name>")
