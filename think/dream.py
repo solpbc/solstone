@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from think.callosum import CallosumConnection
+from think.cluster import cluster_segments
 from think.cortex_client import cortex_request, get_agent_end_state, wait_for_agents
 from think.facets import get_active_facets, get_enabled_facets, get_facets
 from think.muse import get_muse_configs, get_output_path
@@ -586,6 +587,11 @@ def parse_args() -> argparse.ArgumentParser:
     )
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")
     parser.add_argument(
+        "--segments",
+        action="store_true",
+        help="Re-process all segments for the day (incompatible with --segment, --run, --facet)",
+    )
+    parser.add_argument(
         "--run",
         metavar="NAME",
         help="Run a single prompt by name (e.g., 'activity', 'timeline')",
@@ -615,6 +621,9 @@ def main() -> None:
     if args.facet and not args.run:
         parser.error("--facet requires --run")
 
+    if args.segments and (args.segment or args.run or args.facet):
+        parser.error("--segments is incompatible with --segment, --run, and --facet")
+
     # Start callosum connection
     _callosum = CallosumConnection()
     _callosum.start()
@@ -630,6 +639,65 @@ def main() -> None:
                 facet=args.facet,
             )
             sys.exit(0 if success else 1)
+
+        # Handle batch segment re-processing mode
+        if args.segments:
+            if not check_callosum_available():
+                logging.warning("Callosum socket not found - prompts may fail to spawn")
+
+            segments = cluster_segments(day)
+            if not segments:
+                logging.info(f"No segments found for {day}")
+                sys.exit(0)
+
+            total = len(segments)
+            logging.info(f"Processing {total} segments for {day}")
+            emit("segments_started", day=day, count=total)
+
+            batch_start = time.time()
+            batch_success = 0
+            batch_failed = 0
+
+            for i, seg in enumerate(segments, 1):
+                seg_key = seg["key"]
+                logging.info(
+                    f"Processing segment {i}/{total}: {seg_key} ({seg['start']}-{seg['end']})"
+                )
+                try:
+                    success, failed = run_prompts_by_priority(
+                        day=day,
+                        segment=seg_key,
+                        force=args.force,
+                        verbose=args.verbose,
+                    )
+                    batch_success += success
+                    batch_failed += failed
+                except Exception:
+                    logging.exception(f"Segment {seg_key} failed with exception")
+                    batch_failed += 1
+
+            duration_ms = int((time.time() - batch_start) * 1000)
+            logging.info(
+                f"All segments completed in {duration_ms}ms: "
+                f"{batch_success} succeeded, {batch_failed} failed across {total} segments"
+            )
+            emit(
+                "segments_completed",
+                day=day,
+                count=total,
+                success=batch_success,
+                failed=batch_failed,
+                duration_ms=duration_ms,
+            )
+
+            if args.force:
+                day_log(day, f"dream --segments --force failed={batch_failed}")
+            else:
+                day_log(day, f"dream --segments failed={batch_failed}")
+
+            if batch_failed > 0:
+                sys.exit(1)
+            sys.exit(0)
 
         # Check callosum availability
         if not check_callosum_available():
