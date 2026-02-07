@@ -48,6 +48,7 @@ COMMANDS: dict[str, str] = {
     "top": "think.top",
     "callosum": "think.callosum",
     "journal-stats": "think.journal_stats",
+    "config": "think.config_cli",
     "formatter": "think.formatters",
     # observe package - multimodal capture
     "transcribe": "observe.transcribe",
@@ -82,7 +83,6 @@ COMMANDS: dict[str, str] = {
 
 ALIASES: dict[str, tuple[str, list[str]]] = {
     "start": ("think.supervisor", []),
-    "env": ("think.supervisor", ["--env"]),
 }
 
 # Command groupings for help display
@@ -118,6 +118,7 @@ GROUPS: dict[str, list[str]] = {
         "maint",
     ],
     "Specialized tools": [
+        "config",
         "journal-stats",
         "formatter",
         "detect-created",

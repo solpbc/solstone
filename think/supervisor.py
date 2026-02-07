@@ -1245,11 +1245,6 @@ def parse_args() -> argparse.ArgumentParser:
         type=str,
         help="Remote mode: sync to server URL instead of local processing",
     )
-    parser.add_argument(
-        "--env",
-        action="store_true",
-        help="Show journal path and source, then exit",
-    )
     return parser
 
 
@@ -1269,12 +1264,6 @@ def main() -> None:
     journal_info = get_journal_info()
 
     args = setup_cli(parser)
-
-    # Handle --env: print journal info and exit
-    if args.env:
-        path, source = journal_info
-        print(f"JOURNAL_PATH={path} (from {source})")
-        return
 
     journal_path = _get_journal_path()
 

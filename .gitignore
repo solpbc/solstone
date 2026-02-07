@@ -12,6 +12,6 @@ fixtures/journal/agents/*.jsonl
 fixtures/journal/tokens/*.json
 *.sqlite
 *.log
-config*.py
+/config*.py
 .installed
 journal
