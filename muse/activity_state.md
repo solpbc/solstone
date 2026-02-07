@@ -7,7 +7,7 @@
   "priority": 95,
   "multi_facet": true,
   "output": "json",
-  "hook": {"pre": "activity_state"},
+  "hook": {"pre": "activity_state", "post": "activity_state"},
   "tier": 3,
   "thinking_budget": 2048,
   "max_output_tokens": 512,
@@ -29,97 +29,62 @@ You receive:
 
 ## Task
 
-Analyze the current segment and determine:
-- Which configured activities are happening at the END of this segment (active)
-- Which previously active activities ended DURING this segment (ended)
-
-Consider continuity: if an activity was active in the previous segment and you see evidence of it continuing, keep tracking it with the same `since` value and update the description if context has evolved.
+Analyze the current segment and determine the state of each detected activity:
+- **continuing** - Was active in the previous segment AND you see evidence it is still happening
+- **new** - Just started in this segment (or same type restarted — e.g., one meeting ended, another began)
+- **ended** - Was active in the previous segment but stopped during this segment
 
 ## Output Format
 
-Return a JSON object with two arrays:
+Return a JSON array of activity objects:
 
 ```json
-{
-  "active": [
-    {
-      "activity": "meeting",
-      "since": "143000_300",
-      "description": "Design review with UX team discussing navigation patterns",
-      "level": "high"
-    }
-  ],
-  "ended": [
-    {
-      "activity": "email",
-      "since": "140000_300",
-      "description": "Replied to deployment notification from ops team"
-    }
-  ]
-}
+[
+  {"activity": "meeting", "state": "continuing", "description": "Design review with UX team, now discussing navigation", "level": "high"},
+  {"activity": "messaging", "state": "new", "description": "Slack thread about deployment", "level": "low"},
+  {"activity": "email", "state": "ended", "description": "Replied to deployment notification from ops team"}
+]
 ```
 
 ### Field Definitions
 
-**active** - Activities ongoing at segment end:
 - `activity`: Activity ID from the configured list
-- `since`: Segment key when this activity instance started (copy from previous if continuing, use current segment if new)
+- `state`: One of `"continuing"`, `"new"`, or `"ended"`
 - `description`: Brief description of what this activity involves (update as context evolves)
-- `level`: Engagement level - "high" (primary focus), "medium" (secondary), "low" (background)
-
-**ended** - Activities that stopped during this segment:
-- `activity`: Activity ID
-- `since`: When this instance started (for duration tracking)
-- `description`: Final summary of what the activity was
+- `level`: Engagement level — `"high"` (primary focus), `"medium"` (secondary), `"low"` (background). Only for continuing/new, omit for ended.
 
 ## Rules
 
-1. **Only detect configured activities** - Ignore activity that doesn't match the facet's list
-2. **One instance per type** - If a meeting ends and another starts, the first goes to `ended`, the new one to `active`
-3. **Preserve `since`** - For continuing activities, keep the original start segment
-4. **Update descriptions** - As activities continue, refine the description with new context
-5. **Empty is valid** - `{"active": [], "ended": []}` is correct when no activities detected
+1. **Only detect configured activities** — Ignore activity that doesn't match the facet's list
+2. **Active vs. visible** — Only report an activity if the user is actively interacting with it during this segment. An application merely visible on screen but unchanged is NOT active. Look for evidence of interaction: typing, clicking, new content, spoken discussion.
+3. **Report endings** — If a previously active activity is no longer happening, always report it as `"ended"` so it can be tracked
+4. **Same-type transitions** — If a meeting ends and a different meeting starts, report both: the old one as `"ended"` and the new one as `"new"`
+5. **Update descriptions** — As activities continue, refine the description with new context
+6. **Empty is valid** — `[]` is correct when no activities are detected
 
 ## Examples
 
 **New activity starts:**
 ```json
-{
-  "active": [{"activity": "coding", "since": "143500_300", "description": "Implementing user auth flow", "level": "high"}],
-  "ended": []
-}
+[{"activity": "coding", "state": "new", "description": "Implementing user auth flow", "level": "high"}]
 ```
 
 **Activity continues from previous:**
 ```json
-{
-  "active": [{"activity": "meeting", "since": "140000_300", "description": "Sprint planning - now discussing blockers", "level": "high"}],
-  "ended": []
-}
+[{"activity": "meeting", "state": "continuing", "description": "Sprint planning - now discussing blockers", "level": "high"}]
 ```
 
-**One activity ends, another starts (same type):**
+**One meeting ends, another starts:**
 ```json
-{
-  "active": [{"activity": "meeting", "since": "144500_300", "description": "1:1 with manager", "level": "high"}],
-  "ended": [{"activity": "meeting", "since": "140000_300", "description": "Sprint planning completed"}]
-}
-```
-
-**Multiple concurrent activities:**
-```json
-{
-  "active": [
-    {"activity": "meeting", "since": "143000_300", "description": "Team standup", "level": "high"},
-    {"activity": "messaging", "since": "143000_300", "description": "Slack thread about deployment", "level": "low"}
-  ],
-  "ended": []
-}
+[
+  {"activity": "meeting", "state": "ended", "description": "Sprint planning completed"},
+  {"activity": "meeting", "state": "new", "description": "1:1 with manager", "level": "high"}
+]
 ```
 
 **No activities detected:**
 ```json
-{"active": [], "ended": []}
+[]
 ```
 
-Return ONLY the JSON object, no other text.
+Return ONLY the JSON array, no other text.

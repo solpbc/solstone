@@ -1,12 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Pre-hook for activity_state generator.
+"""Pre/post hooks for activity_state generator.
 
-Builds context for activity detection by:
+Pre-hook builds context for activity detection by:
 1. Loading the facet's configured activities
 2. Finding and loading previous segment's activity state
 3. Formatting both as context for the prompt
+
+Post-hook resolves timing metadata:
+1. Stamps `since` (segment key) from tooling — never from LLM
+2. Normalizes `state` from LLM values (continuing/new) to stored values (active)
+3. Matches continuing/ended activities to previous state via activity type + fuzzy description
 """
 
 import json
@@ -108,11 +113,11 @@ def find_previous_segment(day: str, current_segment: str) -> str | None:
 
 def load_previous_state(
     day: str, segment: str, facet: str
-) -> tuple[dict | None, str | None]:
+) -> tuple[list | None, str | None]:
     """Load activity state from a previous segment.
 
-    Returns tuple of (state, segment_key) where state is the parsed JSON
-    or None if not found/invalid.
+    Returns tuple of (state_list, segment_key) where state_list is the
+    parsed JSON array or None if not found/invalid.
     """
     state_path = day_path(day) / segment / f"activity_state_{facet}.json"
     if not state_path.exists():
@@ -124,7 +129,11 @@ def load_previous_state(
             return None, segment
 
         data = json.loads(content)
-        return data, segment
+        if isinstance(data, list):
+            return data, segment
+        # Unexpected format
+        logger.warning("activity_state is not an array: %s", state_path)
+        return None, segment
     except (json.JSONDecodeError, OSError) as e:
         logger.warning("Failed to load previous state from %s: %s", state_path, e)
         return None, segment
@@ -188,7 +197,7 @@ def format_activities_context(facet: str) -> str:
 
 
 def format_previous_state(
-    state: dict | None,
+    state: list | None,
     segment: str | None,
     current_segment: str,
     timed_out: bool,
@@ -196,7 +205,7 @@ def format_previous_state(
     """Format previous state as context for the prompt.
 
     Args:
-        state: Previous segment's activity state dict
+        state: Previous segment's activity state list (flat array)
         segment: Previous segment key
         current_segment: Current segment key
         timed_out: Whether the gap exceeded timeout threshold
@@ -220,20 +229,17 @@ def format_previous_state(
 
     lines = [f"## Previous State (from {segment}){time_note}", ""]
 
-    active = state.get("active", [])
-    ended = state.get("ended", [])
+    active = [item for item in state if item.get("state") == "active"]
+    ended = [item for item in state if item.get("state") == "ended"]
 
     if active:
         lines.append("**Active activities (may be continuing):**")
         for item in active:
             activity_id = item.get("activity", "")
-            since = item.get("since", "")
             description = item.get("description", "")
             level = item.get("level", "")
 
             parts = [f"- {activity_id}"]
-            if since:
-                parts.append(f"(since {since})")
             if level:
                 parts.append(f"[{level}]")
             if description:
@@ -255,6 +261,11 @@ def format_previous_state(
         lines.append("No activities were detected in the previous segment.")
 
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Pre-hook
+# ---------------------------------------------------------------------------
 
 
 def pre_process(context: dict) -> dict | None:
@@ -318,3 +329,179 @@ def pre_process(context: dict) -> dict | None:
     ]
 
     return {"transcript": "\n".join(enriched_parts)}
+
+
+# ---------------------------------------------------------------------------
+# Post-hook
+# ---------------------------------------------------------------------------
+
+
+def _find_best_match(
+    activity_id: str,
+    description: str,
+    candidates: list[tuple[int, dict]],
+) -> tuple[int, dict] | None:
+    """Find the best matching previous activity by type, then description.
+
+    If only one candidate matches the activity type, returns it directly.
+    If multiple match (rare — concurrent same-type activities), uses fuzzy
+    description matching to pick the best one.
+
+    Args:
+        activity_id: Activity type to match (e.g., "meeting")
+        description: Description from LLM output for fuzzy matching
+        candidates: List of (index, item) tuples from previous active state
+
+    Returns:
+        (index, item) tuple of the best match, or None if no match found.
+    """
+    matches = [(i, c) for i, c in candidates if c.get("activity") == activity_id]
+
+    if not matches:
+        return None
+    if len(matches) == 1:
+        return matches[0]
+
+    # Multiple same-type activities — use fuzzy matching on description
+    if not description:
+        return matches[0]
+
+    try:
+        from rapidfuzz import fuzz, process
+
+        # Build list of (description, index into matches) for fuzzy comparison.
+        # Using a list avoids key collision when two activities share a description.
+        desc_list: list[tuple[str, int]] = []
+        for mi, (idx, m) in enumerate(matches):
+            desc = m.get("description", "")
+            if desc:
+                desc_list.append((desc, mi))
+
+        if not desc_list:
+            return matches[0]
+
+        result = process.extractOne(
+            description,
+            [d for d, _ in desc_list],
+            scorer=fuzz.token_sort_ratio,
+        )
+        if result:
+            _matched_str, _score, list_idx = result
+            _, mi = desc_list[list_idx]
+            return matches[mi]
+    except ImportError:
+        pass
+
+    return matches[0]
+
+
+def post_process(result: str, context: dict) -> str | None:
+    """Resolve timing metadata on LLM activity state output.
+
+    Stamps `since` field from tooling (never from LLM) and normalizes
+    state values from LLM format (continuing/new/ended) to stored format
+    (active/ended).
+
+    Args:
+        result: Raw LLM JSON output (flat array of activities)
+        context: HookContext with day, segment, output_path, meta
+
+    Returns:
+        Transformed JSON string with since fields resolved,
+        or None to keep original on error.
+    """
+    segment = context.get("segment")
+    if not segment:
+        logger.warning("activity_state post-hook requires segment")
+        return None
+
+    day = context.get("day")
+    output_path = context.get("output_path", "")
+
+    # Parse LLM output
+    try:
+        items = json.loads(result.strip())
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.warning("Failed to parse activity_state LLM output: %s", e)
+        return None
+
+    if not isinstance(items, list):
+        logger.warning("activity_state output is not an array")
+        return None
+
+    # Load previous state for since resolution
+    prev_active: list[dict] = []
+    if day:
+        facet = _extract_facet_from_output_path(output_path)
+        if facet:
+            previous_segment = find_previous_segment(day, segment)
+            if previous_segment:
+                prev_state, _ = load_previous_state(day, previous_segment, facet)
+                if prev_state:
+                    prev_active = [
+                        item for item in prev_state if item.get("state") == "active"
+                    ]
+
+    # Track which previous items have been claimed to avoid double-matching
+    claimed: set[int] = set()
+
+    resolved: list[dict] = []
+    for item in items:
+        activity_id = item.get("activity", "")
+        state = item.get("state", "new")
+        description = item.get("description", "")
+
+        # Build unclaimed candidates with their original indices
+        unclaimed = [(i, c) for i, c in enumerate(prev_active) if i not in claimed]
+
+        if state == "continuing":
+            result = _find_best_match(activity_id, description, unclaimed)
+            if result:
+                idx, matched = result
+                claimed.add(idx)
+                since = matched.get("since", segment)
+            else:
+                # No previous match — treat as new
+                since = segment
+
+            resolved.append(
+                {
+                    "activity": activity_id,
+                    "state": "active",
+                    "since": since,
+                    "description": description,
+                    "level": item.get("level", "medium"),
+                }
+            )
+
+        elif state == "ended":
+            result = _find_best_match(activity_id, description, unclaimed)
+            if result:
+                idx, matched = result
+                claimed.add(idx)
+                since = matched.get("since", segment)
+            else:
+                since = segment
+
+            resolved.append(
+                {
+                    "activity": activity_id,
+                    "state": "ended",
+                    "since": since,
+                    "description": description,
+                }
+            )
+
+        else:
+            # "new" or any unrecognized state — stamp current segment
+            resolved.append(
+                {
+                    "activity": activity_id,
+                    "state": "active",
+                    "since": segment,
+                    "description": description,
+                    "level": item.get("level", "medium"),
+                }
+            )
+
+    return json.dumps(resolved, ensure_ascii=False)

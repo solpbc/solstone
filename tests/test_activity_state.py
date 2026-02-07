@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for the activity_state pre-hook module."""
+"""Tests for the activity_state pre/post hook module."""
 
 import json
 import os
@@ -141,26 +141,25 @@ class TestLoadPreviousState:
             os.environ["JOURNAL_PATH"] = tmpdir
 
             try:
-                # Create state file
+                # Create state file (new flat format)
                 segment_dir = Path(tmpdir) / "20260130" / "100000_300"
                 segment_dir.mkdir(parents=True)
 
-                state = {
-                    "active": [
-                        {
-                            "activity": "meeting",
-                            "since": "100000_300",
-                            "description": "Standup",
-                            "level": "high",
-                        }
-                    ],
-                    "ended": [],
-                }
+                state = [
+                    {
+                        "activity": "meeting",
+                        "state": "active",
+                        "since": "100000_300",
+                        "description": "Standup",
+                        "level": "high",
+                    }
+                ]
                 (segment_dir / "activity_state_work.json").write_text(json.dumps(state))
 
                 loaded, segment = load_previous_state("20260130", "100000_300", "work")
                 assert segment == "100000_300"
-                assert loaded["active"][0]["activity"] == "meeting"
+                assert isinstance(loaded, list)
+                assert loaded[0]["activity"] == "meeting"
 
             finally:
                 if original_path:
@@ -180,6 +179,30 @@ class TestLoadPreviousState:
                 loaded, segment = load_previous_state("20260130", "100000_300", "work")
                 assert loaded is None
                 assert segment is None
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
+    def test_rejects_non_array(self):
+        from muse.activity_state import load_previous_state
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                segment_dir = Path(tmpdir) / "20260130" / "100000_300"
+                segment_dir.mkdir(parents=True)
+
+                # Write a dict (old format) — should be rejected
+                (segment_dir / "activity_state_work.json").write_text(
+                    '{"active": [], "ended": []}'
+                )
+
+                loaded, segment = load_previous_state("20260130", "100000_300", "work")
+                assert loaded is None
+                assert segment == "100000_300"
 
             finally:
                 if original_path:
@@ -245,39 +268,36 @@ class TestFormatPreviousState:
     def test_formats_active_activities(self):
         from muse.activity_state import format_previous_state
 
-        state = {
-            "active": [
-                {
-                    "activity": "meeting",
-                    "since": "100000_300",
-                    "description": "Team standup",
-                    "level": "high",
-                }
-            ],
-            "ended": [],
-        }
+        state = [
+            {
+                "activity": "meeting",
+                "state": "active",
+                "since": "100000_300",
+                "description": "Team standup",
+                "level": "high",
+            }
+        ]
 
         result = format_previous_state(
             state, "100000_300", "100500_300", timed_out=False
         )
         assert "Previous State" in result
         assert "meeting" in result
-        assert "since 100000_300" in result
         assert "Team standup" in result
+        # since should NOT appear in context shown to LLM
+        assert "since" not in result
 
     def test_formats_ended_activities(self):
         from muse.activity_state import format_previous_state
 
-        state = {
-            "active": [],
-            "ended": [
-                {
-                    "activity": "email",
-                    "since": "093000_300",
-                    "description": "Replied to boss",
-                }
-            ],
-        }
+        state = [
+            {
+                "activity": "email",
+                "state": "ended",
+                "since": "093000_300",
+                "description": "Replied to boss",
+            }
+        ]
 
         result = format_previous_state(
             state, "100000_300", "100500_300", timed_out=False
@@ -288,7 +308,7 @@ class TestFormatPreviousState:
     def test_handles_timeout(self):
         from muse.activity_state import format_previous_state
 
-        state = {"active": [{"activity": "meeting"}], "ended": []}
+        state = [{"activity": "meeting", "state": "active"}]
         result = format_previous_state(
             state, "100000_300", "120000_300", timed_out=True
         )
@@ -300,6 +320,12 @@ class TestFormatPreviousState:
 
         result = format_previous_state(None, None, "100000_300", timed_out=False)
         assert "No previous segment state" in result
+
+    def test_handles_empty_list(self):
+        from muse.activity_state import format_previous_state
+
+        result = format_previous_state([], "100000_300", "100500_300", timed_out=False)
+        assert "No activities were detected" in result
 
 
 class TestPreProcess:
@@ -327,18 +353,16 @@ class TestPreProcess:
                     '{"id": "meeting"}\n{"id": "coding"}'
                 )
 
-                # Create previous state
-                prev_state = {
-                    "active": [
-                        {
-                            "activity": "meeting",
-                            "since": "100000_300",
-                            "description": "Standup",
-                            "level": "high",
-                        }
-                    ],
-                    "ended": [],
-                }
+                # Create previous state (new flat format)
+                prev_state = [
+                    {
+                        "activity": "meeting",
+                        "state": "active",
+                        "since": "100000_300",
+                        "description": "Standup",
+                        "level": "high",
+                    }
+                ]
                 (day_dir / "100000_300" / "activity_state_work.json").write_text(
                     json.dumps(prev_state)
                 )
@@ -394,3 +418,337 @@ class TestPreProcess:
             "output_path": "/path/to/something_else.json",
         }
         assert pre_process(context) is None
+
+
+class TestPostProcess:
+    """Tests for the post_process hook function."""
+
+    def test_new_activity_gets_current_segment(self):
+        from muse.activity_state import post_process
+
+        llm_output = json.dumps(
+            [
+                {
+                    "activity": "coding",
+                    "state": "new",
+                    "description": "Writing tests",
+                    "level": "high",
+                }
+            ]
+        )
+
+        result = post_process(llm_output, {"segment": "143000_300"})
+        assert result is not None
+        items = json.loads(result)
+        assert len(items) == 1
+        assert items[0]["state"] == "active"
+        assert items[0]["since"] == "143000_300"
+        assert items[0]["level"] == "high"
+
+    def test_continuing_activity_copies_since(self):
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                day_dir = Path(tmpdir) / "20260130"
+                day_dir.mkdir()
+
+                # Previous segment with active meeting
+                prev_dir = day_dir / "100000_300"
+                prev_dir.mkdir()
+                prev_state = [
+                    {
+                        "activity": "meeting",
+                        "state": "active",
+                        "since": "093000_300",
+                        "description": "Sprint planning",
+                        "level": "high",
+                    }
+                ]
+                (prev_dir / "activity_state_work.json").write_text(
+                    json.dumps(prev_state)
+                )
+
+                # Current segment
+                (day_dir / "100500_300").mkdir()
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "meeting",
+                            "state": "continuing",
+                            "description": "Sprint planning - discussing blockers",
+                            "level": "high",
+                        }
+                    ]
+                )
+
+                context = {
+                    "day": "20260130",
+                    "segment": "100500_300",
+                    "output_path": f"{tmpdir}/20260130/100500_300/activity_state_work.json",
+                }
+
+                result = post_process(llm_output, context)
+                items = json.loads(result)
+                assert items[0]["state"] == "active"
+                assert items[0]["since"] == "093000_300"  # Copied from previous
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
+    def test_ended_activity_copies_since(self):
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                day_dir = Path(tmpdir) / "20260130"
+                day_dir.mkdir()
+
+                # Previous segment with active meeting
+                prev_dir = day_dir / "100000_300"
+                prev_dir.mkdir()
+                prev_state = [
+                    {
+                        "activity": "meeting",
+                        "state": "active",
+                        "since": "093000_300",
+                        "description": "Sprint planning",
+                        "level": "high",
+                    }
+                ]
+                (prev_dir / "activity_state_work.json").write_text(
+                    json.dumps(prev_state)
+                )
+
+                (day_dir / "100500_300").mkdir()
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "meeting",
+                            "state": "ended",
+                            "description": "Sprint planning completed",
+                        }
+                    ]
+                )
+
+                context = {
+                    "day": "20260130",
+                    "segment": "100500_300",
+                    "output_path": f"{tmpdir}/20260130/100500_300/activity_state_work.json",
+                }
+
+                result = post_process(llm_output, context)
+                items = json.loads(result)
+                assert items[0]["state"] == "ended"
+                assert items[0]["since"] == "093000_300"
+                assert "level" not in items[0]
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
+    def test_no_previous_state_all_new(self):
+        from muse.activity_state import post_process
+
+        llm_output = json.dumps(
+            [
+                {
+                    "activity": "coding",
+                    "state": "continuing",
+                    "description": "Writing code",
+                    "level": "high",
+                },
+                {
+                    "activity": "meeting",
+                    "state": "ended",
+                    "description": "Standup ended",
+                },
+            ]
+        )
+
+        # No day/output_path — no previous state available
+        result = post_process(llm_output, {"segment": "143000_300"})
+        items = json.loads(result)
+
+        # "continuing" with no match falls back to current segment
+        assert items[0]["since"] == "143000_300"
+        assert items[0]["state"] == "active"
+
+        # "ended" with no match also uses current segment
+        assert items[1]["since"] == "143000_300"
+        assert items[1]["state"] == "ended"
+
+    def test_empty_array_passthrough(self):
+        from muse.activity_state import post_process
+
+        result = post_process("[]", {"segment": "143000_300"})
+        assert result is not None
+        assert json.loads(result) == []
+
+    def test_malformed_json_returns_none(self):
+        from muse.activity_state import post_process
+
+        result = post_process("not json", {"segment": "143000_300"})
+        assert result is None
+
+    def test_non_array_returns_none(self):
+        from muse.activity_state import post_process
+
+        result = post_process('{"active": []}', {"segment": "143000_300"})
+        assert result is None
+
+    def test_missing_segment_returns_none(self):
+        from muse.activity_state import post_process
+
+        result = post_process("[]", {})
+        assert result is None
+
+    def test_same_type_transition_end_and_new(self):
+        """One meeting ends, another starts — both get correct since."""
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                day_dir = Path(tmpdir) / "20260130"
+                day_dir.mkdir()
+
+                prev_dir = day_dir / "100000_300"
+                prev_dir.mkdir()
+                prev_state = [
+                    {
+                        "activity": "meeting",
+                        "state": "active",
+                        "since": "093000_300",
+                        "description": "Sprint planning",
+                        "level": "high",
+                    }
+                ]
+                (prev_dir / "activity_state_work.json").write_text(
+                    json.dumps(prev_state)
+                )
+
+                (day_dir / "100500_300").mkdir()
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "meeting",
+                            "state": "ended",
+                            "description": "Sprint planning completed",
+                        },
+                        {
+                            "activity": "meeting",
+                            "state": "new",
+                            "description": "1:1 with manager",
+                            "level": "high",
+                        },
+                    ]
+                )
+
+                context = {
+                    "day": "20260130",
+                    "segment": "100500_300",
+                    "output_path": f"{tmpdir}/20260130/100500_300/activity_state_work.json",
+                }
+
+                result = post_process(llm_output, context)
+                items = json.loads(result)
+
+                ended = [i for i in items if i["state"] == "ended"]
+                active = [i for i in items if i["state"] == "active"]
+
+                assert len(ended) == 1
+                assert ended[0]["since"] == "093000_300"  # From previous
+
+                assert len(active) == 1
+                assert active[0]["since"] == "100500_300"  # Current segment
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
+    def test_default_level_for_new(self):
+        """New activity without level gets default 'medium'."""
+        from muse.activity_state import post_process
+
+        llm_output = json.dumps(
+            [{"activity": "coding", "state": "new", "description": "Writing code"}]
+        )
+
+        result = post_process(llm_output, {"segment": "143000_300"})
+        items = json.loads(result)
+        assert items[0]["level"] == "medium"
+
+    def test_fuzzy_match_disambiguates_same_type(self):
+        """Multiple same-type previous activities matched by description."""
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                day_dir = Path(tmpdir) / "20260130"
+                day_dir.mkdir()
+
+                prev_dir = day_dir / "100000_300"
+                prev_dir.mkdir()
+                prev_state = [
+                    {
+                        "activity": "meeting",
+                        "state": "active",
+                        "since": "090000_300",
+                        "description": "Sprint planning with engineering team",
+                        "level": "high",
+                    },
+                    {
+                        "activity": "meeting",
+                        "state": "active",
+                        "since": "093000_300",
+                        "description": "Customer support standup",
+                        "level": "medium",
+                    },
+                ]
+                (prev_dir / "activity_state_work.json").write_text(
+                    json.dumps(prev_state)
+                )
+
+                (day_dir / "100500_300").mkdir()
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "meeting",
+                            "state": "continuing",
+                            "description": "Customer support standup - discussing tickets",
+                            "level": "medium",
+                        }
+                    ]
+                )
+
+                context = {
+                    "day": "20260130",
+                    "segment": "100500_300",
+                    "output_path": f"{tmpdir}/20260130/100500_300/activity_state_work.json",
+                }
+
+                result = post_process(llm_output, context)
+                items = json.loads(result)
+                # Should match the standup (093000_300), not sprint planning
+                assert items[0]["since"] == "093000_300"
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
