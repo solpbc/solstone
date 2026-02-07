@@ -193,12 +193,8 @@ def run_prompts_by_priority(
     input_summary = day_input_summary(day)
     enabled_facets = get_enabled_facets()
 
-    if segment:
-        # Segment mode: use facets from facets.json (if available)
-        raw_facets = load_segment_facets(day, segment)
-        active_facets = set(f for f in raw_facets if f in enabled_facets)
-    else:
-        # Daily mode: use facets with activity on this day
+    if not segment:
+        # Daily mode: use facets with activity on this day (stable for the run)
         active_facets = get_active_facets(day)
 
     total_prompts = sum(len(prompts) for prompts in priority_groups.values())
@@ -234,6 +230,12 @@ def run_prompts_by_priority(
             priority=priority,
             count=len(prompts_list),
         )
+
+        # Segment mode: reload active facets each group since earlier groups
+        # (e.g., facets generator at priority 90) may have written facets.json
+        if segment:
+            raw_facets = load_segment_facets(day, segment)
+            active_facets = set(f for f in raw_facets if f in enabled_facets)
 
         spawned: list[tuple[str, str, dict]] = []  # (agent_id, name, config)
 
