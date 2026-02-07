@@ -156,6 +156,8 @@ class FileSensor:
         self.segment_batch: Dict[str, bool] = {}
         # Track remote origin: {segment_key: remote_name} for remote observer segments
         self.segment_remote: Dict[str, str] = {}
+        # Track handler errors per segment: {segment_key: [error_strings]}
+        self.segment_errors: Dict[str, list[str]] = {}
 
     def register(self, pattern: str, handler_name: str, command: List[str]):
         """
@@ -392,6 +394,12 @@ class FileSensor:
                     f"with exit code {exit_code} ({elapsed:.1f}s) - see log {log_rel}"
                 )
 
+                # Mark file as done so segment can still complete
+                self._check_segment_observed(
+                    handler_proc.file_path,
+                    error=f"{handler_proc.handler_name} exit {exit_code}",
+                )
+
             handler_proc.cleanup()
 
             with self.lock:
@@ -443,6 +451,7 @@ class FileSensor:
         day = self.segment_day.get(segment)
         batch = self.segment_batch.get(segment, False)
         remote = self.segment_remote.get(segment)
+        errors = self.segment_errors.get(segment)
 
         if self.callosum:
             event_fields = {
@@ -454,10 +463,20 @@ class FileSensor:
                 event_fields["batch"] = True
             if remote:
                 event_fields["remote"] = remote
+            if errors:
+                event_fields["error"] = True
+                event_fields["errors"] = errors
             self.callosum.emit("observe", "observed", **event_fields)
 
-        note_str = f" ({note})" if note else ""
-        logger.info(f"Segment fully observed{note_str}: {day}/{segment} ({duration}s)")
+        if errors:
+            logger.warning(
+                f"Segment observed with errors: {day}/{segment} ({duration}s) - {errors}"
+            )
+        else:
+            note_str = f" ({note})" if note else ""
+            logger.info(
+                f"Segment fully observed{note_str}: {day}/{segment} ({duration}s)"
+            )
 
         # Cleanup segment tracking
         del self.segment_files[segment]
@@ -468,9 +487,18 @@ class FileSensor:
             del self.segment_batch[segment]
         if segment in self.segment_remote:
             del self.segment_remote[segment]
+        if segment in self.segment_errors:
+            del self.segment_errors[segment]
 
-    def _check_segment_observed(self, file_path: Path):
-        """Check if all files for this segment have completed processing."""
+    def _check_segment_observed(
+        self, file_path: Path, error: str | None = None
+    ):
+        """Check if all files for this segment have completed processing.
+
+        Args:
+            file_path: Path to the file that finished processing
+            error: Optional error string if the handler failed
+        """
         from observe.utils import get_segment_key
 
         segment = get_segment_key(file_path)
@@ -479,6 +507,11 @@ class FileSensor:
 
         with self.lock:
             if segment in self.segment_files:
+                if error:
+                    if segment not in self.segment_errors:
+                        self.segment_errors[segment] = []
+                    self.segment_errors[segment].append(error)
+
                 self.segment_files[segment].discard(file_path)
 
                 # If no more pending files, emit observed event

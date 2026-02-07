@@ -747,6 +747,7 @@ def main() -> None:
     # Get parent directory for saving metadata
     media_path = Path(args.media)
     import_dir = media_path.parent
+    failed_segments: list[str] = []
 
     try:
         if ext in {".txt", ".md", ".pdf"}:
@@ -839,6 +840,8 @@ def main() -> None:
             if not args.skip_summary:
                 _set_stage("transcribing")
                 pending = set(created_segments)
+                segment_timeout = 600  # 10 minutes since last progress
+                last_progress = time.monotonic()
 
                 logger.info(f"Waiting for {len(pending)} segments to complete")
 
@@ -847,6 +850,14 @@ def main() -> None:
                     try:
                         msg = _message_queue.get(timeout=5.0)
                     except queue.Empty:
+                        # Check for timeout since last progress
+                        if time.monotonic() - last_progress > segment_timeout:
+                            timed_out = sorted(pending)
+                            logger.error(
+                                f"Timed out waiting for segments: {timed_out}"
+                            )
+                            failed_segments.extend(timed_out)
+                            pending.clear()
                         continue
 
                     tract = msg.get("tract")
@@ -854,18 +865,36 @@ def main() -> None:
                     seg = msg.get("segment")
 
                     if tract == "observe" and event == "observed" and seg in pending:
-                        pending.remove(seg)
-                        logger.info(
-                            f"Segment {seg} transcribed ({len(pending)} remaining)"
-                        )
+                        pending.discard(seg)
+                        last_progress = time.monotonic()
+                        if msg.get("error"):
+                            errors = msg.get("errors", [])
+                            logger.warning(
+                                f"Segment {seg} failed: {errors} "
+                                f"({len(pending)} remaining)"
+                            )
+                            failed_segments.append(seg)
+                        else:
+                            logger.info(
+                                f"Segment {seg} transcribed "
+                                f"({len(pending)} remaining)"
+                            )
 
-                logger.info("All segments transcribed successfully")
+                if failed_segments:
+                    logger.warning(
+                        f"{len(failed_segments)} of {len(created_segments)} "
+                        f"segments failed: {failed_segments}"
+                    )
+                else:
+                    logger.info("All segments transcribed successfully")
 
         # Complete processing metadata
         processing_results["processing_completed"] = dt.datetime.now().isoformat()
         processing_results["total_files_created"] = len(all_created_files)
         processing_results["all_created_files"] = all_created_files
         processing_results["segments"] = created_segments
+        if failed_segments:
+            processing_results["failed_segments"] = failed_segments
 
         # Write imported.json with all processing metadata
         imported_path = import_dir / "imported.json"
