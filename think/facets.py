@@ -888,3 +888,105 @@ def format_logs(
     meta["indexer"] = {"topic": "action"}
 
     return chunks, meta
+
+
+def rename_facet(old_name: str, new_name: str) -> None:
+    """Rename a facet by updating its directory, config references, and chat metadata.
+
+    Performs the following steps:
+    1. Rename facets/{old}/ directory to facets/{new}/
+    2. Update config/convey.json (facets.selected, facets.order)
+    3. Update apps/chat/chats/*.json metadata files
+    4. Reset and rebuild the search index
+
+    Args:
+        old_name: Current facet name (must exist)
+        new_name: New facet name (must not already exist)
+
+    Raises:
+        ValueError: If names are invalid or preconditions fail
+    """
+    from think.indexer.journal import reset_journal_index, scan_journal
+
+    journal = get_journal()
+    facets_dir = Path(journal) / "facets"
+
+    # Validate new name format (lowercase alphanumeric + hyphens/underscores)
+    if not re.fullmatch(r"[a-z][a-z0-9_-]*", new_name):
+        raise ValueError(
+            f"Invalid facet name '{new_name}': must be lowercase, start with a letter, "
+            "and contain only letters, digits, hyphens, or underscores"
+        )
+
+    old_path = facets_dir / old_name
+    new_path = facets_dir / new_name
+
+    if not old_path.is_dir():
+        raise ValueError(f"Facet '{old_name}' does not exist")
+    if new_path.exists():
+        raise ValueError(f"Facet '{new_name}' already exists")
+
+    # Step 1: Rename the directory
+    print(f"Renaming facets/{old_name}/ → facets/{new_name}/")
+    os.rename(old_path, new_path)
+
+    # Step 2: Update config/convey.json
+    convey_config_path = Path(journal) / "config" / "convey.json"
+    if convey_config_path.exists():
+        try:
+            with open(convey_config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+
+            changed = False
+            facets_config = config.get("facets", {})
+
+            if facets_config.get("selected") == old_name:
+                facets_config["selected"] = new_name
+                changed = True
+
+            order = facets_config.get("order", [])
+            if old_name in order:
+                facets_config["order"] = [
+                    new_name if name == old_name else name for name in order
+                ]
+                changed = True
+
+            if changed:
+                config["facets"] = facets_config
+                with open(convey_config_path, "w", encoding="utf-8") as f:
+                    json.dump(config, f, indent=2, ensure_ascii=False)
+                    f.write("\n")
+                print("Updated config/convey.json")
+            else:
+                print("No changes needed in config/convey.json")
+        except (json.JSONDecodeError, OSError) as exc:
+            logging.warning("Failed to update convey config: %s", exc)
+
+    # Step 3: Update chat metadata
+    chats_dir = Path(journal) / "apps" / "chat" / "chats"
+    updated_chats = 0
+    if chats_dir.is_dir():
+        for chat_file in chats_dir.glob("*.json"):
+            try:
+                with open(chat_file, "r", encoding="utf-8") as f:
+                    chat_data = json.load(f)
+
+                if chat_data.get("facet") == old_name:
+                    chat_data["facet"] = new_name
+                    with open(chat_file, "w", encoding="utf-8") as f:
+                        json.dump(chat_data, f, indent=2, ensure_ascii=False)
+                        f.write("\n")
+                    updated_chats += 1
+            except (json.JSONDecodeError, OSError):
+                continue
+
+    if updated_chats:
+        print(f"Updated {updated_chats} chat metadata file(s)")
+    else:
+        print("No chat metadata needed updating")
+
+    # Step 4: Rebuild search index
+    print("Rebuilding search index...")
+    reset_journal_index(journal)
+    scan_journal(journal, full=True)
+    print("Done")
