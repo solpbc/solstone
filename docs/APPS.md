@@ -38,6 +38,7 @@ apps/my_app/
 ├── workspace.html     # Required: Main content template
 ├── routes.py          # Optional: Flask blueprint (only if custom routes needed)
 ├── tools.py           # Optional: MCP tool extensions (auto-discovered)
+├── call.py            # Optional: CLI commands via Typer (auto-discovered)
 ├── events.py          # Optional: Server-side event handlers (auto-discovered)
 ├── app.json           # Optional: Metadata (icon, label, facet support)
 ├── app_bar.html       # Optional: Bottom bar controls (forms, buttons)
@@ -54,6 +55,7 @@ apps/my_app/
 | `workspace.html` | **Yes** | Main app content (rendered in container) |
 | `routes.py` | No | Flask blueprint for custom routes (API endpoints, forms, etc.) |
 | `tools.py` | No | MCP tool extensions for AI agents (auto-discovered) |
+| `call.py` | No | CLI commands via Typer, accessed as `sol call <app>` (auto-discovered) |
 | `events.py` | No | Server-side Callosum event handlers (auto-discovered) |
 | `app.json` | No | Icon, label, facet support overrides |
 | `app_bar.html` | No | Bottom fixed bar for app controls |
@@ -261,7 +263,41 @@ from think.mcp import register_tool, HINTS
 
 ---
 
-### 7. `muse/` - App Generators
+### 7. `call.py` - CLI Commands
+
+Define CLI commands for your app that are automatically discovered and available via `sol call <app> <command>`.
+
+**Key Points:**
+- Only create `call.py` if your app needs human-friendly CLI access to its operations
+- Export an `app = typer.Typer()` instance with commands defined via `@app.command()`
+- Automatically discovered and mounted at startup
+- Errors in one app's CLI don't prevent other apps from loading
+- CLI commands call the same data layer as `tools.py` but print formatted console output
+
+**Required export:**
+```python
+import typer
+
+app = typer.Typer(help="Description of your app commands.")
+```
+
+**Command pattern:** Define commands using Typer's `@app.command()` decorator with `typer.Argument` for positional args and `typer.Option` for flags. Call the underlying data layer directly (not MCP tool functions) and print output via `typer.echo()`.
+
+**CLI vs MCP tools:** CLI commands parallel MCP tools but are optimized for interactive terminal use. Key differences:
+- No MCP `Context` parameter — CLI has no MCP context
+- No guard parameters (e.g., `line_number`, `observation_number`) — auto-compute them internally since interactive users don't need optimistic locking
+- Print formatted text instead of returning dicts
+- Use `typer.Exit(1)` for errors instead of returning error dicts
+
+**Discovery behavior:** The `sol call` dispatcher scans `apps/*/call.py` at startup, imports modules, and mounts any `app` variable that is a `typer.Typer` instance as a sub-command. Private apps (directories starting with `_`) are skipped.
+
+**Reference implementations:**
+- Discovery logic: `think/call.py` - `_discover_app_calls()` function
+- App CLI example: `apps/todos/call.py` - Todo list command
+
+---
+
+### 8. `muse/` - App Generators
 
 Define custom generator prompts that integrate with solstone's output generation system.
 
@@ -338,7 +374,7 @@ def post_process(result: str, context: dict) -> str | None:
 
 ---
 
-### 8. `muse/` - App Agents and Generators
+### 9. `muse/` - App Agents and Generators
 
 Define custom agents and generator templates that integrate with solstone's Cortex agent system.
 
@@ -384,7 +420,7 @@ Both insights and agents support an optional `instructions` key for customizing 
 
 ---
 
-### 9. `maint/` - Maintenance Tasks
+### 10. `maint/` - Maintenance Tasks
 
 Define one-time maintenance scripts that run automatically on Convey startup.
 
@@ -403,7 +439,7 @@ Define one-time maintenance scripts that run automatically on Convey startup.
 
 ---
 
-### 10. `tests/` - App Tests
+### 11. `tests/` - App Tests
 
 Apps can include their own tests that are discovered and run separately from core tests.
 
@@ -427,7 +463,7 @@ apps/my_app/tests/
 
 ---
 
-### 11. `events.py` - Server-Side Event Handlers
+### 12. `events.py` - Server-Side Event Handlers
 
 Define server-side handlers that react to Callosum events. Handlers run in Convey's thread pool, enabling reactive backend logic without creating new services.
 
