@@ -490,9 +490,7 @@ class FileSensor:
         if segment in self.segment_errors:
             del self.segment_errors[segment]
 
-    def _check_segment_observed(
-        self, file_path: Path, error: str | None = None
-    ):
+    def _check_segment_observed(self, file_path: Path, error: str | None = None):
         """Check if all files for this segment have completed processing.
 
         Args:

@@ -853,9 +853,7 @@ def main() -> None:
                         # Check for timeout since last progress
                         if time.monotonic() - last_progress > segment_timeout:
                             timed_out = sorted(pending)
-                            logger.error(
-                                f"Timed out waiting for segments: {timed_out}"
-                            )
+                            logger.error(f"Timed out waiting for segments: {timed_out}")
                             failed_segments.extend(timed_out)
                             pending.clear()
                         continue
