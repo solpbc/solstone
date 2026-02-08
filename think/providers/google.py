@@ -37,12 +37,17 @@ import traceback
 from typing import Any, Callable
 
 from google import genai
-from google.genai import errors as google_errors
 from google.genai import types
 
 from think.models import GEMINI_FLASH
-from think.utils import create_mcp_client, now_ms
+from think.utils import now_ms
 
+from .cli import (
+    CLIRunner,
+    ThinkingAggregator,
+    assemble_prompt,
+    lookup_cli_session_id,
+)
 from .shared import (
     GenerateResult,
     JSONEventCallback,
@@ -532,6 +537,86 @@ class ToolLoggingHooks:
         session.call_tool = wrapped  # type: ignore[assignment]
 
 
+def _translate_gemini(
+    event: dict[str, Any],
+    aggregator: ThinkingAggregator,
+    callback: JSONEventCallback,
+    usage_out: dict[str, Any] | None = None,
+) -> str | None:
+    """Translate a Gemini CLI JSONL event into our standard Event types.
+
+    Args:
+        event: Raw JSONL event dict from the Gemini CLI.
+        aggregator: ThinkingAggregator for buffering text.
+        callback: JSONEventCallback for emitting events.
+        usage_out: Optional mutable dict to receive usage stats from result events.
+
+    Returns:
+        The CLI session ID from init events, or None.
+    """
+    event_type = event.get("type")
+
+    if event_type == "init":
+        return event.get("session_id")
+
+    if event_type == "message":
+        role = event.get("role")
+        if role == "user":
+            return None
+        if role == "assistant" and event.get("delta"):
+            content = event.get("content", "")
+            if content:
+                aggregator.accumulate(content)
+            return None
+        return None
+
+    if event_type == "tool_use":
+        aggregator.flush_as_thinking(raw_events=[event])
+        callback.emit(
+            {
+                "event": "tool_start",
+                "tool": event.get("tool_name", ""),
+                "args": event.get("parameters"),
+                "call_id": event.get("tool_id"),
+                "raw": [event],
+                "ts": now_ms(),
+            }
+        )
+        return None
+
+    if event_type == "tool_result":
+        callback.emit(
+            {
+                "event": "tool_end",
+                "call_id": event.get("tool_id"),
+                "result": event.get("output"),
+                "raw": [event],
+                "ts": now_ms(),
+            }
+        )
+        return None
+
+    if event_type == "result":
+        stats = event.get("stats") or {}
+        if usage_out is not None and stats:
+            usage_out.update(
+                {
+                    "input_tokens": stats.get("input_tokens", 0),
+                    "output_tokens": stats.get("output_tokens", 0),
+                    "total_tokens": stats.get("total_tokens", 0),
+                }
+            )
+            if stats.get("cached"):
+                usage_out["cached_tokens"] = stats["cached"]
+            if stats.get("duration_ms"):
+                usage_out["duration_ms"] = stats["duration_ms"]
+        return None
+
+    # Unknown event type — log and skip
+    logger.debug("Unknown Gemini CLI event type: %s", event_type)
+    return None
+
+
 async def run_tools(
     config: dict[str, Any],
     on_event: Callable[[dict], None] | None = None,
@@ -543,216 +628,68 @@ async def run_tools(
             user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
-    # Extract config values directly
-    prompt = config.get("prompt", "")
     model = config.get("model", _DEFAULT_MODEL)
-    system_instruction = config.get("system_instruction")
-    user_instruction = config.get("user_instruction")
-    extra_context = config.get("extra_context")
-    transcript = config.get("transcript")
-    mcp_server_url = config.get("mcp_server_url")
-    tools = config.get("tools")
-    max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
-    thinking_budget = config.get("thinking_budget")
     continue_from = config.get("continue_from")
-    agent_id = config.get("agent_id")
-    name = config.get("name")
-    day = config.get("day")
-
     callback = JSONEventCallback(on_event)
 
     try:
-        # Check API key
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise RuntimeError("GOOGLE_API_KEY not set")
+        # Assemble prompt from config fields
+        prompt_body, system_instruction = assemble_prompt(config)
 
-        # Note: Start event is emitted by agents.py (unified event ownership)
+        # Gemini CLI has no --system-prompt flag; prepend to prompt body
+        if system_instruction:
+            prompt_body = system_instruction + "\n\n" + prompt_body
 
-        # Build history - check for continuation first
+        # Build CLI command
+        cmd = [
+            "gemini",
+            "-p",
+            "-",
+            "-o",
+            "stream-json",
+            "--approval-mode",
+            "plan",
+            "-m",
+            model,
+        ]
+
+        # Resume from previous session if continuing
         if continue_from:
-            # Load previous conversation history using shared function
-            from ..agents import parse_agent_events_to_turns
+            session_id = lookup_cli_session_id(continue_from)
+            if session_id:
+                cmd.extend(["--resume", session_id])
 
-            turns = parse_agent_events_to_turns(continue_from)
-            # Convert to Google's format
-            history = []
-            for turn in turns:
-                role = "model" if turn["role"] == "assistant" else turn["role"]
-                history.append(
-                    types.Content(role=role, parts=[types.Part(text=turn["content"])])
-                )
-        else:
-            # Fresh conversation - convert generic turns to Google format
-            history = []
-            # Prepend transcript if provided (from day/segment input assembly)
-            if transcript:
-                history.append(
-                    types.Content(role="user", parts=[types.Part(text=transcript)])
-                )
-            if extra_context:
-                history.append(
-                    types.Content(role="user", parts=[types.Part(text=extra_context)])
-                )
-            if user_instruction:
-                history.append(
-                    types.Content(
-                        role="user", parts=[types.Part(text=user_instruction)]
-                    )
-                )
+        # Mutable container for usage stats from result event
+        usage: dict[str, Any] = {}
 
-        # Create client with retry enabled
-        client = genai.Client(
-            api_key=api_key,
-            http_options=types.HttpOptions(retry_options=types.HttpRetryOptions()),
+        def translate(
+            event: dict[str, Any], agg: ThinkingAggregator, cb: JSONEventCallback
+        ) -> str | None:
+            return _translate_gemini(event, agg, cb, usage)
+
+        aggregator = ThinkingAggregator(callback, model=model)
+        runner = CLIRunner(
+            cmd=cmd,
+            prompt_text=prompt_body,
+            translate=translate,
+            callback=callback,
+            aggregator=aggregator,
         )
 
-        # Create fresh chat session
-        chat = client.aio.chats.create(
-            model=model,
-            config=types.GenerateContentConfig(system_instruction=system_instruction),
-            history=history,
-        )
+        result = await runner.run()
 
-        # Track tool usage for diagnostics
-        tool_call_count = 0
-
-        # Configure tools if MCP server URL provided
-        if mcp_server_url:
-            # Create MCP client and attach hooks
-            async with create_mcp_client(str(mcp_server_url)) as mcp:
-                # Attach tool logging hooks to the MCP session
-                tool_hooks = ToolLoggingHooks(
-                    callback, agent_id=agent_id, name=name, day=day
-                )
-                tool_hooks.attach(mcp.session)
-
-                # Configure function calling mode based on tool filtering
-                if tools and isinstance(tools, list):
-                    logger.info(f"Filtering tools to: {tools}")
-                    function_calling_config = types.FunctionCallingConfig(
-                        mode="ANY",  # Restrict to only allowed functions
-                        allowed_function_names=tools,
-                    )
-                else:
-                    function_calling_config = types.FunctionCallingConfig(mode="AUTO")
-
-                total_tokens, effective_thinking_budget = (
-                    _compute_agent_thinking_params(max_output_tokens, thinking_budget)
-                )
-
-                cfg = types.GenerateContentConfig(
-                    max_output_tokens=total_tokens,
-                    tools=[mcp.session],
-                    tool_config=types.ToolConfig(
-                        function_calling_config=function_calling_config
-                    ),
-                    thinking_config=types.ThinkingConfig(
-                        include_thoughts=True,
-                        thinking_budget=effective_thinking_budget,
-                    ),
-                )
-
-                # Send the message - SDK handles automatic function calling
-                response = await chat.send_message(prompt, config=cfg)
-                _emit_thinking_events(response, model, callback)
-
-                # Capture tool call count from hooks
-                tool_call_count = tool_hooks._counter
-        else:
-            # No MCP tools - just basic config
-            total_tokens, effective_thinking_budget = _compute_agent_thinking_params(
-                max_output_tokens, thinking_budget
-            )
-
-            cfg = types.GenerateContentConfig(
-                max_output_tokens=total_tokens,
-                thinking_config=types.ThinkingConfig(
-                    include_thoughts=True,
-                    thinking_budget=effective_thinking_budget,
-                ),
-            )
-
-            response = await chat.send_message(prompt, config=cfg)
-            _emit_thinking_events(response, model, callback)
-
-        # Extract finish reason for diagnostics and user-friendly messages
-        finish_reason = _extract_finish_reason(response)
-        had_tool_calls = tool_call_count > 0
-
-        text = response.text
-        tool_only = False
-        if not text:
-            # Log diagnostics for empty response debugging
-            _log_empty_response_diagnostics(response, finish_reason, had_tool_calls)
-
-            # Generate user-friendly completion message
-            text = _format_completion_message(finish_reason, had_tool_calls)
-            tool_only = True
-            logger.info(
-                f"Empty response.text: finish_reason={finish_reason}, "
-                f"tool_calls={tool_call_count}, message={text!r}"
-            )
-
-        # Extract usage from response
-        usage_dict = None
-        if hasattr(response, "usage_metadata") and response.usage_metadata:
-            metadata = response.usage_metadata
-            usage_dict = {
-                "input_tokens": getattr(metadata, "prompt_token_count", 0),
-                "output_tokens": getattr(metadata, "candidates_token_count", 0),
-                "total_tokens": getattr(metadata, "total_token_count", 0),
-            }
-            # Only include optional fields if non-zero
-            cached = getattr(metadata, "cached_content_token_count", 0)
-            if cached:
-                usage_dict["cached_tokens"] = cached
-            reasoning = getattr(metadata, "thoughts_token_count", 0)
-            if reasoning:
-                usage_dict["reasoning_tokens"] = reasoning
-
-        finish_event = {
+        # Emit finish event (CLIRunner does not emit one)
+        finish_event: dict[str, Any] = {
             "event": "finish",
-            "result": text,
-            "usage": usage_dict,
+            "result": result,
             "ts": now_ms(),
         }
-        if tool_only:
-            finish_event["tool_only"] = True
-        if finish_reason:
-            finish_event["reason"] = finish_reason
+        if usage:
+            finish_event["usage"] = usage
+        if runner.cli_session_id:
+            finish_event["cli_session_id"] = runner.cli_session_id
         callback.emit(finish_event)
-        return text
-    except google_errors.ServerError as exc:
-        # Google API server error (5xx) - transient, may be retried
-        error_msg = f"Google API server error: {exc}"
-        logger.warning(error_msg)
-        callback.emit(
-            {
-                "event": "error",
-                "error": error_msg,
-                "error_type": "server_error",
-                "retryable": True,
-                "trace": traceback.format_exc(),
-            }
-        )
-        setattr(exc, "_evented", True)
-        raise RuntimeError(error_msg) from exc
-    except google_errors.ClientError as exc:
-        # Google API client error (4xx) - likely a config or request issue
-        error_msg = f"Google API client error: {exc}"
-        logger.error(error_msg)
-        callback.emit(
-            {
-                "event": "error",
-                "error": error_msg,
-                "error_type": "client_error",
-                "retryable": False,
-                "trace": traceback.format_exc(),
-            }
-        )
-        setattr(exc, "_evented", True)
-        raise RuntimeError(error_msg) from exc
+        return result
     except Exception as exc:
         callback.emit(
             {

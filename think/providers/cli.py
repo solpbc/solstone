@@ -126,9 +126,7 @@ class ThinkingAggregator:
         if text:
             self._buffer.append(text)
 
-    def flush_as_thinking(
-        self, raw_events: list[dict[str, Any]] | None = None
-    ) -> None:
+    def flush_as_thinking(self, raw_events: list[dict[str, Any]] | None = None) -> None:
         """Emit buffered text as a thinking event and clear the buffer.
 
         Does nothing if the buffer is empty.
@@ -286,9 +284,7 @@ class CLIRunner:
 
         if return_code != 0:
             stderr_text = "\n".join(stderr_lines[-20:])  # Last 20 lines
-            LOG.error(
-                "CLI process exited with code %d: %s", return_code, stderr_text
-            )
+            LOG.error("CLI process exited with code %d: %s", return_code, stderr_text)
 
         # Get final result from aggregator
         result = self.aggregator.flush_as_result()
@@ -311,9 +307,7 @@ class CLIRunner:
                 continue
 
             try:
-                session_id = self.translate(
-                    event_data, self.aggregator, self.callback
-                )
+                session_id = self.translate(event_data, self.aggregator, self.callback)
                 if session_id:
                     self.cli_session_id = session_id
             except Exception:
