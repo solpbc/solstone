@@ -248,10 +248,9 @@ def get_muse_configs(
                 f"All prompts with 'schedule' must declare an explicit priority."
             )
 
-    # Validate: prompts with tools/output must have consistent explicit type
+    # Validate: prompts with output must have consistent explicit type
     valid_types = {"generate", "cogitate"}
     for key, info in configs.items():
-        tools_present = "tools" in info
         output_present = "output" in info
         config_type = info.get("type")
 
@@ -261,12 +260,12 @@ def get_muse_configs(
                 "Expected 'generate' or 'cogitate'."
             )
 
-        if not tools_present and not output_present and config_type is None:
+        if not output_present and config_type is None:
             continue
 
         if config_type is None:
             raise ValueError(
-                f"Prompt '{key}' has tools/output but is missing required 'type' field."
+                f"Prompt '{key}' has output but is missing required 'type' field."
             )
 
         if config_type == "generate" and not output_present:

@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""MCP tools for entity management.
+"""Tool functions for entity management.
 
-This module provides the entity MCP tools for the entities app.
-Tools are auto-discovered and registered via the @register_tool decorator.
+This module provides callable entity tool functions for the entities app.
 """
 
 import re
@@ -24,22 +23,7 @@ from think.entities import (
     validate_aka_uniqueness,
 )
 from think.facets import log_tool_action
-from think.mcp import HINTS, register_tool
 from think.utils import now_ms
-
-# Declare tool pack - creates the "entities" pack with all entity tools
-TOOL_PACKS = {
-    "entities": [
-        "entity_list",
-        "entity_detect",
-        "entity_attach",
-        "entity_update",
-        "entity_add_aka",
-        "entity_observations",
-        "entity_observe",
-    ],
-}
-
 
 # -----------------------------------------------------------------------------
 # Helpers
@@ -108,11 +92,10 @@ def _resolve_or_error(
 
 
 # -----------------------------------------------------------------------------
-# MCP Tools
+# Tool functions
 # -----------------------------------------------------------------------------
 
 
-@register_tool(annotations=HINTS)
 def entity_list(facet: str, day: str | None = None) -> dict[str, Any]:
     """List entities for a facet.
 
@@ -149,7 +132,6 @@ def entity_list(facet: str, day: str | None = None) -> dict[str, Any]:
         }
 
 
-@register_tool(annotations=HINTS)
 def entity_detect(
     day: str,
     facet: str,
@@ -269,7 +251,6 @@ def entity_detect(
         }
 
 
-@register_tool(annotations=HINTS)
 def entity_attach(
     facet: str, type: str, entity: str, description: str, context: Context | None = None
 ) -> dict[str, Any]:
@@ -398,7 +379,6 @@ def entity_attach(
         }
 
 
-@register_tool(annotations=HINTS)
 def entity_update(
     facet: str,
     entity: str,
@@ -490,7 +470,6 @@ def entity_update(
         }
 
 
-@register_tool(annotations=HINTS)
 def entity_add_aka(
     facet: str, entity: str, aka: str, context: Context | None = None
 ) -> dict[str, Any]:
@@ -601,7 +580,6 @@ def entity_add_aka(
         }
 
 
-@register_tool(annotations=HINTS)
 def entity_observations(facet: str, entity: str) -> dict[str, Any]:
     """List observations for an attached entity.
 
@@ -651,7 +629,6 @@ def entity_observations(facet: str, entity: str) -> dict[str, Any]:
         }
 
 
-@register_tool(annotations=HINTS)
 def entity_observe(
     facet: str,
     entity: str,

@@ -4,7 +4,7 @@
 """CLI commands for transcript browsing.
 
 Provides human-friendly CLI access to transcript operations, paralleling the
-MCP tools in ``think/resources/transcripts.py`` but optimized for terminal use.
+transcript helper functions in ``think.cluster`` but optimized for terminal use.
 
 Auto-discovered by ``think.call`` and mounted as ``sol call transcripts ...``.
 """

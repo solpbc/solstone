@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""MCP tools for the chat app."""
+"""Tool functions for the chat app."""
 
 import json
 from pathlib import Path
@@ -10,22 +10,15 @@ from typing import Any
 from fastmcp import Context
 
 from think.facets import get_agent_info
-from think.mcp import HINTS, register_tool
 from think.utils import get_journal
 
-# Declare pack membership - add send_message to journal pack
-TOOL_PACKS = {
-    "journal": ["send_message"],
-}
 
-
-@register_tool(annotations=HINTS)
 def send_message(
     body: str, facet: str | None = None, context: Context | None = None
 ) -> dict[str, Any]:
     """Send a message to the user's inbox for asynchronous communication.
 
-    This tool allows MCP agents and tools to leave messages in the user's inbox
+    This tool allows agents and tool workflows to leave messages in the user's inbox
     that can be reviewed later through the chat app interface. Messages appear as
     unread notifications and can be archived after review. Use this for:
     - Alerting about things or issues that need attention

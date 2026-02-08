@@ -4,7 +4,7 @@
 """CLI commands for journal search and browsing.
 
 Provides human-friendly CLI access to journal operations, paralleling the
-MCP tools in ``think/tools/search.py`` and ``think/tools/facets.py`` but
+tool functions in ``think/tools/search.py`` and ``think/tools/facets.py`` but
 optimized for terminal use.
 
 Mounted by ``think.call`` as ``sol call journal ...``.

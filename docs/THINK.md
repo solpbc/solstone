@@ -19,7 +19,6 @@ The package exposes several commands:
 - `sol dream` runs generators and agents for a single day via Cortex.
 - `sol agents` is the unified CLI for tool agents and generators (spawned by Cortex, NDJSON protocol).
 - `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
-- `sol mcp` starts an MCP server exposing search capabilities for both summary text and raw transcripts.
 - `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
 - `sol muse` lists available agents and generators with their configuration. Use `sol muse <name>` to see details, and `sol muse <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
 
@@ -27,7 +26,6 @@ The package exposes several commands:
 sol call transcripts read YYYYMMDD [--start HHMMSS --length MINUTES]
 sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--run NAME]
 sol supervisor [--no-observers]
-sol mcp [--transport http] [--port PORT] [--path PATH]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
 sol muse [--schedule daily|segment] [--json]
 sol muse <name> [--prompt] [--day YYYYMMDD] [--segment HHMMSS_LEN] [--full]
@@ -41,10 +39,8 @@ is loaded automatically by most commands.
 
 ## Service Discovery
 
-The MCP HTTP server now runs inside Cortex itself. When Cortex starts it passes
-the URL directly to each agent request (`mcp_server_url`). Utilities that need
-tool metadata, such as `sol planner`, query the registered tools directly and
-no discovery files or environment variables are required.
+Cortex manages agent execution directly. Utilities that need runtime metadata
+query the active services without discovery files or environment variables.
 
 ## Automating daily processing
 
@@ -172,7 +168,7 @@ Each provider lives in `think/providers/` and exposes a common interface:
 
 - `run_generate()` - Sync text generation, returns `GenerateResult`
 - `run_agenerate()` - Async text generation, returns `GenerateResult`
-- `run_cogitate()` - Tool-calling execution with MCP integration and event streaming
+- `run_cogitate()` - Tool-calling execution with event streaming
 
 For direct LLM calls, use `think.models.generate()` or `think.models.agenerate()`
 which automatically routes to the configured provider based on context.
@@ -215,14 +211,13 @@ print(f"Found {agents_info['live_count']} running agents")
 ```
 # Muse Module
 
-AI agent system and MCP tooling for solstone.
+AI agent system for solstone.
 
 ## Commands
 
 | Command | Purpose |
 |---------|---------|
 | `sol cortex` | Agent orchestration service |
-| `sol mcp` | MCP tool server (runs inside Cortex) |
 | `sol agents` | Direct agent invocation (testing only) |
 
 ## Architecture
@@ -230,7 +225,6 @@ AI agent system and MCP tooling for solstone.
 ```
 Cortex (orchestrator)
    ├── Callosum connection (events)
-   ├── MCP HTTP server (tools)
    └── Agent subprocess management
           ↓
    Providers (openai, google, anthropic)
@@ -250,7 +244,6 @@ Providers implement `run_generate()`, `run_agenerate()`, and `run_cogitate()` fu
 
 - **cortex.py** - Central agent manager, file watcher, event distribution, spawns agents.py
 - **cortex_client.py** - Client functions: `cortex_request()`, `cortex_agents()`, `wait_for_agents()`
-- **mcp.py** - FastMCP server with journal search tools
 - **agents.py** - Unified CLI entry point for both tool-using agents and generators (NDJSON protocol)
 - **models.py** - Unified `generate()`/`agenerate()` API, provider routing, token logging
 - **batch.py** - `Batch` class for concurrent LLM requests with dynamic queuing

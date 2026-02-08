@@ -99,8 +99,6 @@ def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
             "name": "default",
             "model": GPT_5,
             "max_output_tokens": 100,
-            "mcp_server_url": "http://localhost:5175/mcp",
-            "tools": ["search_insights"],
         }
     )
 
@@ -141,22 +139,16 @@ def test_ndjson_multiple_requests(mock_journal, monkeypatch, capsys):
         {
             "prompt": "First question",
             "provider": "openai",
-            "mcp_server_url": "http://localhost:5175/mcp",
-            "tools": ["search_insights"],
         },
         {
             "prompt": "Second question",
             "provider": "anthropic",
             "model": "claude-3",
-            "mcp_server_url": "http://localhost:5175/mcp",
-            "tools": ["search_insights"],
         },
         {
             "prompt": "Third question",
             "provider": "google",
             "name": "technical",
-            "mcp_server_url": "http://localhost:5175/mcp",
-            "tools": ["search_insights"],
         },
     ]
 
@@ -194,9 +186,9 @@ def test_ndjson_multiple_requests(mock_journal, monkeypatch, capsys):
 
 def test_ndjson_invalid_json(mock_journal, monkeypatch, capsys):
     """Test handling of invalid JSON in NDJSON input."""
-    ndjson_input = """{"prompt": "Valid request", "provider": "openai", "mcp_server_url": "http://localhost:5175/mcp", "tools": ["search_insights"]}
+    ndjson_input = """{"prompt": "Valid request", "provider": "openai"}
 not valid json
-{"prompt": "Another valid request", "provider": "openai", "mcp_server_url": "http://localhost:5175/mcp", "tools": ["search_insights"]}"""
+{"prompt": "Another valid request", "provider": "openai"}"""
 
     monkeypatch.setattr("sys.stdin", StringIO(ndjson_input))
 
@@ -230,7 +222,6 @@ def test_ndjson_missing_prompt(mock_journal, monkeypatch, capsys):
         {
             "provider": "openai",
             "model": GPT_5,
-            "tools": ["search_insights"],  # Has tools, so needs prompt
         }
     )
 
@@ -258,9 +249,9 @@ def test_ndjson_missing_prompt(mock_journal, monkeypatch, capsys):
 
 def test_ndjson_empty_lines(mock_journal, monkeypatch, capsys):
     """Test that empty lines in NDJSON input are ignored."""
-    ndjson_input = """{"prompt": "First", "provider": "openai", "tools": ["search_insights"]}
+    ndjson_input = """{"prompt": "First", "provider": "openai"}
 
-{"prompt": "Second", "provider": "openai", "tools": ["search_insights"]}
+{"prompt": "Second", "provider": "openai"}
 
 """
 

@@ -127,7 +127,6 @@ def test_get_muse_configs_includes_system_agents(fixture_journal):
     assert "default" in agents
     assert agents["default"]["source"] == "system"
     assert "title" in agents["default"]
-    assert "tools" in agents["default"]
     assert "path" in agents["default"]
 
 

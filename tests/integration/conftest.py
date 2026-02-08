@@ -43,21 +43,3 @@ def integration_journal_path(tmp_path_factory):
 def integration_test_data():
     """Provide path to integration test data."""
     return Path(__file__).parent / "data"
-
-
-@pytest.fixture(autouse=True)
-def disable_cortex_mcp_server(monkeypatch):
-    """Prevent CortexService from starting the MCP server during tests."""
-
-    def _noop_start(self):
-        self.mcp_server_url = None
-        return None
-
-    monkeypatch.setattr(
-        "think.cortex.CortexService._start_mcp_server",
-        _noop_start,
-    )
-    monkeypatch.setattr(
-        "think.cortex.CortexService._wait_for_mcp_server",
-        lambda *args, **kwargs: None,
-    )

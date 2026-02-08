@@ -4,7 +4,7 @@
 """Unified agent CLI for solstone.
 
 Spawned by cortex for all agent types:
-- Tool-using agents (with MCP tools)
+- Tool-using agents (with configured tools)
 - Generators (transcript analysis, no tools)
 
 Both paths share unified config preparation and execution flow.
@@ -184,36 +184,6 @@ def parse_agent_events_to_turns(conversation_id: str) -> list:
 # =============================================================================
 
 
-def _expand_tools(tools_config: str) -> list[str]:
-    """Expand tool pack names to a list of tool names.
-
-    Args:
-        tools_config: Comma-separated tool pack names (e.g., "default,entities")
-
-    Returns:
-        List of unique tool names from all packs
-    """
-    from think.mcp import get_tools
-
-    pack_names = [p.strip() for p in tools_config.split(",") if p.strip()]
-    if not pack_names:
-        pack_names = ["default"]
-
-    expanded: list[str] = []
-    for pack in pack_names:
-        try:
-            for tool in get_tools(pack):
-                if tool not in expanded:
-                    expanded.append(tool)
-        except KeyError:
-            LOG.warning(f"Invalid tool pack '{pack}', using default")
-            for tool in get_tools("default"):
-                if tool not in expanded:
-                    expanded.append(tool)
-
-    return expanded
-
-
 def _build_prompt_context(
     day: str | None, segment: str | None, span: list[str] | None
 ) -> dict[str, str]:
@@ -322,7 +292,6 @@ def prepare_config(request: dict) -> dict:
     Config fields produced:
     - name: Agent name
     - provider, model: Resolved from context/request
-    - tools: Expanded tool list (if tool agent)
     - system_instruction: System prompt
     - user_instruction: Agent instruction from .md file
     - extra_context: Facets and context from instructions.now/day settings
@@ -388,11 +357,6 @@ def prepare_config(request: dict) -> dict:
 
     config["provider"] = provider
     config["model"] = model
-
-    # Expand tools if string (pack name)
-    tools_config = config.get("tools")
-    if isinstance(tools_config, str):
-        config["tools"] = _expand_tools(tools_config)
 
     # Check if disabled
     if config.get("disabled"):
@@ -584,7 +548,6 @@ def _build_dry_run_event(config: dict, before_values: dict) -> dict:
 
     if agent_type == "cogitate":
         event["extra_context"] = config.get("extra_context", "")
-        event["tools"] = config.get("tools", [])
 
     # Day-based fields
     if config.get("day"):

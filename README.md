@@ -21,7 +21,7 @@ A Python-based desktop journaling toolkit that captures screen and audio activit
 - **Intelligent Insights** - Automated daily summaries, meeting detection, and entity extraction
 - **Facet Organization** - Group content by project or context (work, personal, etc.)
 - **Web Interface** - Review transcripts, calendar views, entity tracking, and AI chat
-- **Agent System** - Extensible AI agents with MCP tool integration
+- **Agent System** - Extensible AI agents with callable tool workflows
 
 ## Architecture
 

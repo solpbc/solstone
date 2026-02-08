@@ -49,7 +49,7 @@ def test_openai_provider_basic():
     env["JOURNAL_PATH"] = journal_path
     env["OPENAI_API_KEY"] = api_key
 
-    # Create NDJSON input (no mcp_server_url = no MCP tools)
+    # Create NDJSON input (no tool config)
     ndjson_input = json.dumps(
         {
             "prompt": "what is 1+1? Just give me the number.",

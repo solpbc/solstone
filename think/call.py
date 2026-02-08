@@ -4,12 +4,11 @@
 """CLI interface for app tools via Typer.
 
 Provides ``sol call <app> <command> [args]`` as a human-friendly CLI that
-parallels the MCP tool interface. Each app can contribute a ``call.py``
+parallels app tool functions. Each app can contribute a ``call.py``
 module exporting a ``app = typer.Typer()`` instance whose commands are
 auto-discovered and mounted as sub-commands.
 
-Discovery follows the same pattern as ``think.mcp._discover_app_tools``:
-scan ``apps/*/call.py``, import, mount.
+Discovery scans ``apps/*/call.py``, imports modules, and mounts subcommands.
 """
 
 import importlib

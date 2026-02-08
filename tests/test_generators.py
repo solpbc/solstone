@@ -163,7 +163,7 @@ def test_get_muse_configs_raises_on_missing_type_with_output():
         prompt_path.unlink(missing_ok=True)
 
 
-def test_get_muse_configs_raises_on_missing_type_with_tools():
+def test_get_muse_configs_allows_missing_type_with_tools():
     muse = importlib.import_module("think.muse")
     stem = f"test_missing_type_tools_{uuid.uuid4().hex}"
     prompt_path = _write_temp_muse_prompt(
@@ -171,10 +171,9 @@ def test_get_muse_configs_raises_on_missing_type_with_tools():
         '{\n  "schedule": "daily",\n  "priority": 10,\n  "tools": "journal"\n}',
     )
     try:
-        with pytest.raises(
-            ValueError, match=rf"Prompt '{stem}'.*missing required 'type'"
-        ):
-            muse.get_muse_configs(include_disabled=True)
+        configs = muse.get_muse_configs(include_disabled=True)
+        assert stem in configs
+        assert configs[stem].get("type") is None
     finally:
         prompt_path.unlink(missing_ok=True)
 
@@ -196,7 +195,7 @@ def test_get_muse_configs_raises_when_generate_missing_output():
         prompt_path.unlink(missing_ok=True)
 
 
-def test_get_muse_configs_raises_when_cogitate_missing_tools():
+def test_get_muse_configs_allows_cogitate_missing_tools():
     muse = importlib.import_module("think.muse")
     stem = f"test_cogitate_missing_tools_{uuid.uuid4().hex}"
     prompt_path = _write_temp_muse_prompt(
@@ -204,11 +203,9 @@ def test_get_muse_configs_raises_when_cogitate_missing_tools():
         '{\n  "type": "cogitate",\n  "schedule": "daily",\n  "priority": 10\n}',
     )
     try:
-        with pytest.raises(
-            ValueError,
-            match=rf"Prompt '{stem}'.*type='cogitate'.*missing required 'tools'",
-        ):
-            muse.get_muse_configs(include_disabled=True)
+        configs = muse.get_muse_configs(include_disabled=True)
+        assert stem in configs
+        assert configs[stem].get("type") == "cogitate"
     finally:
         prompt_path.unlink(missing_ok=True)
 

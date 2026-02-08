@@ -568,7 +568,7 @@ async def run_cogitate(
     config: dict[str, Any],
     on_event: Callable[[dict], None] | None = None,
 ) -> str:
-    """Run a prompt with MCP tool-calling support via Google Gemini.
+    """Run a prompt with tool-calling support via Google Gemini.
 
     Args:
         config: Complete configuration dictionary including prompt, system_instruction,
