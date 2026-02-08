@@ -172,16 +172,6 @@ except Exception as exc:
     raise
 ```
 
-**MCP tool integration:**
-
-Use `create_mcp_client()` from `think/utils.py` to connect to the MCP server:
-```python
-from think.utils import create_mcp_client
-
-async with create_mcp_client(config["mcp_server_url"]) as mcp:
-    # mcp.session provides call_tool(), list_tools(), etc.
-```
-
 **Conversation continuation:**
 
 When `continue_from` is provided, load conversation history using:

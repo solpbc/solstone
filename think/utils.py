@@ -535,18 +535,6 @@ def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
     return (args, extra) if parse_known else args
 
 
-def create_mcp_client(http_uri: str) -> Any:
-    """Return a FastMCP HTTP client for solstone tools."""
-
-    http_uri = http_uri.strip()
-    if not http_uri:
-        raise RuntimeError("MCP server URL not provided")
-
-    from fastmcp import Client
-
-    return Client(http_uri, timeout=15.0)
-
-
 def parse_time_range(text: str) -> Optional[tuple[str, str, str]]:
     """Return ``(day, start, end)`` from a natural language time range.
 

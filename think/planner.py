@@ -2,8 +2,6 @@
 # Copyright (c) 2026 sol pbc
 
 import argparse
-import asyncio
-import logging
 import os
 import sys
 from pathlib import Path
@@ -12,49 +10,10 @@ from .prompts import load_prompt
 from .utils import setup_cli
 
 
-async def _get_mcp_tools() -> str:
-    """Return formatted MCP tools information for the prompt."""
-
-    try:
-        from think.mcp import mcp
-
-        tools = await mcp.get_tools()
-        if not tools:
-            return ""
-
-        lines = [
-            "",
-            "## Available Tools",
-            "",
-            "The following tools are available for use in your plans:",
-            "",
-        ]
-
-        for name in sorted(tools.keys()):
-            tool = tools[name]
-            description = tool.description or "No description available"
-            lines.append(f"**{name}**: {description}")
-
-        return "\n".join(lines)
-    except Exception as exc:
-        logging.debug("Failed to fetch MCP tools: %s", exc)
-        return ""
-
-
 def _load_prompt() -> str:
     """Return system instruction text for planning."""
     prompt_content = load_prompt("planner", base_dir=Path(__file__).parent)
-    base_prompt = prompt_content.text
-
-    # Try to add MCP tools information
-    try:
-        tools_info = asyncio.run(_get_mcp_tools())
-        if tools_info:
-            return base_prompt + "\n" + tools_info
-    except Exception as exc:
-        logging.debug("Failed to load MCP tools for prompt: %s", exc)
-
-    return base_prompt
+    return prompt_content.text
 
 
 def generate_plan(request: str) -> str:

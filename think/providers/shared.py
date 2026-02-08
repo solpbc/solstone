@@ -159,52 +159,9 @@ class JSONEventCallback:
         pass
 
 
-# ---------------------------------------------------------------------------
-# MCP Tool Result Extraction
-# ---------------------------------------------------------------------------
-
-
-def extract_tool_result(result: Any) -> Any:
-    """Extract content from MCP CallToolResult.
-
-    Handles:
-    - CallToolResult with content list of TextContent objects
-    - CallToolResult with single content
-    - Direct result values (dict, string, etc.)
-
-    Parameters
-    ----------
-    result
-        Raw result from MCP tool call.
-
-    Returns
-    -------
-    Any
-        Normalized result suitable for event logging and LLM responses.
-    """
-    if not hasattr(result, "content"):
-        return result
-
-    content = result.content
-    if not isinstance(content, list):
-        return content
-
-    # Extract text from TextContent objects
-    extracted = []
-    for item in content:
-        if hasattr(item, "text"):
-            extracted.append(item.text)
-        else:
-            extracted.append(item)
-
-    # Return single item directly, otherwise list
-    return extracted[0] if len(extracted) == 1 else extracted
-
-
 __all__ = [
     "Event",
     "GenerateResult",
     "JSONEventCallback",
     "ThinkingEvent",
-    "extract_tool_result",
 ]
