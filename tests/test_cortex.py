@@ -48,16 +48,10 @@ def mock_journal(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def cortex_service(mock_journal, monkeypatch):
+def cortex_service(mock_journal):
     """Create a CortexService instance for testing."""
     from think.cortex import CortexService
 
-    monkeypatch.setattr(CortexService, "_start_mcp_server", lambda self: None)
-    monkeypatch.setattr(
-        CortexService,
-        "_wait_for_mcp_server",
-        lambda self, host, port, timeout=5.0: None,
-    )
     return CortexService(str(mock_journal))
 
 

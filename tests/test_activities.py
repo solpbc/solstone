@@ -3,12 +3,9 @@
 
 """Tests for the activities module."""
 
-import json
 import os
 import tempfile
 from pathlib import Path
-
-import pytest
 
 # Set up test environment before importing the module
 os.environ["JOURNAL_PATH"] = "fixtures/journal"
@@ -160,7 +157,7 @@ def test_add_activity_to_facet():
             assert len(activities) == 1
 
             # Adding same activity again should not duplicate
-            result2 = add_activity_to_facet("test_facet", "meeting")
+            add_activity_to_facet("test_facet", "meeting")
             activities = get_facet_activities("test_facet")
             assert len(activities) == 1
 

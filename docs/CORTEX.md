@@ -280,7 +280,7 @@ Agents define specialized behaviors, tool usage patterns, and facet expertise. A
 
 The JSON frontmatter for an agent can include:
 - `max_tokens`: Maximum response token limit
-- `tools`: MCP tools configuration (string or array)
+- `tools`: Tool configuration for `sol call` invocations (string or array)
   - String: Comma-separated pack names (e.g., `"journal"`, `"journal, todo"`) - expanded via `get_tools()`
   - Available packs: `journal`, `todo`, `facets`, `entities`, `apps`
   - Array: Explicit list of tool names (e.g., `["search_insights", "get_facet"]`)
@@ -321,19 +321,18 @@ This allows controlling model selection via tier configuration rather than hardc
 }
 ```
 
-## MCP Tools Integration
+## Tool Integration
 
-The Model Context Protocol (MCP) provides tools for agent-journal interaction:
+Agents use `sol call` commands for tool-driven journal interaction.
 
 ### Backend Support
-- **OpenAI, Anthropic, Google**: Full MCP tool support via HTTP transport
+- **OpenAI, Anthropic, Google**: Tool-calling is supported through the shared `sol call` command path
 
 ### Tool Discovery
-MCP tools are provided by the `think.mcp` FastMCP server, which:
-- Runs inside Cortex as a background HTTP service
-- Shares its URL directly with agent runs (`mcp_server_url`) so no discovery file is needed
-- Exposes journal search and retrieval capabilities
-- Available tools can be discovered via the MCP service endpoint
+Agents discover and invoke tools through `sol call` commands rather than an MCP URL:
+- Tool execution uses `sol call <module> <command> [args...]`
+- No HTTP discovery endpoint is involved
+- Journal search/retrieval tools are exposed by the corresponding `sol call` modules
 
 ## Agent Providers
 
@@ -427,7 +426,6 @@ Multi-facet segment agents spawn once per non-muted facet in this array. Muted f
 
 The `sol supervisor` command provides process management for the Cortex ecosystem:
 - Starts and monitors the Cortex file watcher service
-- Starts and monitors the MCP tools HTTP server
 - Handles process restarts on failure
 - Monitors system health indicators
 - Triggers `sol dream` at midnight for daily processing (generators + agents)

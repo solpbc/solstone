@@ -41,10 +41,9 @@ is loaded automatically by most commands.
 
 ## Service Discovery
 
-The MCP HTTP server now runs inside Cortex itself. When Cortex starts it passes
-the URL directly to each agent request (`mcp_server_url`). Utilities that need
-tool metadata, such as `sol planner`, query the registered tools directly and
-no discovery files or environment variables are required.
+Agents invoke tools through `sol call` shell commands:
+`sol call <module> <command> [args...]`.
+Tool access is command-based, so no MCP server URL handoff is required.
 
 ## Automating daily processing
 
@@ -172,7 +171,7 @@ Each provider lives in `think/providers/` and exposes a common interface:
 
 - `run_generate()` - Sync text generation, returns `GenerateResult`
 - `run_agenerate()` - Async text generation, returns `GenerateResult`
-- `run_cogitate()` - Tool-calling execution with MCP integration and event streaming
+- `run_cogitate()` - Tool-calling execution via `sol call` commands and event streaming
 
 For direct LLM calls, use `think.models.generate()` or `think.models.agenerate()`
 which automatically routes to the configured provider based on context.
@@ -215,14 +214,14 @@ print(f"Found {agents_info['live_count']} running agents")
 ```
 # Muse Module
 
-AI agent system and MCP tooling for solstone.
+AI agent system and tool-calling support for solstone.
 
 ## Commands
 
 | Command | Purpose |
 |---------|---------|
 | `sol cortex` | Agent orchestration service |
-| `sol mcp` | MCP tool server (runs inside Cortex) |
+| `sol mcp` | MCP tool server (standalone command) |
 | `sol agents` | Direct agent invocation (testing only) |
 
 ## Architecture
@@ -230,7 +229,7 @@ AI agent system and MCP tooling for solstone.
 ```
 Cortex (orchestrator)
    ├── Callosum connection (events)
-   ├── MCP HTTP server (tools)
+   ├── Tool execution via `sol call`
    └── Agent subprocess management
           ↓
    Providers (openai, google, anthropic)
@@ -250,7 +249,7 @@ Providers implement `run_generate()`, `run_agenerate()`, and `run_cogitate()` fu
 
 - **cortex.py** - Central agent manager, file watcher, event distribution, spawns agents.py
 - **cortex_client.py** - Client functions: `cortex_request()`, `cortex_agents()`, `wait_for_agents()`
-- **mcp.py** - FastMCP server with journal search tools
+- **mcp.py** - FastMCP server module for journal search tools (used by `sol mcp`)
 - **agents.py** - Unified CLI entry point for both tool-using agents and generators (NDJSON protocol)
 - **models.py** - Unified `generate()`/`agenerate()` API, provider routing, token logging
 - **batch.py** - `Batch` class for concurrent LLM requests with dynamic queuing

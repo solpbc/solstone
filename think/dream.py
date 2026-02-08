@@ -702,7 +702,6 @@ def main() -> None:
             logging.warning("Callosum socket not found - prompts may fail to spawn")
 
         start_time = time.time()
-        mode = "segment" if args.segment else "daily"
 
         # PRE-PHASE: Run sense repair (daily only)
         if not args.segment:

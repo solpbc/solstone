@@ -7,8 +7,6 @@ import importlib
 import shutil
 from pathlib import Path
 
-import pytest
-
 FIXTURES = Path("fixtures")
 
 
@@ -107,9 +105,6 @@ def test_segment_mode_skips_pre_post_phases(tmp_path, monkeypatch):
 def test_priority_validation_required(tmp_path, monkeypatch):
     """Test that get_muse_configs raises error for scheduled prompts without priority."""
     from think.muse import get_muse_configs
-
-    # Create a test muse file without priority
-    muse_dir = Path(__file__).parent.parent / "muse"
 
     # This test verifies the validation exists - actual validation tested in test_utils.py
     # Here we just confirm all existing scheduled prompts have priority
