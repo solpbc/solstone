@@ -16,7 +16,11 @@ import typer
 from think.entities.core import is_valid_entity_type
 from think.entities.loading import load_entities
 from think.entities.matching import resolve_entity, validate_aka_uniqueness
-from think.entities.observations import add_observation, load_observations
+from think.entities.observations import (
+    ObservationNumberError,
+    add_observation,
+    load_observations,
+)
 from think.entities.saving import save_entities
 from think.utils import now_ms
 
@@ -285,7 +289,7 @@ def observe_entity(
 
     try:
         add_observation(facet, resolved_name, content, observation_number, source_day)
-    except ValueError as exc:
+    except (ValueError, ObservationNumberError) as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1)
 
