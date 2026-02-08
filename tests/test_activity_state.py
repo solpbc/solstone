@@ -556,7 +556,7 @@ class TestPostProcess:
                 if original_path:
                     os.environ["JOURNAL_PATH"] = original_path
 
-    def test_no_previous_state_all_new(self):
+    def test_no_previous_state_continuing_becomes_new(self):
         from muse.activity_state import post_process
 
         llm_output = json.dumps(
@@ -566,11 +566,6 @@ class TestPostProcess:
                     "state": "continuing",
                     "description": "Writing code",
                     "level": "high",
-                },
-                {
-                    "activity": "meeting",
-                    "state": "ended",
-                    "description": "Standup ended",
                 },
             ]
         )
@@ -583,9 +578,158 @@ class TestPostProcess:
         assert items[0]["since"] == "143000_300"
         assert items[0]["state"] == "active"
 
-        # "ended" with no match also uses current segment
-        assert items[1]["since"] == "143000_300"
-        assert items[1]["state"] == "ended"
+    def test_unmatched_ended_with_novel_description_becomes_active(self):
+        """Ended activity with no previous active match but novel description
+        is treated as a new active activity (LLM mis-tagged)."""
+        from muse.activity_state import post_process
+
+        llm_output = json.dumps(
+            [
+                {
+                    "activity": "meeting",
+                    "state": "ended",
+                    "description": "Quick sync about deployment",
+                    "level": "medium",
+                },
+            ]
+        )
+
+        # No previous state — no active match, no ended match
+        result = post_process(llm_output, {"segment": "143000_300"})
+        items = json.loads(result)
+
+        assert len(items) == 1
+        assert items[0]["state"] == "active"
+        assert items[0]["since"] == "143000_300"
+        assert items[0]["level"] == "medium"
+
+    def test_unmatched_ended_with_empty_description_dropped(self):
+        """Ended activity with no previous active match and no description
+        is dropped as redundant."""
+        from muse.activity_state import post_process
+
+        llm_output = json.dumps(
+            [
+                {
+                    "activity": "email",
+                    "state": "ended",
+                    "description": "",
+                },
+            ]
+        )
+
+        result = post_process(llm_output, {"segment": "143000_300"})
+        items = json.loads(result)
+        assert len(items) == 0
+
+    def test_unmatched_ended_matching_prev_ended_dropped(self):
+        """Ended activity that matches a previously ended activity is dropped."""
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                day_dir = Path(tmpdir) / "20260130"
+                day_dir.mkdir()
+
+                # Previous segment — email already ended
+                prev_dir = day_dir / "100000_300"
+                prev_dir.mkdir()
+                prev_state = [
+                    {
+                        "activity": "email",
+                        "state": "ended",
+                        "since": "090000_300",
+                        "description": "Replied to boss",
+                    }
+                ]
+                (prev_dir / "activity_state_work.json").write_text(
+                    json.dumps(prev_state)
+                )
+
+                (day_dir / "100500_300").mkdir()
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "email",
+                            "state": "ended",
+                            "description": "Replied to boss",
+                        }
+                    ]
+                )
+
+                context = {
+                    "day": "20260130",
+                    "segment": "100500_300",
+                    "output_path": f"{tmpdir}/20260130/100500_300/activity_state_work.json",
+                }
+
+                result = post_process(llm_output, context)
+                items = json.loads(result)
+                assert len(items) == 0  # Dropped as redundant
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
+    def test_unmatched_ended_novel_desc_with_prev_ended_becomes_active(self):
+        """Ended activity with novel description (different from prev ended)
+        is promoted to active."""
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                day_dir = Path(tmpdir) / "20260130"
+                day_dir.mkdir()
+
+                # Previous segment — email ended with different description
+                prev_dir = day_dir / "100000_300"
+                prev_dir.mkdir()
+                prev_state = [
+                    {
+                        "activity": "email",
+                        "state": "ended",
+                        "since": "090000_300",
+                        "description": "Replied to boss",
+                    }
+                ]
+                (prev_dir / "activity_state_work.json").write_text(
+                    json.dumps(prev_state)
+                )
+
+                (day_dir / "100500_300").mkdir()
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "email",
+                            "state": "ended",
+                            "description": "Composing proposal to new client",
+                        }
+                    ]
+                )
+
+                context = {
+                    "day": "20260130",
+                    "segment": "100500_300",
+                    "output_path": f"{tmpdir}/20260130/100500_300/activity_state_work.json",
+                }
+
+                result = post_process(llm_output, context)
+                items = json.loads(result)
+                assert len(items) == 1
+                assert items[0]["state"] == "active"
+                assert items[0]["since"] == "100500_300"
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
 
     def test_empty_array_passthrough(self):
         from muse.activity_state import post_process

@@ -12,6 +12,7 @@ Post-hook resolves timing metadata:
 1. Stamps `since` (segment key) from tooling — never from LLM
 2. Normalizes `state` from LLM values (continuing/new) to stored values (active)
 3. Matches continuing/ended activities to previous state via activity type + fuzzy description
+4. Drops redundant ended re-reports; promotes unmatched ended with novel descriptions to active
 """
 
 import json
@@ -395,6 +396,46 @@ def _find_best_match(
     return matches[0]
 
 
+def _is_redundant_ended(
+    activity_id: str,
+    description: str,
+    prev_ended: list[dict],
+) -> bool:
+    """Check if an ended activity is a redundant re-report.
+
+    Returns True if a matching activity already ended in the previous segment
+    (same type with similar or empty description), meaning this is just the
+    LLM re-reporting an ending that was already recorded.
+    """
+    ended_same_type = [e for e in prev_ended if e.get("activity") == activity_id]
+    if not ended_same_type:
+        return False
+
+    # If only one match and description is close enough, it's redundant
+    if not description:
+        return True
+
+    try:
+        from rapidfuzz import fuzz
+
+        for prev in ended_same_type:
+            prev_desc = prev.get("description", "")
+            if not prev_desc:
+                return True
+            if fuzz.token_sort_ratio(description, prev_desc) >= 70:
+                return True
+    except ImportError:
+        # Without fuzzy matching, fall back to exact substring check
+        for prev in ended_same_type:
+            prev_desc = prev.get("description", "")
+            if not prev_desc:
+                return True
+            if description.lower() in prev_desc.lower() or prev_desc.lower() in description.lower():
+                return True
+
+    return False
+
+
 def post_process(result: str, context: dict) -> str | None:
     """Resolve timing metadata on LLM activity state output.
 
@@ -431,6 +472,7 @@ def post_process(result: str, context: dict) -> str | None:
 
     # Load previous state for since resolution
     prev_active: list[dict] = []
+    prev_ended: list[dict] = []
     if day:
         facet = _extract_facet_from_output_path(output_path)
         if facet:
@@ -440,6 +482,9 @@ def post_process(result: str, context: dict) -> str | None:
                 if prev_state:
                     prev_active = [
                         item for item in prev_state if item.get("state") == "active"
+                    ]
+                    prev_ended = [
+                        item for item in prev_state if item.get("state") == "ended"
                     ]
 
     # Track which previous items have been claimed to avoid double-matching
@@ -479,18 +524,29 @@ def post_process(result: str, context: dict) -> str | None:
             if result:
                 idx, matched = result
                 claimed.add(idx)
-                since = matched.get("since", segment)
-            else:
-                since = segment
-
-            resolved.append(
-                {
-                    "activity": activity_id,
-                    "state": "ended",
-                    "since": since,
-                    "description": description,
-                }
-            )
+                resolved.append(
+                    {
+                        "activity": activity_id,
+                        "state": "ended",
+                        "since": matched.get("since", segment),
+                        "description": description,
+                    }
+                )
+            elif description and not _is_redundant_ended(
+                activity_id, description, prev_ended
+            ):
+                # No active match but has a novel description — likely
+                # a real activity the LLM mis-tagged as ended; treat as new
+                resolved.append(
+                    {
+                        "activity": activity_id,
+                        "state": "active",
+                        "since": segment,
+                        "description": description,
+                        "level": item.get("level", "medium"),
+                    }
+                )
+            # else: redundant re-report of already ended activity — drop
 
         else:
             # "new" or any unrecognized state — stamp current segment

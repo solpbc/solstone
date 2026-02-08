@@ -57,7 +57,7 @@ Return a JSON array of activity objects:
 
 1. **Only detect configured activities** — Ignore activity that doesn't match the facet's list
 2. **Active vs. visible** — Only report an activity if the user is actively interacting with it during this segment. An application merely visible on screen but unchanged is NOT active. Look for evidence of interaction: typing, clicking, new content, spoken discussion.
-3. **Report endings** — If a previously active activity is no longer happening, always report it as `"ended"` so it can be tracked
+3. **Report endings** — If an activity listed as **active** in the Previous State is no longer happening, report it as `"ended"`. Only report endings for activities that were active — do not re-report activities that already ended previously.
 4. **Same-type transitions** — If a meeting ends and a different meeting starts, report both: the old one as `"ended"` and the new one as `"new"`
 5. **Update descriptions** — As activities continue, refine the description with new context
 6. **Empty is valid** — `[]` is correct when no activities are detected
