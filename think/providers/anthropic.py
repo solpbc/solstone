@@ -31,7 +31,6 @@ timeout_s : float, optional
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import traceback
@@ -42,18 +41,21 @@ from anthropic.types import (
     MessageParam,
     RedactedThinkingBlock,
     ThinkingBlock,
-    ToolParam,
-    ToolUseBlock,
 )
 
 from think.models import CLAUDE_SONNET_4
-from think.utils import create_mcp_client, now_ms
+from think.utils import now_ms
 
+from .cli import (
+    CLIRunner,
+    ThinkingAggregator,
+    assemble_prompt,
+    check_cli_binary,
+    lookup_cli_session_id,
+)
 from .shared import (
     GenerateResult,
     JSONEventCallback,
-    ThinkingEvent,
-    extract_tool_result,
 )
 
 # Default values are now handled internally
@@ -104,338 +106,194 @@ def _resolve_agent_thinking_params(
     return _compute_thinking_params(max_output_tokens)
 
 
-def _emit_thinking_event(
-    block: ThinkingBlock | RedactedThinkingBlock,
-    model: str,
+def _translate_claude(
+    event: dict[str, Any],
+    aggregator: ThinkingAggregator,
     callback: JSONEventCallback,
-) -> None:
-    """Emit a thinking event for a ThinkingBlock or RedactedThinkingBlock."""
-    if isinstance(block, ThinkingBlock):
-        thinking_event: ThinkingEvent = {
-            "event": "thinking",
-            "ts": now_ms(),
-            "summary": block.thinking,
-            "model": model,
-            "signature": block.signature,
-        }
-        callback.emit(thinking_event)
-    elif isinstance(block, RedactedThinkingBlock):
-        redacted_event: ThinkingEvent = {
-            "event": "thinking",
-            "ts": now_ms(),
-            "summary": "[redacted]",
-            "model": model,
-            "redacted_data": block.data,
-        }
-        callback.emit(redacted_event)
-
-
-_MAX_TOOL_ITERATIONS = 25  # Safety limit for agentic loop iterations
-
-
-class ToolExecutor:
-    """Handle MCP tool execution and result formatting for Anthropic."""
-
-    def __init__(
-        self,
-        mcp_client: Any,
-        callback: JSONEventCallback,
-        agent_id: str | None = None,
-        name: str | None = None,
-        day: str | None = None,
-    ) -> None:
-        self.mcp = mcp_client
-        self.callback = callback
-        self.agent_id = agent_id
-        self.name = name
-        self.day = day
-
-    async def execute_tool(self, tool_use: ToolUseBlock) -> dict:
-        """Execute ``tool_use`` and return a Claude ``tool_result`` block."""
-        call_id = tool_use.id  # Use Claude's tool_use_id as call_id
-        self.callback.emit(
-            {
-                "event": "tool_start",
-                "tool": tool_use.name,
-                "args": tool_use.input,
-                "call_id": call_id,
-            }
-        )
-
-        # Build _meta dict for passing agent identity and context
-        meta = {}
-        if self.agent_id:
-            meta["agent_id"] = self.agent_id
-        if self.name:
-            meta["name"] = self.name
-        if self.day:
-            meta["day"] = self.day
-
-        try:
-            try:
-                result = await self.mcp.session.call_tool(
-                    name=tool_use.name,
-                    arguments=tool_use.input,
-                    meta=meta,
-                )
-            except RuntimeError:
-                await self.mcp.__aenter__()
-                result = await self.mcp.session.call_tool(
-                    name=tool_use.name,
-                    arguments=tool_use.input,
-                    meta=meta,
-                )
-            result_data = extract_tool_result(result)
-            self.callback.emit(
-                {
-                    "event": "tool_end",
-                    "tool": tool_use.name,
-                    "args": tool_use.input,
-                    "result": result_data,
-                    "call_id": call_id,
-                }
-            )
-            content = (
-                result_data if isinstance(result_data, str) else json.dumps(result_data)
-            )
-        except Exception as exc:  # pragma: no cover - unexpected
-            self.callback.emit(
-                {
-                    "event": "tool_end",
-                    "tool": tool_use.name,
-                    "args": tool_use.input,
-                    "result": {"error": str(exc)},
-                    "call_id": call_id,
-                }
-            )
-            content = f"Error: {exc}"
-
-        return {
-            "type": "tool_result",
-            "tool_use_id": tool_use.id,
-            "content": content,
-        }
-
-
-async def _get_mcp_tools(
-    mcp: Any, allowed_tools: list[str] | None = None
-) -> list[ToolParam]:
-    """Return a list of MCP tools formatted for Claude using ``mcp``.
+    pending_tools: dict[str, dict[str, Any]],
+    result_meta: dict[str, Any],
+) -> str | None:
+    """Translate a Claude CLI JSONL event into our Event format.
 
     Args:
-        mcp: MCP client instance
-        allowed_tools: Optional list of allowed tool names to filter
+        event: Raw parsed JSON event from Claude CLI stdout.
+        aggregator: ThinkingAggregator for text buffering.
+        callback: JSONEventCallback for emitting events.
+        pending_tools: Mutable dict tracking active tool calls (tool_use_id -> {tool, args}).
+        result_meta: Mutable dict for storing cost/usage from result event.
+
+    Returns:
+        Session ID string from init events, None otherwise.
     """
+    event_type = event.get("type")
 
-    if not hasattr(mcp, "list_tools"):
-        return []
+    if event_type == "system":
+        if event.get("subtype") == "init":
+            return event.get("session_id")
 
-    tools = []
-    tool_list = await mcp.list_tools()
+    elif event_type == "assistant":
+        message = event.get("message", {})
+        content_blocks = message.get("content", [])
 
-    for tool in tool_list:
-        # Filter by allowed tools if specified
-        if allowed_tools and tool.name not in allowed_tools:
-            continue
+        # Two-pass: text/thinking first, then tool_use
+        tool_use_blocks = []
+        for block in content_blocks:
+            block_type = block.get("type")
+            if block_type == "text":
+                aggregator.accumulate(block.get("text", ""))
+            elif block_type == "thinking":
+                thinking_event: dict[str, Any] = {
+                    "event": "thinking",
+                    "summary": block.get("thinking", ""),
+                    "raw": [event],
+                }
+                if aggregator._model:
+                    thinking_event["model"] = aggregator._model
+                callback.emit(thinking_event)
+            elif block_type == "tool_use":
+                tool_use_blocks.append(block)
 
-        tools.append(
-            {
-                "name": tool.name,
-                "description": tool.description or "",
-                "input_schema": tool.inputSchema
-                or {"type": "object", "properties": {}, "required": []},
+        for block in tool_use_blocks:
+            aggregator.flush_as_thinking(raw_events=[event])
+
+            tool_id = block.get("id", "")
+            tool_name = block.get("name", "")
+            tool_args = block.get("input", {})
+
+            pending_tools[tool_id] = {"tool": tool_name, "args": tool_args}
+
+            callback.emit(
+                {
+                    "event": "tool_start",
+                    "tool": tool_name,
+                    "args": tool_args,
+                    "call_id": tool_id,
+                    "raw": [event],
+                }
+            )
+
+    elif event_type == "user":
+        message = event.get("message", {})
+        content_blocks = message.get("content", [])
+
+        for block in content_blocks:
+            if block.get("type") == "tool_result":
+                tool_use_id = block.get("tool_use_id", "")
+                tool_info = pending_tools.pop(tool_use_id, {})
+
+                callback.emit(
+                    {
+                        "event": "tool_end",
+                        "tool": tool_info.get("tool", ""),
+                        "args": tool_info.get("args"),
+                        "result": block.get("content", ""),
+                        "call_id": tool_use_id,
+                        "raw": [event],
+                    }
+                )
+
+    elif event_type == "result":
+        result_meta["cost_usd"] = event.get("total_cost_usd")
+        usage = event.get("usage")
+        if usage:
+            result_meta["usage"] = {
+                "input_tokens": usage.get("input_tokens"),
+                "output_tokens": usage.get("output_tokens"),
+                "total_tokens": (
+                    (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
+                ),
             }
-        )
 
-    return tools
+    return None
 
 
 async def run_tools(
     config: dict[str, Any],
     on_event: Callable[[dict], None] | None = None,
 ) -> str:
-    """Run a prompt with MCP tool-calling support via Anthropic Claude.
+    """Run a prompt with tool-calling support via Claude CLI subprocess.
+
+    Spawns the Claude CLI in streaming JSON mode and translates its
+    JSONL output into our standard Event format.
 
     Args:
         config: Complete configuration dictionary including prompt, system_instruction,
             user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
-    # Extract config values directly
-    prompt = config.get("prompt", "")
     model = config.get("model", _DEFAULT_MODEL)
-    system_instruction = config.get("system_instruction")
-    user_instruction = config.get("user_instruction")
-    extra_context = config.get("extra_context")
-    transcript = config.get("transcript")
-    mcp_server_url = config.get("mcp_server_url")
-    tools_filter = config.get("tools")
-    max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
-    thinking_budget_config = config.get("thinking_budget")
     continue_from = config.get("continue_from")
-    agent_id = config.get("agent_id")
-    name = config.get("name")
-    day = config.get("day")
 
     callback = JSONEventCallback(on_event)
 
     try:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY not set")
+        check_cli_binary("claude")
 
-        client = AsyncAnthropic(api_key=api_key)
+        prompt_body, system_instruction = assemble_prompt(config)
 
-        # Note: Start event is emitted by agents.py (unified event ownership)
+        cmd = [
+            "claude",
+            "-p",
+            "-",
+            "--output-format",
+            "stream-json",
+            "--verbose",
+            "--permission-mode",
+            "plan",
+            "--model",
+            model,
+        ]
 
-        # Build initial messages - check for continuation first
+        if system_instruction:
+            cmd.extend(["--system-prompt", system_instruction])
+
         if continue_from:
-            # Load previous conversation history using shared function
-            from ..agents import parse_agent_events_to_turns
-
-            messages = parse_agent_events_to_turns(continue_from)
-            # Add new prompt as continuation
-            messages.append({"role": "user", "content": prompt})
-        else:
-            # Fresh conversation
-            messages: list[MessageParam] = []
-            # Prepend transcript if provided (from day/segment input assembly)
-            if transcript:
-                messages.append({"role": "user", "content": transcript})
-            if extra_context:
-                messages.append({"role": "user", "content": extra_context})
-            if user_instruction:
-                messages.append({"role": "user", "content": user_instruction})
-            messages.append({"role": "user", "content": prompt})
-
-        # Initialize tools and executor if MCP server URL provided
-        if mcp_server_url:
-            async with create_mcp_client(str(mcp_server_url)) as mcp:
-                if tools_filter and isinstance(tools_filter, list):
-                    logger.info(f"Using tool filter with allowed tools: {tools_filter}")
-
-                tools = await _get_mcp_tools(mcp, tools_filter)
-                tool_executor = ToolExecutor(
-                    mcp, callback, agent_id=agent_id, name=name, day=day
+            session_id = lookup_cli_session_id(continue_from)
+            if session_id:
+                cmd.extend(["--resume", session_id])
+            else:
+                logger.warning(
+                    "No CLI session ID found for continue_from=%s", continue_from
                 )
 
-                thinking_budget, effective_max_tokens = _resolve_agent_thinking_params(
-                    max_output_tokens, thinking_budget_config
-                )
+        aggregator = ThinkingAggregator(callback, model=model)
+        pending_tools: dict[str, dict[str, Any]] = {}
+        result_meta: dict[str, Any] = {}
 
-                for _ in range(_MAX_TOOL_ITERATIONS):
-                    # Build request params - thinking always enabled
-                    create_params = {
-                        "model": model,
-                        "max_tokens": effective_max_tokens,
-                        "system": system_instruction,
-                        "messages": messages,
-                        "thinking": {
-                            "type": "enabled",
-                            "budget_tokens": thinking_budget,
-                        },
-                    }
-                    if tools:
-                        create_params["tools"] = tools
+        def translate(
+            event: dict[str, Any],
+            agg: ThinkingAggregator,
+            cb: JSONEventCallback,
+        ) -> str | None:
+            return _translate_claude(event, agg, cb, pending_tools, result_meta)
 
-                    response = await client.messages.create(**create_params)
+        runner = CLIRunner(
+            cmd=cmd,
+            prompt_text=prompt_body,
+            translate=translate,
+            callback=callback,
+            aggregator=aggregator,
+        )
 
-                    tool_uses = []
-                    final_text = ""
-                    for block in response.content:
-                        if getattr(block, "type", None) == "text":
-                            final_text += block.text
-                        elif getattr(block, "type", None) == "tool_use":
-                            tool_uses.append(block)
-                        elif isinstance(block, (ThinkingBlock, RedactedThinkingBlock)):
-                            _emit_thinking_event(block, model, callback)
+        result = await runner.run()
 
-                    messages.append({"role": "assistant", "content": response.content})
+        # Build finish event with usage from result meta
+        usage_dict = result_meta.get("usage")
+        cost_usd = result_meta.get("cost_usd")
+        if usage_dict and cost_usd is not None:
+            usage_dict["cost_usd"] = cost_usd
 
-                    if not tool_uses:
-                        # Model is done - check for tool-only completion
-                        tool_only = False
-                        if not final_text:
-                            final_text = "Done."
-                            tool_only = True
-                            logger.info(
-                                "Tool-only completion, using synthetic response"
-                            )
-                        finish_event = {
-                            "event": "finish",
-                            "result": final_text,
-                            "usage": _extract_usage_dict(response),
-                            "ts": now_ms(),
-                        }
-                        if tool_only:
-                            finish_event["tool_only"] = True
-                        finish_reason = _normalize_finish_reason(
-                            getattr(response, "stop_reason", None)
-                        )
-                        if finish_reason:
-                            finish_event["reason"] = finish_reason
-                        callback.emit(finish_event)
-                        return final_text
-
-                    results = []
-                    for tool_use in tool_uses:
-                        result = await tool_executor.execute_tool(tool_use)
-                        results.append(result)
-
-                    messages.append({"role": "user", "content": results})
-                else:
-                    # Hit iteration limit - treat as tool-only completion
-                    logger.warning(
-                        f"Hit max iterations ({_MAX_TOOL_ITERATIONS}), completing"
-                    )
-                    callback.emit(
-                        {
-                            "event": "finish",
-                            "result": "Done.",
-                            "tool_only": True,
-                            "reason": "max_iterations",
-                            "ts": now_ms(),
-                        }
-                    )
-                    return "Done."
-        else:
-            # No MCP tools - single response only
-            thinking_budget, effective_max_tokens = _resolve_agent_thinking_params(
-                max_output_tokens, thinking_budget_config
-            )
-            create_params = {
-                "model": model,
-                "max_tokens": effective_max_tokens,
-                "system": system_instruction,
-                "messages": messages,
-                "thinking": {
-                    "type": "enabled",
-                    "budget_tokens": thinking_budget,
-                },
-            }
-
-            response = await client.messages.create(**create_params)
-
-            final_text = ""
-            for block in response.content:
-                if getattr(block, "type", None) == "text":
-                    final_text += block.text
-                elif isinstance(block, (ThinkingBlock, RedactedThinkingBlock)):
-                    _emit_thinking_event(block, model, callback)
-
-            finish_event = {
+        callback.emit(
+            {
                 "event": "finish",
-                "result": final_text,
-                "usage": _extract_usage_dict(response),
+                "result": result,
+                "cli_session_id": runner.cli_session_id,
+                "usage": usage_dict,
                 "ts": now_ms(),
             }
-            finish_reason = _normalize_finish_reason(
-                getattr(response, "stop_reason", None)
-            )
-            if finish_reason:
-                finish_event["reason"] = finish_reason
-            callback.emit(finish_event)
-            return final_text
+        )
+
+        return result
     except Exception as exc:
         callback.emit(
             {

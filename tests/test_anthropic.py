@@ -117,50 +117,96 @@ def _setup_anthropic_stub(
     sys.modules["anthropic.types"] = anthropic_types_stub
 
 
-def _setup_fastmcp_stub(monkeypatch):
-    """Mock fastmcp client."""
-    fastmcp_stub = types.ModuleType("fastmcp")
-    fastmcp_fastmcp_stub = types.ModuleType("fastmcp.fastmcp")
+def _setup_claude_cli_stub(
+    monkeypatch,
+    provider_mod,
+    *,
+    error=False,
+    with_thinking=False,
+    with_redacted_thinking=False,
+):
+    monkeypatch.setattr(
+        provider_mod, "check_cli_binary", lambda _name: "/usr/bin/claude"
+    )
+    monkeypatch.setattr(provider_mod, "lookup_cli_session_id", lambda _agent_id: None)
 
-    class DummyClient:
-        def __init__(self, *a, **k):
-            pass
+    class DummyCLIRunner:
+        def __init__(
+            self,
+            cmd,
+            prompt_text,
+            translate,
+            callback,
+            aggregator,
+            cwd=None,
+            env=None,
+            timeout=600,
+        ):
+            self.translate = translate
+            self.callback = callback
+            self.aggregator = aggregator
+            self.cli_session_id = None
 
-        async def __aenter__(self):
-            return self
+        async def run(self):
+            if error:
+                raise RuntimeError("boo")
 
-        async def __aexit__(self, *a):
-            pass
-
-        async def list_tools(self):
-            return []
-
-        async def call_tool(self, name, arguments):
-            return SimpleNamespace(
-                content=[SimpleNamespace(type="text", text=f"Called {name}")]
+            raw_events = [
+                {
+                    "type": "system",
+                    "subtype": "init",
+                    "session_id": "test-session-abc123",
+                }
+            ]
+            if with_thinking:
+                raw_events.append(
+                    {
+                        "type": "assistant",
+                        "message": {
+                            "content": [
+                                {
+                                    "type": "thinking",
+                                    "thinking": "I'm thinking about this...",
+                                }
+                            ]
+                        },
+                    }
+                )
+            if with_redacted_thinking:
+                raw_events.append(
+                    {
+                        "type": "assistant",
+                        "message": {
+                            "content": [{"type": "thinking", "thinking": "[redacted]"}]
+                        },
+                    }
+                )
+            raw_events.append(
+                {
+                    "type": "assistant",
+                    "message": {"content": [{"type": "text", "text": "ok"}]},
+                }
             )
 
-    fastmcp_fastmcp_stub.FastMCP = DummyClient
+            for raw_event in raw_events:
+                session_id = self.translate(raw_event, self.aggregator, self.callback)
+                if session_id:
+                    self.cli_session_id = session_id
 
-    if "fastmcp" in sys.modules:
-        sys.modules.pop("fastmcp")
-    if "fastmcp.fastmcp" in sys.modules:
-        sys.modules.pop("fastmcp.fastmcp")
-    sys.modules["fastmcp"] = fastmcp_stub
-    sys.modules["fastmcp.fastmcp"] = fastmcp_fastmcp_stub
+            result = self.aggregator.flush_as_result()
+            return result or "Done."
 
-    def mock_create_mcp_client(_url=None):
-        return DummyClient()
-
-    monkeypatch.setattr("think.utils.create_mcp_client", mock_create_mcp_client)
+    monkeypatch.setattr(provider_mod, "CLIRunner", DummyCLIRunner)
 
 
 def test_claude_main(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch)
-    _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
     sys.modules.pop("think.providers.anthropic", None)
-    importlib.reload(importlib.import_module("think.providers.anthropic"))
+    provider_mod = importlib.reload(
+        importlib.import_module("think.providers.anthropic")
+    )
+    _setup_claude_cli_stub(monkeypatch, provider_mod)
     mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
@@ -200,10 +246,12 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
 
 def test_claude_outfile(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch)
-    _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
     sys.modules.pop("think.providers.anthropic", None)
-    importlib.reload(importlib.import_module("think.providers.anthropic"))
+    provider_mod = importlib.reload(
+        importlib.import_module("think.providers.anthropic")
+    )
+    _setup_claude_cli_stub(monkeypatch, provider_mod)
     mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
@@ -247,10 +295,12 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
     """Test that thinking events are properly emitted for Claude models."""
     # Setup anthropic stub with thinking
     _setup_anthropic_stub(monkeypatch, with_thinking=True)
-    _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
     sys.modules.pop("think.providers.anthropic", None)
-    importlib.reload(importlib.import_module("think.providers.anthropic"))
+    provider_mod = importlib.reload(
+        importlib.import_module("think.providers.anthropic")
+    )
+    _setup_claude_cli_stub(monkeypatch, provider_mod, with_thinking=True)
     mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
@@ -279,8 +329,6 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
     thinking_events = [e for e in events if e.get("event") == "thinking"]
     assert len(thinking_events) == 1
     assert "I'm thinking about this..." in thinking_events[0]["summary"]
-    # Verify signature is captured
-    assert thinking_events[0].get("signature") == "test-signature-123"
 
     # Check that regular events are still present
     assert events[0]["event"] == "start"
@@ -291,10 +339,12 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
 def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
     """Test that redacted thinking events are properly handled."""
     _setup_anthropic_stub(monkeypatch, with_redacted_thinking=True)
-    _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
     sys.modules.pop("think.providers.anthropic", None)
-    importlib.reload(importlib.import_module("think.providers.anthropic"))
+    provider_mod = importlib.reload(
+        importlib.import_module("think.providers.anthropic")
+    )
+    _setup_claude_cli_stub(monkeypatch, provider_mod, with_redacted_thinking=True)
     mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
@@ -323,8 +373,6 @@ def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
     thinking_events = [e for e in events if e.get("event") == "thinking"]
     assert len(thinking_events) == 1
     assert thinking_events[0]["summary"] == "[redacted]"
-    # Verify redacted_data is captured
-    assert thinking_events[0].get("redacted_data") == "encrypted-data-xyz"
 
     # Check that regular events are still present
     assert events[0]["event"] == "start"
@@ -333,10 +381,12 @@ def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
 
 def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch, error=True)
-    _setup_fastmcp_stub(monkeypatch)
     install_agents_stub()
     sys.modules.pop("think.providers.anthropic", None)
-    importlib.reload(importlib.import_module("think.providers.anthropic"))
+    provider_mod = importlib.reload(
+        importlib.import_module("think.providers.anthropic")
+    )
+    _setup_claude_cli_stub(monkeypatch, provider_mod, error=True)
     mod = importlib.reload(importlib.import_module("think.agents"))
 
     journal = tmp_path / "journal"
