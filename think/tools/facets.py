@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""MCP tools for facet management.
+"""Facet information and news functions.
 
-Note: These functions are registered as MCP tools by think/mcp.py
-They can also be imported and called directly for testing or internal use.
+These functions retrieve facet metadata and news and can be imported directly.
 """
 
 from pathlib import Path

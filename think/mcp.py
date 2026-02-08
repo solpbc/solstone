@@ -4,11 +4,8 @@
 
 """MCP server for solstone journal assistant.
 
-This module creates the FastMCP server instance and registers all tools and resources
-from the think/tools/ and think/resources/ directories.
-
-Tool modules are located in think/tools/ and contain plain functions.
-Resource handlers are located in think/resources/ and use @mcp.resource decorators.
+This module creates the FastMCP server instance and registers tools.
+App-level tools are discovered from apps/*/tools.py modules.
 """
 
 from typing import Any, Callable, TypeVar
@@ -40,38 +37,10 @@ def register_tool(*tool_args: Any, **tool_kwargs: Any) -> Callable[[F], F]:
 # Tool packs - logical groupings of tools
 # Apps can extend existing packs or create new ones via TOOL_PACKS in their tools.py
 TOOL_PACKS: dict[str, list[str]] = {
-    "journal": [
-        "search_journal",
-        "get_events",
-        "get_facet",
-        "get_resource",
-    ],
-    "facets": [
-        "facet_news",
-    ],
+    "journal": [],
+    "facets": [],
     "apps": [],  # Auto-populated with all app-discovered tools
 }
-
-
-# Import and register tool modules
-# These imports trigger the registration of tools via the @register_tool decorator
-from think.tools import facets, search
-
-# Register search tools
-search_journal = register_tool(annotations=HINTS)(search.search_journal)
-get_events = register_tool(annotations=HINTS)(search.get_events)
-
-# Register facet tools
-get_facet = register_tool(annotations=HINTS)(facets.get_facet)
-facet_news = register_tool(annotations=HINTS)(facets.facet_news)
-
-# Register resource tool (get_resource moved from messaging)
-from think.tools.messaging import get_resource as get_resource_impl
-
-get_resource = register_tool(annotations=HINTS)(get_resource_impl)
-
-# Import resource modules - these self-register via @mcp.resource decorators
-from think.resources import media, outputs, transcripts  # noqa: F401
 
 
 # Phase 2: App-level tool discovery

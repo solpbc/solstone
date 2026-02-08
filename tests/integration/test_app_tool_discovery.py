@@ -30,7 +30,7 @@ async def test_app_tools_discovery_mechanism(integration_journal_path):
     tool_names = set(tools.keys())
 
     # Core tools should always be present
-    core_tools = {"todo_list", "search_journal", "entity_list", "get_facet"}
+    core_tools = {"todo_list", "entity_list"}
     assert core_tools.issubset(
         tool_names
     ), f"Core tools missing after discovery: {core_tools - tool_names}"

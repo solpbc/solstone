@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""MCP tools for search operations.
+"""Journal search and event query functions.
 
-Note: These functions are registered as MCP tools by think/mcp.py
-They can also be imported and called directly for testing or internal use.
+These functions query the journal SQLite index and can be imported directly.
 """
 
 from datetime import datetime, timedelta
