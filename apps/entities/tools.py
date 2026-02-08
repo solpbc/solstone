@@ -10,8 +10,6 @@ Tools are auto-discovered and registered via the @register_tool decorator.
 import re
 from typing import Any
 
-from fastmcp import Context
-
 from think.entities import (
     ObservationNumberError,
     add_observation,
@@ -156,7 +154,6 @@ def entity_detect(
     type: str,
     entity: str,
     description: str,
-    context: Context | None = None,
 ) -> dict[str, Any]:
     """Record a detected entity for a specific day in a facet.
 
@@ -246,7 +243,6 @@ def entity_detect(
                 "name": name,
                 "description": description,
             },
-            context=context,
             day=day,
         )
 
@@ -271,7 +267,7 @@ def entity_detect(
 
 @register_tool(annotations=HINTS)
 def entity_attach(
-    facet: str, type: str, entity: str, description: str, context: Context | None = None
+    facet: str, type: str, entity: str, description: str
 ) -> dict[str, Any]:
     """Attach an entity permanently to a facet.
 
@@ -382,7 +378,6 @@ def entity_attach(
                 "name": name,
                 "description": description,
             },
-            context=context,
         )
 
         return {
@@ -405,7 +400,6 @@ def entity_update(
     old_description: str,
     new_description: str,
     day: str | None = None,
-    context: Context | None = None,
 ) -> dict[str, Any]:
     """Update an existing entity's description using guard-based validation.
 
@@ -461,7 +455,6 @@ def entity_update(
                 "old_description": old_description,
                 "new_description": new_description,
             },
-            context=context,
             day=day,
         )
 
@@ -491,9 +484,7 @@ def entity_update(
 
 
 @register_tool(annotations=HINTS)
-def entity_add_aka(
-    facet: str, entity: str, aka: str, context: Context | None = None
-) -> dict[str, Any]:
+def entity_add_aka(facet: str, entity: str, aka: str) -> dict[str, Any]:
     """Add an alias (aka) to an attached entity.
 
     This tool adds an alternative name, acronym, or nickname to an attached entity's
@@ -585,7 +576,6 @@ def entity_add_aka(
             facet=facet,
             action="entity_add_aka",
             params={"entity": entity, "name": resolved_name, "aka": aka},
-            context=context,
         )
 
         return {
@@ -658,7 +648,6 @@ def entity_observe(
     content: str,
     observation_number: int,
     source_day: str | None = None,
-    context: Context | None = None,
 ) -> dict[str, Any]:
     """Add an observation to an attached entity with guard validation.
 
@@ -720,7 +709,6 @@ def entity_observe(
                 "content": content,
                 "observation_number": observation_number,
             },
-            context=context,
         )
 
         return {

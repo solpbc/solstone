@@ -11,7 +11,6 @@ The resource is registered via @mcp.resource decorator.
 from datetime import datetime
 from typing import Any
 
-from fastmcp import Context
 from fastmcp.resources import TextResource
 
 from apps.todos import todo
@@ -121,9 +120,7 @@ def todo_list(day: str, facet: str, day_to: str | None = None) -> dict[str, Any]
 
 
 @register_tool(annotations=HINTS)
-def todo_add(
-    day: str, facet: str, line_number: int, text: str, context: Context | None = None
-) -> dict[str, Any]:
+def todo_add(day: str, facet: str, line_number: int, text: str) -> dict[str, Any]:
     """Append a new unchecked todo entry using the next sequential line number.
 
     Args:
@@ -159,7 +156,6 @@ def todo_add(
             facet=facet,
             action="todo_add",
             params={"line_number": line_number, "text": item.text},
-            context=context,
             day=day,
         )
         return {"day": day, "facet": facet, "markdown": checklist.display()}
@@ -180,9 +176,7 @@ def todo_add(
 
 
 @register_tool(annotations=HINTS)
-def todo_cancel(
-    day: str, facet: str, line_number: int, context: Context | None = None
-) -> dict[str, Any]:
+def todo_cancel(day: str, facet: str, line_number: int) -> dict[str, Any]:
     """Cancel a todo entry (soft delete). The entry remains in the file but is hidden from view.
 
     Args:
@@ -201,7 +195,6 @@ def todo_cancel(
             facet=facet,
             action="todo_cancel",
             params={"line_number": line_number, "text": item.text},
-            context=context,
             day=day,
         )
         return {"day": day, "facet": facet, "markdown": checklist.display()}
@@ -217,9 +210,7 @@ def todo_cancel(
 
 
 @register_tool(annotations=HINTS)
-def todo_done(
-    day: str, facet: str, line_number: int, context: Context | None = None
-) -> dict[str, Any]:
+def todo_done(day: str, facet: str, line_number: int) -> dict[str, Any]:
     """Mark a todo entry as completed.
 
     Args:
@@ -238,7 +229,6 @@ def todo_done(
             facet=facet,
             action="todo_done",
             params={"line_number": line_number, "text": item.text},
-            context=context,
             day=day,
         )
         return {"day": day, "facet": facet, "markdown": checklist.display()}

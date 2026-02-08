@@ -7,9 +7,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastmcp import Context
-
-from think.facets import get_agent_info
 from think.mcp import HINTS, register_tool
 from think.utils import get_journal
 
@@ -21,11 +18,11 @@ TOOL_PACKS = {
 
 @register_tool(annotations=HINTS)
 def send_message(
-    body: str, facet: str | None = None, context: Context | None = None
+    body: str, facet: str | None = None, agent_id: str | None = None
 ) -> dict[str, Any]:
     """Send a message to the user's inbox for asynchronous communication.
 
-    This tool allows MCP agents and tools to leave messages in the user's inbox
+    This tool allows agents to leave messages in the user's inbox
     that can be reviewed later through the chat app interface. Messages appear as
     unread notifications and can be archived after review. Use this for:
     - Alerting about things or issues that need attention
@@ -39,6 +36,8 @@ def send_message(
         facet: Optional facet to associate the message with (e.g., "work", "personal").
                Always provide a facet if the context implies one or if you know which
                facet is relevant. This enables proper filtering in the inbox UI.
+        agent_id: Optional identifier of the agent sending the message. Used to
+                  attribute the message in the inbox UI. Defaults to "agent".
 
     Returns:
         Dictionary containing either:
@@ -57,7 +56,7 @@ def send_message(
         # Create a synthetic agent (just the agent JSONL file)
         from think.cortex_client import create_synthetic_agent
 
-        agent_id = create_synthetic_agent(result=body)
+        synthetic_agent_id = create_synthetic_agent(result=body)
 
         # Create chat metadata for this message
         # Generate title using Gemini (same as user-initiated chats)
@@ -65,13 +64,9 @@ def send_message(
 
         title = generate_chat_title(body)
 
-        # Extract caller's agent identity from context
-        agent_info = get_agent_info(context)
-        caller_agent_id = agent_info["agent_id"]
-
         chat_record = {
-            "ts": int(agent_id),  # agent_id is already the timestamp
-            "from": {"type": "agent", "id": caller_agent_id or "mcp_tool"},
+            "ts": int(synthetic_agent_id),  # agent_id is already the timestamp
+            "from": {"type": "agent", "id": agent_id or "agent"},
             "title": title,
             "unread": True,
             "facet": facet,
@@ -80,15 +75,18 @@ def send_message(
         # Save chat metadata
         chats_dir = Path(journal_path) / "apps" / "chat" / "chats"
         chats_dir.mkdir(parents=True, exist_ok=True)
-        chat_file = chats_dir / f"{agent_id}.json"
+        chat_file = chats_dir / f"{synthetic_agent_id}.json"
 
         with open(chat_file, "w", encoding="utf-8") as f:
             json.dump(chat_record, f, indent=2)
 
         return {
             "success": True,
-            "agent_id": agent_id,
-            "message": f"Message sent successfully to inbox (agent_id: {agent_id})",
+            "agent_id": synthetic_agent_id,
+            "message": (
+                "Message sent successfully to inbox "
+                f"(agent_id: {synthetic_agent_id})"
+            ),
         }
     except Exception as exc:
         return {
