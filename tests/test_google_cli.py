@@ -35,7 +35,7 @@ class TestTranslateGemini:
             cb,
         )
         assert result == "sess-abc"
-        assert events == []  # init should not emit events
+        assert events == []
 
     def test_user_message_ignored(self):
         cb, events = self._make_callback()
@@ -67,12 +67,11 @@ class TestTranslateGemini:
             cb,
         )
         assert agg.flush_as_result() == "Hello world"
-        assert events == []  # deltas don't emit events directly
+        assert events == []
 
     def test_tool_use_flushes_thinking_and_emits_start(self):
         cb, events = self._make_callback()
         agg = self._make_aggregator(cb)
-        # Accumulate some text first
         agg.accumulate("I'll use a tool now.")
         event = {
             "type": "tool_use",
@@ -82,7 +81,6 @@ class TestTranslateGemini:
             "parameters": {"path": "/tmp/test.txt"},
         }
         _translate_gemini(event, agg, cb)
-        # Should have emitted thinking + tool_start
         assert len(events) == 2
         assert events[0]["event"] == "thinking"
         assert events[0]["summary"] == "I'll use a tool now."
@@ -103,46 +101,84 @@ class TestTranslateGemini:
             "parameters": {},
         }
         _translate_gemini(event, agg, cb)
-        # Only tool_start, no thinking event
         assert len(events) == 1
         assert events[0]["event"] == "tool_start"
 
-    def test_tool_result_emits_end(self):
+    def test_tool_result_includes_tool_name(self):
+        """tool_end should include tool name from preceding tool_use."""
         cb, events = self._make_callback()
         agg = self._make_aggregator(cb)
-        event = {
-            "type": "tool_result",
-            "timestamp": 3000,
-            "tool_id": "tool-1",
-            "status": "success",
-            "output": "file contents here",
-        }
-        _translate_gemini(event, agg, cb)
+        pending = {}
+        _translate_gemini(
+            {
+                "type": "tool_use",
+                "tool_name": "read_file",
+                "tool_id": "t1",
+                "parameters": {"path": "x.py"},
+            },
+            agg,
+            cb,
+            pending_tools=pending,
+        )
+        events.clear()  # ignore tool_start
+        _translate_gemini(
+            {
+                "type": "tool_result",
+                "tool_id": "t1",
+                "status": "success",
+                "output": "contents",
+            },
+            agg,
+            cb,
+            pending_tools=pending,
+        )
         assert len(events) == 1
         assert events[0]["event"] == "tool_end"
-        assert events[0]["call_id"] == "tool-1"
-        assert events[0]["result"] == "file contents here"
-        assert events[0]["raw"] == [event]
+        assert events[0]["tool"] == "read_file"
+        assert events[0]["args"] == {"path": "x.py"}
+        assert events[0]["result"] == "contents"
+        assert events[0]["call_id"] == "t1"
+
+    def test_tool_result_without_pending(self):
+        """tool_end without pending_tools still works, tool is empty."""
+        cb, events = self._make_callback()
+        agg = self._make_aggregator(cb)
+        _translate_gemini(
+            {
+                "type": "tool_result",
+                "tool_id": "t1",
+                "status": "success",
+                "output": "data",
+            },
+            agg,
+            cb,
+        )
+        assert len(events) == 1
+        assert events[0]["event"] == "tool_end"
+        assert events[0]["tool"] == ""
 
     def test_result_stores_usage(self):
         cb, events = self._make_callback()
         agg = self._make_aggregator(cb)
         usage = {}
-        event = {
-            "type": "result",
-            "timestamp": 5000,
-            "status": "success",
-            "stats": {
-                "total_tokens": 1500,
-                "input_tokens": 1000,
-                "output_tokens": 500,
-                "cached": 200,
-                "duration_ms": 3000,
-                "tool_calls": 2,
+        _translate_gemini(
+            {
+                "type": "result",
+                "status": "success",
+                "stats": {
+                    "total_tokens": 1500,
+                    "input_tokens": 1000,
+                    "output_tokens": 500,
+                    "cached": 200,
+                    "duration_ms": 3000,
+                    "tool_calls": 2,
+                },
             },
-        }
-        _translate_gemini(event, agg, cb, usage)
-        assert events == []  # result should NOT emit events
+            agg,
+            cb,
+            usage,
+        )
+        assert events == []
         assert usage["input_tokens"] == 1000
         assert usage["output_tokens"] == 500
         assert usage["total_tokens"] == 1500
@@ -154,7 +190,7 @@ class TestTranslateGemini:
         agg = self._make_aggregator(cb)
         usage = {}
         _translate_gemini(
-            {"type": "result", "timestamp": 5000, "status": "success"},
+            {"type": "result", "status": "success"},
             agg,
             cb,
             usage,
@@ -173,15 +209,15 @@ class TestTranslateGemini:
         assert events == []
 
     def test_full_sequence(self):
-        """Integration test: process a full sequence of Gemini JSONL events."""
+        """Process a full sequence of Gemini JSONL events."""
         cb, events = self._make_callback()
         agg = self._make_aggregator(cb)
         usage = {}
+        pending = {}
 
         sequence = [
             {
                 "type": "init",
-                "timestamp": 100,
                 "session_id": "sess-42",
                 "model": "gemini-2.5-flash",
             },
@@ -194,14 +230,12 @@ class TestTranslateGemini:
             },
             {
                 "type": "tool_use",
-                "timestamp": 200,
                 "tool_name": "read_file",
                 "tool_id": "t1",
                 "parameters": {"path": "test.py"},
             },
             {
                 "type": "tool_result",
-                "timestamp": 300,
                 "tool_id": "t1",
                 "status": "success",
                 "output": "print('hello')",
@@ -220,7 +254,6 @@ class TestTranslateGemini:
             },
             {
                 "type": "result",
-                "timestamp": 500,
                 "status": "success",
                 "stats": {
                     "total_tokens": 100,
@@ -232,11 +265,10 @@ class TestTranslateGemini:
 
         session_ids = []
         for ev in sequence:
-            sid = _translate_gemini(ev, agg, cb, usage)
+            sid = _translate_gemini(ev, agg, cb, usage, pending)
             if sid:
                 session_ids.append(sid)
 
-        # Session ID captured from init
         assert session_ids == ["sess-42"]
 
         # Events: thinking, tool_start, tool_end
@@ -246,11 +278,11 @@ class TestTranslateGemini:
         assert events[1]["event"] == "tool_start"
         assert events[1]["tool"] == "read_file"
         assert events[2]["event"] == "tool_end"
+        assert events[2]["tool"] == "read_file"
         assert events[2]["call_id"] == "t1"
 
         # Final result text in aggregator
         result = agg.flush_as_result()
         assert result == "The file contains a print statement."
 
-        # Usage populated
         assert usage["total_tokens"] == 100

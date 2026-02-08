@@ -237,7 +237,6 @@ async def run_tools(
             "-",
             "--output-format",
             "stream-json",
-            "--verbose",
             "--permission-mode",
             "plan",
             "--model",

@@ -198,7 +198,6 @@ async def run_tools(
                     "event": "error",
                     "error": str(exc),
                     "trace": traceback.format_exc(),
-                    "raw": [],
                 }
             )
             setattr(exc, "_evented", True)
@@ -208,7 +207,6 @@ async def run_tools(
     finish_event: dict[str, Any] = {
         "event": "finish",
         "result": result,
-        "raw": [],
     }
     if runner.cli_session_id:
         finish_event["cli_session_id"] = runner.cli_session_id

@@ -322,7 +322,6 @@ class TestRunTools:
         assert events[-1]["event"] == "finish"
         assert events[-1]["result"] == "result text"
         assert events[-1]["cli_session_id"] == "test-session-id"
-        assert events[-1]["raw"] == []
 
     def test_finish_event_without_session_id(self):
         provider = _openai_provider()
@@ -402,4 +401,3 @@ class TestRunTools:
         assert getattr(exc, "_evented", False) is True
         assert events[-1]["event"] == "error"
         assert events[-1]["error"] == "boom"
-        assert events[-1]["raw"] == []

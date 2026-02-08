@@ -52,7 +52,6 @@ from .shared import (
     GenerateResult,
     JSONEventCallback,
     ThinkingEvent,
-    extract_tool_result,
 )
 
 _DEFAULT_MAX_TOKENS = 8192
@@ -472,76 +471,12 @@ def _emit_thinking_events(
                 callback.emit(thinking_event)
 
 
-class ToolLoggingHooks:
-    """Wrap ``session.call_tool`` to emit events."""
-
-    def __init__(
-        self,
-        writer: JSONEventCallback,
-        agent_id: str | None = None,
-        name: str | None = None,
-        day: str | None = None,
-    ) -> None:
-        self.writer = writer
-        self._counter = 0
-        self.session = None
-        self.agent_id = agent_id
-        self.name = name
-        self.day = day
-
-    def attach(self, session: Any) -> None:
-        self.session = session
-        original = session.call_tool
-
-        async def wrapped(name: str, arguments: dict | None = None, **kwargs) -> Any:
-            self._counter += 1
-            call_id = f"{name}-{self._counter}"
-            self.writer.emit(
-                {
-                    "event": "tool_start",
-                    "tool": name,
-                    "args": arguments,
-                    "call_id": call_id,
-                }
-            )
-
-            # Build _meta dict for passing agent identity and context
-            meta = {}
-            if self.agent_id:
-                meta["agent_id"] = self.agent_id
-            if self.name:
-                meta["name"] = self.name
-            if self.day:
-                meta["day"] = self.day
-
-            result = await original(
-                name=name,
-                arguments=arguments,
-                meta=meta,
-                **kwargs,
-            )
-
-            result_data = extract_tool_result(result)
-
-            self.writer.emit(
-                {
-                    "event": "tool_end",
-                    "tool": name,
-                    "args": arguments,
-                    "result": result_data,
-                    "call_id": call_id,
-                }
-            )
-            return result
-
-        session.call_tool = wrapped  # type: ignore[assignment]
-
-
 def _translate_gemini(
     event: dict[str, Any],
     aggregator: ThinkingAggregator,
     callback: JSONEventCallback,
     usage_out: dict[str, Any] | None = None,
+    pending_tools: dict[str, dict[str, Any]] | None = None,
 ) -> str | None:
     """Translate a Gemini CLI JSONL event into our standard Event types.
 
@@ -550,6 +485,7 @@ def _translate_gemini(
         aggregator: ThinkingAggregator for buffering text.
         callback: JSONEventCallback for emitting events.
         usage_out: Optional mutable dict to receive usage stats from result events.
+        pending_tools: Optional mutable dict tracking tool_id -> {tool, args}.
 
     Returns:
         The CLI session ID from init events, or None.
@@ -572,12 +508,17 @@ def _translate_gemini(
 
     if event_type == "tool_use":
         aggregator.flush_as_thinking(raw_events=[event])
+        tool_name = event.get("tool_name", "")
+        tool_id = event.get("tool_id")
+        tool_args = event.get("parameters")
+        if pending_tools is not None and tool_id:
+            pending_tools[tool_id] = {"tool": tool_name, "args": tool_args}
         callback.emit(
             {
                 "event": "tool_start",
-                "tool": event.get("tool_name", ""),
-                "args": event.get("parameters"),
-                "call_id": event.get("tool_id"),
+                "tool": tool_name,
+                "args": tool_args,
+                "call_id": tool_id,
                 "raw": [event],
                 "ts": now_ms(),
             }
@@ -585,10 +526,16 @@ def _translate_gemini(
         return None
 
     if event_type == "tool_result":
+        tool_id = event.get("tool_id")
+        tool_info = {}
+        if pending_tools is not None and tool_id:
+            tool_info = pending_tools.pop(tool_id, {})
         callback.emit(
             {
                 "event": "tool_end",
-                "call_id": event.get("tool_id"),
+                "tool": tool_info.get("tool", ""),
+                "args": tool_info.get("args"),
+                "call_id": tool_id,
                 "result": event.get("output"),
                 "raw": [event],
                 "ts": now_ms(),
@@ -659,13 +606,14 @@ async def run_tools(
             if session_id:
                 cmd.extend(["--resume", session_id])
 
-        # Mutable container for usage stats from result event
+        # Mutable containers for translate closure
         usage: dict[str, Any] = {}
+        pending_tools: dict[str, dict[str, Any]] = {}
 
         def translate(
             event: dict[str, Any], agg: ThinkingAggregator, cb: JSONEventCallback
         ) -> str | None:
-            return _translate_gemini(event, agg, cb, usage)
+            return _translate_gemini(event, agg, cb, usage, pending_tools)
 
         aggregator = ThinkingAggregator(callback, model=model)
         runner = CLIRunner(
