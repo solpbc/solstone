@@ -835,6 +835,101 @@ class TestPostProcess:
         items = json.loads(result)
         assert items[0]["level"] == "medium"
 
+    def test_active_entities_passthrough_on_new(self):
+        """active_entities array is passed through on new activities."""
+        from muse.activity_state import post_process
+
+        llm_output = json.dumps(
+            [
+                {
+                    "activity": "meeting",
+                    "state": "new",
+                    "description": "Standup with team",
+                    "level": "high",
+                    "active_entities": ["Alice", "Bob"],
+                }
+            ]
+        )
+
+        result = post_process(llm_output, {"segment": "143000_300"})
+        items = json.loads(result)
+        assert items[0]["active_entities"] == ["Alice", "Bob"]
+
+    def test_active_entities_omitted_when_empty(self):
+        """active_entities is omitted from output when not provided or empty."""
+        from muse.activity_state import post_process
+
+        llm_output = json.dumps(
+            [
+                {
+                    "activity": "coding",
+                    "state": "new",
+                    "description": "Writing code",
+                    "level": "high",
+                    "active_entities": [],
+                }
+            ]
+        )
+
+        result = post_process(llm_output, {"segment": "143000_300"})
+        items = json.loads(result)
+        assert "active_entities" not in items[0]
+
+    def test_active_entities_omitted_on_ended(self):
+        """active_entities is not included on ended activities."""
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                day_dir = Path(tmpdir) / "20260130"
+                day_dir.mkdir()
+
+                prev_dir = day_dir / "100000_300"
+                prev_dir.mkdir()
+                prev_state = [
+                    {
+                        "activity": "meeting",
+                        "state": "active",
+                        "since": "093000_300",
+                        "description": "Sprint planning",
+                        "level": "high",
+                    }
+                ]
+                (prev_dir / "activity_state_work.json").write_text(
+                    json.dumps(prev_state)
+                )
+
+                (day_dir / "100500_300").mkdir()
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "meeting",
+                            "state": "ended",
+                            "description": "Sprint planning completed",
+                            "active_entities": ["Alice"],
+                        }
+                    ]
+                )
+
+                context = {
+                    "day": "20260130",
+                    "segment": "100500_300",
+                    "output_path": f"{tmpdir}/20260130/100500_300/activity_state_work.json",
+                }
+
+                result = post_process(llm_output, context)
+                items = json.loads(result)
+                assert items[0]["state"] == "ended"
+                assert "active_entities" not in items[0]
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
     def test_fuzzy_match_disambiguates_same_type(self):
         """Multiple same-type previous activities matched by description."""
         from muse.activity_state import post_process

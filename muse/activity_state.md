@@ -10,7 +10,7 @@
   "hook": {"pre": "activity_state", "post": "activity_state"},
   "tier": 3,
   "thinking_budget": 2048,
-  "max_output_tokens": 512,
+  "max_output_tokens": 1024,
   "instructions": {
     "sources": {"audio": true, "screen": true, "agents": false},
     "facets": false
@@ -40,8 +40,8 @@ Return a JSON array of activity objects:
 
 ```json
 [
-  {"activity": "meeting", "state": "continuing", "description": "Design review with UX team, now discussing navigation", "level": "high"},
-  {"activity": "messaging", "state": "new", "description": "Slack thread about deployment", "level": "low"},
+  {"activity": "meeting", "state": "continuing", "description": "Design review with UX team, now discussing navigation", "level": "high", "active_entities": ["Sarah Chen", "UX Team"]},
+  {"activity": "messaging", "state": "new", "description": "Slack thread about deployment", "level": "low", "active_entities": ["DevOps"]},
   {"activity": "email", "state": "ended", "description": "Replied to deployment notification from ops team"}
 ]
 ```
@@ -52,6 +52,7 @@ Return a JSON array of activity objects:
 - `state`: One of `"continuing"`, `"new"`, or `"ended"`
 - `description`: Brief description of what this activity involves (update as context evolves)
 - `level`: Engagement level — `"high"` (primary focus), `"medium"` (secondary), `"low"` (background). Only for continuing/new, omit for ended.
+- `active_entities`: Names of people, companies, projects, or tools that were noticeably active in this segment and associated with this activity. Only include entities with clear evidence of involvement (speaking, mentioned, visible on screen). Omit for ended.
 
 ## Rules
 
@@ -66,19 +67,19 @@ Return a JSON array of activity objects:
 
 **New activity starts:**
 ```json
-[{"activity": "coding", "state": "new", "description": "Implementing user auth flow", "level": "high"}]
+[{"activity": "coding", "state": "new", "description": "Implementing user auth flow", "level": "high", "active_entities": ["Claude Code", "VS Code"]}]
 ```
 
 **Activity continues from previous:**
 ```json
-[{"activity": "meeting", "state": "continuing", "description": "Sprint planning - now discussing blockers", "level": "high"}]
+[{"activity": "meeting", "state": "continuing", "description": "Sprint planning - now discussing blockers", "level": "high", "active_entities": ["Alice Johnson", "Bob Smith"]}]
 ```
 
 **One meeting ends, another starts:**
 ```json
 [
   {"activity": "meeting", "state": "ended", "description": "Sprint planning completed"},
-  {"activity": "meeting", "state": "new", "description": "1:1 with manager", "level": "high"}
+  {"activity": "meeting", "state": "new", "description": "1:1 with manager", "level": "high", "active_entities": ["Manager Name"]}
 ]
 ```
 

@@ -499,6 +499,8 @@ def post_process(result: str, context: dict) -> str | None:
         # Build unclaimed candidates with their original indices
         unclaimed = [(i, c) for i, c in enumerate(prev_active) if i not in claimed]
 
+        active_entities = item.get("active_entities", [])
+
         if state == "continuing":
             result = _find_best_match(activity_id, description, unclaimed)
             if result:
@@ -509,15 +511,16 @@ def post_process(result: str, context: dict) -> str | None:
                 # No previous match — treat as new
                 since = segment
 
-            resolved.append(
-                {
-                    "activity": activity_id,
-                    "state": "active",
-                    "since": since,
-                    "description": description,
-                    "level": item.get("level", "medium"),
-                }
-            )
+            entry = {
+                "activity": activity_id,
+                "state": "active",
+                "since": since,
+                "description": description,
+                "level": item.get("level", "medium"),
+            }
+            if active_entities:
+                entry["active_entities"] = active_entities
+            resolved.append(entry)
 
         elif state == "ended":
             result = _find_best_match(activity_id, description, unclaimed)
@@ -537,27 +540,29 @@ def post_process(result: str, context: dict) -> str | None:
             ):
                 # No active match but has a novel description — likely
                 # a real activity the LLM mis-tagged as ended; treat as new
-                resolved.append(
-                    {
-                        "activity": activity_id,
-                        "state": "active",
-                        "since": segment,
-                        "description": description,
-                        "level": item.get("level", "medium"),
-                    }
-                )
-            # else: redundant re-report of already ended activity — drop
-
-        else:
-            # "new" or any unrecognized state — stamp current segment
-            resolved.append(
-                {
+                entry = {
                     "activity": activity_id,
                     "state": "active",
                     "since": segment,
                     "description": description,
                     "level": item.get("level", "medium"),
                 }
-            )
+                if active_entities:
+                    entry["active_entities"] = active_entities
+                resolved.append(entry)
+            # else: redundant re-report of already ended activity — drop
+
+        else:
+            # "new" or any unrecognized state — stamp current segment
+            entry = {
+                "activity": activity_id,
+                "state": "active",
+                "since": segment,
+                "description": description,
+                "level": item.get("level", "medium"),
+            }
+            if active_entities:
+                entry["active_entities"] = active_entities
+            resolved.append(entry)
 
     return json.dumps(resolved, ensure_ascii=False)
