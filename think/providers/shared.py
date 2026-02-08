@@ -31,6 +31,7 @@ class ToolStartEvent(TypedDict, total=False):
     tool: str
     args: Optional[dict[str, Any]]
     call_id: Optional[str]  # Unique ID to pair with tool_end event
+    raw: Optional[list[dict[str, Any]]]  # Original provider JSON event(s)
 
 
 class ToolEndEvent(TypedDict, total=False):
@@ -42,25 +43,30 @@ class ToolEndEvent(TypedDict, total=False):
     args: Optional[dict[str, Any]]
     result: Any
     call_id: Optional[str]  # Matches the call_id from tool_start
+    raw: Optional[list[dict[str, Any]]]  # Original provider JSON event(s)
 
 
-class StartEvent(TypedDict):
+class StartEvent(TypedDict, total=False):
     """Event emitted when an agent run begins."""
 
-    event: Literal["start"]
-    ts: int
-    prompt: str
-    name: str
-    model: str
-    provider: str
+    event: Required[Literal["start"]]
+    ts: Required[int]
+    prompt: Required[str]
+    name: Required[str]
+    model: Required[str]
+    provider: Required[str]
+    raw: Optional[list[dict[str, Any]]]  # Original provider JSON event(s)
 
 
-class FinishEvent(TypedDict):
+class FinishEvent(TypedDict, total=False):
     """Event emitted when an agent run finishes successfully."""
 
-    event: Literal["finish"]
-    ts: int
-    result: str
+    event: Required[Literal["finish"]]
+    ts: Required[int]
+    result: Required[str]
+    usage: Optional[dict[str, Any]]
+    cli_session_id: Optional[str]  # Provider CLI session/thread ID for resume
+    raw: Optional[list[dict[str, Any]]]  # Original provider JSON event(s)
 
 
 class ErrorEvent(TypedDict, total=False):
@@ -70,14 +76,16 @@ class ErrorEvent(TypedDict, total=False):
     ts: int
     error: str
     trace: Optional[str]
+    raw: Optional[list[dict[str, Any]]]  # Original provider JSON event(s)
 
 
-class AgentUpdatedEvent(TypedDict):
+class AgentUpdatedEvent(TypedDict, total=False):
     """Event emitted when the agent context changes."""
 
-    event: Literal["agent_updated"]
-    ts: int
-    agent: str
+    event: Required[Literal["agent_updated"]]
+    ts: Required[int]
+    agent: Required[str]
+    raw: Optional[list[dict[str, Any]]]  # Original provider JSON event(s)
 
 
 class ThinkingEvent(TypedDict, total=False):
@@ -95,6 +103,7 @@ class ThinkingEvent(TypedDict, total=False):
     model: Optional[str]
     signature: Optional[str]  # Anthropic thinking block signature
     redacted_data: Optional[str]  # Encrypted data for redacted thinking
+    raw: Optional[list[dict[str, Any]]]  # Original provider JSON event(s)
 
 
 Event = Union[
