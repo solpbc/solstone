@@ -72,6 +72,11 @@ def _discover_app_calls() -> None:
 
 _discover_app_calls()
 
+# Mount built-in journal CLI (not auto-discovered since it lives under think/)
+from think.tools.call import app as journal_app
+
+call_app.add_typer(journal_app, name="journal")
+
 
 def main() -> None:
     """Entry point for ``sol call``."""
