@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Entity Extraction",
   "description": "Extracts people, companies, projects, and tools from segment content",

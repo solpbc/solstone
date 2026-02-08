@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Activity State",
   "description": "Detects configured activities present in segment and tracks state across segments",

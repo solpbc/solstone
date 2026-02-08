@@ -251,7 +251,7 @@ def get_providers() -> Any:
         - default: Current default provider and tier
         - contexts: Configured context overrides from journal.json
         - context_defaults: Context registry with labels/groups for UI
-          (includes muse configs with has_tools, schedule, disabled, extract)
+          (includes muse configs with type, schedule, disabled, extract)
         - api_keys: Boolean status for each provider's API key
     """
     try:
@@ -282,9 +282,9 @@ def get_providers() -> Any:
                 "label": ctx_config["label"],
                 "group": ctx_config["group"],
             }
-            # Include has_tools for muse contexts
-            if "has_tools" in ctx_config:
-                context_defaults[pattern]["has_tools"] = ctx_config["has_tools"]
+            # Include type for muse contexts
+            if "type" in ctx_config:
+                context_defaults[pattern]["type"] = ctx_config["type"]
 
         # Enhance muse contexts with additional metadata from get_muse_configs
         from think.muse import key_to_context
@@ -545,10 +545,8 @@ def get_generators() -> Any:
     try:
         from think.muse import get_muse_configs
 
-        # Get all generators (has output but no tools)
-        all_generators = get_muse_configs(
-            has_tools=False, has_output=True, include_disabled=True
-        )
+        # Get all generate prompts
+        all_generators = get_muse_configs(type="generate", include_disabled=True)
 
         segment = []
         daily = []

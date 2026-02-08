@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Messaging Activity",
   "description": "Tracks use of email and chat applications across the day. Each interaction is summarized with participants, app used and visible message content.",

@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Upcoming Schedule",
   "description": "Identifies all future calendar events and scheduled activities noted in transcripts. Extracts dates, times, participants, and event details for anything scheduled beyond today.",

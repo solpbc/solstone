@@ -468,18 +468,18 @@ def validate_config(config: dict) -> str | None:
     Returns:
         Error message string if invalid, None if valid
     """
-    has_tools = bool(config.get("tools"))
+    is_cogitate = config["type"] == "cogitate"
     has_prompt = bool(config.get("prompt"))
     has_user_instruction = bool(config.get("user_instruction"))
     has_day = bool(config.get("day"))
 
-    # Tool agents need a prompt (user's question)
-    if has_tools and not has_prompt:
-        return "Missing 'prompt' field for tool agent"
+    # Cogitate agents need a prompt (user's question)
+    if is_cogitate and not has_prompt:
+        return "Missing 'prompt' field for cogitate agent"
 
-    # Generators need either day (transcript) or user_instruction
-    if not has_tools and not has_day and not has_user_instruction and not has_prompt:
-        return "Invalid config: must have 'tools', 'day', or 'prompt'"
+    # Generate prompts need either day (transcript) or user_instruction
+    if not is_cogitate and not has_day and not has_user_instruction and not has_prompt:
+        return "Invalid config: must have 'type', 'day', or 'prompt'"
 
     # Segment/span requires day
     if (config.get("segment") or config.get("span")) and not has_day:
@@ -568,12 +568,12 @@ def _write_output(output_path: Path, result: str) -> None:
 
 def _build_dry_run_event(config: dict, before_values: dict) -> dict:
     """Build a dry-run event with all context."""
-    has_tools = bool(config.get("tools"))
+    agent_type = config["type"]
 
     event: dict[str, Any] = {
         "event": "dry_run",
         "ts": now_ms(),
-        "type": "agent" if has_tools else "generate",
+        "type": agent_type,
         "name": config.get("name", "default"),
         "provider": config.get("provider", ""),
         "model": config.get("model") or "unknown",
@@ -582,7 +582,7 @@ def _build_dry_run_event(config: dict, before_values: dict) -> dict:
         "prompt": config.get("prompt", ""),
     }
 
-    if has_tools:
+    if agent_type == "cogitate":
         event["extra_context"] = config.get("extra_context", "")
         event["tools"] = config.get("tools", [])
 
@@ -748,7 +748,7 @@ async def _run_agent(
     name = config.get("name", "default")
     provider = config.get("provider", "google")
     model = config.get("model")
-    has_tools = bool(config.get("tools"))
+    is_cogitate = config["type"] == "cogitate"
     force = config.get("force", False)
     output_path = config.get("output_path")
 
@@ -803,7 +803,7 @@ async def _run_agent(
         "user_instruction": config.get("user_instruction", ""),
         "transcript": config.get("transcript", ""),
     }
-    if has_tools:
+    if is_cogitate:
         before_values["extra_context"] = config.get("extra_context", "")
 
     # Run pre-hooks
@@ -817,7 +817,7 @@ async def _run_agent(
         return
 
     # Execute based on agent type
-    if has_tools:
+    if is_cogitate:
         await _execute_with_tools(config, emit_event)
     else:
         await _execute_generate(config, emit_event)
@@ -840,7 +840,7 @@ def scan_day(day: str) -> dict[str, list[str]]:
     """
     day_dir = day_path(day)
     daily_generators = get_muse_configs(
-        has_tools=False, has_output=True, schedule="daily", include_disabled=True
+        type="generate", schedule="daily", include_disabled=True
     )
     processed: list[str] = []
     pending: list[str] = []

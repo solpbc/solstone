@@ -37,6 +37,6 @@ def stats_data() -> Any:
         except Exception:
             pass
 
-    response["generators"] = get_muse_configs(has_tools=False, has_output=True)
+    response["generators"] = get_muse_configs(type="generate")
 
     return jsonify(response)

@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Activity Synthesis",
   "description": "Synthesizes segment activity from screenshots and audio, focusing on observable changes and searchability.",

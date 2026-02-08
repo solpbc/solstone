@@ -401,15 +401,9 @@ def show_prompt_context(
         sys.exit(1)
 
     info = configs[name]
-    has_tools = bool(info.get("tools"))
+    prompt_type = info.get("type", "prompt")
     schedule = info.get("schedule")
     is_multi_facet = info.get("multi_facet", False)
-
-    # Determine prompt type: tools → agent, no tools → generator
-    if has_tools:
-        prompt_type = "agent"
-    else:
-        prompt_type = "generator"
 
     # Validate day format if provided
     if day and (len(day) != 8 or not day.isdigit()):
@@ -417,7 +411,7 @@ def show_prompt_context(
         sys.exit(1)
 
     # Validate arguments based on type and schedule
-    if prompt_type == "generator":
+    if prompt_type == "generate":
         # Generators need day, and segment-scheduled need segment
         if schedule == "segment" and not segment:
             print(
@@ -428,6 +422,12 @@ def show_prompt_context(
         if not day:
             day = _yesterday()
             print(f"Using day: {day} (yesterday)")
+    elif prompt_type == "prompt":
+        print(
+            f"Prompt '{name}' is a hook prompt and cannot be run directly.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     if is_multi_facet and not facet:
         # List available facets
@@ -451,7 +451,7 @@ def show_prompt_context(
     # Build config for dry-run
     config: dict[str, Any] = {"name": name}
 
-    if prompt_type == "generator":
+    if prompt_type == "generate":
         config["day"] = day
         config["output"] = info.get("output", "md")
         if segment:
@@ -459,7 +459,7 @@ def show_prompt_context(
         if facet:
             config["facet"] = facet
     else:
-        # Tool agent - use get_agent() to build full config with instructions
+        # Cogitate prompt - use get_agent() to build full config with instructions
         from think.muse import get_agent
 
         try:

@@ -194,7 +194,7 @@ def _discover_muse_contexts() -> Dict[str, Dict[str, Any]]:
     Returns
     -------
     Dict[str, Dict[str, Any]]
-        Mapping of context patterns to {tier, label, group, has_tools} dicts.
+        Mapping of context patterns to {tier, label, group, type} dicts.
         Context patterns are: muse.system.{name} or muse.{app}.{name}
     """
     from think.muse import get_muse_configs, key_to_context
@@ -210,7 +210,7 @@ def _discover_muse_contexts() -> Dict[str, Dict[str, Any]]:
             "tier": config.get("tier", TIER_FLASH),
             "label": config.get("label", config.get("title", key)),
             "group": config.get("group", "Think"),
-            "has_tools": "tools" in config,
+            "type": config.get("type"),
         }
 
     return contexts

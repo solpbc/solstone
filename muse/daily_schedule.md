@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Maintenance Window",
   "description": "Analyzes activity patterns to identify optimal times for scheduled maintenance tasks.",

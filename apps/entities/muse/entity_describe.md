@@ -1,4 +1,5 @@
 {
+  "type": "cogitate",
 
   "title": "Entity Description",
   "description": "Research and generate single-sentence descriptions for attached entities",

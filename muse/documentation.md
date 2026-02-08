@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Documentation Moments",
   "description": "Finds when important knowledge is shared in the transcript and suggests what should be written down. Output is a Markdown list of documentation opportunities with time ranges and destinations.",

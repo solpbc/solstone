@@ -1,4 +1,5 @@
 {
+  "type": "cogitate",
 
   "title": "Facet Newsletter Generator",
   "description": "Creates comprehensive daily newsletters for each facet, capturing activities, progress, and insights",

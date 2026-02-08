@@ -1,4 +1,5 @@
 {
+  "type": "cogitate",
 
   "title": "Journal Chat",
   "description": "Interactive assistant for searching, exploring, and understanding journal entries across all facets",

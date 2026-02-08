@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Facet Classification",
   "description": "Classifies segment activity into relevant facets based on other segment outputs",

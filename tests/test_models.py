@@ -437,9 +437,9 @@ def test_context_registry_includes_muse_configs():
     ]
     assert len(app_muse) > 0, "Should discover app muse configs"
 
-    # Should include has_tools field for muse contexts
+    # Should include type field for muse contexts
     for context in muse_contexts:
-        assert "has_tools" in registry[context], f"{context} missing has_tools field"
+        assert "type" in registry[context], f"{context} missing type field"
 
 
 def test_context_registry_structure():

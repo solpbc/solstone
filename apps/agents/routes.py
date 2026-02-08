@@ -251,8 +251,7 @@ def _build_agents_meta() -> dict[str, dict[str, Any]]:
             "source": config.get("source", "system"),
             "app": config.get("app"),
             "schedule": config.get("schedule"),
-            "has_tools": "tools" in config,
-            "has_output": "output" in config,
+            "type": config.get("type"),
             "output_format": config.get("output"),
             "multi_facet": bool(config.get("multi_facet")),
         }

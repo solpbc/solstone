@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Day Timeline",
   "description": "Constructs a detailed chronological timeline documenting every activity, task shift, and event throughout the workday. Creates a comprehensive historical record with rich descriptions of what happened when.",

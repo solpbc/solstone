@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Research Needs",
   "description": "Highlights moments where additional information would help progress work. Produces a list of targeted research tasks with time ranges and context.",

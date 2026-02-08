@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "File Interactions",
   "description": "Reviews the day's transcript to capture each significant file or attachment that was opened, saved or shared. Generates a Markdown timeline with context about how the file was used.",

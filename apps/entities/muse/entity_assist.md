@@ -1,4 +1,5 @@
 {
+  "type": "cogitate",
 
   "title": "Entity Assistant",
   "description": "Quick entity addition with intelligent type detection and automatic description generation",

@@ -115,13 +115,24 @@ class TestRunPromptsByPriority:
 
         def mock_get_muse_configs(schedule=None, **kwargs):
             return {
-                "low_priority": {"priority": 10, "output": "md", "schedule": "segment"},
-                "high_priority": {
-                    "priority": 90,
+                "low_priority": {
+                    "priority": 10,
+                    "type": "generate",
                     "output": "md",
                     "schedule": "segment",
                 },
-                "mid_priority": {"priority": 50, "output": "md", "schedule": "segment"},
+                "high_priority": {
+                    "priority": 90,
+                    "type": "generate",
+                    "output": "md",
+                    "schedule": "segment",
+                },
+                "mid_priority": {
+                    "priority": 50,
+                    "type": "generate",
+                    "output": "md",
+                    "schedule": "segment",
+                },
             }
 
         def mock_get_enabled_facets():
@@ -183,6 +194,7 @@ class TestRunPromptsByPriority:
             return {
                 "multi_facet_prompt": {
                     "priority": 10,
+                    "type": "cogitate",
                     "tools": "journal",
                     "multi_facet": True,
                     "schedule": "segment",
@@ -239,6 +251,7 @@ class TestRunPromptsByPriority:
             return {
                 "test_prompt": {
                     "priority": 10,
+                    "type": "cogitate",
                     "tools": "journal",
                     "multi_facet": True,
                     "schedule": "segment",
@@ -283,6 +296,7 @@ class TestRunPromptsByPriority:
             return {
                 "test_generator": {
                     "priority": 10,
+                    "type": "generate",
                     "output": "md",
                     "schedule": "segment",
                 },

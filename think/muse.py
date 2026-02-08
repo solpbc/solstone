@@ -148,23 +148,18 @@ def get_output_path(
 
 def get_muse_configs(
     *,
-    has_tools: bool | None = None,
-    has_output: bool | None = None,
+    type: str | None = None,
     schedule: str | None = None,
     include_disabled: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """Load muse configs from system and app directories.
 
-    Unified function for loading both tool-using agents and generators from
-    muse/*.md files. Filters based on presence of tools/output fields.
+    Unified function for loading both cogitate agents and generate prompts from
+    muse/*.md files. Filters based on explicit type field.
 
     Args:
-        has_tools: If True, only configs with "tools" field (agents).
-            If False, only configs without "tools" field.
-            If None, no filtering on tools presence.
-        has_output: If True, only configs with "output" field (generators).
-            If False, only configs without "output" field.
-            If None, no filtering on output presence.
+        type: If provided, only configs with matching type value
+            ("generate" or "cogitate").
         schedule: If provided, only configs where schedule matches this value
             (e.g., "segment", "daily").
         include_disabled: If True, include configs with disabled=True.
@@ -183,16 +178,8 @@ def get_muse_configs(
 
     def matches_filter(info: dict) -> bool:
         """Check if config matches the filter criteria."""
-        # Check has_tools filter
-        if has_tools is True and "tools" not in info:
-            return False
-        if has_tools is False and "tools" in info:
-            return False
-
-        # Check has_output filter
-        if has_output is True and "output" not in info:
-            return False
-        if has_output is False and "output" in info:
+        # Check explicit type filter
+        if type is not None and info.get("type") != type:
             return False
 
         # Check specific schedule value
@@ -211,9 +198,6 @@ def get_muse_configs(
             name = md_path.stem
             info = _load_prompt_metadata(md_path)
 
-            if not matches_filter(info):
-                continue
-
             info["source"] = "system"
             configs[name] = info
 
@@ -230,9 +214,6 @@ def get_muse_configs(
             for md_path in sorted(app_muse_dir.glob("*.md")):
                 item_name = md_path.stem
                 info = _load_prompt_metadata(md_path)
-
-                if not matches_filter(info):
-                    continue
 
                 key = f"{app_name}:{item_name}"
                 info["source"] = "app"
@@ -267,7 +248,38 @@ def get_muse_configs(
                 f"All prompts with 'schedule' must declare an explicit priority."
             )
 
-    return configs
+    # Validate: prompts with tools/output must have consistent explicit type
+    valid_types = {"generate", "cogitate"}
+    for key, info in configs.items():
+        tools_present = "tools" in info
+        output_present = "output" in info
+        config_type = info.get("type")
+
+        if config_type is not None and config_type not in valid_types:
+            raise ValueError(
+                f"Prompt '{key}' has invalid type {config_type!r}. "
+                "Expected 'generate' or 'cogitate'."
+            )
+
+        if not tools_present and not output_present and config_type is None:
+            continue
+
+        if config_type is None:
+            raise ValueError(
+                f"Prompt '{key}' has tools/output but is missing required 'type' field."
+            )
+
+        if config_type == "generate" and not output_present:
+            raise ValueError(
+                f"Prompt '{key}' has type='generate' but is missing required 'output' field."
+            )
+
+        if config_type == "cogitate" and not tools_present:
+            raise ValueError(
+                f"Prompt '{key}' has type='cogitate' but is missing required 'tools' field."
+            )
+
+    return {key: info for key, info in configs.items() if matches_filter(info)}
 
 
 # ---------------------------------------------------------------------------

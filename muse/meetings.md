@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Meeting Summary",
   "description": "Detects all meetings throughout the day by analyzing audio and screen cues. For each meeting it notes time range, participants, topics discussed and whether slides were shown.",

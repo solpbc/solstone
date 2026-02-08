@@ -1,4 +1,5 @@
 {
+  "type": "cogitate",
 
   "title": "Entity Observer",
   "description": "Extracts durable factoids about attached entities from journal content",

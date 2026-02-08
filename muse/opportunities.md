@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Innovation Opportunities",
   "description": "Scans conversations and tasks for sparks of new ideas, problem statements and potential ventures. Outputs a list of the most promising opportunities with context and suggested next steps.",

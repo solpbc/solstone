@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Day Overview",
   "description": "Summarizes the overall flow of the workday. Looks for patterns in focus, energy, context switching and highlights productivity insights in a Markdown report.",

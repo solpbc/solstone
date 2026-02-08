@@ -241,8 +241,7 @@ def run_prompts_by_priority(
         spawned: list[tuple[str, str, dict]] = []  # (agent_id, name, config)
 
         for prompt_name, config in prompts_list:
-            has_tools = bool(config.get("tools"))
-            is_generator = not has_tools
+            is_generate = config["type"] == "generate"
 
             try:
                 if config.get("multi_facet"):
@@ -260,7 +259,7 @@ def run_prompts_by_priority(
 
                         # Always pass day for instructions.day context
                         request_config: dict = {"facet": facet_name, "day": day}
-                        if is_generator:
+                        if is_generate:
                             request_config["output"] = config.get("output", "md")
                             if force:
                                 request_config["force"] = True
@@ -270,7 +269,7 @@ def run_prompts_by_priority(
 
                         prompt = (
                             ""
-                            if is_generator
+                            if is_generate
                             else f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context."
                         )
 
@@ -289,7 +288,7 @@ def run_prompts_by_priority(
 
                     # Always pass day for instructions.day context
                     request_config: dict = {"day": day}
-                    if is_generator:
+                    if is_generate:
                         request_config["output"] = config.get("output", "md")
                         if force:
                             request_config["force"] = True
@@ -299,7 +298,7 @@ def run_prompts_by_priority(
 
                     prompt = (
                         ""
-                        if is_generator
+                        if is_generate
                         else f"Running scheduled task for {day_formatted}: {input_summary}."
                     )
 
@@ -345,9 +344,9 @@ def run_prompts_by_priority(
 
                     # Incremental indexing for generators (skip JSON —
                     # structured metadata not suitable for full-text index)
-                    is_generator = not bool(config.get("tools"))
+                    is_generate = config["type"] == "generate"
                     output_format = config.get("output", "md")
-                    if is_generator and output_format != "json":
+                    if is_generate and output_format != "json":
                         output_path = get_output_path(
                             day_path(day),
                             prompt_name,
@@ -427,8 +426,7 @@ def run_single_prompt(
         logging.warning(f"Prompt '{name}' is disabled")
         return False
 
-    has_tools = bool(config.get("tools"))
-    is_generator = not has_tools
+    is_generate = config["type"] == "generate"
 
     # Validate segment compatibility with schedule
     prompt_schedule = config.get("schedule")
@@ -451,7 +449,7 @@ def run_single_prompt(
 
     day_formatted = iso_date(day)
 
-    if is_generator:
+    if is_generate:
         logging.info(f"Running generator: {name}")
 
         request_config = {

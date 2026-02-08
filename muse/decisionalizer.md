@@ -1,4 +1,5 @@
 {
+  "type": "cogitate",
 
   "title": "Decision Dossier Generator",
   "description": "Analyzes the day's top decision-actions to create detailed dossiers identifying gaps and stakeholder impacts",

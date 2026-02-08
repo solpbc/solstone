@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Audio Importer",
   "description": "Analyzes imported audio transcripts to extract knowledge, entities, and action items into a comprehensive summary",

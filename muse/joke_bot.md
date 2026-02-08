@@ -1,4 +1,5 @@
 {
+  "type": "cogitate",
 
   "title": "Joke Bot",
   "description": "Mines the analysis day's journal for poignant moments and crafts a personalized joke delivered via message",

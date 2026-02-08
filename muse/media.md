@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Media Consumption",
   "description": "Identifies when videos, articles, music or social content are consumed. Classifies each instance as work or personal and reports the source in chronological sections.",

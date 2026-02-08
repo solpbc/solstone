@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Tool Usage",
   "description": "Catalogues every application or service used throughout the day and how long it was active. The report details which tools are critical, supporting or distracting.",

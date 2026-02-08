@@ -35,6 +35,7 @@ def app_with_agent(tmp_path, monkeypatch):
 
     # Create agent file with frontmatter
     metadata = {
+        "type": "cogitate",
         "title": "My Test Helper",
         "provider": "openai",
         "tools": "journal",
@@ -120,7 +121,7 @@ def test_get_agent_nonexistent_app_agent_raises():
 
 def test_get_muse_configs_includes_system_agents(fixture_journal):
     """Test get_muse_configs returns system agents with metadata."""
-    agents = get_muse_configs(has_tools=True)
+    agents = get_muse_configs(type="cogitate")
 
     # Should include known system agents with frontmatter metadata
     assert "default" in agents
@@ -132,7 +133,7 @@ def test_get_muse_configs_includes_system_agents(fixture_journal):
 
 def test_get_muse_configs_system_agents_have_metadata(fixture_journal):
     """Test system agents have proper metadata fields."""
-    agents = get_muse_configs(has_tools=True)
+    agents = get_muse_configs(type="cogitate")
 
     # Check a known system agent
     default = agents.get("default")
@@ -153,7 +154,7 @@ def test_get_muse_configs_excludes_private_apps(fixture_journal, tmp_path, monke
     # The current implementation filters by app_path.name.startswith("_")
     # We verify this by checking the code behavior with get_muse_configs()
 
-    agents = get_muse_configs(has_tools=True)
+    agents = get_muse_configs(type="cogitate")
 
     # No agents should have keys starting with "_"
     for key in agents:
@@ -162,7 +163,7 @@ def test_get_muse_configs_excludes_private_apps(fixture_journal, tmp_path, monke
 
 def test_app_agent_namespace_format(fixture_journal):
     """Test app agent keys follow {app}:{agent} format."""
-    agents = get_muse_configs(has_tools=True)
+    agents = get_muse_configs(type="cogitate")
 
     for key, config in agents.items():
         if config.get("source") == "app":

@@ -1,4 +1,5 @@
 {
+  "type": "cogitate",
 
   "title": "Daily News Briefing",
   "description": "Creates a crisp TL;DR briefing highlighting the day's top activities across all facets, delivered to inbox",

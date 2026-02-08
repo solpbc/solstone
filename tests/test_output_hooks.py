@@ -168,7 +168,7 @@ def test_output_hook_invocation(tmp_path, monkeypatch):
 
     prompt_file = muse_dir / "hooked_test.md"
     prompt_file.write_text(
-        '{\n  "title": "Hooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "hooked_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
+        '{\n  "type": "generate",\n  "title": "Hooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "hooked_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
     )
 
     hook_file = muse_dir / "hooked_test.py"
@@ -227,7 +227,7 @@ def test_output_hook_returns_none(tmp_path, monkeypatch):
 
     prompt_file = muse_dir / "noop_test.md"
     prompt_file.write_text(
-        '{\n  "title": "Noop",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "noop_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
+        '{\n  "type": "generate",\n  "title": "Noop",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "noop_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
     )
 
     hook_file = muse_dir / "noop_test.py"
@@ -278,7 +278,7 @@ def test_output_hook_error_fallback(tmp_path, monkeypatch):
 
     prompt_file = muse_dir / "broken_test.md"
     prompt_file.write_text(
-        '{\n  "title": "Broken",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "broken_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
+        '{\n  "type": "generate",\n  "title": "Broken",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "broken_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
     )
 
     hook_file = muse_dir / "broken_test.py"
@@ -400,7 +400,7 @@ def test_pre_hook_invocation(tmp_path, monkeypatch):
 
     prompt_file = muse_dir / "prehooked_test.md"
     prompt_file.write_text(
-        '{\n  "title": "Prehooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"pre": "prehooked_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nOriginal prompt'
+        '{\n  "type": "generate",\n  "title": "Prehooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"pre": "prehooked_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nOriginal prompt'
     )
 
     hook_file = muse_dir / "prehooked_test.py"
@@ -465,7 +465,7 @@ def test_both_pre_and_post_hooks(tmp_path, monkeypatch):
 
     prompt_file = muse_dir / "both_hooks_test.md"
     prompt_file.write_text(
-        '{\n  "title": "Both Hooks",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"pre": "both_hooks_test", "post": "both_hooks_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nOriginal prompt'
+        '{\n  "type": "generate",\n  "title": "Both Hooks",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"pre": "both_hooks_test", "post": "both_hooks_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nOriginal prompt'
     )
 
     hook_file = muse_dir / "both_hooks_test.py"

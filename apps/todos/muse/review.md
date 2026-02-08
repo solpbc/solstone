@@ -1,4 +1,5 @@
 {
+  "type": "cogitate",
 
   "title": "TODO Review",
   "description": "Validates checklist entries against journal evidence and marks items complete via MCP todo tools.",

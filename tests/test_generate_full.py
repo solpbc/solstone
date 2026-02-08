@@ -77,7 +77,7 @@ def test_generate_output_ndjson(tmp_path, monkeypatch):
     muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
     test_generator = muse_dir / "test_gen.md"
     test_generator.write_text(
-        '{\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
+        '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
     )
 
     try:
@@ -148,7 +148,7 @@ def post_process(result, context):
     # Create generator with hook (new format, with explicit sources)
     test_generator = muse_dir / "hooked_gen.md"
     test_generator.write_text(
-        '{\n  "title": "Hooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "test_hook"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
+        '{\n  "type": "generate",\n  "title": "Hooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "test_hook"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
     )
 
     try:
@@ -206,7 +206,7 @@ def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
     muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
     test_generator = muse_dir / "nohook_gen.md"
     test_generator.write_text(
-        '{\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nNo hook prompt'
+        '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nNo hook prompt'
     )
 
     try:
@@ -276,7 +276,7 @@ def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
     muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
     test_generator = muse_dir / "empty_gen.md"
     test_generator.write_text(
-        '{\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
+        '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
     )
 
     try:

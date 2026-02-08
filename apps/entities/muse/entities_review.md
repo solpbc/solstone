@@ -1,4 +1,5 @@
 {
+  "type": "cogitate",
 
   "title": "Entity Reviewer",
   "description": "Reviews detected entities and promotes recurring ones to attached status",

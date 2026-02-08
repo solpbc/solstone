@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Decision Actions",
   "description": "Tracks consequential decision-actions that change state, plans, resources, responsibilities, or timing in ways that affect other people.",

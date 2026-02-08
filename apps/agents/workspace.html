@@ -877,8 +877,7 @@
           source: meta.source || 'system',
           app: meta.app || null,
           schedule: meta.schedule || null,
-          has_tools: meta.has_tools || false,
-          has_output: meta.has_output || false,
+          type: meta.type || null,
           multi_facet: meta.multi_facet || false,
           run_count: 0,
           failed_count: 0,
@@ -1086,8 +1085,8 @@
     // Capability badges
     const caps = [];
     if (agent.schedule) caps.push(agent.schedule);
-    if (agent.has_tools) caps.push('tools');
-    if (agent.has_output && !agent.has_tools) caps.push('output');
+    if (agent.type === 'cogitate') caps.push('tools');
+    if (agent.type === 'generate') caps.push('output');
     if (agent.multi_facet) caps.push('per-facet');
 
     if (caps.length > 0) {

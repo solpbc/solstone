@@ -64,6 +64,8 @@ def mock_prepare_config(request: dict) -> dict:
         config["provider"] = "google"
     if "model" not in config:
         config["model"] = "gpt-5-mini"
+    if "type" not in config:
+        config["type"] = "cogitate"
     # Add empty meta for hooks
     config["meta"] = {}
     return config

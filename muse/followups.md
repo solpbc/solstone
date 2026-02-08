@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Follow-Up Items",
   "description": "Scans the day chronologically to capture promised tasks or reminders for future action. The prompt outputs a concise Markdown list of the most important follow-ups.",

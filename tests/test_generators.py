@@ -3,12 +3,16 @@
 
 import importlib
 import os
+import uuid
+from pathlib import Path
+
+import pytest
 
 
 def test_get_muse_configs_generators():
     """Test that system generators are discovered with source field."""
     muse = importlib.import_module("think.muse")
-    generators = muse.get_muse_configs(has_tools=False, has_output=True)
+    generators = muse.get_muse_configs(type="generate")
     assert "flow" in generators
     info = generators["flow"]
     assert os.path.basename(info["path"]) == "flow.md"
@@ -50,7 +54,7 @@ def test_get_muse_configs_app_discovery(tmp_path, monkeypatch):
     (tmp_path / "apps" / "test_app" / "workspace.html").write_text("<h1>Test</h1>")
 
     # For now, just verify system generators have correct source
-    generators = muse.get_muse_configs(has_tools=False, has_output=True)
+    generators = muse.get_muse_configs(type="generate")
     for key, info in generators.items():
         if ":" not in key:
             assert info.get("source") == "system", f"{key} should have source=system"
@@ -61,15 +65,13 @@ def test_get_muse_configs_by_schedule():
     muse = importlib.import_module("think.muse")
 
     # Get daily generators
-    daily = muse.get_muse_configs(has_tools=False, has_output=True, schedule="daily")
+    daily = muse.get_muse_configs(type="generate", schedule="daily")
     assert len(daily) > 0
     for key, meta in daily.items():
         assert meta.get("schedule") == "daily", f"{key} should have schedule=daily"
 
     # Get segment generators
-    segment = muse.get_muse_configs(
-        has_tools=False, has_output=True, schedule="segment"
-    )
+    segment = muse.get_muse_configs(type="generate", schedule="segment")
     assert len(segment) > 0
     for key, meta in segment.items():
         assert meta.get("schedule") == "segment", f"{key} should have schedule=segment"
@@ -80,10 +82,8 @@ def test_get_muse_configs_by_schedule():
     ), "daily and segment should not overlap"
 
     # Unknown schedule returns empty dict
-    assert (
-        muse.get_muse_configs(has_tools=False, has_output=True, schedule="hourly") == {}
-    )
-    assert muse.get_muse_configs(has_tools=False, has_output=True, schedule="") == {}
+    assert muse.get_muse_configs(type="generate", schedule="hourly") == {}
+    assert muse.get_muse_configs(type="generate", schedule="") == {}
 
 
 def test_get_muse_configs_include_disabled(monkeypatch):
@@ -91,13 +91,11 @@ def test_get_muse_configs_include_disabled(monkeypatch):
     muse = importlib.import_module("think.muse")
 
     # Get generators without disabled (default)
-    without_disabled = muse.get_muse_configs(
-        has_tools=False, has_output=True, schedule="daily"
-    )
+    without_disabled = muse.get_muse_configs(type="generate", schedule="daily")
 
     # Get generators with disabled included
     with_disabled = muse.get_muse_configs(
-        has_tools=False, has_output=True, schedule="daily", include_disabled=True
+        type="generate", schedule="daily", include_disabled=True
     )
 
     # Should have at least as many with disabled included
@@ -114,7 +112,7 @@ def test_scheduled_generators_have_valid_schedule():
     """
     muse = importlib.import_module("think.muse")
 
-    generators = muse.get_muse_configs(has_tools=False, has_output=True)
+    generators = muse.get_muse_configs(type="generate")
     valid_schedules = ("segment", "daily")
 
     for key, meta in generators.items():
@@ -129,9 +127,7 @@ def test_speakers_has_required_audio():
     """Test that speakers generator has audio as required source."""
     muse = importlib.import_module("think.muse")
 
-    generators = muse.get_muse_configs(
-        has_tools=False, has_output=True, schedule="segment"
-    )
+    generators = muse.get_muse_configs(type="generate", schedule="segment")
     assert "speakers" in generators
 
     speakers = generators["speakers"]
@@ -140,3 +136,92 @@ def test_speakers_has_required_audio():
 
     assert sources.get("audio") == "required", "speakers should require audio"
     assert sources.get("screen") is True, "speakers should include screen"
+
+
+def _write_temp_muse_prompt(stem: str, frontmatter: str) -> Path:
+    muse_dir = Path(__file__).resolve().parent.parent / "muse"
+    prompt_path = muse_dir / f"{stem}.md"
+    prompt_path.write_text(
+        f"{frontmatter}\n\nTemporary test prompt\n", encoding="utf-8"
+    )
+    return prompt_path
+
+
+def test_get_muse_configs_raises_on_missing_type_with_output():
+    muse = importlib.import_module("think.muse")
+    stem = f"test_missing_type_output_{uuid.uuid4().hex}"
+    prompt_path = _write_temp_muse_prompt(
+        stem,
+        '{\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md"\n}',
+    )
+    try:
+        with pytest.raises(
+            ValueError, match=rf"Prompt '{stem}'.*missing required 'type'"
+        ):
+            muse.get_muse_configs(include_disabled=True)
+    finally:
+        prompt_path.unlink(missing_ok=True)
+
+
+def test_get_muse_configs_raises_on_missing_type_with_tools():
+    muse = importlib.import_module("think.muse")
+    stem = f"test_missing_type_tools_{uuid.uuid4().hex}"
+    prompt_path = _write_temp_muse_prompt(
+        stem,
+        '{\n  "schedule": "daily",\n  "priority": 10,\n  "tools": "journal"\n}',
+    )
+    try:
+        with pytest.raises(
+            ValueError, match=rf"Prompt '{stem}'.*missing required 'type'"
+        ):
+            muse.get_muse_configs(include_disabled=True)
+    finally:
+        prompt_path.unlink(missing_ok=True)
+
+
+def test_get_muse_configs_raises_when_generate_missing_output():
+    muse = importlib.import_module("think.muse")
+    stem = f"test_generate_missing_output_{uuid.uuid4().hex}"
+    prompt_path = _write_temp_muse_prompt(
+        stem,
+        '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10\n}',
+    )
+    try:
+        with pytest.raises(
+            ValueError,
+            match=rf"Prompt '{stem}'.*type='generate'.*missing required 'output'",
+        ):
+            muse.get_muse_configs(include_disabled=True)
+    finally:
+        prompt_path.unlink(missing_ok=True)
+
+
+def test_get_muse_configs_raises_when_cogitate_missing_tools():
+    muse = importlib.import_module("think.muse")
+    stem = f"test_cogitate_missing_tools_{uuid.uuid4().hex}"
+    prompt_path = _write_temp_muse_prompt(
+        stem,
+        '{\n  "type": "cogitate",\n  "schedule": "daily",\n  "priority": 10\n}',
+    )
+    try:
+        with pytest.raises(
+            ValueError,
+            match=rf"Prompt '{stem}'.*type='cogitate'.*missing required 'tools'",
+        ):
+            muse.get_muse_configs(include_disabled=True)
+    finally:
+        prompt_path.unlink(missing_ok=True)
+
+
+def test_get_muse_configs_type_generate_returns_only_generate():
+    muse = importlib.import_module("think.muse")
+    generators = muse.get_muse_configs(type="generate")
+    assert generators, "Expected at least one generate prompt"
+    assert all(meta.get("type") == "generate" for meta in generators.values())
+
+
+def test_get_muse_configs_type_cogitate_returns_only_cogitate():
+    muse = importlib.import_module("think.muse")
+    cogitate_prompts = muse.get_muse_configs(type="cogitate")
+    assert cogitate_prompts, "Expected at least one cogitate prompt"
+    assert all(meta.get("type") == "cogitate" for meta in cogitate_prompts.values())

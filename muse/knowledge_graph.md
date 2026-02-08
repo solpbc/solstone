@@ -1,4 +1,5 @@
 {
+  "type": "generate",
 
   "title": "Knowledge Graph",
   "description": "Extracts people, projects, tools and other entities from the transcript and maps how they relate. Produces a Markdown report plus narrative describing network hubs and bridges discovered during the day.",
