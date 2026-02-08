@@ -14,7 +14,7 @@ fixtures/journal/tokens/*.json
 *.log
 /config*.py
 .installed
-journal
+/journal
 .agents/
 .claude/
 .gemini/
