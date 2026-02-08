@@ -30,190 +30,110 @@ and reasoning is always enabled with medium effort.
 
 from __future__ import annotations
 
-import json
+import functools
 import logging
 import os
-import time
 import traceback
 from typing import Any, Callable
-from urllib.parse import urlparse, urlunparse
-
-from agents import (
-    Agent,
-    Runner,
-    SQLiteSession,
-)
-from agents.items import (
-    MessageOutputItem,
-    ReasoningItem,
-    ToolCallItem,
-    ToolCallOutputItem,
-)
-from agents.mcp.server import MCPServerStreamableHttp
-
-# Try to import ToolFilterStatic if available
-try:
-    from agents.mcp.server import ToolFilterStatic
-except ImportError:
-    ToolFilterStatic = None  # type: ignore
-from agents.model_settings import ModelSettings, Reasoning
-from agents.run import RunConfig
-
-# Optional: used only for raw text deltas if available
-try:
-    from openai.types.responses import ResponseTextDeltaEvent  # type: ignore
-except Exception:  # pragma: no cover
-    ResponseTextDeltaEvent = object  # type: ignore
-
-# Optional: used for capturing finish_reason from completed responses
-try:
-    from openai.types.responses import ResponseCompletedEvent  # type: ignore
-except Exception:  # pragma: no cover
-    ResponseCompletedEvent = object  # type: ignore
-
-# Agent configuration is now loaded via get_agent() in cortex.py
 
 from think.models import GPT_5
-from think.utils import now_ms
+from think.providers.cli import (
+    CLIRunner,
+    ThinkingAggregator,
+    assemble_prompt,
+    lookup_cli_session_id,
+)
 
 from .shared import (
     GenerateResult,
     JSONEventCallback,
-    ThinkingEvent,
 )
 
-
-def _convert_turns_to_items(turns: list[dict]) -> list[dict]:
-    """Convert turn history to OpenAI SDK item format.
-
-    Args:
-        turns: List of dicts with 'role' and 'content' keys
-
-    Returns:
-        List of items in SDK format with type/role/content structure
-    """
-    items = []
-    for turn in turns:
-        role = turn.get("role")
-        content = turn.get("content", "")
-
-        if role in ("user", "assistant") and content:
-            # Responses API requires input_text for user, output_text for assistant
-            content_type = "input_text" if role == "user" else "output_text"
-            items.append(
-                {
-                    "type": "message",
-                    "role": role,
-                    "content": [{"type": content_type, "text": content}],
-                }
-            )
-
-    return items
-
-
-# Default values
-_DEFAULT_MAX_TOKENS = 16384
-_DEFAULT_MAX_TURNS = 64
+# Agent configuration is now loaded via get_agent() in cortex.py
 
 LOG = logging.getLogger("think.providers.openai")
 
-# Default reasoning config for all GPT-5 models
-_DEFAULT_REASONING = Reasoning(effort="medium", summary="detailed")
 
+def _translate_codex(
+    event: dict[str, Any],
+    aggregator: ThinkingAggregator,
+    callback: JSONEventCallback,
+    usage_holder: list[dict[str, Any]] | None = None,
+) -> str | None:
+    """Translate a Codex JSONL event into our standard Event format.
 
-def _normalize_streamable_http_uri(http_uri: str) -> str:
+    Returns the thread_id from ``thread.started`` events so CLIRunner can
+    capture it as ``cli_session_id``.  All other events return ``None``.
     """
-    Ensure the Streamable HTTP MCP URL points at the MCP endpoint.
+    event_type = event.get("type", "")
+    item = event.get("item") or {}
+    item_type = item.get("type", "")
 
-    If no path or '/', append '/mcp'.
-    If already '/mcp' (with or without trailing '/'), keep unchanged.
-    Otherwise, leave as-is (user may have a reverse-proxy path).
-    """
-    try:
-        parsed = urlparse(http_uri.strip())
-        path = parsed.path or ""
-        if path in ("", "/"):
-            path = "/mcp"
-        elif path.rstrip("/") == "/mcp":
-            path = "/mcp"
-        new_parsed = parsed._replace(path=path)
-        return urlunparse(new_parsed)
-    except Exception:
-        return http_uri
+    # -- thread.started: capture session ID --------------------------------
+    if event_type == "thread.started":
+        return event.get("thread_id")
 
+    # -- turn.started: no-op -----------------------------------------------
+    if event_type == "turn.started":
+        return None
 
-def _json_maybe_loads(v: Any) -> Any:
-    if isinstance(v, str):
-        try:
-            return json.loads(v)
-        except Exception:
-            return v
-    return v
+    # -- item.started: command_execution → tool_start ----------------------
+    if event_type == "item.started" and item_type == "command_execution":
+        aggregator.flush_as_thinking(raw_events=[event])
+        callback.emit(
+            {
+                "event": "tool_start",
+                "tool": "bash",
+                "args": {"command": item.get("command", "")},
+                "call_id": item.get("id", ""),
+                "raw": [event],
+            }
+        )
+        return None
 
+    # -- item.completed ----------------------------------------------------
+    if event_type == "item.completed":
+        if item_type == "reasoning":
+            callback.emit(
+                {
+                    "event": "thinking",
+                    "summary": item.get("text", ""),
+                    "raw": [event],
+                }
+            )
+            return None
 
-def _extract_tool_name(raw_call: Any) -> str:
-    for attr in ("name", "tool", "tool_name"):
-        if hasattr(raw_call, attr):
-            val = getattr(raw_call, attr)
-            if isinstance(val, str) and val:
-                return val
-    return type(raw_call).__name__
+        if item_type == "agent_message":
+            aggregator.accumulate(item.get("text", ""))
+            return None
 
+        if item_type == "command_execution":
+            callback.emit(
+                {
+                    "event": "tool_end",
+                    "tool": "bash",
+                    "args": {"command": item.get("command", "")},
+                    "result": item.get("aggregated_output", ""),
+                    "call_id": item.get("id", ""),
+                    "raw": [event],
+                }
+            )
+            return None
 
-def _extract_tool_call_id(raw_call: Any) -> str | None:
-    for attr in ("id", "call_id", "tool_call_id"):
-        if hasattr(raw_call, attr):
-            val = getattr(raw_call, attr)
-            if isinstance(val, str) and val:
-                return val
+    # -- turn.completed: capture usage -------------------------------------
+    if event_type == "turn.completed":
+        if usage_holder is not None and event.get("usage"):
+            usage_holder[0] = event["usage"]
+        return None
+
     return None
-
-
-def _extract_tool_args(raw_call: Any) -> Any:
-    """
-    Function tools usually expose `.arguments` (often JSON string).
-    Some tools expose `.input_json` / `.input`.
-    """
-    if hasattr(raw_call, "arguments"):
-        return _json_maybe_loads(getattr(raw_call, "arguments"))
-    for attr in ("input_json", "input", "arguments_json"):
-        if hasattr(raw_call, attr):
-            return getattr(raw_call, attr)
-    if isinstance(raw_call, dict):
-        if "arguments" in raw_call:
-            return _json_maybe_loads(raw_call["arguments"])
-        if "input" in raw_call:
-            return raw_call["input"]
-    return None
-
-
-def _extract_text_parts(raw: Any, attr: str) -> str | None:
-    """Extract text from a list of text parts on a raw item attribute.
-
-    Args:
-        raw: Raw item object
-        attr: Attribute name to extract (e.g., "summary", "content")
-
-    Returns:
-        Joined text or None if not found/empty
-    """
-    if not hasattr(raw, attr):
-        return None
-    parts = getattr(raw, attr)
-    if not parts:
-        return None
-    try:
-        texts = [getattr(p, "text", "") for p in parts if getattr(p, "text", None)]
-        return "".join(texts) if texts else None
-    except Exception:
-        return None
 
 
 async def run_tools(
     config: dict[str, Any],
     on_event: Callable[[dict], None] | None = None,
 ) -> str:
-    """Run a prompt with MCP tool-calling support via OpenAI Agents SDK.
+    """Run a prompt with Codex CLI subprocess tool-calling support.
 
     Uses streaming and emits JSON events.
 
@@ -222,306 +142,81 @@ async def run_tools(
             user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
-    # Extract config values directly
-    prompt = config.get("prompt", "")
-    model = config.get("model", GPT_5)
-    system_instruction = config.get("system_instruction")
-    user_instruction = config.get("user_instruction")
-    extra_context = config.get("extra_context")
-    transcript = config.get("transcript")
-    mcp_server_url = config.get("mcp_server_url")
-    tools = config.get("tools")
-    max_output_tokens = config.get("max_output_tokens", _DEFAULT_MAX_TOKENS)
-    continue_from = config.get("continue_from")
-    agent_id = config.get("agent_id")
-    name = config.get("name")
-    day = config.get("day")
-    max_turns = config.get("max_turns", _DEFAULT_MAX_TURNS)
-
+    model = config.get("model") or GPT_5
     LOG.info("Running agent with model %s", model)
     cb = JSONEventCallback(on_event)
 
     # Note: Start event is emitted by agents.py (unified event ownership)
 
-    # Model settings: always enable reasoning with detailed summaries
-    model_settings = ModelSettings(
-        max_tokens=max_output_tokens,
-        reasoning=_DEFAULT_REASONING,
+    # Assemble prompt — Codex has no --system-prompt flag, so prepend it
+    prompt_body, system_instruction = assemble_prompt(config)
+    if system_instruction:
+        prompt_text = system_instruction + "\n\n" + prompt_body
+    else:
+        prompt_text = prompt_body
+
+    # Build command
+    cmd = ["codex", "exec", "--json", "-s", "read-only", "-m", model]
+
+    # Resume mode: look up thread_id from a prior agent run
+    continue_from = config.get("continue_from")
+    if continue_from:
+        thread_id = lookup_cli_session_id(continue_from)
+        if thread_id:
+            cmd = [
+                "codex",
+                "exec",
+                "resume",
+                thread_id,
+                "--json",
+                "-s",
+                "read-only",
+                "-m",
+                model,
+            ]
+
+    cmd.append("-")  # read prompt from stdin
+
+    # Create runner
+    usage_holder: list[dict[str, Any]] = [{}]
+    aggregator = ThinkingAggregator(cb, model)
+    translate = functools.partial(_translate_codex, usage_holder=usage_holder)
+    runner = CLIRunner(
+        cmd=cmd,
+        prompt_text=prompt_text,
+        translate=translate,
+        callback=cb,
+        aggregator=aggregator,
     )
 
-    # Initialize MCP server
-    mcp_server = None
-    if mcp_server_url:
-        http_uri = _normalize_streamable_http_uri(str(mcp_server_url))
-
-        # Configure tool filter if tools are specified
-        tool_filter = None
-        if tools and isinstance(tools, list) and ToolFilterStatic:
-            # Create a tool filter with allowed tools
-            tool_filter = ToolFilterStatic(allowed_tool_names=tools)
-            LOG.info(f"Using tool filter with allowed tools: {tools}")
-        elif tools:
-            LOG.warning(
-                "Tool filtering requested but ToolFilterStatic not available in this version"
-            )
-
-        mcp_params = {"url": http_uri}
-        headers: dict[str, str] = {}
-        if agent_id:
-            headers["X-Agent-Id"] = str(agent_id)
-        if name:
-            headers["X-Agent-Name"] = name
-        if day:
-            headers["X-Agent-Day"] = day
-        if headers:
-            mcp_params["headers"] = headers
-
-        mcp_server = MCPServerStreamableHttp(
-            params=mcp_params,
-            cache_tools_list=True,
-            tool_filter=tool_filter,
-            # Increase tool invocation timeout to avoid premature cancellations
-            client_session_timeout_seconds=15.0,
-        )
-
-    # Keep a map of in-flight tools so we can pair outputs with args
-    pending_tools: dict[str, dict[str, Any]] = {}
-
-    # Accumulate streamed text chunks as a fallback (if final_output missing)
-    streamed_text: list[str] = []
-
-    # Track last finish_reason from raw response events (list for mutability in nested scope)
-    finish_reason_holder = [None]
-
-    # Create session and load history if continuing conversation
-    session_id = continue_from or agent_id or f"session-{int(time.time())}"
-    session = SQLiteSession(session_id=session_id, db_path=":memory:")
-
-    # Load conversation history if continuing
-    if continue_from:
-        from ..agents import parse_agent_events_to_turns
-
-        turns = parse_agent_events_to_turns(continue_from)
-        if turns:
-            items = _convert_turns_to_items(turns)
-            await session.add_items(items)
-    else:
-        # Fresh conversation - add transcript, context and user instruction as initial messages
-        initial_turns = []
-        # Prepend transcript if provided (from day/segment input assembly)
-        if transcript:
-            initial_turns.append({"role": "user", "content": transcript})
-        if extra_context:
-            initial_turns.append({"role": "user", "content": extra_context})
-        if user_instruction:
-            initial_turns.append({"role": "user", "content": user_instruction})
-        if initial_turns:
-            initial_items = _convert_turns_to_items(initial_turns)
-            await session.add_items(initial_items)
-
     try:
-        # Handle MCP server context manager conditionally
-        if mcp_server:
-            mcp_context = mcp_server
-        else:
-            # Create a dummy context manager when no MCP server URL provided
-            from contextlib import asynccontextmanager
-
-            @asynccontextmanager
-            async def dummy_context():
-                yield
-
-            mcp_context = dummy_context()
-
-        async with mcp_context:
-            # Create agent with or without MCP servers
-            mcp_servers_list = [mcp_server] if mcp_server else []
-            agent = Agent(
-                name="solstoneCLI",
-                instructions=system_instruction,
-                model=model,
-                model_settings=model_settings,
-                mcp_servers=mcp_servers_list,
-            )
-
-            result = Runner.run_streamed(
-                agent,
-                input=prompt,
-                session=session,
-                run_config=RunConfig(tracing_disabled=True),  # per docs
-                max_turns=max_turns,
-            )
-
-            async for ev in result.stream_events():
-                # 1) Raw deltas (Responses API events)
-                if ev.type == "raw_response_event":
-                    data = getattr(ev, "data", None)
-                    # If we have text deltas, capture them (optional)
-                    if isinstance(data, ResponseTextDeltaEvent) and isinstance(
-                        getattr(data, "delta", None), str
-                    ):
-                        streamed_text.append(data.delta)
-                    # Capture finish_reason from completed response events
-                    if isinstance(data, ResponseCompletedEvent):
-                        response = getattr(data, "response", None)
-                        if response:
-                            # Try output array first (newer API), then choices
-                            output = getattr(response, "output", None)
-                            if output and len(output) > 0:
-                                last_item = output[-1]
-                                reason = getattr(last_item, "stop_reason", None)
-                                if reason:
-                                    finish_reason_holder[0] = _normalize_finish_reason(
-                                        reason
-                                    )
-                    continue
-
-                # 2) Agent updates (handoffs)
-                if ev.type == "agent_updated_stream_event":
-                    new_agent = getattr(ev, "new_agent", None)
-                    cb.emit(
-                        {
-                            "event": "agent_updated",
-                            "agent": getattr(new_agent, "name", None),
-                            "ts": now_ms(),
-                        }
-                    )
-                    continue
-
-                # 3) Run items (messages, tools, reasoning, etc.)
-                if ev.type == "run_item_stream_event":
-                    name = ev.name
-                    item = ev.item
-
-                    # Tool call started — capture args
-                    if name == "tool_called" and isinstance(item, ToolCallItem):
-                        raw = item.raw_item
-                        tool_name = _extract_tool_name(raw)
-                        call_id = _extract_tool_call_id(raw) or tool_name
-                        args = _extract_tool_args(raw)
-                        pending_tools[call_id] = {"tool": tool_name, "args": args}
-                        cb.emit(
-                            {
-                                "event": "tool_start",
-                                "tool": tool_name,
-                                "args": args,
-                                "call_id": call_id,
-                                "ts": now_ms(),
-                            }
-                        )
-
-                    # Tool output finished — mirror end, include original args if we have them
-                    elif name == "tool_output" and isinstance(item, ToolCallOutputItem):
-                        raw = item.raw_item
-                        # raw_item is a TypedDict (dict), not an object - use dict access
-                        if isinstance(raw, dict):
-                            call_id = (
-                                raw.get("tool_call_id")
-                                or raw.get("call_id")
-                                or raw.get("id")
-                            )
-                        else:
-                            call_id = (
-                                getattr(raw, "tool_call_id", None)
-                                or getattr(raw, "call_id", None)
-                                or getattr(raw, "id", None)
-                            )
-                        meta = pending_tools.pop(call_id, {}) if call_id else {}
-                        cb.emit(
-                            {
-                                "event": "tool_end",
-                                "tool": meta.get("tool", "tool"),
-                                "args": meta.get("args"),
-                                "result": item.output,
-                                "call_id": call_id,
-                                "ts": now_ms(),
-                            }
-                        )
-
-                    # Reasoning / "thinking" item created
-                    elif name == "reasoning_item_created" and isinstance(
-                        item, ReasoningItem
-                    ):
-                        raw = item.raw_item
-                        # Try summary first, then fall back to content
-                        summary_text = _extract_text_parts(
-                            raw, "summary"
-                        ) or _extract_text_parts(raw, "content")
-
-                        if summary_text:
-                            thinking_event: ThinkingEvent = {
-                                "event": "thinking",
-                                "summary": summary_text,
-                                "model": model,
-                                "ts": now_ms(),
-                            }
-                            cb.emit(thinking_event)
-
-                    # Completed assistant message (final text will be read from result)
-                    elif name == "message_output_created" and isinstance(
-                        item, MessageOutputItem
-                    ):
-                        pass  # no-op
-
-            # Done streaming — prefer result.final_output, else join deltas
-            final_text = getattr(result, "final_output", None)
-            if not isinstance(final_text, str) or not final_text:
-                final_text = "".join(streamed_text)
-
-            # Check for tool-only completion (no text output)
-            tool_only = False
-            if not final_text:
-                final_text = "Done."
-                tool_only = True
-                LOG.info("Tool-only completion, using synthetic response")
-
-            # Extract usage information from result
-            usage = getattr(getattr(result, "context_wrapper", None), "usage", None)
-            usage_dict = None
-            if usage:
-                usage_dict = {
-                    "requests": getattr(usage, "requests", None),
-                    "input_tokens": getattr(usage, "input_tokens", None),
-                    "output_tokens": getattr(usage, "output_tokens", None),
-                    "total_tokens": getattr(usage, "total_tokens", None),
-                    "details": {
-                        "input": getattr(usage, "input_tokens_details", None)
-                        and {
-                            "cached_tokens": getattr(
-                                usage.input_tokens_details, "cached_tokens", None
-                            )
-                        },
-                        "output": getattr(usage, "output_tokens_details", None)
-                        and {
-                            "reasoning_tokens": getattr(
-                                usage.output_tokens_details, "reasoning_tokens", None
-                            )
-                        },
-                    },
-                }
-
-            finish_event = {
-                "event": "finish",
-                "result": final_text,
-                "usage": usage_dict,
-                "ts": now_ms(),
-            }
-            if tool_only:
-                finish_event["tool_only"] = True
-            if finish_reason_holder[0]:
-                finish_event["reason"] = finish_reason_holder[0]
-            cb.emit(finish_event)
-            return final_text
-
+        result = await runner.run()
     except Exception as exc:
-        trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-        cb.emit({"event": "error", "error": str(exc), "trace": trace, "ts": now_ms()})
-        setattr(exc, "_evented", True)
+        if not getattr(exc, "_evented", False):
+            cb.emit(
+                {
+                    "event": "error",
+                    "error": str(exc),
+                    "trace": traceback.format_exc(),
+                    "raw": [],
+                }
+            )
+            setattr(exc, "_evented", True)
         raise
-    finally:
-        # IMPORTANT: Don't explicitly close the SQLiteSession while streaming;
-        # the SDK continues to read from it in background tasks and closing can race.
-        pass
+
+    # Emit finish event
+    finish_event: dict[str, Any] = {
+        "event": "finish",
+        "result": result,
+        "raw": [],
+    }
+    if runner.cli_session_id:
+        finish_event["cli_session_id"] = runner.cli_session_id
+    if usage_holder[0]:
+        finish_event["usage"] = usage_holder[0]
+    cb.emit(finish_event)
+
+    return result
 
 
 # ---------------------------------------------------------------------------
