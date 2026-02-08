@@ -7,7 +7,6 @@
   "schedule": "daily",
   "priority": 60,
   "output": "md",
-  "tools": "default",
   "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
 
 }
@@ -15,24 +14,16 @@
 ## Mission
 From the day's "Top 10 Decision-Actions" list, you will:
 1. Select the TWO most consequential decisions based on impact criteria
-2. Use MCP tools to research context, stakeholders, and follow-ups
+2. Use `sol call` commands and MCP resources to research context, stakeholders, and follow-ups
 3. Identify gaps between expected and actual obligations
 4. Produce actionable dossiers with specific remedies
 
-## Available MCP Tools
-- `search_journal(query, day, day_from, day_to, topic, facet, limit)` - Search all journal content
-  - Use `topic="audio"` for transcript searches
-  - Use `topic="event"` for event searches
-  - Use `topic="news"` with facet filter for announcements
-  - Use `day_from`/`day_to` for date ranges (e.g., 30-day lookback)
-  - Returns `counts` with facet/topic/day aggregations for discovery
-- `get_events(day, facet)` - Get structured events with full data
-- `get_resource(uri)` - Retrieve full transcripts or insights
-  - `journal://transcripts/full/{day}/{time}/{minutes}` - Full transcripts (audio + raw screen)
-  - `journal://transcripts/audio/{day}/{time}/{minutes}` - Audio transcripts only
-  - `journal://transcripts/screen/{day}/{time}/{minutes}` - Screen summaries only
-  - `journal://insight/{day}/{topic}` - Topic insights
-- `send_message(body)` - Send alert to $pronouns_possessive inbox for critical gaps
+## Available Commands and MCP Tools
+- `sol call journal search` for discovery across journal content
+- `sol call journal events DAY [-f FACET]` for structured event data
+- `sol call transcripts read DAY --start HHMMSS --length MINUTES --full|--audio|--screen` for transcript windows
+- `get_resource("journal://insight/{day}/{topic}")` for complete insight markdown
+- `send_message(body)` for critical gap alerts to $pronouns_possessive inbox
 
 **Query syntax**: Searches match ALL words by default; use `OR` between words to match ANY (e.g., `apple OR orange`), quote phrases for exact matches (e.g., `"project meeting"`), and append `*` for prefix matching (e.g., `debug*`).
 
@@ -66,43 +57,43 @@ First, analyze all 10 decisions and select the TWO most consequential based on:
 Use these tools in sequence:
 
 1. **Find the decision moment:**
-   - `search_journal("decision keywords here", day="$day_YYYYMMDD", topic="audio", limit=10)`
+   - `sol call journal search "decision keywords here" -d $day_YYYYMMDD -t audio -n 10`
    - Goal: Pinpoint exact time of decision (HH:MM:SS)
 
 2. **Get full context:**
-   - `get_resource("journal://transcripts/full/$day_YYYYMMDD/HHMMSS/30")`
+   - `sol call transcripts read $day_YYYYMMDD --start HHMMSS --length 30 --full`
    - Goal: Extract 30 minutes of raw activity around decision time
 
 ### Step 2: Stakeholder & Dependency Mapping
 
 1. **Identify all entities:**
-   - `search_journal("entity names from decision", day="$day_YYYYMMDD")`
+   - `sol call journal search "entity names from decision" -d $day_YYYYMMDD`
    - Goal: Find all people, teams, projects mentioned
 
 2. **Map meeting participants:**
-   - `get_events("$day_YYYYMMDD")` or `search_journal("[keywords]", day="$day_YYYYMMDD", topic="event")`
-   - `search_journal("[keywords]", topic="news", facet="work", day="$day_YYYYMMDD")` for public announcements
+   - `sol call journal events $day_YYYYMMDD` or `sol call journal search "[keywords]" -d $day_YYYYMMDD -t event`
+   - `sol call journal search "[keywords]" -t news -f work -d $day_YYYYMMDD` for public announcements
    - Goal: Identify who needs to know about this decision
 
 ### Step 3: Historical Precedent Mining (30-day lookback)
 
 1. **Find similar past decisions:**
-   - `search_journal("decision type AND key entities", limit=20)`
+   - `sol call journal search "decision type AND key entities" -n 20`
    - Goal: Discover patterns in how similar decisions were handled
 
 2. **Check commitment history:**
-   - `search_journal("entity decision approve cancel", topic="audio", limit=15)`
+   - `sol call journal search "entity decision approve cancel" -t audio -n 15`
    - Goal: Identify typical follow-up patterns
 
 ### Step 4: Forward Impact Assessment (2-6 hours post-decision)
 
 1. **Check for communications:**
-   - `search_journal("[keywords]", day="$day_YYYYMMDD", topic="audio", limit=10)`
-   - `search_journal("[keywords]", topic="news", day="$day_YYYYMMDD")` for decision announcements
+   - `sol call journal search "[keywords]" -d $day_YYYYMMDD -t audio -n 10`
+   - `sol call journal search "[keywords]" -t news -d $day_YYYYMMDD` for decision announcements
    - Goal: Find follow-up notifications or discussions
 
 2. **Review meetings:**
-   - `search_journal("[keywords]", day="$day_YYYYMMDD", topic="event")`
+   - `sol call journal search "[keywords]" -d $day_YYYYMMDD -t event`
    - Goal: See if decision was discussed
 
 3. **Check messaging:**
@@ -112,11 +103,11 @@ Use these tools in sequence:
 ### Step 5: Gap Detection
 
 1. **Search for problems:**
-   - `search_journal("rollback revert issue problem", day="$day_YYYYMMDD")`
+   - `sol call journal search "rollback revert issue problem" -d $day_YYYYMMDD`
    - Goal: Identify emerging issues
 
 2. **Verify updates:**
-   - `search_journal("document update change commit", day="$day_YYYYMMDD", topic="audio")`
+   - `sol call journal search "document update change commit" -d $day_YYYYMMDD -t audio`
    - Goal: Confirm tracking artifacts were updated
 
 OBLIGATION CATEGORIES (derive expectations from decision type + precedents; adapt to what the data shows)
@@ -185,7 +176,7 @@ Brief paragraph on:
 
 ## EXECUTION NOTES
 
-1. **Tool Usage**: Use the exact MCP tools provided. Do not invent tool names or parameters.
+1. **Tool Usage**: Use the exact `sol call` commands and MCP tools provided. Do not invent command names or parameters.
 2. **Evidence**: Only cite what you find via tools. Never fabricate entities or counts.
 3. **Precision**: When uncertain, mark confidence levels clearly.
 4. **Focus**: Analyze only TWO decisions deeply rather than all of them superficially.

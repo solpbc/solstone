@@ -6,7 +6,6 @@
   "color": "#004d40",
   "schedule": "daily",
   "priority": 57,
-  "tools": "journal, entities",
   "multi_facet": true,
   "group": "Entities",
   "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
@@ -22,21 +21,21 @@ Extract durable factoids about attached entities from recent journal content wit
 You receive:
 1. **Facet context** - the specific facet (e.g., "personal", "work") you are observing entities for
 2. **Current date/time** - to focus on recent journal content
-3. **Attached entities for THIS facet** - via `entity_list(facet)` to know which entities to observe
+3. **Attached entities for THIS facet** - via `sol call entities list FACET` to know which entities to observe
 
 ## Tooling
 
 Entity tools (with required facet parameter):
-- `entity_list(facet)` - list entities attached to THIS facet (returns entities with entity_id)
-- `entity_observations(facet, entity)` - **MUST call before entity_observe** - get current observations and count
+- `sol call entities list FACET` - list entities attached to THIS facet (returns entities with entity_id)
+- `sol call entities observations FACET ENTITY` - **MUST call before `sol call entities observe`** - get current observations and count
   - The `entity` parameter can be entity_id (e.g., "alice_johnson"), full name, or alias
-- `entity_observe(facet, entity, content, observation_number, source_day?)` - add observation with guard
-  - Use entity_id from entity_observations response for consistency
+- `sol call entities observe FACET ENTITY CONTENT --source-day DAY` - add observation with guard (observation number auto-calculated)
+  - Use entity_id from `sol call entities observations` response for consistency
 
 Discovery tools:
 - `get_resource(uri)` - fetch journal resources (knowledge graphs, insights)
-- `search_journal(query, day, topic, facet, limit)` - unified search across journal content
-- `get_events(day, facet)` - get structured events
+- `sol call journal search QUERY -d DAY -t TOPIC -f FACET -n LIMIT` - unified search across journal content
+- `sol call journal events DAY -f FACET` - get structured events
 
 ## What Makes a Good Observation
 
@@ -48,7 +47,7 @@ Discovery tools:
 - Biographical: "Based in Seattle, previously worked at Google"
 - Context: "Leading the API gateway rewrite project"
 
-**DON'T capture** - Day-specific activity (use entity_detect for these):
+**DON'T capture** - Day-specific activity (use `sol call entities detect` for these):
 - "Discussed migration today" (ephemeral)
 - "Sent contract for review" (action, not fact)
 - "In standup meeting" (momentary state)
@@ -60,7 +59,7 @@ Discovery tools:
 ### Phase 1: Load Context
 
 1. Use the provided current date and analysis day in YYYYMMDD format
-2. Call `entity_list(facet)` to get attached entities for THIS facet
+2. Call `sol call entities list FACET` to get attached entities for THIS facet
 3. If no attached entities, report "No attached entities to observe" and finish
 
 ### Phase 2: For Each Entity
@@ -68,31 +67,25 @@ Discovery tools:
 For each attached entity in this facet:
 
 1. **Read current observations** (REQUIRED - guard mechanism):
+   ```bash
+   sol call entities observations FACET ENTITY_ID
    ```
-   entity_observations(facet, entity_id)
-   ```
-   Note the `count` - you'll need `count + 1` as `observation_number`
+   Note the `count` for guard awareness
    The response includes the resolved entity with its `id` field.
 
 2. **Mine recent content** for factoids about this entity:
-   - Search transcripts: `search_journal("{name}", topic="audio", limit=5)`
+   - Search transcripts: `sol call journal search "{name}" -t audio -n 5`
    - Check knowledge graph: `get_resource("journal://insight/$day_YYYYMMDD/knowledge_graph")`
-   - Search insights: `search_journal("{name}", limit=5)`
+   - Search insights: `sol call journal search "{name}" -n 5`
 
 3. **Extract observations** from the content:
    - Look for preferences, expertise, relationships, schedules
    - Filter out day-specific activity (not observations)
    - Check against existing observations to avoid duplicates
 
-4. **Add new observations** (one at a time, incrementing observation_number):
-   ```
-   entity_observe(
-     facet="work",
-     entity="alice_johnson",
-     content="Expert in Kubernetes and cloud infrastructure",
-     observation_number=3,
-     source_day="20250113"
-   )
+4. **Add new observations** (one at a time; guard handled by CLI):
+   ```bash
+   sol call entities observe work alice_johnson "Expert in Kubernetes and cloud infrastructure" --source-day 20250113
    ```
 
 ### Phase 3: Report Summary
@@ -102,11 +95,12 @@ Summarize what was observed:
 
 ## Guard Mechanism
 
-The `observation_number` parameter prevents stale writes:
-- You MUST call `entity_observations()` first to get current count
-- Pass `count + 1` as `observation_number` when adding
+The stale-write guard is enforced via the CLI flow:
+- You MUST call `sol call entities observations FACET ENTITY` first to get current count
+- Then call `sol call entities observe FACET ENTITY CONTENT --source-day DAY` to add observations
+- The CLI auto-calculates and passes the next observation number internally
 - If count changed (another process added observations), you'll get an error
-- On error, re-read observations and retry with correct number
+- On error, re-read observations and retry
 
 ## Quality Guidelines
 

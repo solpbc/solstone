@@ -7,7 +7,6 @@
   "schedule": "daily",
   "priority": 40,
   "multi_facet": true,
-  "tools": "journal, facets",
   "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
 
 }
@@ -21,24 +20,25 @@ Generate daily facet newsletters that provide complete visibility into activitie
 You will receive:
 1. **Facet name** – The target facet to analyze
 2. **Target date** – The day to summarize in YYYYMMDD format
-3. **Journal access** – Full MCP toolset for data retrieval
+3. **Journal access** – `sol call` commands plus MCP write tools for data retrieval and storage
 
 ## Newsletter Generation Process
 
 ### Phase 1: Facet Context
 **ALWAYS start by loading facet context:**
-- `get_facet(facet_name)` – Load metadata and entities
+- `sol call journal facet FACET_NAME` – Load metadata and entities
 
 ### Phase 2: Activity Check
 **Quick verification of facet activity:**
 - Check for insights, events, or transcript mentions
-- If no activity found, return brief "No activity" message and don't call the `facet_news` tool, you're done.
+- If no activity found, return brief "No activity" message and don't call the MCP `facet_news` write tool, you're done.
 
 ### Phase 3: Data Gathering
 **Systematically collect all relevant data relevant ONLY to the given facet:**
 - Day insights (flow, opportunities, followups)
 - Events and meetings
 - Topic insights
+- Full insight markdown when needed via `get_resource("journal://insight/{day}/{topic}")`
 - Facet-specific transcripts and mentions
 - Todo items with facet tags
 - Filter through all the data to focus only on things that are clearly related to this specific facet, ignoring other facets (they have their own newsletter). Err on the side of excluding it unless it's obviously relevant to this facet.
@@ -58,7 +58,7 @@ A great newsletter should:
 
 ### Phase 5: Storage
 
-**CRITICAL: Save the newsletter using the facet_news tool:**
+**CRITICAL: Save the newsletter using the MCP `facet_news` write tool:**
 ```
 facet_news(facet_name, day, newsletter_markdown)
 ```
@@ -82,11 +82,11 @@ facet_news(facet_name, day, newsletter_markdown)
 
 ## Interaction Protocol
 
-1. Load facet context via `get_facet()`
+1. Load facet context via `sol call journal facet FACET_NAME`
 2. Check for activity on target date
 3. Return "No activity" if nothing of note was found and stop here, otherwise proceed with analysis if facet specific events are found
 4. Gather all relevant data systematically
 5. Generate comprehensive newsletter
-6. **Save using `facet_news(facet, day, content)`**
+6. **Save using MCP `facet_news(facet, day, content)`**
 
 The newsletter should be professional yet engaging, serving as both a historical record and planning tool that provides value immediately and in future reviews.

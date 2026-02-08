@@ -6,7 +6,6 @@
   "color": "#f9a825",
   "schedule": "daily",
   "priority": 99,
-  "tools": "default",
   "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
 
 }
@@ -22,9 +21,9 @@ The research will first build a complete picture of the analysis day's activitie
 ### Research Strategy
 The strategy is to conduct a three-phase data sweep of the analysis day's journal entries. We will start broad to understand the day's main themes and then narrow our focus to find specific, quote-worthy, or event-specific details that have comedic potential.
 
-1.  **Broad Overview**: Use `search_journal` with day filter to get a complete list of all topics and structured activities from the analysis day. This creates a high-level map of the day.
-2.  **Detailed Search**: Use `search_journal` with topic="audio" and keywords related to emotion, humor, and conflict (e.g., "frustrating", "ridiculous", "error", "lol") to pinpoint specific moments of interest.
-3.  **Contextual Analysis**: Use `get_resource` to pull the full context for the most promising findings from the previous phases. This raw material will be analyzed for comedic elements like irony, juxtaposition, or absurdity.
+1.  **Broad Overview**: Use `sol call journal search "" -d $day_YYYYMMDD` to get a complete list of all topics and structured activities from the analysis day. This creates a high-level map of the day.
+2.  **Detailed Search**: Use `sol call journal search ... -d $day_YYYYMMDD -t audio` with keywords related to emotion, humor, and conflict (e.g., "frustrating", "ridiculous", "error", "lol") to pinpoint specific moments of interest.
+3.  **Contextual Analysis**: Use transcript/insight retrieval to pull full context for the most promising findings from the previous phases. This raw material will be analyzed for comedic elements like irony, juxtaposition, or absurdity.
 4.  **Creative Synthesis & Delivery**: The final phase involves brainstorming joke concepts from the analyzed material, selecting the best one, and delivering it via `send_message`.
 
 ### Detailed Research Steps
@@ -34,29 +33,26 @@ The strategy is to conduct a three-phase data sweep of the analysis day's journa
 **Query syntax**: Searches match ALL words by default; use `OR` between words to match ANY (e.g., `apple OR orange`), quote phrases for exact matches (e.g., `"project meeting"`), and append `*` for prefix matching (e.g., `debug*`).
 
 1.  **Identify All Daily Topics**:
-    -   **Tool**: `search_journal`
-    -   **Parameters**: `day=$day_YYYYMMDD` (with an empty query string to retrieve all topics)
+    -   **Command**: `sol call journal search "" -d $day_YYYYMMDD`
     -   **Purpose**: To get a complete list of all themes and activities discussed or worked on during the analysis day. This provides the main "characters" and "settings" for potential jokes.
     -   **Expected Outcomes**: A list of all topic insights from the day, which will help identify recurring themes or unusual combinations of activities.
 
 2.  **List All Structured Events**:
-    -   **Tool**: `get_events`
-    -   **Parameters**: `day=$day_YYYYMMDD`
+    -   **Command**: `sol call journal events $day_YYYYMMDD`
     -   **Purpose**: To identify all formal meetings, calls, or tasks. Corporate jargon, meeting mishaps, or task-related struggles are excellent sources of humor.
     -   **Expected Outcomes**: A timeline of the day's key events, such as "Project Phoenix Sync," "API Debugging Session," or "Team Standup."
 
 3.  **Find Emotionally Charged Moments**:
-    -   **Tool**: `search_journal`
-    -   **Parameters**: `day=$day_YYYYMMDD`, `topic="audio"`, `query="this is ridiculous" OR "I'm so confused" OR "why is this not working" OR "error" OR "hilarious" OR "lol"`
+    -   **Command**: `sol call journal search "\"this is ridiculous\" OR \"I'm so confused\" OR \"why is this not working\" OR \"error\" OR \"hilarious\" OR \"lol\"" -d $day_YYYYMMDD -t audio`
     -   **Purpose**: To find specific quotes or screen interactions that indicate frustration, confusion, or amusement. These raw emotional moments are often the most poignant and funny.
     -   **Expected Outcomes**: A list of specific timestamps and text snippets that can be investigated further for their comedic context.
 
 **Phase 2: Deep Analysis - Gathering the Raw Material**
 
 1.  **Retrieve Full Context for Key Findings**:
-    -   **Resources**:
+    -   **Retrieval**:
         -   `journal://insight/$day_YYYYMMDD/{topic}` for the 2-3 most prominent or ironically named topics discovered in Phase 1.
-        -   `journal://transcripts/full/$day_YYYYMMDD/{time}/{length}` for the most promising snippets found in the transcript search. Retrieve a 5-10 minute window around the snippet to understand the full conversation or activity.
+        -   `sol call transcripts read $day_YYYYMMDD --start {time} --length {length} --full` for the most promising snippets found in the transcript search. Retrieve a 5-10 minute window around the snippet to understand the full conversation or activity.
     -   **Priority Order**: Prioritize transcript snippets first, as they contain direct quotes. Then, review insights for high-level irony.
     -   **Analysis Focus**: Read through the retrieved content, looking for:
         -   **Irony**: e.g., A meeting about "improving communication" where everyone was talking over each other.
@@ -77,7 +73,7 @@ The strategy is to conduct a three-phase data sweep of the analysis day's journa
 
 ### Query Optimization Strategy
 -   **Primary Queries**: Broad, day-filtered searches to capture all topics and events from the analysis day.
--   **Alternative Queries**: For `search_journal` with topic="audio", if the initial emotional keywords yield no results, try searching for project codenames, specific colleagues' names, or technical terms that appeared frequently in the day's insights to find relevant conversations.
+-   **Alternative Queries**: For `sol call journal search ... -t audio`, if the initial emotional keywords yield no results, try searching for project codenames, specific colleagues' names, or technical terms that appeared frequently in the day's insights to find relevant conversations.
 -   **Refinement Approach**: This is a single-day analysis, so the strategy is to gather more data rather than refine. If initial searches are sparse, the fallback is to read through all topic insights from the day to find something poignant, even if not overtly "funny."
 
 ### Potential Research Challenges

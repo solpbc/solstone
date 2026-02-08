@@ -6,7 +6,6 @@
   "color": "#00897b",
   "schedule": "daily",
   "priority": 55,
-  "tools": "journal, entities",
   "multi_facet": true,
   "group": "Entities",
   "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
@@ -42,22 +41,21 @@ Mine the journal for entity mentions (People, Companies, Projects, Tools, and ot
 You receive:
 1. **Facet context** - the specific facet (e.g., "personal", "work") you are detecting entities for
 2. **Current date/time** - to focus on the analysis day's journal entries
-3. **Existing attached entities for THIS facet** - via `entity_list(facet)` to inform context (still detect if encountered)
-4. **Journal access** - MCP search tools for discovery (some are facet-scoped, some are global)
+3. **Existing attached entities for THIS facet** - via `sol call entities list FACET` to inform context (still detect if encountered)
+4. **Journal access** - `sol call` discovery commands and insight resources (some are facet-scoped, some are global)
 
 ## Tooling
 
-Always operate on the MCP entity tools with the **required facet parameter**:
-- `entity_list(facet)` - list entities attached to THIS facet (returns entities with entity_id)
-- `entity_list(facet, day)` - list entities detected for THIS facet on a specific day
-- `entity_detect(day, facet, type, entity, description)` - record a detected entity FOR THIS FACET
+Always operate on `sol call entities` commands with the **required facet parameter**:
+- `sol call entities list FACET` - list entities attached to THIS facet (returns entities with entity_id)
+- `sol call entities list FACET -d DAY` - list entities detected for THIS facet on a specific day
+- `sol call entities detect DAY FACET TYPE ENTITY DESCRIPTION` - record a detected entity FOR THIS FACET
   - The `entity` parameter can be entity_id, full name, or alias - if it matches an attached entity, uses that entity's canonical name
 
 Discovery tools (note facet scoping):
 - `get_resource(uri)` - fetch journal resources (knowledge graphs, insights) - GLOBAL
-- `search_journal(query, day, topic, facet, limit)` - unified search across all journal content - facet-scopable
-  - Use `topic="audio"` for transcripts, `topic="event"` for events, `topic="news"` for facet news
-- `get_events(day, facet)` - get structured events - **FACET-SCOPED when facet parameter provided**
+- `sol call journal search QUERY -d DAY -t TOPIC -f FACET -n LIMIT` - unified search across all journal content - facet-scopable
+- `sol call journal events DAY -f FACET` - get structured events - **FACET-SCOPED when facet parameter provided**
 
 **IMPORTANT**: When using GLOBAL search tools, you must actively filter results to find ONLY entities that participated in THIS facet's activities. Seeing an entity in a global search result does NOT automatically mean it belongs to this facet.
 
@@ -66,8 +64,8 @@ Discovery tools (note facet scoping):
 ### Phase 1: Load Context
 
 1. Use the provided analysis day in YYYYMMDD format ($day_YYYYMMDD)
-2. Call `entity_list(facet)` to see entities already attached to THIS facet (this helps inform context, but you should STILL DETECT them if encountered on the analysis day - this creates historical tracking)
-3. Call `entity_list(facet, day=$day_YYYYMMDD)` to check if detection already ran for THIS facet on the analysis day
+2. Call `sol call entities list FACET` to see entities already attached to THIS facet (this helps inform context, but you should STILL DETECT them if encountered on the analysis day - this creates historical tracking)
+3. Call `sol call entities list FACET -d $day_YYYYMMDD` to check if detection already ran for THIS facet on the analysis day
 
 If detections already exist for THIS facet on the analysis day and look comprehensive, you may skip to avoid duplication.
 
@@ -79,7 +77,7 @@ Seeing an entity in a global search does NOT mean it belongs to this facet.
 **Search Strategy - Facet-First Approach:**
 
 **Priority 1: Facet-Scoped Events** (start here - most facet-specific)
-- `get_events(day=$day_YYYYMMDD, facet=your_facet)` - **FACET-SCOPED** when facet parameter provided
+- `sol call journal events $day_YYYYMMDD -f your_facet` - **FACET-SCOPED** when facet parameter provided
 - Events tagged to this facet are your most reliable source
 - Extract ALL entities that participated in this facet's events
 
@@ -92,8 +90,8 @@ Seeing an entity in a global search does NOT mean it belongs to this facet.
 - Look for entities that appear alongside known facet-specific contexts
 
 **Priority 3: Insights and Transcripts** (use sparingly with extreme filtering)
-- `search_journal("people OR companies OR organizations OR projects OR entities", day=$day_YYYYMMDD, limit=10)` - GLOBAL, may include other facets
-- `search_journal("[entity names]", day=$day_YYYYMMDD, topic="audio")` - GLOBAL, must validate facet relevance
+- `sol call journal search "people OR companies OR organizations OR projects OR entities" -d $day_YYYYMMDD -n 10` - GLOBAL, may include other facets
+- `sol call journal search "[entity names]" -d $day_YYYYMMDD -t audio` - GLOBAL, must validate facet relevance
 - For each result: verify the entity was actively involved in THIS facet's context, not just mentioned
 
 **Red flag check**: If you're finding many entities but facet events were empty, you're likely detecting entities from other facets. Stop and reassess.
@@ -149,7 +147,7 @@ Derive the appropriate entity type from context. Common types include Person, Co
 
 ### Pre-Detection Qualification
 
-Before calling `entity_detect()`, verify EACH entity passes this test:
+Before calling `sol call entities detect`, verify EACH entity passes this test:
 
 **Facet Relevance Check:**
 - [ ] Entity appeared in THIS facet's events/communications/activities?
@@ -167,24 +165,11 @@ Before calling `entity_detect()`, verify EACH entity passes this test:
 
 ### Phase 4: Record Detections
 
-Use `entity_detect(day=$day_YYYYMMDD, facet=your_facet, type=..., entity=..., description=...)` for each entity:
+Use `sol call entities detect DAY FACET TYPE ENTITY DESCRIPTION` for each entity:
 
-```
-entity_detect(
-  day="20250114",
-  facet="work",
-  type="Person",
-  entity="Sarah Chen",
-  description="reviewed PR #1234 and approved database migration"
-)
-
-entity_detect(
-  day="20250114",
-  facet="work",
-  type="Project",
-  entity="API Gateway",
-  description="merged performance improvements, deployed to staging"
-)
+```bash
+sol call entities detect 20250114 work Person "Sarah Chen" "reviewed PR #1234 and approved database migration"
+sol call entities detect 20250114 work Project "API Gateway" "merged performance improvements, deployed to staging"
 ```
 
 **Volume Guidelines:**
@@ -236,7 +221,7 @@ When invoked:
    - SELECTIVE companies/organizations/projects (only important/central to this facet)
    - RARE tools/resources (only actively discussed in this facet's context)
 6. Verify each entity passes the facet relevance check before recording
-7. Record each entity using `entity_detect()` with the correct facet parameter for THIS facet
+7. Record each entity using `sol call entities detect` with the correct facet parameter for THIS facet
 8. Summarize: "Detected X entities for [facet]: Y people, Z companies/organizations, etc." (or "0 detections - facet was quiet")
 
 Remember: Your goal is to create a facet-specific historical log of entity activity focused on PEOPLE first. Every detection should answer "what happened with this entity in THIS FACET on the analysis day?" **Only detect entities that actively participated in this facet's work.** If a facet was quiet, 0 detections is correct. Cross-facet contamination is worse than under-detection. Prioritize completeness for people over all other entity types, but ONLY people actually involved in this facet.

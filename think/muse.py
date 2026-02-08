@@ -274,11 +274,6 @@ def get_muse_configs(
                 f"Prompt '{key}' has type='generate' but is missing required 'output' field."
             )
 
-        if config_type == "cogitate" and not tools_present:
-            raise ValueError(
-                f"Prompt '{key}' has type='cogitate' but is missing required 'tools' field."
-            )
-
     return {key: info for key, info in configs.items() if matches_filter(info)}
 
 

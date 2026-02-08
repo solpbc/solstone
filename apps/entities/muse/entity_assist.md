@@ -4,7 +4,6 @@
   "title": "Entity Assistant",
   "description": "Quick entity addition with intelligent type detection and automatic description generation",
   "color": "#00695c",
-  "tools": "journal, entities",
   "group": "Entities",
   "instructions": {"system": "journal", "facets": true, "now": true}
 
@@ -27,19 +26,21 @@ You receive:
 ## Tooling
 
 Facet Context - always do this first:
-- `get_facet(facet)`
+- `sol call journal facet FACET`
 
 Entity operations (with required facet parameter):
-- `entity_list(facet)` - check if entity already attached (returns entities with entity_id)
-- `entity_attach(facet, type, entity, description)` - add entity to attached list
+- `sol call entities list FACET` - check if entity already attached (returns entities with entity_id)
+- `sol call entities attach FACET TYPE ENTITY DESCRIPTION` - add entity to attached list
+- `sol call entities update FACET ENTITY DESCRIPTION` - update an attached entity description
   - If `entity` matches an existing attached entity (by id, name, or aka), returns that entity
   - Otherwise creates a new entity using `entity` as the name
 
 Research tools (use sparingly, be quick):
-- `search_journal(query, limit=3)` - find entity mentions in all journal content
-- `search_journal(query, topic="audio", limit=3)` - find entity in transcripts
-- `search_journal(query, topic="news", limit=3)` - find entity in facet news
-- `get_events(day)` - find entity in events for a specific day
+- `sol call journal search QUERY -n 3` - find entity mentions in all journal content
+- `sol call journal search QUERY -t audio -n 3` - find entity in transcripts
+- `sol call journal search QUERY -t news -n 3` - find entity in facet news
+- `sol call journal events DAY` - find entity in events for a specific day
+- `get_resource("journal://insight/{day}/{topic}")` - fetch complete insight markdown when snippet search is insufficient
 
 ## Quick Addition Process
 
@@ -60,19 +61,19 @@ Use context clues to derive the appropriate type:
 
 ### Step 2: Check Duplicates
 
-```
-entity_list(facet)
+```bash
+sol call entities list FACET
 ```
 
-If entity already exists (check by name or entity_id), consider if the request implies the description needs to be updated and do some research to build an updated description, then call `entity_update()` with the entity_id.
+If entity already exists (check by name or entity_id), consider if the request implies the description needs to be updated and do some research to build an updated description, then call `sol call entities update FACET ENTITY DESCRIPTION`.
 
 ### Step 3: Quick Research
 
 Execute a few targeted searches based on type:
-- **Person**: `search_journal("{name}", limit=3)` or `search_journal("{name}", topic="event", limit=3)`
-- **Company**: `search_journal("{name}", topic="news", limit=3)` or `search_journal("{name}", limit=3)`
-- **Project**: `search_journal("{name}", limit=3)`
-- **Tool**: `search_journal("{name}", limit=3)`
+- **Person**: `sol call journal search "{name}" -n 3` or `sol call journal search "{name}" -t event -n 3`
+- **Company**: `sol call journal search "{name}" -t news -n 3` or `sol call journal search "{name}" -n 3`
+- **Project**: `sol call journal search "{name}" -n 3`
+- **Tool**: `sol call journal search "{name}" -n 3`
 
 **Research goals:**
 - Confirm the entity is real and relevant
@@ -124,17 +125,12 @@ Synthesize a concise, timeless description relevant to the facet:
 
 ### Step 5: Attach or Update the entity
 
-Use entity_update if the entity already exists (by id or name), otherwise attach the new entity:
-```
-entity_attach(
-  facet="work",
-  type="Person",
-  entity="Alice Johnson",
-  description="Senior engineer on the platform team"
-)
+Use `sol call entities update FACET ENTITY DESCRIPTION` if the entity already exists (by id or name), otherwise attach the new entity:
+```bash
+sol call entities attach work Person "Alice Johnson" "Senior engineer on the platform team"
 ```
 
-Note: If the entity already exists, `entity_attach` will return it with `created: false`.
+Note: If the entity already exists, `sol call entities attach` will return it with `created: false`.
 
 Report success:
 "✓ Added {name} ({type}) to {facet}"

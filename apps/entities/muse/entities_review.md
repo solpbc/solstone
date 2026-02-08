@@ -6,7 +6,6 @@
   "color": "#00796b",
   "schedule": "daily",
   "priority": 56,
-  "tools": "journal, entities",
   "multi_facet": true,
   "group": "Entities",
   "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
@@ -22,17 +21,17 @@ Review detected entities from recent days within a specific facet and promote fr
 You receive:
 1. **Facet context** - the specific facet (e.g., "personal", "work") you are reviewing entities for
 2. **Current date/time** - to compute the review window (last 7 days)
-3. **Attached entities for THIS facet** - via `entity_list(facet)` to avoid re-promoting to this facet
-4. **Detection history for THIS facet** - via `entity_list(facet, day)` for each recent day within this facet
+3. **Attached entities for THIS facet** - via `sol call entities list FACET` to avoid re-promoting to this facet
+4. **Detection history for THIS facet** - via `sol call entities list FACET -d DAY` for each recent day within this facet
 
 ## Tooling
 
-Always operate on the MCP entity tools with the **required facet parameter**:
-- `entity_list(facet)` - list entities currently attached to THIS facet (returns entities with entity_id)
-- `entity_list(facet, day)` - list entities detected for THIS facet on a specific day
-- `entity_attach(facet, type, entity, description)` - promote entity to attached status FOR THIS FACET
+Always operate on `sol call entities` commands with the **required facet parameter**:
+- `sol call entities list FACET` - list entities currently attached to THIS facet (returns entities with entity_id)
+- `sol call entities list FACET -d DAY` - list entities detected for THIS facet on a specific day
+- `sol call entities attach FACET TYPE ENTITY DESCRIPTION` - promote entity to attached status FOR THIS FACET
   - The `entity` parameter becomes the entity name if creating new; if it matches an existing attached entity, returns that instead
-- `entity_add_aka(facet, entity, aka)` - add an alias/abbreviation to an attached entity FOR THIS FACET
+- `sol call entities aka FACET ENTITY AKA` - add an alias/abbreviation to an attached entity FOR THIS FACET
   - The `entity` parameter can be entity_id, full name, or existing alias
 
 ## Review Process
@@ -40,10 +39,10 @@ Always operate on the MCP entity tools with the **required facet parameter**:
 ### Phase 1: Aggregate Recent Detections
 
 1. Compute the last 7 days in YYYYMMDD format (e.g., if today is 20250115, review 20250108-20250114)
-2. Load attached entities for THIS facet: `entity_list(facet)` - skip entities already attached to this facet
+2. Load attached entities for THIS facet: `sol call entities list FACET` - skip entities already attached to this facet
 3. Load detected entities for THIS facet for each of the last 7 days:
-   - `entity_list(facet, day="20250114")` - detections for this facet on this day
-   - `entity_list(facet, day="20250113")` - detections for this facet on this day
+   - `sol call entities list FACET -d 20250114` - detections for this facet on this day
+   - `sol call entities list FACET -d 20250113` - detections for this facet on this day
    - ... continue for all 7 days
 
 4. Aggregate detections by entity name (only detections from THIS facet):
@@ -90,7 +89,7 @@ Auto-promote entities based on **type-specific thresholds**:
 - All detections agree on the entity type (e.g., Person, Company, Project, Tool)
 - No ambiguity (e.g., "Apple" as both Company and Project)
 
-**Not Already Attached to THIS Facet**: Entity name not in `entity_list(facet)` results
+**Not Already Attached to THIS Facet**: Entity name not in `sol call entities list FACET` results
 - Avoid duplicates within this facet
 - Name matching should be exact (case-sensitive)
 - Note: An entity may be attached to OTHER facets, but not to this one - that's OK to promote
@@ -128,13 +127,8 @@ For each entity selected for promotion, synthesize a timeless description:
 
 For each entity meeting promotion criteria:
 
-```
-entity_attach(
-  facet="work",
-  type="Person",
-  entity="Sarah Chen",
-  description="senior backend engineer, leads database and API work"
-)
+```bash
+sol call entities attach work Person "Sarah Chen" "senior backend engineer, leads database and API work"
 ```
 
 ### Phase 5: Detect and Add Aliases
@@ -148,10 +142,10 @@ After promotions, review detected entities for name variations and add them as s
 - Short forms: "Anthropic PBC" detected as "Anthropic" → add aka: "Anthropic"
 
 **Execution (use entity_id or name for the entity parameter):**
-```
-entity_add_aka(facet="work", entity="federal_aviation_administration", aka="FAA")
-entity_add_aka(facet="work", entity="PostgreSQL", aka="Postgres")
-entity_add_aka(facet="work", entity="postgresql", aka="PG")
+```bash
+sol call entities aka work federal_aviation_administration FAA
+sol call entities aka work PostgreSQL Postgres
+sol call entities aka work postgresql PG
 ```
 
 **When to add aliases:**
@@ -176,13 +170,13 @@ If detected name is substring of entity already attached to THIS facet:
 If multiple variations of same person detected:
 - "Robert Johnson" (3x) and "Bob" (2x) both detected (5 total)
 - Promote with full name, count all variations toward threshold
-- Add nickname in Phase 5 using entity_add_aka
+- Add nickname in Phase 5 using `sol call entities aka`
 
 **Company Abbreviations:**
 If both full name and abbreviation detected:
 - "Federal Aviation Administration" (2x) and "FAA" (4x) both detected (6 total)
 - Promote with full name, count all variations toward threshold
-- Add acronym in Phase 5 using entity_add_aka
+- Add acronym in Phase 5 using `sol call entities aka`
 
 ## Quality Guidelines
 
@@ -216,8 +210,8 @@ When invoked:
    - People: 2+, Companies/Projects: 3-4+, Tools: 5+
    - Type consistent, not already attached to THIS facet
 6. Synthesize timeless descriptions for qualifying entities
-7. Execute `entity_attach()` for each promotion to THIS facet
-8. Detect name variations and execute `entity_add_aka()` for aliases
+7. Execute `sol call entities attach` for each promotion to THIS facet
+8. Detect name variations and execute `sol call entities aka` for aliases
 9. Summarize: "Promoted X entities for [facet]: [names with aliases and detection counts]"
 
 ## Edge Cases

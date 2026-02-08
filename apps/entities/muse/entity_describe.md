@@ -4,7 +4,6 @@
   "title": "Entity Description",
   "description": "Research and generate single-sentence descriptions for attached entities",
   "color": "#26a69a",
-  "tools": "journal",
   "group": "Entities",
   "instructions": {"system": "journal", "facets": true, "now": true}
 
@@ -24,9 +23,9 @@ You receive:
 
 ## Research Tools
 
-Use these MCP tools for quick research (be efficient, 2-3 calls max):
-- `search_journal(query, facet, limit)` - find mentions in journal content, scoped to facet
-- `search_journal(query, topic="audio", limit)` - find mentions in transcripts
+Use these `sol call` commands for quick research (be efficient, 2-3 calls max):
+- `sol call journal search QUERY -f FACET -n LIMIT` - find mentions in journal content, scoped to facet
+- `sol call journal search QUERY -t audio -n LIMIT` - find mentions in transcripts
 
 ## Process
 
