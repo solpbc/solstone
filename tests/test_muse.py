@@ -6,8 +6,6 @@
 Tests for muse prompt loading, configuration, and instruction composition.
 """
 
-import pytest
-
 from think.muse import (
     _merge_instructions_config,
     compose_instructions,

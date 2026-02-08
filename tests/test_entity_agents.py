@@ -34,7 +34,7 @@ def test_entities_agent_config(fixture_journal):
     assert config.get("title") == "Entity Detector"
     assert config.get("schedule") == "daily"
     assert config.get("priority") == 55
-    assert config.get("tools") == "journal, entities"
+    assert config.get("type") == "cogitate"
     assert config.get("multi_facet") is True
 
 
@@ -54,7 +54,7 @@ def test_entities_review_agent_config(fixture_journal):
     assert config.get("title") == "Entity Reviewer"
     assert config.get("schedule") == "daily"
     assert config.get("priority") == 56
-    assert config.get("tools") == "journal, entities"
+    assert config.get("type") == "cogitate"
     assert config.get("multi_facet") is True
 
 
@@ -65,8 +65,8 @@ def test_entities_agent_instruction_content(fixture_journal):
 
     # Check for key sections in the agent prompt
     assert "Core Mission" in prompt
-    assert "entity_detect" in prompt
-    assert "entity_list" in prompt
+    assert "sol call entities detect" in prompt
+    assert "sol call entities list" in prompt
     assert "Knowledge Graphs" in prompt or "knowledge_graph" in prompt
     assert "day-specific context" in prompt.lower()
 
@@ -78,8 +78,8 @@ def test_entities_review_agent_instruction_content(fixture_journal):
 
     # Check for key sections in the agent prompt
     assert "Core Mission" in prompt
-    assert "entity_attach" in prompt
-    assert "entity_list" in prompt
+    assert "sol call entities attach" in prompt
+    assert "sol call entities list" in prompt
     assert "3+" in prompt or "promotion" in prompt.lower()
     assert "description" in prompt.lower()
 
