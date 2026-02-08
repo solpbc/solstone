@@ -83,9 +83,8 @@ skills:
 		[ -f "$$skill_md" ] || continue; \
 		skill_dir=$$(dirname "$$skill_md"); \
 		skill_name=$$(basename "$$skill_dir"); \
-		abs_skill=$$(cd "$$skill_dir" && pwd); \
 		for dir in $(SKILL_DIRS); do \
-			ln -sf "$$abs_skill" "$$dir/$$skill_name"; \
+			ln -srf "$$skill_dir" "$$dir/$$skill_name"; \
 		done; \
 		count=$$((count + 1)); \
 	done; \
