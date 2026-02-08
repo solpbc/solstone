@@ -18,7 +18,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from think.providers.shared import JSONEventCallback
 from think.utils import now_ms

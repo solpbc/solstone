@@ -5,8 +5,6 @@
 
 import json
 
-import pytest
-
 from think.providers.cli import (
     ThinkingAggregator,
     assemble_prompt,
