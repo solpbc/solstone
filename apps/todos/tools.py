@@ -1,35 +1,19 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""MCP tools and resources for todo management.
-
-This module provides the todo MCP tools and resource handler for the todos app.
-Tools are auto-discovered and registered via the @register_tool decorator.
-The resource is registered via @mcp.resource decorator.
-"""
+"""Todo tool functions for todo management."""
 
 from datetime import datetime
 from typing import Any
 
-from fastmcp import Context
-from fastmcp.resources import TextResource
-
 from apps.todos import todo
 from think.facets import log_tool_action
-from think.mcp import HINTS, mcp, register_tool
-
-# Declare tool pack - creates the "todo" pack with all todo tools
-TOOL_PACKS = {
-    "todo": ["todo_list", "todo_add", "todo_cancel", "todo_done", "todo_upcoming"],
-}
-
 
 # -----------------------------------------------------------------------------
-# MCP Tools
+# Tool Functions
 # -----------------------------------------------------------------------------
 
 
-@register_tool(annotations=HINTS)
 def todo_list(day: str, facet: str, day_to: str | None = None) -> dict[str, Any]:
     """Return the numbered todo checklist for a day or date range in a specific facet.
 
@@ -120,10 +104,7 @@ def todo_list(day: str, facet: str, day_to: str | None = None) -> dict[str, Any]
         return {"error": f"Failed to list todos: {exc}"}
 
 
-@register_tool(annotations=HINTS)
-def todo_add(
-    day: str, facet: str, line_number: int, text: str, context: Context | None = None
-) -> dict[str, Any]:
+def todo_add(day: str, facet: str, line_number: int, text: str) -> dict[str, Any]:
     """Append a new unchecked todo entry using the next sequential line number.
 
     Args:
@@ -159,7 +140,6 @@ def todo_add(
             facet=facet,
             action="todo_add",
             params={"line_number": line_number, "text": item.text},
-            context=context,
             day=day,
         )
         return {"day": day, "facet": facet, "markdown": checklist.display()}
@@ -179,10 +159,7 @@ def todo_add(
         return {"error": f"Failed to add todo: {exc}"}
 
 
-@register_tool(annotations=HINTS)
-def todo_cancel(
-    day: str, facet: str, line_number: int, context: Context | None = None
-) -> dict[str, Any]:
+def todo_cancel(day: str, facet: str, line_number: int) -> dict[str, Any]:
     """Cancel a todo entry (soft delete). The entry remains in the file but is hidden from view.
 
     Args:
@@ -201,7 +178,6 @@ def todo_cancel(
             facet=facet,
             action="todo_cancel",
             params={"line_number": line_number, "text": item.text},
-            context=context,
             day=day,
         )
         return {"day": day, "facet": facet, "markdown": checklist.display()}
@@ -216,10 +192,7 @@ def todo_cancel(
         return {"error": f"Failed to cancel todo: {exc}"}
 
 
-@register_tool(annotations=HINTS)
-def todo_done(
-    day: str, facet: str, line_number: int, context: Context | None = None
-) -> dict[str, Any]:
+def todo_done(day: str, facet: str, line_number: int) -> dict[str, Any]:
     """Mark a todo entry as completed.
 
     Args:
@@ -238,7 +211,6 @@ def todo_done(
             facet=facet,
             action="todo_done",
             params={"line_number": line_number, "text": item.text},
-            context=context,
             day=day,
         )
         return {"day": day, "facet": facet, "markdown": checklist.display()}
@@ -253,7 +225,6 @@ def todo_done(
         return {"error": f"Failed to complete todo: {exc}"}
 
 
-@register_tool(annotations=HINTS)
 def todo_upcoming(limit: int = 20, facet: str | None = None) -> dict[str, Any]:
     """Return upcoming todos across future days as markdown sections.
 
@@ -286,31 +257,3 @@ def todo_upcoming(limit: int = 20, facet: str | None = None) -> dict[str, Any]:
         return {"limit": limit, "facet": facet, "markdown": markdown}
     except Exception as exc:  # pragma: no cover - unexpected failure
         return {"error": f"Failed to load upcoming todos: {exc}"}
-
-
-# -----------------------------------------------------------------------------
-# MCP Resource
-# -----------------------------------------------------------------------------
-
-
-@mcp.resource("journal://todo/{facet}/{day}")
-def get_todo(facet: str, day: str) -> TextResource:
-    """Return the facet-scoped todo checklist for a specific day."""
-    checklist = todo.TodoChecklist.load(day, facet)
-
-    if not checklist.exists:
-        facet_path = checklist.path.parents[1]  # facets/{facet}/todos
-        if not facet_path.is_dir():
-            text = f"No todos folder for facet '{facet}'."
-        else:
-            text = f"(No todos recorded for {day} in facet '{facet}'.)"
-    else:
-        text = checklist.display()
-
-    return TextResource(
-        uri=f"journal://todo/{facet}/{day}",
-        name=f"Todos: {facet}/{day}",
-        description=f"Checklist entries for facet '{facet}' on {day}",
-        mime_type="text/plain",
-        text=text,
-    )

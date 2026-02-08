@@ -1,16 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""MCP tools for entity management.
-
-This module provides the entity MCP tools for the entities app.
-Tools are auto-discovered and registered via the @register_tool decorator.
-"""
+"""Entity tool functions for entity management."""
 
 import re
 from typing import Any
-
-from fastmcp import Context
 
 from think.entities import (
     ObservationNumberError,
@@ -24,22 +18,7 @@ from think.entities import (
     validate_aka_uniqueness,
 )
 from think.facets import log_tool_action
-from think.mcp import HINTS, register_tool
 from think.utils import now_ms
-
-# Declare tool pack - creates the "entities" pack with all entity tools
-TOOL_PACKS = {
-    "entities": [
-        "entity_list",
-        "entity_detect",
-        "entity_attach",
-        "entity_update",
-        "entity_add_aka",
-        "entity_observations",
-        "entity_observe",
-    ],
-}
-
 
 # -----------------------------------------------------------------------------
 # Helpers
@@ -108,11 +87,10 @@ def _resolve_or_error(
 
 
 # -----------------------------------------------------------------------------
-# MCP Tools
+# Tool Functions
 # -----------------------------------------------------------------------------
 
 
-@register_tool(annotations=HINTS)
 def entity_list(facet: str, day: str | None = None) -> dict[str, Any]:
     """List entities for a facet.
 
@@ -149,14 +127,12 @@ def entity_list(facet: str, day: str | None = None) -> dict[str, Any]:
         }
 
 
-@register_tool(annotations=HINTS)
 def entity_detect(
     day: str,
     facet: str,
     type: str,
     entity: str,
     description: str,
-    context: Context | None = None,
 ) -> dict[str, Any]:
     """Record a detected entity for a specific day in a facet.
 
@@ -246,7 +222,6 @@ def entity_detect(
                 "name": name,
                 "description": description,
             },
-            context=context,
             day=day,
         )
 
@@ -269,9 +244,8 @@ def entity_detect(
         }
 
 
-@register_tool(annotations=HINTS)
 def entity_attach(
-    facet: str, type: str, entity: str, description: str, context: Context | None = None
+    facet: str, type: str, entity: str, description: str
 ) -> dict[str, Any]:
     """Attach an entity permanently to a facet.
 
@@ -382,7 +356,6 @@ def entity_attach(
                 "name": name,
                 "description": description,
             },
-            context=context,
         )
 
         return {
@@ -398,14 +371,12 @@ def entity_attach(
         }
 
 
-@register_tool(annotations=HINTS)
 def entity_update(
     facet: str,
     entity: str,
     old_description: str,
     new_description: str,
     day: str | None = None,
-    context: Context | None = None,
 ) -> dict[str, Any]:
     """Update an existing entity's description using guard-based validation.
 
@@ -461,7 +432,6 @@ def entity_update(
                 "old_description": old_description,
                 "new_description": new_description,
             },
-            context=context,
             day=day,
         )
 
@@ -490,10 +460,7 @@ def entity_update(
         }
 
 
-@register_tool(annotations=HINTS)
-def entity_add_aka(
-    facet: str, entity: str, aka: str, context: Context | None = None
-) -> dict[str, Any]:
+def entity_add_aka(facet: str, entity: str, aka: str) -> dict[str, Any]:
     """Add an alias (aka) to an attached entity.
 
     This tool adds an alternative name, acronym, or nickname to an attached entity's
@@ -585,7 +552,6 @@ def entity_add_aka(
             facet=facet,
             action="entity_add_aka",
             params={"entity": entity, "name": resolved_name, "aka": aka},
-            context=context,
         )
 
         return {
@@ -601,7 +567,6 @@ def entity_add_aka(
         }
 
 
-@register_tool(annotations=HINTS)
 def entity_observations(facet: str, entity: str) -> dict[str, Any]:
     """List observations for an attached entity.
 
@@ -651,14 +616,12 @@ def entity_observations(facet: str, entity: str) -> dict[str, Any]:
         }
 
 
-@register_tool(annotations=HINTS)
 def entity_observe(
     facet: str,
     entity: str,
     content: str,
     observation_number: int,
     source_day: str | None = None,
-    context: Context | None = None,
 ) -> dict[str, Any]:
     """Add an observation to an attached entity with guard validation.
 
@@ -720,7 +683,6 @@ def entity_observe(
                 "content": content,
                 "observation_number": observation_number,
             },
-            context=context,
         )
 
         return {

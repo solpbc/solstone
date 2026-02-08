@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for todos app MCP tool helpers and handlers."""
+"""Tests for todos app tool functions."""
 
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ from apps.todos import tools as todo_tools
 
 
 def call_tool(tool, *args, **kwargs):
-    """Invoke the underlying callable for a FastMCP tool."""
-    return tool.fn(*args, **kwargs)
+    """Invoke a tool function."""
+    return tool(*args, **kwargs)
 
 
 FIXTURES_JOURNAL = Path(__file__).resolve().parents[3] / "fixtures" / "journal"
