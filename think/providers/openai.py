@@ -155,7 +155,8 @@ async def run_cogitate(
     else:
         prompt_text = prompt_body
 
-    # Build command
+    # Build command — sandbox is read-only; "sol call" commands bypass
+    # the sandbox via exec-policy rules in .codex/rules/solstone.rules
     cmd = ["codex", "exec", "--json", "-s", "read-only", "-m", model]
 
     # Resume mode: look up thread_id from a prior agent run

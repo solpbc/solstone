@@ -3,14 +3,21 @@
 
 """Tests for Claude CLI translator in think.providers.anthropic."""
 
+import asyncio
+import importlib
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from think.providers.anthropic import _translate_claude
 from think.providers.cli import ThinkingAggregator
 from think.providers.shared import JSONEventCallback
+
+
+def _anthropic_provider():
+    return importlib.import_module("think.providers.anthropic")
 
 
 @pytest.fixture
@@ -327,3 +334,38 @@ class TestTranslateClaudeFixtureSequence:
 
         # Verify all pending tools consumed
         assert len(pending_tools) == 0
+
+
+class TestRunCogitateCommand:
+    """Tests for run_cogitate command construction."""
+
+    def _mock_runner(self):
+        """Create a MockCLIRunner that captures the command."""
+
+        class MockCLIRunner:
+            last_instance = None
+
+            def __init__(self, **kwargs):
+                self.cmd = kwargs["cmd"]
+                self.prompt_text = kwargs["prompt_text"]
+                self.cli_session_id = "test-session"
+                self.run = AsyncMock(return_value="result")
+                MockCLIRunner.last_instance = self
+
+        return MockCLIRunner
+
+    def test_plan_mode_with_sol_call_allowed(self):
+        provider = _anthropic_provider()
+        MockCLIRunner = self._mock_runner()
+        with (
+            patch("think.providers.anthropic.CLIRunner", MockCLIRunner),
+            patch("think.providers.anthropic.check_cli_binary"),
+        ):
+            asyncio.run(
+                provider.run_cogitate(
+                    {"prompt": "hello", "model": "claude-sonnet-4"}, lambda e: None
+                )
+            )
+        cmd = MockCLIRunner.last_instance.cmd
+        assert cmd[cmd.index("--permission-mode") + 1] == "plan"
+        assert cmd[cmd.index("--allowedTools") + 1] == "Bash(sol call *)"

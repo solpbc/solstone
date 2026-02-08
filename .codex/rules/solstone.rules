@@ -1,0 +1,11 @@
+# Execution policy rules for solstone agent CLI commands.
+# Allows "sol call" commands to run outside the sandbox without prompting.
+# See: https://developers.openai.com/codex/exec-policy
+
+prefix_rule(
+    pattern=["sol", "call"],
+    decision="allow",
+    justification="sol call invokes read-only journal query commands",
+    match=["sol call todos list", "sol call entities list"],
+    not_match=["sol restart-convey"],
+)

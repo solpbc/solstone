@@ -3,9 +3,17 @@
 
 """Tests for Gemini CLI subprocess provider (_translate_gemini)."""
 
+import asyncio
+import importlib
+from unittest.mock import AsyncMock, patch
+
 from think.providers.cli import ThinkingAggregator
 from think.providers.google import _translate_gemini
 from think.providers.shared import JSONEventCallback
+
+
+def _google_provider():
+    return importlib.import_module("think.providers.google")
 
 
 class TestTranslateGemini:
@@ -286,3 +294,35 @@ class TestTranslateGemini:
         assert result == "The file contains a print statement."
 
         assert usage["total_tokens"] == 100
+
+
+class TestRunCogitateCommand:
+    """Tests for run_cogitate command construction."""
+
+    def _mock_runner(self):
+        """Create a MockCLIRunner that captures the command."""
+
+        class MockCLIRunner:
+            last_instance = None
+
+            def __init__(self, **kwargs):
+                self.cmd = kwargs["cmd"]
+                self.prompt_text = kwargs["prompt_text"]
+                self.cli_session_id = "test-session"
+                self.run = AsyncMock(return_value="result")
+                MockCLIRunner.last_instance = self
+
+        return MockCLIRunner
+
+    def test_yolo_mode_with_sol_call_allowed(self):
+        provider = _google_provider()
+        MockCLIRunner = self._mock_runner()
+        with patch("think.providers.google.CLIRunner", MockCLIRunner):
+            asyncio.run(
+                provider.run_cogitate(
+                    {"prompt": "hello", "model": "gemini-2.5-flash"}, lambda e: None
+                )
+            )
+        cmd = MockCLIRunner.last_instance.cmd
+        assert "--yolo" in cmd
+        assert cmd[cmd.index("--allowed-tools") + 1] == "run_shell_command(sol call)"

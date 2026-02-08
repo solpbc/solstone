@@ -239,6 +239,8 @@ async def run_cogitate(
             "stream-json",
             "--permission-mode",
             "plan",
+            "--allowedTools",
+            "Bash(sol call *)",
             "--model",
             model,
         ]
