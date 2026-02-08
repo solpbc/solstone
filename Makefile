@@ -32,17 +32,22 @@ USER_BIN := $(HOME)/.local/bin
 	fi
 	@echo "Installing Playwright browser for sol screenshot..."
 	$(VENV_BIN)/playwright install chromium
-	@mkdir -p $(USER_BIN)
-	@ln -sf $(CURDIR)/$(VENV_BIN)/sol $(USER_BIN)/sol
-	@echo ""
-	@echo "Done! 'sol' command installed to $(USER_BIN)/sol"
-	@if ! echo "$$PATH" | grep -q "$(USER_BIN)"; then \
+	@if [ -d .git ]; then \
+		mkdir -p $(USER_BIN); \
+		ln -sf $(CURDIR)/$(VENV_BIN)/sol $(USER_BIN)/sol; \
 		echo ""; \
-		echo "NOTE: $(USER_BIN) is not in your PATH."; \
-		echo "Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"; \
-		echo "  export PATH=\"\$$HOME/.local/bin:\$$PATH\""; \
+		echo "Done! 'sol' command installed to $(USER_BIN)/sol"; \
+		if ! echo "$$PATH" | grep -q "$(USER_BIN)"; then \
+			echo ""; \
+			echo "NOTE: $(USER_BIN) is not in your PATH."; \
+			echo "Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"; \
+			echo "  export PATH=\"\$$HOME/.local/bin:\$$PATH\""; \
+			echo ""; \
+			echo "Or run sol directly: $(CURDIR)/$(VENV_BIN)/sol"; \
+		fi; \
+	else \
 		echo ""; \
-		echo "Or run sol directly: $(CURDIR)/$(VENV_BIN)/sol"; \
+		echo "Done! (worktree detected, skipping ~/.local/bin/sol symlink)"; \
 	fi
 	@$(MAKE) --no-print-directory skills
 	@touch .installed
