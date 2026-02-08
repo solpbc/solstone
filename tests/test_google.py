@@ -6,6 +6,7 @@ import importlib
 import json
 import sys
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from tests.agents_stub import install_agents_stub
 from tests.conftest import setup_google_genai_stub
@@ -25,6 +26,41 @@ async def run_main(mod, argv, stdin_data=None):
     await mod.main_async()
 
 
+def make_mock_process(stdout_lines, return_code=0):
+    """Create a mock asyncio subprocess for CLI tests."""
+
+    class MockStdout:
+        def __init__(self, lines):
+            self._lines = [line.encode() + b"\n" for line in lines]
+            self._index = 0
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self._index >= len(self._lines):
+                raise StopAsyncIteration
+            line = self._lines[self._index]
+            self._index += 1
+            return line
+
+    class MockStderr:
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+    process = AsyncMock()
+    process.stdout = MockStdout(stdout_lines)
+    process.stderr = MockStderr()
+    process.stdin = AsyncMock()
+    process.stdin.write = lambda data: None
+    process.stdin.close = lambda: None
+    process.wait = AsyncMock(return_value=return_code)
+    return process
+
+
 def test_google_main(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=False)
     install_agents_stub()
@@ -37,6 +73,46 @@ def test_google_main(monkeypatch, tmp_path, capsys):
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setattr(
+        "think.providers.cli.shutil.which",
+        lambda name: "/usr/bin/gemini" if name == "gemini" else None,
+    )
+
+    stdout_lines = [
+        json.dumps(
+            {
+                "type": "init",
+                "timestamp": 100,
+                "session_id": "sess-test",
+                "model": "gemini-2.5-flash",
+            }
+        ),
+        json.dumps(
+            {
+                "type": "message",
+                "role": "assistant",
+                "delta": True,
+                "content": "ok",
+            }
+        ),
+        json.dumps(
+            {
+                "type": "result",
+                "timestamp": 200,
+                "status": "success",
+                "stats": {
+                    "total_tokens": 10,
+                    "input_tokens": 5,
+                    "output_tokens": 5,
+                },
+            }
+        ),
+    ]
+    process = make_mock_process(stdout_lines)
+    monkeypatch.setattr(
+        "think.providers.cli.asyncio.create_subprocess_exec",
+        AsyncMock(return_value=process),
+    )
 
     ndjson_input = json.dumps(
         {
@@ -67,17 +143,6 @@ def test_google_mcp_error(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=False)
     install_agents_stub()
 
-    class ErrorClient:
-        async def __aenter__(self):
-            raise RuntimeError("boom")
-
-        async def __aexit__(self, exc_type, exc, tb):
-            pass
-
-    monkeypatch.setattr(
-        "think.utils.create_mcp_client", lambda _url=None: ErrorClient()
-    )
-
     sys.modules.pop("think.providers.google", None)
     importlib.reload(importlib.import_module("think.providers.google"))
     mod = importlib.reload(importlib.import_module("think.agents"))
@@ -87,6 +152,7 @@ def test_google_mcp_error(monkeypatch, tmp_path, capsys):
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setattr("think.providers.cli.shutil.which", lambda _name: None)
 
     ndjson_input = json.dumps(
         {
@@ -104,7 +170,9 @@ def test_google_mcp_error(monkeypatch, tmp_path, capsys):
     events = [json.loads(line) for line in out_lines]
     assert events[-1]["event"] == "error"
     assert isinstance(events[-1]["ts"], int)
-    assert events[-1]["error"] == "boom"
+    error_message = events[-1]["error"].lower()
+    assert "gemini" in error_message
+    assert "not found" in error_message
     assert "trace" in events[-1]
 
 

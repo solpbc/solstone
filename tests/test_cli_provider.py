@@ -7,9 +7,12 @@ import json
 
 import pytest
 
-from think.providers.cli import ThinkingAggregator, assemble_prompt, lookup_cli_session_id
+from think.providers.cli import (
+    ThinkingAggregator,
+    assemble_prompt,
+    lookup_cli_session_id,
+)
 from think.providers.shared import JSONEventCallback
-
 
 # ---------------------------------------------------------------------------
 # assemble_prompt
@@ -162,8 +165,20 @@ class TestLookupCliSessionId:
         agents_dir.mkdir()
 
         events = [
-            {"event": "start", "ts": 1000, "prompt": "hi", "name": "test", "model": "m", "provider": "p"},
-            {"event": "finish", "ts": 2000, "result": "done", "cli_session_id": "abc-123"},
+            {
+                "event": "start",
+                "ts": 1000,
+                "prompt": "hi",
+                "name": "test",
+                "model": "m",
+                "provider": "p",
+            },
+            {
+                "event": "finish",
+                "ts": 2000,
+                "result": "done",
+                "cli_session_id": "abc-123",
+            },
         ]
         log_file = agents_dir / "agent42.jsonl"
         log_file.write_text("\n".join(json.dumps(e) for e in events) + "\n")
@@ -177,7 +192,14 @@ class TestLookupCliSessionId:
         agents_dir.mkdir()
 
         events = [
-            {"event": "start", "ts": 1000, "prompt": "hi", "name": "test", "model": "m", "provider": "p"},
+            {
+                "event": "start",
+                "ts": 1000,
+                "prompt": "hi",
+                "name": "test",
+                "model": "m",
+                "provider": "p",
+            },
             {"event": "finish", "ts": 2000, "result": "done"},
         ]
         log_file = agents_dir / "agent42.jsonl"
