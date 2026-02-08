@@ -21,7 +21,6 @@ import copy
 import json
 import logging
 import os
-import socket
 import subprocess
 import sys
 import threading
@@ -83,72 +82,9 @@ class CortexService:
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
         self.shutdown_requested = threading.Event()
-        self.mcp_thread: Optional[threading.Thread] = None
-        self.mcp_server_url: Optional[str] = None
 
         # Callosum connection for receiving requests and broadcasting events
         self.callosum = CallosumConnection()
-
-        self._start_mcp_server()
-
-    def _start_mcp_server(self) -> None:
-        """Start the FastMCP HTTP server in a background thread."""
-
-        if self.mcp_thread and self.mcp_thread.is_alive():
-            return
-
-        from think.mcp import mcp
-        from think.utils import find_available_port
-
-        host = os.getenv("SOLSTONE_MCP_HOST", "127.0.0.1")
-        port_env = os.getenv("SOLSTONE_MCP_PORT", "0")
-        port = int(port_env) if port_env != "0" else find_available_port(host)
-        path = os.getenv("SOLSTONE_MCP_PATH", "/mcp") or "/mcp"
-        if not path.startswith("/"):
-            path = f"/{path}"
-
-        self.mcp_server_url = f"http://{host}:{port}{path}"
-
-        def _run_server() -> None:
-            try:
-                mcp.run(
-                    transport="http",
-                    host=host,
-                    port=port,
-                    path=path,
-                    show_banner=False,
-                )
-            except Exception:
-                self.logger.exception("MCP server thread exited unexpectedly")
-
-        self.logger.info("Starting MCP server at %s", self.mcp_server_url)
-        self.mcp_thread = threading.Thread(
-            target=_run_server,
-            name="solstone-mcp-server",
-            daemon=True,
-        )
-        self.mcp_thread.start()
-        self._wait_for_mcp_server(host, port)
-
-    def _wait_for_mcp_server(self, host: str, port: int, timeout: float = 5.0) -> None:
-        """Block until MCP server socket accepts connections or timeout."""
-
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.settimeout(0.2)
-                try:
-                    sock.connect((host, port))
-                except OSError:
-                    time.sleep(0.1)
-                    continue
-                else:
-                    self.logger.debug("MCP server ready at %s", self.mcp_server_url)
-                    return
-
-        self.logger.warning(
-            "Timed out waiting for MCP server at %s", self.mcp_server_url
-        )
 
     def _create_error_event(
         self,
@@ -284,10 +220,6 @@ class CortexService:
         # Store request for later use (handoffs, output writing)
         with self.lock:
             self.agent_requests[agent_id] = request
-
-        # Inject MCP server URL
-        if self.mcp_server_url:
-            request["mcp_server_url"] = self.mcp_server_url
 
         # Spawn agent process - it handles all validation/hydration
         try:

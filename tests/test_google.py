@@ -159,7 +159,6 @@ def test_google_mcp_error(monkeypatch, tmp_path, capsys):
             "prompt": "hello",
             "provider": "google",
             "model": GEMINI_FLASH,
-            "mcp_server_url": "http://localhost:6270/mcp",
             "tools": ["search_insights"],
         }
     )
