@@ -43,7 +43,8 @@ apps/my_app/
 ├── app.json           # Optional: Metadata (icon, label, facet support)
 ├── app_bar.html       # Optional: Bottom bar controls (forms, buttons)
 ├── background.html    # Optional: Background JavaScript service
-├── muse/              # Optional: Custom agents and generators (auto-discovered)
+├── muse/              # Optional: Custom agents, generators, and skills (auto-discovered)
+│   └── my-skill/      #   Optional: Agent Skill directories (SKILL.md + resources)
 ├── maint/             # Optional: One-time maintenance tasks (auto-discovered)
 └── tests/             # Optional: App-specific tests (run via make test-apps)
 ```
@@ -60,7 +61,7 @@ apps/my_app/
 | `app.json` | No | Icon, label, facet support overrides |
 | `app_bar.html` | No | Bottom fixed bar for app controls |
 | `background.html` | No | Background service (WebSocket listeners) |
-| `muse/` | No | Custom agents and generators as `.md` files with JSON frontmatter |
+| `muse/` | No | Custom agents, generators, and skills (`.md` files + skill subdirectories) |
 | `maint/` | No | One-time maintenance tasks (run on Convey startup) |
 | `tests/` | No | App-specific tests with self-contained fixtures |
 
@@ -420,7 +421,61 @@ Both insights and agents support an optional `instructions` key for customizing 
 
 ---
 
-### 10. `maint/` - Maintenance Tasks
+### 10. `muse/` - Agent Skills
+
+Define [Agent Skills](https://agentskills.io/specification) as subdirectories within `muse/`. Skills package procedural knowledge, workflows, and resources that AI coding agents (Claude Code, GitHub Copilot, Gemini CLI, etc.) can discover and use on demand.
+
+**Key Points:**
+- Create a subdirectory in `muse/` with a `SKILL.md` file (YAML frontmatter + markdown body)
+- The directory name must match the `name` field in the YAML frontmatter
+- Skill names must be unique across system `muse/` and all `apps/*/muse/` directories
+- `make skills` discovers all skills and symlinks them into `.agents/skills/`, `.claude/skills/`, and `.gemini/skills/`
+- Skills are standalone — they don't interact with the muse agent/generator system
+- The muse loader ignores subdirectories, so skills won't interfere with agent discovery
+
+**Directory structure:**
+```
+muse/my-skill/
+├── SKILL.md           # Required: YAML frontmatter + instructions
+├── scripts/           # Optional: Executable code (Python, Bash, etc.)
+├── references/        # Optional: Additional documentation loaded on demand
+└── assets/            # Optional: Static resources (templates, data files)
+```
+
+**SKILL.md format:**
+```yaml
+---
+name: my-skill
+description: Short description of what this skill does and when to use it.
+---
+
+# Instructions
+
+Step-by-step procedures, examples, and domain knowledge for the agent.
+```
+
+**Required frontmatter fields:**
+- `name` — Max 64 chars, lowercase letters + numbers + hyphens, must match directory name
+- `description` — Max 1024 chars, describes what the skill does *and when to use it*
+
+**Optional frontmatter fields:**
+- `license` — License name (e.g., `Apache-2.0`)
+- `compatibility` — Max 500 chars, environment requirements
+- `metadata` — Arbitrary key-value string map
+- `allowed-tools` — Space-delimited list of pre-approved tools (experimental)
+
+**App skills** work the same way — place a skill directory inside `apps/my_app/muse/`:
+```
+apps/my_app/muse/my-skill/
+├── SKILL.md
+└── references/
+```
+
+**Running `make skills`:** Discovers all `SKILL.md` files under `muse/*/` and `apps/*/muse/*/`, then creates symlinks so that all supported coding agents see the same skills. Errors if two skills share the same directory name.
+
+---
+
+### 11. `maint/` - Maintenance Tasks
 
 Define one-time maintenance scripts that run automatically on Convey startup.
 
@@ -439,7 +494,7 @@ Define one-time maintenance scripts that run automatically on Convey startup.
 
 ---
 
-### 11. `tests/` - App Tests
+### 12. `tests/` - App Tests
 
 Apps can include their own tests that are discovered and run separately from core tests.
 
@@ -463,7 +518,7 @@ apps/my_app/tests/
 
 ---
 
-### 12. `events.py` - Server-Side Event Handlers
+### 13. `events.py` - Server-Side Event Handlers
 
 Define server-side handlers that react to Callosum events. Handlers run in Convey's thread pool, enabling reactive backend logic without creating new services.
 

@@ -41,6 +41,7 @@ solstone/
 ├── think/          # Data post-processing, AI agents & MCP tooling
 ├── convey/         # Web app frontend & backend
 ├── apps/           # Convey app extensions (see docs/APPS.md)
+├── muse/           # Agent/generator configs + Agent Skills (muse/*/SKILL.md)
 ├── tests/          # Pytest test suites
 ├── fixtures/       # Test data (mock journal)
 ├── docs/           # All documentation (*.md files)
@@ -203,6 +204,7 @@ See **Quick Reference** below for all `make` commands. Key patterns:
 ```bash
 # Development setup
 make install       # Install package (includes all deps)
+make skills        # Discover and symlink Agent Skills from muse/ dirs
 make format        # Auto-fix formatting, then report remaining issues
 make test          # Run unit tests
 
@@ -230,6 +232,7 @@ make clean-install # Clean and reinstall
 * **Live Logs**: `$JOURNAL_PATH/health/<service>.log`
 * **Agent Personas**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
 * **Generator Templates**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
+* **Agent Skills**: `muse/*/SKILL.md` - symlinked to `.agents/skills/`, `.claude/skills/`, `.gemini/skills/` via `make skills`
 * **Scratch Space**: `scratch/` - git-ignored local workspace
 
 ### Getting Help

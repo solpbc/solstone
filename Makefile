@@ -1,7 +1,7 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit all
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit skills all
 
 # Default target - install package in editable mode
 all: install
@@ -44,6 +44,7 @@ USER_BIN := $(HOME)/.local/bin
 		echo ""; \
 		echo "Or run sol directly: $(CURDIR)/$(VENV_BIN)/sol"; \
 	fi
+	@$(MAKE) --no-print-directory skills
 	@touch .installed
 
 # Generate lock file if missing
@@ -52,6 +53,45 @@ uv.lock: pyproject.toml
 
 # Install package in editable mode with isolated venv
 install: .installed
+
+# Directories where AI coding agents look for skills
+SKILL_DIRS := .agents/skills .claude/skills .gemini/skills
+
+# Discover SKILL.md files in muse/ and apps/*/muse/, symlink into agent skill dirs
+skills:
+	@# Collect all skill directories (containing SKILL.md)
+	@SKILLS=""; \
+	for skill_md in muse/*/SKILL.md apps/*/muse/*/SKILL.md; do \
+		[ -f "$$skill_md" ] || continue; \
+		skill_dir=$$(dirname "$$skill_md"); \
+		skill_name=$$(basename "$$skill_dir"); \
+		if echo "$$SKILLS" | grep -qw "$$skill_name"; then \
+			echo "Error: duplicate skill name '$$skill_name' found in $$skill_dir" >&2; \
+			echo "Each skill directory name must be unique across muse/ and apps/*/muse/." >&2; \
+			exit 1; \
+		fi; \
+		SKILLS="$$SKILLS $$skill_name"; \
+	done; \
+	for dir in $(SKILL_DIRS); do \
+		mkdir -p "$$dir"; \
+		for link in "$$dir"/*; do \
+			[ -L "$$link" ] && rm -f "$$link"; \
+		done; \
+	done; \
+	count=0; \
+	for skill_md in muse/*/SKILL.md apps/*/muse/*/SKILL.md; do \
+		[ -f "$$skill_md" ] || continue; \
+		skill_dir=$$(dirname "$$skill_md"); \
+		skill_name=$$(basename "$$skill_dir"); \
+		abs_skill=$$(cd "$$skill_dir" && pwd); \
+		for dir in $(SKILL_DIRS); do \
+			ln -sf "$$abs_skill" "$$dir/$$skill_name"; \
+		done; \
+		count=$$((count + 1)); \
+	done; \
+	if [ "$$count" -gt 0 ]; then \
+		echo "Linked $$count skill(s) into $(SKILL_DIRS)"; \
+	fi
 
 # Test environment - use fixtures journal for all tests
 TEST_ENV = JOURNAL_PATH=fixtures/journal
@@ -135,6 +175,7 @@ clean:
 	@echo "Cleaning build artifacts and cache files..."
 	rm -rf build/ dist/ *.egg-info/
 	rm -rf .pytest_cache/ .coverage .mypy_cache/
+	rm -rf .agents/ .claude/ .gemini/
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pyo" -delete
