@@ -615,7 +615,7 @@ async def _execute_with_tools(
     config: dict,
     emit_event: Callable[[dict], None],
 ) -> None:
-    """Execute tool-using agent via provider's run_tools.
+    """Execute tool-using agent via provider's run_cogitate.
 
     Args:
         config: Prepared config dict
@@ -650,7 +650,7 @@ async def _execute_with_tools(
 
         emit_event(data)
 
-    await provider_mod.run_tools(config=config, on_event=agent_emit_event)
+    await provider_mod.run_cogitate(config=config, on_event=agent_emit_event)
 
 
 async def _execute_generate(

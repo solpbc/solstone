@@ -199,7 +199,7 @@ class TestTranslateCodex:
         assert events == []
 
 
-class TestRunTools:
+class TestRunCogitate:
     def test_basic_command_construction(self):
         provider = _openai_provider()
         events = []
@@ -217,7 +217,9 @@ class TestRunTools:
 
         with patch("think.providers.openai.CLIRunner", MockCLIRunner):
             result = asyncio.run(
-                provider.run_tools({"prompt": "hello", "model": GPT_5}, events.append)
+                provider.run_cogitate(
+                    {"prompt": "hello", "model": GPT_5}, events.append
+                )
             )
 
         assert result == "test result"
@@ -255,7 +257,7 @@ class TestRunTools:
             ),
         ):
             asyncio.run(
-                provider.run_tools(
+                provider.run_cogitate(
                     {
                         "prompt": "hello",
                         "model": GPT_5,
@@ -286,7 +288,7 @@ class TestRunTools:
 
         with patch("think.providers.openai.CLIRunner", MockCLIRunner):
             asyncio.run(
-                provider.run_tools(
+                provider.run_cogitate(
                     {
                         "prompt": "hello",
                         "model": GPT_5,
@@ -315,7 +317,9 @@ class TestRunTools:
 
         with patch("think.providers.openai.CLIRunner", MockCLIRunner):
             result = asyncio.run(
-                provider.run_tools({"prompt": "hello", "model": GPT_5}, events.append)
+                provider.run_cogitate(
+                    {"prompt": "hello", "model": GPT_5}, events.append
+                )
             )
 
         assert result == "result text"
@@ -337,7 +341,9 @@ class TestRunTools:
 
         with patch("think.providers.openai.CLIRunner", MockCLIRunner):
             asyncio.run(
-                provider.run_tools({"prompt": "hello", "model": GPT_5}, events.append)
+                provider.run_cogitate(
+                    {"prompt": "hello", "model": GPT_5}, events.append
+                )
             )
 
         finish = events[-1]
@@ -366,7 +372,9 @@ class TestRunTools:
 
         with patch("think.providers.openai.CLIRunner", MockCLIRunner):
             asyncio.run(
-                provider.run_tools({"prompt": "hello", "model": GPT_5}, events.append)
+                provider.run_cogitate(
+                    {"prompt": "hello", "model": GPT_5}, events.append
+                )
             )
 
         finish = events[-1]
@@ -389,7 +397,7 @@ class TestRunTools:
         with patch("think.providers.openai.CLIRunner", MockCLIRunner):
             try:
                 asyncio.run(
-                    provider.run_tools(
+                    provider.run_cogitate(
                         {"prompt": "hello", "model": GPT_5}, events.append
                     )
                 )

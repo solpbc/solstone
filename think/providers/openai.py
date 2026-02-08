@@ -129,7 +129,7 @@ def _translate_codex(
     return None
 
 
-async def run_tools(
+async def run_cogitate(
     config: dict[str, Any],
     on_event: Callable[[dict], None] | None = None,
 ) -> str:
@@ -401,7 +401,7 @@ async def run_agenerate(
 
 
 __all__ = [
-    "run_tools",
+    "run_cogitate",
     "run_generate",
     "run_agenerate",
 ]

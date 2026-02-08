@@ -12,7 +12,7 @@ Each provider module in `think/providers/` must export three functions:
 |----------|---------|
 | `run_generate()` | Synchronous text generation, returns `GenerateResult` |
 | `run_agenerate()` | Asynchronous text generation, returns `GenerateResult` |
-| `run_tools()` | Tool-calling execution with MCP integration |
+| `run_cogitate()` | Tool-calling execution with MCP integration |
 
 See `think/providers/__init__.py` for the canonical export list and `think/providers/google.py` as a reference implementation.
 
@@ -92,7 +92,7 @@ class GenerateResult(TypedDict, total=False):
 | `max_output_tokens` | Response token limit. Note: Google internally adds `thinking_budget` to this for total budget calculation. |
 | `system_instruction` | System prompt. Providers handle this per their API (separate field, prepended message, etc.). |
 | `json_output` | Request JSON response. Google uses `response_mime_type`, Anthropic/OpenAI use response format or system instruction. |
-| `thinking_budget` | Token budget for reasoning/thinking. Must be `> 0` to enable; `None` or `0` means no thinking. Only Google and Anthropic support this - OpenAI ignores it (uses fixed "medium" reasoning effort). Note: `run_tools()` always enables thinking regardless of this parameter. |
+| `thinking_budget` | Token budget for reasoning/thinking. Must be `> 0` to enable; `None` or `0` means no thinking. Only Google and Anthropic support this - OpenAI ignores it (uses fixed "medium" reasoning effort). Note: `run_cogitate()` always enables thinking regardless of this parameter. |
 | `timeout_s` | Request timeout in seconds. Convert to provider's expected format (e.g., Google uses milliseconds internally). |
 | `**kwargs` | Absorb unknown kwargs for forward compatibility. Provider-specific options (e.g., `cached_content` for Google) pass through here. |
 
@@ -106,12 +106,12 @@ class GenerateResult(TypedDict, total=False):
 
 **Important:** Providers should gracefully ignore unsupported parameters rather than raising errors.
 
-## run_tools()
+## run_cogitate()
 
 Handles tool-calling execution with MCP integration.
 
 ```python
-async def run_tools(
+async def run_cogitate(
     config: Dict[str, Any],
     on_event: Optional[Callable[[dict], None]] = None,
 ) -> str:
@@ -235,7 +235,7 @@ usage_dict = {
 
 **Key points:**
 - Return usage in `GenerateResult["usage"]` - wrapper handles logging
-- For `run_tools()`, include usage in the `finish` event
+- For `run_cogitate()`, include usage in the `finish` event
 
 ## Context & Routing
 
@@ -333,8 +333,8 @@ This allows reusing much of the OpenAI provider's patterns for request/response 
 ## Checklist for New Providers
 
 **Core implementation:**
-1. Create `think/providers/<name>.py` with `__all__ = ["run_generate", "run_agenerate", "run_tools"]`
-2. Implement `run_generate()`, `run_agenerate()`, `run_tools()` following signatures above
+1. Create `think/providers/<name>.py` with `__all__ = ["run_generate", "run_agenerate", "run_cogitate"]`
+2. Implement `run_generate()`, `run_agenerate()`, `run_cogitate()` following signatures above
 3. Import `GenerateResult` from `think.providers.shared` and return it from generate functions
 
 **Model constants** in `think/models.py`:

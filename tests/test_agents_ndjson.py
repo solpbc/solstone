@@ -26,8 +26,8 @@ def mock_journal(tmp_path, monkeypatch):
     return journal_path
 
 
-async def mock_run_tools(config, on_event=None):
-    """Mock run_tools function for testing."""
+async def mock_run_cogitate(config, on_event=None):
+    """Mock run_cogitate function for testing."""
     prompt = config.get("prompt", "")
     provider = config.get("provider", "")
     model = config.get("model", "")
@@ -70,14 +70,14 @@ def mock_prepare_config(request: dict) -> dict:
 
 
 def mock_all_providers(monkeypatch):
-    """Mock all provider modules uniformly with mock_run_tools.
+    """Mock all provider modules uniformly with mock_run_cogitate.
 
     This ensures tests are not fragile to changes in default provider.
     """
     # Mock providers in think.providers (google, openai, anthropic)
     for provider_name in ("openai", "anthropic", "google"):
         mock_module = MagicMock()
-        mock_module.run_tools = mock_run_tools
+        mock_module.run_cogitate = mock_run_cogitate
         monkeypatch.setitem(
             sys.modules, f"think.providers.{provider_name}", mock_module
         )
