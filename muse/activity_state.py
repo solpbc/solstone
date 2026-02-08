@@ -430,7 +430,10 @@ def _is_redundant_ended(
             prev_desc = prev.get("description", "")
             if not prev_desc:
                 return True
-            if description.lower() in prev_desc.lower() or prev_desc.lower() in description.lower():
+            if (
+                description.lower() in prev_desc.lower()
+                or prev_desc.lower() in description.lower()
+            ):
                 return True
 
     return False
