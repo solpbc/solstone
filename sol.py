@@ -39,7 +39,6 @@ import setproctitle
 COMMANDS: dict[str, str] = {
     # think package - daily processing and analysis
     "import": "think.importer",
-    "cluster": "think.cluster",
     "dream": "think.dream",
     "planner": "think.planner",
     "indexer": "think.indexer",
@@ -90,7 +89,6 @@ ALIASES: dict[str, tuple[str, list[str]]] = {
 GROUPS: dict[str, list[str]] = {
     "Think (daily processing)": [
         "import",
-        "cluster",
         "dream",
         "planner",
         "indexer",

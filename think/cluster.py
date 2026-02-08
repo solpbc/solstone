@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-import argparse
 import os
 import re
 import sys
@@ -12,7 +11,7 @@ from typing import Any
 
 from observe.screen import format_screen_text
 
-from .utils import day_path, setup_cli
+from .utils import day_path
 
 
 def _date_str(day_dir: str) -> str:
@@ -647,49 +646,3 @@ def cluster_range(
     ]
     groups = _group_entries(entries)
     return _groups_to_markdown(groups)
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Generate a Markdown report for a day's JSON files grouped by recording segments."
-    )
-    parser.add_argument(
-        "day",
-        help="Day in YYYYMMDD format",
-    )
-    parser.add_argument(
-        "--start",
-        metavar="HHMMSS",
-        help="Start time for range (HHMMSS)",
-    )
-    parser.add_argument(
-        "--length",
-        type=int,
-        help="Length of range in minutes",
-    )
-
-    args = setup_cli(parser)
-
-    if args.start and args.length is not None:
-        start_dt = datetime.strptime(args.start, "%H%M%S")
-        end_dt = start_dt + timedelta(minutes=args.length)
-        # CLI range view: show raw data (audio + screen, no summaries)
-        markdown = cluster_range(
-            args.day,
-            args.start,
-            end_dt.strftime("%H%M%S"),
-            sources={"audio": True, "screen": True, "agents": False},
-        )
-        print(markdown)
-    elif args.start or args.length is not None:
-        parser.error("--start and --length must be used together")
-    else:
-        # CLI default: show audio + agent summaries (daily view)
-        markdown, _counts = cluster(
-            args.day, sources={"audio": True, "screen": False, "agents": True}
-        )
-        print(markdown)
-
-
-if __name__ == "__main__":
-    main()

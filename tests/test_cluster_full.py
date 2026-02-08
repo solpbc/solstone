@@ -40,27 +40,27 @@ def test_cluster_full(tmp_path, monkeypatch):
     assert "### audio summary" in md
 
 
-def test_cluster_cli(tmp_path, monkeypatch, capsys):
+def test_cluster_default_sources(tmp_path, monkeypatch):
     mod = importlib.import_module("think.cluster")
     copy_day(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr("sys.argv", ["cluster", "20240101"])
-    mod.main()
-    out = capsys.readouterr().out
+    out, _counts = mod.cluster(
+        "20240101", sources={"audio": True, "screen": False, "agents": True}
+    )
     # Now uses insight format: "### {stem} summary"
     assert "### screen summary" in out
 
 
-def test_cluster_cli_range(tmp_path, monkeypatch, capsys):
+def test_cluster_range_raw_screen(tmp_path, monkeypatch):
     mod = importlib.import_module("think.cluster")
     copy_day(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    monkeypatch.setattr(
-        "sys.argv",
-        ["cluster", "20240101", "--start", "123456", "--length", "1"],
+    out = mod.cluster_range(
+        "20240101",
+        "123456",
+        "123556",
+        sources={"audio": True, "screen": True, "agents": False},
     )
-    mod.main()
-    out = capsys.readouterr().out
-    # CLI --start/--length uses raw screen data (screen=True)
+    # Range mode with screen=True uses raw screen data.
     assert "### Screen Activity" in out
     assert "IDE with auth.py open" in out

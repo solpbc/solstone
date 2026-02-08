@@ -14,8 +14,8 @@ All dependencies are listed in `pyproject.toml`.
 
 The package exposes several commands:
 
-- `sol cluster` groups audio and screen JSON files into report sections. Use `--start` and
-  `--length` to limit the report to a specific time range.
+- `sol call transcripts read` groups audio and screen transcripts into report sections. Use `--start` and
+  `--length` to limit the report to a specific time range. See `sol call transcripts --help` for additional commands.
 - `sol dream` runs generators and agents for a single day via Cortex.
 - `sol agents` is the unified CLI for tool agents and generators (spawned by Cortex, NDJSON protocol).
 - `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
@@ -24,7 +24,7 @@ The package exposes several commands:
 - `sol muse` lists available agents and generators with their configuration. Use `sol muse <name>` to see details, and `sol muse <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
 
 ```bash
-sol cluster YYYYMMDD [--start HHMMSS --length MINUTES]
+sol call transcripts read YYYYMMDD [--start HHMMSS --length MINUTES]
 sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--run NAME]
 sol supervisor [--no-observers]
 sol mcp [--transport http] [--port PORT] [--path PATH]
@@ -271,4 +271,3 @@ See [APPS.md](APPS.md#instructions-configuration) for the `instructions` schema 
 - [CORTEX.md](CORTEX.md) - Full API, event schemas, request format
 - [CALLOSUM.md](CALLOSUM.md) - Message bus protocol
 - [THINK.md](THINK.md) - Cortex usage examples
-
