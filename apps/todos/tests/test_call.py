@@ -54,3 +54,110 @@ class TestTodosList:
         )
         assert result.exit_code == 1
         assert "Error" in result.output
+
+
+class TestTodosAdd:
+    """Tests for 'sol call todos add' command."""
+
+    def test_add_todo(self, todo_env):
+        """Add a todo to a future day."""
+        todo_env([], day="29991231")
+        result = runner.invoke(
+            call_app,
+            ["todos", "add", "29991231", "Ship feature", "--facet", "personal"],
+        )
+        assert result.exit_code == 0
+        assert "Ship feature" in result.output
+
+    def test_add_appends_to_existing(self, todo_env):
+        """Add appends after existing items."""
+        todo_env([{"text": "First"}], day="29991231")
+        result = runner.invoke(
+            call_app, ["todos", "add", "29991231", "Second", "--facet", "personal"]
+        )
+        assert result.exit_code == 0
+        assert "First" in result.output
+        assert "Second" in result.output
+
+    def test_add_past_date_rejected(self, todo_env):
+        """Adding to a past date fails."""
+        todo_env([], day="20200101")
+        result = runner.invoke(
+            call_app, ["todos", "add", "20200101", "Nope", "--facet", "personal"]
+        )
+        assert result.exit_code == 1
+
+    def test_add_empty_text_rejected(self, todo_env):
+        """Adding empty text fails."""
+        todo_env([], day="29991231")
+        result = runner.invoke(
+            call_app, ["todos", "add", "29991231", "   ", "--facet", "personal"]
+        )
+        assert result.exit_code == 1
+
+
+class TestTodosDone:
+    """Tests for 'sol call todos done' command."""
+
+    def test_done_marks_complete(self, todo_env):
+        """Mark a todo as done."""
+        todo_env([{"text": "Buy milk"}], day="20240101")
+        result = runner.invoke(
+            call_app, ["todos", "done", "20240101", "1", "--facet", "personal"]
+        )
+        assert result.exit_code == 0
+        assert "[x]" in result.output
+
+    def test_done_invalid_line_number(self, todo_env):
+        """Invalid line number fails."""
+        todo_env([{"text": "Only one"}], day="20240101")
+        result = runner.invoke(
+            call_app, ["todos", "done", "20240101", "5", "--facet", "personal"]
+        )
+        assert result.exit_code == 1
+
+
+class TestTodosCancel:
+    """Tests for 'sol call todos cancel' command."""
+
+    def test_cancel_entry(self, todo_env):
+        """Cancel a todo."""
+        todo_env([{"text": "Buy milk"}], day="20240101")
+        result = runner.invoke(
+            call_app, ["todos", "cancel", "20240101", "1", "--facet", "personal"]
+        )
+        assert result.exit_code == 0
+        assert "cancelled" in result.output
+
+    def test_cancel_invalid_line_number(self, todo_env):
+        """Invalid line number fails."""
+        todo_env([{"text": "Only one"}], day="20240101")
+        result = runner.invoke(
+            call_app, ["todos", "cancel", "20240101", "5", "--facet", "personal"]
+        )
+        assert result.exit_code == 1
+
+
+class TestTodosUpcoming:
+    """Tests for 'sol call todos upcoming' command."""
+
+    def test_upcoming_shows_future(self, todo_env):
+        """Upcoming shows future todos."""
+        todo_env([{"text": "Future task"}], day="29991231")
+        result = runner.invoke(call_app, ["todos", "upcoming"])
+        assert result.exit_code == 0
+        assert "Future task" in result.output
+
+    def test_upcoming_with_facet_filter(self, todo_env):
+        """Upcoming filters by facet."""
+        todo_env([{"text": "Work task"}], day="29991231", facet="work")
+        result = runner.invoke(call_app, ["todos", "upcoming", "--facet", "work"])
+        assert result.exit_code == 0
+        assert "Work task" in result.output
+
+    def test_upcoming_no_future_todos(self, todo_env):
+        """No future todos shows appropriate message."""
+        todo_env([], day="20200101")
+        result = runner.invoke(call_app, ["todos", "upcoming"])
+        assert result.exit_code == 0
+        assert "No upcoming todos" in result.output

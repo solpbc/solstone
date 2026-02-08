@@ -81,3 +81,99 @@ def list_todos(
         typer.echo(f"## {f}")
         _print_day_facet(day, f)
         typer.echo()
+
+
+@app.command("add")
+def add_todo(
+    day: str = typer.Argument(help="Journal day in YYYYMMDD format."),
+    text: str = typer.Argument(help="Todo item text."),
+    facet: str = typer.Option(..., "--facet", "-f", help="Facet name."),
+) -> None:
+    """Add a new todo item."""
+    from datetime import datetime
+
+    from think.utils import get_journal
+
+    get_journal()
+
+    # Reject past dates
+    try:
+        todo_date = datetime.strptime(day, "%Y%m%d").date()
+    except ValueError:
+        typer.echo(f"Error: invalid day format '{day}'", err=True)
+        raise typer.Exit(1)
+
+    if todo_date < datetime.now().date():
+        typer.echo(f"Error: cannot add todo to past date {day}", err=True)
+        raise typer.Exit(1)
+
+    try:
+        checklist = todo.TodoChecklist.load(day, facet)
+        line_number = len(checklist.items) + 1
+        checklist.add_entry(line_number, text)
+        typer.echo(checklist.display())
+    except todo.TodoEmptyTextError:
+        typer.echo("Error: todo text cannot be empty", err=True)
+        raise typer.Exit(1)
+
+
+@app.command("done")
+def done_todo(
+    day: str = typer.Argument(help="Journal day in YYYYMMDD format."),
+    line_number: int = typer.Argument(help="1-based line number of the todo."),
+    facet: str = typer.Option(..., "--facet", "-f", help="Facet name."),
+) -> None:
+    """Mark a todo item as done."""
+    from think.utils import get_journal
+
+    get_journal()
+
+    try:
+        checklist = todo.TodoChecklist.load(day, facet)
+        checklist.mark_done(line_number)
+        typer.echo(checklist.display())
+    except FileNotFoundError:
+        typer.echo(f"Error: no todos found for facet '{facet}' on {day}", err=True)
+        raise typer.Exit(1)
+    except IndexError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command("cancel")
+def cancel_todo(
+    day: str = typer.Argument(help="Journal day in YYYYMMDD format."),
+    line_number: int = typer.Argument(help="1-based line number of the todo."),
+    facet: str = typer.Option(..., "--facet", "-f", help="Facet name."),
+) -> None:
+    """Cancel a todo item."""
+    from think.utils import get_journal
+
+    get_journal()
+
+    try:
+        checklist = todo.TodoChecklist.load(day, facet)
+        checklist.cancel_entry(line_number)
+        typer.echo(checklist.display())
+    except FileNotFoundError:
+        typer.echo(f"Error: no todos found for facet '{facet}' on {day}", err=True)
+        raise typer.Exit(1)
+    except IndexError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command("upcoming")
+def upcoming_todos(
+    limit: int = typer.Option(20, "--limit", "-l", help="Maximum number of todos."),
+    facet: str | None = typer.Option(
+        None, "--facet", "-f", help="Facet name. Omit to show all facets."
+    ),
+) -> None:
+    """Show upcoming todos across future days."""
+    from think.utils import get_journal
+
+    get_journal()
+
+    result = todo.upcoming(limit=limit, facet=facet)
+    typer.echo(result)
