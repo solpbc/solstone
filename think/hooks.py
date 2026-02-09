@@ -147,12 +147,11 @@ def compute_output_source(context: dict) -> str:
         # Check for facet in meta (for multi-facet agents)
         meta = context.get("meta", {})
         facet = meta.get("facet") if meta else None
+        filename = f"{topic}.md"
+        if segment and facet:
+            return os.path.join(day, segment, "agents", facet, filename)
+        if segment:
+            return os.path.join(day, segment, "agents", filename)
         if facet:
-            filename = f"{topic}_{facet}.md"
-        else:
-            filename = f"{topic}.md"
-        return os.path.join(
-            day,
-            "agents" if not segment else segment,
-            filename,
-        )
+            return os.path.join(day, "agents", facet, filename)
+        return os.path.join(day, "agents", filename)

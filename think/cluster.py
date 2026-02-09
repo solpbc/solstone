@@ -157,41 +157,43 @@ def _process_segment(
                     file=sys.stderr,
                 )
 
-    # Process agent output summaries from *.md files (with optional filtering)
+    # Process agent output summaries from agents/**/*.md files (with optional filtering)
     if agents:
         # Convert bool to filter: True -> None (all), False handled by outer if
         agent_filter = (
             None if agents is True else agents if isinstance(agents, dict) else None
         )
+        agents_dir = segment_path / "agents"
+        if agents_dir.is_dir():
+            for md_file in sorted(agents_dir.rglob("*.md")):
+                if not md_file.is_file():
+                    continue
 
-        for md_file in sorted(segment_path.glob("*.md")):
-            if not md_file.is_file():
-                continue
+                # Check if this agent matches the filter
+                if not _agent_matches_filter(md_file.stem, agent_filter):
+                    continue
 
-            # Check if this agent matches the filter
-            if not _agent_matches_filter(md_file.stem, agent_filter):
-                continue
-
-            try:
-                content = md_file.read_text()
-                if content.strip():
-                    entries.append(
-                        {
-                            "timestamp": segment_start,
-                            "segment_key": segment_key,
-                            "segment_start": segment_start,
-                            "segment_end": segment_end,
-                            "prefix": "agent_output",
-                            "output_name": md_file.stem,
-                            "content": content,
-                            "name": f"{segment_path.name}/{md_file.name}",
-                        }
+                try:
+                    content = md_file.read_text()
+                    if content.strip():
+                        rel_md_path = md_file.relative_to(agents_dir).as_posix()
+                        entries.append(
+                            {
+                                "timestamp": segment_start,
+                                "segment_key": segment_key,
+                                "segment_start": segment_start,
+                                "segment_end": segment_end,
+                                "prefix": "agent_output",
+                                "output_name": md_file.stem,
+                                "content": content,
+                                "name": f"{segment_path.name}/agents/{rel_md_path}",
+                            }
+                        )
+                except Exception as e:  # pragma: no cover - warning only
+                    print(
+                        f"Warning: Could not read file {md_file.name}: {e}",
+                        file=sys.stderr,
                     )
-            except Exception as e:  # pragma: no cover - warning only
-                print(
-                    f"Warning: Could not read file {md_file.name}: {e}",
-                    file=sys.stderr,
-                )
 
     return entries
 

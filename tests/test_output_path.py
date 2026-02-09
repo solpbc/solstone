@@ -36,7 +36,7 @@ class TestGetOutputPath:
         path = get_output_path(
             "/journal/20250101", "activity", segment="120000_300", output_format="md"
         )
-        assert path == Path("/journal/20250101/120000_300/activity.md")
+        assert path == Path("/journal/20250101/120000_300/agents/activity.md")
 
     def test_app_key_output(self):
         path = get_output_path(
@@ -45,14 +45,14 @@ class TestGetOutputPath:
         assert path == Path("/journal/20250101/agents/_entities_observer.md")
 
     def test_facet_daily_output(self):
-        """Multi-facet agent output includes facet in filename."""
+        """Multi-facet agent output uses a facet subdirectory."""
         path = get_output_path(
             "/journal/20250101", "newsletter", output_format="md", facet="work"
         )
-        assert path == Path("/journal/20250101/agents/newsletter_work.md")
+        assert path == Path("/journal/20250101/agents/work/newsletter.md")
 
     def test_facet_segment_output(self):
-        """Multi-facet segment output includes facet in filename."""
+        """Multi-facet segment output uses a facet subdirectory."""
         path = get_output_path(
             "/journal/20250101",
             "summary",
@@ -60,14 +60,14 @@ class TestGetOutputPath:
             output_format="json",
             facet="personal",
         )
-        assert path == Path("/journal/20250101/120000_300/summary_personal.json")
+        assert path == Path("/journal/20250101/120000_300/agents/personal/summary.json")
 
     def test_facet_with_app_key(self):
         """App-qualified key with facet uses both prefixes."""
         path = get_output_path(
             "/journal/20250101", "entities:observer", output_format="md", facet="work"
         )
-        assert path == Path("/journal/20250101/agents/_entities_observer_work.md")
+        assert path == Path("/journal/20250101/agents/work/_entities_observer.md")
 
     def test_facet_none_same_as_omitted(self):
         """Explicit facet=None produces same path as omitting facet."""

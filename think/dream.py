@@ -125,7 +125,7 @@ def check_callosum_available() -> bool:
 
 def load_segment_facets(day: str, segment: str) -> list[str]:
     """Load facet IDs from a segment's facets.json output."""
-    facets_file = day_path(day) / segment / "facets.json"
+    facets_file = day_path(day) / segment / "agents" / "facets.json"
 
     if not facets_file.exists():
         logging.debug(f"No facets.json found for segment {segment}")

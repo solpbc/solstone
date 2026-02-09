@@ -339,11 +339,14 @@ def segment_content(day: str, segment_key: str) -> Any:
 
     # Collect agent .md files
     md_files = {}
-    for md_path in sorted(Path(segment_dir).glob("*.md")):
-        try:
-            md_files[md_path.stem] = md_path.read_text()
-        except Exception:
-            continue
+    agents_dir = Path(segment_dir) / "agents"
+    if agents_dir.is_dir():
+        for md_path in sorted(agents_dir.rglob("*.md")):
+            try:
+                key = md_path.relative_to(agents_dir).with_suffix("").as_posix()
+                md_files[key] = md_path.read_text()
+            except Exception:
+                continue
 
     return jsonify(
         {

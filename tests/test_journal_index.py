@@ -98,7 +98,10 @@ def journal_fixture(tmp_path):
     )
 
     # Create segment markdown
-    (segment / "screen.md").write_text("# Screen Summary\n\nViewed documentation.\n")
+    (segment / "agents").mkdir()
+    (segment / "agents" / "screen.md").write_text(
+        "# Screen Summary\n\nViewed documentation.\n"
+    )
 
     # Create facet events
     events_dir = journal / "facets" / "work" / "events"
@@ -341,7 +344,7 @@ def test_find_formattable_files(journal_fixture):
     assert "20240101/agents/flow.md" in paths
 
     # Segment content
-    assert "20240101/100000_300/screen.md" in paths
+    assert "20240101/100000_300/agents/screen.md" in paths
     assert "20240101/100000_300/audio.jsonl" in paths
 
     # Facet content
