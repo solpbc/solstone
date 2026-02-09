@@ -120,7 +120,7 @@ def get_entity(facet_name: str, entity_id: str) -> Any:
     """Get a single entity by id.
 
     Uses exact id matching only. URL fragments always contain the entity id,
-    so fuzzy matching is not needed here (it's used by MCP tools instead).
+    so fuzzy matching is not needed here (it's used by tool functions instead).
     Includes detached entities so they can be viewed and re-attached.
 
     If entity is not found in facet but exists in journal, returns journal

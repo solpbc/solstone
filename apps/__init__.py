@@ -12,7 +12,7 @@ Directory Structure:
       background.html      # Optional: Background service
       app_bar.html         # Optional: Bottom bar
       app.json             # Optional: Metadata overrides
-      tools.py             # Optional: MCP tool extensions
+      tools.py             # Optional: Agent tool functions
       insights/            # Optional: Custom insight prompts
       agents/              # Optional: Custom agents
       tests/               # Optional: App-specific tests

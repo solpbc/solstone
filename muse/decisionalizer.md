@@ -14,16 +14,14 @@
 ## Mission
 From the day's "Top 10 Decision-Actions" list, you will:
 1. Select the TWO most consequential decisions based on impact criteria
-2. Use `sol call` commands and MCP resources to research context, stakeholders, and follow-ups
+2. Use `sol call` commands to research context, stakeholders, and follow-ups
 3. Identify gaps between expected and actual obligations
 4. Produce actionable dossiers with specific remedies
 
-## Available Commands and MCP Tools
+## Available Commands
 - `sol call journal search` for discovery across journal content
 - `sol call journal events DAY [-f FACET]` for structured event data
 - `sol call transcripts read DAY --start HHMMSS --length MINUTES --full|--audio|--screen` for transcript windows
-- `get_resource("journal://insight/{day}/{topic}")` for complete insight markdown
-- `send_message(body)` for critical gap alerts to $pronouns_possessive inbox
 
 **Query syntax**: Searches match ALL words by default; use `OR` between words to match ANY (e.g., `apple OR orange`), quote phrases for exact matches (e.g., `"project meeting"`), and append `*` for prefix matching (e.g., `debug*`).
 
@@ -33,13 +31,13 @@ From the day's "Top 10 Decision-Actions" list, you will:
 
 ## PHASE 0: Load the Day's Decisions
 
-**CRITICAL FIRST STEP**: Before any analysis, retrieve the day's complete decisions topic:
+**CRITICAL FIRST STEP**: Before any analysis, retrieve the day's decisions:
 
 ```
-get_resource("journal://insight/$day_YYYYMMDD/decisions")
+sol call journal search "decisions" -d $day_YYYYMMDD -t decisions
 ```
 
-This will give you the full "Top 10 Decision-Actions" list from the analysis day.
+This will give you the "Top 10 Decision-Actions" list from the analysis day.
 If the decisions topic doesn't exist, stop and report this clearly.
 
 ## PHASE 1: Decision Selection
@@ -97,7 +95,7 @@ Use these tools in sequence:
    - Goal: See if decision was discussed
 
 3. **Check messaging:**
-   - `get_resource("journal://insight/$day_YYYYMMDD/messages")`
+   - `sol call journal search "message OR notification" -d $day_YYYYMMDD`
    - Goal: Verify notifications were sent
 
 ### Step 5: Gap Detection
@@ -176,11 +174,9 @@ Brief paragraph on:
 
 ## EXECUTION NOTES
 
-1. **Tool Usage**: Use the exact `sol call` commands and MCP tools provided. Do not invent command names or parameters.
+1. **Tool Usage**: Use the exact `sol call` commands provided. Do not invent command names or parameters.
 2. **Evidence**: Only cite what you find via tools. Never fabricate entities or counts.
 3. **Precision**: When uncertain, mark confidence levels clearly.
 4. **Focus**: Analyze only TWO decisions deeply rather than all of them superficially.
 5. **Actionability**: Every gap identified should have a specific remedy.
-6. **Critical Gaps**: If you discover a critical gap that needs immediate attention, use:
-   - `send_message("Critical gap found: [brief description]")`
-   - This will add an alert to $pronouns_possessive inbox for review
+6. **Critical Gaps**: If you discover a critical gap that needs immediate attention, clearly highlight it in your output with a **CRITICAL GAP** heading.

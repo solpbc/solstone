@@ -681,7 +681,7 @@ def write_service_port(service: str, port: int) -> None:
     Creates $JOURNAL_PATH/health/{service}.port with the port number.
 
     Args:
-        service: Service name (e.g., "convey", "mcp")
+        service: Service name (e.g., "convey", "cortex")
         port: Port number to write
     """
     health_dir = Path(get_journal()) / "health"
@@ -694,7 +694,7 @@ def read_service_port(service: str) -> int | None:
     """Read a service's port from the health directory.
 
     Args:
-        service: Service name (e.g., "convey", "mcp")
+        service: Service name (e.g., "convey", "cortex")
 
     Returns:
         Port number if file exists and is valid, None otherwise

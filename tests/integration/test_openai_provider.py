@@ -32,7 +32,7 @@ def get_fixtures_env():
 @pytest.mark.integration
 @pytest.mark.requires_api
 def test_openai_provider_basic():
-    """Test OpenAI provider with basic prompt, no MCP."""
+    """Test OpenAI provider with basic prompt."""
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:

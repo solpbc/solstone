@@ -200,7 +200,7 @@ def resolve_entity(
 ) -> tuple[EntityDict | None, list[EntityDict] | None]:
     """Resolve an entity query to a single attached entity.
 
-    This is the primary entry point for MCP tools to look up entities.
+    This is the primary entry point for tool functions to look up entities.
     Accepts any form of entity reference (name, id/slug, aka) and resolves
     to a single unambiguous entity.
 

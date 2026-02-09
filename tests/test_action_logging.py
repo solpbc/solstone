@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Test audit logging for MCP entity tool actions."""
+"""Test audit logging for entity tool actions."""
 
 import json
 from datetime import datetime

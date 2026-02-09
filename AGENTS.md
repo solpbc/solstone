@@ -38,7 +38,7 @@ Understanding these core concepts is essential for working with solstone:
 solstone/
 ├── sol.py          # Unified CLI entry point (run: sol <command>)
 ├── observe/        # Multimodal capture & AI analysis
-├── think/          # Data post-processing, AI agents & MCP tooling
+├── think/          # Data post-processing, AI agents & orchestration
 ├── convey/         # Web app frontend & backend
 ├── apps/           # Convey app extensions (see docs/APPS.md)
 ├── muse/           # Agent/generator configs + Agent Skills (muse/*/SKILL.md)

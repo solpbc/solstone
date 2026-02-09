@@ -21,29 +21,17 @@ Use `sol call` commands for journal exploration (see skills for full usage):
 - **Todos**: `sol call todos list`, `sol call todos add`, `sol call todos done`, `sol call todos cancel`, `sol call todos upcoming`
 - **Entities**: `sol call entities list`, `sol call entities detect`, `sol call entities attach`
 
-Also available via MCP: `get_resource("journal://insight/{day}/{topic}")` for complete topic insights.
-
-### Command vs Resource Selection
-
-**Use commands when:**
-- Discovering what information exists
-- Searching across multiple days or topics
-- Looking for specific phrases or concepts
-
-**Use resources when:**
-- You need complete, unfiltered insight markdown for a known topic/day
-
-### Resource Usage Strategy
+### Command Usage Strategy
 
 1. **Discovery First**: Use `sol call journal search` to identify relevant topics, days, and time segments
-2. **Deep Dive**: Use resources to retrieve complete data for identified items
+2. **Deep Dive**: Use targeted searches and transcript reads for identified items
 3. **Comprehensive Analysis**: Combine multiple calls to build complete pictures
 
 Example workflow:
 ```bash
 1. sol call journal search "debugging session"  # returns counts across facets, topics, and days
 2. Review counts.top_days to identify most active days, counts.topics to see content types
-3. get_resource("journal://insight/20240115/tools")  # complete tools insight for that day
+3. sol call journal search "debugging" -d 20240115 -t tools  # topic-specific search for that day
 4. sol call journal search "error" -d 20240115 -t audio  # find specific transcript windows
 5. sol call transcripts read 20240115 --start 143000 --length 60 --full  # full hour context
 ```

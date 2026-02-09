@@ -139,7 +139,7 @@ def test_google_main(monkeypatch, tmp_path, capsys):
     # So we don't check for journal files here
 
 
-def test_google_mcp_error(monkeypatch, tmp_path, capsys):
+def test_google_cli_not_found_error(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=False)
     install_agents_stub()
 

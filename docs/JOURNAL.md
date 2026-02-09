@@ -360,7 +360,7 @@ Each facet is organized as `facets/<facet>/` where `<facet>` is a descriptive sh
 - `todos/` – daily todo lists (see [Facet-Scoped Todos](#facet-scoped-todos)).
 - `events/` – extracted events per day (see [Event extracts](#event-extracts)).
 - `news/` – daily news and updates relevant to the facet (optional).
-- `logs/` – action audit logs for MCP tool calls (optional, see [Action Logs](#action-logs)).
+- `logs/` – action audit logs for tool calls (optional, see [Action Logs](#action-logs)).
 
 ### Facet metadata
 
@@ -422,7 +422,7 @@ Journal entities represent the canonical identity record:
 ```
 
 **Standard fields:**
-- `id` (string) – Stable slug identifier derived from name via `entity_slug()` in `think/entities/` (lowercase, underscores, e.g., "Alice Johnson" → "alice_johnson"). Used for folder paths, URLs, and MCP tool references.
+- `id` (string) – Stable slug identifier derived from name via `entity_slug()` in `think/entities/` (lowercase, underscores, e.g., "Alice Johnson" → "alice_johnson"). Used for folder paths, URLs, and tool references.
 - `name` (string) – Display name for the entity.
 - `type` (string) – Entity type (e.g., "Person", "Company", "Project", "Tool"). Types are flexible and user-defined; must be alphanumeric with spaces, minimum 3 characters.
 - `aka` (array of strings) – Alternative names, nicknames, or acronyms. Used in audio transcription and fuzzy matching.
@@ -571,7 +571,7 @@ Each line is a JSON object with the following fields:
 - Mark completed items with `"completed": true`
 - Cancel items with `"cancelled": true` (soft delete preserves line numbers)
 
-**MCP Tool Access:**
+**Tool Access:**
 All todo operations require both `day` and `facet` parameters:
 - `todo_list(day, facet)` – view numbered checklist for a specific facet
 - `todo_add(day, facet, line_number, text)` – add new todo (line_number must match next available)
@@ -583,7 +583,7 @@ This facet-scoped structure provides true separation of concerns while enabling 
 
 ## Action Logs
 
-Action logs record an audit trail of user-initiated actions and MCP tool calls. There are two types:
+Action logs record an audit trail of user-initiated actions and agent tool calls. There are two types:
 
 - **Journal-level logs** (`config/actions/`) – actions not tied to a specific facet (settings changes, remote observer management)
 - **Facet-scoped logs** (`facets/{facet}/logs/`) – actions within a specific facet (todos, entities)
@@ -628,12 +628,12 @@ The `logs/` directory within each facet records facet-scoped actions. Logs are o
 Both log types share the same structure:
 
 - `timestamp` – ISO 8601 timestamp of the action
-- `source` – Origin type: "app" for web UI, "tool" for MCP tools
+- `source` – Origin type: "app" for web UI, "tool" for agent tools
 - `actor` – App or tool name that performed the action
 - `action` – Action name (e.g., "todo_add", "identity_update")
 - `params` – Action-specific parameters
 - `facet` – Facet name (only present in facet-scoped logs)
-- `agent_id` – Agent ID (only present for MCP tool actions)
+- `agent_id` – Agent ID (only present for agent tool actions)
 
 These logs enable auditing, debugging, and potential rollback of automated actions.
 
@@ -705,7 +705,7 @@ Each line is a JSON object with an `event` field indicating the event type:
 **Common event types:**
 - `start` – agent session started, includes name, prompt, and facet
 - `text` – streaming text output from the agent
-- `tool_call` – agent invoked an MCP tool
+- `tool_call` – agent invoked a tool
 - `tool_result` – result returned from tool execution
 - `handoff` – agent delegated to another agent
 - `error` – error occurred during execution

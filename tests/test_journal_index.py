@@ -413,8 +413,8 @@ def test_search_counts_date_range(journal_fixture):
     assert counts["total"] == 0
 
 
-def test_mcp_search_journal_returns_counts():
-    """Test MCP wrapper returns counts aggregation."""
+def test_search_journal_returns_counts():
+    """Test search tool returns counts aggregation."""
     from think.tools.search import search_journal
 
     # Use fixtures journal
@@ -435,8 +435,8 @@ def test_mcp_search_journal_returns_counts():
     assert len(counts["recent_days"]) == 7
 
 
-def test_mcp_search_journal_returns_query_echo():
-    """Test MCP wrapper returns query echo."""
+def test_search_journal_returns_query_echo():
+    """Test search tool returns query echo."""
     from think.tools.search import search_journal
 
     os.environ["JOURNAL_PATH"] = "fixtures/journal"
@@ -449,8 +449,8 @@ def test_mcp_search_journal_returns_query_echo():
     assert result["query"]["filters"]["topic"] == "audio"
 
 
-def test_mcp_search_journal_results_include_path():
-    """Test MCP wrapper results include path and idx."""
+def test_search_journal_results_include_path():
+    """Test search tool results include path and idx."""
     from think.tools.search import search_journal
 
     os.environ["JOURNAL_PATH"] = "fixtures/journal"

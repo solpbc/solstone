@@ -16,7 +16,7 @@ Tactical work items prioritized for implementation.
 - [ ] Create segment agent for voiceprint detection and updating via hooks
 - [ ] Surface named hook outputs in agents app and sol muse CLI
 - [ ] Make daily schedule agents idempotent with state tracking (show existing vs new segments)
-- [ ] Add activities attach/update MCP tools for facet curation (like entity tools)
+- [ ] Add activities attach/update CLI tools for facet curation (like entity tools)
 
 ## Integrations
 

@@ -4,7 +4,7 @@
 """CLI commands for entity management.
 
 Provides human-friendly CLI access to entity operations, paralleling the
-MCP tools in ``apps/entities/tools.py`` but optimized for terminal use.
+tool functions in ``apps/entities/tools.py`` but optimized for terminal use.
 
 Auto-discovered by ``think.call`` and mounted as ``sol call entities ...``.
 """

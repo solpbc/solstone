@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Test audit logging for todos app MCP tool actions."""
+"""Test audit logging for todos app tool actions."""
 
 import json
 from datetime import datetime
@@ -40,8 +40,8 @@ def test_todo_add_logging(facet_env):
     assert entries[0]["params"]["line_number"] == 1
     assert entries[0]["params"]["text"] == "Test task"
     assert "timestamp" in entries[0]
-    # Actor should be present (defaults to "mcp" in tests)
-    assert entries[0]["actor"] == "mcp"
+    # Actor should be present (defaults to "agent" when no agent_name passed)
+    assert entries[0]["actor"] == "agent"
     # agent_id should be omitted when not available
     assert "agent_id" not in entries[0]
 

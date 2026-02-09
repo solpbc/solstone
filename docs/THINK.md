@@ -41,7 +41,7 @@ is loaded automatically by most commands.
 
 Agents invoke tools through `sol call` shell commands:
 `sol call <module> <command> [args...]`.
-Tool access is command-based, so no MCP server URL handoff is required.
+Tool access is command-based via the `sol call` CLI framework.
 
 ## Automating daily processing
 

@@ -4,7 +4,7 @@
 """CLI commands for todo management.
 
 Provides human-friendly CLI access to todo operations, paralleling the
-MCP tools in ``apps/todos/tools.py`` but optimized for terminal use.
+tool functions in ``apps/todos/tools.py`` but optimized for terminal use.
 
 Auto-discovered by ``think.call`` and mounted as ``sol call todos ...``.
 """
