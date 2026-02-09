@@ -163,15 +163,17 @@ def test_output_hook_invocation(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    # Create generator with hook in muse directory
-    muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
+    # Use tmp_path as muse directory to avoid polluting real muse/
+    import think.muse
 
-    prompt_file = muse_dir / "hooked_test.md"
+    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+
+    prompt_file = tmp_path / "hooked_test.md"
     prompt_file.write_text(
         '{\n  "type": "generate",\n  "title": "Hooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "hooked_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
     )
 
-    hook_file = muse_dir / "hooked_test.py"
+    hook_file = tmp_path / "hooked_test.py"
     hook_file.write_text("""
 def post_process(result, context):
     # Verify context has expected fields
@@ -181,41 +183,34 @@ def post_process(result, context):
     return result + "\\n\\n## Hook was here"
 """)
 
-    try:
-        # Mock the underlying generation function in think.models
-        import think.models
+    # Mock the underlying generation function in think.models
+    import think.models
 
-        monkeypatch.setattr(
-            think.models,
-            "generate_with_result",
-            lambda *a, **k: MOCK_RESULT,
-        )
-        monkeypatch.setenv("GOOGLE_API_KEY", "x")
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(
+        think.models,
+        "generate_with_result",
+        lambda *a, **k: MOCK_RESULT,
+    )
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-        config = {
-            "name": "hooked_test",
-            "day": "20240101",
-            "output": "md",
-            "provider": "google",
-            "model": "gemini-2.0-flash",
-        }
+    config = {
+        "name": "hooked_test",
+        "day": "20240101",
+        "output": "md",
+        "provider": "google",
+        "model": "gemini-2.0-flash",
+    }
 
-        events = run_generator_with_config(mod, config, monkeypatch)
+    events = run_generator_with_config(mod, config, monkeypatch)
 
-        # Find finish event
-        finish_events = [e for e in events if e["event"] == "finish"]
-        assert len(finish_events) == 1
+    # Find finish event
+    finish_events = [e for e in events if e["event"] == "finish"]
+    assert len(finish_events) == 1
 
-        content = finish_events[0]["result"]
-        assert "## Original Result" in content
-        assert "## Hook was here" in content
-
-    finally:
-        if hook_file.exists():
-            hook_file.unlink()
-        if prompt_file.exists():
-            prompt_file.unlink()
+    content = finish_events[0]["result"]
+    assert "## Original Result" in content
+    assert "## Hook was here" in content
 
 
 def test_output_hook_returns_none(tmp_path, monkeypatch):
@@ -223,50 +218,45 @@ def test_output_hook_returns_none(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
+    import think.muse
 
-    prompt_file = muse_dir / "noop_test.md"
+    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+
+    prompt_file = tmp_path / "noop_test.md"
     prompt_file.write_text(
         '{\n  "type": "generate",\n  "title": "Noop",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "noop_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
     )
 
-    hook_file = muse_dir / "noop_test.py"
+    hook_file = tmp_path / "noop_test.py"
     hook_file.write_text("""
 def post_process(result, context):
     return None  # Signal to use original
 """)
 
-    try:
-        # Mock the underlying generation function in think.models
-        import think.models
+    # Mock the underlying generation function in think.models
+    import think.models
 
-        monkeypatch.setattr(
-            think.models,
-            "generate_with_result",
-            lambda *a, **k: MOCK_RESULT,
-        )
-        monkeypatch.setenv("GOOGLE_API_KEY", "x")
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(
+        think.models,
+        "generate_with_result",
+        lambda *a, **k: MOCK_RESULT,
+    )
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-        config = {
-            "name": "noop_test",
-            "day": "20240101",
-            "output": "md",
-            "provider": "google",
-            "model": "gemini-2.0-flash",
-        }
+    config = {
+        "name": "noop_test",
+        "day": "20240101",
+        "output": "md",
+        "provider": "google",
+        "model": "gemini-2.0-flash",
+    }
 
-        events = run_generator_with_config(mod, config, monkeypatch)
+    events = run_generator_with_config(mod, config, monkeypatch)
 
-        finish_events = [e for e in events if e["event"] == "finish"]
-        assert len(finish_events) == 1
-        assert finish_events[0]["result"] == MOCK_RESULT["text"]
-
-    finally:
-        if hook_file.exists():
-            hook_file.unlink()
-        if prompt_file.exists():
-            prompt_file.unlink()
+    finish_events = [e for e in events if e["event"] == "finish"]
+    assert len(finish_events) == 1
+    assert finish_events[0]["result"] == MOCK_RESULT["text"]
 
 
 def test_output_hook_error_fallback(tmp_path, monkeypatch):
@@ -274,51 +264,46 @@ def test_output_hook_error_fallback(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
+    import think.muse
 
-    prompt_file = muse_dir / "broken_test.md"
+    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+
+    prompt_file = tmp_path / "broken_test.md"
     prompt_file.write_text(
         '{\n  "type": "generate",\n  "title": "Broken",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "broken_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
     )
 
-    hook_file = muse_dir / "broken_test.py"
+    hook_file = tmp_path / "broken_test.py"
     hook_file.write_text("""
 def post_process(result, context):
     raise RuntimeError("Hook exploded!")
 """)
 
-    try:
-        # Mock the underlying generation function in think.models
-        import think.models
+    # Mock the underlying generation function in think.models
+    import think.models
 
-        monkeypatch.setattr(
-            think.models,
-            "generate_with_result",
-            lambda *a, **k: MOCK_RESULT,
-        )
-        monkeypatch.setenv("GOOGLE_API_KEY", "x")
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(
+        think.models,
+        "generate_with_result",
+        lambda *a, **k: MOCK_RESULT,
+    )
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-        config = {
-            "name": "broken_test",
-            "day": "20240101",
-            "output": "md",
-            "provider": "google",
-            "model": "gemini-2.0-flash",
-        }
+    config = {
+        "name": "broken_test",
+        "day": "20240101",
+        "output": "md",
+        "provider": "google",
+        "model": "gemini-2.0-flash",
+    }
 
-        # Should not raise, should fall back gracefully
-        events = run_generator_with_config(mod, config, monkeypatch)
+    # Should not raise, should fall back gracefully
+    events = run_generator_with_config(mod, config, monkeypatch)
 
-        finish_events = [e for e in events if e["event"] == "finish"]
-        assert len(finish_events) == 1
-        assert finish_events[0]["result"] == MOCK_RESULT["text"]
-
-    finally:
-        if hook_file.exists():
-            hook_file.unlink()
-        if prompt_file.exists():
-            prompt_file.unlink()
+    finish_events = [e for e in events if e["event"] == "finish"]
+    assert len(finish_events) == 1
+    assert finish_events[0]["result"] == MOCK_RESULT["text"]
 
 
 # =============================================================================
@@ -396,14 +381,16 @@ def test_pre_hook_invocation(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
+    import think.muse
 
-    prompt_file = muse_dir / "prehooked_test.md"
+    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+
+    prompt_file = tmp_path / "prehooked_test.md"
     prompt_file.write_text(
         '{\n  "type": "generate",\n  "title": "Prehooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"pre": "prehooked_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nOriginal prompt'
     )
 
-    hook_file = muse_dir / "prehooked_test.py"
+    hook_file = tmp_path / "prehooked_test.py"
     hook_file.write_text("""
 def pre_process(context):
     # Verify context has expected fields
@@ -414,46 +401,39 @@ def pre_process(context):
     return {"prompt": context["prompt"] + " [pre-processed]"}
 """)
 
-    try:
-        # Track what generate_with_result receives
-        received_kwargs = {}
+    # Track what generate_with_result receives
+    received_kwargs = {}
 
-        def mock_generate(*args, **kwargs):
-            received_kwargs.update(kwargs)
-            received_kwargs["contents"] = args[0] if args else kwargs.get("contents")
-            return MOCK_RESULT
+    def mock_generate(*args, **kwargs):
+        received_kwargs.update(kwargs)
+        received_kwargs["contents"] = args[0] if args else kwargs.get("contents")
+        return MOCK_RESULT
 
-        import think.models
+    import think.models
 
-        monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
-        monkeypatch.setenv("GOOGLE_API_KEY", "x")
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-        config = {
-            "name": "prehooked_test",
-            "day": "20240101",
-            "output": "md",
-            "provider": "google",
-            "model": "gemini-2.0-flash",
-        }
+    config = {
+        "name": "prehooked_test",
+        "day": "20240101",
+        "output": "md",
+        "provider": "google",
+        "model": "gemini-2.0-flash",
+    }
 
-        events = run_generator_with_config(mod, config, monkeypatch)
+    events = run_generator_with_config(mod, config, monkeypatch)
 
-        # Verify pre-hook modified the prompt - check in contents
-        contents = received_kwargs.get("contents", [])
-        # The prompt should contain [pre-processed]
-        prompt_found = any("[pre-processed]" in str(c) for c in contents)
-        assert prompt_found, f"Expected [pre-processed] in contents: {contents}"
+    # Verify pre-hook modified the prompt - check in contents
+    contents = received_kwargs.get("contents", [])
+    # The prompt should contain [pre-processed]
+    prompt_found = any("[pre-processed]" in str(c) for c in contents)
+    assert prompt_found, f"Expected [pre-processed] in contents: {contents}"
 
-        # Verify generator still completed successfully
-        finish_events = [e for e in events if e["event"] == "finish"]
-        assert len(finish_events) == 1
-
-    finally:
-        if hook_file.exists():
-            hook_file.unlink()
-        if prompt_file.exists():
-            prompt_file.unlink()
+    # Verify generator still completed successfully
+    finish_events = [e for e in events if e["event"] == "finish"]
+    assert len(finish_events) == 1
 
 
 def test_both_pre_and_post_hooks(tmp_path, monkeypatch):
@@ -461,14 +441,16 @@ def test_both_pre_and_post_hooks(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    muse_dir = Path(mod.__file__).resolve().parent.parent / "muse"
+    import think.muse
 
-    prompt_file = muse_dir / "both_hooks_test.md"
+    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+
+    prompt_file = tmp_path / "both_hooks_test.md"
     prompt_file.write_text(
         '{\n  "type": "generate",\n  "title": "Both Hooks",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"pre": "both_hooks_test", "post": "both_hooks_test"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nOriginal prompt'
     )
 
-    hook_file = muse_dir / "both_hooks_test.py"
+    hook_file = tmp_path / "both_hooks_test.py"
     hook_file.write_text("""
 def pre_process(context):
     return {"prompt": context["prompt"] + " [pre]"}
@@ -477,42 +459,35 @@ def post_process(result, context):
     return result + "\\n\\n[post]"
 """)
 
-    try:
-        received_kwargs = {}
+    received_kwargs = {}
 
-        def mock_generate(*args, **kwargs):
-            received_kwargs.update(kwargs)
-            received_kwargs["contents"] = args[0] if args else kwargs.get("contents")
-            return MOCK_RESULT
+    def mock_generate(*args, **kwargs):
+        received_kwargs.update(kwargs)
+        received_kwargs["contents"] = args[0] if args else kwargs.get("contents")
+        return MOCK_RESULT
 
-        import think.models
+    import think.models
 
-        monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
-        monkeypatch.setenv("GOOGLE_API_KEY", "x")
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-        config = {
-            "name": "both_hooks_test",
-            "day": "20240101",
-            "output": "md",
-            "provider": "google",
-            "model": "gemini-2.0-flash",
-        }
+    config = {
+        "name": "both_hooks_test",
+        "day": "20240101",
+        "output": "md",
+        "provider": "google",
+        "model": "gemini-2.0-flash",
+    }
 
-        events = run_generator_with_config(mod, config, monkeypatch)
+    events = run_generator_with_config(mod, config, monkeypatch)
 
-        # Verify pre-hook modified the prompt - check in contents
-        contents = received_kwargs.get("contents", [])
-        prompt_found = any("[pre]" in str(c) for c in contents)
-        assert prompt_found, f"Expected [pre] in contents: {contents}"
+    # Verify pre-hook modified the prompt - check in contents
+    contents = received_kwargs.get("contents", [])
+    prompt_found = any("[pre]" in str(c) for c in contents)
+    assert prompt_found, f"Expected [pre] in contents: {contents}"
 
-        # Verify post-hook modified the result
-        finish_events = [e for e in events if e["event"] == "finish"]
-        assert len(finish_events) == 1
-        assert "[post]" in finish_events[0]["result"]
-
-    finally:
-        if hook_file.exists():
-            hook_file.unlink()
-        if prompt_file.exists():
-            prompt_file.unlink()
+    # Verify post-hook modified the result
+    finish_events = [e for e in events if e["event"] == "finish"]
+    assert len(finish_events) == 1
+    assert "[post]" in finish_events[0]["result"]

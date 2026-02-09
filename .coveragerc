@@ -11,3 +11,7 @@ omit =
     */__pycache__/*
     */site-packages/*
     config*.py
+
+[report]
+omit =
+    */__pycache__/*
