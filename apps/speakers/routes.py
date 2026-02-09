@@ -106,7 +106,7 @@ def _load_segment_speakers(segment_dir: Path) -> list[str]:
     Returns:
         List of speaker name strings, or empty list if not found/invalid.
     """
-    speakers_path = segment_dir / "speakers.json"
+    speakers_path = segment_dir / "agents" / "speakers.json"
     if not speakers_path.exists():
         return []
 

@@ -388,10 +388,11 @@ def test_load_segment_speakers_invalid_json(speakers_env):
 
     env = speakers_env()
     segment_dir = env.journal / "20240101" / "143022_300"
-    segment_dir.mkdir(parents=True)
+    agents_dir = segment_dir / "agents"
+    agents_dir.mkdir(parents=True)
 
     # Write invalid JSON
-    speakers_path = segment_dir / "speakers.json"
+    speakers_path = agents_dir / "speakers.json"
     speakers_path.write_text("not valid json")
 
     speakers = _load_segment_speakers(segment_dir)
@@ -406,10 +407,11 @@ def test_load_segment_speakers_not_list(speakers_env):
 
     env = speakers_env()
     segment_dir = env.journal / "20240101" / "143022_300"
-    segment_dir.mkdir(parents=True)
+    agents_dir = segment_dir / "agents"
+    agents_dir.mkdir(parents=True)
 
     # Write object instead of list
-    speakers_path = segment_dir / "speakers.json"
+    speakers_path = agents_dir / "speakers.json"
     speakers_path.write_text(json.dumps({"speaker": "Alice"}))
 
     speakers = _load_segment_speakers(segment_dir)

@@ -28,6 +28,7 @@ class MigrationSummary:
 
     def __init__(self) -> None:
         self.moved = 0
+        self.cleaned = 0
         self.skipped = 0
         self.errors = 0
 
@@ -35,9 +36,17 @@ class MigrationSummary:
 def _move_file(
     src: Path, dst: Path, *, dry_run: bool, summary: MigrationSummary
 ) -> None:
-    """Move one file with idempotent skip behavior."""
+    """Move one file, cleaning up identical duplicates when dest already exists."""
     if dst.exists():
-        summary.skipped += 1
+        # Dest already exists — clean up src if content is identical.
+        if src.read_bytes() == dst.read_bytes():
+            if dry_run:
+                print(f"[DRY-RUN] clean {src} (identical to {dst})")
+            else:
+                src.unlink()
+            summary.cleaned += 1
+        else:
+            summary.skipped += 1
         return
 
     if dry_run:
@@ -173,6 +182,7 @@ def migrate_agent_layout(*, dry_run: bool) -> MigrationSummary:
 
     print("Migration complete")
     print(f"  moved:   {summary.moved}")
+    print(f"  cleaned: {summary.cleaned}")
     print(f"  skipped: {summary.skipped}")
     print(f"  errors:  {summary.errors}")
 

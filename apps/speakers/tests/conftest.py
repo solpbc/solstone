@@ -168,10 +168,10 @@ def speakers_env(tmp_path, monkeypatch):
                 segment_key: Segment key (HHMMSS_LEN)
                 speakers: List of speaker names
             """
-            segment_dir = self.journal / day / segment_key
-            segment_dir.mkdir(parents=True, exist_ok=True)
+            agents_dir = self.journal / day / segment_key / "agents"
+            agents_dir.mkdir(parents=True, exist_ok=True)
 
-            speakers_path = segment_dir / "speakers.json"
+            speakers_path = agents_dir / "speakers.json"
             with open(speakers_path, "w", encoding="utf-8") as f:
                 json.dump(speakers, f)
 
