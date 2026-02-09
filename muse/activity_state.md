@@ -10,11 +10,11 @@
   "output": "json",
   "hook": {"pre": "activity_state", "post": "activity_state"},
   "tier": 3,
-  "thinking_budget": 2048,
-  "max_output_tokens": 1024,
+  "thinking_budget": 4096,
+  "max_output_tokens": 2048,
   "instructions": {
     "sources": {"audio": true, "screen": true, "agents": false},
-    "facets": false
+    "facets": true
   }
 
 }
