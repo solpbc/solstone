@@ -270,6 +270,31 @@ def test_facet_summaries(monkeypatch):
     )
 
 
+def test_facet_summaries_excludes_muted(monkeypatch, tmp_path):
+    """Test facet_summaries() excludes muted facets."""
+    facets_dir = tmp_path / "facets"
+    active_dir = facets_dir / "active"
+    muted_dir = facets_dir / "muted_one"
+    active_dir.mkdir(parents=True)
+    muted_dir.mkdir(parents=True)
+
+    (active_dir / "facet.json").write_text(
+        json.dumps({"name": "active", "title": "Active Facet"}),
+        encoding="utf-8",
+    )
+    (muted_dir / "facet.json").write_text(
+        json.dumps({"name": "muted_one", "title": "Muted Facet", "muted": True}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    summary = facet_summaries()
+
+    assert "(`active`)" in summary
+    assert "(`muted_one`)" not in summary
+
+
 def test_facet_summaries_no_facets(monkeypatch, tmp_path):
     """Test facet_summaries() when no facets exist."""
     empty_journal = tmp_path / "empty_journal"

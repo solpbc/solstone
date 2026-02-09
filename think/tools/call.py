@@ -16,7 +16,7 @@ from pathlib import Path
 
 import typer
 
-from think.facets import facet_summary, get_facet_news, get_facets
+from think.facets import facet_summary, get_enabled_facets, get_facet_news
 from think.indexer.journal import get_events as get_events_impl
 from think.indexer.journal import search_counts as search_counts_impl
 from think.indexer.journal import search_journal as search_journal_impl
@@ -127,16 +127,15 @@ def facet(
 
 @app.command()
 def facets() -> None:
-    """List all available facets."""
-    all_facets = get_facets()
+    """List enabled (non-muted) facets."""
+    all_facets = get_enabled_facets()
     if not all_facets:
         typer.echo("No facets found.")
         return
     for name, info in sorted(all_facets.items()):
         title = info.get("title", name)
         desc = info.get("description", "")
-        muted = " (muted)" if info.get("muted") else ""
-        line = f"- {title} ({name}){muted}"
+        line = f"- {title} ({name})"
         if desc:
             line += f": {desc}"
         typer.echo(line)

@@ -583,7 +583,7 @@ def set_facet_muted(facet: str, muted: bool) -> None:
 
 
 def facet_summaries(*, detailed: bool = False) -> str:
-    """Generate a formatted list summary of all facets for use in agent prompts.
+    """Generate a formatted list summary of enabled (non-muted) facets for use in agent prompts.
 
     Returns a markdown-formatted string with each facet as a list item including:
     - Facet name and hashtag ID
@@ -600,12 +600,12 @@ def facet_summaries(*, detailed: bool = False) -> str:
     Returns
     -------
     str
-        Formatted markdown string with all facets, entities, and activities
+        Formatted markdown string with enabled facets, entities, and activities
     """
     from think.activities import get_facet_activities
     from think.entities import load_entities
 
-    facets = get_facets()
+    facets = get_enabled_facets()
     if not facets:
         return "No facets found."
 
