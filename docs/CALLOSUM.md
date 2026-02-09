@@ -92,7 +92,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 - `errors` (list[str], optional): Error descriptions for failed handlers (e.g., `["transcribe exit 1"]`)
 
 **Correlation:** `detected.ref` matches `logs.exec.ref`; `segment` groups files from same capture window
-**Event Log:** Events with `day` + `segment` are logged to `<day>/<segment>/events.jsonl` by supervisor
+**Event Log:** Observe and dream tract events with `day` + `segment` are logged to `<day>/<segment>/events.jsonl` by supervisor
 
 ### `importer` - Media import processing
 **Source:** `think/importer.py`
