@@ -113,11 +113,14 @@ def _walk_activity_segments(
     if not day_dir.is_dir():
         return {"segments": [], "descriptions": [], "levels": [], "active_entities": []}
 
-    # Collect all segments in order
+    # Collect all segments in order (validate with segment_parse to skip non-segment dirs)
     all_segments = sorted(
         entry
         for entry in os.listdir(day_dir)
-        if os.path.isdir(day_dir / entry) and entry >= since and entry <= end_segment
+        if os.path.isdir(day_dir / entry)
+        and entry >= since
+        and entry <= end_segment
+        and segment_parse(entry)[0] is not None
     )
 
     segments = []
@@ -270,8 +273,8 @@ def pre_process(context: dict) -> dict | None:
                 "created_at": now_ms(),
             }
 
-            # Write record (idempotent append)
-            if append_activity_record(facet, day, record):
+            # Write record (skip internal ID check — already verified above)
+            if append_activity_record(facet, day, record, _checked=True):
                 existing_ids_cache[facet].add(record_id)
                 logger.info("Wrote activity record %s for #%s", record_id, facet)
 
@@ -296,13 +299,7 @@ def pre_process(context: dict) -> dict | None:
 
     transcript = "\n".join(prompt_parts)
 
-    # Store ended info in meta for post-hook
-    meta = context.get("meta", {})
-    meta["ended_facets"] = {
-        facet: [a["id"] for a in activities] for facet, activities in all_ended.items()
-    }
-
-    return {"transcript": transcript, "meta": meta}
+    return {"transcript": transcript}
 
 
 # ---------------------------------------------------------------------------

@@ -12,6 +12,7 @@ stored as facets/{facet}/activities/{day}.jsonl.
 
 import json
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -484,7 +485,9 @@ def load_record_ids(facet: str, day: str) -> set[str]:
     return {r["id"] for r in load_activity_records(facet, day) if "id" in r}
 
 
-def append_activity_record(facet: str, day: str, record: dict[str, Any]) -> bool:
+def append_activity_record(
+    facet: str, day: str, record: dict[str, Any], *, _checked: bool = False
+) -> bool:
     """Append an activity record to the facet's day file.
 
     Checks for duplicate ID — returns False if record already exists.
@@ -493,16 +496,18 @@ def append_activity_record(facet: str, day: str, record: dict[str, Any]) -> bool
         facet: Facet name
         day: Day in YYYYMMDD format
         record: Activity record dict (must have 'id' field)
+        _checked: If True, skip the duplicate ID check (caller already verified).
 
     Returns:
         True if record was written, False if duplicate ID found.
     """
     path = _get_records_path(facet, day)
 
-    # Check for existing ID
-    existing_ids = load_record_ids(facet, day)
-    if record.get("id") in existing_ids:
-        return False
+    if not _checked:
+        # Check for existing ID
+        existing_ids = load_record_ids(facet, day)
+        if record.get("id") in existing_ids:
+            return False
 
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a", encoding="utf-8") as f:
@@ -515,10 +520,13 @@ def update_record_description(
 ) -> bool:
     """Update the description of an existing activity record.
 
-    Rewrites the JSONL file with the updated description for the matching record.
+    Rewrites the JSONL file atomically (write temp + rename) with the updated
+    description for the matching record.
 
     Returns True if record was found and updated, False otherwise.
     """
+    import tempfile
+
     path = _get_records_path(facet, day)
     if not path.exists():
         return False
@@ -543,7 +551,15 @@ def update_record_description(
         new_lines.append(json.dumps(record, ensure_ascii=False))
 
     if updated:
-        path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+        content = "\n".join(new_lines) + "\n"
+        fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+            os.replace(tmp, path)
+        except BaseException:
+            os.unlink(tmp)
+            raise
 
     return updated
 

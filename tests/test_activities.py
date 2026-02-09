@@ -790,37 +790,6 @@ class TestPreProcess:
             assert len(work_records) == 1
             assert len(personal_records) == 1
 
-    def test_meta_contains_ended_facets(self, monkeypatch):
-        from muse.activities import pre_process
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
-
-            _setup_segment(
-                tmpdir,
-                "20260209",
-                "100000_300",
-                "work",
-                [
-                    {
-                        "activity": "coding",
-                        "state": "active",
-                        "since": "100000_300",
-                        "level": "high",
-                    }
-                ],
-            )
-            _setup_segment(tmpdir, "20260209", "100500_300", "work", [])
-
-            result = pre_process(
-                {"day": "20260209", "segment": "100500_300", "meta": {}}
-            )
-
-            assert "meta" in result
-            assert "ended_facets" in result["meta"]
-            assert "work" in result["meta"]["ended_facets"]
-            assert "coding_100000_300" in result["meta"]["ended_facets"]["work"]
-
     def test_multi_segment_span(self, monkeypatch):
         """Activity spanning multiple segments should collect all segments."""
         from muse.activities import pre_process
