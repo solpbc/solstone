@@ -5,6 +5,9 @@
 
 Activities provide a consistent vocabulary for tagging time segments,
 screen observations, and extracted events across the journal.
+
+Also provides utilities for activity records — completed activity spans
+stored as facets/{facet}/activities/{day}.jsonl.
 """
 
 import json
@@ -441,3 +444,117 @@ def update_activity_in_facet(
 
     _save_activities_jsonl(facet, existing)
     return get_activity_by_id(facet, activity_id)
+
+
+# ---------------------------------------------------------------------------
+# Activity Records — completed activity spans
+# ---------------------------------------------------------------------------
+
+LEVEL_VALUES = {"high": 1.0, "medium": 0.5, "low": 0.25}
+
+
+def _get_records_path(facet: str, day: str) -> Path:
+    """Get path to a facet's activity records file for a day."""
+    return Path(get_journal()) / "facets" / facet / "activities" / f"{day}.jsonl"
+
+
+def load_activity_records(facet: str, day: str) -> list[dict[str, Any]]:
+    """Load activity records for a facet and day.
+
+    Returns list of record dicts, empty list if file doesn't exist.
+    """
+    path = _get_records_path(facet, day)
+    if not path.exists():
+        return []
+
+    records = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    return records
+
+
+def load_record_ids(facet: str, day: str) -> set[str]:
+    """Load just the IDs of existing activity records for idempotency checks."""
+    return {r["id"] for r in load_activity_records(facet, day) if "id" in r}
+
+
+def append_activity_record(facet: str, day: str, record: dict[str, Any]) -> bool:
+    """Append an activity record to the facet's day file.
+
+    Checks for duplicate ID — returns False if record already exists.
+
+    Args:
+        facet: Facet name
+        day: Day in YYYYMMDD format
+        record: Activity record dict (must have 'id' field)
+
+    Returns:
+        True if record was written, False if duplicate ID found.
+    """
+    path = _get_records_path(facet, day)
+
+    # Check for existing ID
+    existing_ids = load_record_ids(facet, day)
+    if record.get("id") in existing_ids:
+        return False
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return True
+
+
+def update_record_description(
+    facet: str, day: str, record_id: str, description: str
+) -> bool:
+    """Update the description of an existing activity record.
+
+    Rewrites the JSONL file with the updated description for the matching record.
+
+    Returns True if record was found and updated, False otherwise.
+    """
+    path = _get_records_path(facet, day)
+    if not path.exists():
+        return False
+
+    lines = path.read_text(encoding="utf-8").splitlines()
+    updated = False
+    new_lines = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            new_lines.append(line)
+            continue
+
+        if record.get("id") == record_id:
+            record["description"] = description
+            updated = True
+
+        new_lines.append(json.dumps(record, ensure_ascii=False))
+
+    if updated:
+        path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
+    return updated
+
+
+def level_avg(levels: list[str]) -> float:
+    """Compute average engagement level from a list of level strings.
+
+    Maps: high=1.0, medium=0.5, low=0.25. Unknown values use 0.5.
+    Returns rounded to 2 decimal places.
+    """
+    if not levels:
+        return 0.5
+    values = [LEVEL_VALUES.get(level, 0.5) for level in levels]
+    return round(sum(values) / len(values), 2)

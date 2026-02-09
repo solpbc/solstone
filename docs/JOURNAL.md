@@ -355,7 +355,7 @@ The `facets/` directory provides a way to organize journal content by scope or f
 Each facet is organized as `facets/<facet>/` where `<facet>` is a descriptive short unique name. When referencing facets in the system, use hashtags (e.g., `#personal` for the "Personal Life" facet, `#ml_research` for "Machine Learning Research"). Each facet folder contains:
 
 - `facet.json` – metadata file with facet title and description.
-- `activities/` – configured activities for this facet (optional).
+- `activities/` – configured activities and completed activity records (see [Activity Records](#activity-records)).
 - `entities/` – entity relationships and detected entities (see [Facet Entities](#facet-entities)).
 - `todos/` – daily todo lists (see [Facet-Scoped Todos](#facet-scoped-todos)).
 - `events/` – extracted events per day (see [Event extracts](#event-extracts)).
@@ -527,6 +527,51 @@ Optionally, a `news.json` file can be maintained at the root of the news directo
 ```
 
 This allows for future automation of news gathering while maintaining manual curation quality.
+
+### Activity Records
+
+The `activities/` directory within each facet stores both the configured activity types (`activities.jsonl`) and completed activity records organized by day (`{day}.jsonl`). Activity records represent completed spans of activity — periods where a specific activity type was continuously tracked across one or more recording segments.
+
+**File path pattern:**
+```
+facets/personal/activities/activities.jsonl    # Configured activity types
+facets/personal/activities/20260209.jsonl      # Completed records for the day
+facets/work/activities/20260209.jsonl
+```
+
+Each day file contains one JSON object per line, where each record represents a completed activity span:
+
+```jsonl
+{"id": "coding_095809_303", "activity": "coding", "segments": ["095809_303", "100313_303", "100816_303", "101320_302"], "level_avg": 0.88, "description": "Developed extraction prompts using Claude Code and VS Code", "active_entities": ["Claude Code", "VS Code", "sunstone"], "created_at": 1770435619415}
+{"id": "meeting_090953_303", "activity": "meeting", "segments": ["090953_303", "091457_303", "092001_304", "092506_304", "093010_304"], "level_avg": 1.0, "description": "Sprint planning meeting with the engineering team", "active_entities": ["Alice", "Bob"], "created_at": 1770435619420}
+```
+
+#### Record ID scheme
+
+Activity record IDs follow the format `{activity_type}_{segment_key}` where `segment_key` is the segment in which the activity started. This is unique within a facet+day because only one activity of a given type can start in a given segment for one facet.
+
+#### Record fields
+
+- `id` (string) – Unique identifier: `{activity}_{start_segment_key}` (e.g., `coding_095809_303`)
+- `activity` (string) – Activity type ID from the facet's configured activities
+- `segments` (array of strings) – Ordered list of segment keys where this activity was active
+- `level_avg` (float) – Average engagement level across all segments (high=1.0, medium=0.5, low=0.25)
+- `description` (string) – AI-synthesized description of the full activity span
+- `active_entities` (array of strings) – Merged and deduplicated entity names from all segments
+- `created_at` (integer) – Unix timestamp in milliseconds when the record was created
+
+#### Lifecycle
+
+Activity records are created by the `activities` segment agent when it detects that an activity has ended:
+
+1. The `activity_state` agent tracks per-segment, per-facet activity states with continuity via `since` fields
+2. The `activities` agent runs after `activity_state` and compares previous vs. current segment states
+3. When an activity ends (explicitly, implicitly, or via timeout), the agent walks the segment chain to collect all data
+4. A record is written to the facet's day file with preliminary description
+5. An LLM synthesizes all per-segment descriptions into a unified narrative
+6. The record description is updated with the synthesized version
+
+Records are written idempotently — duplicate IDs are skipped on re-runs.
 
 ## Facet-Scoped Todos
 

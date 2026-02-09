@@ -675,6 +675,22 @@ async def _run_agent(
     for key, value in modifications.items():
         config[key] = value
 
+    # Handle skip conditions set by pre-hooks
+    skip_reason = config.get("skip_reason")
+    if skip_reason:
+        LOG.info("Config %s skipped by pre-hook: %s", name, skip_reason)
+        emit_event(
+            {
+                "event": "finish",
+                "ts": now_ms(),
+                "result": "",
+                "skipped": skip_reason,
+            }
+        )
+        if config.get("day"):
+            day_log(config["day"], f"agent {name} skipped ({skip_reason})")
+        return
+
     # Dry-run mode
     if dry_run:
         emit_event(_build_dry_run_event(config, before_values))
