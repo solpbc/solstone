@@ -259,10 +259,32 @@ class TestTranslateClaudeResultEvent:
             event, aggregator, cb, state["pending_tools"], state["result_meta"]
         )
         assert state["result_meta"]["cost_usd"] == 0.0042
+        assert isinstance(state["result_meta"]["usage"]["input_tokens"], int)
+        assert isinstance(state["result_meta"]["usage"]["output_tokens"], int)
         assert state["result_meta"]["usage"]["input_tokens"] == 150
         assert state["result_meta"]["usage"]["output_tokens"] == 30
         assert state["result_meta"]["usage"]["total_tokens"] == 180
         assert len(events) == 0  # No events emitted for result
+
+    def test_stores_usage_defaults_none_to_zero(
+        self, aggregator, callback_events, state
+    ):
+        events, cb = callback_events
+        event = {
+            "type": "result",
+            "total_cost_usd": 0.0042,
+            "usage": {"input_tokens": None, "output_tokens": None},
+            "session_id": "sess-123",
+        }
+        _translate_claude(
+            event, aggregator, cb, state["pending_tools"], state["result_meta"]
+        )
+        assert isinstance(state["result_meta"]["usage"]["input_tokens"], int)
+        assert isinstance(state["result_meta"]["usage"]["output_tokens"], int)
+        assert state["result_meta"]["usage"]["input_tokens"] == 0
+        assert state["result_meta"]["usage"]["output_tokens"] == 0
+        assert state["result_meta"]["usage"]["total_tokens"] == 0
+        assert len(events) == 0
 
     def test_result_without_usage(self, aggregator, callback_events, state):
         events, cb = callback_events

@@ -191,7 +191,7 @@ class TestTranslateGemini:
         assert usage["output_tokens"] == 500
         assert usage["total_tokens"] == 1500
         assert usage["cached_tokens"] == 200
-        assert usage["duration_ms"] == 3000
+        assert "duration_ms" not in usage
 
     def test_result_no_stats(self):
         cb, events = self._make_callback()

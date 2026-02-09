@@ -25,6 +25,7 @@ from think.models import (
     calc_token_cost,
     get_context_registry,
     get_usage_cost,
+    iter_token_log,
     resolve_provider,
 )
 
@@ -547,6 +548,18 @@ def test_get_usage_cost_day_total(use_fixtures_journal):
     assert isinstance(result["cost"], float)
 
 
+def test_iter_token_log_preserves_type_field(use_fixtures_journal):
+    """Token log iterator should preserve top-level type field."""
+    entries = list(iter_token_log("20250823"))
+    generate_entries = [entry for entry in entries if entry.get("type") == "generate"]
+
+    assert generate_entries
+    assert any(
+        entry.get("context") == "think.detect_created.classify_new_file"
+        for entry in generate_entries
+    )
+
+
 def test_get_usage_cost_context_filter(use_fixtures_journal):
     """Test filtering by context prefix."""
     # Filter to test contexts
@@ -560,11 +573,11 @@ def test_get_usage_cost_context_filter(use_fixtures_journal):
 
 def test_get_usage_cost_segment_filter(use_fixtures_journal):
     """Test filtering by segment key."""
-    # Fixture data doesn't have segment keys, so this should return zeros
+    # Fixture data includes one entry tagged with segment 143022_300
     result = get_usage_cost("20250823", segment="143022_300")
-    assert result["requests"] == 0
-    assert result["tokens"] == 0
-    assert result["cost"] == 0.0
+    assert result["requests"] == 1
+    assert result["tokens"] == 7000
+    assert result["cost"] > 0.0
 
 
 def test_get_usage_cost_combined_filters(use_fixtures_journal):

@@ -500,6 +500,7 @@ def log_token_usage(
     usage: Union[Dict[str, Any], Any],
     context: Optional[str] = None,
     segment: Optional[str] = None,
+    type: Optional[str] = None,
 ) -> None:
     """Log token usage to journal with unified schema.
 
@@ -523,6 +524,8 @@ def log_token_usage(
     segment : str, optional
         Segment key (e.g., "143022_300") for attribution.
         If None, falls back to SEGMENT_KEY environment variable.
+    type : str, optional
+        Token entry type (e.g., "generate", "cogitate").
     """
     try:
         journal = get_journal()
@@ -630,6 +633,8 @@ def log_token_usage(
         segment_key = segment or os.getenv("SEGMENT_KEY")
         if segment_key:
             token_data["segment"] = segment_key
+        if type:
+            token_data["type"] = type
 
         # Save to journal/tokens/<YYYYMMDD>.jsonl (one file per day)
         tokens_dir = Path(journal) / "tokens"
@@ -969,7 +974,12 @@ def generate(
 
     # Log token usage centrally
     if result.get("usage"):
-        log_token_usage(model=model, usage=result["usage"], context=context)
+        log_token_usage(
+            model=model,
+            usage=result["usage"],
+            context=context,
+            type="generate",
+        )
 
     return result["text"]
 
@@ -1021,7 +1031,12 @@ def generate_with_result(
     _validate_json_response(result, json_output)
 
     if result.get("usage"):
-        log_token_usage(model=model, usage=result["usage"], context=context)
+        log_token_usage(
+            model=model,
+            usage=result["usage"],
+            context=context,
+            type="generate",
+        )
 
     return result
 
@@ -1106,7 +1121,12 @@ async def agenerate(
 
     # Log token usage centrally
     if result.get("usage"):
-        log_token_usage(model=model, usage=result["usage"], context=context)
+        log_token_usage(
+            model=model,
+            usage=result["usage"],
+            context=context,
+            type="generate",
+        )
 
     return result["text"]
 

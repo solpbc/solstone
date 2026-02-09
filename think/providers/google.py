@@ -554,8 +554,6 @@ def _translate_gemini(
             )
             if stats.get("cached"):
                 usage_out["cached_tokens"] = stats["cached"]
-            if stats.get("duration_ms"):
-                usage_out["duration_ms"] = stats["duration_ms"]
         return None
 
     # Unknown event type — log and skip
