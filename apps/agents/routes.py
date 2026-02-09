@@ -330,17 +330,7 @@ def api_agents_day(day: str) -> Any:
 
 @agents_bp.route("/api/run/<agent_id>")
 def api_agent_run(agent_id: str) -> Any:
-    """Return raw agent events for client-side rendering.
-
-    Returns:
-        {
-            "events": list[dict],
-            "provider": str | None,
-            "thinking_count": int,
-            "tool_count": int,
-            "cost": float | None
-        }
-    """
+    """Return full agent run detail with metadata and parsed events."""
     # Locate the agent JSONL file
     journal_path = Path(state.journal_root)
     agent_file = journal_path / "agents" / f"{agent_id}.jsonl"
@@ -353,28 +343,77 @@ def api_agent_run(agent_id: str) -> Any:
         return jsonify({"error": f"Agent run {agent_id} not found"}), 404
 
     try:
-        with open(agent_file, "r") as f:
+        from think.cortex_client import get_agent_end_state
+
+        with open(agent_file, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
-        data = _parse_agent_events(lines, collect_events=True)
-        cost = calc_agent_cost(data["model"], data["usage"])
+        if not lines:
+            return jsonify({"error": f"Agent run {agent_id} is malformed"}), 500
 
-        return jsonify(
-            {
-                "events": data["events"],
-                "provider": data["provider"],
-                "thinking_count": data["thinking_count"],
-                "tool_count": data["tool_count"],
-                "cost": cost,
-            }
-        )
+        first_line = lines[0].strip()
+        if not first_line:
+            return jsonify({"error": f"Agent run {agent_id} is malformed"}), 500
+
+        request_event = json.loads(first_line)
+        if request_event.get("event") != "request":
+            return jsonify({"error": f"Agent run {agent_id} is malformed"}), 500
+
+        event_data = _parse_agent_events(lines[1:], collect_events=True)
+
+        output_file = None
+        req_output = request_event.get("output")
+        if req_output:
+            req_day = request_event.get("day")
+            req_segment = request_event.get("segment")
+            req_facet = request_event.get("facet")
+            req_name = request_event.get("name", "default")
+            if req_day:
+                day_dir = Path(state.journal_root) / req_day
+                out_path = get_output_path(
+                    day_dir,
+                    req_name,
+                    segment=req_segment,
+                    output_format=req_output,
+                    facet=req_facet,
+                )
+                if out_path.exists():
+                    output_file = str(out_path.relative_to(day_dir))
+
+        start_ts = request_event.get("ts", 0)
+        runtime_seconds = None
+        if event_data["finish_ts"] and start_ts:
+            runtime_seconds = (event_data["finish_ts"] - start_ts) / 1000.0
+
+        end_state = get_agent_end_state(agent_id)
+
+        run: dict[str, Any] = {
+            "id": agent_id,
+            "name": request_event.get("name", "default"),
+            "start": start_ts,
+            "status": "completed",
+            "prompt": request_event.get("prompt", ""),
+            "facet": request_event.get("facet"),
+            "failed": end_state in ("error", "unknown"),
+            "runtime_seconds": runtime_seconds,
+            "thinking_count": event_data["thinking_count"],
+            "tool_count": event_data["tool_count"],
+            "cost": calc_agent_cost(event_data["model"], event_data["usage"]),
+            "model": event_data["model"],
+            "provider": request_event.get("provider") or event_data.get("provider"),
+            "error_message": event_data["error_message"],
+            "output_file": output_file,
+            "events": event_data.get("events", []),
+        }
+        run["day"] = _agent_id_to_day(agent_id)
+        return jsonify(run)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @agents_bp.route("/api/output/<day>/<path:filename>")
 def api_output_file(day: str, filename: str) -> Any:
-    """Serve output file content for the viewer modal.
+    """Serve output file content for the run detail output tab.
 
     Returns JSON with content, format, and filename.
     Path is validated to stay within the day directory.

@@ -309,10 +309,12 @@ def test_cogitate_not_skipped_without_sources(tmp_path, monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    config = mod.prepare_config({
-        "name": "test_cogitate",
-        "day": "20240101",
-    })
+    config = mod.prepare_config(
+        {
+            "name": "test_cogitate",
+            "day": "20240101",
+        }
+    )
 
     assert config.get("skip_reason") is None
 

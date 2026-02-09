@@ -262,14 +262,6 @@
   background: #f8f9fa;
 }
 
-.runs-table tr.expanded {
-  background: #f0f7ff;
-}
-
-.runs-table tr.expanded:hover {
-  background: #e8f0fe;
-}
-
 .col-status { width: 50px; text-align: center; }
 .col-time { width: 100px; }
 .col-model { width: 140px; }
@@ -279,16 +271,6 @@
 .col-facet { width: 120px; }
 .col-output { width: 120px; }
 .col-prompt { }
-
-.output-link {
-  color: #1a73e8;
-  text-decoration: none;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-.output-link:hover {
-  text-decoration: underline;
-}
 
 .status-icon {
   font-size: 1.1rem;
@@ -338,34 +320,187 @@
 }
 
 /* ============================================================================
-   Run Detail (Expanded Row)
+   Run Detail View
    ============================================================================ */
-.run-detail-row td {
-  padding: 0;
-  background: #fafafa;
-  border-bottom: 2px solid #e0e0e0;
-}
-
-.run-detail-content {
-  padding: 1rem;
-  max-height: 500px;
-  overflow-y: auto;
-}
-
-.run-detail-header {
-  display: flex;
-  gap: 1.5rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #e0e0e0;
-  font-size: 0.9rem;
-  color: #666;
-}
-
-.run-detail-header .detail-stat {
+.run-detail-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.crumb-link {
+  color: #1a73e8;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.crumb-link:hover {
+  text-decoration: underline;
+}
+
+.crumb-sep {
+  color: #999;
+}
+
+.crumb-current {
+  color: #5f6368;
+}
+
+.run-detail-header-card {
+  background: #f8fafd;
+  border: 1px solid #dbe5f0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.run-detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+
+.run-detail-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.run-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.run-status-badge.status-completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.run-status-badge.status-failed {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.run-status-badge.status-running {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.run-detail-subtitle {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-bottom: 0.85rem;
+}
+
+.run-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.75rem;
+}
+
+.run-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 0.6rem 0.7rem;
+}
+
+.meta-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+}
+
+.meta-value {
+  font-size: 0.9rem;
+  color: #2f3437;
+}
+
+.rd-tabs {
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+  display: flex;
+}
+
+.rd-tab {
+  padding: 6px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  background: #fff;
+  color: #374151;
+  transition: all 0.15s;
+}
+
+.rd-tab:hover {
+  background: #f9fafb;
+}
+
+.rd-tab.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.rd-panel {
+  padding-top: 0.85rem;
+}
+
+.rd-tab-pane {
+  display: none;
+}
+
+.rd-tab-pane.active {
+  display: block;
+}
+
+.run-output-content {
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+.run-output-content pre {
+  background: #f5f5f5;
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.run-output-content .rendered-markdown h1,
+.run-output-content .rendered-markdown h2,
+.run-output-content .rendered-markdown h3 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.run-output-content .rendered-markdown ul,
+.run-output-content .rendered-markdown ol {
+  padding-left: 1.5rem;
+}
+
+.run-output-content .rendered-markdown p {
+  margin-bottom: 0.5rem;
 }
 
 .run-loading {
@@ -648,33 +783,6 @@
   margin: 0;
 }
 
-/* Output viewer modal - larger than preview modal */
-#output-modal .modal-content {
-  max-width: 1000px;
-  max-height: 90vh;
-}
-
-#output-modal .modal-body .rendered-markdown {
-  line-height: 1.6;
-  font-size: 0.9rem;
-}
-
-#output-modal .modal-body .rendered-markdown h1,
-#output-modal .modal-body .rendered-markdown h2,
-#output-modal .modal-body .rendered-markdown h3 {
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-#output-modal .modal-body .rendered-markdown ul,
-#output-modal .modal-body .rendered-markdown ol {
-  padding-left: 1.5rem;
-}
-
-#output-modal .modal-body .rendered-markdown p {
-  margin-bottom: 0.5rem;
-}
-
 /* ============================================================================
    Empty States
    ============================================================================ */
@@ -776,6 +884,26 @@
       <tbody id="runs-tbody"></tbody>
     </table>
   </div>
+
+  <!-- Run Detail View -->
+  <div id="run-detail-view" style="display: none;">
+    <div class="run-detail-breadcrumb">
+      <a class="crumb-link" id="crumb-agents" href="#" onclick="event.preventDefault(); showGridView()">Agents</a>
+      <span class="crumb-sep">/</span>
+      <a class="crumb-link" id="crumb-agent" href="#">Agent Name</a>
+      <span class="crumb-sep">/</span>
+      <span class="crumb-current" id="crumb-run">Run 09:41</span>
+    </div>
+    <div id="run-detail-header-mount"></div>
+    <div id="run-detail-tabs" class="rd-tabs">
+      <button type="button" class="rd-tab active" data-tab="log">Run Log</button>
+      <button type="button" class="rd-tab" data-tab="output" id="run-detail-output-tab" style="display: none;">Output</button>
+    </div>
+    <div id="run-detail-panel" class="rd-panel">
+      <div id="run-detail-log-pane" class="rd-tab-pane active"></div>
+      <div id="run-detail-output-pane" class="rd-tab-pane"></div>
+    </div>
+  </div>
 </div>
 
 <script src="{{ vendor_lib('marked') }}"></script>
@@ -793,27 +921,18 @@
   </div>
 </div>
 
-<!-- Output Viewer Modal -->
-<div id="output-modal" class="modal-backdrop">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3 class="modal-title" id="output-modal-title">Output</h3>
-      <button class="modal-close" onclick="hideOutputModal()">&times;</button>
-    </div>
-    <div class="modal-body" id="output-modal-body">
-    </div>
-  </div>
-</div>
-
 <script>
 (function() {
   // State
   let currentDay = null;
   let currentName = null;
+  let currentRunId = null;
+  let cachedRunDetail = null;
+  let runOutputLoaded = false;
+  let runOutputLoading = false;
   let allRuns = [];
   let agentsMeta = {};
   let facetsMeta = {};
-  let expandedRunId = null;
 
   // Get current day from URL path
   function getDayFromUrl() {
@@ -863,6 +982,13 @@
     return model
       .replace(/^(models\/|accounts\/[^/]+\/models\/)/, '')
       .replace(/-\d{8}$/, '');
+  }
+
+  function formatAgentDisplayName(name) {
+    if (!name) return '\u2014';
+    const meta = agentsMeta[name];
+    if (meta && meta.title) return meta.title;
+    return name.charAt(0).toUpperCase() + name.slice(1);
   }
 
   // =========================================================================
@@ -935,13 +1061,19 @@
   // Data Loading
   // =========================================================================
 
+  function hideAllViews() {
+    document.getElementById('loading-view').style.display = 'none';
+    document.getElementById('grid-view').style.display = 'none';
+    document.getElementById('list-view').style.display = 'none';
+    document.getElementById('run-detail-view').style.display = 'none';
+  }
+
   async function loadAgents() {
     currentDay = getDayFromUrl();
     if (!currentDay) return;
 
+    hideAllViews();
     document.getElementById('loading-view').style.display = 'block';
-    document.getElementById('grid-view').style.display = 'none';
-    document.getElementById('list-view').style.display = 'none';
 
     try {
       const response = await fetch(`api/agents/${currentDay}`);
@@ -969,9 +1101,8 @@
   // =========================================================================
 
   function renderGridView() {
-    document.getElementById('loading-view').style.display = 'none';
+    hideAllViews();
     document.getElementById('grid-view').style.display = 'block';
-    document.getElementById('list-view').style.display = 'none';
 
     const container = document.getElementById('agent-groups');
     container.innerHTML = '';
@@ -1180,15 +1311,19 @@
 
   function showRunList(name) {
     currentName = name;
-    expandedRunId = null;
+    currentRunId = null;
+    cachedRunDetail = null;
+    runOutputLoaded = false;
+    runOutputLoading = false;
 
     // Update hash without re-triggering if already correct
-    if (location.hash.slice(1) !== name) {
-      location.hash = name;
+    const encodedName = encodeURIComponent(name);
+    if (location.hash.slice(1) !== encodedName) {
+      location.hash = encodedName;
       return; // hashchange will call us back
     }
 
-    document.getElementById('grid-view').style.display = 'none';
+    hideAllViews();
     document.getElementById('list-view').style.display = 'block';
 
     // Filter runs client-side
@@ -1218,7 +1353,7 @@
     for (const run of runs) {
       const row = document.createElement('tr');
       row.dataset.runId = run.id;
-      row.onclick = () => toggleRunDetail(run.id);
+      row.onclick = () => showRunDetail(run.id, run.name);
 
       // Status
       const statusCell = document.createElement('td');
@@ -1316,15 +1451,8 @@
       const outputCell = document.createElement('td');
       outputCell.className = 'col-output';
       if (run.output_file) {
-        const link = document.createElement('a');
-        link.className = 'output-link';
-        link.textContent = run.output_file.split('/').pop();
-        link.title = run.output_file;
-        link.onclick = function(e) {
-          e.stopPropagation();
-          showOutputFile(currentDay, run.output_file);
-        };
-        outputCell.appendChild(link);
+        outputCell.textContent = run.output_file.split('/').pop();
+        outputCell.title = run.output_file;
       } else {
         outputCell.textContent = '\u2014';
       }
@@ -1353,98 +1481,261 @@
     }
   }
 
-  // Toggle run detail expansion
-  async function toggleRunDetail(runId) {
-    const tbody = document.getElementById('runs-tbody');
-    const existingDetail = tbody.querySelector(`tr.run-detail-row[data-run-id="${runId}"]`);
-    const mainRow = tbody.querySelector(`tr[data-run-id="${runId}"]`);
+  async function showRunDetail(runId, agentName) {
+    currentName = agentName;
+    currentRunId = runId;
+    cachedRunDetail = null;
+    runOutputLoaded = false;
+    runOutputLoading = false;
 
-    // Collapse if already expanded
-    if (existingDetail) {
-      existingDetail.remove();
-      mainRow.classList.remove('expanded');
-      expandedRunId = null;
+    const targetHash = `${encodeURIComponent(agentName)}/${encodeURIComponent(runId)}`;
+    if (location.hash.slice(1) !== targetHash) {
+      location.hash = targetHash;
       return;
     }
 
-    // Collapse any other expanded row
-    const oldDetail = tbody.querySelector('tr.run-detail-row');
-    const oldMain = tbody.querySelector('tr.expanded');
-    if (oldDetail) oldDetail.remove();
-    if (oldMain) oldMain.classList.remove('expanded');
+    hideAllViews();
+    document.getElementById('run-detail-view').style.display = 'block';
 
-    // Create detail row
-    expandedRunId = runId;
-    mainRow.classList.add('expanded');
+    const crumbAgent = document.getElementById('crumb-agent');
+    crumbAgent.textContent = formatAgentDisplayName(agentName);
+    crumbAgent.onclick = (e) => {
+      e.preventDefault()
+      showRunList(agentName)
+    };
+    document.getElementById('crumb-run').textContent = 'Run ...';
 
-    const detailRow = document.createElement('tr');
-    detailRow.className = 'run-detail-row';
-    detailRow.dataset.runId = runId;
-
-    const detailCell = document.createElement('td');
-    detailCell.colSpan = 10;
-
-    const content = document.createElement('div');
-    content.className = 'run-detail-content';
-    content.innerHTML = '<div class="run-loading"><div class="spinner"></div><div>Loading...</div></div>';
-
-    detailCell.appendChild(content);
-    detailRow.appendChild(detailCell);
-    mainRow.after(detailRow);
+    document.getElementById('run-detail-header-mount').innerHTML =
+      '<div class="run-loading"><div class="spinner"></div><div>Loading run details...</div></div>';
+    document.getElementById('run-detail-log-pane').innerHTML =
+      '<div class="run-loading"><div class="spinner"></div><div>Loading run log...</div></div>';
+    document.getElementById('run-detail-output-pane').innerHTML = '';
+    document.getElementById('run-detail-output-tab').style.display = 'none';
+    activateRunDetailTab('log');
 
     try {
-      const response = await fetch(`api/run/${runId}`);
+      const response = await fetch(`api/run/${encodeURIComponent(runId)}`);
       const data = await response.json();
 
-      if (data.error) {
-        content.innerHTML = `<div class="run-loading">Error: ${data.error}</div>`;
-      } else {
-        content.innerHTML = '';
-        content.appendChild(buildDetailHeader(data));
-        content.appendChild(renderEventTimeline(data.events || []));
+      if (currentRunId !== runId) return;
+
+      if (response.status === 202) {
+        renderRunDetailMessage(data.error || 'Run is still in progress');
+        return;
       }
+
+      if (data.error) {
+        renderRunDetailMessage(`Error: ${data.error}`);
+        return;
+      }
+
+      renderRunDetail(data, agentName);
     } catch (error) {
-      content.innerHTML = `<div class="run-loading">Error loading run details</div>`;
+      if (currentRunId !== runId) return;
+      renderRunDetailMessage('Error loading run details');
     }
   }
 
-  // Build the stats header bar
-  function buildDetailHeader(data) {
-    const header = document.createElement('div');
-    header.className = 'run-detail-header';
+  function renderRunDetailMessage(message) {
+    document.getElementById('run-detail-header-mount').innerHTML = '';
+    const logPane = document.getElementById('run-detail-log-pane');
+    logPane.innerHTML = '';
+    const msg = document.createElement('div');
+    msg.className = 'run-loading';
+    msg.textContent = message;
+    logPane.appendChild(msg);
+    document.getElementById('run-detail-output-pane').innerHTML = '';
+    document.getElementById('run-detail-output-tab').style.display = 'none';
+    activateRunDetailTab('log');
+  }
 
-    if (data.provider) {
-      const stat = document.createElement('span');
-      stat.className = 'detail-stat';
-      stat.textContent = data.provider;
-      header.appendChild(stat);
+  function renderRunDetail(data, agentName) {
+    cachedRunDetail = data;
+    runOutputLoaded = false;
+    runOutputLoading = false;
+
+    const displayName = formatAgentDisplayName(agentName);
+    const crumbAgent = document.getElementById('crumb-agent');
+    crumbAgent.textContent = displayName;
+    crumbAgent.onclick = (e) => {
+      e.preventDefault()
+      showRunList(agentName)
+    };
+    document.getElementById('crumb-run').textContent = `Run ${formatTime(data.start)}`;
+
+    const headerMount = document.getElementById('run-detail-header-mount');
+    headerMount.innerHTML = '';
+    headerMount.appendChild(renderRunDetailHeader(data));
+
+    const logPane = document.getElementById('run-detail-log-pane');
+    logPane.innerHTML = '';
+    const events = Array.isArray(data.events) ? data.events : [];
+    if (events.length > 0) {
+      logPane.appendChild(renderEventTimeline(events));
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'run-loading';
+      empty.textContent = 'No log events recorded for this run';
+      logPane.appendChild(empty);
     }
 
-    if (data.thinking_count > 0) {
-      const stat = document.createElement('span');
-      stat.className = 'detail-stat';
-      stat.textContent = '\uD83D\uDCAD ' + data.thinking_count + ' Thinking';
-      header.appendChild(stat);
+    const outputTab = document.getElementById('run-detail-output-tab');
+    outputTab.style.display = data.output_file ? 'inline-flex' : 'none';
+    document.getElementById('run-detail-output-pane').innerHTML = '';
+    activateRunDetailTab('log');
+  }
+
+  function renderRunDetailHeader(data) {
+    const card = document.createElement('div');
+    card.className = 'run-detail-header-card';
+
+    const titleRow = document.createElement('div');
+    titleRow.className = 'run-detail-title-row';
+
+    const status = document.createElement('span');
+    status.className = 'run-status-badge';
+    if (data.status === 'running') {
+      status.classList.add('status-running');
+      status.textContent = 'Running';
+    } else if (data.failed) {
+      status.classList.add('status-failed');
+      status.textContent = 'Failed';
+    } else {
+      status.classList.add('status-completed');
+      status.textContent = 'Completed';
     }
-    if (data.tool_count > 0) {
-      const stat = document.createElement('span');
-      stat.className = 'detail-stat';
-      stat.textContent = '\uD83D\uDD27 ' + data.tool_count + ' Tool calls';
-      header.appendChild(stat);
-    }
-    if (data.cost != null) {
-      const costInfo = formatCost(data.cost);
-      const stat = document.createElement('span');
-      stat.className = 'detail-stat';
-      stat.title = costInfo.title;
-      stat.textContent = '\uD83D\uDCB0 ' + costInfo.text + ' Cost';
-      header.appendChild(stat);
+    titleRow.appendChild(status);
+
+    const title = document.createElement('h2');
+    title.className = 'run-detail-title';
+    title.textContent = `Run ${formatTime(data.start)}`;
+    titleRow.appendChild(title);
+
+    if (data.facet) {
+      const facet = facetsMeta[data.facet];
+      const tag = document.createElement('span');
+      tag.className = 'facet-tag';
+      if (facet && facet.color) {
+        const dot = document.createElement('span');
+        dot.className = 'facet-dot';
+        dot.style.backgroundColor = facet.color;
+        tag.appendChild(dot);
+      }
+      tag.appendChild(document.createTextNode((facet && facet.title) || data.facet));
+      titleRow.appendChild(tag);
     }
 
-    if (header.children.length === 0) {
-      header.style.display = 'none';
+    card.appendChild(titleRow);
+
+    const subtitle = document.createElement('div');
+    subtitle.className = 'run-detail-subtitle';
+    subtitle.textContent = formatAgentDisplayName(data.name || currentName);
+    card.appendChild(subtitle);
+
+    const grid = document.createElement('div');
+    grid.className = 'run-meta-grid';
+
+    function addMetaItem(label, value, titleText = '') {
+      const item = document.createElement('div');
+      item.className = 'run-meta-item';
+      const labelEl = document.createElement('span');
+      labelEl.className = 'meta-label';
+      labelEl.textContent = label;
+      const valueEl = document.createElement('span');
+      valueEl.className = 'meta-value';
+      valueEl.textContent = value;
+      if (titleText) valueEl.title = titleText;
+      item.appendChild(labelEl);
+      item.appendChild(valueEl);
+      grid.appendChild(item);
     }
-    return header;
+
+    addMetaItem('Started', formatTimestamp(data.start) || '\u2014');
+    addMetaItem('Runtime', formatRuntime(data.runtime_seconds));
+    addMetaItem('Model', formatModel(data.model), data.model || '');
+    addMetaItem('Provider', data.provider || '\u2014');
+    addMetaItem('Thinking', String(data.thinking_count || 0));
+    addMetaItem('Tools', String(data.tool_count || 0));
+    const costInfo = formatCost(data.cost);
+    addMetaItem('Cost', costInfo.text, costInfo.title);
+
+    card.appendChild(grid);
+    return card;
+  }
+
+  function activateRunDetailTab(tabId) {
+    const tabs = document.querySelectorAll('#run-detail-tabs .rd-tab');
+    for (const tab of tabs) {
+      tab.classList.toggle('active', tab.dataset.tab === tabId);
+    }
+
+    document.getElementById('run-detail-log-pane').classList.toggle('active', tabId === 'log');
+    document.getElementById('run-detail-output-pane').classList.toggle('active', tabId === 'output');
+
+    if (tabId === 'output') {
+      loadRunOutput();
+    }
+  }
+
+  async function loadRunOutput() {
+    if (
+      !cachedRunDetail ||
+      !cachedRunDetail.day ||
+      !cachedRunDetail.output_file ||
+      runOutputLoaded ||
+      runOutputLoading
+    ) {
+      return;
+    }
+
+    runOutputLoading = true;
+    const pane = document.getElementById('run-detail-output-pane');
+    pane.innerHTML = '<div class="run-loading"><div class="spinner"></div><div>Loading output...</div></div>';
+
+    const encodedFilename = cachedRunDetail.output_file
+      .split('/')
+      .map(part => encodeURIComponent(part))
+      .join('/');
+
+    try {
+      const response = await fetch(`api/output/${cachedRunDetail.day}/${encodedFilename}`);
+      const data = await response.json();
+
+      if (data.error) {
+        pane.innerHTML = `<div class="run-loading">Error: ${escapeHtml(data.error)}</div>`;
+        return;
+      }
+
+      const container = document.createElement('div');
+      container.className = 'run-output-content';
+
+      if (data.format === 'md') {
+        const markdown = document.createElement('div');
+        markdown.className = 'rendered-markdown';
+        markdown.innerHTML = marked.parse(data.content, { breaks: true, gfm: true });
+        container.appendChild(markdown);
+      } else {
+        const pre = document.createElement('pre');
+        if (data.format === 'json') {
+          try {
+            pre.textContent = JSON.stringify(JSON.parse(data.content), null, 2);
+          } catch (e) {
+            pre.textContent = data.content;
+          }
+        } else {
+          pre.textContent = data.content;
+        }
+        container.appendChild(pre);
+      }
+
+      pane.innerHTML = '';
+      pane.appendChild(container);
+      runOutputLoaded = true;
+    } catch (error) {
+      pane.innerHTML = '<div class="run-loading">Error loading output file</div>';
+    } finally {
+      runOutputLoading = false;
+    }
   }
 
   // Format a millisecond timestamp to HH:MM:SS
@@ -1659,36 +1950,57 @@
   }
 
   // =========================================================================
-  // Navigation & Modals
+  // Navigation & Preview Modal
   // =========================================================================
 
   window.showGridView = function() {
     currentName = null;
-    expandedRunId = null;
-    document.getElementById('grid-view').style.display = 'block';
-    document.getElementById('list-view').style.display = 'none';
-
-    // Clear hash without triggering hashchange
+    currentRunId = null;
+    cachedRunDetail = null;
+    runOutputLoaded = false;
+    runOutputLoading = false;
     if (location.hash) {
-      history.pushState(null, '', location.pathname + location.search);
+      location.hash = '';
+      return;
     }
+    handleHashChange();
   };
 
   // Hash-based routing
   window.addEventListener('hashchange', handleHashChange);
 
   function handleHashChange() {
-    const hash = location.hash.slice(1);
-    if (hash && allRuns.some(r => r.name === hash)) {
-      showRunList(hash);
-    } else {
-      if (hash) {
-        // Unknown agent — clear invalid hash
-        history.replaceState(null, '', location.pathname + location.search);
+    const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+    if (!hash) {
+      renderGridView();
+      return;
+    }
+
+    try {
+      const slashIndex = hash.indexOf('/');
+      if (slashIndex === -1) {
+        showRunList(decodeURIComponent(hash));
+        return;
       }
-      showGridView();
+
+      const namePart = hash.slice(0, slashIndex);
+      const runPart = hash.slice(slashIndex + 1);
+      if (!namePart || !runPart) {
+        renderGridView();
+        return;
+      }
+
+      showRunDetail(decodeURIComponent(runPart), decodeURIComponent(namePart));
+    } catch (_error) {
+      renderGridView();
     }
   }
+
+  document.getElementById('run-detail-tabs').addEventListener('click', function(e) {
+    const tab = e.target.closest('.rd-tab');
+    if (!tab) return;
+    activateRunDetailTab(tab.dataset.tab);
+  });
 
   window.showPreview = async function() {
     if (!currentName) return;
@@ -1730,54 +2042,6 @@
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
       hidePreview();
-      hideOutputModal();
-    }
-  });
-
-  // Output viewer modal
-  window.showOutputFile = async function(day, filename) {
-    const modal = document.getElementById('output-modal');
-    const body = document.getElementById('output-modal-body');
-    const title = document.getElementById('output-modal-title');
-
-    body.innerHTML = '<div class="run-loading"><div class="spinner"></div><div>Loading...</div></div>';
-    title.textContent = filename.split('/').pop();
-    modal.classList.add('show');
-
-    try {
-      const response = await fetch(`api/output/${day}/${filename}`);
-      const data = await response.json();
-
-      if (data.error) {
-        body.innerHTML = `<div class="run-loading">Error: ${data.error}</div>`;
-      } else if (data.format === 'json') {
-        const pre = document.createElement('pre');
-        try {
-          pre.textContent = JSON.stringify(JSON.parse(data.content), null, 2);
-        } catch (e) {
-          pre.textContent = data.content;
-        }
-        body.innerHTML = '';
-        body.appendChild(pre);
-      } else {
-        const div = document.createElement('div');
-        div.className = 'rendered-markdown';
-        div.innerHTML = marked.parse(data.content, { breaks: true, gfm: true });
-        body.innerHTML = '';
-        body.appendChild(div);
-      }
-    } catch (error) {
-      body.innerHTML = '<div class="run-loading">Error loading output file</div>';
-    }
-  };
-
-  window.hideOutputModal = function() {
-    document.getElementById('output-modal').classList.remove('show');
-  };
-
-  document.getElementById('output-modal').addEventListener('click', function(e) {
-    if (e.target === this) {
-      hideOutputModal();
     }
   });
 
