@@ -19,7 +19,9 @@ def call_tool(tool, *args, **kwargs):
     return tool(*args, **kwargs)
 
 
-FIXTURES_JOURNAL = Path(__file__).resolve().parents[3] / "fixtures" / "journal"
+FIXTURES_JOURNAL = (
+    Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "journal"
+)
 
 
 def test_todo_list_returns_numbered_view(todo_env):
@@ -183,7 +185,7 @@ def test_todo_add_extracts_time(todo_env):
 def test_todo_tool_pack_round_trip(tmp_path, monkeypatch):
     """Exercise add/done/cancel flow against a copied fixture journal."""
     if not FIXTURES_JOURNAL.exists():
-        pytest.skip("fixtures/journal not found")
+        pytest.skip("tests/fixtures/journal not found")
 
     journal_copy = tmp_path / "journal"
     shutil.copytree(FIXTURES_JOURNAL, journal_copy)

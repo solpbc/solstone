@@ -10,7 +10,7 @@ from think.config_cli import main
 
 def test_config_prints_json(monkeypatch, capsys):
     """Default command prints full config JSON."""
-    monkeypatch.setenv("JOURNAL_PATH", "fixtures/journal")
+    monkeypatch.setenv("JOURNAL_PATH", "tests/fixtures/journal")
     monkeypatch.setattr("sys.argv", ["sol config"])
 
     main()
@@ -22,18 +22,18 @@ def test_config_prints_json(monkeypatch, capsys):
 
 def test_config_env_prints_path(monkeypatch, capsys):
     """env subcommand prints resolved JOURNAL_PATH."""
-    monkeypatch.setenv("JOURNAL_PATH", "fixtures/journal")
+    monkeypatch.setenv("JOURNAL_PATH", "tests/fixtures/journal")
     monkeypatch.setattr("sys.argv", ["sol config", "env"])
 
     main()
 
     output = capsys.readouterr().out.strip()
-    assert output == "JOURNAL_PATH=fixtures/journal (from shell)"
+    assert output == "JOURNAL_PATH=tests/fixtures/journal (from shell)"
 
 
 def test_config_env_shows_source(monkeypatch, capsys):
     """env subcommand includes source for the resolved path."""
-    monkeypatch.setenv("JOURNAL_PATH", "fixtures/journal")
+    monkeypatch.setenv("JOURNAL_PATH", "tests/fixtures/journal")
     monkeypatch.setattr("sys.argv", ["sol config", "env"])
 
     main()

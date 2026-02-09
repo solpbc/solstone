@@ -41,8 +41,8 @@ from think.entities import (
 
 @pytest.fixture
 def fixture_journal():
-    """Set JOURNAL_PATH to fixtures/journal for testing."""
-    os.environ["JOURNAL_PATH"] = "fixtures/journal"
+    """Set JOURNAL_PATH to tests/fixtures/journal for testing."""
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
     yield
     # No cleanup needed - just testing reads
 
@@ -143,7 +143,7 @@ def test_detected_entities_path(fixture_journal):
     """Test path generation for detected entities."""
     path = detected_entities_path("personal", "20250101")
     assert str(path).endswith(
-        "fixtures/journal/facets/personal/entities/20250101.jsonl"
+        "tests/fixtures/journal/facets/personal/entities/20250101.jsonl"
     )
     assert path.name == "20250101.jsonl"
 

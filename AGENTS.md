@@ -42,8 +42,7 @@ solstone/
 ├── convey/         # Web app frontend & backend
 ├── apps/           # Convey app extensions (see docs/APPS.md)
 ├── muse/           # Agent/generator configs + Agent Skills (muse/*/SKILL.md)
-├── tests/          # Pytest test suites
-├── fixtures/       # Test data (mock journal)
+├── tests/          # Pytest test suites + test fixtures under tests/fixtures/
 ├── docs/           # All documentation (*.md files)
 ├── AGENTS.md       # Development guidelines (this file)
 ├── CLAUDE.md       # Symlink to AGENTS.md for Claude Code
@@ -55,7 +54,7 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 ### Package Organization
 
 * **Python**: Requires Python 3.10+
-* **Modules**: Each top-level folder is a Python package with `__init__.py` unless it is data-only (e.g., `fixtures/`)
+* **Modules**: Each top-level folder is a Python package with `__init__.py` unless it is data-only (e.g., `tests/fixtures/`)
 * **Imports**: Prefer absolute imports (e.g., `from think.utils import setup_cli`) whenever feasible
 * **Entry Points**: Commands are registered in `sol.py`'s `COMMANDS` dict (pyproject.toml just defines the `sol` entry point)
 * **Journal**: Data stored under `JOURNAL_PATH` (see Environment Management below)
@@ -87,11 +86,11 @@ The unified CLI is `sol`. Run `sol` to see status and available commands. Use `s
 
 ```python
 # Use comprehensive mock journal data for testing
-os.environ["JOURNAL_PATH"] = "fixtures/journal"
+os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
 # Now all journal operations work with test data
 ```
 
-The `fixtures/journal/` directory contains a complete mock journal structure with sample facets, agents, transcripts, and indexed data for testing.
+The `tests/fixtures/journal/` directory contains a complete mock journal structure with sample facets, agents, transcripts, and indexed data for testing.
 
 ---
 
@@ -132,7 +131,7 @@ Use `//` comments for JavaScript files.
 * **Framework**: pytest with coverage reporting
 * **Unit Tests**: `tests/` root directory
   - Fast, no external API calls
-  - Use `fixtures/journal/` mock data
+  - Use `tests/fixtures/journal/` mock data
   - Test individual functions and modules
 * **Integration Tests**: `tests/integration/` subdirectory
   - Test real backends (Anthropic, OpenAI, Google)
@@ -228,7 +227,7 @@ make clean-install # Clean and reinstall
 
 ### File Locations
 * **Entry Points**: `sol.py` `COMMANDS` dict
-* **Test Fixtures**: `fixtures/journal/` - complete mock journal
+* **Test Fixtures**: `tests/fixtures/journal/` - complete mock journal
 * **Live Logs**: `$JOURNAL_PATH/health/<service>.log`
 * **Agent Personas**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
 * **Generator Templates**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))

@@ -11,4 +11,6 @@ import pytest
 @pytest.fixture(autouse=True)
 def _journal_env(monkeypatch):
     """Point JOURNAL_PATH at the test fixtures."""
-    monkeypatch.setenv("JOURNAL_PATH", os.path.join(os.getcwd(), "fixtures", "journal"))
+    monkeypatch.setenv(
+        "JOURNAL_PATH", os.path.join(os.getcwd(), "tests", "fixtures", "journal")
+    )

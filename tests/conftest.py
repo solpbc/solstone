@@ -14,7 +14,7 @@ from think.utils import now_ms
 
 @pytest.fixture(autouse=True)
 def set_test_journal_path(request, monkeypatch):
-    """Set JOURNAL_PATH to fixtures/journal for all unit tests.
+    """Set JOURNAL_PATH to tests/fixtures/journal for all unit tests.
 
     This ensures all tests have a valid JOURNAL_PATH without needing
     to explicitly set it in each test. Integration tests are excluded.
@@ -23,8 +23,8 @@ def set_test_journal_path(request, monkeypatch):
     if "integration" in request.node.keywords:
         return
 
-    # Set JOURNAL_PATH to fixtures/journal for all unit tests
-    monkeypatch.setenv("JOURNAL_PATH", "fixtures/journal")
+    # Set JOURNAL_PATH to tests/fixtures/journal for all unit tests
+    monkeypatch.setenv("JOURNAL_PATH", "tests/fixtures/journal")
 
 
 @pytest.fixture(autouse=True)

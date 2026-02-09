@@ -289,7 +289,7 @@ providers:
 - 2 = FLASH (balanced)
 - 3 = LITE (fast/cheap)
 
-See `fixtures/journal/config/journal.json` for a complete example and `think/models.py` `PROVIDER_DEFAULTS` for tier-to-model mappings.
+See `tests/fixtures/journal/config/journal.json` for a complete example and `think/models.py` `PROVIDER_DEFAULTS` for tier-to-model mappings.
 
 ## Testing
 
@@ -354,7 +354,7 @@ This allows reusing much of the OpenAI provider's patterns for request/response 
 **Testing:**
 11. Create unit tests in `tests/test_<name>.py`
 12. Create integration tests in `tests/integration/test_<name>_backend.py`
-13. Add test contexts to `fixtures/journal/config/journal.json`
+13. Add test contexts to `tests/fixtures/journal/config/journal.json`
 
 **Documentation:**
 14. Update `think/providers/__init__.py` docstring

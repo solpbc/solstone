@@ -12,8 +12,8 @@ from think.muse import get_agent
 
 @pytest.fixture
 def fixture_journal():
-    """Set JOURNAL_PATH to fixtures/journal for testing."""
-    os.environ["JOURNAL_PATH"] = "fixtures/journal"
+    """Set JOURNAL_PATH to tests/fixtures/journal for testing."""
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
     yield
     # No cleanup needed - just testing reads
 
@@ -94,7 +94,7 @@ def test_agent_context_includes_entities_by_facet(fixture_journal):
     assert "`test-facet`" in extra_context or "`full-featured`" in extra_context
 
     # Should include entities from fixture facets
-    # fixtures/journal/facets/ contains various entities
+    # tests/fixtures/journal/facets/ contains various entities
     assert "Entities" in extra_context
 
     # Check for some known entities from the fixtures

@@ -37,5 +37,5 @@ Tactical work items prioritized for implementation.
 
 ## Testing
 
-- [ ] Move fixtures/ into tests/
+- [x] Move fixtures/ into tests/
 - [ ] Enable clean fixture-based service startup (Convey on dynamic port) for integration/dev testing with screenshots

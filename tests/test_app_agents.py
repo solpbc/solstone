@@ -13,8 +13,8 @@ from think.muse import _resolve_agent_path, get_agent, get_muse_configs
 
 @pytest.fixture
 def fixture_journal():
-    """Set JOURNAL_PATH to fixtures/journal for testing."""
-    os.environ["JOURNAL_PATH"] = "fixtures/journal"
+    """Set JOURNAL_PATH to tests/fixtures/journal for testing."""
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
     yield
 
 

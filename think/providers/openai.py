@@ -37,13 +37,12 @@ import traceback
 from typing import Any, Callable
 
 from think.models import GPT_5
-from think.utils import now_ms
-
 from think.providers.cli import (
     CLIRunner,
     ThinkingAggregator,
     assemble_prompt,
 )
+from think.utils import now_ms
 
 from .shared import (
     GenerateResult,

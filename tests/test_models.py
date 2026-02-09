@@ -126,7 +126,7 @@ def test_calc_token_cost_with_reasoning_tokens():
 @pytest.fixture
 def use_fixtures_journal(monkeypatch):
     """Use the fixtures journal for provider config tests."""
-    monkeypatch.setenv("JOURNAL_PATH", "fixtures/journal")
+    monkeypatch.setenv("JOURNAL_PATH", "tests/fixtures/journal")
 
 
 def test_resolve_provider_default(use_fixtures_journal):

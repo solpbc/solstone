@@ -19,7 +19,7 @@ from pathlib import Path
 from think.muse import load_post_hook, load_pre_hook
 from think.utils import day_path
 
-FIXTURES = Path("fixtures")
+FIXTURES = Path("tests/fixtures")
 
 
 def copy_day(tmp_path: Path) -> Path:

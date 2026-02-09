@@ -18,8 +18,8 @@ from think.facets import (
     get_facets,
 )
 
-# Use the permanent fixtures in fixtures/journal/facets/
-FIXTURES_PATH = Path(__file__).parent.parent / "fixtures" / "journal"
+# Use the permanent fixtures in tests/fixtures/journal/facets/
+FIXTURES_PATH = Path(__file__).parent / "fixtures" / "journal"
 
 
 def setup_entities_new_structure(
