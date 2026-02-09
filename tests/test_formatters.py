@@ -1010,7 +1010,7 @@ class TestFormatMarkdown:
         """Test pattern matching for segment screen.md files."""
         from think.formatters import get_formatter
 
-        formatter = get_formatter("20240101/123456_300/screen.md")
+        formatter = get_formatter("20240101/123456_300/agents/screen.md")
         assert formatter is not None
         assert formatter.__name__ == "format_markdown"
 
@@ -1148,7 +1148,7 @@ class TestExtractPathMetadata:
         """Test day and topic extraction from segment markdown."""
         from think.formatters import extract_path_metadata
 
-        meta = extract_path_metadata("20240101/100000/screen.md")
+        meta = extract_path_metadata("20240101/100000/agents/screen.md")
         assert meta["day"] == "20240101"
         assert meta["facet"] == ""
         assert meta["topic"] == "screen"

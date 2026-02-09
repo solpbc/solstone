@@ -166,7 +166,7 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
                     facet=req_facet,
                 )
                 if out_path.exists():
-                    # Relative to day dir: "agents/activity.md" or "120000_1800/media.md"
+                    # Relative to day dir: "agents/activity.md" or "120000_1800/agents/media.md"
                     output_file = str(out_path.relative_to(day_dir))
         agent_info["output_file"] = output_file
 

@@ -201,7 +201,7 @@ def topics(
 
     if segment:
         # List outputs in a specific segment directory
-        seg_path = day_path / segment
+        seg_path = day_path / segment / "agents"
         if not seg_path.is_dir():
             typer.echo(f"Segment {segment} not found for {day}.")
             return
@@ -222,7 +222,7 @@ def topics(
     if segments:
         typer.echo(f"\nSegments: {len(segments)}")
         for seg in segments:
-            seg_path = day_path / seg
+            seg_path = day_path / seg / "agents"
             outputs = _get_output_names(seg_path)
             if outputs:
                 typer.echo(f"  {seg}: {', '.join(outputs)}")
@@ -233,9 +233,16 @@ def topics(
 def _get_output_names(directory: Path) -> list[str]:
     """Get sorted list of output file basenames in a directory."""
     names = []
+    if not directory.is_dir():
+        return names
+
     for f in sorted(directory.iterdir()):
         if f.is_file() and f.suffix in (".md", ".json", ".jsonl"):
             names.append(f.name)
+        elif f.is_dir():
+            for nested in sorted(f.iterdir()):
+                if nested.is_file() and nested.suffix in (".md", ".json", ".jsonl"):
+                    names.append(f"{f.name}/{nested.name}")
     return names
 
 
@@ -268,7 +275,7 @@ def read(
         raise typer.Exit(1)
 
     if segment:
-        base_dir = day_path / segment
+        base_dir = day_path / segment / "agents"
     else:
         base_dir = day_path / "agents"
 

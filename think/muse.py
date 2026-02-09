@@ -116,34 +116,31 @@ def get_output_path(
     output_format:
         Output format - "json" for JSON, anything else for markdown.
     facet:
-        Optional facet name for multi-facet agents. When provided, the facet
-        is appended to the filename (e.g., "newsletter_work.md").
+        Optional facet name for multi-facet agents. When provided, output is
+        written under an agents/{facet}/ subdirectory.
 
     Returns
     -------
     Path
         Output file path:
-        - With segment: YYYYMMDD/{segment}/{topic}.{ext}
-        - Without segment: YYYYMMDD/agents/{topic}.{ext}
-        - With facet: {topic}_{facet}.{ext} instead of {topic}.{ext}
+        - Segment + no facet: YYYYMMDD/{segment}/agents/{topic}.{ext}
+        - Segment + facet: YYYYMMDD/{segment}/agents/{facet}/{topic}.{ext}
+        - Daily + no facet: YYYYMMDD/agents/{topic}.{ext}
+        - Daily + facet: YYYYMMDD/agents/{facet}/{topic}.{ext}
         Where topic is derived from key and ext is "json" or "md".
     """
     day = Path(day_dir)
     topic = get_output_topic(key)
     ext = "json" if output_format == "json" else "md"
+    filename = f"{topic}.{ext}"
 
-    # Append facet suffix for multi-facet agent outputs
-    if facet:
-        filename = f"{topic}_{facet}.{ext}"
-    else:
-        filename = f"{topic}.{ext}"
-
+    if segment and facet:
+        return day / segment / "agents" / facet / filename
     if segment:
-        # Segment output goes directly in segment directory
-        return day / segment / filename
-    else:
-        # Daily output goes in agents/ subdirectory
-        return day / "agents" / filename
+        return day / segment / "agents" / filename
+    if facet:
+        return day / "agents" / facet / filename
+    return day / "agents" / filename
 
 
 def get_muse_configs(

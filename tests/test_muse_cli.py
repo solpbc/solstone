@@ -85,11 +85,11 @@ def test_format_tags_hook():
 def test_format_output_path_segment():
     """Output path for segment-scheduled prompts."""
     assert _format_output_path("activity", {"schedule": "segment", "output": "md"}) == (
-        "<segment>/activity.md"
+        "<segment>/agents/activity.md"
     )
     assert _format_output_path(
         "speakers", {"schedule": "segment", "output": "json"}
-    ) == ("<segment>/speakers.json")
+    ) == ("<segment>/agents/speakers.json")
 
 
 def test_format_output_path_daily():
@@ -162,7 +162,7 @@ def test_list_prompts_output(capsys):
     assert "flow" in output
 
     # Output path column shows path patterns
-    assert "<segment>/activity.md" in output
+    assert "<segment>/agents/activity.md" in output
     assert "<day>/agents/flow.md" in output
 
     # Tools column is present

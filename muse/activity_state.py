@@ -33,18 +33,20 @@ def _extract_facet_from_output_path(output_path: str) -> str | None:
     """Extract facet name from output path.
 
     Output paths for faceted generators follow the pattern:
-    {day}/{segment}/activity_state_{facet}.json
+    {day}/{segment}/agents/{facet}/activity_state.json
 
     Returns None if facet cannot be extracted.
     """
     if not output_path:
         return None
 
-    # Match pattern like activity_state_work.json
     filename = os.path.basename(output_path)
-    match = re.match(r"activity_state_([^.]+)\.json$", filename)
-    if match:
-        return match.group(1)
+    if filename != "activity_state.json":
+        return None
+
+    parent = os.path.basename(os.path.dirname(output_path))
+    if parent and parent != "agents":
+        return parent
     return None
 
 
@@ -120,7 +122,7 @@ def load_previous_state(
     Returns tuple of (state_list, segment_key) where state_list is the
     parsed JSON array or None if not found/invalid.
     """
-    state_path = day_path(day) / segment / f"activity_state_{facet}.json"
+    state_path = day_path(day) / segment / "agents" / facet / "activity_state.json"
     if not state_path.exists():
         return None, None
 

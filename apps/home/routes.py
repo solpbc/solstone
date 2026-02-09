@@ -251,6 +251,7 @@ def api_stats(month: str):
             agents_dir = day_dir / "agents"
             if agents_dir.is_dir():
                 count += len(list(agents_dir.glob("*.md")))
+                count += len(list(agents_dir.glob("*/*.md")))
 
         if count > 0:
             stats[day_name] = count

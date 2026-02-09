@@ -54,6 +54,8 @@ class JournalStats:
         if agents_dir.is_dir():
             files.extend(agents_dir.glob("*.json"))
             files.extend(agents_dir.glob("*.md"))
+            files.extend(agents_dir.glob("*/*.json"))
+            files.extend(agents_dir.glob("*/*.md"))
 
         if not files:
             return 0.0

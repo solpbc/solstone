@@ -74,6 +74,14 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
     if parts[0] and DATE_RE.fullmatch(parts[0]):
         day = parts[0]
 
+    # Extract facet from agents/{facet}/... paths
+    try:
+        agents_idx = parts.index("agents")
+        if agents_idx + 2 < len(parts):
+            facet = parts[agents_idx + 1]
+    except ValueError:
+        pass
+
     # Extract facet from facets/{facet}/... paths
     if parts[0] == "facets" and len(parts) >= 3:
         facet = parts[1]
@@ -200,7 +208,7 @@ def find_formattable_files(journal: str) -> dict[str, str]:
 
     Locations scanned:
     - Daily agent outputs: YYYYMMDD/agents/*.md
-    - Segment content: YYYYMMDD/HHMMSS*/*.md, *.jsonl
+    - Segment content: YYYYMMDD/HHMMSS*/agents/*.md, *.jsonl
     - Facet content: facets/*/events/*.jsonl, entities/, todos/, news/, logs/
     - Import summaries: imports/*/summary.md
     - App agent outputs: apps/*/agents/*.md
@@ -224,6 +232,12 @@ def find_formattable_files(journal: str) -> dict[str, str]:
             for md_file in agents_dir.glob("*.md"):
                 rel = f"{day}/agents/{md_file.name}"
                 files[rel] = str(md_file)
+            # Daily faceted agent outputs: YYYYMMDD/agents/{facet}/*.md
+            for facet_dir in agents_dir.iterdir():
+                if facet_dir.is_dir():
+                    for md_file in facet_dir.glob("*.md"):
+                        rel = f"{day}/agents/{facet_dir.name}/{md_file.name}"
+                        files[rel] = str(md_file)
 
         # Segment content: YYYYMMDD/HHMMSS_LEN/*
         for entry in day_path.iterdir():
@@ -233,10 +247,18 @@ def find_formattable_files(journal: str) -> dict[str, str]:
             if not seg_key:
                 continue
 
-            # Segment insight markdown files (*.md)
-            for md_file in entry.glob("*.md"):
-                rel = f"{day}/{entry.name}/{md_file.name}"
-                files[rel] = str(md_file)
+            # Segment agent markdown files: YYYYMMDD/HHMMSS_LEN/agents/*.md
+            seg_agents = entry / "agents"
+            if seg_agents.is_dir():
+                for md_file in seg_agents.glob("*.md"):
+                    rel = f"{day}/{entry.name}/agents/{md_file.name}"
+                    files[rel] = str(md_file)
+                # Faceted segment agent outputs
+                for facet_dir in seg_agents.iterdir():
+                    if facet_dir.is_dir():
+                        for md_file in facet_dir.glob("*.md"):
+                            rel = f"{day}/{entry.name}/agents/{facet_dir.name}/{md_file.name}"
+                            files[rel] = str(md_file)
 
             # Segment JSONL: audio.jsonl, screen.jsonl, *_audio.jsonl, *_screen.jsonl
             for jsonl_file in entry.glob("*.jsonl"):

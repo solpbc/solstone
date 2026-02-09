@@ -570,8 +570,8 @@ class CortexService:
         - Explicit: config["output_path"] (for multi-segment and custom paths)
         - Derived: from name + output format + schedule + facet:
           - Daily agents: YYYYMMDD/agents/{name}.{ext}
-          - Segment agents: YYYYMMDD/{segment}/{name}.{ext}
-          - Multi-facet: {name}_{facet}.{ext} instead of {name}.{ext}
+          - Segment agents: YYYYMMDD/{segment}/agents/{name}.{ext}
+          - Multi-facet: agents/{facet}/{name}.{ext}
         """
         try:
             from think.muse import get_output_path

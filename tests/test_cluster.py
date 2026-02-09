@@ -18,7 +18,8 @@ def test_cluster(tmp_path, monkeypatch):
     (day_dir / "120000_300").mkdir()
     (day_dir / "120000_300" / "audio.jsonl").write_text('{}\n{"text": "hi"}\n')
     (day_dir / "120500_300").mkdir()
-    (day_dir / "120500_300" / "screen.md").write_text("screen summary")
+    (day_dir / "120500_300" / "agents").mkdir()
+    (day_dir / "120500_300" / "agents" / "screen.md").write_text("screen summary")
     result, counts = mod.cluster(
         "20240101", sources={"audio": True, "screen": False, "agents": True}
     )
@@ -41,7 +42,10 @@ def test_cluster_range(tmp_path, monkeypatch):
         '{"raw": "raw.flac", "model": "whisper-1"}\n'
         '{"start": "00:00:01", "source": "mic", "text": "hi from audio"}\n'
     )
-    (day_dir / "120000_300" / "screen.md").write_text("screen summary content")
+    (day_dir / "120000_300" / "agents").mkdir()
+    (day_dir / "120000_300" / "agents" / "screen.md").write_text(
+        "screen summary content"
+    )
     # Test with agents=True to include *.md files
     md = mod.cluster_range(
         "20240101",
@@ -150,7 +154,8 @@ def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
         '"visual_description": "VS Code with Python file"}}\n'
     )
     # Also create screen.md (insight) to verify it's NOT used by cluster_period
-    (segment / "screen.md").write_text("This insight should NOT appear")
+    (segment / "agents").mkdir()
+    (segment / "agents" / "screen.md").write_text("This insight should NOT appear")
 
     result, counts = mod.cluster_period(
         "20240101",
@@ -180,11 +185,12 @@ def test_cluster_range_with_agents(tmp_path, monkeypatch):
     # Create segment with multiple insight files
     segment = day_dir / "100000_300"
     segment.mkdir()
+    (segment / "agents").mkdir()
     (segment / "audio.jsonl").write_text(
         '{"raw": "audio.flac"}\n{"start": "00:00:01", "text": "hello"}\n'
     )
-    (segment / "screen.md").write_text("Screen activity summary")
-    (segment / "activity.md").write_text("Activity insight content")
+    (segment / "agents" / "screen.md").write_text("Screen activity summary")
+    (segment / "agents" / "activity.md").write_text("Activity insight content")
     # Also create screen.jsonl to verify it's NOT used when agents=True, screen=False
     (segment / "screen.jsonl").write_text(
         '{"raw": "screen.webm"}\n'
@@ -219,11 +225,12 @@ def test_cluster_range_with_screen(tmp_path, monkeypatch):
     # Create segment with raw screen data and insight file
     segment = day_dir / "100000_300"
     segment.mkdir()
+    (segment / "agents").mkdir()
     (segment / "screen.jsonl").write_text(
         '{"raw": "screen.webm"}\n'
         '{"timestamp": 10, "analysis": {"primary": "code_editor"}}\n'
     )
-    (segment / "screen.md").write_text("Screen summary insight")
+    (segment / "agents" / "screen.md").write_text("Screen summary insight")
 
     # Test screen=True returns raw screen data, not agent outputs
     result = mod.cluster_range(
@@ -388,10 +395,11 @@ def test_cluster_with_agent_filter_dict(tmp_path, monkeypatch):
     # Create segment with multiple agent output files
     segment = day_dir / "120000_300"
     segment.mkdir()
+    (segment / "agents").mkdir()
     (segment / "audio.jsonl").write_text('{}\n{"text": "hello"}\n')
-    (segment / "entities.md").write_text("Entity extraction results")
-    (segment / "meetings.md").write_text("Meeting summary results")
-    (segment / "flow.md").write_text("Flow analysis results")
+    (segment / "agents" / "entities.md").write_text("Entity extraction results")
+    (segment / "agents" / "meetings.md").write_text("Meeting summary results")
+    (segment / "agents" / "flow.md").write_text("Flow analysis results")
 
     # Test filtering to only include entities
     result, counts = mod.cluster(
@@ -416,10 +424,11 @@ def test_cluster_with_agent_filter_multiple(tmp_path, monkeypatch):
     # Create segment with multiple agent output files
     segment = day_dir / "120000_300"
     segment.mkdir()
+    (segment / "agents").mkdir()
     (segment / "audio.jsonl").write_text('{}\n{"text": "hello"}\n')
-    (segment / "entities.md").write_text("Entity extraction results")
-    (segment / "meetings.md").write_text("Meeting summary results")
-    (segment / "flow.md").write_text("Flow analysis results")
+    (segment / "agents" / "entities.md").write_text("Entity extraction results")
+    (segment / "agents" / "meetings.md").write_text("Meeting summary results")
+    (segment / "agents" / "flow.md").write_text("Flow analysis results")
 
     # Test filtering to include entities and meetings but not flow
     result, counts = mod.cluster(
@@ -449,9 +458,10 @@ def test_cluster_with_agent_filter_app_namespaced(tmp_path, monkeypatch):
     # App agent output naming: "app:topic" -> "_app_topic.md"
     segment = day_dir / "120000_300"
     segment.mkdir()
+    (segment / "agents").mkdir()
     (segment / "audio.jsonl").write_text('{}\n{"text": "hello"}\n')
-    (segment / "entities.md").write_text("System entity results")
-    (segment / "_todos_review.md").write_text("Todos review results")
+    (segment / "agents" / "entities.md").write_text("System entity results")
+    (segment / "agents" / "_todos_review.md").write_text("Todos review results")
 
     # Test filtering to include app-namespaced agent
     result, counts = mod.cluster(
@@ -478,8 +488,9 @@ def test_cluster_with_empty_agent_filter(tmp_path, monkeypatch):
 
     segment = day_dir / "120000_300"
     segment.mkdir()
+    (segment / "agents").mkdir()
     (segment / "audio.jsonl").write_text('{}\n{"text": "hello"}\n')
-    (segment / "entities.md").write_text("Entity extraction results")
+    (segment / "agents" / "entities.md").write_text("Entity extraction results")
 
     # Empty dict should mean no agents
     result, counts = mod.cluster(

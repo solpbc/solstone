@@ -15,6 +15,7 @@ def segment_dir(tmp_path, monkeypatch):
     day_dir = journal / "20240115"
     segment_path = day_dir / "120000_300"
     segment_path.mkdir(parents=True)
+    (segment_path / "agents").mkdir(parents=True)
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
     return segment_path
@@ -34,7 +35,7 @@ class TestLoadSegmentFacets:
         """Empty facets.json returns empty list."""
         from think.dream import load_segment_facets
 
-        (segment_dir / "facets.json").write_text("")
+        (segment_dir / "agents" / "facets.json").write_text("")
         result = load_segment_facets("20240115", "120000_300")
         assert result == []
 
@@ -42,7 +43,7 @@ class TestLoadSegmentFacets:
         """Empty JSON array returns empty list."""
         from think.dream import load_segment_facets
 
-        (segment_dir / "facets.json").write_text("[]")
+        (segment_dir / "agents" / "facets.json").write_text("[]")
         result = load_segment_facets("20240115", "120000_300")
         assert result == []
 
@@ -54,7 +55,7 @@ class TestLoadSegmentFacets:
             {"facet": "work", "activity": "Code review", "level": "high"},
             {"facet": "personal", "activity": "Email check", "level": "low"},
         ]
-        (segment_dir / "facets.json").write_text(json.dumps(facets_data))
+        (segment_dir / "agents" / "facets.json").write_text(json.dumps(facets_data))
 
         result = load_segment_facets("20240115", "120000_300")
         assert result == ["work", "personal"]
@@ -63,7 +64,7 @@ class TestLoadSegmentFacets:
         """Malformed JSON returns empty list with error logged."""
         from think.dream import load_segment_facets
 
-        (segment_dir / "facets.json").write_text("{ invalid json")
+        (segment_dir / "agents" / "facets.json").write_text("{ invalid json")
         result = load_segment_facets("20240115", "120000_300")
         assert result == []
         assert "Failed to parse facets.json" in caplog.text
@@ -72,7 +73,7 @@ class TestLoadSegmentFacets:
         """Non-array JSON returns empty list with warning."""
         from think.dream import load_segment_facets
 
-        (segment_dir / "facets.json").write_text('{"facet": "work"}')
+        (segment_dir / "agents" / "facets.json").write_text('{"facet": "work"}')
         result = load_segment_facets("20240115", "120000_300")
         assert result == []
         assert "not an array" in caplog.text
@@ -86,7 +87,7 @@ class TestLoadSegmentFacets:
             {"activity": "Unknown"},  # Missing facet field
             {"facet": "personal", "activity": "Email"},
         ]
-        (segment_dir / "facets.json").write_text(json.dumps(facets_data))
+        (segment_dir / "agents" / "facets.json").write_text(json.dumps(facets_data))
 
         result = load_segment_facets("20240115", "120000_300")
         assert result == ["work", "personal"]
@@ -176,7 +177,7 @@ class TestRunPromptsByPriority:
             {"facet": "work", "activity": "Coding", "level": "high"},
             {"facet": "personal", "activity": "Email", "level": "low"},
         ]
-        (segment_dir / "facets.json").write_text(json.dumps(facets_data))
+        (segment_dir / "agents" / "facets.json").write_text(json.dumps(facets_data))
 
         spawned = []
 
@@ -233,7 +234,7 @@ class TestRunPromptsByPriority:
             {"facet": "work", "activity": "Coding", "level": "high"},
             {"facet": "personal", "activity": "Email", "level": "low"},
         ]
-        (segment_dir / "facets.json").write_text(json.dumps(facets_data))
+        (segment_dir / "agents" / "facets.json").write_text(json.dumps(facets_data))
 
         spawned = []
 
@@ -313,7 +314,7 @@ class TestRunPromptsByPriority:
             return True
 
         # Create the output file so indexer is triggered
-        output_file = segment_dir / "test_generator.md"
+        output_file = segment_dir / "agents" / "test_generator.md"
         output_file.write_text("test output")
 
         monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)

@@ -619,7 +619,7 @@ def test_write_output_with_day_parameter(cortex_service, mock_journal):
 
 
 def test_write_output_with_segment(cortex_service, mock_journal):
-    """Test writing segment agent output to segment directory."""
+    """Test writing segment agent output to segment agents directory."""
     # Mock datetime to return a specific date
     test_date = "20240115"
     from datetime import datetime as dt
@@ -634,8 +634,10 @@ def test_write_output_with_segment(cortex_service, mock_journal):
 
         cortex_service._write_output(agent_id, result, config)
 
-        # Check file was created in segment directory (not agents/)
-        expected_path = mock_journal / test_date / "143000_600" / "analyzer.md"
+        # Check file was created in segment agents/ directory
+        expected_path = (
+            mock_journal / test_date / "143000_600" / "agents" / "analyzer.md"
+        )
         assert expected_path.exists()
         assert expected_path.read_text() == result
 

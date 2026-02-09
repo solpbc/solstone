@@ -76,7 +76,7 @@ def _scan_variables(body: str) -> list[str]:
 def _format_output_path(key: str, info: dict[str, Any]) -> str:
     """Compose output path pattern for a prompt.
 
-    Returns path pattern like '<day>/agents/flow.md' or '<segment>/activity.md',
+    Returns path pattern like '<day>/agents/flow.md' or '<segment>/agents/activity.md',
     or '-' if the prompt has no output field.
     """
     output_format = info.get("output")
@@ -92,7 +92,7 @@ def _format_output_path(key: str, info: dict[str, Any]) -> str:
     # Determine path based on schedule
     schedule = info.get("schedule")
     if schedule == "segment":
-        return f"<segment>/{topic}.{ext}"
+        return f"<segment>/agents/{topic}.{ext}"
     else:
         # daily and unscheduled both go to agents/
         return f"<day>/agents/{topic}.{ext}"
