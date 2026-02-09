@@ -57,13 +57,14 @@ def _parse_agent_events(
         collect_events: If True, include parsed event dicts as "events" key
 
     Returns:
-        Dict with: thinking_count, tool_count, model, usage, finish_ts,
+        Dict with: thinking_count, tool_count, model, provider, usage, finish_ts,
         error_message, and optionally events
     """
     result: dict[str, Any] = {
         "thinking_count": 0,
         "tool_count": 0,
         "model": None,
+        "provider": None,
         "usage": None,
         "finish_ts": None,
         "error_message": None,
@@ -85,6 +86,7 @@ def _parse_agent_events(
                 result["tool_count"] += 1
             elif event_type == "start":
                 result["model"] = event.get("model")
+                result["provider"] = event.get("provider")
             elif event_type == "finish":
                 result["finish_ts"] = event.get("ts", 0)
                 result["usage"] = event.get("usage")
@@ -105,7 +107,8 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
     """Parse agent JSONL file and extract metadata.
 
     Returns dict with: id, name, start, status, prompt, facet, failed,
-    runtime_seconds, thinking_count, tool_count, cost, model, error_message.
+    runtime_seconds, thinking_count, tool_count, cost, model, provider,
+    error_message.
     Returns None if file cannot be parsed.
     """
     from think.cortex_client import get_agent_end_state
@@ -145,6 +148,7 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
             "tool_count": event_data["tool_count"],
             "cost": None,
             "model": event_data["model"],
+            "provider": request_event.get("provider") or event_data.get("provider"),
             "error_message": event_data["error_message"],
         }
 
@@ -331,6 +335,7 @@ def api_agent_run(agent_id: str) -> Any:
     Returns:
         {
             "events": list[dict],
+            "provider": str | None,
             "thinking_count": int,
             "tool_count": int,
             "cost": float | None
@@ -357,6 +362,7 @@ def api_agent_run(agent_id: str) -> Any:
         return jsonify(
             {
                 "events": data["events"],
+                "provider": data["provider"],
                 "thinking_count": data["thinking_count"],
                 "tool_count": data["tool_count"],
                 "cost": cost,
@@ -419,9 +425,15 @@ def api_preview_prompt(name: str) -> Any:
         system_instruction = config.get("system_instruction", "")
         extra_context = config.get("extra_context", "")
         user_instruction = config.get("user_instruction", "")
-        # Compose full prompt showing all parts
-        parts = [p for p in [system_instruction, extra_context, user_instruction] if p]
-        full_prompt = "\n\n---\n\n".join(parts)
+        # Compose full prompt with labeled sections
+        labeled = []
+        if system_instruction:
+            labeled.append(f"## System Instruction\n\n{system_instruction}")
+        if extra_context:
+            labeled.append(f"## Context\n\n{extra_context}")
+        if user_instruction:
+            labeled.append(f"## Instructions\n\n{user_instruction}")
+        full_prompt = "\n\n".join(labeled)
 
         return jsonify(
             {

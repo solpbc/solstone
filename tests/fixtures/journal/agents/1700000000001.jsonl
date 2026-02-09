@@ -1,7 +1,7 @@
-{"event": "request", "ts": 1700000000001, "agent_id": "1700000000001", "prompt": "Search for meetings about project updates", "persona": "default", "backend": "openai"}
-{"event": "start", "prompt": "Search for meetings about project updates", "persona": "default", "model": "gpt-4o", "backend": "openai", "ts": 1700000000100, "agent_id": "1700000000001"}
+{"event": "request", "ts": 1700000000001, "agent_id": "1700000000001", "prompt": "Search for meetings about project updates", "name": "default", "provider": "openai"}
+{"event": "start", "prompt": "Search for meetings about project updates", "name": "default", "model": "gpt-4o", "provider": "openai", "ts": 1700000000100, "agent_id": "1700000000001"}
 {"event": "agent_updated", "agent": "solstone", "ts": 1700000000200, "agent_id": "1700000000001"}
 {"event": "thinking", "content": "The user wants to search for meetings about project updates.\nI should use the search_events tool to find relevant meetings.", "ts": 1700000000300, "agent_id": "1700000000001"}
 {"event": "tool_start", "tool": "search_events", "args": {"query": "project updates", "limit": 5}, "call_id": "call_001", "ts": 1700000000400, "agent_id": "1700000000001"}
 {"event": "tool_end", "tool": "tool", "args": null, "result": "{\"total\": 2, \"results\": [{\"title\": \"Project Update Meeting\", \"day\": \"20231114\"}, {\"title\": \"Weekly Status\", \"day\": \"20231115\"}]}", "call_id": "call_001", "ts": 1700000000500, "agent_id": "1700000000001"}
-{"event": "finish", "result": "I found 2 meetings about project updates:\n\n1. **Project Update Meeting** on 2023-11-14\n2. **Weekly Status** on 2023-11-15", "ts": 1700000000600, "agent_id": "1700000000001"}
+{"event": "finish", "result": "I found 2 meetings about project updates:\n\n1. **Project Update Meeting** on 2023-11-14\n2. **Weekly Status** on 2023-11-15", "ts": 1700000000600, "agent_id": "1700000000001", "usage": {"input_tokens": 150, "output_tokens": 80}}

@@ -273,6 +273,7 @@
 .col-status { width: 50px; text-align: center; }
 .col-time { width: 100px; }
 .col-model { width: 140px; }
+.col-provider { width: 90px; }
 .col-runtime { width: 80px; text-align: right; }
 .col-activity { width: 50px; text-align: center; }
 .col-facet { width: 120px; }
@@ -319,6 +320,11 @@
 .model-name {
   font-size: 0.8rem;
   color: #888;
+}
+
+.provider-name {
+  font-size: 0.85rem;
+  color: #5f6368;
 }
 
 .error-preview {
@@ -757,6 +763,7 @@
           <th class="col-status"></th>
           <th class="col-time">Time</th>
           <th class="col-model">Model</th>
+          <th class="col-provider">Provider</th>
           <th class="col-runtime">Runtime</th>
           <th class="col-activity" title="Thinking events">💭</th>
           <th class="col-activity" title="Tool calls">🔧</th>
@@ -1193,7 +1200,7 @@
     tbody.innerHTML = '';
 
     if (runs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="10" class="run-loading">No runs found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" class="run-loading">No runs found</td></tr>';
       return;
     }
 
@@ -1238,6 +1245,15 @@
       modelSpan.title = run.model || '';
       modelCell.appendChild(modelSpan);
       row.appendChild(modelCell);
+
+      // Provider
+      const providerCell = document.createElement('td');
+      providerCell.className = 'col-provider';
+      const providerSpan = document.createElement('span');
+      providerSpan.className = 'provider-name';
+      providerSpan.textContent = run.provider || '\u2014';
+      providerCell.appendChild(providerSpan);
+      row.appendChild(providerCell);
 
       // Runtime
       const runtimeCell = document.createElement('td');
@@ -1385,6 +1401,13 @@
   function buildDetailHeader(data) {
     const header = document.createElement('div');
     header.className = 'run-detail-header';
+
+    if (data.provider) {
+      const stat = document.createElement('span');
+      stat.className = 'detail-stat';
+      stat.textContent = data.provider;
+      header.appendChild(stat);
+    }
 
     if (data.thinking_count > 0) {
       const stat = document.createElement('span');
