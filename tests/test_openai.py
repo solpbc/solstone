@@ -249,19 +249,13 @@ class TestRunCogitate:
                 self.run = AsyncMock(return_value="test result")
                 MockCLIRunner.last_instance = self
 
-        with (
-            patch("think.providers.openai.CLIRunner", MockCLIRunner),
-            patch(
-                "think.providers.openai.lookup_cli_session_id",
-                return_value="thread-abc",
-            ),
-        ):
+        with patch("think.providers.openai.CLIRunner", MockCLIRunner):
             asyncio.run(
                 provider.run_cogitate(
                     {
                         "prompt": "hello",
                         "model": GPT_5,
-                        "continue_from": "agent-123",
+                        "session_id": "thread-abc",
                     },
                     events.append,
                 )

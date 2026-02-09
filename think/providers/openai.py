@@ -41,7 +41,6 @@ from think.providers.cli import (
     CLIRunner,
     ThinkingAggregator,
     assemble_prompt,
-    lookup_cli_session_id,
 )
 
 from .shared import (
@@ -157,24 +156,21 @@ async def run_cogitate(
 
     # Build command — sandbox is read-only; "sol call" commands bypass
     # the sandbox via exec-policy rules in .codex/rules/solstone.rules
-    cmd = ["codex", "exec", "--json", "-s", "read-only", "-m", model]
-
-    # Resume mode: look up thread_id from a prior agent run
-    continue_from = config.get("continue_from")
-    if continue_from:
-        thread_id = lookup_cli_session_id(continue_from)
-        if thread_id:
-            cmd = [
-                "codex",
-                "exec",
-                "resume",
-                thread_id,
-                "--json",
-                "-s",
-                "read-only",
-                "-m",
-                model,
-            ]
+    session_id = config.get("session_id")
+    if session_id:
+        cmd = [
+            "codex",
+            "exec",
+            "resume",
+            session_id,
+            "--json",
+            "-s",
+            "read-only",
+            "-m",
+            model,
+        ]
+    else:
+        cmd = ["codex", "exec", "--json", "-s", "read-only", "-m", model]
 
     cmd.append("-")  # read prompt from stdin
 

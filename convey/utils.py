@@ -97,7 +97,7 @@ def spawn_agent(
         prompt: The task or question for the agent
         name: Agent name - system (e.g., "default") or app-qualified (e.g., "entities:entity_assist")
         provider: Optional provider override (openai, google, anthropic)
-        config: Additional configuration (max_tokens, facet, continue_from, etc.)
+        config: Additional configuration (max_tokens, facet, session_id, etc.)
 
     Returns:
         agent_id string (timestamp-based)

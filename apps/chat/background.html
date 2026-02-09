@@ -89,6 +89,15 @@ AppServices.register('chat', {
       const chat = await resp.json();
       const chatId = chat.chat_id;
 
+      // Capture session_id on successful finish (if not already set)
+      if (e.event === 'finish' && e.cli_session_id && !chat.session_id) {
+        fetch(`/app/chat/api/chat/${chatId}/session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: e.cli_session_id })
+        }).catch(err => console.error('Failed to capture session ID:', err));
+      }
+
       // Skip if user is actively viewing this chat
       if (this.activeChatId === chatId) return;
 

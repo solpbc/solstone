@@ -41,7 +41,8 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
   "provider": "openai",              // Optional: override provider (openai, google, anthropic)
   "max_output_tokens": 8192,        // Optional: maximum response tokens
   "thinking_budget": 10000,         // Optional: thinking token budget (ignored by OpenAI)
-  "continue_from": "1234567890122",  // Optional: continue from previous agent
+  "session_id": "sess-abc123",       // Optional: CLI session ID for continuation
+  "chat_id": "1234567890122",        // Optional: chat ID for reverse lookup
   "facet": "my-project",          // Optional: project context
   "output": "md",                     // Optional: output format ("md" or "json"), writes to agents/
   "day": "20250109",                  // Optional: YYYYMMDD format, defaults to current day
@@ -95,12 +96,14 @@ The `finish` event may include a `skipped` field when generation is skipped:
 
 ### Conversation Continuations
 
-All providers (Anthropic, OpenAI, Google) support continuing conversations from previous
-agent runs. Include a `continue_from` field in your request with the `<timestamp>`
-identifier of any completed agent run. The provider will load the conversation history
-from the agent's event log and continue from where it left off. This works seamlessly
-across all providers - you can even switch providers mid-conversation (e.g., start with
-OpenAI, continue with Anthropic).
+All providers (Anthropic, OpenAI, Google) support continuing conversations via CLI
+session resumption. Include a `session_id` field in the request with the CLI session
+ID from a previous agent's finish event. The provider CLI tool resumes the conversation
+internally using its native session management (e.g., `claude --resume`, `codex exec resume`).
+
+Chats are locked to their original provider — continuations must use the same provider
+that started the conversation. The `chat_id` field enables reverse lookup from an
+agent back to its parent chat.
 
 ## Agent Event Format
 
@@ -131,7 +134,9 @@ Emitted when an agent run begins.
   "ts": 1234567890123,
   "agent_id": "1234567890123",
   "name": "default",
-  "model": "gpt-4o"
+  "model": "gpt-4o",
+  "session_id": "sess-abc",
+  "chat_id": "1234567890122"
 }
 ```
 

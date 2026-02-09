@@ -127,7 +127,6 @@ def _setup_claude_cli_stub(
     monkeypatch.setattr(
         provider_mod, "check_cli_binary", lambda _name: "/usr/bin/claude"
     )
-    monkeypatch.setattr(provider_mod, "lookup_cli_session_id", lambda _agent_id: None)
 
     class DummyCLIRunner:
         def __init__(

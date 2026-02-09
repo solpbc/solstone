@@ -51,7 +51,6 @@ from .cli import (
     ThinkingAggregator,
     assemble_prompt,
     check_cli_binary,
-    lookup_cli_session_id,
 )
 from .shared import (
     GenerateResult,
@@ -222,7 +221,7 @@ async def run_cogitate(
         on_event: Optional event callback
     """
     model = config.get("model", _DEFAULT_MODEL)
-    continue_from = config.get("continue_from")
+    session_id = config.get("session_id")
 
     callback = JSONEventCallback(on_event)
 
@@ -248,14 +247,8 @@ async def run_cogitate(
         if system_instruction:
             cmd.extend(["--system-prompt", system_instruction])
 
-        if continue_from:
-            session_id = lookup_cli_session_id(continue_from)
-            if session_id:
-                cmd.extend(["--resume", session_id])
-            else:
-                logger.warning(
-                    "No CLI session ID found for continue_from=%s", continue_from
-                )
+        if session_id:
+            cmd.extend(["--resume", session_id])
 
         aggregator = ThinkingAggregator(callback, model=model)
         pending_tools: dict[str, dict[str, Any]] = {}

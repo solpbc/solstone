@@ -19,7 +19,6 @@ from think.cortex_client import (
     cortex_request,
     get_agent_end_state,
     get_agent_log_status,
-    get_agent_thread,
     wait_for_agents,
 )
 from think.models import GPT_5
@@ -403,105 +402,6 @@ def test_get_agent_end_state_unknown(tmp_path, monkeypatch):
     (tmp_path / "agents").mkdir()
 
     assert get_agent_end_state("nonexistent") == "unknown"
-
-
-def test_get_agent_thread_single_agent(tmp_path, monkeypatch):
-    """Test get_agent_thread with a single agent (no thread)."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-
-    agent_id = "1000"
-    (agents_dir / f"{agent_id}.jsonl").write_text(
-        '{"event": "request", "prompt": "hello"}\n'
-        '{"event": "finish", "result": "done"}\n'
-    )
-
-    assert get_agent_thread(agent_id) == [agent_id]
-
-
-def test_get_agent_thread_from_root(tmp_path, monkeypatch):
-    """Test get_agent_thread starting from the root of a 3-agent thread."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-
-    # Create a thread: 1000 -> 2000 -> 3000
-    (agents_dir / "1000.jsonl").write_text(
-        '{"event": "request", "prompt": "first"}\n'
-        '{"event": "finish", "result": "done"}\n'
-        '{"event": "continue", "to": "2000"}\n'
-    )
-    (agents_dir / "2000.jsonl").write_text(
-        '{"event": "request", "prompt": "second", "continue_from": "1000"}\n'
-        '{"event": "finish", "result": "done"}\n'
-        '{"event": "continue", "to": "3000"}\n'
-    )
-    (agents_dir / "3000.jsonl").write_text(
-        '{"event": "request", "prompt": "third", "continue_from": "2000"}\n'
-        '{"event": "finish", "result": "done"}\n'
-    )
-
-    assert get_agent_thread("1000") == ["1000", "2000", "3000"]
-
-
-def test_get_agent_thread_from_middle(tmp_path, monkeypatch):
-    """Test get_agent_thread starting from the middle of a thread."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-
-    # Create a thread: 1000 -> 2000 -> 3000
-    (agents_dir / "1000.jsonl").write_text(
-        '{"event": "request", "prompt": "first"}\n'
-        '{"event": "finish", "result": "done"}\n'
-        '{"event": "continue", "to": "2000"}\n'
-    )
-    (agents_dir / "2000.jsonl").write_text(
-        '{"event": "request", "prompt": "second", "continue_from": "1000"}\n'
-        '{"event": "finish", "result": "done"}\n'
-        '{"event": "continue", "to": "3000"}\n'
-    )
-    (agents_dir / "3000.jsonl").write_text(
-        '{"event": "request", "prompt": "third", "continue_from": "2000"}\n'
-        '{"event": "finish", "result": "done"}\n'
-    )
-
-    assert get_agent_thread("2000") == ["1000", "2000", "3000"]
-
-
-def test_get_agent_thread_from_end(tmp_path, monkeypatch):
-    """Test get_agent_thread starting from the end of a thread."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-
-    # Create a thread: 1000 -> 2000 -> 3000
-    (agents_dir / "1000.jsonl").write_text(
-        '{"event": "request", "prompt": "first"}\n'
-        '{"event": "finish", "result": "done"}\n'
-        '{"event": "continue", "to": "2000"}\n'
-    )
-    (agents_dir / "2000.jsonl").write_text(
-        '{"event": "request", "prompt": "second", "continue_from": "1000"}\n'
-        '{"event": "finish", "result": "done"}\n'
-        '{"event": "continue", "to": "3000"}\n'
-    )
-    (agents_dir / "3000.jsonl").write_text(
-        '{"event": "request", "prompt": "third", "continue_from": "2000"}\n'
-        '{"event": "finish", "result": "done"}\n'
-    )
-
-    assert get_agent_thread("3000") == ["1000", "2000", "3000"]
-
-
-def test_get_agent_thread_not_found(tmp_path, monkeypatch):
-    """Test get_agent_thread raises FileNotFoundError for missing agent."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-    (tmp_path / "agents").mkdir()
-
-    with pytest.raises(FileNotFoundError):
-        get_agent_thread("nonexistent")
 
 
 # Tests for wait_for_agents

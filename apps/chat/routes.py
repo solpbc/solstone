@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -15,8 +14,6 @@ from convey.config import get_selected_facet
 from convey.utils import load_json, save_json
 from think.models import generate
 from think.utils import now_ms
-
-logger = logging.getLogger(__name__)
 
 
 def _load_chat(chat_id: str) -> dict | None:
@@ -38,6 +35,13 @@ def _load_chat(chat_id: str) -> dict | None:
     if chat_data:
         chat_data["chat_id"] = chat_id
     return chat_data
+
+
+def _save_chat(chat_id: str, chat_data: dict) -> None:
+    """Save chat metadata, stripping the injected chat_id."""
+    chats_dir = get_app_storage_path("chat", "chats")
+    data = {k: v for k, v in chat_data.items() if k != "chat_id"}
+    save_json(chats_dir / f"{chat_id}.json", data)
 
 
 chat_bp = Blueprint(
@@ -142,21 +146,29 @@ def send_message() -> Any:
         resp.status_code = 400
         return resp
 
-    # For continuation, derive thread to find last agent
     config: dict[str, Any] = {}
-    chats_dir = get_app_storage_path("chat", "chats", ensure_exists=False)
     is_continuation = False
 
-    if continue_chat and (chats_dir / f"{continue_chat}.json").exists():
-        from think.cortex_client import get_agent_thread
+    if continue_chat:
+        chat_data = _load_chat(continue_chat)
+        if chat_data:
+            session_id = chat_data.get("session_id")
+            chat_provider = chat_data.get("provider")
 
-        # Derive thread from chat_id (which equals first agent_id)
-        try:
-            thread = get_agent_thread(continue_chat)
-            config["continue_from"] = thread[-1]
+            if not session_id:
+                resp = jsonify({"error": "Chat has no session to continue"})
+                resp.status_code = 400
+                return resp
+
+            if chat_provider and chat_provider != provider:
+                resp = jsonify(
+                    {"error": f"Chat uses {chat_provider}, cannot switch to {provider}"}
+                )
+                resp.status_code = 400
+                return resp
+
+            config["session_id"] = session_id
             is_continuation = True
-        except FileNotFoundError:
-            pass  # Chat exists but agent file missing - treat as new
 
     api_key_error = _check_provider_api_key(provider)
     if api_key_error:
@@ -180,6 +192,12 @@ def send_message() -> Any:
         if facet:
             config["facet"] = facet
 
+        # Pass chat_id so background service can find the chat from an agent.
+        # For continuations, chat_id is known before spawn. For new chats,
+        # chat_id == agent_id, and find_chat_by_agent's fallback handles it.
+        if is_continuation:
+            config["chat_id"] = continue_chat
+
         # Create agent request - events will be broadcast by shared watcher
         agent_id = spawn_agent(
             prompt=full_prompt,
@@ -191,22 +209,26 @@ def send_message() -> Any:
         ts = now_ms()
 
         if is_continuation:
-            # Continuation: update timestamp only (thread is derived from agents)
-            chat_data = load_json(chats_dir / f"{continue_chat}.json")
+            # Continuation: append agent_id and update timestamp
+            chat_data = _load_chat(continue_chat)
             if chat_data:
+                agent_ids = chat_data.get("agent_ids", [])
+                agent_ids.append(agent_id)
+                chat_data["agent_ids"] = agent_ids
                 chat_data["updated_ts"] = ts
-                save_json(chats_dir / f"{continue_chat}.json", chat_data)
+                _save_chat(continue_chat, chat_data)
             chat_id = continue_chat
         else:
-            # New chat: create metadata record (no thread stored)
+            # New chat: create metadata record
             chat_id = agent_id
             title = generate_chat_title(message)
             chat_record = {
                 "ts": ts,
                 "facet": facet,
+                "provider": provider,
                 "title": title,
+                "agent_ids": [agent_id],
             }
-            # Ensure chats directory exists for new chats
             chats_dir = get_app_storage_path("chat", "chats")
             save_json(chats_dir / f"{chat_id}.json", chat_record)
 
@@ -230,15 +252,14 @@ def list_chats() -> Any:
 
 @chat_bp.route("/api/chat/<chat_id>/events")
 def chat_events(chat_id: str) -> Any:
-    """Return all events from a chat thread.
+    """Return all events from a chat's agents.
 
-    Derives thread from agent files, then hydrates events from all agents.
+    Reads agent_ids from chat metadata, then hydrates events from all agents.
     For active chats, client should subscribe to WebSocket for real-time updates.
     """
     from think.cortex_client import (
         get_agent_end_state,
         get_agent_log_status,
-        get_agent_thread,
         read_agent_events,
     )
 
@@ -248,49 +269,36 @@ def chat_events(chat_id: str) -> Any:
         resp.status_code = 404
         return resp
 
-    # Derive thread from agent files (chat_id = first agent_id)
-    try:
-        thread = get_agent_thread(chat_id)
-    except FileNotFoundError:
-        thread = [chat_id]  # Fallback for very new agents
+    agent_ids = chat.get("agent_ids", [])
 
-    # Hydrate events from all agents in the thread
+    # Hydrate events from all agents
     all_events = []
-    for agent_id in thread:
+    for agent_id in agent_ids:
         try:
             events = read_agent_events(agent_id)
             all_events.extend(events)
         except FileNotFoundError:
-            # Agent file might not exist yet for very new agents
             pass
 
-    # Check if the last agent in the thread is complete and how it ended
+    # Check if the last agent is complete and how it ended
     is_complete = False
     end_state = None
     can_continue = False
-    if thread:
-        is_complete = get_agent_log_status(thread[-1]) == "completed"
+    if agent_ids:
+        last_agent_id = agent_ids[-1]
+        is_complete = get_agent_log_status(last_agent_id) == "completed"
         if is_complete:
-            end_state = get_agent_end_state(thread[-1])
-            can_continue = end_state == "finish"
-
-    # Find the provider used by the last agent in the thread
-    last_provider = None
-    if thread:
-        last_agent_id = thread[-1]
-        for event in reversed(all_events):
-            if event.get("agent_id") == last_agent_id and event.get("event") == "start":
-                last_provider = event.get("provider")
-                break
+            end_state = get_agent_end_state(last_agent_id)
+            # Can continue only if session_id is captured and ended successfully
+            can_continue = end_state == "finish" and bool(chat.get("session_id"))
 
     return jsonify(
         events=all_events,
         chat=chat,
-        thread=thread,
+        agent_ids=agent_ids,
         is_complete=is_complete,
         end_state=end_state,
         can_continue=can_continue,
-        last_provider=last_provider,
     )
 
 
@@ -315,10 +323,10 @@ def get_chat(chat_id: str) -> Any:
 
 @chat_bp.route("/api/agent/<agent_id>/chat")
 def find_chat_by_agent(agent_id: str) -> Any:
-    """Find the chat that contains a given agent_id in its thread.
+    """Find the chat that contains a given agent_id.
 
-    Uses get_agent_thread() to derive the thread from agent files, then
-    looks up the chat by the root agent ID (which equals chat_id).
+    Reads the agent's request event to find chat_id stored in config,
+    then falls back to using agent_id as chat_id (for root agents).
 
     Args:
         agent_id: The agent ID to search for
@@ -326,16 +334,22 @@ def find_chat_by_agent(agent_id: str) -> Any:
     Returns:
         Chat metadata JSON or 404 if not found
     """
-    from think.cortex_client import get_agent_thread
+    from think.cortex_client import read_agent_events
 
+    # Try to find chat_id from agent's request event
+    chat_id = None
     try:
-        # Derive thread from agent - first element is the root/chat_id
-        thread = get_agent_thread(agent_id)
-        chat_id = thread[0]
+        events = read_agent_events(agent_id)
+        for event in events:
+            if event.get("event") == "request":
+                chat_id = event.get("chat_id")
+                break
     except FileNotFoundError:
-        resp = jsonify({"error": f"Agent not found: {agent_id}"})
-        resp.status_code = 404
-        return resp
+        pass
+
+    # Fall back to agent_id as chat_id (root agent case)
+    if not chat_id:
+        chat_id = agent_id
 
     chat_data = _load_chat(chat_id)
     if not chat_data:
@@ -344,6 +358,38 @@ def find_chat_by_agent(agent_id: str) -> Any:
         return resp
 
     return jsonify(chat_data)
+
+
+@chat_bp.route("/api/chat/<chat_id>/session", methods=["POST"])
+def set_chat_session(chat_id: str) -> Any:
+    """Set the CLI session ID for a chat (called once after first agent completes).
+
+    Args:
+        chat_id: The chat ID
+
+    Returns:
+        Success status or error
+    """
+    payload = request.get_json(force=True)
+    session_id = payload.get("session_id")
+
+    if not session_id:
+        resp = jsonify({"error": "session_id is required"})
+        resp.status_code = 400
+        return resp
+
+    chat_data = _load_chat(chat_id)
+    if not chat_data:
+        resp = jsonify({"error": f"Chat not found: {chat_id}"})
+        resp.status_code = 404
+        return resp
+
+    # Only set session_id once (it never changes)
+    if not chat_data.get("session_id"):
+        chat_data["session_id"] = session_id
+        _save_chat(chat_id, chat_data)
+
+    return jsonify({"success": True})
 
 
 @chat_bp.route("/api/chat/<chat_id>/read", methods=["POST"])
@@ -356,27 +402,15 @@ def mark_chat_read(chat_id: str) -> Any:
     Returns:
         Success status or error
     """
-    try:
-        chats_dir = get_app_storage_path("chat", "chats", ensure_exists=False)
-        chat_file = chats_dir / f"{chat_id}.json"
-
-        if not chat_file.exists():
-            resp = jsonify({"error": f"Chat not found: {chat_id}"})
-            resp.status_code = 404
-            return resp
-
-        # Load, update, and save
-        chat_data = load_json(chat_file)
-        if chat_data:
-            chat_data["unread"] = False
-            save_json(chat_file, chat_data)
-
-        return jsonify({"success": True})
-
-    except Exception as e:
-        resp = jsonify({"error": str(e)})
-        resp.status_code = 500
+    chat_data = _load_chat(chat_id)
+    if not chat_data:
+        resp = jsonify({"error": f"Chat not found: {chat_id}"})
+        resp.status_code = 404
         return resp
+
+    chat_data["unread"] = False
+    _save_chat(chat_id, chat_data)
+    return jsonify({"success": True})
 
 
 @chat_bp.route("/api/chat/<chat_id>", methods=["DELETE"])
@@ -414,7 +448,7 @@ def retry_chat(chat_id: str) -> Any:
     """Retry the last failed message in a chat.
 
     Reads the last agent's prompt and spawns a new agent with the same prompt,
-    continuing from the errored agent. Uses the provider specified in the request.
+    resuming the CLI session. Provider is locked to the chat's provider.
 
     Args:
         chat_id: The chat ID
@@ -424,39 +458,22 @@ def retry_chat(chat_id: str) -> Any:
     """
     from think.cortex_client import (
         get_agent_end_state,
-        get_agent_thread,
         read_agent_events,
     )
 
-    payload = request.get_json(force=True) if request.data else {}
-    provider = payload.get("provider")
-
-    if not provider:
-        resp = jsonify({"error": "provider is required"})
-        resp.status_code = 400
-        return resp
-
-    # Validate chat exists
-    chats_dir = get_app_storage_path("chat", "chats", ensure_exists=False)
-    if not (chats_dir / f"{chat_id}.json").exists():
+    chat_data = _load_chat(chat_id)
+    if not chat_data:
         resp = jsonify({"error": f"Chat not found: {chat_id}"})
         resp.status_code = 404
         return resp
 
-    # Get thread and verify last agent ended in error
-    try:
-        thread = get_agent_thread(chat_id)
-    except FileNotFoundError:
-        resp = jsonify({"error": "Chat thread not found"})
-        resp.status_code = 404
+    agent_ids = chat_data.get("agent_ids", [])
+    if not agent_ids:
+        resp = jsonify({"error": "Chat has no agents"})
+        resp.status_code = 400
         return resp
 
-    if not thread:
-        resp = jsonify({"error": "Chat thread is empty"})
-        resp.status_code = 404
-        return resp
-
-    last_agent_id = thread[-1]
+    last_agent_id = agent_ids[-1]
     end_state = get_agent_end_state(last_agent_id)
 
     if end_state != "error":
@@ -483,6 +500,13 @@ def retry_chat(chat_id: str) -> Any:
         resp.status_code = 500
         return resp
 
+    # Use chat's locked provider
+    provider = chat_data.get("provider")
+    if not provider:
+        resp = jsonify({"error": "Chat has no provider set"})
+        resp.status_code = 400
+        return resp
+
     # Validate API key
     api_key_error = _check_provider_api_key(provider)
     if api_key_error:
@@ -493,11 +517,13 @@ def retry_chat(chat_id: str) -> Any:
     try:
         from convey.utils import spawn_agent
 
-        # Get facet from chat metadata for context
-        chat_data = load_json(chats_dir / f"{chat_id}.json")
-        facet = chat_data.get("facet") if chat_data else None
+        facet = chat_data.get("facet")
 
-        config: dict[str, Any] = {"continue_from": last_agent_id}
+        config: dict[str, Any] = {"chat_id": chat_id}
+        # Resume CLI session if available
+        session_id = chat_data.get("session_id")
+        if session_id:
+            config["session_id"] = session_id
         if facet:
             config["facet"] = facet
 
@@ -509,10 +535,11 @@ def retry_chat(chat_id: str) -> Any:
             config=config,
         )
 
-        # Update chat timestamp
-        if chat_data:
-            chat_data["updated_ts"] = now_ms()
-            save_json(chats_dir / f"{chat_id}.json", chat_data)
+        # Append agent to chat and update timestamp
+        agent_ids.append(agent_id)
+        chat_data["agent_ids"] = agent_ids
+        chat_data["updated_ts"] = now_ms()
+        _save_chat(chat_id, chat_data)
 
         return jsonify(agent_id=agent_id)
 

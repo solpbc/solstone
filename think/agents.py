@@ -91,94 +91,6 @@ class JSONEventWriter:
                 pass
 
 
-def format_tool_summary(tool_calls: list) -> str:
-    """Format tool calls into a readable summary string.
-
-    Args:
-        tool_calls: List of dicts with 'name' and 'args' keys
-
-    Returns:
-        Formatted string like "Tools used: fetch_data(url='...'), process(id=123)"
-        or empty string if no tool calls
-    """
-    if not tool_calls:
-        return ""
-
-    tool_summaries = []
-    for tool in tool_calls:
-        name = tool.get("name", "unknown")
-        args = tool.get("args", {})
-        # Format args as compact string
-        args_str = ", ".join(f"{k}={repr(v)[:50]}" for k, v in args.items())
-        tool_summaries.append(f"{name}({args_str})")
-
-    return "\n\nTools used: " + ", ".join(tool_summaries)
-
-
-def parse_agent_events_to_turns(conversation_id: str) -> list:
-    """Parse agent event log into conversation turns.
-
-    Converts agent event logs into simple conversation turns with role and content.
-    Automatically combines assistant text with tool usage summaries.
-
-    Args:
-        conversation_id: Agent ID whose conversation to load
-
-    Returns:
-        List of dicts like [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
-        Returns empty list if conversation not found
-
-    Note:
-        Incomplete turns (missing finish event) are skipped
-    """
-    from think.cortex_client import read_agent_events
-
-    try:
-        events = read_agent_events(conversation_id)
-    except FileNotFoundError:
-        LOG.warning(f"Cannot continue from {conversation_id}: log not found")
-        return []
-
-    turns = []
-    current_tool_calls: list = []
-
-    for event in events:
-        event_type = event.get("event")
-
-        if event_type == "start":
-            # User's initial prompt
-            prompt = event.get("prompt", "")
-            if prompt:
-                turns.append({"role": "user", "content": prompt})
-
-        elif event_type == "tool_start":
-            # Track tool calls for current assistant turn
-            tool_name = event.get("tool", "")
-            tool_args = event.get("args", {})
-            current_tool_calls.append({"name": tool_name, "args": tool_args})
-
-        elif event_type == "finish":
-            # Assistant's response with optional tool summary
-            result_text = event.get("result", "").strip()
-
-            # Build content combining response and tool usage
-            content_parts = []
-            if result_text:
-                content_parts.append(result_text)
-
-            if current_tool_calls:
-                tool_summary = format_tool_summary(current_tool_calls)
-                content_parts.append(tool_summary)
-
-            if content_parts:
-                turns.append({"role": "assistant", "content": "\n".join(content_parts)})
-
-            # Reset tool tracking for next turn
-            current_tool_calls = []
-
-    return turns
-
-
 # =============================================================================
 # Unified Config Preparation
 # =============================================================================
@@ -449,17 +361,6 @@ def validate_config(config: dict) -> str | None:
     if (config.get("segment") or config.get("span")) and not has_day:
         return "Invalid config: 'segment' or 'span' requires 'day'"
 
-    # Validate continue_from if present
-    continue_from = config.get("continue_from")
-    if continue_from:
-        from think.cortex_client import get_agent_log_status
-
-        status = get_agent_log_status(continue_from)
-        if status == "running":
-            return f"Cannot continue from {continue_from}: agent is still running"
-        if status == "not_found":
-            return f"Cannot continue from {continue_from}: agent not found"
-
     return None
 
 
@@ -724,8 +625,10 @@ async def _run_agent(
         "model": model or "unknown",
         "provider": provider,
     }
-    if config.get("continue_from"):
-        start_event["continue_from"] = config["continue_from"]
+    if config.get("session_id"):
+        start_event["session_id"] = config["session_id"]
+    if config.get("chat_id"):
+        start_event["chat_id"] = config["chat_id"]
     emit_event(start_event)
 
     # Handle skip conditions
@@ -899,8 +802,6 @@ def main() -> None:
 
 
 __all__ = [
-    "format_tool_summary",
-    "parse_agent_events_to_turns",
     "prepare_config",
     "validate_config",
     "scan_day",

@@ -46,7 +46,6 @@ from .cli import (
     CLIRunner,
     ThinkingAggregator,
     assemble_prompt,
-    lookup_cli_session_id,
 )
 from .shared import (
     GenerateResult,
@@ -576,7 +575,7 @@ async def run_cogitate(
         on_event: Optional event callback
     """
     model = config.get("model", _DEFAULT_MODEL)
-    continue_from = config.get("continue_from")
+    session_id = config.get("session_id")
     callback = JSONEventCallback(on_event)
 
     try:
@@ -604,10 +603,8 @@ async def run_cogitate(
         ]
 
         # Resume from previous session if continuing
-        if continue_from:
-            session_id = lookup_cli_session_id(continue_from)
-            if session_id:
-                cmd.extend(["--resume", session_id])
+        if session_id:
+            cmd.extend(["--resume", session_id])
 
         # Mutable containers for translate closure
         usage: dict[str, Any] = {}

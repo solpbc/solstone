@@ -13,7 +13,6 @@ from think.providers.cli import (
     CLIRunner,
     ThinkingAggregator,
     assemble_prompt,
-    lookup_cli_session_id,
 )
 from think.providers.shared import JSONEventCallback
 
@@ -154,66 +153,6 @@ class TestThinkingAggregator:
         agg.accumulate("  padded  ")
         agg.flush_as_thinking()
         assert events[0]["summary"] == "padded"
-
-
-# ---------------------------------------------------------------------------
-# lookup_cli_session_id
-# ---------------------------------------------------------------------------
-
-
-class TestLookupCliSessionId:
-    def test_finds_session_id(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-        agents_dir = tmp_path / "agents"
-        agents_dir.mkdir()
-
-        events = [
-            {
-                "event": "start",
-                "ts": 1000,
-                "prompt": "hi",
-                "name": "test",
-                "model": "m",
-                "provider": "p",
-            },
-            {
-                "event": "finish",
-                "ts": 2000,
-                "result": "done",
-                "cli_session_id": "abc-123",
-            },
-        ]
-        log_file = agents_dir / "agent42.jsonl"
-        log_file.write_text("\n".join(json.dumps(e) for e in events) + "\n")
-
-        result = lookup_cli_session_id("agent42")
-        assert result == "abc-123"
-
-    def test_returns_none_when_no_session_id(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-        agents_dir = tmp_path / "agents"
-        agents_dir.mkdir()
-
-        events = [
-            {
-                "event": "start",
-                "ts": 1000,
-                "prompt": "hi",
-                "name": "test",
-                "model": "m",
-                "provider": "p",
-            },
-            {"event": "finish", "ts": 2000, "result": "done"},
-        ]
-        log_file = agents_dir / "agent42.jsonl"
-        log_file.write_text("\n".join(json.dumps(e) for e in events) + "\n")
-
-        result = lookup_cli_session_id("agent42")
-        assert result is None
-
-    def test_returns_none_when_not_found(self):
-        result = lookup_cli_session_id("nonexistent-agent-id")
-        assert result is None
 
 
 class TestCLIRunnerFirstEventTimeout:

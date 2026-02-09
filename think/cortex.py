@@ -381,23 +381,6 @@ class CortexService:
                                             "model"
                                         ] = model
 
-                            # Write continue event to source file if continuing
-                            continue_from = event.get("continue_from")
-                            if continue_from:
-                                continue_event = {
-                                    "event": "continue",
-                                    "ts": now_ms(),
-                                    "agent_id": continue_from,
-                                    "to": agent.agent_id,
-                                }
-                                source_file = self.agents_dir / f"{continue_from}.jsonl"
-                                if source_file.exists():
-                                    with open(source_file, "a") as f:
-                                        f.write(json.dumps(continue_event) + "\n")
-                                    self.logger.info(
-                                        f"Linked continuation: {continue_from} -> {agent.agent_id}"
-                                    )
-
                         # Handle finish or error event
                         if event.get("event") in ["finish", "error"]:
                             # Check for output and handoff (only on finish)

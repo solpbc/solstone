@@ -1170,7 +1170,7 @@ function enrichEvent(event) {
 // State management
 let currentChatId = null;   // The chat being viewed (stable across continuations)
 let currentChatFacet = null; // Facet of the current chat (for facet switch handling)
-let currentThread = [];     // Agent IDs in the current thread (for WebSocket filtering)
+let currentAgentIds = [];   // Agent IDs in the current chat (for WebSocket filtering)
 let isComplete = false;
 let canContinue = false;    // Whether the chat can be continued (false if ended in error)
 
@@ -1262,13 +1262,13 @@ function hideBackButton() {
 }
 
 /**
- * Load and display a chat conversation (full thread).
+ * Load and display a chat conversation.
  * @param {string} chatId - The chat ID to load
  */
 async function loadChat(chatId) {
   // Update state
   currentChatId = chatId;
-  currentThread = [];
+  currentAgentIds = [];
   isComplete = false;
   canContinue = false;
   resetEventTracking();
@@ -1279,12 +1279,12 @@ async function loadChat(chatId) {
     window.AppServices.services.chat.setActiveAgent(chatId);
   }
 
-  // Prepare UI - always clear and load full thread
+  // Prepare UI - always clear and load full conversation
   clearMessages();
   showBackButton();
   showActivityIndicator();
 
-  // Fetch full thread events from server
+  // Fetch all events from server
   try {
     const response = await fetch(`/app/chat/api/chat/${chatId}/events`);
     if (!response.ok) {
@@ -1294,17 +1294,18 @@ async function loadChat(chatId) {
 
     const data = await response.json();
     const events = data.events || [];
-    currentThread = data.thread || [chatId];
+    currentAgentIds = data.agent_ids || [chatId];
     isComplete = data.is_complete || false;
     canContinue = data.can_continue || false;
     currentChatFacet = data.chat?.facet || null;
 
-    // Update provider toggle to match last used provider in this chat
-    if (data.last_provider) {
-      setProvider(data.last_provider);
+    // Lock provider toggle to chat's provider
+    const chatProvider = data.chat?.provider;
+    if (chatProvider) {
+      setProvider(chatProvider);
     }
 
-    // Process and render all events from the thread
+    // Process and render all events
     for (const event of events) {
       const enriched = enrichEvent(event);
       if (!shouldSkipEvent(enriched)) {
@@ -1412,8 +1413,8 @@ async function retryChat(chatId) {
     }
 
     const data = await response.json();
-    // Add new agent to thread for WebSocket event filtering
-    currentThread.push(data.agent_id);
+    // Add new agent to list for WebSocket event filtering
+    currentAgentIds.push(data.agent_id);
     isComplete = false;
     // Events will arrive via WebSocket
 
@@ -1422,6 +1423,23 @@ async function retryChat(chatId) {
     showError(`Retry failed: ${error.message}`, false);
     // Re-show retry button on failure (this will disable input)
     showRetryButton(chatId);
+  }
+}
+
+/**
+ * Save CLI session ID to chat metadata (called once after first agent completes).
+ * @param {string} chatId - The chat ID
+ * @param {string} sessionId - The CLI session ID from the provider
+ */
+async function captureSessionId(chatId, sessionId) {
+  try {
+    await fetch(`/app/chat/api/chat/${chatId}/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId })
+    });
+  } catch (err) {
+    console.error('Failed to capture session ID:', err);
   }
 }
 
@@ -1456,7 +1474,7 @@ async function markChatRead(chatId) {
 function resetToListView() {
   currentChatId = null;
   currentChatFacet = null;
-  currentThread = [];
+  currentAgentIds = [];
   isComplete = false;
   canContinue = false;
   clearMessages();
@@ -1830,9 +1848,9 @@ function setupFormHandlers() {
     if (r.ok) {
       const d = await r.json();
       if (continueChatId) {
-        // Continuation: add new agent to thread and keep listening
+        // Continuation: add new agent to agent list and keep listening
         // Don't reload - that clears UI and causes race conditions with WebSocket events
-        currentThread.push(d.agent_id);
+        currentAgentIds.push(d.agent_id);
         isComplete = false;
         canContinue = false;
         showActivityIndicator();
@@ -1881,11 +1899,12 @@ function processEvent(event) {
       }
 
       isComplete = true;
-      canContinue = true;
       forceHideActivityIndicator();
 
-      // Re-enable input and enable continuation using current chat ID
-      if(currentChatId){
+      // Capture session_id from the CLI provider and save to chat
+      if(currentChatId && event.cli_session_id){
+        captureSessionId(currentChatId, event.cli_session_id);
+        canContinue = true;
         enableContinuation(currentChatId);
       }
       break;
@@ -2023,8 +2042,8 @@ function createResourceCard(uri) {
 
   // Global WebSocket listener for cortex events
   appEvents.listen('cortex', e => {
-    // Only process events for agents in our current thread
-    if (!currentChatId || !currentThread.includes(e.agent_id)) {
+    // Only process events for agents in our current chat
+    if (!currentChatId || !currentAgentIds.includes(e.agent_id)) {
       return;
     }
 

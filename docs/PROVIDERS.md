@@ -126,7 +126,8 @@ async def run_cogitate(
 - `user_instruction`: Agent-specific prompt as second user message
 - `tools`: Optional list of allowed tool names
 - `agent_id`, `name`: Identity for logging and tool calls
-- `continue_from`: Agent ID for conversation continuation
+- `session_id`: CLI session ID for conversation continuation
+- `chat_id`: Chat ID for reverse lookup from agent to chat
 
 **Event emission:**
 
@@ -180,13 +181,16 @@ honor `config["tools"]` allowlists when present.
 
 **Conversation continuation:**
 
-When `continue_from` is provided, load conversation history using:
+When `session_id` is provided, use the provider CLI's native resume mechanism:
 ```python
-from think.agents import parse_agent_events_to_turns
-
-turns = parse_agent_events_to_turns(config["continue_from"])
-# Returns [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}, ...]
+session_id = config.get("session_id")
+if session_id:
+    cmd.extend(["--resume", session_id])
 ```
+
+Each CLI tool manages its own session state internally. The `session_id` is
+returned from the CLI's init/finish event on the first interaction and reused
+for all subsequent continuations within the same chat.
 
 ## Token Logging
 

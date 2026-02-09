@@ -55,6 +55,8 @@ class StartEvent(TypedDict, total=False):
     name: Required[str]
     model: Required[str]
     provider: Required[str]
+    session_id: Optional[str]  # CLI session ID for continuation
+    chat_id: Optional[str]  # Chat ID for reverse lookup
     raw: Optional[list[dict[str, Any]]]  # Original provider JSON event(s)
 
 

@@ -60,38 +60,6 @@ def assemble_prompt(config: dict[str, Any]) -> tuple[str, str | None]:
 
 
 # ---------------------------------------------------------------------------
-# Session ID Lookup
-# ---------------------------------------------------------------------------
-
-
-def lookup_cli_session_id(agent_id: str) -> str | None:
-    """Look up the CLI session ID from a previous agent's event log.
-
-    Scans the agent's JSONL events for a finish event containing
-    a cli_session_id field.
-
-    Args:
-        agent_id: Previous agent ID to look up.
-
-    Returns:
-        The CLI session/thread ID, or None if not found.
-    """
-    try:
-        from think.cortex_client import read_agent_events
-
-        events = read_agent_events(agent_id)
-    except (FileNotFoundError, Exception):
-        LOG.warning("Cannot look up cli_session_id from %s", agent_id)
-        return None
-
-    for event in events:
-        if event.get("event") == "finish" and event.get("cli_session_id"):
-            return event["cli_session_id"]
-
-    return None
-
-
-# ---------------------------------------------------------------------------
 # Thinking Aggregator
 # ---------------------------------------------------------------------------
 
@@ -378,5 +346,4 @@ __all__ = [
     "ThinkingAggregator",
     "assemble_prompt",
     "check_cli_binary",
-    "lookup_cli_session_id",
 ]
