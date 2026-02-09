@@ -530,7 +530,9 @@ async def _execute_generate(
     system_instruction = config.get("system_instruction", "")
     extra_ctx = config.get("extra_context")
     if extra_ctx:
-        system_instruction = f"{system_instruction}\n\n{extra_ctx}" if system_instruction else extra_ctx
+        system_instruction = (
+            f"{system_instruction}\n\n{extra_ctx}" if system_instruction else extra_ctx
+        )
     output_path = config.get("output_path")
     output_format = config.get("output")
 
