@@ -33,7 +33,6 @@ dependencies = [
     # Core dependencies
     "python-dotenv",
     "google-genai",
-    "fastmcp",
     "Flask[async]",
     "flask-sock",
     "Markdown",
