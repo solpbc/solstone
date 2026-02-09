@@ -40,7 +40,7 @@ Research tools (use sparingly, be quick):
 - `sol call journal search QUERY -t audio -n 3` - find entity in transcripts
 - `sol call journal search QUERY -t news -n 3` - find entity in facet news
 - `sol call journal events DAY` - find entity in events for a specific day
-- `get_resource("journal://insight/{day}/{topic}")` - fetch complete insight markdown when snippet search is insufficient
+- `sol call journal read {day} {topic}` - read full agent output when snippet search is insufficient
 
 ## Quick Addition Process
 

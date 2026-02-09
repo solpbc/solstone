@@ -32,7 +32,7 @@ Always operate on `sol call todos` commands with the **required facet parameter*
 - `sol call todos done DAY LINE_NUMBER -f FACET` – mark an entry complete
 - `sol call todos upcoming -l LIMIT -f FACET` – view upcoming todos in a facet
 
-You may combine these with discovery calls (`sol call journal search`, `sol call journal events`, `get_resource("journal://insight/...")`) to gather supporting evidence.
+You may combine these with discovery calls (`sol call journal search`, `sol call journal events`, `sol call journal read DAY TOPIC`) to gather supporting evidence.
 
 **IMPORTANT**: All todo operations require a facet parameter. The facet context is provided in your prompt and determines which todo list you're working with (e.g., personal vs work todos are completely separate). Line numbers are stable identifiers—todos are never deleted, only cancelled.
 
@@ -55,7 +55,7 @@ Priority Discovery:
      already scheduled for future due dates. You can also check across ALL facets
      by calling sol call todos upcoming -l 50 without a facet filter.
 
-2. get_resource("journal://insight/$day_YYYYMMDD/followups") and .../opportunities
+2. sol call journal read $day_YYYYMMDD followups and sol call journal read $day_YYYYMMDD opportunities
    → Capture explicit next steps and friendly follow-up opportunities (e.g., "let's catch up later," "we should connect more often")
 
 3. sol call journal search "followup OR todo OR need to OR schedule" -n 10

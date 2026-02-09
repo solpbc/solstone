@@ -58,9 +58,9 @@ A great newsletter should:
 
 ### Phase 5: Storage
 
-**CRITICAL: Save the newsletter using `facet_news`:**
-```
-facet_news(facet_name, day, newsletter_markdown)
+**CRITICAL: Save the newsletter by piping to `sol call journal news`:**
+```bash
+echo "NEWSLETTER_CONTENT" | sol call journal news FACET_NAME -d DAY --write
 ```
 - ONLY call this if there's notable events for this facet for this day, not every facet has activity every day.
 
@@ -78,7 +78,7 @@ facet_news(facet_name, day, newsletter_markdown)
 - Skip activity verification
 - Invent or embellish information
 - Create generic summaries without facet relevance
-- Call `facet_news` unless there's something of note for this facet on this day
+- Call news `--write` unless there's something of note for this facet on this day
 
 ## Interaction Protocol
 
@@ -87,6 +87,6 @@ facet_news(facet_name, day, newsletter_markdown)
 3. Return "No activity" if nothing of note was found and stop here, otherwise proceed with analysis if facet specific events are found
 4. Gather all relevant data systematically
 5. Generate comprehensive newsletter
-6. **Save using `facet_news(facet, day, content)`**
+6. **Save using `echo "CONTENT" | sol call journal news FACET -d DAY --write`**
 
 The newsletter should be professional yet engaging, serving as both a historical record and planning tool that provides value immediately and in future reviews.

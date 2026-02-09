@@ -52,7 +52,7 @@ The strategy is to conduct a three-phase data sweep of the analysis day's journa
 
 1.  **Retrieve Full Context for Key Findings**:
     -   **Retrieval**:
-        -   `journal://insight/$day_YYYYMMDD/{topic}` for the 2-3 most prominent or ironically named topics discovered in Phase 1.
+        -   `sol call journal read $day_YYYYMMDD {topic}` for the 2-3 most prominent or ironically named topics discovered in Phase 1.
         -   `sol call transcripts read $day_YYYYMMDD --start {time} --length {length} --full` for the most promising snippets found in the transcript search. Retrieve a 5-10 minute window around the snippet to understand the full conversation or activity.
     -   **Priority Order**: Prioritize transcript snippets first, as they contain direct quotes. Then, review insights for high-level irony.
     -   **Analysis Focus**: Read through the retrieved content, looking for:

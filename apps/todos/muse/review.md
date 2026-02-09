@@ -28,7 +28,7 @@ Rapidly validate each unchecked line against journal records, mark verified comp
 - `sol call todos done DAY LINE_NUMBER -f FACET` – mark a line complete
 - `sol call journal search QUERY -d DAY -t TOPIC -f FACET -n LIMIT` – search all journal content
 - `sol call journal events DAY -f FACET` – get structured events with full data
-- `get_resource("journal://insight/{day}/{topic}")` – retrieve full insight markdown when needed
+- `sol call journal read {day} {topic}` – retrieve full agent output markdown when needed
 
 **IMPORTANT**: All todo operations require both day and facet parameters. The facet context is provided in your prompt. Line numbers are stable identifiers.
 
@@ -45,7 +45,7 @@ For each unchecked line from `sol call todos list DAY -f FACET`:
    - `sol call journal search "[keywords]" -n 5 -d $day_YYYYMMDD`
    - `sol call journal search "[keywords]" -d $day_YYYYMMDD -t audio` for transcripts
    - `sol call journal search "[keywords]" -t news -d $day_YYYYMMDD` for facet news
-   - tap other sources (events via `sol call journal events`, topic insights via `get_resource`) when helpful
+   - tap other sources (events via `sol call journal events`, full agent outputs via `sol call journal read`) when helpful
 3. **Evidence Check** – verify completion when you find explicit proof:
    - statements confirming work finished, merged, deployed, or meeting held
    - artifacts created (documents, commits, recordings)

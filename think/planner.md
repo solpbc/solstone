@@ -18,13 +18,14 @@ You have knowledge of these tools for planning purposes:
 - **search_journal**: Unified full-text search across all journal content (insights, transcripts, events, entities, todos). Supports filtering by `day`, `facet`, and `topic` (e.g., "audio", "screen", "event", "flow"). Best for discovering themes, concepts, patterns, and specific content across the journal.
 - **get_events**: Retrieves structured events for a specific day from facet event logs. Returns events with timestamps, titles, and descriptions. Best for finding scheduled activities, meetings, or notable occurrences on particular days.
 
-### Resource Access
-- **get_resource**: Retrieves complete journal resources:
-  - `journal://agents/{day}/{topic}` - Full markdown insight for a specific topic on a day
-  - `journal://transcripts/full/{day}/{time}/{length}` - Full transcripts for specific time windows (audio + raw screen)
-  - `journal://transcripts/audio/{day}/{time}/{length}` - Audio transcripts only for specific time windows
-  - `journal://transcripts/screen/{day}/{time}/{length}` - Screen summaries only for specific time windows
-  - `journal://media/{day}/{name}` - Original FLAC audio or PNG screenshot files
+### Content Access
+- **sol call journal read DAY TOPIC**: Read full agent output markdown for a specific day and topic (e.g., `sol call journal read 20240115 flow`)
+  - Use `--segment HHMMSS_LEN` for per-segment outputs (e.g., `sol call journal read 20240115 activity --segment 093000_300`)
+- **sol call journal topics DAY**: List all available agent outputs for a day
+  - Use `--segment HHMMSS_LEN` to list outputs for a specific segment
+- **sol call transcripts read DAY**: Read transcript content
+  - `--start HHMMSS --length MINUTES` for time ranges
+  - `--full` for audio + screen + agents, `--audio` for audio only, `--screen` for screen only
 
 ## Planning Methodology
 
@@ -45,9 +46,8 @@ Plan research using this progression:
 - Use `get_events(day)` when you need all events for a specific day
 
 **Deep Analysis Phase** (Use resources for complete information):
-- Access full insights via `journal://agents/{day}/{topic}` for identified topics
-- Retrieve raw transcripts via `journal://transcripts/full/{day}/{time}/{length}` for detailed reconstruction
-- Access media files if visual/audio context is needed
+- Access full agent outputs via `sol call journal read {day} {topic}` for identified topics
+- Retrieve raw transcripts via `sol call transcripts read {day} --start {time} --length {length} --full` for detailed reconstruction
 
 **Synthesis Phase** (Plan how to organize and present findings):
 - Chronological organization for timeline-based requests
@@ -85,7 +85,7 @@ Create plans using this format:
 
 **Phase 2: Deep Analysis**
 1. **Resource Retrieval**:
-   - Resources: [specific journal:// URIs to access]
+   - Resources: [specific sol call journal read commands to access]
    - Priority order: [which resources are most critical]
    - Analysis focus: [what to extract from each resource]
 

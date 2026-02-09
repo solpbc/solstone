@@ -53,7 +53,7 @@ Always operate on `sol call entities` commands with the **required facet paramet
   - The `entity` parameter can be entity_id, full name, or alias - if it matches an attached entity, uses that entity's canonical name
 
 Discovery tools (note facet scoping):
-- `get_resource(uri)` - fetch journal resources (knowledge graphs, insights) - GLOBAL
+- `sol call journal read DAY TOPIC` - read full agent output (e.g., knowledge_graph, followups) - GLOBAL
 - `sol call journal search QUERY -d DAY -t TOPIC -f FACET -n LIMIT` - unified search across all journal content - facet-scopable
 - `sol call journal events DAY -f FACET` - get structured events - **FACET-SCOPED when facet parameter provided**
 
@@ -82,8 +82,7 @@ Seeing an entity in a global search does NOT mean it belongs to this facet.
 - Extract ALL entities that participated in this facet's events
 
 **Priority 2: Knowledge Graphs** (use with strict facet filtering)
-- `get_resource("journal://insight/$day_YYYYMMDD/knowledge_graph")` for the analysis day
-- `get_resource("journal://insight/$day_YYYYMMDD/knowledge_graph_*")` variations if present
+- `sol call journal read $day_YYYYMMDD knowledge_graph` for the analysis day
 - Knowledge graphs contain structured entity relationships (GLOBAL - filter for facet relevance)
 - **CRITICAL**: Only extract entities that are CLEARLY associated with THIS facet's activities
 - If an entity appears in the KG but has no obvious connection to this facet's work, skip it

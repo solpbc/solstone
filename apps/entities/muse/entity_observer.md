@@ -33,7 +33,7 @@ Entity tools (with required facet parameter):
   - Use entity_id from `sol call entities observations` response for consistency
 
 Discovery tools:
-- `get_resource(uri)` - fetch journal resources (knowledge graphs, insights)
+- `sol call journal read DAY TOPIC` - read full agent output (e.g., knowledge_graph, followups)
 - `sol call journal search QUERY -d DAY -t TOPIC -f FACET -n LIMIT` - unified search across journal content
 - `sol call journal events DAY -f FACET` - get structured events
 
@@ -75,7 +75,7 @@ For each attached entity in this facet:
 
 2. **Mine recent content** for factoids about this entity:
    - Search transcripts: `sol call journal search "{name}" -t audio -n 5`
-   - Check knowledge graph: `get_resource("journal://insight/$day_YYYYMMDD/knowledge_graph")`
+   - Check knowledge graph: `sol call journal read $day_YYYYMMDD knowledge_graph`
    - Search insights: `sol call journal search "{name}" -n 5`
 
 3. **Extract observations** from the content:
