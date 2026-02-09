@@ -291,19 +291,19 @@ def test_cortex_agents_pagination(tmp_path, monkeypatch):
     assert result["pagination"]["has_more"] is True
 
 
-def test_cortex_agents_uses_default_path_when_journal_path_unset():
+def test_cortex_agents_uses_default_path_when_journal_path_unset(monkeypatch):
     """Test cortex_agents uses platform default when JOURNAL_PATH unset."""
-    old_path = os.environ.pop("JOURNAL_PATH", None)
-    try:
-        # Should work (uses platform default) - doesn't raise due to missing path
-        result = cortex_agents()
-        # Just verify it returns the expected structure
-        assert "agents" in result
-        assert "pagination" in result
-        assert isinstance(result["agents"], list)
-    finally:
-        if old_path:
-            os.environ["JOURNAL_PATH"] = old_path
+    import think.utils
+
+    monkeypatch.delenv("JOURNAL_PATH", raising=False)
+    monkeypatch.setattr(think.utils, "_journal_path_cache", None)
+
+    # Should work (uses platform default) - doesn't raise due to missing path
+    result = cortex_agents()
+    # Just verify it returns the expected structure
+    assert "agents" in result
+    assert "pagination" in result
+    assert isinstance(result["agents"], list)
 
 
 def test_get_agent_log_status_completed(tmp_path, monkeypatch):
