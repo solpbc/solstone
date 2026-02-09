@@ -196,8 +196,8 @@ def _translate_claude(
         usage = event.get("usage")
         if usage:
             result_meta["usage"] = {
-                "input_tokens": usage.get("input_tokens"),
-                "output_tokens": usage.get("output_tokens"),
+                "input_tokens": usage.get("input_tokens") or 0,
+                "output_tokens": usage.get("output_tokens") or 0,
                 "total_tokens": (
                     (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
                 ),
@@ -274,9 +274,6 @@ async def run_cogitate(
 
         # Build finish event with usage from result meta
         usage_dict = result_meta.get("usage")
-        cost_usd = result_meta.get("cost_usd")
-        if usage_dict and cost_usd is not None:
-            usage_dict["cost_usd"] = cost_usd
 
         callback.emit(
             {

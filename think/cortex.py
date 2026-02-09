@@ -417,6 +417,7 @@ class CortexService:
                                             usage=usage_data,
                                             context=context,
                                             segment=segment,
+                                            type="cogitate",
                                         )
                                     except Exception as e:
                                         self.logger.warning(

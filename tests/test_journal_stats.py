@@ -268,3 +268,64 @@ def test_token_usage_new_format(tmp_path, monkeypatch):
     assert js.token_totals["gemini-2.5-flash"]["input_tokens"] == 1716
     assert js.token_totals["gemini-2.5-flash"]["output_tokens"] == 3710
     assert js.token_totals["gemini-2.5-flash"]["reasoning_tokens"] == 4688
+
+
+def test_process_token_entry_counts_all_int_usage_fields(tmp_path, monkeypatch):
+    """Int-valued fields in usage are all counted; top-level metadata is ignored."""
+    stats_mod = importlib.import_module("think.journal_stats")
+    journal = tmp_path
+    day1 = journal / "20240101"
+    day1.mkdir()
+
+    tokens_dir = journal / "tokens"
+    tokens_dir.mkdir()
+
+    token_entry_with_duration = {
+        "timestamp": 1704067200.0,
+        "model": "gemini-2.5-flash",
+        "context": "muse.system.meetings",
+        "type": "cogitate",
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+            "duration_ms": 3000,
+        },
+    }
+
+    token_entry_without_duration = {
+        "timestamp": 1704067300.0,
+        "model": "gemini-2.5-pro",
+        "context": "think.detect_transcript.detect",
+        "type": "generate",
+        "usage": {
+            "input_tokens": 80,
+            "output_tokens": 20,
+            "total_tokens": 100,
+        },
+    }
+
+    (tokens_dir / "20240101.jsonl").write_text(
+        json.dumps(token_entry_with_duration)
+        + "\n"
+        + json.dumps(token_entry_without_duration)
+        + "\n"
+    )
+
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    js = stats_mod.JournalStats()
+    js.scan(str(journal))
+
+    usage_with_duration = js.token_usage["20240101"]["gemini-2.5-flash"]
+    assert usage_with_duration["input_tokens"] == 100
+    assert usage_with_duration["output_tokens"] == 50
+    assert usage_with_duration["total_tokens"] == 150
+    assert usage_with_duration["duration_ms"] == 3000
+    assert "type" not in usage_with_duration
+
+    usage_without_duration = js.token_usage["20240101"]["gemini-2.5-pro"]
+    assert usage_without_duration["input_tokens"] == 80
+    assert usage_without_duration["output_tokens"] == 20
+    assert usage_without_duration["total_tokens"] == 100
+    assert "duration_ms" not in usage_without_duration
+    assert "type" not in usage_without_duration
