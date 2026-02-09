@@ -3,15 +3,16 @@
 
 """Unified journal index for all content types.
 
-This module provides a single FTS5 index over all journal content:
-- Insights (markdown files)
-- Transcripts (audio/screen JSONL)
+This module provides a single FTS5 index over journal content:
+- Agent outputs (markdown files)
 - Events (facet event JSONL)
 - Entities (facet entity JSONL)
 - Todos (facet todo JSONL)
+- Action logs (facet/journal-level JSONL)
 
 All content is converted to markdown chunks via the formatters framework,
 then indexed with metadata fields for filtering (day, facet, topic).
+Raw audio/screen transcripts are formattable but not indexed by default.
 """
 
 import logging
@@ -394,7 +395,7 @@ def search_journal(
         day_from: Filter by date range start (YYYYMMDD, inclusive)
         day_to: Filter by date range end (YYYYMMDD, inclusive)
         facet: Filter by facet name
-        topic: Filter by topic (e.g., "flow", "audio", "event")
+        topic: Filter by topic (e.g., "flow", "event", "news")
 
     Returns:
         Tuple of (total_count, results) where each result has:

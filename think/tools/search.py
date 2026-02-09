@@ -99,7 +99,7 @@ def search_journal(
         day_from: Filter by date range start (``YYYYMMDD``, inclusive)
         day_to: Filter by date range end (``YYYYMMDD``, inclusive)
         facet: Filter by facet name (e.g., "work", "personal")
-        topic: Filter by topic (e.g., "flow", "audio", "event", "entity:detected")
+        topic: Filter by topic (e.g., "flow", "event", "entity:detected", "news")
 
     Returns:
         Dictionary containing:
@@ -114,9 +114,9 @@ def search_journal(
         - search_journal("machine learning")
         - search_journal("meeting notes", day="20240101")
         - search_journal("project planning", facet="work")
-        - search_journal("standup", topic="audio")
+        - search_journal("standup", topic="event")
         - search_journal("weekly sync", day_from="20241201", day_to="20241207")
-        - search_journal(topic="audio", day="20240101")  # Browse all audio for a day
+        - search_journal(topic="flow", day="20240101")  # Browse all flow for a day
     """
     try:
         kwargs: dict[str, Any] = {}

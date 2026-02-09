@@ -42,7 +42,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, Callable
 
-from think.utils import DATE_RE, day_dirs, get_journal, segment_key
+from think.utils import DATE_RE, get_journal
 
 
 def extract_path_metadata(rel_path: str) -> dict[str, str]:
@@ -114,53 +114,52 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
     return {"day": day, "facet": facet, "topic": topic}
 
 
-# Registry mapping glob patterns to (module_path, function_name)
-# Patterns are matched against journal-relative paths
-# Order matters: first match wins, so place specific patterns before general ones
-FORMATTERS: dict[str, tuple[str, str]] = {
-    # JSONL formatters
-    "config/actions/*.jsonl": ("think.facets", "format_logs"),
-    "facets/*/entities/*.jsonl": ("think.entities.formatting", "format_entities"),
-    "facets/*/events/*.jsonl": ("think.events", "format_events"),
-    "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos"),
-    "facets/*/logs/*.jsonl": ("think.facets", "format_logs"),
-    "*/*_screen.jsonl": ("observe.screen", "format_screen"),
-    "*/screen.jsonl": ("observe.screen", "format_screen"),
-    "*/*_audio.jsonl": ("observe.hear", "format_audio"),
-    "*/audio.jsonl": ("observe.hear", "format_audio"),
-    # Markdown formatter (semantic chunking)
-    "**/*.md": ("think.markdown", "format_markdown"),
+# Registry mapping glob patterns to (module_path, function_name, indexed).
+# Patterns are matched against journal-relative paths and must be specific
+# enough to use as Path.glob() arguments from the journal root.  The indexed
+# flag controls whether find_formattable_files() collects matching files for
+# the search index.  Adding a new journal content location requires a new
+# entry here — see docs/JOURNAL.md "Search Index" for details.
+#
+# Order matters: first match wins, so place specific patterns before general ones.
+FORMATTERS: dict[str, tuple[str, str, bool]] = {
+    # JSONL formatters (indexed)
+    "config/actions/*.jsonl": ("think.facets", "format_logs", True),
+    "facets/*/entities/*.jsonl": ("think.entities.formatting", "format_entities", True),
+    "facets/*/events/*.jsonl": ("think.events", "format_events", True),
+    "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos", True),
+    "facets/*/logs/*.jsonl": ("think.facets", "format_logs", True),
+    # Raw transcripts — formattable but not indexed (agent outputs are more useful)
+    "*/*/audio.jsonl": ("observe.hear", "format_audio", False),
+    "*/*/*_audio.jsonl": ("observe.hear", "format_audio", False),
+    "*/*/screen.jsonl": ("observe.screen", "format_screen", False),
+    "*/*/*_screen.jsonl": ("observe.screen", "format_screen", False),
+    # Markdown — specific journal paths (all indexed)
+    "*/agents/*.md": ("think.markdown", "format_markdown", True),
+    "*/agents/*/*.md": ("think.markdown", "format_markdown", True),
+    "*/*/agents/*.md": ("think.markdown", "format_markdown", True),
+    "*/*/agents/*/*.md": ("think.markdown", "format_markdown", True),
+    "facets/*/news/*.md": ("think.markdown", "format_markdown", True),
+    "imports/*/summary.md": ("think.markdown", "format_markdown", True),
+    "apps/*/agents/*.md": ("think.markdown", "format_markdown", True),
 }
 
 
 def get_formatter(file_path: str) -> Callable | None:
-    """Return formatter function for a file path.
+    """Return formatter function for a journal-relative file path.
 
-    Matches against registered glob patterns. For absolute paths not under
-    JOURNAL_PATH, tries progressively shorter path suffixes to find a match.
+    Matches against registered glob patterns (regardless of indexed flag).
 
     Args:
-        file_path: Path to match (journal-relative or absolute)
+        file_path: Journal-relative path (e.g., "20240101/agents/flow.md")
 
     Returns:
         Formatter function or None if no pattern matches
     """
-    # Try the path as-is first
-    for pattern, (module_path, func_name) in FORMATTERS.items():
+    for pattern, (module_path, func_name, _indexed) in FORMATTERS.items():
         if fnmatch.fnmatch(file_path, pattern):
             module = import_module(module_path)
             return getattr(module, func_name)
-
-    # For absolute paths, try progressively shorter suffixes
-    # e.g., /home/user/data/agents/123.jsonl -> agents/123.jsonl
-    if os.path.isabs(file_path):
-        parts = Path(file_path).parts
-        for i in range(1, len(parts)):
-            suffix = str(Path(*parts[i:]))
-            for pattern, (module_path, func_name) in FORMATTERS.items():
-                if fnmatch.fnmatch(suffix, pattern):
-                    module = import_module(module_path)
-                    return getattr(module, func_name)
 
     return None
 
@@ -203,15 +202,8 @@ def load_markdown(file_path: str | Path) -> str:
 def find_formattable_files(journal: str) -> dict[str, str]:
     """Find all indexable files in the journal.
 
-    Scans the journal directory for files that have formatters and should
-    be included in the journal index.
-
-    Locations scanned:
-    - Daily agent outputs: YYYYMMDD/agents/*.md
-    - Segment content: YYYYMMDD/HHMMSS*/agents/*.md, *.jsonl
-    - Facet content: facets/*/events/*.jsonl, entities/, todos/, news/, logs/
-    - Import summaries: imports/*/summary.md
-    - App agent outputs: apps/*/agents/*.md
+    Globs each indexed FORMATTERS pattern from the journal root to discover
+    files.  The registry is the single source of truth for what gets indexed.
 
     Args:
         journal: Path to journal root directory
@@ -222,121 +214,13 @@ def find_formattable_files(journal: str) -> dict[str, str]:
     files: dict[str, str] = {}
     journal_path = Path(journal)
 
-    # Scan day directories for agent outputs and segment content
-    for day, day_abs in day_dirs().items():
-        day_path = Path(day_abs)
-
-        # Daily agent outputs: YYYYMMDD/agents/*.md
-        agents_dir = day_path / "agents"
-        if agents_dir.is_dir():
-            for md_file in agents_dir.glob("*.md"):
-                rel = f"{day}/agents/{md_file.name}"
-                files[rel] = str(md_file)
-            # Daily faceted agent outputs: YYYYMMDD/agents/{facet}/*.md
-            for facet_dir in agents_dir.iterdir():
-                if facet_dir.is_dir():
-                    for md_file in facet_dir.glob("*.md"):
-                        rel = f"{day}/agents/{facet_dir.name}/{md_file.name}"
-                        files[rel] = str(md_file)
-
-        # Segment content: YYYYMMDD/HHMMSS_LEN/*
-        for entry in day_path.iterdir():
-            if not entry.is_dir():
-                continue
-            seg_key = segment_key(entry.name)
-            if not seg_key:
-                continue
-
-            # Segment agent markdown files: YYYYMMDD/HHMMSS_LEN/agents/*.md
-            seg_agents = entry / "agents"
-            if seg_agents.is_dir():
-                for md_file in seg_agents.glob("*.md"):
-                    rel = f"{day}/{entry.name}/agents/{md_file.name}"
-                    files[rel] = str(md_file)
-                # Faceted segment agent outputs
-                for facet_dir in seg_agents.iterdir():
-                    if facet_dir.is_dir():
-                        for md_file in facet_dir.glob("*.md"):
-                            rel = f"{day}/{entry.name}/agents/{facet_dir.name}/{md_file.name}"
-                            files[rel] = str(md_file)
-
-            # Segment JSONL: audio.jsonl, screen.jsonl, *_audio.jsonl, *_screen.jsonl
-            for jsonl_file in entry.glob("*.jsonl"):
-                name = jsonl_file.name
-                if (
-                    name == "audio.jsonl"
-                    or name == "screen.jsonl"
-                    or name.endswith("_audio.jsonl")
-                    or name.endswith("_screen.jsonl")
-                ):
-                    rel = f"{day}/{entry.name}/{name}"
-                    files[rel] = str(jsonl_file)
-
-    # Facet content: facets/*/...
-    facets_dir = journal_path / "facets"
-    if facets_dir.is_dir():
-        for facet_dir in facets_dir.iterdir():
-            if not facet_dir.is_dir():
-                continue
-            facet_name = facet_dir.name
-
-            # Events: facets/*/events/*.jsonl
-            events_dir = facet_dir / "events"
-            if events_dir.is_dir():
-                for jsonl_file in events_dir.glob("*.jsonl"):
-                    rel = f"facets/{facet_name}/events/{jsonl_file.name}"
-                    files[rel] = str(jsonl_file)
-
-            # Entities detected: facets/*/entities/*.jsonl
-            entities_dir = facet_dir / "entities"
-            if entities_dir.is_dir():
-                for jsonl_file in entities_dir.glob("*.jsonl"):
-                    rel = f"facets/{facet_name}/entities/{jsonl_file.name}"
-                    files[rel] = str(jsonl_file)
-
-            # Todos: facets/*/todos/*.jsonl
-            todos_dir = facet_dir / "todos"
-            if todos_dir.is_dir():
-                for jsonl_file in todos_dir.glob("*.jsonl"):
-                    rel = f"facets/{facet_name}/todos/{jsonl_file.name}"
-                    files[rel] = str(jsonl_file)
-
-            # News: facets/*/news/*.md
-            news_dir = facet_dir / "news"
-            if news_dir.is_dir():
-                for md_file in news_dir.glob("*.md"):
-                    rel = f"facets/{facet_name}/news/{md_file.name}"
-                    files[rel] = str(md_file)
-
-            # Action logs: facets/*/logs/*.jsonl
-            logs_dir = facet_dir / "logs"
-            if logs_dir.is_dir():
-                for jsonl_file in logs_dir.glob("*.jsonl"):
-                    rel = f"facets/{facet_name}/logs/{jsonl_file.name}"
-                    files[rel] = str(jsonl_file)
-
-    # Import summaries: imports/*/summary.md
-    imports_dir = journal_path / "imports"
-    if imports_dir.is_dir():
-        for import_dir in imports_dir.iterdir():
-            if not import_dir.is_dir():
-                continue
-            summary_file = import_dir / "summary.md"
-            if summary_file.is_file():
-                rel = f"imports/{import_dir.name}/summary.md"
-                files[rel] = str(summary_file)
-
-    # App agent outputs: apps/*/agents/*.md
-    apps_dir = journal_path / "apps"
-    if apps_dir.is_dir():
-        for app_dir in apps_dir.iterdir():
-            if not app_dir.is_dir():
-                continue
-            app_agents_dir = app_dir / "agents"
-            if app_agents_dir.is_dir():
-                for md_file in app_agents_dir.glob("*.md"):
-                    rel = f"apps/{app_dir.name}/agents/{md_file.name}"
-                    files[rel] = str(md_file)
+    for pattern, (_mod, _func, indexed) in FORMATTERS.items():
+        if not indexed:
+            continue
+        for match in journal_path.glob(pattern):
+            if match.is_file():
+                rel = str(match.relative_to(journal_path))
+                files[rel] = str(match)
 
     return files
 
@@ -347,10 +231,10 @@ def format_file(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Load file, detect formatter, return formatted chunks and metadata.
 
-    Supports both JSONL and Markdown files. File type is detected by extension.
+    File must be under JOURNAL_PATH. Supports JSONL and Markdown files.
 
     Args:
-        file_path: Absolute path to file (.jsonl or .md)
+        file_path: Absolute or journal-relative path to file
         context: Optional context dict passed to formatter
 
     Returns:
@@ -359,22 +243,20 @@ def format_file(
             - meta: Dict with optional "header" and "error" keys
 
     Raises:
-        ValueError: If no formatter found for file path
+        ValueError: If file is outside journal or no formatter found
         FileNotFoundError: If file doesn't exist
     """
+    journal_path = Path(get_journal()).resolve()
     file_path = Path(file_path).resolve()
 
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
 
-    # Get journal-relative path for pattern matching
-    journal_path = Path(get_journal()).resolve()
+    # Require file to be under journal
+    if not file_path.is_relative_to(journal_path):
+        raise ValueError(f"File is outside journal directory: {file_path}")
 
-    if file_path.is_relative_to(journal_path):
-        rel_path = str(file_path.relative_to(journal_path))
-    else:
-        # Fall back to just the filename parts for matching
-        rel_path = str(file_path)
+    rel_path = str(file_path.relative_to(journal_path))
 
     formatter = get_formatter(rel_path)
     if formatter is None:

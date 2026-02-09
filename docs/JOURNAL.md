@@ -743,9 +743,11 @@ Optional fields:
 The `indexer/` directory contains the full-text search index built from journal content.
 
 **Files:**
-- `indexer/journal.sqlite` – FTS5 SQLite database containing indexed chunks from all formattable content (agent outputs, transcripts, events, entities, todos)
+- `indexer/journal.sqlite` – FTS5 SQLite database containing indexed chunks from agent outputs, events, entities, todos, and action logs
 
-The indexer converts all content to markdown chunks via the formatters framework, then indexes with metadata fields (day, facet, topic) for filtering. Use `get_journal_index()` from `think/indexer/journal.py` to access the database programmatically.
+The indexer converts content to markdown chunks via the formatters framework, then indexes with metadata fields (day, facet, topic) for filtering. Raw audio/screen transcripts are formattable but not indexed — agent outputs provide more useful search results. Use `get_journal_index()` from `think/indexer/journal.py` to access the database programmatically.
+
+Which content gets indexed is controlled by the `FORMATTERS` registry in `think/formatters.py`. Each entry maps a glob pattern to a formatter function and an `indexed` flag. The registry patterns must be specific enough to use as `Path.glob()` arguments from the journal root — adding a new content location requires a new entry.
 
 Run `sol indexer` to rebuild the index from current journal content.
 

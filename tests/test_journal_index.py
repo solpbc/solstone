@@ -85,19 +85,9 @@ def journal_fixture(tmp_path):
     agents_dir.mkdir()
     (agents_dir / "flow.md").write_text("# Flow Summary\n\nWorked on project alpha.\n")
 
-    # Create segment with audio transcript
+    # Create segment with agent output
     segment = day / "100000_300"
     segment.mkdir()
-    (segment / "audio.jsonl").write_text(
-        json.dumps({"topics": ["test"], "setting": "personal"})
-        + "\n"
-        + json.dumps(
-            {"start": "00:00:01", "source": "mic", "speaker": 1, "text": "hello world"}
-        )
-        + "\n"
-    )
-
-    # Create segment markdown
     (segment / "agents").mkdir()
     (segment / "agents" / "screen.md").write_text(
         "# Screen Summary\n\nViewed documentation.\n"
@@ -332,7 +322,7 @@ def test_scan_journal_full_mode(journal_fixture):
 
 
 def test_find_formattable_files(journal_fixture):
-    """Test file discovery function."""
+    """Test file discovery function finds only indexed content."""
     from think.formatters import find_formattable_files
 
     files = find_formattable_files(str(journal_fixture))
@@ -343,9 +333,8 @@ def test_find_formattable_files(journal_fixture):
     # Daily agent outputs
     assert "20240101/agents/flow.md" in paths
 
-    # Segment content
+    # Segment agent outputs
     assert "20240101/100000_300/agents/screen.md" in paths
-    assert "20240101/100000_300/audio.jsonl" in paths
 
     # Facet content
     assert "facets/work/events/20240101.jsonl" in paths
@@ -444,12 +433,12 @@ def test_search_journal_returns_query_echo():
 
     os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
 
-    result = search_journal("test query", facet="work", topic="audio")
+    result = search_journal("test query", facet="work", topic="flow")
 
     assert "query" in result
     assert result["query"]["text"] == "test query"
     assert result["query"]["filters"]["facet"] == "work"
-    assert result["query"]["filters"]["topic"] == "audio"
+    assert result["query"]["filters"]["topic"] == "flow"
 
 
 def test_search_journal_results_include_path():

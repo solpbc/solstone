@@ -121,7 +121,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--topic",
-        help="Filter search results by topic (e.g., 'flow', 'audio', 'event')",
+        help="Filter search results by topic (e.g., 'flow', 'event', 'news')",
     )
     parser.add_argument(
         "-q",

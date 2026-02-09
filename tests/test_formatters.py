@@ -155,11 +155,11 @@ class TestFormatFile:
         with pytest.raises(FileNotFoundError):
             format_file("/nonexistent/path/screen.jsonl")
 
-    def test_format_file_no_formatter(self):
-        """Test format_file raises when no formatter matches."""
+    def test_format_file_outside_journal(self):
+        """Test format_file raises when file is outside journal."""
         from think.formatters import format_file
 
-        # Create a temp file that won't match any pattern
+        # Create a temp file outside the journal directory
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".jsonl", delete=False, dir="/tmp"
         ) as f:
@@ -167,10 +167,25 @@ class TestFormatFile:
             temp_path = f.name
 
         try:
-            with pytest.raises(ValueError, match="No formatter found"):
+            with pytest.raises(ValueError, match="outside journal"):
                 format_file(temp_path)
         finally:
             os.unlink(temp_path)
+
+    def test_format_file_no_formatter(self):
+        """Test format_file raises when no formatter matches."""
+        from think.formatters import format_file
+
+        # Create a file under journal that won't match any pattern
+        journal_path = Path(os.environ["JOURNAL_PATH"])
+        temp_file = journal_path / "unknown_file.txt"
+        temp_file.write_text("test content")
+
+        try:
+            with pytest.raises(ValueError, match="No formatter found"):
+                format_file(str(temp_file))
+        finally:
+            temp_file.unlink()
 
 
 class TestFormatScreen:

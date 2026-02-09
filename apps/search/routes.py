@@ -88,18 +88,11 @@ def _format_result(result: dict, query: str, facets_map: dict) -> dict:
     facet_info = facets_map.get(facet_name, {})
 
     # Clean and truncate text
-    if topic in ("audio", "screen"):
-        # Transcript-style: clean special chars for preview
-        preview = re.sub(r"[^A-Za-z0-9\s.,!?'-]", " ", text)
-        preview = re.sub(r"\s+", " ", preview).strip()
-        display_text = preview
+    words = text.split()
+    if len(words) > 50:
+        display_text = " ".join(words[:50]) + "..."
     else:
-        # Insight/event-style: keep markdown structure
-        words = text.split()
-        if len(words) > 50:
-            display_text = " ".join(words[:50]) + "..."
-        else:
-            display_text = text
+        display_text = text
 
     # Apply highlighting
     display_text = _highlight_query_terms(display_text, query)
