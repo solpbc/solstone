@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from think.utils import get_journal, setup_cli
@@ -79,6 +80,11 @@ Examples:
             if t["exit_code"] is not None and t["exit_code"] != 0:
                 exit_info = f" (exit {t['exit_code']})"
             print(f"  {t['qualified_name']}{desc}{exit_info}")
+            if t.get("ran_ts"):
+                ts_str = datetime.fromtimestamp(t["ran_ts"] / 1000).strftime(
+                    "%Y-%m-%d %H:%M"
+                )
+                print(f"    ran {ts_str}  log: {t['state_file']}")
 
         if pending:
             print(f"Pending ({len(pending)}):")

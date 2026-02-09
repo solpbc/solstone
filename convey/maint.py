@@ -111,11 +111,14 @@ def get_state_file(journal: Path, app: str, task: str) -> Path:
     return journal / "maint" / app / f"{task}.jsonl"
 
 
-def get_task_status(journal: Path, app: str, task: str) -> tuple[str, Optional[int]]:
+def get_task_status(
+    journal: Path, app: str, task: str
+) -> tuple[str, Optional[int], Optional[int]]:
     """Check task status from state file.
 
     Returns:
-        Tuple of (status, exit_code) where status is:
+        Tuple of (status, exit_code, ran_ts) where ran_ts is the exit event
+        timestamp in epoch milliseconds, and status is:
         - "pending": No state file exists
         - "success": Completed with exit code 0
         - "failed": Completed with non-zero exit code
@@ -123,7 +126,7 @@ def get_task_status(journal: Path, app: str, task: str) -> tuple[str, Optional[i
     state_file = get_state_file(journal, app, task)
 
     if not state_file.exists():
-        return "pending", None
+        return "pending", None, None
 
     # Read last line for exit event
     try:
@@ -136,15 +139,16 @@ def get_task_status(journal: Path, app: str, task: str) -> tuple[str, Optional[i
         if last_line:
             last_event = json.loads(last_line)
             if last_event.get("event") == "exit":
+                ts = last_event.get("ts")
                 exit_code = last_event.get("exit_code", -1)
                 if exit_code == 0:
-                    return "success", 0
-                return "failed", exit_code
+                    return "success", 0, ts
+                return "failed", exit_code, ts
     except (json.JSONDecodeError, OSError) as e:
         logger.warning(f"Error reading state file {state_file}: {e}")
 
     # File exists but no valid exit event - treat as failed
-    return "failed", None
+    return "failed", None, None
 
 
 def _write_event(f, event: dict) -> None:
@@ -314,7 +318,7 @@ def run_pending_tasks(journal: Path, emit_fn=None) -> tuple[int, int]:
     pending = []
 
     for task in tasks:
-        status, _ = get_task_status(journal, task.app, task.name)
+        status, _, _ = get_task_status(journal, task.app, task.name)
         if status == "pending":
             pending.append(task)
 
@@ -345,7 +349,7 @@ def list_tasks(journal: Path) -> list[dict]:
     result = []
 
     for task in tasks:
-        status, exit_code = get_task_status(journal, task.app, task.name)
+        status, exit_code, ran_ts = get_task_status(journal, task.app, task.name)
         result.append(
             {
                 "app": task.app,
@@ -354,6 +358,12 @@ def list_tasks(journal: Path) -> list[dict]:
                 "description": task.description,
                 "status": status,
                 "exit_code": exit_code,
+                "ran_ts": ran_ts,
+                "state_file": (
+                    str(get_state_file(journal, task.app, task.name))
+                    if status != "pending"
+                    else None
+                ),
             }
         )
 

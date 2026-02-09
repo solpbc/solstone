@@ -12,6 +12,7 @@ from convey.maint import (
     MaintTask,
     get_state_file,
     get_task_status,
+    list_tasks,
     run_task,
 )
 
@@ -42,9 +43,12 @@ class TestStatusTracking:
 
     def test_pending_status_no_file(self, temp_journal):
         """Test that missing state file means pending."""
-        status, exit_code = get_task_status(temp_journal, "chat", "fix_metadata")
+        status, exit_code, ran_ts = get_task_status(
+            temp_journal, "chat", "fix_metadata"
+        )
         assert status == "pending"
         assert exit_code is None
+        assert ran_ts is None
 
     def test_success_status(self, temp_journal):
         """Test that exit code 0 means success."""
@@ -54,12 +58,15 @@ class TestStatusTracking:
         state_file.write_text(
             '{"event": "exec", "ts": 1000}\n'
             '{"event": "line", "line": "done"}\n'
-            '{"event": "exit", "exit_code": 0}\n'
+            '{"event": "exit", "ts": 3000, "exit_code": 0}\n'
         )
 
-        status, exit_code = get_task_status(temp_journal, "chat", "fix_metadata")
+        status, exit_code, ran_ts = get_task_status(
+            temp_journal, "chat", "fix_metadata"
+        )
         assert status == "success"
         assert exit_code == 0
+        assert ran_ts is not None
 
     def test_failed_status(self, temp_journal):
         """Test that non-zero exit code means failed."""
@@ -67,12 +74,16 @@ class TestStatusTracking:
         state_dir.mkdir(parents=True)
         state_file = state_dir / "fix_metadata.jsonl"
         state_file.write_text(
-            '{"event": "exec", "ts": 1000}\n' '{"event": "exit", "exit_code": 1}\n'
+            '{"event": "exec", "ts": 1000}\n'
+            '{"event": "exit", "ts": 2000, "exit_code": 1}\n'
         )
 
-        status, exit_code = get_task_status(temp_journal, "chat", "fix_metadata")
+        status, exit_code, ran_ts = get_task_status(
+            temp_journal, "chat", "fix_metadata"
+        )
         assert status == "failed"
         assert exit_code == 1
+        assert ran_ts == 2000
 
     def test_failed_status_no_exit_event(self, temp_journal):
         """Test that file without exit event is treated as failed."""
@@ -81,9 +92,63 @@ class TestStatusTracking:
         state_file = state_dir / "fix_metadata.jsonl"
         state_file.write_text('{"event": "exec", "ts": 1000}\n')
 
-        status, exit_code = get_task_status(temp_journal, "chat", "fix_metadata")
+        status, exit_code, ran_ts = get_task_status(
+            temp_journal, "chat", "fix_metadata"
+        )
         assert status == "failed"
         assert exit_code is None
+        assert ran_ts is None
+
+
+class TestListTasks:
+    """Tests for listing tasks with status metadata."""
+
+    def test_list_tasks_includes_ran_ts_and_state_file(self, temp_journal, monkeypatch):
+        tasks = [
+            MaintTask(app="chat", name="done", script_path=Path("/dummy/done.py")),
+            MaintTask(app="chat", name="failed", script_path=Path("/dummy/failed.py")),
+            MaintTask(
+                app="chat", name="pending", script_path=Path("/dummy/pending.py")
+            ),
+        ]
+
+        def mock_discover_tasks():
+            return tasks
+
+        monkeypatch.setattr("convey.maint.discover_tasks", mock_discover_tasks)
+
+        # Success task with timestamp
+        success_file = get_state_file(temp_journal, "chat", "done")
+        success_file.parent.mkdir(parents=True, exist_ok=True)
+        success_file.write_text(
+            '{"event": "exec", "ts": 1000}\n'
+            '{"event": "exit", "ts": 5000, "exit_code": 0}\n'
+        )
+
+        # Failed task with timestamp
+        failed_file = get_state_file(temp_journal, "chat", "failed")
+        failed_file.write_text(
+            '{"event": "exec", "ts": 2000}\n'
+            '{"event": "exit", "ts": 6000, "exit_code": 2}\n'
+        )
+
+        listed = list_tasks(temp_journal)
+        by_name = {task["name"]: task for task in listed}
+
+        done_task = by_name["done"]
+        assert done_task["status"] == "success"
+        assert done_task["ran_ts"] == 5000
+        assert done_task["state_file"] == str(success_file)
+
+        failed_task = by_name["failed"]
+        assert failed_task["status"] == "failed"
+        assert failed_task["ran_ts"] == 6000
+        assert failed_task["state_file"] == str(failed_file)
+
+        pending_task = by_name["pending"]
+        assert pending_task["status"] == "pending"
+        assert pending_task["ran_ts"] is None
+        assert pending_task["state_file"] is None
 
 
 class TestRunTask:
