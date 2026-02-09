@@ -26,7 +26,7 @@ Search the journal index across insights, transcripts, events, entities, and tod
 - `-d, --day`: exact day filter (`YYYYMMDD`).
 - `--day-from`, `--day-to`: inclusive date-range filters (`YYYYMMDD`).
 - `-f, --facet`: facet filter (for example `work`, `personal`).
-- `-t, --topic`: topic/content filter (for example `flow`, `audio`, `event`, `entity:detected`).
+- `-t, --topic`: topic/content filter (for example `flow`, `event`, `news`, `entity:detected`).
 
 Behavior notes:
 

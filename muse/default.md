@@ -54,9 +54,9 @@ First, analyze each query to determine:
 - Looking for patterns, themes, or specific phrases across time
 - Starting a multi-step search to identify relevant days before deep diving
 
-**Use topic filter ("flow", "audio", "screen", "event", etc.) when:**
+**Use topic filter ("flow", "event", "news", "entity:detected", etc.) when:**
 - Looking for a specific type of content
-- Narrowing search to insights, transcripts, or events specifically
+- Narrowing search to agent outputs, events, or entities specifically
 
 **Use `sol call journal events` when:**
 - You need complete event data with all fields (times, participants, summaries)

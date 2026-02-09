@@ -20,7 +20,7 @@ Output contract: All formatters return tuple[list[dict], dict] where:
         - header: str - Optional header markdown (metadata summary, context, etc.)
         - error: str - Optional error/warning message (e.g., skipped entries)
         - indexer: dict - Indexing metadata with keys:
-            - topic: str - Content type (e.g., "audio", "screen", "event")
+            - topic: str - Content type (e.g., "event", "audio", "screen")
             JSONL formatters must provide topic. Markdown topic is path-derived.
             Day and facet are extracted from path by extract_path_metadata().
 
