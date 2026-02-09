@@ -3,33 +3,15 @@
 
 """Tests for Convey app endpoints.
 
-Tests that all apps with workspace.html can be accessed via /app/{app_name}.
-Requires Convey to be running (port discovered from health file).
+Tests that all apps with workspace.html can be accessed via /app/{app_name}
+using Flask's in-process test client.
 """
 
 from pathlib import Path
 
 import pytest
-import requests
 
-from think.utils import read_service_port
-
-
-def get_convey_port() -> int | None:
-    """Get the port Convey is running on, or None if not available."""
-    return read_service_port("convey")
-
-
-def is_convey_running() -> tuple[bool, int | None]:
-    """Check if Convey is running and return (is_running, port)."""
-    port = get_convey_port()
-    if port is None:
-        return False, None
-    try:
-        requests.get(f"http://localhost:{port}/", timeout=2)
-        return True, port  # Any response means server is running
-    except (requests.ConnectionError, requests.Timeout):
-        return False, port
+from convey import create_app
 
 
 def get_app_names() -> list[str]:
@@ -48,25 +30,23 @@ def get_app_names() -> list[str]:
     return sorted(app_names)
 
 
-@pytest.fixture(scope="module")
-def convey_port():
-    """Fixture that returns Convey port and skips if not running."""
-    running, port = is_convey_running()
-    if not running:
-        if port is None:
-            pytest.skip("Convey port file not found - is Convey running?")
-        else:
-            pytest.skip(f"Convey is not responding on port {port}")
-    return port
+@pytest.fixture(scope="session")
+def convey_client():
+    """Create an in-process Convey Flask test client."""
+    journal = str(
+        Path(__file__).resolve().parent.parent.parent / "tests" / "fixtures" / "journal"
+    )
+    app = create_app(journal)
+    return app.test_client()
 
 
 @pytest.mark.parametrize("app_name", get_app_names())
-def test_app_endpoint(app_name: str, convey_port: int):
+def test_app_endpoint(convey_client, app_name: str):
     """Test that each app endpoint returns 200."""
-    url = f"http://localhost:{convey_port}/app/{app_name}"
-    response = requests.get(url, timeout=5)
+    route = f"/app/{app_name}"
+    response = convey_client.get(route, follow_redirects=True)
 
     assert response.status_code == 200, (
-        f"App '{app_name}' at {url} returned {response.status_code}. "
+        f"App '{app_name}' at {route} returned {response.status_code}. "
         "Always use 'make screenshot' to validate this failure"
     )
