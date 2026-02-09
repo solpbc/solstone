@@ -191,8 +191,7 @@ def _setup_claude_cli_stub(
                 if session_id:
                     self.cli_session_id = session_id
 
-            result = self.aggregator.flush_as_result()
-            return result or "Done."
+            return self.aggregator.flush_as_result()
 
     monkeypatch.setattr(provider_mod, "CLIRunner", DummyCLIRunner)
 
