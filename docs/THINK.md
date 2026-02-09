@@ -19,7 +19,6 @@ The package exposes several commands:
 - `sol dream` runs generators and agents for a single day via Cortex.
 - `sol agents` is the unified CLI for tool agents and generators (spawned by Cortex, NDJSON protocol).
 - `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
-- `sol mcp` starts an MCP server exposing search capabilities for both summary text and raw transcripts.
 - `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
 - `sol muse` lists available agents and generators with their configuration. Use `sol muse <name>` to see details, and `sol muse <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
 
@@ -27,7 +26,6 @@ The package exposes several commands:
 sol call transcripts read YYYYMMDD [--start HHMMSS --length MINUTES]
 sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--run NAME]
 sol supervisor [--no-observers]
-sol mcp [--transport http] [--port PORT] [--path PATH]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
 sol muse [--schedule daily|segment] [--json]
 sol muse <name> [--prompt] [--day YYYYMMDD] [--segment HHMMSS_LEN] [--full]
@@ -221,7 +219,6 @@ AI agent system and tool-calling support for solstone.
 | Command | Purpose |
 |---------|---------|
 | `sol cortex` | Agent orchestration service |
-| `sol mcp` | MCP tool server (standalone command) |
 | `sol agents` | Direct agent invocation (testing only) |
 
 ## Architecture
@@ -249,7 +246,6 @@ Providers implement `run_generate()`, `run_agenerate()`, and `run_cogitate()` fu
 
 - **cortex.py** - Central agent manager, file watcher, event distribution, spawns agents.py
 - **cortex_client.py** - Client functions: `cortex_request()`, `cortex_agents()`, `wait_for_agents()`
-- **mcp.py** - FastMCP server module for journal search tools (used by `sol mcp`)
 - **agents.py** - Unified CLI entry point for both tool-using agents and generators (NDJSON protocol)
 - **models.py** - Unified `generate()`/`agenerate()` API, provider routing, token logging
 - **batch.py** - `Batch` class for concurrent LLM requests with dynamic queuing

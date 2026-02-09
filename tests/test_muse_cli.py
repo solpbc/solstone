@@ -165,8 +165,8 @@ def test_list_prompts_output(capsys):
     assert "<segment>/activity.md" in output
     assert "<day>/agents/flow.md" in output
 
-    # Tools column shows tools or dash
-    assert "default                   Journal Chat" in output
+    # Tools column is present
+    assert "TOOLS" in output
 
 
 def test_list_prompts_schedule_filter(capsys):

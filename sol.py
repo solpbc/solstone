@@ -58,10 +58,9 @@ COMMANDS: dict[str, str] = {
     "observer": "observe.observer",
     "observe-linux": "observe.linux.observer",
     "observe-macos": "observe.macos.observer",
-    # AI agents and MCP (formerly muse package)
+    # AI agents (formerly muse package)
     "agents": "think.agents",
     "cortex": "think.cortex",
-    "mcp": "think.mcp",
     "muse": "think.muse_cli",
     "call": "think.call",
     # convey package - web UI
@@ -107,7 +106,6 @@ GROUPS: dict[str, list[str]] = {
     "Muse (AI agents)": [
         "agents",
         "cortex",
-        "mcp",
         "muse",
         "call",
     ],

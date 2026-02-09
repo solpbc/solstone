@@ -267,24 +267,18 @@ When spawning an agent:
    - Loads agent configuration using `get_agent()` from `think/muse.py`
    - Merges request parameters with agent defaults
    - Resolves provider and model based on context
-   - Expands tool pack names to tool lists
 3. The agent validates the config via `validate_config()` before execution
 4. Instructions are built with three components:
    - `system_instruction`: `journal.md` (shared base prompt, cacheable)
    - `extra_context`: Runtime context (facets, generators list, datetime)
    - `user_instruction`: The agent's `.md` file content
 
-Agents define specialized behaviors, tool usage patterns, and facet expertise. Available agents can be discovered using `get_muse_configs(has_tools=True)` or by listing files in the `muse/` directory (agents are `.md` files with a `tools` field).
+Agents define specialized behaviors and facet expertise. Available agents can be discovered using `get_muse_configs(type="cogitate")` or by listing files in the `muse/` directory.
 
 ### Agent Configuration Options
 
 The JSON frontmatter for an agent can include:
 - `max_tokens`: Maximum response token limit
-- `tools`: Tool configuration for `sol call` invocations (string or array)
-  - String: Comma-separated pack names (e.g., `"journal"`, `"journal, todo"`) - expanded via `get_tools()`
-  - Available packs: `journal`, `todo`, `facets`, `entities`, `apps`
-  - Array: Explicit list of tool names (e.g., `["search_insights", "get_facet"]`)
-  - If omitted, defaults to "default" pack (alias for "journal")
 - `schedule`: Scheduling configuration for automated execution
   - `"daily"`: Run automatically at midnight each day
 - `priority`: Execution order for scheduled prompts (integer, **required** for scheduled prompts)
@@ -320,19 +314,6 @@ This allows controlling model selection via tier configuration rather than hardc
   }
 }
 ```
-
-## Tool Integration
-
-Agents use `sol call` commands for tool-driven journal interaction.
-
-### Backend Support
-- **OpenAI, Anthropic, Google**: Tool-calling is supported through the shared `sol call` command path
-
-### Tool Discovery
-Agents discover and invoke tools through `sol call` commands rather than an MCP URL:
-- Tool execution uses `sol call <module> <command> [args...]`
-- No HTTP discovery endpoint is involved
-- Journal search/retrieval tools are exposed by the corresponding `sol call` modules
 
 ## Agent Providers
 
@@ -382,8 +363,7 @@ To force an agent to run for all facets regardless of activity, set `"always": t
   "title": "Facet Newsletter Generator",
   "schedule": "daily",
   "priority": 10,
-  "multi_facet": true,
-  "tools": "journal,facets"
+  "multi_facet": true
 }
 ```
 
@@ -392,8 +372,7 @@ To force an agent to run for all facets regardless of activity, set `"always": t
   "title": "Facet Auditor",
   "schedule": "daily",
   "multi_facet": true,
-  "always": true,
-  "tools": "journal,facets"
+  "always": true
 }
 ```
 
@@ -405,8 +384,7 @@ Segment agents can also be multi-facet. Active facets are determined from the `f
 {
   "title": "Facet Activity Tracker",
   "schedule": "segment",
-  "multi_facet": true,
-  "tools": "journal,facets"
+  "multi_facet": true
 }
 ```
 

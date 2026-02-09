@@ -14,6 +14,7 @@ from think.facets import log_tool_action
 # -----------------------------------------------------------------------------
 
 
+
 def todo_list(day: str, facet: str, day_to: str | None = None) -> dict[str, Any]:
     """Return the numbered todo checklist for a day or date range in a specific facet.
 

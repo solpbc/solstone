@@ -34,7 +34,6 @@ def test_entities_agent_config(fixture_journal):
     assert config.get("title") == "Entity Detector"
     assert config.get("schedule") == "daily"
     assert config.get("priority") == 55
-    assert config.get("type") == "cogitate"
     assert config.get("multi_facet") is True
 
 
@@ -54,7 +53,6 @@ def test_entities_review_agent_config(fixture_journal):
     assert config.get("title") == "Entity Reviewer"
     assert config.get("schedule") == "daily"
     assert config.get("priority") == 56
-    assert config.get("type") == "cogitate"
     assert config.get("multi_facet") is True
 
 

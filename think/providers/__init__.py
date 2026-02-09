@@ -8,7 +8,7 @@ and agent execution. Each provider module exposes:
 
 - run_generate(): Sync text generation, returns GenerateResult
 - run_agenerate(): Async text generation, returns GenerateResult
-- run_cogitate(): Tool-calling execution with MCP integration
+- run_cogitate(): Tool-calling execution with event streaming
 
 GenerateResult is a TypedDict with: text, usage, finish_reason, thinking.
 The wrapper functions in think.models handle token logging and JSON validation.

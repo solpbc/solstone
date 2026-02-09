@@ -37,7 +37,7 @@ All apps are served via a shared route handler at `/app/{app_name}`. You only ne
 apps/my_app/
 ├── workspace.html     # Required: Main content template
 ├── routes.py          # Optional: Flask blueprint (only if custom routes needed)
-├── tools.py           # Optional: MCP tool extensions (auto-discovered)
+├── tools.py           # Optional: App tool functions for agent workflows
 ├── call.py            # Optional: CLI commands via Typer (auto-discovered)
 ├── events.py          # Optional: Server-side event handlers (auto-discovered)
 ├── app.json           # Optional: Metadata (icon, label, facet support)
@@ -55,7 +55,7 @@ apps/my_app/
 |------|----------|---------|
 | `workspace.html` | **Yes** | Main app content (rendered in container) |
 | `routes.py` | No | Flask blueprint for custom routes (API endpoints, forms, etc.) |
-| `tools.py` | No | MCP tool extensions for AI agents (auto-discovered) |
+| `tools.py` | No | Callable tool functions for AI agent workflows |
 | `call.py` | No | CLI commands via Typer, accessed as `sol call <app>` (auto-discovered) |
 | `events.py` | No | Server-side Callosum event handlers (auto-discovered) |
 | `app.json` | No | Icon, label, facet support overrides |
@@ -236,31 +236,19 @@ Submenus appear as hover pop-outs on menu bar icons. Items support `id`, `label`
 
 ---
 
-### 6. `tools.py` - MCP Tool Extensions
+### 6. `tools.py` - App Tool Functions
 
-Define custom MCP tools for your app that are automatically discovered and registered.
+Define plain callable tool functions for your app in `tools.py`.
 
 **Key Points:**
-- Only create `tools.py` if your app needs custom AI agent tools
-- Tools use the `@register_tool` decorator from `think.mcp`
-- Automatically discovered and loaded at server startup
-- Errors in one app's tools don't prevent other apps from loading
-- Tools become available to all AI agents via the MCP protocol
-
-**Required imports:**
-```python
-from think.mcp import register_tool, HINTS
-```
-
-**Decorator usage:** Apply `@register_tool(annotations=HINTS)` to plain functions that return dict responses. Functions should include type hints and docstrings for AI agent context.
-
-**Discovery behavior:** The MCP server scans `apps/*/tools.py` at startup, imports modules, and registers decorated functions. Private apps (directories starting with `_`) are skipped.
+- Only create `tools.py` if your app needs reusable tool functions for agent workflows
+- Keep functions simple: typed inputs, dict-style outputs, clear docstrings
+- Put shared logic in your app/module layer and call it from these functions
 
 **Reference implementations:**
-- Discovery logic: `think/mcp.py` - `_discover_app_tools()` function
-- Testing: `tests/integration/test_app_tool_discovery.py` - Error handling and edge cases
-- App tool examples: `apps/todos/tools.py`, `apps/entities/tools.py` - Tool implementation patterns
-- Core tool example: `think/tools/search.py` - Search tool implementation
+- `apps/todos/tools.py`
+- `apps/entities/tools.py`
+- `apps/chat/tools.py`
 
 ---
 
@@ -282,10 +270,10 @@ import typer
 app = typer.Typer(help="Description of your app commands.")
 ```
 
-**Command pattern:** Define commands using Typer's `@app.command()` decorator with `typer.Argument` for positional args and `typer.Option` for flags. Call the underlying data layer directly (not MCP tool functions) and print output via `typer.echo()`.
+**Command pattern:** Define commands using Typer's `@app.command()` decorator with `typer.Argument` for positional args and `typer.Option` for flags. Call the underlying data layer directly (not tool helper wrappers) and print output via `typer.echo()`.
 
-**CLI vs MCP tools:** CLI commands parallel MCP tools but are optimized for interactive terminal use. Key differences:
-- No MCP `Context` parameter — CLI has no MCP context
+**CLI vs tool functions:** CLI commands parallel tool functions but are optimized for interactive terminal use. Key differences:
+- Tool functions may accept a `Context` parameter for caller metadata; CLI has no context object
 - No guard parameters (e.g., `line_number`, `observation_number`) — auto-compute them internally since interactive users don't need optimistic locking
 - Print formatted text instead of returning dicts
 - Use `typer.Exit(1)` for errors instead of returning error dicts

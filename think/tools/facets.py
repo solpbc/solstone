@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""MCP tools for facet management.
+"""Tool functions for facet management.
 
-Note: These functions are registered as MCP tools by think/mcp.py
-They can also be imported and called directly for testing or internal use.
+These functions can be imported and called directly from agent workflows,
+tests, or other internal modules.
 """
 
 from pathlib import Path
