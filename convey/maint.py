@@ -229,8 +229,7 @@ def run_task(
                             "line": line,
                         },
                     )
-                    # Also log to console
-                    logger.debug(f"  {line}")
+                    print(f"  {line}")
 
             # Wait for completion
             exit_code = proc.wait()
