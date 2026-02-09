@@ -575,7 +575,7 @@ const Dashboard = (function() {
     buildStackedCategoryChart(
       document.getElementById('eventsChart'),
       stats.topic_counts_by_day || {},
-      data.insights || {}  // Use insight metadata for titles/colors
+      data.generators || {}  // Use generator metadata for titles/colors
     );
     
     // Render repairs if needed

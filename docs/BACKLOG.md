@@ -6,7 +6,6 @@ Tactical work items prioritized for implementation.
 
 ## Apps
 
-- [ ] Consolidate insights app functionality into agents app
 - [ ] Add tabs or navigation mode to entities app all-facet view (reduce vertical scrolling)
 - [ ] Audit apps for #fragment deep linking and improve coverage
 
@@ -32,7 +31,6 @@ Tactical work items prioritized for implementation.
 ## Indexer
 
 - [ ] Performance tune SQLite usage
-- [ ] Investigate potential double-indexing of insights and occurrences
 - [ ] Refactor entity detection to be per-entity
 
 ## Testing

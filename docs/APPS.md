@@ -385,7 +385,7 @@ Define custom agents and generator templates that integrate with solstone's Cort
 
 #### Instructions Configuration
 
-Both insights and agents support an optional `instructions` key for customizing prompt composition:
+Both generators and agents support an optional `instructions` key for customizing prompt composition:
 
 ```json
 {
