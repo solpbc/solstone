@@ -11,7 +11,7 @@ from flask import Blueprint, jsonify, render_template, request
 
 from apps.utils import get_app_storage_path
 from convey.config import get_selected_facet
-from convey.utils import load_json, save_json
+from convey.utils import error_response, load_json, save_json, success_response
 from think.models import generate
 from think.utils import now_ms
 
@@ -142,9 +142,7 @@ def send_message() -> Any:
     continue_chat = payload.get("continue_chat")  # chat_id to continue
 
     if not provider:
-        resp = jsonify({"error": "provider is required"})
-        resp.status_code = 400
-        return resp
+        return error_response("provider is required", 400)
 
     config: dict[str, Any] = {}
     is_continuation = False
@@ -156,25 +154,20 @@ def send_message() -> Any:
             chat_provider = chat_data.get("provider")
 
             if not session_id:
-                resp = jsonify({"error": "Chat has no session to continue"})
-                resp.status_code = 400
-                return resp
+                return error_response("Chat has no session to continue", 400)
 
             if chat_provider and chat_provider != provider:
-                resp = jsonify(
-                    {"error": f"Chat uses {chat_provider}, cannot switch to {provider}"}
+                return error_response(
+                    f"Chat uses {chat_provider}, cannot switch to {provider}",
+                    400,
                 )
-                resp.status_code = 400
-                return resp
 
             config["session_id"] = session_id
             is_continuation = True
 
     api_key_error = _check_provider_api_key(provider)
     if api_key_error:
-        resp = jsonify({"error": api_key_error})
-        resp.status_code = 500
-        return resp
+        return error_response(api_key_error, 500)
 
     try:
         from convey.utils import spawn_agent
@@ -234,9 +227,7 @@ def send_message() -> Any:
 
         return jsonify(chat_id=chat_id, agent_id=agent_id)
     except Exception as e:
-        resp = jsonify({"error": str(e)})
-        resp.status_code = 500
-        return resp
+        return error_response(str(e), 500)
 
 
 @chat_bp.route("/api/chats")
@@ -265,9 +256,7 @@ def chat_events(chat_id: str) -> Any:
 
     chat = _load_chat(chat_id)
     if not chat:
-        resp = jsonify({"error": f"Chat not found: {chat_id}"})
-        resp.status_code = 404
-        return resp
+        return error_response(f"Chat not found: {chat_id}", 404)
 
     agent_ids = chat.get("agent_ids", [])
 
@@ -314,9 +303,7 @@ def get_chat(chat_id: str) -> Any:
     """
     chat_data = _load_chat(chat_id)
     if not chat_data:
-        resp = jsonify({"error": f"Chat not found: {chat_id}"})
-        resp.status_code = 404
-        return resp
+        return error_response(f"Chat not found: {chat_id}", 404)
 
     return jsonify(chat_data)
 
@@ -353,9 +340,7 @@ def find_chat_by_agent(agent_id: str) -> Any:
 
     chat_data = _load_chat(chat_id)
     if not chat_data:
-        resp = jsonify({"error": f"Chat not found for agent: {agent_id}"})
-        resp.status_code = 404
-        return resp
+        return error_response(f"Chat not found for agent: {agent_id}", 404)
 
     return jsonify(chat_data)
 
@@ -374,22 +359,18 @@ def set_chat_session(chat_id: str) -> Any:
     session_id = payload.get("session_id")
 
     if not session_id:
-        resp = jsonify({"error": "session_id is required"})
-        resp.status_code = 400
-        return resp
+        return error_response("session_id is required", 400)
 
     chat_data = _load_chat(chat_id)
     if not chat_data:
-        resp = jsonify({"error": f"Chat not found: {chat_id}"})
-        resp.status_code = 404
-        return resp
+        return error_response(f"Chat not found: {chat_id}", 404)
 
     # Only set session_id once (it never changes)
     if not chat_data.get("session_id"):
         chat_data["session_id"] = session_id
         _save_chat(chat_id, chat_data)
 
-    return jsonify({"success": True})
+    return success_response()
 
 
 @chat_bp.route("/api/chat/<chat_id>/read", methods=["POST"])
@@ -404,13 +385,11 @@ def mark_chat_read(chat_id: str) -> Any:
     """
     chat_data = _load_chat(chat_id)
     if not chat_data:
-        resp = jsonify({"error": f"Chat not found: {chat_id}"})
-        resp.status_code = 404
-        return resp
+        return error_response(f"Chat not found: {chat_id}", 404)
 
     chat_data["unread"] = False
     _save_chat(chat_id, chat_data)
-    return jsonify({"success": True})
+    return success_response()
 
 
 @chat_bp.route("/api/chat/<chat_id>", methods=["DELETE"])
@@ -428,19 +407,15 @@ def delete_chat(chat_id: str) -> Any:
         chat_file = chats_dir / f"{chat_id}.json"
 
         if not chat_file.exists():
-            resp = jsonify({"error": f"Chat not found: {chat_id}"})
-            resp.status_code = 404
-            return resp
+            return error_response(f"Chat not found: {chat_id}", 404)
 
         # Delete the chat metadata file
         chat_file.unlink()
 
-        return jsonify({"success": True})
+        return success_response()
 
     except Exception as e:
-        resp = jsonify({"error": str(e)})
-        resp.status_code = 500
-        return resp
+        return error_response(str(e), 500)
 
 
 @chat_bp.route("/api/chat/<chat_id>/retry", methods=["POST"])
@@ -463,31 +438,26 @@ def retry_chat(chat_id: str) -> Any:
 
     chat_data = _load_chat(chat_id)
     if not chat_data:
-        resp = jsonify({"error": f"Chat not found: {chat_id}"})
-        resp.status_code = 404
-        return resp
+        return error_response(f"Chat not found: {chat_id}", 404)
 
     agent_ids = chat_data.get("agent_ids", [])
     if not agent_ids:
-        resp = jsonify({"error": "Chat has no agents"})
-        resp.status_code = 400
-        return resp
+        return error_response("Chat has no agents", 400)
 
     last_agent_id = agent_ids[-1]
     end_state = get_agent_end_state(last_agent_id)
 
     if end_state != "error":
-        resp = jsonify({"error": f"Cannot retry: last agent ended with '{end_state}'"})
-        resp.status_code = 400
-        return resp
+        return error_response(
+            f"Cannot retry: last agent ended with '{end_state}'",
+            400,
+        )
 
     # Extract prompt from last agent's start event
     try:
         events = read_agent_events(last_agent_id)
     except FileNotFoundError:
-        resp = jsonify({"error": "Could not read agent events"})
-        resp.status_code = 500
-        return resp
+        return error_response("Could not read agent events", 500)
 
     prompt = None
     for event in events:
@@ -496,23 +466,17 @@ def retry_chat(chat_id: str) -> Any:
             break
 
     if not prompt:
-        resp = jsonify({"error": "Could not find original prompt to retry"})
-        resp.status_code = 500
-        return resp
+        return error_response("Could not find original prompt to retry", 500)
 
     # Use chat's locked provider
     provider = chat_data.get("provider")
     if not provider:
-        resp = jsonify({"error": "Chat has no provider set"})
-        resp.status_code = 400
-        return resp
+        return error_response("Chat has no provider set", 400)
 
     # Validate API key
     api_key_error = _check_provider_api_key(provider)
     if api_key_error:
-        resp = jsonify({"error": api_key_error})
-        resp.status_code = 500
-        return resp
+        return error_response(api_key_error, 500)
 
     try:
         from convey.utils import spawn_agent
@@ -544,6 +508,4 @@ def retry_chat(chat_id: str) -> Any:
         return jsonify(agent_id=agent_id)
 
     except Exception as e:
-        resp = jsonify({"error": str(e)})
-        resp.status_code = 500
-        return resp
+        return error_response(str(e), 500)
