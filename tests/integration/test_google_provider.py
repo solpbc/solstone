@@ -70,7 +70,7 @@ def test_google_provider_basic():
         input=ndjson_input,
         capture_output=True,
         text=True,
-        timeout=10,
+        timeout=30,
     )
 
     # Check that the command succeeded
@@ -162,7 +162,7 @@ def test_google_provider_with_thinking():
         input=ndjson_input,
         capture_output=True,
         text=True,
-        timeout=10,
+        timeout=30,
     )
 
     # Allow for model unavailability

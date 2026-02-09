@@ -37,6 +37,8 @@ import traceback
 from typing import Any, Callable
 
 from think.models import GPT_5
+from think.utils import now_ms
+
 from think.providers.cli import (
     CLIRunner,
     ThinkingAggregator,
@@ -93,13 +95,15 @@ def _translate_codex(
     # -- item.completed ----------------------------------------------------
     if event_type == "item.completed":
         if item_type == "reasoning":
-            callback.emit(
-                {
-                    "event": "thinking",
-                    "summary": item.get("text", ""),
-                    "raw": [event],
-                }
-            )
+            thinking_event: dict[str, Any] = {
+                "event": "thinking",
+                "summary": item.get("text", ""),
+                "raw": [event],
+                "ts": now_ms(),
+            }
+            if aggregator._model:
+                thinking_event["model"] = aggregator._model
+            callback.emit(thinking_event)
             return None
 
         if item_type == "agent_message":

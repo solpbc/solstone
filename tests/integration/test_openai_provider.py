@@ -12,7 +12,7 @@ import pytest
 from dotenv import load_dotenv
 
 from tests.integration.conftest import require_cli_tool
-from think.models import GPT_5_MINI
+from think.models import GPT_5
 
 
 def get_fixtures_env():
@@ -57,7 +57,7 @@ def test_openai_provider_basic():
             "prompt": "what is 1+1? Just give me the number.",
             "provider": "openai",
             "name": "default",
-            "model": GPT_5_MINI,  # Use cheap model for testing
+            "model": GPT_5,
             "max_output_tokens": 100,
         }
     )
@@ -95,7 +95,7 @@ def test_openai_provider_basic():
     start_event = events[0]
     assert start_event["event"] == "start"
     assert start_event["prompt"] == "what is 1+1? Just give me the number."
-    assert start_event["model"] == GPT_5_MINI
+    assert start_event["model"] == GPT_5
     assert start_event["name"] == "default"
     assert isinstance(start_event["ts"], int)
 
@@ -128,7 +128,7 @@ def test_openai_provider_basic():
 def test_openai_provider_with_reasoning():
     """Test OpenAI provider with reasoning model to verify thinking summaries.
 
-    Uses GPT-5-mini which supports reasoning with summary="detailed" config.
+    Uses GPT-5 which supports reasoning with summary="detailed" config.
     The key test is that:
     1. The request succeeds (reasoning config is valid)
     2. We may receive thinking events with summaries (model-dependent)
@@ -151,14 +151,13 @@ def test_openai_provider_with_reasoning():
     env["JOURNAL_PATH"] = journal_path
     env["OPENAI_API_KEY"] = api_key
 
-    # Use GPT-5-mini which supports reasoning summaries
     # Use a prompt that encourages step-by-step reasoning
     ndjson_input = json.dumps(
         {
             "prompt": "If I have 3 apples and buy 5 more, then give away 2, how many do I have? Think through this step by step.",
             "provider": "openai",
             "name": "default",
-            "model": GPT_5_MINI,
+            "model": GPT_5,
             "max_output_tokens": 500,
         }
     )
@@ -244,7 +243,7 @@ def test_openai_provider_with_extra_context():
             "prompt": "What project was mentioned in the context above? Just the name.",
             "provider": "openai",
             "name": "default",
-            "model": GPT_5_MINI,
+            "model": GPT_5,
             "max_output_tokens": 50,
             "extra_context": "## Project Context\nYou are working on Project Moonshot.",
         }
@@ -314,7 +313,7 @@ def test_openai_json_truncation_detection():
     # Use run_generate which returns GenerateResult, then check finish_reason
     result = openai_provider.run_generate(
         contents="Return a JSON array of the first 50 prime numbers.",
-        model=GPT_5_MINI,
+        model=GPT_5,
         json_output=True,
         max_output_tokens=50,  # Too small to complete the response
     )

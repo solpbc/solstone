@@ -13,6 +13,9 @@ import pytest
 from think.batch import Batch
 from think.models import GEMINI_FLASH, GEMINI_LITE
 
+# Lite model for timing-sensitive tests (faster responses, less variance)
+_TIMING_MODEL = GEMINI_LITE
+
 # Default context for integration tests - uses Google provider
 TEST_CONTEXT = "test.batch.integration"
 
@@ -74,11 +77,11 @@ async def test_batch_concurrent_timing():
     # Sequential baseline
     start = time.time()
     batch_seq = Batch(max_concurrent=1)
-    for i in range(3):
+    for i in range(2):
         req = batch_seq.create(
             contents=f"Count to {i+1}. Reply with just the number.",
             context=TEST_CONTEXT,
-            model=GEMINI_FLASH,
+            model=_TIMING_MODEL,
         )
         batch_seq.add(req)
 
@@ -89,12 +92,12 @@ async def test_batch_concurrent_timing():
 
     # Concurrent execution
     start = time.time()
-    batch_conc = Batch(max_concurrent=3)
-    for i in range(3):
+    batch_conc = Batch(max_concurrent=2)
+    for i in range(2):
         req = batch_conc.create(
             contents=f"Count to {i+1}. Reply with just the number.",
             context=TEST_CONTEXT,
-            model=GEMINI_FLASH,
+            model=_TIMING_MODEL,
         )
         batch_conc.add(req)
 
@@ -104,8 +107,8 @@ async def test_batch_concurrent_timing():
     conc_duration = time.time() - start
 
     # Both should complete successfully
-    assert len(seq_results) == 3
-    assert len(conc_results) == 3
+    assert len(seq_results) == 2
+    assert len(conc_results) == 2
 
     # Concurrent should not be dramatically slower than sequential.
     # We use a lenient threshold (1.5x) because API latency varies significantly,

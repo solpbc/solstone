@@ -234,6 +234,7 @@ async def run_cogitate(
             "claude",
             "-p",
             "-",
+            "--verbose",
             "--output-format",
             "stream-json",
             "--permission-mode",
