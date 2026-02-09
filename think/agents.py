@@ -277,14 +277,6 @@ def prepare_config(request: dict) -> dict:
 
     # Day-based processing: load transcript and apply template substitution
     if day:
-        # Merge extra_context into system_instruction for day-based analysis
-        if "system_instruction" not in request:
-            system_instruction = config.get("system_instruction", "")
-            extra_ctx = config.get("extra_context")
-            if extra_ctx:
-                system_instruction = f"{system_instruction}\n\n{extra_ctx}"
-            config["system_instruction"] = system_instruction
-
         # Load transcript
         transcript, source_counts = _load_transcript(day, segment, span, sources)
         config["transcript"] = transcript
@@ -447,8 +439,9 @@ def _build_dry_run_event(config: dict, before_values: dict) -> dict:
         "prompt": config.get("prompt", ""),
     }
 
-    if agent_type == "cogitate":
-        event["extra_context"] = config.get("extra_context", "")
+    extra_context = config.get("extra_context", "")
+    if extra_context:
+        event["extra_context"] = extra_context
 
     # Day-based fields
     if config.get("day"):
@@ -535,6 +528,9 @@ async def _execute_generate(
     user_instruction = config.get("user_instruction", "")
     prompt = config.get("prompt", "")
     system_instruction = config.get("system_instruction", "")
+    extra_ctx = config.get("extra_context")
+    if extra_ctx:
+        system_instruction = f"{system_instruction}\n\n{extra_ctx}" if system_instruction else extra_ctx
     output_path = config.get("output_path")
     output_format = config.get("output")
 
@@ -669,8 +665,7 @@ async def _run_agent(
         "user_instruction": config.get("user_instruction", ""),
         "transcript": config.get("transcript", ""),
     }
-    if is_cogitate:
-        before_values["extra_context"] = config.get("extra_context", "")
+    before_values["extra_context"] = config.get("extra_context", "")
 
     # Run pre-hooks
     modifications = _run_pre_hooks(config)
