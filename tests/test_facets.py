@@ -351,18 +351,26 @@ def test_get_active_facets_from_segment_facets(monkeypatch, tmp_path):
     # Create segment with facets.json containing two facets
     seg1 = day_dir / "100000_300" / "agents"
     seg1.mkdir(parents=True)
-    (seg1 / "facets.json").write_text(json.dumps([
-        {"facet": "work", "activity": "Code review", "level": "high"},
-        {"facet": "personal", "activity": "Email check", "level": "low"},
-    ]))
+    (seg1 / "facets.json").write_text(
+        json.dumps(
+            [
+                {"facet": "work", "activity": "Code review", "level": "high"},
+                {"facet": "personal", "activity": "Email check", "level": "low"},
+            ]
+        )
+    )
 
     # Create another segment with overlapping + new facet
     seg2 = day_dir / "110000_300" / "agents"
     seg2.mkdir(parents=True)
-    (seg2 / "facets.json").write_text(json.dumps([
-        {"facet": "work", "activity": "Meeting", "level": "high"},
-        {"facet": "sunstone", "activity": "Dev work", "level": "medium"},
-    ]))
+    (seg2 / "facets.json").write_text(
+        json.dumps(
+            [
+                {"facet": "work", "activity": "Meeting", "level": "high"},
+                {"facet": "sunstone", "activity": "Dev work", "level": "medium"},
+            ]
+        )
+    )
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
 
@@ -430,9 +438,13 @@ def test_get_active_facets_malformed_json(monkeypatch, tmp_path):
     # Valid segment
     seg2 = day_dir / "110000_300" / "agents"
     seg2.mkdir(parents=True)
-    (seg2 / "facets.json").write_text(json.dumps([
-        {"facet": "work", "activity": "Coding", "level": "high"},
-    ]))
+    (seg2 / "facets.json").write_text(
+        json.dumps(
+            [
+                {"facet": "work", "activity": "Coding", "level": "high"},
+            ]
+        )
+    )
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
 

@@ -9,7 +9,6 @@ run in parallel, then dream waits for completion before the next group.
 """
 
 import argparse
-import json
 import logging
 import sys
 import time
@@ -214,7 +213,9 @@ def run_prompts_by_priority(
             raw_facets = load_segment_facets(day, segment)
             active_facets = set(f for f in raw_facets if f in enabled_facets)
 
-        spawned: list[tuple[str, str, dict]] = []  # (agent_id, name, config)
+        spawned: list[tuple[str, str, dict, str | None]] = (
+            []
+        )  # (agent_id, name, config, facet)
 
         for prompt_name, config in prompts_list:
             is_generate = config["type"] == "generate"
@@ -254,7 +255,16 @@ def run_prompts_by_priority(
                             name=prompt_name,
                             config=request_config,
                         )
-                        spawned.append((agent_id, prompt_name, config))
+                        spawned.append((agent_id, prompt_name, config, facet_name))
+                        emit(
+                            "agent_started",
+                            mode=target_schedule,
+                            day=day,
+                            segment=segment,
+                            name=prompt_name,
+                            agent_id=agent_id,
+                            facet=facet_name,
+                        )
                         logging.info(
                             f"Started {prompt_name} for {facet_name} (ID: {agent_id})"
                         )
@@ -283,7 +293,15 @@ def run_prompts_by_priority(
                         name=prompt_name,
                         config=request_config,
                     )
-                    spawned.append((agent_id, prompt_name, config))
+                    spawned.append((agent_id, prompt_name, config, None))
+                    emit(
+                        "agent_started",
+                        mode=target_schedule,
+                        day=day,
+                        segment=segment,
+                        name=prompt_name,
+                        agent_id=agent_id,
+                    )
                     logging.info(f"Started {prompt_name} (ID: {agent_id})")
 
             except Exception as e:
@@ -295,7 +313,7 @@ def run_prompts_by_priority(
         group_failed = 0
 
         if spawned:
-            agent_ids = [agent_id for agent_id, _, _ in spawned]
+            agent_ids = [agent_id for agent_id, _, _, _ in spawned]
             logging.info(
                 f"Waiting for {len(agent_ids)} prompts in priority {priority}..."
             )
@@ -307,9 +325,26 @@ def run_prompts_by_priority(
                     f"Priority {priority}: {len(timed_out)} prompts timed out: {timed_out}"
                 )
                 group_failed += len(timed_out)
+                for agent_id in timed_out:
+                    timed_name = next(
+                        (n for aid, n, _, _ in spawned if aid == agent_id), "unknown"
+                    )
+                    timed_facet = next(
+                        (f for aid, _, _, f in spawned if aid == agent_id), None
+                    )
+                    emit(
+                        "agent_completed",
+                        mode=target_schedule,
+                        day=day,
+                        segment=segment,
+                        name=timed_name,
+                        agent_id=agent_id,
+                        state="timeout",
+                        **({"facet": timed_facet} if timed_facet else {}),
+                    )
 
             # Check end states and run incremental indexing for generators
-            for agent_id, prompt_name, config in spawned:
+            for agent_id, prompt_name, config, agent_facet in spawned:
                 if agent_id in timed_out:
                     continue
 
@@ -317,6 +352,16 @@ def run_prompts_by_priority(
                 if end_state == "finish":
                     logging.info(f"{prompt_name} completed successfully")
                     group_success += 1
+                    emit(
+                        "agent_completed",
+                        mode=target_schedule,
+                        day=day,
+                        segment=segment,
+                        name=prompt_name,
+                        agent_id=agent_id,
+                        state="finish",
+                        **({"facet": agent_facet} if agent_facet else {}),
+                    )
 
                     # Incremental indexing for generators (skip JSON —
                     # structured metadata not suitable for full-text index)
@@ -340,6 +385,16 @@ def run_prompts_by_priority(
                 else:
                     logging.error(f"{prompt_name} ended with state: {end_state}")
                     group_failed += 1
+                    emit(
+                        "agent_completed",
+                        mode=target_schedule,
+                        day=day,
+                        segment=segment,
+                        name=prompt_name,
+                        agent_id=agent_id,
+                        state=end_state,
+                        **({"facet": agent_facet} if agent_facet else {}),
+                    )
 
         total_success += group_success
         total_failed += group_failed
@@ -444,20 +499,51 @@ def run_single_prompt(
                 config=request_config,
             )
             logging.info(f"Spawned generator {name} (ID: {agent_id})")
+            emit(
+                "agent_started",
+                day=day,
+                segment=segment,
+                name=name,
+                agent_id=agent_id,
+            )
 
             completed, timed_out = wait_for_agents([agent_id], timeout=600)
 
             if timed_out:
                 logging.error(f"Generator {name} timed out (ID: {agent_id})")
+                emit(
+                    "agent_completed",
+                    day=day,
+                    segment=segment,
+                    name=name,
+                    agent_id=agent_id,
+                    state="timeout",
+                )
                 return False
 
             end_state = get_agent_end_state(agent_id)
             if end_state == "finish":
                 logging.info(f"Generator {name} completed successfully")
+                emit(
+                    "agent_completed",
+                    day=day,
+                    segment=segment,
+                    name=name,
+                    agent_id=agent_id,
+                    state="finish",
+                )
                 day_log(day, f"dream --run {name} ok")
                 return True
             else:
                 logging.error(f"Generator {name} ended with state: {end_state}")
+                emit(
+                    "agent_completed",
+                    day=day,
+                    segment=segment,
+                    name=name,
+                    agent_id=agent_id,
+                    state=end_state,
+                )
                 return False
 
         except Exception as e:
@@ -468,7 +554,7 @@ def run_single_prompt(
         logging.info(f"Running agent: {name}")
 
         input_summary = day_input_summary(day)
-        spawned_ids = []
+        spawned_ids: list[tuple[str, str | None]] = []
 
         if config.get("multi_facet"):
             facets_data = get_facets()
@@ -495,19 +581,31 @@ def run_single_prompt(
             for facet_name in target_facets:
                 try:
                     logging.info(f"Spawning {name} for facet: {facet_name}")
+                    request_config = {"facet": facet_name, "day": day}
+                    if segment:
+                        request_config["segment"] = segment
+                        request_config["env"] = {"SEGMENT_KEY": segment}
                     agent_id = cortex_request(
                         prompt=f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context.",
                         name=name,
-                        config={"facet": facet_name},
+                        config=request_config,
                     )
-                    spawned_ids.append(agent_id)
+                    spawned_ids.append((agent_id, facet_name))
+                    emit(
+                        "agent_started",
+                        day=day,
+                        segment=segment,
+                        name=name,
+                        agent_id=agent_id,
+                        facet=facet_name,
+                    )
                     logging.info(f"Started {name} for {facet_name} (ID: {agent_id})")
                 except Exception as e:
                     logging.error(f"Failed to spawn {name} for {facet_name}: {e}")
 
         else:
             try:
-                request_config = {}
+                request_config = {"day": day}
                 if segment:
                     request_config["segment"] = segment
                     request_config["env"] = {"SEGMENT_KEY": segment}
@@ -515,9 +613,16 @@ def run_single_prompt(
                 agent_id = cortex_request(
                     prompt=f"Running task for {day_formatted}: {input_summary}.",
                     name=name,
-                    config=request_config if request_config else None,
+                    config=request_config,
                 )
-                spawned_ids.append(agent_id)
+                spawned_ids.append((agent_id, None))
+                emit(
+                    "agent_started",
+                    day=day,
+                    segment=segment,
+                    name=name,
+                    agent_id=agent_id,
+                )
                 logging.info(f"Started {name} agent (ID: {agent_id})")
             except Exception as e:
                 logging.error(f"Failed to spawn {name}: {e}")
@@ -527,14 +632,36 @@ def run_single_prompt(
             return False
 
         logging.info(f"Waiting for {len(spawned_ids)} agent(s)...")
-        completed, timed_out = wait_for_agents(spawned_ids, timeout=600)
+        completed, timed_out = wait_for_agents(
+            [agent_id for agent_id, _ in spawned_ids], timeout=600
+        )
 
         if timed_out:
             logging.warning(f"{len(timed_out)} agent(s) timed out: {timed_out}")
 
         error_count = 0
-        for agent_id in completed:
+        for agent_id, agent_facet in spawned_ids:
+            if agent_id in timed_out:
+                emit(
+                    "agent_completed",
+                    day=day,
+                    segment=segment,
+                    name=name,
+                    agent_id=agent_id,
+                    state="timeout",
+                    **({"facet": agent_facet} if agent_facet else {}),
+                )
+                continue
             end_state = get_agent_end_state(agent_id)
+            emit(
+                "agent_completed",
+                day=day,
+                segment=segment,
+                name=name,
+                agent_id=agent_id,
+                state=end_state,
+                **({"facet": agent_facet} if agent_facet else {}),
+            )
             if end_state == "error":
                 logging.error(f"Agent {agent_id} ended with error")
                 error_count += 1
