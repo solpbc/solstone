@@ -16,8 +16,8 @@ from think.models import GEMINI_FLASH, GEMINI_PRO
 
 
 def get_fixtures_env():
-    """Load the fixtures/.env file and return the environment."""
-    fixtures_env = Path(__file__).parent.parent.parent / "fixtures" / ".env"
+    """Load the tests/fixtures/.env file and return the environment."""
+    fixtures_env = Path(__file__).parent.parent / "fixtures" / ".env"
     if not fixtures_env.exists():
         return None, None, None
 
@@ -38,13 +38,13 @@ def test_google_provider_basic():
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:
-        pytest.skip("fixtures/.env not found")
+        pytest.skip("tests/fixtures/.env not found")
 
     if not api_key:
-        pytest.skip("GOOGLE_API_KEY not found in fixtures/.env file")
+        pytest.skip("GOOGLE_API_KEY not found in tests/fixtures/.env file")
 
     if not journal_path:
-        pytest.skip("JOURNAL_PATH not found in fixtures/.env file")
+        pytest.skip("JOURNAL_PATH not found in tests/fixtures/.env file")
 
     # Prepare environment
     env = os.environ.copy()
@@ -130,13 +130,13 @@ def test_google_provider_with_thinking():
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:
-        pytest.skip("fixtures/.env not found")
+        pytest.skip("tests/fixtures/.env not found")
 
     if not api_key:
-        pytest.skip("GOOGLE_API_KEY not found in fixtures/.env file")
+        pytest.skip("GOOGLE_API_KEY not found in tests/fixtures/.env file")
 
     if not journal_path:
-        pytest.skip("JOURNAL_PATH not found in fixtures/.env file")
+        pytest.skip("JOURNAL_PATH not found in tests/fixtures/.env file")
 
     # Prepare environment
     env = os.environ.copy()
@@ -221,10 +221,10 @@ def test_google_json_truncation_detection():
     fixtures_env, api_key, _ = get_fixtures_env()
 
     if not fixtures_env:
-        pytest.skip("fixtures/.env not found")
+        pytest.skip("tests/fixtures/.env not found")
 
     if not api_key:
-        pytest.skip("GOOGLE_API_KEY not found in fixtures/.env file")
+        pytest.skip("GOOGLE_API_KEY not found in tests/fixtures/.env file")
 
     # Import provider directly for this test
     from think.providers import google as google_provider

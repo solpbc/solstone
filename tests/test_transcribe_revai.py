@@ -249,10 +249,10 @@ class TestConvertToStatements:
         assert statements[0]["text"] == "Real"
 
     def test_fixture_data(self):
-        """Test with actual fixture data from fixtures/revai.json."""
+        """Test with actual fixture data from tests/fixtures/revai.json."""
         from pathlib import Path
 
-        fixture_path = Path(__file__).parent.parent / "fixtures" / "revai.json"
+        fixture_path = Path(__file__).parent / "fixtures" / "revai.json"
         if not fixture_path.exists():
             pytest.skip("Fixture file not found")
 

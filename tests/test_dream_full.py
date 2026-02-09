@@ -7,7 +7,7 @@ import importlib
 import shutil
 from pathlib import Path
 
-FIXTURES = Path("fixtures")
+FIXTURES = Path("tests/fixtures")
 
 
 def copy_journal(tmp_path: Path) -> Path:

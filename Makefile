@@ -98,7 +98,7 @@ skills:
 	fi
 
 # Test environment - use fixtures journal for all tests
-TEST_ENV = JOURNAL_PATH=fixtures/journal
+TEST_ENV = JOURNAL_PATH=tests/fixtures/journal
 
 # Venv tool shortcuts
 PYTEST := $(VENV_BIN)/pytest

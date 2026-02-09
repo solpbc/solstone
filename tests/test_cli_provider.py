@@ -4,7 +4,6 @@
 """Tests for think.providers.cli — CLI subprocess runner infrastructure."""
 
 import asyncio
-import json
 from unittest.mock import AsyncMock, patch
 
 import pytest

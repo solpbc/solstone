@@ -158,9 +158,9 @@ def test_get_config_handles_invalid_json(tmp_path, monkeypatch):
 
 
 def test_get_config_with_fixtures():
-    """Test get_config with fixtures/journal path."""
+    """Test get_config with tests/fixtures/journal path."""
     # Set JOURNAL_PATH to fixtures
-    os.environ["JOURNAL_PATH"] = "fixtures/journal"
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
 
     config = get_config()
 

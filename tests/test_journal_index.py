@@ -418,7 +418,7 @@ def test_search_journal_returns_counts():
     from think.tools.search import search_journal
 
     # Use fixtures journal
-    os.environ["JOURNAL_PATH"] = "fixtures/journal"
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
 
     result = search_journal("test")
 
@@ -439,7 +439,7 @@ def test_search_journal_returns_query_echo():
     """Test search tool returns query echo."""
     from think.tools.search import search_journal
 
-    os.environ["JOURNAL_PATH"] = "fixtures/journal"
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
 
     result = search_journal("test query", facet="work", topic="audio")
 
@@ -453,7 +453,7 @@ def test_search_journal_results_include_path():
     """Test search tool results include path and idx."""
     from think.tools.search import search_journal
 
-    os.environ["JOURNAL_PATH"] = "fixtures/journal"
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
 
     result = search_journal("")
 

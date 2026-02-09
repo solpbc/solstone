@@ -8,8 +8,8 @@ logs/
 *.mp3
 *.flac
 .coverage
-fixtures/journal/agents/*.jsonl
-fixtures/journal/tokens/*.json
+tests/fixtures/journal/agents/*.jsonl
+tests/fixtures/journal/tokens/*.json
 *.sqlite
 *.log
 /config*.py

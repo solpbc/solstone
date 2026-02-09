@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 # Set JOURNAL_PATH to fixtures for tests
-os.environ["JOURNAL_PATH"] = str(Path(__file__).parent.parent / "fixtures" / "journal")
+os.environ["JOURNAL_PATH"] = str(Path(__file__).parent / "fixtures" / "journal")
 
 
 class TestRegistry:

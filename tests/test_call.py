@@ -129,7 +129,9 @@ class TestJournal:
 
         # Copy fixtures to tmp so we can write
         journal = tmp_path / "journal"
-        shutil.copytree("fixtures/journal/facets/work", journal / "facets" / "work")
+        shutil.copytree(
+            "tests/fixtures/journal/facets/work", journal / "facets" / "work"
+        )
         monkeypatch.setenv("JOURNAL_PATH", str(journal))
         # Clear cached journal path
         import think.utils
