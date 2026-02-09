@@ -26,14 +26,14 @@ class TestLoadSegmentFacets:
 
     def test_missing_file_returns_empty(self, segment_dir, monkeypatch):
         """Missing facets.json returns empty list."""
-        from think.dream import load_segment_facets
+        from think.facets import load_segment_facets
 
         result = load_segment_facets("20240115", "120000_300")
         assert result == []
 
     def test_empty_file_returns_empty(self, segment_dir, monkeypatch):
         """Empty facets.json returns empty list."""
-        from think.dream import load_segment_facets
+        from think.facets import load_segment_facets
 
         (segment_dir / "agents" / "facets.json").write_text("")
         result = load_segment_facets("20240115", "120000_300")
@@ -41,7 +41,7 @@ class TestLoadSegmentFacets:
 
     def test_empty_array_returns_empty(self, segment_dir, monkeypatch):
         """Empty JSON array returns empty list."""
-        from think.dream import load_segment_facets
+        from think.facets import load_segment_facets
 
         (segment_dir / "agents" / "facets.json").write_text("[]")
         result = load_segment_facets("20240115", "120000_300")
@@ -49,7 +49,7 @@ class TestLoadSegmentFacets:
 
     def test_valid_facets_extracted(self, segment_dir, monkeypatch):
         """Valid facets.json extracts facet IDs."""
-        from think.dream import load_segment_facets
+        from think.facets import load_segment_facets
 
         facets_data = [
             {"facet": "work", "activity": "Code review", "level": "high"},
@@ -62,7 +62,7 @@ class TestLoadSegmentFacets:
 
     def test_malformed_json_returns_empty(self, segment_dir, monkeypatch, caplog):
         """Malformed JSON returns empty list with error logged."""
-        from think.dream import load_segment_facets
+        from think.facets import load_segment_facets
 
         (segment_dir / "agents" / "facets.json").write_text("{ invalid json")
         result = load_segment_facets("20240115", "120000_300")
@@ -71,7 +71,7 @@ class TestLoadSegmentFacets:
 
     def test_non_array_returns_empty(self, segment_dir, monkeypatch, caplog):
         """Non-array JSON returns empty list with warning."""
-        from think.dream import load_segment_facets
+        from think.facets import load_segment_facets
 
         (segment_dir / "agents" / "facets.json").write_text('{"facet": "work"}')
         result = load_segment_facets("20240115", "120000_300")
@@ -80,7 +80,7 @@ class TestLoadSegmentFacets:
 
     def test_missing_facet_field_skipped(self, segment_dir, monkeypatch):
         """Items without facet field are skipped."""
-        from think.dream import load_segment_facets
+        from think.facets import load_segment_facets
 
         facets_data = [
             {"facet": "work", "activity": "Coding"},

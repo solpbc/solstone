@@ -343,58 +343,70 @@ def test_facet_summaries_mixed_entities(monkeypatch):
             break
 
 
-def test_get_active_facets_with_occurrences(monkeypatch, tmp_path):
-    """Test get_active_facets() returns facets with occurrence events."""
-    # Create journal structure with events
+def test_get_active_facets_from_segment_facets(monkeypatch, tmp_path):
+    """Test get_active_facets() returns facets from segment facets.json files."""
     journal = tmp_path / "journal"
-    facets_dir = journal / "facets"
+    day_dir = journal / "20240115"
 
-    # Create facet with occurrence events
-    work_events = facets_dir / "work" / "events"
-    work_events.mkdir(parents=True)
-    (work_events / "20240115.jsonl").write_text(
-        '{"title": "Meeting", "occurred": true}\n'
-        '{"title": "Call", "occurred": true}\n'
-    )
+    # Create segment with facets.json containing two facets
+    seg1 = day_dir / "100000_300" / "agents"
+    seg1.mkdir(parents=True)
+    (seg1 / "facets.json").write_text(json.dumps([
+        {"facet": "work", "activity": "Code review", "level": "high"},
+        {"facet": "personal", "activity": "Email check", "level": "low"},
+    ]))
 
-    # Create facet with only anticipation events (should NOT be active)
-    personal_events = facets_dir / "personal" / "events"
-    personal_events.mkdir(parents=True)
-    (personal_events / "20240115.jsonl").write_text(
-        '{"title": "Future meeting", "occurred": false}\n'
-    )
-
-    # Create facet with no events file
-    (facets_dir / "empty" / "events").mkdir(parents=True)
+    # Create another segment with overlapping + new facet
+    seg2 = day_dir / "110000_300" / "agents"
+    seg2.mkdir(parents=True)
+    (seg2 / "facets.json").write_text(json.dumps([
+        {"facet": "work", "activity": "Meeting", "level": "high"},
+        {"facet": "sunstone", "activity": "Dev work", "level": "medium"},
+    ]))
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
 
     active = get_active_facets("20240115")
 
-    assert active == {"work"}
+    assert active == {"work", "personal", "sunstone"}
 
 
-def test_get_active_facets_mixed_events(monkeypatch, tmp_path):
-    """Test get_active_facets() with mixed occurrence and anticipation events."""
+def test_get_active_facets_empty_segments(monkeypatch, tmp_path):
+    """Test get_active_facets() with segments that have empty facets.json."""
     journal = tmp_path / "journal"
-    events_dir = journal / "facets" / "mixed" / "events"
-    events_dir.mkdir(parents=True)
+    day_dir = journal / "20240115"
 
-    # File with both types - should be active because it has at least one occurrence
-    (events_dir / "20240115.jsonl").write_text(
-        '{"title": "Future event", "occurred": false}\n'
-        '{"title": "Past event", "occurred": true}\n'
-    )
+    # Segment with empty facets array
+    seg1 = day_dir / "100000_300" / "agents"
+    seg1.mkdir(parents=True)
+    (seg1 / "facets.json").write_text("[]")
+
+    # Segment with empty file
+    seg2 = day_dir / "110000_300" / "agents"
+    seg2.mkdir(parents=True)
+    (seg2 / "facets.json").write_text("")
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
 
     active = get_active_facets("20240115")
 
-    assert active == {"mixed"}
+    assert active == set()
 
 
-def test_get_active_facets_no_facets(monkeypatch, tmp_path):
-    """Test get_active_facets() when no facets directory exists."""
+def test_get_active_facets_no_segments(monkeypatch, tmp_path):
+    """Test get_active_facets() when day directory has no segments."""
+    journal = tmp_path / "journal"
+    (journal / "20240115").mkdir(parents=True)
+
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    active = get_active_facets("20240115")
+
+    assert active == set()
+
+
+def test_get_active_facets_no_day_dir(monkeypatch, tmp_path):
+    """Test get_active_facets() when day directory doesn't exist."""
     journal = tmp_path / "journal"
     journal.mkdir()
 
@@ -405,31 +417,28 @@ def test_get_active_facets_no_facets(monkeypatch, tmp_path):
     assert active == set()
 
 
-def test_get_active_facets_uses_default_path_when_journal_path_empty(monkeypatch):
-    """Test get_active_facets() uses platform default when JOURNAL_PATH is empty."""
-    monkeypatch.setenv("JOURNAL_PATH", "")
-
-    # Should return empty set since default path has no facets with events
-    active = get_active_facets("20240115")
-    assert active == set()
-
-
-def test_get_active_facets_default_occurred(monkeypatch, tmp_path):
-    """Test get_active_facets() treats missing 'occurred' field as True."""
+def test_get_active_facets_malformed_json(monkeypatch, tmp_path):
+    """Test get_active_facets() skips malformed facets.json gracefully."""
     journal = tmp_path / "journal"
-    events_dir = journal / "facets" / "legacy" / "events"
-    events_dir.mkdir(parents=True)
+    day_dir = journal / "20240115"
 
-    # Event without explicit occurred field - should default to True (active)
-    (events_dir / "20240115.jsonl").write_text(
-        '{"title": "Meeting without occurred field"}\n'
-    )
+    # Malformed JSON segment
+    seg1 = day_dir / "100000_300" / "agents"
+    seg1.mkdir(parents=True)
+    (seg1 / "facets.json").write_text("{ invalid json")
+
+    # Valid segment
+    seg2 = day_dir / "110000_300" / "agents"
+    seg2.mkdir(parents=True)
+    (seg2 / "facets.json").write_text(json.dumps([
+        {"facet": "work", "activity": "Coding", "level": "high"},
+    ]))
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
 
     active = get_active_facets("20240115")
 
-    assert active == {"legacy"}
+    assert active == {"work"}
 
 
 # ============================================================================

@@ -19,7 +19,12 @@ from pathlib import Path
 from think.callosum import CallosumConnection
 from think.cluster import cluster_segments
 from think.cortex_client import cortex_request, get_agent_end_state, wait_for_agents
-from think.facets import get_active_facets, get_enabled_facets, get_facets
+from think.facets import (
+    get_active_facets,
+    get_enabled_facets,
+    get_facets,
+    load_segment_facets,
+)
 from think.muse import get_muse_configs, get_output_path
 from think.runner import run_task
 from think.utils import (
@@ -121,35 +126,6 @@ def check_callosum_available() -> bool:
     """Check if Callosum socket exists (supervisor running)."""
     socket_path = Path(get_journal()) / "health" / "callosum.sock"
     return socket_path.exists()
-
-
-def load_segment_facets(day: str, segment: str) -> list[str]:
-    """Load facet IDs from a segment's facets.json output."""
-    facets_file = day_path(day) / segment / "agents" / "facets.json"
-
-    if not facets_file.exists():
-        logging.debug(f"No facets.json found for segment {segment}")
-        return []
-
-    try:
-        content = facets_file.read_text().strip()
-        if not content:
-            return []
-
-        data = json.loads(content)
-        if not isinstance(data, list):
-            logging.warning(f"facets.json is not an array: {facets_file}")
-            return []
-
-        facet_ids = [item.get("facet") for item in data if item.get("facet")]
-        return facet_ids
-
-    except json.JSONDecodeError as e:
-        logging.error(f"Failed to parse facets.json for {segment}: {e}")
-        return []
-    except Exception as e:
-        logging.error(f"Error reading facets.json for {segment}: {e}")
-        return []
 
 
 def run_prompts_by_priority(
