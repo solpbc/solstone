@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
+from tests.integration.conftest import require_cli_tool
 from think.models import CLAUDE_SONNET_4
 
 
@@ -32,7 +33,8 @@ def get_fixtures_env():
 @pytest.mark.integration
 @pytest.mark.requires_api
 def test_anthropic_provider_basic():
-    """Test Anthropic provider with basic prompt."""
+    """Test Anthropic provider with basic prompt via CLI."""
+    require_cli_tool("Anthropic", "claude")
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:
@@ -140,6 +142,7 @@ def test_anthropic_provider_basic():
 @pytest.mark.requires_api
 def test_anthropic_provider_with_thinking():
     """Test Anthropic provider with thinking enabled."""
+    require_cli_tool("Anthropic", "claude")
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:

@@ -181,6 +181,7 @@ class CLIRunner:
         cwd: Working directory for the subprocess. Defaults to project root.
         env: Optional environment overrides (merged with os.environ).
         timeout: Subprocess timeout in seconds. Default 600.
+        first_event_timeout: Timeout for first stdout line in seconds. Default 30.
     """
 
     def __init__(
@@ -196,6 +197,7 @@ class CLIRunner:
         cwd: Path | None = None,
         env: dict[str, str] | None = None,
         timeout: int = 600,
+        first_event_timeout: int = 30,
     ) -> None:
         self.cmd = cmd
         self.prompt_text = prompt_text
@@ -205,6 +207,8 @@ class CLIRunner:
         self.cwd = cwd or _PROJECT_ROOT
         self.env = env
         self.timeout = timeout
+        self.first_event_timeout = first_event_timeout
+        self._timed_out_waiting_for_first_event = False
         self.cli_session_id: str | None = None
 
     async def run(self) -> str:
@@ -258,6 +262,7 @@ class CLIRunner:
                     LOG.debug("[%s stderr] %s", binary, line)
 
         stderr_task = asyncio.create_task(_read_stderr())
+        self._timed_out_waiting_for_first_event = False
 
         try:
             await asyncio.wait_for(
@@ -265,19 +270,32 @@ class CLIRunner:
                 timeout=self.timeout,
             )
         except asyncio.TimeoutError:
-            LOG.error("CLI process timed out after %ds, killing", self.timeout)
+            timeout_seconds = (
+                self.first_event_timeout
+                if self._timed_out_waiting_for_first_event
+                else self.timeout
+            )
+            LOG.error("CLI process timed out after %ss, killing", timeout_seconds)
             process.kill()
+            await stderr_task
+            stderr_tail = "\n".join(stderr_lines[-20:])
+            error_message = (
+                f"CLI process timed out after {timeout_seconds}s. "
+                f"Stderr tail:\n{stderr_tail}\n"
+                "Check that the CLI tool is installed and authenticated."
+            )
             self.callback.emit(
                 {
                     "event": "error",
-                    "error": f"CLI process timed out after {self.timeout}s",
+                    "error": error_message,
                     "ts": now_ms(),
                 }
             )
-            raise RuntimeError(f"CLI process timed out after {self.timeout}s")
+            raise RuntimeError(error_message)
         finally:
             # Wait for stderr reader to finish
-            await stderr_task
+            if not stderr_task.done():
+                await stderr_task
 
         # Wait for process to exit
         return_code = await process.wait()
@@ -295,16 +313,16 @@ class CLIRunner:
         if not process.stdout:
             return
 
-        async for raw_line in process.stdout:
+        def _process_line(raw_line: bytes) -> None:
             line = raw_line.decode("utf-8", errors="replace").strip()
             if not line:
-                continue
+                return
 
             try:
                 event_data = json.loads(line)
             except json.JSONDecodeError:
                 LOG.warning("Non-JSON stdout line: %s", line[:200])
-                continue
+                return
 
             try:
                 session_id = self.translate(event_data, self.aggregator, self.callback)
@@ -312,6 +330,21 @@ class CLIRunner:
                     self.cli_session_id = session_id
             except Exception:
                 LOG.exception("Error translating CLI event: %s", line[:200])
+
+        try:
+            first_line = await asyncio.wait_for(
+                process.stdout.readline(),
+                timeout=self.first_event_timeout,
+            )
+        except asyncio.TimeoutError:
+            self._timed_out_waiting_for_first_event = True
+            raise
+        if not first_line:
+            return
+        _process_line(first_line)
+
+        async for raw_line in process.stdout:
+            _process_line(raw_line)
 
 
 # ---------------------------------------------------------------------------

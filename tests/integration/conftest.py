@@ -4,9 +4,32 @@
 """Configuration and fixtures for integration tests."""
 
 import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
+
+
+def require_cli_tool(name: str, binary: str) -> None:
+    """Skip test if CLI tool is not available.
+
+    Args:
+        name: Human-readable provider name (e.g., "Anthropic").
+        binary: CLI binary name (e.g., "claude").
+    """
+    if not shutil.which(binary):
+        pytest.skip(f"{name} CLI ({binary}) not found on PATH")
+    try:
+        subprocess.run(
+            [binary, "--version"],
+            timeout=5,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        pytest.skip(f"{name} CLI ({binary}) not responding")
 
 
 def pytest_configure(config):

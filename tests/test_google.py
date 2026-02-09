@@ -8,7 +8,6 @@ import sys
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-from tests.agents_stub import install_agents_stub
 from tests.conftest import setup_google_genai_stub
 from think.models import GEMINI_FLASH
 from think.providers.google import (
@@ -33,6 +32,13 @@ def make_mock_process(stdout_lines, return_code=0):
         def __init__(self, lines):
             self._lines = [line.encode() + b"\n" for line in lines]
             self._index = 0
+
+        async def readline(self):
+            if self._index >= len(self._lines):
+                return b""
+            line = self._lines[self._index]
+            self._index += 1
+            return line
 
         def __aiter__(self):
             return self
@@ -63,7 +69,6 @@ def make_mock_process(stdout_lines, return_code=0):
 
 def test_google_main(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=False)
-    install_agents_stub()
     sys.modules.pop("think.providers.google", None)
     importlib.reload(importlib.import_module("think.providers.google"))
     mod = importlib.reload(importlib.import_module("think.agents"))
@@ -141,7 +146,6 @@ def test_google_main(monkeypatch, tmp_path, capsys):
 
 def test_google_cli_not_found_error(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=False)
-    install_agents_stub()
 
     sys.modules.pop("think.providers.google", None)
     importlib.reload(importlib.import_module("think.providers.google"))
