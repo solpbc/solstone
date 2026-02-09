@@ -7,7 +7,6 @@ import json
 import sys
 from unittest.mock import AsyncMock
 
-from tests.agents_stub import install_agents_stub
 from tests.conftest import setup_google_genai_stub
 from tests.test_google import make_mock_process
 from think.models import GEMINI_FLASH
@@ -24,7 +23,6 @@ async def run_main(mod, argv, stdin_data=None):
 
 def test_google_thinking_events(monkeypatch, tmp_path, capsys):
     setup_google_genai_stub(monkeypatch, with_thinking=True)
-    install_agents_stub()
 
     sys.modules.pop("think.providers.google", None)
     importlib.reload(importlib.import_module("think.providers.google"))

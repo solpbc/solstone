@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from dotenv import load_dotenv
 
+from tests.integration.conftest import require_cli_tool
 from think.models import GPT_5_MINI
 
 
@@ -32,7 +33,8 @@ def get_fixtures_env():
 @pytest.mark.integration
 @pytest.mark.requires_api
 def test_openai_provider_basic():
-    """Test OpenAI provider with basic prompt, no MCP."""
+    """Test OpenAI provider with basic prompt via CLI."""
+    require_cli_tool("OpenAI", "codex")
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:
@@ -132,6 +134,7 @@ def test_openai_provider_with_reasoning():
     2. We may receive thinking events with summaries (model-dependent)
     3. If thinking events are present, they have the expected structure
     """
+    require_cli_tool("OpenAI", "codex")
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:
@@ -217,6 +220,7 @@ def test_openai_provider_with_extra_context():
     was 'text' instead of 'input_text'. The key assertion is that we don't get
     the 400 error about invalid content type.
     """
+    require_cli_tool("OpenAI", "codex")
     fixtures_env, api_key, journal_path = get_fixtures_env()
 
     if not fixtures_env:

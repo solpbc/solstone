@@ -8,7 +8,6 @@ import sys
 import types
 from types import SimpleNamespace
 
-from tests.agents_stub import install_agents_stub
 from think.models import CLAUDE_SONNET_4
 
 
@@ -201,7 +200,6 @@ def _setup_claude_cli_stub(
 
 def test_claude_main(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch)
-    install_agents_stub()
     sys.modules.pop("think.providers.anthropic", None)
     provider_mod = importlib.reload(
         importlib.import_module("think.providers.anthropic")
@@ -245,7 +243,6 @@ def test_claude_main(monkeypatch, tmp_path, capsys):
 
 def test_claude_outfile(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch)
-    install_agents_stub()
     sys.modules.pop("think.providers.anthropic", None)
     provider_mod = importlib.reload(
         importlib.import_module("think.providers.anthropic")
@@ -293,7 +290,6 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
     """Test that thinking events are properly emitted for Claude models."""
     # Setup anthropic stub with thinking
     _setup_anthropic_stub(monkeypatch, with_thinking=True)
-    install_agents_stub()
     sys.modules.pop("think.providers.anthropic", None)
     provider_mod = importlib.reload(
         importlib.import_module("think.providers.anthropic")
@@ -336,7 +332,6 @@ def test_claude_thinking_events(monkeypatch, tmp_path, capsys):
 def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
     """Test that redacted thinking events are properly handled."""
     _setup_anthropic_stub(monkeypatch, with_redacted_thinking=True)
-    install_agents_stub()
     sys.modules.pop("think.providers.anthropic", None)
     provider_mod = importlib.reload(
         importlib.import_module("think.providers.anthropic")
@@ -377,7 +372,6 @@ def test_claude_redacted_thinking_events(monkeypatch, tmp_path, capsys):
 
 def test_claude_outfile_error(monkeypatch, tmp_path, capsys):
     _setup_anthropic_stub(monkeypatch, error=True)
-    install_agents_stub()
     sys.modules.pop("think.providers.anthropic", None)
     provider_mod = importlib.reload(
         importlib.import_module("think.providers.anthropic")

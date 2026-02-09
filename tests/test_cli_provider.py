@@ -3,9 +3,14 @@
 
 """Tests for think.providers.cli — CLI subprocess runner infrastructure."""
 
+import asyncio
 import json
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from think.providers.cli import (
+    CLIRunner,
     ThinkingAggregator,
     assemble_prompt,
     lookup_cli_session_id,
@@ -209,3 +214,67 @@ class TestLookupCliSessionId:
     def test_returns_none_when_not_found(self):
         result = lookup_cli_session_id("nonexistent-agent-id")
         assert result is None
+
+
+class TestCLIRunnerFirstEventTimeout:
+    def test_first_event_timeout_includes_stderr(self):
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+
+        class HangingStdout:
+            async def readline(self):
+                future = asyncio.get_running_loop().create_future()
+                return await future
+
+        class MockStderr:
+            def __init__(self):
+                self._lines = [b"Please authenticate first\n"]
+                self._index = 0
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                if self._index >= len(self._lines):
+                    raise StopAsyncIteration
+                line = self._lines[self._index]
+                self._index += 1
+                return line
+
+        process = AsyncMock()
+        process.stdout = HangingStdout()
+        process.stderr = MockStderr()
+        process.stdin = AsyncMock()
+        process.stdin.write = lambda _data: None
+        process.stdin.close = lambda: None
+        process.kill = lambda: None
+        process.wait = AsyncMock(return_value=0)
+
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test prompt",
+            translate=lambda _event, _agg, _cb: None,
+            callback=callback,
+            aggregator=aggregator,
+            timeout=5,
+            first_event_timeout=0.1,
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(return_value=process),
+            ),
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            pytest.raises(RuntimeError) as exc_info,
+        ):
+            asyncio.run(runner.run())
+
+        message = str(exc_info.value)
+        assert "authenticate" in message.lower()
+        assert "Check that the CLI tool is installed and authenticated." in message
+
+        error_events = [event for event in events if event.get("event") == "error"]
+        assert len(error_events) == 1
+        assert "Please authenticate first" in error_events[0]["error"]
