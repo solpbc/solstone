@@ -1471,7 +1471,7 @@ class TestFormatLogs:
             {
                 "timestamp": "2025-12-16T07:33:05.135587+00:00",
                 "source": "tool",
-                "actor": "mcp",
+                "actor": "entities",
                 "action": "entity_attach",
                 "params": {"type": "Person", "name": "Alice"},
                 "agent_id": "1765870373972",
@@ -1494,14 +1494,14 @@ class TestFormatLogs:
             {
                 "timestamp": "2025-12-16T07:33:05.135587+00:00",
                 "source": "tool",
-                "actor": "mcp",
+                "actor": "todos",
                 "action": "todo_add",
                 "params": {},
             },
             {
                 "timestamp": "2025-12-16T07:34:00.000000+00:00",
                 "source": "tool",
-                "actor": "mcp",
+                "actor": "todos",
                 # Missing action
                 "params": {},
             },
@@ -1522,7 +1522,7 @@ class TestFormatLogs:
             {
                 "timestamp": "2025-12-16T07:33:05.135587+00:00",
                 "source": "tool",
-                "actor": "mcp",
+                "actor": "todos",
                 "action": "todo_add",
                 "params": {},
             }
@@ -1561,7 +1561,7 @@ class TestFormatLogs:
         entry = {
             "timestamp": "2025-12-16T07:33:05.135587+00:00",
             "source": "tool",
-            "actor": "mcp",
+            "actor": "todos",
             "action": "todo_add",
             "params": {"text": "Test"},
             "extra_field": "custom_value",
@@ -1583,14 +1583,14 @@ class TestFormatLogs:
             {
                 "timestamp": "2025-12-16T07:33:05.135587+00:00",
                 "source": "tool",
-                "actor": "mcp",
+                "actor": "todos",
                 "action": "todo_add",
                 "params": {},
             },
             {
                 "timestamp": "2025-12-16T07:34:00.000000+00:00",
                 "source": "tool",
-                "actor": "mcp",
+                "actor": "todos",
                 "action": "todo_done",
                 "params": {},
             },
@@ -1614,7 +1614,7 @@ class TestFormatLogs:
             {
                 "timestamp": "2025-12-16T07:33:05.135587+00:00",
                 "source": "tool",
-                "actor": "mcp",
+                "actor": "todos",
                 "action": "todo_add",
                 "params": {"text": long_text},
             }
@@ -1635,7 +1635,7 @@ class TestFormatLogs:
             {
                 "timestamp": "2025-12-16T07:33:05.135587+00:00",
                 "source": "tool",
-                "actor": "mcp",
+                "actor": "entities",
                 "action": "entity_update_description",
                 "params": {},
             }
@@ -1645,7 +1645,7 @@ class TestFormatLogs:
 
         assert len(chunks) == 1
         # "entity_update_description" should become "Entity Update Description"
-        assert "Entity Update Description by mcp" in chunks[0]["markdown"]
+        assert "Entity Update Description by entities" in chunks[0]["markdown"]
 
     def test_get_formatter_journal_level_logs(self):
         """Test pattern matching for config/actions/*.jsonl."""
