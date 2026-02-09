@@ -6,6 +6,7 @@
   "color": "#f9a825",
   "schedule": "daily",
   "priority": 99,
+  "output": "md",
   "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
 
 }
@@ -13,7 +14,7 @@
 ### Executive Summary
 $Preferred has made a creative and subjective request: to analyze the analysis day's journal data, find the most "poignant" and interesting material, and then leverage it to craft a hilarious joke to be sent as a message. This plan focuses on a comprehensive data-gathering operation for a single day to provide a rich set of raw material for the creative task.
 
-The research will first build a complete picture of the analysis day's activities, then dive into specific details to find moments of irony, frustration, or absurdity that can be used as comedic fodder. The final step is not to answer directly, but to use the `send_message` tool to deliver the crafted joke.
+The research will first build a complete picture of the analysis day's activities, then dive into specific details to find moments of irony, frustration, or absurdity that can be used as comedic fodder. The final step is to deliver the crafted joke as the agent's response.
 
 - **Expected Outcome Type**: A single, creative message containing a joke.
 - **Estimated Research Depth**: Comprehensive (for a single day).
@@ -24,7 +25,7 @@ The strategy is to conduct a three-phase data sweep of the analysis day's journa
 1.  **Broad Overview**: Use `sol call journal search "" -d $day_YYYYMMDD` to get a complete list of all topics and structured activities from the analysis day. This creates a high-level map of the day.
 2.  **Detailed Search**: Use `sol call journal search ... -d $day_YYYYMMDD -t audio` with keywords related to emotion, humor, and conflict (e.g., "frustrating", "ridiculous", "error", "lol") to pinpoint specific moments of interest.
 3.  **Contextual Analysis**: Use transcript/insight retrieval to pull full context for the most promising findings from the previous phases. This raw material will be analyzed for comedic elements like irony, juxtaposition, or absurdity.
-4.  **Creative Synthesis & Delivery**: The final phase involves brainstorming joke concepts from the analyzed material, selecting the best one, and delivering it via `send_message`.
+4.  **Creative Synthesis & Delivery**: The final phase involves brainstorming joke concepts from the analyzed material, selecting the best one, and delivering it as the final response.
 
 ### Detailed Research Steps
 
@@ -67,9 +68,8 @@ The strategy is to conduct a three-phase data sweep of the analysis day's journa
     -   **Example Idea**: If the data showed a long struggle with a bug that was fixed by a simple restart, a joke could be: "I spent two hours debugging a critical production error yesterday. It was a real nail-biter. Turns out the solution was the tech equivalent of 'Did you check if it's plugged in?' My code just needed a nap."
 
 2.  **Joke Selection and Delivery**:
-    -   **Tool**: `send_message`
-    -   **Parameters**: `body` will contain the final, selected joke.
-    -   **Purpose**: To deliver the final creative output as requested.
+    -   Select the best joke from the brainstormed options.
+    -   Return the final joke as the agent's response. It will be saved as the agent output.
 
 ### Query Optimization Strategy
 -   **Primary Queries**: Broad, day-filtered searches to capture all topics and events from the analysis day.
@@ -84,4 +84,4 @@ The strategy is to conduct a three-phase data sweep of the analysis day's journa
 ### Success Criteria
 -   **Completeness Indicators**: A full list of topics, events, and a set of interesting transcript snippets from the analysis day have been collected and analyzed.
 -   **Quality Checkpoints**: The analysis has identified at least one moment of irony, absurdity, or relatable human struggle.
--   **Coverage Verification**: The final action is using `send_message` to deliver a joke that is clearly derived from the events of the analysis day.
+-   **Coverage Verification**: The final response contains a joke that is clearly derived from the events of the analysis day.

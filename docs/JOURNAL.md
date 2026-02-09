@@ -735,17 +735,8 @@ The chat app uses `apps/chat/chats/` to store metadata for all conversations, in
 ```
 
 Optional fields:
-- `from` – Sender info for synthetic agents: `{"type": "agent", "id": "mcp_tool"}`
 - `unread` – Boolean flag for unread status (used for badge counts)
 - `archived` – Boolean flag for archived status
-
-**Synthetic agents** are created by background processes using `think.cortex_client.create_synthetic_agent()`. These appear as completed agents in the chat interface but only contain a single `finish` event:
-
-```jsonl
-{"event": "finish", "result": "Message content in markdown format", "ts": 1755450767962}
-```
-
-This unified approach allows users to reply to any message via the chat continue feature, treating messages and agent outputs identically in the UI.
 
 ## Search Index
 

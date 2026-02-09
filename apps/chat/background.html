@@ -92,7 +92,7 @@ AppServices.register('chat', {
       // Skip if user is actively viewing this chat
       if (this.activeChatId === chatId) return;
 
-      // Skip if already processed (chat already has unread flag from send_message)
+      // Skip if already marked unread
       if (chat.unread) return;
 
       // Mark as unread for new completion
