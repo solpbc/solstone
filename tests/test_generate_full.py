@@ -287,6 +287,36 @@ def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
     assert finish_events[0].get("skipped") == "no_input"
 
 
+def test_cogitate_not_skipped_without_sources(tmp_path, monkeypatch):
+    """Test that cogitate agents with day but no sources are not skipped."""
+    mod = importlib.import_module("think.agents")
+
+    # Create empty day directory (no transcripts)
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    day_dir = day_path("20240101")
+    day_dir.mkdir(parents=True, exist_ok=True)
+
+    import think.muse
+
+    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+
+    test_agent = tmp_path / "test_cogitate.md"
+    test_agent.write_text(
+        '{\n  "type": "cogitate",\n  "schedule": "daily",\n  "priority": 10,'
+        '\n  "instructions": {"system": "journal", "day": true}\n}\n\nTest prompt'
+    )
+
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    config = mod.prepare_config({
+        "name": "test_cogitate",
+        "day": "20240101",
+    })
+
+    assert config.get("skip_reason") is None
+
+
 def test_named_hook_resolution(tmp_path, monkeypatch):
     """Test that named hooks are resolved via load_post_hook."""
     from think.muse import load_post_hook

@@ -277,29 +277,30 @@ def prepare_config(request: dict) -> dict:
 
     # Day-based processing: load transcript and apply template substitution
     if day:
-        # Load transcript
-        transcript, source_counts = _load_transcript(day, segment, span, sources)
-        config["transcript"] = transcript
-        config["source_counts"] = source_counts
-        total_count = sum(source_counts.values())
+        # Load transcript (only when agent has enabled sources to consume)
+        if any(source_is_enabled(v) for v in sources.values()):
+            transcript, source_counts = _load_transcript(day, segment, span, sources)
+            config["transcript"] = transcript
+            config["source_counts"] = source_counts
+            total_count = sum(source_counts.values())
 
-        # Check required sources
-        for source_type, mode in sources.items():
-            if source_is_required(mode) and source_counts.get(source_type, 0) == 0:
-                config["skip_reason"] = f"missing_required_{source_type}"
+            # Check required sources
+            for source_type, mode in sources.items():
+                if source_is_required(mode) and source_counts.get(source_type, 0) == 0:
+                    config["skip_reason"] = f"missing_required_{source_type}"
+                    return config
+
+            # Skip if no content
+            if total_count == 0 or len(transcript.strip()) < MIN_INPUT_CHARS:
+                config["skip_reason"] = "no_input"
                 return config
 
-        # Skip if no content
-        if total_count == 0 or len(transcript.strip()) < MIN_INPUT_CHARS:
-            config["skip_reason"] = "no_input"
-            return config
-
-        # Note for limited recordings
-        if total_count < 3:
-            config["transcript"] = (
-                "**Input Note:** Limited recordings for this day. "
-                "Scale analysis to available input.\n\n" + transcript
-            )
+            # Note for limited recordings
+            if total_count < 3:
+                config["transcript"] = (
+                    "**Input Note:** Limited recordings for this day. "
+                    "Scale analysis to available input.\n\n" + transcript
+                )
 
         # Reload agent instruction with template substitution for day/segment context
         if agent_path and agent_path.exists():
