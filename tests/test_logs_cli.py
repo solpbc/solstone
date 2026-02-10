@@ -2,6 +2,7 @@
 # Copyright (c) 2026 sol pbc
 
 import argparse
+import re
 from datetime import datetime, timedelta
 
 import pytest
@@ -38,11 +39,11 @@ def make_journal(tmp_path, day, services, supervisor_lines=None):
 
 def _args(
     *,
-    c=5,
-    since=None,
-    service=None,
-    grep=None,
-):
+    c: int = 5,
+    since: datetime | None = None,
+    service: str | None = None,
+    grep: re.Pattern[str] | None = None,
+) -> argparse.Namespace:
     return argparse.Namespace(c=c, f=False, since=since, service=service, grep=grep)
 
 
@@ -107,6 +108,13 @@ def test_parse_since_invalid():
 
     with pytest.raises(argparse.ArgumentTypeError):
         parse_since("xyz")
+
+
+def test_filter_grep_invalid_regex():
+    from think.logs_cli import compile_grep
+
+    with pytest.raises(argparse.ArgumentTypeError):
+        compile_grep("[invalid")
 
 
 def test_tail_lines_large(tmp_path):
@@ -193,15 +201,37 @@ def test_filter_grep(tmp_path, monkeypatch, capsys):
     lines = [
         "2026-02-09T10:00:00 [echo:stdout] normal line",
         "2026-02-09T10:01:00 [echo:stdout] special event",
+        "2026-02-09T10:02:00 [echo:stdout] unrelated text",
     ]
     make_journal(tmp_path, day, {"echo": lines})
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    logs_cli.collect_and_print(_args(grep="special"))
+    logs_cli.collect_and_print(_args(grep=re.compile("normal|special")))
 
     output = capsys.readouterr().out.strip().splitlines()
-    assert len(output) == 1
-    assert "special event" in output[0]
+    assert len(output) == 2
+    assert "normal line" in output[0]
+    assert "special event" in output[1]
+
+
+def test_filter_grep_regex_or(tmp_path, monkeypatch, capsys):
+    from think import logs_cli
+
+    day = datetime.now().strftime("%Y%m%d")
+    lines = [
+        "2026-02-09T10:00:00 [echo:stdout] alpha entry",
+        "2026-02-09T10:01:00 [echo:stdout] special entry",
+        "2026-02-09T10:02:00 [echo:stdout] beta entry",
+    ]
+    make_journal(tmp_path, day, {"echo": lines})
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    logs_cli.collect_and_print(_args(grep=re.compile("alpha|special")))
+
+    output = capsys.readouterr().out.strip().splitlines()
+    assert len(output) == 2
+    assert "alpha entry" in output[0]
+    assert "special entry" in output[1]
 
 
 def test_filter_since(tmp_path, monkeypatch, capsys):
@@ -222,6 +252,23 @@ def test_filter_since(tmp_path, monkeypatch, capsys):
     assert "new" in output[0]
 
 
+def test_count_limits_filtered_output(tmp_path, monkeypatch, capsys):
+    from think import logs_cli
+
+    day = datetime.now().strftime("%Y%m%d")
+    lines = [f"2026-02-09T10:{i:02d}:00 [echo:stdout] special line {i}" for i in range(10)]
+    make_journal(tmp_path, day, {"echo": lines})
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    logs_cli.collect_and_print(_args(c=3, grep=re.compile("special")))
+
+    output = capsys.readouterr().out.strip().splitlines()
+    assert len(output) == 3
+    assert "special line 7" in output[0]
+    assert "special line 8" in output[1]
+    assert "special line 9" in output[2]
+
+
 def test_filters_compose(tmp_path, monkeypatch, capsys):
     from think import logs_cli
 
@@ -236,7 +283,7 @@ def test_filters_compose(tmp_path, monkeypatch, capsys):
     make_journal(tmp_path, day, {"echo": echo_lines, "observer": observer_lines})
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    logs_cli.collect_and_print(_args(service="echo", grep="special"))
+    logs_cli.collect_and_print(_args(service="echo", grep=re.compile("special")))
 
     output = capsys.readouterr().out.strip().splitlines()
     assert len(output) == 1
@@ -282,7 +329,7 @@ def test_supervisor_excluded_with_filters(tmp_path, monkeypatch, capsys):
     make_journal(tmp_path, day, {"echo": echo_lines}, supervisor_lines=supervisor_lines)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    logs_cli.collect_and_print(_args(grep="special"))
+    logs_cli.collect_and_print(_args(grep=re.compile("special")))
 
     output = capsys.readouterr().out.strip().splitlines()
     assert len(output) == 1

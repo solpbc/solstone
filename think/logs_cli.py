@@ -9,7 +9,7 @@ Usage:
     sol logs -f                 Follow all logs for new output
     sol logs --since 30m        Lines from last 30 minutes
     sol logs --service observer Only show observer logs
-    sol logs --grep "error"     Lines containing "error"
+    sol logs --grep "error"     Lines matching regex "error"
 """
 
 from __future__ import annotations
@@ -88,6 +88,15 @@ def parse_since(spec: str) -> datetime:
     )
 
 
+def compile_grep(pattern: str) -> re.Pattern[str]:
+    try:
+        return re.compile(pattern)
+    except re.error as error:
+        raise argparse.ArgumentTypeError(
+            f"Invalid regex: {pattern!r}: {error}"
+        ) from error
+
+
 def get_today_health_dir() -> Path | None:
     journal = Path(os.path.expanduser(get_journal()))
     today = datetime.now().strftime("%Y%m%d")
@@ -133,7 +142,7 @@ def _matches_filters(line: LogLine, args: argparse.Namespace) -> bool:
         return False
     if args.service and line.service != args.service:
         return False
-    if args.grep and args.grep not in line.raw:
+    if args.grep and not args.grep.search(line.raw):
         return False
     return True
 
@@ -164,6 +173,8 @@ def collect_and_print(args: argparse.Namespace) -> None:
                     lines.append(parsed)
 
     lines.sort(key=lambda line: line.timestamp)
+    if has_filters and args.c:
+        lines = lines[-args.c:]
     for line in lines:
         print(line.raw)
 
@@ -262,8 +273,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--grep",
+        type=compile_grep,
         metavar="PATTERN",
-        help="filter lines containing PATTERN",
+        help="filter lines matching regex PATTERN",
     )
     args = setup_cli(parser)
 
