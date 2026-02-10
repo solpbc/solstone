@@ -45,6 +45,7 @@ COMMANDS: dict[str, str] = {
     "supervisor": "think.supervisor",
     "detect-created": "think.detect_created",
     "top": "think.top",
+    "logs": "think.logs_cli",
     "callosum": "think.callosum",
     "journal-stats": "think.journal_stats",
     "config": "think.config_cli",
@@ -93,6 +94,7 @@ GROUPS: dict[str, list[str]] = {
         "indexer",
         "supervisor",
         "top",
+        "logs",
         "callosum",
     ],
     "Observe (capture)": [
