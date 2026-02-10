@@ -128,24 +128,134 @@ def check_callosum_available() -> bool:
     return socket_path.exists()
 
 
+def _drain_priority_batch(
+    spawned: list[tuple[str, str, dict, str | None]],
+    target_schedule: str,
+    day: str,
+    segment: str | None,
+) -> tuple[int, int]:
+    """Wait for a batch of spawned agents and process their results.
+
+    Waits for all agents in the batch to complete, checks end states,
+    emits completion events, and runs incremental indexing for generators.
+
+    Args:
+        spawned: List of (agent_id, prompt_name, config, facet) tuples
+        target_schedule: "segment" or "daily"
+        day: Day in YYYYMMDD format
+        segment: Optional segment key
+
+    Returns:
+        Tuple of (success_count, failed_count)
+    """
+    if not spawned:
+        return (0, 0)
+
+    agent_ids = [agent_id for agent_id, _, _, _ in spawned]
+    logging.info(f"Waiting for {len(agent_ids)} agents...")
+
+    completed, timed_out = wait_for_agents(agent_ids, timeout=600)
+
+    success = 0
+    failed = 0
+
+    if timed_out:
+        logging.warning(f"{len(timed_out)} agents timed out: {timed_out}")
+        failed += len(timed_out)
+        for agent_id in timed_out:
+            timed_name = next(
+                (n for aid, n, _, _ in spawned if aid == agent_id), "unknown"
+            )
+            timed_facet = next(
+                (f for aid, _, _, f in spawned if aid == agent_id), None
+            )
+            emit(
+                "agent_completed",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+                name=timed_name,
+                agent_id=agent_id,
+                state="timeout",
+                **({"facet": timed_facet} if timed_facet else {}),
+            )
+
+    for agent_id, prompt_name, config, agent_facet in spawned:
+        if agent_id in timed_out:
+            continue
+
+        end_state = get_agent_end_state(agent_id)
+        if end_state == "finish":
+            logging.info(f"{prompt_name} completed successfully")
+            success += 1
+            emit(
+                "agent_completed",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+                name=prompt_name,
+                agent_id=agent_id,
+                state="finish",
+                **({"facet": agent_facet} if agent_facet else {}),
+            )
+
+            # Incremental indexing for generators (skip JSON —
+            # structured metadata not suitable for full-text index)
+            is_generate = config["type"] == "generate"
+            output_format = config.get("output", "md")
+            if is_generate and output_format != "json":
+                output_path = get_output_path(
+                    day_path(day),
+                    prompt_name,
+                    segment=segment,
+                    output_format=output_format,
+                )
+
+                if output_path.exists():
+                    logging.debug(f"Indexing {output_path}")
+                    run_queued_command(
+                        ["sol", "indexer", "--rescan-file", str(output_path)],
+                        day,
+                        timeout=60,
+                    )
+        else:
+            logging.error(f"{prompt_name} ended with state: {end_state}")
+            failed += 1
+            emit(
+                "agent_completed",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+                name=prompt_name,
+                agent_id=agent_id,
+                state=end_state,
+                **({"facet": agent_facet} if agent_facet else {}),
+            )
+
+    return (success, failed)
+
+
 def run_prompts_by_priority(
     day: str,
     segment: str | None,
     force: bool,
     verbose: bool,
+    max_concurrency: int = 2,
 ) -> tuple[int, int]:
     """Run all scheduled prompts in priority order.
 
     Loads all prompts for the target schedule, groups by priority, and executes
-    each group in parallel. Waits for completion before proceeding to the next
-    priority group. For generators (prompts with output), runs incremental
-    indexing after each completes.
+    each group with bounded concurrency. Waits for completion before proceeding
+    to the next priority group. For generators (prompts with output), runs
+    incremental indexing after each completes.
 
     Args:
         day: Day in YYYYMMDD format
         segment: Optional segment key in HHMMSS_LEN format
         force: Whether to regenerate existing outputs
         verbose: Verbose logging
+        max_concurrency: Max agents to run concurrently per priority group.
+            0 means unlimited (all agents in a group run in parallel).
 
     Returns:
         Tuple of (success_count, fail_count)
@@ -217,6 +327,8 @@ def run_prompts_by_priority(
         spawned: list[tuple[str, str, dict, str | None]] = (
             []
         )  # (agent_id, name, config, facet)
+        group_success = 0
+        group_failed = 0
 
         for prompt_name, config in prompts_list:
             is_generate = config["type"] == "generate"
@@ -269,6 +381,15 @@ def run_prompts_by_priority(
                         logging.info(
                             f"Started {prompt_name} for {facet_name} (ID: {agent_id})"
                         )
+
+                        # Drain batch when concurrency limit reached
+                        if max_concurrency and len(spawned) >= max_concurrency:
+                            s, f = _drain_priority_batch(
+                                spawned, target_schedule, day, segment
+                            )
+                            group_success += s
+                            group_failed += f
+                            spawned = []
                 else:
                     # Regular single-instance prompt
                     logging.info(f"Spawning {prompt_name}")
@@ -305,97 +426,23 @@ def run_prompts_by_priority(
                     )
                     logging.info(f"Started {prompt_name} (ID: {agent_id})")
 
+                    # Drain batch when concurrency limit reached
+                    if max_concurrency and len(spawned) >= max_concurrency:
+                        s, f = _drain_priority_batch(
+                            spawned, target_schedule, day, segment
+                        )
+                        group_success += s
+                        group_failed += f
+                        spawned = []
+
             except Exception as e:
                 logging.error(f"Failed to spawn {prompt_name}: {e}")
                 total_failed += 1
 
-        # Wait for this priority group to complete
-        group_success = 0
-        group_failed = 0
-
-        if spawned:
-            agent_ids = [agent_id for agent_id, _, _, _ in spawned]
-            logging.info(
-                f"Waiting for {len(agent_ids)} prompts in priority {priority}..."
-            )
-
-            completed, timed_out = wait_for_agents(agent_ids, timeout=600)
-
-            if timed_out:
-                logging.warning(
-                    f"Priority {priority}: {len(timed_out)} prompts timed out: {timed_out}"
-                )
-                group_failed += len(timed_out)
-                for agent_id in timed_out:
-                    timed_name = next(
-                        (n for aid, n, _, _ in spawned if aid == agent_id), "unknown"
-                    )
-                    timed_facet = next(
-                        (f for aid, _, _, f in spawned if aid == agent_id), None
-                    )
-                    emit(
-                        "agent_completed",
-                        mode=target_schedule,
-                        day=day,
-                        segment=segment,
-                        name=timed_name,
-                        agent_id=agent_id,
-                        state="timeout",
-                        **({"facet": timed_facet} if timed_facet else {}),
-                    )
-
-            # Check end states and run incremental indexing for generators
-            for agent_id, prompt_name, config, agent_facet in spawned:
-                if agent_id in timed_out:
-                    continue
-
-                end_state = get_agent_end_state(agent_id)
-                if end_state == "finish":
-                    logging.info(f"{prompt_name} completed successfully")
-                    group_success += 1
-                    emit(
-                        "agent_completed",
-                        mode=target_schedule,
-                        day=day,
-                        segment=segment,
-                        name=prompt_name,
-                        agent_id=agent_id,
-                        state="finish",
-                        **({"facet": agent_facet} if agent_facet else {}),
-                    )
-
-                    # Incremental indexing for generators (skip JSON —
-                    # structured metadata not suitable for full-text index)
-                    is_generate = config["type"] == "generate"
-                    output_format = config.get("output", "md")
-                    if is_generate and output_format != "json":
-                        output_path = get_output_path(
-                            day_path(day),
-                            prompt_name,
-                            segment=segment,
-                            output_format=output_format,
-                        )
-
-                        if output_path.exists():
-                            logging.debug(f"Indexing {output_path}")
-                            run_queued_command(
-                                ["sol", "indexer", "--rescan-file", str(output_path)],
-                                day,
-                                timeout=60,
-                            )
-                else:
-                    logging.error(f"{prompt_name} ended with state: {end_state}")
-                    group_failed += 1
-                    emit(
-                        "agent_completed",
-                        mode=target_schedule,
-                        day=day,
-                        segment=segment,
-                        name=prompt_name,
-                        agent_id=agent_id,
-                        state=end_state,
-                        **({"facet": agent_facet} if agent_facet else {}),
-                    )
+        # Drain any remaining agents in this priority group
+        s, f = _drain_priority_batch(spawned, target_schedule, day, segment)
+        group_success += s
+        group_failed += f
 
         total_success += group_success
         total_failed += group_failed
@@ -681,6 +728,7 @@ def run_activity_prompts(
     facet: str,
     force: bool = False,
     verbose: bool = False,
+    max_concurrency: int = 2,
 ) -> bool:
     """Run activity-scheduled agents for a completed activity.
 
@@ -695,6 +743,7 @@ def run_activity_prompts(
         facet: Facet name
         force: Whether to regenerate existing outputs
         verbose: Verbose logging
+        max_concurrency: Max agents to run concurrently (0=unlimited)
 
     Returns:
         True if all agents succeeded, False if any failed
@@ -794,67 +843,22 @@ def run_activity_prompts(
         )
 
         spawned: list[tuple[str, str, dict]] = []  # (agent_id, name, config)
-
-        for prompt_name, config in prompts_list:
-            is_generate = config["type"] == "generate"
-
-            try:
-                logging.info(f"Spawning {prompt_name} for activity {activity_id}")
-
-                request_config: dict = {
-                    "facet": facet,
-                    "day": day,
-                    "span": segments,
-                    "activity": record,
-                }
-                if is_generate:
-                    request_config["output"] = config.get("output", "md")
-                    if force:
-                        request_config["force"] = True
-
-                prompt = (
-                    ""
-                    if is_generate
-                    else f"Processing activity '{activity_id}' ({activity_type}) in facet '{facet}' for {day_formatted}."
-                )
-
-                agent_id = cortex_request(
-                    prompt=prompt,
-                    name=prompt_name,
-                    config=request_config,
-                )
-                spawned.append((agent_id, prompt_name, config))
-                emit(
-                    "agent_started",
-                    mode="activity",
-                    day=day,
-                    activity=activity_id,
-                    facet=facet,
-                    name=prompt_name,
-                    agent_id=agent_id,
-                )
-                logging.info(f"Started {prompt_name} (ID: {agent_id})")
-
-            except Exception as e:
-                logging.error(f"Failed to spawn {prompt_name}: {e}")
-                total_failed += 1
-
-        # Wait for group
         group_success = 0
         group_failed = 0
 
-        if spawned:
+        def _drain_activity_batch() -> None:
+            """Wait for current batch of spawned activity agents."""
+            nonlocal spawned, group_success, group_failed
+            if not spawned:
+                return
+
             agent_ids = [aid for aid, _, _ in spawned]
-            logging.info(
-                f"Waiting for {len(agent_ids)} agents in priority {priority}..."
-            )
+            logging.info(f"Waiting for {len(agent_ids)} agents...")
 
             completed, timed_out = wait_for_agents(agent_ids, timeout=600)
 
             if timed_out:
-                logging.warning(
-                    f"Priority {priority}: {len(timed_out)} agents timed out"
-                )
+                logging.warning(f"{len(timed_out)} agents timed out")
                 group_failed += len(timed_out)
                 for agent_id in timed_out:
                     timed_name = next(
@@ -911,6 +915,59 @@ def run_activity_prompts(
                     agent_id=agent_id,
                     state=end_state,
                 )
+
+            spawned = []
+
+        for prompt_name, config in prompts_list:
+            is_generate = config["type"] == "generate"
+
+            try:
+                logging.info(f"Spawning {prompt_name} for activity {activity_id}")
+
+                request_config: dict = {
+                    "facet": facet,
+                    "day": day,
+                    "span": segments,
+                    "activity": record,
+                }
+                if is_generate:
+                    request_config["output"] = config.get("output", "md")
+                    if force:
+                        request_config["force"] = True
+
+                prompt = (
+                    ""
+                    if is_generate
+                    else f"Processing activity '{activity_id}' ({activity_type}) in facet '{facet}' for {day_formatted}."
+                )
+
+                agent_id = cortex_request(
+                    prompt=prompt,
+                    name=prompt_name,
+                    config=request_config,
+                )
+                spawned.append((agent_id, prompt_name, config))
+                emit(
+                    "agent_started",
+                    mode="activity",
+                    day=day,
+                    activity=activity_id,
+                    facet=facet,
+                    name=prompt_name,
+                    agent_id=agent_id,
+                )
+                logging.info(f"Started {prompt_name} (ID: {agent_id})")
+
+                # Drain batch when concurrency limit reached
+                if max_concurrency and len(spawned) >= max_concurrency:
+                    _drain_activity_batch()
+
+            except Exception as e:
+                logging.error(f"Failed to spawn {prompt_name}: {e}")
+                total_failed += 1
+
+        # Drain any remaining agents
+        _drain_activity_batch()
 
         total_success += group_success
         total_failed += group_failed
@@ -1121,6 +1178,14 @@ def parse_args() -> argparse.ArgumentParser:
         action="store_true",
         help="Run flush hooks on segment agents to close out dangling state (requires --segment)",
     )
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=2,
+        metavar="N",
+        help="Max concurrent agents per priority group (0=unlimited, default: 2)",
+    )
     return parser
 
 
@@ -1174,6 +1239,7 @@ def main() -> None:
                 facet=args.facet,
                 force=args.force,
                 verbose=args.verbose,
+                max_concurrency=args.jobs,
             )
             sys.exit(0 if success else 1)
 
@@ -1228,6 +1294,7 @@ def main() -> None:
                         segment=seg_key,
                         force=args.force,
                         verbose=args.verbose,
+                        max_concurrency=args.jobs,
                     )
                     batch_success += success
                     batch_failed += failed
@@ -1280,6 +1347,7 @@ def main() -> None:
             segment=args.segment,
             force=args.force,
             verbose=args.verbose,
+            max_concurrency=args.jobs,
         )
 
         # POST-PHASE: Final indexing and stats (daily only)
