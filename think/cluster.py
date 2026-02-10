@@ -11,6 +11,7 @@ from typing import Any
 
 from observe.screen import format_screen_text
 
+from .streams import read_segment_stream
 from .utils import day_path
 
 
@@ -99,6 +100,10 @@ def _process_segment(
     if not start_time or not end_time:
         return entries
 
+    # Read stream identity
+    marker = read_segment_stream(segment_path)
+    stream = marker.get("stream") if marker else None
+
     # Compute segment times
     segment_key = segment_path.name
     day_date = datetime.strptime(date_str, "%Y%m%d").date()
@@ -130,6 +135,7 @@ def _process_segment(
                     "prefix": "audio",
                     "content": formatted_text,
                     "name": f"{segment_path.name}/{audio_file.name}",
+                    "stream": stream,
                 }
             )
 
@@ -149,6 +155,7 @@ def _process_segment(
                             "prefix": "screen",
                             "content": content,
                             "name": f"{segment_path.name}/{screen_jsonl.name}",
+                            "stream": stream,
                         }
                     )
             except Exception as e:  # pragma: no cover - warning only
@@ -187,6 +194,7 @@ def _process_segment(
                                 "output_name": md_file.stem,
                                 "content": content,
                                 "name": f"{segment_path.name}/agents/{rel_md_path}",
+                                "stream": stream,
                             }
                         )
                 except Exception as e:  # pragma: no cover - warning only
@@ -423,12 +431,14 @@ def cluster_segments(day: str) -> list[dict[str, Any]]:
         start_str = start_time.strftime("%H:%M")
         end_str = end_time.strftime("%H:%M")
 
+        marker = read_segment_stream(item)
         segments.append(
             {
                 "key": item.name,
                 "start": start_str,
                 "end": end_str,
                 "types": types,
+                "stream": marker.get("stream") if marker else None,
             }
         )
 
