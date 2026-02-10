@@ -166,9 +166,7 @@ def _drain_priority_batch(
             timed_name = next(
                 (n for aid, n, _, _ in spawned if aid == agent_id), "unknown"
             )
-            timed_facet = next(
-                (f for aid, _, _, f in spawned if aid == agent_id), None
-            )
+            timed_facet = next((f for aid, _, _, f in spawned if aid == agent_id), None)
             emit(
                 "agent_completed",
                 mode=target_schedule,
