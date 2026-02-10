@@ -11,7 +11,6 @@ from think.muse_cli import (
     _collect_configs,
     _format_output_path,
     _format_tags,
-    _format_tools,
     _scan_variables,
     json_output,
     list_prompts,
@@ -123,14 +122,6 @@ def test_format_output_path_app_namespaced():
     ) == ("<day>/agents/_entities_entities.md")
 
 
-def test_format_tools():
-    """Format tools extracts tools field or returns dash."""
-    assert _format_tools({"tools": "journal, todo"}) == "journal, todo"
-    assert _format_tools({"tools": ["journal", "todo"]}) == "journal, todo"
-    assert _format_tools({}) == "-"
-    assert _format_tools({"output": "md"}) == "-"
-
-
 def test_scan_variables():
     """Variable scanning finds template variables in prompt body."""
     assert "name" in _scan_variables("Hello $name, welcome")
@@ -150,7 +141,7 @@ def test_list_prompts_output(capsys):
     assert "NAME" in output
     assert "TITLE" in output
     assert "OUTPUT" in output
-    assert "TOOLS" in output
+    assert "LAST RUN" in output
     assert "TAGS" in output
 
     # Group headers
@@ -165,8 +156,8 @@ def test_list_prompts_output(capsys):
     assert "<segment>/agents/activity.md" in output
     assert "<day>/agents/flow.md" in output
 
-    # Tools column is present
-    assert "TOOLS" in output
+    # Last run column is present
+    assert "LAST RUN" in output
 
 
 def test_list_prompts_schedule_filter(capsys):

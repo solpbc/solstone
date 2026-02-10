@@ -22,6 +22,8 @@ import json
 import re
 import subprocess
 import sys
+import time
+from collections import deque
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -98,14 +100,46 @@ def _format_output_path(key: str, info: dict[str, Any]) -> str:
         return f"<day>/agents/{topic}.{ext}"
 
 
-def _format_tools(info: dict[str, Any]) -> str:
-    """Extract tools field or return '-' if none."""
-    tools = info.get("tools")
-    if not tools:
+def _format_last_run(key: str, agents_dir: Path) -> str:
+    """Format age of last run with optional runtime duration."""
+    safe_name = key.replace(":", "--")
+    link_path = agents_dir / f"{safe_name}.jsonl"
+    if not link_path.exists():
         return "-"
-    if isinstance(tools, list):
-        return ", ".join(tools)
-    return tools
+
+    try:
+        with link_path.open() as f:
+            first_line = f.readline()
+            last_line = next(iter(deque(f, maxlen=1)), None)
+
+        first_event = json.loads(first_line)
+        first_ts = first_event["ts"]
+        age_seconds = time.time() - (first_ts / 1000)
+
+        if age_seconds < 60:
+            age = f"{int(age_seconds)}s ago"
+        elif age_seconds < 3600:
+            age = f"{int(age_seconds / 60)}m ago"
+        elif age_seconds < 86400:
+            age = f"{int(age_seconds / 3600)}h ago"
+        else:
+            age = f"{int(age_seconds / 86400)}d ago"
+
+        if last_line:
+            last_event = json.loads(last_line)
+            last_ts = last_event["ts"]
+            duration_seconds = (last_ts - first_ts) / 1000
+            if duration_seconds < 60:
+                duration = f"{int(duration_seconds)}s"
+            elif duration_seconds < 3600:
+                duration = f"{int(duration_seconds / 60)}m"
+            else:
+                duration = f"{int(duration_seconds / 3600)}h"
+            age = f"{age} ({duration})"
+
+        return age
+    except Exception:
+        return "-"
 
 
 def _format_tags(info: dict[str, Any]) -> str:
@@ -170,6 +204,9 @@ def list_prompts(
     configs = _collect_configs(
         schedule=schedule, source=source, include_disabled=include_disabled
     )
+    from think.utils import get_journal
+
+    agents_dir = Path(get_journal()) / "agents"
 
     if not configs:
         print("No prompts found matching filters.")
@@ -197,12 +234,12 @@ def list_prompts(
     # Fixed widths for other columns
     title_width = 28
     output_width = 34
-    tools_width = 24
+    last_run_width = 18
 
     # Print column header
     header = (
         f"  {'NAME':<{name_width}}  {'TITLE':<{title_width}}  "
-        f"{'OUTPUT':<{output_width}}  {'TOOLS':<{tools_width}}  TAGS"
+        f"{'OUTPUT':<{output_width}}  {'LAST RUN':<{last_run_width}}  TAGS"
     )
     print(header)
     print()
@@ -220,17 +257,17 @@ def list_prompts(
         for key, info in items:
             title = info.get("title", "")[:title_width]
             output_path = _format_output_path(key, info)
-            tools = _format_tools(info)[:tools_width]
+            last_run = _format_last_run(key, agents_dir)[:last_run_width]
             tags = _format_tags(info)
             src = ""
             if info.get("source") == "app":
                 src = f" [{info.get('app', 'app')}]"
 
-            # Build line with columns: name, title, output, tools, tags
+            # Build line with columns: name, title, output, last_run, tags
             tag_part = f"  {tags}" if tags else ""
             line = (
                 f"  {key:<{name_width}}  {title:<{title_width}}  "
-                f"{output_path:<{output_width}}  {tools:<{tools_width}}{tag_part}{src}"
+                f"{output_path:<{output_width}}  {last_run:<{last_run_width}}{tag_part}{src}"
             )
             print(line.rstrip())
 
