@@ -20,7 +20,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Callable
 
-from think.providers.shared import JSONEventCallback
+from think.providers.shared import JSONEventCallback, safe_raw
 from think.utils import now_ms
 
 LOG = logging.getLogger("think.providers.cli")
@@ -112,7 +112,7 @@ class ThinkingAggregator:
         if self._model:
             event["model"] = self._model
         if raw_events:
-            event["raw"] = raw_events
+            event["raw"] = safe_raw(raw_events)
         self._callback.emit(event)
 
     def flush_as_result(self) -> str:
@@ -208,6 +208,7 @@ class CLIRunner:
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            limit=1024 * 1024,  # 1 MB – tool results can exceed the 64 KB default
             cwd=str(self.cwd),
             env=proc_env,
         )

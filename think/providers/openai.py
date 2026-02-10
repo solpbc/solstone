@@ -47,6 +47,7 @@ from think.utils import now_ms
 from .shared import (
     GenerateResult,
     JSONEventCallback,
+    safe_raw,
 )
 
 # Agent configuration is now loaded via get_agent() in cortex.py
@@ -86,7 +87,7 @@ def _translate_codex(
                 "tool": "bash",
                 "args": {"command": item.get("command", "")},
                 "call_id": item.get("id", ""),
-                "raw": [event],
+                "raw": safe_raw([event]),
             }
         )
         return None
@@ -97,7 +98,7 @@ def _translate_codex(
             thinking_event: dict[str, Any] = {
                 "event": "thinking",
                 "summary": item.get("text", ""),
-                "raw": [event],
+                "raw": safe_raw([event]),
                 "ts": now_ms(),
             }
             if aggregator._model:
@@ -117,7 +118,7 @@ def _translate_codex(
                     "args": {"command": item.get("command", "")},
                     "result": item.get("aggregated_output", ""),
                     "call_id": item.get("id", ""),
-                    "raw": [event],
+                    "raw": safe_raw([event]),
                 }
             )
             return None

@@ -12,6 +12,7 @@ This module contains:
 
 from __future__ import annotations
 
+import json
 from typing import Any, Callable, Literal, Optional, Union
 
 from typing_extensions import Required, TypedDict
@@ -161,9 +162,51 @@ class JSONEventCallback:
         pass
 
 
+# ---------------------------------------------------------------------------
+# Raw Event Trimming
+# ---------------------------------------------------------------------------
+
+# Structural keys preserved when trimming oversized raw events.
+_RAW_STRUCTURAL_KEYS = frozenset(
+    {
+        "type",
+        "id",
+        "tool_id",
+        "tool_name",
+        "role",
+        "event_type",
+        "timestamp",
+    }
+)
+
+_RAW_BYTE_LIMIT = 16_384  # 16 KB
+
+
+def safe_raw(
+    events: list[dict[str, Any]],
+    limit: int = _RAW_BYTE_LIMIT,
+) -> list[dict[str, Any]]:
+    """Return *events* as-is if small enough, otherwise a trimmed version.
+
+    When the JSON-serialized size exceeds *limit* bytes, each event is reduced
+    to its structural keys and a ``_raw_trimmed`` dict is appended with the
+    original byte count and the limit that was applied.
+    """
+    serialized = json.dumps(events, ensure_ascii=False)
+    if len(serialized.encode("utf-8")) <= limit:
+        return events
+
+    trimmed = [
+        {k: v for k, v in e.items() if k in _RAW_STRUCTURAL_KEYS} for e in events
+    ]
+    trimmed.append({"_raw_trimmed": {"original_bytes": len(serialized), "limit": limit}})
+    return trimmed
+
+
 __all__ = [
     "Event",
     "GenerateResult",
     "JSONEventCallback",
     "ThinkingEvent",
+    "safe_raw",
 ]

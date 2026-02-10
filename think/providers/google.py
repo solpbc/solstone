@@ -51,6 +51,7 @@ from .shared import (
     GenerateResult,
     JSONEventCallback,
     ThinkingEvent,
+    safe_raw,
 )
 
 _DEFAULT_MAX_TOKENS = 8192
@@ -518,7 +519,7 @@ def _translate_gemini(
                 "tool": tool_name,
                 "args": tool_args,
                 "call_id": tool_id,
-                "raw": [event],
+                "raw": safe_raw([event]),
                 "ts": now_ms(),
             }
         )
@@ -536,7 +537,7 @@ def _translate_gemini(
                 "args": tool_info.get("args"),
                 "call_id": tool_id,
                 "result": event.get("output"),
-                "raw": [event],
+                "raw": safe_raw([event]),
                 "ts": now_ms(),
             }
         )

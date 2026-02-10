@@ -55,6 +55,7 @@ from .cli import (
 from .shared import (
     GenerateResult,
     JSONEventCallback,
+    safe_raw,
 )
 
 # Default values are now handled internally
@@ -144,7 +145,7 @@ def _translate_claude(
                 thinking_event: dict[str, Any] = {
                     "event": "thinking",
                     "summary": block.get("thinking", ""),
-                    "raw": [event],
+                    "raw": safe_raw([event]),
                 }
                 if aggregator._model:
                     thinking_event["model"] = aggregator._model
@@ -167,7 +168,7 @@ def _translate_claude(
                     "tool": tool_name,
                     "args": tool_args,
                     "call_id": tool_id,
-                    "raw": [event],
+                    "raw": safe_raw([event]),
                 }
             )
 
@@ -187,7 +188,7 @@ def _translate_claude(
                         "args": tool_info.get("args"),
                         "result": block.get("content", ""),
                         "call_id": tool_use_id,
-                        "raw": [event],
+                        "raw": safe_raw([event]),
                     }
                 )
 

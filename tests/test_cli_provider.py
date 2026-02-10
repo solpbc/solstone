@@ -13,7 +13,7 @@ from think.providers.cli import (
     ThinkingAggregator,
     assemble_prompt,
 )
-from think.providers.shared import JSONEventCallback
+from think.providers.shared import JSONEventCallback, safe_raw
 
 # ---------------------------------------------------------------------------
 # assemble_prompt
@@ -216,3 +216,78 @@ class TestCLIRunnerFirstEventTimeout:
         error_events = [event for event in events if event.get("event") == "error"]
         assert len(error_events) == 1
         assert "Please authenticate first" in error_events[0]["error"]
+
+
+# ---------------------------------------------------------------------------
+# safe_raw
+# ---------------------------------------------------------------------------
+
+
+class TestSafeRaw:
+    def test_small_event_returned_unchanged(self):
+        events = [{"type": "tool_use", "tool_name": "read_file", "tool_id": "t1"}]
+        assert safe_raw(events) is events
+
+    def test_large_event_trimmed(self):
+        big_output = "x" * 20_000
+        events = [
+            {
+                "type": "tool_result",
+                "tool_id": "t1",
+                "output": big_output,
+                "extra_field": "value",
+            }
+        ]
+        result = safe_raw(events)
+        assert result is not events
+        # Should keep only structural keys
+        assert result[0] == {"type": "tool_result", "tool_id": "t1"}
+        # Last element is the trimmed metadata
+        meta = result[-1]["_raw_trimmed"]
+        assert meta["limit"] == 16_384
+        assert meta["original_bytes"] > 16_384
+
+    def test_custom_limit(self):
+        events = [{"type": "message", "content": "a" * 200}]
+        # Under custom limit
+        assert safe_raw(events, limit=1024) is events
+        # Over custom limit
+        result = safe_raw(events, limit=50)
+        assert result is not events
+        assert result[-1]["_raw_trimmed"]["limit"] == 50
+
+    def test_structural_keys_preserved(self):
+        events = [
+            {
+                "type": "tool_use",
+                "id": "abc",
+                "tool_id": "t1",
+                "tool_name": "search",
+                "role": "assistant",
+                "event_type": "message",
+                "timestamp": 12345,
+                "big_content": "z" * 20_000,
+            }
+        ]
+        result = safe_raw(events)
+        kept = result[0]
+        assert kept == {
+            "type": "tool_use",
+            "id": "abc",
+            "tool_id": "t1",
+            "tool_name": "search",
+            "role": "assistant",
+            "event_type": "message",
+            "timestamp": 12345,
+        }
+
+    def test_multiple_events(self):
+        events = [
+            {"type": "msg", "data": "a" * 10_000},
+            {"type": "msg", "data": "b" * 10_000},
+        ]
+        result = safe_raw(events)
+        assert len(result) == 3  # 2 trimmed events + 1 metadata
+        assert result[0] == {"type": "msg"}
+        assert result[1] == {"type": "msg"}
+        assert "_raw_trimmed" in result[2]
