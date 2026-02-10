@@ -285,6 +285,8 @@ class FileSensor:
                 event_fields["segment"] = segment
             if remote:
                 event_fields["remote"] = remote
+            if segment and segment in self.segment_stream:
+                event_fields["stream"] = self.segment_stream[segment]
             self.callosum.emit("observe", "detected", **event_fields)
 
         # Replace {file} placeholder with actual file path

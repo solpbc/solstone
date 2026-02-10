@@ -83,11 +83,13 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 | `transcribed` | transcribe | Audio transcription complete (includes VAD metadata) |
 | `observed` | sense | All files for segment fully processed (may include errors) |
 
-**Common fields:** `day`, `segment`, `remote` (for remote uploads)
+**Common fields:** `day`, `segment`, `remote` (for remote uploads), `stream` (stream name, e.g., `"archon"`, `"import.apple"`)
 **`observing` event fields:**
 - `meta` (dict, optional): Metadata dict from remote observer. Contains `host`, `platform`, and any client-provided fields (e.g., `facet`, `setting`). Passed to handlers via `SEGMENT_META` env var and unrolled into JSONL metadata headers.
+- `stream` (str, optional): Stream name identifying the segment source. Set by observers, remote ingest, and importer.
 
 **`observed` event fields:**
+- `stream` (str, optional): Stream name, forwarded from the originating `observing` event.
 - `error` (bool, optional): `true` if any handler failed during segment processing
 - `errors` (list[str], optional): Error descriptions for failed handlers (e.g., `["transcribe exit 1"]`)
 
@@ -97,7 +99,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 ### `importer` - Media import processing
 **Source:** `think/importer.py`
 **Events:** `started`, `status`, `completed`, `error`
-**Key fields:** `import_id` (correlates all events), `stage`, `segments` (created segment keys)
+**Key fields:** `import_id` (correlates all events), `stage`, `segments` (created segment keys), `stream` (stream name, e.g., `"import.apple"`)
 **Stages:** `initialization`, `segmenting`, `transcribing`, `summarizing`
 **Purpose:** Track media file import from upload through transcription to segment creation
 

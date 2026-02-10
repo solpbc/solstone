@@ -65,6 +65,7 @@ solstone transforms raw recordings into actionable understanding through a three
 | `facets/` | Facet-specific data: entity relationships, todos, events, news, action logs |
 | `agents/` | Agent event logs (`<id>.jsonl`, `<id>_active.jsonl` for running agents) |
 | `apps/` | App-specific storage (distinct from codebase `apps/`) |
+| `streams/` | Per-stream state files (`<name>.json`) tracking segment chains and sequence numbers |
 | `imports/` | Imported audio files and processing artifacts |
 | `tokens/` | Token usage logs from AI model calls, organized by day |
 | `indexer/` | Search index (`journal.sqlite` FTS5 database) |
@@ -854,6 +855,20 @@ Within each day, captured content is organized into **segments** (timestamped du
 - `HHMMSS_LEN/` – Start time and duration in seconds (e.g., `143022_300/` for a 5-minute segment starting at 14:30:22)
 
 Each segment progresses through the three-layer pipeline: captures are recorded, extracts are generated, and agent outputs are synthesized.
+
+#### Stream identity
+
+Every segment belongs to a **stream** — a named series of segments from a single source. Streams provide navigable chains linking each segment to its predecessor.
+
+- `stream.json` – Per-segment stream marker containing:
+  - `stream` – stream name (e.g., `"archon"`, `"import.apple"`)
+  - `prev_day` – day of the previous segment in this stream (null for first)
+  - `prev_segment` – segment key of the predecessor (null for first)
+  - `seq` – sequence number within the stream
+
+Stream names follow the convention: `{hostname}` for local observers, `{remote_name}` for remotes, `import.{type}` for imports (e.g., `import.apple`, `import.text`). Global stream state is tracked in the top-level `streams/` directory as `{name}.json` files.
+
+Pre-stream segments (created before stream identity was added) have no `stream.json` and are handled gracefully as `None` throughout the pipeline.
 
 ### Layer 1: Captures
 

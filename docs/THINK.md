@@ -24,7 +24,7 @@ The package exposes several commands:
 
 ```bash
 sol call transcripts read YYYYMMDD [--start HHMMSS --length MINUTES]
-sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--force] [--run NAME] [--flush]
+sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--stream NAME] [--force] [--run NAME] [--flush]
 sol supervisor [--no-observers]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
 sol muse [--schedule daily|segment] [--json]
