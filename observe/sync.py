@@ -406,12 +406,14 @@ class SyncService:
         logger.info(f"Received observing event: {day}/{segment} ({len(files)} files)")
 
         # Build metadata dict from message fields
-        # Observers emit host/platform as top-level fields, and may include a meta dict
+        # Observers emit host/platform/stream as top-level fields, and may include a meta dict
         meta: dict[str, Any] = {}
         if message.get("host"):
             meta["host"] = message["host"]
         if message.get("platform"):
             meta["platform"] = message["platform"]
+        if message.get("stream"):
+            meta["stream"] = message["stream"]
         # Merge any explicit meta dict (its values take precedence)
         if message.get("meta"):
             meta.update(message["meta"])

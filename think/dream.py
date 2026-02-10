@@ -239,6 +239,7 @@ def run_prompts_by_priority(
     force: bool,
     verbose: bool,
     max_concurrency: int = 2,
+    stream: str | None = None,
 ) -> tuple[int, int]:
     """Run all scheduled prompts in priority order.
 
@@ -354,6 +355,8 @@ def run_prompts_by_priority(
                         if segment:
                             request_config["segment"] = segment
                             request_config["env"] = {"SEGMENT_KEY": segment}
+                            if stream:
+                                request_config["env"]["STREAM_NAME"] = stream
 
                         prompt = (
                             ""
@@ -401,6 +404,8 @@ def run_prompts_by_priority(
                     if segment:
                         request_config["segment"] = segment
                         request_config["env"] = {"SEGMENT_KEY": segment}
+                        if stream:
+                            request_config["env"]["STREAM_NAME"] = stream
 
                     prompt = (
                         ""
@@ -476,6 +481,7 @@ def run_single_prompt(
     segment: str | None = None,
     force: bool = False,
     facet: str | None = None,
+    stream: str | None = None,
 ) -> bool:
     """Run a single prompt (generator or agent) by name.
 
@@ -631,6 +637,8 @@ def run_single_prompt(
                     if segment:
                         request_config["segment"] = segment
                         request_config["env"] = {"SEGMENT_KEY": segment}
+                        if stream:
+                            request_config["env"]["STREAM_NAME"] = stream
                     agent_id = cortex_request(
                         prompt=f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context.",
                         name=name,
@@ -655,6 +663,8 @@ def run_single_prompt(
                 if segment:
                     request_config["segment"] = segment
                     request_config["env"] = {"SEGMENT_KEY": segment}
+                    if stream:
+                        request_config["env"]["STREAM_NAME"] = stream
 
                 agent_id = cortex_request(
                     prompt=f"Running task for {day_formatted}: {input_summary}.",
@@ -1009,6 +1019,7 @@ def run_flush_prompts(
     day: str,
     segment: str,
     verbose: bool,
+    stream: str | None = None,
 ) -> bool:
     """Run flush hooks for segment agents that declare flush support.
 
@@ -1053,12 +1064,15 @@ def run_flush_prompts(
         is_generate = config["type"] == "generate"
 
         try:
+            env: dict[str, str] = {"SEGMENT_KEY": segment}
+            if stream:
+                env["STREAM_NAME"] = stream
             request_config: dict = {
                 "day": day,
                 "segment": segment,
                 "flush": True,
                 "force": True,
-                "env": {"SEGMENT_KEY": segment},
+                "env": env,
             }
             if is_generate:
                 request_config["output"] = config.get("output", "md")
@@ -1172,6 +1186,10 @@ def parse_args() -> argparse.ArgumentParser:
         help="Run activity-scheduled agents for a completed activity record (requires --facet and --day)",
     )
     parser.add_argument(
+        "--stream",
+        help="Stream name (e.g., 'archon', 'import.apple'). Passed to agents as STREAM_NAME env var.",
+    )
+    parser.add_argument(
         "--flush",
         action="store_true",
         help="Run flush hooks on segment agents to close out dangling state (requires --segment)",
@@ -1249,6 +1267,7 @@ def main() -> None:
                 day=day,
                 segment=args.segment,
                 verbose=args.verbose,
+                stream=args.stream,
             )
             sys.exit(0 if success else 1)
 
@@ -1260,6 +1279,7 @@ def main() -> None:
                 segment=args.segment,
                 force=args.force,
                 facet=args.facet,
+                stream=args.stream,
             )
             sys.exit(0 if success else 1)
 
@@ -1346,6 +1366,7 @@ def main() -> None:
             force=args.force,
             verbose=args.verbose,
             max_concurrency=args.jobs,
+            stream=args.stream,
         )
 
         # POST-PHASE: Final indexing and stats (daily only)

@@ -1094,11 +1094,13 @@ def _handle_segment_observed(message: dict) -> None:
 
     # Use day from event payload, fallback to today (for live observation)
     day = message.get("day") or datetime.now().strftime("%Y%m%d")
+    stream = message.get("stream")
 
     # Update flush state — new segment resets the flush timer
     _flush_state["last_segment_ts"] = time.time()
     _flush_state["day"] = day
     _flush_state["segment"] = segment
+    _flush_state["stream"] = stream
     _flush_state["flushed"] = False
 
     logging.info(f"Segment observed: {day}/{segment}, spawning processing...")
@@ -1106,18 +1108,21 @@ def _handle_segment_observed(message: dict) -> None:
     # Run dream in segment mode (handles both generators and agents)
     threading.Thread(
         target=_run_segment_processing,
-        args=(day, segment),
+        args=(day, segment, stream),
         daemon=True,
     ).start()
 
 
-def _run_segment_processing(day: str, segment: str) -> None:
+def _run_segment_processing(day: str, segment: str, stream: str | None = None) -> None:
     """Run sol dream for a specific segment."""
     from think.runner import run_task
 
     logging.info(f"Starting segment processing: {day}/{segment}")
+    cmd = ["sol", "dream", "-v", "--day", day, "--segment", segment]
+    if stream:
+        cmd.extend(["--stream", stream])
     success, exit_code = run_task(
-        ["sol", "dream", "-v", "--day", day, "--segment", segment],
+        cmd,
         callosum=_supervisor_callosum,
     )
 
@@ -1159,7 +1164,10 @@ def _check_segment_flush(force: bool = False) -> None:
 
     _flush_state["flushed"] = True
 
+    stream = _flush_state.get("stream")
     cmd = ["sol", "dream", "-v", "--day", day, "--segment", segment, "--flush"]
+    if stream:
+        cmd.extend(["--stream", stream])
     if _task_queue:
         _task_queue.submit(cmd)
         logging.info(f"Queued segment flush: {day}/{segment}")

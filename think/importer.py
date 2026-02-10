@@ -24,6 +24,7 @@ from think.importer_utils import (
     save_import_segments,
     write_import_metadata,
 )
+from think.streams import stream_name, update_stream, write_segment_stream
 from think.utils import (
     day_path,
     get_journal,
@@ -622,6 +623,12 @@ def main() -> None:
         help="Contextual setting description to store with import metadata",
     )
     parser.add_argument(
+        "--source",
+        type=str,
+        default=None,
+        help="Import source type (apple, plaud, audio, text). Auto-detected if omitted.",
+    )
+    parser.add_argument(
         "--skip-summary",
         action="store_true",
         help="Skip waiting for transcription and summary generation",
@@ -694,6 +701,20 @@ def main() -> None:
     logger.info(f"Using provided timestamp: {args.timestamp}")
     day_dir = str(day_path(day))
 
+    # Derive stream identity for this import
+    if args.source:
+        import_source = args.source
+    else:
+        # Auto-detect from file extension
+        _ext = os.path.splitext(args.media)[1].lower()
+        if _ext == ".m4a":
+            import_source = "apple"
+        elif _ext in {".txt", ".md", ".pdf"}:
+            import_source = "text"
+        else:
+            import_source = "audio"
+    stream = stream_name(import_source=import_source)
+
     # Initialize importer tract state
     _import_id = args.timestamp
     _start_time = time.monotonic()
@@ -727,6 +748,7 @@ def main() -> None:
             "skip_summary": args.skip_summary,
         },
         stage=_current_stage,
+        stream=stream,
     )
 
     # Track all created files and processing metadata
@@ -779,9 +801,26 @@ def main() -> None:
                 if seg and seg not in created_segments:
                     created_segments.append(seg)
 
+            # Write stream markers for text import segments
+            for seg in created_segments:
+                try:
+                    seg_dir = day_path(day) / seg
+                    result = update_stream(stream, day, seg, type="import", host=None)
+                    write_segment_stream(
+                        seg_dir,
+                        stream,
+                        result["prev_day"],
+                        result["prev_segment"],
+                        result["seq"],
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to write stream identity: {e}")
+
             # Emit observe.observed for text imports (already processed)
             for seg in created_segments:
-                _callosum.emit("observe", "observed", segment=seg, day=day)
+                _callosum.emit(
+                    "observe", "observed", segment=seg, day=day, stream=stream
+                )
                 logger.info(f"Emitted observe.observed for segment: {day}/{seg}")
 
         else:
@@ -799,11 +838,24 @@ def main() -> None:
             if not segments:
                 raise RuntimeError("No segments created from audio file")
 
-            # Track created files and segment keys
+            # Track created files and segment keys, write stream markers
             for seg_key, seg_dir, files in segments:
                 created_segments.append(seg_key)
                 for f in files:
                     all_created_files.append(str(seg_dir / f))
+                try:
+                    result = update_stream(
+                        stream, day, seg_key, type="import", host=None
+                    )
+                    write_segment_stream(
+                        seg_dir,
+                        stream,
+                        result["prev_day"],
+                        result["prev_segment"],
+                        result["seq"],
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to write stream identity: {e}")
 
             # Save segment list for tracking
             save_import_segments(journal_root, args.timestamp, created_segments, day)
@@ -818,7 +870,7 @@ def main() -> None:
             )
 
             # Build meta dict for observe.observing events
-            meta: dict[str, str] = {"import_id": args.timestamp}
+            meta: dict[str, str] = {"import_id": args.timestamp, "stream": stream}
             if args.facet:
                 meta["facet"] = args.facet
             if args.setting:
@@ -833,6 +885,7 @@ def main() -> None:
                     day=day,
                     files=files,
                     meta=meta,
+                    stream=stream,
                 )
                 logger.info(f"Emitted observe.observing for segment: {day}/{seg_key}")
 
@@ -944,6 +997,7 @@ def main() -> None:
             metadata_file=metadata_file_relative,
             stages_run=_stages_run,
             segments=created_segments,
+            stream=stream,
         )
 
     except Exception as e:

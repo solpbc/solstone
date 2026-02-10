@@ -30,6 +30,7 @@ from observe.utils import (
     compute_bytes_sha256,
     find_available_segment,
 )
+from think.streams import stream_name, update_stream, write_segment_stream
 from think.utils import day_path, now_ms
 
 from .utils import (
@@ -500,14 +501,36 @@ def ingest_upload(key: str) -> Any:
     )
     save_remote(remote)
 
+    # Write stream identity for this segment
+    remote_name = remote.get("name", "unknown")
+    try:
+        stream = stream_name(remote=remote_name)
+        result = update_stream(stream, day, segment, type="remote")
+        write_segment_stream(
+            segment_dir,
+            stream,
+            result["prev_day"],
+            result["prev_segment"],
+            result["seq"],
+        )
+    except Exception as e:
+        logger.warning(f"Failed to write stream identity: {e}")
+        stream = None
+
+    # Add stream to meta for downstream handlers
+    if stream:
+        meta["stream"] = stream
+
     # Emit observe.observing event to local Callosum
     # Include meta dict with host/platform and any client-provided metadata
-    event_fields = {
+    event_fields: dict[str, Any] = {
         "segment": segment,
         "day": day,
         "files": saved_files,
-        "remote": remote.get("name", "unknown"),
+        "remote": remote_name,
     }
+    if stream:
+        event_fields["stream"] = stream
     if meta:
         event_fields["meta"] = meta
     emit("observe", "observing", **event_fields)
