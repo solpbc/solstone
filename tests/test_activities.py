@@ -1499,7 +1499,16 @@ class TestCheckSegmentFlush:
             _check_segment_flush()
 
         mock_queue.submit.assert_called_once_with(
-            ["sol", "dream", "-v", "--day", "20260209", "--segment", "100000_300", "--flush"]
+            [
+                "sol",
+                "dream",
+                "-v",
+                "--day",
+                "20260209",
+                "--segment",
+                "100000_300",
+                "--flush",
+            ]
         )
         assert _flush_state["flushed"] is True
 
