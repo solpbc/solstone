@@ -92,7 +92,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 - `errors` (list[str], optional): Error descriptions for failed handlers (e.g., `["transcribe exit 1"]`)
 
 **Correlation:** `detected.ref` matches `logs.exec.ref`; `segment` groups files from same capture window
-**Event Log:** Observe and dream tract events with `day` + `segment` are logged to `<day>/<segment>/events.jsonl` by supervisor
+**Event Log:** Observe, dream, and activity tract events with `day` + `segment` are logged to `<day>/<segment>/events.jsonl` by supervisor
 
 ### `importer` - Media import processing
 **Source:** `think/importer.py`
@@ -104,8 +104,19 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 ### `dream` - Generator and agent processing
 **Source:** `think/dream.py`
 **Events:** `started`, `group_started`, `group_completed`, `agent_started`, `agent_completed`, `completed`, `segments_started`, `segments_completed`
-**Key fields:** `mode` ("daily"/"segment"), `day`, `segment` (when mode="segment")
+**Key fields:** `mode` ("daily"/"segment"/"activity"), `day`, `segment` (when mode="segment"), `activity` and `facet` (when mode="activity")
 **Purpose:** Track dream processing from generators through scheduled agents
+
+### `activity` - Activity lifecycle events
+**Sources:** `muse/activity_state.py` (post-hook), `muse/activities.py` (post-hook)
+**Events:** `live`, `recorded`
+**Event Log:** Logged to `<day>/<segment>/events.jsonl` by supervisor
+
+**`live`** - Emitted per active activity per segment (new or continuing). Provides real-time activity tracking.
+**Key fields:** `facet`, `day`, `segment`, `id`, `activity` (type), `since`, `description`, `level`, `active_entities`
+
+**`recorded`** - Emitted when a completed activity record is written to journal. Supervisor queues a per-activity dream task on receipt.
+**Key fields:** `facet`, `day`, `segment`, `id`, `activity` (type), `segments` (full span), `level_avg`, `description`, `active_entities`
 
 ### `sync` - Remote segment synchronization
 **Source:** `observe/sync.py`
@@ -177,9 +188,14 @@ observe.observed (segment fully processed)
     ↓ supervisor triggers dream
 dream.completed
     ↓ apps/entities/events.py updates entity activity
+activity.recorded (activity span completed)
+    ↓ supervisor queues per-activity dream
+dream --activity (runs schedule="activity" agents)
 ```
 
-See `think/supervisor.py:_handle_segment_observed()` for the observe→dream trigger.
+See `think/supervisor.py:_handle_segment_observed()` for the observe→dream trigger and `_handle_activity_recorded()` for activity→dream.
+
+**Activity-scheduled agents** declare `schedule: "activity"` with a required `activities` list (activity types to match, or `["*"]` for all). They receive the activity's segment span as transcript source and `$activity_*` template variables in their prompts.
 
 ### Status Event Pattern
 

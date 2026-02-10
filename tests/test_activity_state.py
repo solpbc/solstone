@@ -1007,3 +1007,364 @@ class TestPostProcess:
             finally:
                 if original_path:
                     os.environ["JOURNAL_PATH"] = original_path
+
+
+class TestActivityId:
+    """Tests for the id field added to resolved activity entries."""
+
+    def test_new_activity_gets_id(self):
+        from muse.activity_state import post_process
+
+        llm_output = json.dumps(
+            [
+                {
+                    "activity": "coding",
+                    "state": "new",
+                    "description": "Writing tests",
+                    "level": "high",
+                }
+            ]
+        )
+
+        result = post_process(llm_output, {"segment": "143000_300"})
+        items = json.loads(result)
+        assert items[0]["id"] == "coding_143000_300"
+
+    def test_continuing_activity_preserves_since_in_id(self):
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                day_dir = Path(tmpdir) / "20260130"
+                day_dir.mkdir()
+
+                prev_dir = day_dir / "100000_300"
+                prev_dir.mkdir()
+                (prev_dir / "agents" / "work").mkdir(parents=True)
+                prev_state = [
+                    {
+                        "activity": "meeting",
+                        "state": "active",
+                        "since": "093000_300",
+                        "description": "Sprint planning",
+                        "level": "high",
+                    }
+                ]
+                (prev_dir / "agents/work/activity_state.json").write_text(
+                    json.dumps(prev_state)
+                )
+
+                (day_dir / "100500_300").mkdir()
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "meeting",
+                            "state": "continuing",
+                            "description": "Sprint planning - blockers",
+                            "level": "high",
+                        }
+                    ]
+                )
+
+                context = {
+                    "day": "20260130",
+                    "segment": "100500_300",
+                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                }
+
+                result = post_process(llm_output, context)
+                items = json.loads(result)
+                assert items[0]["id"] == "meeting_093000_300"
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
+    def test_ended_activity_gets_id(self):
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                day_dir = Path(tmpdir) / "20260130"
+                day_dir.mkdir()
+
+                prev_dir = day_dir / "100000_300"
+                prev_dir.mkdir()
+                (prev_dir / "agents" / "work").mkdir(parents=True)
+                prev_state = [
+                    {
+                        "activity": "meeting",
+                        "state": "active",
+                        "since": "093000_300",
+                        "description": "Sprint planning",
+                        "level": "high",
+                    }
+                ]
+                (prev_dir / "agents/work/activity_state.json").write_text(
+                    json.dumps(prev_state)
+                )
+
+                (day_dir / "100500_300").mkdir()
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "meeting",
+                            "state": "ended",
+                            "description": "Sprint planning completed",
+                        }
+                    ]
+                )
+
+                context = {
+                    "day": "20260130",
+                    "segment": "100500_300",
+                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                }
+
+                result = post_process(llm_output, context)
+                items = json.loads(result)
+                assert items[0]["id"] == "meeting_093000_300"
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
+    def test_promoted_ended_gets_new_id(self):
+        """Ended activity promoted to active gets id with current segment."""
+        from muse.activity_state import post_process
+
+        llm_output = json.dumps(
+            [
+                {
+                    "activity": "meeting",
+                    "state": "ended",
+                    "description": "Quick sync about deployment",
+                    "level": "medium",
+                }
+            ]
+        )
+
+        result = post_process(llm_output, {"segment": "143000_300"})
+        items = json.loads(result)
+        assert items[0]["id"] == "meeting_143000_300"
+
+
+class TestActivityLiveEvents:
+    """Tests for activity.live callosum event emission."""
+
+    def test_emits_live_for_new_activity(self):
+        from unittest.mock import patch
+
+        from muse.activity_state import post_process
+
+        llm_output = json.dumps(
+            [
+                {
+                    "activity": "coding",
+                    "state": "new",
+                    "description": "Writing tests",
+                    "level": "high",
+                    "active_entities": ["VS Code"],
+                }
+            ]
+        )
+
+        context = {
+            "day": "20260130",
+            "segment": "143000_300",
+            "output_path": "/j/20260130/143000_300/agents/work/activity_state.json",
+        }
+
+        with patch("muse.activity_state.callosum_send") as mock_send:
+            mock_send.return_value = True
+            post_process(llm_output, context)
+
+            mock_send.assert_called_once_with(
+                "activity",
+                "live",
+                facet="work",
+                day="20260130",
+                segment="143000_300",
+                id="coding_143000_300",
+                activity="coding",
+                since="143000_300",
+                description="Writing tests",
+                level="high",
+                active_entities=["VS Code"],
+            )
+
+    def test_emits_live_for_continuing_activity(self):
+        from unittest.mock import patch
+
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                day_dir = Path(tmpdir) / "20260130"
+                day_dir.mkdir()
+
+                prev_dir = day_dir / "100000_300"
+                prev_dir.mkdir()
+                (prev_dir / "agents" / "work").mkdir(parents=True)
+                prev_state = [
+                    {
+                        "activity": "coding",
+                        "state": "active",
+                        "since": "093000_300",
+                        "description": "Writing code",
+                        "level": "high",
+                    }
+                ]
+                (prev_dir / "agents/work/activity_state.json").write_text(
+                    json.dumps(prev_state)
+                )
+
+                (day_dir / "100500_300").mkdir()
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "coding",
+                            "state": "continuing",
+                            "description": "Still writing code",
+                            "level": "medium",
+                        }
+                    ]
+                )
+
+                context = {
+                    "day": "20260130",
+                    "segment": "100500_300",
+                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                }
+
+                with patch("muse.activity_state.callosum_send") as mock_send:
+                    mock_send.return_value = True
+                    post_process(llm_output, context)
+
+                    mock_send.assert_called_once()
+                    call_kwargs = mock_send.call_args[1]
+                    assert call_kwargs["id"] == "coding_093000_300"
+                    assert call_kwargs["since"] == "093000_300"
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
+    def test_no_live_event_for_ended_activity(self):
+        from unittest.mock import patch
+
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                day_dir = Path(tmpdir) / "20260130"
+                day_dir.mkdir()
+
+                prev_dir = day_dir / "100000_300"
+                prev_dir.mkdir()
+                (prev_dir / "agents" / "work").mkdir(parents=True)
+                prev_state = [
+                    {
+                        "activity": "meeting",
+                        "state": "active",
+                        "since": "093000_300",
+                        "description": "Sprint planning",
+                        "level": "high",
+                    }
+                ]
+                (prev_dir / "agents/work/activity_state.json").write_text(
+                    json.dumps(prev_state)
+                )
+
+                (day_dir / "100500_300").mkdir()
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "meeting",
+                            "state": "ended",
+                            "description": "Sprint planning completed",
+                        }
+                    ]
+                )
+
+                context = {
+                    "day": "20260130",
+                    "segment": "100500_300",
+                    "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
+                }
+
+                with patch("muse.activity_state.callosum_send") as mock_send:
+                    post_process(llm_output, context)
+                    mock_send.assert_not_called()
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
+    def test_no_live_events_without_day_or_facet(self):
+        from unittest.mock import patch
+
+        from muse.activity_state import post_process
+
+        llm_output = json.dumps(
+            [
+                {
+                    "activity": "coding",
+                    "state": "new",
+                    "description": "Writing",
+                    "level": "high",
+                }
+            ]
+        )
+
+        # No day — events should not fire
+        with patch("muse.activity_state.callosum_send") as mock_send:
+            post_process(llm_output, {"segment": "143000_300"})
+            mock_send.assert_not_called()
+
+    def test_live_event_failure_does_not_break_posthook(self):
+        from unittest.mock import patch
+
+        from muse.activity_state import post_process
+
+        llm_output = json.dumps(
+            [
+                {
+                    "activity": "coding",
+                    "state": "new",
+                    "description": "Writing",
+                    "level": "high",
+                }
+            ]
+        )
+
+        context = {
+            "day": "20260130",
+            "segment": "143000_300",
+            "output_path": "/j/20260130/143000_300/agents/work/activity_state.json",
+        }
+
+        with patch("muse.activity_state.callosum_send") as mock_send:
+            mock_send.side_effect = OSError("socket error")
+            result = post_process(llm_output, context)
+            # Should still return valid resolved output
+            assert result is not None
+            items = json.loads(result)
+            assert len(items) == 1
+            assert items[0]["id"] == "coding_143000_300"

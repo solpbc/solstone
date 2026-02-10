@@ -33,6 +33,7 @@ from think.prompts import _load_prompt_metadata, load_prompt
 # ---------------------------------------------------------------------------
 
 MUSE_DIR = Path(__file__).parent.parent / "muse"
+APPS_DIR = Path(__file__).parent.parent / "apps"
 
 
 # ---------------------------------------------------------------------------
@@ -199,7 +200,7 @@ def get_muse_configs(
             configs[name] = info
 
     # App configs from apps/*/muse/
-    apps_dir = Path(__file__).parent.parent / "apps"
+    apps_dir = APPS_DIR
     if apps_dir.is_dir():
         for app_path in sorted(apps_dir.iterdir()):
             if not app_path.is_dir() or app_path.name.startswith("_"):
@@ -269,6 +270,16 @@ def get_muse_configs(
             raise ValueError(
                 f"Prompt '{key}' has type='generate' but is missing required 'output' field."
             )
+
+    # Validate: activity-scheduled prompts must have 'activities' list
+    for key, info in configs.items():
+        if info.get("schedule") == "activity":
+            activities_field = info.get("activities")
+            if not activities_field or not isinstance(activities_field, list):
+                raise ValueError(
+                    f"Activity-scheduled prompt '{key}' must have a non-empty 'activities' list "
+                    f'(activity types to match, or ["*"] for all types).'
+                )
 
     return {key: info for key, info in configs.items() if matches_filter(info)}
 

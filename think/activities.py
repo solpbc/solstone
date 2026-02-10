@@ -17,7 +17,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from think.utils import get_journal
+from think.utils import get_journal, segment_parse
 
 logger = logging.getLogger(__name__)
 
@@ -451,6 +451,16 @@ def update_activity_in_facet(
 # Activity Records — completed activity spans
 # ---------------------------------------------------------------------------
 
+
+def make_activity_id(activity_type: str, since_segment: str) -> str:
+    """Build activity record ID from type and start segment key.
+
+    Format: {activity_type}_{since_segment}, e.g. "coding_095809_303".
+    Used by both activity_state (live tracking) and activities (records).
+    """
+    return f"{activity_type}_{since_segment}"
+
+
 LEVEL_VALUES = {"high": 1.0, "medium": 0.5, "low": 0.25}
 
 
@@ -562,6 +572,24 @@ def update_record_description(
             raise
 
     return updated
+
+
+def estimate_duration_minutes(segments: list[str]) -> int:
+    """Estimate total duration in minutes from a list of segment keys.
+
+    Parses each HHMMSS_LEN segment key, sums the durations, returns minutes.
+    Returns 1 as a minimum (for empty or unparseable inputs).
+    """
+    from datetime import datetime as dt
+
+    total_seconds = 0
+    for seg in segments:
+        start, end = segment_parse(seg)
+        if start is not None and end is not None:
+            dt_start = dt(2000, 1, 1, start.hour, start.minute, start.second)
+            dt_end = dt(2000, 1, 1, end.hour, end.minute, end.second)
+            total_seconds += (dt_end - dt_start).total_seconds()
+    return max(1, int(total_seconds / 60))
 
 
 def level_avg(levels: list[str]) -> float:

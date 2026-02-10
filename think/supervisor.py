@@ -1094,12 +1094,12 @@ def _handle_observe_status(message: dict) -> None:
 
 
 def _handle_segment_event_log(message: dict) -> None:
-    """Log observe and dream events with day+segment to segment/events.jsonl.
+    """Log observe, dream, and activity events with day+segment to segment/events.jsonl.
 
-    Any observe or dream tract message with both day and segment fields gets logged
-    to JOURNAL_PATH/day/segment/events.jsonl if that directory exists.
+    Any observe, dream, or activity tract message with both day and segment fields
+    gets logged to JOURNAL_PATH/day/segment/events.jsonl if that directory exists.
     """
-    if message.get("tract") not in {"observe", "dream"}:
+    if message.get("tract") not in {"observe", "dream", "activity"}:
         return
 
     day = message.get("day")
@@ -1126,12 +1126,39 @@ def _handle_segment_event_log(message: dict) -> None:
         logging.debug(f"Failed to log segment event: {e}")
 
 
+def _handle_activity_recorded(message: dict) -> None:
+    """Queue a per-activity dream task when an activity is recorded.
+
+    Listens for activity.recorded events and submits a queued dream task
+    for per-activity agent processing (serialized via TaskQueue).
+    """
+    if message.get("tract") != "activity" or message.get("event") != "recorded":
+        return
+
+    record_id = message.get("id")
+    facet = message.get("facet")
+    day = message.get("day")
+
+    if not record_id or not facet or not day:
+        logging.warning("activity.recorded event missing required fields")
+        return
+
+    cmd = ["sol", "dream", "--activity", record_id, "--facet", facet, "--day", day]
+
+    if _task_queue:
+        _task_queue.submit(cmd)
+        logging.info(f"Queued activity dream: {record_id} for #{facet}")
+    else:
+        logging.warning("No task queue available for activity dream: %s", record_id)
+
+
 def _handle_callosum_message(message: dict) -> None:
     """Dispatch incoming Callosum messages to appropriate handlers."""
     _handle_task_request(message)
     _handle_supervisor_request(message)
     _handle_segment_observed(message)
     _handle_observe_status(message)
+    _handle_activity_recorded(message)
     _handle_segment_event_log(message)
 
 

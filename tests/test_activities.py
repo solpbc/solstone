@@ -399,15 +399,15 @@ def _setup_segment(tmpdir, day, segment, facet, state):
 
 class TestMakeActivityId:
     def test_basic(self):
-        from muse.activities import _make_activity_id
+        from think.activities import make_activity_id
 
-        assert _make_activity_id("coding", "095809_303") == "coding_095809_303"
+        assert make_activity_id("coding", "095809_303") == "coding_095809_303"
 
     def test_with_custom_type(self):
-        from muse.activities import _make_activity_id
+        from think.activities import make_activity_id
 
         assert (
-            _make_activity_id("video_editing", "120000_300")
+            make_activity_id("video_editing", "120000_300")
             == "video_editing_120000_300"
         )
 
@@ -921,16 +921,361 @@ class TestPostProcess:
 
 class TestEstimateDurationMinutes:
     def test_single_segment(self):
+        from think.activities import estimate_duration_minutes
+
+        assert estimate_duration_minutes(["100000_300"]) == 5
+
+    def test_multiple_segments(self):
+        from think.activities import estimate_duration_minutes
+
+        assert estimate_duration_minutes(["100000_300", "100500_300"]) == 10
+
+    def test_empty_returns_1(self):
+        from think.activities import estimate_duration_minutes
+
+        assert estimate_duration_minutes([]) == 1
+
+    def test_muse_wrapper_delegates(self):
+        """The muse wrapper delegates to the shared function."""
         from muse.activities import _estimate_duration_minutes
 
         assert _estimate_duration_minutes(["100000_300"]) == 5
 
-    def test_multiple_segments(self):
-        from muse.activities import _estimate_duration_minutes
 
-        assert _estimate_duration_minutes(["100000_300", "100500_300"]) == 10
+class TestPreProcessMeta:
+    """Tests for pre-hook stashing record data in meta."""
 
-    def test_empty_returns_1(self):
-        from muse.activities import _estimate_duration_minutes
+    def test_meta_contains_activity_records(self, monkeypatch):
+        from muse.activities import pre_process
 
-        assert _estimate_duration_minutes([]) == 1
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+
+            _setup_segment(
+                tmpdir,
+                "20260209",
+                "100000_300",
+                "work",
+                [
+                    {
+                        "activity": "coding",
+                        "state": "active",
+                        "since": "100000_300",
+                        "level": "high",
+                        "description": "Writing code",
+                        "active_entities": ["VS Code"],
+                    }
+                ],
+            )
+            _setup_segment(tmpdir, "20260209", "100500_300", "work", [])
+
+            result = pre_process(
+                {"day": "20260209", "segment": "100500_300", "meta": {}}
+            )
+
+            assert "meta" in result
+            records = result["meta"]["activity_records"]
+            assert "work" in records
+            assert "coding_100000_300" in records["work"]
+            rec = records["work"]["coding_100000_300"]
+            assert rec["activity"] == "coding"
+            assert rec["segments"] == ["100000_300"]
+            assert rec["level_avg"] == 1.0
+            assert rec["active_entities"] == ["VS Code"]
+            assert rec["description"] == "Writing code"
+
+    def test_meta_multiple_facets(self, monkeypatch):
+        from muse.activities import pre_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+
+            _setup_segment(
+                tmpdir,
+                "20260209",
+                "100000_300",
+                "work",
+                [
+                    {
+                        "activity": "coding",
+                        "state": "active",
+                        "since": "100000_300",
+                        "level": "high",
+                    }
+                ],
+            )
+            _setup_segment(
+                tmpdir,
+                "20260209",
+                "100000_300",
+                "personal",
+                [
+                    {
+                        "activity": "browsing",
+                        "state": "active",
+                        "since": "100000_300",
+                        "level": "low",
+                    }
+                ],
+            )
+            _setup_segment(tmpdir, "20260209", "100500_300", "work", [])
+            _setup_segment(tmpdir, "20260209", "100500_300", "personal", [])
+
+            result = pre_process({"day": "20260209", "segment": "100500_300"})
+
+            records = result["meta"]["activity_records"]
+            assert "work" in records
+            assert "personal" in records
+
+
+class TestPostProcessEvents:
+    """Tests for post-hook callosum event emission."""
+
+    def test_emits_events_with_llm_description(self, monkeypatch):
+        from unittest.mock import patch
+
+        from muse.activities import post_process
+        from think.activities import append_activity_record
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+
+            record = {
+                "id": "coding_100000_300",
+                "activity": "coding",
+                "description": "Preliminary",
+                "segments": ["100000_300"],
+                "created_at": 1,
+            }
+            append_activity_record("work", "20260209", record)
+
+            llm_result = json.dumps(
+                {
+                    "work": [
+                        {
+                            "id": "coding_100000_300",
+                            "description": "Full synthesized description",
+                        }
+                    ]
+                }
+            )
+
+            meta = {
+                "activity_records": {
+                    "work": {
+                        "coding_100000_300": {
+                            "activity": "coding",
+                            "segments": ["100000_300"],
+                            "description": "Preliminary",
+                            "level_avg": 1.0,
+                            "active_entities": ["VS Code"],
+                        }
+                    }
+                }
+            }
+
+            with patch("muse.activities.callosum_send") as mock_send:
+                mock_send.return_value = True
+                post_process(
+                    llm_result,
+                    {"day": "20260209", "segment": "100500_300", "meta": meta},
+                )
+
+                mock_send.assert_called_once_with(
+                    "activity",
+                    "recorded",
+                    facet="work",
+                    day="20260209",
+                    segment="100500_300",
+                    id="coding_100000_300",
+                    activity="coding",
+                    segments=["100000_300"],
+                    level_avg=1.0,
+                    description="Full synthesized description",
+                    active_entities=["VS Code"],
+                )
+
+    def test_falls_back_to_prehook_description_with_warning(self, monkeypatch, caplog):
+        from unittest.mock import patch
+
+        from muse.activities import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+
+            meta = {
+                "activity_records": {
+                    "work": {
+                        "coding_100000_300": {
+                            "activity": "coding",
+                            "segments": ["100000_300"],
+                            "description": "Pre-hook fallback desc",
+                            "level_avg": 0.5,
+                            "active_entities": [],
+                        }
+                    }
+                }
+            }
+
+            # LLM returns empty — no descriptions to update
+            with patch("muse.activities.callosum_send") as mock_send:
+                mock_send.return_value = True
+                import logging
+
+                with caplog.at_level(logging.WARNING, logger="muse.activities"):
+                    post_process(
+                        "{}",
+                        {"day": "20260209", "segment": "100500_300", "meta": meta},
+                    )
+
+                mock_send.assert_called_once()
+                call_kwargs = mock_send.call_args[1]
+                assert call_kwargs["description"] == "Pre-hook fallback desc"
+                assert "No LLM description" in caplog.text
+
+    def test_no_events_without_meta(self, monkeypatch):
+        from unittest.mock import patch
+
+        from muse.activities import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+
+            with patch("muse.activities.callosum_send") as mock_send:
+                post_process("{}", {"day": "20260209", "segment": "100500_300"})
+                mock_send.assert_not_called()
+
+    def test_event_emission_failure_does_not_raise(self, monkeypatch):
+        from unittest.mock import patch
+
+        from muse.activities import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+
+            meta = {
+                "activity_records": {
+                    "work": {
+                        "coding_100000_300": {
+                            "activity": "coding",
+                            "segments": ["100000_300"],
+                            "description": "desc",
+                            "level_avg": 0.5,
+                            "active_entities": [],
+                        }
+                    }
+                }
+            }
+
+            with patch("muse.activities.callosum_send") as mock_send:
+                mock_send.side_effect = OSError("socket error")
+                # Should not raise
+                result = post_process(
+                    "{}",
+                    {"day": "20260209", "segment": "100500_300", "meta": meta},
+                )
+                assert result is None
+
+
+class TestHandleActivityRecorded:
+    """Tests for supervisor's _handle_activity_recorded handler."""
+
+    def test_queues_dream_task(self):
+        from unittest.mock import MagicMock, patch
+
+        from think.supervisor import _handle_activity_recorded
+
+        mock_queue = MagicMock()
+        with patch("think.supervisor._task_queue", mock_queue):
+            _handle_activity_recorded(
+                {
+                    "tract": "activity",
+                    "event": "recorded",
+                    "id": "coding_100000_300",
+                    "facet": "work",
+                    "day": "20260209",
+                }
+            )
+
+            mock_queue.submit.assert_called_once_with(
+                [
+                    "sol",
+                    "dream",
+                    "--activity",
+                    "coding_100000_300",
+                    "--facet",
+                    "work",
+                    "--day",
+                    "20260209",
+                ]
+            )
+
+    def test_ignores_wrong_tract(self):
+        from unittest.mock import MagicMock, patch
+
+        from think.supervisor import _handle_activity_recorded
+
+        mock_queue = MagicMock()
+        with patch("think.supervisor._task_queue", mock_queue):
+            _handle_activity_recorded(
+                {
+                    "tract": "dream",
+                    "event": "recorded",
+                    "id": "x",
+                    "facet": "w",
+                    "day": "d",
+                }
+            )
+            mock_queue.submit.assert_not_called()
+
+    def test_ignores_wrong_event(self):
+        from unittest.mock import MagicMock, patch
+
+        from think.supervisor import _handle_activity_recorded
+
+        mock_queue = MagicMock()
+        with patch("think.supervisor._task_queue", mock_queue):
+            _handle_activity_recorded(
+                {
+                    "tract": "activity",
+                    "event": "other",
+                    "id": "x",
+                    "facet": "w",
+                    "day": "d",
+                }
+            )
+            mock_queue.submit.assert_not_called()
+
+    def test_warns_on_missing_fields(self, caplog):
+        from unittest.mock import MagicMock, patch
+
+        from think.supervisor import _handle_activity_recorded
+
+        mock_queue = MagicMock()
+        import logging
+
+        with patch("think.supervisor._task_queue", mock_queue):
+            with caplog.at_level(logging.WARNING):
+                _handle_activity_recorded(
+                    {"tract": "activity", "event": "recorded", "id": "x"}
+                )
+            mock_queue.submit.assert_not_called()
+
+    def test_warns_when_no_task_queue(self, caplog):
+        import logging
+        from unittest.mock import patch
+
+        from think.supervisor import _handle_activity_recorded
+
+        with patch("think.supervisor._task_queue", None):
+            with caplog.at_level(logging.WARNING):
+                _handle_activity_recorded(
+                    {
+                        "tract": "activity",
+                        "event": "recorded",
+                        "id": "coding_100000_300",
+                        "facet": "work",
+                        "day": "20260209",
+                    }
+                )
+            assert "No task queue" in caplog.text

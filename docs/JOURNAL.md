@@ -564,7 +564,7 @@ Activity record IDs follow the format `{activity_type}_{segment_key}` where `seg
 
 Activity records are created by the `activities` segment agent when it detects that an activity has ended:
 
-1. The `activity_state` agent tracks per-segment, per-facet activity states with continuity via `since` fields
+1. The `activity_state` agent tracks per-segment, per-facet activity states with continuity via `since` fields. Each entry includes an `id` field (`{activity}_{since}`) that uniquely identifies the activity span, and `activity.live` events are emitted for active entries.
 2. The `activities` agent runs after `activity_state` and compares previous vs. current segment states
 3. When an activity ends (explicitly, implicitly, or via timeout), the agent walks the segment chain to collect all data
 4. A record is written to the facet's day file with preliminary description

@@ -15,6 +15,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from think.activities import load_activity_records
 from think.callosum import CallosumConnection
 from think.cluster import cluster_segments
 from think.cortex_client import cortex_request, get_agent_end_state, wait_for_agents
@@ -674,6 +675,281 @@ def run_single_prompt(
         return success
 
 
+def run_activity_prompts(
+    day: str,
+    activity_id: str,
+    facet: str,
+    force: bool = False,
+    verbose: bool = False,
+) -> bool:
+    """Run activity-scheduled agents for a completed activity.
+
+    Loads the activity record from the journal, filters agents whose
+    schedule="activity" and whose 'activities' list matches the activity type
+    (or contains "*"), then spawns each matching agent with the activity's
+    segment span for transcript loading.
+
+    Args:
+        day: Day in YYYYMMDD format
+        activity_id: Activity record ID (e.g., "coding_100000_300")
+        facet: Facet name
+        force: Whether to regenerate existing outputs
+        verbose: Verbose logging
+
+    Returns:
+        True if all agents succeeded, False if any failed
+    """
+    # Load activity record
+    records = load_activity_records(facet, day)
+    record = None
+    for r in records:
+        if r.get("id") == activity_id:
+            record = r
+            break
+
+    if not record:
+        logging.error(
+            "Activity record not found: %s in facet '%s' on %s",
+            activity_id,
+            facet,
+            day,
+        )
+        return False
+
+    activity_type = record.get("activity", "")
+    segments = record.get("segments", [])
+
+    if not segments:
+        logging.error("Activity record %s has no segments", activity_id)
+        return False
+
+    # Load activity-scheduled agents
+    all_prompts = get_muse_configs(schedule="activity")
+
+    if not all_prompts:
+        logging.info("No activity-scheduled agents found")
+        return True
+
+    # Filter agents that match this activity type
+    matching = {}
+    for name, config in all_prompts.items():
+        activities_filter = config.get("activities", [])
+        if "*" in activities_filter or activity_type in activities_filter:
+            matching[name] = config
+
+    if not matching:
+        logging.info(
+            "No agents match activity type '%s' (checked %d agents)",
+            activity_type,
+            len(all_prompts),
+        )
+        return True
+
+    # Group by priority
+    priority_groups: dict[int, list[tuple[str, dict]]] = {}
+    for name, config in matching.items():
+        priority = config["priority"]
+        priority_groups.setdefault(priority, []).append((name, config))
+
+    total_prompts = sum(len(p) for p in priority_groups.values())
+    num_groups = len(priority_groups)
+
+    logging.info(
+        "Running %d activity agents for %s (type=%s, %d segments) in %d groups",
+        total_prompts,
+        activity_id,
+        activity_type,
+        len(segments),
+        num_groups,
+    )
+
+    emit(
+        "started",
+        mode="activity",
+        day=day,
+        activity=activity_id,
+        facet=facet,
+        count=total_prompts,
+        groups=num_groups,
+    )
+
+    start_time = time.time()
+    total_success = 0
+    total_failed = 0
+
+    day_formatted = iso_date(day)
+
+    for priority in sorted(priority_groups.keys()):
+        prompts_list = priority_groups[priority]
+        logging.info(f"Starting priority {priority} ({len(prompts_list)} agents)")
+
+        emit(
+            "group_started",
+            mode="activity",
+            day=day,
+            activity=activity_id,
+            facet=facet,
+            priority=priority,
+            count=len(prompts_list),
+        )
+
+        spawned: list[tuple[str, str, dict]] = []  # (agent_id, name, config)
+
+        for prompt_name, config in prompts_list:
+            is_generate = config["type"] == "generate"
+
+            try:
+                logging.info(f"Spawning {prompt_name} for activity {activity_id}")
+
+                request_config: dict = {
+                    "facet": facet,
+                    "day": day,
+                    "span": segments,
+                    "activity": record,
+                }
+                if is_generate:
+                    request_config["output"] = config.get("output", "md")
+                    if force:
+                        request_config["force"] = True
+
+                prompt = (
+                    ""
+                    if is_generate
+                    else f"Processing activity '{activity_id}' ({activity_type}) in facet '{facet}' for {day_formatted}."
+                )
+
+                agent_id = cortex_request(
+                    prompt=prompt,
+                    name=prompt_name,
+                    config=request_config,
+                )
+                spawned.append((agent_id, prompt_name, config))
+                emit(
+                    "agent_started",
+                    mode="activity",
+                    day=day,
+                    activity=activity_id,
+                    facet=facet,
+                    name=prompt_name,
+                    agent_id=agent_id,
+                )
+                logging.info(f"Started {prompt_name} (ID: {agent_id})")
+
+            except Exception as e:
+                logging.error(f"Failed to spawn {prompt_name}: {e}")
+                total_failed += 1
+
+        # Wait for group
+        group_success = 0
+        group_failed = 0
+
+        if spawned:
+            agent_ids = [aid for aid, _, _ in spawned]
+            logging.info(
+                f"Waiting for {len(agent_ids)} agents in priority {priority}..."
+            )
+
+            completed, timed_out = wait_for_agents(agent_ids, timeout=600)
+
+            if timed_out:
+                logging.warning(
+                    f"Priority {priority}: {len(timed_out)} agents timed out"
+                )
+                group_failed += len(timed_out)
+                for agent_id in timed_out:
+                    timed_name = next(
+                        (n for aid, n, _ in spawned if aid == agent_id), "unknown"
+                    )
+                    emit(
+                        "agent_completed",
+                        mode="activity",
+                        day=day,
+                        activity=activity_id,
+                        facet=facet,
+                        name=timed_name,
+                        agent_id=agent_id,
+                        state="timeout",
+                    )
+
+            for agent_id, prompt_name, config in spawned:
+                if agent_id in timed_out:
+                    continue
+
+                end_state = get_agent_end_state(agent_id)
+                if end_state == "finish":
+                    logging.info(f"{prompt_name} completed successfully")
+                    group_success += 1
+
+                    # Incremental indexing for generators (skip JSON)
+                    is_generate = config["type"] == "generate"
+                    output_format = config.get("output", "md")
+                    if is_generate and output_format != "json":
+                        output_path = get_output_path(
+                            day_path(day),
+                            prompt_name,
+                            output_format=output_format,
+                            facet=facet,
+                        )
+                        if output_path.exists():
+                            logging.debug(f"Indexing {output_path}")
+                            run_queued_command(
+                                ["sol", "indexer", "--rescan-file", str(output_path)],
+                                day,
+                                timeout=60,
+                            )
+                else:
+                    logging.error(f"{prompt_name} ended with state: {end_state}")
+                    group_failed += 1
+
+                emit(
+                    "agent_completed",
+                    mode="activity",
+                    day=day,
+                    activity=activity_id,
+                    facet=facet,
+                    name=prompt_name,
+                    agent_id=agent_id,
+                    state=end_state,
+                )
+
+        total_success += group_success
+        total_failed += group_failed
+
+        emit(
+            "group_completed",
+            mode="activity",
+            day=day,
+            activity=activity_id,
+            facet=facet,
+            priority=priority,
+            success=group_success,
+            failed=group_failed,
+        )
+
+    duration_ms = int((time.time() - start_time) * 1000)
+    emit(
+        "completed",
+        mode="activity",
+        day=day,
+        activity=activity_id,
+        facet=facet,
+        success=total_success,
+        failed=total_failed,
+        duration_ms=duration_ms,
+    )
+
+    logging.info(
+        f"Activity agents completed: {total_success} succeeded, {total_failed} failed"
+    )
+
+    msg = f"dream --activity {activity_id}"
+    if total_failed:
+        msg += f" failed={total_failed}"
+    day_log(day, msg)
+
+    return total_failed == 0
+
+
 def parse_args() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run processing tasks on a journal day or segment"
@@ -700,7 +976,12 @@ def parse_args() -> argparse.ArgumentParser:
     parser.add_argument(
         "--facet",
         metavar="NAME",
-        help="Target a specific facet (only used with --run for multi-facet agents)",
+        help="Target a specific facet (only used with --run or --activity)",
+    )
+    parser.add_argument(
+        "--activity",
+        metavar="ID",
+        help="Run activity-scheduled agents for a completed activity record (requires --facet and --day)",
     )
     return parser
 
@@ -719,8 +1000,17 @@ def main() -> None:
     if not day_dir.is_dir():
         parser.error(f"Day folder not found: {day_dir}")
 
-    if args.facet and not args.run:
-        parser.error("--facet requires --run")
+    if args.facet and not args.run and not args.activity:
+        parser.error("--facet requires --run or --activity")
+
+    if args.activity and not args.facet:
+        parser.error("--activity requires --facet")
+
+    if args.activity and not args.day:
+        parser.error("--activity requires --day")
+
+    if args.activity and (args.segment or args.run or args.segments):
+        parser.error("--activity is incompatible with --segment, --run, and --segments")
 
     if args.segments and (args.segment or args.run or args.facet):
         parser.error("--segments is incompatible with --segment, --run, and --facet")
@@ -730,6 +1020,17 @@ def main() -> None:
     _callosum.start()
 
     try:
+        # Handle activity-triggered execution mode
+        if args.activity:
+            success = run_activity_prompts(
+                day=day,
+                activity_id=args.activity,
+                facet=args.facet,
+                force=args.force,
+                verbose=args.verbose,
+            )
+            sys.exit(0 if success else 1)
+
         # Handle single prompt execution mode
         if args.run:
             success = run_single_prompt(

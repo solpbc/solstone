@@ -9,10 +9,12 @@ Pre-hook:
 3. Walks segment chains to collect full activity data
 4. Writes records to facets/{facet}/activities/{day}.jsonl (idempotent)
 5. Builds LLM prompt with per-segment descriptions for synthesis
+6. Stashes record data in meta for post-hook event emission
 
 Post-hook:
 1. Parses LLM JSON output with synthesized descriptions
 2. Updates activity records with unified descriptions
+3. Emits activity.recorded callosum events for each completed activity
 """
 
 import json
@@ -25,18 +27,16 @@ from muse.activity_state import (
 )
 from think.activities import (
     append_activity_record,
+    estimate_duration_minutes,
     level_avg,
     load_record_ids,
+    make_activity_id,
     update_record_description,
 )
+from think.callosum import callosum_send
 from think.utils import day_path, now_ms, segment_parse
 
 logger = logging.getLogger(__name__)
-
-
-def _make_activity_id(activity_type: str, since_segment: str) -> str:
-    """Build activity record ID from type and start segment key."""
-    return f"{activity_type}_{since_segment}"
 
 
 def _list_facets_with_activity_state(day: str, segment: str) -> list[str]:
@@ -156,16 +156,7 @@ def _walk_activity_segments(
 
 def _estimate_duration_minutes(segments: list[str]) -> int:
     """Estimate total duration in minutes from a list of segment keys."""
-    total_seconds = 0
-    for seg in segments:
-        start, end = segment_parse(seg)
-        if start is not None and end is not None:
-            from datetime import datetime
-
-            dt_start = datetime(2000, 1, 1, start.hour, start.minute, start.second)
-            dt_end = datetime(2000, 1, 1, end.hour, end.minute, end.second)
-            total_seconds += (dt_end - dt_start).total_seconds()
-    return max(1, int(total_seconds / 60))
+    return estimate_duration_minutes(segments)
 
 
 def _format_prompt_section(facet: str, activities: list[dict]) -> str:
@@ -240,7 +231,7 @@ def pre_process(context: dict) -> dict | None:
             if not activity_type or not since:
                 continue
 
-            record_id = _make_activity_id(activity_type, since)
+            record_id = make_activity_id(activity_type, since)
 
             # Skip if already recorded (idempotent)
             if record_id in existing_ids_cache[facet]:
@@ -278,14 +269,18 @@ def pre_process(context: dict) -> dict | None:
                 existing_ids_cache[facet].add(record_id)
                 logger.info("Wrote activity record %s for #%s", record_id, facet)
 
-            # Store for prompt building
+            # Store for prompt building and post-hook event emission
             if facet not in all_ended:
                 all_ended[facet] = []
             all_ended[facet].append(
                 {
                     "id": record_id,
+                    "activity": activity_type,
                     "segments": walk["segments"],
                     "descriptions": walk["descriptions"],
+                    "description": record["description"],
+                    "level_avg": record["level_avg"],
+                    "active_entities": record["active_entities"],
                 }
             )
 
@@ -299,7 +294,14 @@ def pre_process(context: dict) -> dict | None:
 
     transcript = "\n".join(prompt_parts)
 
-    return {"transcript": transcript}
+    # Stash record data in meta for post-hook event emission
+    meta = context.get("meta", {})
+    meta["activity_records"] = {
+        facet: {a["id"]: a for a in activities}
+        for facet, activities in all_ended.items()
+    }
+
+    return {"transcript": transcript, "meta": meta}
 
 
 # ---------------------------------------------------------------------------
@@ -310,35 +312,71 @@ def pre_process(context: dict) -> dict | None:
 def post_process(result: str, context: dict) -> str | None:
     """Update activity records with LLM-synthesized descriptions.
 
-    Parses the LLM JSON output and updates descriptions in the JSONL files
-    that were written by the pre-hook.
+    Parses the LLM JSON output, updates descriptions in the JSONL files
+    that were written by the pre-hook, then emits activity.recorded events.
     """
     day = context.get("day")
+    segment = context.get("segment")
     if not day:
         return None
 
+    # Parse LLM output and update descriptions
+    llm_descriptions: dict[str, dict[str, str]] = {}  # facet -> {id -> description}
     try:
         data = json.loads(result.strip())
     except (json.JSONDecodeError, ValueError) as e:
         logger.warning("Failed to parse activities LLM output: %s", e)
-        return None
+        data = None
 
-    if not isinstance(data, dict):
-        logger.warning("activities output is not an object")
-        return None
+    if isinstance(data, dict):
+        updated_count = 0
+        for facet, activities in data.items():
+            if not isinstance(activities, list):
+                continue
+            for activity in activities:
+                record_id = activity.get("id", "")
+                description = activity.get("description", "")
+                if record_id and description:
+                    if update_record_description(facet, day, record_id, description):
+                        updated_count += 1
+                        llm_descriptions.setdefault(facet, {})[record_id] = description
 
-    updated_count = 0
-    for facet, activities in data.items():
-        if not isinstance(activities, list):
-            continue
-        for activity in activities:
-            record_id = activity.get("id", "")
-            description = activity.get("description", "")
-            if record_id and description:
-                if update_record_description(facet, day, record_id, description):
-                    updated_count += 1
+        if updated_count:
+            logger.info("Updated %d activity record descriptions", updated_count)
 
-    if updated_count:
-        logger.info("Updated %d activity record descriptions", updated_count)
+    # Emit activity.recorded events using pre-hook record data
+    meta = context.get("meta", {})
+    activity_records = meta.get("activity_records", {})
+
+    for facet, records in activity_records.items():
+        for record_id, record in records.items():
+            # Use LLM description if available, otherwise fall back to pre-hook
+            description = llm_descriptions.get(facet, {}).get(record_id)
+            if not description:
+                description = record.get("description", "")
+                logger.warning(
+                    "No LLM description for %s in #%s, using pre-hook description",
+                    record_id,
+                    facet,
+                )
+
+            try:
+                callosum_send(
+                    "activity",
+                    "recorded",
+                    facet=facet,
+                    day=day,
+                    segment=segment,
+                    id=record_id,
+                    activity=record.get("activity", ""),
+                    segments=record.get("segments", []),
+                    level_avg=record.get("level_avg", 0.5),
+                    description=description,
+                    active_entities=record.get("active_entities", []),
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to emit activity.recorded for %s: %s", record_id, e
+                )
 
     return None  # Don't modify the output file — it saves as-is

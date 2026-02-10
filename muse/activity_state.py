@@ -21,6 +21,8 @@ import os
 import re
 from datetime import datetime, timedelta
 
+from think.activities import make_activity_id
+from think.callosum import callosum_send
 from think.utils import day_path, segment_parse
 
 logger = logging.getLogger(__name__)
@@ -517,6 +519,7 @@ def post_process(result: str, context: dict) -> str | None:
                 since = segment
 
             entry = {
+                "id": make_activity_id(activity_id, since),
                 "activity": activity_id,
                 "state": "active",
                 "since": since,
@@ -532,11 +535,13 @@ def post_process(result: str, context: dict) -> str | None:
             if result:
                 idx, matched = result
                 claimed.add(idx)
+                since = matched.get("since", segment)
                 resolved.append(
                     {
+                        "id": make_activity_id(activity_id, since),
                         "activity": activity_id,
                         "state": "ended",
-                        "since": matched.get("since", segment),
+                        "since": since,
                         "description": description,
                     }
                 )
@@ -546,6 +551,7 @@ def post_process(result: str, context: dict) -> str | None:
                 # No active match but has a novel description — likely
                 # a real activity the LLM mis-tagged as ended; treat as new
                 entry = {
+                    "id": make_activity_id(activity_id, segment),
                     "activity": activity_id,
                     "state": "active",
                     "since": segment,
@@ -560,6 +566,7 @@ def post_process(result: str, context: dict) -> str | None:
         else:
             # "new" or any unrecognized state — stamp current segment
             entry = {
+                "id": make_activity_id(activity_id, segment),
                 "activity": activity_id,
                 "state": "active",
                 "since": segment,
@@ -569,5 +576,29 @@ def post_process(result: str, context: dict) -> str | None:
             if active_entities:
                 entry["active_entities"] = active_entities
             resolved.append(entry)
+
+    # Emit activity.live events for active entries
+    if day and facet:
+        for entry in resolved:
+            if entry.get("state") != "active":
+                continue
+            try:
+                callosum_send(
+                    "activity",
+                    "live",
+                    facet=facet,
+                    day=day,
+                    segment=segment,
+                    id=entry["id"],
+                    activity=entry["activity"],
+                    since=entry["since"],
+                    description=entry.get("description", ""),
+                    level=entry.get("level", "medium"),
+                    active_entities=entry.get("active_entities", []),
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to emit activity.live for %s: %s", entry["id"], e
+                )
 
     return json.dumps(resolved, ensure_ascii=False)

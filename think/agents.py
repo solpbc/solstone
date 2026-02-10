@@ -97,7 +97,10 @@ class JSONEventWriter:
 
 
 def _build_prompt_context(
-    day: str | None, segment: str | None, span: list[str] | None
+    day: str | None,
+    segment: str | None,
+    span: list[str] | None,
+    activity: dict | None = None,
 ) -> dict[str, str]:
     """Build context dict for prompt template substitution.
 
@@ -105,12 +108,14 @@ def _build_prompt_context(
         day: Day in YYYYMMDD format
         segment: Segment key (HHMMSS_LEN)
         span: List of segment keys
+        activity: Optional activity record dict for activity-scheduled agents
 
     Returns:
         Dict with template variables:
         - day: Friendly format (e.g., "Sunday, February 2, 2025")
         - day_YYYYMMDD: Raw day string (e.g., "20250202")
         - segment_start, segment_end: Time strings if segment/span provided
+        - activity_*: Activity fields if activity record provided
     """
     context: dict[str, str] = {}
     if not day:
@@ -145,6 +150,20 @@ def _build_prompt_context(
                 .strftime("%I:%M %p")
                 .lstrip("0")
             )
+
+    # Activity template variables
+    if activity:
+        from think.activities import estimate_duration_minutes
+
+        context["activity_id"] = activity.get("id", "")
+        context["activity_type"] = activity.get("activity", "")
+        context["activity_description"] = activity.get("description", "")
+        context["activity_level"] = str(activity.get("level_avg", 0.5))
+        entities = activity.get("active_entities", [])
+        context["activity_entities"] = ", ".join(entities) if entities else ""
+        segments = activity.get("segments", [])
+        context["activity_segments"] = ", ".join(segments) if segments else ""
+        context["activity_duration"] = str(estimate_duration_minutes(segments))
 
     return context
 
@@ -231,6 +250,7 @@ def prepare_config(request: dict) -> dict:
     day = request.get("day")
     segment = request.get("segment")
     span = request.get("span")
+    activity = request.get("activity")
     output_format = request.get("output")
     output_path_override = request.get("output_path")
     user_prompt = request.get("prompt", "")
@@ -304,7 +324,9 @@ def prepare_config(request: dict) -> dict:
 
         # Reload agent instruction with template substitution for day/segment context
         if agent_path and agent_path.exists():
-            prompt_context = _build_prompt_context(day, segment, span)
+            prompt_context = _build_prompt_context(
+                day, segment, span, activity=activity
+            )
             agent_prompt_obj = load_prompt(
                 agent_path.stem, base_dir=agent_path.parent, context=prompt_context
             )
