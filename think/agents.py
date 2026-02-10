@@ -759,9 +759,9 @@ def scan_day(day: str) -> dict[str, list[str]]:
     return {"processed": sorted(processed), "repairable": sorted(pending)}
 
 
-def _check_generate(provider_name: str, timeout: int) -> tuple[bool, str]:
+def _check_generate(provider_name: str, tier: int, timeout: int) -> tuple[bool, str]:
     """Check generate interface for a provider."""
-    from think.models import PROVIDER_DEFAULTS, TIER_LITE
+    from think.models import PROVIDER_DEFAULTS
     from think.providers import PROVIDER_METADATA, get_provider_module
 
     env_key = PROVIDER_METADATA[provider_name]["env_key"]
@@ -770,7 +770,7 @@ def _check_generate(provider_name: str, timeout: int) -> tuple[bool, str]:
 
     try:
         module = get_provider_module(provider_name)
-        model = PROVIDER_DEFAULTS[provider_name][TIER_LITE]
+        model = PROVIDER_DEFAULTS[provider_name][tier]
         result = module.run_generate(
             contents="Say OK",
             model=model,
@@ -789,14 +789,16 @@ def _check_generate(provider_name: str, timeout: int) -> tuple[bool, str]:
         return False, f"FAIL: {exc}"
 
 
-async def _check_cogitate(provider_name: str, timeout: int) -> tuple[bool, str]:
+async def _check_cogitate(
+    provider_name: str, tier: int, timeout: int
+) -> tuple[bool, str]:
     """Check cogitate interface for a provider by running a real prompt."""
-    from think.models import PROVIDER_DEFAULTS, TIER_LITE
+    from think.models import PROVIDER_DEFAULTS
     from think.providers import get_provider_module
 
     try:
         module = get_provider_module(provider_name)
-        model = PROVIDER_DEFAULTS[provider_name][TIER_LITE]
+        model = PROVIDER_DEFAULTS[provider_name][tier]
         config = {"prompt": "Say OK", "model": model}
         result = await asyncio.wait_for(
             module.run_cogitate(config=config, on_event=None),
@@ -813,6 +815,7 @@ async def _check_cogitate(provider_name: str, timeout: int) -> tuple[bool, str]:
 
 async def _run_check(args: argparse.Namespace) -> None:
     """Run connectivity checks against AI providers."""
+    from think.models import PROVIDER_DEFAULTS, TIER_FLASH, TIER_LITE, TIER_PRO
     from think.providers import PROVIDER_REGISTRY
 
     load_dotenv()
@@ -832,7 +835,18 @@ async def _run_check(args: argparse.Namespace) -> None:
 
     interfaces = [args.interface] if args.interface else ["generate", "cogitate"]
 
+    tier_names = {1: "pro", 2: "flash", 3: "lite"}
+    tiers = [args.tier] if args.tier else [TIER_PRO, TIER_FLASH, TIER_LITE]
+
+    # Pre-compute column widths
     provider_width = max(len(n) for n in providers) if providers else 0
+    tier_width = max(len(tier_names[t]) for t in tiers)
+    # Resolve all model names to get max width
+    model_names = set()
+    for p in providers:
+        for t in tiers:
+            model_names.add(PROVIDER_DEFAULTS[p][t])
+    model_width = max(len(m) for m in model_names) if model_names else 0
     interface_width = max(len(n) for n in interfaces) if interfaces else 0
 
     total = 0
@@ -840,27 +854,33 @@ async def _run_check(args: argparse.Namespace) -> None:
     failed = 0
 
     for provider_name in providers:
-        for interface_name in interfaces:
-            start = time.perf_counter()
-            if interface_name == "generate":
-                ok, message = _check_generate(provider_name, args.timeout)
-            else:
-                ok, message = await _check_cogitate(provider_name, args.timeout)
-            elapsed_s = time.perf_counter() - start
+        for tier in tiers:
+            model = PROVIDER_DEFAULTS[provider_name][tier]
+            for interface_name in interfaces:
+                start = time.perf_counter()
+                if interface_name == "generate":
+                    ok, message = _check_generate(provider_name, tier, args.timeout)
+                else:
+                    ok, message = await _check_cogitate(
+                        provider_name, tier, args.timeout
+                    )
+                elapsed_s = time.perf_counter() - start
 
-            mark = "✓" if ok else "✗"
-            print(
-                f"{mark} "
-                f"{provider_name:<{provider_width}}  "
-                f"{interface_name:<{interface_width}}  "
-                f"{message} ({elapsed_s:.1f}s)"
-            )
+                mark = "✓" if ok else "✗"
+                print(
+                    f"{mark} "
+                    f"{provider_name:<{provider_width}}  "
+                    f"{tier_names[tier]:<{tier_width}}  "
+                    f"{model:<{model_width}}  "
+                    f"{interface_name:<{interface_width}}  "
+                    f"{message} ({elapsed_s:.1f}s)"
+                )
 
-            total += 1
-            if ok:
-                passed += 1
-            else:
-                failed += 1
+                total += 1
+                if ok:
+                    passed += 1
+                else:
+                    failed += 1
 
     print(f"{total} checks: {passed} passed, {failed} failed")
     sys.exit(1 if failed > 0 else 0)
@@ -901,6 +921,13 @@ async def main_async() -> None:
         type=int,
         default=30,
         help="Timeout in seconds for generate checks (default: 30)",
+    )
+    check_parser.add_argument(
+        "--tier",
+        type=int,
+        choices=[1, 2, 3],
+        default=None,
+        help="Tier to check (1=pro, 2=flash, 3=lite; default: all)",
     )
 
     args = setup_cli(parser)
