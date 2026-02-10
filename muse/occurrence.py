@@ -63,7 +63,7 @@ def post_process(result: str, context: dict) -> str | None:
             contents=contents,
             context=f"muse.system.{name}",
             temperature=0.3,
-            max_output_tokens=16384,
+            max_output_tokens=24576,
             thinking_budget=0,
             system_instruction=prompt_content.text,
             json_output=True,
