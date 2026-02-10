@@ -58,7 +58,7 @@ def _parse_agent_events(
 
     Returns:
         Dict with: thinking_count, tool_count, model, provider, usage, finish_ts,
-        error_message, and optionally events
+        error_ts, error_message, and optionally events
     """
     result: dict[str, Any] = {
         "thinking_count": 0,
@@ -67,6 +67,7 @@ def _parse_agent_events(
         "provider": None,
         "usage": None,
         "finish_ts": None,
+        "error_ts": None,
         "error_message": None,
     }
     events: list[dict] = [] if collect_events else None
@@ -78,6 +79,8 @@ def _parse_agent_events(
         try:
             event = json.loads(line)
             if events is not None:
+                # Strip bulky provider-native data not used by the frontend
+                event.pop("raw", None)
                 events.append(event)
             event_type = event.get("event")
             if event_type == "thinking":
@@ -91,6 +94,7 @@ def _parse_agent_events(
                 result["finish_ts"] = event.get("ts", 0)
                 result["usage"] = event.get("usage")
             elif event_type == "error":
+                result["error_ts"] = event.get("ts", 0)
                 msg = event.get("error", "")
                 if msg:
                     result["error_message"] = msg[:200]
@@ -179,11 +183,10 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
             end_state = get_agent_end_state(agent_id)
             agent_info["failed"] = end_state in ("error", "unknown")
 
-            # Calculate runtime from finish timestamp
-            if event_data["finish_ts"] and agent_info["start"]:
-                agent_info["runtime_seconds"] = (
-                    event_data["finish_ts"] - agent_info["start"]
-                ) / 1000.0
+            # Calculate runtime from finish or error timestamp
+            end_ts = event_data["finish_ts"] or event_data["error_ts"]
+            if end_ts and agent_info["start"]:
+                agent_info["runtime_seconds"] = (end_ts - agent_info["start"]) / 1000.0
 
             # Calculate cost
             agent_info["cost"] = calc_agent_cost(
@@ -193,6 +196,27 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
         return agent_info
     except (json.JSONDecodeError, IOError):
         return None
+
+
+def _get_agent_day(agent_file: Path) -> str:
+    """Get the logical day for an agent from its request event.
+
+    Prefers the ``day`` field from the request event (the day being processed)
+    over the agent_id timestamp (when the agent actually ran).  This ensures
+    overnight dream agents appear under the day they processed.
+    """
+    agent_id = agent_file.stem.replace("_active", "")
+    try:
+        with open(agent_file, "r") as f:
+            first_line = f.readline().strip()
+            if first_line:
+                request_event = json.loads(first_line)
+                req_day = request_event.get("day")
+                if req_day:
+                    return req_day
+    except (json.JSONDecodeError, IOError):
+        pass
+    return _agent_id_to_day(agent_id)
 
 
 def _get_agents_for_day(day: str, facet_filter: str | None = None) -> list[dict]:
@@ -215,10 +239,8 @@ def _get_agents_for_day(day: str, facet_filter: str | None = None) -> list[dict]
         if "_pending.jsonl" in agent_file.name:
             continue
 
-        # Extract agent ID and check if it's on this day
-        agent_id = agent_file.stem.replace("_active", "")
-        agent_day = _agent_id_to_day(agent_id)
-        if agent_day != day:
+        # Check if this agent belongs to the requested day
+        if _get_agent_day(agent_file) != day:
             continue
 
         agent_info = _parse_agent_file(agent_file)
@@ -382,8 +404,9 @@ def api_agent_run(agent_id: str) -> Any:
 
         start_ts = request_event.get("ts", 0)
         runtime_seconds = None
-        if event_data["finish_ts"] and start_ts:
-            runtime_seconds = (event_data["finish_ts"] - start_ts) / 1000.0
+        end_ts = event_data["finish_ts"] or event_data["error_ts"]
+        if end_ts and start_ts:
+            runtime_seconds = (end_ts - start_ts) / 1000.0
 
         end_state = get_agent_end_state(agent_id)
 
@@ -405,7 +428,7 @@ def api_agent_run(agent_id: str) -> Any:
             "output_file": output_file,
             "events": event_data.get("events", []),
         }
-        run["day"] = _agent_id_to_day(agent_id)
+        run["day"] = request_event.get("day") or _agent_id_to_day(agent_id)
         return jsonify(run)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -513,25 +536,25 @@ def api_stats(month: str) -> Any:
         if "_pending.jsonl" in agent_file.name or "_active.jsonl" in agent_file.name:
             continue
 
-        # Extract agent ID and check if it's in this month
-        agent_id = agent_file.stem
-        agent_day = _agent_id_to_day(agent_id)
-        if not agent_day.startswith(month):
-            continue
-
-        # Parse just enough to get facet
+        # Parse first line for day and facet in a single read
         try:
             with open(agent_file, "r") as f:
                 first_line = f.readline().strip()
-                if first_line:
-                    request_event = json.loads(first_line)
-                    facet = request_event.get("facet") or "_none"
-
-                    if agent_day not in stats:
-                        stats[agent_day] = {}
-                    stats[agent_day][facet] = stats[agent_day].get(facet, 0) + 1
+                if not first_line:
+                    continue
+                request_event = json.loads(first_line)
         except (json.JSONDecodeError, IOError):
             continue
+
+        agent_id = agent_file.stem
+        agent_day = request_event.get("day") or _agent_id_to_day(agent_id)
+        if not agent_day.startswith(month):
+            continue
+
+        facet = request_event.get("facet") or "_none"
+        if agent_day not in stats:
+            stats[agent_day] = {}
+        stats[agent_day][facet] = stats[agent_day].get(facet, 0) + 1
 
     return jsonify(stats)
 

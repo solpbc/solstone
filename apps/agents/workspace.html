@@ -401,6 +401,16 @@
   margin-bottom: 0.85rem;
 }
 
+.run-detail-prompt {
+  color: #6b7280;
+  font-size: 0.85rem;
+  margin-bottom: 0.85rem;
+  padding: 0.5rem 0.7rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 3px solid #d1d5db;
+}
+
 .run-meta-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -614,6 +624,13 @@
   font-size: 0.82rem;
 }
 
+.event-tool .tool-incomplete-badge {
+  font-size: 0.72rem;
+  color: #e65100;
+  font-style: italic;
+  margin-left: 0.4rem;
+}
+
 /* Error events */
 .event-error {
   border-left-color: #d32f2f;
@@ -672,6 +689,12 @@
 .event-finish .finish-result {
   margin-top: 0.3rem;
   line-height: 1.6;
+}
+
+.event-finish .finish-empty {
+  color: #9e9e9e;
+  font-style: italic;
+  font-size: 0.85rem;
 }
 
 .event-finish .finish-result pre {
@@ -1632,6 +1655,13 @@
     subtitle.textContent = formatAgentDisplayName(data.name || currentName);
     card.appendChild(subtitle);
 
+    if (data.prompt) {
+      const prompt = document.createElement('div');
+      prompt.className = 'run-detail-prompt';
+      prompt.textContent = data.prompt;
+      card.appendChild(prompt);
+    }
+
     const grid = document.createElement('div');
     grid.className = 'run-meta-grid';
 
@@ -1829,7 +1859,8 @@
     headerLine.innerHTML =
       '<span class="event-time">' + escapeHtml(formatTimestamp(ts)) + '</span>' +
       '<span class="event-label">Tool</span> ' +
-      '<span class="tool-name">' + escapeHtml(toolName) + '</span>';
+      '<span class="tool-name">' + escapeHtml(toolName) + '</span>' +
+      (incomplete ? '<span class="tool-incomplete-badge">did not complete</span>' : '');
 
     if (hasDetails) {
       const toggle = document.createElement('button');
@@ -1930,11 +1961,16 @@
     label.textContent = 'Result';
     block.appendChild(label);
 
-    if (event.result) {
+    if (event.result && event.result.trim()) {
       const resultDiv = document.createElement('div');
       resultDiv.className = 'finish-result';
       resultDiv.innerHTML = marked.parse(event.result, { breaks: true, gfm: true });
       block.appendChild(resultDiv);
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'finish-empty';
+      empty.textContent = 'No output';
+      block.appendChild(empty);
     }
 
     return block;
