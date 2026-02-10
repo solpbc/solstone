@@ -4,6 +4,7 @@
 """Tests for the file-based Cortex agent manager."""
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -458,6 +459,7 @@ def test_complete_agent_file(cortex_service, mock_journal):
     agent_id = "123456789"
     active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
     active_path.touch()
+    cortex_service.agent_requests[agent_id] = {"name": "default", "agent_id": agent_id}
 
     cortex_service._complete_agent_file(agent_id, active_path)
 
@@ -465,6 +467,57 @@ def test_complete_agent_file(cortex_service, mock_journal):
     assert not active_path.exists()
     completed_path = mock_journal / "agents" / f"{agent_id}.jsonl"
     assert completed_path.exists()
+    symlink_path = mock_journal / "agents" / "default.jsonl"
+    assert symlink_path.is_symlink()
+    assert os.readlink(symlink_path) == f"{agent_id}.jsonl"
+
+
+def test_complete_agent_file_replaces_symlink(cortex_service, mock_journal):
+    """Test completing agent file replaces convenience symlink for same name."""
+    first_agent_id = "111"
+    first_active_path = mock_journal / "agents" / f"{first_agent_id}_active.jsonl"
+    first_active_path.touch()
+    cortex_service.agent_requests[first_agent_id] = {"name": "default"}
+
+    cortex_service._complete_agent_file(first_agent_id, first_active_path)
+
+    second_agent_id = "222"
+    second_active_path = mock_journal / "agents" / f"{second_agent_id}_active.jsonl"
+    second_active_path.touch()
+    cortex_service.agent_requests[second_agent_id] = {"name": "default"}
+
+    cortex_service._complete_agent_file(second_agent_id, second_active_path)
+
+    symlink_path = mock_journal / "agents" / "default.jsonl"
+    assert symlink_path.is_symlink()
+    assert os.readlink(symlink_path) == f"{second_agent_id}.jsonl"
+
+
+def test_complete_agent_file_colon_name(cortex_service, mock_journal):
+    """Test completing agent file sanitizes colon in convenience symlink name."""
+    agent_id = "123456789"
+    active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    active_path.touch()
+    cortex_service.agent_requests[agent_id] = {"name": "entities:entity_assist"}
+
+    cortex_service._complete_agent_file(agent_id, active_path)
+
+    symlink_path = mock_journal / "agents" / "entities--entity_assist.jsonl"
+    assert symlink_path.is_symlink()
+    assert os.readlink(symlink_path) == f"{agent_id}.jsonl"
+
+
+def test_complete_agent_file_no_name(cortex_service, mock_journal):
+    """Test completing agent file skips symlink when request name is missing."""
+    agent_id = "123456789"
+    active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    active_path.touch()
+
+    cortex_service._complete_agent_file(agent_id, active_path)
+
+    completed_path = mock_journal / "agents" / f"{agent_id}.jsonl"
+    assert completed_path.exists()
+    assert not any(path.is_symlink() for path in (mock_journal / "agents").iterdir())
 
 
 def test_write_error_and_complete(cortex_service, mock_journal):

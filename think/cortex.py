@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from think.callosum import CallosumConnection
+from think.runner import _atomic_symlink
 from think.utils import get_journal, now_ms
 
 
@@ -548,6 +549,22 @@ class CortexService:
             completed_path = file_path.parent / f"{agent_id}.jsonl"
             file_path.rename(completed_path)
             self.logger.info(f"Completed agent {agent_id}: {completed_path}")
+
+            # Create convenience symlink: {name}.jsonl -> {agent_id}.jsonl
+            request = self.agent_requests.get(agent_id)
+            if request:
+                name = request.get("name")
+                if name:
+                    safe_name = name.replace(":", "--")
+                    link_path = self.agents_dir / f"{safe_name}.jsonl"
+                    _atomic_symlink(link_path, f"{agent_id}.jsonl")
+                    self.logger.debug(
+                        f"Symlinked {safe_name}.jsonl -> {agent_id}.jsonl"
+                    )
+                else:
+                    self.logger.debug(
+                        f"No name in request for {agent_id}, skipping symlink"
+                    )
         except Exception as e:
             self.logger.error(f"Failed to complete agent file {agent_id}: {e}")
 
