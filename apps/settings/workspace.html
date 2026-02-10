@@ -724,6 +724,121 @@ input:checked + .slider:before {
   display: block;
 }
 
+.redact-list {
+  padding: 0.5em 0;
+}
+
+.redact-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.5em 0.5em;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.redact-item:last-child {
+  border-bottom: none;
+}
+
+.redact-item:hover {
+  background: #fafafa;
+}
+
+.redact-text {
+  flex: 1;
+  font-size: 0.9em;
+  color: #333;
+  cursor: default;
+  padding: 0.25em 0.5em;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  min-height: 1.4em;
+  word-break: break-word;
+}
+
+.redact-text:hover {
+  border-color: #e0e0e0;
+}
+
+.redact-input {
+  flex: 1;
+  font-size: 0.9em;
+  padding: 0.25em 0.5em;
+  border: 1px solid var(--facet-color, #667eea);
+  border-radius: 4px;
+  outline: none;
+}
+
+.redact-remove {
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 1.2em;
+  cursor: pointer;
+  padding: 0 0.25em;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.redact-remove:hover {
+  color: #e74c3c;
+}
+
+.redact-empty {
+  padding: 1.5em;
+  text-align: center;
+  color: #888;
+  font-size: 0.9em;
+}
+
+.redact-add-row {
+  display: flex;
+  gap: 0.5em;
+  padding: 0.75em 0.5em 0.25em;
+}
+
+.redact-add-input {
+  flex: 1;
+  font-size: 0.9em;
+  padding: 0.4em 0.75em;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  outline: none;
+}
+
+.redact-add-input:focus {
+  border-color: var(--facet-color, #667eea);
+}
+
+.redact-add-btn {
+  background: none;
+  border: 1px dashed #ccc;
+  border-radius: 20px;
+  padding: 0.4em 0.75em;
+  font-size: 0.85em;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.redact-add-btn:hover {
+  border-color: var(--facet-color, #667eea);
+  color: var(--facet-color, #667eea);
+  background: var(--facet-bg, rgba(102, 126, 234, 0.05));
+}
+
+.redact-add-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.redact-validation {
+  font-size: 0.8em;
+  color: #e74c3c;
+  padding: 0.25em 0.5em;
+}
+
 .context-group {
   margin-bottom: 1.5em;
 }
@@ -1789,6 +1904,23 @@ input:checked + .slider:before {
         <label for="field-max-extractions">Max Extractions (of 300 possible frames)</label>
         <input type="number" id="field-max-extractions" min="5" max="100" value="20" style="max-width: 100px;">
         <small>Maximum frames to extract detailed content from per 5 minute screen segment (big impact on token usage)</small>
+      </div>
+
+      <!-- Redaction Rules -->
+      <div class="context-overrides expanded" id="visionRedaction">
+        <div class="context-overrides-header" id="visionRedactionHeader">
+          <span class="context-overrides-title">Redaction Rules</span>
+          <span class="context-overrides-toggle">&#9660;</span>
+        </div>
+        <div class="context-overrides-body">
+          <p style="color:#666;font-size:0.9em;margin:0 0 1em 0">Instructions the AI follows to redact sensitive content from screen analysis. Double-click a rule to edit it.</p>
+          <div class="redact-list" id="redactRulesList"></div>
+          <div class="redact-add-row">
+            <input type="text" class="redact-add-input" id="redactAddInput" placeholder="Add a redaction rule..." maxlength="200">
+            <button class="redact-add-btn" id="redactAddBtn">+ Add</button>
+          </div>
+          <div class="redact-validation" id="redactValidation" style="display:none"></div>
+        </div>
       </div>
 
       <!-- Categories -->
@@ -3213,6 +3345,9 @@ function populateVision(data) {
   // Set max extractions
   document.getElementById('field-max-extractions').value = data.max_extractions;
 
+  // Render redaction rules
+  renderRedactRules(data);
+
   // Render categories
   renderVisionCategories(data);
 }
@@ -3481,6 +3616,166 @@ async function saveMaxExtractions() {
     showFieldStatus(input, 'error', err.message);
   }
 }
+
+function renderRedactRules(data) {
+  const container = document.getElementById('redactRulesList');
+  const rules = data.redact || [];
+
+  if (rules.length === 0) {
+    container.innerHTML = '<div class="redact-empty">No redaction rules configured</div>';
+    return;
+  }
+
+  container.innerHTML = rules.map((rule, index) => `
+    <div class="redact-item" data-index="${index}">
+      <span class="redact-text" data-index="${index}">${escapeHtml(rule)}</span>
+      <input type="text" class="redact-input" data-index="${index}" value="${escapeHtml(rule)}" maxlength="200" style="display:none">
+      <button class="redact-remove" data-index="${index}" title="Remove">&times;</button>
+    </div>
+  `).join('');
+
+  setupRedactListeners();
+}
+
+function setupRedactListeners() {
+  // Double-click to edit (tap-timeout pattern matching vision categories)
+  document.querySelectorAll('.redact-text').forEach(display => {
+    let tapTimeout = null;
+    display.addEventListener('click', () => {
+      if (!tapTimeout) {
+        tapTimeout = setTimeout(() => tapTimeout = null, 300);
+      } else {
+        clearTimeout(tapTimeout);
+        tapTimeout = null;
+        const index = display.dataset.index;
+        const input = document.querySelector(`.redact-input[data-index="${index}"]`);
+        display.style.display = 'none';
+        input.style.display = 'block';
+        input.focus();
+        input.select();
+      }
+    });
+  });
+
+  // Edit input: blur saves, Enter commits, Escape cancels
+  document.querySelectorAll('.redact-input').forEach(input => {
+    input.addEventListener('blur', () => {
+      const index = parseInt(input.dataset.index);
+      const display = document.querySelector(`.redact-text[data-index="${index}"]`);
+      const newValue = input.value.trim();
+
+      input.style.display = 'none';
+      display.style.display = 'block';
+
+      if (!newValue) {
+        // Empty = remove the rule
+        removeRedactRule(index);
+        return;
+      }
+
+      if (newValue.length > 200) {
+        showRedactValidation('Rule must be 200 characters or less');
+        input.value = display.textContent;
+        return;
+      }
+
+      const rules = [...(visionData?.redact || [])];
+      if (rules[index] !== newValue) {
+        rules[index] = newValue;
+        saveRedactRules(rules);
+      }
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        input.blur();
+      } else if (e.key === 'Escape') {
+        const index = parseInt(input.dataset.index);
+        input.value = (visionData?.redact || [])[index] || '';
+        input.blur();
+      }
+    });
+  });
+
+  // Remove buttons
+  document.querySelectorAll('.redact-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const index = parseInt(btn.dataset.index);
+      removeRedactRule(index);
+    });
+  });
+}
+
+function removeRedactRule(index) {
+  const rules = [...(visionData?.redact || [])];
+  rules.splice(index, 1);
+  saveRedactRules(rules);
+}
+
+async function saveRedactRules(rules) {
+  try {
+    const response = await fetch('api/vision', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ redact: rules })
+    });
+
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    visionData = result;
+    renderRedactRules(result);
+  } catch (err) {
+    console.error('Error saving redaction rules:', err);
+    notifyError('Save Failed', err.message);
+  }
+}
+
+function showRedactValidation(message) {
+  const el = document.getElementById('redactValidation');
+  el.textContent = message;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+document.getElementById('redactAddBtn').addEventListener('click', () => {
+  addRedactRule();
+});
+
+document.getElementById('redactAddInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    addRedactRule();
+  }
+});
+
+function addRedactRule() {
+  const input = document.getElementById('redactAddInput');
+  const value = input.value.trim();
+
+  if (!value) return;
+
+  if (value.length > 200) {
+    showRedactValidation('Rule must be 200 characters or less');
+    return;
+  }
+
+  const rules = [...(visionData?.redact || [])];
+
+  if (rules.length >= 50) {
+    showRedactValidation('Maximum of 50 rules allowed');
+    return;
+  }
+
+  rules.push(value);
+  input.value = '';
+  saveRedactRules(rules);
+}
+
+document.getElementById('visionRedactionHeader').addEventListener('click', () => {
+  document.getElementById('visionRedaction').classList.toggle('expanded');
+});
 
 // Toggle vision categories expansion
 document.getElementById('visionCategoriesHeader').addEventListener('click', () => {
