@@ -19,10 +19,13 @@ import json
 import logging
 import os
 import sys
+import time
 import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
+
+from dotenv import load_dotenv
 
 from think.cluster import cluster, cluster_period, cluster_span
 from think.muse import (
@@ -756,6 +759,113 @@ def scan_day(day: str) -> dict[str, list[str]]:
     return {"processed": sorted(processed), "repairable": sorted(pending)}
 
 
+def _check_generate(provider_name: str, timeout: int) -> tuple[bool, str]:
+    """Check generate interface for a provider."""
+    from think.models import PROVIDER_DEFAULTS, TIER_LITE
+    from think.providers import PROVIDER_METADATA, get_provider_module
+
+    env_key = PROVIDER_METADATA[provider_name]["env_key"]
+    if not os.getenv(env_key):
+        return False, f"FAIL: {env_key} not set"
+
+    try:
+        module = get_provider_module(provider_name)
+        model = PROVIDER_DEFAULTS[provider_name][TIER_LITE]
+        result = module.run_generate(
+            contents="Say OK",
+            model=model,
+            temperature=0,
+            max_output_tokens=16,
+            system_instruction=None,
+            json_output=False,
+            thinking_budget=0,
+            timeout_s=timeout,
+        )
+        text = result.get("text", "") if isinstance(result, dict) else ""
+        if text:
+            return True, "OK"
+        return False, "FAIL: empty response text"
+    except Exception as exc:
+        return False, f"FAIL: {exc}"
+
+
+async def _check_cogitate(provider_name: str, timeout: int) -> tuple[bool, str]:
+    """Check cogitate interface for a provider by running a real prompt."""
+    from think.models import PROVIDER_DEFAULTS, TIER_LITE
+    from think.providers import get_provider_module
+
+    try:
+        module = get_provider_module(provider_name)
+        model = PROVIDER_DEFAULTS[provider_name][TIER_LITE]
+        config = {"prompt": "Say OK", "model": model}
+        result = await asyncio.wait_for(
+            module.run_cogitate(config=config, on_event=None),
+            timeout=timeout,
+        )
+        if result:
+            return True, "OK"
+        return False, "FAIL: empty response"
+    except asyncio.TimeoutError:
+        return False, f"FAIL: timed out after {timeout}s"
+    except Exception as exc:
+        return False, f"FAIL: {exc}"
+
+
+async def _run_check(args: argparse.Namespace) -> None:
+    """Run connectivity checks against AI providers."""
+    from think.providers import PROVIDER_REGISTRY
+
+    load_dotenv()
+
+    if args.provider:
+        providers = args.provider
+        for name in providers:
+            if name not in PROVIDER_REGISTRY:
+                available = ", ".join(PROVIDER_REGISTRY.keys())
+                print(
+                    f"Unknown provider: {name}. Available providers: {available}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+    else:
+        providers = list(PROVIDER_REGISTRY.keys())
+
+    interfaces = [args.interface] if args.interface else ["generate", "cogitate"]
+
+    provider_width = max(len(n) for n in providers) if providers else 0
+    interface_width = max(len(n) for n in interfaces) if interfaces else 0
+
+    total = 0
+    passed = 0
+    failed = 0
+
+    for provider_name in providers:
+        for interface_name in interfaces:
+            start = time.perf_counter()
+            if interface_name == "generate":
+                ok, message = _check_generate(provider_name, args.timeout)
+            else:
+                ok, message = await _check_cogitate(provider_name, args.timeout)
+            elapsed_s = time.perf_counter() - start
+
+            mark = "✓" if ok else "✗"
+            print(
+                f"{mark} "
+                f"{provider_name:<{provider_width}}  "
+                f"{interface_name:<{interface_width}}  "
+                f"{message} ({elapsed_s:.1f}s)"
+            )
+
+            total += 1
+            if ok:
+                passed += 1
+            else:
+                failed += 1
+
+    print(f"{total} checks: {passed} passed, {failed} failed")
+    sys.exit(1 if failed > 0 else 0)
+
+
 # =============================================================================
 # Main Entry Point
 # =============================================================================
@@ -763,6 +873,8 @@ def scan_day(day: str) -> dict[str, list[str]]:
 
 async def main_async() -> None:
     """NDJSON-based CLI for agents."""
+    from think.providers import PROVIDER_REGISTRY
+
     parser = argparse.ArgumentParser(
         description="solstone Agent CLI - Accepts NDJSON input via stdin"
     )
@@ -771,8 +883,31 @@ async def main_async() -> None:
         action="store_true",
         help="Show what would be sent to the provider without calling the LLM",
     )
+    subparsers = parser.add_subparsers(dest="subcommand")
+    check_parser = subparsers.add_parser("check", help="Check AI provider connectivity")
+    check_parser.add_argument(
+        "--provider",
+        action="append",
+        help=f"Provider to check (repeatable). Available: {', '.join(PROVIDER_REGISTRY.keys())}",
+    )
+    check_parser.add_argument(
+        "--interface",
+        choices=["generate", "cogitate"],
+        default=None,
+        help="Interface to check (default: both)",
+    )
+    check_parser.add_argument(
+        "--timeout",
+        type=int,
+        default=30,
+        help="Timeout in seconds for generate checks (default: 30)",
+    )
 
     args = setup_cli(parser)
+    if args.subcommand == "check":
+        await _run_check(args)
+        return
+
     dry_run = args.dry_run
 
     app_logger = setup_logging(args.verbose)
