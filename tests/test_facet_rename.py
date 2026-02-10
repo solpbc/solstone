@@ -142,8 +142,8 @@ def test_rename_no_chat_dir(journal):
     assert (journal / "facets" / "new-name").is_dir()
 
 
-def test_rename_rebuilds_index(journal):
-    """Rename creates a fresh search index."""
+def test_rename_rebuilds_index(journal, capsys):
+    """Rename does NOT rebuild the index; it prints a rebuild instruction."""
     # Create an old index file
     index_dir = journal / "indexer"
     index_dir.mkdir()
@@ -151,11 +151,9 @@ def test_rename_rebuilds_index(journal):
 
     rename_facet("old-name", "new-name")
 
-    # Old index should be gone (reset removes it)
-    # New index may or may not exist depending on content,
-    # but the old one should not remain as-is
-    old_content = None
-    index_file = index_dir / "journal.sqlite"
-    if index_file.exists():
-        old_content = index_file.read_text(errors="replace")
-    assert old_content != "old data"
+    # Index file should be untouched (no rebuild happened)
+    assert (index_dir / "journal.sqlite").read_text() == "old data"
+
+    # stdout should include the rebuild instruction
+    captured = capsys.readouterr()
+    assert "sol indexer --reset --rescan-full" in captured.out

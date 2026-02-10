@@ -849,7 +849,7 @@ def rename_facet(old_name: str, new_name: str) -> None:
     1. Rename facets/{old}/ directory to facets/{new}/
     2. Update config/convey.json (facets.selected, facets.order)
     3. Update apps/chat/chats/*.json metadata files
-    4. Reset and rebuild the search index
+    4. Print instruction to rebuild the search index
 
     Args:
         old_name: Current facet name (must exist)
@@ -858,8 +858,6 @@ def rename_facet(old_name: str, new_name: str) -> None:
     Raises:
         ValueError: If names are invalid or preconditions fail
     """
-    from think.indexer.journal import reset_journal_index, scan_journal
-
     journal = get_journal()
     facets_dir = Path(journal) / "facets"
 
@@ -937,8 +935,7 @@ def rename_facet(old_name: str, new_name: str) -> None:
     else:
         print("No chat metadata needed updating")
 
-    # Step 4: Rebuild search index
-    print("Rebuilding search index...")
-    reset_journal_index(journal)
-    scan_journal(journal, full=True)
-    print("Done")
+    # Step 4: Advise index rebuild
+    print(
+        "Facet renamed. Rebuild the search index with: sol indexer --reset --rescan-full"
+    )
