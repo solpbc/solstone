@@ -159,11 +159,6 @@ def _walk_activity_segments(
     }
 
 
-def _estimate_duration_minutes(segments: list[str]) -> int:
-    """Estimate total duration in minutes from a list of segment keys."""
-    return estimate_duration_minutes(segments)
-
-
 def _format_prompt_section(facet: str, activities: list[dict]) -> str:
     """Format a facet's ended activities as a prompt section."""
     lines = [f"## #{facet}", ""]
@@ -171,7 +166,7 @@ def _format_prompt_section(facet: str, activities: list[dict]) -> str:
     for act in activities:
         record_id = act["id"]
         seg_count = len(act["segments"])
-        duration = _estimate_duration_minutes(act["segments"])
+        duration = estimate_duration_minutes(act["segments"])
         lines.append(f"### {record_id} ({seg_count} segments, {duration} min)")
         lines.append("Segment descriptions:")
 

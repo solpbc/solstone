@@ -1056,7 +1056,7 @@ def run_flush_prompts(
                 segment=segment,
                 name=prompt_name,
                 agent_id=agent_id,
-                state=end_state if end_state != "finish" else "finish",
+                state=end_state,
             )
 
     duration_ms = int((time.time() - start_time) * 1000)

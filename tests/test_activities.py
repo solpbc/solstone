@@ -935,12 +935,6 @@ class TestEstimateDurationMinutes:
 
         assert estimate_duration_minutes([]) == 1
 
-    def test_muse_wrapper_delegates(self):
-        """The muse wrapper delegates to the shared function."""
-        from muse.activities import _estimate_duration_minutes
-
-        assert _estimate_duration_minutes(["100000_300"]) == 5
-
 
 class TestPreProcessMeta:
     """Tests for pre-hook stashing record data in meta."""
@@ -1505,7 +1499,7 @@ class TestCheckSegmentFlush:
             _check_segment_flush()
 
         mock_queue.submit.assert_called_once_with(
-            ["sol", "dream", "--day", "20260209", "--segment", "100000_300", "--flush"]
+            ["sol", "dream", "-v", "--day", "20260209", "--segment", "100000_300", "--flush"]
         )
         assert _flush_state["flushed"] is True
 
@@ -1569,6 +1563,28 @@ class TestCheckSegmentFlush:
             _check_segment_flush()
 
         mock_queue.submit.assert_not_called()
+
+    def test_force_flushes_before_timeout(self):
+        import time as time_mod
+        from unittest.mock import MagicMock, patch
+
+        from think.supervisor import _check_segment_flush, _flush_state
+
+        # Only 100s ago — would NOT flush normally
+        _flush_state["last_segment_ts"] = time_mod.time() - 100
+        _flush_state["day"] = "20260209"
+        _flush_state["segment"] = "100000_300"
+        _flush_state["flushed"] = False
+
+        mock_queue = MagicMock()
+        with (
+            patch("think.supervisor._task_queue", mock_queue),
+            patch("think.supervisor._is_remote_mode", False),
+        ):
+            _check_segment_flush(force=True)
+
+        mock_queue.submit.assert_called_once()
+        assert _flush_state["flushed"] is True
 
     def test_segment_observed_resets_flush_state(self):
         from think.supervisor import _flush_state, _handle_segment_observed

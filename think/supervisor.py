@@ -1064,7 +1064,7 @@ def handle_daily_tasks() -> None:
 
         # Flush any dangling segment state from the previous day before daily dream
         if not _flush_state["flushed"] and _flush_state["day"] == prev_day_str:
-            _check_segment_flush()
+            _check_segment_flush(force=True)
 
         logging.info(
             f"Day changed to {today}, starting daily processing for {prev_day_str}"
@@ -1129,12 +1129,16 @@ def _run_segment_processing(day: str, segment: str) -> None:
         )
 
 
-def _check_segment_flush() -> None:
+def _check_segment_flush(force: bool = False) -> None:
     """Check if the last observed segment needs flushing.
 
     If no new segments have arrived within FLUSH_TIMEOUT seconds, runs
     ``sol dream --flush`` on the last segment to let flush-enabled agents
     close out dangling state (e.g., end active activities).
+
+    Args:
+        force: Skip timeout check (used at day boundary to flush
+               before daily dream regardless of elapsed time).
 
     Skipped in remote mode (no local processing).
     """
@@ -1145,7 +1149,7 @@ def _check_segment_flush() -> None:
     if not last_ts or _flush_state["flushed"]:
         return
 
-    if time.time() - last_ts < FLUSH_TIMEOUT:
+    if not force and time.time() - last_ts < FLUSH_TIMEOUT:
         return
 
     day = _flush_state["day"]
@@ -1155,7 +1159,7 @@ def _check_segment_flush() -> None:
 
     _flush_state["flushed"] = True
 
-    cmd = ["sol", "dream", "--day", day, "--segment", segment, "--flush"]
+    cmd = ["sol", "dream", "-v", "--day", day, "--segment", segment, "--flush"]
     if _task_queue:
         _task_queue.submit(cmd)
         logging.info(f"Queued segment flush: {day}/{segment}")
