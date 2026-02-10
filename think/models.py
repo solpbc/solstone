@@ -39,8 +39,8 @@ GEMINI_FLASH = "gemini-3-flash-preview"
 GEMINI_LITE = "gemini-2.5-flash-lite"
 
 GPT_5 = "gpt-5.2"
-GPT_5_MINI = "gpt-5-mini"
-GPT_5_NANO = "gpt-5-nano"
+GPT_5_MINI = "gpt-5.2"  # "gpt-5-mini" - the mini/nano models don't support agents, need to wait for new ones
+GPT_5_NANO = "gpt-5.2"  # "gpt-5-nano"
 
 CLAUDE_OPUS_4 = "claude-opus-4-5"
 CLAUDE_SONNET_4 = "claude-sonnet-4-5"
