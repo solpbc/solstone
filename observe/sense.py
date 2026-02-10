@@ -158,6 +158,8 @@ class FileSensor:
         self.segment_remote: Dict[str, str] = {}
         # Track handler errors per segment: {segment_key: [error_strings]}
         self.segment_errors: Dict[str, list[str]] = {}
+        # Track stream identity per segment: {segment_key: stream_name}
+        self.segment_stream: Dict[str, str] = {}
 
     def register(self, pattern: str, handler_name: str, command: List[str]):
         """
@@ -452,6 +454,7 @@ class FileSensor:
         batch = self.segment_batch.get(segment, False)
         remote = self.segment_remote.get(segment)
         errors = self.segment_errors.get(segment)
+        stream = self.segment_stream.get(segment)
 
         if self.callosum:
             event_fields = {
@@ -463,6 +466,8 @@ class FileSensor:
                 event_fields["batch"] = True
             if remote:
                 event_fields["remote"] = remote
+            if stream:
+                event_fields["stream"] = stream
             if errors:
                 event_fields["error"] = True
                 event_fields["errors"] = errors
@@ -487,6 +492,8 @@ class FileSensor:
             del self.segment_batch[segment]
         if segment in self.segment_remote:
             del self.segment_remote[segment]
+        if segment in self.segment_stream:
+            del self.segment_stream[segment]
         if segment in self.segment_errors:
             del self.segment_errors[segment]
 
@@ -561,6 +568,7 @@ class FileSensor:
         files = message.get("files", [])
         remote = message.get("remote")  # Optional: set for remote observer uploads
         meta = message.get("meta")  # Optional: metadata dict (facet, setting, etc.)
+        stream = message.get("stream")  # Optional: stream identity from observer
 
         if not day or not segment or not files:
             logger.warning(
@@ -569,6 +577,14 @@ class FileSensor:
             return
 
         logger.info(f"Received observing event: {day}/{segment} ({len(files)} files)")
+
+        # Track stream identity for this segment
+        if stream and segment:
+            self.segment_stream[segment] = stream
+            # Merge stream into meta so handlers get it via SEGMENT_META
+            if meta is None:
+                meta = {}
+            meta["stream"] = stream
 
         # Build full paths for all files in this segment
         # Files are in segment directories: YYYYMMDD/HHMMSS_LEN/filename
@@ -744,7 +760,10 @@ class FileSensor:
             return
 
         # Find all matching unprocessed files in segment directories
+        from think.streams import read_segment_stream
+
         to_process = []
+        segment_meta_cache: Dict[str, Optional[Dict[str, Any]]] = {}
         for segment_dir in day_dir.iterdir():
             if not segment_dir.is_dir() or not segment_key(segment_dir.name):
                 continue
@@ -752,6 +771,16 @@ class FileSensor:
             # Apply segment filter if specified
             if segment_filter and segment_dir.name != segment_filter:
                 continue
+
+            # Read stream.json for batch-processed segments
+            if segment_dir.name not in segment_meta_cache:
+                stream_info = read_segment_stream(segment_dir)
+                if stream_info and stream_info.get("stream"):
+                    segment_meta_cache[segment_dir.name] = {
+                        "stream": stream_info["stream"]
+                    }
+                else:
+                    segment_meta_cache[segment_dir.name] = None
 
             for file_path in segment_dir.iterdir():
                 if not file_path.is_file():
@@ -789,11 +818,11 @@ class FileSensor:
         semaphore = threading.Semaphore(max_jobs)
         completion_events = {}
 
-        def process_with_limit(file_path, handler_name, command, day):
+        def process_with_limit(file_path, handler_name, command, day, meta):
             """Process a single file with semaphore-controlled concurrency."""
             with semaphore:
                 self._spawn_handler(
-                    file_path, handler_name, command, day=day, batch=True
+                    file_path, handler_name, command, day=day, batch=True, meta=meta
                 )
                 # Wait for this specific file to complete
                 while file_path in self.running:
@@ -804,10 +833,14 @@ class FileSensor:
         # Spawn all handlers (semaphore controls concurrency)
         threads = []
         for file_path, handler_name, command in to_process:
+            # Look up stream meta for this segment
+            seg_name = file_path.parent.name
+            meta = segment_meta_cache.get(seg_name)
+
             completion_events[file_path] = threading.Event()
             thread = threading.Thread(
                 target=process_with_limit,
-                args=(file_path, handler_name, command, day),
+                args=(file_path, handler_name, command, day, meta),
                 daemon=False,
             )
             thread.start()

@@ -42,6 +42,7 @@ from observe.linux.screencast import Screencaster, StreamInfo
 from observe.tmux.capture import TmuxCapture, write_captures_jsonl
 from observe.utils import create_draft_folder, get_timestamp_parts
 from think.callosum import CallosumConnection
+from think.streams import stream_name, update_stream, write_segment_stream
 from think.utils import day_path, get_config, get_journal, setup_cli
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,7 @@ class Observer:
         self.tmux_capture = TmuxCapture()
         self.bus: MessageBus | None = None
         self.running = True
+        self.stream = stream_name(host=HOST)
 
         # Callosum connection for events
         self._callosum: CallosumConnection | None = None
@@ -360,6 +362,27 @@ class Observer:
                 logger.error(f"Failed to rename draft folder: {e}")
                 # Files stay in draft folder, won't be processed
                 files = []
+
+            # Write stream identity for this segment
+            if files:
+                try:
+                    result = update_stream(
+                        self.stream,
+                        date_part,
+                        segment_key,
+                        type="observer",
+                        host=HOST,
+                        platform=PLATFORM,
+                    )
+                    write_segment_stream(
+                        final_segment_dir,
+                        self.stream,
+                        result["prev_day"],
+                        result["prev_segment"],
+                        result["seq"],
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to write stream identity: {e}")
         elif self.draft_dir and not files:
             # No files to save, remove empty draft folder
             try:
@@ -401,6 +424,7 @@ class Observer:
                 files=files,
                 host=HOST,
                 platform=PLATFORM,
+                stream=self.stream,
             )
             logger.info(f"Segment observing: {segment_key} ({len(files)} files)")
 
@@ -562,6 +586,7 @@ class Observer:
             activity=activity_info,
             host=HOST,
             platform=PLATFORM,
+            stream=self.stream,
         )
 
     async def main_loop(self):
@@ -725,6 +750,26 @@ class Observer:
                 os.rename(self.draft_dir, final_segment_dir)
                 logger.info(f"Final segment: {self.draft_dir} -> {final_segment_dir}")
 
+                # Write stream identity for this segment
+                try:
+                    result = update_stream(
+                        self.stream,
+                        date_part,
+                        segment_key,
+                        type="observer",
+                        host=HOST,
+                        platform=PLATFORM,
+                    )
+                    write_segment_stream(
+                        final_segment_dir,
+                        self.stream,
+                        result["prev_day"],
+                        result["prev_segment"],
+                        result["seq"],
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to write stream identity: {e}")
+
                 # Emit final observing event
                 if self._callosum:
                     self._callosum.emit(
@@ -735,6 +780,7 @@ class Observer:
                         files=files,
                         host=HOST,
                         platform=PLATFORM,
+                        stream=self.stream,
                     )
                     logger.info(
                         f"Segment observing: {segment_key} ({len(files)} files)"

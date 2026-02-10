@@ -33,6 +33,7 @@ from observe.macos.activity import (
 from observe.macos.screencapture import AudioInfo, DisplayInfo, ScreenCaptureKitManager
 from observe.utils import create_draft_folder, get_timestamp_parts
 from think.callosum import CallosumConnection
+from think.streams import stream_name, update_stream, write_segment_stream
 from think.utils import day_path, get_journal, setup_cli
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,7 @@ class MacOSObserver:
         self.interval = interval
         self.screencapture = ScreenCaptureKitManager(sck_cli_path=sck_cli_path)
         self.running = True
+        self.stream = stream_name(host=HOST)
 
         # Callosum connection for events
         self._callosum: CallosumConnection | None = None
@@ -332,6 +334,27 @@ class MacOSObserver:
             except OSError as e:
                 logger.error(f"Failed to rename draft folder: {e}")
                 saved_files = []  # Don't emit event if rename failed
+
+            # Write stream identity for this segment
+            if saved_files:
+                try:
+                    result = update_stream(
+                        self.stream,
+                        date_part,
+                        segment_key,
+                        type="observer",
+                        host=HOST,
+                        platform=PLATFORM,
+                    )
+                    write_segment_stream(
+                        final_segment_dir,
+                        self.stream,
+                        result["prev_day"],
+                        result["prev_segment"],
+                        result["seq"],
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to write stream identity: {e}")
         elif self.draft_dir:
             # No files to save, remove empty draft folder
             try:
@@ -373,6 +396,7 @@ class MacOSObserver:
                     host=HOST,
                     platform=PLATFORM,
                     meta=meta,
+                    stream=self.stream,
                 )
                 logger.info(
                     f"Segment observing: {segment_key} ({len(saved_files)} files)"
@@ -507,6 +531,7 @@ class MacOSObserver:
             activity=activity_info,
             host=HOST,
             platform=PLATFORM,
+            stream=self.stream,
         )
 
     async def main_loop(self):
@@ -595,6 +620,7 @@ class MacOSObserver:
                     host=HOST,
                     platform=PLATFORM,
                     meta=meta,
+                    stream=self.stream,
                 )
                 logger.info(
                     f"Segment observing: {segment_key} ({len(saved_files)} files)"
