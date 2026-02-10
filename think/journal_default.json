@@ -1,0 +1,23 @@
+{
+  "identity": {
+    "name": "",
+    "preferred": "",
+    "bio": "",
+    "pronouns": {
+      "subject": "",
+      "object": "",
+      "possessive": "",
+      "reflexive": ""
+    },
+    "aliases": [],
+    "email_addresses": [],
+    "timezone": ""
+  },
+  "describe": {
+    "redact": [
+      "use *** instead of any visible passwords, credentials, keys, tokens, and secrets",
+      "completely omit and ignore any NSFW or adult content, do not mention or note it",
+      "use *** instead of any visible credit card numbers, bank account numbers, and government ID numbers"
+    ]
+  }
+}

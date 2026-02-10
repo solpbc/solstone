@@ -11,6 +11,7 @@ agent configs, etc.) have been moved to think/muse.py.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import logging
 import os
@@ -363,59 +364,55 @@ def _format_time(t: datetime.time) -> str:
     return datetime.combine(datetime.today(), t).strftime("%I:%M %p").lstrip("0")
 
 
-def get_config() -> dict[str, Any]:
-    """Return the journal configuration from config/journal.json.
+def _load_default_config() -> dict[str, Any]:
+    """Load the default journal configuration from journal_default.json.
 
     Returns
     -------
     dict
-        Journal configuration with at least an 'identity' key containing
-        name, preferred, bio, pronouns, aliases, email_addresses, and
-        timezone fields. Returns default empty structure if config file doesn't exist.
+        Default configuration structure.
     """
-    # Default identity structure - defined once
-    default_identity = {
-        "name": "",
-        "preferred": "",
-        "bio": "",
-        "pronouns": {
-            "subject": "",
-            "object": "",
-            "possessive": "",
-            "reflexive": "",
-        },
-        "aliases": [],
-        "email_addresses": [],
-        "timezone": "",
-    }
+    default_path = Path(__file__).parent / "journal_default.json"
+    with open(default_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+# Cached default config (loaded once at first use)
+_default_config: dict[str, Any] | None = None
+
+
+def get_config() -> dict[str, Any]:
+    """Return the journal configuration from config/journal.json.
+
+    When no journal.json exists, returns a deep copy of the defaults from
+    think/journal_default.json. Once journal.json exists it is the master
+    and is returned as-is with no merging of defaults.
+
+    Returns
+    -------
+    dict
+        Journal configuration.
+    """
+    global _default_config
+    if _default_config is None:
+        _default_config = _load_default_config()
 
     journal = get_journal()
     config_path = Path(journal) / "config" / "journal.json"
 
-    # Return default structure if file doesn't exist
+    # Return defaults when no config file exists yet
     if not config_path.exists():
-        return {"identity": default_identity.copy()}
+        return copy.deepcopy(_default_config)
 
     try:
         with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-
-        # Ensure identity section exists with all required fields
-        if "identity" not in config:
-            config["identity"] = {}
-
-        # Fill in any missing fields with defaults
-        for key, default in default_identity.items():
-            if key not in config["identity"]:
-                config["identity"][key] = default
-
-        return config
+            return json.load(f)
     except (json.JSONDecodeError, OSError) as exc:
-        # Log error but return default structure to avoid breaking callers
+        # Log error but return defaults to avoid breaking callers
         logging.getLogger(__name__).warning(
             "Failed to load config from %s: %s", config_path, exc
         )
-        return {"identity": default_identity.copy()}
+        return copy.deepcopy(_default_config)
 
 
 def _append_task_log(dir_path: str | Path, message: str) -> None:

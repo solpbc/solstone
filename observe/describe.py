@@ -138,6 +138,30 @@ def _build_categorization_prompt() -> str:
     ).text
 
 
+def _build_redact_instruction(rules: List[str]) -> str:
+    """Build a redaction instruction block from user-configured rules.
+
+    Parameters
+    ----------
+    rules : List[str]
+        Redaction rules from config, one directive per entry.
+
+    Returns
+    -------
+    str
+        Formatted instruction block to append to system prompts,
+        or empty string if no rules.
+    """
+    if not rules:
+        return ""
+
+    items = "\n".join(f"- {rule}" for rule in rules)
+    return (
+        "\n\nRedaction rules (apply these exactly as written, do not generalize):\n"
+        + items
+    )
+
+
 # Discover categories at module level
 CATEGORIES = _discover_categories()
 
@@ -377,14 +401,18 @@ class VideoProcessor:
         from think.batch import Batch
         from think.models import resolve_provider
 
-        # Load config for max_extractions
+        # Load config for max_extractions and redaction rules
         config = get_config()
-        max_extractions = config.get("describe", {}).get(
+        describe_config = config.get("describe", {})
+        max_extractions = describe_config.get(
             "max_extractions", DEFAULT_MAX_EXTRACTIONS
+        )
+        redact_instruction = _build_redact_instruction(
+            describe_config.get("redact", [])
         )
 
         # Use dynamically built categorization prompt
-        system_instruction = CATEGORIZATION_PROMPT
+        system_instruction = CATEGORIZATION_PROMPT + redact_instruction
 
         # Process video to get qualified frames (synchronous)
         qualified_frames = self.process()
@@ -699,7 +727,7 @@ class VideoProcessor:
                             entities=True,
                         ),
                         model=cat_model,
-                        system_instruction=cat_meta["prompt"],
+                        system_instruction=cat_meta["prompt"] + redact_instruction,
                         json_output=is_json,
                         max_output_tokens=10240 if is_json else 8192,
                         thinking_budget=6144 if is_json else 4096,

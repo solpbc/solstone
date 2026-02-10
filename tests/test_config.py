@@ -62,6 +62,24 @@ def test_get_config_default_structure(tmp_path, monkeypatch):
     assert config["identity"]["timezone"] == ""
     assert config["identity"]["bio"] == ""
 
+    # Describe defaults
+    assert "describe" in config
+    assert isinstance(config["describe"]["redact"], list)
+    assert len(config["describe"]["redact"]) > 0
+
+
+def test_get_config_default_is_deep_copy(tmp_path, monkeypatch):
+    """Test that modifying returned defaults doesn't affect future calls."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    config1 = get_config()
+    config1["identity"]["name"] = "Modified"
+    config1["describe"]["redact"].append("extra rule")
+
+    config2 = get_config()
+    assert config2["identity"]["name"] == ""
+    assert "extra rule" not in config2["describe"]["redact"]
+
 
 def test_get_config_loads_existing(config_journal, monkeypatch):
     """Test get_config loads existing configuration."""
@@ -83,18 +101,17 @@ def test_get_config_loads_existing(config_journal, monkeypatch):
     assert config["identity"]["bio"] == "a software engineer and tester"
 
 
-def test_get_config_fills_missing_fields(tmp_path, monkeypatch):
-    """Test get_config fills in missing identity fields."""
+def test_get_config_existing_is_master(tmp_path, monkeypatch):
+    """Test that existing journal.json is returned as-is without merging defaults."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    # Create config with partial identity data
+    # Create config with only a name - no other identity fields, no describe
     config_dir = tmp_path / "config"
     config_dir.mkdir()
 
     partial_config = {
         "identity": {
             "name": "Partial User",
-            # Missing other fields
         }
     }
 
@@ -104,19 +121,11 @@ def test_get_config_fills_missing_fields(tmp_path, monkeypatch):
 
     config = get_config()
 
-    # Check that missing fields are filled with defaults
+    # User's value is preserved
     assert config["identity"]["name"] == "Partial User"
-    assert config["identity"]["preferred"] == ""
-    assert config["identity"]["pronouns"] == {
-        "subject": "",
-        "object": "",
-        "possessive": "",
-        "reflexive": "",
-    }
-    assert config["identity"]["aliases"] == []
-    assert config["identity"]["email_addresses"] == []
-    assert config["identity"]["timezone"] == ""
-    assert config["identity"]["bio"] == ""
+    # Missing fields are NOT filled from defaults - journal.json is master
+    assert "preferred" not in config["identity"]
+    assert "describe" not in config
 
 
 def test_get_config_uses_default_when_journal_path_empty(monkeypatch, tmp_path):
@@ -155,6 +164,7 @@ def test_get_config_handles_invalid_json(tmp_path, monkeypatch):
         "reflexive": "",
     }
     assert config["identity"]["bio"] == ""
+    assert "describe" in config
 
 
 def test_get_config_with_fixtures():
@@ -164,7 +174,7 @@ def test_get_config_with_fixtures():
 
     config = get_config()
 
-    # Should return default structure since fixtures doesn't have config yet
+    # Fixtures has journal.json - returned as-is
     assert "identity" in config
     assert isinstance(config["identity"]["name"], str)
     assert isinstance(config["identity"]["preferred"], str)

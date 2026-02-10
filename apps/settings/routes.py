@@ -666,6 +666,7 @@ def get_vision() -> Any:
 
     Returns:
         - max_extractions: Current max extractions setting (default: 20)
+        - redact: List of redaction rules (default: [])
         - categories: Dict of category overrides from config
         - category_defaults: Discovered categories with their defaults
     """
@@ -691,6 +692,7 @@ def get_vision() -> Any:
                 "max_extractions": describe_config.get(
                     "max_extractions", DEFAULT_MAX_EXTRACTIONS
                 ),
+                "redact": describe_config.get("redact", []),
                 "categories": describe_config.get("categories", {}),
                 "category_defaults": category_defaults,
             }
@@ -705,6 +707,7 @@ def update_vision() -> Any:
 
     Accepts JSON with optional keys:
         - max_extractions: int (5-100) - Maximum frames to extract
+        - redact: list[str] - Redaction rules (max 50 rules, 200 chars each)
         - categories: {name: {importance?, extraction?} | null} - Category overrides
 
     Setting a category to null removes its overrides.
@@ -746,6 +749,35 @@ def update_vision() -> Any:
             if old_val != max_ext:
                 changed_fields["max_extractions"] = {"old": old_val, "new": max_ext}
             config["describe"]["max_extractions"] = max_ext
+
+        # Handle redact rules update
+        if "redact" in request_data:
+            redact = request_data["redact"]
+            if not isinstance(redact, list) or not all(
+                isinstance(r, str) for r in redact
+            ):
+                return (
+                    jsonify({"error": "redact must be a list of strings"}),
+                    400,
+                )
+            if len(redact) > 50:
+                return (
+                    jsonify({"error": "redact may contain at most 50 rules"}),
+                    400,
+                )
+            if any(len(r) > 200 for r in redact):
+                return (
+                    jsonify(
+                        {"error": "each redact rule must be 200 characters or fewer"}
+                    ),
+                    400,
+                )
+            # Filter out empty strings
+            redact = [r for r in redact if r.strip()]
+            old_val = old_describe.get("redact")
+            if old_val != redact:
+                changed_fields["redact"] = {"old": old_val, "new": redact}
+            config["describe"]["redact"] = redact
 
         # Handle category overrides
         if "categories" in request_data:

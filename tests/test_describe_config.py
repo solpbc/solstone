@@ -4,6 +4,7 @@
 """Tests for observe/describe.py category discovery and configuration."""
 
 from observe import describe as describe_module
+from observe.describe import _build_redact_instruction
 
 
 def test_categories_discovered():
@@ -78,3 +79,39 @@ def test_categorization_prompt_alphabetical():
 
     # Should be sorted
     assert categories == sorted(categories)
+
+
+def test_redact_instruction_empty():
+    """Test that empty/missing redact list returns empty string."""
+    assert _build_redact_instruction([]) == ""
+    assert _build_redact_instruction(None) == ""
+
+
+def test_redact_instruction_format():
+    """Test that redact instruction formats rules correctly."""
+    rules = [
+        "use *** instead of any visible passwords",
+        "replace personal email addresses with [redacted]",
+    ]
+    result = _build_redact_instruction(rules)
+
+    # Should contain the header
+    assert "Redaction rules" in result
+    assert "do not generalize" in result
+
+    # Should contain each rule as a bullet
+    for rule in rules:
+        assert f"- {rule}" in result
+
+
+def test_redact_instruction_no_vague_language():
+    """Test that redact instruction doesn't add vague privacy language."""
+    rules = ["replace bank account numbers with ***"]
+    result = _build_redact_instruction(rules)
+
+    # Should not contain vague directives the model could over-apply
+    lower = result.lower()
+    assert "sensitive" not in lower
+    assert "confidential" not in lower
+    assert "personally identifiable" not in lower
+    assert "pii" not in lower

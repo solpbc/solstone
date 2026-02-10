@@ -2,6 +2,7 @@
   "identity": {
     "name": "Test User",
     "preferred": "Tester",
+    "bio": "",
     "pronouns": {
       "subject": "they",
       "object": "them",
@@ -47,6 +48,9 @@
         "2": "gemini-custom-flash-test"
       }
     }
+  },
+  "describe": {
+    "redact": ["replace test-secret-key with ***"]
   },
   "env": {
     "TEST_CONFIG_ENV_VAR": "from_config"

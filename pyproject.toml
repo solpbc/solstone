@@ -106,7 +106,7 @@ py-modules = ["sol"]
 
 [tool.setuptools.package-data]
 apps = ["*/templates/*.html", "*/muse/*.md"]
-think = ["*.md", "templates/*.md"]
+think = ["*.md", "*.json", "templates/*.md"]
 muse = ["*.md", "*.py"]
 observe = ["*.md", "categories/*.md", "transcribe/*.md"]
 convey = [
