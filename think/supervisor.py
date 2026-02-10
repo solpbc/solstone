@@ -7,6 +7,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import signal
 import subprocess
 import threading
@@ -33,6 +34,34 @@ CHECK_INTERVAL = 30
 
 # Global shutdown flag
 shutdown_requested = False
+
+
+class CallosumLogHandler(logging.Handler):
+    """Logging handler that emits log records as callosum ``logs`` tract events.
+
+    Silently drops events on any error — callosum mirroring is best-effort.
+    """
+
+    def __init__(self, conn: CallosumConnection, ref: str):
+        super().__init__()
+        self._conn = conn
+        self._ref = ref
+        self._pid = os.getpid()
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            self._conn.emit(
+                "logs",
+                "line",
+                ref=self._ref,
+                name="supervisor",
+                pid=self._pid,
+                stream="log",
+                line=self.format(record),
+            )
+        except Exception:
+            pass
+
 
 # Desktop notification system
 _notifier: DesktopNotifier | None = None
@@ -1345,6 +1374,27 @@ def main() -> None:
     except Exception as e:
         logging.warning(f"Failed to start Callosum connection: {e}")
 
+    # Mirror supervisor log output to callosum logs tract (best-effort)
+    supervisor_ref = str(now_ms())
+    if _supervisor_callosum:
+        try:
+            handler = CallosumLogHandler(_supervisor_callosum, supervisor_ref)
+            handler.setFormatter(
+                logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+            )
+            logging.getLogger().addHandler(handler)
+            _supervisor_callosum.emit(
+                "logs",
+                "exec",
+                ref=supervisor_ref,
+                name="supervisor",
+                pid=os.getpid(),
+                cmd=["sol", "supervisor"],
+                log_path=str(log_path),
+            )
+        except Exception:
+            pass
+
     # Initialize task queue with callosum event callback
     _task_queue = TaskQueue(on_queue_change=_emit_queue_event)
 
@@ -1431,6 +1481,22 @@ def main() -> None:
                 except Exception:
                     pass
             managed.cleanup()
+
+        # Emit logs exit event before disconnecting (best-effort)
+        if _supervisor_callosum:
+            try:
+                _supervisor_callosum.emit(
+                    "logs",
+                    "exit",
+                    ref=supervisor_ref,
+                    name="supervisor",
+                    pid=os.getpid(),
+                    exit_code=0,
+                    cmd=["sol", "supervisor"],
+                    log_path=str(log_path),
+                )
+            except Exception:
+                pass
 
         # Disconnect supervisor's Callosum connection
         if _supervisor_callosum:
