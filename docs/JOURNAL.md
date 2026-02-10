@@ -571,6 +571,8 @@ Activity records are created by the `activities` segment agent when it detects t
 5. An LLM synthesizes all per-segment descriptions into a unified narrative
 6. The record description is updated with the synthesized version
 
+**Segment flush:** If no new segments arrive for an extended period (1 hour), the supervisor triggers `sol dream --flush` on the last segment. Agents that declare `hook.flush: true` (like `activities`) run with `flush=True` in their context, treating all remaining active activities as ended. This ensures activities are recorded promptly even when the user stops working, and prevents cross-day data loss.
+
 Records are written idempotently — duplicate IDs are skipped on re-runs.
 
 ## Facet-Scoped Todos

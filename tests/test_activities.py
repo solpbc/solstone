@@ -1279,3 +1279,317 @@ class TestHandleActivityRecorded:
                     }
                 )
             assert "No task queue" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Flush Mode Tests
+# ---------------------------------------------------------------------------
+
+
+class TestPreProcessFlush:
+    """Tests for the activities pre_process hook in flush mode."""
+
+    def test_flush_ends_all_active_activities(self, monkeypatch):
+        from muse.activities import pre_process
+        from think.activities import load_activity_records
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+
+            # Set up a segment with an active activity (no following segment)
+            _setup_segment(
+                tmpdir,
+                "20260209",
+                "100000_300",
+                "work",
+                [
+                    {
+                        "activity": "coding",
+                        "state": "active",
+                        "since": "100000_300",
+                        "description": "Working on feature",
+                        "level": "high",
+                        "active_entities": ["VS Code"],
+                    }
+                ],
+            )
+
+            result = pre_process(
+                {"day": "20260209", "segment": "100000_300", "flush": True}
+            )
+
+            # Should detect the active activity as ended
+            assert "skip_reason" not in result
+            assert "transcript" in result
+            assert "coding_100000_300" in result["transcript"]
+
+            # Record should be written
+            records = load_activity_records("work", "20260209")
+            assert len(records) == 1
+            assert records[0]["id"] == "coding_100000_300"
+            assert records[0]["segments"] == ["100000_300"]
+
+    def test_flush_skips_when_no_active_activities(self, monkeypatch):
+        from muse.activities import pre_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+
+            # Set up a segment with only ended activities
+            _setup_segment(
+                tmpdir,
+                "20260209",
+                "100000_300",
+                "work",
+                [
+                    {
+                        "activity": "coding",
+                        "state": "ended",
+                        "since": "090000_300",
+                    }
+                ],
+            )
+
+            result = pre_process(
+                {"day": "20260209", "segment": "100000_300", "flush": True}
+            )
+            assert result["skip_reason"] == "no_active_activities"
+
+    def test_flush_skips_when_no_activity_state(self, monkeypatch):
+        from muse.activities import pre_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+
+            # Create segment dir but no activity_state files
+            seg_dir = Path(tmpdir) / "20260209" / "100000_300"
+            seg_dir.mkdir(parents=True)
+
+            result = pre_process(
+                {"day": "20260209", "segment": "100000_300", "flush": True}
+            )
+            assert result["skip_reason"] == "no_activity_state"
+
+    def test_flush_handles_multiple_facets(self, monkeypatch):
+        from muse.activities import pre_process
+        from think.activities import load_activity_records
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+
+            _setup_segment(
+                tmpdir,
+                "20260209",
+                "100000_300",
+                "work",
+                [
+                    {
+                        "activity": "coding",
+                        "state": "active",
+                        "since": "100000_300",
+                        "description": "Work coding",
+                        "level": "high",
+                    }
+                ],
+            )
+            _setup_segment(
+                tmpdir,
+                "20260209",
+                "100000_300",
+                "personal",
+                [
+                    {
+                        "activity": "browsing",
+                        "state": "active",
+                        "since": "100000_300",
+                        "description": "Personal browsing",
+                        "level": "low",
+                    }
+                ],
+            )
+
+            result = pre_process(
+                {"day": "20260209", "segment": "100000_300", "flush": True}
+            )
+
+            assert "skip_reason" not in result
+            assert "transcript" in result
+
+            work_records = load_activity_records("work", "20260209")
+            personal_records = load_activity_records("personal", "20260209")
+            assert len(work_records) == 1
+            assert len(personal_records) == 1
+
+    def test_flush_is_idempotent(self, monkeypatch):
+        from muse.activities import pre_process
+        from think.activities import load_activity_records
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+
+            _setup_segment(
+                tmpdir,
+                "20260209",
+                "100000_300",
+                "work",
+                [
+                    {
+                        "activity": "coding",
+                        "state": "active",
+                        "since": "100000_300",
+                        "description": "Coding",
+                        "level": "high",
+                    }
+                ],
+            )
+
+            context = {"day": "20260209", "segment": "100000_300", "flush": True}
+            pre_process(context)
+            pre_process(context)
+
+            records = load_activity_records("work", "20260209")
+            assert len(records) == 1
+
+    def test_flush_stashes_meta_for_post_hook(self, monkeypatch):
+        from muse.activities import pre_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+
+            _setup_segment(
+                tmpdir,
+                "20260209",
+                "100000_300",
+                "work",
+                [
+                    {
+                        "activity": "coding",
+                        "state": "active",
+                        "since": "100000_300",
+                        "description": "Coding",
+                        "level": "high",
+                    }
+                ],
+            )
+
+            result = pre_process(
+                {"day": "20260209", "segment": "100000_300", "flush": True}
+            )
+
+            assert "meta" in result
+            records = result["meta"]["activity_records"]
+            assert "work" in records
+            assert "coding_100000_300" in records["work"]
+
+
+class TestCheckSegmentFlush:
+    """Tests for supervisor's _check_segment_flush."""
+
+    def test_queues_flush_after_timeout(self):
+        import time as time_mod
+        from unittest.mock import MagicMock, patch
+
+        from think.supervisor import _check_segment_flush, _flush_state
+
+        # Set up state as if a segment arrived over an hour ago
+        _flush_state["last_segment_ts"] = time_mod.time() - 4000
+        _flush_state["day"] = "20260209"
+        _flush_state["segment"] = "100000_300"
+        _flush_state["flushed"] = False
+
+        mock_queue = MagicMock()
+        with (
+            patch("think.supervisor._task_queue", mock_queue),
+            patch("think.supervisor._is_remote_mode", False),
+        ):
+            _check_segment_flush()
+
+        mock_queue.submit.assert_called_once_with(
+            ["sol", "dream", "--day", "20260209", "--segment", "100000_300", "--flush"]
+        )
+        assert _flush_state["flushed"] is True
+
+    def test_does_not_flush_before_timeout(self):
+        import time as time_mod
+        from unittest.mock import MagicMock, patch
+
+        from think.supervisor import _check_segment_flush, _flush_state
+
+        _flush_state["last_segment_ts"] = time_mod.time() - 100  # Only 100s ago
+        _flush_state["day"] = "20260209"
+        _flush_state["segment"] = "100000_300"
+        _flush_state["flushed"] = False
+
+        mock_queue = MagicMock()
+        with (
+            patch("think.supervisor._task_queue", mock_queue),
+            patch("think.supervisor._is_remote_mode", False),
+        ):
+            _check_segment_flush()
+
+        mock_queue.submit.assert_not_called()
+        assert _flush_state["flushed"] is False
+
+    def test_does_not_flush_twice(self):
+        import time as time_mod
+        from unittest.mock import MagicMock, patch
+
+        from think.supervisor import _check_segment_flush, _flush_state
+
+        _flush_state["last_segment_ts"] = time_mod.time() - 4000
+        _flush_state["day"] = "20260209"
+        _flush_state["segment"] = "100000_300"
+        _flush_state["flushed"] = True  # Already flushed
+
+        mock_queue = MagicMock()
+        with (
+            patch("think.supervisor._task_queue", mock_queue),
+            patch("think.supervisor._is_remote_mode", False),
+        ):
+            _check_segment_flush()
+
+        mock_queue.submit.assert_not_called()
+
+    def test_skips_in_remote_mode(self):
+        import time as time_mod
+        from unittest.mock import MagicMock, patch
+
+        from think.supervisor import _check_segment_flush, _flush_state
+
+        _flush_state["last_segment_ts"] = time_mod.time() - 4000
+        _flush_state["day"] = "20260209"
+        _flush_state["segment"] = "100000_300"
+        _flush_state["flushed"] = False
+
+        mock_queue = MagicMock()
+        with (
+            patch("think.supervisor._task_queue", mock_queue),
+            patch("think.supervisor._is_remote_mode", True),
+        ):
+            _check_segment_flush()
+
+        mock_queue.submit.assert_not_called()
+
+    def test_segment_observed_resets_flush_state(self):
+        from think.supervisor import _flush_state, _handle_segment_observed
+
+        _flush_state["flushed"] = True
+        _flush_state["last_segment_ts"] = 0
+
+        # We need to mock the thread start to avoid side effects
+        from unittest.mock import patch
+
+        with patch("think.supervisor.threading"):
+            _handle_segment_observed(
+                {
+                    "tract": "observe",
+                    "event": "observed",
+                    "day": "20260209",
+                    "segment": "110000_300",
+                }
+            )
+
+        assert _flush_state["flushed"] is False
+        assert _flush_state["day"] == "20260209"
+        assert _flush_state["segment"] == "110000_300"
+        assert _flush_state["last_segment_ts"] > 0

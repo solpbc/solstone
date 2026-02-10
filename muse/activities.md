@@ -7,7 +7,7 @@
   "schedule": "segment",
   "priority": 96,
   "output": "json",
-  "hook": {"pre": "activities", "post": "activities"},
+  "hook": {"pre": "activities", "post": "activities", "flush": true},
   "tier": 3,
   "thinking_budget": 4096,
   "max_output_tokens": 2048,

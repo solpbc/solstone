@@ -411,6 +411,17 @@ _daily_state = {
     "start_time": 0,  # When daily processing started (for duration tracking)
 }
 
+# Timeout before flushing stale segments (seconds)
+FLUSH_TIMEOUT = 3600
+
+# State for segment flush (close out dangling agent state after inactivity)
+_flush_state: dict = {
+    "last_segment_ts": 0.0,  # Wall-clock time of last observe.observed event
+    "day": None,  # Day of last observed segment
+    "segment": None,  # Last observed segment key
+    "flushed": False,  # Whether flush has already run for current segment
+}
+
 
 def _get_journal_path() -> Path:
     return Path(get_journal())
@@ -1051,6 +1062,10 @@ def handle_daily_tasks() -> None:
             )
             return
 
+        # Flush any dangling segment state from the previous day before daily dream
+        if not _flush_state["flushed"] and _flush_state["day"] == prev_day_str:
+            _check_segment_flush()
+
         logging.info(
             f"Day changed to {today}, starting daily processing for {prev_day_str}"
         )
@@ -1067,7 +1082,7 @@ def _handle_segment_observed(message: dict) -> None:
     """Handle segment completion events (from live observation or imports).
 
     Spawns sol dream in segment mode, which handles both generators and
-    segment agents.
+    segment agents. Also updates flush state to track segment recency.
     """
     if message.get("tract") != "observe" or message.get("event") != "observed":
         return
@@ -1079,6 +1094,12 @@ def _handle_segment_observed(message: dict) -> None:
 
     # Use day from event payload, fallback to today (for live observation)
     day = message.get("day") or datetime.now().strftime("%Y%m%d")
+
+    # Update flush state — new segment resets the flush timer
+    _flush_state["last_segment_ts"] = time.time()
+    _flush_state["day"] = day
+    _flush_state["segment"] = segment
+    _flush_state["flushed"] = False
 
     logging.info(f"Segment observed: {day}/{segment}, spawning processing...")
 
@@ -1105,6 +1126,42 @@ def _run_segment_processing(day: str, segment: str) -> None:
     else:
         logging.error(
             f"Segment processing failed with exit code {exit_code}: {day}/{segment}"
+        )
+
+
+def _check_segment_flush() -> None:
+    """Check if the last observed segment needs flushing.
+
+    If no new segments have arrived within FLUSH_TIMEOUT seconds, runs
+    ``sol dream --flush`` on the last segment to let flush-enabled agents
+    close out dangling state (e.g., end active activities).
+
+    Skipped in remote mode (no local processing).
+    """
+    if _is_remote_mode:
+        return
+
+    last_ts = _flush_state["last_segment_ts"]
+    if not last_ts or _flush_state["flushed"]:
+        return
+
+    if time.time() - last_ts < FLUSH_TIMEOUT:
+        return
+
+    day = _flush_state["day"]
+    segment = _flush_state["segment"]
+    if not day or not segment:
+        return
+
+    _flush_state["flushed"] = True
+
+    cmd = ["sol", "dream", "--day", day, "--segment", segment, "--flush"]
+    if _task_queue:
+        _task_queue.submit(cmd)
+        logging.info(f"Queued segment flush: {day}/{segment}")
+    else:
+        logging.warning(
+            "No task queue available for segment flush: %s/%s", day, segment
         )
 
 
@@ -1247,6 +1304,9 @@ async def supervise(
                     except Exception as e:
                         logging.debug(f"Status emission failed: {e}")
                 last_status_emit = now
+
+            # Check for segment flush (non-blocking, submits via task queue)
+            _check_segment_flush()
 
             # Check for daily processing (non-blocking, spawns dream in background)
             if daily:

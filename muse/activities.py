@@ -11,6 +11,11 @@ Pre-hook:
 5. Builds LLM prompt with per-segment descriptions for synthesis
 6. Stashes record data in meta for post-hook event emission
 
+Flush mode (context["flush"] is truthy):
+- Triggered by supervisor when no new segments arrive after a timeout
+- Treats all active activities in the target segment as ended
+- Skips inter-segment comparison (supervisor owns the timeout decision)
+
 Post-hook:
 1. Parses LLM JSON output with synthesized descriptions
 2. Updates activity records with unified descriptions
@@ -183,41 +188,30 @@ def _format_prompt_section(facet: str, activities: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def pre_process(context: dict) -> dict | None:
-    """Detect ended activities across all facets and build synthesis prompt.
+def _collect_ended(
+    day: str,
+    facets: list[str],
+    ended_by_facet: dict[str, list[dict]],
+    end_segment: str,
+) -> dict[str, list[dict]]:
+    """Walk segment chains, write records, and build prompt data for ended activities.
 
-    Writes activity records to journal, then prepares LLM prompt for
-    description synthesis. Returns skip_reason if no activities ended.
+    Shared by both normal and flush pre-hook paths.
+
+    Args:
+        day: Day in YYYYMMDD format
+        facets: Facets to process
+        ended_by_facet: {facet: [ended activity_state items]}
+        end_segment: Last segment to include in the walk
+
+    Returns:
+        {facet: [enriched activity dicts]} for prompt building and post-hook
     """
-    day = context.get("day")
-    segment = context.get("segment")
-
-    if not day or not segment:
-        logger.warning("activities pre-hook requires day and segment")
-        return {"skip_reason": "missing_day_or_segment"}
-
-    # Find previous segment
-    prev_segment = find_previous_segment(day, segment)
-    if not prev_segment:
-        return {"skip_reason": "no_previous_segment"}
-
-    # Check timeout
-    timed_out = check_timeout(segment, prev_segment)
-
-    # Scan all facets that had activity_state in the previous segment
-    prev_facets = _list_facets_with_activity_state(day, prev_segment)
-    if not prev_facets:
-        return {"skip_reason": "no_previous_activity_state"}
-
-    # Collect ended activities across all facets
-    all_ended: dict[str, list[dict]] = {}  # facet -> list of enriched activity dicts
+    all_ended: dict[str, list[dict]] = {}
     existing_ids_cache: dict[str, set[str]] = {}
 
-    for facet in prev_facets:
-        prev_state = _load_activity_state(day, prev_segment, facet)
-        curr_state = _load_activity_state(day, segment, facet)
-
-        ended_items = _detect_ended_activities(prev_state, curr_state, timed_out)
+    for facet in facets:
+        ended_items = ended_by_facet.get(facet, [])
         if not ended_items:
             continue
 
@@ -239,7 +233,7 @@ def pre_process(context: dict) -> dict | None:
 
             # Walk segment chain to collect full data
             walk = _walk_activity_segments(
-                day, facet, activity_type, since, prev_segment
+                day, facet, activity_type, since, end_segment
             )
 
             if not walk["segments"]:
@@ -284,6 +278,11 @@ def pre_process(context: dict) -> dict | None:
                 }
             )
 
+    return all_ended
+
+
+def _build_result(context: dict, all_ended: dict[str, list[dict]]) -> dict | None:
+    """Build LLM prompt and stash meta from collected ended activities."""
     if not all_ended:
         return {"skip_reason": "no_ended_activities"}
 
@@ -302,6 +301,96 @@ def pre_process(context: dict) -> dict | None:
     }
 
     return {"transcript": transcript, "meta": meta}
+
+
+def _pre_process_flush(context: dict) -> dict | None:
+    """Flush mode: end all active activities in the target segment.
+
+    Called when supervisor determines no new segments have arrived after
+    a timeout. All active activities in the target segment are treated
+    as ended — no inter-segment comparison needed.
+    """
+    day = context.get("day")
+    segment = context.get("segment")
+
+    if not day or not segment:
+        logger.warning("activities flush pre-hook requires day and segment")
+        return {"skip_reason": "missing_day_or_segment"}
+
+    # Find all facets with activity_state in the target segment
+    facets = _list_facets_with_activity_state(day, segment)
+    if not facets:
+        return {"skip_reason": "no_activity_state"}
+
+    # Treat all active entries as ended (timed_out=True, empty current state)
+    ended_by_facet: dict[str, list[dict]] = {}
+    for facet in facets:
+        state = _load_activity_state(day, segment, facet)
+        ended = _detect_ended_activities(state, [], timed_out=True)
+        if ended:
+            ended_by_facet[facet] = ended
+
+    if not ended_by_facet:
+        return {"skip_reason": "no_active_activities"}
+
+    logger.info(
+        "Flush: ending %d activities across %d facets",
+        sum(len(v) for v in ended_by_facet.values()),
+        len(ended_by_facet),
+    )
+
+    all_ended = _collect_ended(day, facets, ended_by_facet, segment)
+    return _build_result(context, all_ended)
+
+
+def _pre_process_normal(context: dict) -> dict | None:
+    """Normal mode: detect ended activities by comparing adjacent segments."""
+    day = context.get("day")
+    segment = context.get("segment")
+
+    if not day or not segment:
+        logger.warning("activities pre-hook requires day and segment")
+        return {"skip_reason": "missing_day_or_segment"}
+
+    # Find previous segment
+    prev_segment = find_previous_segment(day, segment)
+    if not prev_segment:
+        return {"skip_reason": "no_previous_segment"}
+
+    # Check timeout
+    timed_out = check_timeout(segment, prev_segment)
+
+    # Scan all facets that had activity_state in the previous segment
+    prev_facets = _list_facets_with_activity_state(day, prev_segment)
+    if not prev_facets:
+        return {"skip_reason": "no_previous_activity_state"}
+
+    # Detect ended activities across all facets
+    ended_by_facet: dict[str, list[dict]] = {}
+    for facet in prev_facets:
+        prev_state = _load_activity_state(day, prev_segment, facet)
+        curr_state = _load_activity_state(day, segment, facet)
+        ended = _detect_ended_activities(prev_state, curr_state, timed_out)
+        if ended:
+            ended_by_facet[facet] = ended
+
+    all_ended = _collect_ended(day, prev_facets, ended_by_facet, prev_segment)
+    return _build_result(context, all_ended)
+
+
+def pre_process(context: dict) -> dict | None:
+    """Detect ended activities across all facets and build synthesis prompt.
+
+    Writes activity records to journal, then prepares LLM prompt for
+    description synthesis. Returns skip_reason if no activities ended.
+
+    In flush mode (context["flush"] is truthy), treats all active activities
+    in the target segment as ended — triggered by supervisor after a timeout
+    with no new segments.
+    """
+    if context.get("flush"):
+        return _pre_process_flush(context)
+    return _pre_process_normal(context)
 
 
 # ---------------------------------------------------------------------------

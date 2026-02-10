@@ -104,7 +104,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 ### `dream` - Generator and agent processing
 **Source:** `think/dream.py`
 **Events:** `started`, `group_started`, `group_completed`, `agent_started`, `agent_completed`, `completed`, `segments_started`, `segments_completed`
-**Key fields:** `mode` ("daily"/"segment"/"activity"), `day`, `segment` (when mode="segment"), `activity` and `facet` (when mode="activity")
+**Key fields:** `mode` ("daily"/"segment"/"activity"/"flush"), `day`, `segment` (when mode="segment" or "flush"), `activity` and `facet` (when mode="activity")
 **Purpose:** Track dream processing from generators through scheduled agents
 
 ### `activity` - Activity lifecycle events
@@ -185,12 +185,16 @@ observe.detected (handler spawned)
 observe.described / observe.transcribed (processing complete)
     ↓ sense tracks completion
 observe.observed (segment fully processed)
-    ↓ supervisor triggers dream
+    ↓ supervisor triggers dream, tracks flush timer
 dream.completed
     ↓ apps/entities/events.py updates entity activity
 activity.recorded (activity span completed)
     ↓ supervisor queues per-activity dream
 dream --activity (runs schedule="activity" agents)
+
+[If no new segments for FLUSH_TIMEOUT (1h):]
+    ↓ supervisor queues flush
+dream --flush (runs hook.flush agents to close dangling state)
 ```
 
 See `think/supervisor.py:_handle_segment_observed()` for the observe→dream trigger and `_handle_activity_recorded()` for activity→dream.

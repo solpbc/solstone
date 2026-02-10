@@ -950,6 +950,139 @@ def run_activity_prompts(
     return total_failed == 0
 
 
+def run_flush_prompts(
+    day: str,
+    segment: str,
+    verbose: bool,
+) -> bool:
+    """Run flush hooks for segment agents that declare flush support.
+
+    Triggered by supervisor when no new segments arrive after a timeout.
+    Only runs agents with hook.flush=true, passing flush=True so their
+    pre-hooks can close out dangling state.
+
+    Args:
+        day: Day in YYYYMMDD format
+        segment: Last observed segment key
+        verbose: Verbose logging
+
+    Returns:
+        True if all flush agents succeeded, False if any failed
+    """
+    all_prompts = get_muse_configs(schedule="segment")
+
+    # Filter to only agents with flush hooks
+    flush_prompts = {
+        name: config
+        for name, config in all_prompts.items()
+        if isinstance(config.get("hook"), dict) and config["hook"].get("flush")
+    }
+
+    if not flush_prompts:
+        logging.info("No flush-eligible agents found")
+        return True
+
+    logging.info(
+        f"Flushing {len(flush_prompts)} agents for {day}/{segment}: "
+        f"{', '.join(flush_prompts.keys())}"
+    )
+
+    emit("started", mode="flush", day=day, segment=segment, count=len(flush_prompts))
+    start_time = time.time()
+    total_success = 0
+    total_failed = 0
+
+    spawned: list[tuple[str, str, dict]] = []  # (agent_id, name, config)
+
+    for prompt_name, config in flush_prompts.items():
+        is_generate = config["type"] == "generate"
+
+        try:
+            request_config: dict = {
+                "day": day,
+                "segment": segment,
+                "flush": True,
+                "force": True,
+                "env": {"SEGMENT_KEY": segment},
+            }
+            if is_generate:
+                request_config["output"] = config.get("output", "md")
+
+            agent_id = cortex_request(
+                prompt="",
+                name=prompt_name,
+                config=request_config,
+            )
+            spawned.append((agent_id, prompt_name, config))
+            emit(
+                "agent_started",
+                mode="flush",
+                day=day,
+                segment=segment,
+                name=prompt_name,
+                agent_id=agent_id,
+            )
+            logging.info(f"Started flush agent {prompt_name} (ID: {agent_id})")
+
+        except Exception as e:
+            logging.error(f"Failed to spawn flush agent {prompt_name}: {e}")
+            total_failed += 1
+
+    if spawned:
+        agent_ids = [aid for aid, _, _ in spawned]
+        completed, timed_out = wait_for_agents(agent_ids, timeout=600)
+
+        if timed_out:
+            logging.warning(f"Flush: {len(timed_out)} agents timed out")
+            total_failed += len(timed_out)
+
+        for agent_id, prompt_name, config in spawned:
+            if agent_id in timed_out:
+                continue
+            end_state = get_agent_end_state(agent_id)
+            if end_state == "finish":
+                logging.info(f"Flush agent {prompt_name} completed")
+                total_success += 1
+            else:
+                logging.error(
+                    f"Flush agent {prompt_name} ended with state: {end_state}"
+                )
+                total_failed += 1
+
+            emit(
+                "agent_completed",
+                mode="flush",
+                day=day,
+                segment=segment,
+                name=prompt_name,
+                agent_id=agent_id,
+                state=end_state if end_state != "finish" else "finish",
+            )
+
+    duration_ms = int((time.time() - start_time) * 1000)
+    emit(
+        "completed",
+        mode="flush",
+        day=day,
+        segment=segment,
+        success=total_success,
+        failed=total_failed,
+        duration_ms=duration_ms,
+    )
+
+    logging.info(
+        f"Flush completed in {duration_ms}ms: "
+        f"{total_success} succeeded, {total_failed} failed"
+    )
+
+    msg = f"dream --flush {segment}"
+    if total_failed:
+        msg += f" failed={total_failed}"
+    day_log(day, msg)
+
+    return total_failed == 0
+
+
 def parse_args() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run processing tasks on a journal day or segment"
@@ -983,6 +1116,11 @@ def parse_args() -> argparse.ArgumentParser:
         metavar="ID",
         help="Run activity-scheduled agents for a completed activity record (requires --facet and --day)",
     )
+    parser.add_argument(
+        "--flush",
+        action="store_true",
+        help="Run flush hooks on segment agents to close out dangling state (requires --segment)",
+    )
     return parser
 
 
@@ -1009,8 +1147,16 @@ def main() -> None:
     if args.activity and not args.day:
         parser.error("--activity requires --day")
 
-    if args.activity and (args.segment or args.run or args.segments):
-        parser.error("--activity is incompatible with --segment, --run, and --segments")
+    if args.activity and (args.segment or args.run or args.segments or args.flush):
+        parser.error(
+            "--activity is incompatible with --segment, --run, --segments, and --flush"
+        )
+
+    if args.flush and not args.segment:
+        parser.error("--flush requires --segment")
+
+    if args.flush and (args.run or args.segments or args.force):
+        parser.error("--flush is incompatible with --run, --segments, and --force")
 
     if args.segments and (args.segment or args.run or args.facet):
         parser.error("--segments is incompatible with --segment, --run, and --facet")
@@ -1027,6 +1173,17 @@ def main() -> None:
                 activity_id=args.activity,
                 facet=args.facet,
                 force=args.force,
+                verbose=args.verbose,
+            )
+            sys.exit(0 if success else 1)
+
+        # Handle flush mode
+        if args.flush:
+            if not check_callosum_available():
+                logging.warning("Callosum socket not found - prompts may fail to spawn")
+            success = run_flush_prompts(
+                day=day,
+                segment=args.segment,
                 verbose=args.verbose,
             )
             sys.exit(0 if success else 1)
