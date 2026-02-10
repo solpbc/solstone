@@ -1330,7 +1330,8 @@ def main() -> None:
     logging.basicConfig(
         level=log_level,
         handlers=[logging.FileHandler(log_path, encoding="utf-8")],
-        format="%(asctime)s %(levelname)s %(message)s",
+        format="%(asctime)s [supervisor:log] %(levelname)s %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
     )
 
     if args.verbose or args.debug:
