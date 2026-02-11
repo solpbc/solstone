@@ -61,6 +61,11 @@ def _parse_topic_filter() -> str | None:
     return request.args.get("topic", "").strip() or None
 
 
+def _parse_stream_filter() -> str | None:
+    """Parse stream filter from request args."""
+    return request.args.get("stream", "").strip() or None
+
+
 def _highlight_query_terms(text: str, query: str) -> str:
     """Add bold highlighting around query terms in text."""
     if not query:
@@ -108,6 +113,7 @@ def _format_result(result: dict, query: str, facets_map: dict) -> dict:
         "facet_color": facet_info.get("color", ""),
         "facet_emoji": facet_info.get("emoji", ""),
         "text": display_text,
+        "stream": meta.get("stream", ""),
         "path": meta.get("path", ""),
         "idx": meta.get("idx", 0),
         "score": result.get("score", 0.0),
@@ -139,18 +145,21 @@ def search_journal_api() -> Any:
     day_offset = int(request.args.get("offset", 0))
     facet_filter = _parse_facet_filter()
     topic_filter = _parse_topic_filter()
+    stream_filter = _parse_stream_filter()
 
     # Load facet metadata for enriching results
     facets_map = get_facets()
 
     # Get aggregation counts efficiently (lightweight query, no content)
     # First get unfiltered counts for sidebar display
-    base_counts = search_counts(query)
+    base_counts = search_counts(query, stream=stream_filter)
     facet_counts = dict(base_counts["facets"])
     topic_counts = dict(base_counts["topics"])
 
     # Get filtered counts for results
-    filtered_counts = search_counts(query, facet=facet_filter, topic=topic_filter)
+    filtered_counts = search_counts(
+        query, facet=facet_filter, topic=topic_filter, stream=stream_filter
+    )
     day_counts = dict(filtered_counts["days"])
 
     # Determine which days to show (sorted descending)
@@ -169,6 +178,7 @@ def search_journal_api() -> Any:
             day=day,
             facet=facet_filter,
             topic=topic_filter,
+            stream=stream_filter,
         )
         total_in_day = day_counts.get(day, 0)
 
@@ -247,11 +257,14 @@ def day_results_api() -> Any:
     limit = int(request.args.get("limit", 20))
     facet_filter = _parse_facet_filter()
     topic_filter = _parse_topic_filter()
+    stream_filter = _parse_stream_filter()
 
     facets_map = get_facets()
 
     # Get total count for this day with filters
-    counts = search_counts(query, day=day, facet=facet_filter, topic=topic_filter)
+    counts = search_counts(
+        query, day=day, facet=facet_filter, topic=topic_filter, stream=stream_filter
+    )
     total_in_day = counts["total"]
 
     # Fetch paginated results
@@ -262,6 +275,7 @@ def day_results_api() -> Any:
         day=day,
         facet=facet_filter,
         topic=topic_filter,
+        stream=stream_filter,
     )
 
     formatted = [_format_result(r, query, facets_map) for r in rows]

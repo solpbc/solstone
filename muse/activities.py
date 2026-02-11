@@ -39,6 +39,7 @@ from think.activities import (
     update_record_description,
 )
 from think.callosum import callosum_send
+from think.streams import read_segment_stream
 from think.utils import day_path, now_ms, segment_parse
 
 logger = logging.getLogger(__name__)
@@ -105,12 +106,20 @@ def _detect_ended_activities(
 
 
 def _walk_activity_segments(
-    day: str, facet: str, activity_type: str, since: str, end_segment: str
+    day: str,
+    facet: str,
+    activity_type: str,
+    since: str,
+    end_segment: str,
+    stream: str | None = None,
 ) -> dict:
     """Walk segment chain collecting all data for an activity span.
 
     Starts from the `since` segment and walks forward through all segments
     where this activity appears as active with the same `since` value.
+
+    When stream is provided, only segments belonging to that stream are
+    included. This prevents incorrect chaining across interleaved streams.
 
     Returns dict with segments, descriptions, levels, and active_entities.
     """
@@ -134,6 +143,13 @@ def _walk_activity_segments(
     all_entities: list[str] = []
 
     for seg in all_segments:
+        # Filter by stream when available
+        if stream:
+            marker = read_segment_stream(day_dir / seg)
+            seg_stream = marker.get("stream") if marker else None
+            if seg_stream is not None and seg_stream != stream:
+                continue
+
         state = _load_activity_state(day, seg, facet)
         for item in state:
             if (
@@ -205,6 +221,10 @@ def _collect_ended(
     all_ended: dict[str, list[dict]] = {}
     existing_ids_cache: dict[str, set[str]] = {}
 
+    # Read stream from end_segment for filtering
+    marker = read_segment_stream(day_path(day) / end_segment)
+    stream = marker.get("stream") if marker else None
+
     for facet in facets:
         ended_items = ended_by_facet.get(facet, [])
         if not ended_items:
@@ -228,7 +248,7 @@ def _collect_ended(
 
             # Walk segment chain to collect full data
             walk = _walk_activity_segments(
-                day, facet, activity_type, since, end_segment
+                day, facet, activity_type, since, end_segment, stream=stream
             )
 
             if not walk["segments"]:

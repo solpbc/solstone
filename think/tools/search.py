@@ -82,6 +82,7 @@ def search_journal(
     day_to: str | None = None,
     facet: str | None = None,
     topic: str | None = None,
+    stream: str | None = None,
 ) -> dict[str, Any]:
     """Search across all journal content using semantic full-text search.
 
@@ -100,6 +101,7 @@ def search_journal(
         day_to: Filter by date range end (``YYYYMMDD``, inclusive)
         facet: Filter by facet name (e.g., "work", "personal")
         topic: Filter by topic (e.g., "flow", "event", "entity:detected", "news")
+        stream: Filter by stream name (e.g., "archon", "import.apple")
 
     Returns:
         Dictionary containing:
@@ -108,7 +110,7 @@ def search_journal(
         - offset: Current offset value
         - query: Echo of query text and applied filters
         - counts: Aggregation metadata with facets, topics, and bucketed days
-        - results: List of matches with day, facet, topic, text, path, and idx
+        - results: List of matches with day, facet, topic, stream, text, path, and idx
 
     Examples:
         - search_journal("machine learning")
@@ -117,6 +119,7 @@ def search_journal(
         - search_journal("standup", topic="event")
         - search_journal("weekly sync", day_from="20241201", day_to="20241207")
         - search_journal(topic="flow", day="20240101")  # Browse all flow for a day
+        - search_journal("meeting", stream="archon")  # Filter by stream
     """
     try:
         kwargs: dict[str, Any] = {}
@@ -136,6 +139,9 @@ def search_journal(
         if topic is not None:
             kwargs["topic"] = topic
             filters["topic"] = topic
+        if stream is not None:
+            kwargs["stream"] = stream
+            filters["stream"] = stream
 
         # Get search results
         total, results = search_journal_impl(query, limit, offset, **kwargs)
@@ -147,16 +153,17 @@ def search_journal(
         items = []
         for r in results:
             meta = r.get("metadata", {})
-            items.append(
-                {
-                    "day": meta.get("day", ""),
-                    "facet": meta.get("facet", ""),
-                    "topic": meta.get("topic", ""),
-                    "text": r.get("text", ""),
-                    "path": meta.get("path", ""),
-                    "idx": meta.get("idx", 0),
-                }
-            )
+            item = {
+                "day": meta.get("day", ""),
+                "facet": meta.get("facet", ""),
+                "topic": meta.get("topic", ""),
+                "text": r.get("text", ""),
+                "path": meta.get("path", ""),
+                "idx": meta.get("idx", 0),
+            }
+            if meta.get("stream"):
+                item["stream"] = meta["stream"]
+            items.append(item)
 
         # Build counts structure
         day_buckets = _bucket_day_counts(dict(counts_data["days"]))

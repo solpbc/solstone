@@ -420,6 +420,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   border: 1px solid #bef264;
 }
 
+.tr-stream-badge {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
 .tr-zoom-empty {
   position: absolute;
   inset: 0;
@@ -1276,6 +1281,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     const seg = selectedSegment;
     let parts = [`${seg.start} - ${seg.end}`];
 
+    if (seg.stream) {
+      parts.push(`<span class="tr-stream-badge">${escapeHtml(seg.stream)}</span>`);
+    }
+
     const costInfo = formatCost(segmentData.cost);
     if (costInfo.text) {
       parts.push(`<span title="${costInfo.title}">${costInfo.text}</span>`);
@@ -1461,7 +1470,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
       pill.style.top = zoomY(visStart) + 'px';
       pill.style.height = Math.max(4, zoomY(visEnd) - zoomY(visStart)) + 'px';
-      pill.title = `${seg.start} - ${seg.end}`;
+      pill.title = seg.stream ? `${seg.start} - ${seg.end} (${seg.stream})` : `${seg.start} - ${seg.end}`;
       pill.dataset.key = seg.key;
 
       pill.addEventListener('click', () => selectSegment(seg));
@@ -1482,8 +1491,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       pill.classList.toggle('tr-active', pill.dataset.key === seg.key);
     });
 
-    // Update range text
-    rangeText.textContent = `${seg.start} - ${seg.end}`;
+    // Update range text (stream badge added once segmentData loads via updateRangeText)
+    rangeText.textContent = seg.stream ? `${seg.start} - ${seg.end} · ${seg.stream}` : `${seg.start} - ${seg.end}`;
 
     // Show delete button when segment is selected
     deleteBtn.classList.add('visible');

@@ -199,7 +199,9 @@ def safe_raw(
     trimmed = [
         {k: v for k, v in e.items() if k in _RAW_STRUCTURAL_KEYS} for e in events
     ]
-    trimmed.append({"_raw_trimmed": {"original_bytes": len(serialized), "limit": limit}})
+    trimmed.append(
+        {"_raw_trimmed": {"original_bytes": len(serialized), "limit": limit}}
+    )
     return trimmed
 
 

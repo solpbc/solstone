@@ -124,6 +124,10 @@ def main() -> None:
         help="Filter search results by topic (e.g., 'flow', 'event', 'news')",
     )
     parser.add_argument(
+        "--stream",
+        help="Filter search results by stream name (e.g., 'archon', 'import.apple')",
+    )
+    parser.add_argument(
         "-q",
         "--query",
         nargs="?",
@@ -183,14 +187,16 @@ def main() -> None:
         query_kwargs: dict[str, Any] = {}
         if args.day:
             query_kwargs["day"] = args.day
-        if getattr(args, "day_from", None):
+        if args.day_from:
             query_kwargs["day_from"] = args.day_from
-        if getattr(args, "day_to", None):
+        if args.day_to:
             query_kwargs["day_to"] = args.day_to
         if args.facet:
             query_kwargs["facet"] = args.facet
         if args.topic:
             query_kwargs["topic"] = args.topic
+        if args.stream:
+            query_kwargs["stream"] = args.stream
 
         if args.query:
             # Single query mode - show counts then results

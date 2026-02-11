@@ -47,6 +47,7 @@ COMMANDS: dict[str, str] = {
     "top": "think.top",
     "logs": "think.logs_cli",
     "callosum": "think.callosum",
+    "streams": "think.streams",
     "journal-stats": "think.journal_stats",
     "config": "think.config_cli",
     "formatter": "think.formatters",
@@ -119,6 +120,7 @@ GROUPS: dict[str, list[str]] = {
     ],
     "Specialized tools": [
         "config",
+        "streams",
         "journal-stats",
         "formatter",
         "detect-created",

@@ -701,3 +701,156 @@ def test_index_file_no_formatter(journal_fixture):
 
     with pytest.raises(ValueError, match="No formatter found"):
         index_file(str(journal_fixture), str(txt_file))
+
+
+# --- Stream indexing tests ---
+
+
+def test_extract_stream_segment_path(tmp_path):
+    """_extract_stream reads stream.json from segment directories."""
+    from think.indexer.journal import _extract_stream
+    from think.streams import write_segment_stream
+
+    # Create a segment with stream marker
+    seg_dir = tmp_path / "20240101" / "123456_300"
+    seg_dir.mkdir(parents=True)
+    write_segment_stream(seg_dir, "archon", None, None, 1)
+
+    result = _extract_stream(str(tmp_path), "20240101/123456_300/agents/work/flow.md")
+    assert result == "archon"
+
+
+def test_extract_stream_non_segment_path(tmp_path):
+    """_extract_stream returns None for non-segment paths."""
+    from think.indexer.journal import _extract_stream
+
+    result = _extract_stream(str(tmp_path), "20240101/agents/flow.md")
+    assert result is None
+
+    result = _extract_stream(str(tmp_path), "facets/work/events/20240101.jsonl")
+    assert result is None
+
+
+def test_extract_stream_missing_marker(tmp_path):
+    """_extract_stream returns None when stream.json doesn't exist."""
+    from think.indexer.journal import _extract_stream
+
+    seg_dir = tmp_path / "20240101" / "123456_300"
+    seg_dir.mkdir(parents=True)
+
+    result = _extract_stream(str(tmp_path), "20240101/123456_300/agents/work/flow.md")
+    assert result is None
+
+
+def test_search_journal_stream_filter():
+    """search_journal filters by stream name."""
+    from think.indexer.journal import search_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+
+    # Search with matching stream
+    total, results = search_journal("", stream="testhost")
+    assert total > 0
+    for r in results:
+        assert r["metadata"]["stream"] == "testhost"
+
+    # Search with non-existent stream
+    total, results = search_journal("", stream="nonexistent")
+    assert total == 0
+
+
+def test_search_journal_results_include_stream():
+    """search_journal results include stream in metadata."""
+    from think.indexer.journal import search_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+
+    # Filter to segment content which has stream markers
+    total, results = search_journal("", stream="testhost")
+    assert total > 0
+
+    for r in results:
+        assert "stream" in r["metadata"]
+        assert r["metadata"]["stream"] == "testhost"
+
+
+def test_search_counts_stream_filter():
+    """search_counts filters by stream and includes streams aggregation."""
+    from think.indexer.journal import search_counts
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+
+    # Unfiltered counts should include streams
+    counts = search_counts("")
+    assert "streams" in counts
+
+    # Filter by stream
+    counts = search_counts("", stream="testhost")
+    assert counts["total"] > 0
+
+    # Non-existent stream returns zero
+    counts = search_counts("", stream="nonexistent")
+    assert counts["total"] == 0
+
+
+def test_search_tool_stream_filter():
+    """Agent search tool accepts and passes stream filter."""
+    from think.tools.search import search_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+
+    result = search_journal("", stream="testhost")
+    assert "results" in result
+    assert result["total"] > 0
+    assert result["query"]["filters"]["stream"] == "testhost"
+
+
+def test_stale_schema_auto_rebuild(tmp_path):
+    """Opening an index with old schema (missing stream) auto-rebuilds."""
+    import sqlite3
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+
+    # Create a database with the old schema (no stream column)
+    db_dir = tmp_path / "indexer"
+    db_dir.mkdir()
+    db_path = db_dir / "journal.sqlite"
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("CREATE TABLE files(path TEXT PRIMARY KEY, mtime INTEGER)")
+    conn.execute("""
+        CREATE VIRTUAL TABLE chunks USING fts5(
+            content,
+            path UNINDEXED,
+            day UNINDEXED,
+            facet UNINDEXED,
+            topic UNINDEXED,
+            idx UNINDEXED
+        )
+    """)
+    conn.execute(
+        "INSERT INTO chunks(content, path, day, facet, topic, idx) "
+        "VALUES ('test', 'test.md', '20240101', 'work', 'flow', 0)"
+    )
+    conn.commit()
+    conn.close()
+
+    # Opening via get_journal_index should detect stale schema and rebuild
+    from think.indexer.journal import get_journal_index
+
+    conn, _ = get_journal_index(str(tmp_path))
+
+    # The old data should be gone (tables were dropped and recreated)
+    count = conn.execute("SELECT count(*) FROM chunks").fetchone()[0]
+    assert count == 0
+
+    # The new schema should accept stream column
+    conn.execute(
+        "INSERT INTO chunks(content, path, day, facet, topic, stream, idx) "
+        "VALUES ('test', 'test.md', '20240101', 'work', 'flow', 'archon', 0)"
+    )
+    conn.commit()
+
+    # Verify stream column works
+    row = conn.execute("SELECT stream FROM chunks").fetchone()
+    assert row[0] == "archon"
+    conn.close()

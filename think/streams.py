@@ -359,3 +359,63 @@ def rebuild_stream_state(name: str | None = None) -> dict:
         rebuilt.append(sname)
 
     return {"rebuilt": rebuilt, "segments_scanned": segments_scanned}
+
+
+def main() -> None:
+    """CLI entry point for sol streams."""
+    import argparse
+
+    from think.utils import setup_cli
+
+    parser = argparse.ArgumentParser(description="Inspect and manage stream identity")
+    parser.add_argument(
+        "name",
+        nargs="?",
+        help="Stream name to inspect (omit to list all streams)",
+    )
+    parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="Reconstruct stream state from per-segment markers",
+    )
+
+    args = setup_cli(parser)
+
+    if args.rebuild:
+        summary = rebuild_stream_state(name=args.name)
+        rebuilt = summary["rebuilt"]
+        scanned = summary["segments_scanned"]
+        if rebuilt:
+            print(f"Rebuilt {len(rebuilt)} stream(s) from {scanned} segments:")
+            for name in rebuilt:
+                print(f"  {name}")
+        else:
+            print(f"No streams found ({scanned} segments scanned)")
+        return
+
+    if args.name:
+        # Inspect single stream
+        state = get_stream_state(args.name)
+        if state is None:
+            print(f"Stream not found: {args.name}")
+            raise SystemExit(1)
+        print(json.dumps(state, indent=2))
+        return
+
+    # List all streams
+    streams = list_streams()
+    if not streams:
+        print("No streams found")
+        return
+
+    # Table header
+    print(f"{'Name':<24} {'Type':<12} {'Last Day':<10} {'Last Segment':<16} {'Seq':>5}")
+    print("-" * 71)
+    for s in streams:
+        print(
+            f"{s.get('name', '?'):<24} "
+            f"{s.get('type', '?'):<12} "
+            f"{s.get('last_day', '?'):<10} "
+            f"{s.get('last_segment', '?'):<16} "
+            f"{s.get('seq', 0):>5}"
+        )

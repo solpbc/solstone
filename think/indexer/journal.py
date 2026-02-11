@@ -48,6 +48,7 @@ SCHEMA = [
         day UNINDEXED,
         facet UNINDEXED,
         topic UNINDEXED,
+        stream UNINDEXED,
         idx UNINDEXED
     )
     """,
@@ -55,9 +56,28 @@ SCHEMA = [
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
-    """Create required tables if they don't exist."""
+    """Create required tables if they don't exist.
+
+    Detects stale schemas (e.g., missing ``stream`` column from pre-Phase 2)
+    and recreates the index. Data is fully regenerable via ``--rescan-full``.
+    """
     for statement in SCHEMA:
         conn.execute(statement)
+
+    # Verify the chunks table has all expected columns. FTS5 virtual tables
+    # cannot be ALTERed, so if the schema is stale we must drop and recreate.
+    try:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(chunks)").fetchall()}
+    except Exception:
+        return  # table_info failed — schema was just created, nothing to fix
+
+    expected = {"content", "path", "day", "facet", "topic", "stream", "idx"}
+    if not expected.issubset(cols):
+        logger.info("Index schema outdated (missing columns), rebuilding")
+        conn.execute("DROP TABLE IF EXISTS chunks")
+        conn.execute("DROP TABLE IF EXISTS files")
+        for statement in SCHEMA:
+            conn.execute(statement)
 
 
 def get_journal_index(journal: str | None = None) -> tuple[sqlite3.Connection, str]:
@@ -144,7 +164,8 @@ def index_file(journal: str, file_path: str, verbose: bool = False) -> bool:
     if verbose:
         logger.info("Indexing %s", rel_path)
 
-    _index_file(conn, rel_path, str(abs_path), verbose)
+    stream = _extract_stream(journal, rel_path)
+    _index_file(conn, rel_path, str(abs_path), verbose, stream=stream)
 
     # Update file mtime
     conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel_path, mtime))
@@ -155,11 +176,33 @@ def index_file(journal: str, file_path: str, verbose: bool = False) -> bool:
     return True
 
 
+def _extract_stream(journal: str, rel: str) -> str | None:
+    """Extract stream name from a journal-relative path's segment directory.
+
+    Reads stream.json from the segment dir if the path is inside a segment
+    (e.g., "20240101/142500_300/agents/facet/flow.md").
+
+    Returns stream name string or None for non-segment paths or pre-stream segments.
+    """
+    from think.streams import read_segment_stream
+    from think.utils import segment_key
+
+    parts = rel.replace("\\", "/").split("/")
+    # Segment paths: parts[0]=day, parts[1]=segment, parts[2+]=file
+    if len(parts) >= 2 and segment_key(parts[1]):
+        seg_dir = os.path.join(journal, parts[0], parts[1])
+        marker = read_segment_stream(seg_dir)
+        if marker:
+            return marker.get("stream")
+    return None
+
+
 def _index_file(
     conn: sqlite3.Connection,
     rel: str,
     path: str,
     verbose: bool,
+    stream: str | None = None,
 ) -> None:
     """Index a single file into the chunks table.
 
@@ -190,11 +233,12 @@ def _index_file(
 
     if verbose:
         logger.info(
-            "  %s chunks, day=%s, facet=%s, topic=%s",
+            "  %s chunks, day=%s, facet=%s, topic=%s, stream=%s",
             len(chunks),
             day,
             facet,
             topic,
+            stream,
         )
 
     for idx, chunk in enumerate(chunks):
@@ -203,8 +247,8 @@ def _index_file(
             continue
 
         conn.execute(
-            "INSERT INTO chunks(content, path, day, facet, topic, idx) VALUES (?, ?, ?, ?, ?, ?)",
-            (content, rel, day, facet, topic, idx),
+            "INSERT INTO chunks(content, path, day, facet, topic, stream, idx) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (content, rel, day, facet, topic, stream, idx),
         )
 
 
@@ -279,7 +323,8 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
         conn.execute("DELETE FROM chunks WHERE path=?", (rel,))
 
         # Index the file
-        _index_file(conn, rel, path, verbose)
+        stream = _extract_stream(journal, rel)
+        _index_file(conn, rel, path, verbose, stream=stream)
 
         # Update file mtime
         conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel, mtime))
@@ -331,6 +376,7 @@ def _build_where_clause(
     day_to: str | None = None,
     facet: str | None = None,
     topic: str | None = None,
+    stream: str | None = None,
 ) -> tuple[str, list[Any]]:
     """Build WHERE clause and params for FTS5 search.
 
@@ -341,6 +387,7 @@ def _build_where_clause(
         day_to: Filter by date range end (YYYYMMDD, inclusive)
         facet: Filter by facet name
         topic: Filter by topic
+        stream: Filter by stream name
 
     Returns:
         Tuple of (where_clause, params)
@@ -369,6 +416,9 @@ def _build_where_clause(
     if topic:
         where_clause += " AND topic=?"
         params.append(topic.lower())
+    if stream:
+        where_clause += " AND stream=?"
+        params.append(stream)
 
     return where_clause, params
 
@@ -383,6 +433,7 @@ def search_journal(
     day_to: str | None = None,
     facet: str | None = None,
     topic: str | None = None,
+    stream: str | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
     """Search the journal index.
 
@@ -396,17 +447,18 @@ def search_journal(
         day_to: Filter by date range end (YYYYMMDD, inclusive)
         facet: Filter by facet name
         topic: Filter by topic (e.g., "flow", "event", "news")
+        stream: Filter by stream name
 
     Returns:
         Tuple of (total_count, results) where each result has:
             - id: "{path}:{idx}"
             - text: The matched markdown chunk
-            - metadata: {day, facet, topic, path, idx}
+            - metadata: {day, facet, topic, stream, path, idx}
             - score: BM25 relevance score
     """
     conn, _ = get_journal_index()
     where_clause, params = _build_where_clause(
-        query, day, day_from, day_to, facet, topic
+        query, day, day_from, day_to, facet, topic, stream
     )
 
     # Get total count
@@ -417,7 +469,7 @@ def search_journal(
     # Get results
     cursor = conn.execute(
         f"""
-        SELECT content, path, day, facet, topic, idx, bm25(chunks) as rank
+        SELECT content, path, day, facet, topic, stream, idx, bm25(chunks) as rank
         FROM chunks WHERE {where_clause}
         ORDER BY rank LIMIT ? OFFSET ?
         """,
@@ -425,7 +477,16 @@ def search_journal(
     )
 
     results = []
-    for content, path, day_val, facet_val, topic_val, idx, rank in cursor.fetchall():
+    for (
+        content,
+        path,
+        day_val,
+        facet_val,
+        topic_val,
+        stream_val,
+        idx,
+        rank,
+    ) in cursor.fetchall():
         results.append(
             {
                 "id": f"{path}:{idx}",
@@ -434,6 +495,7 @@ def search_journal(
                     "day": day_val,
                     "facet": facet_val,
                     "topic": topic_val,
+                    "stream": stream_val,
                     "path": path,
                     "idx": idx,
                 },
@@ -453,6 +515,7 @@ def search_counts(
     day_to: str | None = None,
     facet: str | None = None,
     topic: str | None = None,
+    stream: str | None = None,
 ) -> dict[str, Any]:
     """Get aggregated counts for a search query.
 
@@ -465,6 +528,7 @@ def search_counts(
         day_to: Filter by date range end (YYYYMMDD, inclusive)
         facet: Filter by facet name
         topic: Filter by topic
+        stream: Filter by stream name
 
     Returns:
         Dict with:
@@ -472,16 +536,17 @@ def search_counts(
             - facets: Counter of facet_name -> count
             - topics: Counter of topic_name -> count
             - days: Counter of day -> count
+            - streams: Counter of stream_name -> count
     """
     from collections import Counter
 
     conn, _ = get_journal_index()
     where_clause, params = _build_where_clause(
-        query, day, day_from, day_to, facet, topic
+        query, day, day_from, day_to, facet, topic, stream
     )
 
     rows = conn.execute(
-        f"SELECT facet, topic, day FROM chunks WHERE {where_clause}", params
+        f"SELECT facet, topic, day, stream FROM chunks WHERE {where_clause}", params
     ).fetchall()
 
     conn.close()
@@ -491,6 +556,7 @@ def search_counts(
         "facets": Counter(r[0] for r in rows if r[0]),
         "topics": Counter(r[1] for r in rows if r[1]),
         "days": Counter(r[2] for r in rows if r[2]),
+        "streams": Counter(r[3] for r in rows if r[3]),
     }
 
 
