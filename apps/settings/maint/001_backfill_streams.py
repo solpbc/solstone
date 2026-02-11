@@ -330,9 +330,7 @@ def backfill_streams(journal_root: Path, fallback_host: str, verbose: bool) -> N
             if not has_content:
                 continue
 
-            name, signal = classify_segment(
-                seg_dir, day, import_index, fallback_host
-            )
+            name, signal = classify_segment(seg_dir, day, import_index, fallback_host)
 
             classified.append(
                 {

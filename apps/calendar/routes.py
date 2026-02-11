@@ -12,7 +12,8 @@ from flask import Blueprint, jsonify, redirect, render_template, url_for
 
 from convey.utils import DATE_RE, format_date
 from observe.utils import VIDEO_EXTENSIONS
-from think.utils import day_path, iter_segments, segment_path as get_segment_path
+from think.utils import day_path, iter_segments
+from think.utils import segment_path as get_segment_path
 
 calendar_bp = Blueprint(
     "app:calendar",
@@ -343,7 +344,9 @@ def _dev_screen_frames(
 
 
 @calendar_bp.route("/api/screen_frame_image/<day>/<stream>/<timestamp>/<int:frame_id>")
-def _dev_screen_frame_image(day: str, stream: str, timestamp: str, frame_id: int) -> Any:
+def _dev_screen_frame_image(
+    day: str, stream: str, timestamp: str, frame_id: int
+) -> Any:
     """Serve a cached frame image as JPEG."""
     if not DATE_RE.fullmatch(day):
         return "", 404

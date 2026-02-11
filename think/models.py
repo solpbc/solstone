@@ -69,6 +69,7 @@ PROVIDER_DEFAULTS: Dict[str, Dict[int, str]] = {
 }
 
 DEFAULT_PROVIDER = "google"
+BACKUP_PROVIDER = "anthropic"
 DEFAULT_TIER = TIER_FLASH
 
 
@@ -1135,6 +1136,7 @@ __all__ = [
     # Provider configuration
     "DEFAULT_TIER",
     "DEFAULT_PROVIDER",
+    "BACKUP_PROVIDER",
     "PROMPT_PATHS",
     "get_context_registry",
     # Model constants (used by provider backends for defaults)

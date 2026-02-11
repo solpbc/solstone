@@ -543,7 +543,12 @@ def test_process_segment_passes_metadata_to_upload(sync_journal, monkeypatch):
         files=[
             {"name": "audio.flac", "sha256": "abc123"},
         ],
-        meta={"host": "laptop", "platform": "linux", "facet": "meetings", "stream": "default"},
+        meta={
+            "host": "laptop",
+            "platform": "linux",
+            "facet": "meetings",
+            "stream": "default",
+        },
     )
 
     with patch("observe.sync.CallosumConnection") as mock_callosum_class:

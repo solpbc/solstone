@@ -6,6 +6,7 @@
 import pytest
 
 from think.models import (
+    BACKUP_PROVIDER,
     CLAUDE_HAIKU_4,
     CLAUDE_OPUS_4,
     CLAUDE_SONNET_4,
@@ -195,6 +196,7 @@ def test_tier_constants():
     assert TIER_LITE == 3
     assert DEFAULT_TIER == TIER_FLASH
     assert DEFAULT_PROVIDER == "google"
+    assert BACKUP_PROVIDER == "anthropic"
 
 
 def test_prompt_paths_exist():

@@ -162,7 +162,9 @@ class TestLoadPreviousState:
                     json.dumps(state)
                 )
 
-                loaded, segment = load_previous_state("20260130", "100000_300", "work", stream="default")
+                loaded, segment = load_previous_state(
+                    "20260130", "100000_300", "work", stream="default"
+                )
                 assert segment == "100000_300"
                 assert isinstance(loaded, list)
                 assert loaded[0]["activity"] == "meeting"
@@ -183,7 +185,9 @@ class TestLoadPreviousState:
                 segment_dir.mkdir(parents=True)
                 (segment_dir / "agents" / "work").mkdir(parents=True)
 
-                loaded, segment = load_previous_state("20260130", "100000_300", "work", stream="default")
+                loaded, segment = load_previous_state(
+                    "20260130", "100000_300", "work", stream="default"
+                )
                 assert loaded is None
                 assert segment is None
 
@@ -208,7 +212,9 @@ class TestLoadPreviousState:
                     '{"active": [], "ended": []}'
                 )
 
-                loaded, segment = load_previous_state("20260130", "100000_300", "work", stream="default")
+                loaded, segment = load_previous_state(
+                    "20260130", "100000_300", "work", stream="default"
+                )
                 assert loaded is None
                 assert segment == "100000_300"
 
@@ -351,7 +357,9 @@ class TestPreProcess:
                 day_dir = Path(tmpdir) / "20260130"
                 day_dir.mkdir()
                 (day_dir / "default" / "100000_300").mkdir(parents=True)
-                (day_dir / "default" / "100000_300" / "agents" / "work").mkdir(parents=True)
+                (day_dir / "default" / "100000_300" / "agents" / "work").mkdir(
+                    parents=True
+                )
                 segment_dir = day_dir / "default" / "110000_300"
                 segment_dir.mkdir(parents=True)
 
@@ -372,9 +380,12 @@ class TestPreProcess:
                         "level": "high",
                     }
                 ]
-                (day_dir / "default" / "100000_300" / "agents/work/activity_state.json").write_text(
-                    json.dumps(prev_state)
-                )
+                (
+                    day_dir
+                    / "default"
+                    / "100000_300"
+                    / "agents/work/activity_state.json"
+                ).write_text(json.dumps(prev_state))
 
                 context = {
                     "day": "20260130",
