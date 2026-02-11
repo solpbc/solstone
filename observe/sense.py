@@ -590,7 +590,11 @@ class FileSensor:
 
         # Build full paths for all files in this segment
         # Files are in segment directories: YYYYMMDD/stream/HHMMSS_LEN/filename
-        segment_dir = self.journal_dir / day / stream / segment if stream else self.journal_dir / day / segment
+        segment_dir = (
+            self.journal_dir / day / stream / segment
+            if stream
+            else self.journal_dir / day / segment
+        )
         file_paths = [segment_dir / filename for filename in files]
 
         # Pre-register segment tracking with complete file list
@@ -774,9 +778,7 @@ class FileSensor:
             if seg_key not in segment_meta_cache:
                 stream_info = read_segment_stream(seg_path)
                 if stream_info and stream_info.get("stream"):
-                    segment_meta_cache[seg_key] = {
-                        "stream": stream_info["stream"]
-                    }
+                    segment_meta_cache[seg_key] = {"stream": stream_info["stream"]}
                 else:
                     segment_meta_cache[seg_key] = None
 

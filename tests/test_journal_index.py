@@ -753,7 +753,9 @@ def test_extract_stream_segment_path(tmp_path):
     seg_dir.mkdir(parents=True)
     write_segment_stream(seg_dir, "archon", None, None, 1)
 
-    result = _extract_stream(str(tmp_path), "20240101/default/123456_300/agents/work/flow.md")
+    result = _extract_stream(
+        str(tmp_path), "20240101/default/123456_300/agents/work/flow.md"
+    )
     assert result == "archon"
 
 
@@ -775,7 +777,9 @@ def test_extract_stream_missing_marker(tmp_path):
     seg_dir = tmp_path / "20240101" / "default" / "123456_300"
     seg_dir.mkdir(parents=True)
 
-    result = _extract_stream(str(tmp_path), "20240101/default/123456_300/agents/work/flow.md")
+    result = _extract_stream(
+        str(tmp_path), "20240101/default/123456_300/agents/work/flow.md"
+    )
     assert result is None
 
 

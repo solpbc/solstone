@@ -16,10 +16,14 @@ def test_cluster(tmp_path, monkeypatch):
     mod = importlib.import_module("think.cluster")
     # Write JSONL format: metadata first, then entry in segment directory
     (day_dir / "default" / "120000_300").mkdir(parents=True)
-    (day_dir / "default" / "120000_300" / "audio.jsonl").write_text('{}\n{"text": "hi"}\n')
+    (day_dir / "default" / "120000_300" / "audio.jsonl").write_text(
+        '{}\n{"text": "hi"}\n'
+    )
     (day_dir / "default" / "120500_300").mkdir(parents=True)
     (day_dir / "default" / "120500_300" / "agents").mkdir()
-    (day_dir / "default" / "120500_300" / "agents" / "screen.md").write_text("screen summary")
+    (day_dir / "default" / "120500_300" / "agents" / "screen.md").write_text(
+        "screen summary"
+    )
     result, counts = mod.cluster(
         "20240101", sources={"audio": True, "screen": False, "agents": True}
     )
@@ -76,13 +80,21 @@ def test_cluster_scan(tmp_path, monkeypatch):
     (day_dir / "default" / "110000_300" / "audio.jsonl").write_text("{}\n")
     # Screen transcripts at 10:01, 10:05, 10:20 and 12:00
     (day_dir / "default" / "100101_300").mkdir(parents=True)
-    (day_dir / "default" / "100101_300" / "screen.jsonl").write_text('{"raw": "screen.webm"}\n')
+    (day_dir / "default" / "100101_300" / "screen.jsonl").write_text(
+        '{"raw": "screen.webm"}\n'
+    )
     (day_dir / "default" / "100500_300").mkdir(parents=True)
-    (day_dir / "default" / "100500_300" / "screen.jsonl").write_text('{"raw": "screen.webm"}\n')
+    (day_dir / "default" / "100500_300" / "screen.jsonl").write_text(
+        '{"raw": "screen.webm"}\n'
+    )
     (day_dir / "default" / "102000_300").mkdir(parents=True)
-    (day_dir / "default" / "102000_300" / "screen.jsonl").write_text('{"raw": "screen.webm"}\n')
+    (day_dir / "default" / "102000_300" / "screen.jsonl").write_text(
+        '{"raw": "screen.webm"}\n'
+    )
     (day_dir / "default" / "120000_300").mkdir(parents=True)
-    (day_dir / "default" / "120000_300" / "screen.jsonl").write_text('{"raw": "screen.webm"}\n')
+    (day_dir / "default" / "120000_300" / "screen.jsonl").write_text(
+        '{"raw": "screen.webm"}\n'
+    )
     audio_ranges, screen_ranges = mod.cluster_scan("20240101")
     # Expected ranges: 15-minute slot grouping (segments 09:01-09:05-09:20 group together)
     # Slots: 09:00, 09:00, 09:15 -> ranges: 09:00-09:30; 11:00 -> 11:00-11:15
@@ -104,11 +116,15 @@ def test_cluster_segments(tmp_path, monkeypatch):
     # Create segment with both audio and screen
     (day_dir / "default" / "100000_600").mkdir(parents=True)
     (day_dir / "default" / "100000_600" / "audio.jsonl").write_text("{}\n")
-    (day_dir / "default" / "100000_600" / "screen.jsonl").write_text('{"raw": "screen.webm"}\n')
+    (day_dir / "default" / "100000_600" / "screen.jsonl").write_text(
+        '{"raw": "screen.webm"}\n'
+    )
 
     # Create segment with only screen
     (day_dir / "default" / "110000_300").mkdir(parents=True)
-    (day_dir / "default" / "110000_300" / "screen.jsonl").write_text('{"raw": "screen.webm"}\n')
+    (day_dir / "default" / "110000_300" / "screen.jsonl").write_text(
+        '{"raw": "screen.webm"}\n'
+    )
 
     segments = mod.cluster_segments("20240101")
 
@@ -309,7 +325,9 @@ def test_cluster_segments_with_split_screen(tmp_path, monkeypatch):
 
     # Create segment with only *_screen.jsonl (no screen.jsonl)
     (day_dir / "default" / "100000_300").mkdir(parents=True)
-    (day_dir / "default" / "100000_300" / "wayland_screen.jsonl").write_text('{"raw": "w.webm"}\n')
+    (day_dir / "default" / "100000_300" / "wayland_screen.jsonl").write_text(
+        '{"raw": "w.webm"}\n'
+    )
 
     segments = mod.cluster_segments("20240101")
 
@@ -371,7 +389,9 @@ def test_cluster_span_missing_segment(tmp_path, monkeypatch):
 
     # Create only one segment
     (day_dir / "default" / "090000_300").mkdir(parents=True)
-    (day_dir / "default" / "090000_300" / "audio.jsonl").write_text('{"raw": "audio.flac"}\n')
+    (day_dir / "default" / "090000_300" / "audio.jsonl").write_text(
+        '{"raw": "audio.flac"}\n'
+    )
 
     # Try to process existing and non-existing segments
     with pytest.raises(ValueError) as exc_info:

@@ -84,7 +84,9 @@ def find_previous_segment(
 
     # Filter by stream when provided
     if stream:
-        segment_keys = [s_key for s_stream, s_key, _s_path in all_segments if s_stream == stream]
+        segment_keys = [
+            s_key for s_stream, s_key, _s_path in all_segments if s_stream == stream
+        ]
     else:
         segment_keys = [s_key for _s_stream, s_key, _s_path in all_segments]
 
@@ -119,7 +121,12 @@ def load_previous_state(
     parsed JSON array or None if not found/invalid.
     """
     if stream:
-        state_path = segment_path(day, segment, stream) / "agents" / facet / "activity_state.json"
+        state_path = (
+            segment_path(day, segment, stream)
+            / "agents"
+            / facet
+            / "activity_state.json"
+        )
     else:
         state_path = day_path(day) / segment / "agents" / facet / "activity_state.json"
     if not state_path.exists():

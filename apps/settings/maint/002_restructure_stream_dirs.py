@@ -131,7 +131,9 @@ def restructure(journal_root: Path, dry_run: bool) -> None:
             target = target_parent / seg_dir.name
 
             if dry_run:
-                print(f"  [dry-run] {day}/{seg_dir.name} -> {day}/{stream_name}/{seg_dir.name}")
+                print(
+                    f"  [dry-run] {day}/{seg_dir.name} -> {day}/{stream_name}/{seg_dir.name}"
+                )
             else:
                 target_parent.mkdir(parents=True, exist_ok=True)
                 shutil.move(str(seg_dir), str(target))

@@ -68,7 +68,12 @@ def _load_activity_state(
 ) -> list[dict]:
     """Load activity_state.json for a facet in a segment. Returns [] on failure."""
     if stream:
-        state_path = segment_path(day, segment, stream) / "agents" / facet / "activity_state.json"
+        state_path = (
+            segment_path(day, segment, stream)
+            / "agents"
+            / facet
+            / "activity_state.json"
+        )
     else:
         state_path = day_path(day) / segment / "agents" / facet / "activity_state.json"
     if not state_path.exists():
@@ -390,7 +395,9 @@ def _pre_process_normal(context: dict) -> dict | None:
         if ended:
             ended_by_facet[facet] = ended
 
-    all_ended = _collect_ended(day, prev_facets, ended_by_facet, prev_segment, stream=stream)
+    all_ended = _collect_ended(
+        day, prev_facets, ended_by_facet, prev_segment, stream=stream
+    )
     return _build_result(context, all_ended)
 
 

@@ -430,9 +430,7 @@ def cluster_segments(day: str) -> list[dict[str, Any]]:
             types.append("audio")
 
         # Check for screen content
-        if (seg_path / "screen.jsonl").exists() or any(
-            seg_path.glob("*_screen.jsonl")
-        ):
+        if (seg_path / "screen.jsonl").exists() or any(seg_path.glob("*_screen.jsonl")):
             types.append("screen")
 
         if not types:

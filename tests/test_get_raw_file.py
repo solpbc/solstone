@@ -28,7 +28,9 @@ def test_get_raw_file(tmp_path, monkeypatch):
         '{"raw": "raw.flac"}\n{"text": "hello"}\n'
     )
 
-    path, mime, meta = utils.get_raw_file("20240101", "default/123000_300/monitor_1_diff.json")
+    path, mime, meta = utils.get_raw_file(
+        "20240101", "default/123000_300/monitor_1_diff.json"
+    )
     assert path == "monitor_1_diff.png"
     assert mime == "image/png"
     assert meta["visual_description"] == "screen"

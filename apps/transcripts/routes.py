@@ -30,8 +30,9 @@ from observe.screen import format_screen
 from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 from think.cluster import cluster_scan, cluster_segments
 from think.models import get_usage_cost
-from think.utils import day_dirs, day_path, segment_path
+from think.utils import day_dirs, day_path
 from think.utils import segment_key as validate_segment_key
+from think.utils import segment_path
 
 # Regex for HHMMSS time format validation
 TIME_RE = re.compile(r"\d{6}")

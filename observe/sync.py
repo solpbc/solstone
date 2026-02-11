@@ -420,7 +420,9 @@ class SyncService:
 
         # Compute sha256 for all files
         stream = meta.get("stream", "") if meta else ""
-        segment_dir = day_path(day) / stream / segment if stream else day_path(day) / segment
+        segment_dir = (
+            day_path(day) / stream / segment if stream else day_path(day) / segment
+        )
         file_info = []
         for filename in files:
             file_path = segment_dir / filename
@@ -479,7 +481,9 @@ class SyncService:
         logger.info(f"Processing segment: {day}/{segment}")
 
         # Build segment directory path (includes stream level)
-        seg_dir = day_path(day) / stream / segment if stream else day_path(day) / segment
+        seg_dir = (
+            day_path(day) / stream / segment if stream else day_path(day) / segment
+        )
 
         # Check if already confirmed on server before uploading
         # This handles crash recovery where we have a pending record but server already has it

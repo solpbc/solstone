@@ -565,9 +565,7 @@ class MacOSObserver:
                 continue
 
             # Detect lock/power-save transition (either direction)
-            locked_or_sleeping = (
-                self.cached_screen_locked or self.cached_power_save
-            )
+            locked_or_sleeping = self.cached_screen_locked or self.cached_power_save
             lock_transition = locked_or_sleeping != self.was_locked_or_sleeping
             if lock_transition:
                 logger.info(
