@@ -105,9 +105,10 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 
 ### `dream` - Generator and agent processing
 **Source:** `think/dream.py`
-**Events:** `started`, `group_started`, `group_completed`, `agent_started`, `agent_completed`, `completed`, `segments_started`, `segments_completed`
+**Events:** `started`, `status`, `group_started`, `group_completed`, `agent_started`, `agent_completed`, `completed`, `segments_started`, `segments_completed`
 **Key fields:** `mode` ("daily"/"segment"/"activity"/"flush"), `day`, `segment` (when mode="segment" or "flush"), `activity` and `facet` (when mode="activity")
 **Purpose:** Track dream processing from generators through scheduled agents
+**`status`** - Periodic progress (every ~5s). Fields: `mode`, `day`, `segment`, `stream`, `agents_completed`, `agents_total`, `current_group_priority`, `current_agents` (list of running agent names). In `--segments` batch mode, also includes `segments_completed`, `segments_total`. In activity mode, includes `activity`, `facet`.
 
 ### `activity` - Activity lifecycle events
 **Sources:** `muse/activity_state.py` (post-hook), `muse/activities.py` (post-hook)
