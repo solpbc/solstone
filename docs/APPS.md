@@ -420,7 +420,7 @@ Define [Agent Skills](https://agentskills.io/specification) as subdirectories wi
 - Create a subdirectory in `muse/` with a `SKILL.md` file (YAML frontmatter + markdown body)
 - The directory name must match the `name` field in the YAML frontmatter
 - Skill names must be unique across system `muse/` and all `apps/*/muse/` directories
-- `make skills` discovers all skills and symlinks them into `.agents/skills/`, `.claude/skills/`, and `.gemini/skills/`
+- `make skills` discovers all skills and symlinks them into `.agents/skills/` and `.claude/skills/`
 - Skills are standalone — they don't interact with the muse agent/generator system
 - The muse loader ignores subdirectories, so skills won't interfere with agent discovery
 

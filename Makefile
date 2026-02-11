@@ -60,7 +60,7 @@ uv.lock: pyproject.toml
 install: .installed
 
 # Directories where AI coding agents look for skills
-SKILL_DIRS := .agents/skills .claude/skills .gemini/skills
+SKILL_DIRS := .agents/skills .claude/skills
 
 # Discover SKILL.md files in muse/ and apps/*/muse/, symlink into agent skill dirs
 skills:
@@ -179,7 +179,7 @@ clean:
 	@echo "Cleaning build artifacts and cache files..."
 	rm -rf build/ dist/ *.egg-info/
 	rm -rf .pytest_cache/ .coverage .mypy_cache/
-	rm -rf .agents/ .claude/ .gemini/
+	rm -rf .agents/ .claude/
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pyo" -delete

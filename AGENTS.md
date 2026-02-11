@@ -231,7 +231,7 @@ make clean-install # Clean and reinstall
 * **Live Logs**: `$JOURNAL_PATH/health/<service>.log`
 * **Agent Personas**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
 * **Generator Templates**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
-* **Agent Skills**: `muse/*/SKILL.md` - symlinked to `.agents/skills/`, `.claude/skills/`, `.gemini/skills/` via `make skills`, read https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices to create the best skills
+* **Agent Skills**: `muse/*/SKILL.md` - symlinked to `.agents/skills/` and `.claude/skills/` via `make skills`, read https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices to create the best skills
 * **Scratch Space**: `scratch/` - git-ignored local workspace
 
 ### Getting Help

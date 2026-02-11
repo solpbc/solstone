@@ -17,4 +17,3 @@ tests/fixtures/journal/tokens/*.json
 /journal
 .agents/
 .claude/
-.gemini/
