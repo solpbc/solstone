@@ -103,7 +103,7 @@ def _format_output_path(key: str, info: dict[str, Any]) -> str:
 def _format_last_run(key: str, agents_dir: Path) -> str:
     """Format age of last run with optional runtime duration."""
     safe_name = key.replace(":", "--")
-    link_path = agents_dir / f"{safe_name}.jsonl"
+    link_path = agents_dir / f"{safe_name}.log"
     if not link_path.exists():
         return "-"
 

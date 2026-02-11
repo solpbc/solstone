@@ -6,10 +6,10 @@
 Cortex listens for agent requests via the Callosum message bus and manages
 agent process lifecycle:
 - Receives requests via Callosum (tract="cortex", event="request")
-- Creates <timestamp>_active.jsonl files to track active agents
+- Creates <agent>/<timestamp>_active.jsonl files to track active agents
 - Spawns agent processes and captures their stdout events
 - Broadcasts all agent events back to Callosum
-- Renames to <timestamp>.jsonl when complete
+- Renames to <agent>/<timestamp>.jsonl when complete
 
 Agent files provide persistence and historical record, while Callosum provides
 real-time event distribution to all interested services.
@@ -130,7 +130,7 @@ class CortexService:
     def start(self) -> None:
         """Start listening for agent requests via Callosum."""
         # Recover any orphaned active files from previous crash
-        active_files = list(self.agents_dir.glob("*_active.jsonl"))
+        active_files = list(self.agents_dir.glob("*/*_active.jsonl"))
         if active_files:
             self.logger.warning(
                 f"Found {len(active_files)} orphaned agent(s), recovering..."
@@ -187,7 +187,7 @@ class CortexService:
         """Handle a new agent request from Callosum.
 
         Cortex is a minimal process manager - it only handles:
-        - File lifecycle (_active.jsonl -> .jsonl)
+        - File lifecycle (<agent>/<id>_active.jsonl -> <agent>/<id>.jsonl)
         - Process spawning and monitoring
         - Event relay to Callosum
 
@@ -205,7 +205,11 @@ class CortexService:
                 return
 
         # Create _active.jsonl file (exclusive creation to prevent race conditions)
-        file_path = self.agents_dir / f"{agent_id}_active.jsonl"
+        name = request.get("name", "default")
+        safe_name = name.replace(":", "--")
+        agent_subdir = self.agents_dir / safe_name
+        agent_subdir.mkdir(parents=True, exist_ok=True)
+        file_path = agent_subdir / f"{agent_id}_active.jsonl"
         if file_path.exists():
             self.logger.debug(f"Agent {agent_id} already claimed by another process")
             return
@@ -550,23 +554,90 @@ class CortexService:
             file_path.rename(completed_path)
             self.logger.info(f"Completed agent {agent_id}: {completed_path}")
 
-            # Create convenience symlink: {name}.jsonl -> {agent_id}.jsonl
+            # Create convenience symlink: {name}.log -> {name}/{agent_id}.jsonl
             request = self.agent_requests.get(agent_id)
             if request:
                 name = request.get("name")
                 if name:
                     safe_name = name.replace(":", "--")
-                    link_path = self.agents_dir / f"{safe_name}.jsonl"
-                    _atomic_symlink(link_path, f"{agent_id}.jsonl")
+                    link_path = self.agents_dir / f"{safe_name}.log"
+                    _atomic_symlink(link_path, f"{safe_name}/{agent_id}.jsonl")
                     self.logger.debug(
-                        f"Symlinked {safe_name}.jsonl -> {agent_id}.jsonl"
+                        f"Symlinked {safe_name}.log -> {safe_name}/{agent_id}.jsonl"
                     )
+
+                    # Append summary to day index
+                    self._append_day_index(agent_id, request, completed_path)
                 else:
                     self.logger.debug(
                         f"No name in request for {agent_id}, skipping symlink"
                     )
         except Exception as e:
             self.logger.error(f"Failed to complete agent file {agent_id}: {e}")
+
+    def _append_day_index(
+        self, agent_id: str, request: Dict[str, Any], completed_path: Path
+    ) -> None:
+        """Append agent summary to day index file."""
+        try:
+            # Determine day from request or agent_id timestamp
+            day = request.get("day")
+            if not day:
+                from datetime import datetime
+
+                ts_seconds = int(agent_id) / 1000
+                day = datetime.fromtimestamp(ts_seconds).strftime("%Y%m%d")
+
+            start_ts = request.get("ts", 0)
+
+            # Read last few lines to find finish/error event for runtime
+            runtime_seconds = None
+            status = "completed"
+            try:
+                with open(completed_path, "r") as f:
+                    lines = f.readlines()
+                for line in reversed(lines[-10:]):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        event = json.loads(line)
+                        event_type = event.get("event")
+                        if event_type == "finish":
+                            end_ts = event.get("ts", 0)
+                            if end_ts and start_ts:
+                                runtime_seconds = round((end_ts - start_ts) / 1000.0, 1)
+                            break
+                        if event_type == "error":
+                            status = "error"
+                            end_ts = event.get("ts", 0)
+                            if end_ts and start_ts:
+                                runtime_seconds = round((end_ts - start_ts) / 1000.0, 1)
+                            break
+                    except json.JSONDecodeError:
+                        continue
+            except Exception:
+                pass
+
+            summary = {
+                "agent_id": agent_id,
+                "name": request.get("name", "default"),
+                "day": day,
+                "facet": request.get("facet"),
+                "ts": start_ts,
+                "status": status,
+                "runtime_seconds": runtime_seconds,
+                "provider": request.get("provider"),
+                "model": request.get("model"),
+            }
+
+            day_index_path = self.agents_dir / f"{day}.jsonl"
+            with open(day_index_path, "a") as f:
+                f.write(json.dumps(summary) + "\n")
+                f.flush()
+
+        except Exception as e:
+            self.logger.error(f"Failed to append day index for {agent_id}: {e}")
 
     def _write_error_and_complete(self, file_path: Path, error_message: str) -> None:
         """Write an error event to the file and mark it as complete."""

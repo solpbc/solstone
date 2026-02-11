@@ -457,7 +457,9 @@ def test_has_finish_event(cortex_service, mock_journal):
 def test_complete_agent_file(cortex_service, mock_journal):
     """Test completing an agent file (rename from active to completed)."""
     agent_id = "123456789"
-    active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    default_dir = mock_journal / "agents" / "default"
+    default_dir.mkdir()
+    active_path = default_dir / f"{agent_id}_active.jsonl"
     active_path.touch()
     cortex_service.agent_requests[agent_id] = {"name": "default", "agent_id": agent_id}
 
@@ -465,46 +467,51 @@ def test_complete_agent_file(cortex_service, mock_journal):
 
     # Check file was renamed
     assert not active_path.exists()
-    completed_path = mock_journal / "agents" / f"{agent_id}.jsonl"
+    completed_path = default_dir / f"{agent_id}.jsonl"
     assert completed_path.exists()
-    symlink_path = mock_journal / "agents" / "default.jsonl"
+    symlink_path = mock_journal / "agents" / "default.log"
     assert symlink_path.is_symlink()
-    assert os.readlink(symlink_path) == f"{agent_id}.jsonl"
+    assert os.readlink(symlink_path) == f"default/{agent_id}.jsonl"
 
 
 def test_complete_agent_file_replaces_symlink(cortex_service, mock_journal):
     """Test completing agent file replaces convenience symlink for same name."""
+    default_dir = mock_journal / "agents" / "default"
+    default_dir.mkdir()
+
     first_agent_id = "111"
-    first_active_path = mock_journal / "agents" / f"{first_agent_id}_active.jsonl"
+    first_active_path = default_dir / f"{first_agent_id}_active.jsonl"
     first_active_path.touch()
     cortex_service.agent_requests[first_agent_id] = {"name": "default"}
 
     cortex_service._complete_agent_file(first_agent_id, first_active_path)
 
     second_agent_id = "222"
-    second_active_path = mock_journal / "agents" / f"{second_agent_id}_active.jsonl"
+    second_active_path = default_dir / f"{second_agent_id}_active.jsonl"
     second_active_path.touch()
     cortex_service.agent_requests[second_agent_id] = {"name": "default"}
 
     cortex_service._complete_agent_file(second_agent_id, second_active_path)
 
-    symlink_path = mock_journal / "agents" / "default.jsonl"
+    symlink_path = mock_journal / "agents" / "default.log"
     assert symlink_path.is_symlink()
-    assert os.readlink(symlink_path) == f"{second_agent_id}.jsonl"
+    assert os.readlink(symlink_path) == f"default/{second_agent_id}.jsonl"
 
 
 def test_complete_agent_file_colon_name(cortex_service, mock_journal):
     """Test completing agent file sanitizes colon in convenience symlink name."""
     agent_id = "123456789"
-    active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    entities_dir = mock_journal / "agents" / "entities--entity_assist"
+    entities_dir.mkdir()
+    active_path = entities_dir / f"{agent_id}_active.jsonl"
     active_path.touch()
     cortex_service.agent_requests[agent_id] = {"name": "entities:entity_assist"}
 
     cortex_service._complete_agent_file(agent_id, active_path)
 
-    symlink_path = mock_journal / "agents" / "entities--entity_assist.jsonl"
+    symlink_path = mock_journal / "agents" / "entities--entity_assist.log"
     assert symlink_path.is_symlink()
-    assert os.readlink(symlink_path) == f"{agent_id}.jsonl"
+    assert os.readlink(symlink_path) == f"entities--entity_assist/{agent_id}.jsonl"
 
 
 def test_complete_agent_file_no_name(cortex_service, mock_journal):
@@ -808,8 +815,10 @@ def test_recover_orphaned_agents(cortex_service, mock_journal):
     """Test recovery of orphaned active agent files."""
     # Create orphaned active files
     agents_dir = mock_journal / "agents"
-    agent1_active = agents_dir / "111_active.jsonl"
-    agent2_active = agents_dir / "222_active.jsonl"
+    default_dir = agents_dir / "default"
+    default_dir.mkdir()
+    agent1_active = default_dir / "111_active.jsonl"
+    agent2_active = default_dir / "222_active.jsonl"
 
     agent1_active.write_text('{"event": "start", "ts": 1000}\n')
     agent2_active.write_text('{"event": "start", "ts": 2000}\n')
@@ -820,11 +829,11 @@ def test_recover_orphaned_agents(cortex_service, mock_journal):
     # Check active files were renamed to completed
     assert not agent1_active.exists()
     assert not agent2_active.exists()
-    assert (agents_dir / "111.jsonl").exists()
-    assert (agents_dir / "222.jsonl").exists()
+    assert (default_dir / "111.jsonl").exists()
+    assert (default_dir / "222.jsonl").exists()
 
     # Check error events were appended
-    content1 = (agents_dir / "111.jsonl").read_text()
+    content1 = (default_dir / "111.jsonl").read_text()
     lines1 = content1.strip().split("\n")
     assert len(lines1) == 2
     error_event = json.loads(lines1[1])
@@ -832,7 +841,7 @@ def test_recover_orphaned_agents(cortex_service, mock_journal):
     assert "Recovered" in error_event["error"]
     assert error_event["agent_id"] == "111"
 
-    content2 = (agents_dir / "222.jsonl").read_text()
+    content2 = (default_dir / "222.jsonl").read_text()
     lines2 = content2.strip().split("\n")
     assert len(lines2) == 2
     assert json.loads(lines2[1])["event"] == "error"

@@ -225,6 +225,8 @@ def _get_agent_day(agent_file: Path) -> str:
 def _get_agents_for_day(day: str, facet_filter: str | None = None) -> list[dict]:
     """Get all agent runs for a specific day.
 
+    Uses the day index file for fast lookup instead of scanning all agent files.
+
     Args:
         day: YYYYMMDD day string
         facet_filter: Optional facet to filter by (None = all facets)
@@ -237,12 +239,43 @@ def _get_agents_for_day(day: str, facet_filter: str | None = None) -> list[dict]
         return []
 
     agents = []
-    for agent_file in agents_dir.glob("*.jsonl"):
-        # Skip pending files
-        if "_pending.jsonl" in agent_file.name:
-            continue
 
-        # Check if this agent belongs to the requested day
+    # Read day index for completed agents
+    day_index_path = agents_dir / f"{day}.jsonl"
+    if day_index_path.exists():
+        try:
+            with open(day_index_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    # Filter by facet if specified
+                    if facet_filter is not None and entry.get("facet") != facet_filter:
+                        continue
+
+                    # Locate the actual file for full parsing
+                    agent_id = entry.get("agent_id", "")
+                    name = entry.get("name", "default")
+                    safe_name = name.replace(":", "--")
+                    agent_file = agents_dir / safe_name / f"{agent_id}.jsonl"
+                    if not agent_file.exists():
+                        continue
+
+                    agent_info = _parse_agent_file(agent_file)
+                    if agent_info:
+                        agents.append(agent_info)
+        except IOError:
+            pass
+
+    # Also check for running agents (only have _active files, no day index entry yet)
+    for agent_file in agents_dir.glob("*/*_active.jsonl"):
+        if "_pending" in agent_file.name:
+            continue
         if _get_agent_day(agent_file) != day:
             continue
 
@@ -250,7 +283,6 @@ def _get_agents_for_day(day: str, facet_filter: str | None = None) -> list[dict]
         if not agent_info:
             continue
 
-        # Filter by facet if specified
         if facet_filter is not None and agent_info.get("facet") != facet_filter:
             continue
 
@@ -358,12 +390,16 @@ def api_agent_run(agent_id: str) -> Any:
     """Return full agent run detail with metadata and parsed events."""
     # Locate the agent JSONL file
     journal_path = Path(state.journal_root)
-    agent_file = journal_path / "agents" / f"{agent_id}.jsonl"
+    agents_dir = journal_path / "agents"
+    # Search subdirectories for the agent file
+    agent_file = None
+    for match in agents_dir.glob(f"*/{agent_id}.jsonl"):
+        agent_file = match
+        break
 
-    if not agent_file.exists():
+    if not agent_file:
         # Check if the agent is still running
-        active_file = journal_path / "agents" / f"{agent_id}_active.jsonl"
-        if active_file.exists():
+        for match in agents_dir.glob(f"*/{agent_id}_active.jsonl"):
             return jsonify({"error": "Agent run is still in progress"}), 202
         return jsonify({"error": f"Agent run {agent_id} not found"}), 404
 
@@ -537,30 +573,29 @@ def api_stats(month: str) -> Any:
 
     stats: dict[str, dict[str, int]] = {}
 
-    for agent_file in agents_dir.glob("*.jsonl"):
-        # Skip pending and active files
-        if "_pending.jsonl" in agent_file.name or "_active.jsonl" in agent_file.name:
+    # Read day index files for the month
+    for day_index_file in agents_dir.glob(f"{month}*.jsonl"):
+        day = day_index_file.stem
+        if not re.fullmatch(r"\d{8}", day):
             continue
 
-        # Parse first line for day and facet in a single read
         try:
-            with open(agent_file, "r") as f:
-                first_line = f.readline().strip()
-                if not first_line:
-                    continue
-                request_event = json.loads(first_line)
-        except (json.JSONDecodeError, IOError):
-            continue
+            with open(day_index_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
 
-        agent_id = agent_file.stem
-        agent_day = request_event.get("day") or _agent_id_to_day(agent_id)
-        if not agent_day.startswith(month):
+                    facet = entry.get("facet") or "_none"
+                    if day not in stats:
+                        stats[day] = {}
+                    stats[day][facet] = stats[day].get(facet, 0) + 1
+        except IOError:
             continue
-
-        facet = request_event.get("facet") or "_none"
-        if agent_day not in stats:
-            stats[agent_day] = {}
-        stats[agent_day][facet] = stats[agent_day].get(facet, 0) + 1
 
     return jsonify(stats)
 
