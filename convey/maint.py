@@ -112,15 +112,62 @@ def get_state_file(journal: Path, app: str, task: str) -> Path:
     return journal / "maint" / app / f"{task}.jsonl"
 
 
+def _parse_state_file(state_file: Path) -> dict:
+    """Parse a JSONL state file and return metadata.
+
+    Returns:
+        Dict with keys: duration_ms (int|None), line_count (int), ran_ts (int|None)
+    """
+    default = {"duration_ms": None, "line_count": 0, "ran_ts": None}
+    if not state_file.exists():
+        return default
+
+    try:
+        duration_ms = None
+        line_count = 0
+        exec_ts = None
+        exit_ts = None
+
+        with open(state_file, "r") as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line:
+                    continue
+
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                event_type = event.get("event")
+                if event_type == "exec" and exec_ts is None:
+                    exec_ts = event.get("ts")
+                elif event_type == "line":
+                    line_count += 1
+                elif event_type == "exit":
+                    exit_ts = event.get("ts")
+                    if isinstance(event.get("duration_ms"), int):
+                        duration_ms = event["duration_ms"]
+
+        return {
+            "duration_ms": duration_ms,
+            "line_count": line_count,
+            "ran_ts": exit_ts if exit_ts is not None else exec_ts,
+        }
+    except OSError as e:
+        logger.warning(f"Error parsing state file {state_file}: {e}")
+        return default
+
+
 def get_task_status(
     journal: Path, app: str, task: str
 ) -> tuple[str, Optional[int], Optional[int]]:
     """Check task status from state file.
 
     Returns:
-        Tuple of (status, exit_code, ran_ts) where ran_ts is the exit event
-        timestamp in epoch milliseconds, and status is:
+        Tuple of (status, exit_code, ran_ts) where ran_ts is the most relevant
+        event timestamp in epoch milliseconds, and status is:
         - "pending": No state file exists
+        - "in_progress": Started but no exit event yet
         - "success": Completed with exit code 0
         - "failed": Completed with non-zero exit code
     """
@@ -129,27 +176,39 @@ def get_task_status(
     if not state_file.exists():
         return "pending", None, None
 
-    # Read last line for exit event
+    # Track the first exec event and the last event.
     try:
-        last_line = ""
-        with open(state_file, "r") as f:
-            for line in f:
-                if line.strip():
-                    last_line = line
+        exec_ts = None
+        last_event = None
 
-        if last_line:
-            last_event = json.loads(last_line)
-            if last_event.get("event") == "exit":
-                ts = last_event.get("ts")
-                exit_code = last_event.get("exit_code", -1)
-                if exit_code == 0:
-                    return "success", 0, ts
-                return "failed", exit_code, ts
-    except (json.JSONDecodeError, OSError) as e:
+        with open(state_file, "r") as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line:
+                    continue
+
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if event.get("event") == "exec" and exec_ts is None:
+                    exec_ts = event.get("ts")
+                last_event = event
+
+        if last_event and last_event.get("event") == "exit":
+            ts = last_event.get("ts")
+            exit_code = last_event.get("exit_code", -1)
+            if exit_code == 0:
+                return "success", 0, ts
+            return "failed", exit_code, ts
+
+        if exec_ts is not None:
+            return "in_progress", None, exec_ts
+    except OSError as e:
         logger.warning(f"Error reading state file {state_file}: {e}")
 
-    # File exists but no valid exit event - treat as failed
-    return "failed", None, None
+    # File exists but no valid exit event - treat as in-progress.
+    return "in_progress", None, None
 
 
 def _write_event(f, event: dict) -> None:
@@ -349,7 +408,13 @@ def list_tasks(journal: Path) -> list[dict]:
     result = []
 
     for task in tasks:
-        status, exit_code, ran_ts = get_task_status(journal, task.app, task.name)
+        status, exit_code, _ = get_task_status(journal, task.app, task.name)
+        state_file = get_state_file(journal, task.app, task.name)
+        if status != "pending":
+            meta = _parse_state_file(state_file)
+        else:
+            meta = {"duration_ms": None, "line_count": 0, "ran_ts": None}
+
         result.append(
             {
                 "app": task.app,
@@ -358,12 +423,10 @@ def list_tasks(journal: Path) -> list[dict]:
                 "description": task.description,
                 "status": status,
                 "exit_code": exit_code,
-                "ran_ts": ran_ts,
-                "state_file": (
-                    str(get_state_file(journal, task.app, task.name))
-                    if status != "pending"
-                    else None
-                ),
+                "ran_ts": meta["ran_ts"],
+                "state_file": str(state_file) if status != "pending" else None,
+                "duration_ms": meta["duration_ms"],
+                "line_count": meta["line_count"],
             }
         )
 

@@ -85,8 +85,8 @@ class TestStatusTracking:
         assert exit_code == 1
         assert ran_ts == 2000
 
-    def test_failed_status_no_exit_event(self, temp_journal):
-        """Test that file without exit event is treated as failed."""
+    def test_in_progress_status_no_exit_event(self, temp_journal):
+        """Test that file without exit event is treated as in-progress."""
         state_dir = temp_journal / "maint" / "chat"
         state_dir.mkdir(parents=True)
         state_file = state_dir / "fix_metadata.jsonl"
@@ -95,9 +95,9 @@ class TestStatusTracking:
         status, exit_code, ran_ts = get_task_status(
             temp_journal, "chat", "fix_metadata"
         )
-        assert status == "failed"
+        assert status == "in_progress"
         assert exit_code is None
-        assert ran_ts is None
+        assert ran_ts == 1000
 
 
 class TestListTasks:
@@ -149,6 +149,98 @@ class TestListTasks:
         assert pending_task["status"] == "pending"
         assert pending_task["ran_ts"] is None
         assert pending_task["state_file"] is None
+
+    def test_list_tasks_includes_duration_and_line_count(
+        self, temp_journal, monkeypatch
+    ):
+        """Test that list_tasks returns duration_ms and line_count."""
+        tasks = [
+            MaintTask(app="chat", name="done", script_path=Path("/dummy/done.py")),
+            MaintTask(
+                app="chat", name="pending", script_path=Path("/dummy/pending.py")
+            ),
+        ]
+
+        def mock_discover_tasks():
+            return tasks
+
+        monkeypatch.setattr("convey.maint.discover_tasks", mock_discover_tasks)
+
+        # Success task with line events and duration
+        success_file = get_state_file(temp_journal, "chat", "done")
+        success_file.parent.mkdir(parents=True, exist_ok=True)
+        success_file.write_text(
+            '{"event": "exec", "ts": 1000}\n'
+            '{"event": "line", "ts": 1500, "line": "step 1"}\n'
+            '{"event": "line", "ts": 2000, "line": "step 2"}\n'
+            '{"event": "line", "ts": 2500, "line": "step 3"}\n'
+            '{"event": "exit", "ts": 3000, "exit_code": 0, "duration_ms": 2000}\n'
+        )
+
+        listed = list_tasks(temp_journal)
+        by_name = {task["name"]: task for task in listed}
+
+        done = by_name["done"]
+        assert done["duration_ms"] == 2000
+        assert done["line_count"] == 3
+
+        pending = by_name["pending"]
+        assert pending["duration_ms"] is None
+        assert pending["line_count"] == 0
+
+    def test_list_tasks_in_progress_status(self, temp_journal, monkeypatch):
+        """Test that list_tasks returns in_progress for tasks without exit event."""
+        tasks = [
+            MaintTask(
+                app="chat", name="running", script_path=Path("/dummy/running.py")
+            ),
+        ]
+
+        def mock_discover_tasks():
+            return tasks
+
+        monkeypatch.setattr("convey.maint.discover_tasks", mock_discover_tasks)
+
+        # In-progress task: exec event but no exit event
+        state_file = get_state_file(temp_journal, "chat", "running")
+        state_file.parent.mkdir(parents=True, exist_ok=True)
+        state_file.write_text(
+            '{"event": "exec", "ts": 1000}\n'
+            '{"event": "line", "ts": 1500, "line": "working..."}\n'
+        )
+
+        listed = list_tasks(temp_journal)
+        assert len(listed) == 1
+        t = listed[0]
+        assert t["status"] == "in_progress"
+        assert t["ran_ts"] == 1000
+        assert t["exit_code"] is None
+        assert t["duration_ms"] is None
+        assert t["line_count"] == 1
+
+
+class TestFormatDuration:
+    """Tests for duration formatting."""
+
+    def test_milliseconds(self):
+        from convey.maint_cli import _format_duration
+
+        assert _format_duration(0) == "0ms"
+        assert _format_duration(500) == "500ms"
+        assert _format_duration(999) == "999ms"
+
+    def test_seconds(self):
+        from convey.maint_cli import _format_duration
+
+        assert _format_duration(1000) == "1s"
+        assert _format_duration(2500) == "2s"
+        assert _format_duration(59999) == "59s"
+
+    def test_minutes(self):
+        from convey.maint_cli import _format_duration
+
+        assert _format_duration(60000) == "1m 0s"
+        assert _format_duration(143000) == "2m 23s"
 
 
 class TestRunTask:

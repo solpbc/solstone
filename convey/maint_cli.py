@@ -30,6 +30,43 @@ from .maint import (
 )
 
 
+def _format_duration(ms: int) -> str:
+    """Format duration in milliseconds to a compact human-readable string."""
+    if ms < 1000:
+        return f"{ms}ms"
+    if ms < 60000:
+        return f"{ms // 1000}s"
+    return f"{ms // 60000}m {(ms % 60000) // 1000}s"
+
+
+def print_task(t: dict) -> None:
+    """Print a task summary line and optional run metadata."""
+    desc = f" - {t['description']}" if t["description"] else ""
+    status_info = ""
+    if t["status"] == "in_progress":
+        status_info = " (in progress)"
+    elif t["exit_code"] is not None and t["exit_code"] != 0:
+        status_info = f" (exit {t['exit_code']})"
+
+    print(f"  {t['qualified_name']}{desc}{status_info}")
+
+    if t.get("ran_ts") is None:
+        return
+
+    ts_str = datetime.fromtimestamp(t["ran_ts"] / 1000).strftime("%Y-%m-%d %H:%M")
+    parts = [f"ran {ts_str}"]
+    detail_parts = []
+    if t.get("duration_ms") is not None:
+        detail_parts.append(_format_duration(t["duration_ms"]))
+    line_count = t.get("line_count", 0)
+    if line_count > 0:
+        detail_parts.append(f"{line_count} lines")
+    if detail_parts:
+        parts.append(f"({', '.join(detail_parts)})")
+
+    print(f"    {' '.join(parts)}")
+
+
 def show_task_details(journal: Path, task_name: str) -> None:
     """Show details and log output for a maintenance task."""
     task = get_task_by_name(task_name)
@@ -72,6 +109,8 @@ def show_task_details(journal: Path, task_name: str) -> None:
 
     if status == "pending":
         print("Status: pending")
+    elif status == "in_progress":
+        print("Status: in progress")
     elif status == "success":
         print("Status: success (exit 0)")
     elif exit_code is None:
@@ -145,24 +184,18 @@ Examples:
 
         # Group by status
         pending = [t for t in tasks if t["status"] == "pending"]
+        in_progress = [t for t in tasks if t["status"] == "in_progress"]
         success = [t for t in tasks if t["status"] == "success"]
         failed = [t for t in tasks if t["status"] == "failed"]
-
-        def print_task(t: dict) -> None:
-            desc = f" - {t['description']}" if t["description"] else ""
-            exit_info = ""
-            if t["exit_code"] is not None and t["exit_code"] != 0:
-                exit_info = f" (exit {t['exit_code']})"
-            print(f"  {t['qualified_name']}{desc}{exit_info}")
-            if t.get("ran_ts"):
-                ts_str = datetime.fromtimestamp(t["ran_ts"] / 1000).strftime(
-                    "%Y-%m-%d %H:%M"
-                )
-                print(f"    ran {ts_str}  log: {t['state_file']}")
 
         if pending:
             print(f"Pending ({len(pending)}):")
             for t in pending:
+                print_task(t)
+
+        if in_progress:
+            print(f"In Progress ({len(in_progress)}):")
+            for t in in_progress:
                 print_task(t)
 
         if failed:
@@ -195,6 +228,15 @@ Examples:
     if args.task:
         show_task_details(journal, args.task)
         return
+
+    # Bare invocation - show in-progress, then run pending
+    tasks = list_tasks(journal)
+    in_progress = [t for t in tasks if t["status"] == "in_progress"]
+    if in_progress:
+        print(f"In Progress ({len(in_progress)}):")
+        for t in in_progress:
+            print_task(t)
+        print()
 
     # Run pending tasks
     ran, succeeded = run_pending_tasks(journal)
