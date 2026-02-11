@@ -499,6 +499,65 @@ def test_load_entity_names_non_spoken_with_aka(monkeypatch):
         assert "PostgreSQL (Postgres, PG)" in result
 
 
+class TestTruncatedEcho:
+    """Tests for truncated_echo output helper."""
+
+    def test_under_limit_passes_through(self, capsys):
+        """Text under the limit is printed without truncation."""
+        from think.utils import truncated_echo
+
+        truncated_echo("hello world", max_bytes=1024)
+        captured = capsys.readouterr()
+        assert captured.out == "hello world\n"
+        assert captured.err == ""
+
+    def test_over_limit_truncates_and_warns(self, capsys):
+        """Text over the limit is truncated with stderr warning."""
+        from think.utils import truncated_echo
+
+        text = "a" * 200
+        truncated_echo(text, max_bytes=50)
+        captured = capsys.readouterr()
+        # stdout should have exactly 50 bytes of content + newline
+        assert captured.out == "a" * 50 + "\n"
+        assert "truncated" in captured.err
+        assert "200" in captured.err
+        assert "50" in captured.err
+
+    def test_zero_means_unlimited(self, capsys):
+        """max_bytes=0 disables truncation."""
+        from think.utils import truncated_echo
+
+        text = "b" * 100_000
+        truncated_echo(text, max_bytes=0)
+        captured = capsys.readouterr()
+        assert captured.out == text + "\n"
+        assert captured.err == ""
+
+    def test_utf8_boundary_safe(self, capsys):
+        """Truncation at a multibyte UTF-8 boundary drops partial chars."""
+        from think.utils import truncated_echo
+
+        # Each emoji is 4 bytes in UTF-8
+        text = "\U0001f600" * 10  # 40 bytes total
+        truncated_echo(text, max_bytes=6)  # mid-second emoji
+        captured = capsys.readouterr()
+        # Should get only the first complete emoji (4 bytes) since bytes 5-6
+        # form an incomplete character that gets dropped by errors="ignore"
+        assert captured.out == "\U0001f600\n"
+        assert "truncated" in captured.err
+
+    def test_exact_limit_no_truncation(self, capsys):
+        """Text exactly at the byte limit is not truncated."""
+        from think.utils import truncated_echo
+
+        text = "x" * 100
+        truncated_echo(text, max_bytes=100)
+        captured = capsys.readouterr()
+        assert captured.out == text + "\n"
+        assert captured.err == ""
+
+
 def test_segment_key_hhmmss_with_duration():
     """Test segment_key with HHMMSS_LEN format."""
     assert segment_key("143022_300") == "143022_300"

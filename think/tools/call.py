@@ -20,7 +20,7 @@ from think.facets import facet_summary, get_enabled_facets, get_facet_news
 from think.indexer.journal import get_events as get_events_impl
 from think.indexer.journal import search_counts as search_counts_impl
 from think.indexer.journal import search_journal as search_journal_impl
-from think.utils import get_journal
+from think.utils import get_journal, truncated_echo
 
 app = typer.Typer(help="Journal search and browsing.")
 
@@ -264,6 +264,9 @@ def read(
     segment: str | None = typer.Option(
         None, "--segment", "-s", help="Segment key (HHMMSS_LEN)."
     ),
+    max_bytes: int = typer.Option(
+        16384, "--max", help="Max output bytes (0 = unlimited)."
+    ),
 ) -> None:
     """Read full content of an agent output."""
     journal = get_journal()
@@ -287,7 +290,7 @@ def read(
     for ext in (".md", ".json", ".jsonl"):
         candidate = base_dir / f"{topic}{ext}"
         if candidate.is_file():
-            typer.echo(candidate.read_text(encoding="utf-8"))
+            truncated_echo(candidate.read_text(encoding="utf-8"), max_bytes)
             return
 
     # List what is available

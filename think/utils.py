@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,26 @@ _journal_path_cache: str | None = None
 def now_ms() -> int:
     """Return current time as Unix epoch milliseconds."""
     return int(time.time() * 1000)
+
+
+def truncated_echo(text: str, max_bytes: int = 16384) -> None:
+    """Print text to stdout, truncating if it exceeds *max_bytes* UTF-8 bytes.
+
+    When the encoded output exceeds the limit it is cut at a clean UTF-8
+    character boundary and a warning is written to stderr reporting the
+    original size.  Pass ``max_bytes=0`` to disable the limit.
+    """
+    encoded = text.encode("utf-8")
+    if max_bytes > 0 and len(encoded) > max_bytes:
+        truncated = encoded[:max_bytes].decode("utf-8", errors="ignore")
+        sys.stdout.write(truncated)
+        sys.stdout.write("\n")
+        sys.stderr.write(
+            f"[truncated: {len(encoded):,} bytes total, --max {max_bytes:,}]\n"
+        )
+    else:
+        sys.stdout.write(text)
+        sys.stdout.write("\n")
 
 
 def get_journal_info() -> tuple[str, str]:

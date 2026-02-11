@@ -117,6 +117,24 @@ class TestJournal:
         assert result.exit_code == 0
         assert len(result.output.strip()) > 0
 
+    def test_journal_read_max_truncates(self):
+        """Read command truncates output when --max is exceeded."""
+        # flow.md is ~422 bytes; --max 50 should truncate
+        result = runner.invoke(
+            call_app, ["journal", "read", "20240101", "flow", "--max", "50"]
+        )
+        assert result.exit_code == 0
+        # Output should be much shorter than the full file
+        assert len(result.output.encode("utf-8")) < 200
+
+    def test_journal_read_max_zero_unlimited(self):
+        """Read command with --max 0 returns full content."""
+        result = runner.invoke(
+            call_app, ["journal", "read", "20240101", "flow", "--max", "0"]
+        )
+        assert result.exit_code == 0
+        assert len(result.output.strip()) > 100
+
     def test_journal_read_not_found(self):
         """Read command reports missing topic."""
         result = runner.invoke(call_app, ["journal", "read", "20240101", "nonexistent"])

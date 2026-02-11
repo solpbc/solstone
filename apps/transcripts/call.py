@@ -18,7 +18,7 @@ from think.cluster import (
     cluster_scan,
     cluster_segments,
 )
-from think.utils import day_dirs
+from think.utils import day_dirs, truncated_echo
 
 app = typer.Typer(help="Transcript browsing.")
 
@@ -74,6 +74,9 @@ def read(
     audio: bool = typer.Option(False, "--audio", help="Include audio transcripts."),
     screen: bool = typer.Option(False, "--screen", help="Include screen transcripts."),
     agents: bool = typer.Option(False, "--agents", help="Include agent outputs."),
+    max_bytes: int = typer.Option(
+        16384, "--max", help="Max output bytes (0 = unlimited)."
+    ),
 ) -> None:
     """Read transcript content for a day, segment, or time range."""
     if full and raw:
@@ -114,7 +117,7 @@ def read(
     else:
         markdown, _counts = cluster(day, sources)
 
-    typer.echo(markdown)
+    truncated_echo(markdown, max_bytes)
 
 
 @app.command("stats")
