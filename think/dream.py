@@ -11,6 +11,7 @@ run in parallel, then dream waits for completion before the next group.
 import argparse
 import logging
 import sys
+import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -38,6 +39,37 @@ from think.utils import (
 
 # Module-level callosum connection for event emission
 _callosum: CallosumConnection | None = None
+# Status tracking for periodic status emission
+_status: dict = {}
+_status_lock = threading.Lock()
+_stop_status = threading.Event()
+
+
+def _update_status(**fields) -> None:
+    """Update shared status dict (thread-safe)."""
+    with _status_lock:
+        _status.update(fields)
+
+
+def _clear_status() -> None:
+    """Clear shared status dict (thread-safe)."""
+    with _status_lock:
+        _status.clear()
+
+
+def _emit_periodic_status() -> None:
+    """Emit dream.status every 5 seconds while active (runs in daemon thread)."""
+    while not _stop_status.is_set():
+        _stop_status.wait(5)
+        if _stop_status.is_set():
+            break
+        try:
+            with _status_lock:
+                snapshot = dict(_status) if _status else None
+            if snapshot:
+                emit("status", **snapshot)
+        except Exception:
+            logging.debug("Status emission failed", exc_info=True)
 
 
 def run_command(cmd: list[str], day: str) -> bool:
@@ -63,7 +95,6 @@ def run_command(cmd: list[str], day: str) -> bool:
 
 def run_queued_command(cmd: list[str], day: str, timeout: int = 600) -> bool:
     """Run a command through supervisor's task queue and wait for completion."""
-    import threading
     import uuid
 
     cmd_name = cmd[1] if cmd[0] == "sol" else cmd[0]
@@ -288,6 +319,15 @@ def run_prompts_by_priority(
 
     total_prompts = sum(len(prompts) for prompts in priority_groups.values())
     num_groups = len(priority_groups)
+    _update_status(
+        mode=target_schedule,
+        day=day,
+        segment=segment,
+        stream=stream,
+        agents_total=total_prompts,
+        agents_completed=0,
+        current_agents=[],
+    )
 
     logging.info(
         f"Running {total_prompts} prompts for {day} in {num_groups} priority groups"
@@ -309,6 +349,7 @@ def run_prompts_by_priority(
     # Process each priority group in order
     for priority in sorted(priority_groups.keys()):
         prompts_list = priority_groups[priority]
+        _update_status(current_group_priority=priority)
         logging.info(f"Starting priority {priority} ({len(prompts_list)} prompts)")
 
         emit(
@@ -388,12 +429,22 @@ def run_prompts_by_priority(
 
                         # Drain batch when concurrency limit reached
                         if max_concurrency and len(spawned) >= max_concurrency:
+                            _update_status(
+                                current_agents=[name for _, name, _, _ in spawned]
+                            )
                             s, f = _drain_priority_batch(
                                 spawned, target_schedule, day, segment, stream
                             )
                             group_success += s
                             group_failed += f
                             spawned = []
+                            _update_status(
+                                agents_completed=total_success
+                                + total_failed
+                                + group_success
+                                + group_failed,
+                                current_agents=[],
+                            )
                 else:
                     # Regular single-instance prompt
                     logging.info(f"Spawning {prompt_name}")
@@ -434,21 +485,39 @@ def run_prompts_by_priority(
 
                     # Drain batch when concurrency limit reached
                     if max_concurrency and len(spawned) >= max_concurrency:
+                        _update_status(
+                            current_agents=[name for _, name, _, _ in spawned]
+                        )
                         s, f = _drain_priority_batch(
                             spawned, target_schedule, day, segment
                         )
                         group_success += s
                         group_failed += f
                         spawned = []
+                        _update_status(
+                            agents_completed=total_success
+                            + total_failed
+                            + group_success
+                            + group_failed,
+                            current_agents=[],
+                        )
 
             except Exception as e:
                 logging.error(f"Failed to spawn {prompt_name}: {e}")
                 total_failed += 1
 
         # Drain any remaining agents in this priority group
+        _update_status(current_agents=[name for _, name, _, _ in spawned])
         s, f = _drain_priority_batch(spawned, target_schedule, day, segment, stream)
         group_success += s
         group_failed += f
+        _update_status(
+            agents_completed=total_success
+            + total_failed
+            + group_success
+            + group_failed,
+            current_agents=[],
+        )
 
         total_success += group_success
         total_failed += group_failed
@@ -813,6 +882,15 @@ def run_activity_prompts(
 
     total_prompts = sum(len(p) for p in priority_groups.values())
     num_groups = len(priority_groups)
+    _update_status(
+        mode="activity",
+        day=day,
+        activity=activity_id,
+        facet=facet,
+        agents_total=total_prompts,
+        agents_completed=0,
+        current_agents=[],
+    )
 
     logging.info(
         "Running %d activity agents for %s (type=%s, %d segments) in %d groups",
@@ -841,6 +919,7 @@ def run_activity_prompts(
 
     for priority in sorted(priority_groups.keys()):
         prompts_list = priority_groups[priority]
+        _update_status(current_group_priority=priority)
         logging.info(f"Starting priority {priority} ({len(prompts_list)} agents)")
 
         emit(
@@ -971,14 +1050,30 @@ def run_activity_prompts(
 
                 # Drain batch when concurrency limit reached
                 if max_concurrency and len(spawned) >= max_concurrency:
+                    _update_status(current_agents=[name for _, name, _ in spawned])
                     _drain_activity_batch()
+                    _update_status(
+                        agents_completed=total_success
+                        + total_failed
+                        + group_success
+                        + group_failed,
+                        current_agents=[],
+                    )
 
             except Exception as e:
                 logging.error(f"Failed to spawn {prompt_name}: {e}")
                 total_failed += 1
 
         # Drain any remaining agents
+        _update_status(current_agents=[name for _, name, _ in spawned])
         _drain_activity_batch()
+        _update_status(
+            agents_completed=total_success
+            + total_failed
+            + group_success
+            + group_failed,
+            current_agents=[],
+        )
 
         total_success += group_success
         total_failed += group_failed
@@ -1062,6 +1157,15 @@ def run_flush_prompts(
     total_failed = 0
 
     spawned: list[tuple[str, str, dict]] = []  # (agent_id, name, config)
+    _update_status(
+        mode="flush",
+        day=day,
+        segment=segment,
+        stream=stream,
+        agents_total=len(flush_prompts),
+        agents_completed=0,
+        current_agents=[],
+    )
 
     for prompt_name, config in flush_prompts.items():
         is_generate = config["type"] == "generate"
@@ -1101,6 +1205,7 @@ def run_flush_prompts(
             total_failed += 1
 
     if spawned:
+        _update_status(current_agents=[name for _, name, _ in spawned])
         agent_ids = [aid for aid, _, _ in spawned]
         completed, timed_out = wait_for_agents(agent_ids, timeout=600)
 
@@ -1130,6 +1235,12 @@ def run_flush_prompts(
                 agent_id=agent_id,
                 state=end_state,
             )
+        _update_status(
+            agents_completed=total_success + total_failed,
+            current_agents=[],
+        )
+    if not spawned and total_failed:
+        _update_status(agents_completed=total_failed, current_agents=[])
 
     duration_ms = int((time.time() - start_time) * 1000)
     emit(
@@ -1248,6 +1359,9 @@ def main() -> None:
     # Start callosum connection
     _callosum = CallosumConnection()
     _callosum.start()
+    _stop_status.clear()
+    status_thread = threading.Thread(target=_emit_periodic_status, daemon=True)
+    status_thread.start()
 
     try:
         # Handle activity-triggered execution mode
@@ -1299,6 +1413,7 @@ def main() -> None:
             total = len(segments)
             logging.info(f"Processing {total} segments for {day}")
             emit("segments_started", day=day, count=total)
+            _update_status(segments_total=total, segments_completed=0)
 
             batch_start = time.time()
             batch_success = 0
@@ -1321,9 +1436,11 @@ def main() -> None:
                     )
                     batch_success += success
                     batch_failed += failed
+                    _update_status(segments_completed=i, segments_total=total)
                 except Exception:
                     logging.exception(f"Segment {seg_key} failed with exception")
                     batch_failed += 1
+                    _update_status(segments_completed=i, segments_total=total)
 
             duration_ms = int((time.time() - batch_start) * 1000)
             logging.info(
@@ -1406,6 +1523,9 @@ def main() -> None:
             sys.exit(1)
 
     finally:
+        _clear_status()
+        _stop_status.set()
+        status_thread.join(timeout=2)
         _callosum.stop()
 
 
