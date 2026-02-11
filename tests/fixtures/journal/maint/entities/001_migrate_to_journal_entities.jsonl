@@ -1,0 +1,16 @@
+{"event": "exec", "ts": 1770778598315, "app": "entities", "task": "001_migrate_to_journal_entities", "cmd": ["/home/jer/projects/sunstone/.venv/bin/python3", "-m", "apps.entities.maint.001_migrate_to_journal_entities"]}
+{"event": "line", "ts": 1770778598438, "line": "============================================================"}
+{"event": "line", "ts": 1770778598438, "line": "Entity Migration: Legacy to Journal-Wide Structure"}
+{"event": "line", "ts": 1770778598438, "line": "============================================================"}
+{"event": "line", "ts": 1770778598438, "line": "Loading entities from tests/fixtures/journal/facets/*/entities.jsonl..."}
+{"event": "line", "ts": 1770778598438, "line": "  Loaded 0 entities from legacy files"}
+{"event": "line", "ts": 1770778598438, "line": "  No entities to migrate."}
+{"event": "line", "ts": 1770778598438, "line": ""}
+{"event": "line", "ts": 1770778598438, "line": "============================================================"}
+{"event": "line", "ts": 1770778598438, "line": "Migration Summary"}
+{"event": "line", "ts": 1770778598438, "line": "============================================================"}
+{"event": "line", "ts": 1770778598438, "line": "  Entities loaded:       0"}
+{"event": "line", "ts": 1770778598438, "line": "  Canonical entities:    0"}
+{"event": "line", "ts": 1770778598438, "line": "  Merges performed:      0"}
+{"event": "line", "ts": 1770778598438, "line": "  Relationships created: 0"}
+{"event": "exit", "ts": 1770778598465, "exit_code": 0, "duration_ms": 149}
