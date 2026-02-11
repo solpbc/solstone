@@ -109,10 +109,7 @@ class TestRunPromptsByPriority:
 
         def mock_wait_for_agents(agent_ids, timeout=600):
             wait_calls.append(agent_ids)
-            return (agent_ids, [])  # All complete, none timed out
-
-        def mock_get_agent_end_state(agent_id):
-            return "finish"
+            return ({aid: "finish" for aid in agent_ids}, [])  # All complete
 
         def mock_get_muse_configs(schedule=None, **kwargs):
             return {
@@ -147,7 +144,6 @@ class TestRunPromptsByPriority:
 
         monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
         monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
-        monkeypatch.setattr(dream, "get_agent_end_state", mock_get_agent_end_state)
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
         monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)
@@ -187,10 +183,7 @@ class TestRunPromptsByPriority:
             return f"agent-{len(spawned)}"
 
         def mock_wait_for_agents(agent_ids, timeout=600):
-            return (agent_ids, [])
-
-        def mock_get_agent_end_state(agent_id):
-            return "finish"
+            return ({aid: "finish" for aid in agent_ids}, [])
 
         def mock_get_muse_configs(schedule=None, **kwargs):
             return {
@@ -211,7 +204,6 @@ class TestRunPromptsByPriority:
 
         monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
         monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
-        monkeypatch.setattr(dream, "get_agent_end_state", mock_get_agent_end_state)
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
 
@@ -244,10 +236,7 @@ class TestRunPromptsByPriority:
             return f"agent-{len(spawned)}"
 
         def mock_wait_for_agents(agent_ids, timeout=600):
-            return (agent_ids, [])
-
-        def mock_get_agent_end_state(agent_id):
-            return "finish"
+            return ({aid: "finish" for aid in agent_ids}, [])
 
         def mock_get_muse_configs(schedule=None, **kwargs):
             return {
@@ -266,7 +255,6 @@ class TestRunPromptsByPriority:
 
         monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
         monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
-        monkeypatch.setattr(dream, "get_agent_end_state", mock_get_agent_end_state)
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
 
@@ -289,10 +277,7 @@ class TestRunPromptsByPriority:
             return f"agent-{name}"
 
         def mock_wait_for_agents(agent_ids, timeout=600):
-            return (agent_ids, [])
-
-        def mock_get_agent_end_state(agent_id):
-            return "finish"
+            return ({aid: "finish" for aid in agent_ids}, [])
 
         def mock_get_muse_configs(schedule=None, **kwargs):
             return {
@@ -320,7 +305,6 @@ class TestRunPromptsByPriority:
 
         monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
         monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
-        monkeypatch.setattr(dream, "get_agent_end_state", mock_get_agent_end_state)
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
         monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)

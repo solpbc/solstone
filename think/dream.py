@@ -19,7 +19,7 @@ from pathlib import Path
 from think.activities import load_activity_records
 from think.callosum import CallosumConnection
 from think.cluster import cluster_segments
-from think.cortex_client import cortex_request, get_agent_end_state, wait_for_agents
+from think.cortex_client import cortex_request, wait_for_agents
 from think.facets import (
     get_active_facets,
     get_enabled_facets,
@@ -220,7 +220,7 @@ def _drain_priority_batch(
         if agent_id in timed_out:
             continue
 
-        end_state = get_agent_end_state(agent_id)
+        end_state = completed.get(agent_id, "unknown")
         if end_state == "finish":
             logging.info(f"{prompt_name} completed successfully")
             success += 1
@@ -659,7 +659,7 @@ def run_single_prompt(
                 )
                 return False
 
-            end_state = get_agent_end_state(agent_id)
+            end_state = completed.get(agent_id, "unknown")
             if end_state == "finish":
                 logging.info(f"Generator {name} completed successfully")
                 emit(
@@ -794,7 +794,7 @@ def run_single_prompt(
                     **({"facet": agent_facet} if agent_facet else {}),
                 )
                 continue
-            end_state = get_agent_end_state(agent_id)
+            end_state = completed.get(agent_id, "unknown")
             emit(
                 "agent_completed",
                 day=day,
@@ -983,7 +983,7 @@ def run_activity_prompts(
                 if agent_id in timed_out:
                     continue
 
-                end_state = get_agent_end_state(agent_id)
+                end_state = completed.get(agent_id, "unknown")
                 if end_state == "finish":
                     logging.info(f"{prompt_name} completed successfully")
                     group_success += 1
@@ -1230,7 +1230,7 @@ def run_flush_prompts(
         for agent_id, prompt_name, config in spawned:
             if agent_id in timed_out:
                 continue
-            end_state = get_agent_end_state(agent_id)
+            end_state = completed.get(agent_id, "unknown")
             if end_state == "finish":
                 logging.info(f"Flush agent {prompt_name} completed")
                 total_success += 1

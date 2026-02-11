@@ -117,7 +117,7 @@ def get_agent_log_status(agent_id: str) -> str:
 def wait_for_agents(
     agent_ids: list[str],
     timeout: int = 600,
-) -> tuple[list[str], list[str]]:
+) -> tuple[dict[str, str], list[str]]:
     """Wait for agents to complete via Callosum events.
 
     Listens for cortex.finish and cortex.error events. Sets up the event
@@ -130,10 +130,12 @@ def wait_for_agents(
         timeout: Maximum wait time in seconds (default 600 = 10 minutes)
 
     Returns:
-        Tuple of (completed_ids, timed_out_ids)
+        Tuple of (completed, timed_out) where completed is a dict mapping
+        agent_id to end state ("finish" or "error"), and timed_out is a
+        list of agent IDs that did not complete within the timeout.
     """
     pending = set(agent_ids)
-    completed: list[str] = []
+    completed: dict[str, str] = {}
     lock = threading.Lock()
     all_done = threading.Event()
 
@@ -148,7 +150,7 @@ def wait_for_agents(
         if event_type in ("finish", "error"):
             with lock:
                 if agent_id in pending:
-                    completed.append(agent_id)
+                    completed[agent_id] = event_type
                     pending.discard(agent_id)
                     if not pending:
                         all_done.set()
@@ -161,8 +163,9 @@ def wait_for_agents(
         # Initial file check (with lock since callback may be running)
         with lock:
             for agent_id in list(pending):
-                if get_agent_log_status(agent_id) == "completed":
-                    completed.append(agent_id)
+                end_state = get_agent_end_state(agent_id)
+                if end_state in ("finish", "error"):
+                    completed[agent_id] = end_state
                     pending.discard(agent_id)
 
             if not pending:
@@ -177,11 +180,12 @@ def wait_for_agents(
     # Final file check for any remaining (backstop for missed events)
     # Listener is stopped, so no lock needed
     for agent_id in list(pending):
-        if get_agent_log_status(agent_id) == "completed":
+        end_state = get_agent_end_state(agent_id)
+        if end_state in ("finish", "error"):
             logger.info(
                 f"Agent {agent_id} completion event not received but agent completed"
             )
-            completed.append(agent_id)
+            completed[agent_id] = end_state
             pending.discard(agent_id)
 
     return completed, list(pending)

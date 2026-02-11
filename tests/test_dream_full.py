@@ -124,14 +124,10 @@ def test_run_single_prompt_validates_schedule(tmp_path, monkeypatch):
         return "mock-id"
 
     def mock_wait_for_agents(*args, **kwargs):
-        return (["mock-id"], [])
-
-    def mock_get_agent_end_state(*args, **kwargs):
-        return "finish"
+        return ({"mock-id": "finish"}, [])
 
     monkeypatch.setattr(mod, "cortex_request", mock_cortex_request)
     monkeypatch.setattr(mod, "wait_for_agents", mock_wait_for_agents)
-    monkeypatch.setattr(mod, "get_agent_end_state", mock_get_agent_end_state)
 
     # Running a daily prompt with --segment should fail
     # Note: This requires a real daily prompt in the fixtures

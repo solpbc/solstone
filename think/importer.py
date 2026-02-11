@@ -453,7 +453,7 @@ def _run_import_summary(
     Returns:
         True if summary was created successfully, False otherwise
     """
-    from think.cortex_client import cortex_request, get_agent_end_state, wait_for_agents
+    from think.cortex_client import cortex_request, wait_for_agents
 
     if not segments:
         logger.info("No segments to summarize")
@@ -484,7 +484,7 @@ def _run_import_summary(
             return False
 
         if completed:
-            end_state = get_agent_end_state(agent_id)
+            end_state = completed.get(agent_id, "unknown")
             if end_state == "finish" and summary_path.exists():
                 logger.info(f"Created import summary: {summary_path}")
                 return True

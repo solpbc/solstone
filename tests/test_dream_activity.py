@@ -118,9 +118,9 @@ class TestRunActivityPrompts:
 
             monkeypatch.setattr("think.dream.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.dream.wait_for_agents", lambda ids, timeout: (ids, [])
+                "think.dream.wait_for_agents",
+                lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
-            monkeypatch.setattr("think.dream.get_agent_end_state", lambda aid: "finish")
 
             result = run_activity_prompts(
                 day="20260209",
@@ -174,9 +174,9 @@ class TestRunActivityPrompts:
 
             monkeypatch.setattr("think.dream.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.dream.wait_for_agents", lambda ids, timeout: (ids, [])
+                "think.dream.wait_for_agents",
+                lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
-            monkeypatch.setattr("think.dream.get_agent_end_state", lambda aid: "finish")
 
             result = run_activity_prompts(
                 day="20260209",
@@ -224,9 +224,9 @@ class TestRunActivityPrompts:
 
             monkeypatch.setattr("think.dream.cortex_request", mock_cortex_request)
             monkeypatch.setattr(
-                "think.dream.wait_for_agents", lambda ids, timeout: (ids, [])
+                "think.dream.wait_for_agents",
+                lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
-            monkeypatch.setattr("think.dream.get_agent_end_state", lambda aid: "finish")
 
             run_activity_prompts(
                 day="20260209",
@@ -280,9 +280,9 @@ class TestRunActivityPrompts:
                 lambda prompt, name, config: "agent-1",
             )
             monkeypatch.setattr(
-                "think.dream.wait_for_agents", lambda ids, timeout: (ids, [])
+                "think.dream.wait_for_agents",
+                lambda ids, timeout: ({aid: "error" for aid in ids}, []),
             )
-            monkeypatch.setattr("think.dream.get_agent_end_state", lambda aid: "error")
 
             result = run_activity_prompts(
                 day="20260209",
@@ -356,9 +356,9 @@ class TestRunActivityPrompts:
                 lambda prompt, name, config: "agent-1",
             )
             monkeypatch.setattr(
-                "think.dream.wait_for_agents", lambda ids, timeout: (ids, [])
+                "think.dream.wait_for_agents",
+                lambda ids, timeout: ({aid: "finish" for aid in ids}, []),
             )
-            monkeypatch.setattr("think.dream.get_agent_end_state", lambda aid: "finish")
 
             emitted = []
             monkeypatch.setattr(

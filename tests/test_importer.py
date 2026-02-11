@@ -266,18 +266,11 @@ def test_run_import_summary(tmp_path, monkeypatch):
         return "mock_agent_id"
 
     def mock_wait_for_agents(agent_ids, timeout):
-        return (agent_ids, [])  # All completed, none timed out
-
-    def mock_get_agent_end_state(agent_id):
-        return "finish"
+        return ({aid: "finish" for aid in agent_ids}, [])  # All completed
 
     with (
         patch("think.cortex_client.cortex_request", side_effect=mock_cortex_request),
         patch("think.cortex_client.wait_for_agents", side_effect=mock_wait_for_agents),
-        patch(
-            "think.cortex_client.get_agent_end_state",
-            side_effect=mock_get_agent_end_state,
-        ),
     ):
         result = mod._run_import_summary(
             import_dir,

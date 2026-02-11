@@ -444,7 +444,8 @@ def test_wait_for_agents_already_complete(tmp_path, monkeypatch):
 
     completed, timed_out = wait_for_agents(agent_ids, timeout=1)
 
-    assert set(completed) == set(agent_ids)
+    assert set(completed.keys()) == set(agent_ids)
+    assert all(v == "finish" for v in completed.values())
     assert timed_out == []
 
 
@@ -484,7 +485,7 @@ def test_wait_for_agents_event_completion(callosum_server):
 
     waiter.join(timeout=3)
 
-    assert result["completed"] == [agent_id]
+    assert result["completed"] == {agent_id: "finish"}
     assert result["timed_out"] == []
 
 
@@ -520,7 +521,7 @@ def test_wait_for_agents_error_event(callosum_server):
 
     waiter.join(timeout=3)
 
-    assert result["completed"] == [agent_id]
+    assert result["completed"] == {agent_id: "error"}
     assert result["timed_out"] == []
 
 
@@ -541,7 +542,7 @@ def test_wait_for_agents_initial_file_check(tmp_path, monkeypatch):
     completed, timed_out = wait_for_agents([agent_id], timeout=1)
 
     # Should find via initial file check
-    assert completed == [agent_id]
+    assert completed == {agent_id: "finish"}
     assert timed_out == []
 
 
@@ -560,7 +561,7 @@ def test_wait_for_agents_timeout_actual(tmp_path, monkeypatch):
 
     completed, timed_out = wait_for_agents([agent_id], timeout=1)
 
-    assert completed == []
+    assert completed == {}
     assert timed_out == [agent_id]
 
 
@@ -600,7 +601,7 @@ def test_wait_for_agents_partial(callosum_server):
 
     waiter.join(timeout=5)
 
-    assert result["completed"] == [completing_agent]
+    assert result["completed"] == {completing_agent: "finish"}
     assert result["timed_out"] == [timeout_agent]
 
 
@@ -639,7 +640,7 @@ def test_wait_for_agents_missed_event_recovery(tmp_path, monkeypatch, caplog):
     completer.join()
 
     # Should recover via final file check
-    assert result["completed"] == [agent_id]
+    assert result["completed"] == {agent_id: "finish"}
     assert result["timed_out"] == []
 
     # Should log about missed event
