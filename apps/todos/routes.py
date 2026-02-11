@@ -615,9 +615,9 @@ def todo_generation_status(day: str):  # type: ignore[override]
     todo_path = _todo_path(day, facet)
 
     agents_dir = Path(state.journal_root) / "agents"
-    agent_file = agents_dir / f"{agent_id}.jsonl"
+    agent_file = next(agents_dir.glob(f"*/{agent_id}.jsonl"), None)
 
-    if agent_file.exists():
+    if agent_file and agent_file.exists():
         if todo_path.exists():
             if (
                 hasattr(state, "todo_generation_agents")

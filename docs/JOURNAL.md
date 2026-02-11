@@ -63,7 +63,7 @@ solstone transforms raw recordings into actionable understanding through a three
 | `YYYYMMDD/` | Daily capture folders containing segments, extracts, and agent outputs |
 | `entities/` | Journal-level entity identity records (`<id>/entity.json`) |
 | `facets/` | Facet-specific data: entity relationships, todos, events, news, action logs |
-| `agents/` | Agent event logs (`<id>.jsonl`, `<id>_active.jsonl` for running agents) |
+| `agents/` | Agent run logs in per-agent subdirectories (`<name>/<id>.jsonl`), day indexes (`<day>.jsonl`), and latest-run symlinks (`<name>.log`) |
 | `apps/` | App-specific storage (distinct from codebase `apps/`) |
 | `streams/` | Per-stream state files (`<name>.json`) tracking segment chains and sequence numbers |
 | `imports/` | Imported audio files and processing artifacts |
@@ -732,9 +732,12 @@ The logging system normalizes provider-specific formats (OpenAI, Gemini, Anthrop
 
 The `agents/` directory stores event logs for all AI agent sessions managed by Cortex. Each agent session produces a JSONL file containing the complete event history.
 
-**File naming:**
-- `<agent_id>_active.jsonl` – currently running agent (renamed when complete)
-- `<agent_id>.jsonl` – completed agent session
+**Directory layout:**
+- `<name>/` – per-agent subdirectory (e.g., `default/`, `entities--observer/`)
+- `<name>/<agent_id>_active.jsonl` – currently running agent (renamed when complete)
+- `<name>/<agent_id>.jsonl` – completed agent session
+- `<name>.log` – symlink to the latest completed run for each agent name
+- `<day>.jsonl` – day index with one summary line per agent that completed on that day
 
 The `agent_id` is a Unix timestamp in milliseconds that uniquely identifies the session.
 

@@ -22,7 +22,7 @@ pgrep -af "sol:observer|sol:sense|sol:supervisor"
 ls -la $JOURNAL_PATH/health/callosum.sock
 
 # Check for stuck agents (should be empty or short-lived)
-ls $JOURNAL_PATH/$(date +%Y%m%d)/agents/*_active.jsonl 2>/dev/null
+ls $JOURNAL_PATH/agents/*/*_active.jsonl 2>/dev/null
 ```
 
 **Healthy state:**
@@ -55,7 +55,7 @@ See [CALLOSUM.md](CALLOSUM.md) for message protocol and [CORTEX.md](CORTEX.md) f
 |------|-------|
 | Current service logs | `$JOURNAL_PATH/health/{service}.log` (symlinks) |
 | Day's process logs | `$JOURNAL_PATH/{YYYYMMDD}/health/{ref}_{name}.log` |
-| Agent execution | `$JOURNAL_PATH/{YYYYMMDD}/agents/*.jsonl` |
+| Agent execution | `$JOURNAL_PATH/agents/<name>/*.jsonl` |
 | Journal task log | `$JOURNAL_PATH/task_log.txt` |
 
 **Symlink structure:** Journal-level symlinks point to current day's logs. Day-level symlinks point to current process instance (by ref).
@@ -99,11 +99,11 @@ See [CALLOSUM.md](CALLOSUM.md) Tract Registry for event schemas.
 
 ## Reading Agent Files
 
-**Location:** `$JOURNAL_PATH/{YYYYMMDD}/agents/`
+**Location:** `$JOURNAL_PATH/agents/`
 
 **File states:**
-- `{timestamp}_active.jsonl` - Agent currently running
-- `{timestamp}.jsonl` - Agent completed
+- `{name}/{timestamp}_active.jsonl` - Agent currently running
+- `{name}/{timestamp}.jsonl` - Agent completed
 
 **Event sequence** (JSONL, one event per line):
 
@@ -115,11 +115,13 @@ See [CALLOSUM.md](CALLOSUM.md) Tract Registry for event schemas.
 
 ```bash
 # View an agent's final result
-jq -r 'select(.event=="finish") | .result' $JOURNAL_PATH/$(date +%Y%m%d)/agents/1234567890123.jsonl
+jq -r 'select(.event=="finish") | .result' $JOURNAL_PATH/agents/default/1234567890123.jsonl
 
 # List today's agents with their prompts
-for f in $JOURNAL_PATH/$(date +%Y%m%d)/agents/*.jsonl; do
-  echo "=== $(basename $f) ==="
+for id in $(jq -r '.agent_id' $JOURNAL_PATH/agents/$(date +%Y%m%d).jsonl 2>/dev/null); do
+  f=$(find $JOURNAL_PATH/agents -maxdepth 2 -path "*/${id}.jsonl" -print -quit)
+  [ -n "$f" ] || continue
+  echo "=== $(basename "$f") ==="
   head -1 "$f" | jq -r '.prompt[:80]'
 done
 ```
@@ -146,10 +148,10 @@ Causes: DBus issues, screencast permissions, audio device unavailable.
 
 ```bash
 # Find active agents
-ls -la $JOURNAL_PATH/$(date +%Y%m%d)/agents/*_active.jsonl
+ls -la $JOURNAL_PATH/agents/*/*_active.jsonl
 
 # Check last event in active agent
-tail -1 $JOURNAL_PATH/$(date +%Y%m%d)/agents/*_active.jsonl | jq .
+tail -1 $JOURNAL_PATH/agents/*/*_active.jsonl | jq .
 ```
 
 Causes: Backend timeout, tool hanging, network issues.
@@ -184,11 +186,11 @@ Causes: Slow transcription, describe API rate limits.
 tail -f $JOURNAL_PATH/health/*.log
 
 # Count today's agents by status
-echo "Completed: $(ls $JOURNAL_PATH/$(date +%Y%m%d)/agents/*.jsonl 2>/dev/null | grep -v _active | wc -l)"
-echo "Running: $(ls $JOURNAL_PATH/$(date +%Y%m%d)/agents/*_active.jsonl 2>/dev/null | wc -l)"
+echo "Completed: $([ -f $JOURNAL_PATH/agents/$(date +%Y%m%d).jsonl ] && wc -l < $JOURNAL_PATH/agents/$(date +%Y%m%d).jsonl || echo 0)"
+echo "Running: $(ls $JOURNAL_PATH/agents/*/*_active.jsonl 2>/dev/null | wc -l)"
 
 # Find agents that errored today
-grep -l '"event":"error"' $JOURNAL_PATH/$(date +%Y%m%d)/agents/*.jsonl
+jq -r 'select(.status=="error") | .agent_id' $JOURNAL_PATH/agents/$(date +%Y%m%d).jsonl 2>/dev/null
 
 # Check token usage for today
 wc -l $JOURNAL_PATH/tokens/$(date +%Y%m%d).jsonl

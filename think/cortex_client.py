@@ -18,6 +18,20 @@ logger = logging.getLogger(__name__)
 _last_ts = 0
 
 
+def _find_agent_file(agents_dir: Path, agent_id: str) -> tuple[Path | None, str]:
+    """Find an agent log file in per-agent subdirectories.
+
+    Returns:
+        Tuple of (file_path, status) where status is
+        "completed", "running", or "not_found".
+    """
+    for match in agents_dir.glob(f"*/{agent_id}.jsonl"):
+        return match, "completed"
+    for match in agents_dir.glob(f"*/{agent_id}_active.jsonl"):
+        return match, "running"
+    return None, "not_found"
+
+
 def cortex_request(
     prompt: str,
     name: str,
@@ -96,12 +110,8 @@ def get_agent_log_status(agent_id: str) -> str:
         "not_found" - No agent file exists
     """
     agents_dir = Path(get_journal()) / "agents"
-
-    if (agents_dir / f"{agent_id}.jsonl").exists():
-        return "completed"
-    if (agents_dir / f"{agent_id}_active.jsonl").exists():
-        return "running"
-    return "not_found"
+    _, status = _find_agent_file(agents_dir, agent_id)
+    return status
 
 
 def wait_for_agents(
@@ -226,13 +236,9 @@ def read_agent_events(agent_id: str) -> list[Dict[str, Any]]:
         FileNotFoundError: If agent log doesn't exist
     """
     agents_dir = Path(get_journal()) / "agents"
-
-    # Check for completed agent first, then active if not found
-    agent_file = agents_dir / f"{agent_id}.jsonl"
-    if not agent_file.exists():
-        agent_file = agents_dir / f"{agent_id}_active.jsonl"
-        if not agent_file.exists():
-            raise FileNotFoundError(f"Agent log not found: {agent_id}")
+    agent_file, _status = _find_agent_file(agents_dir, agent_id)
+    if agent_file is None:
+        raise FileNotFoundError(f"Agent log not found: {agent_id}")
 
     events = []
     with open(agent_file, "r") as f:
@@ -291,7 +297,7 @@ def cortex_agents(
     live_count = 0
     historical_count = 0
 
-    for agent_file in agents_dir.glob("*.jsonl"):
+    for agent_file in agents_dir.glob("*/*.jsonl"):
         # Determine status from filename
         is_active = "_active.jsonl" in agent_file.name
         is_pending = "_pending.jsonl" in agent_file.name

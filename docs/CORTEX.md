@@ -8,11 +8,11 @@ For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLO
 
 ### Event Flow
 1. **Request Creation**: Client calls `cortex_request()` which broadcasts to Callosum (`tract="cortex"`, `event="request"`)
-2. **Request Reception**: Cortex receives message via Callosum callback and creates `<timestamp>_active.jsonl`
+2. **Request Reception**: Cortex receives message via Callosum callback and creates `<name>/<timestamp>_active.jsonl`
 3. **Agent Spawning**: Cortex spawns agent process via `sol agents` with merged configuration
 4. **Event Emission**: Agents write JSON events to stdout (captured by Cortex)
 5. **Event Distribution**: Cortex appends events to JSONL file AND broadcasts to Callosum
-6. **Agent Completion**: Cortex renames file to `<timestamp>.jsonl` when agent finishes
+6. **Agent Completion**: Cortex renames file to `<name>/<timestamp>.jsonl` when agent finishes
 
 ### Key Components
 - **Message Bus Integration**: Cortex connects to Callosum to receive requests and broadcast events
@@ -23,8 +23,8 @@ For details on the Callosum protocol and message format, see [CALLOSUM.md](CALLO
 - **NDJSON Input Mode**: Agent processes accept newline-delimited JSON via stdin containing the full merged configuration
 
 ### File States
-- `<timestamp>_active.jsonl`: Agent currently executing (Cortex is appending events)
-- `<timestamp>.jsonl`: Agent completed (contains full event history)
+- `<name>/<timestamp>_active.jsonl`: Agent currently executing (Cortex is appending events)
+- `<name>/<timestamp>.jsonl`: Agent completed (contains full event history)
 
 **Note**: Files provide persistence and historical record, while Callosum provides real-time event distribution to all interested services.
 
@@ -35,7 +35,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
 ```json
 {
   "event": "request",
-  "ts": 1234567890123,              // Required: millisecond timestamp (must match filename)
+  "ts": 1234567890123,              // Required: millisecond timestamp (must match agent_id in filename)
   "prompt": "Analyze this code for security issues",  // Required for agents (not generators)
   "name": "default",              // Optional: agent name from muse/*.md
   "provider": "openai",              // Optional: override provider (openai, google, anthropic)
@@ -107,7 +107,7 @@ agent back to its parent chat.
 
 ## Agent Event Format
 
-All subsequent lines are JSON objects with `event` and millisecond `ts` fields. The `ts` field is automatically added by Cortex if not provided by the provider. Additionally, Cortex automatically adds an `agent_id` field (matching the timestamp from the filename) to all events for tracking purposes.
+All subsequent lines are JSON objects with `event` and millisecond `ts` fields. The `ts` field is automatically added by Cortex if not provided by the provider. Additionally, Cortex automatically adds an `agent_id` field (matching the timestamp component in the filename) to all events for tracking purposes.
 
 ### request
 The initial spawn request (first line of file, written by client).
