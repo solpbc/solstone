@@ -39,15 +39,19 @@ from think.activities import (
     update_record_description,
 )
 from think.callosum import callosum_send
-from think.streams import read_segment_stream
-from think.utils import day_path, now_ms, segment_parse
+from think.utils import day_path, iter_segments, now_ms, segment_parse, segment_path
 
 logger = logging.getLogger(__name__)
 
 
-def _list_facets_with_activity_state(day: str, segment: str) -> list[str]:
+def _list_facets_with_activity_state(
+    day: str, segment: str, stream: str | None = None
+) -> list[str]:
     """Find all facets that have activity_state.json in a segment."""
-    agents_dir = day_path(day) / segment / "agents"
+    if stream:
+        agents_dir = segment_path(day, segment, stream) / "agents"
+    else:
+        agents_dir = day_path(day) / segment / "agents"
     if not agents_dir.is_dir():
         return []
 
@@ -59,9 +63,14 @@ def _list_facets_with_activity_state(day: str, segment: str) -> list[str]:
     return facets
 
 
-def _load_activity_state(day: str, segment: str, facet: str) -> list[dict]:
+def _load_activity_state(
+    day: str, segment: str, facet: str, stream: str | None = None
+) -> list[dict]:
     """Load activity_state.json for a facet in a segment. Returns [] on failure."""
-    state_path = day_path(day) / segment / "agents" / facet / "activity_state.json"
+    if stream:
+        state_path = segment_path(day, segment, stream) / "agents" / facet / "activity_state.json"
+    else:
+        state_path = day_path(day) / segment / "agents" / facet / "activity_state.json"
     if not state_path.exists():
         return []
     try:
@@ -127,30 +136,22 @@ def _walk_activity_segments(
     if not day_dir.is_dir():
         return {"segments": [], "descriptions": [], "levels": [], "active_entities": []}
 
-    # Collect all segments in order (validate with segment_parse to skip non-segment dirs)
-    all_segments = sorted(
-        entry
-        for entry in os.listdir(day_dir)
-        if os.path.isdir(day_dir / entry)
-        and entry >= since
-        and entry <= end_segment
-        and segment_parse(entry)[0] is not None
-    )
+    # Collect all segments in order via iter_segments, filtering by range and stream
+    all_segment_tuples = [
+        (s_stream, s_key)
+        for s_stream, s_key, _s_path in iter_segments(day)
+        if s_key >= since
+        and s_key <= end_segment
+        and (not stream or s_stream == stream)
+    ]
 
     segments = []
     descriptions = []
     levels = []
     all_entities: list[str] = []
 
-    for seg in all_segments:
-        # Filter by stream when available
-        if stream:
-            marker = read_segment_stream(day_dir / seg)
-            seg_stream = marker.get("stream") if marker else None
-            if seg_stream is not None and seg_stream != stream:
-                continue
-
-        state = _load_activity_state(day, seg, facet)
+    for seg_stream, seg in all_segment_tuples:
+        state = _load_activity_state(day, seg, facet, stream=seg_stream)
         for item in state:
             if (
                 item.get("activity") == activity_type
@@ -204,6 +205,7 @@ def _collect_ended(
     facets: list[str],
     ended_by_facet: dict[str, list[dict]],
     end_segment: str,
+    stream: str | None = None,
 ) -> dict[str, list[dict]]:
     """Walk segment chains, write records, and build prompt data for ended activities.
 
@@ -214,16 +216,13 @@ def _collect_ended(
         facets: Facets to process
         ended_by_facet: {facet: [ended activity_state items]}
         end_segment: Last segment to include in the walk
+        stream: Stream name for segment path resolution
 
     Returns:
         {facet: [enriched activity dicts]} for prompt building and post-hook
     """
     all_ended: dict[str, list[dict]] = {}
     existing_ids_cache: dict[str, set[str]] = {}
-
-    # Read stream from end_segment for filtering
-    marker = read_segment_stream(day_path(day) / end_segment)
-    stream = marker.get("stream") if marker else None
 
     for facet in facets:
         ended_items = ended_by_facet.get(facet, [])
@@ -327,20 +326,21 @@ def _pre_process_flush(context: dict) -> dict | None:
     """
     day = context.get("day")
     segment = context.get("segment")
+    stream = context.get("stream")
 
     if not day or not segment:
         logger.warning("activities flush pre-hook requires day and segment")
         return {"skip_reason": "missing_day_or_segment"}
 
     # Find all facets with activity_state in the target segment
-    facets = _list_facets_with_activity_state(day, segment)
+    facets = _list_facets_with_activity_state(day, segment, stream=stream)
     if not facets:
         return {"skip_reason": "no_activity_state"}
 
     # Treat all active entries as ended (timed_out=True, empty current state)
     ended_by_facet: dict[str, list[dict]] = {}
     for facet in facets:
-        state = _load_activity_state(day, segment, facet)
+        state = _load_activity_state(day, segment, facet, stream=stream)
         ended = _detect_ended_activities(state, [], timed_out=True)
         if ended:
             ended_by_facet[facet] = ended
@@ -354,7 +354,7 @@ def _pre_process_flush(context: dict) -> dict | None:
         len(ended_by_facet),
     )
 
-    all_ended = _collect_ended(day, facets, ended_by_facet, segment)
+    all_ended = _collect_ended(day, facets, ended_by_facet, segment, stream=stream)
     return _build_result(context, all_ended)
 
 
@@ -362,13 +362,14 @@ def _pre_process_normal(context: dict) -> dict | None:
     """Normal mode: detect ended activities by comparing adjacent segments."""
     day = context.get("day")
     segment = context.get("segment")
+    stream = context.get("stream")
 
     if not day or not segment:
         logger.warning("activities pre-hook requires day and segment")
         return {"skip_reason": "missing_day_or_segment"}
 
     # Find previous segment
-    prev_segment = find_previous_segment(day, segment)
+    prev_segment = find_previous_segment(day, segment, stream=stream)
     if not prev_segment:
         return {"skip_reason": "no_previous_segment"}
 
@@ -376,20 +377,20 @@ def _pre_process_normal(context: dict) -> dict | None:
     timed_out = check_timeout(segment, prev_segment)
 
     # Scan all facets that had activity_state in the previous segment
-    prev_facets = _list_facets_with_activity_state(day, prev_segment)
+    prev_facets = _list_facets_with_activity_state(day, prev_segment, stream=stream)
     if not prev_facets:
         return {"skip_reason": "no_previous_activity_state"}
 
     # Detect ended activities across all facets
     ended_by_facet: dict[str, list[dict]] = {}
     for facet in prev_facets:
-        prev_state = _load_activity_state(day, prev_segment, facet)
-        curr_state = _load_activity_state(day, segment, facet)
+        prev_state = _load_activity_state(day, prev_segment, facet, stream=stream)
+        curr_state = _load_activity_state(day, segment, facet, stream=stream)
         ended = _detect_ended_activities(prev_state, curr_state, timed_out)
         if ended:
             ended_by_facet[facet] = ended
 
-    all_ended = _collect_ended(day, prev_facets, ended_by_facet, prev_segment)
+    all_ended = _collect_ended(day, prev_facets, ended_by_facet, prev_segment, stream=stream)
     return _build_result(context, all_ended)
 
 

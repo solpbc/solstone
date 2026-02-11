@@ -586,9 +586,9 @@ class CortexService:
 
         Output path is either:
         - Explicit: config["output_path"] (for multi-segment and custom paths)
-        - Derived: from name + output format + schedule + facet:
+        - Derived: from name + output format + schedule + facet + stream:
           - Daily agents: YYYYMMDD/agents/{name}.{ext}
-          - Segment agents: YYYYMMDD/{segment}/agents/{name}.{ext}
+          - Segment agents: YYYYMMDD/{stream}/{segment}/agents/{name}.{ext}
           - Multi-facet: agents/{facet}/{name}.{ext}
         """
         try:
@@ -605,6 +605,10 @@ class CortexService:
                 facet = config.get("facet")  # Set for multi-facet agents
                 day = config.get("day")
 
+                # Extract stream from env config (set by dream for segment agents)
+                env_config = config.get("env") or {}
+                stream = env_config.get("STREAM_NAME") if env_config else None
+
                 # Get day directory
                 day_dir = day_path(day)
 
@@ -615,6 +619,7 @@ class CortexService:
                     segment=segment,
                     output_format=output_format,
                     facet=facet,
+                    stream=stream,
                 )
 
             # Ensure parent directory exists

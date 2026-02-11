@@ -59,9 +59,9 @@ class TestFindPreviousSegment:
                 # Create day directory with segments
                 day_dir = Path(tmpdir) / "20260130"
                 day_dir.mkdir()
-                (day_dir / "100000_300").mkdir()
-                (day_dir / "110000_300").mkdir()
-                (day_dir / "120000_300").mkdir()
+                (day_dir / "default" / "100000_300").mkdir(parents=True)
+                (day_dir / "default" / "110000_300").mkdir(parents=True)
+                (day_dir / "default" / "120000_300").mkdir(parents=True)
 
                 # Test finding previous
                 assert find_previous_segment("20260130", "120000_300") == "110000_300"
@@ -95,8 +95,8 @@ class TestFindPreviousSegment:
             try:
                 day_dir = Path(tmpdir) / "20260130"
                 day_dir.mkdir()
-                (day_dir / "100000_300_audio").mkdir()
-                (day_dir / "110000_300").mkdir()
+                (day_dir / "default" / "100000_300_audio").mkdir(parents=True)
+                (day_dir / "default" / "110000_300").mkdir(parents=True)
 
                 # Should still find previous
                 assert (
@@ -145,7 +145,7 @@ class TestLoadPreviousState:
 
             try:
                 # Create state file (new flat format)
-                segment_dir = Path(tmpdir) / "20260130" / "100000_300"
+                segment_dir = Path(tmpdir) / "20260130" / "default" / "100000_300"
                 segment_dir.mkdir(parents=True)
                 (segment_dir / "agents" / "work").mkdir(parents=True)
 
@@ -162,7 +162,7 @@ class TestLoadPreviousState:
                     json.dumps(state)
                 )
 
-                loaded, segment = load_previous_state("20260130", "100000_300", "work")
+                loaded, segment = load_previous_state("20260130", "100000_300", "work", stream="default")
                 assert segment == "100000_300"
                 assert isinstance(loaded, list)
                 assert loaded[0]["activity"] == "meeting"
@@ -179,11 +179,11 @@ class TestLoadPreviousState:
             os.environ["JOURNAL_PATH"] = tmpdir
 
             try:
-                segment_dir = Path(tmpdir) / "20260130" / "100000_300"
+                segment_dir = Path(tmpdir) / "20260130" / "default" / "100000_300"
                 segment_dir.mkdir(parents=True)
                 (segment_dir / "agents" / "work").mkdir(parents=True)
 
-                loaded, segment = load_previous_state("20260130", "100000_300", "work")
+                loaded, segment = load_previous_state("20260130", "100000_300", "work", stream="default")
                 assert loaded is None
                 assert segment is None
 
@@ -199,7 +199,7 @@ class TestLoadPreviousState:
             os.environ["JOURNAL_PATH"] = tmpdir
 
             try:
-                segment_dir = Path(tmpdir) / "20260130" / "100000_300"
+                segment_dir = Path(tmpdir) / "20260130" / "default" / "100000_300"
                 segment_dir.mkdir(parents=True)
                 (segment_dir / "agents" / "work").mkdir(parents=True)
 
@@ -208,7 +208,7 @@ class TestLoadPreviousState:
                     '{"active": [], "ended": []}'
                 )
 
-                loaded, segment = load_previous_state("20260130", "100000_300", "work")
+                loaded, segment = load_previous_state("20260130", "100000_300", "work", stream="default")
                 assert loaded is None
                 assert segment == "100000_300"
 
@@ -350,10 +350,10 @@ class TestPreProcess:
                 # Create day and segments
                 day_dir = Path(tmpdir) / "20260130"
                 day_dir.mkdir()
-                (day_dir / "100000_300").mkdir()
-                (day_dir / "100000_300" / "agents" / "work").mkdir(parents=True)
-                segment_dir = day_dir / "110000_300"
-                segment_dir.mkdir()
+                (day_dir / "default" / "100000_300").mkdir(parents=True)
+                (day_dir / "default" / "100000_300" / "agents" / "work").mkdir(parents=True)
+                segment_dir = day_dir / "default" / "110000_300"
+                segment_dir.mkdir(parents=True)
 
                 # Create facet with activities
                 facet_dir = Path(tmpdir) / "facets" / "work" / "activities"
@@ -372,13 +372,14 @@ class TestPreProcess:
                         "level": "high",
                     }
                 ]
-                (day_dir / "100000_300" / "agents/work/activity_state.json").write_text(
+                (day_dir / "default" / "100000_300" / "agents/work/activity_state.json").write_text(
                     json.dumps(prev_state)
                 )
 
                 context = {
                     "day": "20260130",
                     "segment": "110000_300",
+                    "stream": "default",
                     "output_path": "/journal/20260130/110000_300/agents/work/activity_state.json",
                     "transcript": "User is typing code...",
                     "meta": {},
@@ -466,8 +467,8 @@ class TestPostProcess:
                 day_dir.mkdir()
 
                 # Previous segment with active meeting
-                prev_dir = day_dir / "100000_300"
-                prev_dir.mkdir()
+                prev_dir = day_dir / "default" / "100000_300"
+                prev_dir.mkdir(parents=True)
                 (prev_dir / "agents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
@@ -483,7 +484,7 @@ class TestPostProcess:
                 )
 
                 # Current segment
-                (day_dir / "100500_300").mkdir()
+                (day_dir / "default" / "100500_300").mkdir(parents=True)
 
                 llm_output = json.dumps(
                     [
@@ -499,6 +500,7 @@ class TestPostProcess:
                 context = {
                     "day": "20260130",
                     "segment": "100500_300",
+                    "stream": "default",
                     "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
                 }
 
@@ -523,8 +525,8 @@ class TestPostProcess:
                 day_dir.mkdir()
 
                 # Previous segment with active meeting
-                prev_dir = day_dir / "100000_300"
-                prev_dir.mkdir()
+                prev_dir = day_dir / "default" / "100000_300"
+                prev_dir.mkdir(parents=True)
                 (prev_dir / "agents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
@@ -539,7 +541,7 @@ class TestPostProcess:
                     json.dumps(prev_state)
                 )
 
-                (day_dir / "100500_300").mkdir()
+                (day_dir / "default" / "100500_300").mkdir(parents=True)
 
                 llm_output = json.dumps(
                     [
@@ -554,6 +556,7 @@ class TestPostProcess:
                 context = {
                     "day": "20260130",
                     "segment": "100500_300",
+                    "stream": "default",
                     "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
                 }
 
@@ -646,8 +649,8 @@ class TestPostProcess:
                 day_dir.mkdir()
 
                 # Previous segment — email already ended
-                prev_dir = day_dir / "100000_300"
-                prev_dir.mkdir()
+                prev_dir = day_dir / "default" / "100000_300"
+                prev_dir.mkdir(parents=True)
                 (prev_dir / "agents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
@@ -661,7 +664,7 @@ class TestPostProcess:
                     json.dumps(prev_state)
                 )
 
-                (day_dir / "100500_300").mkdir()
+                (day_dir / "default" / "100500_300").mkdir(parents=True)
 
                 llm_output = json.dumps(
                     [
@@ -676,6 +679,7 @@ class TestPostProcess:
                 context = {
                     "day": "20260130",
                     "segment": "100500_300",
+                    "stream": "default",
                     "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
                 }
 
@@ -701,8 +705,8 @@ class TestPostProcess:
                 day_dir.mkdir()
 
                 # Previous segment — email ended with different description
-                prev_dir = day_dir / "100000_300"
-                prev_dir.mkdir()
+                prev_dir = day_dir / "default" / "100000_300"
+                prev_dir.mkdir(parents=True)
                 (prev_dir / "agents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
@@ -716,7 +720,7 @@ class TestPostProcess:
                     json.dumps(prev_state)
                 )
 
-                (day_dir / "100500_300").mkdir()
+                (day_dir / "default" / "100500_300").mkdir(parents=True)
 
                 llm_output = json.dumps(
                     [
@@ -731,6 +735,7 @@ class TestPostProcess:
                 context = {
                     "day": "20260130",
                     "segment": "100500_300",
+                    "stream": "default",
                     "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
                 }
 
@@ -781,8 +786,8 @@ class TestPostProcess:
                 day_dir = Path(tmpdir) / "20260130"
                 day_dir.mkdir()
 
-                prev_dir = day_dir / "100000_300"
-                prev_dir.mkdir()
+                prev_dir = day_dir / "default" / "100000_300"
+                prev_dir.mkdir(parents=True)
                 (prev_dir / "agents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
@@ -797,7 +802,7 @@ class TestPostProcess:
                     json.dumps(prev_state)
                 )
 
-                (day_dir / "100500_300").mkdir()
+                (day_dir / "default" / "100500_300").mkdir(parents=True)
 
                 llm_output = json.dumps(
                     [
@@ -818,6 +823,7 @@ class TestPostProcess:
                 context = {
                     "day": "20260130",
                     "segment": "100500_300",
+                    "stream": "default",
                     "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
                 }
 
@@ -901,8 +907,8 @@ class TestPostProcess:
                 day_dir = Path(tmpdir) / "20260130"
                 day_dir.mkdir()
 
-                prev_dir = day_dir / "100000_300"
-                prev_dir.mkdir()
+                prev_dir = day_dir / "default" / "100000_300"
+                prev_dir.mkdir(parents=True)
                 (prev_dir / "agents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
@@ -917,7 +923,7 @@ class TestPostProcess:
                     json.dumps(prev_state)
                 )
 
-                (day_dir / "100500_300").mkdir()
+                (day_dir / "default" / "100500_300").mkdir(parents=True)
 
                 llm_output = json.dumps(
                     [
@@ -933,6 +939,7 @@ class TestPostProcess:
                 context = {
                     "day": "20260130",
                     "segment": "100500_300",
+                    "stream": "default",
                     "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
                 }
 
@@ -957,8 +964,8 @@ class TestPostProcess:
                 day_dir = Path(tmpdir) / "20260130"
                 day_dir.mkdir()
 
-                prev_dir = day_dir / "100000_300"
-                prev_dir.mkdir()
+                prev_dir = day_dir / "default" / "100000_300"
+                prev_dir.mkdir(parents=True)
                 (prev_dir / "agents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
@@ -980,7 +987,7 @@ class TestPostProcess:
                     json.dumps(prev_state)
                 )
 
-                (day_dir / "100500_300").mkdir()
+                (day_dir / "default" / "100500_300").mkdir(parents=True)
 
                 llm_output = json.dumps(
                     [
@@ -996,6 +1003,7 @@ class TestPostProcess:
                 context = {
                     "day": "20260130",
                     "segment": "100500_300",
+                    "stream": "default",
                     "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
                 }
 
@@ -1041,8 +1049,8 @@ class TestActivityId:
                 day_dir = Path(tmpdir) / "20260130"
                 day_dir.mkdir()
 
-                prev_dir = day_dir / "100000_300"
-                prev_dir.mkdir()
+                prev_dir = day_dir / "default" / "100000_300"
+                prev_dir.mkdir(parents=True)
                 (prev_dir / "agents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
@@ -1057,7 +1065,7 @@ class TestActivityId:
                     json.dumps(prev_state)
                 )
 
-                (day_dir / "100500_300").mkdir()
+                (day_dir / "default" / "100500_300").mkdir(parents=True)
 
                 llm_output = json.dumps(
                     [
@@ -1073,6 +1081,7 @@ class TestActivityId:
                 context = {
                     "day": "20260130",
                     "segment": "100500_300",
+                    "stream": "default",
                     "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
                 }
 
@@ -1095,8 +1104,8 @@ class TestActivityId:
                 day_dir = Path(tmpdir) / "20260130"
                 day_dir.mkdir()
 
-                prev_dir = day_dir / "100000_300"
-                prev_dir.mkdir()
+                prev_dir = day_dir / "default" / "100000_300"
+                prev_dir.mkdir(parents=True)
                 (prev_dir / "agents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
@@ -1111,7 +1120,7 @@ class TestActivityId:
                     json.dumps(prev_state)
                 )
 
-                (day_dir / "100500_300").mkdir()
+                (day_dir / "default" / "100500_300").mkdir(parents=True)
 
                 llm_output = json.dumps(
                     [
@@ -1126,6 +1135,7 @@ class TestActivityId:
                 context = {
                     "day": "20260130",
                     "segment": "100500_300",
+                    "stream": "default",
                     "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
                 }
 
@@ -1214,8 +1224,8 @@ class TestActivityLiveEvents:
                 day_dir = Path(tmpdir) / "20260130"
                 day_dir.mkdir()
 
-                prev_dir = day_dir / "100000_300"
-                prev_dir.mkdir()
+                prev_dir = day_dir / "default" / "100000_300"
+                prev_dir.mkdir(parents=True)
                 (prev_dir / "agents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
@@ -1230,7 +1240,7 @@ class TestActivityLiveEvents:
                     json.dumps(prev_state)
                 )
 
-                (day_dir / "100500_300").mkdir()
+                (day_dir / "default" / "100500_300").mkdir(parents=True)
 
                 llm_output = json.dumps(
                     [
@@ -1246,6 +1256,7 @@ class TestActivityLiveEvents:
                 context = {
                     "day": "20260130",
                     "segment": "100500_300",
+                    "stream": "default",
                     "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
                 }
 
@@ -1275,8 +1286,8 @@ class TestActivityLiveEvents:
                 day_dir = Path(tmpdir) / "20260130"
                 day_dir.mkdir()
 
-                prev_dir = day_dir / "100000_300"
-                prev_dir.mkdir()
+                prev_dir = day_dir / "default" / "100000_300"
+                prev_dir.mkdir(parents=True)
                 (prev_dir / "agents" / "work").mkdir(parents=True)
                 prev_state = [
                     {
@@ -1291,7 +1302,7 @@ class TestActivityLiveEvents:
                     json.dumps(prev_state)
                 )
 
-                (day_dir / "100500_300").mkdir()
+                (day_dir / "default" / "100500_300").mkdir(parents=True)
 
                 llm_output = json.dumps(
                     [
@@ -1306,6 +1317,7 @@ class TestActivityLiveEvents:
                 context = {
                     "day": "20260130",
                     "segment": "100500_300",
+                    "stream": "default",
                     "output_path": f"{tmpdir}/20260130/100500_300/agents/work/activity_state.json",
                 }
 

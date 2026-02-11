@@ -12,7 +12,7 @@ from flask import Blueprint, jsonify, redirect, render_template, url_for
 
 from convey.utils import DATE_RE, format_date
 from observe.utils import VIDEO_EXTENSIONS
-from think.utils import day_path
+from think.utils import day_path, iter_segments, segment_path as get_segment_path
 
 calendar_bp = Blueprint(
     "app:calendar",
@@ -145,10 +145,10 @@ def _dev_calendar_screens_list(day: str) -> str:
     )
 
 
-@calendar_bp.route("/<day>/screens/<timestamp>")
-@calendar_bp.route("/<day>/screens/<timestamp>/<filename>")
+@calendar_bp.route("/<day>/screens/<stream>/<timestamp>")
+@calendar_bp.route("/<day>/screens/<stream>/<timestamp>/<filename>")
 def _dev_calendar_screens_detail(
-    day: str, timestamp: str, filename: str = "screen.jsonl"
+    day: str, stream: str, timestamp: str, filename: str = "screen.jsonl"
 ) -> str:
     """Render detail view for a specific screen.jsonl file."""
     if not DATE_RE.fullmatch(day):
@@ -167,7 +167,7 @@ def _dev_calendar_screens_detail(
         return "", 404
 
     # Check if the screen.jsonl file exists in segment
-    segment_dir = os.path.join(day_dir, timestamp)
+    segment_dir = str(get_segment_path(day, timestamp, stream))
     jsonl_path = os.path.join(segment_dir, filename)
     if not os.path.isfile(jsonl_path):
         return "", 404
@@ -178,6 +178,7 @@ def _dev_calendar_screens_detail(
         "app.html",
         view="_dev_screens_detail",
         title=title,
+        stream=stream,
         timestamp=timestamp,
         filename=filename,
     )
@@ -195,54 +196,53 @@ def _dev_screen_files(day: str) -> Any:
 
     from glob import glob
 
-    from think.utils import segment_key
-
     files = []
-    # Look for segments (HHMMSS_LEN/)
-    for item in sorted(os.listdir(day_dir)):
-        item_path = os.path.join(day_dir, item)
-        if os.path.isdir(item_path) and segment_key(item):
-            # Found segment, check for *screen.jsonl files
-            screen_files = glob(os.path.join(item_path, "*screen.jsonl"))
-            for jsonl_path in sorted(screen_files):
-                filename = os.path.basename(jsonl_path)
-                timestamp = item
+    # Look for segments across all streams
+    for s_stream, s_key, s_path in iter_segments(day):
+        # Found segment, check for *screen.jsonl files
+        screen_files = glob(os.path.join(str(s_path), "*screen.jsonl"))
+        for jsonl_path in sorted(screen_files):
+            filename = os.path.basename(jsonl_path)
+            timestamp = s_key
 
-                # Count frames (excluding header line)
-                frame_count = 0
-                file_size = 0
-                try:
-                    file_size = os.path.getsize(jsonl_path)
-                    with open(jsonl_path, "r", encoding="utf-8") as f:
-                        for line_num, line in enumerate(f, 1):
-                            if line_num > 1:  # Skip header
-                                frame_count += 1
-                except Exception:
-                    continue
+            # Count frames (excluding header line)
+            frame_count = 0
+            file_size = 0
+            try:
+                file_size = os.path.getsize(jsonl_path)
+                with open(jsonl_path, "r", encoding="utf-8") as f:
+                    for line_num, line in enumerate(f, 1):
+                        if line_num > 1:  # Skip header
+                            frame_count += 1
+            except Exception:
+                continue
 
-                # Format timestamp as human-readable time
-                try:
-                    time_obj = datetime.strptime(timestamp[:6], "%H%M%S")
-                    human_time = time_obj.strftime("%I:%M:%S %p").lstrip("0")
-                except Exception:
-                    human_time = timestamp
+            # Format timestamp as human-readable time
+            try:
+                time_obj = datetime.strptime(timestamp[:6], "%H%M%S")
+                human_time = time_obj.strftime("%I:%M:%S %p").lstrip("0")
+            except Exception:
+                human_time = timestamp
 
-                files.append(
-                    {
-                        "timestamp": timestamp,
-                        "filename": filename,
-                        "human_time": human_time,
-                        "frame_count": frame_count,
-                        "file_size": file_size,
-                    }
-                )
+            files.append(
+                {
+                    "stream": s_stream,
+                    "timestamp": timestamp,
+                    "filename": filename,
+                    "human_time": human_time,
+                    "frame_count": frame_count,
+                    "file_size": file_size,
+                }
+            )
 
     return jsonify({"files": files})
 
 
-@calendar_bp.route("/api/screen_frames/<day>/<timestamp>")
-@calendar_bp.route("/api/screen_frames/<day>/<timestamp>/<filename>")
-def _dev_screen_frames(day: str, timestamp: str, filename: str = "screen.jsonl") -> Any:
+@calendar_bp.route("/api/screen_frames/<day>/<stream>/<timestamp>")
+@calendar_bp.route("/api/screen_frames/<day>/<stream>/<timestamp>/<filename>")
+def _dev_screen_frames(
+    day: str, stream: str, timestamp: str, filename: str = "screen.jsonl"
+) -> Any:
     """Return all frame records and pre-cache decoded frames from video."""
     if not DATE_RE.fullmatch(day):
         return "", 404
@@ -255,8 +255,7 @@ def _dev_screen_frames(day: str, timestamp: str, filename: str = "screen.jsonl")
     if not filename.endswith("screen.jsonl"):
         return "", 404
 
-    day_dir = str(day_path(day))
-    segment_dir = os.path.join(day_dir, timestamp)
+    segment_dir = str(get_segment_path(day, timestamp, stream))
     jsonl_path = os.path.join(segment_dir, filename)
 
     if not os.path.isfile(jsonl_path):
@@ -281,7 +280,7 @@ def _dev_screen_frames(day: str, timestamp: str, filename: str = "screen.jsonl")
                 raw_video_path = raw_path
 
         # Decode and cache all frames from the video
-        cache_key = (day, timestamp, filename)
+        cache_key = (day, stream, timestamp, filename)
         if cache_key not in _frame_cache and raw_video_path:
             # Video path is relative to segment directory (e.g., "screen.webm")
             video_path = os.path.join(segment_dir, raw_video_path)
@@ -343,8 +342,8 @@ def _dev_screen_frames(day: str, timestamp: str, filename: str = "screen.jsonl")
         return jsonify({"error": str(e)}), 500
 
 
-@calendar_bp.route("/api/screen_frame_image/<day>/<timestamp>/<int:frame_id>")
-def _dev_screen_frame_image(day: str, timestamp: str, frame_id: int) -> Any:
+@calendar_bp.route("/api/screen_frame_image/<day>/<stream>/<timestamp>/<int:frame_id>")
+def _dev_screen_frame_image(day: str, stream: str, timestamp: str, frame_id: int) -> Any:
     """Serve a cached frame image as JPEG."""
     if not DATE_RE.fullmatch(day):
         return "", 404
@@ -359,7 +358,7 @@ def _dev_screen_frame_image(day: str, timestamp: str, frame_id: int) -> Any:
         from flask import send_file
 
         # Check cache
-        cache_key = (day, timestamp)
+        cache_key = (day, stream, timestamp)
         if cache_key in _frame_cache and frame_id in _frame_cache[cache_key]:
             jpeg_bytes = _frame_cache[cache_key][frame_id]
             buffer = io.BytesIO(jpeg_bytes)

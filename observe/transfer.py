@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from think.callosum import callosum_send
-from think.utils import get_journal, now_ms, segment_key, setup_cli
+from think.utils import get_journal, iter_segments, now_ms, segment_key, setup_cli
 
 from .utils import compute_file_sha256, find_available_segment
 
@@ -39,24 +39,16 @@ def _get_hostname() -> str:
     return platform.node() or "unknown"
 
 
-def _list_segment_dirs(day_dir: Path) -> list[str]:
+def _list_segment_dirs(day_dir: Path) -> list[tuple[str, str, Path]]:
     """List all valid segment directories in a day directory.
 
     Args:
         day_dir: Path to day directory
 
     Returns:
-        List of segment keys (HHMMSS_LEN format)
+        List of (stream_name, segment_key, segment_path) tuples sorted by segment_key
     """
-    segments = []
-    if not day_dir.exists():
-        return segments
-
-    for entry in day_dir.iterdir():
-        if entry.is_dir() and segment_key(entry.name):
-            segments.append(entry.name)
-
-    return sorted(segments)
+    return iter_segments(day_dir)
 
 
 def _build_segment_manifest(segment_dir: Path) -> dict[str, Any]:
@@ -100,8 +92,8 @@ def create_archive(day: str, output_path: Path | None = None) -> Path:
     if not day_dir.exists():
         raise ValueError(f"Day directory does not exist: {day_dir}")
 
-    segments = _list_segment_dirs(day_dir)
-    if not segments:
+    segment_entries = _list_segment_dirs(day_dir)
+    if not segment_entries:
         raise ValueError(f"No segments found in {day_dir}")
 
     # Build manifest
@@ -113,9 +105,9 @@ def create_archive(day: str, output_path: Path | None = None) -> Path:
         "segments": {},
     }
 
-    for segment in segments:
-        segment_dir = day_dir / segment
-        manifest["segments"][segment] = _build_segment_manifest(segment_dir)
+    for stream_name, seg_key, seg_path in segment_entries:
+        arc_key = f"{stream_name}/{seg_key}"
+        manifest["segments"][arc_key] = _build_segment_manifest(seg_path)
 
     # Determine output path (default: scratch/ in project root)
     if output_path is None:
@@ -126,7 +118,7 @@ def create_archive(day: str, output_path: Path | None = None) -> Path:
     # Create archive
     logger.info(f"Creating archive: {output_path}")
     logger.info(f"  Day: {day}")
-    logger.info(f"  Segments: {len(segments)}")
+    logger.info(f"  Segments: {len(segment_entries)}")
 
     with tarfile.open(output_path, "w:gz") as tar:
         # Add manifest
@@ -138,12 +130,11 @@ def create_archive(day: str, output_path: Path | None = None) -> Path:
         manifest_info.mtime = int(time.time())
         tar.addfile(manifest_info, io.BytesIO(manifest_json))
 
-        # Add segment directories
-        for segment in segments:
-            segment_dir = day_dir / segment
-            for file_path in segment_dir.iterdir():
+        # Add segment directories (archived as stream/segment/file)
+        for stream_name, seg_key, seg_path in segment_entries:
+            for file_path in seg_path.iterdir():
                 if file_path.is_file():
-                    arcname = f"{segment}/{file_path.name}"
+                    arcname = f"{stream_name}/{seg_key}/{file_path.name}"
                     tar.add(file_path, arcname=arcname)
                     logger.debug(f"  Added: {arcname}")
 
@@ -187,19 +178,19 @@ def _read_manifest(archive_path: Path) -> dict[str, Any]:
 
 
 def _check_segment_match(
-    day_dir: Path, segment: str, manifest_files: list[dict]
+    day_dir: Path, arc_key: str, manifest_files: list[dict]
 ) -> bool:
     """Check if local segment matches manifest exactly.
 
     Args:
         day_dir: Path to day directory
-        segment: Segment key
+        arc_key: Archive key (stream/segment format)
         manifest_files: List of file dicts from manifest
 
     Returns:
         True if all files exist with matching SHA256
     """
-    segment_dir = day_dir / segment
+    segment_dir = day_dir / arc_key
     if not segment_dir.exists():
         return False
 
@@ -242,25 +233,32 @@ def validate_archive(archive_path: Path) -> dict[str, Any]:
         "deconflicted": [],
     }
 
-    for segment, segment_data in manifest["segments"].items():
+    for arc_key, segment_data in manifest["segments"].items():
         files = segment_data.get("files", [])
 
-        if _check_segment_match(day_dir, segment, files):
+        if _check_segment_match(day_dir, arc_key, files):
             # Full match - skip
-            result["skip"].append(segment)
+            result["skip"].append(arc_key)
             continue
 
+        # arc_key is stream/segment - extract parts for deconfliction
+        parts = arc_key.split("/", 1)
+        stream_name = parts[0] if len(parts) == 2 else ""
+        seg_key = parts[1] if len(parts) == 2 else parts[0]
+        stream_dir = day_dir / stream_name if stream_name else day_dir
+
         # Check if segment exists but doesn't match
-        if (day_dir / segment).exists():
-            # Need deconfliction
-            new_segment = find_available_segment(day_dir, segment)
-            if new_segment is None:
-                raise ValueError(f"Cannot find available slot for segment {segment}")
-            result["import_as"][segment] = new_segment
-            result["deconflicted"].append(segment)
+        if (stream_dir / seg_key).exists():
+            # Need deconfliction within the stream directory
+            new_seg_key = find_available_segment(stream_dir, seg_key)
+            if new_seg_key is None:
+                raise ValueError(f"Cannot find available slot for segment {arc_key}")
+            new_arc_key = f"{stream_name}/{new_seg_key}" if stream_name else new_seg_key
+            result["import_as"][arc_key] = new_arc_key
+            result["deconflicted"].append(arc_key)
         else:
             # Original slot available
-            result["import_as"][segment] = segment
+            result["import_as"][arc_key] = arc_key
 
     return result
 
@@ -313,12 +311,12 @@ def import_archive(
     # Extract segments
     imported = []
     with tarfile.open(archive_path, "r:gz") as tar:
-        for original_segment, target_segment in validation["import_as"].items():
-            target_dir = day_dir / target_segment
-            target_dir.mkdir(exist_ok=True)
+        for original_arc_key, target_arc_key in validation["import_as"].items():
+            target_dir = day_dir / target_arc_key
+            target_dir.mkdir(parents=True, exist_ok=True)
 
-            # Extract files for this segment
-            prefix = f"{original_segment}/"
+            # Extract files for this segment (archived as stream/segment/file)
+            prefix = f"{original_arc_key}/"
             for member in tar.getmembers():
                 if member.name.startswith(prefix) and member.isfile():
                     # Extract to target segment directory
@@ -334,12 +332,12 @@ def import_archive(
                         # Preserve modification time
                         os.utime(target_path, (member.mtime, member.mtime))
 
-            if original_segment != target_segment:
-                logger.info(f"  Imported: {original_segment} -> {target_segment}")
+            if original_arc_key != target_arc_key:
+                logger.info(f"  Imported: {original_arc_key} -> {target_arc_key}")
             else:
-                logger.info(f"  Imported: {original_segment}")
+                logger.info(f"  Imported: {original_arc_key}")
 
-            imported.append(target_segment)
+            imported.append(target_arc_key)
 
     # Trigger indexer rescan via supervisor queue (fire-and-forget)
     # Supervisor serializes indexer runs to prevent concurrent writes

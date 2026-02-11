@@ -434,21 +434,22 @@ def get_timestamp_parts(timestamp: float | None = None) -> tuple[str, str]:
     return date_part, time_part
 
 
-def create_draft_folder(start_at: float) -> str:
+def create_draft_folder(start_at: float, stream: str) -> str:
     """Create a draft folder for the current segment.
 
     Args:
         start_at: Segment start timestamp (wall-clock time)
+        stream: Stream name (e.g., "archon", "import.apple")
 
     Returns:
-        Path to the draft folder (YYYYMMDD/HHMMSS_draft/)
+        Path to the draft folder (YYYYMMDD/stream/HHMMSS_draft/)
     """
     date_part, time_part = get_timestamp_parts(start_at)
     day_dir = day_path(date_part)
 
-    # Create draft folder: YYYYMMDD/HHMMSS_draft/
+    # Create draft folder: YYYYMMDD/stream/HHMMSS_draft/
     draft_name = f"{time_part}_draft"
-    draft_path = str(day_dir / draft_name)
+    draft_path = str(day_dir / stream / draft_name)
     os.makedirs(draft_path, exist_ok=True)
 
     return draft_path
@@ -500,23 +501,23 @@ def _randomize_segment(segment: str) -> str | None:
     return f"{h:02d}{m:02d}{s:02d}_{dur}"
 
 
-def _segment_exists(day_dir: Path, segment: str) -> bool:
+def _segment_exists(parent_dir: Path, segment: str) -> bool:
     """Check if segment key is already in use.
 
     Internal helper for find_available_segment.
 
     Args:
-        day_dir: Path to day directory
+        parent_dir: Path to stream directory (day/stream/)
         segment: Segment key in HHMMSS_LEN format
 
     Returns:
         True if segment directory exists
     """
-    return (day_dir / segment).exists()
+    return (parent_dir / segment).exists()
 
 
 def find_available_segment(
-    day_dir: Path, segment: str, max_attempts: int = MAX_SEGMENT_ATTEMPTS
+    parent_dir: Path, segment: str, max_attempts: int = MAX_SEGMENT_ATTEMPTS
 ) -> str | None:
     """Find an available segment key using random modifications.
 
@@ -524,7 +525,7 @@ def find_available_segment(
     the time or duration by +/-1, exploring the space around the original.
 
     Args:
-        day_dir: Path to day directory
+        parent_dir: Path to stream directory (day/stream/)
         segment: Original segment key in HHMMSS_LEN format
         max_attempts: Maximum modification attempts before giving up
 
@@ -533,7 +534,7 @@ def find_available_segment(
         no available slot found after max_attempts
     """
     # Check if original is available
-    if not _segment_exists(day_dir, segment):
+    if not _segment_exists(parent_dir, segment):
         return segment
 
     current = segment
@@ -553,7 +554,7 @@ def find_available_segment(
 
         tried.add(modified)
 
-        if not _segment_exists(day_dir, modified):
+        if not _segment_exists(parent_dir, modified):
             return modified
 
     return None  # Exhausted attempts

@@ -31,7 +31,7 @@ import threading
 import time
 from pathlib import Path
 
-from think.utils import get_journal
+from think.utils import get_journal, iter_segments
 
 logger = logging.getLogger(__name__)
 
@@ -322,17 +322,13 @@ def rebuild_stream_state(name: str | None = None) -> dict:
     dict
         Summary: ``{"rebuilt": ["stream1", ...], "segments_scanned": N}``
     """
-    from think.utils import day_dirs, segment_key
+    from think.utils import day_dirs
 
     streams: dict[str, dict] = {}  # name -> {last_day, last_segment, seq, ...}
     segments_scanned = 0
 
-    for day, day_dir_str in sorted(day_dirs().items()):
-        day_dir = Path(day_dir_str)
-        for seg_dir in sorted(day_dir.iterdir()):
-            if not seg_dir.is_dir() or not segment_key(seg_dir.name):
-                continue
-
+    for day in sorted(day_dirs().keys()):
+        for _stream_name, seg_key, seg_dir in iter_segments(day):
             marker = read_segment_stream(seg_dir)
             if marker is None:
                 continue
@@ -356,7 +352,7 @@ def rebuild_stream_state(name: str | None = None) -> dict:
                     "platform": None,
                     "created_at": int(time.time()),
                     "last_day": day,
-                    "last_segment": seg_dir.name,
+                    "last_segment": seg_key,
                     "seq": seq,
                 }
             else:
@@ -364,7 +360,7 @@ def rebuild_stream_state(name: str | None = None) -> dict:
                 # Update if this segment has a higher seq
                 if seq > existing.get("seq", 0):
                     existing["last_day"] = day
-                    existing["last_segment"] = seg_dir.name
+                    existing["last_segment"] = seg_key
                     existing["seq"] = seq
 
     # Write rebuilt state files

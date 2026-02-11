@@ -86,7 +86,9 @@ def journal_fixture(tmp_path):
     (agents_dir / "flow.md").write_text("# Flow Summary\n\nWorked on project alpha.\n")
 
     # Create segment with agent output
-    segment = day / "100000_300"
+    stream_dir = day / "default"
+    stream_dir.mkdir()
+    segment = stream_dir / "100000_300"
     segment.mkdir()
     (segment / "agents").mkdir()
     (segment / "agents" / "screen.md").write_text(
@@ -334,7 +336,7 @@ def test_find_formattable_files(journal_fixture):
     assert "20240101/agents/flow.md" in paths
 
     # Segment agent outputs
-    assert "20240101/100000_300/agents/screen.md" in paths
+    assert "20240101/default/100000_300/agents/screen.md" in paths
 
     # Facet content
     assert "facets/work/events/20240101.jsonl" in paths
@@ -747,11 +749,11 @@ def test_extract_stream_segment_path(tmp_path):
     from think.streams import write_segment_stream
 
     # Create a segment with stream marker
-    seg_dir = tmp_path / "20240101" / "123456_300"
+    seg_dir = tmp_path / "20240101" / "default" / "123456_300"
     seg_dir.mkdir(parents=True)
     write_segment_stream(seg_dir, "archon", None, None, 1)
 
-    result = _extract_stream(str(tmp_path), "20240101/123456_300/agents/work/flow.md")
+    result = _extract_stream(str(tmp_path), "20240101/default/123456_300/agents/work/flow.md")
     assert result == "archon"
 
 
@@ -770,10 +772,10 @@ def test_extract_stream_missing_marker(tmp_path):
     """_extract_stream returns None when stream.json doesn't exist."""
     from think.indexer.journal import _extract_stream
 
-    seg_dir = tmp_path / "20240101" / "123456_300"
+    seg_dir = tmp_path / "20240101" / "default" / "123456_300"
     seg_dir.mkdir(parents=True)
 
-    result = _extract_stream(str(tmp_path), "20240101/123456_300/agents/work/flow.md")
+    result = _extract_stream(str(tmp_path), "20240101/default/123456_300/agents/work/flow.md")
     assert result is None
 
 

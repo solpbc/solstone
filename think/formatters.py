@@ -130,15 +130,17 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos", True),
     "facets/*/logs/*.jsonl": ("think.facets", "format_logs", True),
     # Raw transcripts — formattable but not indexed (agent outputs are more useful)
-    "*/*/audio.jsonl": ("observe.hear", "format_audio", False),
-    "*/*/*_audio.jsonl": ("observe.hear", "format_audio", False),
-    "*/*/screen.jsonl": ("observe.screen", "format_screen", False),
-    "*/*/*_screen.jsonl": ("observe.screen", "format_screen", False),
+    # Layout: day/stream/segment/audio.jsonl
+    "*/*/*/audio.jsonl": ("observe.hear", "format_audio", False),
+    "*/*/*/*_audio.jsonl": ("observe.hear", "format_audio", False),
+    "*/*/*/screen.jsonl": ("observe.screen", "format_screen", False),
+    "*/*/*/*_screen.jsonl": ("observe.screen", "format_screen", False),
     # Markdown — specific journal paths (all indexed)
     "*/agents/*.md": ("think.markdown", "format_markdown", True),
     "*/agents/*/*.md": ("think.markdown", "format_markdown", True),
-    "*/*/agents/*.md": ("think.markdown", "format_markdown", True),
-    "*/*/agents/*/*.md": ("think.markdown", "format_markdown", True),
+    # Layout: day/stream/segment/agents/*.md
+    "*/*/*/agents/*.md": ("think.markdown", "format_markdown", True),
+    "*/*/*/agents/*/*.md": ("think.markdown", "format_markdown", True),
     "facets/*/news/*.md": ("think.markdown", "format_markdown", True),
     "imports/*/summary.md": ("think.markdown", "format_markdown", True),
     "apps/*/agents/*.md": ("think.markdown", "format_markdown", True),

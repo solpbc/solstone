@@ -31,7 +31,7 @@ from observe.utils import (
     find_available_segment,
 )
 from think.streams import stream_name, update_stream, write_segment_stream
-from think.utils import day_path, now_ms
+from think.utils import day_path, now_ms, segment_path
 
 from .utils import (
     append_history_record,
@@ -409,15 +409,22 @@ def ingest_upload(key: str) -> Any:
     day_dir = day_path(day)
     day_dir.mkdir(parents=True, exist_ok=True)
 
-    # Find available segment key (may differ from original if collision)
+    # Determine stream name from remote metadata
+    remote_name = remote.get("name", "unknown")
+    stream = stream_name(remote=remote_name)
+
+    # Find available segment key within the stream directory
+    stream_dir = day_dir / stream
+    stream_dir.mkdir(parents=True, exist_ok=True)
+
     original_segment = segment
-    available_segment = find_available_segment(day_dir, segment)
+    available_segment = find_available_segment(stream_dir, segment)
 
     if available_segment is None:
         # Exhausted attempts, save to failed directory
         logger.error(
-            f"No available segment slot for {day}/{segment} from "
-            f"{remote.get('name')} after {MAX_SEGMENT_ATTEMPTS} attempts"
+            f"No available segment slot for {day}/{stream}/{segment} from "
+            f"{remote_name} after {MAX_SEGMENT_ATTEMPTS} attempts"
         )
         failed_dir = _save_to_failed(day_dir, file_data, segment)
         return (
@@ -435,11 +442,11 @@ def ingest_upload(key: str) -> Any:
     if segment != original_segment:
         logger.info(
             f"Segment collision resolved: {original_segment} -> {segment} "
-            f"for remote {remote.get('name')}"
+            f"for remote {remote_name}"
         )
 
-    # Create segment directory for files
-    segment_dir = day_dir / segment
+    # Create segment directory for files (under stream)
+    segment_dir = segment_path(day, segment, stream)
     segment_dir.mkdir(parents=True, exist_ok=True)
 
     # Save files from memory to disk
@@ -502,9 +509,7 @@ def ingest_upload(key: str) -> Any:
     save_remote(remote)
 
     # Write stream identity for this segment
-    remote_name = remote.get("name", "unknown")
     try:
-        stream = stream_name(remote=remote_name)
         result = update_stream(stream, day, segment, type="remote")
         write_segment_stream(
             segment_dir,
@@ -515,11 +520,9 @@ def ingest_upload(key: str) -> Any:
         )
     except Exception as e:
         logger.warning(f"Failed to write stream identity: {e}")
-        stream = None
 
     # Add stream to meta for downstream handlers
-    if stream:
-        meta["stream"] = stream
+    meta["stream"] = stream
 
     # Emit observe.observing event to local Callosum
     # Include meta dict with host/platform and any client-provided metadata
@@ -528,9 +531,8 @@ def ingest_upload(key: str) -> Any:
         "day": day,
         "files": saved_files,
         "remote": remote_name,
+        "stream": stream,
     }
-    if stream:
-        event_fields["stream"] = stream
     if meta:
         event_fields["meta"] = meta
     emit("observe", "observing", **event_fields)

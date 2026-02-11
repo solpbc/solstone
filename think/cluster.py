@@ -216,11 +216,13 @@ def _load_entries(
     entries: list[dict[str, Any]] = []
     day_path_obj = Path(day_dir)
 
-    for item in day_path_obj.iterdir():
-        start_time, _ = segment_parse(item.name)
-        if not (item.is_dir() and start_time):
+    from think.utils import iter_segments
+
+    for _stream, _seg_key, seg_path in iter_segments(day_path_obj):
+        start_time, _ = segment_parse(seg_path.name)
+        if not start_time:
             continue
-        entries.extend(_process_segment(item, date_str, audio, screen, agents))
+        entries.extend(_process_segment(seg_path, date_str, audio, screen, agents))
 
     entries.sort(key=lambda e: e["timestamp"])
     return entries
@@ -361,11 +363,11 @@ def cluster_scan(day: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]
     day_path_obj = Path(day_dir)
 
     # Check timestamp subdirectories for transcript files
-    from think.utils import segment_parse
+    from think.utils import iter_segments, segment_parse
 
-    for item in day_path_obj.iterdir():
-        start_time, _ = segment_parse(item.name)
-        if item.is_dir() and start_time:
+    for _stream, _seg_key, seg_path in iter_segments(day_path_obj):
+        start_time, _ = segment_parse(seg_path.name)
+        if start_time:
             # Found segment - combine with date to get datetime
             day_date = datetime.strptime(date_str, "%Y%m%d").date()
             dt = datetime.combine(day_date, start_time)
@@ -374,11 +376,15 @@ def cluster_scan(day: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]
             )
 
             # Check for audio transcripts
-            if (item / "audio.jsonl").exists() or any(item.glob("*_audio.jsonl")):
+            if (seg_path / "audio.jsonl").exists() or any(
+                seg_path.glob("*_audio.jsonl")
+            ):
                 audio_slots.add(slot)
 
             # Check for screen content
-            if (item / "screen.jsonl").exists() or any(item.glob("*_screen.jsonl")):
+            if (seg_path / "screen.jsonl").exists() or any(
+                seg_path.glob("*_screen.jsonl")
+            ):
                 screen_slots.add(slot)
 
     audio_ranges = _slots_to_ranges(sorted(audio_slots))
@@ -408,21 +414,25 @@ def cluster_segments(day: str) -> list[dict[str, Any]]:
     if not os.path.isdir(day_dir):
         return []
 
+    from think.utils import iter_segments
+
     day_path_obj = Path(day_dir)
     segments: list[dict[str, Any]] = []
 
-    for item in day_path_obj.iterdir():
-        start_time, end_time = segment_parse(item.name)
-        if not (item.is_dir() and start_time and end_time):
+    for stream_name, seg_key, seg_path in iter_segments(day_path_obj):
+        start_time, end_time = segment_parse(seg_path.name)
+        if not (start_time and end_time):
             continue
 
         types = []
         # Check for audio transcripts
-        if (item / "audio.jsonl").exists() or any(item.glob("*_audio.jsonl")):
+        if (seg_path / "audio.jsonl").exists() or any(seg_path.glob("*_audio.jsonl")):
             types.append("audio")
 
         # Check for screen content
-        if (item / "screen.jsonl").exists() or any(item.glob("*_screen.jsonl")):
+        if (seg_path / "screen.jsonl").exists() or any(
+            seg_path.glob("*_screen.jsonl")
+        ):
             types.append("screen")
 
         if not types:
@@ -431,10 +441,10 @@ def cluster_segments(day: str) -> list[dict[str, Any]]:
         start_str = start_time.strftime("%H:%M")
         end_str = end_time.strftime("%H:%M")
 
-        marker = read_segment_stream(item)
+        marker = read_segment_stream(seg_path)
         segments.append(
             {
-                "key": item.name,
+                "key": seg_path.name,
                 "start": start_str,
                 "end": end_str,
                 "types": types,
@@ -445,6 +455,32 @@ def cluster_segments(day: str) -> list[dict[str, Any]]:
     # Sort by start time
     segments.sort(key=lambda s: s["start"])
     return segments
+
+
+def _find_segment_dir(day: str, segment: str, stream: str | None) -> Path | None:
+    """Locate a segment directory, optionally searching across streams.
+
+    Args:
+        day: Day in YYYYMMDD format
+        segment: Segment key in HHMMSS_LEN format
+        stream: Stream name. If None, searches all streams under the day.
+
+    Returns:
+        Path to the segment directory, or None if not found.
+    """
+    from think.utils import segment_path as _segment_path
+
+    if stream:
+        path = _segment_path(day, segment, stream)
+        return path if path.is_dir() else None
+
+    # Search all streams for this segment
+    from think.utils import iter_segments
+
+    for _s, _k, seg_path in iter_segments(day):
+        if seg_path.name == segment:
+            return seg_path
+    return None
 
 
 def cluster(
@@ -492,6 +528,7 @@ def cluster_period(
     day: str,
     segment: str,
     sources: dict[str, bool | str | dict],
+    stream: str | None = None,
 ) -> tuple[str, dict[str, int]]:
     """Return Markdown summary for one segment's JSON files and counts by source.
 
@@ -500,6 +537,7 @@ def cluster_period(
         segment: Segment key in HHMMSS_LEN format (e.g., "163045_300")
         sources: Dict with keys "audio", "screen", "agents".
             Values can be bool, "required" string, or dict (for agents).
+        stream: Stream name. If None, searches all streams for the segment.
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
@@ -507,11 +545,10 @@ def cluster_period(
     """
     empty_counts = {"audio": 0, "screen": 0, "agents": 0}
 
-    day_dir = str(day_path(day))
-    segment_dir = Path(day_dir) / segment
+    segment_dir = _find_segment_dir(day, segment, stream)
 
-    if not segment_dir.is_dir():
-        return f"Segment folder not found: {segment_dir}", empty_counts
+    if segment_dir is None or not segment_dir.is_dir():
+        return f"Segment folder not found: {day}/{segment}", empty_counts
 
     entries = _load_entries_from_segment(
         str(segment_dir),
@@ -541,9 +578,10 @@ def _load_entries_from_segment(
     Returns:
         List of entry dicts with timestamp, prefix, content, etc.
     """
-    segment_path = Path(segment_dir)
-    date_str = _date_str(str(segment_path.parent))
-    entries = _process_segment(segment_path, date_str, audio, screen, agents)
+    segment_path_obj = Path(segment_dir)
+    # Parent is stream dir; grandparent is day dir
+    date_str = _date_str(str(segment_path_obj.parent.parent))
+    entries = _process_segment(segment_path_obj, date_str, audio, screen, agents)
     entries.sort(key=lambda e: e["timestamp"])
     return entries
 
@@ -552,6 +590,7 @@ def cluster_span(
     day: str,
     span: list[str],
     sources: dict[str, bool | str | dict],
+    stream: str | None = None,
 ) -> tuple[str, dict[str, int]]:
     """Return Markdown summary for a span of segments and counts by source.
 
@@ -565,6 +604,7 @@ def cluster_span(
         span: List of segment keys in HHMMSS_LEN format (e.g., ["163045_300", "170000_600"])
         sources: Dict with keys "audio", "screen", "agents".
             Values can be bool, "required" string, or dict (for agents).
+        stream: Stream name. If None, searches all streams for each segment.
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
@@ -574,24 +614,25 @@ def cluster_span(
         ValueError: If any segment directories are missing
     """
     empty_counts = {"audio": 0, "screen": 0, "agents": 0}
-    day_dir = str(day_path(day))
 
     # Validate all segments in span exist upfront (fail fast)
     missing = []
-    for segment_key in span:
-        segment_dir = Path(day_dir) / segment_key
-        if not segment_dir.is_dir():
-            missing.append(segment_key)
+    found_dirs: list[Path] = []
+    for seg_key in span:
+        seg_dir = _find_segment_dir(day, seg_key, stream)
+        if seg_dir is None:
+            missing.append(seg_key)
+        else:
+            found_dirs.append(seg_dir)
 
     if missing:
         raise ValueError(f"Segment directories not found: {', '.join(missing)}")
 
     # Load entries from all segments in span
     entries: list[dict[str, Any]] = []
-    for segment_key in span:
-        segment_dir = Path(day_dir) / segment_key
+    for seg_dir in found_dirs:
         segment_entries = _load_entries_from_segment(
-            str(segment_dir),
+            str(seg_dir),
             audio=sources.get("audio", False),
             screen=sources.get("screen", False),
             agents=sources.get("agents", False),

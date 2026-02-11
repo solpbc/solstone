@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from think.entities import get_identity_names
-from think.utils import day_path, get_journal
+from think.utils import day_path, get_journal, iter_segments
 
 
 def _get_principal_display_name() -> str | None:
@@ -468,40 +468,51 @@ def is_facet_muted(facet: str) -> bool:
     return bool(facets[facet].get("muted", False))
 
 
-def load_segment_facets(day: str, segment: str) -> list[str]:
+def load_segment_facets(day: str, segment: str, stream: str | None = None) -> list[str]:
     """Load facet IDs from a segment's facets.json output.
 
     Args:
         day: Day in YYYYMMDD format
         segment: Segment key (HHMMSS_LEN format)
+        stream: Optional stream name. If None, searches all streams for the segment.
 
     Returns:
         List of facet ID strings found in the segment's facets.json
     """
-    facets_file = day_path(day) / segment / "agents" / "facets.json"
+    if stream:
+        candidates = [day_path(day) / stream / segment / "agents" / "facets.json"]
+    else:
+        # Search all streams for this segment
+        candidates = []
+        for _s, seg_key, seg_path in iter_segments(day):
+            if seg_key == segment:
+                candidates.append(seg_path / "agents" / "facets.json")
 
-    if not facets_file.exists():
-        logging.debug(f"No facets.json found for segment {segment}")
-        return []
+    for facets_file in candidates:
+        if not facets_file.exists():
+            continue
 
-    try:
-        content = facets_file.read_text().strip()
-        if not content:
-            return []
+        try:
+            content = facets_file.read_text().strip()
+            if not content:
+                continue
 
-        data = json.loads(content)
-        if not isinstance(data, list):
-            logging.warning(f"facets.json is not an array: {facets_file}")
-            return []
+            data = json.loads(content)
+            if not isinstance(data, list):
+                logging.warning(f"facets.json is not an array: {facets_file}")
+                continue
 
-        return [item.get("facet") for item in data if item.get("facet")]
+            result = [item.get("facet") for item in data if item.get("facet")]
+            if result:
+                return result
 
-    except json.JSONDecodeError as e:
-        logging.error(f"Failed to parse facets.json for {segment}: {e}")
-        return []
-    except Exception as e:
-        logging.error(f"Error reading facets.json for {segment}: {e}")
-        return []
+        except json.JSONDecodeError as e:
+            logging.error(f"Failed to parse facets.json for {segment}: {e}")
+        except Exception as e:
+            logging.error(f"Error reading facets.json for {segment}: {e}")
+
+    logging.debug(f"No facets.json found for segment {segment}")
+    return []
 
 
 def get_active_facets(day: str) -> set[str]:
@@ -516,15 +527,10 @@ def get_active_facets(day: str) -> set[str]:
     Returns:
         Set of facet names that appeared in at least one segment's facets.json
     """
-    day_dir = day_path(day)
     active: set[str] = set()
 
-    if not day_dir.exists():
-        return active
-
-    for entry in day_dir.iterdir():
-        if entry.is_dir() and entry.name[:1].isdigit():
-            active.update(load_segment_facets(day, entry.name))
+    for stream_name, seg_key, seg_path in iter_segments(day):
+        active.update(load_segment_facets(day, seg_key, stream=stream_name))
 
     return active
 

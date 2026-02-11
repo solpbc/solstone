@@ -1206,9 +1206,15 @@ def _handle_segment_event_log(message: dict) -> None:
     if not day or not segment:
         return
 
+    stream = message.get("stream")
+
     try:
         journal_path = _get_journal_path()
-        segment_dir = journal_path / day / segment
+
+        if stream:
+            segment_dir = journal_path / day / stream / segment
+        else:
+            segment_dir = journal_path / day / segment
 
         # Only log if segment directory exists
         if not segment_dir.is_dir():

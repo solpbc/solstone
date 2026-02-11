@@ -42,9 +42,10 @@ from think.entities.journal import (
     load_all_journal_entities,
     load_journal_entity,
 )
-from think.utils import day_dirs, day_path, now_ms
+from think.utils import day_dirs, day_path, iter_segments, now_ms
 from think.utils import segment_key as validate_segment_key
 from think.utils import segment_parse
+from think.utils import segment_path as get_segment_path
 
 logger = logging.getLogger(__name__)
 
@@ -241,25 +242,17 @@ def _scan_segment_embeddings(day: str) -> list[dict]:
         - speakers: list of speaker names from speakers.json
         - speaker_count: number of speakers
     """
-    day_dir = day_path(day)
-    if not day_dir.is_dir():
-        return []
-
     segments = []
-    for item in sorted(os.listdir(day_dir)):
-        item_path = day_dir / item
-        if not item_path.is_dir():
-            continue
-
+    for s_stream, s_key, s_path in iter_segments(day):
         # Validate segment key format
-        parsed = segment_parse(item)
+        parsed = segment_parse(s_key)
         if parsed[0] is None:
             continue
 
         start_time, end_time = parsed
 
         # Find embedding files at segment root (new format: <stem>.npz)
-        npz_files = list(item_path.glob("*.npz"))
+        npz_files = list(s_path.glob("*.npz"))
         if not npz_files:
             continue
 
@@ -272,7 +265,7 @@ def _scan_segment_embeddings(day: str) -> list[dict]:
             continue
 
         # Load speakers.json - require at least one speaker
-        speakers = _load_segment_speakers(item_path)
+        speakers = _load_segment_speakers(s_path)
         if not speakers:
             continue
 
@@ -281,7 +274,8 @@ def _scan_segment_embeddings(day: str) -> list[dict]:
 
         segments.append(
             {
-                "key": item,
+                "key": s_key,
+                "stream": s_stream,
                 "start": f"{start_time.hour:02d}:{start_time.minute:02d}",
                 "end": f"{end_time.hour:02d}:{end_time.minute:02d}",
                 "duration": duration,
@@ -295,7 +289,7 @@ def _scan_segment_embeddings(day: str) -> list[dict]:
 
 
 def _load_sentences(
-    day: str, segment_key: str, source: str
+    day: str, segment_key: str, source: str, stream: str | None = None
 ) -> tuple[list[dict], tuple[np.ndarray, np.ndarray] | None]:
     """Load transcript sentences and their embeddings for an audio source.
 
@@ -303,13 +297,17 @@ def _load_sentences(
         day: Day string (YYYYMMDD)
         segment_key: Segment directory name (HHMMSS_LEN)
         source: Audio source stem (e.g., "mic_audio")
+        stream: Stream name for path resolution
 
     Returns:
         Tuple of (sentences, emb_data):
         - sentences: List of dicts with id, offset, text, has_embedding
         - emb_data: Tuple of (embeddings, statement_ids) or None if no embeddings
     """
-    segment_dir = day_path(day) / segment_key
+    if stream:
+        segment_dir = get_segment_path(day, segment_key, stream)
+    else:
+        segment_dir = day_path(day) / segment_key
 
     # Load JSONL transcript
     jsonl_path = segment_dir / f"{source}.jsonl"
@@ -363,10 +361,13 @@ def _load_sentences(
 
 
 def _get_sentence_embedding(
-    day: str, segment_key: str, source: str, sentence_id: int
+    day: str, segment_key: str, source: str, sentence_id: int, stream: str | None = None
 ) -> np.ndarray | None:
     """Get a specific sentence's embedding, normalized."""
-    segment_dir = day_path(day) / segment_key
+    if stream:
+        segment_dir = get_segment_path(day, segment_key, stream)
+    else:
+        segment_dir = day_path(day) / segment_key
     npz_path = segment_dir / f"{source}.npz"
 
     emb_data = _load_embeddings_file(npz_path)
@@ -497,8 +498,8 @@ def api_segments(day: str) -> Any:
     return jsonify({"segments": segments})
 
 
-@speakers_bp.route("/api/speakers/<day>/<segment_key>")
-def api_segment_speakers(day: str, segment_key: str) -> Any:
+@speakers_bp.route("/api/speakers/<day>/<stream>/<segment_key>")
+def api_segment_speakers(day: str, stream: str, segment_key: str) -> Any:
     """Return speaker names with entity matching for a segment.
 
     Matches detected speaker names against all journal entities.
@@ -510,7 +511,7 @@ def api_segment_speakers(day: str, segment_key: str) -> Any:
         return error_response("Invalid segment key", 400)
 
     # Load speakers from speakers.json
-    segment_dir = day_path(day) / segment_key
+    segment_dir = get_segment_path(day, segment_key, stream)
     speakers = _load_segment_speakers(segment_dir)
     if not speakers:
         return error_response("No speakers found for segment", 404)
@@ -544,8 +545,8 @@ def api_segment_speakers(day: str, segment_key: str) -> Any:
     )
 
 
-@speakers_bp.route("/api/sentences/<day>/<segment_key>/<source>")
-def api_sentences(day: str, segment_key: str, source: str) -> Any:
+@speakers_bp.route("/api/sentences/<day>/<stream>/<segment_key>/<source>")
+def api_sentences(day: str, stream: str, segment_key: str, source: str) -> Any:
     """Return sentences with embeddings and matches for an audio source."""
     if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 400)
@@ -554,7 +555,7 @@ def api_sentences(day: str, segment_key: str, source: str) -> Any:
         return error_response("Invalid segment key", 400)
 
     # Load sentences and embeddings
-    sentences, emb_data = _load_sentences(day, segment_key, source)
+    sentences, emb_data = _load_sentences(day, segment_key, source, stream=stream)
     if not sentences:
         return error_response("No transcript found", 404)
 
@@ -595,11 +596,11 @@ def api_sentences(day: str, segment_key: str, source: str) -> Any:
             all_entity_names.append(name)
 
     # Get audio file URL
-    segment_dir = day_path(day) / segment_key
+    segment_dir = get_segment_path(day, segment_key, stream)
     audio_file = None
     audio_path = segment_dir / f"{source}.flac"
     if audio_path.exists():
-        rel_path = f"{segment_key}/{source}.flac"
+        rel_path = f"{stream}/{segment_key}/{source}.flac"
         audio_file = (
             f"/app/speakers/api/serve_audio/{day}/{rel_path.replace('/', '__')}"
         )
@@ -662,6 +663,7 @@ def api_save_voiceprint() -> Any:
 
     entity_name = data.get("entity_name")
     day = data.get("day")
+    stream = data.get("stream")
     segment_key = data.get("segment_key")
     source = data.get("source")
     sentence_id = data.get("sentence_id")
@@ -685,7 +687,7 @@ def api_save_voiceprint() -> Any:
         return error_response(f"Entity '{entity_name}' is blocked", 400)
 
     # Load sentence embedding
-    emb = _get_sentence_embedding(day, segment_key, source, sentence_id)
+    emb = _get_sentence_embedding(day, segment_key, source, sentence_id, stream=stream)
     if emb is None:
         return error_response("Sentence embedding not found", 404)
 
@@ -725,6 +727,7 @@ def api_create_entity_voiceprint() -> Any:
     entity_type = data.get("type", "Person")
     entity_name = data.get("name")
     day = data.get("day")
+    stream = data.get("stream")
     segment_key = data.get("segment_key")
     source = data.get("source")
     sentence_id = data.get("sentence_id")
@@ -745,7 +748,7 @@ def api_create_entity_voiceprint() -> Any:
         return error_response(f"Entity '{entity_name}' already exists", 409)
 
     # Load sentence embedding
-    emb = _get_sentence_embedding(day, segment_key, source, sentence_id)
+    emb = _get_sentence_embedding(day, segment_key, source, sentence_id, stream=stream)
     if emb is None:
         return error_response("Sentence embedding not found", 404)
 

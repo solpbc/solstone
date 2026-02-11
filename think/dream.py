@@ -133,6 +133,7 @@ def _drain_priority_batch(
     target_schedule: str,
     day: str,
     segment: str | None,
+    stream: str | None = None,
 ) -> tuple[int, int]:
     """Wait for a batch of spawned agents and process their results.
 
@@ -144,6 +145,7 @@ def _drain_priority_batch(
         target_schedule: "segment" or "daily"
         day: Day in YYYYMMDD format
         segment: Optional segment key
+        stream: Optional stream name
 
     Returns:
         Tuple of (success_count, failed_count)
@@ -207,6 +209,7 @@ def _drain_priority_batch(
                     prompt_name,
                     segment=segment,
                     output_format=output_format,
+                    stream=stream,
                 )
 
                 if output_path.exists():
@@ -320,7 +323,7 @@ def run_prompts_by_priority(
         # Segment mode: reload active facets each group since earlier groups
         # (e.g., facets generator at priority 90) may have written facets.json
         if segment:
-            raw_facets = load_segment_facets(day, segment)
+            raw_facets = load_segment_facets(day, segment, stream=stream)
             active_facets = set(f for f in raw_facets if f in enabled_facets)
 
         spawned: list[tuple[str, str, dict, str | None]] = (
@@ -386,7 +389,7 @@ def run_prompts_by_priority(
                         # Drain batch when concurrency limit reached
                         if max_concurrency and len(spawned) >= max_concurrency:
                             s, f = _drain_priority_batch(
-                                spawned, target_schedule, day, segment
+                                spawned, target_schedule, day, segment, stream
                             )
                             group_success += s
                             group_failed += f
@@ -443,7 +446,7 @@ def run_prompts_by_priority(
                 total_failed += 1
 
         # Drain any remaining agents in this priority group
-        s, f = _drain_priority_batch(spawned, target_schedule, day, segment)
+        s, f = _drain_priority_batch(spawned, target_schedule, day, segment, stream)
         group_success += s
         group_failed += f
 
@@ -1303,6 +1306,7 @@ def main() -> None:
 
             for i, seg in enumerate(segments, 1):
                 seg_key = seg["key"]
+                seg_stream = seg.get("stream")
                 logging.info(
                     f"Processing segment {i}/{total}: {seg_key} ({seg['start']}-{seg['end']})"
                 )
@@ -1313,6 +1317,7 @@ def main() -> None:
                         force=args.force,
                         verbose=args.verbose,
                         max_concurrency=args.jobs,
+                        stream=seg_stream,
                     )
                     batch_success += success
                     batch_failed += failed

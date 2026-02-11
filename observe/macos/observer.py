@@ -327,7 +327,7 @@ class MacOSObserver:
 
         # Rename draft folder to final segment name (atomic handoff)
         if self.draft_dir and saved_files:
-            final_segment_dir = str(day_dir / segment_key)
+            final_segment_dir = str(day_dir / self.stream / segment_key)
             try:
                 os.rename(self.draft_dir, final_segment_dir)
                 logger.info(f"Segment finalized: {segment_key}")
@@ -415,7 +415,7 @@ class MacOSObserver:
 
     def _create_draft_folder(self) -> str:
         """Create a draft folder for the current segment."""
-        self.draft_dir = create_draft_folder(self.start_at)
+        self.draft_dir = create_draft_folder(self.start_at, self.stream)
         logger.debug(f"Created draft folder: {self.draft_dir}")
         return self.draft_dir
 

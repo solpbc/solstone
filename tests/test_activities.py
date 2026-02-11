@@ -391,7 +391,7 @@ class TestActivityRecordIO:
 
 def _setup_segment(tmpdir, day, segment, facet, state):
     """Helper to create an activity_state.json file in a segment."""
-    agents_dir = Path(tmpdir) / day / segment / "agents" / facet
+    agents_dir = Path(tmpdir) / day / "default" / segment / "agents" / facet
     agents_dir.mkdir(parents=True, exist_ok=True)
     state_file = agents_dir / "activity_state.json"
     state_file.write_text(json.dumps(state))
@@ -422,7 +422,7 @@ class TestListFacetsWithActivityState:
             _setup_segment(tmpdir, "20260209", "100000_300", "personal", [])
             _setup_segment(tmpdir, "20260209", "100000_300", "work", [])
 
-            facets = _list_facets_with_activity_state("20260209", "100000_300")
+            facets = _list_facets_with_activity_state("20260209", "100000_300", stream="default")
             assert facets == ["personal", "work"]
 
     def test_returns_empty_for_nonexistent(self, monkeypatch):
@@ -430,7 +430,7 @@ class TestListFacetsWithActivityState:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("JOURNAL_PATH", tmpdir)
-            assert _list_facets_with_activity_state("20260209", "100000_300") == []
+            assert _list_facets_with_activity_state("20260209", "100000_300", stream="default") == []
 
 
 class TestDetectEndedActivities:
@@ -626,9 +626,9 @@ class TestPreProcess:
 
             day_dir = Path(tmpdir) / "20260209"
             day_dir.mkdir()
-            (day_dir / "100000_300").mkdir()
+            (day_dir / "default" / "100000_300").mkdir(parents=True)
 
-            result = pre_process({"day": "20260209", "segment": "100000_300"})
+            result = pre_process({"day": "20260209", "segment": "100000_300", "stream": "default"})
             assert result is not None
             assert "skip_reason" in result
 
@@ -667,7 +667,7 @@ class TestPreProcess:
                 ],
             )
 
-            result = pre_process({"day": "20260209", "segment": "100500_300"})
+            result = pre_process({"day": "20260209", "segment": "100500_300", "stream": "default"})
             assert result is not None
             assert result.get("skip_reason") == "no_ended_activities"
 
@@ -696,7 +696,7 @@ class TestPreProcess:
             )
             _setup_segment(tmpdir, "20260209", "100500_300", "work", [])
 
-            result = pre_process({"day": "20260209", "segment": "100500_300"})
+            result = pre_process({"day": "20260209", "segment": "100500_300", "stream": "default"})
 
             assert "skip_reason" not in result
             assert "transcript" in result
@@ -731,7 +731,7 @@ class TestPreProcess:
             )
             _setup_segment(tmpdir, "20260209", "100500_300", "work", [])
 
-            context = {"day": "20260209", "segment": "100500_300"}
+            context = {"day": "20260209", "segment": "100500_300", "stream": "default"}
             pre_process(context)
             pre_process(context)
 
@@ -779,7 +779,7 @@ class TestPreProcess:
             _setup_segment(tmpdir, "20260209", "100500_300", "work", [])
             _setup_segment(tmpdir, "20260209", "100500_300", "personal", [])
 
-            result = pre_process({"day": "20260209", "segment": "100500_300"})
+            result = pre_process({"day": "20260209", "segment": "100500_300", "stream": "default"})
 
             assert "skip_reason" not in result
             assert "#work" in result["transcript"]
@@ -849,7 +849,7 @@ class TestPreProcess:
             # Coding ends
             _setup_segment(tmpdir, "20260209", "101500_300", "work", [])
 
-            pre_process({"day": "20260209", "segment": "101500_300"})
+            pre_process({"day": "20260209", "segment": "101500_300", "stream": "default"})
 
             records = load_activity_records("work", "20260209")
             assert len(records) == 1
@@ -964,7 +964,7 @@ class TestPreProcessMeta:
             _setup_segment(tmpdir, "20260209", "100500_300", "work", [])
 
             result = pre_process(
-                {"day": "20260209", "segment": "100500_300", "meta": {}}
+                {"day": "20260209", "segment": "100500_300", "stream": "default", "meta": {}}
             )
 
             assert "meta" in result
@@ -1015,7 +1015,7 @@ class TestPreProcessMeta:
             _setup_segment(tmpdir, "20260209", "100500_300", "work", [])
             _setup_segment(tmpdir, "20260209", "100500_300", "personal", [])
 
-            result = pre_process({"day": "20260209", "segment": "100500_300"})
+            result = pre_process({"day": "20260209", "segment": "100500_300", "stream": "default"})
 
             records = result["meta"]["activity_records"]
             assert "work" in records
@@ -1309,7 +1309,7 @@ class TestPreProcessFlush:
             )
 
             result = pre_process(
-                {"day": "20260209", "segment": "100000_300", "flush": True}
+                {"day": "20260209", "segment": "100000_300", "stream": "default", "flush": True}
             )
 
             # Should detect the active activity as ended
@@ -1345,7 +1345,7 @@ class TestPreProcessFlush:
             )
 
             result = pre_process(
-                {"day": "20260209", "segment": "100000_300", "flush": True}
+                {"day": "20260209", "segment": "100000_300", "stream": "default", "flush": True}
             )
             assert result["skip_reason"] == "no_active_activities"
 
@@ -1356,11 +1356,11 @@ class TestPreProcessFlush:
             monkeypatch.setenv("JOURNAL_PATH", tmpdir)
 
             # Create segment dir but no activity_state files
-            seg_dir = Path(tmpdir) / "20260209" / "100000_300"
+            seg_dir = Path(tmpdir) / "20260209" / "default" / "100000_300"
             seg_dir.mkdir(parents=True)
 
             result = pre_process(
-                {"day": "20260209", "segment": "100000_300", "flush": True}
+                {"day": "20260209", "segment": "100000_300", "stream": "default", "flush": True}
             )
             assert result["skip_reason"] == "no_activity_state"
 
@@ -1403,7 +1403,7 @@ class TestPreProcessFlush:
             )
 
             result = pre_process(
-                {"day": "20260209", "segment": "100000_300", "flush": True}
+                {"day": "20260209", "segment": "100000_300", "stream": "default", "flush": True}
             )
 
             assert "skip_reason" not in result
@@ -1437,7 +1437,7 @@ class TestPreProcessFlush:
                 ],
             )
 
-            context = {"day": "20260209", "segment": "100000_300", "flush": True}
+            context = {"day": "20260209", "segment": "100000_300", "stream": "default", "flush": True}
             pre_process(context)
             pre_process(context)
 
@@ -1467,7 +1467,7 @@ class TestPreProcessFlush:
             )
 
             result = pre_process(
-                {"day": "20260209", "segment": "100000_300", "flush": True}
+                {"day": "20260209", "segment": "100000_300", "stream": "default", "flush": True}
             )
 
             assert "meta" in result

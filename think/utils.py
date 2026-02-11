@@ -189,6 +189,69 @@ def day_dirs() -> dict[str, str]:
     return days
 
 
+# Directories at the day level that are NOT streams
+DAY_RESERVED_DIRS = {"agents", "indexer", "health", "remote"}
+
+
+def segment_path(day: str, segment: str, stream: str) -> Path:
+    """Return absolute path for a segment directory within a stream.
+
+    Parameters
+    ----------
+    day : str
+        Day in YYYYMMDD format.
+    segment : str
+        Segment key in HHMMSS_LEN format.
+    stream : str
+        Stream name (e.g., "archon", "import.apple").
+
+    Returns
+    -------
+    Path
+        Absolute path to the segment directory (created if it doesn't exist).
+    """
+    path = day_path(day) / stream / segment
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def iter_segments(day: str | Path) -> list[tuple[str, str, Path]]:
+    """Return all segments in a day, sorted chronologically.
+
+    Traverses the stream directory structure under a day directory and
+    returns segment information for all streams.
+
+    Parameters
+    ----------
+    day : str or Path
+        Day in YYYYMMDD format (str) or path to day directory (Path).
+
+    Returns
+    -------
+    list of (stream_name, segment_key, segment_path) tuples
+        Sorted by segment_key across all streams for chronological order.
+    """
+    if isinstance(day, Path):
+        day_dir = day
+    else:
+        day_dir = day_path(day)
+
+    if not day_dir.exists():
+        return []
+
+    results = []
+    for entry in day_dir.iterdir():
+        if not entry.is_dir() or entry.name in DAY_RESERVED_DIRS:
+            continue
+        stream_name = entry.name
+        for seg_entry in entry.iterdir():
+            if seg_entry.is_dir() and segment_key(seg_entry.name):
+                results.append((stream_name, seg_entry.name, seg_entry))
+
+    results.sort(key=lambda x: x[1])
+    return results
+
+
 def segment_key(name_or_path: str) -> str | None:
     """Extract segment key (HHMMSS_LEN) from any path/filename.
 
@@ -255,12 +318,19 @@ def segment_parse(
     # Extract just the segment name if it's a path
     if "/" in name_or_path or "\\" in name_or_path:
         path_parts = Path(name_or_path).parts
-        # Look for YYYYMMDD/HHMMSS_LEN pattern
+        # Look for segment key in path parts after a YYYYMMDD day directory.
+        # Layout is YYYYMMDD/stream/HHMMSS_LEN/...
+        name = None
         for i, part in enumerate(path_parts):
-            if part.isdigit() and len(part) == 8 and i + 1 < len(path_parts):
-                name = path_parts[i + 1]
-                break
-        else:
+            if part.isdigit() and len(part) == 8:
+                # Scan subsequent parts for a segment key
+                for j in range(i + 1, len(path_parts)):
+                    if segment_key(path_parts[j]):
+                        name = path_parts[j]
+                        break
+                if name:
+                    break
+        if name is None:
             return (None, None)
     else:
         name = name_or_path

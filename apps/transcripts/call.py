@@ -67,6 +67,7 @@ def read(
     segment: str | None = typer.Option(
         None, "--segment", help="Segment key (HHMMSS_LEN)."
     ),
+    stream: str | None = typer.Option(None, "--stream", help="Stream name."),
     full: bool = typer.Option(
         False, "--full", help="Include audio, screen, and agents."
     ),
@@ -113,7 +114,7 @@ def read(
         end_dt = start_dt + timedelta(minutes=length)
         markdown = cluster_range(day, start, end_dt.strftime("%H%M%S"), sources)
     elif segment is not None:
-        markdown, _counts = cluster_period(day, segment, sources)
+        markdown, _counts = cluster_period(day, segment, sources, stream=stream)
     else:
         markdown, _counts = cluster(day, sources)
 

@@ -41,7 +41,7 @@ def test_format_screen_extracts_segment_from_directory():
 
     # Simulate path structure: YYYYMMDD/HHMMSS_LEN/screen.jsonl
     context = {
-        "file_path": Path("20240101/143022_300/screen.jsonl"),
+        "file_path": Path("20240101/default/143022_300/screen.jsonl"),
         "include_entity_context": False,
     }
 
@@ -77,7 +77,7 @@ def test_format_screen_handles_segment_with_duration_suffix():
 
     # Segment with duration suffix: 143022_300 (5 minutes)
     context = {
-        "file_path": Path("20240101/143022_300/screen.jsonl"),
+        "file_path": Path("20240101/default/143022_300/screen.jsonl"),
         "include_entity_context": False,
     }
 
@@ -138,7 +138,7 @@ def test_format_screen_header_includes_monitor_info():
 
     # Per-monitor file with position/connector in filename
     context = {
-        "file_path": Path("20240101/120000_300/center_DP-3_screen.jsonl"),
+        "file_path": Path("20240101/default/120000_300/center_DP-3_screen.jsonl"),
         "include_entity_context": False,
     }
 
@@ -163,7 +163,7 @@ def test_format_screen_plain_screen_no_monitor_info():
     ]
 
     context = {
-        "file_path": Path("20240101/120000_300/screen.jsonl"),
+        "file_path": Path("20240101/default/120000_300/screen.jsonl"),
         "include_entity_context": False,
     }
 
@@ -184,7 +184,7 @@ def test_format_screen_includes_entity_context():
     ]
 
     context = {
-        "file_path": Path("20240101/120000/screen.jsonl"),
+        "file_path": Path("20240101/default/120000/screen.jsonl"),
         "entity_names": "Alice, Bob, ProjectX",
         "include_entity_context": True,
     }
@@ -213,7 +213,7 @@ def test_format_screen_includes_category_content():
     ]
 
     context = {
-        "file_path": Path("20240101/120000/screen.jsonl"),
+        "file_path": Path("20240101/default/120000/screen.jsonl"),
         "include_entity_context": False,
     }
 
@@ -347,7 +347,7 @@ def test_format_screen_uses_meeting_formatter():
     ]
 
     context = {
-        "file_path": Path("20240101/120000/screen.jsonl"),
+        "file_path": Path("20240101/default/120000/screen.jsonl"),
         "include_entity_context": False,
     }
 

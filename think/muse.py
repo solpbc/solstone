@@ -99,6 +99,7 @@ def get_output_path(
     segment: str | None = None,
     output_format: str | None = None,
     facet: str | None = None,
+    stream: str | None = None,
 ) -> Path:
     """Return output path for generator agent output.
 
@@ -119,13 +120,16 @@ def get_output_path(
     facet:
         Optional facet name for multi-facet agents. When provided, output is
         written under an agents/{facet}/ subdirectory.
+    stream:
+        Optional stream name for segment-level output. When provided with
+        segment, constructs path as YYYYMMDD/{stream}/{segment}/agents/...
 
     Returns
     -------
     Path
         Output file path:
-        - Segment + no facet: YYYYMMDD/{segment}/agents/{topic}.{ext}
-        - Segment + facet: YYYYMMDD/{segment}/agents/{facet}/{topic}.{ext}
+        - Segment + no facet: YYYYMMDD/{stream}/{segment}/agents/{topic}.{ext}
+        - Segment + facet: YYYYMMDD/{stream}/{segment}/agents/{facet}/{topic}.{ext}
         - Daily + no facet: YYYYMMDD/agents/{topic}.{ext}
         - Daily + facet: YYYYMMDD/agents/{facet}/{topic}.{ext}
         Where topic is derived from key and ext is "json" or "md".
@@ -135,10 +139,14 @@ def get_output_path(
     ext = "json" if output_format == "json" else "md"
     filename = f"{topic}.{ext}"
 
-    if segment and facet:
-        return day / segment / "agents" / facet / filename
     if segment:
-        return day / segment / "agents" / filename
+        if stream:
+            seg_dir = day / stream / segment
+        else:
+            seg_dir = day / segment
+        if facet:
+            return seg_dir / "agents" / facet / filename
+        return seg_dir / "agents" / filename
     if facet:
         return day / "agents" / facet / filename
     return day / "agents" / filename

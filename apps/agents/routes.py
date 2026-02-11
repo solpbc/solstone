@@ -164,6 +164,8 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
             req_segment = request_event.get("segment")
             req_facet = request_event.get("facet")
             req_name = request_event.get("name", "default")
+            req_env = request_event.get("env") or {}
+            req_stream = req_env.get("STREAM_NAME") if req_env else None
             if req_day:
                 day_dir = Path(state.journal_root) / req_day
                 out_path = get_output_path(
@@ -172,9 +174,10 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
                     segment=req_segment,
                     output_format=req_output,
                     facet=req_facet,
+                    stream=req_stream,
                 )
                 if out_path.exists():
-                    # Relative to day dir: "agents/activity.md" or "120000_1800/agents/media.md"
+                    # Relative to day dir: "agents/activity.md" or "archon/120000_1800/agents/media.md"
                     output_file = str(out_path.relative_to(day_dir))
         agent_info["output_file"] = output_file
 
@@ -390,6 +393,8 @@ def api_agent_run(agent_id: str) -> Any:
             req_segment = request_event.get("segment")
             req_facet = request_event.get("facet")
             req_name = request_event.get("name", "default")
+            req_env = request_event.get("env") or {}
+            req_stream = req_env.get("STREAM_NAME") if req_env else None
             if req_day:
                 day_dir = Path(state.journal_root) / req_day
                 out_path = get_output_path(
@@ -398,6 +403,7 @@ def api_agent_run(agent_id: str) -> Any:
                     segment=req_segment,
                     output_format=req_output,
                     facet=req_facet,
+                    stream=req_stream,
                 )
                 if out_path.exists():
                     output_file = str(out_path.relative_to(day_dir))

@@ -7,11 +7,9 @@ Generates activity span data from journal segments to identify optimal
 maintenance windows when the user is consistently inactive.
 """
 
-import os
-import re
 from datetime import datetime, timedelta
 
-from think.utils import get_journal
+from think.utils import iter_segments
 
 
 def _parse_segment(folder_name: str) -> tuple[datetime, int] | None:
@@ -32,19 +30,12 @@ def _parse_segment(folder_name: str) -> tuple[datetime, int] | None:
         return None
 
 
-def _get_segments(day_path: str) -> list[tuple[datetime, datetime]]:
+def _get_segments(day_str: str) -> list[tuple[datetime, datetime]]:
     """Get sorted list of segment time ranges for a day."""
     segments = []
 
-    if not os.path.isdir(day_path):
-        return segments
-
-    for entry in os.listdir(day_path):
-        entry_path = os.path.join(day_path, entry)
-        if not os.path.isdir(entry_path):
-            continue
-
-        parsed = _parse_segment(entry)
+    for _stream, seg_key, _seg_path in iter_segments(day_str):
+        parsed = _parse_segment(seg_key)
         if parsed is None:
             continue
 
@@ -117,7 +108,6 @@ def generate_span_summary(days: int = 7) -> str:
     Returns:
         Formatted text summarizing activity windows per day.
     """
-    journal = get_journal()
     lines = []
 
     end_date = datetime.now()
@@ -128,9 +118,8 @@ def generate_span_summary(days: int = 7) -> str:
 
     while current <= end_date:
         day_str = current.strftime("%Y%m%d")
-        day_path = os.path.join(journal, day_str)
 
-        segments = _get_segments(day_path)
+        segments = _get_segments(day_str)
         spans = _build_spans(segments)
 
         if spans:

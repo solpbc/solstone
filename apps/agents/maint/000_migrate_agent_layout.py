@@ -16,7 +16,7 @@ import argparse
 import shutil
 from pathlib import Path
 
-from think.utils import day_dirs, get_journal, segment_key, setup_cli
+from think.utils import day_dirs, get_journal, iter_segments, segment_key, setup_cli
 
 KNOWN_SEGMENT_AGENT_JSON = frozenset(
     {"facets.json", "speakers.json", "activity_state.json"}
@@ -156,17 +156,15 @@ def migrate_agent_layout(*, dry_run: bool) -> MigrationSummary:
         else set()
     )
 
-    for _, day_abs in sorted(day_dirs().items()):
+    for day_name, day_abs in sorted(day_dirs().items()):
         day_dir = Path(day_abs)
         if not day_dir.is_dir():
             continue
 
-        # Segment directories
-        for child in sorted(day_dir.iterdir()):
-            if not child.is_dir() or not segment_key(child.name):
-                continue
+        # Segment directories (across all streams)
+        for _stream, _seg_key, seg_path in iter_segments(day_name):
             _migrate_segment_outputs(
-                child,
+                seg_path,
                 facet_names=facet_names,
                 dry_run=dry_run,
                 summary=summary,

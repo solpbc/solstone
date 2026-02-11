@@ -30,7 +30,7 @@ from observe.screen import format_screen
 from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 from think.cluster import cluster_scan, cluster_segments
 from think.models import get_usage_cost
-from think.utils import day_dirs, day_path
+from think.utils import day_dirs, day_path, segment_path
 from think.utils import segment_key as validate_segment_key
 
 # Regex for HHMMSS time format validation
@@ -165,8 +165,8 @@ def _format_time_from_offset(segment_key: str, offset_sec: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}"
 
 
-@transcripts_bp.route("/api/segment/<day>/<segment_key>")
-def segment_content(day: str, segment_key: str) -> Any:
+@transcripts_bp.route("/api/segment/<day>/<stream>/<segment_key>")
+def segment_content(day: str, stream: str, segment_key: str) -> Any:
     """Return unified timeline of audio and screen entries for a segment.
 
     Uses format_audio() and format_screen() to get chunks with source data,
@@ -191,8 +191,7 @@ def segment_content(day: str, segment_key: str) -> Any:
     if not validate_segment_key(segment_key):
         return "", 404
 
-    day_dir = str(day_path(day))
-    segment_dir = os.path.join(day_dir, segment_key)
+    segment_dir = str(segment_path(day, segment_key, stream))
     if not os.path.isdir(segment_dir):
         return "", 404
 
@@ -217,7 +216,7 @@ def segment_content(day: str, segment_key: str) -> Any:
 
             # Validate raw points to an audio file (skip if not)
             if raw_audio and raw_audio.endswith(AUDIO_EXTENSIONS):
-                rel_path = f"{segment_key}/{raw_audio}"
+                rel_path = f"{stream}/{segment_key}/{raw_audio}"
                 audio_file_url = f"/app/transcripts/api/serve_file/{day}/{rel_path.replace('/', '__')}"
                 audio_full = os.path.join(segment_dir, raw_audio)
                 if os.path.isfile(audio_full):
@@ -268,7 +267,7 @@ def segment_content(day: str, segment_key: str) -> Any:
             if raw_video and raw_video.endswith(VIDEO_EXTENSIONS):
                 video_full = os.path.join(segment_dir, raw_video)
                 if os.path.isfile(video_full):
-                    rel_path = f"{segment_key}/{raw_video}"
+                    rel_path = f"{stream}/{segment_key}/{raw_video}"
                     video_files[filename] = (
                         f"/app/transcripts/api/serve_file/{day}/{rel_path.replace('/', '__')}"
                     )
@@ -361,8 +360,8 @@ def segment_content(day: str, segment_key: str) -> Any:
     )
 
 
-@transcripts_bp.route("/api/segment/<day>/<segment_key>", methods=["DELETE"])
-def delete_segment(day: str, segment_key: str) -> Any:
+@transcripts_bp.route("/api/segment/<day>/<stream>/<segment_key>", methods=["DELETE"])
+def delete_segment(day: str, stream: str, segment_key: str) -> Any:
     """Delete a segment directory and all its contents.
 
     This permanently removes all audio files, screen recordings, transcripts,
@@ -370,6 +369,7 @@ def delete_segment(day: str, segment_key: str) -> Any:
 
     Args:
         day: Day in YYYYMMDD format
+        stream: Stream name
         segment_key: Segment directory name (HHMMSS_LEN format)
 
     Returns:
@@ -382,7 +382,7 @@ def delete_segment(day: str, segment_key: str) -> Any:
         return error_response("Invalid segment key format", 400)
 
     day_dir = str(day_path(day))
-    segment_dir = os.path.join(day_dir, segment_key)
+    segment_dir = str(segment_path(day, segment_key, stream))
 
     # Verify segment exists
     if not os.path.isdir(segment_dir):

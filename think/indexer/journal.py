@@ -169,9 +169,9 @@ def _extract_stream(journal: str, rel: str) -> str | None:
     from think.utils import segment_key
 
     parts = rel.replace("\\", "/").split("/")
-    # Segment paths: parts[0]=day, parts[1]=segment, parts[2+]=file
-    if len(parts) >= 2 and segment_key(parts[1]):
-        seg_dir = os.path.join(journal, parts[0], parts[1])
+    # Segment paths: parts[0]=day, parts[1]=stream, parts[2]=segment, parts[3+]=file
+    if len(parts) >= 3 and segment_key(parts[2]):
+        seg_dir = os.path.join(journal, parts[0], parts[1], parts[2])
         marker = read_segment_stream(seg_dir)
         if marker:
             return marker.get("stream")

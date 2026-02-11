@@ -352,7 +352,7 @@ class Observer:
 
         # Rename draft folder to final segment name (atomic handoff)
         if self.draft_dir and files:
-            final_segment_dir = str(day_dir / segment_key)
+            final_segment_dir = str(day_dir / self.stream / segment_key)
             try:
                 os.rename(self.draft_dir, final_segment_dir)
                 logger.info(
@@ -430,7 +430,7 @@ class Observer:
 
     def _create_draft_folder(self) -> str:
         """Create a draft folder for the current segment."""
-        self.draft_dir = create_draft_folder(self.start_at)
+        self.draft_dir = create_draft_folder(self.start_at, self.stream)
         logger.debug(f"Created draft folder: {self.draft_dir}")
         return self.draft_dir
 
@@ -745,7 +745,7 @@ class Observer:
         segment_key = f"{time_part}_{duration}"
 
         if self.draft_dir and files:
-            final_segment_dir = str(day_dir / segment_key)
+            final_segment_dir = str(day_dir / self.stream / segment_key)
             try:
                 os.rename(self.draft_dir, final_segment_dir)
                 logger.info(f"Final segment: {self.draft_dir} -> {final_segment_dir}")

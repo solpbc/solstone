@@ -12,8 +12,8 @@ def test_scan_day(tmp_path, monkeypatch):
     day.mkdir()
 
     # Create an audio jsonl file in segment directory (already processed)
-    ts_dir = day / "123456_300"
-    ts_dir.mkdir()
+    ts_dir = day / "default" / "123456_300"
+    ts_dir.mkdir(parents=True)
     (ts_dir / "audio.jsonl").write_text(
         '{"raw": "raw.flac"}\n'
         '{"start": "10:00:00", "text": "hello"}\n'
@@ -21,8 +21,8 @@ def test_scan_day(tmp_path, monkeypatch):
     )
 
     # Create unprocessed media files in a second segment directory (no jsonl output yet)
-    ts_dir2 = day / "134500_300"
-    ts_dir2.mkdir()
+    ts_dir2 = day / "default" / "134500_300"
+    ts_dir2.mkdir(parents=True)
     (ts_dir2 / "audio.flac").write_bytes(b"RIFF")
     (ts_dir2 / "center_DP-1_screen.webm").write_bytes(b"WEBM")
 
@@ -187,8 +187,8 @@ def test_caching(tmp_path, monkeypatch):
     day.mkdir()
 
     # Create an audio jsonl file in segment directory
-    ts_dir = day / "123456_300"
-    ts_dir.mkdir()
+    ts_dir = day / "default" / "123456_300"
+    ts_dir.mkdir(parents=True)
     (ts_dir / "audio.jsonl").write_text(
         '{"raw": "raw.flac"}\n'
         '{"start": "10:00:00", "text": "hello"}\n'

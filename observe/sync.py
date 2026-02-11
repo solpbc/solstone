@@ -28,7 +28,7 @@ from urllib.parse import urlparse
 import requests
 
 from think.callosum import CallosumConnection
-from think.utils import day_path, now_ms, setup_cli
+from think.utils import day_path, now_ms, segment_path, setup_cli
 
 from .utils import compute_file_sha256
 
@@ -419,7 +419,8 @@ class SyncService:
             meta.update(message["meta"])
 
         # Compute sha256 for all files
-        segment_dir = day_path(day) / segment
+        stream = meta.get("stream", "") if meta else ""
+        segment_dir = day_path(day) / stream / segment if stream else day_path(day) / segment
         file_info = []
         for filename in files:
             file_path = segment_dir / filename
@@ -472,9 +473,13 @@ class SyncService:
         """Process a single segment: upload, confirm, cleanup."""
         day = seg_info.day
         segment = seg_info.segment
+        stream = seg_info.meta.get("stream", "") if seg_info.meta else ""
         expected_sha256s = {f["name"]: f["sha256"] for f in seg_info.files}
 
         logger.info(f"Processing segment: {day}/{segment}")
+
+        # Build segment directory path (includes stream level)
+        seg_dir = day_path(day) / stream / segment if stream else day_path(day) / segment
 
         # Check if already confirmed on server before uploading
         # This handles crash recovery where we have a pending record but server already has it
@@ -495,10 +500,9 @@ class SyncService:
             }
             append_sync_record(day, record)
 
-            segment_dir = day_path(day) / segment
-            file_paths = [segment_dir / f["name"] for f in seg_info.files]
+            file_paths = [seg_dir / f["name"] for f in seg_info.files]
             existing_files = [p for p in file_paths if p.exists()]
-            self._cleanup_segment(day, segment, existing_files)
+            self._cleanup_segment(seg_dir, existing_files)
 
             with self._lock:
                 self._last_confirmed = f"{day}/{segment}"
@@ -513,7 +517,7 @@ class SyncService:
                 self._current_state = "uploading"
                 self._confirm_attempt = 0
 
-            segment_dir = day_path(day) / segment
+            segment_dir = seg_dir
             file_paths = [segment_dir / f["name"] for f in seg_info.files]
 
             # Filter to existing files
@@ -561,7 +565,7 @@ class SyncService:
                 append_sync_record(day, record)
 
                 # Cleanup local files
-                self._cleanup_segment(day, segment, existing_files)
+                self._cleanup_segment(seg_dir, existing_files)
 
                 with self._lock:
                     self._last_confirmed = f"{day}/{segment}"
@@ -629,7 +633,7 @@ class SyncService:
 
         return False
 
-    def _cleanup_segment(self, day: str, segment: str, file_paths: list[Path]) -> None:
+    def _cleanup_segment(self, segment_dir: Path, file_paths: list[Path]) -> None:
         """Delete local segment files after confirmation."""
         for path in file_paths:
             try:
@@ -640,7 +644,6 @@ class SyncService:
                 logger.warning(f"Failed to delete {path}: {e}")
 
         # Try to remove segment directory if empty
-        segment_dir = day_path(day) / segment
         try:
             segment_dir.rmdir()
             logger.debug(f"Removed empty segment directory: {segment_dir}")

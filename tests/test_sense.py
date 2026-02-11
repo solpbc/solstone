@@ -240,13 +240,13 @@ def test_file_sensor_register():
 def test_file_sensor_match_pattern():
     """Test pattern matching logic.
 
-    Files are expected to be in segment directories: journal/YYYYMMDD/HHMMSS_LEN/file.ext
+    Files are expected to be in segment directories: journal/YYYYMMDD/stream/HHMMSS_LEN/file.ext
     """
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Create journal/day/segment structure
+        # Create journal/day/stream/segment structure
         journal_dir = Path(tmpdir)
         day_dir = journal_dir / "20250101"
-        segment_dir = day_dir / "123456_300"
+        segment_dir = day_dir / "default" / "123456_300"
         segment_dir.mkdir(parents=True)
 
         sensor = FileSensor(journal_dir)
@@ -390,9 +390,9 @@ def test_file_sensor_spawn_handler_failing_process(tmp_path):
 def test_file_sensor_handle_file(tmp_path):
     """Test file handling dispatches to correct handler."""
     with patch.object(FileSensor, "_spawn_handler") as mock_spawn:
-        # Create journal/day/segment structure
+        # Create journal/day/stream/segment structure
         day_dir = tmp_path / "20250101"
-        segment_dir = day_dir / "143022_300"
+        segment_dir = day_dir / "default" / "143022_300"
         segment_dir.mkdir(parents=True)
 
         sensor = FileSensor(tmp_path)
@@ -440,9 +440,9 @@ def test_file_sensor_stop():
 def test_file_sensor_handle_callosum_message(tmp_path):
     """Test handling of observe.observing Callosum events."""
     with patch.object(FileSensor, "_handle_file") as mock_handle:
-        # Create journal/day/segment structure
+        # Create journal/day/stream/segment structure
         day_dir = tmp_path / "20250101"
-        segment_dir = day_dir / "143022_300"
+        segment_dir = day_dir / "default" / "143022_300"
         segment_dir.mkdir(parents=True)
 
         sensor = FileSensor(tmp_path)
@@ -460,6 +460,7 @@ def test_file_sensor_handle_callosum_message(tmp_path):
             "tract": "observe",
             "event": "observing",
             "day": "20250101",
+            "stream": "default",
             "segment": "143022_300",
             "files": ["audio.flac", "center_DP-3_screen.webm"],
         }
@@ -521,9 +522,9 @@ def test_file_sensor_segment_observed_includes_day(tmp_path, mock_callosum):
     """Test that observe.observed event includes day field."""
     from think.callosum import CallosumConnection
 
-    # Create journal/day/segment structure
+    # Create journal/day/stream/segment structure
     day_dir = tmp_path / "20250101"
-    segment_dir = day_dir / "143022_300"
+    segment_dir = day_dir / "default" / "143022_300"
     segment_dir.mkdir(parents=True)
 
     sensor = FileSensor(tmp_path)
@@ -543,6 +544,7 @@ def test_file_sensor_segment_observed_includes_day(tmp_path, mock_callosum):
         "tract": "observe",
         "event": "observing",
         "day": "20250101",
+        "stream": "default",
         "segment": "143022_300",
         "files": ["audio.flac"],
     }
@@ -573,9 +575,9 @@ def test_file_sensor_segment_observed_no_handlers(tmp_path, mock_callosum):
     """
     from think.callosum import CallosumConnection
 
-    # Create journal/day/segment structure
+    # Create journal/day/stream/segment structure
     day_dir = tmp_path / "20250101"
-    segment_dir = day_dir / "143022_300"
+    segment_dir = day_dir / "default" / "143022_300"
     segment_dir.mkdir(parents=True)
 
     sensor = FileSensor(tmp_path)
@@ -597,6 +599,7 @@ def test_file_sensor_segment_observed_no_handlers(tmp_path, mock_callosum):
         "tract": "observe",
         "event": "observing",
         "day": "20250101",
+        "stream": "default",
         "segment": "143022_300",
         "files": ["tmux_0_screen.jsonl"],
     }
@@ -621,9 +624,9 @@ def test_delete_outputs_screen(tmp_path):
     """Test delete_outputs with screen type."""
     from observe.sense import delete_outputs
 
-    # Create journal/day/segment structure
+    # Create journal/day/stream/segment structure
     day_dir = tmp_path / "20250101"
-    segment_dir = day_dir / "143022_300"
+    segment_dir = day_dir / "default" / "143022_300"
     segment_dir.mkdir(parents=True)
 
     # Create source files and outputs
@@ -645,9 +648,9 @@ def test_delete_outputs_audio(tmp_path):
     """Test delete_outputs with audio type."""
     from observe.sense import delete_outputs
 
-    # Create journal/day/segment structure
+    # Create journal/day/stream/segment structure
     day_dir = tmp_path / "20250101"
-    segment_dir = day_dir / "143022_300"
+    segment_dir = day_dir / "default" / "143022_300"
     segment_dir.mkdir(parents=True)
 
     # Create source files and outputs
@@ -669,9 +672,9 @@ def test_delete_outputs_dry_run(tmp_path):
     """Test delete_outputs with dry_run=True."""
     from observe.sense import delete_outputs
 
-    # Create journal/day/segment structure
+    # Create journal/day/stream/segment structure
     day_dir = tmp_path / "20250101"
-    segment_dir = day_dir / "143022_300"
+    segment_dir = day_dir / "default" / "143022_300"
     segment_dir.mkdir(parents=True)
 
     # Create source files and outputs
@@ -689,10 +692,10 @@ def test_delete_outputs_segment_filter(tmp_path):
     """Test delete_outputs with segment filter."""
     from observe.sense import delete_outputs
 
-    # Create journal/day/segments structure
+    # Create journal/day/stream/segments structure
     day_dir = tmp_path / "20250101"
-    segment1 = day_dir / "143022_300"
-    segment2 = day_dir / "150022_300"
+    segment1 = day_dir / "default" / "143022_300"
+    segment2 = day_dir / "default" / "150022_300"
     segment1.mkdir(parents=True)
     segment2.mkdir(parents=True)
 

@@ -10,10 +10,10 @@ import pytest
 
 @pytest.fixture
 def segment_dir(tmp_path, monkeypatch):
-    """Create a temporary journal with segment directory."""
+    """Create a temporary journal with segment directory (stream layout)."""
     journal = tmp_path / "journal"
     day_dir = journal / "20240115"
-    segment_path = day_dir / "120000_300"
+    segment_path = day_dir / "default" / "120000_300"
     segment_path.mkdir(parents=True)
     (segment_path / "agents").mkdir(parents=True)
 
@@ -326,7 +326,7 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "run_queued_command", mock_run_queued_command)
 
         dream.run_prompts_by_priority(
-            "20240115", "120000_300", force=False, verbose=False
+            "20240115", "120000_300", force=False, verbose=False, stream="default"
         )
 
         # Verify indexer was called with --rescan-file

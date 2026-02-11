@@ -18,12 +18,11 @@ Post-hook resolves timing metadata:
 import json
 import logging
 import os
-import re
 from datetime import datetime, timedelta
 
 from think.activities import make_activity_id
 from think.callosum import callosum_send
-from think.utils import day_path, segment_parse
+from think.utils import day_path, iter_segments, segment_parse, segment_path
 
 logger = logging.getLogger(__name__)
 
@@ -69,62 +68,60 @@ def _get_segment_end_time(segment: str) -> datetime | None:
     return datetime(2000, 1, 1, end.hour, end.minute, end.second)
 
 
-def find_previous_segment(day: str, current_segment: str) -> str | None:
+def find_previous_segment(
+    day: str, current_segment: str, stream: str | None = None
+) -> str | None:
     """Find the segment immediately before the current one.
 
-    Scans the day directory for segment folders, sorts by time,
-    and returns the one before current_segment.
+    Uses iter_segments() to traverse the stream directory structure.
+    When stream is provided, only segments in that stream are considered.
 
     Returns None if current is the first segment or no segments found.
     """
-    day_dir = day_path(day)
-    if not day_dir.is_dir():
+    all_segments = iter_segments(day)
+    if not all_segments:
         return None
 
-    # Collect valid segment folders
-    segments = []
-    for entry in os.listdir(day_dir):
-        entry_path = day_dir / entry
-        if not entry_path.is_dir():
-            continue
-        # Match segment pattern: HHMMSS_LEN or HHMMSS_LEN_suffix
-        if re.match(r"^\d{6}_\d+", entry):
-            segments.append(entry)
+    # Filter by stream when provided
+    if stream:
+        segment_keys = [s_key for s_stream, s_key, _s_path in all_segments if s_stream == stream]
+    else:
+        segment_keys = [s_key for _s_stream, s_key, _s_path in all_segments]
 
-    if not segments:
+    if not segment_keys:
         return None
-
-    # Sort by time (segment keys sort lexicographically by time)
-    segments.sort()
 
     # Find current segment's position
     try:
-        current_idx = segments.index(current_segment)
+        current_idx = segment_keys.index(current_segment)
     except ValueError:
         # Current segment not in list - might be new
         # Find where it would be inserted
-        for i, seg in enumerate(segments):
+        for i, seg in enumerate(segment_keys):
             if seg > current_segment:
                 current_idx = i
                 break
         else:
-            current_idx = len(segments)
+            current_idx = len(segment_keys)
 
     # Return previous if exists
     if current_idx > 0:
-        return segments[current_idx - 1]
+        return segment_keys[current_idx - 1]
     return None
 
 
 def load_previous_state(
-    day: str, segment: str, facet: str
+    day: str, segment: str, facet: str, stream: str | None = None
 ) -> tuple[list | None, str | None]:
     """Load activity state from a previous segment.
 
     Returns tuple of (state_list, segment_key) where state_list is the
     parsed JSON array or None if not found/invalid.
     """
-    state_path = day_path(day) / segment / "agents" / facet / "activity_state.json"
+    if stream:
+        state_path = segment_path(day, segment, stream) / "agents" / facet / "activity_state.json"
+    else:
+        state_path = day_path(day) / segment / "agents" / facet / "activity_state.json"
     if not state_path.exists():
         return None, None
 
@@ -285,6 +282,7 @@ def pre_process(context: dict) -> dict | None:
     """
     day = context.get("day")
     segment = context.get("segment")
+    stream = context.get("stream")
     output_path = context.get("output_path", "")
     transcript = context.get("transcript", "")
     meta = context.get("meta", {})
@@ -306,7 +304,7 @@ def pre_process(context: dict) -> dict | None:
     activities_context = format_activities_context(facet)
 
     # Find and load previous segment state
-    previous_segment = find_previous_segment(day, segment)
+    previous_segment = find_previous_segment(day, segment, stream=stream)
     previous_state = None
     timed_out = False
 
@@ -315,7 +313,9 @@ def pre_process(context: dict) -> dict | None:
         timed_out = check_timeout(segment, previous_segment, timeout_seconds)
 
         if not timed_out:
-            previous_state, _ = load_previous_state(day, previous_segment, facet)
+            previous_state, _ = load_previous_state(
+                day, previous_segment, facet, stream=stream
+            )
 
     # Format previous state context
     previous_context = format_previous_state(
@@ -464,6 +464,7 @@ def post_process(result: str, context: dict) -> str | None:
         return None
 
     day = context.get("day")
+    stream = context.get("stream")
     output_path = context.get("output_path", "")
 
     # Parse LLM output
@@ -483,9 +484,11 @@ def post_process(result: str, context: dict) -> str | None:
     if day:
         facet = _extract_facet_from_output_path(output_path)
         if facet:
-            previous_segment = find_previous_segment(day, segment)
+            previous_segment = find_previous_segment(day, segment, stream=stream)
             if previous_segment:
-                prev_state, _ = load_previous_state(day, previous_segment, facet)
+                prev_state, _ = load_previous_state(
+                    day, previous_segment, facet, stream=stream
+                )
                 if prev_state:
                     prev_active = [
                         item for item in prev_state if item.get("state") == "active"

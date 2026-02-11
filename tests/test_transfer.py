@@ -87,10 +87,10 @@ class TestTransferExport:
         """Test create_archive creates valid archive."""
         from observe.transfer import create_archive
 
-        # Set up mock journal
+        # Set up mock journal with day/stream/segment structure
         journal_path = tmp_path / "journal"
         day_dir = journal_path / "20250101"
-        segment_dir = day_dir / "120000_300"
+        segment_dir = day_dir / "default" / "120000_300"
         segment_dir.mkdir(parents=True)
 
         # Add test files to segment
@@ -114,15 +114,15 @@ class TestTransferExport:
         with tarfile.open(output_path, "r:gz") as tar:
             names = tar.getnames()
             assert "manifest.json" in names
-            assert "120000_300/audio.flac" in names
-            assert "120000_300/audio.jsonl" in names
+            assert "default/120000_300/audio.flac" in names
+            assert "default/120000_300/audio.jsonl" in names
 
             # Verify manifest
             manifest_file = tar.extractfile("manifest.json")
             manifest = json.load(manifest_file)
             assert manifest["version"] == 1
             assert manifest["day"] == "20250101"
-            assert "120000_300" in manifest["segments"]
+            assert "default/120000_300" in manifest["segments"]
 
     def test_create_archive_no_segments_error(self, tmp_path, monkeypatch):
         """Test create_archive raises error for empty day."""

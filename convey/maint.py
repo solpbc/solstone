@@ -14,7 +14,7 @@ State tracking:
 Discovery:
 - Scans apps/*/maint/*.py for task scripts
 - Skips files starting with underscore
-- Tasks run in sorted order by (app, task) name
+- Tasks run in sorted order by task name (app as tiebreaker)
 
 Execution:
 - Tasks run as subprocesses
@@ -103,6 +103,7 @@ def discover_tasks() -> list[MaintTask]:
                 )
             )
 
+    tasks.sort(key=lambda t: (t.name, t.app))
     return tasks
 
 

@@ -25,9 +25,11 @@ def sync_journal(tmp_path):
     day_dir = journal / day
     day_dir.mkdir()
 
-    # Create segment with files
+    # Create segment with files under default stream
     segment = "120000_300"
-    segment_dir = day_dir / segment
+    stream_dir = day_dir / "default"
+    stream_dir.mkdir()
+    segment_dir = stream_dir / segment
     segment_dir.mkdir()
 
     audio_file = segment_dir / "audio.flac"
@@ -49,7 +51,7 @@ def test_compute_file_sha256(sync_journal):
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    test_file = journal / day / "120000_300" / "audio.flac"
+    test_file = journal / day / "default" / "120000_300" / "audio.flac"
     sha = compute_file_sha256(test_file)
 
     # Just verify it's a valid SHA256 hex string
@@ -125,8 +127,8 @@ def test_get_pending_segments(sync_journal, monkeypatch):
     )
 
     # Add another pending segment
-    segment2_dir = journal / day / "130000_300"
-    segment2_dir.mkdir()
+    segment2_dir = journal / day / "default" / "130000_300"
+    segment2_dir.mkdir(parents=True)
     append_sync_record(
         day,
         {
@@ -320,7 +322,7 @@ class TestSyncService:
 
         service = SyncService("https://server/ingest/key")
 
-        segment_dir = journal / day / "120000_300"
+        segment_dir = journal / day / "default" / "120000_300"
         audio_file = segment_dir / "audio.flac"
         video_file = segment_dir / "screen.webm"
 
@@ -329,7 +331,7 @@ class TestSyncService:
         assert video_file.exists()
 
         # Cleanup
-        service._cleanup_segment(day, "120000_300", [audio_file, video_file])
+        service._cleanup_segment(segment_dir, [audio_file, video_file])
 
         # Files should be deleted
         assert not audio_file.exists()
@@ -359,6 +361,7 @@ class TestSyncService:
             "files": ["audio.flac", "screen.webm"],
             "host": "testhost",
             "platform": "linux",
+            "stream": "default",
             "meta": {"facet": "work"},
         }
 
@@ -435,6 +438,7 @@ def test_process_segment_skips_upload_if_already_confirmed(sync_journal, monkeyp
             {"name": "audio.flac", "sha256": "abc123"},
             {"name": "screen.webm", "sha256": "def456"},
         ],
+        meta={"stream": "default"},
     )
 
     with patch("observe.sync.CallosumConnection") as mock_callosum_class:
@@ -485,6 +489,7 @@ def test_process_segment_uploads_if_not_on_server(sync_journal, monkeypatch):
         files=[
             {"name": "audio.flac", "sha256": "abc123"},
         ],
+        meta={"stream": "default"},
     )
 
     with patch("observe.sync.CallosumConnection") as mock_callosum_class:
@@ -538,7 +543,7 @@ def test_process_segment_passes_metadata_to_upload(sync_journal, monkeypatch):
         files=[
             {"name": "audio.flac", "sha256": "abc123"},
         ],
-        meta={"host": "laptop", "platform": "linux", "facet": "meetings"},
+        meta={"host": "laptop", "platform": "linux", "facet": "meetings", "stream": "default"},
     )
 
     with patch("observe.sync.CallosumConnection") as mock_callosum_class:
@@ -580,6 +585,7 @@ def test_process_segment_passes_metadata_to_upload(sync_journal, monkeypatch):
                 "host": "laptop",
                 "platform": "linux",
                 "facet": "meetings",
+                "stream": "default",
             }
 
 

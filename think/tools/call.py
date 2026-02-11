@@ -20,7 +20,7 @@ from think.facets import facet_summary, get_enabled_facets, get_facet_news
 from think.indexer.journal import get_events as get_events_impl
 from think.indexer.journal import search_counts as search_counts_impl
 from think.indexer.journal import search_journal as search_journal_impl
-from think.utils import get_journal, truncated_echo
+from think.utils import get_journal, iter_segments, truncated_echo
 
 app = typer.Typer(help="Journal search and browsing.")
 
@@ -212,21 +212,18 @@ def topics(
     if agents_path.is_dir():
         _list_outputs(agents_path, "Daily agents")
 
-    # List segments and their outputs
-    segments = sorted(
-        d.name
-        for d in day_path.iterdir()
-        if d.is_dir() and SEGMENT_RE.fullmatch(d.name)
-    )
-    if segments:
-        typer.echo(f"\nSegments: {len(segments)}")
-        for seg in segments:
-            seg_path = day_path / seg / "agents"
-            outputs = _get_output_names(seg_path)
+    # List segments and their outputs (across all streams)
+    seg_list = iter_segments(day)
+    if seg_list:
+        typer.echo(f"\nSegments: {len(seg_list)}")
+        for stream_name, seg_key, seg_path_obj in seg_list:
+            agents_dir = seg_path_obj / "agents"
+            outputs = _get_output_names(agents_dir)
+            label = f"  {stream_name}/{seg_key}" if stream_name else f"  {seg_key}"
             if outputs:
-                typer.echo(f"  {seg}: {', '.join(outputs)}")
+                typer.echo(f"{label}: {', '.join(outputs)}")
             else:
-                typer.echo(f"  {seg}: (no outputs)")
+                typer.echo(f"{label}: (no outputs)")
 
 
 def _get_output_names(directory: Path) -> list[str]:

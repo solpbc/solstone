@@ -209,10 +209,11 @@ def _load_transcript(
             cluster_sources[k] = source_is_enabled(v)
 
     # Build transcript via clustering
+    stream = os.environ.get("STREAM_NAME")
     if span:
-        return cluster_span(day, span, sources=cluster_sources)
+        return cluster_span(day, span, sources=cluster_sources, stream=stream)
     elif segment:
-        return cluster_period(day, segment, sources=cluster_sources)
+        return cluster_period(day, segment, sources=cluster_sources, stream=stream)
     else:
         return cluster(day, sources=cluster_sources)
 
@@ -345,9 +346,15 @@ def prepare_config(request: dict) -> dict:
         if output_path_override:
             config["output_path"] = Path(output_path_override)
         elif day:
+            stream = os.environ.get("STREAM_NAME")
             day_dir = str(day_path(day))
             config["output_path"] = get_output_path(
-                day_dir, name, segment=segment, output_format=output_format, facet=facet
+                day_dir,
+                name,
+                segment=segment,
+                output_format=output_format,
+                facet=facet,
+                stream=stream,
             )
 
     return config

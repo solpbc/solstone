@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 from think.callosum import CallosumConnection
 from think.runner import ManagedProcess as RunnerManagedProcess
-from think.utils import day_path, get_journal, now_ms, setup_cli
+from think.utils import day_path, get_journal, iter_segments, now_ms, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -179,11 +179,11 @@ class FileSensor:
         if file_path.name.startswith("."):
             return None
 
-        # Files should be in segment directories: journal_dir/YYYYMMDD/HHMMSS_LEN/file.ext
-        # Expected structure: 3 parts from journal_dir
+        # Files should be in segment directories: journal_dir/YYYYMMDD/stream/HHMMSS_LEN/file.ext
+        # Expected structure: 4 parts from journal_dir
         try:
             rel_path = file_path.relative_to(self.journal_dir)
-            if len(rel_path.parts) != 3:
+            if len(rel_path.parts) != 4:
                 return None
         except ValueError:
             # File not under journal directory
@@ -208,7 +208,7 @@ class FileSensor:
     ):
         """Spawn a handler process for the file.
 
-        Files are expected to be in segment directories: YYYYMMDD/HHMMSS_LEN/file.ext
+        Files are expected to be in segment directories: YYYYMMDD/stream/HHMMSS_LEN/file.ext
 
         Args:
             file_path: Path to the file to process (in segment directory)
@@ -223,14 +223,14 @@ class FileSensor:
             cpu_fallback: If True, this is a retry after GPU failure (adds --cpu,
                           skips tracking/events since already done on first attempt)
         """
-        # Extract day and segment from path: journal_dir/YYYYMMDD/HHMMSS_LEN/file.ext
+        # Extract day and segment from path: journal_dir/YYYYMMDD/stream/HHMMSS_LEN/file.ext
         try:
             rel_path = file_path.relative_to(self.journal_dir)
-            if len(rel_path.parts) >= 2:
+            if len(rel_path.parts) >= 4:
                 if day is None:
                     day = rel_path.parts[0]
                 if segment is None:
-                    segment = rel_path.parts[1]
+                    segment = rel_path.parts[2]
         except ValueError:
             pass
 
@@ -589,8 +589,8 @@ class FileSensor:
             meta["stream"] = stream
 
         # Build full paths for all files in this segment
-        # Files are in segment directories: YYYYMMDD/HHMMSS_LEN/filename
-        segment_dir = self.journal_dir / day / segment
+        # Files are in segment directories: YYYYMMDD/stream/HHMMSS_LEN/filename
+        segment_dir = self.journal_dir / day / stream / segment if stream else self.journal_dir / day / segment
         file_paths = [segment_dir / filename for filename in files]
 
         # Pre-register segment tracking with complete file list
@@ -754,8 +754,6 @@ class FileSensor:
             max_jobs: Maximum number of concurrent processing jobs
             segment_filter: Optional segment key to filter (HHMMSS_LEN format)
         """
-        from think.utils import segment_key
-
         day_dir = day_path(day)
         if not day_dir.exists():
             logger.error(f"Day directory not found: {day_dir}")
@@ -766,25 +764,23 @@ class FileSensor:
 
         to_process = []
         segment_meta_cache: Dict[str, Optional[Dict[str, Any]]] = {}
-        for segment_dir in day_dir.iterdir():
-            if not segment_dir.is_dir() or not segment_key(segment_dir.name):
-                continue
+        for stream_name, seg_key, seg_path in iter_segments(day):
 
             # Apply segment filter if specified
-            if segment_filter and segment_dir.name != segment_filter:
+            if segment_filter and seg_key != segment_filter:
                 continue
 
             # Read stream.json for batch-processed segments
-            if segment_dir.name not in segment_meta_cache:
-                stream_info = read_segment_stream(segment_dir)
+            if seg_key not in segment_meta_cache:
+                stream_info = read_segment_stream(seg_path)
                 if stream_info and stream_info.get("stream"):
-                    segment_meta_cache[segment_dir.name] = {
+                    segment_meta_cache[seg_key] = {
                         "stream": stream_info["stream"]
                     }
                 else:
-                    segment_meta_cache[segment_dir.name] = None
+                    segment_meta_cache[seg_key] = None
 
-            for file_path in segment_dir.iterdir():
+            for file_path in seg_path.iterdir():
                 if not file_path.is_file():
                     continue
 
@@ -872,22 +868,18 @@ def delete_outputs(
     Returns:
         List of paths that were (or would be) deleted
     """
-    from think.utils import segment_key
-
     deleted = []
 
     if not day_dir.exists():
         return deleted
 
-    for segment in day_dir.iterdir():
-        if not segment.is_dir() or not segment_key(segment.name):
-            continue
+    for _stream_name, seg_key, seg_path in iter_segments(day_dir):
 
         # Apply segment filter if specified
-        if segment_filter and segment.name != segment_filter:
+        if segment_filter and seg_key != segment_filter:
             continue
 
-        for file_path in segment.iterdir():
+        for file_path in seg_path.iterdir():
             if not file_path.is_file() or file_path.suffix != ".jsonl":
                 continue
 
@@ -899,12 +891,12 @@ def delete_outputs(
                 # Delete all outputs that have a corresponding source file
                 # Check for video source
                 for ext in VIDEO_EXTENSIONS:
-                    if (segment / f"{file_path.stem}{ext}").exists():
+                    if (seg_path / f"{file_path.stem}{ext}").exists():
                         should_delete = True
                         break
                 # Check for audio source
                 for ext in AUDIO_EXTENSIONS:
-                    if (segment / f"{file_path.stem}{ext}").exists():
+                    if (seg_path / f"{file_path.stem}{ext}").exists():
                         should_delete = True
                         break
             elif reprocess_type == "screen":
@@ -928,7 +920,7 @@ def delete_outputs(
 def scan_day(day_dir: Path) -> dict:
     """Scan a day directory for processed and unprocessed files.
 
-    Files are in segment directories (HHMMSS_LEN/). A file is considered
+    Files are in segment directories (stream/HHMMSS_LEN/). A file is considered
     processed if it has a corresponding .jsonl output file.
 
     Args:
@@ -936,12 +928,10 @@ def scan_day(day_dir: Path) -> dict:
 
     Returns:
         Dictionary with:
-        - "processed": List of JSONL output files in segments (HHMMSS_LEN/audio.jsonl, etc)
+        - "processed": List of JSONL output files in segments (stream/HHMMSS_LEN/audio.jsonl, etc)
         - "unprocessed": List of unprocessed source media files in segments
         - "pending_segments": Count of unique segments with pending files
     """
-    from think.utils import segment_key
-
     processed = []
     unprocessed = []
     pending_segment_keys = set()
@@ -949,18 +939,16 @@ def scan_day(day_dir: Path) -> dict:
     if not day_dir.exists():
         return {"processed": [], "unprocessed": [], "pending_segments": 0}
 
-    for segment in day_dir.iterdir():
-        if not segment.is_dir() or not segment_key(segment.name):
-            continue
+    for stream_name, seg_key, seg_path in iter_segments(day_dir):
 
         # Check each file in the segment
-        for file_path in segment.iterdir():
+        for file_path in seg_path.iterdir():
             if not file_path.is_file():
                 continue
 
             # JSONL files are outputs
             if file_path.suffix == ".jsonl":
-                processed.append(f"{segment.name}/{file_path.name}")
+                processed.append(f"{stream_name}/{seg_key}/{file_path.name}")
                 continue
 
             # Check if media file has corresponding JSONL (processed)
@@ -970,8 +958,8 @@ def scan_day(day_dir: Path) -> dict:
             ):
                 output_path = file_path.with_suffix(".jsonl")
                 if not output_path.exists():
-                    unprocessed.append(f"{segment.name}/{file_path.name}")
-                    pending_segment_keys.add(segment.name)
+                    unprocessed.append(f"{stream_name}/{seg_key}/{file_path.name}")
+                    pending_segment_keys.add(seg_key)
 
     processed.sort()
     unprocessed.sort()
