@@ -50,8 +50,12 @@ class CallosumLogHandler(logging.Handler):
         self._conn = conn
         self._ref = ref
         self._pid = os.getpid()
+        self._emitting = False
 
     def emit(self, record: logging.LogRecord) -> None:
+        if self._emitting:
+            return
+        self._emitting = True
         try:
             self._conn.emit(
                 "logs",
@@ -64,6 +68,8 @@ class CallosumLogHandler(logging.Handler):
             )
         except Exception:
             pass
+        finally:
+            self._emitting = False
 
 
 # Desktop notification system
@@ -1026,7 +1032,7 @@ def _run_daily_processing(day: str) -> None:
     from think.runner import run_task
 
     logging.info(f"Starting daily processing for {day}...")
-    success, exit_code = run_task(
+    success, exit_code, log_path = run_task(
         ["sol", "dream", "-v", "--day", day, "--force"],
         callosum=_supervisor_callosum,
     )
@@ -1038,7 +1044,10 @@ def _run_daily_processing(day: str) -> None:
         logging.info(f"Daily processing completed for {day}")
         _daily_state["dream_completed"] = True
     else:
-        logging.error(f"Daily processing failed for {day} with exit code {exit_code}")
+        logging.error(
+            f"Daily processing failed for {day} with exit code {exit_code}, "
+            f"see {log_path}"
+        )
 
 
 def handle_daily_tasks() -> None:
@@ -1139,7 +1148,7 @@ def _run_segment_processing(day: str, segment: str, stream: str | None = None) -
     cmd = ["sol", "dream", "-v", "--day", day, "--segment", segment]
     if stream:
         cmd.extend(["--stream", stream])
-    success, exit_code = run_task(
+    success, exit_code, log_path = run_task(
         cmd,
         callosum=_supervisor_callosum,
     )
@@ -1148,7 +1157,8 @@ def _run_segment_processing(day: str, segment: str, stream: str | None = None) -
         logging.info(f"Segment processing completed: {day}/{segment}")
     else:
         logging.error(
-            f"Segment processing failed with exit code {exit_code}: {day}/{segment}"
+            f"Segment processing failed with exit code {exit_code}: "
+            f"{day}/{segment}, see {log_path}"
         )
 
 

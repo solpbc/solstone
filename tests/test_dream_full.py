@@ -37,7 +37,7 @@ def test_main_runs_with_mocked_prompts(tmp_path, monkeypatch):
     def mock_run_prompts_by_priority(day, segment, force, verbose, **kwargs):
         nonlocal prompts_run
         prompts_run = True
-        return (5, 0)  # 5 success, 0 failures
+        return (5, 0, [])  # 5 success, 0 failures, no failed names
 
     monkeypatch.setattr(mod, "run_command", mock_run_command)
     monkeypatch.setattr(mod, "run_queued_command", mock_run_queued_command)
@@ -84,7 +84,7 @@ def test_segment_mode_skips_pre_post_phases(tmp_path, monkeypatch):
         return True
 
     def mock_run_prompts_by_priority(day, segment, force, verbose, **kwargs):
-        return (1, 0)
+        return (1, 0, [])
 
     monkeypatch.setattr(mod, "run_command", mock_run_command)
     monkeypatch.setattr(mod, "run_queued_command", mock_run_queued_command)

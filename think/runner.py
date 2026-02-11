@@ -424,7 +424,7 @@ def run_task(
     env: dict | None = None,
     ref: str | None = None,
     callosum: CallosumConnection | None = None,
-) -> tuple[bool, int]:
+) -> tuple[bool, int, Path]:
     """Run a task to completion with automatic logging (blocking).
 
     Spawns process, waits for completion, cleans up resources.
@@ -439,23 +439,25 @@ def run_task(
         callosum: Optional shared CallosumConnection (creates new one if not provided)
 
     Returns:
-        (success, exit_code) tuple where success = (exit_code == 0)
+        (success, exit_code, log_path) tuple where success = (exit_code == 0)
+        and log_path points to the process output log file.
 
     Example:
-        success, code = run_task(
+        success, code, log = run_task(
             ["sol", "generate", "20241101", "-f", "flow"],
             timeout=300,
         )
         # Logs to: {JOURNAL}/{YYYYMMDD}/health/{ref}_generate.log
 
         # With explicit correlation ID:
-        success, code = run_task(
+        success, code, log = run_task(
             ["sol", "indexer", "--rescan"],
             ref="1730476800000",
         )
         # Logs to: {JOURNAL}/{YYYYMMDD}/health/1730476800000_indexer.log
     """
     managed = ManagedProcess.spawn(cmd, env=env, ref=ref, callosum=callosum)
+    log_path = managed.log_writer.path
     try:
         exit_code = managed.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -467,4 +469,4 @@ def run_task(
     if exit_code != 0:
         logger.warning(f"{managed.name} exited with code {exit_code}")
 
-    return (exit_code == 0, exit_code)
+    return (exit_code == 0, exit_code, log_path)

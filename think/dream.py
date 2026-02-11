@@ -79,7 +79,7 @@ def run_command(cmd: list[str], day: str) -> bool:
     cmd_name = cmd_name.replace("-", "_")
 
     try:
-        success, exit_code = run_task(cmd)
+        success, exit_code, _log_path = run_task(cmd)
         if not success:
             logging.error(
                 "Command failed with exit code %s: %s", exit_code, " ".join(cmd)
@@ -165,7 +165,7 @@ def _drain_priority_batch(
     day: str,
     segment: str | None,
     stream: str | None = None,
-) -> tuple[int, int]:
+) -> tuple[int, int, list[str]]:
     """Wait for a batch of spawned agents and process their results.
 
     Waits for all agents in the batch to complete, checks end states,
@@ -179,10 +179,12 @@ def _drain_priority_batch(
         stream: Optional stream name
 
     Returns:
-        Tuple of (success_count, failed_count)
+        Tuple of (success_count, failed_count, failed_names) where
+        failed_names contains descriptions like "digest (error)" or
+        "recap/work (timeout)".
     """
     if not spawned:
-        return (0, 0)
+        return (0, 0, [])
 
     agent_ids = [agent_id for agent_id, _, _, _ in spawned]
     logging.info(f"Waiting for {len(agent_ids)} agents...")
@@ -191,6 +193,7 @@ def _drain_priority_batch(
 
     success = 0
     failed = 0
+    failed_names: list[str] = []
 
     if timed_out:
         logging.warning(f"{len(timed_out)} agents timed out: {timed_out}")
@@ -200,6 +203,8 @@ def _drain_priority_batch(
                 (n for aid, n, _, _ in spawned if aid == agent_id), "unknown"
             )
             timed_facet = next((f for aid, _, _, f in spawned if aid == agent_id), None)
+            label = f"{timed_name}/{timed_facet}" if timed_facet else timed_name
+            failed_names.append(f"{label} (timeout)")
             emit(
                 "agent_completed",
                 mode=target_schedule,
@@ -251,8 +256,10 @@ def _drain_priority_batch(
                         timeout=60,
                     )
         else:
-            logging.error(f"{prompt_name} ended with state: {end_state}")
+            label = f"{prompt_name}/{agent_facet}" if agent_facet else prompt_name
+            logging.error(f"{label} ended with state: {end_state}")
             failed += 1
+            failed_names.append(f"{label} ({end_state})")
             emit(
                 "agent_completed",
                 mode=target_schedule,
@@ -264,7 +271,7 @@ def _drain_priority_batch(
                 **({"facet": agent_facet} if agent_facet else {}),
             )
 
-    return (success, failed)
+    return (success, failed, failed_names)
 
 
 def run_prompts_by_priority(
@@ -274,7 +281,7 @@ def run_prompts_by_priority(
     verbose: bool,
     max_concurrency: int = 2,
     stream: str | None = None,
-) -> tuple[int, int]:
+) -> tuple[int, int, list[str]]:
     """Run all scheduled prompts in priority order.
 
     Loads all prompts for the target schedule, groups by priority, and executes
@@ -291,7 +298,8 @@ def run_prompts_by_priority(
             0 means unlimited (all agents in a group run in parallel).
 
     Returns:
-        Tuple of (success_count, fail_count)
+        Tuple of (success_count, fail_count, failed_names) where
+        failed_names contains descriptions like "digest (error)".
     """
     target_schedule = "segment" if segment else "daily"
 
@@ -300,7 +308,7 @@ def run_prompts_by_priority(
 
     if not all_prompts:
         logging.info(f"No prompts found for schedule: {target_schedule}")
-        return (0, 0)
+        return (0, 0, [])
 
     # Group prompts by priority
     priority_groups: dict[int, list[tuple[str, dict]]] = {}
@@ -345,6 +353,7 @@ def run_prompts_by_priority(
     start_time = time.time()
     total_success = 0
     total_failed = 0
+    all_failed_names: list[str] = []
 
     # Process each priority group in order
     for priority in sorted(priority_groups.keys()):
@@ -432,11 +441,12 @@ def run_prompts_by_priority(
                             _update_status(
                                 current_agents=[name for _, name, _, _ in spawned]
                             )
-                            s, f = _drain_priority_batch(
+                            s, f, fn = _drain_priority_batch(
                                 spawned, target_schedule, day, segment, stream
                             )
                             group_success += s
                             group_failed += f
+                            all_failed_names.extend(fn)
                             spawned = []
                             _update_status(
                                 agents_completed=total_success
@@ -488,11 +498,12 @@ def run_prompts_by_priority(
                         _update_status(
                             current_agents=[name for _, name, _, _ in spawned]
                         )
-                        s, f = _drain_priority_batch(
+                        s, f, fn = _drain_priority_batch(
                             spawned, target_schedule, day, segment
                         )
                         group_success += s
                         group_failed += f
+                        all_failed_names.extend(fn)
                         spawned = []
                         _update_status(
                             agents_completed=total_success
@@ -505,12 +516,14 @@ def run_prompts_by_priority(
             except Exception as e:
                 logging.error(f"Failed to spawn {prompt_name}: {e}")
                 total_failed += 1
+                all_failed_names.append(f"{prompt_name} (spawn)")
 
         # Drain any remaining agents in this priority group
         _update_status(current_agents=[name for _, name, _, _ in spawned])
-        s, f = _drain_priority_batch(spawned, target_schedule, day, segment, stream)
+        s, f, fn = _drain_priority_batch(spawned, target_schedule, day, segment, stream)
         group_success += s
         group_failed += f
+        all_failed_names.extend(fn)
         _update_status(
             agents_completed=total_success
             + total_failed
@@ -540,11 +553,12 @@ def run_prompts_by_priority(
         segment=segment,
         success=total_success,
         failed=total_failed,
+        failed_names=all_failed_names,
         duration_ms=duration_ms,
     )
 
     logging.info(f"Prompts completed: {total_success} succeeded, {total_failed} failed")
-    return (total_success, total_failed)
+    return (total_success, total_failed, all_failed_names)
 
 
 def run_single_prompt(
@@ -1426,7 +1440,7 @@ def main() -> None:
                     f"Processing segment {i}/{total}: {seg_key} ({seg['start']}-{seg['end']})"
                 )
                 try:
-                    success, failed = run_prompts_by_priority(
+                    success, failed, _fn = run_prompts_by_priority(
                         day=day,
                         segment=seg_key,
                         force=args.force,
@@ -1482,7 +1496,7 @@ def main() -> None:
                 logging.warning("Sense repair failed, continuing anyway")
 
         # MAIN PHASE: Run all prompts by priority
-        success_count, fail_count = run_prompts_by_priority(
+        success_count, fail_count, failed_names = run_prompts_by_priority(
             day=day,
             segment=args.segment,
             force=args.force,
@@ -1519,7 +1533,8 @@ def main() -> None:
         )
 
         if fail_count > 0:
-            logging.error(f"{fail_count} prompt(s) failed, exiting with error")
+            names = ", ".join(failed_names)
+            logging.error(f"{fail_count} prompt(s) failed: {names}")
             sys.exit(1)
 
     finally:

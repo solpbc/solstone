@@ -187,11 +187,12 @@ def test_run_task_emits_logs_tract_events(journal_path, mock_callosum):
     listener.start(callback=lambda msg: received.append(msg))
 
     # Run task
-    success, exit_code = run_task(["echo", "run_task test"])
+    success, exit_code, log_path = run_task(["echo", "run_task test"])
 
     # Verify success
     assert success is True
     assert exit_code == 0
+    assert log_path.exists()
 
     # Verify events were emitted
     logs_events = [msg for msg in received if msg.get("tract") == "logs"]

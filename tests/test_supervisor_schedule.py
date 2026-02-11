@@ -4,6 +4,7 @@
 """Test supervisor daily scheduling functionality."""
 
 from datetime import date
+from pathlib import Path
 from unittest.mock import patch
 
 
@@ -83,7 +84,7 @@ def test_run_daily_processing_success(mock_callosum):
 
     # Mock run_task to return success
     with patch("think.runner.run_task") as mock_run_task:
-        mock_run_task.return_value = (True, 0)
+        mock_run_task.return_value = (True, 0, Path("/tmp/test.log"))
         _run_daily_processing("20250101")
 
     # Verify state was updated
@@ -112,7 +113,7 @@ def test_run_daily_processing_failure(mock_callosum):
 
     # Mock run_task to return failure
     with patch("think.runner.run_task") as mock_run_task:
-        mock_run_task.return_value = (False, 1)
+        mock_run_task.return_value = (False, 1, Path("/tmp/test.log"))
         _run_daily_processing("20250101")
 
     # Verify state was updated

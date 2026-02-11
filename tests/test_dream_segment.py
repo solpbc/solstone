@@ -153,12 +153,13 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)
         monkeypatch.setattr(dream, "run_queued_command", mock_run_queued_command)
 
-        success, failed = dream.run_prompts_by_priority(
+        success, failed, failed_names = dream.run_prompts_by_priority(
             "20240115", "120000_300", force=False, verbose=False
         )
 
         assert success == 3
         assert failed == 0
+        assert failed_names == []
 
         # Verify wait was called 3 times (once per priority group)
         assert len(wait_calls) == 3
@@ -214,7 +215,7 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
 
-        success, failed = dream.run_prompts_by_priority(
+        success, failed, failed_names = dream.run_prompts_by_priority(
             "20240115", "120000_300", force=False, verbose=False
         )
 
@@ -269,7 +270,7 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
 
-        success, failed = dream.run_prompts_by_priority(
+        success, failed, failed_names = dream.run_prompts_by_priority(
             "20240115", "120000_300", force=False, verbose=False
         )
 
