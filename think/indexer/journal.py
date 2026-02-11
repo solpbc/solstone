@@ -56,28 +56,9 @@ SCHEMA = [
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
-    """Create required tables if they don't exist.
-
-    Detects stale schemas (e.g., missing ``stream`` column from pre-Phase 2)
-    and recreates the index. Data is fully regenerable via ``--rescan-full``.
-    """
+    """Create required tables if they don't exist."""
     for statement in SCHEMA:
         conn.execute(statement)
-
-    # Verify the chunks table has all expected columns. FTS5 virtual tables
-    # cannot be ALTERed, so if the schema is stale we must drop and recreate.
-    try:
-        cols = {row[1] for row in conn.execute("PRAGMA table_info(chunks)").fetchall()}
-    except Exception:
-        return  # table_info failed — schema was just created, nothing to fix
-
-    expected = {"content", "path", "day", "facet", "topic", "stream", "idx"}
-    if not expected.issubset(cols):
-        logger.info("Index schema outdated (missing columns), rebuilding")
-        conn.execute("DROP TABLE IF EXISTS chunks")
-        conn.execute("DROP TABLE IF EXISTS files")
-        for statement in SCHEMA:
-            conn.execute(statement)
 
 
 def get_journal_index(journal: str | None = None) -> tuple[sqlite3.Connection, str]:

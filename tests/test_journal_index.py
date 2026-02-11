@@ -467,7 +467,13 @@ def test_search_journal_truncates_large_results():
     fake_results = [
         {
             "text": big_text,
-            "metadata": {"day": "20240101", "facet": "", "topic": "test", "path": "a.md", "idx": 0},
+            "metadata": {
+                "day": "20240101",
+                "facet": "",
+                "topic": "test",
+                "path": "a.md",
+                "idx": 0,
+            },
             "score": 1.0,
         }
     ]
@@ -832,54 +838,3 @@ def test_search_tool_stream_filter():
     assert "results" in result
     assert result["total"] > 0
     assert result["query"]["filters"]["stream"] == "testhost"
-
-
-def test_stale_schema_auto_rebuild(tmp_path):
-    """Opening an index with old schema (missing stream) auto-rebuilds."""
-    import sqlite3
-
-    os.environ["JOURNAL_PATH"] = str(tmp_path)
-
-    # Create a database with the old schema (no stream column)
-    db_dir = tmp_path / "indexer"
-    db_dir.mkdir()
-    db_path = db_dir / "journal.sqlite"
-    conn = sqlite3.connect(str(db_path))
-    conn.execute("CREATE TABLE files(path TEXT PRIMARY KEY, mtime INTEGER)")
-    conn.execute("""
-        CREATE VIRTUAL TABLE chunks USING fts5(
-            content,
-            path UNINDEXED,
-            day UNINDEXED,
-            facet UNINDEXED,
-            topic UNINDEXED,
-            idx UNINDEXED
-        )
-    """)
-    conn.execute(
-        "INSERT INTO chunks(content, path, day, facet, topic, idx) "
-        "VALUES ('test', 'test.md', '20240101', 'work', 'flow', 0)"
-    )
-    conn.commit()
-    conn.close()
-
-    # Opening via get_journal_index should detect stale schema and rebuild
-    from think.indexer.journal import get_journal_index
-
-    conn, _ = get_journal_index(str(tmp_path))
-
-    # The old data should be gone (tables were dropped and recreated)
-    count = conn.execute("SELECT count(*) FROM chunks").fetchone()[0]
-    assert count == 0
-
-    # The new schema should accept stream column
-    conn.execute(
-        "INSERT INTO chunks(content, path, day, facet, topic, stream, idx) "
-        "VALUES ('test', 'test.md', '20240101', 'work', 'flow', 'archon', 0)"
-    )
-    conn.commit()
-
-    # Verify stream column works
-    row = conn.execute("SELECT stream FROM chunks").fetchone()
-    assert row[0] == "archon"
-    conn.close()
