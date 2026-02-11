@@ -96,6 +96,9 @@ class MacOSObserver:
         # Mute state at segment start
         self.segment_is_muted = False
 
+        # Lock/power-save transition tracking (for boundary detection)
+        self.was_locked_or_sleeping = False
+
     async def setup(self):
         """Initialize ScreenCaptureKit and Callosum connection."""
         # Verify sck-cli is available
@@ -367,15 +370,12 @@ class MacOSObserver:
 
         return date_part, segment_key, saved_files, meta
 
-    def handle_boundary(self, is_active: bool):
+    def handle_boundary(self):
         """
         Handle window boundary rollover.
 
         Closes the current draft folder, renames files to simple names,
         renames folder to final segment name, and emits the observing event.
-
-        Args:
-            is_active: Whether system is currently active
         """
         if self.capture_running:
             logger.info("Stopping previous capture")
@@ -409,8 +409,8 @@ class MacOSObserver:
         # Update segment mute state
         self.segment_is_muted = self.cached_is_muted
 
-        # Start new capture if active and screen not locked (creates new draft folder)
-        if is_active and not self.cached_screen_locked:
+        # Start new capture unless screen is locked or display is sleeping
+        if not self.cached_screen_locked and not self.cached_power_save:
             self.initialize_capture()
 
     def _create_draft_folder(self) -> str:
@@ -538,11 +538,14 @@ class MacOSObserver:
         """Run the main observer loop."""
         logger.info(f"Starting observer loop (interval={self.interval}s)")
 
-        # Check initial activity and start capture if active
-        is_active = self.check_activity_status()
+        # Check initial activity and start capture unless locked/sleeping
+        self.check_activity_status()
         self.segment_is_muted = self.cached_is_muted
+        self.was_locked_or_sleeping = (
+            self.cached_screen_locked or self.cached_power_save
+        )
 
-        if is_active and not self.cached_screen_locked:
+        if not self.cached_screen_locked and not self.cached_power_save:
             if not self.initialize_capture():
                 logger.error("Failed to start initial capture")
                 self.running = False
@@ -552,17 +555,27 @@ class MacOSObserver:
             # Sleep for chunk duration
             await asyncio.sleep(CHUNK_DURATION)
 
-            # Check activity status
-            is_active = self.check_activity_status()
+            # Check activity status (caches idle, lock, mute, power-save)
+            self.check_activity_status()
 
             # Check if sck-cli process died unexpectedly
             if self.capture_running and not self.screencapture.is_running():
                 logger.warning("Capture process died, handling boundary")
-                self.handle_boundary(is_active)
+                self.handle_boundary()
                 continue
 
-            # Detect activation edge (idle -> active transition)
-            activation_edge = is_active and not self.capture_running
+            # Detect lock/power-save transition (either direction)
+            locked_or_sleeping = (
+                self.cached_screen_locked or self.cached_power_save
+            )
+            lock_transition = locked_or_sleeping != self.was_locked_or_sleeping
+            if lock_transition:
+                logger.info(
+                    f"Lock/sleep state changed: "
+                    f"{'locked' if self.was_locked_or_sleeping else 'unlocked'} -> "
+                    f"{'locked' if locked_or_sleeping else 'unlocked'}"
+                )
+            self.was_locked_or_sleeping = locked_or_sleeping
 
             # Detect mute state transition
             mute_transition = self.cached_is_muted != self.segment_is_muted
@@ -577,15 +590,15 @@ class MacOSObserver:
             now_mono = time.monotonic()
             elapsed = now_mono - self.start_at_mono
             is_boundary = (
-                (elapsed >= self.interval) or activation_edge or mute_transition
+                (elapsed >= self.interval) or lock_transition or mute_transition
             )
 
             if is_boundary:
                 logger.info(
-                    f"Boundary: elapsed={elapsed:.1f}s edge={activation_edge} "
+                    f"Boundary: elapsed={elapsed:.1f}s lock_change={lock_transition} "
                     f"mute_change={mute_transition}"
                 )
-                self.handle_boundary(is_active)
+                self.handle_boundary()
 
             # Emit status event
             self.emit_status()
