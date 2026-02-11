@@ -861,42 +861,58 @@ async def _run_check(args: argparse.Namespace) -> None:
     passed = 0
     failed = 0
     results = []
+    cache = {}  # (provider, model, interface) -> (ok, message, source_tier)
 
     for provider_name in providers:
         for tier in tiers:
             model = PROVIDER_DEFAULTS[provider_name][tier]
             for interface_name in interfaces:
-                start = time.perf_counter()
-                if interface_name == "generate":
-                    ok, message = _check_generate(provider_name, tier, args.timeout)
+                cache_key = (provider_name, model, interface_name)
+                if cache_key in cache:
+                    ok, message, source_tier = cache[cache_key]
+                    elapsed_s = 0.0
+                    elapsed_s_rounded = 0.0
+                    reused_from = source_tier
                 else:
-                    ok, message = await _check_cogitate(
-                        provider_name, tier, args.timeout
-                    )
-                elapsed_s = time.perf_counter() - start
-                elapsed_s_rounded = round(elapsed_s, 1)
+                    start = time.perf_counter()
+                    if interface_name == "generate":
+                        ok, message = _check_generate(provider_name, tier, args.timeout)
+                    else:
+                        ok, message = await _check_cogitate(
+                            provider_name, tier, args.timeout
+                        )
+                    elapsed_s = time.perf_counter() - start
+                    elapsed_s_rounded = round(elapsed_s, 1)
+                    cache[cache_key] = (ok, message, tier_names[tier])
+                    reused_from = None
 
-                results.append(
-                    {
-                        "provider": provider_name,
-                        "tier": tier_names[tier],
-                        "model": model,
-                        "interface": interface_name,
-                        "ok": bool(ok),
-                        "message": str(message),
-                        "elapsed_s": elapsed_s_rounded,
-                    }
-                )
+                result = {
+                    "provider": provider_name,
+                    "tier": tier_names[tier],
+                    "model": model,
+                    "interface": interface_name,
+                    "ok": bool(ok),
+                    "message": str(message),
+                    "elapsed_s": elapsed_s_rounded,
+                }
+                if reused_from:
+                    result["reused_from"] = reused_from
+                results.append(result)
 
                 if not args.json:
-                    mark = "✓" if ok else "✗"
+                    if reused_from:
+                        mark = "="
+                        display_message = f"{message} (={reused_from})"
+                    else:
+                        mark = "✓" if ok else "✗"
+                        display_message = str(message)
                     print(
                         f"{mark} "
                         f"{provider_name:<{provider_width}}  "
                         f"{tier_names[tier]:<{tier_width}}  "
                         f"{model:<{model_width}}  "
                         f"{interface_name:<{interface_width}}  "
-                        f"{message} ({elapsed_s:.1f}s)"
+                        f"{display_message} ({elapsed_s:.1f}s)"
                     )
 
                 total += 1
