@@ -21,7 +21,7 @@ import os
 import sys
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -44,6 +44,7 @@ from think.utils import (
     day_path,
     format_day,
     format_segment_times,
+    get_journal,
     now_ms,
     segment_parse,
     setup_cli,
@@ -903,6 +904,16 @@ async def _run_check(args: argparse.Namespace) -> None:
                     passed += 1
                 else:
                     failed += 1
+
+    # Write results to health file
+    payload = {
+        "results": results,
+        "summary": {"total": total, "passed": passed, "failed": failed},
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
+    health_dir = Path(get_journal()) / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    (health_dir / "agents.json").write_text(json.dumps(payload, indent=2))
 
     if args.json:
         print(

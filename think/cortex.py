@@ -141,6 +141,8 @@ class CortexService:
         try:
             self.callosum.start(callback=self._handle_callosum_message)
             self.logger.info("Connected to Callosum message bus")
+            self.callosum.emit("supervisor", "request", cmd=["sol", "agents", "check"])
+            self.logger.info("Requested agents health check via supervisor")
         except Exception as e:
             self.logger.error(f"Failed to connect to Callosum: {e}")
             sys.exit(1)
