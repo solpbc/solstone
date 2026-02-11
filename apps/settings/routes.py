@@ -249,6 +249,7 @@ def get_providers() -> Any:
     Returns:
         - providers: List of available providers with labels
         - default: Current default provider and tier
+        - backup: Current backup provider
         - contexts: Configured context overrides from journal.json
         - context_defaults: Context registry with labels/groups for UI
           (includes muse configs with type, schedule, disabled, extract)
@@ -256,6 +257,7 @@ def get_providers() -> Any:
     """
     try:
         from think.models import (
+            BACKUP_PROVIDER,
             DEFAULT_PROVIDER,
             DEFAULT_TIER,
             get_context_registry,
@@ -270,6 +272,8 @@ def get_providers() -> Any:
         default = providers_config.get("default", {})
         default_provider = default.get("provider", DEFAULT_PROVIDER)
         default_tier = default.get("tier", DEFAULT_TIER)
+        backup = providers_config.get("backup", {})
+        backup_provider = backup.get("provider", BACKUP_PROVIDER)
 
         # Get context overrides from config
         contexts = providers_config.get("contexts", {})
@@ -324,6 +328,9 @@ def get_providers() -> Any:
                     "provider": default_provider,
                     "tier": default_tier,
                 },
+                "backup": {
+                    "provider": backup_provider,
+                },
                 "contexts": contexts,
                 "context_defaults": context_defaults,
                 "api_keys": api_keys,
@@ -339,6 +346,7 @@ def update_providers() -> Any:
 
     Accepts JSON with optional keys:
         - default: {provider, tier} - Set default provider and/or tier
+        - backup: {provider} - Set backup provider
         - contexts: {pattern: {provider?, tier?, disabled?, extract?} | null}
           Set or clear context overrides
 
@@ -410,6 +418,34 @@ def update_providers() -> Any:
                         "new": tier,
                     }
                 config["providers"]["default"]["tier"] = tier
+
+        # Handle backup updates
+        if "backup" in request_data:
+            backup_data = request_data["backup"]
+            if "backup" not in config["providers"]:
+                config["providers"]["backup"] = {}
+
+            old_backup = old_providers.get("backup", {})
+
+            # Validate and update provider
+            if "provider" in backup_data:
+                provider = backup_data["provider"]
+                if provider not in PROVIDER_REGISTRY:
+                    return (
+                        jsonify(
+                            {
+                                "error": f"Invalid provider: {provider}. "
+                                f"Must be one of: {', '.join(sorted(PROVIDER_REGISTRY.keys()))}"
+                            }
+                        ),
+                        400,
+                    )
+                if old_backup.get("provider") != provider:
+                    changed_fields["backup.provider"] = {
+                        "old": old_backup.get("provider"),
+                        "new": provider,
+                    }
+                config["providers"]["backup"]["provider"] = provider
 
         # Handle context overrides
         if "contexts" in request_data:

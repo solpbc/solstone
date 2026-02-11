@@ -1685,6 +1685,20 @@ input:checked + .slider:before {
         <span>API key not configured for this provider.</span>
         <a href="#" id="providerKeyLink">Configure in API Keys</a>
       </div>
+      <div class="provider-row">
+        <div class="settings-field">
+          <label for="field-backup-provider">Backup Provider</label>
+          <select id="field-backup-provider">
+            <!-- Populated dynamically from registry -->
+          </select>
+          <small></small>
+        </div>
+      </div>
+      <div id="backupProviderKeyWarning" class="provider-key-warning" style="display:none">
+        <span>&#9888;</span>
+        <span>API key not configured for backup provider.</span>
+        <a href="#" id="backupProviderKeyLink">Configure in API Keys</a>
+      </div>
       <small id="providerStatus">Loading...</small>
 
       <!-- Detailed Tasks -->
@@ -2868,12 +2882,26 @@ function populateProviders(data) {
     }
   }
 
+  // Populate backup provider dropdown
+  const backupSelect = document.getElementById('field-backup-provider');
+  backupSelect.innerHTML = '';
+  if (data.providers) {
+    for (const p of data.providers) {
+      const opt = document.createElement('option');
+      opt.value = p.name;
+      opt.textContent = p.label;
+      backupSelect.appendChild(opt);
+    }
+  }
+
   // Set default provider and tier
   providerSelect.value = data.default.provider;
+  backupSelect.value = data.backup.provider;
   document.getElementById('field-tier').value = data.default.tier;
 
   // Update API key warning
   updateProviderKeyWarning(data.default.provider, data.api_keys);
+  updateBackupProviderKeyWarning(data.backup.provider, data.api_keys);
 
   // Update status text
   document.getElementById('providerStatus').textContent = '';
@@ -2885,6 +2913,21 @@ function populateProviders(data) {
 function updateProviderKeyWarning(provider, apiKeys) {
   const warning = document.getElementById('providerKeyWarning');
   const link = document.getElementById('providerKeyLink');
+
+  if (!apiKeys[provider]) {
+    warning.style.display = 'flex';
+    link.onclick = (e) => {
+      e.preventDefault();
+      switchSection('apikeys');
+    };
+  } else {
+    warning.style.display = 'none';
+  }
+}
+
+function updateBackupProviderKeyWarning(provider, apiKeys) {
+  const warning = document.getElementById('backupProviderKeyWarning');
+  const link = document.getElementById('backupProviderKeyLink');
 
   if (!apiKeys[provider]) {
     warning.style.display = 'flex';
@@ -3053,7 +3096,7 @@ async function saveContextOverride(pattern, provider, tier, remove = false) {
   }
 }
 
-// Default provider/tier change handlers
+// Provider change handlers
 document.getElementById('field-provider').addEventListener('change', async () => {
   const provider = document.getElementById('field-provider').value;
   try {
@@ -3071,6 +3114,26 @@ document.getElementById('field-provider').addEventListener('change', async () =>
   } catch (err) {
     console.error('Error saving provider:', err);
     showFieldStatus(document.getElementById('field-provider'), 'error', err.message);
+  }
+});
+
+document.getElementById('field-backup-provider').addEventListener('change', async () => {
+  const provider = document.getElementById('field-backup-provider').value;
+  try {
+    const response = await fetch('api/providers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ backup: { provider } })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    providersData = result;
+    updateBackupProviderKeyWarning(provider, result.api_keys);
+    showFieldStatus(document.getElementById('field-backup-provider'), 'saved');
+  } catch (err) {
+    console.error('Error saving backup provider:', err);
+    showFieldStatus(document.getElementById('field-backup-provider'), 'error', err.message);
   }
 });
 
