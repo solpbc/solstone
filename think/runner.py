@@ -186,6 +186,11 @@ class ManagedProcess:
     _callosum: CallosumConnection | None
     _owns_callosum: bool = True
 
+    @property
+    def start_time(self) -> float:
+        """Epoch timestamp when this process was spawned."""
+        return self._start_time
+
     @classmethod
     def spawn(
         cls,

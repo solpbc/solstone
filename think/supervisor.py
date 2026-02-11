@@ -20,7 +20,7 @@ from desktop_notifier import DesktopNotifier, Urgency
 
 from observe.sync import check_remote_health
 from think.callosum import CallosumConnection, CallosumServer
-from think.runner import ManagedProcess as RunnerManagedProcess
+from think.runner import DailyLogWriter, ManagedProcess as RunnerManagedProcess
 from think.utils import (
     find_available_port,
     get_journal,
@@ -166,7 +166,6 @@ class TaskQueue:
         self,
         cmd: list[str],
         ref: str | None = None,
-        callosum: CallosumConnection = None,
     ) -> str | None:
         """Submit a task for execution.
 
@@ -176,7 +175,6 @@ class TaskQueue:
         Args:
             cmd: Command to execute
             ref: Optional caller-provided ref for tracking
-            callosum: CallosumConnection for event emission
 
         Returns:
             ref if task was started/queued, None if already tracked (no change)
@@ -224,7 +222,7 @@ class TaskQueue:
         if should_start:
             threading.Thread(
                 target=self._run_task,
-                args=([ref], cmd, cmd_name, callosum),
+                args=([ref], cmd, cmd_name),
                 daemon=True,
             ).start()
             return ref
@@ -236,7 +234,6 @@ class TaskQueue:
         refs: list[str],
         cmd: list[str],
         cmd_name: str,
-        parent_callosum: CallosumConnection = None,
     ) -> None:
         """Execute a task and handle completion.
 
@@ -244,7 +241,6 @@ class TaskQueue:
             refs: List of refs to notify on completion
             cmd: Command to execute
             cmd_name: Command name for queue management
-            parent_callosum: Optional parent callosum (not used, task creates own)
         """
         callosum = CallosumConnection()
         managed = None
@@ -370,7 +366,7 @@ class TaskQueue:
         tasks = []
         for ref, managed in self._active.items():
             if managed.is_running():
-                duration = int(now - managed._start_time)
+                duration = int(now - managed.start_time)
                 cmd_name = TaskQueue.get_command_name(managed.cmd)
                 tasks.append(
                     {
@@ -470,7 +466,7 @@ class ManagedProcess:
 
     process: subprocess.Popen
     name: str
-    logger: RunnerManagedProcess  # Actually stores the runner's log_writer
+    log_writer: DailyLogWriter
     cmd: list[str]
     restart: bool = False
     threads: list[threading.Thread] = field(default_factory=list)
@@ -479,7 +475,7 @@ class ManagedProcess:
     def cleanup(self) -> None:
         for thread in self.threads:
             thread.join(timeout=1)
-        self.logger.close()
+        self.log_writer.close()
 
 
 def _launch_process(
@@ -525,7 +521,7 @@ def _launch_process(
     return ManagedProcess(
         process=managed.process,
         name=name,
-        logger=managed.log_writer,
+        log_writer=managed.log_writer,
         cmd=list(cmd),
         restart=restart,
         threads=managed._threads,
@@ -615,14 +611,6 @@ async def clear_notification(alert_key: tuple) -> None:
 
     except Exception as exc:  # pragma: no cover - system issues
         logging.error("Failed to clear notification: %s", exc)
-
-
-def _get_command_name(cmd: list[str]) -> str:
-    """Extract command name from cmd array for queue serialization.
-
-    For 'sol X' commands, returns X. Otherwise returns cmd[0] basename.
-    """
-    return TaskQueue.get_command_name(cmd)
 
 
 def _emit_queue_event(cmd_name: str, running_ref: str, queue: list) -> None:
@@ -923,17 +911,9 @@ async def handle_runner_exits(
 
         # Remove from procs list
         try:
-            index = procs.index(managed)
+            procs.remove(managed)
         except ValueError:
-            index = None
-
-        if index is not None:
-            procs.pop(index)
-        else:
-            try:
-                procs.remove(managed)
-            except ValueError:
-                pass
+            pass
 
         managed.cleanup()
 
@@ -963,8 +943,7 @@ async def handle_runner_exits(
                 logging.exception("Failed to restart %s: %s", managed.name, exc)
                 continue
 
-            insert_at = index if index is not None else len(procs)
-            procs.insert(insert_at, new_proc)
+            procs.append(new_proc)
             logging.info("Restarted %s after exit code %s", managed.name, returncode)
             # Clear the notification now that process has restarted
             await alert_mgr.clear(exit_key)

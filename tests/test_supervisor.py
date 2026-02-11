@@ -310,18 +310,19 @@ async def test_supervise_logs_recovery(mock_callosum, monkeypatch, caplog):
 def test_get_command_name():
     """Test command name extraction for queue serialization."""
     mod = importlib.import_module("think.supervisor")
+    get = mod.TaskQueue.get_command_name
 
     # sol X -> X
-    assert mod._get_command_name(["sol", "indexer", "--rescan"]) == "indexer"
-    assert mod._get_command_name(["sol", "insight", "20240101"]) == "insight"
-    assert mod._get_command_name(["sol", "dream", "--day", "20240101"]) == "dream"
+    assert get(["sol", "indexer", "--rescan"]) == "indexer"
+    assert get(["sol", "insight", "20240101"]) == "insight"
+    assert get(["sol", "dream", "--day", "20240101"]) == "dream"
 
     # Other commands -> basename
-    assert mod._get_command_name(["/usr/bin/python", "script.py"]) == "python"
-    assert mod._get_command_name(["custom-tool"]) == "custom-tool"
+    assert get(["/usr/bin/python", "script.py"]) == "python"
+    assert get(["custom-tool"]) == "custom-tool"
 
     # Empty -> unknown
-    assert mod._get_command_name([]) == "unknown"
+    assert get([]) == "unknown"
 
 
 def test_task_queue_same_command_queued(monkeypatch):
