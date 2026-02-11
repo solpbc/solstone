@@ -23,6 +23,46 @@ def _make_test_harness():
     return events, cb, aggregator
 
 
+class TestParseModelEffort:
+    def test_no_suffix(self):
+        provider = _openai_provider()
+        assert provider._parse_model_effort("gpt-5.2") == ("gpt-5.2", None)
+
+    def test_high_suffix(self):
+        provider = _openai_provider()
+        assert provider._parse_model_effort("gpt-5.2-high") == ("gpt-5.2", "high")
+
+    def test_low_suffix(self):
+        provider = _openai_provider()
+        assert provider._parse_model_effort("gpt-5.2-low") == ("gpt-5.2", "low")
+
+    def test_medium_suffix(self):
+        provider = _openai_provider()
+        assert provider._parse_model_effort("gpt-5.2-medium") == ("gpt-5.2", "medium")
+
+    def test_none_suffix(self):
+        provider = _openai_provider()
+        assert provider._parse_model_effort("gpt-5.2-none") == ("gpt-5.2", "none")
+
+    def test_xhigh_suffix(self):
+        provider = _openai_provider()
+        assert provider._parse_model_effort("gpt-5.2-xhigh") == ("gpt-5.2", "xhigh")
+
+    def test_unknown_suffix_not_stripped(self):
+        provider = _openai_provider()
+        assert provider._parse_model_effort("gpt-5.2-turbo") == (
+            "gpt-5.2-turbo",
+            None,
+        )
+
+    def test_non_gpt_model_passthrough(self):
+        provider = _openai_provider()
+        assert provider._parse_model_effort("claude-sonnet-4-5") == (
+            "claude-sonnet-4-5",
+            None,
+        )
+
+
 class TestTranslateCodex:
     def test_thread_started_returns_id(self):
         provider = _openai_provider()
@@ -233,6 +273,8 @@ class TestRunCogitate:
             "-m",
         ]
         assert MockCLIRunner.last_instance.cmd[-1] == "-"
+        # Model should have effort suffix stripped for codex CLI
+        assert MockCLIRunner.last_instance.cmd[6] == "gpt-5.2"
 
     def test_resume_command(self):
         provider = _openai_provider()

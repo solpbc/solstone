@@ -34,13 +34,17 @@ TIER_LITE = 3
 # pricing immediately after release. See: https://pypi.org/project/genai-prices/
 # ---------------------------------------------------------------------------
 
+# Valid OpenAI reasoning effort suffixes appended to model names.
+# E.g., "gpt-5.2-high" → reasoning_effort="high", "gpt-5.2" → omitted.
+OPENAI_EFFORT_SUFFIXES = ("-none", "-low", "-medium", "-high", "-xhigh")
+
 GEMINI_PRO = "gemini-3-pro-preview"
 GEMINI_FLASH = "gemini-3-flash-preview"
 GEMINI_LITE = "gemini-2.5-flash-lite"
 
-GPT_5 = "gpt-5.2"
-GPT_5_MINI = "gpt-5.2"  # "gpt-5-mini" - the mini/nano models don't support agents, need to wait for new ones
-GPT_5_NANO = "gpt-5.2"  # "gpt-5-nano"
+GPT_5 = "gpt-5.2-high"
+GPT_5_MINI = "gpt-5.2-low"  # "gpt-5-mini" - the mini/nano models don't support agents, need to wait for new ones
+GPT_5_NANO = "gpt-5.2"  # "gpt-5-nano" - no suffix = no reasoning (fastest/cheapest)
 
 CLAUDE_OPUS_4 = "claude-opus-4-5"
 CLAUDE_SONNET_4 = "claude-sonnet-4-5"
@@ -716,6 +720,12 @@ def calc_token_cost(token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
         if not model or not usage_data:
             return None
+
+        # Strip OpenAI reasoning effort suffixes for price lookup
+        for suffix in OPENAI_EFFORT_SUFFIXES:
+            if model.endswith(suffix):
+                model = model[: -len(suffix)]
+                break
 
         # Get provider ID
         provider_id = get_model_provider(model)

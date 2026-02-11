@@ -92,7 +92,7 @@ class GenerateResult(TypedDict, total=False):
 | `max_output_tokens` | Response token limit. Note: Google internally adds `thinking_budget` to this for total budget calculation. |
 | `system_instruction` | System prompt. Providers handle this per their API (separate field, prepended message, etc.). |
 | `json_output` | Request JSON response. Google uses `response_mime_type`, Anthropic/OpenAI use response format or system instruction. |
-| `thinking_budget` | Token budget for reasoning/thinking. Must be `> 0` to enable; `None` or `0` means no thinking. Only Google and Anthropic support this - OpenAI ignores it (uses fixed "medium" reasoning effort). Note: `run_cogitate()` always enables thinking regardless of this parameter. |
+| `thinking_budget` | Token budget for reasoning/thinking. Must be `> 0` to enable; `None` or `0` means no thinking. Google and Anthropic use this directly. OpenAI ignores `thinking_budget` — instead, reasoning effort is controlled via model name suffixes (e.g., `"gpt-5.2-high"`). Valid suffixes: `-none`, `-low`, `-medium`, `-high`, `-xhigh`. Without a suffix, `reasoning_effort` is omitted and OpenAI uses the model default. Note: `run_cogitate()` always enables thinking regardless of this parameter. |
 | `timeout_s` | Request timeout in seconds. Convert to provider's expected format (e.g., Google uses milliseconds internally). |
 | `**kwargs` | Absorb unknown kwargs for forward compatibility. Provider-specific options (e.g., `cached_content` for Google) pass through here. |
 

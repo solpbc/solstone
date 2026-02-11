@@ -12,7 +12,10 @@ Common Parameters
 contents : str or list
     The content to send to the model.
 model : str
-    Model name to use.
+    Model name, optionally with a reasoning effort suffix.
+    Supported suffixes: ``-none``, ``-low``, ``-medium``, ``-high``, ``-xhigh``.
+    Example: ``"gpt-5.2-high"`` sends ``reasoning_effort="high"`` to the API.
+    Without a suffix, ``reasoning_effort`` is omitted (OpenAI model default).
 max_output_tokens : int
     Maximum tokens for the model's response output.
 system_instruction : str, optional
@@ -24,8 +27,7 @@ timeout_s : float, optional
 **kwargs
     Additional provider-specific options.
 
-Note: GPT-5+ reasoning models don't support custom temperature (fixed at 1.0)
-and reasoning is always enabled with medium effort.
+Note: GPT-5+ reasoning models don't support custom temperature (fixed at 1.0).
 """
 
 from __future__ import annotations
@@ -36,7 +38,7 @@ import os
 import traceback
 from typing import Any, Callable
 
-from think.models import GPT_5
+from think.models import GPT_5, OPENAI_EFFORT_SUFFIXES
 from think.providers.cli import (
     CLIRunner,
     ThinkingAggregator,
@@ -53,6 +55,17 @@ from .shared import (
 # Agent configuration is now loaded via get_agent() in cortex.py
 
 LOG = logging.getLogger("think.providers.openai")
+
+def _parse_model_effort(model: str) -> tuple[str, str | None]:
+    """Extract reasoning effort suffix from a model name.
+
+    Returns (api_model, effort) where api_model has the suffix stripped
+    and effort is the reasoning_effort value (or None if no suffix).
+    """
+    for suffix in OPENAI_EFFORT_SUFFIXES:
+        if model.endswith(suffix):
+            return model[: -len(suffix)], suffix[1:]
+    return model, None
 
 
 def _translate_codex(
@@ -145,7 +158,8 @@ async def run_cogitate(
             user_instruction, extra_context, model, etc.
         on_event: Optional event callback
     """
-    model = config.get("model") or GPT_5
+    raw_model = config.get("model") or GPT_5
+    model, _effort = _parse_model_effort(raw_model)  # strip suffix for CLI
     LOG.info("Running agent with model %s", model)
     cb = JSONEventCallback(on_event)
 
@@ -330,15 +344,19 @@ def run_generate(
     client = _get_openai_client()
     messages = _convert_contents_to_messages(contents, system_instruction)
 
-    # Build request kwargs with reasoning enabled
+    # Parse effort suffix from model name (e.g., "gpt-5.2-high" → "gpt-5.2", "high")
+    api_model, effort = _parse_model_effort(model)
+
+    # Build request kwargs
     # Note: GPT-5+ models require max_completion_tokens instead of max_tokens
     # Note: Reasoning models don't support custom temperature (only 1.0)
     request_kwargs: dict[str, Any] = {
-        "model": model,
+        "model": api_model,
         "messages": messages,
         "max_completion_tokens": max_output_tokens,
-        "reasoning_effort": "medium",
     }
+    if effort is not None:
+        request_kwargs["reasoning_effort"] = effort
 
     if json_output:
         request_kwargs["response_format"] = {"type": "json_object"}
@@ -374,15 +392,19 @@ async def run_agenerate(
     client = _get_async_openai_client()
     messages = _convert_contents_to_messages(contents, system_instruction)
 
-    # Build request kwargs with reasoning enabled
+    # Parse effort suffix from model name (e.g., "gpt-5.2-high" → "gpt-5.2", "high")
+    api_model, effort = _parse_model_effort(model)
+
+    # Build request kwargs
     # Note: GPT-5+ models require max_completion_tokens instead of max_tokens
     # Note: Reasoning models don't support custom temperature (only 1.0)
     request_kwargs: dict[str, Any] = {
-        "model": model,
+        "model": api_model,
         "messages": messages,
         "max_completion_tokens": max_output_tokens,
-        "reasoning_effort": "medium",
     }
+    if effort is not None:
+        request_kwargs["reasoning_effort"] = effort
 
     if json_output:
         request_kwargs["response_format"] = {"type": "json_object"}
