@@ -1147,6 +1147,68 @@ class TestFormatMarkdown:
         assert len(text) > 0
 
 
+class TestSanitizeMarkdown:
+    """Tests for markdown sanitization and chunk size capping."""
+
+    def test_sanitize_drops_long_lines(self):
+        from think.markdown import sanitize_markdown
+
+        normal = "Normal line."
+        long_line = "x" * 3000
+        text = f"# Title\n\n{normal}\n{long_line}\nAfter.\n"
+        result = sanitize_markdown(text)
+        assert normal in result
+        assert "After." in result
+        assert long_line not in result
+
+    def test_sanitize_preserves_short_lines(self):
+        from think.markdown import sanitize_markdown
+
+        text = "# Hello\n\nShort paragraph.\n"
+        assert sanitize_markdown(text) == text
+
+    def test_sanitize_drops_padded_table_row(self):
+        """Simulates a Gemini degenerate table row with whitespace padding."""
+        from think.markdown import sanitize_markdown
+
+        header = "| Name | Value |"
+        sep = "|------|-------|"
+        good_row = "| Alice | 42 |"
+        bad_row = "| Bob |" + " " * 5000 + "| data |"
+        text = f"{header}\n{sep}\n{good_row}\n{bad_row}\n"
+        result = sanitize_markdown(text)
+        assert good_row in result
+        assert bad_row not in result
+
+    def test_format_markdown_caps_large_chunk(self):
+        """A chunk that renders >4K should be replaced with a header stub."""
+        from think.markdown import format_markdown
+
+        # Build a definition list that renders to >4K (kept as single chunk)
+        items = [f"- **field{i}:** {'v' * 80}" for i in range(60)]
+        text = "# Big\n\n## Section\n\n" + "\n".join(items) + "\n"
+        chunks, _ = format_markdown(text)
+
+        assert len(chunks) == 1
+        md = chunks[0]["markdown"]
+        # Should be truncated to header stub
+        assert "# Big" in md
+        assert "## Section" in md
+        assert "Content too large to index" in md
+        assert len(md) < 4096
+
+    def test_format_markdown_normal_chunks_unchanged(self):
+        """Normal-sized chunks should pass through without truncation."""
+        from think.markdown import format_markdown
+
+        text = "# Hello\n\nThis is normal content.\n"
+        chunks, _ = format_markdown(text)
+        assert len(chunks) == 1
+        assert "This is normal content" in chunks[0]["markdown"]
+        assert "truncated" not in chunks[0]["markdown"]
+        assert "too large" not in chunks[0]["markdown"]
+
+
 class TestExtractPathMetadata:
     """Tests for extract_path_metadata helper."""
 

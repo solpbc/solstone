@@ -455,6 +455,35 @@ def test_search_journal_results_include_path():
         assert "idx" in item
 
 
+def test_search_journal_truncates_large_results():
+    """Test search tool truncates oversized result text."""
+    from unittest.mock import patch
+
+    from think.tools.search import _MAX_RESULT_TEXT, search_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+
+    big_text = "x" * 10_000
+    fake_results = [
+        {
+            "text": big_text,
+            "metadata": {"day": "20240101", "facet": "", "topic": "test", "path": "a.md", "idx": 0},
+            "score": 1.0,
+        }
+    ]
+    fake_counts = {"facets": [], "topics": [], "days": []}
+
+    with (
+        patch("think.tools.search.search_journal_impl", return_value=(1, fake_results)),
+        patch("think.tools.search.search_counts_impl", return_value=fake_counts),
+    ):
+        result = search_journal("test")
+
+    text = result["results"][0]["text"]
+    assert len(text) < _MAX_RESULT_TEXT + 200  # truncated + note
+    assert "truncated from 10,000 chars" in text
+
+
 def test_bucket_day_counts():
     """Test day bucketing logic."""
     from datetime import datetime, timedelta

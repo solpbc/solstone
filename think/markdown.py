@@ -9,7 +9,13 @@ Each chunk is self-contained with its relevant headers included in the AST.
 """
 
 import copy
+import logging
 from typing import Any
+
+LOG = logging.getLogger(__name__)
+
+_MAX_LINE_CHARS = 2048
+_MAX_CHUNK_CHARS = 4096
 
 import mistune
 from mistune.core import BlockState
@@ -329,6 +335,40 @@ def chunk_markdown(text: str) -> list[dict]:
     return chunk_ast(ast)
 
 
+def sanitize_markdown(text: str) -> str:
+    """Drop degenerate lines that exceed the max line length.
+
+    AI models (notably older Gemini Flash) sometimes produce lines with
+    thousands of repeated characters or whitespace-padded table cells.
+    These are not useful content and bloat the index.
+    """
+    lines = text.split("\n")
+    clean: list[str] = []
+    dropped = 0
+    for line in lines:
+        if len(line) > _MAX_LINE_CHARS:
+            dropped += 1
+            continue
+        clean.append(line)
+    if dropped:
+        LOG.warning(
+            "Dropped %d line(s) exceeding %d chars during markdown sanitization",
+            dropped,
+            _MAX_LINE_CHARS,
+        )
+    return "\n".join(clean)
+
+
+def _render_header_stub(raw_chunk: dict, original_size: int) -> str:
+    """Render a header-only stub for an oversized chunk."""
+    parts = []
+    for h in raw_chunk.get("header_path", []):
+        prefix = "#" * h["level"]
+        parts.append(f"{prefix} {h['text']}")
+    parts.append(f"\n[Content too large to index: {original_size:,} chars]")
+    return "\n\n".join(parts)
+
+
 def format_markdown(
     text: str,
     context: dict[str, Any] | None = None,
@@ -351,6 +391,12 @@ def format_markdown(
             - meta: Empty dict (no header or indexer - context is in each chunk,
               topic is path-derived)
     """
+    text = sanitize_markdown(text)
     raw_chunks = chunk_markdown(text)
-    chunks = [{"markdown": render_chunk(c)} for c in raw_chunks]
+    chunks = []
+    for rc in raw_chunks:
+        rendered = render_chunk(rc)
+        if len(rendered) > _MAX_CHUNK_CHARS:
+            rendered = _render_header_stub(rc, len(rendered))
+        chunks.append({"markdown": rendered})
     return chunks, {}

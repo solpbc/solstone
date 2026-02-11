@@ -14,6 +14,8 @@ from think.indexer.journal import get_events as get_events_impl
 from think.indexer.journal import search_counts as search_counts_impl
 from think.indexer.journal import search_journal as search_journal_impl
 
+_MAX_RESULT_TEXT = 4096
+
 
 def _bucket_day_counts(day_counts: dict[str, int]) -> dict[str, Any]:
     """Bucket day counts into recent days, top days, and bucketed days.
@@ -153,11 +155,16 @@ def search_journal(
         items = []
         for r in results:
             meta = r.get("metadata", {})
+            text = r.get("text", "")
+            if len(text) > _MAX_RESULT_TEXT:
+                text = text[:_MAX_RESULT_TEXT] + (
+                    f"\n\n[... truncated from {len(text):,} chars]"
+                )
             item = {
                 "day": meta.get("day", ""),
                 "facet": meta.get("facet", ""),
                 "topic": meta.get("topic", ""),
-                "text": r.get("text", ""),
+                "text": text,
                 "path": meta.get("path", ""),
                 "idx": meta.get("idx", 0),
             }
