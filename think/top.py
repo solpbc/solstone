@@ -9,17 +9,19 @@ and provides keyboard controls for restarting services.
 
 import argparse
 import asyncio
+import json
 import logging
 import queue
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import psutil
 from blessed import Terminal
 from desktop_notifier import DesktopNotifier, Urgency
 
 from think.callosum import CallosumConnection
-from think.utils import setup_cli
+from think.utils import get_journal, setup_cli
 
 # Desktop notification system
 _notifier: DesktopNotifier | None = None
@@ -69,6 +71,16 @@ class ServiceManager:
         self.displayed_mode = "idle"  # What we show in the UI
         self.last_active_ts = 0.0  # When we last saw an active mode
         self.MODE_IDLE_DELAY = 10  # Seconds before showing IDLE after going idle
+
+        # Dream status tracking (from dream tract events)
+        self.dream_status = {}  # Latest dream/status event fields (merged)
+        self.dream_last_completed = {}  # Last dream/completed event
+        self.dream_running = False  # Whether a dream run is active
+
+        # Agents health tracking (from health/agents.json file)
+        self.agents_health = None  # Parsed agents.json dict, or None
+        self.agents_health_ts = 0.0  # Last time health file was read
+        self.AGENTS_HEALTH_INTERVAL = 30  # Seconds between file re-reads
 
     def count_recent_crashes(self, service: str, window_minutes: int = 5) -> int:
         """Count recent crashes for a service within the time window.
@@ -381,6 +393,24 @@ class ServiceManager:
                     # Keep only last 3
                     self.recent_segments = self.recent_segments[:3]
 
+        elif tract == "dream":
+            if event == "started":
+                self.dream_running = True
+                self.dream_status = {}
+            elif event == "status":
+                for key, value in message.items():
+                    if key not in ("tract", "event", "ts"):
+                        self.dream_status[key] = value
+            elif event == "completed":
+                self.dream_running = False
+                self.dream_last_completed = {
+                    k: v
+                    for k, v in message.items()
+                    if k not in ("tract", "event", "ts")
+                }
+                self.dream_status = {}
+                self._load_agents_health()
+
     def format_uptime(self, seconds: int) -> str:
         """Format uptime in human-readable format.
 
@@ -643,6 +673,15 @@ class ServiceManager:
         # Still within grace period - show last active mode
         return self.displayed_mode
 
+    def _load_agents_health(self) -> None:
+        """Read and cache health/agents.json from the journal."""
+        self.agents_health_ts = time.time()
+        try:
+            path = Path(get_journal()) / "health" / "agents.json"
+            self.agents_health = json.loads(path.read_text())
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            self.agents_health = None
+
     def render_observe_section(self) -> list[str]:
         """Render the observe status section with stable layout.
 
@@ -666,7 +705,11 @@ class ServiceManager:
 
         # Section header with health dot
         output.append("─" * t.width)
-        output.append(f"  {t.bold}Observe{t.normal} {health_dot}")
+        stream = self.observe_status.get("stream", "")
+        header = f"  {t.bold}Observe{t.normal} {health_dot}"
+        if stream:
+            header += f" {stream}"
+        output.append(header)
 
         if not self.observe_status:
             # No status received yet
@@ -732,6 +775,130 @@ class ServiceManager:
 
         return output
 
+    def render_dream_section(self) -> list[str]:
+        """Render the dream status section.
+
+        Returns:
+            List of output lines for the dream section
+        """
+        t = self.term
+        output = []
+
+        output.append("─" * t.width)
+        output.append(f"  {t.bold}Dream{t.normal}")
+
+        if self.dream_running:
+            if self.dream_status:
+                ds = self.dream_status
+                mode = ds.get("mode", "").upper()
+                day = ds.get("day", "")
+                segment = ds.get("segment", "")
+                completed = ds.get("agents_completed", 0)
+                total = ds.get("agents_total", 0)
+                current = ds.get("current_agents", [])
+
+                parts = [f"[{mode}] {day}/{segment}"]
+
+                # Batch mode: show segments progress
+                seg_total = ds.get("segments_total")
+                if seg_total is not None:
+                    seg_completed = ds.get("segments_completed", 0)
+                    parts.append(f"seg {seg_completed}/{seg_total}")
+
+                parts.append(f"{completed}/{total} agents")
+
+                if current:
+                    parts.append(", ".join(current))
+
+                output.append("  " + " — ".join(parts))
+            else:
+                output.append(t.dim + "  (waiting for status)" + t.normal)
+
+        elif self.dream_last_completed:
+            dc = self.dream_last_completed
+            success = dc.get("success", 0)
+            failed = dc.get("failed", 0)
+            duration_s = dc.get("duration_ms", 0) // 1000
+            failed_names = dc.get("failed_names", [])
+
+            if failed > 0:
+                failed_str = t.red + f"{failed} failed" + t.normal
+            else:
+                failed_str = "0 failed"
+
+            line = f"  Last: {success} ok, {failed_str} ({duration_s}s)"
+            if failed > 0 and failed_names:
+                line += " — " + ", ".join(failed_names)
+            output.append(line)
+
+        else:
+            output.append(t.dim + "  (waiting for dream)" + t.normal)
+
+        return output
+
+    def render_agents_health_section(self) -> list[str]:
+        """Render the agents health check section.
+
+        Returns:
+            List of output lines for the agents health section
+        """
+        t = self.term
+        output = []
+
+        output.append("─" * t.width)
+        output.append(f"  {t.bold}Agents Health{t.normal}")
+
+        if self.agents_health is None:
+            output.append(t.dim + "  (no health check)" + t.normal)
+            return output
+
+        # Relative age from checked_at
+        checked_at = self.agents_health.get("checked_at", "")
+        if checked_at:
+            try:
+                checked_dt = datetime.fromisoformat(checked_at)
+                age = datetime.now(checked_dt.tzinfo) - checked_dt
+                age_seconds = max(0, int(age.total_seconds()))
+                if age_seconds < 60:
+                    age_str = f"{age_seconds}s ago"
+                elif age_seconds < 3600:
+                    age_str = f"{age_seconds // 60}m ago"
+                elif age_seconds < 86400:
+                    age_str = f"{age_seconds // 3600}h ago"
+                else:
+                    age_str = f"{age_seconds // 86400}d ago"
+                output.append(t.dim + f"  checked {age_str}" + t.normal)
+            except (ValueError, TypeError):
+                pass
+
+        # Summary counts
+        summary = self.agents_health.get("summary", {})
+        total = summary.get("total", 0)
+        passed = summary.get("passed", 0)
+        failed = summary.get("failed", 0)
+
+        if failed > 0:
+            failed_str = t.red + f"{failed} failed" + t.normal
+        else:
+            failed_str = "0 failed"
+        output.append(f"  {total} checks: {passed} passed, {failed_str}")
+
+        # List failures
+        if failed > 0:
+            for result in self.agents_health.get("results", []):
+                if not result.get("ok", True):
+                    provider = result.get("provider", "?")
+                    model = result.get("model", "?")
+                    interface = result.get("interface", "?")
+                    output.append(
+                        t.dim
+                        + t.red
+                        + f"  ✗ {provider}/{model} ({interface})"
+                        + t.normal
+                    )
+
+        return output
+
     def render(self) -> str:
         """Render the entire UI.
 
@@ -740,6 +907,10 @@ class ServiceManager:
         """
         t = self.term
         output = []
+
+        # Periodically reload agents health file
+        if time.time() - self.agents_health_ts > self.AGENTS_HEALTH_INTERVAL:
+            self._load_agents_health()
 
         # Clear and move to top
         output.append(t.home + t.clear)
@@ -783,9 +954,17 @@ class ServiceManager:
         observe_output = self.render_observe_section()
         output.extend(observe_output)
 
+        # Dream status section
+        dream_output = self.render_dream_section()
+        output.extend(dream_output)
+
         # Running tasks table (from logs tract)
         tasks_output = self.render_tasks_table()
         output.extend(tasks_output)
+
+        # Agents health section
+        health_output = self.render_agents_health_section()
+        output.extend(health_output)
 
         # Crashed services (if any)
         if self.crashed:
