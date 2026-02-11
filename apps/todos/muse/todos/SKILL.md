@@ -1,6 +1,6 @@
 ---
 name: todos
-description: Manage todo checklists using sol call todos commands. Use this when you need to list, add, complete, cancel, or review upcoming todos organized by facet and day.
+description: Manage todo checklists using sol call todos commands. List, add, complete, and cancel tasks and action items organized by facet and day. Review upcoming scheduled items.
 ---
 
 # Todos CLI Skill
@@ -92,7 +92,7 @@ Cancel (soft-delete) a todo.
 - `LINE_NUMBER`: 1-based line number from `list` output.
 - `-f, --facet`: required facet name.
 
-Behavior note:
+Behavior notes:
 
 - Cancellation keeps line numbering continuity; entries stay in storage but are treated as inactive.
 
@@ -113,7 +113,7 @@ Show future todos grouped by facet and day.
 - `-l, --limit`: max items (default `20`).
 - `-f, --facet`: optional facet filter. Omit to include all facets.
 
-Workflow note:
+Behavior notes:
 
 - Run this before adding future-day todos to avoid cross-day duplicates.
 

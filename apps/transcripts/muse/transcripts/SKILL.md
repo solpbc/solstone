@@ -1,6 +1,6 @@
 ---
 name: transcripts
-description: Browse and read transcript content using sol call transcripts commands. Use this when you need to inspect recording coverage, list segments, read transcript text with source filtering, or check monthly coverage statistics.
+description: Browse and read transcript content using sol call transcripts commands. Inspect audio recordings, screen captures, and agent summaries. Check recording coverage, list segments, read transcript text with source filtering, or review monthly statistics.
 ---
 
 # Transcripts CLI Skill
@@ -11,6 +11,8 @@ Common pattern:
 ```bash
 sol call transcripts <command> [args...]
 ```
+
+**Typical workflow**: `scan` a day for recording windows → `segments` to get segment keys → `read` to retrieve transcript text.
 
 ## scan
 

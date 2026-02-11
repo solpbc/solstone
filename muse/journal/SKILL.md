@@ -1,6 +1,6 @@
 ---
 name: journal
-description: Search and browse journal content using sol call journal commands. Use this when you need to find information across transcripts, insights, events, entities, and todos, or get facet overviews and news.
+description: Search and browse journal content using sol call journal commands. Find, query, and look up information across transcripts, insights, events, entities, and todos. Get facet overviews and news feeds.
 ---
 
 # Journal CLI Skill
@@ -11,6 +11,8 @@ Common pattern:
 ```bash
 sol call journal <command> [args...]
 ```
+
+**Typical workflow**: `search` to find content across all types → `events` or `facet` for structured detail on a specific day or project.
 
 ## search
 
@@ -96,7 +98,7 @@ Read facet news entries (read-only feed in CLI).
 - `-n, --limit`: max days to return (default `5`).
 - `--cursor`: optional pagination cursor (typically a `YYYYMMDD` cutoff for older entries).
 
-Behavior note:
+Behavior notes:
 
 - CLI `news` reads content only. It does not provide write behavior.
 

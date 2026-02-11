@@ -1,6 +1,6 @@
 ---
 name: entities
-description: Manage tracked entities with sol call entities commands. Use this when you need to list, detect, attach, update, alias, or record observations for people, companies, projects, and tools within a facet.
+description: Manage tracked entities with sol call entities commands. List, detect, attach, update, alias, and record observations for people, companies, projects, and tools. Track relationships and knowledge within a facet.
 ---
 
 # Entities CLI Skill
@@ -32,7 +32,7 @@ List entities for a facet.
 - `FACET`: required facet name.
 - `-d, --day`: optional day (`YYYYMMDD`).
 
-Behavior:
+Behavior notes:
 
 - Without `--day`: lists attached (permanent) entities.
 - With `--day`: lists detected entities for that day.
@@ -108,7 +108,7 @@ Update entity description.
 - `DESCRIPTION`: new description.
 - `-d, --day`: optional day (`YYYYMMDD`) to update a detected entity.
 
-Behavior:
+Behavior notes:
 
 - Without `--day`: updates an attached entity.
 - With `--day`: updates a detected entity for that day.
@@ -176,7 +176,7 @@ Add a durable observation to an attached entity.
 - `CONTENT`: observation text.
 - `--source-day`: optional day (`YYYYMMDD`) when this was observed.
 
-Behavior note:
+Behavior notes:
 
 - Observation number is auto-calculated by the CLI.
 
