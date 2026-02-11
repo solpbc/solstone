@@ -34,7 +34,6 @@ from think.muse import (
     MUSE_DIR,
     _load_prompt_metadata,
     get_muse_configs,
-    get_output_topic,
 )
 from think.utils import setup_cli
 
@@ -75,37 +74,16 @@ def _scan_variables(body: str) -> list[str]:
     return result
 
 
-def _format_output_path(key: str, info: dict[str, Any]) -> str:
-    """Compose output path pattern for a prompt.
+def _format_last_run(key: str, agents_dir: Path) -> tuple[str, bool]:
+    """Format age of last run with optional runtime duration.
 
-    Returns path pattern like '<day>/agents/flow.md' or '<segment>/agents/activity.md',
-    or '-' if the prompt has no output field.
+    Returns (display_string, failed) where failed is True if the last
+    event in the log was an error.
     """
-    output_format = info.get("output")
-    if not output_format:
-        return "-"
-
-    # Determine extension
-    ext = "json" if output_format == "json" else "md"
-
-    # Get topic name (handles app namespacing like entities:entities -> _entities_entities)
-    topic = get_output_topic(key)
-
-    # Determine path based on schedule
-    schedule = info.get("schedule")
-    if schedule == "segment":
-        return f"<segment>/agents/{topic}.{ext}"
-    else:
-        # daily and unscheduled both go to agents/
-        return f"<day>/agents/{topic}.{ext}"
-
-
-def _format_last_run(key: str, agents_dir: Path) -> str:
-    """Format age of last run with optional runtime duration."""
     safe_name = key.replace(":", "--")
     link_path = agents_dir / f"{safe_name}.log"
     if not link_path.exists():
-        return "-"
+        return "-", False
 
     try:
         with link_path.open() as f:
@@ -125,8 +103,10 @@ def _format_last_run(key: str, agents_dir: Path) -> str:
         else:
             age = f"{int(age_seconds / 86400)}d ago"
 
+        failed = False
         if last_line:
             last_event = json.loads(last_line)
+            failed = last_event.get("event") == "error"
             last_ts = last_event["ts"]
             duration_seconds = (last_ts - first_ts) / 1000
             if duration_seconds < 60:
@@ -137,32 +117,38 @@ def _format_last_run(key: str, agents_dir: Path) -> str:
                 duration = f"{int(duration_seconds / 3600)}h"
             age = f"{age} ({duration})"
 
-        return age
+        return age, failed
     except Exception:
-        return "-"
+        return "-", False
 
 
-def _format_tags(info: dict[str, Any]) -> str:
-    """Build compact tags string for hook and disabled status."""
+def _format_tags(info: dict[str, Any], *, failed: bool = False) -> str:
+    """Build compact space-separated tags string."""
     tags: list[str] = []
 
-    if info.get("hook"):
-        hook = info["hook"]
+    output = info.get("output")
+    if output == "json":
+        tags.append("json")
+    elif output:
+        tags.append("md")
+
+    hook = info.get("hook")
+    if hook:
         if isinstance(hook, dict):
-            # Format as "hook:pre=name,post=name"
-            parts = []
             if hook.get("pre"):
-                parts.append(f"pre={hook['pre']}")
+                tags.append("pre")
             if hook.get("post"):
-                parts.append(f"post={hook['post']}")
-            tags.append(f"hook:{','.join(parts)}")
+                tags.append("post")
         else:
-            tags.append(f"hook:{hook}")
+            tags.append("hook")
 
     if info.get("disabled"):
         tags.append("disabled")
 
-    return "  ".join(tags)
+    if failed:
+        tags.append("FAIL")
+
+    return " ".join(tags)
 
 
 def _collect_configs(
@@ -233,13 +219,12 @@ def list_prompts(
 
     # Fixed widths for other columns
     title_width = 28
-    output_width = 34
     last_run_width = 18
 
     # Print column header
     header = (
         f"  {'NAME':<{name_width}}  {'TITLE':<{title_width}}  "
-        f"{'OUTPUT':<{output_width}}  {'LAST RUN':<{last_run_width}}  TAGS"
+        f"{'LAST RUN':<{last_run_width}}  TAGS"
     )
     print(header)
     print()
@@ -256,18 +241,17 @@ def list_prompts(
 
         for key, info in items:
             title = info.get("title", "")[:title_width]
-            output_path = _format_output_path(key, info)
-            last_run = _format_last_run(key, agents_dir)[:last_run_width]
-            tags = _format_tags(info)
+            last_run_str, failed = _format_last_run(key, agents_dir)
+            last_run = last_run_str[:last_run_width]
+            tags = _format_tags(info, failed=failed)
             src = ""
             if info.get("source") == "app":
                 src = f" [{info.get('app', 'app')}]"
 
-            # Build line with columns: name, title, output, last_run, tags
             tag_part = f"  {tags}" if tags else ""
             line = (
                 f"  {key:<{name_width}}  {title:<{title_width}}  "
-                f"{output_path:<{output_width}}  {last_run:<{last_run_width}}{tag_part}{src}"
+                f"{last_run:<{last_run_width}}{tag_part}{src}"
             )
             print(line.rstrip())
 

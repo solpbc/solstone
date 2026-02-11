@@ -9,7 +9,6 @@ import pytest
 
 from think.muse_cli import (
     _collect_configs,
-    _format_output_path,
     _format_tags,
     _scan_variables,
     json_output,
@@ -63,63 +62,30 @@ def test_collect_configs_filter_source():
 
 
 def test_format_tags_hook():
-    """Format tags shows hook and disabled status."""
-    # Dict-based hook format
-    assert _format_tags({"hook": {"post": "occurrence"}}) == "hook:post=occurrence"
-    assert _format_tags({"hook": {"pre": "prep"}}) == "hook:pre=prep"
-    assert (
-        _format_tags({"hook": {"pre": "prep", "post": "process"}})
-        == "hook:pre=prep,post=process"
-    )
-
+    """Format tags shows compact output, hook, disabled, and FAIL tags."""
+    # Output format tags
+    assert _format_tags({"output": "md"}) == "md"
+    assert _format_tags({"output": "json"}) == "json"
     assert _format_tags({}) == ""
-    assert "disabled" in _format_tags({"disabled": True})
 
-    # Hook + disabled combined
-    tags = _format_tags({"hook": {"post": "occurrence"}, "disabled": True})
-    assert "hook:post=occurrence" in tags
-    assert "disabled" in tags
+    # Hook tags (compact, no =name suffix)
+    assert _format_tags({"hook": {"post": "occurrence"}}) == "post"
+    assert _format_tags({"hook": {"pre": "prep"}}) == "pre"
+    assert _format_tags({"hook": {"pre": "prep", "post": "process"}}) == "pre post"
 
+    # Disabled
+    assert _format_tags({"disabled": True}) == "disabled"
 
-def test_format_output_path_segment():
-    """Output path for segment-scheduled prompts."""
-    assert _format_output_path("activity", {"schedule": "segment", "output": "md"}) == (
-        "<segment>/agents/activity.md"
+    # FAIL tag
+    assert _format_tags({}, failed=True) == "FAIL"
+    assert _format_tags({"output": "md"}, failed=True) == "md FAIL"
+
+    # Combined: output + hooks + disabled + FAIL
+    tags = _format_tags(
+        {"output": "md", "hook": {"post": "occurrence"}, "disabled": True},
+        failed=True,
     )
-    assert _format_output_path(
-        "speakers", {"schedule": "segment", "output": "json"}
-    ) == ("<segment>/agents/speakers.json")
-
-
-def test_format_output_path_daily():
-    """Output path for daily-scheduled prompts."""
-    assert _format_output_path("flow", {"schedule": "daily", "output": "md"}) == (
-        "<day>/agents/flow.md"
-    )
-    assert _format_output_path("schedule", {"schedule": "daily", "output": "json"}) == (
-        "<day>/agents/schedule.json"
-    )
-
-
-def test_format_output_path_unscheduled():
-    """Unscheduled prompts with output go to agents/."""
-    assert _format_output_path("importer", {"output": "md"}) == (
-        "<day>/agents/importer.md"
-    )
-
-
-def test_format_output_path_no_output():
-    """Prompts without output field return dash."""
-    assert _format_output_path("default", {"tools": "journal"}) == "-"
-    assert _format_output_path("joke_bot", {}) == "-"
-
-
-def test_format_output_path_app_namespaced():
-    """App-namespaced prompts use underscore prefix in filename."""
-    # This tests the get_output_topic integration
-    assert _format_output_path(
-        "entities:entities", {"schedule": "daily", "output": "md"}
-    ) == ("<day>/agents/_entities_entities.md")
+    assert tags == "md post disabled FAIL"
 
 
 def test_scan_variables():
@@ -140,9 +106,9 @@ def test_list_prompts_output(capsys):
     # Column header
     assert "NAME" in output
     assert "TITLE" in output
-    assert "OUTPUT" in output
     assert "LAST RUN" in output
     assert "TAGS" in output
+    assert "OUTPUT" not in output
 
     # Group headers
     assert "segment:" in output
@@ -151,10 +117,6 @@ def test_list_prompts_output(capsys):
     # Prompt names
     assert "activity" in output
     assert "flow" in output
-
-    # Output path column shows path patterns
-    assert "<segment>/agents/activity.md" in output
-    assert "<day>/agents/flow.md" in output
 
     # Last run column is present
     assert "LAST RUN" in output
