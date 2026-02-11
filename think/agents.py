@@ -859,6 +859,7 @@ async def _run_check(args: argparse.Namespace) -> None:
     total = 0
     passed = 0
     failed = 0
+    results = []
 
     for provider_name in providers:
         for tier in tiers:
@@ -872,16 +873,30 @@ async def _run_check(args: argparse.Namespace) -> None:
                         provider_name, tier, args.timeout
                     )
                 elapsed_s = time.perf_counter() - start
+                elapsed_s_rounded = round(elapsed_s, 1)
 
-                mark = "✓" if ok else "✗"
-                print(
-                    f"{mark} "
-                    f"{provider_name:<{provider_width}}  "
-                    f"{tier_names[tier]:<{tier_width}}  "
-                    f"{model:<{model_width}}  "
-                    f"{interface_name:<{interface_width}}  "
-                    f"{message} ({elapsed_s:.1f}s)"
+                results.append(
+                    {
+                        "provider": provider_name,
+                        "tier": tier_names[tier],
+                        "model": model,
+                        "interface": interface_name,
+                        "ok": bool(ok),
+                        "message": str(message),
+                        "elapsed_s": elapsed_s_rounded,
+                    }
                 )
+
+                if not args.json:
+                    mark = "✓" if ok else "✗"
+                    print(
+                        f"{mark} "
+                        f"{provider_name:<{provider_width}}  "
+                        f"{tier_names[tier]:<{tier_width}}  "
+                        f"{model:<{model_width}}  "
+                        f"{interface_name:<{interface_width}}  "
+                        f"{message} ({elapsed_s:.1f}s)"
+                    )
 
                 total += 1
                 if ok:
@@ -889,7 +904,18 @@ async def _run_check(args: argparse.Namespace) -> None:
                 else:
                     failed += 1
 
-    print(f"{total} checks: {passed} passed, {failed} failed")
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "results": results,
+                    "summary": {"total": total, "passed": passed, "failed": failed},
+                },
+                indent=2,
+            )
+        )
+    else:
+        print(f"{total} checks: {passed} passed, {failed} failed")
     sys.exit(1 if failed > 0 else 0)
 
 
@@ -935,6 +961,9 @@ async def main_async() -> None:
         choices=[1, 2, 3],
         default=None,
         help="Tier to check (1=pro, 2=flash, 3=lite; default: all)",
+    )
+    check_parser.add_argument(
+        "--json", action="store_true", help="Output results as JSON"
     )
 
     args = setup_cli(parser)
