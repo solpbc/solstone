@@ -189,10 +189,6 @@ def day_dirs() -> dict[str, str]:
     return days
 
 
-# Directories at the day level that are NOT streams
-DAY_RESERVED_DIRS = {"agents", "indexer", "health", "remote"}
-
-
 def segment_path(day: str, segment: str, stream: str) -> Path:
     """Return absolute path for a segment directory within a stream.
 
@@ -241,7 +237,7 @@ def iter_segments(day: str | Path) -> list[tuple[str, str, Path]]:
 
     results = []
     for entry in day_dir.iterdir():
-        if not entry.is_dir() or entry.name in DAY_RESERVED_DIRS:
+        if not entry.is_dir():
             continue
         stream_name = entry.name
         for seg_entry in entry.iterdir():

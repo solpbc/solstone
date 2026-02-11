@@ -23,7 +23,7 @@ import shutil
 from pathlib import Path
 
 from think.streams import read_segment_stream
-from think.utils import DAY_RESERVED_DIRS, day_dirs, get_journal, segment_key, setup_cli
+from think.utils import day_dirs, get_journal, segment_key, setup_cli
 
 
 def _is_empty_segment(seg_dir: Path) -> bool:
@@ -66,8 +66,6 @@ def _is_already_restructured(days: dict[str, str]) -> bool:
             if segment_key(entry.name):
                 # Found a segment as direct child — still flat layout
                 return False
-            if entry.name in DAY_RESERVED_DIRS:
-                continue
             # Potential stream directory — check for segments inside
             for sub in entry.iterdir():
                 if sub.is_dir() and segment_key(sub.name):
@@ -152,7 +150,7 @@ def restructure(journal_root: Path, dry_run: bool) -> None:
         for day_path_str in days.values():
             day_dir = Path(day_path_str)
             for stream_dir in day_dir.iterdir():
-                if not stream_dir.is_dir() or stream_dir.name in DAY_RESERVED_DIRS:
+                if not stream_dir.is_dir():
                     continue
                 for seg_dir in stream_dir.iterdir():
                     if seg_dir.is_dir() and segment_key(seg_dir.name):
