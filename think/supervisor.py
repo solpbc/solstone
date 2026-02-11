@@ -34,6 +34,9 @@ CHECK_INTERVAL = 30
 
 # Global shutdown flag
 shutdown_requested = False
+# Supervisor identity (set in main() once ref is assigned)
+_supervisor_ref: str | None = None
+_supervisor_start: float | None = None
 
 
 class CallosumLogHandler(logging.Handler):
@@ -658,6 +661,9 @@ def _handle_supervisor_request(message: dict) -> None:
     if not service:
         logging.error("Invalid restart request: missing service")
         return
+    if service == "supervisor":
+        logging.debug("Ignoring restart request for supervisor itself")
+        return
 
     # Find the process
     for proc in _managed_procs:
@@ -728,6 +734,18 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
                 }
             )
             running_names.add(proc.name)
+
+    # Prepend supervisor itself
+    if _supervisor_ref and _supervisor_start:
+        services.insert(
+            0,
+            {
+                "name": "supervisor",
+                "ref": _supervisor_ref,
+                "pid": os.getpid(),
+                "uptime_seconds": int(now - _supervisor_start),
+            },
+        )
 
     # Crashed services (in restart backoff)
     crashed = []
@@ -1455,6 +1473,9 @@ def main() -> None:
 
     # Mirror supervisor log output to callosum logs tract (best-effort)
     supervisor_ref = str(now_ms())
+    global _supervisor_ref, _supervisor_start
+    _supervisor_ref = supervisor_ref
+    _supervisor_start = time.time()
     if _supervisor_callosum:
         try:
             handler = CallosumLogHandler(_supervisor_callosum, supervisor_ref)

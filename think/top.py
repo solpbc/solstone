@@ -811,6 +811,8 @@ class ServiceManager:
         """Send restart request for currently selected service."""
         if 0 <= self.selected < len(self.services):
             svc = self.services[self.selected]
+            if svc["name"] == "supervisor":
+                return
             self.callosum.emit("supervisor", "restart", service=svc["name"])
             self.set_service_status(svc["name"], "requested")
 
