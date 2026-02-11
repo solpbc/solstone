@@ -198,6 +198,8 @@ def send_message() -> Any:
             provider=provider,
             config=config,
         )
+        if agent_id is None:
+            return error_response("Failed to connect to agent service", 503)
 
         ts = now_ms()
 
@@ -498,6 +500,8 @@ def retry_chat(chat_id: str) -> Any:
             provider=provider,
             config=config,
         )
+        if agent_id is None:
+            return error_response("Failed to connect to agent service", 503)
 
         # Append agent to chat and update timestamp
         agent_ids.append(agent_id)

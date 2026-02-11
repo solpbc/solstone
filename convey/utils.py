@@ -87,7 +87,7 @@ def spawn_agent(
     name: str,
     provider: Optional[str] = None,
     config: Optional[dict[str, Any]] = None,
-) -> str:
+) -> str | None:
     """Spawn a Cortex agent and return the agent_id.
 
     Thin wrapper around cortex_request that ensures imports are handled
@@ -100,11 +100,10 @@ def spawn_agent(
         config: Additional configuration (max_tokens, facet, session_id, etc.)
 
     Returns:
-        agent_id string (timestamp-based)
+        agent_id string (timestamp-based), or None if the request could not be sent.
 
     Raises:
         ValueError: If config is invalid
-        Exception: On agent spawn failure
     """
     from think.cortex_client import cortex_request
 

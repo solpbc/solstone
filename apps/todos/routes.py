@@ -590,6 +590,9 @@ Write the generated checklist to facets/{facet}/todos/{day}.jsonl"""
     except Exception as exc:  # pragma: no cover - network/agent failure
         return jsonify({"error": f"Failed to spawn agent: {exc}"}), 500
 
+    if agent_id is None:
+        return jsonify({"error": "Failed to connect to agent service"}), 503
+
     if not hasattr(state, "todo_generation_agents"):
         state.todo_generation_agents = {}
     state.todo_generation_agents[day] = agent_id
@@ -673,5 +676,8 @@ Focus on surfacing the most important unfinished work from the past 7 days."""
         )
     except Exception as exc:  # pragma: no cover - network/agent failure
         return jsonify({"error": f"Failed to spawn agent: {exc}"}), 500
+
+    if agent_id is None:
+        return jsonify({"error": "Failed to connect to agent service"}), 503
 
     return jsonify({"agent_id": agent_id, "status": "started"})

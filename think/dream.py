@@ -159,6 +159,31 @@ def check_callosum_available() -> bool:
     return socket_path.exists()
 
 
+_SEND_RETRY_DELAYS = (0.5, 1.0)  # seconds between retries (3 attempts total)
+
+
+def _cortex_request_with_retry(**kwargs) -> str | None:
+    """Call cortex_request with retries on Callosum send failure.
+
+    Retries up to len(_SEND_RETRY_DELAYS) times with short sleeps in between.
+    Returns the agent_id on success, or None if all attempts failed.
+    """
+    agent_id = cortex_request(**kwargs)
+    if agent_id is not None:
+        return agent_id
+
+    name = kwargs.get("name", "unknown")
+    for i, delay in enumerate(_SEND_RETRY_DELAYS, 1):
+        logging.warning("Retrying cortex request for '%s' (attempt %d)", name, i + 1)
+        time.sleep(delay)
+        agent_id = cortex_request(**kwargs)
+        if agent_id is not None:
+            return agent_id
+
+    logging.error("All cortex request attempts failed for '%s'", name)
+    return None
+
+
 def _drain_priority_batch(
     spawned: list[tuple[str, str, dict, str | None]],
     target_schedule: str,
@@ -417,11 +442,17 @@ def run_prompts_by_priority(
                             else f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context."
                         )
 
-                        agent_id = cortex_request(
+                        agent_id = _cortex_request_with_retry(
                             prompt=prompt,
                             name=prompt_name,
                             config=request_config,
                         )
+                        if agent_id is None:
+                            group_failed += 1
+                            all_failed_names.append(
+                                f"{prompt_name}/{facet_name} (send)"
+                            )
+                            continue
                         spawned.append((agent_id, prompt_name, config, facet_name))
                         emit(
                             "agent_started",
@@ -477,11 +508,15 @@ def run_prompts_by_priority(
                         else f"Running scheduled task for {day_formatted}: {input_summary}."
                     )
 
-                    agent_id = cortex_request(
+                    agent_id = _cortex_request_with_retry(
                         prompt=prompt,
                         name=prompt_name,
                         config=request_config,
                     )
+                    if agent_id is None:
+                        group_failed += 1
+                        all_failed_names.append(f"{prompt_name} (send)")
+                        continue
                     spawned.append((agent_id, prompt_name, config, None))
                     emit(
                         "agent_started",
@@ -515,7 +550,7 @@ def run_prompts_by_priority(
 
             except Exception as e:
                 logging.error(f"Failed to spawn {prompt_name}: {e}")
-                total_failed += 1
+                group_failed += 1
                 all_failed_names.append(f"{prompt_name} (spawn)")
 
         # Drain any remaining agents in this priority group
@@ -631,11 +666,14 @@ def run_single_prompt(
             request_config["force"] = True
 
         try:
-            agent_id = cortex_request(
+            agent_id = _cortex_request_with_retry(
                 prompt="",
                 name=name,
                 config=request_config,
             )
+            if agent_id is None:
+                logging.error(f"Failed to send cortex request for generator '{name}'")
+                return False
             logging.info(f"Spawned generator {name} (ID: {agent_id})")
             emit(
                 "agent_started",
@@ -725,11 +763,14 @@ def run_single_prompt(
                         request_config["env"] = {"SEGMENT_KEY": segment}
                         if stream:
                             request_config["env"]["STREAM_NAME"] = stream
-                    agent_id = cortex_request(
+                    agent_id = _cortex_request_with_retry(
                         prompt=f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context.",
                         name=name,
                         config=request_config,
                     )
+                    if agent_id is None:
+                        logging.error(f"Failed to send cortex request for {name}/{facet_name}")
+                        continue
                     spawned_ids.append((agent_id, facet_name))
                     emit(
                         "agent_started",
@@ -752,11 +793,14 @@ def run_single_prompt(
                     if stream:
                         request_config["env"]["STREAM_NAME"] = stream
 
-                agent_id = cortex_request(
+                agent_id = _cortex_request_with_retry(
                     prompt=f"Running task for {day_formatted}: {input_summary}.",
                     name=name,
                     config=request_config,
                 )
+                if agent_id is None:
+                    logging.error(f"Failed to send cortex request for '{name}'")
+                    return False
                 spawned_ids.append((agent_id, None))
                 emit(
                     "agent_started",
@@ -1045,11 +1089,14 @@ def run_activity_prompts(
                     else f"Processing activity '{activity_id}' ({activity_type}) in facet '{facet}' for {day_formatted}."
                 )
 
-                agent_id = cortex_request(
+                agent_id = _cortex_request_with_retry(
                     prompt=prompt,
                     name=prompt_name,
                     config=request_config,
                 )
+                if agent_id is None:
+                    total_failed += 1
+                    continue
                 spawned.append((agent_id, prompt_name, config))
                 emit(
                     "agent_started",
@@ -1198,11 +1245,14 @@ def run_flush_prompts(
             if is_generate:
                 request_config["output"] = config.get("output", "md")
 
-            agent_id = cortex_request(
+            agent_id = _cortex_request_with_retry(
                 prompt="",
                 name=prompt_name,
                 config=request_config,
             )
+            if agent_id is None:
+                total_failed += 1
+                continue
             spawned.append((agent_id, prompt_name, config))
             emit(
                 "agent_started",

@@ -151,6 +151,17 @@ def test_cortex_request_unique_agent_ids(callosum_server):
     assert len(set(agent_ids)) == 3
 
 
+def test_cortex_request_returns_none_on_send_failure(callosum_server, monkeypatch):
+    """Test cortex_request returns None when callosum_send fails."""
+    monkeypatch.setattr(
+        "think.cortex_client.callosum_send", lambda *a, **kw: False
+    )
+
+    agent_id = cortex_request(prompt="Test", name="default", provider="openai")
+
+    assert agent_id is None
+
+
 def test_cortex_request_uses_default_path_when_journal_path_unset(callosum_server):
     """Test cortex_request uses platform default when JOURNAL_PATH unset."""
     _ = callosum_server  # Needed for side effects only

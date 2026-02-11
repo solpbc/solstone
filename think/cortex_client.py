@@ -38,7 +38,7 @@ def cortex_request(
     provider: Optional[str] = None,
     handoff_from: Optional[str] = None,
     config: Optional[Dict[str, Any]] = None,
-) -> str:
+) -> str | None:
     """Create a Cortex agent request via Callosum broadcast.
 
     Args:
@@ -49,7 +49,7 @@ def cortex_request(
         config: Provider-specific configuration (model, max_output_tokens, thinking_budget, etc.)
 
     Returns:
-        Agent ID (timestamp-based string)
+        Agent ID (timestamp-based string), or None if the Callosum send failed.
     """
     # Get journal path (for agent_id uniqueness check)
     journal_path = get_journal()
@@ -93,7 +93,11 @@ def cortex_request(
     # Note: callosum_send() signature is send(tract, event, **fields)
     # Remove "event" from request dict to avoid conflict
     request_fields = {k: v for k, v in request.items() if k != "event"}
-    callosum_send("cortex", "request", **request_fields)
+    sent = callosum_send("cortex", "request", **request_fields)
+
+    if not sent:
+        logger.info("Failed to send cortex request for agent '%s'", name)
+        return None
 
     return agent_id
 

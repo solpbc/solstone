@@ -526,6 +526,8 @@ def generate_description(facet_name: str) -> Any:
             name="entities:entity_describe",
             provider="google",
         )
+        if agent_id is None:
+            return jsonify({"error": "Failed to connect to agent service"}), 503
 
         return jsonify({"success": True, "agent_id": agent_id})
 
@@ -558,6 +560,8 @@ def assist_add(facet_name: str) -> Any:
             prompt=prompt,
             name="entities:entity_assist",
         )
+        if agent_id is None:
+            return jsonify({"error": "Failed to connect to agent service"}), 503
 
         return jsonify({"success": True, "agent_id": agent_id})
 

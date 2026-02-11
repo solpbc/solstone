@@ -476,6 +476,10 @@ def _run_import_summary(
             },
         )
 
+        if agent_id is None:
+            logger.error("Failed to send cortex request for import summary")
+            return False
+
         # Wait for completion
         completed, timed_out = wait_for_agents([agent_id], timeout=300)
 

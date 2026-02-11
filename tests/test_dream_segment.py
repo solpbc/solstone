@@ -319,3 +319,101 @@ class TestRunPromptsByPriority:
         assert indexer_calls[0][0] == "sol"
         assert indexer_calls[0][1] == "indexer"
         assert "--rescan-file" in indexer_calls[0]
+
+
+class TestCortexRequestRetry:
+    """Tests for _cortex_request_with_retry."""
+
+    def test_succeeds_on_first_try(self, monkeypatch):
+        """No retries when first call succeeds."""
+        from think import dream
+
+        calls = []
+
+        def mock_cortex_request(**kwargs):
+            calls.append(kwargs)
+            return "agent-1"
+
+        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+
+        result = dream._cortex_request_with_retry(prompt="hi", name="test")
+
+        assert result == "agent-1"
+        assert len(calls) == 1
+
+    def test_succeeds_on_retry(self, monkeypatch):
+        """Returns agent_id when a retry succeeds after initial failure."""
+        from think import dream
+
+        calls = []
+
+        def mock_cortex_request(**kwargs):
+            calls.append(kwargs)
+            return None if len(calls) <= 1 else "agent-2"
+
+        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(dream, "_SEND_RETRY_DELAYS", (0.0, 0.0))
+
+        result = dream._cortex_request_with_retry(prompt="hi", name="test")
+
+        assert result == "agent-2"
+        assert len(calls) == 2
+
+    def test_returns_none_after_all_retries(self, monkeypatch):
+        """Returns None when all attempts fail."""
+        from think import dream
+
+        calls = []
+
+        def mock_cortex_request(**kwargs):
+            calls.append(kwargs)
+            return None
+
+        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(dream, "_SEND_RETRY_DELAYS", (0.0, 0.0))
+
+        result = dream._cortex_request_with_retry(prompt="hi", name="test")
+
+        assert result is None
+        assert len(calls) == 3  # 1 initial + 2 retries
+
+    def test_send_failure_counted_as_spawn_failure(self, segment_dir, monkeypatch):
+        """When cortex_request returns None, dream counts it as a spawn failure."""
+        from think import dream
+
+        def mock_cortex_request(**kwargs):
+            return None
+
+        def mock_wait_for_agents(agent_ids, timeout=600):
+            return ({}, [])
+
+        def mock_get_muse_configs(schedule=None, **kwargs):
+            return {
+                "broken_agent": {
+                    "priority": 10,
+                    "type": "generate",
+                    "output": "md",
+                    "schedule": "segment",
+                },
+            }
+
+        def mock_get_enabled_facets():
+            return {}
+
+        def mock_get_active_facets(day):
+            return set()
+
+        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(dream, "_SEND_RETRY_DELAYS", (0.0, 0.0))
+        monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
+        monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
+        monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
+        monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)
+
+        success, failed, failed_names = dream.run_prompts_by_priority(
+            "20240115", "120000_300", force=False, verbose=False
+        )
+
+        assert success == 0
+        assert failed == 1
+        assert any("send" in n for n in failed_names)

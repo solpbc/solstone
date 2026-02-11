@@ -755,6 +755,12 @@ class CortexService:
                 config=extra_config,
             )
 
+            if agent_id is None:
+                self.logger.error(
+                    f"Failed to send handoff request from {parent_id}"
+                )
+                return
+
             self.logger.info(f"Spawned handoff agent {agent_id} from {parent_id}")
 
         except Exception as e:
