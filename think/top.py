@@ -39,7 +39,6 @@ class ServiceManager:
     def __init__(self):
         self.services = []  # From supervisor/status events
         self.crashed = []  # From supervisor/status crashed field
-        self.tasks = []  # From supervisor/status tasks field
         self.selected = 0
         self.callosum = CallosumConnection()
         self.running = True
@@ -202,7 +201,6 @@ class ServiceManager:
             if event == "status":
                 self.services = message.get("services", [])
                 self.crashed = message.get("crashed", [])
-                self.tasks = message.get("tasks", [])
 
                 # Poll CPU for current services and tasks
                 all_pids = [svc["pid"] for svc in self.services]

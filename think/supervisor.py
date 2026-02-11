@@ -1483,15 +1483,6 @@ def main() -> None:
                 logging.Formatter("%(asctime)s %(levelname)s %(message)s")
             )
             logging.getLogger().addHandler(handler)
-            _supervisor_callosum.emit(
-                "logs",
-                "exec",
-                ref=supervisor_ref,
-                name="supervisor",
-                pid=os.getpid(),
-                cmd=["sol", "supervisor"],
-                log_path=str(log_path),
-            )
         except Exception:
             pass
 
@@ -1581,22 +1572,6 @@ def main() -> None:
                 except Exception:
                     pass
             managed.cleanup()
-
-        # Emit logs exit event before disconnecting (best-effort)
-        if _supervisor_callosum:
-            try:
-                _supervisor_callosum.emit(
-                    "logs",
-                    "exit",
-                    ref=supervisor_ref,
-                    name="supervisor",
-                    pid=os.getpid(),
-                    exit_code=0,
-                    cmd=["sol", "supervisor"],
-                    log_path=str(log_path),
-                )
-            except Exception:
-                pass
 
         # Disconnect supervisor's Callosum connection
         if _supervisor_callosum:
