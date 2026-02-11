@@ -8,9 +8,9 @@ belongs to exactly one stream and links to its predecessor, creating a
 navigable chain with human-readable identity.
 
 Naming convention (separator is '.'):
-    Local observer:   {hostname}           e.g. "archon"
+    Local observer:   {hostname}           e.g. "archon"  (domain stripped: archon.local -> archon)
     Local tmux:       {hostname}.tmux      e.g. "archon.tmux"
-    Remote observer:  {remote_name}        e.g. "laptop"
+    Remote observer:  {remote_name}        e.g. "laptop"  (domain stripped: laptop.local -> laptop)
     Import (Apple):   import.apple
     Import (Plaud):   import.plaud
     Import (generic): import.audio
@@ -37,6 +37,27 @@ logger = logging.getLogger(__name__)
 
 # Valid stream name: lowercase, dots allowed, no path separators
 _STREAM_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+
+
+def _strip_hostname(name: str) -> str:
+    """Strip domain suffix from a hostname, keeping only the first label.
+
+    Dots in stream names are reserved for qualifiers (e.g., '.tmux') and
+    import prefixes (e.g., 'import.apple'). Hostnames like 'ja1r.local'
+    or '192.168.1.1' must be reduced to a dot-free base name.
+
+    Examples: 'ja1r.local' -> 'ja1r', '192.168.1.1' -> '192-168-1-1',
+    'archon' -> 'archon', 'my.host.example.com' -> 'my'
+    """
+    name = name.strip()
+    if not name:
+        return name
+    # IP addresses: all parts are digits — join with dashes
+    parts = name.split(".")
+    if all(p.isdigit() for p in parts if p):
+        return "-".join(p for p in parts if p)
+    # Domain names: keep only the first label
+    return parts[0]
 
 
 def stream_name(
@@ -72,9 +93,9 @@ def stream_name(
         If no source is provided, or the resulting name is invalid.
     """
     if host:
-        base = host
+        base = _strip_hostname(host)
     elif remote:
-        base = remote
+        base = _strip_hostname(remote)
     elif import_source:
         base = f"import.{import_source}"
     else:

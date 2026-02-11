@@ -53,6 +53,26 @@ def test_stream_name_sanitization():
     assert stream_name(remote="My Laptop") == "my-laptop"
 
 
+def test_stream_name_hostname_stripping():
+    """Domain suffixes are stripped from hostnames and remote names."""
+    # .local, .home, .lan etc — keep only first label
+    assert stream_name(host="ja1r.local") == "ja1r"
+    assert stream_name(host="archon.home") == "archon"
+    assert stream_name(host="server.corp.example.com") == "server"
+    assert stream_name(remote="phone.local") == "phone"
+
+    # With qualifier — dot is for qualifier only
+    assert stream_name(host="ja1r.local", qualifier="tmux") == "ja1r.tmux"
+
+    # Simple hostnames unchanged
+    assert stream_name(host="archon") == "archon"
+    assert stream_name(remote="laptop") == "laptop"
+
+    # IP addresses become dash-separated
+    assert stream_name(host="192.168.1.1") == "192-168-1-1"
+    assert stream_name(host="10.0.0.1") == "10-0-0-1"
+
+
 def test_stream_name_validation():
     """Empty/invalid raises ValueError."""
     with pytest.raises(ValueError):
