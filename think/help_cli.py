@@ -13,6 +13,19 @@ import sys
 from think.utils import setup_cli
 
 
+def _read_stdin() -> str:
+    """Read a question from stdin. Shows a prompt if running in a terminal."""
+    if sys.stdin.isatty():
+        print(
+            "Enter your question (Ctrl+D to submit):",
+            file=sys.stderr,
+        )
+    try:
+        return sys.stdin.read().strip()
+    except KeyboardInterrupt:
+        return ""
+
+
 def main() -> None:
     """Entry point for ``sol help``."""
     parser = argparse.ArgumentParser(
@@ -28,35 +41,42 @@ def main() -> None:
     args = setup_cli(parser)
 
     if not args.question:
-        # Imported here to avoid circular import (sol.py imports think.help_cli).
-        from sol import print_help
+        question = _read_stdin()
+        if not question:
+            # Imported here to avoid circular import (sol.py imports think.help_cli).
+            from sol import print_help
 
-        print_help()
-        return
+            print_help()
+            return
+    else:
+        question = " ".join(args.question).strip()
 
-    question = " ".join(args.question).strip()
     config = {"name": "help", "prompt": question}
     config_json = json.dumps(config)
 
+    print("Thinking...", end="", file=sys.stderr, flush=True)
+
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             ["sol", "agents"],
-            input=config_json + "\n",
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=120,
         )
-    except subprocess.TimeoutExpired:
-        print("Error: help request timed out after 120 seconds.", file=sys.stderr)
-        sys.exit(1)
     except Exception as exc:
-        print(f"Error: failed to run help agent: {exc}", file=sys.stderr)
+        print(f"\rError: failed to run help agent: {exc}", file=sys.stderr)
         sys.exit(1)
+
+    assert proc.stdin is not None  # for type checker
+    proc.stdin.write(config_json + "\n")
+    proc.stdin.close()
 
     finish_result: str | None = None
     errors: list[str] = []
 
-    for line in result.stdout.splitlines():
+    assert proc.stdout is not None  # for type checker
+    for line in proc.stdout:
         line = line.strip()
         if not line:
             continue
@@ -70,9 +90,18 @@ def main() -> None:
         if event_type == "error":
             errors.append(str(event.get("error", "Unknown error")))
         elif event_type == "finish":
-            # Keep the last finish result seen in the stream.
             result_value = event.get("result")
             finish_result = "" if result_value is None else str(result_value)
+
+    try:
+        proc.wait(timeout=120)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        print("\rError: help request timed out after 120 seconds.", file=sys.stderr)
+        sys.exit(1)
+
+    # Clear the "Thinking..." indicator.
+    print("\r            \r", end="", file=sys.stderr, flush=True)
 
     for message in errors:
         print(f"Error: {message}", file=sys.stderr)
@@ -85,8 +114,9 @@ def main() -> None:
         print("Error: help agent returned an empty result.", file=sys.stderr)
         sys.exit(1)
 
-    if result.returncode != 0 and result.stderr.strip():
-        print(f"Error: {result.stderr.strip()}", file=sys.stderr)
+    stderr_output = proc.stderr.read() if proc.stderr else ""
+    if proc.returncode != 0 and stderr_output.strip():
+        print(f"Error: {stderr_output.strip()}", file=sys.stderr)
     else:
         print("Error: no help response received.", file=sys.stderr)
     sys.exit(1)
