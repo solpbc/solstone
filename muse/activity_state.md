@@ -31,8 +31,8 @@ You receive:
 ## Task
 
 Analyze the current segment and determine the state of each detected activity:
-- **continuing** - Was active in the previous segment AND you see evidence it is still happening
-- **new** - Just started in this segment (or same type restarted — e.g., one meeting ended, another began)
+- **continuing** - Was active in the previous segment AND the same type of activity is still happening. **This is the default** when the same activity type appears in both previous state and current segment. Changing focus within the same activity (different files, different subtask, different topic) is still "continuing" — update the description instead.
+- **new** - This activity type was NOT active in the previous segment, or there was a clear session boundary (e.g., one meeting ended and a distinctly different meeting with different people began). Shifting focus within the same activity type is NOT "new."
 - **ended** - Was active in the previous segment but stopped during this segment
 
 ## Output Format
@@ -58,29 +58,39 @@ Return a JSON array of activity objects:
 ## Rules
 
 1. **Only detect configured activities** — Ignore activity that doesn't match the facet's list
-2. **Active vs. visible** — Only report an activity if the user is actively interacting with it during this segment. An application merely visible on screen but unchanged is NOT active. Look for evidence of interaction: typing, clicking, new content, spoken discussion.
-3. **Report endings** — If an activity listed as **active** in the Previous State is no longer happening, report it as `"ended"`. Only report endings for activities that were active — do not re-report activities that already ended previously.
-4. **Same-type transitions** — If a meeting ends and a different meeting starts, report both: the old one as `"ended"` and the new one as `"new"`
-5. **Update descriptions** — As activities continue, refine the description with new context
-6. **Empty is valid** — `[]` is correct when no activities are detected
+2. **Prefer continuing** — If the same activity type was active in Previous State and you see evidence of that type still happening, always use `"continuing"`. Switching files, changing subtasks, or shifting focus within the same activity type is NOT a new activity — it is a continuation with an updated description. Only use `"new"` when the activity type was not previously active, or there is a clear session boundary (e.g., one meeting ended and a different meeting with different participants began).
+3. **Active vs. visible** — Only report an activity if the user is actively engaged with it. Look for evidence: typing, clicking, new content, spoken discussion, or focused reading/review. An application merely visible on screen but unchanged and not being read is NOT active.
+4. **Report endings** — If an activity listed as **active** in the Previous State is no longer happening, report it as `"ended"`. Only report endings for activities that were active — do not re-report activities that already ended previously.
+5. **Same-type transitions** — These are rare and apply mainly to meetings/calls: if one meeting ends and a clearly different meeting begins (different participants, different topic), report the old as `"ended"` and the new as `"new"`. For other activity types like coding, browsing, or reading, a change in focus is just a continuation — do NOT split.
+6. **Update descriptions** — As activities continue, evolve the description to reflect current focus. The description changing is normal and expected for continuing activities.
+7. **Empty is valid** — `[]` is correct when no activities are detected
 
 ## Examples
 
-**New activity starts:**
+**Activity continues — same type, different focus (most common):**
+
+Previous state had: `coding [high]: Implementing user auth flow`
 ```json
-[{"activity": "coding", "state": "new", "description": "Implementing user auth flow", "level": "high", "active_entities": ["Claude Code", "VS Code"]}]
+[{"activity": "coding", "state": "continuing", "description": "Writing tests for the auth flow and fixing a bug in token refresh", "level": "high", "active_entities": ["Claude Code", "VS Code"]}]
 ```
 
-**Activity continues from previous:**
+**Activity continues — same type, different project:**
+
+Previous state had: `coding [high]: Working on backend API endpoints`
 ```json
-[{"activity": "meeting", "state": "continuing", "description": "Sprint planning - now discussing blockers", "level": "high", "active_entities": ["Alice Johnson", "Bob Smith"]}]
+[{"activity": "coding", "state": "continuing", "description": "Switched to updating the CLI tool's help text and argument parsing", "level": "high", "active_entities": ["VS Code", "terminal"]}]
 ```
 
-**One meeting ends, another starts:**
+**New activity starts (no previous state for this type):**
+```json
+[{"activity": "messaging", "state": "new", "description": "Slack thread about deployment", "level": "low", "active_entities": ["DevOps"]}]
+```
+
+**Meeting transition (rare same-type split — different participants):**
 ```json
 [
   {"activity": "meeting", "state": "ended", "description": "Sprint planning completed"},
-  {"activity": "meeting", "state": "new", "description": "1:1 with manager", "level": "high", "active_entities": ["Manager Name"]}
+  {"activity": "meeting", "state": "new", "description": "1:1 with manager about performance review", "level": "high", "active_entities": ["Manager Name"]}
 ]
 ```
 
