@@ -36,7 +36,7 @@ from observe.extract import DEFAULT_MAX_EXTRACTIONS, select_frames_for_extractio
 from observe.utils import get_segment_key
 from think.callosum import callosum_send
 from think.prompts import load_prompt
-from think.utils import get_config, get_journal, setup_cli
+from think.utils import day_from_path, get_config, get_journal, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -943,8 +943,8 @@ async def async_main():
 
                 duration_ms = int((time.time() - start_time) * 1000)
 
-                # Extract day from video path (grandparent is day dir)
-                day = video_path.parent.parent.name
+                # Extract day from video path
+                day = day_from_path(video_path)
 
                 event_fields = {
                     "input": str(rel_input),

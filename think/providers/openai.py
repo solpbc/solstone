@@ -56,6 +56,7 @@ from .shared import (
 
 LOG = logging.getLogger("think.providers.openai")
 
+
 def _parse_model_effort(model: str) -> tuple[str, str | None]:
     """Extract reasoning effort suffix from a model name.
 

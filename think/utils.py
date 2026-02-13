@@ -211,6 +211,29 @@ def segment_path(day: str, segment: str, stream: str) -> Path:
     return path
 
 
+def day_from_path(path: str | Path) -> str | None:
+    """Extract the YYYYMMDD day from a journal path.
+
+    Walks up the path's parents and returns the first directory name
+    that matches the YYYYMMDD date format.
+
+    Parameters
+    ----------
+    path : str or Path
+        Any path within the journal directory structure.
+
+    Returns
+    -------
+    str or None
+        The YYYYMMDD day string, or None if no date directory is found.
+    """
+    path = Path(path)
+    for parent in (path, *path.parents):
+        if DATE_RE.fullmatch(parent.name):
+            return parent.name
+    return None
+
+
 def iter_segments(day: str | Path) -> list[tuple[str, str, Path]]:
     """Return all segments in a day, sorted chronologically.
 

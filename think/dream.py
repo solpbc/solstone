@@ -769,7 +769,9 @@ def run_single_prompt(
                         config=request_config,
                     )
                     if agent_id is None:
-                        logging.error(f"Failed to send cortex request for {name}/{facet_name}")
+                        logging.error(
+                            f"Failed to send cortex request for {name}/{facet_name}"
+                        )
                         continue
                     spawned_ids.append((agent_id, facet_name))
                     emit(

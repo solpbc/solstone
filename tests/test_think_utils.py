@@ -13,7 +13,34 @@ from pathlib import Path
 import pytest
 
 from think.entities import load_entity_names
-from think.utils import segment_key, setup_cli
+from think.utils import day_from_path, segment_key, setup_cli
+
+
+class TestDayFromPath:
+    def test_file_in_segment(self):
+        """Standard 3-level path: day/stream/segment/file."""
+        p = Path("/journal/20260212/fedora/150304_300/audio.flac")
+        assert day_from_path(p) == "20260212"
+
+    def test_file_in_day(self):
+        """File directly in day dir."""
+        p = Path("/journal/20260212/somefile.txt")
+        assert day_from_path(p) == "20260212"
+
+    def test_day_dir_itself(self):
+        """Path IS the day directory."""
+        p = Path("/journal/20260212")
+        assert day_from_path(p) == "20260212"
+
+    def test_no_day_in_path(self):
+        """Path with no YYYYMMDD ancestor returns None."""
+        p = Path("/tmp/random/file.txt")
+        assert day_from_path(p) is None
+
+    def test_segment_dir(self):
+        """Segment directory (no file)."""
+        p = Path("/journal/20260212/default/150304_300")
+        assert day_from_path(p) == "20260212"
 
 
 def setup_entities_new_structure(
