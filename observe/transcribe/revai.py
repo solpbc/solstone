@@ -121,8 +121,11 @@ def submit_job(
     if config.get("speaker_channels_count") is not None:
         options["speaker_channels_count"] = config["speaker_channels_count"]
     if config.get("entities"):
-        options["custom_vocabularies"] = [{"phrases": config["entities"]}]
-        options["strict_custom_vocabulary"] = False
+        # Rev.ai rejects phrases containing digits (e.g. "R2", "GPT4")
+        phrases = [e for e in config["entities"] if not any(c.isdigit() for c in e)]
+        if phrases:
+            options["custom_vocabularies"] = [{"phrases": phrases}]
+            options["strict_custom_vocabulary"] = False
 
     data = {"options": json.dumps(options)}
 
