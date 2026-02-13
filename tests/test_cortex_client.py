@@ -153,9 +153,7 @@ def test_cortex_request_unique_agent_ids(callosum_server):
 
 def test_cortex_request_returns_none_on_send_failure(callosum_server, monkeypatch):
     """Test cortex_request returns None when callosum_send fails."""
-    monkeypatch.setattr(
-        "think.cortex_client.callosum_send", lambda *a, **kw: False
-    )
+    monkeypatch.setattr("think.cortex_client.callosum_send", lambda *a, **kw: False)
 
     agent_id = cortex_request(prompt="Test", name="default", provider="openai")
 

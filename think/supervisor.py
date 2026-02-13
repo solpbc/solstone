@@ -20,7 +20,8 @@ from desktop_notifier import DesktopNotifier, Urgency
 
 from observe.sync import check_remote_health
 from think.callosum import CallosumConnection, CallosumServer
-from think.runner import DailyLogWriter, ManagedProcess as RunnerManagedProcess
+from think.runner import DailyLogWriter
+from think.runner import ManagedProcess as RunnerManagedProcess
 from think.utils import (
     find_available_port,
     get_journal,
