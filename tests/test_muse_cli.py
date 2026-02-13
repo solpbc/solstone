@@ -9,10 +9,14 @@ import pytest
 
 from think.muse_cli import (
     _collect_configs,
+    _format_bytes,
+    _format_cost,
     _format_tags,
+    _parse_run_stats,
     _scan_variables,
     json_output,
     list_prompts,
+    log_run,
     logs_runs,
     show_prompt,
 )
@@ -338,3 +342,142 @@ def test_logs_runs_no_results(capsys):
     logs_runs(agent="nonexistent_agent_xyz")
     output = capsys.readouterr().out
     assert output.strip() == ""
+
+
+def test_logs_runs_new_columns(capsys):
+    """Logs output includes enriched columns for runs with JSONL files."""
+    logs_runs()
+    output = capsys.readouterr().out
+    lines = [line for line in output.strip().splitlines() if line.strip()]
+
+    # Find the line for agent_id 1700000000001 (has JSONL file)
+    enriched_line = None
+    for line in lines:
+        if "1700000000001" in line:
+            enriched_line = line
+            break
+    assert enriched_line is not None
+
+    # Should have numeric event/tool counts (not "-")
+    # The fixture has 7 events total, 6 non-request, 1 tool_start
+    assert "  6  " in enriched_line  # events
+    assert "  1  " in enriched_line  # tools
+
+    # Lines without JSONL files should show "-" for enriched columns
+    # (most lines lack JSONL files)
+    dash_count = sum(1 for line in lines if "  -  " in line)
+    assert dash_count > 0
+
+
+def test_parse_run_stats():
+    """Parse run stats extracts correct counts from fixture JSONL."""
+    from pathlib import Path
+
+    jsonl = Path("tests/fixtures/journal/agents/default/1700000000001.jsonl")
+    stats = _parse_run_stats(jsonl)
+    assert stats["event_count"] == 6  # all except request
+    assert stats["tool_count"] == 1  # one tool_start
+    assert stats["model"] == "gpt-4o"
+    assert stats["usage"] == {"input_tokens": 150, "output_tokens": 80}
+    assert stats["request"] is not None
+    assert stats["request"]["prompt"] == "Search for meetings about project updates"
+
+
+def test_parse_run_stats_error():
+    """Parse run stats handles error run JSONL correctly."""
+    from pathlib import Path
+
+    jsonl = Path("tests/fixtures/journal/agents/flow/1700000000002.jsonl")
+    stats = _parse_run_stats(jsonl)
+    assert stats["event_count"] == 2  # start + error (not request)
+    assert stats["tool_count"] == 0
+    assert stats["model"] == "claude-3-haiku"
+    assert stats["usage"] is None
+
+
+def test_format_bytes():
+    """Byte formatting produces human-readable strings."""
+    assert _format_bytes(0) == "0"
+    assert _format_bytes(500) == "500"
+    assert _format_bytes(999) == "999"
+    assert _format_bytes(1000) == "1.0K"
+    assert _format_bytes(1200) == "1.2K"
+    assert _format_bytes(34000) == "34.0K"
+    assert _format_bytes(1500000) == "1.5M"
+
+
+def test_format_cost():
+    """Cost formatting shows rounded cents."""
+    assert _format_cost(None) == "-"
+    assert _format_cost(0.0) == "0¢"
+    assert _format_cost(0.001) == "<1¢"
+    assert _format_cost(0.02) == "2¢"
+    assert _format_cost(0.10) == "10¢"
+    assert _format_cost(1.50) == "150¢"
+
+
+def test_log_run_default(capsys):
+    """Log run shows one-line-per-event output."""
+    log_run("1700000000001")
+    output = capsys.readouterr().out
+    lines = output.strip().splitlines()
+
+    # Fixture has 7 events
+    assert len(lines) == 7
+
+    # Each line should be ≤100 chars
+    for line in lines:
+        assert len(line) <= 100, f"Line too long ({len(line)}): {line}"
+
+    # Check event type labels appear
+    full_output = output
+    assert "request" in full_output
+    assert "start" in full_output
+    assert "think" in full_output
+    assert "tool" in full_output
+    assert "tool_end" in full_output
+    assert "updated" in full_output
+    assert "finish" in full_output
+
+
+def test_log_run_json(capsys):
+    """Log run --json outputs raw JSONL."""
+    log_run("1700000000001", json_mode=True)
+    output = capsys.readouterr().out
+    lines = [line for line in output.strip().splitlines() if line.strip()]
+
+    assert len(lines) == 7
+    # Each line should be valid JSON
+    for line in lines:
+        parsed = json.loads(line)
+        assert "event" in parsed
+
+
+def test_log_run_full(capsys):
+    """Log run --full shows expanded content with escaped newlines."""
+    log_run("1700000000001", full=True)
+    output = capsys.readouterr().out
+
+    # The thinking event in the fixture has actual newlines in "content"
+    # In --full mode, these should appear as literal \n
+    assert "\\n" in output
+
+    # Lines can exceed 100 chars in full mode
+    lines = output.strip().splitlines()
+    assert len(lines) == 7
+
+
+def test_log_run_missing():
+    """Log run with unknown ID exits with error."""
+    with pytest.raises(SystemExit):
+        log_run("nonexistent_id_12345")
+
+
+def test_log_run_error_run(capsys):
+    """Log run displays error events correctly."""
+    log_run("1700000000002")
+    output = capsys.readouterr().out
+    lines = output.strip().splitlines()
+    assert len(lines) == 3  # request, start, error
+    assert "error" in output
+    assert "Rate limit" in output

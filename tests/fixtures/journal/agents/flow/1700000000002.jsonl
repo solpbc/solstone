@@ -1,0 +1,3 @@
+{"event": "request", "ts": 1700000060000, "agent_id": "1700000000002", "prompt": "Analyze conversation flow", "name": "flow", "provider": "anthropic"}
+{"event": "start", "prompt": "Analyze conversation flow", "name": "flow", "model": "claude-3-haiku", "provider": "anthropic", "ts": 1700000060100, "agent_id": "1700000000002"}
+{"event": "error", "ts": 1700000060200, "agent_id": "1700000000002", "error": "Rate limit exceeded: too many requests"}

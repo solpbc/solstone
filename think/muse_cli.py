@@ -15,6 +15,9 @@ Usage:
     sol muse show <name> --prompt     Show full prompt context (dry-run)
     sol muse logs                     Show recent agent runs
     sol muse logs <agent> -c 5        Show last 5 runs for an agent
+    sol muse log <id>                 Show events for an agent run
+    sol muse log <id> --json          Output raw JSONL events
+    sol muse log <id> --full          Show expanded event details
 """
 
 from __future__ import annotations
@@ -635,11 +638,101 @@ def show_prompt_context(
     print()
 
 
+def _find_run_file(agents_dir: Path, agent_id: str) -> Path | None:
+    """Locate an agent run JSONL file by ID."""
+    for match in agents_dir.glob(f"*/{agent_id}.jsonl"):
+        return match
+    for match in agents_dir.glob(f"*/{agent_id}_active.jsonl"):
+        return match
+    return None
+
+
+def _parse_run_stats(jsonl_path: Path) -> dict[str, Any]:
+    """Parse an agent JSONL file for summary statistics."""
+    stats: dict[str, Any] = {
+        "event_count": 0,
+        "tool_count": 0,
+        "model": None,
+        "usage": None,
+        "request": None,
+    }
+    for line in jsonl_path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        etype = event.get("event")
+        if etype == "request":
+            stats["request"] = event
+            continue
+        stats["event_count"] += 1
+        if etype == "tool_start":
+            stats["tool_count"] += 1
+        elif etype == "start":
+            stats["model"] = event.get("model")
+        elif etype == "finish":
+            stats["usage"] = event.get("usage")
+    return stats
+
+
+def _format_bytes(n: int) -> str:
+    """Format byte count as human-readable string."""
+    if n < 1000:
+        return str(n)
+    elif n < 1_000_000:
+        return f"{n / 1000:.1f}K"
+    else:
+        return f"{n / 1_000_000:.1f}M"
+
+
+def _format_cost(cost_usd: float | None) -> str:
+    """Format USD cost as rounded cents."""
+    if cost_usd is None:
+        return "-"
+    cents = round(cost_usd * 100)
+    if cents == 0 and cost_usd > 0:
+        return "<1¢"
+    return f"{cents}¢"
+
+
+def _get_output_size(request_event: dict[str, Any], journal_root: str) -> int | None:
+    """Get output file size in bytes from a request event, or None."""
+    from think.muse import get_output_path
+
+    req_output = request_event.get("output")
+    if not req_output:
+        return None
+    req_day = request_event.get("day")
+    if not req_day:
+        return None
+    req_segment = request_event.get("segment")
+    req_facet = request_event.get("facet")
+    req_name = request_event.get("name", "default")
+    req_env = request_event.get("env") or {}
+    req_stream = req_env.get("STREAM_NAME") if req_env else None
+    day_dir = Path(journal_root) / req_day
+    out_path = get_output_path(
+        day_dir,
+        req_name,
+        segment=req_segment,
+        output_format=req_output,
+        facet=req_facet,
+        stream=req_stream,
+    )
+    if out_path.exists():
+        return out_path.stat().st_size
+    return None
+
+
 def logs_runs(*, agent: str | None = None, count: int = 20) -> None:
     """Print one-line summaries of recent agent runs from day-index files."""
+    from think.models import calc_agent_cost
     from think.utils import get_journal
 
-    agents_dir = Path(get_journal()) / "agents"
+    journal_root = get_journal()
+    agents_dir = Path(journal_root) / "agents"
     if not agents_dir.is_dir():
         return
 
@@ -675,10 +768,41 @@ def logs_runs(*, agent: str | None = None, count: int = 20) -> None:
     name_width = max((len(r.get("name", "")) for r in records), default=10)
     name_width = max(name_width, 10)
 
+    for r in records:
+        agent_id = r.get("agent_id")
+        run_file = (
+            _find_run_file(agents_dir, agent_id) if isinstance(agent_id, str) else None
+        )
+        stats: dict[str, Any] = {
+            "event_count": 0,
+            "tool_count": 0,
+            "model": None,
+            "usage": None,
+            "request": None,
+        }
+        cost_usd: float | None = None
+        output_size: int | None = None
+        if run_file:
+            stats = _parse_run_stats(run_file)
+            cost_usd = calc_agent_cost(stats["model"] or r.get("model"), stats["usage"])
+            request_event = stats.get("request")
+            if isinstance(request_event, dict):
+                output_size = _get_output_size(request_event, journal_root)
+        r["_run_file"] = run_file
+        r["_stats"] = stats
+        r["_cost_usd"] = cost_usd
+        r["_output_size"] = output_size
+
     today = datetime.now().strftime("%Y%m%d")
     use_color = sys.stdout.isatty()
 
     for r in records:
+        run_file = r.get("_run_file")
+        stats = r.get("_stats") or {}
+        cost_usd = r.get("_cost_usd")
+        output_size = r.get("_output_size")
+        agent_id = r.get("agent_id", "")
+
         ts = r.get("ts", 0)
         dt = datetime.fromtimestamp(ts / 1000)
         day = r.get("day", dt.strftime("%Y%m%d"))
@@ -704,17 +828,114 @@ def logs_runs(*, agent: str | None = None, count: int = 20) -> None:
 
         model = r.get("model", "")
         facet = r.get("facet") or ""
+        cost_str = _format_cost(cost_usd) if run_file else "-"
+        events_str = str(stats["event_count"]) if run_file else "-"
+        tools_str = str(stats["tool_count"]) if run_file else "-"
+        output_str = _format_bytes(output_size) if output_size is not None else "-"
 
         facet_part = f"  {facet}" if facet else ""
         line = (
-            f"{time_str:>12}  {name:<{name_width}}  {status_sym}  "
-            f"{runtime_str:>7}  {model}{facet_part}"
+            f"{agent_id:<15}{time_str:>12}  {name:<{name_width}}  {status_sym}  "
+            f"{runtime_str:>7}  {cost_str:>4}  {events_str:>3}  {tools_str:>3}  "
+            f"{output_str:>5}  {model}{facet_part}"
         )
 
         if use_color and status != "completed":
             line = f"\033[31m{line}\033[0m"
 
         print(line)
+
+
+def _event_detail(event: dict[str, Any], etype: str) -> str:
+    """Extract detail string for an event."""
+    if etype == "request":
+        return event.get("prompt", "") or ""
+    elif etype == "start":
+        model = event.get("model", "")
+        prompt = event.get("prompt", "")
+        return f'{model} "{prompt}"'
+    elif etype == "thinking":
+        return event.get("summary") or event.get("content") or ""
+    elif etype == "tool_start":
+        tool = event.get("tool", "")
+        args = event.get("args")
+        if isinstance(args, dict):
+            parts = [f"{k}={json.dumps(v)}" for k, v in args.items()]
+            return f"{tool}({', '.join(parts)})"
+        return tool
+    elif etype == "tool_end":
+        tool = event.get("tool", "")
+        result = event.get("result", "")
+        return f"{tool} → {result}"
+    elif etype == "agent_updated":
+        return event.get("agent", "")
+    elif etype == "finish":
+        result = event.get("result", "")
+        usage = event.get("usage")
+        if usage:
+            inp = usage.get("input_tokens", 0)
+            out = usage.get("output_tokens", 0)
+            return f"{result} [{inp}in/{out}out]"
+        return result
+    elif etype == "error":
+        return event.get("error", "")
+    return ""
+
+
+def _format_event_line(event: dict[str, Any], *, full: bool = False) -> str:
+    """Format a single JSONL event as a one-line summary."""
+    ts = event.get("ts", 0)
+    dt = datetime.fromtimestamp(ts / 1000)
+    time_str = dt.strftime("%H:%M:%S") + f".{ts % 1000:03d}"
+
+    etype = event.get("event", "?")
+    label_map = {
+        "request": "request",
+        "start": "start",
+        "thinking": "think",
+        "tool_start": "tool",
+        "tool_end": "tool_end",
+        "agent_updated": "updated",
+        "finish": "finish",
+        "error": "error",
+    }
+    label = label_map.get(etype, etype)
+
+    detail = _event_detail(event, etype)
+
+    if full:
+        detail = detail.replace("\n", "\\n")
+    else:
+        detail = detail.replace("\n", " ")
+        max_detail = 100 - 24
+        if len(detail) > max_detail:
+            detail = detail[: max_detail - 1] + "…"
+
+    return f"{time_str}  {label:<8}  {detail}"
+
+
+def log_run(agent_id: str, *, json_mode: bool = False, full: bool = False) -> None:
+    """Show events for a single agent run."""
+    from think.utils import get_journal
+
+    agents_dir = Path(get_journal()) / "agents"
+    run_file = _find_run_file(agents_dir, agent_id)
+    if run_file is None:
+        print(f"Agent run not found: {agent_id}", file=sys.stderr)
+        sys.exit(1)
+
+    if json_mode:
+        print(run_file.read_text(), end="")
+        return
+
+    for line in run_file.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        print(_format_event_line(event, full=full))
 
 
 def main() -> None:
@@ -769,6 +990,14 @@ def main() -> None:
         help="Number of runs to show (default: 20)",
     )
 
+    # --- log subcommand ---
+    log_parser = subparsers.add_parser("log", help="Show events for an agent run")
+    log_parser.add_argument("id", help="Agent ID")
+    log_parser.add_argument(
+        "--json", action="store_true", dest="json_mode", help="Output raw JSONL"
+    )
+    log_parser.add_argument("--full", action="store_true", help="Expand event details")
+
     args = setup_cli(parser)
 
     if args.subcommand == "show":
@@ -785,6 +1014,8 @@ def main() -> None:
             show_prompt(args.name, as_json=args.json)
     elif args.subcommand == "logs":
         logs_runs(agent=args.agent, count=args.count)
+    elif args.subcommand == "log":
+        log_run(args.id, json_mode=args.json_mode, full=args.full)
     elif args.subcommand == "list" and args.json:
         json_output(
             schedule=args.schedule,
