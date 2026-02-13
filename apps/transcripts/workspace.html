@@ -1432,6 +1432,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
   function buildZoomSegments() {
     const filtered = filterSegmentsInRange();
+    const streams = [...new Set(filtered.map(s => s.stream))].sort();
+    const colCount = streams.length;
     zoomSegments.innerHTML = '';
 
     if (filtered.length === 0) {
@@ -1452,6 +1454,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
       const pill = document.createElement('div');
       pill.className = 'tr-zoom-pill';
+
+      if (colCount > 1) {
+        const colIdx = streams.indexOf(seg.stream);
+        const colWidth = 100 / colCount;
+        const gap = 0.5;
+        pill.style.left = (colIdx * colWidth + gap / 2) + '%';
+        pill.style.right = 'auto';
+        pill.style.width = (colWidth - gap) + '%';
+      }
 
       // Determine pill type based on content
       const hasAudio = seg.types.includes('audio');
@@ -1523,7 +1534,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     tabsContainer.innerHTML = '';
     panel.innerHTML = '<div class="tr-unified-empty"><p>Loading segment...</p></div>';
 
-    fetch(`/app/transcripts/api/segment/${day}/${seg.key}`)
+    fetch(`/app/transcripts/api/segment/${day}/${seg.stream}/${seg.key}`)
       .then(r => r.json())
       .then(data => {
         if (!selectedSegment || selectedSegment.key !== segmentToken) {
@@ -2352,7 +2363,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     if (!confirm(confirmMsg)) return;
 
     try {
-      const response = await fetch(`/app/transcripts/api/segment/${day}/${seg.key}`, {
+      const response = await fetch(`/app/transcripts/api/segment/${day}/${seg.stream}/${seg.key}`, {
         method: 'DELETE'
       });
 

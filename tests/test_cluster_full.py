@@ -31,8 +31,8 @@ def test_cluster_full(tmp_path, monkeypatch):
     md, counts = mod.cluster(
         "20240101", sources={"audio": True, "screen": False, "agents": True}
     )
-    # Count: audio.jsonl (1) + audio.md (1) + screen.md (1) = 3 entries
-    assert counts["audio"] == 1
+    # Audio entries come from 2 segments on 20240101 (default + import.apple)
+    assert counts["audio"] == 2
     assert counts["agents"] == 2  # audio.md + screen.md
     assert "Audio Transcript" in md
     # Now uses insight format: "### {stem} summary"

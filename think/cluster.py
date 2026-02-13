@@ -439,14 +439,13 @@ def cluster_segments(day: str) -> list[dict[str, Any]]:
         start_str = start_time.strftime("%H:%M")
         end_str = end_time.strftime("%H:%M")
 
-        marker = read_segment_stream(seg_path)
         segments.append(
             {
                 "key": seg_path.name,
                 "start": start_str,
                 "end": end_str,
                 "types": types,
-                "stream": marker.get("stream") if marker else None,
+                "stream": stream_name,
             }
         )
 
