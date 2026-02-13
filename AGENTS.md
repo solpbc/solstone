@@ -225,6 +225,27 @@ make clean         # Remove artifacts
 make clean-install # Clean and reinstall
 ```
 
+### Worktree Development
+
+Run the full stack (supervisor + callosum + sense + cortex + convey) against test fixture data:
+
+```bash
+make dev                    # Start stack (Ctrl+C to stop)
+```
+
+In a second terminal, take screenshots or hit endpoints:
+```bash
+export JOURNAL_PATH=tests/fixtures/journal
+export PATH=$(pwd)/.venv/bin:$PATH
+sol screenshot / -o scratch/home.png
+curl -s http://localhost:$(cat tests/fixtures/journal/health/convey.port)/
+```
+
+Notes:
+* Agents won't execute without API keys — this is expected in worktrees
+* Output artifacts go in `scratch/` (git-ignored)
+* Service logs: `tests/fixtures/journal/health/<service>.log`
+
 ### File Locations
 * **Entry Points**: `sol.py` `COMMANDS` dict
 * **Test Fixtures**: `tests/fixtures/journal/` - complete mock journal

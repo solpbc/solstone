@@ -12,6 +12,7 @@ tests/fixtures/journal/agents/*/*.jsonl
 tests/fixtures/journal/tokens/*.json
 *.sqlite
 *.log
+*.port
 /config*.py
 .installed
 /journal
