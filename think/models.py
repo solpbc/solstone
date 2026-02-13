@@ -6,7 +6,9 @@ import inspect
 import json
 import logging
 import os
+import subprocess
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -995,6 +997,96 @@ def generate(
     return result["text"]
 
 
+# ---------------------------------------------------------------------------
+# Provider Health & Fallback Helpers
+# ---------------------------------------------------------------------------
+
+
+def get_backup_provider() -> Optional[str]:
+    """Get the backup provider from journal config, falling back to constant.
+
+    Returns None if backup would be the same as the default provider.
+    """
+    config = get_config()
+    providers_config = config.get("providers", {})
+    default_section = providers_config.get("default", {})
+    primary_provider = default_section.get("provider", DEFAULT_PROVIDER)
+    backup_section = providers_config.get("backup", {})
+    backup = backup_section.get("provider", BACKUP_PROVIDER)
+    if backup == primary_provider:
+        return None
+    return backup
+
+
+def load_health_status() -> Optional[dict]:
+    """Load health status from $JOURNAL_PATH/health/agents.json.
+
+    Returns parsed dict or None if file is missing/unreadable.
+    """
+    try:
+        health_path = Path(get_journal()) / "health" / "agents.json"
+        with open(health_path) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None
+
+
+def is_provider_healthy(provider: str, health_data: Optional[dict]) -> bool:
+    """Check if a provider is healthy based on health data.
+
+    Returns True (assume healthy) when:
+    - health_data is None (no data available)
+    - No results exist for the provider
+    - Any result for the provider has ok=True
+
+    Returns False only when all results for the provider have ok=False.
+    """
+    if health_data is None:
+        return True
+    results = health_data.get("results", [])
+    provider_results = [r for r in results if r.get("provider") == provider]
+    if not provider_results:
+        return True
+    return any(r.get("ok") for r in provider_results)
+
+
+def should_recheck_health(health_data: Optional[dict]) -> bool:
+    """Check if health data is stale (>1 hour old).
+
+    Returns False when health_data is None or on parse errors.
+    """
+    if health_data is None:
+        return False
+    checked_at = health_data.get("checked_at")
+    if not checked_at:
+        return False
+    try:
+        checked_time = datetime.fromisoformat(checked_at)
+        if checked_time.tzinfo is None:
+            checked_time = checked_time.replace(tzinfo=timezone.utc)
+        age = datetime.now(timezone.utc) - checked_time
+        return age.total_seconds() > 3600
+    except (ValueError, TypeError):
+        return False
+
+
+def request_health_recheck() -> None:
+    """Request a health re-check by spawning a background process.
+
+    Fire-and-forget; errors are logged but never propagated.
+    """
+    try:
+        subprocess.Popen(
+            ["sol", "agents", "check"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "Failed to request health recheck", exc_info=True
+        )
+
+
 def generate_with_result(
     contents: Union[str, List[Any]],
     context: str,
@@ -1020,8 +1112,13 @@ def generate_with_result(
     from think.providers import get_provider_module
 
     model_override = kwargs.pop("model", None)
+    provider_override = kwargs.pop("provider", None)
 
     provider, model = resolve_provider(context)
+    if provider_override:
+        provider = provider_override
+        if not model_override:
+            model = resolve_model_for_provider(context, provider)
     if model_override:
         model = model_override
 

@@ -1,0 +1,55 @@
+{
+  "results": [
+    {
+      "provider": "google",
+      "tier": "standard",
+      "model": "gemini-2.5-flash",
+      "interface": "generate",
+      "ok": false,
+      "message": "Connection error",
+      "elapsed_s": 5.2
+    },
+    {
+      "provider": "google",
+      "tier": "standard",
+      "model": "gemini-2.5-flash",
+      "interface": "cogitate",
+      "ok": false,
+      "message": "Connection error",
+      "elapsed_s": 5.1
+    },
+    {
+      "provider": "google",
+      "tier": "premium",
+      "model": "gemini-2.5-pro",
+      "interface": "generate",
+      "ok": false,
+      "message": "Connection error",
+      "elapsed_s": 5.3
+    },
+    {
+      "provider": "anthropic",
+      "tier": "standard",
+      "model": "claude-sonnet-4-5-20250929",
+      "interface": "generate",
+      "ok": true,
+      "message": "ok",
+      "elapsed_s": 1.2
+    },
+    {
+      "provider": "anthropic",
+      "tier": "standard",
+      "model": "claude-sonnet-4-5-20250929",
+      "interface": "cogitate",
+      "ok": true,
+      "message": "ok",
+      "elapsed_s": 2.1
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 2,
+    "failed": 3
+  },
+  "checked_at": "2026-02-12T12:00:00+00:00"
+}

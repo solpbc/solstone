@@ -294,6 +294,28 @@ def prepare_config(request: dict) -> dict:
 
     config["provider"] = provider
     config["model"] = model
+    config["context"] = context
+
+    # --- Provider fallback: preflight swap if primary is unhealthy ---
+    from think.models import (
+        get_backup_provider,
+        is_provider_healthy,
+        load_health_status,
+        should_recheck_health,
+    )
+    from think.providers import PROVIDER_METADATA
+
+    health_data = load_health_status()
+    config["health_stale"] = should_recheck_health(health_data)
+
+    if not is_provider_healthy(provider, health_data):
+        backup = get_backup_provider()
+        if backup and backup != provider:
+            env_key = PROVIDER_METADATA.get(backup, {}).get("env_key")
+            if env_key and os.getenv(env_key):
+                config["fallback_from"] = provider
+                config["provider"] = backup
+                config["model"] = resolve_model_for_provider(context, backup)
 
     # Check if disabled
     if config.get("disabled"):
@@ -502,6 +524,27 @@ def _build_dry_run_event(config: dict, before_values: dict) -> dict:
     return event
 
 
+_NON_RETRYABLE_ERRORS = (
+    ValueError,
+    json.JSONDecodeError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    FileNotFoundError,
+    PermissionError,
+    NotImplementedError,
+)
+
+
+def _is_retryable_error(exc: Exception) -> bool:
+    """Check if an exception is likely a provider error worth retrying.
+
+    Returns False for local/code errors (ValueError, KeyError, etc.).
+    Returns True for everything else (SDK connection, timeout, server errors).
+    """
+    return not isinstance(exc, _NON_RETRYABLE_ERRORS)
+
+
 async def _execute_with_tools(
     config: dict,
     emit_event: Callable[[dict], None],
@@ -541,7 +584,57 @@ async def _execute_with_tools(
 
         emit_event(data)
 
-    await provider_mod.run_cogitate(config=config, on_event=agent_emit_event)
+    try:
+        await provider_mod.run_cogitate(config=config, on_event=agent_emit_event)
+    except Exception as exc:
+        if not _is_retryable_error(exc) or config.get("fallback_from"):
+            raise
+        from think.models import (
+            get_backup_provider,
+            resolve_model_for_provider,
+        )
+        from think.providers import PROVIDER_METADATA
+
+        backup = get_backup_provider()
+        if not backup or backup == provider:
+            raise
+        env_key = PROVIDER_METADATA.get(backup, {}).get("env_key")
+        if not env_key or not os.getenv(env_key):
+            raise
+
+        context = config.get("context")
+        if not context:
+            from think.muse import key_to_context
+
+            context = key_to_context(config.get("name", "default"))
+        backup_model = resolve_model_for_provider(context, backup)
+
+        emit_event(
+            {
+                "event": "fallback",
+                "ts": now_ms(),
+                "original_provider": provider,
+                "backup_provider": backup,
+                "reason": "on_failure",
+                "error": str(exc),
+            }
+        )
+
+        config["fallback_from"] = provider
+        config["provider"] = backup
+        config["model"] = backup_model
+
+        backup_mod = get_provider_module(backup)
+        try:
+            await backup_mod.run_cogitate(config=config, on_event=agent_emit_event)
+        except Exception:
+            raise exc
+    finally:
+        if config.get("health_stale"):
+            from think.models import request_health_recheck
+
+            request_health_recheck()
+            config["health_stale"] = False
 
 
 async def _execute_generate(
@@ -589,15 +682,70 @@ async def _execute_generate(
         contents = ["No input provided."]
 
     context = key_to_context(name)
-    gen_result = generate_with_result(
-        contents=contents,
-        context=context,
-        temperature=0.3,
-        max_output_tokens=max_output_tokens,
-        thinking_budget=thinking_budget,
-        system_instruction=system_instruction,
-        json_output=is_json_output,
-    )
+    try:
+        gen_result = generate_with_result(
+            contents=contents,
+            context=context,
+            temperature=0.3,
+            max_output_tokens=max_output_tokens,
+            thinking_budget=thinking_budget,
+            system_instruction=system_instruction,
+            json_output=is_json_output,
+        )
+    except Exception as exc:
+        if not _is_retryable_error(exc) or config.get("fallback_from"):
+            raise
+        from think.models import (
+            get_backup_provider,
+            resolve_model_for_provider,
+        )
+        from think.providers import PROVIDER_METADATA
+
+        provider = config.get("provider", "google")
+        backup = get_backup_provider()
+        if not backup or backup == provider:
+            raise
+        env_key = PROVIDER_METADATA.get(backup, {}).get("env_key")
+        if not env_key or not os.getenv(env_key):
+            raise
+
+        backup_model = resolve_model_for_provider(context, backup)
+
+        emit_event(
+            {
+                "event": "fallback",
+                "ts": now_ms(),
+                "original_provider": provider,
+                "backup_provider": backup,
+                "reason": "on_failure",
+                "error": str(exc),
+            }
+        )
+
+        config["fallback_from"] = provider
+        config["provider"] = backup
+        config["model"] = backup_model
+
+        try:
+            gen_result = generate_with_result(
+                contents=contents,
+                context=context,
+                temperature=0.3,
+                max_output_tokens=max_output_tokens,
+                thinking_budget=thinking_budget,
+                system_instruction=system_instruction,
+                json_output=is_json_output,
+                provider=backup,
+                model=backup_model,
+            )
+        except Exception:
+            raise exc
+    finally:
+        if config.get("health_stale"):
+            from think.models import request_health_recheck
+
+            request_health_recheck()
+            config["health_stale"] = False
 
     result = gen_result["text"]
     usage_data = gen_result.get("usage")
@@ -662,6 +810,18 @@ async def _run_agent(
     if config.get("chat_id"):
         start_event["chat_id"] = config["chat_id"]
     emit_event(start_event)
+
+    # Emit preflight fallback event if provider was swapped
+    if config.get("fallback_from"):
+        emit_event(
+            {
+                "event": "fallback",
+                "ts": now_ms(),
+                "original_provider": config["fallback_from"],
+                "backup_provider": config["provider"],
+                "reason": "preflight",
+            }
+        )
 
     # Handle skip conditions
     skip_reason = config.get("skip_reason")
@@ -1035,6 +1195,8 @@ async def main_async() -> None:
                     }
                 )
             except Exception as e:
+                if getattr(e, "_evented", False):
+                    continue
                 emit_event(
                     {
                         "event": "error",
