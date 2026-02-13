@@ -625,9 +625,21 @@ async def _execute_with_tools(
         config["model"] = backup_model
 
         backup_mod = get_provider_module(backup)
+
+        # Suppress error events from backup provider — if backup also fails
+        # we report the original error, not the backup's error.
+        def backup_emit(data: Event) -> None:
+            if data.get("event") == "error":
+                return
+            agent_emit_event(data)
+
         try:
-            await backup_mod.run_cogitate(config=config, on_event=agent_emit_event)
+            await backup_mod.run_cogitate(config=config, on_event=backup_emit)
         except Exception:
+            # Ensure the original error is reported by the caller even if the
+            # primary provider already emitted its own error event (_evented).
+            if hasattr(exc, "_evented"):
+                delattr(exc, "_evented")
             raise exc
     finally:
         if config.get("health_stale"):
