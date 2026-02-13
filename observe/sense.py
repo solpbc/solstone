@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 from think.callosum import CallosumConnection
 from think.runner import ManagedProcess as RunnerManagedProcess
-from think.utils import day_path, get_journal, iter_segments, now_ms, setup_cli
+from think.utils import day_path, get_journal, get_rev, iter_segments, now_ms, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -683,7 +683,7 @@ class FileSensor:
         """Start listening for observe.observing Callosum events."""
 
         # Start Callosum connection with callback for receiving events
-        self.callosum = CallosumConnection()
+        self.callosum = CallosumConnection(defaults={"rev": get_rev()})
         self.callosum.start(callback=self._handle_callosum_message)
         logger.info("Listening for observe.observing events via Callosum")
 

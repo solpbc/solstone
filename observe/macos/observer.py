@@ -34,7 +34,7 @@ from observe.macos.screencapture import AudioInfo, DisplayInfo, ScreenCaptureKit
 from observe.utils import create_draft_folder, get_timestamp_parts
 from think.callosum import CallosumConnection
 from think.streams import stream_name, update_stream, write_segment_stream
-from think.utils import day_path, get_journal, setup_cli
+from think.utils import day_path, get_journal, get_rev, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ class MacOSObserver:
         logger.info(f"Found sck-cli at: {sck_path}")
 
         # Start Callosum connection for events
-        self._callosum = CallosumConnection()
+        self._callosum = CallosumConnection(defaults={"rev": get_rev()})
         self._callosum.start()
         self._journal_path = Path(get_journal())
         logger.info("Callosum connection started")

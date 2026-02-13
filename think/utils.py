@@ -35,6 +35,29 @@ def now_ms() -> int:
     return int(time.time() * 1000)
 
 
+_rev_cache: str | None = "__unset__"
+
+
+def get_rev() -> str | None:
+    """Return short git commit hash, cached after first call. None if unavailable."""
+    global _rev_cache
+    if _rev_cache != "__unset__":
+        return _rev_cache
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        _rev_cache = result.stdout.strip() if result.returncode == 0 else None
+    except Exception:
+        _rev_cache = None
+    return _rev_cache
+
+
 def truncated_echo(text: str, max_bytes: int = 16384) -> None:
     """Print text to stdout, truncating if it exceeds *max_bytes* UTF-8 bytes.
 

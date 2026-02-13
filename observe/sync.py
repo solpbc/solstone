@@ -28,7 +28,7 @@ from urllib.parse import urlparse
 import requests
 
 from think.callosum import CallosumConnection
-from think.utils import day_path, now_ms, segment_path, setup_cli
+from think.utils import day_path, get_rev, now_ms, segment_path, setup_cli
 
 from .utils import compute_file_sha256
 
@@ -357,7 +357,7 @@ class SyncService:
     def start(self) -> None:
         """Start the sync service."""
         # Start Callosum connection
-        self._callosum = CallosumConnection()
+        self._callosum = CallosumConnection(defaults={"rev": get_rev()})
         self._callosum.start(callback=self._handle_message)
 
         # Scan for pending segments

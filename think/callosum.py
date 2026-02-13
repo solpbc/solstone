@@ -228,11 +228,12 @@ class CallosumConnection:
     dropped (with debug logging) when disconnected.
     """
 
-    def __init__(self, socket_path: Path | None = None):
+    def __init__(self, socket_path: Path | None = None, defaults: dict | None = None):
         """Initialize connection (does not connect immediately).
 
         Args:
             socket_path: Path to Unix socket (defaults to $JOURNAL_PATH/health/callosum.sock)
+            defaults: Default fields merged into every emit() call. None values are filtered out.
         """
         if socket_path is None:
             socket_path = Path(get_journal()) / "health" / "callosum.sock"
@@ -242,6 +243,7 @@ class CallosumConnection:
         self.callback: Callable[[dict[str, Any]], Any] | None = None
         self.thread: threading.Thread | None = None
         self.stop_event = threading.Event()
+        self.defaults = {k: v for k, v in (defaults or {}).items() if v is not None}
 
     def start(self, callback: Callable[[dict[str, Any]], Any] | None = None) -> None:
         """Start background thread for sending and receiving.
@@ -375,7 +377,7 @@ class CallosumConnection:
             logger.warning(f"Thread not running, dropping emit: {tract}/{event}")
             return False
 
-        message = {"tract": tract, "event": event, **fields}
+        message = {**self.defaults, "tract": tract, "event": event, **fields}
         try:
             self.send_queue.put_nowait(message)
             return True

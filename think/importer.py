@@ -28,6 +28,7 @@ from think.streams import stream_name, update_stream, write_segment_stream
 from think.utils import (
     day_path,
     get_journal,
+    get_rev,
     now_ms,
     segment_key,
     setup_cli,
@@ -728,7 +729,7 @@ def main() -> None:
 
     # Start Callosum connection with message queue for receiving events
     _message_queue = queue.Queue()
-    _callosum = CallosumConnection()
+    _callosum = CallosumConnection(defaults={"rev": get_rev()})
     _callosum.start(callback=lambda msg: _message_queue.put(msg))
 
     # Start status emitter thread

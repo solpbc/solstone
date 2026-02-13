@@ -26,6 +26,7 @@ from think.utils import (
     find_available_port,
     get_journal,
     get_journal_info,
+    get_rev,
     now_ms,
     setup_cli,
 )
@@ -1455,7 +1456,7 @@ def main() -> None:
 
     # Connect supervisor's Callosum client to capture startup events from other services
     try:
-        _supervisor_callosum = CallosumConnection()
+        _supervisor_callosum = CallosumConnection(defaults={"rev": get_rev()})
         _supervisor_callosum.start(callback=_handle_callosum_message)
         logging.info("Supervisor connected to Callosum")
     except Exception as e:

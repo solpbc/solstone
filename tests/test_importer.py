@@ -84,7 +84,7 @@ def test_importer_text(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "detect_transcript_json", mock_detect_json)
 
     # Mock CallosumConnection and status emitter to avoid real sockets/threads
-    monkeypatch.setattr(mod, "CallosumConnection", lambda: MagicMock())
+    monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: MagicMock())
     monkeypatch.setattr(mod, "_status_emitter", lambda: None)
 
     monkeypatch.setattr(

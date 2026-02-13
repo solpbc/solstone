@@ -33,6 +33,7 @@ from think.utils import (
     day_log,
     day_path,
     get_journal,
+    get_rev,
     iso_date,
     setup_cli,
 )
@@ -1423,7 +1424,7 @@ def main() -> None:
         parser.error("--segments is incompatible with --segment, --run, and --facet")
 
     # Start callosum connection
-    _callosum = CallosumConnection()
+    _callosum = CallosumConnection(defaults={"rev": get_rev()})
     _callosum.start()
     _stop_status.clear()
     status_thread = threading.Thread(target=_emit_periodic_status, daemon=True)

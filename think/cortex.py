@@ -30,7 +30,7 @@ from typing import Any, Dict, Optional
 
 from think.callosum import CallosumConnection
 from think.runner import _atomic_symlink
-from think.utils import get_journal, now_ms
+from think.utils import get_journal, get_rev, now_ms
 
 
 class AgentProcess:
@@ -85,7 +85,7 @@ class CortexService:
         self.shutdown_requested = threading.Event()
 
         # Callosum connection for receiving requests and broadcasting events
-        self.callosum = CallosumConnection()
+        self.callosum = CallosumConnection(defaults={"rev": get_rev()})
 
     def _create_error_event(
         self,
