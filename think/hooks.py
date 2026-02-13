@@ -8,6 +8,7 @@ occurrence.py and anticipation.py in the muse/ directory.
 """
 
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -44,6 +45,50 @@ def should_skip_extraction(result: str, context: dict) -> str | None:
         return f"minimal content ({len(result.strip())} chars < {MIN_EXTRACTION_CHARS})"
 
     return None
+
+
+def log_extraction_failure(e: Exception, name: str) -> None:
+    """Log enhanced diagnostics for extraction generation failures.
+
+    Handles IncompleteJSONError specially by logging head+tail of the partial
+    text and detecting possible degenerate token repetition.
+
+    Args:
+        e: The exception from generate().
+        name: Generator name for log context.
+    """
+    from think.models import IncompleteJSONError
+
+    if not isinstance(e, IncompleteJSONError):
+        logging.error("Extraction generation failed for %s: %s", name, e)
+        return
+
+    partial = e.partial_text
+    length = len(partial)
+
+    # Log head + tail of partial output
+    if length <= 400:
+        preview = partial
+    else:
+        preview = f"{partial[:200]}\n...[{length} chars total]...\n{partial[-200:]}"
+
+    # Repetition detection: count unique chars in last 1000
+    tail = partial[-1000:] if length >= 1000 else partial
+    unique_count = len(set(tail))
+    repetition_flag = ""
+    if unique_count < 20:
+        repetition_flag = f" [POSSIBLE DEGENERATE REPETITION: {unique_count} unique chars in last {len(tail)}]"
+
+    logging.error(
+        "Extraction generation failed for %s: %s "
+        "(partial_text: %d chars, %d unique in tail%s)\n%s",
+        name,
+        e,
+        length,
+        unique_count,
+        repetition_flag,
+        preview,
+    )
 
 
 def write_events_jsonl(

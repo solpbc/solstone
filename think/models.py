@@ -982,10 +982,8 @@ def generate(
         **kwargs,
     )
 
-    # Validate JSON output if requested
-    _validate_json_response(result, json_output)
-
-    # Log token usage centrally
+    # Log token usage centrally (before validation so truncated responses
+    # still get their usage recorded)
     if result.get("usage"):
         log_token_usage(
             model=model,
@@ -993,6 +991,9 @@ def generate(
             context=context,
             type="generate",
         )
+
+    # Validate JSON output if requested
+    _validate_json_response(result, json_output)
 
     return result["text"]
 
@@ -1136,8 +1137,8 @@ def generate_with_result(
         **kwargs,
     )
 
-    _validate_json_response(result, json_output)
-
+    # Log token usage centrally (before validation so truncated responses
+    # still get their usage recorded)
     if result.get("usage"):
         log_token_usage(
             model=model,
@@ -1145,6 +1146,9 @@ def generate_with_result(
             context=context,
             type="generate",
         )
+
+    # Validate JSON output if requested
+    _validate_json_response(result, json_output)
 
     return result
 
@@ -1224,10 +1228,8 @@ async def agenerate(
         **kwargs,
     )
 
-    # Validate JSON output if requested
-    _validate_json_response(result, json_output)
-
-    # Log token usage centrally
+    # Log token usage centrally (before validation so truncated responses
+    # still get their usage recorded)
     if result.get("usage"):
         log_token_usage(
             model=model,
@@ -1235,6 +1237,9 @@ async def agenerate(
             context=context,
             type="generate",
         )
+
+    # Validate JSON output if requested
+    _validate_json_response(result, json_output)
 
     return result["text"]
 

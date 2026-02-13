@@ -15,6 +15,7 @@ from pathlib import Path
 from think.facets import facet_summaries
 from think.hooks import (
     compute_output_source,
+    log_extraction_failure,
     should_skip_extraction,
     write_events_jsonl,
 )
@@ -69,13 +70,13 @@ def post_process(result: str, context: dict) -> str | None:
             json_output=True,
         )
     except Exception as e:
-        logging.error("Extraction generation failed: %s", e)
+        log_extraction_failure(e, name)
         return None
 
     try:
         events = json.loads(response_text)
     except json.JSONDecodeError as e:
-        logging.error("Invalid JSON from extraction: %s", e)
+        logging.error("Invalid JSON from occurrence extraction: %s", e)
         return None
 
     if not isinstance(events, list):
