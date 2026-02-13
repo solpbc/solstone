@@ -20,15 +20,15 @@ The package exposes several commands:
 - `sol agents` is the unified CLI for tool agents and generators (spawned by Cortex, NDJSON protocol).
 - `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
 - `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
-- `sol muse` lists available agents and generators with their configuration. Use `sol muse <name>` to see details, and `sol muse <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
+- `sol muse` lists available agents and generators with their configuration. Use `sol muse show <name>` to see details, and `sol muse show <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
 
 ```bash
 sol call transcripts read YYYYMMDD [--start HHMMSS --length MINUTES]
 sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--stream NAME] [--force] [--run NAME] [--flush]
 sol supervisor [--no-observers]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
-sol muse [--schedule daily|segment] [--json]
-sol muse <name> [--prompt] [--day YYYYMMDD] [--segment HHMMSS_LEN] [--full]
+sol muse list [--schedule daily|segment] [--json]
+sol muse show <name> [--prompt] [--day YYYYMMDD] [--segment HHMMSS_LEN] [--full]
 ```
 
 Use `--force` to overwrite existing files, and `-v` for verbose logs.

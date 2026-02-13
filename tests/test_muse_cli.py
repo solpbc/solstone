@@ -13,6 +13,7 @@ from think.muse_cli import (
     _scan_variables,
     json_output,
     list_prompts,
+    logs_runs,
     show_prompt,
 )
 
@@ -290,3 +291,50 @@ def test_show_prompt_context_day_format_validation(capsys):
 
     output = capsys.readouterr().err
     assert "invalid --day format" in output.lower()
+
+
+def test_logs_runs_default(capsys):
+    """Logs shows recent runs from fixture day-index files."""
+    logs_runs()
+    output = capsys.readouterr().out
+
+    # Should have runs from both fixture days
+    assert "default" in output
+    assert "flow" in output
+    assert "activity" in output
+    assert "entities" in output
+    # Error run should show ✗
+    assert "\u2717" in output
+    # Completed runs should show ✓
+    assert "\u2713" in output
+
+
+def test_logs_runs_filter_agent(capsys):
+    """Logs filters to a specific agent."""
+    logs_runs(agent="default")
+    output = capsys.readouterr().out
+
+    lines = [line for line in output.strip().splitlines() if line.strip()]
+    # fixture has 2 "default" runs in 20231114.jsonl
+    assert len(lines) == 2
+    for line in lines:
+        assert "default" in line
+    # Should NOT contain other agents
+    assert "flow" not in output
+    assert "activity" not in output
+
+
+def test_logs_runs_count_limit(capsys):
+    """Logs respects count limit."""
+    logs_runs(count=2)
+    output = capsys.readouterr().out
+
+    lines = [line for line in output.strip().splitlines() if line.strip()]
+    assert len(lines) == 2
+
+
+def test_logs_runs_no_results(capsys):
+    """Logs with unknown agent produces empty output."""
+    logs_runs(agent="nonexistent_agent_xyz")
+    output = capsys.readouterr().out
+    assert output.strip() == ""

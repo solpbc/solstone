@@ -1,1 +1,4 @@
 {"agent_id": "1700000000001", "name": "default", "day": "20231114", "facet": null, "ts": 1700000000001, "status": "completed", "runtime_seconds": 0.6, "provider": "openai", "model": "gpt-4o"}
+{"agent_id": "1700000000002", "name": "flow", "day": "20231114", "facet": null, "ts": 1700000060000, "status": "error", "runtime_seconds": 13.2, "provider": "anthropic", "model": "claude-3-haiku"}
+{"agent_id": "1700000000003", "name": "activity", "day": "20231114", "facet": "work", "ts": 1700000120000, "status": "completed", "runtime_seconds": 6.2, "provider": "google", "model": "gemini-2.5-flash-lite"}
+{"agent_id": "1700000000004", "name": "default", "day": "20231114", "facet": null, "ts": 1700000180000, "status": "completed", "runtime_seconds": 2.1, "provider": "openai", "model": "gpt-4o"}

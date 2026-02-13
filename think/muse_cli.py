@@ -7,12 +7,14 @@ Lists all system and app prompts with their frontmatter metadata,
 supports filtering by schedule and source, and provides detail views.
 
 Usage:
-    sol muse                     List all prompts grouped by schedule
-    sol muse <name>              Show details for a specific prompt
-    sol muse <name> --json       Output a single prompt as JSONL
-    sol muse <name> --prompt     Show full prompt context (dry-run)
-    sol muse --json              Output all configs as JSONL
-    sol muse --schedule daily    Filter by schedule type
+    sol muse                          List all prompts grouped by schedule
+    sol muse list --schedule daily    Filter by schedule type
+    sol muse list --json              Output all configs as JSONL
+    sol muse show <name>              Show details for a specific prompt
+    sol muse show <name> --json       Output a single prompt as JSONL
+    sol muse show <name> --prompt     Show full prompt context (dry-run)
+    sol muse logs                     Show recent agent runs
+    sol muse logs <agent> -c 5        Show last 5 runs for an agent
 """
 
 from __future__ import annotations
@@ -633,89 +635,171 @@ def show_prompt_context(
     print()
 
 
+def logs_runs(*, agent: str | None = None, count: int = 20) -> None:
+    """Print one-line summaries of recent agent runs from day-index files."""
+    from think.utils import get_journal
+
+    agents_dir = Path(get_journal()) / "agents"
+    if not agents_dir.is_dir():
+        return
+
+    # Find day-index files, most recent first
+    day_files = sorted(agents_dir.glob("????????.jsonl"), reverse=True)
+    if not day_files:
+        return
+
+    # Collect records across day files
+    records: list[dict[str, Any]] = []
+    for day_file in day_files:
+        for line in day_file.read_text().splitlines():
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if agent and record.get("name") != agent:
+                continue
+            records.append(record)
+        if len(records) >= count:
+            break
+
+    if not records:
+        return
+
+    # Sort by timestamp descending and trim
+    records.sort(key=lambda r: r.get("ts", 0), reverse=True)
+    records = records[:count]
+
+    # Compute column widths
+    name_width = max((len(r.get("name", "")) for r in records), default=10)
+    name_width = max(name_width, 10)
+
+    today = datetime.now().strftime("%Y%m%d")
+    use_color = sys.stdout.isatty()
+
+    for r in records:
+        ts = r.get("ts", 0)
+        dt = datetime.fromtimestamp(ts / 1000)
+        day = r.get("day", dt.strftime("%Y%m%d"))
+
+        # Time column
+        if day == today:
+            time_str = dt.strftime("%H:%M")
+        else:
+            time_str = dt.strftime("%b %d %H:%M")
+
+        name = r.get("name", "unknown")
+        status = r.get("status", "")
+        status_sym = "\u2713" if status == "completed" else "\u2717"
+        runtime = r.get("runtime_seconds") or 0
+
+        # Format runtime
+        if runtime < 60:
+            runtime_str = f"{runtime:.1f}s"
+        else:
+            mins = int(runtime // 60)
+            secs = int(runtime % 60)
+            runtime_str = f"{mins}m {secs:02d}s"
+
+        model = r.get("model", "")
+        facet = r.get("facet") or ""
+
+        facet_part = f"  {facet}" if facet else ""
+        line = (
+            f"{time_str:>12}  {name:<{name_width}}  {status_sym}  "
+            f"{runtime_str:>7}  {model}{facet_part}"
+        )
+
+        if use_color and status != "completed":
+            line = f"\033[31m{line}\033[0m"
+
+        print(line)
+
+
 def main() -> None:
     """Entry point for sol muse."""
     parser = argparse.ArgumentParser(description="Inspect muse prompt configurations")
-    parser.add_argument("name", nargs="?", help="Show details for a specific prompt")
-    parser.add_argument(
-        "--schedule",
-        choices=["daily", "segment"],
-        help="Filter by schedule type",
+    subparsers = parser.add_subparsers(dest="subcommand")
+
+    # --- list subcommand ---
+    list_parser = subparsers.add_parser("list", help="List prompts grouped by schedule")
+    list_parser.add_argument(
+        "--schedule", choices=["daily", "segment"], help="Filter by schedule type"
     )
-    parser.add_argument(
-        "--source",
-        choices=["system", "app"],
-        help="Filter by origin",
+    list_parser.add_argument(
+        "--source", choices=["system", "app"], help="Filter by origin"
     )
-    parser.add_argument(
-        "--disabled",
-        action="store_true",
-        help="Include disabled prompts",
+    list_parser.add_argument(
+        "--disabled", action="store_true", help="Include disabled prompts"
     )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output as JSONL (one JSON object per line)",
+    list_parser.add_argument("--json", action="store_true", help="Output as JSONL")
+
+    # --- show subcommand ---
+    show_parser = subparsers.add_parser(
+        "show", help="Show details for a specific prompt"
     )
-    parser.add_argument(
-        "--prompt",
-        action="store_true",
-        help="Show full prompt context (dry-run mode)",
+    show_parser.add_argument("name", help="Prompt name")
+    show_parser.add_argument("--json", action="store_true", help="Output as JSONL")
+    show_parser.add_argument(
+        "--prompt", action="store_true", help="Show full prompt context (dry-run mode)"
     )
-    parser.add_argument(
-        "--day",
-        metavar="YYYYMMDD",
-        help="Day for prompt context (default: yesterday)",
+    show_parser.add_argument("--day", metavar="YYYYMMDD", help="Day for prompt context")
+    show_parser.add_argument(
+        "--segment", metavar="HHMMSS_LEN", help="Segment for segment-scheduled prompts"
     )
-    parser.add_argument(
-        "--segment",
-        metavar="HHMMSS_LEN",
-        help="Segment for segment-scheduled prompts",
+    show_parser.add_argument(
+        "--facet", metavar="NAME", help="Facet for multi-facet prompts"
     )
-    parser.add_argument(
-        "--facet",
-        metavar="NAME",
-        help="Facet for multi-facet prompts",
+    show_parser.add_argument(
+        "--query", metavar="TEXT", help="Sample query for tool agents"
     )
-    parser.add_argument(
-        "--query",
-        metavar="TEXT",
-        help="Sample query for tool agents",
+    show_parser.add_argument(
+        "--full", action="store_true", help="Show full content without truncation"
     )
-    parser.add_argument(
-        "--full",
-        action="store_true",
-        help="Show full content without truncation",
+
+    # --- logs subcommand ---
+    logs_parser = subparsers.add_parser("logs", help="Show recent agent run log")
+    logs_parser.add_argument("agent", nargs="?", help="Filter to a specific agent")
+    logs_parser.add_argument(
+        "-c",
+        "--count",
+        type=int,
+        default=20,
+        help="Number of runs to show (default: 20)",
     )
 
     args = setup_cli(parser)
 
-    if args.prompt:
-        if not args.name:
-            print("--prompt requires a prompt name", file=sys.stderr)
-            sys.exit(1)
-        show_prompt_context(
-            args.name,
-            day=args.day,
-            segment=args.segment,
-            facet=args.facet,
-            query=args.query,
-            full=args.full,
-        )
-    elif args.name:
-        show_prompt(args.name, as_json=args.json)
-    elif args.json:
+    if args.subcommand == "show":
+        if args.prompt:
+            show_prompt_context(
+                args.name,
+                day=args.day,
+                segment=args.segment,
+                facet=args.facet,
+                query=args.query,
+                full=args.full,
+            )
+        else:
+            show_prompt(args.name, as_json=args.json)
+    elif args.subcommand == "logs":
+        logs_runs(agent=args.agent, count=args.count)
+    elif args.subcommand == "list" and args.json:
         json_output(
             schedule=args.schedule,
             source=args.source,
             include_disabled=args.disabled,
         )
-    else:
+    elif args.subcommand == "list":
         list_prompts(
             schedule=args.schedule,
             source=args.source,
             include_disabled=args.disabled,
         )
+    else:
+        # Default: no subcommand given -> list all prompts
+        list_prompts()
 
 
 if __name__ == "__main__":

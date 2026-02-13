@@ -1,0 +1,2 @@
+{"agent_id": "1699900000001", "name": "entities", "day": "20231113", "facet": "personal", "ts": 1699900000001, "status": "completed", "runtime_seconds": 8.4, "provider": "google", "model": "gemini-2.5-flash-lite"}
+{"agent_id": "1699900000002", "name": "flow", "day": "20231113", "facet": null, "ts": 1699900060000, "status": "completed", "runtime_seconds": 4.7, "provider": "anthropic", "model": "claude-3-haiku"}
