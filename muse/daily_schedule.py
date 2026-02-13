@@ -7,6 +7,7 @@ Generates activity span data from journal segments to identify optimal
 maintenance windows when the user is consistently inactive.
 """
 
+import re
 from datetime import datetime, timedelta
 
 from think.utils import iter_segments

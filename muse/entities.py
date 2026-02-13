@@ -125,6 +125,7 @@ def post_process(result: str, context: dict) -> str | None:
 
     # Write JSONL file
     try:
+        jsonl_path.parent.mkdir(parents=True, exist_ok=True)
         with open(jsonl_path, "w") as f:
             for entity in unique_entities:
                 f.write(json.dumps(entity) + "\n")
