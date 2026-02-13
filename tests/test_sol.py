@@ -175,6 +175,16 @@ class TestMain:
         captured = capsys.readouterr()
         assert "sol - solstone unified CLI" in captured.out
 
+    def test_main_help_command_without_question(self, monkeypatch, capsys):
+        """Test bare 'help' command shows static help."""
+        monkeypatch.setattr(sys, "argv", ["sol", "help"])
+        monkeypatch.setenv("JOURNAL_PATH", "/tmp/test")
+
+        sol.main()
+
+        captured = capsys.readouterr()
+        assert "sol - solstone unified CLI" in captured.out
+
     def test_main_version_flag(self, monkeypatch, capsys):
         """Test --version flag shows version."""
         monkeypatch.setattr(sys, "argv", ["sol", "--version"])
@@ -212,6 +222,26 @@ class TestMain:
         assert "--day" in captured_argv
         assert "20250101" in captured_argv
 
+    def test_main_help_command_with_question_dispatches(self, monkeypatch):
+        """Test 'help' with extra args dispatches to help module."""
+        monkeypatch.setattr(sys, "argv", ["sol", "help", "how", "do", "I", "search"])
+
+        captured_argv = []
+
+        def mock_main():
+            captured_argv.extend(sys.argv)
+
+        mock_module = MagicMock()
+        mock_module.main = mock_main
+
+        with patch("importlib.import_module", return_value=mock_module):
+            with pytest.raises(SystemExit):
+                sol.main()
+
+        assert captured_argv[0] == "sol help"
+        assert "how" in captured_argv
+        assert "search" in captured_argv
+
 
 class TestCommandRegistry:
     """Tests for command registry completeness."""
@@ -231,6 +261,6 @@ class TestCommandRegistry:
 
     def test_critical_commands_registered(self):
         """Test that critical commands are registered."""
-        critical = ["import", "agents", "dream", "indexer", "transcribe"]
+        critical = ["import", "agents", "dream", "indexer", "transcribe", "help"]
         for cmd in critical:
             assert cmd in sol.COMMANDS, f"Critical command '{cmd}' not registered"

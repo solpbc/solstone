@@ -65,6 +65,7 @@ COMMANDS: dict[str, str] = {
     "cortex": "think.cortex",
     "muse": "think.muse_cli",
     "call": "think.call",
+    "help": "think.help_cli",
     # convey package - web UI
     "convey": "convey.cli",
     "restart-convey": "convey.restart",
@@ -127,6 +128,7 @@ GROUPS: dict[str, list[str]] = {
         "observe-linux",
         "observe-macos",
     ],
+    "Help": ["help"],
 }
 
 
@@ -273,7 +275,10 @@ def main() -> None:
     cmd = sys.argv[1]
 
     # Help flags
-    if cmd in ("--help", "-h", "help"):
+    if cmd in ("--help", "-h"):
+        print_help()
+        return
+    if cmd == "help" and len(sys.argv) <= 2:
         print_help()
         return
 
