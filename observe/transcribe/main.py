@@ -70,7 +70,7 @@ from observe.vad import (
     run_vad,
 )
 from think.callosum import callosum_send
-from think.utils import get_config, get_journal, setup_cli
+from think.utils import day_from_path, get_config, get_journal, setup_cli
 
 # Re-export defaults for backwards compatibility
 __all__ = [
@@ -176,7 +176,7 @@ def _build_base_event(
         Event dict with common fields for observe.transcribed events
     """
     journal_path = Path(get_journal())
-    day = audio_path.parent.parent.name
+    day = day_from_path(audio_path)
 
     try:
         rel_input = audio_path.relative_to(journal_path)
@@ -528,9 +528,14 @@ def process_audio(
 
         # Extract date and time from path structure
         journal_path = Path(get_journal())
-        day = raw_path.parent.parent.name
+        day = day_from_path(raw_path)
         time_part = segment.split("_")[0] if segment else "000000"
-        base_dt = datetime.datetime.strptime(f"{day}_{time_part}", "%Y%m%d_%H%M%S")
+        if day is None:
+            logging.error(f"Could not extract day from path: {raw_path}")
+            time_obj = datetime.datetime.strptime(time_part, "%H%M%S").time()
+            base_dt = datetime.datetime.combine(datetime.date.today(), time_obj)
+        else:
+            base_dt = datetime.datetime.strptime(f"{day}_{time_part}", "%Y%m%d_%H%M%S")
 
         # Extract source from <source>_audio pattern
         source = None

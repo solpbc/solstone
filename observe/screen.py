@@ -160,12 +160,12 @@ def format_screen(
     meta["header"] = "\n".join(header_lines)
 
     # Extract base timestamp from segment directory (HHMMSS_LEN)
-    # Expected structure: YYYYMMDD/HHMMSS_LEN/screen.jsonl
+    # Expected structure: YYYYMMDD/<stream>/HHMMSS_LEN/screen.jsonl
     base_hour = base_minute = base_second = 0
     base_timestamp_ms = 0  # Unix timestamp in milliseconds for segment start
     if file_path:
         try:
-            from think.utils import segment_parse
+            from think.utils import day_from_path, segment_parse
 
             # Get segment start time from parent directory
             file_path = Path(file_path)
@@ -175,9 +175,8 @@ def format_screen(
                 base_minute = start_time.minute
                 base_second = start_time.second
 
-                # Try to get day from grandparent directory for unix timestamp
-                day_dir = file_path.parent.parent.name
-                if len(day_dir) == 8 and day_dir.isdigit():
+                day_dir = day_from_path(file_path)
+                if day_dir:
                     day_date = datetime.strptime(day_dir, "%Y%m%d").date()
                     dt = datetime.combine(day_date, start_time)
                     base_timestamp_ms = int(dt.timestamp() * 1000)
