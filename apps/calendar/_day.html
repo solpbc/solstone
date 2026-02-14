@@ -1,4 +1,4 @@
-{# Calendar day view - events timeline #}
+{# Calendar day view - events timeline + activities #}
 
 <style>
 .day-view {
@@ -30,6 +30,19 @@
   display: block;
   text-decoration: none;
   cursor: pointer;
+}
+
+/* Activity blocks on timeline */
+.occ-activity {
+  opacity: 0.35;
+  border: 2px solid;
+  border-radius: 6px;
+  display: flex;
+  align-items: flex-start;
+  padding: 2px 6px;
+  font-size: 0.75em;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .modal {
@@ -133,13 +146,256 @@
   color: #666;
   margin-left: 0.5em;
 }
+
+/* Activities section */
+.activities-section {
+  margin-top: 2em;
+  padding-top: 1em;
+  border-top: 1px solid #eee;
+}
+
+.activities-section h3 {
+  margin: 0 0 0.75em 0;
+  font-size: 1em;
+  color: #555;
+}
+
+.activity-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.activity-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  padding: 0.6em 0.75em;
+  border-radius: 6px;
+  background: #f8f9fa;
+  cursor: pointer;
+  border-left: 3px solid #6c757d;
+  transition: background 0.15s;
+}
+
+.activity-card:hover {
+  background: #e9ecef;
+}
+
+.activity-card .act-icon {
+  font-size: 1.3em;
+  flex-shrink: 0;
+}
+
+.activity-card .act-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-card .act-name {
+  font-weight: 500;
+  font-size: 0.95em;
+}
+
+.activity-card .act-desc {
+  font-size: 0.8em;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-card .act-meta {
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 0.8em;
+  color: #888;
+}
+
+.activity-card .act-duration {
+  font-weight: 500;
+}
+
+.activity-card .act-level {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* Activity detail view */
+.activity-detail {
+  max-width: 700px;
+}
+
+.activity-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-size: 0.85em;
+  color: #666;
+  cursor: pointer;
+  margin-bottom: 0.75em;
+  padding: 0.25em 0;
+}
+
+.activity-detail-back:hover {
+  color: #333;
+}
+
+.activity-detail-header {
+  margin-bottom: 1em;
+}
+
+.activity-detail-header h2 {
+  margin: 0 0 0.25em 0;
+  font-size: 1.3em;
+}
+
+.activity-detail-header .ad-subtitle {
+  color: #666;
+  font-size: 0.9em;
+}
+
+.ad-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3em 1em;
+  margin-bottom: 1em;
+  font-size: 0.9em;
+}
+
+.ad-fields dt {
+  color: #888;
+  font-weight: 500;
+}
+
+.ad-fields dd {
+  margin: 0;
+}
+
+.ad-entities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3em;
+}
+
+.ad-entity {
+  padding: 0.15em 0.5em;
+  background: #e9ecef;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.ad-description {
+  margin: 1em 0;
+  padding: 0.75em;
+  background: #f8f9fa;
+  border-radius: 6px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+/* Tabs */
+.ad-tabs {
+  display: flex;
+  border-bottom: 2px solid #dee2e6;
+  margin-bottom: 1em;
+  gap: 0;
+}
+
+.ad-tab {
+  padding: 0.5em 1em;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.9em;
+  color: #666;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+
+.ad-tab:hover {
+  color: #333;
+}
+
+.ad-tab.active {
+  color: #333;
+  border-bottom-color: #333;
+  font-weight: 500;
+}
+
+.ad-tab-pane {
+  display: none;
+}
+
+.ad-tab-pane.active {
+  display: block;
+}
+
+.ad-output-loading {
+  color: #888;
+  font-style: italic;
+  padding: 1em 0;
+}
+
+.rendered-markdown {
+  line-height: 1.6;
+}
+
+.rendered-markdown h1,
+.rendered-markdown h2,
+.rendered-markdown h3 {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.rendered-markdown h1 { font-size: 1.3em; }
+.rendered-markdown h2 { font-size: 1.15em; }
+.rendered-markdown h3 { font-size: 1.05em; }
+
+.rendered-markdown ul, .rendered-markdown ol {
+  padding-left: 1.5em;
+}
+
+.rendered-markdown pre {
+  background: #f4f4f4;
+  padding: 0.75em;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.rendered-markdown code {
+  background: #f4f4f4;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.rendered-markdown pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Level colors */
+.level-high { background: #2ecc71; }
+.level-medium { background: #f39c12; }
+.level-low { background: #95a5a6; }
 </style>
 
 <div class="workspace-content-wide">
   <h1>{{ title }}</h1>
-  <div id="eventsView">
-    <div class="events-empty">Loading events...</div>
+
+  <div id="dayView">
+    <div id="eventsView">
+      <div class="events-empty">Loading...</div>
+    </div>
+    <div id="activitiesView"></div>
   </div>
+
+  <div id="activityDetail" class="activity-detail" style="display:none"></div>
 
   <div id="eventModal" class="modal">
     <div class="modal-content">
@@ -150,16 +406,23 @@
 </div>
 
 <script src="{{ url_for('root.static', filename='colors.js') }}"></script>
+<script src="{{ vendor_lib('marked') }}"></script>
 <script>
 (function() {
   const day = '{{ day }}';
   let allEvents = [];
+  let allActivities = [];
   let events = [];
+  let activities = [];
+  let currentActivityId = null;
+  const outputCache = {};
 
-  function filterEventsByFacet(eventList) {
+  // ── Utilities ──
+
+  function filterByFacet(list) {
     const facet = window.selectedFacet;
-    if (!facet) return eventList;
-    return eventList.filter(e => e.facet === facet);
+    if (!facet) return list;
+    return list.filter(e => e.facet === facet);
   }
 
   function escapeHtml(text) {
@@ -168,20 +431,68 @@
     return d.innerHTML;
   }
 
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    let h = d.getHours();
+    const m = d.getMinutes();
+    const suf = h >= 12 ? 'p' : 'a';
+    h = h % 12 || 12;
+    return m ? `${h}:${String(m).padStart(2, '0')}${suf}` : `${h}${suf}`;
+  }
+
+  function fmtDuration(mins) {
+    if (mins >= 60) {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return m ? `${h}h ${m}m` : `${h}h`;
+    }
+    return `${mins}m`;
+  }
+
+  function fmtLength(start, end) {
+    const s = new Date(start);
+    const e = end ? new Date(end) : new Date(s.getTime() + 5 * 60000);
+    return fmtDuration(Math.max(1, Math.round((e - s) / 60000)));
+  }
+
+  function levelLabel(avg) {
+    if (avg >= 0.75) return 'high';
+    if (avg >= 0.4) return 'medium';
+    return 'low';
+  }
+
+  function levelColor(avg) {
+    if (avg >= 0.75) return '#2ecc71';
+    if (avg >= 0.4) return '#f39c12';
+    return '#95a5a6';
+  }
+
+  function parseCreatedDate(source) {
+    const match = source && source.match(/^(\d{8})\//);
+    if (match) {
+      const d = match[1];
+      return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+    }
+    return null;
+  }
+
+  // ── Events rendering ──
+
   function renderEvents(list) {
     const div = document.getElementById('eventsView');
+    if (!list.length && !activities.length) {
+      div.innerHTML = '<div class="events-empty">No events or activities for this day.</div>';
+      return;
+    }
     if (!list.length) {
-      div.innerHTML = '<div class="events-empty">No events or scheduled items for this day.</div>';
+      div.innerHTML = '';
       return;
     }
 
-    // Split into timed and untimed events
     const timedEvents = list.filter(o => o.startTime);
     const untimedEvents = list.filter(o => !o.startTime);
-
     let html = '';
 
-    // Render all-day/untimed section if any
     if (untimedEvents.length) {
       html += '<div class="all-day-section"><h4>All Day / Scheduled</h4><div class="all-day-cards">';
       untimedEvents.forEach((o, i) => {
@@ -196,19 +507,21 @@
       html += '</div></div>';
     }
 
-    // If no timed events, we're done
-    if (!timedEvents.length) {
+    // Collect all timed items (events + activities) for unified timeline range
+    const timedActivities = activities.filter(a => a.startTime);
+    const allTimed = [...timedEvents, ...timedActivities];
+
+    if (!allTimed.length) {
       div.innerHTML = html;
       return;
     }
 
-    // Determine time range for timed events
     let start = Infinity, end = -Infinity;
-    timedEvents.forEach(o => {
+    allTimed.forEach(o => {
       const s = new Date(o.startTime);
       const e = o.endTime ? new Date(o.endTime) : new Date(s.getTime() + 3600000);
       const startMinutes = s.getHours() * 60 + s.getMinutes();
-      if (startMinutes === 0) return; // Skip midnight events
+      if (startMinutes === 0) return;
       start = Math.min(start, startMinutes);
       end = Math.max(end, e.getHours() * 60 + e.getMinutes());
     });
@@ -216,16 +529,32 @@
     let startHour = Math.max(Math.floor(start / 60) - 1, 0);
     let endHour = Math.min(Math.ceil(end / 60) + 1, 24);
     const pxPerHour = 66.7;
+    const totalMinutes = (endHour - startHour) * 60;
 
     html += `<div class='day-view' style='height:${(endHour - startHour) * pxPerHour}px'>`;
 
-    // Hour lines
     for (let h = startHour; h <= endHour; h++) {
       const label = h === 0 ? '12am' : h < 12 ? h + 'am' : h === 12 ? '12pm' : (h - 12) + 'pm';
       html += `<div class='hour-line' style='top:${((h - startHour) / (endHour - startHour)) * 100}%'><span>${label}</span></div>`;
     }
 
-    // Process events for layout
+    // Render activity blocks (behind events, full width)
+    timedActivities.forEach(a => {
+      const s = new Date(a.startTime);
+      const e = a.endTime ? new Date(a.endTime) : new Date(s.getTime() + 5 * 60000);
+      let sMin = s.getHours() * 60 + s.getMinutes();
+      let eMin = e.getHours() * 60 + e.getMinutes();
+      sMin = Math.max(sMin, startHour * 60);
+      eMin = Math.min(eMin, endHour * 60);
+      if (eMin <= sMin) return;
+
+      const top = ((sMin - startHour * 60) / totalMinutes) * 100;
+      const height = Math.max((eMin - sMin) / totalMinutes * 100, 0.4);
+      const color = levelColor(a.level_avg);
+      html += `<a class='occ occ-activity' data-activity-id='${escapeHtml(a.id)}' style='top:${top}%;height:${height}%;left:0;width:100%;border-color:${color};background:${color}' title='${escapeHtml(a.icon + " " + a.name)}'>${escapeHtml(a.icon)} ${escapeHtml(a.name)}</a>`;
+    });
+
+    // Process event blocks for column layout
     const processedEvents = [];
     const topics = [];
 
@@ -243,17 +572,13 @@
       if (!topics.includes(topic)) topics.push(topic);
 
       processedEvents.push({
-        startMinutes: s,
-        endMinutes: e,
-        topic: topic,
+        startMinutes: s, endMinutes: e, topic: topic,
         title: escapeHtml(o.title || o.summary || topic),
-        color: o.color || '#6c757d',
-        index: idx,
+        color: o.color || '#6c757d', index: idx,
         isPlanned: o.occurred === false
       });
     });
 
-    // Group by topic and calculate columns
     const eventsByTopic = {};
     topics.forEach(topic => {
       eventsByTopic[topic] = processedEvents.filter(e => e.topic === topic);
@@ -264,7 +589,6 @@
     topics.forEach(topic => {
       const topicEvents = eventsByTopic[topic];
       const topicColumns = [];
-
       topicEvents.forEach(event => {
         let columnIndex = 0;
         while (columnIndex < topicColumns.length &&
@@ -277,7 +601,6 @@
         topicColumns[columnIndex].push(event);
         event.slugColumn = columnIndex;
       });
-
       topicColumnCounts[topic] = topicColumns.length;
     });
 
@@ -295,10 +618,9 @@
       event.column = topicColumnOffsets[event.topic] + event.slugColumn;
     });
 
-    // Render event boxes
     processedEvents.forEach(event => {
-      const top = ((event.startMinutes - startHour * 60) / ((endHour - startHour) * 60)) * 100;
-      const height = Math.max((event.endMinutes - event.startMinutes) / ((endHour - startHour) * 60) * 100, 0.4);
+      const top = ((event.startMinutes - startHour * 60) / totalMinutes) * 100;
+      const height = Math.max((event.endMinutes - event.startMinutes) / totalMinutes * 100, 0.4);
       const left = event.column * columnWidth;
       const width = columnWidth * 0.95;
       const plannedClass = event.isPlanned ? ' occ-planned' : '';
@@ -311,42 +633,43 @@
     div.innerHTML = html;
   }
 
-  function fmtTime(ts) {
-    const d = new Date(ts);
-    let h = d.getHours();
-    const m = d.getMinutes();
-    const suf = h >= 12 ? 'p' : 'a';
-    h = h % 12 || 12;
-    return m ? `${h}:${String(m).padStart(2, '0')}${suf}` : `${h}${suf}`;
+  // ── Activities cards ──
+
+  function renderActivities(list) {
+    const div = document.getElementById('activitiesView');
+    if (!list.length) {
+      div.innerHTML = '';
+      return;
+    }
+
+    let html = '<div class="activities-section"><h3>Activities</h3><div class="activity-cards">';
+    list.forEach(a => {
+      const dur = fmtDuration(a.duration_minutes);
+      const lvl = levelLabel(a.level_avg);
+      const timeStr = a.startTime ? fmtTime(a.startTime) : '';
+      const color = levelColor(a.level_avg);
+      html += `<div class="activity-card" data-activity-id="${escapeHtml(a.id)}" style="border-left-color:${color}">`;
+      html += `<span class="act-icon">${escapeHtml(a.icon || '')}</span>`;
+      html += `<div class="act-body">`;
+      html += `<div class="act-name">${escapeHtml(a.name)}</div>`;
+      if (a.description) html += `<div class="act-desc">${escapeHtml(a.description)}</div>`;
+      html += `</div>`;
+      html += `<div class="act-meta">`;
+      if (timeStr) html += `<div>${timeStr}</div>`;
+      html += `<div class="act-duration">${dur}<span class="act-level level-${lvl}" title="${lvl} engagement"></span></div>`;
+      if (a.outputs.length) html += `<div>${a.outputs.length} output${a.outputs.length > 1 ? 's' : ''}</div>`;
+      html += `</div></div>`;
+    });
+    html += '</div></div>';
+    div.innerHTML = html;
   }
 
-  function fmtLength(start, end) {
-    const s = new Date(start);
-    const e = end ? new Date(end) : new Date(s.getTime() + 5 * 60000);
-    const mins = Math.max(1, Math.round((e - s) / 60000));
-    if (mins >= 60) {
-      const h = Math.floor(mins / 60);
-      const m = mins % 60;
-      return m ? `${h}h ${m}m` : `${h}h`;
-    }
-    return `${mins}m`;
-  }
-
-  function parseCreatedDate(source) {
-    // Extract YYYYMMDD from source path like "20240101/agents/schedule.md"
-    const match = source && source.match(/^(\d{8})\//);
-    if (match) {
-      const d = match[1];
-      return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
-    }
-    return null;
-  }
+  // ── Event modal ──
 
   function openModal(idx) {
     const occ = events[idx];
     if (!occ) return;
     const body = document.getElementById('modalBody');
-
     const isPlanned = occ.occurred === false;
     const topic = occ.topic ? occ.topic.charAt(0).toUpperCase() + occ.topic.slice(1) : '';
     const titleText = `${topic ? topic + ': ' : ''}${occ.title || ''}`.trim();
@@ -382,34 +705,222 @@
     document.getElementById('eventModal').style.display = 'block';
   }
 
-  function applyFacetFilter() {
-    events = filterEventsByFacet(allEvents);
-    renderEvents(events);
+  // ── Activity detail view ──
+
+  function showActivityDetail(activityId) {
+    const a = activities.find(x => x.id === activityId);
+    if (!a) {
+      // Try allActivities (might be filtered out by facet)
+      const fromAll = allActivities.find(x => x.id === activityId);
+      if (!fromAll) return;
+      // Show it even if not in current facet filter
+      renderActivityDetail(fromAll);
+      return;
+    }
+    renderActivityDetail(a);
   }
 
-  function loadEvents() {
-    fetch(`/app/calendar/api/day/${day}/events`)
-      .then(r => r.json())
-      .then(d => {
-        allEvents = d || [];
-        applyFacetFilter();
-        document.getElementById('eventsView').onclick = e => {
-          const el = e.target.closest('.occ') || e.target.closest('.all-day-card');
-          if (el) {
-            e.preventDefault();
-            openModal(parseInt(el.dataset.index));
-          }
-        };
-      })
-      .catch(() => {
-        document.getElementById('eventsView').innerHTML = '<div class="events-empty">Failed to load events.</div>';
+  function renderActivityDetail(a) {
+    currentActivityId = a.id;
+    document.getElementById('dayView').style.display = 'none';
+    const detail = document.getElementById('activityDetail');
+    detail.style.display = 'block';
+
+    const lvl = levelLabel(a.level_avg);
+    const timeRange = a.startTime
+      ? `${fmtTime(a.startTime)}${a.endTime ? ' – ' + fmtTime(a.endTime) : ''}`
+      : '';
+
+    let html = '';
+    html += `<div class="activity-detail-back" onclick="location.hash=''">← Back to day</div>`;
+    html += `<div class="activity-detail-header">`;
+    html += `<h2>${escapeHtml(a.icon || '')} ${escapeHtml(a.name)}</h2>`;
+    html += `<div class="ad-subtitle">${escapeHtml(a.facet)}</div>`;
+    html += `</div>`;
+
+    // Build tabs
+    html += `<div class="ad-tabs">`;
+    html += `<button type="button" class="ad-tab active" data-tab="summary">Summary</button>`;
+    a.outputs.forEach((out, i) => {
+      const label = out.filename.replace(/\.\w+$/, '').replace(/[_-]/g, ' ');
+      html += `<button type="button" class="ad-tab" data-tab="output-${i}">${escapeHtml(label)}</button>`;
+    });
+    html += `</div>`;
+
+    // Summary pane
+    html += `<div class="ad-tab-pane active" id="pane-summary">`;
+    html += `<dl class="ad-fields">`;
+    if (timeRange) {
+      html += `<dt>Time</dt><dd>${timeRange}</dd>`;
+    }
+    html += `<dt>Duration</dt><dd>${fmtDuration(a.duration_minutes)}</dd>`;
+    html += `<dt>Engagement</dt><dd><span class="act-level level-${lvl}"></span> ${lvl}</dd>`;
+    html += `<dt>Segments</dt><dd>${a.segments.length}</dd>`;
+    if (a.active_entities && a.active_entities.length) {
+      html += `<dt>Entities</dt><dd><div class="ad-entities">`;
+      a.active_entities.forEach(e => {
+        html += `<span class="ad-entity">${escapeHtml(e)}</span>`;
       });
+      html += `</div></dd>`;
+    }
+    html += `</dl>`;
+    if (a.description) {
+      html += `<div class="ad-description">${escapeHtml(a.description)}</div>`;
+    }
+    html += `</div>`;
+
+    // Output panes (lazy loaded)
+    a.outputs.forEach((out, i) => {
+      html += `<div class="ad-tab-pane" id="pane-output-${i}">`;
+      html += `<div class="ad-output-loading">Loading...</div>`;
+      html += `</div>`;
+    });
+
+    detail.innerHTML = html;
+
+    // Tab click handler
+    detail.querySelector('.ad-tabs').addEventListener('click', function(e) {
+      const tab = e.target.closest('.ad-tab');
+      if (!tab) return;
+      const tabId = tab.dataset.tab;
+
+      detail.querySelectorAll('.ad-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+      detail.querySelectorAll('.ad-tab-pane').forEach(p => {
+        p.classList.toggle('active', p.id === 'pane-' + tabId);
+      });
+
+      // Lazy-load output content
+      const match = tabId.match(/^output-(\d+)$/);
+      if (match) {
+        loadOutputTab(a, parseInt(match[1]));
+      }
+    });
   }
 
-  // Listen for facet changes
-  window.addEventListener('facet.switch', applyFacetFilter);
+  async function loadOutputTab(activity, idx) {
+    const out = activity.outputs[idx];
+    if (!out) return;
 
-  // Modal close handlers
+    const pane = document.getElementById(`pane-output-${idx}`);
+    const cacheKey = out.path;
+    if (outputCache[cacheKey]) {
+      pane.innerHTML = outputCache[cacheKey];
+      return;
+    }
+
+    const encodedPath = out.path.split('/').map(p => encodeURIComponent(p)).join('/');
+    try {
+      const resp = await fetch(`/app/calendar/api/activity_output/${encodedPath}`);
+      const data = await resp.json();
+      if (data.error) {
+        pane.innerHTML = `<div class="ad-output-loading">Error: ${escapeHtml(data.error)}</div>`;
+        return;
+      }
+
+      let rendered;
+      if (data.format === 'md') {
+        rendered = `<div class="rendered-markdown">${marked.parse(data.content, { breaks: true, gfm: true })}</div>`;
+      } else if (data.format === 'json') {
+        let pretty;
+        try { pretty = JSON.stringify(JSON.parse(data.content), null, 2); } catch (e) { pretty = data.content; }
+        rendered = `<pre>${escapeHtml(pretty)}</pre>`;
+      } else {
+        rendered = `<pre>${escapeHtml(data.content)}</pre>`;
+      }
+
+      pane.innerHTML = rendered;
+      outputCache[cacheKey] = rendered;
+    } catch (err) {
+      pane.innerHTML = '<div class="ad-output-loading">Failed to load output.</div>';
+    }
+  }
+
+  function hideActivityDetail() {
+    currentActivityId = null;
+    document.getElementById('activityDetail').style.display = 'none';
+    document.getElementById('dayView').style.display = 'block';
+  }
+
+  // ── Data loading ──
+
+  function applyFilters() {
+    events = filterByFacet(allEvents);
+    activities = filterByFacet(allActivities);
+
+    if (currentActivityId) {
+      // Stay on detail if it still exists
+      const hash = location.hash.slice(1);
+      if (hash.startsWith('activity/')) {
+        showActivityDetail(hash.slice(9));
+        return;
+      }
+    }
+
+    renderEvents(events);
+    renderActivities(activities);
+  }
+
+  function loadData() {
+    Promise.all([
+      fetch(`/app/calendar/api/day/${day}/events`).then(r => r.json()),
+      fetch(`/app/calendar/api/day/${day}/activities`).then(r => r.json()),
+    ]).then(([evts, acts]) => {
+      allEvents = evts || [];
+      allActivities = acts || [];
+      applyFilters();
+
+      // Check for initial hash
+      handleHashChange();
+
+      // Click handlers
+      document.getElementById('eventsView').onclick = e => {
+        const actEl = e.target.closest('.occ-activity');
+        if (actEl) {
+          e.preventDefault();
+          location.hash = 'activity/' + actEl.dataset.activityId;
+          return;
+        }
+        const evtEl = e.target.closest('.occ') || e.target.closest('.all-day-card');
+        if (evtEl && evtEl.dataset.index !== undefined) {
+          e.preventDefault();
+          openModal(parseInt(evtEl.dataset.index));
+        }
+      };
+
+      document.getElementById('activitiesView').onclick = e => {
+        const card = e.target.closest('.activity-card');
+        if (card) {
+          location.hash = 'activity/' + card.dataset.activityId;
+        }
+      };
+    }).catch(() => {
+      document.getElementById('eventsView').innerHTML = '<div class="events-empty">Failed to load data.</div>';
+    });
+  }
+
+  // ── Hash routing ──
+
+  function handleHashChange() {
+    const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+    if (hash.startsWith('activity/')) {
+      const id = decodeURIComponent(hash.slice(9));
+      if (id) {
+        showActivityDetail(id);
+        return;
+      }
+    }
+    hideActivityDetail();
+  }
+
+  window.addEventListener('hashchange', handleHashChange);
+
+  // ── Init ──
+
+  window.addEventListener('facet.switch', () => {
+    // Reload to pick up facet-filtered activities
+    loadData();
+  });
+
   document.querySelector('#eventModal .close').onclick = () => {
     document.getElementById('eventModal').style.display = 'none';
   };
@@ -418,7 +929,6 @@
     if (e.target === modal) modal.style.display = 'none';
   };
 
-  // Load events on init
-  loadEvents();
+  loadData();
 })();
 </script>

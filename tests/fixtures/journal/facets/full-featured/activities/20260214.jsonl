@@ -1,0 +1,2 @@
+{"id": "coding_093000_300", "activity": "coding", "segments": ["093000_300", "093500_300", "094000_300", "094500_300"], "level_avg": 0.88, "description": "Refactored activity output path storage to use facet-scoped directories", "active_entities": ["sunstone", "claude"], "created_at": 1739523600000}
+{"id": "meeting_140000_300", "activity": "meeting", "segments": ["140000_300", "140500_300"], "level_avg": 0.5, "description": "Sprint planning for next iteration", "active_entities": ["alice", "bob"], "created_at": 1739541600000}
