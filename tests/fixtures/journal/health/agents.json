@@ -2,54 +2,171 @@
   "results": [
     {
       "provider": "google",
-      "tier": "standard",
-      "model": "gemini-2.5-flash",
-      "interface": "generate",
-      "ok": false,
-      "message": "Connection error",
-      "elapsed_s": 5.2
-    },
-    {
-      "provider": "google",
-      "tier": "standard",
-      "model": "gemini-2.5-flash",
-      "interface": "cogitate",
-      "ok": false,
-      "message": "Connection error",
-      "elapsed_s": 5.1
-    },
-    {
-      "provider": "google",
-      "tier": "premium",
-      "model": "gemini-2.5-pro",
-      "interface": "generate",
-      "ok": false,
-      "message": "Connection error",
-      "elapsed_s": 5.3
-    },
-    {
-      "provider": "anthropic",
-      "tier": "standard",
-      "model": "claude-sonnet-4-5-20250929",
+      "tier": "pro",
+      "model": "gemini-3-pro-preview",
       "interface": "generate",
       "ok": true,
-      "message": "ok",
+      "message": "OK",
+      "elapsed_s": 2.2
+    },
+    {
+      "provider": "google",
+      "tier": "pro",
+      "model": "gemini-3-pro-preview",
+      "interface": "cogitate",
+      "ok": true,
+      "message": "OK",
+      "elapsed_s": 11.1
+    },
+    {
+      "provider": "google",
+      "tier": "flash",
+      "model": "gemini-3-flash-preview",
+      "interface": "generate",
+      "ok": true,
+      "message": "OK",
+      "elapsed_s": 0.7
+    },
+    {
+      "provider": "google",
+      "tier": "flash",
+      "model": "gemini-3-flash-preview",
+      "interface": "cogitate",
+      "ok": true,
+      "message": "OK",
+      "elapsed_s": 6.0
+    },
+    {
+      "provider": "google",
+      "tier": "lite",
+      "model": "gemini-2.5-flash-lite",
+      "interface": "generate",
+      "ok": true,
+      "message": "OK",
+      "elapsed_s": 0.4
+    },
+    {
+      "provider": "google",
+      "tier": "lite",
+      "model": "gemini-2.5-flash-lite",
+      "interface": "cogitate",
+      "ok": true,
+      "message": "OK",
+      "elapsed_s": 6.9
+    },
+    {
+      "provider": "openai",
+      "tier": "pro",
+      "model": "gpt-5.2-high",
+      "interface": "generate",
+      "ok": false,
+      "message": "FAIL: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************RhMA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
+      "elapsed_s": 0.4
+    },
+    {
+      "provider": "openai",
+      "tier": "pro",
+      "model": "gpt-5.2-high",
+      "interface": "cogitate",
+      "ok": true,
+      "message": "OK",
+      "elapsed_s": 1.4
+    },
+    {
+      "provider": "openai",
+      "tier": "flash",
+      "model": "gpt-5.2-low",
+      "interface": "generate",
+      "ok": false,
+      "message": "FAIL: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************RhMA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
+      "elapsed_s": 0.1
+    },
+    {
+      "provider": "openai",
+      "tier": "flash",
+      "model": "gpt-5.2-low",
+      "interface": "cogitate",
+      "ok": true,
+      "message": "OK",
+      "elapsed_s": 1.1
+    },
+    {
+      "provider": "openai",
+      "tier": "lite",
+      "model": "gpt-5.2",
+      "interface": "generate",
+      "ok": false,
+      "message": "FAIL: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************RhMA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
+      "elapsed_s": 0.1
+    },
+    {
+      "provider": "openai",
+      "tier": "lite",
+      "model": "gpt-5.2",
+      "interface": "cogitate",
+      "ok": true,
+      "message": "OK",
       "elapsed_s": 1.2
     },
     {
       "provider": "anthropic",
-      "tier": "standard",
-      "model": "claude-sonnet-4-5-20250929",
-      "interface": "cogitate",
+      "tier": "pro",
+      "model": "claude-opus-4-5",
+      "interface": "generate",
       "ok": true,
-      "message": "ok",
-      "elapsed_s": 2.1
+      "message": "OK",
+      "elapsed_s": 1.6
+    },
+    {
+      "provider": "anthropic",
+      "tier": "pro",
+      "model": "claude-opus-4-5",
+      "interface": "cogitate",
+      "ok": false,
+      "message": "FAIL: empty response",
+      "elapsed_s": 0.1
+    },
+    {
+      "provider": "anthropic",
+      "tier": "flash",
+      "model": "claude-sonnet-4-5",
+      "interface": "generate",
+      "ok": true,
+      "message": "OK",
+      "elapsed_s": 1.4
+    },
+    {
+      "provider": "anthropic",
+      "tier": "flash",
+      "model": "claude-sonnet-4-5",
+      "interface": "cogitate",
+      "ok": false,
+      "message": "FAIL: empty response",
+      "elapsed_s": 0.1
+    },
+    {
+      "provider": "anthropic",
+      "tier": "lite",
+      "model": "claude-haiku-4-5",
+      "interface": "generate",
+      "ok": true,
+      "message": "OK",
+      "elapsed_s": 0.6
+    },
+    {
+      "provider": "anthropic",
+      "tier": "lite",
+      "model": "claude-haiku-4-5",
+      "interface": "cogitate",
+      "ok": false,
+      "message": "FAIL: empty response",
+      "elapsed_s": 0.1
     }
   ],
   "summary": {
-    "total": 5,
-    "passed": 2,
-    "failed": 3
+    "total": 18,
+    "passed": 12,
+    "failed": 6
   },
-  "checked_at": "2026-02-12T12:00:00+00:00"
+  "checked_at": "2026-02-14T18:27:41.143905+00:00"
 }
