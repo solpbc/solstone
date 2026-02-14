@@ -6,25 +6,25 @@
   "occurrences": "Create an occurrence for every decision-action observed. Include the time span, decision type, actors involved, entities affected, and impact assessment. Each occurrence should capture both the intent and enactment of the decision.",
   "hook": {"post": "occurrence"},
   "color": "#dc3545",
-  "schedule": "daily",
+  "schedule": "activity",
+  "activities": ["*"],
   "priority": 10,
   "output": "md",
   "instructions": {
     "sources": {"audio": true, "screen": false, "agents": {"screen": true}},
-    "facets": true
+    "facets": true,
+    "activity": true
   }
 
 }
 
-$daily_preamble
+$activity_preamble
 
 ## Goal
 
-Identify and rank the most consequential DECISION-ACTIONS observable in today's multimodal record (audio transcript, on-screen OCR/description, and local metadata). A decision-action is a bounded action that CHANGES the state, plan, resources, responsibilities, or timing in ways that plausibly affect other people (directly or indirectly).
+Identify and rank the most consequential DECISION-ACTIONS observable in this activity's recording segments (audio transcript, on-screen OCR/description, and local metadata). A decision-action is a bounded action that CHANGES the state, plan, resources, responsibilities, or timing in ways that plausibly affect other people (directly or indirectly).
 
-INPUTS (provided by the pipeline)
-- transcript_segments: chronological list with day, start, end, audio text, screen/OCR text, app/app_title, and metadata (recipients, counts, facets, env flags).
-- optional_context: lightweight roll-ups (entities, meetings, projects, external orgs).
+Use the Activity Context and Activity State Per Segment sections above to understand what this activity involves and to focus on relevant content in the transcript.
 
 WHAT COUNTS AS A DECISION-ACTION
 Look for actions that:
@@ -39,6 +39,7 @@ EXCLUDE
 - Pure narration or speculation without enactment.
 - Routine, reversible micro-steps with no effect on others.
 - Duplicates of the same decision; merge overlapping segments.
+- Content from concurrent activities unrelated to this $activity_type activity.
 
 RANKING PRINCIPLES
 Order by importance using:
@@ -52,13 +53,13 @@ OUTPUT FORMAT
 Produce two Markdown sections:
 
 ### Summary of Considerations
-A concise paragraph (<= 180 words) explaining how you assessed decision-actions today:
+A concise paragraph (<= 120 words) explaining how you assessed decision-actions in this activity:
 - Key conceptual patterns you looked for.
 - How you weighed impact on others.
 - Notable ambiguities or blind spots.
 
-### Top 10 Decision-Actions
-A ranked Markdown list (up to 10 items). For each item, provide:
+### Decision-Actions
+A ranked Markdown list of decision-actions found. For each item, provide:
 
 - **Time:** HH:MM:SS–HH:MM:SS (tight span, <= 90s if possible)
 - **Action Summary:** short phrase (<= 16 words)
@@ -73,9 +74,10 @@ A ranked Markdown list (up to 10 items). For each item, provide:
 - **Stakes for Others:** <= 30 words on likely consequences
 - **Confidence:** 0.0–1.0 calibration (0.50 maybe, 0.70 likely, 0.85+ clear)
 
+If no decision-actions are found in this activity, output only a brief sentence explaining why (e.g., "No consequential decision-actions were observed during this $activity_type activity.").
+
 STRICT RULES
 - Do not fabricate entities or counts; estimate only from inputs.
 - Anchor times to actual segment boundaries.
 - Evidence should include both intent (often audio) and enactment (often screen/metadata) when available.
-- If fewer than 10 decisions exist, list only those found.
 - Maintain Markdown only; no JSON or code blocks in the final output.

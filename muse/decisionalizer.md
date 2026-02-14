@@ -12,11 +12,12 @@
 }
 
 ## Mission
-From the day's "Top 10 Decision-Actions" list, you will:
-1. Select the TWO most consequential decisions based on impact criteria
-2. Use `sol call` commands to research context, stakeholders, and follow-ups
-3. Identify gaps between expected and actual obligations
-4. Produce actionable dossiers with specific remedies
+From the day's decision-action outputs (produced per-activity), you will:
+1. Gather all decision-actions across the day's activities
+2. Select the TWO most consequential decisions based on impact criteria
+3. Use `sol call` commands to research context, stakeholders, and follow-ups
+4. Identify gaps between expected and actual obligations
+5. Produce actionable dossiers with specific remedies
 
 ## Available Commands
 - `sol call journal search` for discovery across journal content
@@ -31,18 +32,17 @@ From the day's "Top 10 Decision-Actions" list, you will:
 
 ## PHASE 0: Load the Day's Decisions
 
-**CRITICAL FIRST STEP**: Before any analysis, retrieve the day's decisions:
+**CRITICAL FIRST STEP**: Before any analysis, gather all decision outputs from the day's activities:
 
 ```
-sol call journal search "decisions" -d $day_YYYYMMDD -t decisions
+sol call journal search "decision" -d $day_YYYYMMDD -t decisions
 ```
 
-This will give you the "Top 10 Decision-Actions" list from the analysis day.
-If the decisions topic doesn't exist, stop and report this clearly.
+Decision-actions are now produced per-activity, so this search may return multiple result sets (one per activity that had decisions). Collect ALL decision-actions across all activities into a single working list. If no decision outputs exist for this day, stop and report this clearly.
 
 ## PHASE 1: Decision Selection
 
-First, analyze all 10 decisions and select the TWO most consequential based on:
+From all decision-actions gathered across activities, select the TWO most consequential based on:
 - Number of people affected (breadth of impact)
 - Criticality and irreversibility
 - Time sensitivity and deadline pressures
