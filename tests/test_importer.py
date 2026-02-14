@@ -13,7 +13,7 @@ from think.utils import day_path
 
 def test_slice_audio_segment(tmp_path):
     """Test slice_audio_segment extracts audio with stream copy."""
-    mod = importlib.import_module("think.importer")
+    mod = importlib.import_module("think.importers.audio")
 
     source = tmp_path / "source.mp3"
     source.write_bytes(b"fake audio")
@@ -34,7 +34,7 @@ def test_slice_audio_segment(tmp_path):
 
 def test_slice_audio_segment_fallback(tmp_path):
     """Test slice_audio_segment falls back to re-encode on copy failure."""
-    mod = importlib.import_module("think.importer")
+    mod = importlib.import_module("think.importers.audio")
 
     source = tmp_path / "source.mp3"
     source.write_bytes(b"fake audio")
@@ -60,7 +60,8 @@ def test_slice_audio_segment_fallback(tmp_path):
 
 def test_importer_text(tmp_path, monkeypatch):
     """Test importing a text transcript file."""
-    mod = importlib.import_module("think.importer")
+    mod = importlib.import_module("think.importers.cli")
+    text_mod = importlib.import_module("think.importers.text")
 
     transcript = "hello\nworld"
     txt = tmp_path / "sample.txt"
@@ -75,13 +76,13 @@ def test_importer_text(tmp_path, monkeypatch):
     def mock_detect_segment(text, start_time):
         return [("12:00:00", "seg1"), ("12:05:00", "seg2")]
 
-    monkeypatch.setattr(mod, "detect_transcript_segment", mock_detect_segment)
+    monkeypatch.setattr(text_mod, "detect_transcript_segment", mock_detect_segment)
 
     # Mock JSON conversion: returns entries with absolute timestamps
     def mock_detect_json(text, segment_start):
         return [{"start": segment_start, "speaker": "Unknown", "text": text}]
 
-    monkeypatch.setattr(mod, "detect_transcript_json", mock_detect_json)
+    monkeypatch.setattr(text_mod, "detect_transcript_json", mock_detect_json)
 
     # Mock CallosumConnection and status emitter to avoid real sockets/threads
     monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: MagicMock())
@@ -125,7 +126,7 @@ def test_importer_text(tmp_path, monkeypatch):
 
 def test_get_audio_duration(tmp_path):
     """Test _get_audio_duration calls ffprobe correctly."""
-    mod = importlib.import_module("think.importer")
+    mod = importlib.import_module("think.importers.audio")
 
     audio_file = tmp_path / "test.mp3"
     audio_file.write_bytes(b"fake audio")
@@ -146,7 +147,7 @@ def test_get_audio_duration(tmp_path):
 
 def test_get_audio_duration_failure(tmp_path):
     """Test _get_audio_duration returns None on error."""
-    mod = importlib.import_module("think.importer")
+    mod = importlib.import_module("think.importers.audio")
 
     audio_file = tmp_path / "test.mp3"
     audio_file.write_bytes(b"fake audio")
@@ -160,7 +161,7 @@ def test_get_audio_duration_failure(tmp_path):
 
 def test_prepare_audio_segments(tmp_path, monkeypatch):
     """Test prepare_audio_segments creates segment directories with audio slices."""
-    mod = importlib.import_module("think.importer")
+    mod = importlib.import_module("think.importers.audio")
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
@@ -213,7 +214,7 @@ def test_prepare_audio_segments(tmp_path, monkeypatch):
 
 def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
     """Test prepare_audio_segments handles segment key collisions."""
-    mod = importlib.import_module("think.importer")
+    mod = importlib.import_module("think.importers.audio")
 
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
@@ -258,7 +259,7 @@ def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
 
 def test_run_import_summary(tmp_path, monkeypatch):
     """Test _run_import_summary calls cortex_request correctly."""
-    mod = importlib.import_module("think.importer")
+    mod = importlib.import_module("think.importers.shared")
 
     import_dir = tmp_path / "imports" / "20240101_120000"
     import_dir.mkdir(parents=True)
@@ -300,7 +301,7 @@ def test_run_import_summary(tmp_path, monkeypatch):
 
 def test_run_import_summary_no_segments(tmp_path):
     """Test _run_import_summary returns False with no segments."""
-    mod = importlib.import_module("think.importer")
+    mod = importlib.import_module("think.importers.shared")
 
     import_dir = tmp_path / "imports" / "20240101_120000"
     import_dir.mkdir(parents=True)

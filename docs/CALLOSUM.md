@@ -97,7 +97,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Event Log:** Observe, dream, and activity tract events with `day` + `segment` are logged to `<day>/<segment>/events.jsonl` by supervisor
 
 ### `importer` - Media import processing
-**Source:** `think/importer.py`
+**Source:** `think/importers/cli.py`
 **Events:** `started`, `status`, `completed`, `error`
 **Key fields:** `import_id` (correlates all events), `stage`, `segments` (created segment keys), `stream` (stream name, e.g., `"import.apple"`)
 **Stages:** `initialization`, `segmenting`, `transcribing`, `summarizing`

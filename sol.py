@@ -6,7 +6,7 @@
 Usage:
     sol                     Show status and available commands
     sol <command> [args]    Run a subcommand
-    sol <module> [args]     Run by module path (e.g., sol think.importer)
+    sol <module> [args]     Run by module path (e.g., sol think.importers.cli)
 
 Examples:
     sol import data.json    Import data into journal
@@ -38,7 +38,7 @@ import setproctitle
 
 COMMANDS: dict[str, str] = {
     # think package - daily processing and analysis
-    "import": "think.importer",
+    "import": "think.importers.cli",
     "dream": "think.dream",
     "planner": "think.planner",
     "indexer": "think.indexer",
@@ -194,7 +194,7 @@ def print_help() -> None:
         print()
 
     print("Direct module syntax: sol <module.path> [args]")
-    print("Example: sol think.importer --help")
+    print("Example: sol think.importers.cli --help")
 
 
 def resolve_command(name: str) -> tuple[str, list[str]]:
@@ -234,7 +234,7 @@ def run_command(module_path: str) -> int:
     """Import and run a module's main() function.
 
     Args:
-        module_path: Dotted module path (e.g., "think.importer")
+        module_path: Dotted module path (e.g., "think.importers.cli")
 
     Returns:
         Exit code (0 for success)

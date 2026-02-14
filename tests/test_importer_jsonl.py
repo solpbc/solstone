@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for think.importer JSONL format writing."""
+"""Tests for think.importers.shared JSONL format writing."""
 
 import json
 import tempfile
 from pathlib import Path
 
-from think.importer import _write_import_jsonl
+from think.importers.shared import _write_import_jsonl
 
 
 def test_write_import_jsonl_with_entries():

@@ -17,13 +17,13 @@ class TestResolveCommand:
     def test_resolve_known_command(self):
         """Test resolving a known command from registry."""
         module_path, preset_args = sol.resolve_command("import")
-        assert module_path == "think.importer"
+        assert module_path == "think.importers.cli"
         assert preset_args == []
 
     def test_resolve_direct_module_path(self):
         """Test resolving a direct module path with dot."""
-        module_path, preset_args = sol.resolve_command("think.importer")
-        assert module_path == "think.importer"
+        module_path, preset_args = sol.resolve_command("think.importers.cli")
+        assert module_path == "think.importers.cli"
         assert preset_args == []
 
     def test_resolve_nested_module_path(self):

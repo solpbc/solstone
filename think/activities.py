@@ -335,9 +335,9 @@ def save_facet_activities(facet: str, activities: list[dict[str, Any]]) -> None:
                 entry["description"] = activity["description"]
 
             # Store instructions only if different from default
-            if activity.get("instructions") and activity[
+            if activity.get("instructions") and activity["instructions"] != default.get(
                 "instructions"
-            ] != default.get("instructions"):
+            ):
                 entry["instructions"] = activity["instructions"]
 
             # Store priority if set

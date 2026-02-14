@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for think.importer_utils module."""
+"""Tests for think.importers.utils module."""
 
 import json
 import tempfile
@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from think.importer_utils import (
+from think.importers.utils import (
     build_import_info,
     calculate_duration_from_files,
     get_import_details,

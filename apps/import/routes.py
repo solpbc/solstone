@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 
 from convey import emit, state
 from think.detect_created import detect_created
-from think.importer_utils import (
+from think.importers.utils import (
     build_import_info,
     get_import_details,
     list_import_timestamps,

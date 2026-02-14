@@ -141,7 +141,10 @@ def test_facet_activities_roundtrip():
 
             # Check browsing (predefined with instructions override)
             browsing = next(a for a in loaded if a["id"] == "browsing")
-            assert browsing["instructions"] == "Custom browsing instructions for this facet"
+            assert (
+                browsing["instructions"]
+                == "Custom browsing instructions for this facet"
+            )
 
             # Check custom activity with instructions
             custom = next(a for a in loaded if a["id"] == "custom_activity")
@@ -207,7 +210,10 @@ def test_add_activity_to_facet():
                 for a in get_facet_activities("test_facet")
                 if a["id"] == "3d_modeling"
             )
-            assert modeling["instructions"] == "Detect via: Blender, FreeCAD, OpenSCAD windows"
+            assert (
+                modeling["instructions"]
+                == "Detect via: Blender, FreeCAD, OpenSCAD windows"
+            )
 
             # Remove it
             removed = remove_activity_from_facet("test_facet", "meeting")
@@ -256,14 +262,20 @@ def test_update_activity_in_facet():
                 instructions="Only detect scheduled meetings, not ad-hoc calls",
             )
             assert updated is not None
-            assert updated["instructions"] == "Only detect scheduled meetings, not ad-hoc calls"
+            assert (
+                updated["instructions"]
+                == "Only detect scheduled meetings, not ad-hoc calls"
+            )
             # Other fields should be preserved
             assert updated["priority"] == "low"
 
             # Verify via lookup
             activity = get_activity_by_id("test_facet", "meeting")
             assert activity["priority"] == "low"
-            assert activity["instructions"] == "Only detect scheduled meetings, not ad-hoc calls"
+            assert (
+                activity["instructions"]
+                == "Only detect scheduled meetings, not ad-hoc calls"
+            )
 
             # Reset instructions to default via empty string
             from think.activities import DEFAULT_ACTIVITIES
@@ -271,9 +283,7 @@ def test_update_activity_in_facet():
             default_instructions = next(
                 a["instructions"] for a in DEFAULT_ACTIVITIES if a["id"] == "meeting"
             )
-            updated = update_activity_in_facet(
-                "test_facet", "meeting", instructions=""
-            )
+            updated = update_activity_in_facet("test_facet", "meeting", instructions="")
             assert updated is not None
             assert updated["instructions"] == default_instructions
 
@@ -281,9 +291,7 @@ def test_update_activity_in_facet():
             default_desc = next(
                 a["description"] for a in DEFAULT_ACTIVITIES if a["id"] == "meeting"
             )
-            updated = update_activity_in_facet(
-                "test_facet", "meeting", description=""
-            )
+            updated = update_activity_in_facet("test_facet", "meeting", description="")
             assert updated is not None
             assert updated["description"] == default_desc
 
