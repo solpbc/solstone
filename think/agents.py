@@ -172,6 +172,103 @@ def _build_prompt_context(
     return context
 
 
+def _build_activity_context(
+    activity: dict,
+    span: list[str],
+    facet: str,
+    day: str,
+    instructions_config: dict | None,
+) -> str | None:
+    """Build activity context sections for extra_context.
+
+    Assembles activity metadata, per-segment activity state descriptions,
+    and focusing instructions based on the agent's instructions.activity config.
+
+    Args:
+        activity: Activity record dict (from activity records JSONL)
+        span: List of segment keys in the activity's span
+        facet: Facet name
+        day: Day in YYYYMMDD format
+        instructions_config: The agent's instructions config dict (merged)
+
+    Returns:
+        Formatted string to append to extra_context, or None if activity
+        instructions are not configured.
+    """
+    if not instructions_config:
+        return None
+
+    activity_cfg = instructions_config.get("activity")
+    if not activity_cfg or activity_cfg is False:
+        return None
+
+    # Normalize: bool True -> all enabled (already handled by _merge, but defensive)
+    if activity_cfg is True:
+        activity_cfg = {"context": True, "state": True, "focus": True}
+
+    parts: list[str] = []
+    activity_type = activity.get("activity", "unknown")
+
+    # --- activity.context: Activity metadata section ---
+    if activity_cfg.get("context"):
+        from think.activities import estimate_duration_minutes
+
+        level_avg = activity.get("level_avg", 0.5)
+        level_label = (
+            "high" if level_avg >= 0.75 else "medium" if level_avg >= 0.4 else "low"
+        )
+        segments = activity.get("segments", [])
+        duration = estimate_duration_minutes(segments)
+        entities = activity.get("active_entities", [])
+        entities_str = ", ".join(entities) if entities else "none detected"
+
+        parts.append(
+            f"## Activity Context\n"
+            f"- **Type:** {activity_type}\n"
+            f"- **Description:** {activity.get('description', '')}\n"
+            f"- **Engagement Level:** {level_avg} ({level_label})\n"
+            f"- **Duration:** ~{duration} minutes ({len(segments)} segments)\n"
+            f"- **Active Entities:** {entities_str}"
+        )
+
+    # --- activity.state: Per-segment activity descriptions ---
+    if activity_cfg.get("state"):
+        from think.activities import load_segment_activity_state
+
+        state_lines: list[str] = []
+        for seg in span:
+            entry = load_segment_activity_state(day, seg, facet, activity_type)
+            if entry:
+                level = entry.get("level", "")
+                desc = entry.get("description", "")
+                # Format segment time for readability
+                start_str, end_str = format_segment_times(seg)
+                time_label = (
+                    f" ({start_str} - {end_str})" if start_str and end_str else ""
+                )
+                state_lines.append(f"### {seg}{time_label}\n{activity_type} [{level}]: {desc}")
+
+        if state_lines:
+            parts.append("## Activity State Per Segment\n\n" + "\n\n".join(state_lines))
+
+    # --- activity.focus: Focusing instructions ---
+    if activity_cfg.get("focus"):
+        parts.append(
+            f"## Analysis Focus\n"
+            f"You are analyzing ONLY the **{activity_type}** activity within the "
+            f"**{facet}** facet. The transcript segments may contain content from "
+            f"other concurrent activities (e.g., background meetings, messaging). "
+            f"Use the Activity State Per Segment section above to identify which "
+            f"content relates to this activity, and ignore unrelated content. "
+            f"Your analysis should only cover what happened within this specific activity."
+        )
+
+    if not parts:
+        return None
+
+    return "\n\n".join(parts)
+
+
 def _load_transcript(
     day: str,
     segment: str | None,
@@ -358,6 +455,24 @@ def prepare_config(request: dict) -> dict:
                 agent_path.stem, base_dir=agent_path.parent, context=prompt_context
             )
             config["user_instruction"] = agent_prompt_obj.text
+
+        # Build activity context if activity data is present
+        if activity and span and facet:
+            from think.muse import _DEFAULT_INSTRUCTIONS, _merge_instructions_config
+
+            instructions_config = config.get("instructions")
+            merged_cfg = _merge_instructions_config(
+                _DEFAULT_INSTRUCTIONS, instructions_config
+            )
+            activity_context = _build_activity_context(
+                activity, span, facet, day, merged_cfg
+            )
+            if activity_context:
+                existing = config.get("extra_context", "")
+                if existing:
+                    config["extra_context"] = f"{existing}\n\n{activity_context}"
+                else:
+                    config["extra_context"] = activity_context
 
     # Set prompt (user's runtime query)
     # For tool agents: prompt is the user's question

@@ -332,6 +332,7 @@ _DEFAULT_INSTRUCTIONS = {
     "facets": False,
     "now": False,
     "day": False,
+    "activity": False,
     "sources": {
         "audio": False,
         "screen": False,
@@ -339,11 +340,18 @@ _DEFAULT_INSTRUCTIONS = {
     },
 }
 
+# Sub-keys for activity config when specified as a dict
+_DEFAULT_ACTIVITY_CONFIG = {
+    "context": False,
+    "state": False,
+    "focus": False,
+}
+
 
 def _merge_instructions_config(defaults: dict, overrides: dict | None) -> dict:
     """Merge instruction config overrides into defaults.
 
-    Handles nested "sources" dict specially.
+    Handles nested "sources" and "activity" dicts specially.
 
     Parameters
     ----------
@@ -366,6 +374,17 @@ def _merge_instructions_config(defaults: dict, overrides: dict | None) -> dict:
     for key in ("system", "facets", "now", "day"):
         if key in overrides:
             result[key] = overrides[key]
+
+    # Merge activity config: bool shorthand or dict with sub-keys
+    if "activity" in overrides:
+        activity_val = overrides["activity"]
+        if activity_val is True:
+            # Shorthand: true -> all sub-keys enabled
+            result["activity"] = {k: True for k in _DEFAULT_ACTIVITY_CONFIG}
+        elif isinstance(activity_val, dict):
+            result["activity"] = {**_DEFAULT_ACTIVITY_CONFIG, **activity_val}
+        else:
+            result["activity"] = activity_val
 
     # Merge sources dict if present
     if "sources" in overrides and isinstance(overrides["sources"], dict):

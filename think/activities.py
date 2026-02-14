@@ -552,6 +552,57 @@ def update_activity_in_facet(
 
 
 # ---------------------------------------------------------------------------
+# Activity State — per-segment activity state loading
+# ---------------------------------------------------------------------------
+
+
+def load_segment_activity_state(
+    day: str, segment: str, facet: str, activity_type: str
+) -> dict[str, Any] | None:
+    """Load activity state for a specific activity from a segment.
+
+    Reads the activity_state.json written by the activity_state generator
+    for a given segment and facet, and returns the entry matching the
+    requested activity type.
+
+    Args:
+        day: Day in YYYYMMDD format
+        segment: Segment key (HHMMSS_LEN)
+        facet: Facet name
+        activity_type: Activity type to find (e.g., "coding", "meeting")
+
+    Returns:
+        Activity state dict with keys like activity, state, description,
+        level, active_entities — or None if not found.
+    """
+    from think.cluster import _find_segment_dir
+
+    stream = os.environ.get("STREAM_NAME")
+    seg_dir = _find_segment_dir(day, segment, stream)
+    if not seg_dir:
+        return None
+
+    state_path = seg_dir / "agents" / facet / "activity_state.json"
+    if not state_path.exists():
+        return None
+
+    try:
+        with open(state_path, "r", encoding="utf-8") as f:
+            states = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    if not isinstance(states, list):
+        return None
+
+    for entry in states:
+        if entry.get("activity") == activity_type:
+            return entry
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Activity Records — completed activity spans
 # ---------------------------------------------------------------------------
 

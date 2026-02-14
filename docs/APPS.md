@@ -407,6 +407,13 @@ Both generators and agents support an optional `instructions` key for customizin
   - `true` - load if available
   - `"required"` - load, and skip generation if no content found (useful for generators that only make sense with specific input types, e.g., `"audio": "required"` for speaker detection)
   - For `agents` only: a dict for selective filtering, e.g., `{"entities": true, "meetings": "required", "flow": false}`. Keys are agent names (system) or `"app:topic"` (app-namespaced). An empty dict `{}` means no agents.
+- `activity` - Activity-scheduled agents only: controls activity context in `extra_context`. Can be:
+  - `false` - no activity context (default)
+  - `true` - enable all activity context (shorthand for `{"context": true, "state": true, "focus": true}`)
+  - Dict with sub-keys:
+    - `context` - Include activity metadata (type, description, entities, duration, engagement level)
+    - `state` - Include per-segment activity state descriptions from `activity_state.json` (roadmap of what this activity was doing in each segment)
+    - `focus` - Include focusing instructions telling the agent to analyze only this activity and ignore concurrent activities
 
 **Authoritative source:** `think/muse.py` - `compose_instructions()`, `_DEFAULT_INSTRUCTIONS`, `source_is_enabled()`, `source_is_required()`, `get_agent_filter()`
 

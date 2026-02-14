@@ -71,6 +71,7 @@ Template variables come from `.md` files in the `think/templates/` directory. Ea
 **Current templates:**
 - `$daily_preamble` - Preamble for full-day output analysis
 - `$segment_preamble` - Preamble for single-segment analysis
+- `$activity_preamble` - Preamble for activity-level analysis (uses `$activity_*` context variables)
 
 Templates can themselves use identity and context variables, enabling composable prompt construction. For example, `daily_preamble.md` uses `$preferred` and `$day`.
 
@@ -89,6 +90,15 @@ Context variables are passed at runtime by the code calling `load_prompt()`. The
 - `$segment` - Segment key (e.g., "143022_300")
 - `$segment_start` - Formatted start time (e.g., "2:30 PM")
 - `$segment_end` - Formatted end time (e.g., "2:35 PM")
+
+**Activity context** (available for `schedule: "activity"` agents):
+- `$activity_id` - Activity record ID (e.g., "coding_095809_303")
+- `$activity_type` - Activity type (e.g., "coding", "meeting")
+- `$activity_description` - Description of the activity
+- `$activity_level` - Average engagement level (0-1)
+- `$activity_entities` - Comma-separated active entities
+- `$activity_segments` - Comma-separated segment keys
+- `$activity_duration` - Estimated duration in minutes
 
 Context variables also get automatic uppercase-first versions (`$Day`, `$Day_yyyymmdd`, etc.).
 
