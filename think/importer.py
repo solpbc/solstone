@@ -240,6 +240,7 @@ def prepare_audio_segments(
     day_dir: str,
     base_dt: dt.datetime,
     import_id: str,
+    stream: str,
 ) -> list[tuple[str, Path, list[str]]]:
     """Slice audio into 5-minute segments for observe pipeline.
 
@@ -251,6 +252,7 @@ def prepare_audio_segments(
         day_dir: Day directory path (YYYYMMDD)
         base_dt: Base datetime for timestamp calculation
         import_id: Import identifier
+        stream: Stream name for directory layout (day/stream/segment/)
 
     Returns:
         List of (segment_key, segment_dir, files_list) tuples
@@ -258,7 +260,7 @@ def prepare_audio_segments(
     """
     media = Path(media_path)
     source_ext = media.suffix.lower()
-    day_path_obj = Path(day_dir)
+    stream_dir = Path(day_dir) / stream
 
     # Get audio duration to calculate number of segments
     duration = _get_audio_duration(media_path)
@@ -282,7 +284,7 @@ def prepare_audio_segments(
         segment_key_candidate = f"{time_part}_{segment_duration}"
 
         # Check for collision and deconflict if needed
-        available_key = find_available_segment(day_path_obj, segment_key_candidate)
+        available_key = find_available_segment(stream_dir, segment_key_candidate)
         if available_key is None:
             logger.warning(
                 f"Could not find available segment key near {segment_key_candidate}"
@@ -294,8 +296,8 @@ def prepare_audio_segments(
                 f"Segment collision: {segment_key_candidate} -> {available_key}"
             )
 
-        # Create segment directory
-        segment_dir = day_path_obj / available_key
+        # Create segment directory under stream
+        segment_dir = stream_dir / available_key
         segment_dir.mkdir(parents=True, exist_ok=True)
 
         # Slice audio for this segment
@@ -357,6 +359,7 @@ def process_transcript(
     base_dt: dt.datetime,
     *,
     import_id: str,
+    stream: str,
     facet: str | None = None,
     setting: str | None = None,
     audio_duration: int | None = None,
@@ -368,6 +371,7 @@ def process_transcript(
         day_dir: Journal day directory
         base_dt: Base datetime for the import
         import_id: Import identifier
+        stream: Stream name for directory layout (day/stream/segment/)
         facet: Optional facet name
         setting: Optional setting description
         audio_duration: Optional total audio duration in seconds (for last segment)
@@ -377,6 +381,7 @@ def process_transcript(
     """
     created_files = []
     text = _read_transcript(path)
+    stream_dir = os.path.join(day_dir, stream)
 
     # Get start time from base_dt for segmentation
     start_time = base_dt.strftime("%H:%M:%S")
@@ -421,7 +426,7 @@ def process_transcript(
         duration = max(1, duration)
 
         segment_name = f"{time_part}_{duration}"
-        ts_dir = os.path.join(day_dir, segment_name)
+        ts_dir = os.path.join(stream_dir, segment_name)
         os.makedirs(ts_dir, exist_ok=True)
         json_path = os.path.join(ts_dir, "imported_audio.jsonl")
 
@@ -778,7 +783,7 @@ def main() -> None:
 
     try:
         if ext in {".txt", ".md", ".pdf"}:
-            # Text transcript processing (unchanged - no observe pipeline)
+            # Text transcript processing — no observe pipeline
             _set_stage("segmenting")
 
             created_files = process_transcript(
@@ -786,6 +791,7 @@ def main() -> None:
                 day_dir,
                 base_dt,
                 import_id=args.timestamp,
+                stream=stream,
                 facet=args.facet,
                 setting=args.setting,
             )
@@ -809,7 +815,7 @@ def main() -> None:
             # Write stream markers for text import segments
             for seg in created_segments:
                 try:
-                    seg_dir = day_path(day) / seg
+                    seg_dir = day_path(day) / stream / seg
                     result = update_stream(stream, day, seg, type="import", host=None)
                     write_segment_stream(
                         seg_dir,
@@ -838,6 +844,7 @@ def main() -> None:
                 day_dir,
                 base_dt,
                 args.timestamp,
+                stream,
             )
 
             if not segments:
@@ -904,16 +911,17 @@ def main() -> None:
                 logger.info(f"Waiting for {len(pending)} segments to complete")
 
                 while pending:
+                    # Check for timeout since last progress
+                    if time.monotonic() - last_progress > segment_timeout:
+                        timed_out = sorted(pending)
+                        logger.error(f"Timed out waiting for segments: {timed_out}")
+                        failed_segments.extend(timed_out)
+                        break
+
                     # Poll for observe.observed events from message queue
                     try:
                         msg = _message_queue.get(timeout=5.0)
                     except queue.Empty:
-                        # Check for timeout since last progress
-                        if time.monotonic() - last_progress > segment_timeout:
-                            timed_out = sorted(pending)
-                            logger.error(f"Timed out waiting for segments: {timed_out}")
-                            failed_segments.extend(timed_out)
-                            pending.clear()
                         continue
 
                     tract = msg.get("tract")

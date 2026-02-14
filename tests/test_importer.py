@@ -96,8 +96,9 @@ def test_importer_text(tmp_path, monkeypatch):
     day_dir = day_path("20240101")
     # Duration: seg1 starts at 12:00:00, seg2 at 12:05:00 = 300s duration
     # Last segment (seg2) defaults to 5s since no audio duration
-    f1 = day_dir / "120000_300" / "imported_audio.jsonl"
-    f2 = day_dir / "120500_5" / "imported_audio.jsonl"
+    # Segments are under stream directory (import.text for .txt files)
+    f1 = day_dir / "import.text" / "120000_300" / "imported_audio.jsonl"
+    f2 = day_dir / "import.text" / "120500_5" / "imported_audio.jsonl"
 
     # Read JSONL format: first line is metadata, subsequent lines are entries
     lines1 = f1.read_text().strip().split("\n")
@@ -190,6 +191,7 @@ def test_prepare_audio_segments(tmp_path, monkeypatch):
         str(day_dir),
         base_dt,
         "20240101_120000",
+        "import.audio",
     )
 
     # Should create 2 segments (0-5 min, 5-7 min)
@@ -199,11 +201,14 @@ def test_prepare_audio_segments(tmp_path, monkeypatch):
     assert seg1_key == "120000_300"
     assert seg1_files == ["imported_audio.mp3"]
     assert (seg1_dir / "imported_audio.mp3").exists()
+    # Segment should be under stream directory
+    assert seg1_dir == day_dir / "import.audio" / "120000_300"
 
     seg2_key, seg2_dir, seg2_files = segments[1]
     assert seg2_key == "120500_300"
     assert seg2_files == ["imported_audio.mp3"]
     assert (seg2_dir / "imported_audio.mp3").exists()
+    assert seg2_dir == day_dir / "import.audio" / "120500_300"
 
 
 def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
@@ -242,11 +247,13 @@ def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
         str(day_dir),
         base_dt,
         "20240101_120000",
+        "import.audio",
     )
 
     assert len(segments) == 1
     seg_key, seg_dir, seg_files = segments[0]
     assert seg_key == "120001_300"  # Deconflicted key
+    assert seg_dir == day_dir / "import.audio" / "120001_300"
 
 
 def test_run_import_summary(tmp_path, monkeypatch):
