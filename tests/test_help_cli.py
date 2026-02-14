@@ -3,10 +3,11 @@
 
 """Tests for think.help_cli."""
 
+import io
 import json
 import subprocess
 import sys
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -16,6 +17,18 @@ from think.help_cli import main
 @pytest.fixture(autouse=True)
 def _set_journal_path(monkeypatch):
     monkeypatch.setenv("JOURNAL_PATH", "tests/fixtures/journal")
+
+
+def _make_popen(stdout_lines, *, returncode=0):
+    """Build a mock Popen whose stdout yields *stdout_lines*."""
+    proc = MagicMock()
+    proc.stdin = MagicMock()
+    proc.stdout = io.StringIO("\n".join(stdout_lines) + "\n")
+    proc.stderr = MagicMock()
+    proc.stderr.read.return_value = ""
+    proc.returncode = returncode
+    proc.wait.return_value = returncode
+    return proc
 
 
 def test_help_no_question_shows_static_help(monkeypatch):
@@ -29,61 +42,46 @@ def test_help_no_question_shows_static_help(monkeypatch):
 
 def test_help_parses_question(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["sol help", "how", "do", "I", "search"])
-    mock_result = subprocess.CompletedProcess(
-        args=["sol", "agents"],
-        returncode=0,
-        stdout='{"event":"finish","result":"Use sol call journal search"}\n',
-        stderr="",
+    mock_proc = _make_popen(
+        ['{"event":"finish","result":"Use sol call journal search"}'],
     )
 
-    with patch("think.help_cli.subprocess.run", return_value=mock_result) as mock_run:
+    with patch("think.help_cli.subprocess.Popen", return_value=mock_proc) as mock_cls:
         main()
 
-    call_args = mock_run.call_args
+    call_args = mock_cls.call_args
     assert call_args[0][0] == ["sol", "agents"]
-    assert call_args[1]["capture_output"] is True
+    assert call_args[1]["stdin"] == subprocess.PIPE
+    assert call_args[1]["stdout"] == subprocess.PIPE
     assert call_args[1]["text"] is True
-    assert call_args[1]["timeout"] == 120
 
-    sent = call_args[1]["input"]
-    payload = json.loads(sent.strip())
+    written = mock_proc.stdin.write.call_args[0][0]
+    payload = json.loads(written.strip())
     assert payload["prompt"] == "how do I search"
+    mock_proc.stdin.close.assert_called_once()
 
 
 def test_help_ndjson_config(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["sol help", "show", "todo", "commands"])
-    mock_result = subprocess.CompletedProcess(
-        args=["sol", "agents"],
-        returncode=0,
-        stdout='{"event":"finish","result":"ok"}\n',
-        stderr="",
-    )
+    mock_proc = _make_popen(['{"event":"finish","result":"ok"}'])
 
-    with patch("think.help_cli.subprocess.run", return_value=mock_result) as mock_run:
+    with patch("think.help_cli.subprocess.Popen", return_value=mock_proc):
         main()
 
-    sent = mock_run.call_args[1]["input"]
-    payload = json.loads(sent.strip())
+    written = mock_proc.stdin.write.call_args[0][0]
+    payload = json.loads(written.strip())
     assert payload == {"name": "help", "prompt": "show todo commands"}
 
 
 def test_help_parses_finish_event(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["sol help", "how", "to", "search"])
-    stdout = "\n".join(
-        [
-            '{"event":"start","ts":1}',
-            '{"event":"thinking","ts":2,"summary":"..."}',
-            '{"event":"finish","ts":3,"result":"Use `sol call journal search`."}',
-        ]
-    )
-    mock_result = subprocess.CompletedProcess(
-        args=["sol", "agents"],
-        returncode=0,
-        stdout=stdout,
-        stderr="",
-    )
+    mock_proc = _make_popen([
+        '{"event":"start","ts":1}',
+        '{"event":"thinking","ts":2,"summary":"..."}',
+        '{"event":"finish","ts":3,"result":"Use `sol call journal search`."}',
+    ])
 
-    with patch("think.help_cli.subprocess.run", return_value=mock_result):
+    with patch("think.help_cli.subprocess.Popen", return_value=mock_proc):
         main()
 
     captured = capsys.readouterr()
@@ -92,20 +90,12 @@ def test_help_parses_finish_event(monkeypatch, capsys):
 
 def test_help_uses_last_finish_event(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["sol help", "search"])
-    stdout = "\n".join(
-        [
-            '{"event":"finish","ts":1,"result":"old result"}',
-            '{"event":"finish","ts":2,"result":"new result"}',
-        ]
-    )
-    mock_result = subprocess.CompletedProcess(
-        args=["sol", "agents"],
-        returncode=0,
-        stdout=stdout,
-        stderr="",
-    )
+    mock_proc = _make_popen([
+        '{"event":"finish","ts":1,"result":"old result"}',
+        '{"event":"finish","ts":2,"result":"new result"}',
+    ])
 
-    with patch("think.help_cli.subprocess.run", return_value=mock_result):
+    with patch("think.help_cli.subprocess.Popen", return_value=mock_proc):
         main()
 
     captured = capsys.readouterr()
@@ -115,14 +105,12 @@ def test_help_uses_last_finish_event(monkeypatch, capsys):
 
 def test_help_handles_error_event(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["sol help", "bad", "request"])
-    mock_result = subprocess.CompletedProcess(
-        args=["sol", "agents"],
+    mock_proc = _make_popen(
+        ['{"event":"error","error":"provider unavailable"}'],
         returncode=1,
-        stdout='{"event":"error","error":"provider unavailable"}\n',
-        stderr="provider failed",
     )
 
-    with patch("think.help_cli.subprocess.run", return_value=mock_result):
+    with patch("think.help_cli.subprocess.Popen", return_value=mock_proc):
         with pytest.raises(SystemExit) as exc_info:
             main()
 
@@ -133,14 +121,9 @@ def test_help_handles_error_event(monkeypatch, capsys):
 
 def test_help_handles_empty_finish_result(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["sol help", "empty"])
-    mock_result = subprocess.CompletedProcess(
-        args=["sol", "agents"],
-        returncode=0,
-        stdout='{"event":"finish","result":""}\n',
-        stderr="",
-    )
+    mock_proc = _make_popen(['{"event":"finish","result":""}'])
 
-    with patch("think.help_cli.subprocess.run", return_value=mock_result):
+    with patch("think.help_cli.subprocess.Popen", return_value=mock_proc):
         with pytest.raises(SystemExit) as exc_info:
             main()
 
@@ -151,14 +134,16 @@ def test_help_handles_empty_finish_result(monkeypatch, capsys):
 
 def test_help_handles_timeout(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["sol help", "slow", "question"])
+    mock_proc = _make_popen([])
+    mock_proc.wait.side_effect = subprocess.TimeoutExpired(
+        cmd=["sol", "agents"], timeout=120
+    )
 
-    with patch(
-        "think.help_cli.subprocess.run",
-        side_effect=subprocess.TimeoutExpired(cmd=["sol", "agents"], timeout=120),
-    ):
+    with patch("think.help_cli.subprocess.Popen", return_value=mock_proc):
         with pytest.raises(SystemExit) as exc_info:
             main()
 
     assert exc_info.value.code == 1
+    mock_proc.kill.assert_called_once()
     captured = capsys.readouterr()
     assert "timed out" in captured.err.lower()

@@ -106,9 +106,9 @@ def test_get_muse_configs_include_disabled(monkeypatch):
 def test_scheduled_generators_have_valid_schedule():
     """Test that scheduled generators have valid schedule field.
 
-    Generators with a schedule field must have valid values ('segment' or 'daily').
-    Some generators (like importer) have output but no schedule - they're used
-    for ad-hoc processing, not scheduled runs.
+    Generators with a schedule field must have valid values
+    ('segment', 'daily', or 'activity'). Some generators (like importer) have
+    output but no schedule - they're used for ad-hoc processing, not scheduled runs.
     """
     muse = importlib.import_module("think.muse")
 
