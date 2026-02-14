@@ -34,84 +34,158 @@ DEFAULT_ACTIVITIES: list[dict[str, str]] = [
         "name": "Meetings",
         "description": "Video calls, in-person meetings, and conferences",
         "icon": "📅",
+        "instructions": (
+            "Levels: high=actively speaking/presenting, medium=listening attentively,"
+            " low=muted or multitasking during call."
+            " Detect via: video call UI, multiple speakers, calendar event visible."
+        ),
     },
     {
         "id": "coding",
         "name": "Coding",
         "description": "Programming, code review, and debugging",
         "icon": "💻",
+        "instructions": (
+            "Levels: high=writing or debugging code, medium=reading/reviewing code,"
+            " low=IDE or editor open but not focused."
+            " Detect via: editors, terminals with dev tools, AI coding assistants,"
+            " git operations. Includes focused code reading and thinking."
+        ),
     },
     {
         "id": "browsing",
         "name": "Browsing",
         "description": "Web browsing, research, and reading online",
         "icon": "🌐",
+        "instructions": (
+            "Levels: high=actively navigating/researching, medium=reading a page,"
+            " low=browser open but idle."
+            " Detect via: browser tabs, URL changes, search queries."
+        ),
     },
     {
         "id": "email",
         "name": "Email",
         "description": "Email reading and composition",
         "icon": "📧",
+        "instructions": (
+            "Levels: high=composing or actively reading email,"
+            " medium=scanning inbox, low=email client visible but idle."
+            " Detect via: email client UI, inbox view, compose window."
+        ),
     },
     {
         "id": "messaging",
         "name": "Messaging",
         "description": "Chat, Slack, Discord, and text messaging",
         "icon": "💬",
+        "instructions": (
+            "Levels: high=active conversation, medium=reading messages,"
+            " low=chat app visible but idle."
+            " Detect via: chat app UI, message notifications, typing indicators."
+        ),
     },
     {
         "id": "writing",
         "name": "Writing",
         "description": "Documents, notes, and long-form writing",
         "icon": "✍️",
+        "instructions": (
+            "Levels: high=actively composing text, medium=editing/revising,"
+            " low=document open but not being edited."
+            " Detect via: document editors, note apps, text content changing."
+        ),
     },
     {
         "id": "reading",
         "name": "Reading",
         "description": "PDFs, articles, and documentation",
         "icon": "📖",
+        "instructions": (
+            "Levels: high=focused reading, medium=skimming content,"
+            " low=document open but attention elsewhere."
+            " Detect via: PDF viewers, article pages, documentation sites."
+            " Do not use for reading code — that is coding."
+        ),
     },
     {
         "id": "video",
         "name": "Video",
         "description": "Watching videos and streaming content",
         "icon": "🎬",
+        "instructions": (
+            "Levels: high=actively watching, medium=video playing while"
+            " doing something else, low=video paused or minimized."
+            " Detect via: video player UI, streaming sites, playback controls."
+        ),
     },
     {
         "id": "gaming",
         "name": "Gaming",
         "description": "Games and entertainment",
         "icon": "🎮",
+        "instructions": (
+            "Levels: high=actively playing, medium=in menus or waiting,"
+            " low=game open but tabbed out."
+            " Detect via: game window, controller input, game UI elements."
+        ),
     },
     {
         "id": "social",
         "name": "Social Media",
         "description": "Social media browsing and interaction",
         "icon": "📱",
+        "instructions": (
+            "Levels: high=posting or actively engaging, medium=scrolling feed,"
+            " low=social app open but idle."
+            " Detect via: social media sites/apps, feed content, post composition."
+        ),
     },
     {
         "id": "productivity",
         "name": "Productivity",
         "description": "Spreadsheets, slides, and task management",
         "icon": "📊",
+        "instructions": (
+            "Levels: high=actively editing or organizing, medium=reviewing data,"
+            " low=app open but not focused."
+            " Detect via: spreadsheet/slide editors, project management tools,"
+            " calendar apps, task boards."
+        ),
     },
     {
         "id": "terminal",
         "name": "Terminal",
         "description": "Command line and shell sessions",
         "icon": "⌨️",
+        "instructions": (
+            "Levels: high=running commands or scripts, medium=reading output,"
+            " low=terminal open but idle."
+            " Detect via: shell prompts, command output, tmux/screen sessions."
+            " If terminal use is clearly coding-related, prefer coding instead."
+        ),
     },
     {
         "id": "design",
         "name": "Design",
         "description": "Design tools and image editing",
         "icon": "🎨",
+        "instructions": (
+            "Levels: high=actively creating or editing, medium=reviewing designs,"
+            " low=design tool open but idle."
+            " Detect via: design apps (Figma, Photoshop, etc), canvas editing."
+        ),
     },
     {
         "id": "music",
         "name": "Music",
         "description": "Music listening and audio",
         "icon": "🎵",
+        "instructions": (
+            "Levels: high=actively choosing or browsing music,"
+            " medium=playlist running while working, low=ambient background audio."
+            " Detect via: music player UI, audio playback indicators."
+        ),
     },
 ]
 
@@ -211,6 +285,8 @@ def get_facet_activities(facet: str) -> list[dict[str, Any]]:
             activity["priority"] = fa["priority"]
         if "icon" in fa:
             activity["icon"] = fa["icon"]
+        if "instructions" in fa:
+            activity["instructions"] = fa["instructions"]
 
         # Ensure required fields have defaults
         activity.setdefault("name", activity_id.replace("_", " ").title())
@@ -235,6 +311,7 @@ def save_facet_activities(facet: str, activities: list[dict[str, Any]]) -> None:
             Optional for all:
             - priority: "high", "normal", or "low"
             - icon: Emoji icon
+            - instructions: Detection/level instructions for the LLM
     """
     # Build lookup for defaults to determine what needs to be stored
     defaults_by_id = {a["id"]: a for a in DEFAULT_ACTIVITIES}
@@ -257,6 +334,12 @@ def save_facet_activities(facet: str, activities: list[dict[str, Any]]) -> None:
             ):
                 entry["description"] = activity["description"]
 
+            # Store instructions only if different from default
+            if activity.get("instructions") and activity[
+                "instructions"
+            ] != default.get("instructions"):
+                entry["instructions"] = activity["instructions"]
+
             # Store priority if set
             if activity.get("priority") and activity["priority"] != "normal":
                 entry["priority"] = activity["priority"]
@@ -268,6 +351,8 @@ def save_facet_activities(facet: str, activities: list[dict[str, Any]]) -> None:
                 entry["name"] = activity["name"]
             if activity.get("description"):
                 entry["description"] = activity["description"]
+            if activity.get("instructions"):
+                entry["instructions"] = activity["instructions"]
             if activity.get("priority"):
                 entry["priority"] = activity["priority"]
             if activity.get("icon"):
@@ -317,6 +402,7 @@ def add_activity_to_facet(
     *,
     name: str | None = None,
     description: str | None = None,
+    instructions: str | None = None,
     priority: str = "normal",
     icon: str | None = None,
 ) -> dict[str, Any]:
@@ -330,6 +416,7 @@ def add_activity_to_facet(
         activity_id: Activity identifier
         name: Display name (required for custom activities)
         description: Activity description
+        instructions: Detection/level instructions for the LLM
         priority: "high", "normal", or "low"
         icon: Emoji icon
 
@@ -351,6 +438,8 @@ def add_activity_to_facet(
         activity: dict[str, Any] = {"id": activity_id}
         if description:
             activity["description"] = description
+        if instructions:
+            activity["instructions"] = instructions
         if priority and priority != "normal":
             activity["priority"] = priority
     else:
@@ -361,6 +450,8 @@ def add_activity_to_facet(
             "name": name or activity_id.replace("_", " ").title(),
             "description": description or "",
         }
+        if instructions:
+            activity["instructions"] = instructions
         if priority and priority != "normal":
             activity["priority"] = priority
         if icon:
@@ -401,6 +492,7 @@ def update_activity_in_facet(
     activity_id: str,
     *,
     description: str | None = None,
+    instructions: str | None = None,
     priority: str | None = None,
     name: str | None = None,
     icon: str | None = None,
@@ -411,6 +503,7 @@ def update_activity_in_facet(
         facet: Facet name
         activity_id: Activity identifier
         description: New description (None to keep existing)
+        instructions: New detection/level instructions (None to keep existing)
         priority: New priority (None to keep existing)
         name: New name - only applies to custom activities
         icon: New icon - only applies to custom activities
@@ -427,9 +520,20 @@ def update_activity_in_facet(
             found = True
 
             if description is not None:
-                activity["description"] = description
+                if description == "" and activity_id in defaults_by_id:
+                    activity.pop("description", None)
+                else:
+                    activity["description"] = description
+            if instructions is not None:
+                if instructions == "" and activity_id in defaults_by_id:
+                    activity.pop("instructions", None)
+                else:
+                    activity["instructions"] = instructions
             if priority is not None:
-                activity["priority"] = priority
+                if priority == "normal" and activity_id in defaults_by_id:
+                    activity.pop("priority", None)
+                else:
+                    activity["priority"] = priority
 
             # Only allow name/icon changes for custom activities
             if activity.get("custom") or activity_id not in defaults_by_id:

@@ -1369,6 +1369,7 @@ def add_facet_activity(facet_name: str) -> Any:
             activity_id,
             name=name,
             description=data.get("description"),
+            instructions=data.get("instructions"),
             priority=priority,
             icon=data.get("icon"),
         )
@@ -1392,6 +1393,7 @@ def update_facet_activity(facet_name: str, activity_id: str) -> Any:
 
     Accepts JSON with optional fields:
         description: New description
+        instructions: Detection/level instructions for the LLM
         priority: "high", "normal", or "low"
         name: New name (only for custom activities)
         icon: New icon (only for custom activities)
@@ -1421,6 +1423,7 @@ def update_facet_activity(facet_name: str, activity_id: str) -> Any:
             facet_name,
             activity_id,
             description=data.get("description"),
+            instructions=data.get("instructions"),
             priority=priority,
             name=data.get("name"),
             icon=data.get("icon"),

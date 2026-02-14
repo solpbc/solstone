@@ -2094,6 +2094,10 @@ input:checked + .slider:before {
             <label for="customActivityIcon">Icon (emoji)</label>
             <input type="text" id="customActivityIcon" placeholder="e.g., 🔬" maxlength="4" style="max-width: 100px;">
           </div>
+          <div class="settings-field">
+            <label for="customActivityInstructions">Instructions <span style="font-weight:normal;color:#888;">(optional)</span></label>
+            <textarea id="customActivityInstructions" rows="2" placeholder="Detection hints and level guidance for the AI agent"></textarea>
+          </div>
           <button class="save-color-btn" id="saveCustomActivityBtn">Add Activity</button>
         </div>
       </div>
@@ -4049,6 +4053,7 @@ function renderActivities(data) {
         <div class="activity-info">
           <div class="activity-name">${escapeHtml(a.name)}</div>
           <div class="activity-desc activity-desc-editable" data-id="${a.id}" title="Double-click to edit">${escapeHtml(a.description) || '<em>No description</em>'}</div>
+          <div class="activity-instructions activity-instructions-editable" data-id="${a.id}" title="Double-click to edit instructions" style="font-size:0.8em;color:#888;margin-top:2px;">${a.instructions ? escapeHtml(a.instructions) : '<em>No instructions</em>'}</div>
         </div>
         <div class="activity-controls">
           <select class="activity-priority" data-id="${a.id}">
@@ -4116,36 +4121,52 @@ function setupAttachedActivityListeners() {
       } else {
         clearTimeout(tapTimeout);
         tapTimeout = null;
-        startEditDescription(desc);
+        startEditField(desc, 'description');
+      }
+    });
+  });
+
+  // Double-click instructions to edit
+  document.querySelectorAll('.activity-instructions-editable').forEach(el => {
+    let tapTimeout = null;
+    el.addEventListener('click', () => {
+      if (!tapTimeout) {
+        tapTimeout = setTimeout(() => tapTimeout = null, 300);
+      } else {
+        clearTimeout(tapTimeout);
+        tapTimeout = null;
+        startEditField(el, 'instructions');
       }
     });
   });
 }
 
-function startEditDescription(descEl) {
-  const activityId = descEl.dataset.id;
-  const currentText = descEl.textContent.trim();
-  const isPlaceholder = descEl.querySelector('em') !== null;
+function startEditField(el, field) {
+  const activityId = el.dataset.id;
+  const currentText = el.textContent.trim();
+  const isPlaceholder = el.querySelector('em') !== null;
+  const placeholderLabel = field === 'instructions' ? 'No instructions' : 'No description';
 
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'activity-desc-input';
   input.value = isPlaceholder ? '' : currentText;
+  input.placeholder = field === 'instructions' ? 'Detection hints and level guidance' : '';
   input.style.cssText = 'width:100%;padding:0.3em;font-size:0.85em;border:1px solid var(--facet-color,#667eea);border-radius:4px;';
 
-  descEl.style.display = 'none';
-  descEl.parentNode.insertBefore(input, descEl.nextSibling);
+  el.style.display = 'none';
+  el.parentNode.insertBefore(input, el.nextSibling);
   input.focus();
   input.select();
 
   const finishEdit = async () => {
-    const newDesc = input.value.trim();
+    const newValue = input.value.trim();
     input.remove();
-    descEl.style.display = '';
-    descEl.innerHTML = newDesc ? escapeHtml(newDesc) : '<em>No description</em>';
+    el.style.display = '';
+    el.innerHTML = newValue ? escapeHtml(newValue) : `<em>${placeholderLabel}</em>`;
 
-    if (newDesc !== currentText && !(isPlaceholder && !newDesc)) {
-      await updateActivity(activityId, { description: newDesc });
+    if (newValue !== currentText && !(isPlaceholder && !newValue)) {
+      await updateActivity(activityId, { [field]: newValue });
     }
   };
 
@@ -4219,6 +4240,7 @@ document.getElementById('addCustomActivityBtn').addEventListener('click', () => 
   document.getElementById('customActivityName').value = '';
   document.getElementById('customActivityDesc').value = '';
   document.getElementById('customActivityIcon').value = '';
+  document.getElementById('customActivityInstructions').value = '';
   document.getElementById('customActivityName').focus();
 });
 
@@ -4230,6 +4252,7 @@ document.getElementById('saveCustomActivityBtn').addEventListener('click', async
   const name = document.getElementById('customActivityName').value.trim();
   const description = document.getElementById('customActivityDesc').value.trim();
   const icon = document.getElementById('customActivityIcon').value.trim();
+  const instructions = document.getElementById('customActivityInstructions').value.trim();
 
   if (!name) {
     notifyError('Validation Error', 'Name is required');
@@ -4242,7 +4265,7 @@ document.getElementById('saveCustomActivityBtn').addEventListener('click', async
     const response = await fetch(`/app/settings/api/facet/${window.selectedFacet}/activities`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, description, icon: icon || undefined })
+      body: JSON.stringify({ name, description, icon: icon || undefined, instructions: instructions || undefined })
     });
     const result = await response.json();
     if (result.error) throw new Error(result.error);

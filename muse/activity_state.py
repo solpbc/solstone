@@ -188,6 +188,7 @@ def format_activities_context(facet: str) -> str:
         activity_id = activity.get("id", "")
         name = activity.get("name", activity_id)
         description = activity.get("description", "")
+        instructions = activity.get("instructions", "")
         priority = activity.get("priority", "normal")
 
         if priority == "high":
@@ -201,6 +202,9 @@ def format_activities_context(facet: str) -> str:
             lines.append(f"- **{activity_id}** ({name}){priority_note}: {description}")
         else:
             lines.append(f"- **{activity_id}** ({name}){priority_note}")
+
+        if instructions:
+            lines.append(f"  {instructions}")
 
     return "\n".join(lines)
 
