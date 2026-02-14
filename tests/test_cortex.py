@@ -620,128 +620,118 @@ def test_get_status(cortex_service):
 
 
 def test_write_output(cortex_service, mock_journal):
-    """Test writing agent output to agents directory."""
-    # Mock datetime to return a specific date
-    test_date = "20240115"
-    from datetime import datetime as dt
+    """Test writing agent output using explicit output_path."""
+    agent_id = "test_agent"
+    result = "This is the agent result content"
+    expected_path = mock_journal / "20240115" / "agents" / "my_agent.md"
+    config = {"output": "md", "name": "my_agent", "output_path": str(expected_path)}
 
-    mock_dt = dt(2024, 1, 15, 12, 0, 0)
-    with patch("think.utils.datetime") as mock_datetime:
-        mock_datetime.now.return_value = mock_dt
+    cortex_service._write_output(agent_id, result, config)
 
-        # Test writing output
-        agent_id = "test_agent"
-        result = "This is the agent result content"
-        config = {"output": "md", "name": "my_agent"}
-
-        cortex_service._write_output(agent_id, result, config)
-
-        # Check file was created in agents/ with name-derived filename
-        expected_path = mock_journal / test_date / "agents" / "my_agent.md"
-        assert expected_path.exists()
-        assert expected_path.read_text() == result
-
-        # Check directories were created
-        assert (mock_journal / test_date / "agents").is_dir()
+    assert expected_path.exists()
+    assert expected_path.read_text() == result
+    assert expected_path.parent.is_dir()
 
 
 def test_write_output_with_error(cortex_service, mock_journal, caplog):
     """Test write output handles errors gracefully."""
     import logging
 
-    # Make journal read-only to cause error
+    output_path = mock_journal / "20240115" / "agents" / "test.md"
     with patch("builtins.open", side_effect=PermissionError("Cannot write")):
         with caplog.at_level(logging.ERROR):
-            config = {"output": "md", "name": "test"}
+            config = {"output": "md", "name": "test", "output_path": str(output_path)}
             cortex_service._write_output("agent_id", "result", config)
 
     # Check error was logged but didn't raise
     assert "Failed to write agent agent_id output" in caplog.text
 
 
+def test_write_output_missing_path_skips(cortex_service, mock_journal, caplog):
+    """Test write output skips when output_path is missing."""
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        config = {"output": "md", "name": "test"}
+        cortex_service._write_output("agent_id", "result", config)
+
+    assert "No output_path in config" in caplog.text
+
+
 def test_write_output_with_day_parameter(cortex_service, mock_journal):
     """Test writing agent output to a specific day directory."""
-    # Test writing output with explicit day parameter
     agent_id = "test_agent"
     result = "This is the agent result content"
     specified_day = "20240201"
-    config = {"output": "md", "name": "reporter", "day": specified_day}
+    expected_path = mock_journal / specified_day / "agents" / "reporter.md"
+    config = {
+        "output": "md",
+        "name": "reporter",
+        "day": specified_day,
+        "output_path": str(expected_path),
+    }
 
     cortex_service._write_output(agent_id, result, config)
 
-    # Check file was created in specified day's agents directory
-    expected_path = mock_journal / specified_day / "agents" / "reporter.md"
     assert expected_path.exists()
     assert expected_path.read_text() == result
-
-    # Check directories were created
-    assert (mock_journal / specified_day / "agents").is_dir()
+    assert expected_path.parent.is_dir()
 
 
 def test_write_output_with_segment(cortex_service, mock_journal):
     """Test writing segment agent output to segment agents directory."""
-    # Mock datetime to return a specific date
-    test_date = "20240115"
-    from datetime import datetime as dt
+    agent_id = "segment_agent"
+    result = "Segment analysis content"
+    expected_path = mock_journal / "20240115" / "143000_600" / "agents" / "analyzer.md"
+    config = {
+        "output": "md",
+        "name": "analyzer",
+        "segment": "143000_600",
+        "output_path": str(expected_path),
+    }
 
-    mock_dt = dt(2024, 1, 15, 12, 0, 0)
-    with patch("think.utils.datetime") as mock_datetime:
-        mock_datetime.now.return_value = mock_dt
+    cortex_service._write_output(agent_id, result, config)
 
-        agent_id = "segment_agent"
-        result = "Segment analysis content"
-        config = {"output": "md", "name": "analyzer", "segment": "143000_600"}
-
-        cortex_service._write_output(agent_id, result, config)
-
-        # Check file was created in segment agents/ directory
-        expected_path = (
-            mock_journal / test_date / "143000_600" / "agents" / "analyzer.md"
-        )
-        assert expected_path.exists()
-        assert expected_path.read_text() == result
+    assert expected_path.exists()
+    assert expected_path.read_text() == result
 
 
 def test_write_output_json_format(cortex_service, mock_journal):
     """Test writing agent output in JSON format."""
-    test_date = "20240115"
-    from datetime import datetime as dt
+    agent_id = "json_agent"
+    result = '{"key": "value"}'
+    expected_path = mock_journal / "20240115" / "agents" / "data_agent.json"
+    config = {
+        "output": "json",
+        "name": "data_agent",
+        "output_path": str(expected_path),
+    }
 
-    mock_dt = dt(2024, 1, 15, 12, 0, 0)
-    with patch("think.utils.datetime") as mock_datetime:
-        mock_datetime.now.return_value = mock_dt
+    cortex_service._write_output(agent_id, result, config)
 
-        agent_id = "json_agent"
-        result = '{"key": "value"}'
-        config = {"output": "json", "name": "data_agent"}
-
-        cortex_service._write_output(agent_id, result, config)
-
-        # Check file was created with .json extension
-        expected_path = mock_journal / test_date / "agents" / "data_agent.json"
-        assert expected_path.exists()
-        assert expected_path.read_text() == result
+    assert expected_path.exists()
+    assert expected_path.read_text() == result
 
 
 def test_monitor_stdout_with_output(cortex_service, mock_journal):
-    """Test monitor_stdout writes output when output field is present."""
+    """Test monitor_stdout writes output when output_path is present."""
     from think.cortex import AgentProcess
 
-    # Create agent with output in request
     agent_id = "output_test"
     active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
+    output_path = mock_journal / "20240115" / "agents" / "test_agent.md"
 
-    # Store request with output field (format only, path derived from name)
+    # Store request with explicit output_path
     cortex_service.agent_requests = {
         agent_id: {
             "event": "request",
             "prompt": "test",
             "output": "md",
             "name": "test_agent",
+            "output_path": str(output_path),
         }
     }
 
-    # Create mock process with stdout (MockPipe supports context manager protocol)
     mock_process = MagicMock()
     mock_stdout = [
         '{"event": "start", "ts": 1000}\n',
@@ -752,34 +742,24 @@ def test_monitor_stdout_with_output(cortex_service, mock_journal):
 
     agent = AgentProcess(agent_id, mock_process, active_path)
 
-    # Mock datetime for consistent test
-    test_date = "20240115"
-    from datetime import datetime as dt
+    with patch.object(cortex_service, "_complete_agent_file"):
+        with patch.object(cortex_service, "_has_finish_event", return_value=True):
+            cortex_service._monitor_stdout(agent)
 
-    mock_dt = dt(2024, 1, 15, 12, 0, 0)
-    with patch("think.utils.datetime") as mock_datetime:
-        mock_datetime.now.return_value = mock_dt
-
-        with patch.object(cortex_service, "_complete_agent_file"):
-            with patch.object(cortex_service, "_has_finish_event", return_value=True):
-                cortex_service._monitor_stdout(agent)
-
-    # Check result was written to agents/ with name-derived filename
-    output_path = mock_journal / test_date / "agents" / "test_agent.md"
     assert output_path.exists()
     assert output_path.read_text() == "Test result"
 
 
 def test_monitor_stdout_with_output_and_day(cortex_service, mock_journal):
-    """Test monitor_stdout writes output to specific day when day field is present."""
+    """Test monitor_stdout writes output to specific day via output_path."""
     from think.cortex import AgentProcess
 
-    # Create agent with output and day in request
     agent_id = "output_day_test"
     active_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
     specified_day = "20240220"
+    output_path = mock_journal / specified_day / "agents" / "daily_reporter.md"
 
-    # Store request with output and day fields
+    # Store request with explicit output_path and day
     cortex_service.agent_requests = {
         agent_id: {
             "event": "request",
@@ -787,10 +767,10 @@ def test_monitor_stdout_with_output_and_day(cortex_service, mock_journal):
             "output": "md",
             "name": "daily_reporter",
             "day": specified_day,
+            "output_path": str(output_path),
         }
     }
 
-    # Create mock process with stdout (MockPipe supports context manager protocol)
     mock_process = MagicMock()
     mock_stdout = [
         '{"event": "start", "ts": 1000}\n',
@@ -805,8 +785,6 @@ def test_monitor_stdout_with_output_and_day(cortex_service, mock_journal):
         with patch.object(cortex_service, "_has_finish_event", return_value=True):
             cortex_service._monitor_stdout(agent)
 
-    # Check result was written to specified day's agents directory
-    output_path = mock_journal / specified_day / "agents" / "daily_reporter.md"
     assert output_path.exists()
     assert output_path.read_text() == "Daily report content"
 

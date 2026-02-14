@@ -16,7 +16,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from think.activities import load_activity_records
+from think.activities import get_activity_output_path, load_activity_records
 from think.callosum import CallosumConnection
 from think.cluster import cluster_segments
 from think.cortex_client import cortex_request, wait_for_agents
@@ -1039,11 +1039,12 @@ def run_activity_prompts(
                     is_generate = config["type"] == "generate"
                     output_format = config.get("output", "md")
                     if is_generate and output_format != "json":
-                        output_path = get_output_path(
-                            day_path(day),
+                        output_path = get_activity_output_path(
+                            facet,
+                            day,
+                            activity_id,
                             prompt_name,
                             output_format=output_format,
-                            facet=facet,
                         )
                         if output_path.exists():
                             logging.debug(f"Indexing {output_path}")
@@ -1075,14 +1076,24 @@ def run_activity_prompts(
             try:
                 logging.info(f"Spawning {prompt_name} for activity {activity_id}")
 
+                output_format = config.get("output", "md")
                 request_config: dict = {
                     "facet": facet,
                     "day": day,
                     "span": segments,
                     "activity": record,
+                    "output_path": str(
+                        get_activity_output_path(
+                            facet,
+                            day,
+                            activity_id,
+                            prompt_name,
+                            output_format=output_format,
+                        )
+                    ),
                 }
                 if is_generate:
-                    request_config["output"] = config.get("output", "md")
+                    request_config["output"] = output_format
                     if force:
                         request_config["force"] = True
 

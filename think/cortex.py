@@ -655,47 +655,21 @@ class CortexService:
             self.logger.error(f"Failed to write error and complete: {e}")
 
     def _write_output(self, agent_id: str, result: str, config: Dict[str, Any]) -> None:
-        """Write agent output to the appropriate location.
+        """Write agent output to config["output_path"].
 
-        Output path is either:
-        - Explicit: config["output_path"] (for multi-segment and custom paths)
-        - Derived: from name + output format + schedule + facet + stream:
-          - Daily agents: YYYYMMDD/agents/{name}.{ext}
-          - Segment agents: YYYYMMDD/{stream}/{segment}/agents/{name}.{ext}
-          - Multi-facet: agents/{facet}/{name}.{ext}
+        The output path is set by prepare_config in agents.py during agent
+        preparation. Cortex does not derive paths — validation and path
+        resolution are the agent's responsibility.
         """
+        output_path_str = config.get("output_path")
+        if not output_path_str:
+            self.logger.warning(
+                f"No output_path in config for agent {agent_id}, skipping write"
+            )
+            return
+
         try:
-            from think.muse import get_output_path
-            from think.utils import day_path
-
-            # Check for explicit output_path override first
-            if config.get("output_path"):
-                output_path = Path(config["output_path"])
-            else:
-                output_format = config.get("output", "md")
-                name = config.get("name", "default")
-                segment = config.get("segment")  # Set for segment agents
-                facet = config.get("facet")  # Set for multi-facet agents
-                day = config.get("day")
-
-                # Extract stream from env config (set by dream for segment agents)
-                env_config = config.get("env") or {}
-                stream = env_config.get("STREAM_NAME") if env_config else None
-
-                # Get day directory
-                day_dir = day_path(day)
-
-                # Derive output path using shared utility
-                output_path = get_output_path(
-                    day_dir,
-                    name,
-                    segment=segment,
-                    output_format=output_format,
-                    facet=facet,
-                    stream=stream,
-                )
-
-            # Ensure parent directory exists
+            output_path = Path(output_path_str)
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(output_path, "w", encoding="utf-8") as f:
@@ -705,7 +679,6 @@ class CortexService:
 
         except Exception as e:
             self.logger.error(f"Failed to write agent {agent_id} output: {e}")
-            # Don't raise - continue with normal flow even if write fails
 
     def _spawn_handoff(
         self, parent_id: str, result: str, handoff: Dict[str, Any]

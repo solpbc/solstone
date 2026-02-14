@@ -27,6 +27,40 @@ agents_bp = Blueprint(
 )
 
 
+def _resolve_output_path(
+    request_event: dict[str, Any], journal_root: str
+) -> Path | None:
+    """Resolve output file path from an agent request event.
+
+    Uses explicit output_path if present, otherwise derives from
+    request fields via get_output_path.
+
+    Returns absolute Path or None if not resolvable.
+    """
+    # Prefer explicit output_path (set for activity agents, custom paths)
+    if request_event.get("output_path"):
+        return Path(request_event["output_path"])
+
+    # Derive from request fields
+    req_day = request_event.get("day")
+    if not req_day:
+        return None
+    day_dir = Path(journal_root) / req_day
+    req_segment = request_event.get("segment")
+    req_facet = request_event.get("facet")
+    req_name = request_event.get("name", "default")
+    req_env = request_event.get("env") or {}
+    req_stream = req_env.get("STREAM_NAME") if req_env else None
+    return get_output_path(
+        day_dir,
+        req_name,
+        segment=req_segment,
+        output_format=request_event.get("output"),
+        facet=req_facet,
+        stream=req_stream,
+    )
+
+
 def _get_facet_filter() -> str | None:
     """Get facet filter from query param or cookie.
 
@@ -160,25 +194,14 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
         output_file = None
         req_output = request_event.get("output")
         if req_output:
-            req_day = request_event.get("day")
-            req_segment = request_event.get("segment")
-            req_facet = request_event.get("facet")
-            req_name = request_event.get("name", "default")
-            req_env = request_event.get("env") or {}
-            req_stream = req_env.get("STREAM_NAME") if req_env else None
-            if req_day:
-                day_dir = Path(state.journal_root) / req_day
-                out_path = get_output_path(
-                    day_dir,
-                    req_name,
-                    segment=req_segment,
-                    output_format=req_output,
-                    facet=req_facet,
-                    stream=req_stream,
-                )
-                if out_path.exists():
-                    # Relative to day dir: "agents/activity.md" or "archon/120000_1800/agents/media.md"
+            out_path = _resolve_output_path(request_event, state.journal_root)
+            if out_path and out_path.exists():
+                req_day = request_event.get("day")
+                day_dir = Path(state.journal_root) / req_day if req_day else None
+                if day_dir and out_path.is_relative_to(day_dir):
                     output_file = str(out_path.relative_to(day_dir))
+                else:
+                    output_file = str(out_path.relative_to(state.journal_root))
         agent_info["output_file"] = output_file
 
         # For completed agents, determine end state and calculate cost
@@ -425,24 +448,14 @@ def api_agent_run(agent_id: str) -> Any:
         output_file = None
         req_output = request_event.get("output")
         if req_output:
-            req_day = request_event.get("day")
-            req_segment = request_event.get("segment")
-            req_facet = request_event.get("facet")
-            req_name = request_event.get("name", "default")
-            req_env = request_event.get("env") or {}
-            req_stream = req_env.get("STREAM_NAME") if req_env else None
-            if req_day:
-                day_dir = Path(state.journal_root) / req_day
-                out_path = get_output_path(
-                    day_dir,
-                    req_name,
-                    segment=req_segment,
-                    output_format=req_output,
-                    facet=req_facet,
-                    stream=req_stream,
-                )
-                if out_path.exists():
+            out_path = _resolve_output_path(request_event, state.journal_root)
+            if out_path and out_path.exists():
+                req_day = request_event.get("day")
+                day_dir = Path(state.journal_root) / req_day if req_day else None
+                if day_dir and out_path.is_relative_to(day_dir):
                     output_file = str(out_path.relative_to(day_dir))
+                else:
+                    output_file = str(out_path.relative_to(state.journal_root))
 
         start_ts = request_event.get("ts", 0)
         runtime_seconds = None

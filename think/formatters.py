@@ -88,6 +88,11 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
         # Day from YYYYMMDD filename (events/entities/todos/news)
         if len(parts) >= 4 and DATE_RE.fullmatch(basename):
             day = basename
+        # Day from activities/{YYYYMMDD}/{activity_id}/... directory structure
+        elif (
+            len(parts) >= 5 and parts[2] == "activities" and DATE_RE.fullmatch(parts[3])
+        ):
+            day = parts[3]
 
     # Extract day from imports/YYYYMMDD_HHMMSS/...
     if parts[0] == "imports" and len(parts) >= 2:
@@ -141,6 +146,7 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     # Layout: day/stream/segment/agents/*.md
     "*/*/*/agents/*.md": ("think.markdown", "format_markdown", True),
     "*/*/*/agents/*/*.md": ("think.markdown", "format_markdown", True),
+    "facets/*/activities/*/*/*.md": ("think.markdown", "format_markdown", True),
     "facets/*/news/*.md": ("think.markdown", "format_markdown", True),
     "imports/*/summary.md": ("think.markdown", "format_markdown", True),
     "apps/*/agents/*.md": ("think.markdown", "format_markdown", True),

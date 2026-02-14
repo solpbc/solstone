@@ -244,6 +244,12 @@ class TestRunActivityPrompts:
             assert captured_config["activity"]["id"] == "coding_100000_300"
             assert captured_config["activity"]["activity"] == "coding"
 
+            # Verify facet-scoped output_path
+            assert "output_path" in captured_config
+            output_path = captured_config["output_path"]
+            assert "facets/work/activities/20260209/coding_100000_300/" in output_path
+            assert output_path.endswith("code_review.md")
+
     def test_failed_agent_returns_false(self, monkeypatch):
         from think.dream import run_activity_prompts
 

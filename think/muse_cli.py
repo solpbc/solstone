@@ -704,23 +704,29 @@ def _get_output_size(request_event: dict[str, Any], journal_root: str) -> int | 
     req_output = request_event.get("output")
     if not req_output:
         return None
-    req_day = request_event.get("day")
-    if not req_day:
-        return None
-    req_segment = request_event.get("segment")
-    req_facet = request_event.get("facet")
-    req_name = request_event.get("name", "default")
-    req_env = request_event.get("env") or {}
-    req_stream = req_env.get("STREAM_NAME") if req_env else None
-    day_dir = Path(journal_root) / req_day
-    out_path = get_output_path(
-        day_dir,
-        req_name,
-        segment=req_segment,
-        output_format=req_output,
-        facet=req_facet,
-        stream=req_stream,
-    )
+
+    # Prefer explicit output_path (set for activity agents, custom paths)
+    if request_event.get("output_path"):
+        out_path = Path(request_event["output_path"])
+    else:
+        req_day = request_event.get("day")
+        if not req_day:
+            return None
+        req_segment = request_event.get("segment")
+        req_facet = request_event.get("facet")
+        req_name = request_event.get("name", "default")
+        req_env = request_event.get("env") or {}
+        req_stream = req_env.get("STREAM_NAME") if req_env else None
+        day_dir = Path(journal_root) / req_day
+        out_path = get_output_path(
+            day_dir,
+            req_name,
+            segment=req_segment,
+            output_format=req_output,
+            facet=req_facet,
+            stream=req_stream,
+        )
+
     if out_path.exists():
         return out_path.stat().st_size
     return None

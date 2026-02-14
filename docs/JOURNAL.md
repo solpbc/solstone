@@ -535,9 +535,10 @@ The `activities/` directory within each facet stores both the configured activit
 
 **File path pattern:**
 ```
-facets/personal/activities/activities.jsonl    # Configured activity types
-facets/personal/activities/20260209.jsonl      # Completed records for the day
+facets/personal/activities/activities.jsonl                        # Configured activity types
+facets/personal/activities/20260209.jsonl                          # Completed records for the day
 facets/work/activities/20260209.jsonl
+facets/work/activities/20260209/coding_095809_303/session_review.md  # Generated output
 ```
 
 Each day file contains one JSON object per line, where each record represents a completed activity span:
@@ -575,6 +576,21 @@ Activity records are created by the `activities` segment agent when it detects t
 **Segment flush:** If no new segments arrive for an extended period (1 hour), the supervisor triggers `sol dream --flush` on the last segment. Agents that declare `hook.flush: true` (like `activities`) run with `flush=True` in their context, treating all remaining active activities as ended. This ensures activities are recorded promptly even when the user stops working, and prevents cross-day data loss.
 
 Records are written idempotently — duplicate IDs are skipped on re-runs.
+
+#### Generated output
+
+Activity-scheduled agents (`schedule: "activity"`) produce output that is stored alongside the activity records, organized by day and record ID:
+
+```
+facets/{facet}/activities/{day}/{activity_id}/{topic}.{ext}
+```
+
+For example, a `session_review` agent processing a coding activity would write to:
+```
+facets/work/activities/20260209/coding_095809_303/session_review.md
+```
+
+These output directories are only created when activity-scheduled agents run. The path is computed by `get_activity_output_path()` in `think/activities.py` and passed as `output_path` in the agent request. Output files are indexed for search via the `facets/*/activities/*/*/*.md` formatter pattern.
 
 ## Facet-Scoped Todos
 

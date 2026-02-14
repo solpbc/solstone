@@ -3,9 +3,12 @@
 
 """Tests for output path generation with facet support."""
 
+import os
 from pathlib import Path
 
 from think.muse import get_output_path, get_output_topic
+
+os.environ.setdefault("JOURNAL_PATH", "tests/fixtures/journal")
 
 
 class TestGetOutputTopic:
@@ -76,3 +79,42 @@ class TestGetOutputPath:
         )
         path_omit = get_output_path("/journal/20250101", "activity", output_format="md")
         assert path_none == path_omit
+
+
+class TestGetActivityOutputPath:
+    """Tests for get_activity_output_path."""
+
+    def test_markdown_output(self):
+        from think.activities import get_activity_output_path
+
+        path = get_activity_output_path(
+            "work", "20260209", "coding_100000_300", "session_review"
+        )
+        journal = os.environ["JOURNAL_PATH"]
+        expected = (
+            Path(journal)
+            / "facets/work/activities/20260209/coding_100000_300/session_review.md"
+        )
+        assert path == expected
+
+    def test_json_output(self):
+        from think.activities import get_activity_output_path
+
+        path = get_activity_output_path(
+            "work",
+            "20260209",
+            "meeting_090000_300",
+            "analysis",
+            output_format="json",
+        )
+        assert path.name == "analysis.json"
+        assert "facets/work/activities/20260209/meeting_090000_300" in str(path)
+
+    def test_app_key(self):
+        from think.activities import get_activity_output_path
+
+        path = get_activity_output_path(
+            "personal", "20260210", "coding_100000_300", "chat:review"
+        )
+        assert path.name == "_chat_review.md"
+        assert "facets/personal/activities/20260210/coding_100000_300" in str(path)

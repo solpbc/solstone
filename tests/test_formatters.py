@@ -60,6 +60,16 @@ class TestRegistry:
         assert formatter is not None
         assert formatter.__name__ == "format_screen"
 
+    def test_get_formatter_activity_output(self):
+        """Test pattern matching for activity output markdown."""
+        from think.formatters import get_formatter
+
+        formatter = get_formatter(
+            "facets/work/activities/20260209/coding_100000_300/session_review.md"
+        )
+        assert formatter is not None
+        assert formatter.__name__ == "format_markdown"
+
     def test_get_formatter_no_match(self):
         """Test that unmatched patterns return None."""
         from think.formatters import get_formatter
@@ -1310,6 +1320,36 @@ class TestExtractPathMetadata:
         assert meta["day"] == "20240101"
         assert meta["facet"] == ""
         assert meta["topic"] == ""
+
+    def test_activity_output_path(self):
+        from think.formatters import extract_path_metadata
+
+        meta = extract_path_metadata(
+            "facets/work/activities/20260209/coding_100000_300/session_review.md"
+        )
+        assert meta["day"] == "20260209"
+        assert meta["facet"] == "work"
+        assert meta["topic"] == "session_review"
+
+    def test_activity_output_path_json(self):
+        from think.formatters import extract_path_metadata
+
+        meta = extract_path_metadata(
+            "facets/personal/activities/20260210/meeting_090000_300/analysis.json"
+        )
+        assert meta["day"] == "20260210"
+        assert meta["facet"] == "personal"
+        assert meta["topic"] == ""  # JSONL/JSON topic set by formatter, not path
+
+    def test_activity_output_app_key(self):
+        from think.formatters import extract_path_metadata
+
+        meta = extract_path_metadata(
+            "facets/work/activities/20260209/coding_100000_300/_chat_review.md"
+        )
+        assert meta["day"] == "20260209"
+        assert meta["facet"] == "work"
+        assert meta["topic"] == "_chat_review"
 
 
 class TestFormatterIndexerMetadata:

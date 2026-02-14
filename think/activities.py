@@ -624,6 +624,45 @@ def _get_records_path(facet: str, day: str) -> Path:
     return Path(get_journal()) / "facets" / facet / "activities" / f"{day}.jsonl"
 
 
+def get_activity_output_path(
+    facet: str,
+    day: str,
+    activity_id: str,
+    key: str,
+    output_format: str | None = None,
+) -> Path:
+    """Return output path for an activity-scheduled agent.
+
+    Output lives under the facet's activities directory, grouped by day
+    and activity record ID:
+
+        facets/{facet}/activities/{day}/{activity_id}/{topic}.{ext}
+
+    Args:
+        facet: Facet name
+        day: Day in YYYYMMDD format
+        activity_id: Activity record ID (e.g., "coding_095809_303")
+        key: Agent key (e.g., "session_review", "chat:analysis")
+        output_format: "json" for JSON, anything else for markdown
+
+    Returns:
+        Absolute path for the output file
+    """
+    from think.muse import get_output_topic
+
+    topic = get_output_topic(key)
+    ext = "json" if output_format == "json" else "md"
+    return (
+        Path(get_journal())
+        / "facets"
+        / facet
+        / "activities"
+        / day
+        / activity_id
+        / f"{topic}.{ext}"
+    )
+
+
 def load_activity_records(facet: str, day: str) -> list[dict[str, Any]]:
     """Load activity records for a facet and day.
 
