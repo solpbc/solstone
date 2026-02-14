@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for app agent discovery and loading."""
+"""Tests for app agent discovery, loading, and route helpers."""
 
 import json
 import os
+from pathlib import Path
 
 import pytest
 
+from apps.agents.routes import _resolve_output_path
 from think.muse import _resolve_agent_path, get_agent, get_muse_configs
 
 
@@ -170,3 +172,132 @@ def test_app_agent_namespace_format(fixture_journal):
             assert ":" in key, f"App agent key missing namespace: {key}"
             app_name, agent_name = key.split(":", 1)
             assert config.get("app") == app_name
+
+
+# --- _resolve_output_path tests ---
+
+
+class TestResolveOutputPath:
+    """Tests for _resolve_output_path route helper."""
+
+    def test_explicit_output_path_returned_directly(self):
+        """When output_path is set, return it as-is without derivation."""
+        event = {"output_path": "/journal/facets/work/activities/20260214/coding_100/summary.md"}
+        result = _resolve_output_path(event, "/journal")
+        assert result == Path("/journal/facets/work/activities/20260214/coding_100/summary.md")
+
+    def test_derives_path_from_request_fields(self, fixture_journal):
+        """Without output_path, derives from day/name/segment fields."""
+        event = {
+            "day": "20260214",
+            "name": "default",
+            "segment": "100",
+            "facet": "health",
+        }
+        result = _resolve_output_path(event, "tests/fixtures/journal")
+        assert result is not None
+        assert "20260214" in str(result)
+        assert result.suffix in (".md", ".json")
+
+    def test_returns_none_without_day_or_output_path(self):
+        """Returns None when neither output_path nor day is present."""
+        event = {"name": "default"}
+        result = _resolve_output_path(event, "/journal")
+        assert result is None
+
+    def test_empty_output_path_falls_through(self, fixture_journal):
+        """Empty string output_path falls through to derivation."""
+        event = {"output_path": "", "day": "20260214", "name": "default"}
+        result = _resolve_output_path(event, "tests/fixtures/journal")
+        # Empty string is falsy, so falls through to derivation
+        assert result is not None
+
+    def test_uses_env_stream_name(self, fixture_journal):
+        """STREAM_NAME from env is passed through to get_output_path."""
+        event = {
+            "day": "20260214",
+            "name": "default",
+            "env": {"STREAM_NAME": "mystream"},
+        }
+        result = _resolve_output_path(event, "tests/fixtures/journal")
+        assert result is not None
+
+    def test_explicit_path_ignores_other_fields(self):
+        """When output_path is set, day/name/segment are ignored."""
+        event = {
+            "output_path": "/custom/path/output.md",
+            "day": "20260214",
+            "name": "default",
+            "segment": "100",
+        }
+        result = _resolve_output_path(event, "/journal")
+        assert result == Path("/custom/path/output.md")
+
+
+# --- api_output_file endpoint tests ---
+
+
+@pytest.fixture
+def agents_client(tmp_path):
+    """Create a Flask test client with agents blueprint and tmp journal."""
+    from flask import Flask
+
+    from apps.agents.routes import agents_bp
+    from convey import state
+
+    app = Flask(__name__)
+    app.register_blueprint(agents_bp)
+
+    # Point state at our tmp journal
+    state.journal_root = str(tmp_path)
+
+    # Create test files
+    day_dir = tmp_path / "20260214"
+    day_dir.mkdir()
+    (day_dir / "agents" / "flow.md").parent.mkdir(parents=True)
+    (day_dir / "agents" / "flow.md").write_text("# Day agent output")
+
+    facet_dir = tmp_path / "facets" / "work" / "activities" / "20260214" / "coding_100"
+    facet_dir.mkdir(parents=True)
+    (facet_dir / "summary.md").write_text("# Activity summary")
+
+    yield app.test_client()
+
+
+class TestApiOutputFile:
+    """Tests for api_output_file endpoint."""
+
+    def test_serves_day_relative_file(self, agents_client):
+        """Day-relative paths resolve under {journal}/{day}/."""
+        resp = agents_client.get("/app/agents/api/output/20260214/agents/flow.md")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["content"] == "# Day agent output"
+        assert data["format"] == "md"
+        assert data["filename"] == "flow.md"
+
+    def test_serves_facet_scoped_activity_file(self, agents_client):
+        """Paths starting with facets/ resolve from journal root."""
+        resp = agents_client.get(
+            "/app/agents/api/output/20260214/"
+            "facets/work/activities/20260214/coding_100/summary.md"
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["content"] == "# Activity summary"
+        assert data["format"] == "md"
+
+    def test_rejects_invalid_day_format(self, agents_client):
+        """Non-YYYYMMDD day returns 400."""
+        resp = agents_client.get("/app/agents/api/output/bad-day/agents/flow.md")
+        assert resp.status_code == 400
+
+    def test_rejects_path_traversal(self, agents_client):
+        """Path traversal attempts return 403."""
+        resp = agents_client.get("/app/agents/api/output/20260214/../../etc/passwd")
+        assert resp.status_code in (403, 404)
+
+    def test_missing_file_returns_404(self, agents_client):
+        """Non-existent file returns 404."""
+        resp = agents_client.get("/app/agents/api/output/20260214/agents/nonexistent.md")
+        assert resp.status_code == 404

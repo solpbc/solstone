@@ -494,17 +494,26 @@ def api_output_file(day: str, filename: str) -> Any:
     """Serve output file content for the run detail output tab.
 
     Returns JSON with content, format, and filename.
-    Path is validated to stay within the day directory.
+    Path is validated to stay within the journal directory.
+
+    Supports two path styles:
+    - Day-relative: ``agents/flow.md`` → resolved under ``{day}/``
+    - Journal-relative: ``facets/work/activities/...`` → resolved under journal root
     """
     if not DATE_RE.fullmatch(day):
         return jsonify(error="Invalid day format"), 400
 
-    day_dir = Path(state.journal_root) / day
-    file_path = (day_dir / filename).resolve()
+    journal_root = Path(state.journal_root).resolve()
 
-    # Security: ensure path is within the day directory
+    # Journal-relative paths (e.g., activity output under facets/)
+    if filename.startswith("facets/"):
+        file_path = (journal_root / filename).resolve()
+    else:
+        file_path = (journal_root / day / filename).resolve()
+
+    # Security: ensure path is within the journal directory
     try:
-        file_path.relative_to(day_dir.resolve())
+        file_path.relative_to(journal_root)
     except ValueError:
         return jsonify(error="Invalid path"), 403
 

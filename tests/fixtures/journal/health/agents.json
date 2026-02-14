@@ -16,7 +16,7 @@
       "interface": "cogitate",
       "ok": true,
       "message": "OK",
-      "elapsed_s": 8.8
+      "elapsed_s": 9.0
     },
     {
       "provider": "google",
@@ -25,7 +25,7 @@
       "interface": "generate",
       "ok": true,
       "message": "OK",
-      "elapsed_s": 1.2
+      "elapsed_s": 1.0
     },
     {
       "provider": "google",
@@ -34,7 +34,7 @@
       "interface": "cogitate",
       "ok": true,
       "message": "OK",
-      "elapsed_s": 10.2
+      "elapsed_s": 6.2
     },
     {
       "provider": "google",
@@ -43,7 +43,7 @@
       "interface": "generate",
       "ok": true,
       "message": "OK",
-      "elapsed_s": 0.5
+      "elapsed_s": 0.4
     },
     {
       "provider": "google",
@@ -59,9 +59,9 @@
       "tier": "pro",
       "model": "gpt-5.2-high",
       "interface": "generate",
-      "ok": false,
-      "message": "FAIL: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************RhMA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
-      "elapsed_s": 0.4
+      "ok": true,
+      "message": "OK",
+      "elapsed_s": 0.9
     },
     {
       "provider": "openai",
@@ -77,9 +77,9 @@
       "tier": "flash",
       "model": "gpt-5.2-low",
       "interface": "generate",
-      "ok": false,
-      "message": "FAIL: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************RhMA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
-      "elapsed_s": 0.1
+      "ok": true,
+      "message": "OK",
+      "elapsed_s": 0.6
     },
     {
       "provider": "openai",
@@ -88,16 +88,16 @@
       "interface": "cogitate",
       "ok": true,
       "message": "OK",
-      "elapsed_s": 1.2
+      "elapsed_s": 2.3
     },
     {
       "provider": "openai",
       "tier": "lite",
       "model": "gpt-5.2",
       "interface": "generate",
-      "ok": false,
-      "message": "FAIL: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************RhMA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
-      "elapsed_s": 0.1
+      "ok": true,
+      "message": "OK",
+      "elapsed_s": 0.5
     },
     {
       "provider": "openai",
@@ -106,7 +106,7 @@
       "interface": "cogitate",
       "ok": true,
       "message": "OK",
-      "elapsed_s": 1.7
+      "elapsed_s": 1.1
     },
     {
       "provider": "anthropic",
@@ -115,7 +115,7 @@
       "interface": "generate",
       "ok": true,
       "message": "OK",
-      "elapsed_s": 1.6
+      "elapsed_s": 1.8
     },
     {
       "provider": "anthropic",
@@ -133,7 +133,7 @@
       "interface": "generate",
       "ok": true,
       "message": "OK",
-      "elapsed_s": 1.2
+      "elapsed_s": 1.5
     },
     {
       "provider": "anthropic",
@@ -151,7 +151,7 @@
       "interface": "generate",
       "ok": true,
       "message": "OK",
-      "elapsed_s": 0.6
+      "elapsed_s": 0.4
     },
     {
       "provider": "anthropic",
@@ -165,8 +165,8 @@
   ],
   "summary": {
     "total": 18,
-    "passed": 12,
-    "failed": 6
+    "passed": 15,
+    "failed": 3
   },
-  "checked_at": "2026-02-14T20:15:38.344480+00:00"
+  "checked_at": "2026-02-14T22:59:12.800713+00:00"
 }

@@ -657,9 +657,10 @@ class CortexService:
     def _write_output(self, agent_id: str, result: str, config: Dict[str, Any]) -> None:
         """Write agent output to config["output_path"].
 
-        The output path is set by prepare_config in agents.py during agent
-        preparation. Cortex does not derive paths — validation and path
-        resolution are the agent's responsibility.
+        The output path is set by the caller — either derived by
+        prepare_config in agents.py (day/segment agents) or computed
+        by dream.py via get_activity_output_path (activity agents).
+        Cortex does not derive paths itself.
         """
         output_path_str = config.get("output_path")
         if not output_path_str:

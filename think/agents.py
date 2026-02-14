@@ -246,7 +246,9 @@ def _build_activity_context(
                 time_label = (
                     f" ({start_str} - {end_str})" if start_str and end_str else ""
                 )
-                state_lines.append(f"### {seg}{time_label}\n{activity_type} [{level}]: {desc}")
+                state_lines.append(
+                    f"### {seg}{time_label}\n{activity_type} [{level}]: {desc}"
+                )
 
         if state_lines:
             parts.append("## Activity State Per Segment\n\n" + "\n\n".join(state_lines))
