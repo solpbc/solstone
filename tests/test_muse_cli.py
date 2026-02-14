@@ -54,6 +54,13 @@ def test_collect_configs_filter_schedule():
     # No overlap
     assert not set(daily.keys()) & set(segment.keys())
 
+    activity = _collect_configs(schedule="activity", include_disabled=True)
+    for key, info in activity.items():
+        assert info.get("schedule") == "activity", f"{key} should be activity"
+
+    # decisions is activity-scheduled
+    assert "decisions" in activity
+
 
 def test_collect_configs_filter_source():
     """Source filter returns only matching prompts."""
@@ -118,6 +125,7 @@ def test_list_prompts_output(capsys):
     # Group headers
     assert "segment:" in output
     assert "daily:" in output
+    assert "activity:" in output
 
     # Prompt names
     assert "activity" in output
@@ -481,3 +489,55 @@ def test_log_run_error_run(capsys):
     assert len(lines) == 3  # request, start, error
     assert "error" in output
     assert "Rate limit" in output
+
+
+def test_show_prompt_context_activity_requires_facet(capsys):
+    """Activity-scheduled prompts require --facet."""
+    from think.muse_cli import show_prompt_context
+
+    with pytest.raises(SystemExit):
+        show_prompt_context("decisions", day="20260214")
+
+    output = capsys.readouterr().err
+    assert "activity-scheduled" in output.lower()
+    assert "--facet" in output
+
+
+def test_show_prompt_context_activity_requires_activity_id(capsys):
+    """Activity-scheduled prompts require --activity and list available IDs."""
+    from think.muse_cli import show_prompt_context
+
+    with pytest.raises(SystemExit):
+        show_prompt_context(
+            "decisions", day="20260214", facet="full-featured"
+        )
+
+    output = capsys.readouterr().err
+    assert "--activity" in output
+    assert "coding_093000_300" in output
+    assert "meeting_140000_300" in output
+
+
+def test_show_prompt_context_activity_not_found(capsys):
+    """Activity-scheduled prompt with unknown activity ID errors."""
+    from think.muse_cli import show_prompt_context
+
+    with pytest.raises(SystemExit):
+        show_prompt_context(
+            "decisions",
+            day="20260214",
+            facet="full-featured",
+            activity="nonexistent_999",
+        )
+
+    output = capsys.readouterr().err
+    assert "not found" in output.lower()
+
+
+def test_list_prompts_activity_group(capsys):
+    """List view includes activity group with decisions agent."""
+    list_prompts()
+    output = capsys.readouterr().out
+
+    assert "activity:" in output
+    assert "decisions" in output

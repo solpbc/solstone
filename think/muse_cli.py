@@ -207,12 +207,13 @@ def list_prompts(
     groups: dict[str, list[tuple[str, dict[str, Any]]]] = {
         "segment": [],
         "daily": [],
+        "activity": [],
         "unscheduled": [],
     }
 
     for key, info in sorted(configs.items()):
         sched = info.get("schedule")
-        if sched in ("segment", "daily"):
+        if sched in ("segment", "daily", "activity"):
             groups[sched].append((key, info))
         else:
             groups["unscheduled"].append((key, info))
@@ -235,7 +236,7 @@ def list_prompts(
     print()
 
     # Print each non-empty group
-    for group_name in ("segment", "daily", "unscheduled"):
+    for group_name in ("segment", "daily", "activity", "unscheduled"):
         items = groups[group_name]
         if not items:
             continue
@@ -412,6 +413,7 @@ def show_prompt_context(
     day: str | None = None,
     segment: str | None = None,
     facet: str | None = None,
+    activity: str | None = None,
     query: str | None = None,
     full: bool = False,
 ) -> None:
@@ -455,6 +457,56 @@ def show_prompt_context(
         )
         sys.exit(1)
 
+    # Activity-scheduled agents need --facet and --activity
+    if schedule == "activity":
+        if not facet:
+            try:
+                from think.facets import get_facets
+
+                facets = get_facets()
+                facet_names = [
+                    k for k, v in facets.items() if not v.get("muted", False)
+                ]
+                print(
+                    f"Prompt '{name}' is activity-scheduled. Use --facet NAME",
+                    file=sys.stderr,
+                )
+                print(
+                    f"Available facets: {', '.join(facet_names)}", file=sys.stderr
+                )
+            except Exception:
+                print(
+                    f"Prompt '{name}' is activity-scheduled. Use --facet NAME",
+                    file=sys.stderr,
+                )
+            sys.exit(1)
+
+        if not day:
+            day = _yesterday()
+            print(f"Using day: {day} (yesterday)")
+
+        if not activity:
+            from think.activities import load_activity_records
+
+            records = load_activity_records(facet, day)
+            if not records:
+                print(
+                    f"No activity records for facet '{facet}' on {day}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            print(
+                f"Prompt '{name}' is activity-scheduled. Use --activity ID",
+                file=sys.stderr,
+            )
+            print(f"Activities for {facet} on {day}:", file=sys.stderr)
+            for r in records:
+                desc = r.get("description", "")
+                if len(desc) > 50:
+                    desc = desc[:50] + "..."
+                print(f"  {r['id']}  ({r.get('activity', '?')})  {desc}", file=sys.stderr)
+            sys.exit(1)
+
     if is_multi_facet and not facet:
         # List available facets
         try:
@@ -477,7 +529,39 @@ def show_prompt_context(
     # Build config for dry-run
     config: dict[str, Any] = {"name": name}
 
-    if prompt_type == "generate":
+    if schedule == "activity":
+        # Build activity config matching dream.py:run_activity_prompts()
+        from think.activities import get_activity_output_path, load_activity_records
+
+        records = load_activity_records(facet, day)
+        record = None
+        for r in records:
+            if r.get("id") == activity:
+                record = r
+                break
+
+        if not record:
+            print(
+                f"Activity '{activity}' not found in facet '{facet}' on {day}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        segments = record.get("segments", [])
+        if not segments:
+            print(f"Activity '{activity}' has no segments", file=sys.stderr)
+            sys.exit(1)
+
+        output_format = info.get("output", "md")
+        config["day"] = day
+        config["facet"] = facet
+        config["span"] = segments
+        config["activity"] = record
+        config["output"] = output_format
+        config["output_path"] = str(
+            get_activity_output_path(facet, day, activity, name, output_format)
+        )
+    elif prompt_type == "generate":
         config["day"] = day
         config["output"] = info.get("output", "md")
         if segment:
@@ -551,6 +635,11 @@ def show_prompt_context(
         print(f"  Day: {dry_run_event.get('day')}")
     if dry_run_event.get("segment"):
         print(f"  Segment: {dry_run_event.get('segment')}")
+    if activity:
+        act_type = config.get("activity", {}).get("activity", "unknown")
+        span = config.get("span", [])
+        print(f"  Activity: {activity} ({act_type}, {len(span)} segments)")
+        print(f"  Facet: {facet}")
     if dry_run_event.get("output_path"):
         print(f"  Output: {dry_run_event.get('output_path')}")
 
@@ -952,7 +1041,9 @@ def main() -> None:
     # --- list subcommand ---
     list_parser = subparsers.add_parser("list", help="List prompts grouped by schedule")
     list_parser.add_argument(
-        "--schedule", choices=["daily", "segment"], help="Filter by schedule type"
+        "--schedule",
+        choices=["daily", "segment", "activity"],
+        help="Filter by schedule type",
     )
     list_parser.add_argument(
         "--source", choices=["system", "app"], help="Filter by origin"
@@ -977,6 +1068,9 @@ def main() -> None:
     )
     show_parser.add_argument(
         "--facet", metavar="NAME", help="Facet for multi-facet prompts"
+    )
+    show_parser.add_argument(
+        "--activity", metavar="ID", help="Activity ID for activity-scheduled prompts"
     )
     show_parser.add_argument(
         "--query", metavar="TEXT", help="Sample query for tool agents"
@@ -1013,6 +1107,7 @@ def main() -> None:
                 day=args.day,
                 segment=args.segment,
                 facet=args.facet,
+                activity=args.activity,
                 query=args.query,
                 full=args.full,
             )

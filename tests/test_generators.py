@@ -113,7 +113,7 @@ def test_scheduled_generators_have_valid_schedule():
     muse = importlib.import_module("think.muse")
 
     generators = muse.get_muse_configs(type="generate")
-    valid_schedules = ("segment", "daily")
+    valid_schedules = ("segment", "daily", "activity")
 
     for key, meta in generators.items():
         sched = meta.get("schedule")
