@@ -485,6 +485,15 @@ class FileSensor:
                 f"Segment fully observed{note_str}: {day}/{segment} ({duration}s)"
             )
 
+        # Touch stream.updated marker for downstream consumers
+        if day:
+            try:
+                health_dir = day_path(day) / "health"
+                health_dir.mkdir(parents=True, exist_ok=True)
+                (health_dir / "stream.updated").touch()
+            except Exception:
+                pass
+
         # Cleanup segment tracking
         del self.segment_files[segment]
         del self.segment_start_time[segment]

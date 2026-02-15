@@ -1512,6 +1512,13 @@ def main() -> None:
                         max_concurrency=args.jobs,
                         stream=seg_stream,
                     )
+                    # Touch stream.updated marker after each segment
+                    try:
+                        health_dir = day_path(day) / "health"
+                        health_dir.mkdir(parents=True, exist_ok=True)
+                        (health_dir / "stream.updated").touch()
+                    except Exception:
+                        pass
                     batch_success += success
                     batch_failed += failed
                     _update_status(segments_completed=i, segments_total=total)
@@ -1569,6 +1576,15 @@ def main() -> None:
             stream=args.stream,
         )
 
+        # Touch stream.updated marker after segment processing
+        if args.segment:
+            try:
+                health_dir = day_path(day) / "health"
+                health_dir.mkdir(parents=True, exist_ok=True)
+                (health_dir / "stream.updated").touch()
+            except Exception:
+                pass
+
         # POST-PHASE: Final indexing and stats (daily only)
         if not args.segment:
             logging.info("Running post-phase: indexer rescan")
@@ -1582,6 +1598,14 @@ def main() -> None:
             if args.verbose:
                 stats_cmd.append("--verbose")
             run_command(stats_cmd, day)
+
+            # Touch daily.updated marker after daily schedule completion
+            try:
+                health_dir = day_path(day) / "health"
+                health_dir.mkdir(parents=True, exist_ok=True)
+                (health_dir / "daily.updated").touch()
+            except Exception:
+                pass
 
         # Build log message
         msg = "dream"
