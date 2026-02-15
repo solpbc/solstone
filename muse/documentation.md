@@ -8,6 +8,7 @@
   "color": "#007bff",
   "schedule": "daily",
   "priority": 10,
+  "disabled": true,
   "output": "md",
   "instructions": {
     "sources": {"audio": true, "screen": false, "agents": {"screen": true}},
