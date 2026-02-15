@@ -159,7 +159,8 @@ The `env` block provides fallback values for environment variables. These are lo
     "GOOGLE_API_KEY": "your-google-api-key",
     "ANTHROPIC_API_KEY": "your-anthropic-api-key",
     "OPENAI_API_KEY": "your-openai-api-key",
-    "REVAI_ACCESS_TOKEN": "your-revai-token"
+    "REVAI_ACCESS_TOKEN": "your-revai-token",
+    "PLAUD_ACCESS_TOKEN": "your-plaud-token"
   }
 }
 ```

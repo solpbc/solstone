@@ -282,6 +282,11 @@ class PlaudBackend:
 
         Not yet implemented — Phase 2 will wire up actual sync.
         """
+        token = os.getenv("PLAUD_ACCESS_TOKEN")
+        if not token:
+            raise ValueError(
+                "PLAUD_ACCESS_TOKEN not configured — set in Settings > API Keys"
+            )
         raise NotImplementedError("Plaud sync execution is not yet implemented")
 
 

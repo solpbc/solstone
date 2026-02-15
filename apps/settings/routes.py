@@ -30,6 +30,7 @@ API_KEY_ENV_VARS = [
     "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
     "REVAI_ACCESS_TOKEN",
+    "PLAUD_ACCESS_TOKEN",
 ]
 
 
@@ -66,7 +67,7 @@ def update_config() -> Any:
     - identity: User profile (name, preferred, bio, pronouns, aliases, etc.)
     - transcribe: Transcription settings (device, model, compute_type)
     - convey: Web app settings (password)
-    - env: API keys (GOOGLE_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, REVAI_ACCESS_TOKEN)
+    - env: API keys (GOOGLE_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, REVAI_ACCESS_TOKEN, PLAUD_ACCESS_TOKEN)
 
     Note: Model/provider configuration is done via the 'providers' section in
     journal.json. See docs/JOURNAL.md for the providers config format.

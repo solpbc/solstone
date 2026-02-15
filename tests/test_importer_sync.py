@@ -75,11 +75,21 @@ def test_plaud_protocol_conformance():
     assert isinstance(PlaudBackend(), SyncableBackend)
 
 
-def test_plaud_sync_not_implemented(tmp_path):
-    """PlaudBackend.sync() raises NotImplementedError."""
+def test_plaud_sync_not_implemented(tmp_path, monkeypatch):
+    """With token configured, PlaudBackend.sync() raises NotImplementedError."""
     from think.importers.plaud import PlaudBackend
 
+    monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
     with pytest.raises(NotImplementedError):
+        PlaudBackend().sync(tmp_path)
+
+
+def test_plaud_sync_requires_token(tmp_path, monkeypatch):
+    """Without token configured, PlaudBackend.sync() raises ValueError."""
+    from think.importers.plaud import PlaudBackend
+
+    monkeypatch.delenv("PLAUD_ACCESS_TOKEN", raising=False)
+    with pytest.raises(ValueError, match="PLAUD_ACCESS_TOKEN"):
         PlaudBackend().sync(tmp_path)
 
 

@@ -1761,6 +1761,16 @@ input:checked + .slider:before {
         </div>
         <small>Audio transcription for imported files. <a href="https://www.rev.ai/access_token" target="_blank">Get token</a></small>
       </div>
+      <div class="settings-field">
+        <label for="field-env-plaud">Plaud</label>
+        <div class="password-wrap">
+          <input type="password" id="field-env-plaud" data-section="env" data-key="PLAUD_ACCESS_TOKEN" placeholder="Enter access token">
+          <button type="button" class="password-toggle" data-toggle="field-env-plaud" title="Show token">
+            <span>&#128065;</span>
+          </button>
+        </div>
+        <small>Import audio from Plaud recorder. Log into the web portal and extract token from browser console.</small>
+      </div>
     </section>
 
     <!-- Transcription Section -->
@@ -2342,6 +2352,7 @@ function populateFields(config) {
   updateEnvStatus('field-env-openai', env.OPENAI_API_KEY, sysEnv.OPENAI_API_KEY);
   updateEnvStatus('field-env-anthropic', env.ANTHROPIC_API_KEY, sysEnv.ANTHROPIC_API_KEY);
   updateEnvStatus('field-env-revai', env.REVAI_ACCESS_TOKEN, sysEnv.REVAI_ACCESS_TOKEN);
+  updateEnvStatus('field-env-plaud', env.PLAUD_ACCESS_TOKEN, sysEnv.PLAUD_ACCESS_TOKEN);
 }
 
 function updateEnvStatus(fieldId, isJournalConfigured, isSystemConfigured) {
