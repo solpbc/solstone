@@ -155,8 +155,10 @@ def test_cortex_agents_listing(integration_journal_path):
 
     ts = now_ms()
 
-    # Create completed agent
-    completed_file = agents_dir / f"{ts}.jsonl"
+    # Create completed agent (inside a date subdirectory, matching cortex layout)
+    agent_subdir = agents_dir / "20260214"
+    agent_subdir.mkdir(parents=True, exist_ok=True)
+    completed_file = agent_subdir / f"{ts}.jsonl"
     with open(completed_file, "w") as f:
         json.dump(
             {
