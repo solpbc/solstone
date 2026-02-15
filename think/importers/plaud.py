@@ -1,26 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""
-plaud.py — Sync Plaud audio files to local directory.
+"""Plaud audio recorder API utilities and syncable backend."""
 
-Usage:
-  # Dry-run (shows what would be downloaded)
-  python plaud.py --token "your_bearer_token" --dir ./plaud_recordings
-
-  # Actually download files
-  python plaud.py --token "your_bearer_token" --dir ./plaud_recordings --save
-
-Saves files with sanitized filenames based on the recording timestamp.
-"""
-
-import argparse
 import json
 import os
 import pathlib
 import re
 import sys
 import tempfile
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -283,45 +272,18 @@ def sync_files(
     return downloaded
 
 
-def main():
-    ap = argparse.ArgumentParser(
-        description="Sync Plaud audio files to local directory",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Dry-run (shows what would be downloaded)
-  %(prog)s --token "your_token" --dir ./recordings
+class PlaudBackend:
+    """Syncable backend for Plaud audio recorder service."""
 
-  # Actually download missing files
-  %(prog)s --token "your_token" --dir ./recordings --save
-        """,
-    )
-    ap.add_argument("--token", required=True, help="Plaud API bearer token")
-    ap.add_argument(
-        "--dir", "-d", required=True, help="Target directory for syncing files"
-    )
-    ap.add_argument(
-        "--save",
-        action="store_true",
-        help="Actually download files (default is dry-run)",
-    )
+    name: str = "plaud"
 
-    args = ap.parse_args()
+    def sync(self, journal_root: Path, *, dry_run: bool = True) -> dict[str, Any]:
+        """Sync files from Plaud service.
 
-    session = make_session()
-    target_dir = pathlib.Path(args.dir).expanduser().resolve()
-    dry_run = not args.save
-
-    if dry_run:
-        print("Running in DRY-RUN mode (no files will be downloaded)")
-        print("Use --save to actually download files\n")
-
-    result = sync_files(session, args.token, target_dir, dry_run=dry_run)
-
-    if result < 0:
-        sys.exit(1)
-    sys.exit(0)
+        Not yet implemented — Phase 2 will wire up actual sync.
+        """
+        raise NotImplementedError("Plaud sync execution is not yet implemented")
 
 
-if __name__ == "__main__":
-    main()
+# Module-level backend instance for discovery
+backend = PlaudBackend()

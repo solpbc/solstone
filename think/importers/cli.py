@@ -94,7 +94,7 @@ def main() -> None:
     global _stage_start_time, _stages_run, _status_thread, _status_running
 
     parser = argparse.ArgumentParser(description="Chunk a media file into the journal")
-    parser.add_argument("media", help="Path to video or audio file")
+    parser.add_argument("media", nargs="?", help="Path to video or audio file")
     parser.add_argument(
         "--timestamp", help="Timestamp YYYYMMDD_HHMMSS for journal entry"
     )
@@ -137,9 +137,29 @@ def main() -> None:
         action="store_true",
         help="Auto-accept detected timestamp and proceed with import",
     )
+    parser.add_argument(
+        "--backends",
+        action="store_true",
+        help="List syncable importer backends",
+    )
     args, extra = setup_cli(parser, parse_known=True)
     if extra and not args.timestamp:
         args.timestamp = extra[0]
+
+    if args.backends:
+        from think.importers.sync import get_syncable_backends
+
+        backends = get_syncable_backends()
+        if backends:
+            print("Syncable backends:")
+            for b in backends:
+                print(f"  {b.name}")
+        else:
+            print("No syncable backends available")
+        return
+
+    if not args.media:
+        parser.error("the following arguments are required: media")
 
     # Track detection result for metadata
     detection_result = None
