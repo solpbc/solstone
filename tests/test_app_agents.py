@@ -182,9 +182,13 @@ class TestResolveOutputPath:
 
     def test_explicit_output_path_returned_directly(self):
         """When output_path is set, return it as-is without derivation."""
-        event = {"output_path": "/journal/facets/work/activities/20260214/coding_100/summary.md"}
+        event = {
+            "output_path": "/journal/facets/work/activities/20260214/coding_100/summary.md"
+        }
         result = _resolve_output_path(event, "/journal")
-        assert result == Path("/journal/facets/work/activities/20260214/coding_100/summary.md")
+        assert result == Path(
+            "/journal/facets/work/activities/20260214/coding_100/summary.md"
+        )
 
     def test_derives_path_from_request_fields(self, fixture_journal):
         """Without output_path, derives from day/name/segment fields."""
@@ -299,5 +303,7 @@ class TestApiOutputFile:
 
     def test_missing_file_returns_404(self, agents_client):
         """Non-existent file returns 404."""
-        resp = agents_client.get("/app/agents/api/output/20260214/agents/nonexistent.md")
+        resp = agents_client.get(
+            "/app/agents/api/output/20260214/agents/nonexistent.md"
+        )
         assert resp.status_code == 404
