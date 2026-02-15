@@ -319,7 +319,7 @@ class FileSensor:
 
         try:
             managed = RunnerManagedProcess.spawn(
-                cmd, ref=ref, callosum=self.callosum, env=env
+                cmd, ref=ref, callosum=self.callosum, env=env, day=day
             )
         except RuntimeError as exc:
             logger.error(str(exc))

@@ -168,6 +168,7 @@ class TaskQueue:
         self,
         cmd: list[str],
         ref: str | None = None,
+        day: str | None = None,
     ) -> str | None:
         """Submit a task for execution.
 
@@ -177,6 +178,7 @@ class TaskQueue:
         Args:
             cmd: Command to execute
             ref: Optional caller-provided ref for tracking
+            day: Optional day override (YYYYMMDD) for log placement
 
         Returns:
             ref if task was started/queued, None if already tracked (no change)
@@ -204,7 +206,7 @@ class TaskQueue:
                         logging.debug(f"Ref already tracked for queued task: {ref}")
                         return None
                 else:
-                    queue.append({"refs": [ref], "cmd": cmd})
+                    queue.append({"refs": [ref], "cmd": cmd, "day": day})
                     logging.info(
                         f"Queued task {cmd_name}: {' '.join(cmd)} ref={ref} "
                         f"(queue: {len(queue)})"
@@ -224,7 +226,7 @@ class TaskQueue:
         if should_start:
             threading.Thread(
                 target=self._run_task,
-                args=([ref], cmd, cmd_name),
+                args=([ref], cmd, cmd_name, day),
                 daemon=True,
             ).start()
             return ref
@@ -236,6 +238,7 @@ class TaskQueue:
         refs: list[str],
         cmd: list[str],
         cmd_name: str,
+        day: str | None = None,
     ) -> None:
         """Execute a task and handle completion.
 
@@ -243,6 +246,7 @@ class TaskQueue:
             refs: List of refs to notify on completion
             cmd: Command to execute
             cmd_name: Command name for queue management
+            day: Optional day override (YYYYMMDD) for log placement
         """
         callosum = CallosumConnection()
         managed = None
@@ -254,7 +258,7 @@ class TaskQueue:
             logging.info(f"Starting task {primary_ref}: {' '.join(cmd)}")
 
             managed = RunnerManagedProcess.spawn(
-                cmd, ref=primary_ref, callosum=callosum
+                cmd, ref=primary_ref, callosum=callosum, day=day
             )
             self._active[primary_ref] = managed
 
@@ -305,6 +309,7 @@ class TaskQueue:
         """Process next queued task after completion."""
         next_cmd = None
         refs = None
+        day = None
 
         with self._lock:
             queue = self._queues.get(cmd_name, [])
@@ -312,6 +317,7 @@ class TaskQueue:
                 entry = queue.pop(0)
                 refs = entry["refs"]
                 next_cmd = entry["cmd"]
+                day = entry.get("day")
                 self._running[cmd_name] = refs[0]
                 logging.info(
                     f"Dequeued task {cmd_name}: {' '.join(next_cmd)} refs={refs} "
@@ -325,7 +331,7 @@ class TaskQueue:
         if next_cmd:
             threading.Thread(
                 target=self._run_task,
-                args=(refs, next_cmd, cmd_name, None),
+                args=(refs, next_cmd, cmd_name, day),
                 daemon=True,
             ).start()
 
@@ -644,8 +650,9 @@ def _handle_task_request(message: dict) -> None:
         return
 
     ref = message.get("ref")
+    day = message.get("day")
     if _task_queue:
-        _task_queue.submit(cmd, ref)
+        _task_queue.submit(cmd, ref, day=day)
 
 
 def _handle_supervisor_request(message: dict) -> None:
@@ -1016,6 +1023,7 @@ def _run_daily_processing(day: str) -> None:
     success, exit_code, log_path = run_task(
         ["sol", "dream", "-v", "--day", day, "--force"],
         callosum=_supervisor_callosum,
+        day=day,
     )
 
     # Update state on completion
@@ -1132,6 +1140,7 @@ def _run_segment_processing(day: str, segment: str, stream: str | None = None) -
     success, exit_code, log_path = run_task(
         cmd,
         callosum=_supervisor_callosum,
+        day=day,
     )
 
     if success:
@@ -1178,7 +1187,7 @@ def _check_segment_flush(force: bool = False) -> None:
     if stream:
         cmd.extend(["--stream", stream])
     if _task_queue:
-        _task_queue.submit(cmd)
+        _task_queue.submit(cmd, day=day)
         logging.info(f"Queued segment flush: {day}/{segment}")
     else:
         logging.warning(
@@ -1259,7 +1268,7 @@ def _handle_activity_recorded(message: dict) -> None:
     cmd = ["sol", "dream", "--activity", record_id, "--facet", facet, "--day", day]
 
     if _task_queue:
-        _task_queue.submit(cmd)
+        _task_queue.submit(cmd, day=day)
         logging.info(f"Queued activity dream: {record_id} for #{facet}")
     else:
         logging.warning("No task queue available for activity dream: %s", record_id)
