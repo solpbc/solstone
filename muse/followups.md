@@ -2,27 +2,31 @@
   "type": "generate",
 
   "title": "Follow-Up Items",
-  "description": "Scans the day chronologically to capture promised tasks or reminders for future action. The prompt outputs a concise Markdown list of the most important follow-ups.",
+  "description": "Detects promised tasks, commitments, and reminders for future action within each activity. Outputs a concise Markdown list of follow-ups with context.",
   "occurrences": "Whenever a future task or commitment is mentioned, create an occurrence with the expected action and deadline if known. Note who requested it and whether it is work or personal.",
   "hook": {"post": "occurrence"},
   "color": "#ffc107",
-  "schedule": "daily",
+  "schedule": "activity",
+  "activities": ["*"],
   "priority": 10,
   "output": "md",
   "instructions": {
     "sources": {"audio": true, "screen": false, "agents": {"screen": true}},
-    "facets": true
+    "facets": true,
+    "activity": true
   }
 
 }
 
-$daily_preamble
+$activity_preamble
 
-# Workday Follow-up Identification
+# Follow-up Identification
 
 ## Objective
 
-Review the full day's transcript to find instances where an important future action is implied, requested, or promised, covering both professional and personal contexts. The transcript merges audio conversations and screen activity summaries organized by recording segments.
+Review this activity's transcript to find instances where an important future action is implied, requested, or promised, covering both professional and personal contexts.
+
+Use the Activity Context and Activity State Per Segment sections above to understand what this activity involves and to focus on relevant content in the transcript.
 
 ## Approach
 
@@ -41,13 +45,22 @@ Review the full day's transcript to find instances where an important future act
    - Determine if the context is work-related or personal.
    - Prioritize items that appear critical for ongoing projects or relationships.
 
+## Exclusions
+
+- Content from concurrent activities unrelated to this $activity_type activity.
+- Pure speculation or hypothetical scenarios without a concrete commitment.
+- Duplicates of the same follow-up; merge overlapping mentions.
+
 ## Output Format
 
 Produce a concise Markdown list capturing each follow-up with the following fields in individual blocks with a short title:
 
-- **Time Block** – starting timestamp of the recording segment.
+- **Time:** HH:MM:SS–HH:MM:SS (tight span)
 - **Context** – short description of the discussion or screen activity.
 - **Action Needed** – what follow-up is expected.
 - **Work/Personal** – classify the nature of the task.
+- **Confidence:** 0.0–1.0 calibration
 
-Only identify up to the top 20 or so most important or notable follow-ups in the given day. Conclude with a brief summary highlighting the most significant follow-ups to address soonest.
+Conclude with a brief summary (<= 100 words) highlighting the most significant follow-ups.
+
+If no follow-ups are found in this activity, output only a brief sentence explaining why (e.g., "No follow-up items were identified during this $activity_type activity.").

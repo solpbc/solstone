@@ -55,8 +55,9 @@ Priority Discovery:
      already scheduled for future due dates. You can also check across ALL facets
      by calling sol call todos upcoming -l 50 without a facet filter.
 
-2. sol call journal read $day_YYYYMMDD followups and sol call journal read $day_YYYYMMDD opportunities
+2. sol call journal search "followup" -d $day_YYYYMMDD -t followups and sol call journal read $day_YYYYMMDD opportunities
    → Capture explicit next steps and friendly follow-up opportunities (e.g., "let's catch up later," "we should connect more often")
+   → Follow-ups are produced per-activity, so search may return multiple results
 
 3. sol call journal search "followup OR todo OR need to OR schedule" -n 10
    → Find natural language commitments

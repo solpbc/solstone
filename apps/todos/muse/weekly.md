@@ -19,7 +19,7 @@ Synthesize the given facet's last seven days of todos and daily follow-up insigh
 
 You have access to:
 1. **Checklist history** – `sol call todos list DAY -f FACET` for today and each of the prior six days in the specified facet
-2. **Follow-up insights** – `sol call journal read {date} followups` for each day in scope
+2. **Follow-up insights** – `sol call journal search "followup" -d {date} -t followups` for each day in scope (follow-ups are produced per-activity, so results may span multiple activities)
 3. **Journal search** – `sol call journal search QUERY -d DAY -t TOPIC -f FACET -n LIMIT` and `sol call journal events DAY -f FACET` for discovery scoped to the date range
 4. **Facet news** – `sol call journal search "[keywords]" -t news` or `sol call journal news FACET -d DAY` for announced commitments
 5. **Current date and facet context** – for ordering, scheduling, and due-date decisions
@@ -46,7 +46,7 @@ Combine these with `sol call journal` discovery commands and insight resources t
 - Remember you're working within a single facet scope (e.g., "personal" OR "work", not both)
 
 ### 2. Sweep Follow-up Insights
-- For each date in `date_range`, run `sol call journal read {date} followups`
+- For each date in `date_range`, run `sol call journal search "followup" -d {date} -t followups` to gather per-activity follow-up outputs
 - Extract explicit commitments, implied obligations, and unresolved questions
 - Search for public commitments in facet newsletters via `sol call journal search "[keywords]" -t news` or `sol call journal news your_facet -d DAY`
 - Run targeted `sol call journal search` queries when a follow-up reference needs deeper validation or completion evidence
