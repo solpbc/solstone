@@ -165,11 +165,9 @@ def test_cortex_request_uses_default_path_when_journal_path_unset(callosum_serve
     _ = callosum_server  # Needed for side effects only
     old_path = os.environ.pop("JOURNAL_PATH", None)
     try:
-        # Should work (uses platform default) but no listener will respond
+        # Uses platform default path, which won't match the test server socket.
         agent_id = cortex_request("test", "default", "openai")
-        # Returns an agent_id since the request is queued
-        assert agent_id is not None
-        assert len(agent_id) > 0
+        assert agent_id is None
     finally:
         if old_path:
             os.environ["JOURNAL_PATH"] = old_path

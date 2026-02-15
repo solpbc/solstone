@@ -75,11 +75,13 @@ def test_help_ndjson_config(monkeypatch):
 
 def test_help_parses_finish_event(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["sol help", "how", "to", "search"])
-    mock_proc = _make_popen([
-        '{"event":"start","ts":1}',
-        '{"event":"thinking","ts":2,"summary":"..."}',
-        '{"event":"finish","ts":3,"result":"Use `sol call journal search`."}',
-    ])
+    mock_proc = _make_popen(
+        [
+            '{"event":"start","ts":1}',
+            '{"event":"thinking","ts":2,"summary":"..."}',
+            '{"event":"finish","ts":3,"result":"Use `sol call journal search`."}',
+        ]
+    )
 
     with patch("think.help_cli.subprocess.Popen", return_value=mock_proc):
         main()
@@ -90,10 +92,12 @@ def test_help_parses_finish_event(monkeypatch, capsys):
 
 def test_help_uses_last_finish_event(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["sol help", "search"])
-    mock_proc = _make_popen([
-        '{"event":"finish","ts":1,"result":"old result"}',
-        '{"event":"finish","ts":2,"result":"new result"}',
-    ])
+    mock_proc = _make_popen(
+        [
+            '{"event":"finish","ts":1,"result":"old result"}',
+            '{"event":"finish","ts":2,"result":"new result"}',
+        ]
+    )
 
     with patch("think.help_cli.subprocess.Popen", return_value=mock_proc):
         main()

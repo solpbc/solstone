@@ -343,7 +343,7 @@ The `occurrences` field (optional string) provides topic-specific extraction gui
 - `context` is the full config dict with: `name`, `agent_id`, `provider`, `model`, `prompt`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
 - Return modified string, or `None` to use original result
 
-**Flush hooks:** Segment agents can declare `"hook": {"flush": true}` to participate in segment flush. When no new segments arrive for an extended period, the supervisor triggers `sol dream --flush --segment <last>`, which runs only flush-enabled agents with `context["flush"] = True` and `context["force"] = True`. This lets agents close out dangling state (e.g., end active activities that would otherwise wait indefinitely for the next segment). The timeout is managed by the supervisor — agents should trust the flush signal without their own timeout logic.
+**Flush hooks:** Segment agents can declare `"hook": {"flush": true}` to participate in segment flush. When no new segments arrive for an extended period, the supervisor triggers `sol dream --flush --segment <last>`, which runs only flush-enabled agents with `context["flush"] = True` and `context["refresh"] = True`. This lets agents close out dangling state (e.g., end active activities that would otherwise wait indefinitely for the next segment). The timeout is managed by the supervisor — agents should trust the flush signal without their own timeout logic.
 
 Hook errors are logged but don't crash the pipeline (graceful degradation).
 

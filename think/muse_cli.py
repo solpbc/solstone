@@ -471,9 +471,7 @@ def show_prompt_context(
                     f"Prompt '{name}' is activity-scheduled. Use --facet NAME",
                     file=sys.stderr,
                 )
-                print(
-                    f"Available facets: {', '.join(facet_names)}", file=sys.stderr
-                )
+                print(f"Available facets: {', '.join(facet_names)}", file=sys.stderr)
             except Exception:
                 print(
                     f"Prompt '{name}' is activity-scheduled. Use --facet NAME",
@@ -504,7 +502,9 @@ def show_prompt_context(
                 desc = r.get("description", "")
                 if len(desc) > 50:
                     desc = desc[:50] + "..."
-                print(f"  {r['id']}  ({r.get('activity', '?')})  {desc}", file=sys.stderr)
+                print(
+                    f"  {r['id']}  ({r.get('activity', '?')})  {desc}", file=sys.stderr
+                )
             sys.exit(1)
 
     if is_multi_facet and not facet:

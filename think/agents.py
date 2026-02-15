@@ -908,7 +908,7 @@ async def _run_agent(
 
     Unified execution path for all agent types. Handles:
     - Skip conditions (disabled, no input, etc.)
-    - Output existence checking (skip if exists unless force)
+    - Output existence checking (skip if exists unless refresh)
     - Pre/post hooks
     - Dry-run mode
     - Routing to tool or generate execution
@@ -922,7 +922,7 @@ async def _run_agent(
     provider = config.get("provider", "google")
     model = config.get("model")
     is_cogitate = config["type"] == "cogitate"
-    force = config.get("force", False)
+    refresh = config.get("refresh", False)
     output_path = config.get("output_path")
 
     # Emit start event
@@ -969,7 +969,7 @@ async def _run_agent(
         return
 
     # Check if output already exists (applies to both tool agents and generators)
-    if output_path and not force and not dry_run:
+    if output_path and not refresh and not dry_run:
         if output_path.exists() and output_path.stat().st_size > 0:
             LOG.info("Output exists, loading: %s", output_path)
             with open(output_path, "r") as f:

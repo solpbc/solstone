@@ -303,7 +303,7 @@ def _drain_priority_batch(
 def run_prompts_by_priority(
     day: str,
     segment: str | None,
-    force: bool,
+    refresh: bool,
     verbose: bool,
     max_concurrency: int = 2,
     stream: str | None = None,
@@ -318,7 +318,7 @@ def run_prompts_by_priority(
     Args:
         day: Day in YYYYMMDD format
         segment: Optional segment key in HHMMSS_LEN format
-        force: Whether to regenerate existing outputs
+        refresh: Whether to regenerate existing outputs
         verbose: Verbose logging
         max_concurrency: Max agents to run concurrently per priority group.
             0 means unlimited (all agents in a group run in parallel).
@@ -429,8 +429,8 @@ def run_prompts_by_priority(
                         request_config: dict = {"facet": facet_name, "day": day}
                         if is_generate:
                             request_config["output"] = config.get("output", "md")
-                            if force:
-                                request_config["force"] = True
+                            if refresh:
+                                request_config["refresh"] = True
                         if segment:
                             request_config["segment"] = segment
                             request_config["env"] = {"SEGMENT_KEY": segment}
@@ -495,8 +495,8 @@ def run_prompts_by_priority(
                     request_config: dict = {"day": day}
                     if is_generate:
                         request_config["output"] = config.get("output", "md")
-                        if force:
-                            request_config["force"] = True
+                        if refresh:
+                            request_config["refresh"] = True
                     if segment:
                         request_config["segment"] = segment
                         request_config["env"] = {"SEGMENT_KEY": segment}
@@ -601,7 +601,7 @@ def run_single_prompt(
     day: str,
     name: str,
     segment: str | None = None,
-    force: bool = False,
+    refresh: bool = False,
     facet: str | None = None,
     stream: str | None = None,
 ) -> bool:
@@ -611,7 +611,7 @@ def run_single_prompt(
         day: Day in YYYYMMDD format
         name: Prompt name from muse/*.md (e.g., 'activity', 'timeline')
         segment: Optional segment key in HHMMSS_LEN format
-        force: Whether to regenerate existing output
+        refresh: Whether to regenerate existing output
         facet: Optional facet name for multi-facet agents
 
     Returns:
@@ -663,8 +663,8 @@ def run_single_prompt(
         }
         if segment:
             request_config["segment"] = segment
-        if force:
-            request_config["force"] = True
+        if refresh:
+            request_config["refresh"] = True
 
         try:
             agent_id = _cortex_request_with_retry(
@@ -867,7 +867,7 @@ def run_activity_prompts(
     day: str,
     activity_id: str,
     facet: str,
-    force: bool = False,
+    refresh: bool = False,
     verbose: bool = False,
     max_concurrency: int = 2,
 ) -> bool:
@@ -882,7 +882,7 @@ def run_activity_prompts(
         day: Day in YYYYMMDD format
         activity_id: Activity record ID (e.g., "coding_100000_300")
         facet: Facet name
-        force: Whether to regenerate existing outputs
+        refresh: Whether to regenerate existing outputs
         verbose: Verbose logging
         max_concurrency: Max agents to run concurrently (0=unlimited)
 
@@ -1094,8 +1094,8 @@ def run_activity_prompts(
                 }
                 if is_generate:
                     request_config["output"] = output_format
-                    if force:
-                        request_config["force"] = True
+                    if refresh:
+                        request_config["refresh"] = True
 
                 prompt = (
                     ""
@@ -1253,7 +1253,7 @@ def run_flush_prompts(
                 "day": day,
                 "segment": segment,
                 "flush": True,
-                "force": True,
+                "refresh": True,
                 "env": env,
             }
             if is_generate:
@@ -1356,7 +1356,9 @@ def parse_args() -> argparse.ArgumentParser:
         "--segment",
         help="Segment key in HHMMSS_LEN format (processes segment topics only)",
     )
-    parser.add_argument("--force", action="store_true", help="Overwrite existing files")
+    parser.add_argument(
+        "--refresh", action="store_true", help="Refresh existing outputs"
+    )
     parser.add_argument(
         "--segments",
         action="store_true",
@@ -1428,8 +1430,8 @@ def main() -> None:
     if args.flush and not args.segment:
         parser.error("--flush requires --segment")
 
-    if args.flush and (args.run or args.segments or args.force):
-        parser.error("--flush is incompatible with --run, --segments, and --force")
+    if args.flush and (args.run or args.segments or args.refresh):
+        parser.error("--flush is incompatible with --run, --segments, and --refresh")
 
     if args.segments and (args.segment or args.run or args.facet):
         parser.error("--segments is incompatible with --segment, --run, and --facet")
@@ -1448,7 +1450,7 @@ def main() -> None:
                 day=day,
                 activity_id=args.activity,
                 facet=args.facet,
-                force=args.force,
+                refresh=args.refresh,
                 verbose=args.verbose,
                 max_concurrency=args.jobs,
             )
@@ -1472,7 +1474,7 @@ def main() -> None:
                 day=day,
                 name=args.run,
                 segment=args.segment,
-                force=args.force,
+                refresh=args.refresh,
                 facet=args.facet,
                 stream=args.stream,
             )
@@ -1507,7 +1509,7 @@ def main() -> None:
                     success, failed, _fn = run_prompts_by_priority(
                         day=day,
                         segment=seg_key,
-                        force=args.force,
+                        refresh=args.refresh,
                         verbose=args.verbose,
                         max_concurrency=args.jobs,
                         stream=seg_stream,
@@ -1534,8 +1536,8 @@ def main() -> None:
                 duration_ms=duration_ms,
             )
 
-            if args.force:
-                day_log(day, f"dream --segments --force failed={batch_failed}")
+            if args.refresh:
+                day_log(day, f"dream --segments --refresh failed={batch_failed}")
             else:
                 day_log(day, f"dream --segments failed={batch_failed}")
 
@@ -1563,7 +1565,7 @@ def main() -> None:
         success_count, fail_count, failed_names = run_prompts_by_priority(
             day=day,
             segment=args.segment,
-            force=args.force,
+            refresh=args.refresh,
             verbose=args.verbose,
             max_concurrency=args.jobs,
             stream=args.stream,
@@ -1585,8 +1587,8 @@ def main() -> None:
 
         # Build log message
         msg = "dream"
-        if args.force:
-            msg += " --force"
+        if args.refresh:
+            msg += " --refresh"
         if fail_count:
             msg += f" failed={fail_count}"
         day_log(day, msg)

@@ -785,15 +785,16 @@ def test_extract_stream_missing_marker(tmp_path):
 
 def test_search_journal_stream_filter():
     """search_journal filters by stream name."""
-    from think.indexer.journal import search_journal
+    from think.indexer.journal import scan_journal, search_journal
 
     os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal(os.environ["JOURNAL_PATH"], full=True)
 
     # Search with matching stream
-    total, results = search_journal("", stream="testhost")
+    total, results = search_journal("", stream="default")
     assert total > 0
     for r in results:
-        assert r["metadata"]["stream"] == "testhost"
+        assert r["metadata"]["stream"] == "default"
 
     # Search with non-existent stream
     total, results = search_journal("", stream="nonexistent")
@@ -802,31 +803,33 @@ def test_search_journal_stream_filter():
 
 def test_search_journal_results_include_stream():
     """search_journal results include stream in metadata."""
-    from think.indexer.journal import search_journal
+    from think.indexer.journal import scan_journal, search_journal
 
     os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal(os.environ["JOURNAL_PATH"], full=True)
 
     # Filter to segment content which has stream markers
-    total, results = search_journal("", stream="testhost")
+    total, results = search_journal("", stream="default")
     assert total > 0
 
     for r in results:
         assert "stream" in r["metadata"]
-        assert r["metadata"]["stream"] == "testhost"
+        assert r["metadata"]["stream"] == "default"
 
 
 def test_search_counts_stream_filter():
     """search_counts filters by stream and includes streams aggregation."""
-    from think.indexer.journal import search_counts
+    from think.indexer.journal import scan_journal, search_counts
 
     os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal(os.environ["JOURNAL_PATH"], full=True)
 
     # Unfiltered counts should include streams
     counts = search_counts("")
     assert "streams" in counts
 
     # Filter by stream
-    counts = search_counts("", stream="testhost")
+    counts = search_counts("", stream="default")
     assert counts["total"] > 0
 
     # Non-existent stream returns zero
@@ -836,11 +839,13 @@ def test_search_counts_stream_filter():
 
 def test_search_tool_stream_filter():
     """Agent search tool accepts and passes stream filter."""
+    from think.indexer.journal import scan_journal
     from think.tools.search import search_journal
 
     os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal(os.environ["JOURNAL_PATH"], full=True)
 
-    result = search_journal("", stream="testhost")
+    result = search_journal("", stream="default")
     assert "results" in result
     assert result["total"] > 0
-    assert result["query"]["filters"]["stream"] == "testhost"
+    assert result["query"]["filters"]["stream"] == "default"

@@ -93,7 +93,9 @@ def test_load_sentences(speakers_env):
     env = speakers_env()
     env.create_segment("20240101", "143022_300", ["mic_audio"], num_sentences=3)
 
-    sentences, emb_data = _load_sentences("20240101", "143022_300", "mic_audio", stream="test")
+    sentences, emb_data = _load_sentences(
+        "20240101", "143022_300", "mic_audio", stream="test"
+    )
 
     assert len(sentences) == 3
     assert sentences[0]["id"] == 1
@@ -117,7 +119,9 @@ def test_load_sentences_no_transcript(speakers_env):
     day_dir = env.journal / "20240101" / "test" / "143022_300"
     day_dir.mkdir(parents=True)
 
-    sentences, emb_data = _load_sentences("20240101", "143022_300", "mic_audio", stream="test")
+    sentences, emb_data = _load_sentences(
+        "20240101", "143022_300", "mic_audio", stream="test"
+    )
     assert sentences == []
     assert emb_data is None
 
@@ -130,7 +134,9 @@ def test_get_sentence_embedding(speakers_env):
     env.create_segment("20240101", "143022_300", ["mic_audio"], num_sentences=5)
 
     # Get embedding for sentence 3
-    emb = _get_sentence_embedding("20240101", "143022_300", "mic_audio", 3, stream="test")
+    emb = _get_sentence_embedding(
+        "20240101", "143022_300", "mic_audio", 3, stream="test"
+    )
 
     assert emb is not None
     assert emb.shape == (256,)
@@ -145,7 +151,9 @@ def test_get_sentence_embedding_not_found(speakers_env):
     env.create_segment("20240101", "143022_300", ["mic_audio"], num_sentences=3)
 
     # Try to get embedding for sentence that doesn't exist
-    emb = _get_sentence_embedding("20240101", "143022_300", "mic_audio", 99, stream="test")
+    emb = _get_sentence_embedding(
+        "20240101", "143022_300", "mic_audio", 99, stream="test"
+    )
     assert emb is None
 
 

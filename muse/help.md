@@ -21,7 +21,7 @@ IMPORTANT: Only suggest commands, subcommands, and flags that are explicitly doc
 
 ### Think (daily processing)
 - `sol import <media> [--facet NAME] [--source NAME] [--force]` - Import media files into the journal.
-- `sol dream [--day YYYYMMDD] [--force] [--segment HHMMSS_LEN] [--facet NAME] [-j N]` - Run daily processing workflows (defaults to yesterday).
+- `sol dream [--day YYYYMMDD] [--refresh] [--segment HHMMSS_LEN] [--facet NAME] [-j N]` - Run daily processing workflows (defaults to yesterday).
 - `sol planner -q "question"` - Run planning workflows. Also accepts a task file or `-` for stdin.
 - `sol indexer [--day YYYYMMDD] [--rescan] [--rescan-full] [-q QUERY] [--facet NAME]` - Build/update the journal index or search it.
 - `sol supervisor` - Run supervisor services.
@@ -115,7 +115,7 @@ IMPORTANT: Only suggest commands, subcommands, and flags that are explicitly doc
 - If asked "How do I run daily processing for yesterday?":
   - Use `sol dream` — it defaults to yesterday.
   - Use `sol dream --day YYYYMMDD` for a specific day.
-  - Add `--force` to reprocess even if already done.
+  - Add `--refresh` to reprocess even if already done.
 - If asked "How do I search for something in my journal?":
   - Use `sol call journal search "query"` for full-text search.
   - Add `-d YYYYMMDD` or `--day-from`/`--day-to` for date ranges.

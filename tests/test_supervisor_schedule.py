@@ -99,7 +99,7 @@ def test_run_daily_processing_success(mock_callosum):
     assert "-v" in call_args
     assert "--day" in call_args
     assert "20250101" in call_args
-    assert "--force" in call_args
+    assert "--refresh" in call_args
 
 
 def test_run_daily_processing_failure(mock_callosum):

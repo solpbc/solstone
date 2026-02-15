@@ -39,7 +39,7 @@ from think.activities import (
     update_record_description,
 )
 from think.callosum import callosum_send
-from think.utils import day_path, iter_segments, now_ms, segment_parse, segment_path
+from think.utils import day_path, iter_segments, now_ms, segment_path
 
 logger = logging.getLogger(__name__)
 

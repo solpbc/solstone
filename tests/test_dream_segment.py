@@ -150,7 +150,7 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "run_queued_command", mock_run_queued_command)
 
         success, failed, failed_names = dream.run_prompts_by_priority(
-            "20240115", "120000_300", force=False, verbose=False
+            "20240115", "120000_300", refresh=False, verbose=False
         )
 
         assert success == 3
@@ -208,7 +208,7 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
 
         success, failed, failed_names = dream.run_prompts_by_priority(
-            "20240115", "120000_300", force=False, verbose=False
+            "20240115", "120000_300", refresh=False, verbose=False
         )
 
         assert success == 2  # One per facet
@@ -259,7 +259,7 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
 
         success, failed, failed_names = dream.run_prompts_by_priority(
-            "20240115", "120000_300", force=False, verbose=False
+            "20240115", "120000_300", refresh=False, verbose=False
         )
 
         # Only work facet should be spawned, personal is muted
@@ -311,7 +311,7 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "run_queued_command", mock_run_queued_command)
 
         dream.run_prompts_by_priority(
-            "20240115", "120000_300", force=False, verbose=False, stream="default"
+            "20240115", "120000_300", refresh=False, verbose=False, stream="default"
         )
 
         # Verify indexer was called with --rescan-file
@@ -411,7 +411,7 @@ class TestCortexRequestRetry:
         monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)
 
         success, failed, failed_names = dream.run_prompts_by_priority(
-            "20240115", "120000_300", force=False, verbose=False
+            "20240115", "120000_300", refresh=False, verbose=False
         )
 
         assert success == 0

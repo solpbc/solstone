@@ -24,14 +24,14 @@ The package exposes several commands:
 
 ```bash
 sol call transcripts read YYYYMMDD [--start HHMMSS --length MINUTES]
-sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--stream NAME] [--force] [--run NAME] [--flush]
+sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--stream NAME] [--refresh] [--run NAME] [--flush]
 sol supervisor [--no-observers]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
 sol muse list [--schedule daily|segment] [--json]
 sol muse show <name> [--prompt] [--day YYYYMMDD] [--segment HHMMSS_LEN] [--full]
 ```
 
-Use `--force` to overwrite existing files, and `-v` for verbose logs.
+Use `--refresh` to overwrite existing files, and `-v` for verbose logs.
 
 Set `GOOGLE_API_KEY` before running any command that contacts Gemini.
 `JOURNAL_PATH` and `GOOGLE_API_KEY` can also be provided in a `.env` file which
@@ -144,7 +144,7 @@ agent_id = cortex_request(
     config={
         "day": "20250109",
         "output": "md",
-        "force": True,  # Regenerate even if output exists
+        "refresh": True,  # Regenerate even if output exists
     }
 )
 

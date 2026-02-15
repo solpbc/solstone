@@ -16,7 +16,7 @@ import argparse
 import shutil
 from pathlib import Path
 
-from think.utils import day_dirs, get_journal, iter_segments, segment_key, setup_cli
+from think.utils import day_dirs, get_journal, iter_segments, setup_cli
 
 KNOWN_SEGMENT_AGENT_JSON = frozenset(
     {"facets.json", "speakers.json", "activity_state.json"}

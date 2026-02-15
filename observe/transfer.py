@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from think.callosum import callosum_send
-from think.utils import get_journal, iter_segments, now_ms, segment_key, setup_cli
+from think.utils import get_journal, iter_segments, now_ms, setup_cli
 
 from .utils import compute_file_sha256, find_available_segment
 
@@ -46,7 +46,7 @@ def _list_segment_dirs(day_dir: Path) -> list[tuple[str, str, Path]]:
         day_dir: Path to day directory
 
     Returns:
-        List of (stream_name, segment_key, segment_path) tuples sorted by segment_key
+        List of (stream_name, segment_path) tuples sorted by segment_key
     """
     return iter_segments(day_dir)
 

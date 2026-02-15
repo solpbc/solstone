@@ -265,7 +265,9 @@ def test_ingest_success(remote_env):
     assert data["bytes"] == len(test_data)
 
     # Verify file was written (in stream/segment directory)
-    expected_file = env.journal / "20250103" / "test-remote" / "120000_300" / "test_audio.flac"
+    expected_file = (
+        env.journal / "20250103" / "test-remote" / "120000_300" / "test_audio.flac"
+    )
     assert expected_file.exists()
     assert expected_file.read_bytes() == test_data
 
@@ -598,7 +600,9 @@ def test_ingest_no_collision_preserves_segment(remote_env):
     assert data["files"] == ["audio.flac"]  # Segment prefix stripped
 
     # Verify file saved in stream/segment directory
-    expected_file = env.journal / "20250103" / "no-collision-test" / "120000_300" / "audio.flac"
+    expected_file = (
+        env.journal / "20250103" / "no-collision-test" / "120000_300" / "audio.flac"
+    )
     assert expected_file.exists()
 
 
@@ -916,7 +920,9 @@ def test_segments_endpoint_missing_file(remote_env):
     assert resp.status_code == 200
 
     # Delete the file (now in stream/segment directory with stripped name)
-    (env.journal / "20250103" / "segments-missing-test" / "120000_300" / "audio.flac").unlink()
+    (
+        env.journal / "20250103" / "segments-missing-test" / "120000_300" / "audio.flac"
+    ).unlink()
 
     # Query segments
     resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
@@ -965,7 +971,10 @@ def test_segments_endpoint_relocated_file(remote_env):
     assert len(data) == 1
     file_info = data[0]["files"][0]
     assert file_info["status"] == "relocated"
-    assert file_info["current_path"] == "segments-relocate-test/120000_300/renamed_audio.flac"
+    assert (
+        file_info["current_path"]
+        == "segments-relocate-test/120000_300/renamed_audio.flac"
+    )
 
 
 def test_find_by_inode(remote_env):

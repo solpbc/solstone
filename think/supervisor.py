@@ -1005,7 +1005,7 @@ def _run_daily_processing(day: str) -> None:
     """Run complete daily processing via sol dream.
 
     dream now handles both generators and agent execution, so we just
-    invoke it with --force and let it manage the full pipeline.
+    invoke it with --refresh and let it manage the full pipeline.
 
     Args:
         day: Target day in YYYYMMDD format
@@ -1014,7 +1014,7 @@ def _run_daily_processing(day: str) -> None:
 
     logging.info(f"Starting daily processing for {day}...")
     success, exit_code, log_path = run_task(
-        ["sol", "dream", "-v", "--day", day, "--force"],
+        ["sol", "dream", "-v", "--day", day, "--refresh"],
         callosum=_supervisor_callosum,
     )
 

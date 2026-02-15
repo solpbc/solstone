@@ -77,7 +77,7 @@ Generators are spawned via Cortex when a request has an `output` field but no `t
   "segment": "120000_300",          // Optional: single segment key (HHMMSS_duration)
   "span": ["120000_300", "120500_300"],  // Optional: list of sequential segment keys
   "output_path": "/path/to/file.md", // Optional: override output location
-  "force": false,                   // Optional: regenerate even if output exists
+  "refresh": false,                 // Optional: regenerate even if output exists
   "provider": "google",             // Optional: AI provider override
   "model": "gemini-2.0-flash"       // Optional: model override
 }

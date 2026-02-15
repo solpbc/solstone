@@ -508,9 +508,7 @@ def test_show_prompt_context_activity_requires_activity_id(capsys):
     from think.muse_cli import show_prompt_context
 
     with pytest.raises(SystemExit):
-        show_prompt_context(
-            "decisions", day="20260214", facet="full-featured"
-        )
+        show_prompt_context("decisions", day="20260214", facet="full-featured")
 
     output = capsys.readouterr().err
     assert "--activity" in output

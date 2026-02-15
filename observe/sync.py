@@ -28,7 +28,7 @@ from urllib.parse import urlparse
 import requests
 
 from think.callosum import CallosumConnection
-from think.utils import day_path, get_rev, now_ms, segment_path, setup_cli
+from think.utils import day_path, get_rev, now_ms, setup_cli
 
 from .utils import compute_file_sha256
 
