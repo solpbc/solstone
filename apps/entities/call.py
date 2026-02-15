@@ -22,7 +22,7 @@ from think.entities.observations import (
     load_observations,
 )
 from think.entities.saving import save_entities
-from think.utils import now_ms
+from think.utils import now_ms, resolve_sol_day, resolve_sol_facet
 
 app = typer.Typer(help="Entity management.")
 
@@ -58,8 +58,6 @@ def list_entities(
     ),
 ) -> None:
     """List entities for a facet."""
-    from think.utils import resolve_sol_facet
-
     facet = resolve_sol_facet(facet)
     entities = load_entities(facet, day)
     if not entities:
@@ -74,17 +72,18 @@ def list_entities(
 
 @app.command("detect")
 def detect_entity(
-    facet: str = typer.Argument(help="Facet name."),
     type_: str = typer.Argument(metavar="TYPE", help="Entity type."),
     entity: str = typer.Argument(help="Entity name or identifier."),
     description: str = typer.Argument(help="Description."),
+    facet: str | None = typer.Option(
+        None, "--facet", "-f", help="Facet name (or set SOL_FACET)."
+    ),
     day: str | None = typer.Option(
         None, "--day", "-d", help="Day (YYYYMMDD, or set SOL_DAY)."
     ),
 ) -> None:
     """Record a detected entity for a day in a facet."""
-    from think.utils import resolve_sol_day
-
+    facet = resolve_sol_facet(facet)
     day = resolve_sol_day(day)
     if not is_valid_entity_type(type_):
         typer.echo(f"Error: Invalid entity type '{type_}'.", err=True)
@@ -116,12 +115,15 @@ def detect_entity(
 
 @app.command("attach")
 def attach_entity(
-    facet: str = typer.Argument(help="Facet name."),
     type_: str = typer.Argument(metavar="TYPE", help="Entity type."),
     entity: str = typer.Argument(help="Entity name."),
     description: str = typer.Argument(help="Description."),
+    facet: str | None = typer.Option(
+        None, "--facet", "-f", help="Facet name (or set SOL_FACET)."
+    ),
 ) -> None:
     """Attach an entity permanently to a facet."""
+    facet = resolve_sol_facet(facet)
     if not is_valid_entity_type(type_):
         typer.echo(f"Error: Invalid entity type '{type_}'.", err=True)
         raise typer.Exit(1)
@@ -167,14 +169,17 @@ def attach_entity(
 
 @app.command("update")
 def update_entity(
-    facet: str = typer.Argument(help="Facet name."),
     entity: str = typer.Argument(help="Entity name or identifier."),
     description: str = typer.Argument(help="New description."),
+    facet: str | None = typer.Option(
+        None, "--facet", "-f", help="Facet name (or set SOL_FACET)."
+    ),
     day: str | None = typer.Option(
         None, "--day", "-d", help="Day for detected entities."
     ),
 ) -> None:
     """Update an entity description."""
+    facet = resolve_sol_facet(facet)
     if day is None:
         resolved = _resolve_or_exit(facet, entity)
         resolved_name = resolved.get("name", entity)
@@ -216,11 +221,14 @@ def update_entity(
 
 @app.command("aka")
 def add_aka(
-    facet: str = typer.Argument(help="Facet name."),
     entity: str = typer.Argument(help="Entity name or identifier."),
     aka_value: str = typer.Argument(metavar="AKA", help="Alias to add."),
+    facet: str | None = typer.Option(
+        None, "--facet", "-f", help="Facet name (or set SOL_FACET)."
+    ),
 ) -> None:
     """Add an alias to an attached entity."""
+    facet = resolve_sol_facet(facet)
     resolved = _resolve_or_exit(facet, entity)
     resolved_name = resolved.get("name", "")
 
@@ -265,10 +273,13 @@ def add_aka(
 
 @app.command("observations")
 def list_observations(
-    facet: str = typer.Argument(help="Facet name."),
     entity: str = typer.Argument(help="Entity name or identifier."),
+    facet: str | None = typer.Option(
+        None, "--facet", "-f", help="Facet name (or set SOL_FACET)."
+    ),
 ) -> None:
     """List observations for an attached entity."""
+    facet = resolve_sol_facet(facet)
     resolved = _resolve_or_exit(facet, entity)
     resolved_name = resolved.get("name", "")
     obs = load_observations(facet, resolved_name)
@@ -284,12 +295,15 @@ def list_observations(
 
 @app.command("observe")
 def observe_entity(
-    facet: str = typer.Argument(help="Facet name."),
     entity: str = typer.Argument(help="Entity name or identifier."),
     content: str = typer.Argument(help="Observation content."),
+    facet: str | None = typer.Option(
+        None, "--facet", "-f", help="Facet name (or set SOL_FACET)."
+    ),
     source_day: str | None = typer.Option(None, "--source-day", help="Day (YYYYMMDD)."),
 ) -> None:
     """Add an observation to an attached entity."""
+    facet = resolve_sol_facet(facet)
     resolved = _resolve_or_exit(facet, entity)
     resolved_name = resolved.get("name", "")
     obs = load_observations(facet, resolved_name)

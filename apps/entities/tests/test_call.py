@@ -81,10 +81,11 @@ class TestEntitiesDetect:
             [
                 "entities",
                 "detect",
-                "personal",
                 "Person",
                 "Alice",
                 "Met at conference",
+                "--facet",
+                "personal",
                 "--day",
                 "20240101",
             ],
@@ -106,10 +107,11 @@ class TestEntitiesDetect:
             [
                 "entities",
                 "detect",
-                "personal",
                 "Person",
                 "Alice",
                 "Second",
+                "--facet",
+                "personal",
                 "--day",
                 "20240101",
             ],
@@ -126,10 +128,11 @@ class TestEntitiesDetect:
             [
                 "entities",
                 "detect",
-                "personal",
                 "AB",
                 "Alice",
                 "Met at conference",
+                "--facet",
+                "personal",
                 "--day",
                 "20240101",
             ],
@@ -145,7 +148,15 @@ class TestEntitiesAttach:
 
         result = runner.invoke(
             call_app,
-            ["entities", "attach", "personal", "Person", "Alice Johnson", "Friend"],
+            [
+                "entities",
+                "attach",
+                "Person",
+                "Alice Johnson",
+                "Friend",
+                "-f",
+                "personal",
+            ],
         )
 
         assert result.exit_code == 0
@@ -166,7 +177,15 @@ class TestEntitiesAttach:
 
         result = runner.invoke(
             call_app,
-            ["entities", "attach", "personal", "Person", "Alice Johnson", "Friend"],
+            [
+                "entities",
+                "attach",
+                "Person",
+                "Alice Johnson",
+                "Friend",
+                "-f",
+                "personal",
+            ],
         )
 
         assert result.exit_code == 0
@@ -177,7 +196,7 @@ class TestEntitiesAttach:
 
         result = runner.invoke(
             call_app,
-            ["entities", "attach", "personal", "AB", "Alice Johnson", "Friend"],
+            ["entities", "attach", "AB", "Alice Johnson", "Friend", "-f", "personal"],
         )
 
         assert result.exit_code == 1
@@ -200,7 +219,14 @@ class TestEntitiesUpdate:
 
         result = runner.invoke(
             call_app,
-            ["entities", "update", "personal", "Alice Johnson", "New description"],
+            [
+                "entities",
+                "update",
+                "Alice Johnson",
+                "New description",
+                "-f",
+                "personal",
+            ],
         )
         verify = runner.invoke(call_app, ["entities", "list", "personal"])
 
@@ -221,9 +247,10 @@ class TestEntitiesUpdate:
             [
                 "entities",
                 "update",
-                "personal",
                 "Alice",
                 "New desc",
+                "-f",
+                "personal",
                 "--day",
                 "20240101",
             ],
@@ -237,7 +264,7 @@ class TestEntitiesUpdate:
 
         result = runner.invoke(
             call_app,
-            ["entities", "update", "personal", "Missing", "New description"],
+            ["entities", "update", "Missing", "New description", "-f", "personal"],
         )
 
         assert result.exit_code == 1
@@ -260,7 +287,7 @@ class TestEntitiesAka:
 
         result = runner.invoke(
             call_app,
-            ["entities", "aka", "personal", "Alice Johnson", "Ali"],
+            ["entities", "aka", "Alice Johnson", "Ali", "-f", "personal"],
         )
 
         assert result.exit_code == 0
@@ -282,7 +309,7 @@ class TestEntitiesAka:
 
         result = runner.invoke(
             call_app,
-            ["entities", "aka", "personal", "Alice Johnson", "Ali"],
+            ["entities", "aka", "Alice Johnson", "Ali", "-f", "personal"],
         )
 
         assert result.exit_code == 0
@@ -303,7 +330,7 @@ class TestEntitiesAka:
 
         result = runner.invoke(
             call_app,
-            ["entities", "aka", "personal", "Alice Johnson", "Alice"],
+            ["entities", "aka", "Alice Johnson", "Alice", "-f", "personal"],
         )
 
         assert result.exit_code == 0
@@ -326,7 +353,7 @@ class TestEntitiesObservations:
 
         result = runner.invoke(
             call_app,
-            ["entities", "observations", "personal", "Alice Johnson"],
+            ["entities", "observations", "Alice Johnson", "-f", "personal"],
         )
 
         assert result.exit_code == 0
@@ -349,7 +376,7 @@ class TestEntitiesObservations:
 
         result = runner.invoke(
             call_app,
-            ["entities", "observations", "personal", "Alice Johnson"],
+            ["entities", "observations", "Alice Johnson", "-f", "personal"],
         )
 
         assert result.exit_code == 0
@@ -373,7 +400,7 @@ class TestEntitiesObserve:
 
         result = runner.invoke(
             call_app,
-            ["entities", "observe", "personal", "Alice Johnson", "Likes coffee"],
+            ["entities", "observe", "Alice Johnson", "Likes coffee", "-f", "personal"],
         )
 
         assert result.exit_code == 0
@@ -384,7 +411,7 @@ class TestEntitiesObserve:
 
         result = runner.invoke(
             call_app,
-            ["entities", "observe", "personal", "Missing", "Likes coffee"],
+            ["entities", "observe", "Missing", "Likes coffee", "-f", "personal"],
         )
 
         assert result.exit_code == 1
@@ -412,13 +439,14 @@ class TestSolEnvResolution:
         assert result.exit_code == 0
         assert "Alice" in result.output
 
-    def test_detect_from_sol_day(self, entity_env, monkeypatch):
-        """detect with SOL_DAY env instead of --day option works."""
+    def test_detect_from_sol_day_and_facet(self, entity_env, monkeypatch):
+        """detect with SOL_DAY + SOL_FACET env works."""
         entity_env()
         monkeypatch.setenv("SOL_DAY", "20240101")
+        monkeypatch.setenv("SOL_FACET", "personal")
         result = runner.invoke(
             call_app,
-            ["entities", "detect", "personal", "Person", "Bob", "Met at party"],
+            ["entities", "detect", "Person", "Bob", "Met at party"],
         )
         assert result.exit_code == 0
         assert "detected" in result.output
@@ -432,10 +460,11 @@ class TestSolEnvResolution:
             [
                 "entities",
                 "detect",
-                "personal",
                 "Person",
                 "Charlie",
                 "Met at office",
+                "-f",
+                "personal",
                 "--day",
                 "20240101",
             ],

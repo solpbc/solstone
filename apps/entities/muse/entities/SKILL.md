@@ -7,7 +7,7 @@ description: Manage tracked entities with sol call entities commands. List, dete
 
 Use these commands to maintain facet-scoped entity memory from the terminal.
 
-**Environment defaults**: When `SOL_FACET` is set, commands that take a FACET argument will use it automatically. Same for `SOL_DAY` where DAY is accepted.
+**Environment defaults**: When `SOL_FACET` is set, all commands use it automatically. Same for `SOL_DAY` where DAY is accepted.
 
 Common pattern:
 
@@ -50,15 +50,15 @@ sol call entities list work -d 20260115
 ## detect
 
 ```bash
-sol call entities detect FACET TYPE ENTITY DESCRIPTION [-d DAY]
+sol call entities detect TYPE ENTITY DESCRIPTION [-f FACET] [-d DAY]
 ```
 
 Record a detected entity for a day.
 
-- `FACET`: required facet name (positional argument).
 - `TYPE`: entity type (alphanumeric + spaces, minimum 3 chars).
 - `ENTITY`: entity id, full name, or alias.
 - `DESCRIPTION`: day-scoped description.
+- `-f, --facet`: facet name (default: `SOL_FACET` env).
 - `-d, --day`: day in `YYYYMMDD` (default: `SOL_DAY` env).
 
 Behavior notes:
@@ -70,21 +70,21 @@ Behavior notes:
 Example:
 
 ```bash
-sol call entities detect work "Person" "Alicia Chen" "Led architecture review" -d 20260115
+sol call entities detect "Person" "Alicia Chen" "Led architecture review" -f work -d 20260115
 ```
 
 ## attach
 
 ```bash
-sol call entities attach FACET TYPE ENTITY DESCRIPTION
+sol call entities attach TYPE ENTITY DESCRIPTION [-f FACET]
 ```
 
 Attach an entity permanently to a facet.
 
-- `FACET`: required facet name.
 - `TYPE`: required type.
 - `ENTITY`: id, name, or alias reference.
 - `DESCRIPTION`: persistent description.
+- `-f, --facet`: facet name (default: `SOL_FACET` env).
 
 Behavior notes:
 
@@ -95,20 +95,20 @@ Behavior notes:
 Example:
 
 ```bash
-sol call entities attach work "Company" "Acme Corp" "Primary platform vendor"
+sol call entities attach "Company" "Acme Corp" "Primary platform vendor" -f work
 ```
 
 ## update
 
 ```bash
-sol call entities update FACET ENTITY DESCRIPTION [-d DAY]
+sol call entities update ENTITY DESCRIPTION [-f FACET] [-d DAY]
 ```
 
 Update entity description.
 
-- `FACET`: required facet name.
 - `ENTITY`: entity id, name, or alias for attached entities; exact name for day-scoped detected updates.
 - `DESCRIPTION`: new description.
+- `-f, --facet`: facet name (default: `SOL_FACET` env).
 - `-d, --day`: optional day (`YYYYMMDD`) to update a detected entity.
 
 Behavior notes:
@@ -119,21 +119,21 @@ Behavior notes:
 Examples:
 
 ```bash
-sol call entities update work "acme_corp" "Primary vendor for identity services"
-sol call entities update work "Alicia Chen" "Discussed migration plan" -d 20260115
+sol call entities update "acme_corp" "Primary vendor for identity services" -f work
+sol call entities update "Alicia Chen" "Discussed migration plan" -f work -d 20260115
 ```
 
 ## aka
 
 ```bash
-sol call entities aka FACET ENTITY AKA
+sol call entities aka ENTITY AKA [-f FACET]
 ```
 
 Add an alias to an attached entity.
 
-- `FACET`: required facet name.
 - `ENTITY`: entity id, name, or alias reference.
 - `AKA`: alias to add.
+- `-f, --facet`: facet name (default: `SOL_FACET` env).
 
 Behavior notes:
 
@@ -144,39 +144,39 @@ Behavior notes:
 Example:
 
 ```bash
-sol call entities aka work "Federal Aviation Administration" "FAA"
+sol call entities aka "Federal Aviation Administration" "FAA" -f work
 ```
 
 ## observations
 
 ```bash
-sol call entities observations FACET ENTITY
+sol call entities observations ENTITY [-f FACET]
 ```
 
 List durable observations for an attached entity.
 
-- `FACET`: required facet name.
 - `ENTITY`: entity id, name, or alias.
+- `-f, --facet`: facet name (default: `SOL_FACET` env).
 
 Output is numbered for quick review.
 
 Example:
 
 ```bash
-sol call entities observations work "Alicia Chen"
+sol call entities observations "Alicia Chen" -f work
 ```
 
 ## observe
 
 ```bash
-sol call entities observe FACET ENTITY CONTENT [--source-day DAY]
+sol call entities observe ENTITY CONTENT [-f FACET] [--source-day DAY]
 ```
 
 Add a durable observation to an attached entity.
 
-- `FACET`: required facet name.
 - `ENTITY`: entity id, name, or alias.
 - `CONTENT`: observation text.
+- `-f, --facet`: facet name (default: `SOL_FACET` env).
 - `--source-day`: optional day (`YYYYMMDD`) when this was observed.
 
 Behavior notes:
@@ -200,5 +200,5 @@ Bad observations (day-specific activity; use `detect` instead):
 Example:
 
 ```bash
-sol call entities observe work "Alicia Chen" "Prefers design docs before implementation" --source-day 20260115
+sol call entities observe "Alicia Chen" "Prefers design docs before implementation" -f work --source-day 20260115
 ```
