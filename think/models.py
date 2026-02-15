@@ -530,7 +530,7 @@ def log_token_usage(
         If None, auto-detects from call stack.
     segment : str, optional
         Segment key (e.g., "143022_300") for attribution.
-        If None, falls back to SEGMENT_KEY environment variable.
+        If None, falls back to SOL_SEGMENT environment variable.
     type : str, optional
         Token entry type (e.g., "generate", "cogitate").
     """
@@ -637,7 +637,7 @@ def log_token_usage(
         }
 
         # Add segment: prefer parameter, fallback to env (set by think/insight, observe handlers)
-        segment_key = segment or os.getenv("SEGMENT_KEY")
+        segment_key = segment or os.getenv("SOL_SEGMENT")
         if segment_key:
             token_data["segment"] = segment_key
         if type:

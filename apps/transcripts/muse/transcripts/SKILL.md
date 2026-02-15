@@ -6,6 +6,9 @@ description: Browse and read transcript content using sol call transcripts comma
 # Transcripts CLI Skill
 
 Use these commands to inspect transcript availability and content from the terminal.
+
+**Environment defaults**: When `SOL_DAY` is set, commands that take a DAY argument will use it automatically. `SOL_SEGMENT` and `SOL_STREAM` provide defaults for `--segment` and `--stream` options.
+
 Common pattern:
 
 ```bash
@@ -17,12 +20,12 @@ sol call transcripts <command> [args...]
 ## scan
 
 ```bash
-sol call transcripts scan DAY
+sol call transcripts scan [DAY]
 ```
 
 Show audio and screen coverage ranges.
 
-- `DAY`: required day in `YYYYMMDD`.
+- `DAY`: day in `YYYYMMDD` (default: `SOL_DAY` env).
 
 Use this first to confirm what recording windows exist before running detailed reads.
 
@@ -35,12 +38,12 @@ sol call transcripts scan 20260115
 ## segments
 
 ```bash
-sol call transcripts segments DAY
+sol call transcripts segments [DAY]
 ```
 
 List recording segments and their source types.
 
-- `DAY`: required day in `YYYYMMDD`.
+- `DAY`: day in `YYYYMMDD` (default: `SOL_DAY` env).
 
 Behavior notes:
 
@@ -58,12 +61,12 @@ sol call transcripts segments 20260115
 ## read
 
 ```bash
-sol call transcripts read DAY [--start HHMMSS --length MINUTES] [--segment KEY] [--full] [--raw] [--audio] [--screen] [--agents]
+sol call transcripts read [DAY] [--start HHMMSS --length MINUTES] [--segment KEY] [--stream NAME] [--full] [--raw] [--audio] [--screen] [--agents]
 ```
 
 Read transcript content for a day, time range, or segment.
 
-- `DAY`: required day in `YYYYMMDD`.
+- `DAY`: day in `YYYYMMDD` (default: `SOL_DAY` env).
 
 Read modes (mutually exclusive):
 

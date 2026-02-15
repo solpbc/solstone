@@ -414,7 +414,7 @@ class CortexService:
                                         # Extract segment from env if set (flat merge puts env at top level)
                                         env_config = original_request.get("env", {})
                                         segment = (
-                                            env_config.get("SEGMENT_KEY")
+                                            env_config.get("SOL_SEGMENT")
                                             if env_config
                                             else None
                                         )

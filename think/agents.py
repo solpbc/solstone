@@ -290,9 +290,9 @@ def _load_transcript(
     """
     # Set segment key for token usage logging
     if segment:
-        os.environ["SEGMENT_KEY"] = segment
+        os.environ["SOL_SEGMENT"] = segment
     elif span:
-        os.environ["SEGMENT_KEY"] = span[0]
+        os.environ["SOL_SEGMENT"] = span[0]
 
     # Convert sources config for clustering
     cluster_sources: dict = {}
@@ -309,7 +309,7 @@ def _load_transcript(
             cluster_sources[k] = source_is_enabled(v)
 
     # Build transcript via clustering
-    stream = os.environ.get("STREAM_NAME")
+    stream = os.environ.get("SOL_STREAM")
     if span:
         return cluster_span(day, span, sources=cluster_sources, stream=stream)
     elif segment:
@@ -486,7 +486,7 @@ def prepare_config(request: dict) -> dict:
         if output_path_override:
             config["output_path"] = Path(output_path_override)
         elif day:
-            stream = os.environ.get("STREAM_NAME")
+            stream = os.environ.get("SOL_STREAM")
             day_dir = str(day_path(day))
             config["output_path"] = get_output_path(
                 day_dir,

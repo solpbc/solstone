@@ -431,11 +431,16 @@ def run_prompts_by_priority(
                             request_config["output"] = config.get("output", "md")
                             if refresh:
                                 request_config["refresh"] = True
+                        env: dict[str, str] = {
+                            "SOL_DAY": day,
+                            "SOL_FACET": facet_name,
+                        }
                         if segment:
                             request_config["segment"] = segment
-                            request_config["env"] = {"SEGMENT_KEY": segment}
+                            env["SOL_SEGMENT"] = segment
                             if stream:
-                                request_config["env"]["STREAM_NAME"] = stream
+                                env["SOL_STREAM"] = stream
+                        request_config["env"] = env
 
                         prompt = (
                             ""
@@ -497,11 +502,13 @@ def run_prompts_by_priority(
                         request_config["output"] = config.get("output", "md")
                         if refresh:
                             request_config["refresh"] = True
+                    env: dict[str, str] = {"SOL_DAY": day}
                     if segment:
                         request_config["segment"] = segment
-                        request_config["env"] = {"SEGMENT_KEY": segment}
+                        env["SOL_SEGMENT"] = segment
                         if stream:
-                            request_config["env"]["STREAM_NAME"] = stream
+                            env["SOL_STREAM"] = stream
+                    request_config["env"] = env
 
                     prompt = (
                         ""
@@ -759,11 +766,16 @@ def run_single_prompt(
                 try:
                     logging.info(f"Spawning {name} for facet: {facet_name}")
                     request_config = {"facet": facet_name, "day": day}
+                    env: dict[str, str] = {
+                        "SOL_DAY": day,
+                        "SOL_FACET": facet_name,
+                    }
                     if segment:
                         request_config["segment"] = segment
-                        request_config["env"] = {"SEGMENT_KEY": segment}
+                        env["SOL_SEGMENT"] = segment
                         if stream:
-                            request_config["env"]["STREAM_NAME"] = stream
+                            env["SOL_STREAM"] = stream
+                    request_config["env"] = env
                     agent_id = _cortex_request_with_retry(
                         prompt=f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context.",
                         name=name,
@@ -790,11 +802,13 @@ def run_single_prompt(
         else:
             try:
                 request_config = {"day": day}
+                env: dict[str, str] = {"SOL_DAY": day}
                 if segment:
                     request_config["segment"] = segment
-                    request_config["env"] = {"SEGMENT_KEY": segment}
+                    env["SOL_SEGMENT"] = segment
                     if stream:
-                        request_config["env"]["STREAM_NAME"] = stream
+                        env["SOL_STREAM"] = stream
+                request_config["env"] = env
 
                 agent_id = _cortex_request_with_retry(
                     prompt=f"Running task for {day_formatted}: {input_summary}.",
@@ -1091,6 +1105,11 @@ def run_activity_prompts(
                             output_format=output_format,
                         )
                     ),
+                    "env": {
+                        "SOL_DAY": day,
+                        "SOL_FACET": facet,
+                        "SOL_ACTIVITY": activity_id,
+                    },
                 }
                 if is_generate:
                     request_config["output"] = output_format
@@ -1246,9 +1265,12 @@ def run_flush_prompts(
         is_generate = config["type"] == "generate"
 
         try:
-            env: dict[str, str] = {"SEGMENT_KEY": segment}
+            env: dict[str, str] = {
+                "SOL_SEGMENT": segment,
+                "SOL_DAY": day,
+            }
             if stream:
-                env["STREAM_NAME"] = stream
+                env["SOL_STREAM"] = stream
             request_config: dict = {
                 "day": day,
                 "segment": segment,
@@ -1381,7 +1403,7 @@ def parse_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--stream",
-        help="Stream name (e.g., 'archon', 'import.apple'). Passed to agents as STREAM_NAME env var.",
+        help="Stream name (e.g., 'archon', 'import.apple'). Passed to agents as SOL_STREAM env var.",
     )
     parser.add_argument(
         "--flush",

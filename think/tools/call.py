@@ -10,7 +10,6 @@ optimized for terminal use.
 Mounted by ``think.call`` as ``sol call journal ...``.
 """
 
-import re
 import sys
 from pathlib import Path
 
@@ -20,11 +19,15 @@ from think.facets import facet_summary, get_enabled_facets, get_facet_news
 from think.indexer.journal import get_events as get_events_impl
 from think.indexer.journal import search_counts as search_counts_impl
 from think.indexer.journal import search_journal as search_journal_impl
-from think.utils import get_journal, iter_segments, truncated_echo
+from think.utils import (
+    get_journal,
+    iter_segments,
+    resolve_sol_day,
+    resolve_sol_segment,
+    truncated_echo,
+)
 
 app = typer.Typer(help="Journal search and browsing.")
-
-SEGMENT_RE = re.compile(r"\d{6}_\d+")
 
 
 @app.command()
@@ -86,10 +89,13 @@ def search(
 
 @app.command()
 def events(
-    day: str = typer.Argument(help="Day in YYYYMMDD format."),
+    day: str | None = typer.Argument(
+        default=None, help="Day YYYYMMDD (default: SOL_DAY env)."
+    ),
     facet: str | None = typer.Option(None, "--facet", "-f", help="Filter by facet."),
 ) -> None:
     """List events for a day."""
+    day = resolve_sol_day(day)
     items = get_events_impl(day, facet)
     if not items:
         typer.echo("No events found.")
@@ -151,9 +157,7 @@ def news(
 ) -> None:
     """Read or write facet news."""
     if write:
-        if not day:
-            typer.echo("Error: --day is required when writing news.", err=True)
-            raise typer.Exit(1)
+        day = resolve_sol_day(day)
 
         # Read markdown from stdin
         markdown = sys.stdin.read()
@@ -185,12 +189,19 @@ def news(
 
 @app.command()
 def topics(
-    day: str = typer.Argument(help="Day in YYYYMMDD format."),
+    day: str | None = typer.Argument(
+        default=None, help="Day YYYYMMDD (default: SOL_DAY env)."
+    ),
     segment: str | None = typer.Option(
-        None, "--segment", "-s", help="Segment key (HHMMSS_LEN)."
+        None,
+        "--segment",
+        "-s",
+        help="Segment key (HHMMSS_LEN, default: SOL_SEGMENT env).",
     ),
 ) -> None:
     """List available agent outputs for a day."""
+    day = resolve_sol_day(day)
+    segment = resolve_sol_segment(segment)
     journal = get_journal()
     day_path = Path(journal) / day
 
@@ -256,16 +267,23 @@ def _list_outputs(directory: Path, label: str) -> None:
 
 @app.command()
 def read(
-    day: str = typer.Argument(help="Day in YYYYMMDD format."),
     topic: str = typer.Argument(help="Topic name (e.g., flow, meetings, activity)."),
+    day: str | None = typer.Option(
+        None, "--day", "-d", help="Day YYYYMMDD (default: SOL_DAY env)."
+    ),
     segment: str | None = typer.Option(
-        None, "--segment", "-s", help="Segment key (HHMMSS_LEN)."
+        None,
+        "--segment",
+        "-s",
+        help="Segment key (HHMMSS_LEN, default: SOL_SEGMENT env).",
     ),
     max_bytes: int = typer.Option(
         16384, "--max", help="Max output bytes (0 = unlimited)."
     ),
 ) -> None:
     """Read full content of an agent output."""
+    day = resolve_sol_day(day)
+    segment = resolve_sol_segment(segment)
     journal = get_journal()
     day_path = Path(journal) / day
 

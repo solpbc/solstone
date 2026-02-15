@@ -27,7 +27,9 @@ def _print_day_facet(day: str, facet: str) -> bool:
 
 @app.command("list")
 def list_todos(
-    day: str = typer.Argument(help="Journal day in YYYYMMDD format."),
+    day: str | None = typer.Argument(
+        None, help="Journal day in YYYYMMDD format (or set SOL_DAY)."
+    ),
     facet: str | None = typer.Option(
         None, "--facet", "-f", help="Facet name. Omit to show all facets."
     ),
@@ -36,9 +38,10 @@ def list_todos(
     ),
 ) -> None:
     """Show the todo checklist for a day (or date range)."""
-    from think.utils import get_journal
+    from think.utils import get_journal, resolve_sol_day
 
     get_journal()
+    day = resolve_sol_day(day)
 
     if to is not None and to < day:
         typer.echo(f"Error: --to ({to}) must not be before day ({day})", err=True)
@@ -85,16 +88,22 @@ def list_todos(
 
 @app.command("add")
 def add_todo(
-    day: str = typer.Argument(help="Journal day in YYYYMMDD format."),
     text: str = typer.Argument(help="Todo item text."),
-    facet: str = typer.Option(..., "--facet", "-f", help="Facet name."),
+    day: str | None = typer.Option(
+        None, "--day", "-d", help="Journal day in YYYYMMDD format (or set SOL_DAY)."
+    ),
+    facet: str | None = typer.Option(
+        None, "--facet", "-f", help="Facet name (or set SOL_FACET)."
+    ),
 ) -> None:
     """Add a new todo item."""
     from datetime import datetime
 
-    from think.utils import get_journal
+    from think.utils import get_journal, resolve_sol_day, resolve_sol_facet
 
     get_journal()
+    day = resolve_sol_day(day)
+    facet = resolve_sol_facet(facet)
 
     # Reject past dates
     try:
@@ -119,14 +128,20 @@ def add_todo(
 
 @app.command("done")
 def done_todo(
-    day: str = typer.Argument(help="Journal day in YYYYMMDD format."),
     line_number: int = typer.Argument(help="1-based line number of the todo."),
-    facet: str = typer.Option(..., "--facet", "-f", help="Facet name."),
+    day: str | None = typer.Option(
+        None, "--day", "-d", help="Journal day in YYYYMMDD format (or set SOL_DAY)."
+    ),
+    facet: str | None = typer.Option(
+        None, "--facet", "-f", help="Facet name (or set SOL_FACET)."
+    ),
 ) -> None:
     """Mark a todo item as done."""
-    from think.utils import get_journal
+    from think.utils import get_journal, resolve_sol_day, resolve_sol_facet
 
     get_journal()
+    day = resolve_sol_day(day)
+    facet = resolve_sol_facet(facet)
 
     try:
         checklist = todo.TodoChecklist.load(day, facet)
@@ -142,14 +157,20 @@ def done_todo(
 
 @app.command("cancel")
 def cancel_todo(
-    day: str = typer.Argument(help="Journal day in YYYYMMDD format."),
     line_number: int = typer.Argument(help="1-based line number of the todo."),
-    facet: str = typer.Option(..., "--facet", "-f", help="Facet name."),
+    day: str | None = typer.Option(
+        None, "--day", "-d", help="Journal day in YYYYMMDD format (or set SOL_DAY)."
+    ),
+    facet: str | None = typer.Option(
+        None, "--facet", "-f", help="Facet name (or set SOL_FACET)."
+    ),
 ) -> None:
     """Cancel a todo item."""
-    from think.utils import get_journal
+    from think.utils import get_journal, resolve_sol_day, resolve_sol_facet
 
     get_journal()
+    day = resolve_sol_day(day)
+    facet = resolve_sol_facet(facet)
 
     try:
         checklist = todo.TodoChecklist.load(day, facet)

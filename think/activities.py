@@ -577,7 +577,7 @@ def load_segment_activity_state(
     """
     from think.cluster import _find_segment_dir
 
-    stream = os.environ.get("STREAM_NAME")
+    stream = os.environ.get("SOL_STREAM")
     seg_dir = _find_segment_dir(day, segment, stream)
     if not seg_dir:
         return None

@@ -81,11 +81,12 @@ class TestEntitiesDetect:
             [
                 "entities",
                 "detect",
-                "20240101",
                 "personal",
                 "Person",
                 "Alice",
                 "Met at conference",
+                "--day",
+                "20240101",
             ],
         )
 
@@ -105,11 +106,12 @@ class TestEntitiesDetect:
             [
                 "entities",
                 "detect",
-                "20240101",
                 "personal",
                 "Person",
                 "Alice",
                 "Second",
+                "--day",
+                "20240101",
             ],
         )
 
@@ -124,11 +126,12 @@ class TestEntitiesDetect:
             [
                 "entities",
                 "detect",
-                "20240101",
                 "personal",
                 "AB",
                 "Alice",
                 "Met at conference",
+                "--day",
+                "20240101",
             ],
         )
 
@@ -386,3 +389,56 @@ class TestEntitiesObserve:
 
         assert result.exit_code == 1
         assert "not found" in result.output
+
+
+class TestSolEnvResolution:
+    """Tests for SOL_* env var resolution in entities commands."""
+
+    def test_list_from_sol_facet(self, entity_env, monkeypatch):
+        """list with SOL_FACET env instead of positional arg works."""
+        entity_env(
+            attached=[
+                {
+                    "type": "Person",
+                    "name": "Alice",
+                    "description": "Friend",
+                    "attached_at": 1000,
+                    "updated_at": 1000,
+                }
+            ]
+        )
+        monkeypatch.setenv("SOL_FACET", "personal")
+        result = runner.invoke(call_app, ["entities", "list"])
+        assert result.exit_code == 0
+        assert "Alice" in result.output
+
+    def test_detect_from_sol_day(self, entity_env, monkeypatch):
+        """detect with SOL_DAY env instead of --day option works."""
+        entity_env()
+        monkeypatch.setenv("SOL_DAY", "20240101")
+        result = runner.invoke(
+            call_app,
+            ["entities", "detect", "personal", "Person", "Bob", "Met at party"],
+        )
+        assert result.exit_code == 0
+        assert "detected" in result.output
+
+    def test_detect_arg_overrides_sol_day(self, entity_env, monkeypatch):
+        """detect with explicit --day works even with SOL_DAY set."""
+        entity_env()
+        monkeypatch.setenv("SOL_DAY", "19990101")
+        result = runner.invoke(
+            call_app,
+            [
+                "entities",
+                "detect",
+                "personal",
+                "Person",
+                "Charlie",
+                "Met at office",
+                "--day",
+                "20240101",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "detected" in result.output

@@ -18,14 +18,25 @@ from think.cluster import (
     cluster_scan,
     cluster_segments,
 )
-from think.utils import day_dirs, truncated_echo
+from think.utils import (
+    day_dirs,
+    get_sol_stream,
+    resolve_sol_day,
+    resolve_sol_segment,
+    truncated_echo,
+)
 
 app = typer.Typer(help="Transcript browsing.")
 
 
 @app.command("scan")
-def scan(day: str = typer.Argument(help="Day (YYYYMMDD).")) -> None:
+def scan(
+    day: str | None = typer.Argument(
+        default=None, help="Day YYYYMMDD (default: SOL_DAY env)."
+    ),
+) -> None:
     """List transcript coverage ranges for a day."""
+    day = resolve_sol_day(day)
     audio_ranges, screen_ranges = cluster_scan(day)
 
     typer.echo("Audio:")
@@ -44,8 +55,13 @@ def scan(day: str = typer.Argument(help="Day (YYYYMMDD).")) -> None:
 
 
 @app.command("segments")
-def segments(day: str = typer.Argument(help="Day (YYYYMMDD).")) -> None:
+def segments(
+    day: str | None = typer.Argument(
+        default=None, help="Day YYYYMMDD (default: SOL_DAY env)."
+    ),
+) -> None:
     """List recording segments for a day."""
+    day = resolve_sol_day(day)
     segment_list = cluster_segments(day)
     if not segment_list:
         typer.echo("No segments.")
@@ -61,13 +77,17 @@ def segments(day: str = typer.Argument(help="Day (YYYYMMDD).")) -> None:
 
 @app.command("read")
 def read(
-    day: str = typer.Argument(help="Day (YYYYMMDD)."),
+    day: str | None = typer.Argument(
+        default=None, help="Day YYYYMMDD (default: SOL_DAY env)."
+    ),
     start: str | None = typer.Option(None, "--start", help="Start time (HHMMSS)."),
     length: int | None = typer.Option(None, "--length", help="Length in minutes."),
     segment: str | None = typer.Option(
-        None, "--segment", help="Segment key (HHMMSS_LEN)."
+        None, "--segment", help="Segment key (HHMMSS_LEN, default: SOL_SEGMENT env)."
     ),
-    stream: str | None = typer.Option(None, "--stream", help="Stream name."),
+    stream: str | None = typer.Option(
+        None, "--stream", help="Stream name (default: SOL_STREAM env)."
+    ),
     full: bool = typer.Option(
         False, "--full", help="Include audio, screen, and agents."
     ),
@@ -80,6 +100,9 @@ def read(
     ),
 ) -> None:
     """Read transcript content for a day, segment, or time range."""
+    day = resolve_sol_day(day)
+    segment = resolve_sol_segment(segment)
+    stream = stream or get_sol_stream()
     if full and raw:
         typer.echo("Error: Cannot use --full and --raw together.", err=True)
         raise typer.Exit(1)

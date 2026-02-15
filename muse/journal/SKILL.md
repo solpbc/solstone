@@ -6,6 +6,9 @@ description: Search and browse journal content using sol call journal commands. 
 # Journal CLI Skill
 
 Use these commands to explore journal content from the terminal.
+
+**Environment defaults**: When `SOL_DAY` is set, commands that take a DAY argument will use it automatically. Same for `SOL_SEGMENT`.
+
 Common pattern:
 
 ```bash
@@ -50,12 +53,12 @@ sol call journal search "" -d 20260115 -t audio
 ## events
 
 ```bash
-sol call journal events DAY [-f FACET]
+sol call journal events [DAY] [-f FACET]
 ```
 
 List structured events for a day.
 
-- `DAY`: required day in `YYYYMMDD`.
+- `DAY`: day in `YYYYMMDD` (default: `SOL_DAY` env).
 - `-f, --facet`: optional facet filter.
 
 Use this when you need full event records (titles, summaries, times, participants), not just search snippets.
@@ -85,22 +88,67 @@ Example:
 sol call journal facet work
 ```
 
+## topics
+
+```bash
+sol call journal topics [DAY] [-s SEGMENT]
+```
+
+List available agent outputs for a day.
+
+- `DAY`: day in `YYYYMMDD` (default: `SOL_DAY` env).
+- `-s, --segment`: optional segment key (default: `SOL_SEGMENT` env).
+
+Without `--segment`, lists daily agent outputs and per-segment outputs. With `--segment`, lists only that segment's outputs.
+
+Example:
+
+```bash
+sol call journal topics 20260115
+sol call journal topics -s 091500_300
+```
+
+## read
+
+```bash
+sol call journal read TOPIC [-d DAY] [-s SEGMENT] [--max BYTES]
+```
+
+Read full content of an agent output.
+
+- `TOPIC`: topic name, e.g. `flow`, `meetings`, `activity` (positional argument).
+- `-d, --day`: day in `YYYYMMDD` (default: `SOL_DAY` env).
+- `-s, --segment`: optional segment key (default: `SOL_SEGMENT` env).
+- `--max`: max output bytes (default `16384`, `0` for unlimited).
+
+Without `--segment`, reads from the daily agents directory. With `--segment`, reads from that segment's agents directory.
+
+Examples:
+
+```bash
+sol call journal read flow -d 20260115
+sol call journal read meetings
+sol call journal read activity -s 091500_300
+```
+
 ## news
 
 ```bash
-sol call journal news NAME [-d DAY] [-n LIMIT] [--cursor CURSOR]
+sol call journal news NAME [-d DAY] [-n LIMIT] [--cursor CURSOR] [-w]
 ```
 
-Read facet news entries (read-only feed in CLI).
+Read or write facet news entries.
 
 - `NAME`: facet name.
-- `-d, --day`: optional specific day (`YYYYMMDD`).
+- `-d, --day`: optional specific day (`YYYYMMDD`, default: `SOL_DAY` env for write mode).
 - `-n, --limit`: max days to return (default `5`).
 - `--cursor`: optional pagination cursor (typically a `YYYYMMDD` cutoff for older entries).
+- `-w, --write`: write mode — reads markdown from stdin and saves as news for the given day.
 
 Behavior notes:
 
-- CLI `news` reads content only. It does not provide write behavior.
+- Without `--write`: reads and displays existing news entries.
+- With `--write`: requires `--day` (or `SOL_DAY` env), reads markdown content from stdin, saves to facet news directory.
 
 Examples:
 

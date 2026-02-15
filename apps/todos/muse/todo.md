@@ -30,15 +30,15 @@ Use the Activity Context and Activity State Per Segment sections above to unders
 
 ## Tooling
 
-### Todo Commands (require facet parameter)
-- `sol call todos list $day_YYYYMMDD -f FACET` – inspect the current numbered checklist
-- `sol call todos add $day_YYYYMMDD TEXT -f FACET` – append a new unchecked line (line number is auto-calculated)
-- `sol call todos done $day_YYYYMMDD LINE_NUMBER -f FACET` – mark an entry complete
-- `sol call todos upcoming -l LIMIT -f FACET` – view upcoming todos to avoid duplicates
+### Todo Commands (SOL_DAY and SOL_FACET are set in your environment)
+- `sol call todos list` – inspect the current numbered checklist
+- `sol call todos add TEXT` – append a new unchecked line (line number is auto-calculated)
+- `sol call todos done LINE_NUMBER` – mark an entry complete
+- `sol call todos upcoming` – view upcoming todos to avoid duplicates
 
 ### Transcript Commands (for deeper investigation)
-- `sol call transcripts read $day_YYYYMMDD --segment SEGMENT_KEY --full` – read full transcript for a specific segment (segment keys from this activity: $activity_segments)
-- `sol call journal search QUERY -d $day_YYYYMMDD` – cross-reference journal content
+- `sol call transcripts read --segment SEGMENT_KEY --full` – read full transcript for a specific segment (segment keys from this activity: $activity_segments)
+- `sol call journal search QUERY` – cross-reference journal content
 
 **Query syntax**: Terms are AND'd by default; use `OR` for alternatives, quote phrases for exact matches, append `*` for prefix matching.
 

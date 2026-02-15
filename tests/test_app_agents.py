@@ -217,11 +217,11 @@ class TestResolveOutputPath:
         assert result is not None
 
     def test_uses_env_stream_name(self, fixture_journal):
-        """STREAM_NAME from env is passed through to get_output_path."""
+        """SOL_STREAM from env is passed through to get_output_path."""
         event = {
             "day": "20260214",
             "name": "default",
-            "env": {"STREAM_NAME": "mystream"},
+            "env": {"SOL_STREAM": "mystream"},
         }
         result = _resolve_output_path(event, "tests/fixtures/journal")
         assert result is not None

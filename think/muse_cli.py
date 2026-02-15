@@ -805,7 +805,7 @@ def _get_output_size(request_event: dict[str, Any], journal_root: str) -> int | 
         req_facet = request_event.get("facet")
         req_name = request_event.get("name", "default")
         req_env = request_event.get("env") or {}
-        req_stream = req_env.get("STREAM_NAME") if req_env else None
+        req_stream = req_env.get("SOL_STREAM") if req_env else None
         day_dir = Path(journal_root) / req_day
         out_path = get_output_path(
             day_dir,

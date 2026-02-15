@@ -311,7 +311,7 @@ class FileSensor:
         # Build environment with segment and remote context for handlers
         env = os.environ.copy()
         if segment:
-            env["SEGMENT_KEY"] = segment
+            env["SOL_SEGMENT"] = segment
         if remote:
             env["REMOTE_NAME"] = remote
         if meta:

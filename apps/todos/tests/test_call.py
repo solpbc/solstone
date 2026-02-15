@@ -64,7 +64,15 @@ class TestTodosAdd:
         todo_env([], day="29991231")
         result = runner.invoke(
             call_app,
-            ["todos", "add", "29991231", "Ship feature", "--facet", "personal"],
+            [
+                "todos",
+                "add",
+                "Ship feature",
+                "--day",
+                "29991231",
+                "--facet",
+                "personal",
+            ],
         )
         assert result.exit_code == 0
         assert "Ship feature" in result.output
@@ -73,7 +81,8 @@ class TestTodosAdd:
         """Add appends after existing items."""
         todo_env([{"text": "First"}], day="29991231")
         result = runner.invoke(
-            call_app, ["todos", "add", "29991231", "Second", "--facet", "personal"]
+            call_app,
+            ["todos", "add", "Second", "--day", "29991231", "--facet", "personal"],
         )
         assert result.exit_code == 0
         assert "First" in result.output
@@ -83,7 +92,8 @@ class TestTodosAdd:
         """Adding to a past date fails."""
         todo_env([], day="20200101")
         result = runner.invoke(
-            call_app, ["todos", "add", "20200101", "Nope", "--facet", "personal"]
+            call_app,
+            ["todos", "add", "Nope", "--day", "20200101", "--facet", "personal"],
         )
         assert result.exit_code == 1
 
@@ -91,7 +101,8 @@ class TestTodosAdd:
         """Adding empty text fails."""
         todo_env([], day="29991231")
         result = runner.invoke(
-            call_app, ["todos", "add", "29991231", "   ", "--facet", "personal"]
+            call_app,
+            ["todos", "add", "   ", "--day", "29991231", "--facet", "personal"],
         )
         assert result.exit_code == 1
 
@@ -103,7 +114,7 @@ class TestTodosDone:
         """Mark a todo as done."""
         todo_env([{"text": "Buy milk"}], day="20240101")
         result = runner.invoke(
-            call_app, ["todos", "done", "20240101", "1", "--facet", "personal"]
+            call_app, ["todos", "done", "1", "--day", "20240101", "--facet", "personal"]
         )
         assert result.exit_code == 0
         assert "[x]" in result.output
@@ -112,7 +123,7 @@ class TestTodosDone:
         """Invalid line number fails."""
         todo_env([{"text": "Only one"}], day="20240101")
         result = runner.invoke(
-            call_app, ["todos", "done", "20240101", "5", "--facet", "personal"]
+            call_app, ["todos", "done", "5", "--day", "20240101", "--facet", "personal"]
         )
         assert result.exit_code == 1
 
@@ -124,7 +135,8 @@ class TestTodosCancel:
         """Cancel a todo."""
         todo_env([{"text": "Buy milk"}], day="20240101")
         result = runner.invoke(
-            call_app, ["todos", "cancel", "20240101", "1", "--facet", "personal"]
+            call_app,
+            ["todos", "cancel", "1", "--day", "20240101", "--facet", "personal"],
         )
         assert result.exit_code == 0
         assert "cancelled" in result.output
@@ -133,7 +145,8 @@ class TestTodosCancel:
         """Invalid line number fails."""
         todo_env([{"text": "Only one"}], day="20240101")
         result = runner.invoke(
-            call_app, ["todos", "cancel", "20240101", "5", "--facet", "personal"]
+            call_app,
+            ["todos", "cancel", "5", "--day", "20240101", "--facet", "personal"],
         )
         assert result.exit_code == 1
 
@@ -161,3 +174,33 @@ class TestTodosUpcoming:
         result = runner.invoke(call_app, ["todos", "upcoming"])
         assert result.exit_code == 0
         assert "No upcoming todos" in result.output
+
+
+class TestSolEnvResolution:
+    """Tests for SOL_* env var resolution in todos commands."""
+
+    def test_list_from_sol_day(self, todo_env, monkeypatch):
+        """list with SOL_DAY env and no day arg works."""
+        todo_env([{"text": "Env task"}], day="20240101")
+        monkeypatch.setenv("SOL_DAY", "20240101")
+        result = runner.invoke(call_app, ["todos", "list", "--facet", "personal"])
+        assert result.exit_code == 0
+        assert "Env task" in result.output
+
+    def test_add_from_sol_day_and_facet(self, todo_env, monkeypatch):
+        """add with SOL_DAY + SOL_FACET env works."""
+        todo_env([], day="29991231")
+        monkeypatch.setenv("SOL_DAY", "29991231")
+        monkeypatch.setenv("SOL_FACET", "personal")
+        result = runner.invoke(call_app, ["todos", "add", "Env todo"])
+        assert result.exit_code == 0
+        assert "Env todo" in result.output
+
+    def test_done_from_sol_day_and_facet(self, todo_env, monkeypatch):
+        """done with SOL_DAY + SOL_FACET env works."""
+        todo_env([{"text": "Buy milk"}], day="20240101")
+        monkeypatch.setenv("SOL_DAY", "20240101")
+        monkeypatch.setenv("SOL_FACET", "personal")
+        result = runner.invoke(call_app, ["todos", "done", "1"])
+        assert result.exit_code == 0
+        assert "[x]" in result.output

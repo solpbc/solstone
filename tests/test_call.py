@@ -3,9 +3,11 @@
 
 """Tests for think/call.py CLI dispatcher and app discovery."""
 
+import typer
 from typer.testing import CliRunner
 
 from think.call import call_app
+from think.utils import resolve_sol_day, resolve_sol_facet, resolve_sol_segment
 
 runner = CliRunner()
 
@@ -113,7 +115,9 @@ class TestJournal:
 
     def test_journal_read(self):
         """Read command returns full agent output content."""
-        result = runner.invoke(call_app, ["journal", "read", "20240101", "flow"])
+        result = runner.invoke(
+            call_app, ["journal", "read", "flow", "--day", "20240101"]
+        )
         assert result.exit_code == 0
         assert len(result.output.strip()) > 0
 
@@ -121,7 +125,7 @@ class TestJournal:
         """Read command truncates output when --max is exceeded."""
         # flow.md is ~422 bytes; --max 50 should truncate
         result = runner.invoke(
-            call_app, ["journal", "read", "20240101", "flow", "--max", "50"]
+            call_app, ["journal", "read", "flow", "--day", "20240101", "--max", "50"]
         )
         assert result.exit_code == 0
         # Output should be much shorter than the full file
@@ -130,14 +134,16 @@ class TestJournal:
     def test_journal_read_max_zero_unlimited(self):
         """Read command with --max 0 returns full content."""
         result = runner.invoke(
-            call_app, ["journal", "read", "20240101", "flow", "--max", "0"]
+            call_app, ["journal", "read", "flow", "--day", "20240101", "--max", "0"]
         )
         assert result.exit_code == 0
         assert len(result.output.strip()) > 100
 
     def test_journal_read_not_found(self):
         """Read command reports missing topic."""
-        result = runner.invoke(call_app, ["journal", "read", "20240101", "nonexistent"])
+        result = runner.invoke(
+            call_app, ["journal", "read", "nonexistent", "--day", "20240101"]
+        )
         assert result.exit_code == 1
         assert "not found" in result.output.lower()
 
@@ -181,4 +187,108 @@ class TestJournal:
             input="content",
         )
         assert result.exit_code == 1
-        assert "--day" in result.output
+        assert "day is required" in result.output
+
+
+class TestResolveHelpers:
+    """Unit tests for SOL_* resolve helpers in think/utils.py."""
+
+    def test_resolve_sol_day_from_env(self, monkeypatch):
+        """resolve_sol_day(None) with SOL_DAY set returns env value."""
+        monkeypatch.setenv("SOL_DAY", "20240101")
+        assert resolve_sol_day(None) == "20240101"
+
+    def test_resolve_sol_day_arg_wins(self, monkeypatch):
+        """resolve_sol_day with explicit arg ignores env."""
+        monkeypatch.setenv("SOL_DAY", "20240101")
+        assert resolve_sol_day("20260115") == "20260115"
+
+    def test_resolve_sol_day_missing_exits(self, monkeypatch):
+        """resolve_sol_day(None) with no env raises SystemExit."""
+        monkeypatch.delenv("SOL_DAY", raising=False)
+        try:
+            resolve_sol_day(None)
+            assert False, "Expected typer.Exit"
+        except (typer.Exit, SystemExit):
+            pass
+
+    def test_resolve_sol_facet_from_env(self, monkeypatch):
+        """resolve_sol_facet(None) with SOL_FACET set returns env value."""
+        monkeypatch.setenv("SOL_FACET", "work")
+        assert resolve_sol_facet(None) == "work"
+
+    def test_resolve_sol_facet_arg_wins(self, monkeypatch):
+        """resolve_sol_facet with explicit arg ignores env."""
+        monkeypatch.setenv("SOL_FACET", "work")
+        assert resolve_sol_facet("personal") == "personal"
+
+    def test_resolve_sol_facet_missing_exits(self, monkeypatch):
+        """resolve_sol_facet(None) with no env raises SystemExit."""
+        monkeypatch.delenv("SOL_FACET", raising=False)
+        try:
+            resolve_sol_facet(None)
+            assert False, "Expected typer.Exit"
+        except (typer.Exit, SystemExit):
+            pass
+
+    def test_resolve_sol_segment_from_env(self, monkeypatch):
+        """resolve_sol_segment(None) with SOL_SEGMENT returns env value."""
+        monkeypatch.setenv("SOL_SEGMENT", "123456_300")
+        assert resolve_sol_segment(None) == "123456_300"
+
+    def test_resolve_sol_segment_arg_wins(self, monkeypatch):
+        """resolve_sol_segment with explicit arg ignores env."""
+        monkeypatch.setenv("SOL_SEGMENT", "123456_300")
+        assert resolve_sol_segment("654321_600") == "654321_600"
+
+    def test_resolve_sol_segment_missing_returns_none(self, monkeypatch):
+        """resolve_sol_segment(None) with no env returns None."""
+        monkeypatch.delenv("SOL_SEGMENT", raising=False)
+        assert resolve_sol_segment(None) is None
+
+
+class TestJournalSolEnv:
+    """Tests for journal commands resolving SOL_* env vars."""
+
+    def test_events_from_sol_day(self, monkeypatch):
+        """events with SOL_DAY env and no arg works."""
+        monkeypatch.setenv("SOL_DAY", "20240101")
+        result = runner.invoke(call_app, ["journal", "events"])
+        assert result.exit_code == 0
+        assert "Team standup" in result.output
+
+    def test_events_arg_overrides_env(self, monkeypatch):
+        """events with both env and arg — arg wins."""
+        monkeypatch.setenv("SOL_DAY", "19990101")
+        result = runner.invoke(call_app, ["journal", "events", "20240101"])
+        assert result.exit_code == 0
+        assert "Team standup" in result.output
+
+    def test_events_no_day_exits(self, monkeypatch):
+        """events with neither arg nor env exits with error."""
+        monkeypatch.delenv("SOL_DAY", raising=False)
+        result = runner.invoke(call_app, ["journal", "events"])
+        assert result.exit_code != 0
+
+    def test_topics_from_sol_day(self, monkeypatch):
+        """topics with SOL_DAY env and no arg works."""
+        monkeypatch.setenv("SOL_DAY", "20240101")
+        result = runner.invoke(call_app, ["journal", "topics"])
+        assert result.exit_code == 0
+        assert "flow.md" in result.output
+
+    def test_read_from_sol_day(self, monkeypatch):
+        """read with SOL_DAY env and no --day works."""
+        monkeypatch.setenv("SOL_DAY", "20240101")
+        result = runner.invoke(call_app, ["journal", "read", "flow"])
+        assert result.exit_code == 0
+        assert len(result.output.strip()) > 0
+
+    def test_read_arg_overrides_sol_day(self, monkeypatch):
+        """read with explicit --day works even with SOL_DAY set."""
+        monkeypatch.setenv("SOL_DAY", "19990101")
+        result = runner.invoke(
+            call_app, ["journal", "read", "flow", "--day", "20240101"]
+        )
+        assert result.exit_code == 0
+        assert len(result.output.strip()) > 0

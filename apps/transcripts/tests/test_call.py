@@ -103,3 +103,27 @@ class TestStats:
         result = runner.invoke(call_app, ["transcripts", "stats", "209901"])
         assert result.exit_code == 0
         assert "No data" in result.output
+
+
+class TestSolEnvResolution:
+    """Tests for SOL_* env var resolution in transcripts commands."""
+
+    def test_scan_from_sol_day(self, monkeypatch):
+        """scan with SOL_DAY env and no arg works."""
+        monkeypatch.setenv("SOL_DAY", "20240101")
+        result = runner.invoke(call_app, ["transcripts", "scan"])
+        assert result.exit_code == 0
+        assert "Audio:" in result.output
+
+    def test_read_from_sol_day(self, monkeypatch):
+        """read with SOL_DAY env and no arg works."""
+        monkeypatch.setenv("SOL_DAY", "20240101")
+        result = runner.invoke(call_app, ["transcripts", "read"])
+        assert result.exit_code == 0
+
+    def test_read_from_sol_day_and_segment(self, monkeypatch):
+        """read with SOL_DAY + SOL_SEGMENT env works."""
+        monkeypatch.setenv("SOL_DAY", "20240101")
+        monkeypatch.setenv("SOL_SEGMENT", "123456_300")
+        result = runner.invoke(call_app, ["transcripts", "read"])
+        assert result.exit_code == 0

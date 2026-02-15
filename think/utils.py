@@ -779,6 +779,83 @@ def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:
 
 
 # =============================================================================
+# SOL_* Environment Variable Helpers
+# =============================================================================
+
+
+def get_sol_day() -> str | None:
+    """Read SOL_DAY from the environment."""
+    return os.environ.get("SOL_DAY") or None
+
+
+def get_sol_facet() -> str | None:
+    """Read SOL_FACET from the environment."""
+    return os.environ.get("SOL_FACET") or None
+
+
+def get_sol_segment() -> str | None:
+    """Read SOL_SEGMENT from the environment."""
+    return os.environ.get("SOL_SEGMENT") or None
+
+
+def get_sol_stream() -> str | None:
+    """Read SOL_STREAM from the environment."""
+    return os.environ.get("SOL_STREAM") or None
+
+
+def get_sol_activity() -> str | None:
+    """Read SOL_ACTIVITY from the environment."""
+    return os.environ.get("SOL_ACTIVITY") or None
+
+
+def resolve_sol_day(arg: str | None) -> str:
+    """Return *arg* if provided, else SOL_DAY from env, else exit with error.
+
+    Intended for CLI commands where ``day`` is required but can be supplied
+    via the SOL_DAY environment variable as a convenience.
+    """
+    if arg:
+        return arg
+    env = get_sol_day()
+    if env:
+        return env
+    import typer
+
+    typer.echo("Error: day is required (pass as argument or set SOL_DAY).", err=True)
+    raise typer.Exit(1)
+
+
+def resolve_sol_facet(arg: str | None) -> str:
+    """Return *arg* if provided, else SOL_FACET from env, else exit with error.
+
+    Intended for CLI commands where ``facet`` is required but can be supplied
+    via the SOL_FACET environment variable as a convenience.
+    """
+    if arg:
+        return arg
+    env = get_sol_facet()
+    if env:
+        return env
+    import typer
+
+    typer.echo(
+        "Error: facet is required (pass as argument or set SOL_FACET).", err=True
+    )
+    raise typer.Exit(1)
+
+
+def resolve_sol_segment(arg: str | None) -> str | None:
+    """Return *arg* if provided, else SOL_SEGMENT from env, else None.
+
+    Unlike :func:`resolve_sol_day` this does **not** error when missing
+    because segment is typically optional.
+    """
+    if arg:
+        return arg
+    return get_sol_segment()
+
+
+# =============================================================================
 # Service Port Discovery
 # =============================================================================
 

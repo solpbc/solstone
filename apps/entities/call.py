@@ -52,12 +52,15 @@ def _resolve_or_exit(facet: str, entity: str) -> dict:
 
 @app.command("list")
 def list_entities(
-    facet: str = typer.Argument(help="Facet name."),
+    facet: str | None = typer.Argument(None, help="Facet name (or set SOL_FACET)."),
     day: str | None = typer.Option(
         None, "--day", "-d", help="Day (YYYYMMDD) for detected entities."
     ),
 ) -> None:
     """List entities for a facet."""
+    from think.utils import resolve_sol_facet
+
+    facet = resolve_sol_facet(facet)
     entities = load_entities(facet, day)
     if not entities:
         typer.echo("No entities found.")
@@ -71,13 +74,18 @@ def list_entities(
 
 @app.command("detect")
 def detect_entity(
-    day: str = typer.Argument(help="Day (YYYYMMDD)."),
     facet: str = typer.Argument(help="Facet name."),
     type_: str = typer.Argument(metavar="TYPE", help="Entity type."),
     entity: str = typer.Argument(help="Entity name or identifier."),
     description: str = typer.Argument(help="Description."),
+    day: str | None = typer.Option(
+        None, "--day", "-d", help="Day (YYYYMMDD, or set SOL_DAY)."
+    ),
 ) -> None:
     """Record a detected entity for a day in a facet."""
+    from think.utils import resolve_sol_day
+
+    day = resolve_sol_day(day)
     if not is_valid_entity_type(type_):
         typer.echo(f"Error: Invalid entity type '{type_}'.", err=True)
         raise typer.Exit(1)

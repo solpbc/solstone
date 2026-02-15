@@ -6,6 +6,9 @@ description: Manage tracked entities with sol call entities commands. List, dete
 # Entities CLI Skill
 
 Use these commands to maintain facet-scoped entity memory from the terminal.
+
+**Environment defaults**: When `SOL_FACET` is set, commands that take a FACET argument will use it automatically. Same for `SOL_DAY` where DAY is accepted.
+
 Common pattern:
 
 ```bash
@@ -24,12 +27,12 @@ Use `detect` for day-specific sightings and `attach` for long-term tracking.
 ## list
 
 ```bash
-sol call entities list FACET [-d DAY]
+sol call entities list [FACET] [-d DAY]
 ```
 
 List entities for a facet.
 
-- `FACET`: required facet name.
+- `FACET`: facet name (default: `SOL_FACET` env).
 - `-d, --day`: optional day (`YYYYMMDD`).
 
 Behavior notes:
@@ -47,16 +50,16 @@ sol call entities list work -d 20260115
 ## detect
 
 ```bash
-sol call entities detect DAY FACET TYPE ENTITY DESCRIPTION
+sol call entities detect FACET TYPE ENTITY DESCRIPTION [-d DAY]
 ```
 
 Record a detected entity for a day.
 
-- `DAY`: required day in `YYYYMMDD`.
-- `FACET`: required facet name.
+- `FACET`: required facet name (positional argument).
 - `TYPE`: entity type (alphanumeric + spaces, minimum 3 chars).
 - `ENTITY`: entity id, full name, or alias.
 - `DESCRIPTION`: day-scoped description.
+- `-d, --day`: day in `YYYYMMDD` (default: `SOL_DAY` env).
 
 Behavior notes:
 
@@ -67,7 +70,7 @@ Behavior notes:
 Example:
 
 ```bash
-sol call entities detect 20260115 work "Person" "Alicia Chen" "Led architecture review"
+sol call entities detect work "Person" "Alicia Chen" "Led architecture review" -d 20260115
 ```
 
 ## attach
