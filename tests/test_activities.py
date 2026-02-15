@@ -1362,7 +1362,8 @@ class TestHandleActivityRecorded:
                     "work",
                     "--day",
                     "20260209",
-                ]
+                ],
+                day="20260209",
             )
 
     def test_ignores_wrong_tract(self):
@@ -1699,7 +1700,8 @@ class TestCheckSegmentFlush:
                 "--segment",
                 "100000_300",
                 "--flush",
-            ]
+            ],
+            day="20260209",
         )
         assert _flush_state["flushed"] is True
 

@@ -280,3 +280,47 @@ def test_process_creates_health_log(journal_path, mock_callosum):
     journal_symlink = journal_path / "health" / "echo.log"
     assert journal_symlink.is_symlink()
     assert journal_symlink.resolve() == log_path.resolve()
+
+
+def test_process_day_override(journal_path, mock_callosum):
+    """Test that day parameter overrides log directory placement."""
+    target_day = "20240101"
+    managed = ManagedProcess.spawn(["echo", "day test"], day=target_day)
+    ref = managed.ref
+    managed.wait()
+    managed.cleanup()
+
+    # Log should be in target day, not today
+    log_path = journal_path / target_day / "health" / f"{ref}_echo.log"
+    assert log_path.exists()
+    content = log_path.read_text()
+    assert "day test" in content
+
+    # Today's health directory should NOT have this log
+    from datetime import datetime
+
+    today = datetime.now().strftime("%Y%m%d")
+    if today != target_day:
+        today_log = journal_path / today / "health" / f"{ref}_echo.log"
+        assert not today_log.exists()
+
+    # Day-level symlink in target day
+    day_symlink = journal_path / target_day / "health" / "echo.log"
+    assert day_symlink.is_symlink()
+    assert day_symlink.resolve() == log_path.resolve()
+
+    # Journal-level symlink points to target day
+    journal_symlink = journal_path / "health" / "echo.log"
+    assert journal_symlink.is_symlink()
+    assert journal_symlink.resolve() == log_path.resolve()
+
+
+def test_run_task_day_override(journal_path, mock_callosum):
+    """Test that run_task passes day through to log placement."""
+    target_day = "20240201"
+    success, exit_code, log_path = run_task(["echo", "task day test"], day=target_day)
+
+    assert success
+    assert exit_code == 0
+    assert target_day in str(log_path)
+    assert log_path.exists()

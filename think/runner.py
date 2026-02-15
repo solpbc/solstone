@@ -88,6 +88,9 @@ def _format_log_line(prefix: str, stream: str, line: str) -> str:
 class DailyLogWriter:
     """Thread-safe log writer that automatically rolls over at midnight.
 
+    When ``day`` is provided, the writer is pinned to that day directory
+    and midnight rollover is disabled (batch processing of historical days).
+
     Writes to: {JOURNAL_PATH}/{YYYYMMDD}/health/{ref}_{name}.log
 
     Creates and maintains symlinks:
@@ -97,11 +100,12 @@ class DailyLogWriter:
     When the day changes, automatically closes old file, opens new file, and updates symlinks.
     """
 
-    def __init__(self, ref: str, name: str):
+    def __init__(self, ref: str, name: str, day: str | None = None):
         self._ref = ref
         self._name = name
+        self._pinned = day is not None
         self._lock = threading.Lock()
-        self._current_day = _current_day()
+        self._current_day = day or _current_day()
         self._fh = self._open_log()
         self._update_symlinks()
 
@@ -130,17 +134,18 @@ class DailyLogWriter:
     def write(self, message: str) -> None:
         """Write message to log, handling day rollover."""
         with self._lock:
-            # Check for day change
-            day_now = _current_day()
-            if day_now != self._current_day:
-                # Close old log
-                if not self._fh.closed:
-                    self._fh.close()
-                # Open new log for new day
-                self._current_day = day_now
-                self._fh = self._open_log()
-                # Update symlinks to point to new day's file
-                self._update_symlinks()
+            if not self._pinned:
+                # Check for day change
+                day_now = _current_day()
+                if day_now != self._current_day:
+                    # Close old log
+                    if not self._fh.closed:
+                        self._fh.close()
+                    # Open new log for new day
+                    self._current_day = day_now
+                    self._fh = self._open_log()
+                    # Update symlinks to point to new day's file
+                    self._update_symlinks()
 
             # Write and flush
             self._fh.write(message)
@@ -199,6 +204,7 @@ class ManagedProcess:
         env: dict | None = None,
         ref: str | None = None,
         callosum: CallosumConnection | None = None,
+        day: str | None = None,
     ) -> "ManagedProcess":
         """Spawn process with automatic output logging to daily health directory.
 
@@ -207,6 +213,8 @@ class ManagedProcess:
             env: Optional environment variables (inherits parent env if not provided)
             ref: Optional correlation ID (auto-generated if not provided)
             callosum: Optional shared CallosumConnection (creates new one if not provided)
+            day: Optional day override (YYYYMMDD). When provided, logs are placed
+                in that day's health directory instead of today's.
 
         Returns:
             ManagedProcess instance
@@ -243,7 +251,7 @@ class ManagedProcess:
             callosum = CallosumConnection()
             callosum.start()
 
-        log_writer = DailyLogWriter(ref, name)
+        log_writer = DailyLogWriter(ref, name, day=day)
 
         logger.info(f"Starting {name}: {' '.join(cmd)}")
 
@@ -429,6 +437,7 @@ def run_task(
     env: dict | None = None,
     ref: str | None = None,
     callosum: CallosumConnection | None = None,
+    day: str | None = None,
 ) -> tuple[bool, int, Path]:
     """Run a task to completion with automatic logging (blocking).
 
@@ -442,6 +451,8 @@ def run_task(
         env: Optional environment variables
         ref: Optional correlation ID (auto-generated if not provided)
         callosum: Optional shared CallosumConnection (creates new one if not provided)
+        day: Optional day override (YYYYMMDD). When provided, logs are placed
+            in that day's health directory instead of today's.
 
     Returns:
         (success, exit_code, log_path) tuple where success = (exit_code == 0)
@@ -461,7 +472,7 @@ def run_task(
         )
         # Logs to: {JOURNAL}/{YYYYMMDD}/health/1730476800000_indexer.log
     """
-    managed = ManagedProcess.spawn(cmd, env=env, ref=ref, callosum=callosum)
+    managed = ManagedProcess.spawn(cmd, env=env, ref=ref, callosum=callosum, day=day)
     log_path = managed.log_writer.path
     try:
         exit_code = managed.wait(timeout=timeout)

@@ -80,7 +80,7 @@ def run_command(cmd: list[str], day: str) -> bool:
     cmd_name = cmd_name.replace("-", "_")
 
     try:
-        success, exit_code, _log_path = run_task(cmd)
+        success, exit_code, _log_path = run_task(cmd, day=day)
         if not success:
             logging.error(
                 "Command failed with exit code %s: %s", exit_code, " ".join(cmd)
@@ -127,7 +127,7 @@ def run_queued_command(cmd: list[str], day: str, timeout: int = 600) -> bool:
     listener.start(callback=on_message)
 
     try:
-        _callosum.emit("supervisor", "request", cmd=cmd, ref=ref)
+        _callosum.emit("supervisor", "request", cmd=cmd, ref=ref, day=day)
 
         if not result_event.wait(timeout=timeout):
             logging.error(f"Timeout waiting for {cmd_name} to complete (ref={ref})")
