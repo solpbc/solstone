@@ -638,6 +638,10 @@ def ingest_segments(key: str, day: str) -> Any:
     # Get day directory for file verification
     day_dir = day_path(day)
 
+    # Derive stream from remote name for file path resolution
+    remote_name = remote.get("name", "unknown")
+    stream = stream_name(remote=remote_name)
+
     # Build response grouped by segment, deduplicating by sha256
     # Later records overwrite earlier ones (most recent upload wins)
     segments: dict[str, dict] = {}
@@ -679,8 +683,8 @@ def ingest_segments(key: str, day: str) -> Any:
             if submitted != written:
                 file_info["submitted_name"] = submitted
 
-            # Check file status - files are now in segment directories
-            segment_dir = day_dir / segment
+            # Check file status - files are in stream/segment directories
+            segment_dir = day_dir / stream / segment
             recorded_path = segment_dir / written
             if recorded_path.exists():
                 file_info["status"] = "present"

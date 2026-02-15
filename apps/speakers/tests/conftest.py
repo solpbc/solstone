@@ -13,6 +13,9 @@ import pytest
 
 from think.entities import entity_slug
 
+# Default stream name for test fixtures
+STREAM = "test"
+
 
 @pytest.fixture
 def speakers_env(tmp_path, monkeypatch):
@@ -48,7 +51,7 @@ def speakers_env(tmp_path, monkeypatch):
                 sources: List of audio sources (e.g., ["mic_audio", "sys_audio"])
                 num_sentences: Number of sentences to create
             """
-            segment_dir = self.journal / day / segment_key
+            segment_dir = self.journal / day / STREAM / segment_key
             segment_dir.mkdir(parents=True, exist_ok=True)
 
             for source in sources:
@@ -168,7 +171,7 @@ def speakers_env(tmp_path, monkeypatch):
                 segment_key: Segment key (HHMMSS_LEN)
                 speakers: List of speaker names
             """
-            agents_dir = self.journal / day / segment_key / "agents"
+            agents_dir = self.journal / day / STREAM / segment_key / "agents"
             agents_dir.mkdir(parents=True, exist_ok=True)
 
             speakers_path = agents_dir / "speakers.json"

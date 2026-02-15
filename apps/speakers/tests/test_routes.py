@@ -93,7 +93,7 @@ def test_load_sentences(speakers_env):
     env = speakers_env()
     env.create_segment("20240101", "143022_300", ["mic_audio"], num_sentences=3)
 
-    sentences, emb_data = _load_sentences("20240101", "143022_300", "mic_audio")
+    sentences, emb_data = _load_sentences("20240101", "143022_300", "mic_audio", stream="test")
 
     assert len(sentences) == 3
     assert sentences[0]["id"] == 1
@@ -114,10 +114,10 @@ def test_load_sentences_no_transcript(speakers_env):
     env = speakers_env()
 
     # Create day dir but no segment
-    day_dir = env.journal / "20240101" / "143022_300"
+    day_dir = env.journal / "20240101" / "test" / "143022_300"
     day_dir.mkdir(parents=True)
 
-    sentences, emb_data = _load_sentences("20240101", "143022_300", "mic_audio")
+    sentences, emb_data = _load_sentences("20240101", "143022_300", "mic_audio", stream="test")
     assert sentences == []
     assert emb_data is None
 
@@ -130,7 +130,7 @@ def test_get_sentence_embedding(speakers_env):
     env.create_segment("20240101", "143022_300", ["mic_audio"], num_sentences=5)
 
     # Get embedding for sentence 3
-    emb = _get_sentence_embedding("20240101", "143022_300", "mic_audio", 3)
+    emb = _get_sentence_embedding("20240101", "143022_300", "mic_audio", 3, stream="test")
 
     assert emb is not None
     assert emb.shape == (256,)
@@ -145,7 +145,7 @@ def test_get_sentence_embedding_not_found(speakers_env):
     env.create_segment("20240101", "143022_300", ["mic_audio"], num_sentences=3)
 
     # Try to get embedding for sentence that doesn't exist
-    emb = _get_sentence_embedding("20240101", "143022_300", "mic_audio", 99)
+    emb = _get_sentence_embedding("20240101", "143022_300", "mic_audio", 99, stream="test")
     assert emb is None
 
 
@@ -334,7 +334,7 @@ def test_load_embeddings_file(speakers_env):
     env = speakers_env()
     env.create_segment("20240101", "143022_300", ["mic_audio"], num_sentences=3)
 
-    npz_path = env.journal / "20240101" / "143022_300" / "mic_audio.npz"
+    npz_path = env.journal / "20240101" / "test" / "143022_300" / "mic_audio.npz"
     result = _load_embeddings_file(npz_path)
 
     assert result is not None
@@ -362,7 +362,7 @@ def test_load_segment_speakers(speakers_env):
     env.create_segment("20240101", "143022_300", ["mic_audio"])
     env.create_speakers_json("20240101", "143022_300", ["Alice", "Bob", "Charlie"])
 
-    segment_dir = env.journal / "20240101" / "143022_300"
+    segment_dir = env.journal / "20240101" / "test" / "143022_300"
     speakers = _load_segment_speakers(segment_dir)
 
     assert speakers == ["Alice", "Bob", "Charlie"]
@@ -376,7 +376,7 @@ def test_load_segment_speakers_not_found(speakers_env):
     env.create_segment("20240101", "143022_300", ["mic_audio"])
     # No speakers.json created
 
-    segment_dir = env.journal / "20240101" / "143022_300"
+    segment_dir = env.journal / "20240101" / "test" / "143022_300"
     speakers = _load_segment_speakers(segment_dir)
 
     assert speakers == []
@@ -387,7 +387,7 @@ def test_load_segment_speakers_invalid_json(speakers_env):
     from apps.speakers.routes import _load_segment_speakers
 
     env = speakers_env()
-    segment_dir = env.journal / "20240101" / "143022_300"
+    segment_dir = env.journal / "20240101" / "test" / "143022_300"
     agents_dir = segment_dir / "agents"
     agents_dir.mkdir(parents=True)
 
@@ -406,7 +406,7 @@ def test_load_segment_speakers_not_list(speakers_env):
     from apps.speakers.routes import _load_segment_speakers
 
     env = speakers_env()
-    segment_dir = env.journal / "20240101" / "143022_300"
+    segment_dir = env.journal / "20240101" / "test" / "143022_300"
     agents_dir = segment_dir / "agents"
     agents_dir.mkdir(parents=True)
 
@@ -519,7 +519,7 @@ def test_api_sentences_principal_first(speakers_env):
 
     with app.test_client() as client:
         response = client.get(
-            "/app/speakers/api/sentences/20240101/143022_300/mic_audio"
+            "/app/speakers/api/sentences/20240101/test/143022_300/mic_audio"
         )
         assert response.status_code == 200
         data = response.get_json()

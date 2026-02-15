@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 
 # Module name starts with a digit — use importlib
-_mod = importlib.import_module("apps.search.maint.001_migrate_index_stream")
+_mod = importlib.import_module("apps.search.maint.003_migrate_index_stream")
 migrate = _mod.migrate
 
 

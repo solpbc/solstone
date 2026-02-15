@@ -264,8 +264,8 @@ def test_ingest_success(remote_env):
     assert data["files"] == ["test_audio.flac"]
     assert data["bytes"] == len(test_data)
 
-    # Verify file was written (in segment directory)
-    expected_file = env.journal / "20250103" / "120000_300" / "test_audio.flac"
+    # Verify file was written (in stream/segment directory)
+    expected_file = env.journal / "20250103" / "test-remote" / "120000_300" / "test_audio.flac"
     assert expected_file.exists()
     assert expected_file.read_bytes() == test_data
 
@@ -533,11 +533,12 @@ def test_ingest_collision_adjusts_segment(remote_env):
     )
     key = resp.get_json()["key"]
 
-    # Create a conflicting segment directory
+    # Create a conflicting segment directory under the stream
     day_dir = env.journal / "20250103"
-    day_dir.mkdir(parents=True)
-    (day_dir / "120000_300").mkdir()
-    (day_dir / "120000_300" / "audio.flac").write_bytes(b"existing")
+    stream_dir = day_dir / "collision-test"
+    stream_dir.mkdir(parents=True)
+    (stream_dir / "120000_300").mkdir()
+    (stream_dir / "120000_300" / "audio.flac").write_bytes(b"existing")
 
     # Upload with same segment key
     test_data = b"new audio content"
@@ -559,10 +560,10 @@ def test_ingest_collision_adjusts_segment(remote_env):
     assert saved_file == "audio.flac"
 
     # Verify both segments exist
-    assert (day_dir / "120000_300" / "audio.flac").exists()  # Original
+    assert (stream_dir / "120000_300" / "audio.flac").exists()  # Original
     # New one is in adjusted segment directory (not 120000_300)
     adjusted_segments = [
-        d for d in day_dir.iterdir() if d.is_dir() and d.name != "120000_300"
+        d for d in stream_dir.iterdir() if d.is_dir() and d.name != "120000_300"
     ]
     assert len(adjusted_segments) == 1
     assert (adjusted_segments[0] / "audio.flac").exists()
@@ -596,8 +597,8 @@ def test_ingest_no_collision_preserves_segment(remote_env):
     assert data["status"] == "ok"
     assert data["files"] == ["audio.flac"]  # Segment prefix stripped
 
-    # Verify file saved in segment directory
-    expected_file = env.journal / "20250103" / "120000_300" / "audio.flac"
+    # Verify file saved in stream/segment directory
+    expected_file = env.journal / "20250103" / "no-collision-test" / "120000_300" / "audio.flac"
     assert expected_file.exists()
 
 
@@ -613,10 +614,11 @@ def test_ingest_stats_use_adjusted_segment(remote_env):
     )
     key = resp.get_json()["key"]
 
-    # Create a conflicting segment directory
+    # Create a conflicting segment directory under the stream
     day_dir = env.journal / "20250103"
-    day_dir.mkdir(parents=True)
-    (day_dir / "120000_300").mkdir()
+    stream_dir = day_dir / "stats-adjust-test"
+    stream_dir.mkdir(parents=True)
+    (stream_dir / "120000_300").mkdir()
 
     # Upload with same segment key
     test_data = b"new audio"
@@ -640,7 +642,7 @@ def test_ingest_stats_use_adjusted_segment(remote_env):
     # It should be adjusted (not the original conflicting one)
     assert last_segment != "120000_300"
     # The adjusted segment directory should exist
-    assert (day_dir / last_segment).exists()
+    assert (stream_dir / last_segment).exists()
 
 
 # === Sync history tests ===
@@ -714,10 +716,11 @@ def test_ingest_history_with_collision(remote_env):
     key = data["key"]
     key_prefix = data["key_prefix"]
 
-    # Create conflicting segment directory
+    # Create conflicting segment directory under the stream
     day_dir = env.journal / "20250103"
-    day_dir.mkdir(parents=True)
-    (day_dir / "120000_300").mkdir()
+    stream_dir = day_dir / "collision-history-test"
+    stream_dir.mkdir(parents=True)
+    (stream_dir / "120000_300").mkdir()
 
     # Upload with same segment key
     test_data = b"new audio content"
@@ -855,10 +858,11 @@ def test_segments_endpoint_shows_collision(remote_env):
     )
     key = resp.get_json()["key"]
 
-    # Create conflicting segment directory
+    # Create conflicting segment directory under the stream
     day_dir = env.journal / "20250103"
-    day_dir.mkdir(parents=True)
-    (day_dir / "120000_300").mkdir()
+    stream_dir = day_dir / "segments-collision-test"
+    stream_dir.mkdir(parents=True)
+    (stream_dir / "120000_300").mkdir()
 
     # Upload with collision
     test_data = b"new audio"
@@ -911,8 +915,8 @@ def test_segments_endpoint_missing_file(remote_env):
     )
     assert resp.status_code == 200
 
-    # Delete the file (now in segment directory with stripped name)
-    (env.journal / "20250103" / "120000_300" / "audio.flac").unlink()
+    # Delete the file (now in stream/segment directory with stripped name)
+    (env.journal / "20250103" / "segments-missing-test" / "120000_300" / "audio.flac").unlink()
 
     # Query segments
     resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
@@ -949,7 +953,7 @@ def test_segments_endpoint_relocated_file(remote_env):
 
     # Move the file to a different name (simulating some file reorganization)
     day_dir = env.journal / "20250103"
-    segment_dir = day_dir / "120000_300"
+    segment_dir = day_dir / "segments-relocate-test" / "120000_300"
     original_path = segment_dir / "audio.flac"
     new_path = segment_dir / "renamed_audio.flac"
     original_path.rename(new_path)
@@ -961,7 +965,7 @@ def test_segments_endpoint_relocated_file(remote_env):
     assert len(data) == 1
     file_info = data[0]["files"][0]
     assert file_info["status"] == "relocated"
-    assert file_info["current_path"] == "120000_300/renamed_audio.flac"
+    assert file_info["current_path"] == "segments-relocate-test/120000_300/renamed_audio.flac"
 
 
 def test_find_by_inode(remote_env):
@@ -1430,11 +1434,12 @@ def test_ingest_returns_collision_status_when_adjusted(remote_env):
     )
     key = resp.get_json()["key"]
 
-    # Create existing segment directory
+    # Create existing segment directory under the stream
     day_dir = env.journal / "20250103"
-    day_dir.mkdir(parents=True)
-    (day_dir / "120000_300").mkdir()
-    (day_dir / "120000_300" / "existing.txt").write_bytes(b"existing content")
+    stream_dir = day_dir / "collision-status-test"
+    stream_dir.mkdir(parents=True)
+    (stream_dir / "120000_300").mkdir()
+    (stream_dir / "120000_300" / "existing.txt").write_bytes(b"existing content")
 
     # Upload - will need collision resolution
     test_data = b"new content"
