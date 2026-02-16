@@ -23,6 +23,7 @@ from think.callosum import CallosumConnection, CallosumServer
 from think.runner import DailyLogWriter
 from think.runner import ManagedProcess as RunnerManagedProcess
 from think.utils import (
+    dirty_days,
     find_available_port,
     get_journal,
     get_journal_info,
@@ -33,6 +34,7 @@ from think.utils import (
 
 DEFAULT_THRESHOLD = 60
 CHECK_INTERVAL = 30
+MAX_DIRTY_CATCHUP = 4
 
 # Global shutdown flag
 shutdown_requested = False
@@ -1017,11 +1019,15 @@ async def handle_health_checks(
 
 
 def handle_daily_tasks() -> None:
-    """Check for day change and submit daily dream via task queue (non-blocking).
+    """Check for day change and submit daily dream for dirty days (non-blocking).
 
-    Dream only triggers when the day actually changes during runtime (at midnight).
-    The supervisor initializes last_day on startup, so restarts don't trigger dream.
-    Submitted via TaskQueue so it serializes with segment/activity/flush dreams.
+    Triggers once when the day rolls over at midnight.  Queries ``dirty_days()``
+    for journal days that have new stream data but haven't completed a daily
+    dream yet, then submits up to ``MAX_DIRTY_CATCHUP`` dreams in chronological
+    order (oldest first, yesterday last) via the TaskQueue.
+
+    Dream auto-detects dirty state and enables ``--refresh`` internally, so we
+    don't pass it here.
 
     Skipped in remote mode (no local data to process).
     """
@@ -1051,18 +1057,42 @@ def handle_daily_tasks() -> None:
         if not _flush_state["flushed"] and _flush_state["day"] == prev_day_str:
             _check_segment_flush(force=True)
 
+        today_str = today.strftime("%Y%m%d")
+        all_dirty = dirty_days(exclude={today_str})
+
+        if not all_dirty:
+            logging.info("Day changed to %s, no dirty days to process", today)
+            return
+
+        # Take the newest MAX_DIRTY_CATCHUP days (already sorted ascending)
+        days_to_process = all_dirty[-MAX_DIRTY_CATCHUP:]
+        skipped = len(all_dirty) - len(days_to_process)
+
+        if skipped:
+            logging.warning(
+                "Skipping %d older dirty days (max catchup %d): %s",
+                skipped,
+                MAX_DIRTY_CATCHUP,
+                all_dirty[:skipped],
+            )
+
         logging.info(
-            f"Day changed to {today}, starting daily processing for {prev_day_str}"
+            "Day changed to %s, queuing daily dream for %d dirty day(s): %s",
+            today,
+            len(days_to_process),
+            days_to_process,
         )
 
-        # Submit via task queue — serializes with other dream invocations
-        cmd = ["sol", "dream", "-v", "--day", prev_day_str, "--refresh"]
-        if _task_queue:
-            _task_queue.submit(cmd, day=prev_day_str)
-        else:
-            logging.warning(
-                "No task queue available for daily processing: %s", prev_day_str
-            )
+        # Submit oldest-first so yesterday is processed last
+        for day_str in days_to_process:
+            cmd = ["sol", "dream", "-v", "--day", day_str]
+            if _task_queue:
+                _task_queue.submit(cmd, day=day_str)
+                logging.debug("Submitted daily dream for %s", day_str)
+            else:
+                logging.warning(
+                    "No task queue available for daily processing: %s", day_str
+                )
 
 
 def _handle_segment_observed(message: dict) -> None:

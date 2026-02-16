@@ -12,10 +12,8 @@ def test_handle_daily_tasks_submits_dream_on_day_change(mock_callosum):
     import think.supervisor as mod
     from think.supervisor import _daily_state, handle_daily_tasks
 
-    # Reset state to a previous day
     _daily_state["last_day"] = date(2025, 1, 1)
 
-    # Track submitted commands
     submitted = []
     original_submit = mod._task_queue.submit
 
@@ -25,15 +23,16 @@ def test_handle_daily_tasks_submits_dream_on_day_change(mock_callosum):
 
     mod._task_queue.submit = capture_submit
 
-    with patch("think.supervisor.datetime") as mock_datetime:
+    with (
+        patch("think.supervisor.datetime") as mock_datetime,
+        patch("think.supervisor.dirty_days", return_value=["20250101"]),
+    ):
         mock_datetime.now.return_value.date.return_value = date(2025, 1, 2)
         handle_daily_tasks()
 
-    # Verify a dream task was submitted
     assert len(submitted) == 1
     assert submitted[0][1] == "dream"
 
-    # Verify day state was updated
     assert _daily_state["last_day"] == date(2025, 1, 2)
 
 
@@ -43,11 +42,8 @@ def test_handle_daily_tasks_no_spawn_same_day(mock_callosum):
     from think.supervisor import _daily_state, handle_daily_tasks
 
     today = date(2025, 1, 2)
-
-    # Set state to today
     _daily_state["last_day"] = today
 
-    # Track submitted commands
     submitted = []
     original_submit = mod._task_queue.submit
 
@@ -61,18 +57,16 @@ def test_handle_daily_tasks_no_spawn_same_day(mock_callosum):
         mock_datetime.now.return_value.date.return_value = today
         handle_daily_tasks()
 
-    # Verify no task was submitted
     assert len(submitted) == 0
 
 
 def test_handle_daily_tasks_submits_correct_command(mock_callosum):
-    """Test that handle_daily_tasks submits sol dream with --refresh for the previous day."""
+    """Test that handle_daily_tasks submits sol dream without --refresh (dream auto-detects)."""
     import think.supervisor as mod
     from think.supervisor import _daily_state, handle_daily_tasks
 
     _daily_state["last_day"] = date(2025, 1, 1)
 
-    # Track submitted commands
     submitted = []
     original_submit = mod._task_queue.submit
 
@@ -82,17 +76,16 @@ def test_handle_daily_tasks_submits_correct_command(mock_callosum):
 
     mod._task_queue.submit = capture_submit
 
-    with patch("think.supervisor.datetime") as mock_datetime:
+    with (
+        patch("think.supervisor.datetime") as mock_datetime,
+        patch("think.supervisor.dirty_days", return_value=["20250101"]),
+    ):
         mock_datetime.now.return_value.date.return_value = date(2025, 1, 2)
         handle_daily_tasks()
 
     assert len(submitted) == 1
     cmd = submitted[0]
-    assert cmd[0] == "sol"
-    assert cmd[1] == "dream"
-    assert "--day" in cmd
-    assert "20250101" in cmd
-    assert "--refresh" in cmd
+    assert cmd == ["sol", "dream", "-v", "--day", "20250101"]
 
 
 def test_handle_daily_tasks_skipped_in_remote_mode(mock_callosum):
@@ -100,10 +93,8 @@ def test_handle_daily_tasks_skipped_in_remote_mode(mock_callosum):
     import think.supervisor as mod
     from think.supervisor import _daily_state, handle_daily_tasks
 
-    # Reset state to a previous day (would normally trigger dream)
     _daily_state["last_day"] = date(2025, 1, 1)
 
-    # Track submitted commands
     submitted = []
     original_submit = mod._task_queue.submit
 
@@ -113,14 +104,132 @@ def test_handle_daily_tasks_skipped_in_remote_mode(mock_callosum):
 
     mod._task_queue.submit = capture_submit
 
-    # Enable remote mode (fixture resets after test)
     mod._is_remote_mode = True
 
     with patch("think.supervisor.datetime") as mock_datetime:
         mock_datetime.now.return_value.date.return_value = date(2025, 1, 2)
         handle_daily_tasks()
 
-    # Verify no task was submitted (remote mode skips daily processing)
     assert len(submitted) == 0
-    # State should be unchanged (early return before any state updates)
     assert _daily_state["last_day"] == date(2025, 1, 1)
+
+
+def test_handle_daily_tasks_multiple_dirty_days_chronological(mock_callosum):
+    """Dirty days are submitted oldest-first so yesterday is processed last."""
+    import think.supervisor as mod
+    from think.supervisor import _daily_state, handle_daily_tasks
+
+    _daily_state["last_day"] = date(2025, 1, 5)
+
+    submitted = []
+    original_submit = mod._task_queue.submit
+
+    def capture_submit(cmd, *args, **kwargs):
+        submitted.append(cmd)
+        return original_submit(cmd, *args, **kwargs)
+
+    mod._task_queue.submit = capture_submit
+
+    with (
+        patch("think.supervisor.datetime") as mock_datetime,
+        patch(
+            "think.supervisor.dirty_days",
+            return_value=["20250103", "20250104", "20250105"],
+        ),
+    ):
+        mock_datetime.now.return_value.date.return_value = date(2025, 1, 6)
+        handle_daily_tasks()
+
+    assert len(submitted) == 3
+    days = [cmd[cmd.index("--day") + 1] for cmd in submitted]
+    assert days == ["20250103", "20250104", "20250105"]
+
+
+def test_handle_daily_tasks_caps_at_max_dirty_catchup(mock_callosum):
+    """Only the newest MAX_DIRTY_CATCHUP days are processed."""
+    import think.supervisor as mod
+    from think.supervisor import _daily_state, handle_daily_tasks
+
+    _daily_state["last_day"] = date(2025, 1, 10)
+
+    submitted = []
+    original_submit = mod._task_queue.submit
+
+    def capture_submit(cmd, *args, **kwargs):
+        submitted.append(cmd)
+        return original_submit(cmd, *args, **kwargs)
+
+    mod._task_queue.submit = capture_submit
+
+    all_dirty = [
+        "20250104",
+        "20250105",
+        "20250106",
+        "20250107",
+        "20250108",
+        "20250109",
+        "20250110",
+    ]
+
+    with (
+        patch("think.supervisor.datetime") as mock_datetime,
+        patch("think.supervisor.dirty_days", return_value=all_dirty),
+    ):
+        mock_datetime.now.return_value.date.return_value = date(2025, 1, 11)
+        handle_daily_tasks()
+
+    # Only newest 4
+    assert len(submitted) == 4
+    days = [cmd[cmd.index("--day") + 1] for cmd in submitted]
+    assert days == ["20250107", "20250108", "20250109", "20250110"]
+
+
+def test_handle_daily_tasks_no_dirty_days(mock_callosum):
+    """No submissions when there are no dirty days."""
+    import think.supervisor as mod
+    from think.supervisor import _daily_state, handle_daily_tasks
+
+    _daily_state["last_day"] = date(2025, 1, 1)
+
+    submitted = []
+    original_submit = mod._task_queue.submit
+
+    def capture_submit(cmd, *args, **kwargs):
+        submitted.append(cmd)
+        return original_submit(cmd, *args, **kwargs)
+
+    mod._task_queue.submit = capture_submit
+
+    with (
+        patch("think.supervisor.datetime") as mock_datetime,
+        patch("think.supervisor.dirty_days", return_value=[]),
+    ):
+        mock_datetime.now.return_value.date.return_value = date(2025, 1, 2)
+        handle_daily_tasks()
+
+    assert len(submitted) == 0
+    # State still advances even with no dirty days
+    assert _daily_state["last_day"] == date(2025, 1, 2)
+
+
+def test_handle_daily_tasks_excludes_today(mock_callosum):
+    """Today is excluded from dirty_days query."""
+    import think.supervisor as mod
+    from think.supervisor import _daily_state, handle_daily_tasks
+
+    _daily_state["last_day"] = date(2025, 1, 1)
+
+    captured_exclude = {}
+
+    def fake_dirty_days(exclude=None):
+        captured_exclude["value"] = exclude
+        return ["20250101"]
+
+    with (
+        patch("think.supervisor.datetime") as mock_datetime,
+        patch("think.supervisor.dirty_days", side_effect=fake_dirty_days),
+    ):
+        mock_datetime.now.return_value.date.return_value = date(2025, 1, 2)
+        handle_daily_tasks()
+
+    assert captured_exclude["value"] == {"20250102"}
