@@ -89,6 +89,83 @@ def _format_timestamp_display(timestamp: str) -> str:
         return timestamp
 
 
+def _run_sync(backend_name: str, *, dry_run: bool = True) -> None:
+    """Run sync for a named backend and print results."""
+    from think.importers.plaud import format_size
+    from think.importers.sync import get_syncable_backends, load_sync_state
+
+    journal_root = Path(get_journal())
+
+    # Find the requested backend
+    backends = get_syncable_backends()
+    backend = None
+    for b in backends:
+        if b.name == backend_name:
+            backend = b
+            break
+
+    if backend is None:
+        available = ", ".join(b.name for b in backends) or "(none)"
+        raise SystemExit(
+            f"Unknown sync backend: {backend_name}\n" f"Available backends: {available}"
+        )
+
+    mode = "save" if not dry_run else "catalog"
+    print(f"Syncing {backend_name} ({mode} mode)...")
+    print()
+
+    try:
+        result = backend.sync(journal_root, dry_run=dry_run)
+    except ValueError as e:
+        raise SystemExit(str(e))
+    except RuntimeError as e:
+        raise SystemExit(f"Sync failed: {e}")
+
+    total = result.get("total", 0)
+    imported = result.get("imported", 0)
+    available = result.get("available", 0)
+    downloaded = result.get("downloaded", 0)
+    errors = result.get("errors", [])
+
+    # Print summary
+    print()
+    print(f"  Total recordings:  {total}")
+    print(f"  Already imported:  {imported}")
+    print(f"  Available to import: {available}")
+
+    if downloaded > 0:
+        print(f"  Downloaded + imported: {downloaded}")
+    if errors:
+        print(f"  Errors: {len(errors)}")
+        for err in errors:
+            print(f"    - {err}")
+
+    # In dry-run mode, show available files
+    if dry_run and available > 0:
+        state = load_sync_state(journal_root, backend_name)
+        if state:
+            files = state.get("files", {})
+            avail_files = [
+                (fid, info)
+                for fid, info in files.items()
+                if info.get("status") == "available"
+            ]
+            if avail_files:
+                print()
+                print("Available recordings:")
+                for _fid, info in avail_files:
+                    name = info.get("filename", "unnamed")
+                    size = info.get("filesize", 0)
+                    print(f"  - {name} ({format_size(size)})")
+                print()
+                print("Run with --save to download and import these files:")
+                print(f"  sol import --sync {backend_name} --save")
+
+    if not dry_run and available == 0 and downloaded == 0:
+        print()
+        print("Everything is up to date.")
+
+
 def main() -> None:
     global _callosum, _message_queue, _import_id, _current_stage, _start_time
     global _stage_start_time, _stages_run, _status_thread, _status_running
@@ -142,6 +219,17 @@ def main() -> None:
         action="store_true",
         help="List syncable importer backends",
     )
+    parser.add_argument(
+        "--sync",
+        type=str,
+        metavar="BACKEND",
+        help="Sync catalog from a backend (e.g., plaud). Shows status by default.",
+    )
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="With --sync: download and import new files (default is dry-run)",
+    )
     args, extra = setup_cli(parser, parse_known=True)
     if extra and not args.timestamp:
         args.timestamp = extra[0]
@@ -156,6 +244,10 @@ def main() -> None:
                 print(f"  {b.name}")
         else:
             print("No syncable backends available")
+        return
+
+    if args.sync:
+        _run_sync(args.sync, dry_run=not args.save)
         return
 
     if not args.media:

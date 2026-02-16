@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+import json
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 
 
@@ -18,10 +22,10 @@ def test_save_and_load_sync_state(tmp_path):
     state = {
         "backend": "plaud",
         "last_sync": "2026-02-14T12:00:00",
-        "synced_files": {
+        "files": {
             "abc123": {
                 "filename": "test.opus",
-                "synced_at": "2026-02-14T12:00:00",
+                "status": "imported",
             }
         },
     }
@@ -75,15 +79,6 @@ def test_plaud_protocol_conformance():
     assert isinstance(PlaudBackend(), SyncableBackend)
 
 
-def test_plaud_sync_not_implemented(tmp_path, monkeypatch):
-    """With token configured, PlaudBackend.sync() raises NotImplementedError."""
-    from think.importers.plaud import PlaudBackend
-
-    monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
-    with pytest.raises(NotImplementedError):
-        PlaudBackend().sync(tmp_path)
-
-
 def test_plaud_sync_requires_token(tmp_path, monkeypatch):
     """Without token configured, PlaudBackend.sync() raises ValueError."""
     from think.importers.plaud import PlaudBackend
@@ -104,3 +99,273 @@ def test_backends_cli_flag(capsys, monkeypatch):
     main()
     captured = capsys.readouterr()
     assert "plaud" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# timestamp_from_start_time
+# ---------------------------------------------------------------------------
+
+
+def test_timestamp_from_start_time_seconds():
+    """Handles epoch seconds."""
+    # 2026-01-15 10:30:00 local
+    import datetime as dt
+
+    from think.importers.plaud import timestamp_from_start_time
+
+    epoch = dt.datetime(2026, 1, 15, 10, 30, 0).timestamp()
+    ts = timestamp_from_start_time(epoch)
+    assert ts == "20260115_103000"
+
+
+def test_timestamp_from_start_time_millis():
+    """Handles epoch milliseconds (Plaud format)."""
+    import datetime as dt
+
+    from think.importers.plaud import timestamp_from_start_time
+
+    epoch_ms = dt.datetime(2026, 1, 15, 10, 30, 0).timestamp() * 1000
+    ts = timestamp_from_start_time(epoch_ms)
+    assert ts == "20260115_103000"
+
+
+# ---------------------------------------------------------------------------
+# match_existing_imports
+# ---------------------------------------------------------------------------
+
+
+def _create_import(journal_root: Path, timestamp: str, original_filename: str) -> None:
+    """Helper: create a minimal imports/{timestamp}/import.json."""
+    import_dir = journal_root / "imports" / timestamp
+    import_dir.mkdir(parents=True, exist_ok=True)
+    meta = {"original_filename": original_filename}
+    (import_dir / "import.json").write_text(json.dumps(meta), encoding="utf-8")
+
+
+def test_match_exact_filename(tmp_path):
+    """Matches by exact filename."""
+    from think.importers.plaud import match_existing_imports
+
+    _create_import(tmp_path, "20260115_103000", "Team Meeting.opus")
+    plaud_files = [
+        {"id": "abc", "filename": "Team Meeting", "fullname": "hash1.opus"},
+    ]
+    matches = match_existing_imports(tmp_path, plaud_files)
+    assert matches == {"abc": "20260115_103000"}
+
+
+def test_match_sanitized_filename(tmp_path):
+    """Matches sanitized filename with extension."""
+    from think.importers.plaud import match_existing_imports
+
+    _create_import(tmp_path, "20260115_103000", "Team_Meeting.opus")
+    plaud_files = [
+        {"id": "abc", "filename": "Team Meeting", "fullname": "hash1.opus"},
+    ]
+    matches = match_existing_imports(tmp_path, plaud_files)
+    assert matches == {"abc": "20260115_103000"}
+
+
+def test_match_no_match(tmp_path):
+    """Returns empty dict when no match."""
+    from think.importers.plaud import match_existing_imports
+
+    _create_import(tmp_path, "20260115_103000", "Something Else.m4a")
+    plaud_files = [
+        {"id": "abc", "filename": "Team Meeting", "fullname": "hash1.opus"},
+    ]
+    matches = match_existing_imports(tmp_path, plaud_files)
+    assert matches == {}
+
+
+def test_match_no_imports_dir(tmp_path):
+    """Returns empty dict when imports/ doesn't exist."""
+    from think.importers.plaud import match_existing_imports
+
+    plaud_files = [
+        {"id": "abc", "filename": "Team Meeting", "fullname": "hash1.opus"},
+    ]
+    matches = match_existing_imports(tmp_path, plaud_files)
+    assert matches == {}
+
+
+def test_match_by_stem(tmp_path):
+    """Matches by filename stem (without extension)."""
+    from think.importers.plaud import match_existing_imports
+
+    _create_import(tmp_path, "20260115_103000", "Team Meeting.m4a")
+    plaud_files = [
+        {"id": "abc", "filename": "Team Meeting", "fullname": "hash1.opus"},
+    ]
+    matches = match_existing_imports(tmp_path, plaud_files)
+    assert matches == {"abc": "20260115_103000"}
+
+
+# ---------------------------------------------------------------------------
+# PlaudBackend.sync() — catalog mode
+# ---------------------------------------------------------------------------
+
+
+def _mock_list_files(_session, _token):
+    """Return a small fake Plaud file list."""
+    return [
+        {
+            "id": "file1",
+            "filename": "Standup",
+            "fullname": "aaa.opus",
+            "filesize": 5000,
+            "start_time": 1737000000000,
+        },
+        {
+            "id": "file2",
+            "filename": "Retro",
+            "fullname": "bbb.opus",
+            "filesize": 8000,
+            "start_time": 1737100000000,
+        },
+    ]
+
+
+def test_plaud_sync_dry_run(tmp_path, monkeypatch):
+    """Dry-run sync fetches catalog and saves state."""
+    from think.importers.plaud import PlaudBackend
+    from think.importers.sync import load_sync_state
+
+    monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
+
+    with patch("think.importers.plaud.list_files", side_effect=_mock_list_files):
+        result = PlaudBackend().sync(tmp_path, dry_run=True)
+
+    assert result["total"] == 2
+    assert result["available"] == 2
+    assert result["imported"] == 0
+    assert result["downloaded"] == 0
+
+    # State was saved
+    state = load_sync_state(tmp_path, "plaud")
+    assert state is not None
+    assert len(state["files"]) == 2
+    assert state["files"]["file1"]["status"] == "available"
+
+
+def test_plaud_sync_matches_existing(tmp_path, monkeypatch):
+    """Sync matches existing imports and marks them imported."""
+    from think.importers.plaud import PlaudBackend
+    from think.importers.sync import load_sync_state
+
+    monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
+    _create_import(tmp_path, "20260116_051320", "Standup.opus")
+
+    with patch("think.importers.plaud.list_files", side_effect=_mock_list_files):
+        result = PlaudBackend().sync(tmp_path, dry_run=True)
+
+    assert result["imported"] == 1
+    assert result["available"] == 1
+
+    state = load_sync_state(tmp_path, "plaud")
+    assert state["files"]["file1"]["status"] == "imported"
+    assert state["files"]["file1"]["import_timestamp"] == "20260116_051320"
+    assert state["files"]["file2"]["status"] == "available"
+
+
+def test_plaud_sync_incremental(tmp_path, monkeypatch):
+    """Second sync preserves existing state and detects new files."""
+    from think.importers.plaud import PlaudBackend
+    from think.importers.sync import load_sync_state, save_sync_state
+
+    monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
+
+    # Pre-seed state with file1 already imported
+    save_sync_state(
+        tmp_path,
+        "plaud",
+        {
+            "backend": "plaud",
+            "files": {
+                "file1": {
+                    "filename": "Standup",
+                    "fullname": "aaa.opus",
+                    "filesize": 5000,
+                    "start_time": 1737000000000,
+                    "status": "imported",
+                    "import_timestamp": "20260116_051320",
+                }
+            },
+        },
+    )
+
+    with patch("think.importers.plaud.list_files", side_effect=_mock_list_files):
+        result = PlaudBackend().sync(tmp_path, dry_run=True)
+
+    assert result["total"] == 2
+    assert result["imported"] == 1
+    assert result["available"] == 1
+
+    state = load_sync_state(tmp_path, "plaud")
+    # file1 preserved as imported
+    assert state["files"]["file1"]["status"] == "imported"
+    # file2 detected as new available
+    assert state["files"]["file2"]["status"] == "available"
+
+
+def test_plaud_sync_promotes_manually_imported(tmp_path, monkeypatch):
+    """Available file gets promoted to imported if manually imported between syncs."""
+    from think.importers.plaud import PlaudBackend
+    from think.importers.sync import load_sync_state, save_sync_state
+
+    monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
+
+    # First sync: file2 is available
+    save_sync_state(
+        tmp_path,
+        "plaud",
+        {
+            "backend": "plaud",
+            "files": {
+                "file1": {
+                    "filename": "Standup",
+                    "status": "imported",
+                    "import_timestamp": "20260116_051320",
+                },
+                "file2": {
+                    "filename": "Retro",
+                    "fullname": "bbb.opus",
+                    "filesize": 8000,
+                    "start_time": 1737100000000,
+                    "status": "available",
+                },
+            },
+        },
+    )
+
+    # Simulate manual import of file2 (creates imports/*/import.json)
+    _create_import(tmp_path, "20260117_134640", "Retro.opus")
+
+    # Second sync: file2 should be promoted to imported
+    with patch("think.importers.plaud.list_files", side_effect=_mock_list_files):
+        result = PlaudBackend().sync(tmp_path, dry_run=True)
+
+    assert result["imported"] == 2
+    assert result["available"] == 0
+
+    state = load_sync_state(tmp_path, "plaud")
+    assert state["files"]["file2"]["status"] == "imported"
+    assert state["files"]["file2"]["import_timestamp"] == "20260117_134640"
+
+
+def test_plaud_sync_cli_flag(capsys, monkeypatch, tmp_path):
+    """sol import --sync plaud runs sync in dry-run mode."""
+    import sys
+
+    from think.importers.cli import main
+
+    monkeypatch.setattr(sys, "argv", ["sol import", "--sync", "plaud"])
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
+
+    with patch("think.importers.plaud.list_files", side_effect=_mock_list_files):
+        main()
+
+    captured = capsys.readouterr()
+    assert "Total recordings:" in captured.out
+    assert "Available to import:" in captured.out

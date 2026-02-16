@@ -3,10 +3,13 @@
 
 """Plaud audio recorder API utilities and syncable backend."""
 
+import datetime as dt
 import json
+import logging
 import os
 import pathlib
 import re
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -15,6 +18,8 @@ from typing import Any, Dict, List, Optional
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+logger = logging.getLogger(__name__)
 
 API_BASE = "https://api.plaud.ai"
 
@@ -172,104 +177,78 @@ def format_size(bytes_size: int) -> str:
     return f"{bytes_size:.1f}TB"
 
 
-def sync_files(
-    session: requests.Session,
-    token: str,
-    target_dir: pathlib.Path,
-    dry_run: bool = True,
-) -> int:
+def timestamp_from_start_time(start_time: int | float) -> str:
+    """Convert Plaud epoch milliseconds to YYYYMMDD_HHMMSS timestamp."""
+    # Plaud start_time is milliseconds since epoch
+    if start_time > 1e12:
+        start_time = start_time / 1000
+    d = dt.datetime.fromtimestamp(start_time)
+    return d.strftime("%Y%m%d_%H%M%S")
+
+
+def match_existing_imports(
+    journal_root: Path, plaud_files: list[dict[str, Any]]
+) -> dict[str, str]:
+    """Match Plaud files against existing imports by filename.
+
+    Scans all imports/*/import.json for original_filename and matches against
+    Plaud filenames using exact and sanitized comparison.
+
+    Returns:
+        Dict mapping plaud file ID -> import timestamp for matches.
     """
-    Sync files from Plaud API to local directory.
+    imports_dir = journal_root / "imports"
+    if not imports_dir.exists():
+        return {}
 
-    Returns the number of files that were (or would be) downloaded.
-    """
-    file_list = list_files(session, token)
-    if file_list is None:
-        return -1
-
-    target_dir.mkdir(parents=True, exist_ok=True)
-
-    to_download = []
-    already_exist = []
-
-    print(f"\nChecking local files in: {target_dir}")
-    print("=" * 70)
-
-    for file_info in file_list:
-        file_id = file_info.get("id")
-        filename = file_info.get("filename", "unnamed")
-        filesize = file_info.get("filesize", 0)
-        fullname = file_info.get("fullname", f"{file_id}.opus")
-
-        # Use the fullname (e.g., "hash.opus") or sanitize the filename
-        # Let's use the fullname which includes extension
-        safe_name = sanitize_filename(filename)
-        # Get extension from fullname
-        ext = pathlib.Path(fullname).suffix or ".opus"
-        local_filename = f"{safe_name}{ext}"
-        local_path = target_dir / local_filename
-
-        if local_path.exists():
-            already_exist.append((file_info, local_path))
-        else:
-            to_download.append((file_info, local_path))
-
-    print(f"✓ {len(already_exist)} files already exist locally")
-    print(f"⬇ {len(to_download)} files need to be downloaded")
-
-    if not to_download:
-        print("\n✓ All files are already synced!")
-        return 0
-
-    if dry_run:
-        print(f"\n{'DRY RUN MODE':-^70}")
-        print("The following files would be downloaded:\n")
-        total_size = 0
-        for file_info, local_path in to_download:
-            filename = file_info.get("filename", "unnamed")
-            filesize = file_info.get("filesize", 0)
-            total_size += filesize
-            print(f"  • {local_path.name}")
-            print(f"    Size: {format_size(filesize)}, Original: {filename}")
-
-        print(f"\nTotal download size: {format_size(total_size)}")
-        print("\nTo actually download these files, run with --save flag")
-        return len(to_download)
-
-    # Actually download files
-    print(f"\n{'DOWNLOADING FILES':-^70}\n")
-    downloaded = 0
-    failed = 0
-
-    for idx, (file_info, local_path) in enumerate(to_download, 1):
-        file_id = file_info.get("id")
-        filename = file_info.get("filename", "unnamed")
-        filesize = file_info.get("filesize", 0)
-
-        print(f"[{idx}/{len(to_download)}] {local_path.name} ({format_size(filesize)})")
-
-        # Get temp URL
-        temp_url = get_temp_url(session, token, file_id)
-        if not temp_url:
-            print("  ✗ Failed to get download URL", file=sys.stderr)
-            failed += 1
+    # Build index: normalized filename stem -> import timestamp
+    filename_index: dict[str, str] = {}
+    for import_dir in imports_dir.iterdir():
+        if not import_dir.is_dir():
+            continue
+        meta_path = import_dir / "import.json"
+        if not meta_path.exists():
+            continue
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            orig = meta.get("original_filename", "")
+            if orig:
+                # Index by exact name and by stem (without extension)
+                filename_index[orig] = import_dir.name
+                stem = pathlib.Path(orig).stem
+                if stem:
+                    filename_index[stem] = import_dir.name
+                # Also index sanitized form
+                sanitized = sanitize_filename(stem) if stem else ""
+                if sanitized and sanitized != stem:
+                    filename_index[sanitized] = import_dir.name
+        except (json.JSONDecodeError, OSError):
             continue
 
-        # Download file
-        if download_to_file(session, temp_url, local_path):
-            downloaded += 1
-            print("  ✓ Downloaded")
-        else:
-            failed += 1
-            print("  ✗ Download failed", file=sys.stderr)
+    # Match each Plaud file against the index
+    matches: dict[str, str] = {}
+    for file_info in plaud_files:
+        file_id = file_info.get("id", "")
+        filename = file_info.get("filename", "")
+        fullname = file_info.get("fullname", "")
 
-    print(f"\n{'SUMMARY':-^70}")
-    print(f"✓ Downloaded: {downloaded}")
-    if failed > 0:
-        print(f"✗ Failed: {failed}")
-    print(f"Total synced: {len(already_exist) + downloaded}/{len(file_list)}")
+        # Try matching strategies in priority order
+        candidates = [
+            filename,  # exact display name
+            pathlib.Path(fullname).stem if fullname else "",  # hash stem
+            sanitize_filename(filename) if filename else "",  # sanitized display name
+        ]
+        ext = pathlib.Path(fullname).suffix if fullname else ".opus"
+        if filename:
+            candidates.append(f"{filename}{ext}")  # display name + extension
+            candidates.append(f"{sanitize_filename(filename)}{ext}")  # sanitized + ext
 
-    return downloaded
+        for candidate in candidates:
+            if candidate and candidate in filename_index:
+                matches[file_id] = filename_index[candidate]
+                break
+
+    return matches
 
 
 class PlaudBackend:
@@ -278,16 +257,211 @@ class PlaudBackend:
     name: str = "plaud"
 
     def sync(self, journal_root: Path, *, dry_run: bool = True) -> dict[str, Any]:
-        """Sync files from Plaud service.
+        """Sync catalog from Plaud service.
 
-        Not yet implemented — Phase 2 will wire up actual sync.
+        Fetches the file list from the Plaud API, matches against existing
+        imports, and saves sync state. When dry_run=False, downloads and
+        imports new files through the import pipeline.
+
+        Returns:
+            Summary dict with total, imported, available, downloaded, errors.
         """
+        from think.importers.sync import load_sync_state, save_sync_state
+
         token = os.getenv("PLAUD_ACCESS_TOKEN")
         if not token:
             raise ValueError(
                 "PLAUD_ACCESS_TOKEN not configured — set in Settings > API Keys"
             )
-        raise NotImplementedError("Plaud sync execution is not yet implemented")
+
+        session = make_session()
+
+        # Fetch current file list from Plaud API
+        file_list = list_files(session, token)
+        if file_list is None:
+            raise RuntimeError("Failed to fetch file list from Plaud API")
+
+        # Load existing sync state
+        state = load_sync_state(journal_root, "plaud") or {
+            "backend": "plaud",
+            "files": {},
+        }
+        known_files: dict[str, dict] = state.get("files", {})
+
+        # Collect files that need matching: new files + still-available files
+        # (re-check available in case they were imported manually since last sync)
+        needs_matching = [
+            f
+            for f in file_list
+            if f.get("id") not in known_files
+            or known_files.get(f.get("id", ""), {}).get("status") == "available"
+        ]
+        matches = match_existing_imports(journal_root, needs_matching)
+
+        # Merge into state
+        for file_info in file_list:
+            file_id = file_info.get("id", "")
+            if not file_id:
+                continue
+
+            if file_id in known_files:
+                # Preserve existing status, update metadata
+                entry = known_files[file_id]
+                entry["filename"] = file_info.get("filename", entry.get("filename", ""))
+                entry["filesize"] = file_info.get("filesize", entry.get("filesize", 0))
+                # Promote available -> imported if matched since last sync
+                if entry.get("status") == "available" and file_id in matches:
+                    entry["status"] = "imported"
+                    entry["import_timestamp"] = matches[file_id]
+                    entry["matched_at"] = dt.datetime.now().isoformat()
+                continue
+
+            # New file — check if matched to an existing import
+            entry: dict[str, Any] = {
+                "filename": file_info.get("filename", "unnamed"),
+                "fullname": file_info.get("fullname", ""),
+                "filesize": file_info.get("filesize", 0),
+                "start_time": file_info.get("start_time", 0),
+            }
+
+            if file_id in matches:
+                entry["status"] = "imported"
+                entry["import_timestamp"] = matches[file_id]
+                entry["matched_at"] = dt.datetime.now().isoformat()
+            else:
+                entry["status"] = "available"
+
+            known_files[file_id] = entry
+
+        # Compute summary
+        total = len(known_files)
+        imported = sum(1 for f in known_files.values() if f.get("status") == "imported")
+        available = sum(
+            1 for f in known_files.values() if f.get("status") == "available"
+        )
+
+        result: dict[str, Any] = {
+            "total": total,
+            "imported": imported,
+            "available": available,
+            "downloaded": 0,
+            "errors": [],
+        }
+
+        # Download and import if not dry-run
+        if not dry_run and available > 0:
+            to_process = [
+                (fid, info)
+                for fid, info in known_files.items()
+                if info.get("status") == "available"
+            ]
+            downloaded = 0
+            errors: list[str] = []
+
+            for idx, (file_id, info) in enumerate(to_process, 1):
+                filename = info.get("filename", "unnamed")
+                filesize = info.get("filesize", 0)
+                start_time = info.get("start_time", 0)
+
+                # Derive timestamp from Plaud recording start time
+                if start_time:
+                    ts = timestamp_from_start_time(start_time)
+                else:
+                    print(
+                        f"  [{idx}/{len(to_process)}] {filename} — skipping "
+                        f"(no start_time)",
+                        file=sys.stderr,
+                    )
+                    errors.append(f"{filename}: no start_time")
+                    continue
+
+                fullname = info.get("fullname", f"{file_id}.opus")
+                ext = pathlib.Path(fullname).suffix or ".opus"
+                safe_name = f"{sanitize_filename(filename)}{ext}"
+
+                print(
+                    f"  [{idx}/{len(to_process)}] {filename} "
+                    f"({format_size(filesize)})"
+                )
+
+                # Download to imports/{timestamp}/
+                import_dir = journal_root / "imports" / ts
+                import_dir.mkdir(parents=True, exist_ok=True)
+                dest_path = import_dir / safe_name
+
+                # Get temp URL and download
+                temp_url = get_temp_url(session, token, file_id)
+                if not temp_url:
+                    msg = f"{filename}: failed to get download URL"
+                    print(f"    FAILED — {msg}", file=sys.stderr)
+                    errors.append(msg)
+                    continue
+
+                if not download_to_file(session, temp_url, dest_path):
+                    msg = f"{filename}: download failed"
+                    print(f"    FAILED — {msg}", file=sys.stderr)
+                    errors.append(msg)
+                    continue
+
+                print(f"    Downloaded -> {dest_path.name}")
+
+                # Run through import pipeline
+                import_cmd = [
+                    "sol",
+                    "import",
+                    str(dest_path),
+                    "--timestamp",
+                    ts,
+                    "--source",
+                    "plaud",
+                    "--auto",
+                    "--skip-summary",
+                ]
+                print(f"    Importing {ts}...")
+                try:
+                    proc = subprocess.run(
+                        import_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=300,
+                    )
+                    if proc.returncode == 0:
+                        info["status"] = "imported"
+                        info["import_timestamp"] = ts
+                        info["imported_at"] = dt.datetime.now().isoformat()
+                        downloaded += 1
+                        print("    Imported successfully")
+                    else:
+                        stderr_tail = (
+                            proc.stderr.strip().split("\n")[-1] if proc.stderr else ""
+                        )
+                        msg = f"{filename}: import failed — {stderr_tail}"
+                        print("    FAILED — import error", file=sys.stderr)
+                        logger.warning(
+                            "Import failed for %s: %s", filename, proc.stderr
+                        )
+                        errors.append(msg)
+                except subprocess.TimeoutExpired:
+                    msg = f"{filename}: import timed out"
+                    print("    FAILED — timed out", file=sys.stderr)
+                    errors.append(msg)
+
+            result["downloaded"] = downloaded
+            result["errors"] = errors
+            # Update available count after processing
+            result["imported"] = sum(
+                1 for f in known_files.values() if f.get("status") == "imported"
+            )
+            result["available"] = sum(
+                1 for f in known_files.values() if f.get("status") == "available"
+            )
+
+        # Save updated state
+        state["files"] = known_files
+        state["last_sync"] = dt.datetime.now().isoformat()
+        save_sync_state(journal_root, "plaud", state)
+
+        return result
 
 
 # Module-level backend instance for discovery
