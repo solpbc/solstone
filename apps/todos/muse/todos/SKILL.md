@@ -49,7 +49,7 @@ sol call todos add TEXT [-d DAY] [-f FACET]
 Add a new todo item.
 
 - `TEXT`: todo text (positional argument).
-- `-d, --day`: day in `YYYYMMDD` (default: `SOL_DAY` env); must be today or in the future.
+- `-d, --day`: day in `YYYYMMDD` (default: `SOL_DAY` env).
 - `-f, --facet`: facet name (default: `SOL_FACET` env).
 
 Behavior notes:

@@ -190,7 +190,7 @@ def test_todo_tool_pack_round_trip(tmp_path, monkeypatch):
     journal_copy = tmp_path / "journal"
     shutil.copytree(FIXTURES_JOURNAL, journal_copy)
 
-    day = "20991231"  # Use future date to avoid date validation
+    day = "20991231"  # Use a future date
     facet = "personal"
     todos_dir = journal_copy / "facets" / facet / "todos"
     todos_dir.mkdir(parents=True, exist_ok=True)

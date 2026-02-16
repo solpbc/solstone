@@ -69,15 +69,13 @@
 <!-- Use display:contents to make form invisible to flexbox -->
 <form method="post" style="display: contents;">
   <input type="hidden" name="action" value="add">
-  {% set is_future_or_today = day >= today_day %}
   <input
     type="text"
     name="text"
     id="todo-add-input"
     class="todo-add-input"
-    placeholder="{% if not is_future_or_today %}Can't add todos to past dates{% elif selected_facet %}Add a todo to {{ facets|selectattr('name', 'equalto', selected_facet)|map(attribute='title')|first|default(selected_facet) }}...{% else %}Add a todo... (use #facet){% endif %}"
+    placeholder="{% if selected_facet %}Add a todo to {{ facets|selectattr('name', 'equalto', selected_facet)|map(attribute='title')|first|default(selected_facet) }}...{% else %}Add a todo... (use #facet){% endif %}"
     autocomplete="off"
-    {% if not is_future_or_today %}disabled{% endif %}
   >
 </form>
 
@@ -90,7 +88,6 @@
   title="Generate weekly todos with AI"
 >✨</button>
 
-{% if is_future_or_today %}
 <script>
 (function() {
   const input = document.getElementById('todo-add-input');
@@ -150,7 +147,6 @@
   });
 })();
 </script>
-{% endif %}
 
 <script>
 (function() {

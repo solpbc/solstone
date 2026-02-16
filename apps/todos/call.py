@@ -107,15 +107,10 @@ def add_todo(
     day = resolve_sol_day(day)
     facet = resolve_sol_facet(facet)
 
-    # Reject past dates
     try:
-        todo_date = datetime.strptime(day, "%Y%m%d").date()
+        datetime.strptime(day, "%Y%m%d")
     except ValueError:
         typer.echo(f"Error: invalid day format '{day}'", err=True)
-        raise typer.Exit(1)
-
-    if todo_date < datetime.now().date():
-        typer.echo(f"Error: cannot add todo to past date {day}", err=True)
         raise typer.Exit(1)
 
     try:

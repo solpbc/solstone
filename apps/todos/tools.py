@@ -108,7 +108,7 @@ def todo_add(day: str, facet: str, line_number: int, text: str) -> dict[str, Any
     """Append a new unchecked todo entry using the next sequential line number.
 
     Args:
-        day: The day this item is due on in ``YYYYMMDD`` format, must always be today or in the future.
+        day: The day this item is due on in ``YYYYMMDD`` format.
         facet: Facet name (e.g., "personal", "work").
         line_number: Expected next line value; must be ``current_count + 1``.
         text: Body of the todo item. Time can be included as ``(HH:MM)`` suffix.
@@ -118,16 +118,9 @@ def todo_add(day: str, facet: str, line_number: int, text: str) -> dict[str, Any
         or an error payload if validation fails.
     """
     try:
-        # Validate that the day is not in the past
+        # Validate day format
         try:
-            todo_date = datetime.strptime(day, "%Y%m%d").date()
-            today = datetime.now().date()
-            if todo_date < today:
-                today_str = today.strftime("%Y%m%d")
-                return {
-                    "error": f"Cannot add todo to past date {day}",
-                    "suggestion": f"todos can only be added to today ({today_str}) or future days",
-                }
+            datetime.strptime(day, "%Y%m%d")
         except ValueError:
             return {
                 "error": f"Invalid day format '{day}'",

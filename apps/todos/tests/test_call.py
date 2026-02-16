@@ -88,14 +88,15 @@ class TestTodosAdd:
         assert "First" in result.output
         assert "Second" in result.output
 
-    def test_add_past_date_rejected(self, todo_env):
-        """Adding to a past date fails."""
+    def test_add_past_date_allowed(self, todo_env):
+        """Adding to a past date succeeds."""
         todo_env([], day="20200101")
         result = runner.invoke(
             call_app,
             ["todos", "add", "Nope", "--day", "20200101", "--facet", "personal"],
         )
-        assert result.exit_code == 1
+        assert result.exit_code == 0
+        assert "Nope" in result.output
 
     def test_add_empty_text_rejected(self, todo_env):
         """Adding empty text fails."""
