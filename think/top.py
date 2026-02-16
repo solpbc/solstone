@@ -55,9 +55,7 @@ class ServiceManager:
         self.cpu_cache = {}  # Maps pid -> last cpu_percent value
         self.cpu_procs = {}  # Maps pid -> Process object for cpu tracking
         self.running_tasks = {}  # Maps ref -> task info from logs tract
-        self.command_queues = (
-            {}
-        )  # Maps command_name -> queued count from supervisor.queue
+        self.command_queues = {}  # Maps command_name -> queued count
         self.event_queue: queue.Queue = queue.Queue()  # Callosum events for main loop
         self.active_notifications = {}  # Maps service_name -> notification_id
         self.crash_history = {}  # Maps service_name -> [crash_timestamps]
@@ -213,6 +211,10 @@ class ServiceManager:
             if event == "status":
                 self.services = message.get("services", [])
                 self.crashed = message.get("crashed", [])
+                # Seed queue counts from status (fills gaps on fresh connect)
+                queues = message.get("queues")
+                if queues is not None:
+                    self.command_queues = dict(queues)
 
                 # Poll CPU for current services and tasks
                 all_pids = [svc["pid"] for svc in self.services]
@@ -603,7 +605,17 @@ class ServiceManager:
         output.append(t.bold + header + t.normal)
 
         if not tasks_only:
-            output.append(t.dim + "  -" + t.normal)
+            # Show queued commands even when no tasks are running
+            queued_only = {
+                cmd: count for cmd, count in self.command_queues.items() if count > 0
+            }
+            if queued_only:
+                parts = [
+                    f"{cmd} ×{count}" for cmd, count in sorted(queued_only.items())
+                ]
+                output.append(t.dim + "  queued: " + ", ".join(parts) + t.normal)
+            else:
+                output.append(t.dim + "  -" + t.normal)
             return output
 
         # Task rows (sorted by start time, oldest first)
@@ -624,6 +636,17 @@ class ServiceManager:
 
             line = f"  {name:<15} {pid:<8} {runtime:<12} {memory:>7}  {cpu:>5} {log_age:>5} "
             output.append(line + log_color + log_display + t.normal)
+
+        # Show queued commands not visible as running tasks
+        visible_commands = {task["name"] for task in tasks_only}
+        queued_only = {
+            cmd: count
+            for cmd, count in self.command_queues.items()
+            if cmd not in visible_commands and count > 0
+        }
+        if queued_only:
+            parts = [f"{cmd} ×{count}" for cmd, count in sorted(queued_only.items())]
+            output.append(t.dim + "  queued: " + ", ".join(parts) + t.normal)
 
         return output
 

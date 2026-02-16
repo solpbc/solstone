@@ -385,6 +385,15 @@ class TaskQueue:
                 )
         return tasks
 
+    def collect_queue_counts(self) -> dict[str, int]:
+        """Snapshot per-command queue depths for status reporting."""
+        with self._lock:
+            return {
+                cmd_name: len(queue)
+                for cmd_name, queue in self._queues.items()
+                if queue
+            }
+
 
 # Global task queue instance (initialized in main())
 _task_queue: TaskQueue | None = None
@@ -760,6 +769,7 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
 
     # Running tasks
     tasks = _task_queue.collect_task_status() if _task_queue else []
+    queues = _task_queue.collect_queue_counts() if _task_queue else {}
 
     # Stale heartbeats
     stale = check_health()
@@ -768,6 +778,7 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
         "services": services,
         "crashed": crashed,
         "tasks": tasks,
+        "queues": queues,
         "stale_heartbeats": stale,
     }
 
