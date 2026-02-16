@@ -8,9 +8,6 @@ import os
 import tempfile
 from pathlib import Path
 
-# Set up test environment before importing the module
-os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
-
 
 def test_get_default_activities():
     """Test that default activities are returned correctly."""

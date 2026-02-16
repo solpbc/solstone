@@ -4,13 +4,10 @@
 """Tests for dream --activity mode and activity template variables."""
 
 import json
-import os
 import tempfile
 from pathlib import Path
 
 import pytest
-
-os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
 
 
 # ---------------------------------------------------------------------------

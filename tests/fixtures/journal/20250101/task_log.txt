@@ -1,6 +1,0 @@
-1771258550	starting: sol sense --day 20250101 -v
-1771258614	starting: sol sense --day 20250101 -v
-1771259054	starting: sol sense --day 20250101 -v
-1771259054	starting: sol sense --day 20250101 -v
-1771259280	starting: sol sense --day 20250101 -v
-1771259280	starting: sol sense --day 20250101 -v

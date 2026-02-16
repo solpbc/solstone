@@ -245,6 +245,7 @@ Notes:
 * Agents won't execute without API keys — this is expected in worktrees
 * Output artifacts go in `scratch/` (git-ignored)
 * Service logs: `tests/fixtures/journal/health/<service>.log`
+* `make dev` writes runtime artifacts (stats cache, health logs, task logs) into the fixtures journal — these are covered by `tests/fixtures/journal/.gitignore` and should never be committed
 
 ### File Locations
 * **Entry Points**: `sol.py` `COMMANDS` dict

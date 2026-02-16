@@ -8,9 +8,6 @@ import os
 import tempfile
 from pathlib import Path
 
-# Set up test environment before importing the module
-os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
-
 
 class TestExtractFacetFromOutputPath:
     """Tests for _extract_facet_from_output_path."""
