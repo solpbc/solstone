@@ -212,10 +212,10 @@ def day_dirs() -> dict[str, str]:
     return days
 
 
-def dirty_days(exclude: set[str] | None = None) -> list[str]:
+def updated_days(exclude: set[str] | None = None) -> list[str]:
     """Return journal days with pending stream data not yet processed daily.
 
-    A day is "dirty" when it has a ``health/stream.updated`` marker that is
+    A day is "updated" when it has a ``health/stream.updated`` marker that is
     newer than its ``health/daily.updated`` marker (or daily.updated is missing).
     Days without ``stream.updated`` are skipped entirely.
 
@@ -227,10 +227,10 @@ def dirty_days(exclude: set[str] | None = None) -> list[str]:
     Returns
     -------
     list of str
-        Sorted list of dirty day strings.
+        Sorted list of updated day strings.
     """
     days = day_dirs()
-    dirty: list[str] = []
+    updated: list[str] = []
     for name, path in days.items():
         if exclude and name in exclude:
             continue
@@ -239,12 +239,12 @@ def dirty_days(exclude: set[str] | None = None) -> list[str]:
             continue
         daily = os.path.join(path, "health", "daily.updated")
         if not os.path.isfile(daily):
-            dirty.append(name)
+            updated.append(name)
             continue
         if os.path.getmtime(stream) > os.path.getmtime(daily):
-            dirty.append(name)
-    dirty.sort()
-    return dirty
+            updated.append(name)
+    updated.sort()
+    return updated
 
 
 def segment_path(day: str, segment: str, stream: str) -> Path:

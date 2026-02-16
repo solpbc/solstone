@@ -1441,7 +1441,7 @@ def main() -> None:
     if args.activity and not args.facet:
         parser.error("--activity requires --facet")
 
-    # Auto-enable refresh for dirty days (full daily runs only)
+    # Auto-enable refresh for updated days (full daily runs only)
     if not args.refresh and not args.segment and not args.segments:
         health_dir = day_dir / "health"
         stream_marker = health_dir / "stream.updated"

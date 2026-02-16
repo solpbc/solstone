@@ -851,7 +851,7 @@
   margin-bottom: 1rem;
 }
 
-.dirty-banner {
+.updated-banner {
   background: #fff8e1;
   border: 1px solid #ffe082;
   border-radius: 6px;
@@ -861,18 +861,18 @@
   color: #5d4037;
 }
 
-.dirty-banner-title {
+.updated-banner-title {
   font-weight: 600;
   margin-bottom: 0.25rem;
 }
 
-.dirty-banner a {
+.updated-banner a {
   color: #e65100;
   text-decoration: none;
   font-weight: 500;
 }
 
-.dirty-banner a:hover {
+.updated-banner a:hover {
   text-decoration: underline;
 }
 
@@ -890,7 +890,7 @@
 
   <!-- Card Grid View -->
   <div id="grid-view" style="display: none;">
-    <div id="dirty-banner" class="dirty-banner" style="display: none;"></div>
+    <div id="updated-banner" class="updated-banner" style="display: none;"></div>
     <div id="day-summary" class="day-summary" style="display: none;"></div>
     <div id="agent-groups"></div>
     <div id="empty-state" class="empty-state" style="display: none;">
@@ -1117,15 +1117,15 @@
     document.getElementById('run-detail-view').style.display = 'none';
   }
 
-  function loadDirtyBanner() {
-    const banner = document.getElementById('dirty-banner');
+  function loadUpdatedBanner() {
+    const banner = document.getElementById('updated-banner');
     const now = new Date();
     const today = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
     if (currentDay !== today || window.selectedFacet) {
       banner.style.display = 'none';
       return;
     }
-    fetch('api/dirty-days')
+    fetch('api/updated-days')
       .then(r => r.json())
       .then(days => {
         if (!days.length) {
@@ -1136,7 +1136,7 @@
           const label = d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6);
           return `<a href="${d}">${label}</a>`;
         }).join(', ');
-        banner.innerHTML = `<div class="dirty-banner-title">Days with pending reprocessing</div>${links}`;
+        banner.innerHTML = `<div class="updated-banner-title">Days with pending reprocessing</div>${links}`;
         banner.style.display = 'block';
       })
       .catch(() => { banner.style.display = 'none'; });
@@ -2134,12 +2134,12 @@
 
   // Listen for facet changes
   window.addEventListener('facet.switch', () => {
-    loadDirtyBanner();
+    loadUpdatedBanner();
     loadAgents();
   });
 
   // Initial load
-  loadDirtyBanner();
+  loadUpdatedBanner();
   loadAgents();
 })();
 </script>
