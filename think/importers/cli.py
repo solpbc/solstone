@@ -124,14 +124,17 @@ def _run_sync(backend_name: str, *, dry_run: bool = True) -> None:
     total = result.get("total", 0)
     imported = result.get("imported", 0)
     available = result.get("available", 0)
+    skipped = result.get("skipped", 0)
     downloaded = result.get("downloaded", 0)
     errors = result.get("errors", [])
 
     # Print summary
     print()
-    print(f"  Total recordings:  {total}")
-    print(f"  Already imported:  {imported}")
+    print(f"  Total recordings:    {total}")
+    print(f"  Already imported:    {imported}")
     print(f"  Available to import: {available}")
+    if skipped:
+        print(f"  Skipped:             {skipped} (trashed/short)")
 
     if downloaded > 0:
         print(f"  Downloaded + imported: {downloaded}")

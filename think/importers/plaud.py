@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 API_BASE = "https://api.plaud.ai"
 
+# Skip recordings shorter than this (milliseconds)
+MIN_DURATION_MS = 30_000
+
 
 def make_session() -> requests.Session:
     """Create a requests session with sane retries."""
@@ -316,18 +319,29 @@ class PlaudBackend:
                     entry["matched_at"] = dt.datetime.now().isoformat()
                 continue
 
-            # New file — check if matched to an existing import
+            # New file — build entry with full metadata
+            duration = file_info.get("duration", 0)
+            is_trash = file_info.get("is_trash", False)
+
             entry: dict[str, Any] = {
                 "filename": file_info.get("filename", "unnamed"),
                 "fullname": file_info.get("fullname", ""),
                 "filesize": file_info.get("filesize", 0),
                 "start_time": file_info.get("start_time", 0),
+                "duration": duration,
+                "is_trash": is_trash,
             }
 
             if file_id in matches:
                 entry["status"] = "imported"
                 entry["import_timestamp"] = matches[file_id]
                 entry["matched_at"] = dt.datetime.now().isoformat()
+            elif is_trash:
+                entry["status"] = "skipped"
+                entry["skip_reason"] = "trashed"
+            elif duration and duration < MIN_DURATION_MS:
+                entry["status"] = "skipped"
+                entry["skip_reason"] = "too_short"
             else:
                 entry["status"] = "available"
 
@@ -339,11 +353,13 @@ class PlaudBackend:
         available = sum(
             1 for f in known_files.values() if f.get("status") == "available"
         )
+        skipped = sum(1 for f in known_files.values() if f.get("status") == "skipped")
 
         result: dict[str, Any] = {
             "total": total,
             "imported": imported,
             "available": available,
+            "skipped": skipped,
             "downloaded": 0,
             "errors": [],
         }

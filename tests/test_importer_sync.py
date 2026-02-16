@@ -238,6 +238,7 @@ def test_plaud_sync_dry_run(tmp_path, monkeypatch):
 
     assert result["total"] == 2
     assert result["available"] == 2
+    assert result["skipped"] == 0
     assert result["imported"] == 0
     assert result["downloaded"] == 0
 
@@ -351,6 +352,64 @@ def test_plaud_sync_promotes_manually_imported(tmp_path, monkeypatch):
     state = load_sync_state(tmp_path, "plaud")
     assert state["files"]["file2"]["status"] == "imported"
     assert state["files"]["file2"]["import_timestamp"] == "20260117_134640"
+
+
+def _mock_list_files_with_junk(_session, _token):
+    """Return a file list including trashed and short recordings."""
+    return [
+        {
+            "id": "good1",
+            "filename": "Team Standup",
+            "fullname": "aaa.opus",
+            "filesize": 5000,
+            "start_time": 1737000000000,
+            "duration": 300000,
+            "is_trash": False,
+        },
+        {
+            "id": "trashed1",
+            "filename": "Old Recording",
+            "fullname": "bbb.opus",
+            "filesize": 2000,
+            "start_time": 1737100000000,
+            "duration": 60000,
+            "is_trash": True,
+        },
+        {
+            "id": "short1",
+            "filename": "Accidental Tap",
+            "fullname": "ccc.opus",
+            "filesize": 500,
+            "start_time": 1737200000000,
+            "duration": 5000,
+            "is_trash": False,
+        },
+    ]
+
+
+def test_plaud_sync_skips_trashed_and_short(tmp_path, monkeypatch):
+    """Trashed and short recordings are auto-skipped."""
+    from think.importers.plaud import PlaudBackend
+    from think.importers.sync import load_sync_state
+
+    monkeypatch.setenv("PLAUD_ACCESS_TOKEN", "test-token")
+
+    with patch(
+        "think.importers.plaud.list_files", side_effect=_mock_list_files_with_junk
+    ):
+        result = PlaudBackend().sync(tmp_path, dry_run=True)
+
+    assert result["total"] == 3
+    assert result["available"] == 1
+    assert result["skipped"] == 2
+    assert result["imported"] == 0
+
+    state = load_sync_state(tmp_path, "plaud")
+    assert state["files"]["good1"]["status"] == "available"
+    assert state["files"]["trashed1"]["status"] == "skipped"
+    assert state["files"]["trashed1"]["skip_reason"] == "trashed"
+    assert state["files"]["short1"]["status"] == "skipped"
+    assert state["files"]["short1"]["skip_reason"] == "too_short"
 
 
 def test_plaud_sync_cli_flag(capsys, monkeypatch, tmp_path):
