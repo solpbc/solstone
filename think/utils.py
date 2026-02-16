@@ -212,6 +212,41 @@ def day_dirs() -> dict[str, str]:
     return days
 
 
+def dirty_days(exclude: set[str] | None = None) -> list[str]:
+    """Return journal days with pending stream data not yet processed daily.
+
+    A day is "dirty" when it has a ``health/stream.updated`` marker that is
+    newer than its ``health/daily.updated`` marker (or daily.updated is missing).
+    Days without ``stream.updated`` are skipped entirely.
+
+    Parameters
+    ----------
+    exclude : set of str, optional
+        Day strings (YYYYMMDD) to skip.
+
+    Returns
+    -------
+    list of str
+        Sorted list of dirty day strings.
+    """
+    days = day_dirs()
+    dirty: list[str] = []
+    for name, path in days.items():
+        if exclude and name in exclude:
+            continue
+        stream = os.path.join(path, "health", "stream.updated")
+        if not os.path.isfile(stream):
+            continue
+        daily = os.path.join(path, "health", "daily.updated")
+        if not os.path.isfile(daily):
+            dirty.append(name)
+            continue
+        if os.path.getmtime(stream) > os.path.getmtime(daily):
+            dirty.append(name)
+    dirty.sort()
+    return dirty
+
+
 def segment_path(day: str, segment: str, stream: str) -> Path:
     """Return absolute path for a segment directory within a stream.
 

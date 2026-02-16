@@ -851,6 +851,31 @@
   margin-bottom: 1rem;
 }
 
+.dirty-banner {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #5d4037;
+}
+
+.dirty-banner-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.dirty-banner a {
+  color: #e65100;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.dirty-banner a:hover {
+  text-decoration: underline;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -865,6 +890,7 @@
 
   <!-- Card Grid View -->
   <div id="grid-view" style="display: none;">
+    <div id="dirty-banner" class="dirty-banner" style="display: none;"></div>
     <div id="day-summary" class="day-summary" style="display: none;"></div>
     <div id="agent-groups"></div>
     <div id="empty-state" class="empty-state" style="display: none;">
@@ -1089,6 +1115,31 @@
     document.getElementById('grid-view').style.display = 'none';
     document.getElementById('list-view').style.display = 'none';
     document.getElementById('run-detail-view').style.display = 'none';
+  }
+
+  function loadDirtyBanner() {
+    const banner = document.getElementById('dirty-banner');
+    const now = new Date();
+    const today = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+    if (currentDay !== today || window.selectedFacet) {
+      banner.style.display = 'none';
+      return;
+    }
+    fetch('api/dirty-days')
+      .then(r => r.json())
+      .then(days => {
+        if (!days.length) {
+          banner.style.display = 'none';
+          return;
+        }
+        const links = days.map(d => {
+          const label = d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6);
+          return `<a href="${d}">${label}</a>`;
+        }).join(', ');
+        banner.innerHTML = `<div class="dirty-banner-title">Days with pending reprocessing</div>${links}`;
+        banner.style.display = 'block';
+      })
+      .catch(() => { banner.style.display = 'none'; });
   }
 
   async function loadAgents() {
@@ -2083,10 +2134,12 @@
 
   // Listen for facet changes
   window.addEventListener('facet.switch', () => {
+    loadDirtyBanner();
     loadAgents();
   });
 
   // Initial load
+  loadDirtyBanner();
   loadAgents();
 })();
 </script>

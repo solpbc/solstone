@@ -19,6 +19,7 @@ from convey.utils import DATE_RE, format_date
 from think.facets import get_facets
 from think.models import calc_agent_cost
 from think.muse import get_muse_configs, get_output_path
+from think.utils import dirty_days
 
 agents_bp = Blueprint(
     "app:agents",
@@ -629,3 +630,13 @@ def api_badge_count() -> Any:
     agents = _get_agents_for_day(today, facet_filter=None)
     failed_count = sum(1 for a in agents if a.get("failed"))
     return jsonify({"count": failed_count})
+
+
+@agents_bp.route("/api/dirty-days")
+def api_dirty_days() -> Any:
+    """Return journal days with pending reprocessing."""
+    today = date.today().strftime("%Y%m%d")
+    try:
+        return jsonify(dirty_days(exclude={today}))
+    except Exception:
+        return jsonify([])

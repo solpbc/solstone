@@ -1441,6 +1441,18 @@ def main() -> None:
     if args.activity and not args.facet:
         parser.error("--activity requires --facet")
 
+    # Auto-enable refresh for dirty days (full daily runs only)
+    if not args.refresh and not args.segment and not args.segments:
+        health_dir = day_dir / "health"
+        stream_marker = health_dir / "stream.updated"
+        daily_marker = health_dir / "daily.updated"
+        if stream_marker.is_file() and (
+            not daily_marker.is_file()
+            or stream_marker.stat().st_mtime > daily_marker.stat().st_mtime
+        ):
+            args.refresh = True
+            logging.info("Day %s has pending stream data, enabling refresh", day)
+
     if args.activity and not args.day:
         parser.error("--activity requires --day")
 
