@@ -72,33 +72,33 @@ IMPORTANT: Only suggest commands, subcommands, and flags that are explicitly doc
 
 ### Journal
 - `sol call journal search [query] [-n limit] [--offset N] [-d YYYYMMDD] [--day-from YYYYMMDD] [--day-to YYYYMMDD] [-f facet] [-t topic]` - Search journal entries.
-- `sol call journal events <day> [-f facet]` - List events for a day.
-- `sol call journal facet <name>` - Show facet details.
+- `sol call journal events [day] [-f facet]` - List events for a day (day defaults to SOL_DAY).
+- `sol call journal facet [name]` - Show facet details (name defaults to SOL_FACET).
 - `sol call journal facets` - List all facets.
-- `sol call journal news <name> [-d YYYYMMDD] [-n limit] [--cursor CURSOR] [-w]` - Get news feed for a facet.
-- `sol call journal topics <day> [-s HHMMSS_LEN]` - List topics for a day.
-- `sol call journal read <day> <topic> [-s HHMMSS_LEN] [--max N]` - Read transcript content for a topic.
+- `sol call journal news [name] [-d YYYYMMDD] [-n limit] [--cursor CURSOR] [-w]` - Get news feed for a facet (name defaults to SOL_FACET, -d defaults to SOL_DAY).
+- `sol call journal topics [day] [-s HHMMSS_LEN]` - List topics for a day (day defaults to SOL_DAY).
+- `sol call journal read <topic> [-d YYYYMMDD] [-s HHMMSS_LEN] [--max N]` - Read agent output for a topic (day defaults to SOL_DAY).
 
 ### Entities
-- `sol call entities list <facet> [-d day]` - List entities in a facet.
-- `sol call entities detect <day> <facet> <TYPE> <entity> <description>` - Detect/record an entity.
-- `sol call entities attach <facet> <TYPE> <entity> <description>` - Attach entity to facet.
-- `sol call entities update <facet> <entity> <description> [-d day]` - Update entity description.
-- `sol call entities aka <facet> <entity> <AKA>` - Add alias for entity.
-- `sol call entities observations <facet> <entity>` - List observations for entity.
-- `sol call entities observe <facet> <entity> <content> [--source-day YYYYMMDD]` - Record observation.
+- `sol call entities list [facet] [-d day]` - List entities (facet defaults to SOL_FACET; without -d: attached, with -d: detected).
+- `sol call entities detect <TYPE> <entity> <description> [-f facet] [-d day]` - Detect/record an entity (facet defaults to SOL_FACET, day to SOL_DAY).
+- `sol call entities attach <TYPE> <entity> <description> [-f facet]` - Attach entity to facet (facet defaults to SOL_FACET).
+- `sol call entities update <entity> <description> [-f facet] [-d day]` - Update entity description.
+- `sol call entities aka <entity> <AKA> [-f facet]` - Add alias for entity.
+- `sol call entities observations <entity> [-f facet]` - List observations for entity.
+- `sol call entities observe <entity> <content> [-f facet] [--source-day YYYYMMDD]` - Record observation.
 
 ### Todos
-- `sol call todos list <day> [-f facet] [--to end_day]` - List todos.
-- `sol call todos add <day> <text> --facet/-f <facet>` - Add a todo.
-- `sol call todos done <day> <line_number> --facet/-f <facet>` - Complete a todo.
-- `sol call todos cancel <day> <line_number> --facet/-f <facet>` - Cancel a todo.
-- `sol call todos upcoming [-l limit] [-f facet]` - Show upcoming todos.
+- `sol call todos list [day] [-f facet] [--to end_day]` - List todos (day defaults to SOL_DAY, facet to SOL_FACET).
+- `sol call todos add <text> [-d day] [-f facet]` - Add a todo (day defaults to SOL_DAY, facet to SOL_FACET).
+- `sol call todos done <line_number> [-d day] [-f facet]` - Complete a todo.
+- `sol call todos cancel <line_number> [-d day] [-f facet]` - Cancel a todo.
+- `sol call todos upcoming [-l limit] [-f facet]` - Show upcoming todos (facet defaults to SOL_FACET).
 
 ### Transcripts
-- `sol call transcripts scan <day>` - Scan recordings for a day.
-- `sol call transcripts segments <day>` - List transcript segments.
-- `sol call transcripts read <day> [--start HHMMSS] [--length MINUTES] [--segment HHMMSS_LEN] [--stream NAME] [--full] [--raw] [--audio] [--screen] [--agents] [--max N]` - Read transcript text.
+- `sol call transcripts scan [day]` - Scan recordings for a day (day defaults to SOL_DAY).
+- `sol call transcripts segments [day]` - List transcript segments (day defaults to SOL_DAY).
+- `sol call transcripts read [day] [--start HHMMSS] [--length MINUTES] [--segment HHMMSS_LEN] [--stream NAME] [--full] [--raw] [--audio] [--screen] [--agents] [--max N]` - Read transcript text (day defaults to SOL_DAY).
 - `sol call transcripts stats <month>` - Show transcript statistics.
 
 ## Example Answers

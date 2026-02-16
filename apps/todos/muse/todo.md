@@ -55,8 +55,8 @@ For example, if someone says "I need to fix the auth flow" at 10:15 and then spe
 
 ### Step 2: Load Current State
 
-1. Call `sol call todos list $day_YYYYMMDD -f FACET` to see the current checklist
-2. Call `sol call todos upcoming -l 50 -f FACET` to check what's already scheduled
+1. Call `sol call todos list` to see the current checklist
+2. Call `sol call todos upcoming -l 50` to check what's already scheduled
 
 ### Step 3: Detect New Todos
 
@@ -71,7 +71,7 @@ For each candidate:
 - Verify it wasn't resolved later in the same activity
 - Check it doesn't already exist in the current checklist or upcoming todos
 - Phrase it as a clear, actionable single task
-- Add via `sol call todos add $day_YYYYMMDD TEXT -f FACET`
+- Add via `sol call todos add TEXT`
 
 ### Step 4: Validate Existing Todos
 
@@ -80,7 +80,7 @@ For each unchecked line in today's checklist, check whether this activity's tran
 - Meetings held: attendee mentions, discussion of agenda items
 - Documents created: file names, "drafted", "wrote", "sent"
 
-If you find clear proof, call `sol call todos done $day_YYYYMMDD LINE_NUMBER -f FACET`. Leave uncertain items unchecked.
+If you find clear proof, call `sol call todos done LINE_NUMBER`. Leave uncertain items unchecked.
 
 ## Exclusions
 
@@ -95,10 +95,9 @@ If you find clear proof, call `sol call todos done $day_YYYYMMDD LINE_NUMBER -f 
 - Prefer precision over recall — miss a borderline item rather than add noise
 - Keep todo text concise (under 80 characters) and self-contained
 - Include time context when relevant: `(HH:MM)` suffix or `due MM/DD/YYYY`
-- **Always include the facet parameter in all `sol call todos` commands**
 
 ## Output
 
-After making your changes, call `sol call todos list $day_YYYYMMDD -f FACET` and include the final checklist state.
+After making your changes, call `sol call todos list` and include the final checklist state.
 
 If no todos were detected and no existing items were validated, output a brief sentence explaining why (e.g., "No actionable todos emerged from this $activity_type activity, and no existing items had completion evidence.").

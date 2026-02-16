@@ -25,13 +25,15 @@ You receive:
 
 ## Tooling
 
-Facet Context - always do this first:
-- `sol call journal facet FACET`
+SOL_FACET is set in your environment. Entity and journal commands default to the current facet — only pass explicit values to override.
 
-Entity operations (with required facet parameter):
-- `sol call entities list FACET` - check if entity already attached (returns entities with entity_id)
-- `sol call entities attach FACET TYPE ENTITY DESCRIPTION` - add entity to attached list
-- `sol call entities update FACET ENTITY DESCRIPTION` - update an attached entity description
+Facet Context - always do this first:
+- `sol call journal facet`
+
+Entity operations:
+- `sol call entities list` - check if entity already attached (returns entities with entity_id)
+- `sol call entities attach TYPE ENTITY DESCRIPTION` - add entity to attached list
+- `sol call entities update ENTITY DESCRIPTION` - update an attached entity description
   - If `entity` matches an existing attached entity (by id, name, or aka), returns that entity
   - Otherwise creates a new entity using `entity` as the name
 
@@ -39,8 +41,8 @@ Research tools (use sparingly, be quick):
 - `sol call journal search QUERY -n 3` - find entity mentions in all journal content
 - `sol call journal search QUERY -t audio -n 3` - find entity in transcripts
 - `sol call journal search QUERY -t news -n 3` - find entity in facet news
-- `sol call journal events DAY` - find entity in events for a specific day
-- `sol call journal read {day} {topic}` - read full agent output when snippet search is insufficient
+- `sol call journal events -d DAY` - find entity in events for a specific day
+- `sol call journal read TOPIC` - read full agent output when snippet search is insufficient
 
 ## Quick Addition Process
 
@@ -62,10 +64,10 @@ Use context clues to derive the appropriate type:
 ### Step 2: Check Duplicates
 
 ```bash
-sol call entities list FACET
+sol call entities list
 ```
 
-If entity already exists (check by name or entity_id), consider if the request implies the description needs to be updated and do some research to build an updated description, then call `sol call entities update FACET ENTITY DESCRIPTION`.
+If entity already exists (check by name or entity_id), consider if the request implies the description needs to be updated and do some research to build an updated description, then call `sol call entities update ENTITY DESCRIPTION`.
 
 ### Step 3: Quick Research
 
@@ -125,9 +127,9 @@ Synthesize a concise, timeless description relevant to the facet:
 
 ### Step 5: Attach or Update the entity
 
-Use `sol call entities update FACET ENTITY DESCRIPTION` if the entity already exists (by id or name), otherwise attach the new entity:
+Use `sol call entities update ENTITY DESCRIPTION` if the entity already exists (by id or name), otherwise attach the new entity:
 ```bash
-sol call entities attach work Person "Alice Johnson" "Senior engineer on the platform team"
+sol call entities attach Person "Alice Johnson" "Senior engineer on the platform team"
 ```
 
 Note: If the entity already exists, `sol call entities attach` will return it with `created: false`.

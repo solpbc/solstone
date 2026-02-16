@@ -7,7 +7,7 @@ description: Search and browse journal content using sol call journal commands. 
 
 Use these commands to explore journal content from the terminal.
 
-**Environment defaults**: When `SOL_DAY` is set, commands that take a DAY argument will use it automatically. Same for `SOL_SEGMENT`.
+**Environment defaults**: When `SOL_DAY` is set, commands that take a DAY argument will use it automatically. Same for `SOL_SEGMENT` and `SOL_FACET`.
 
 Common pattern:
 
@@ -73,12 +73,12 @@ sol call journal events 20260115 -f work
 ## facet
 
 ```bash
-sol call journal facet NAME
+sol call journal facet [NAME]
 ```
 
 Show a comprehensive facet summary.
 
-- `NAME`: facet name.
+- `NAME`: facet name (default: `SOL_FACET` env).
 
 Use this for a quick overview of facet metadata, entities, and current state.
 
@@ -86,6 +86,7 @@ Example:
 
 ```bash
 sol call journal facet work
+sol call journal facet          # uses SOL_FACET
 ```
 
 ## topics
@@ -134,26 +135,26 @@ sol call journal read activity -s 091500_300
 ## news
 
 ```bash
-sol call journal news NAME [-d DAY] [-n LIMIT] [--cursor CURSOR] [-w]
+sol call journal news [NAME] [-d DAY] [-n LIMIT] [--cursor CURSOR] [-w]
 ```
 
 Read or write facet news entries.
 
-- `NAME`: facet name.
-- `-d, --day`: optional specific day (`YYYYMMDD`, default: `SOL_DAY` env for write mode).
+- `NAME`: facet name (default: `SOL_FACET` env).
+- `-d, --day`: optional specific day (`YYYYMMDD`, default: `SOL_DAY` env).
 - `-n, --limit`: max days to return (default `5`).
 - `--cursor`: optional pagination cursor (typically a `YYYYMMDD` cutoff for older entries).
 - `-w, --write`: write mode — reads markdown from stdin and saves as news for the given day.
 
 Behavior notes:
 
-- Without `--write`: reads and displays existing news entries.
+- Without `--write`: reads and displays existing news entries. Uses `SOL_DAY` to filter to a specific day when set.
 - With `--write`: requires `--day` (or `SOL_DAY` env), reads markdown content from stdin, saves to facet news directory.
 
 Examples:
 
 ```bash
 sol call journal news work -n 3
-sol call journal news work -d 20260115
+sol call journal news -d 20260115          # uses SOL_FACET
 sol call journal news work --cursor 20260110 -n 5
 ```

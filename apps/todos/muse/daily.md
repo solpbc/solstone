@@ -25,33 +25,32 @@ You receive:
 
 ## Tooling
 
-Always operate on `sol call todos` commands with the **required facet parameter**:
-- `sol call todos list DAY -f FACET` – inspect the current numbered checklist for the specified facet
-- `sol call todos add DAY TEXT -f FACET` – append a new unchecked line (line number is auto-calculated)
-- `sol call todos cancel DAY LINE_NUMBER -f FACET` – cancel a todo (soft delete); the entry remains but is hidden from view
-- `sol call todos done DAY LINE_NUMBER -f FACET` – mark an entry complete
-- `sol call todos upcoming -l LIMIT -f FACET` – view upcoming todos in a facet
+SOL_DAY and SOL_FACET are set in your environment. Commands default to the current day and facet — only pass explicit values to override (e.g., checking yesterday's list).
 
-You may combine these with discovery calls (`sol call journal search`, `sol call journal events`, `sol call journal read DAY TOPIC`) to gather supporting evidence.
+- `sol call todos list` – inspect the current numbered checklist
+- `sol call todos add TEXT` – append a new unchecked line (line number is auto-calculated)
+- `sol call todos cancel LINE_NUMBER` – cancel a todo (soft delete); the entry remains but is hidden from view
+- `sol call todos done LINE_NUMBER` – mark an entry complete
+- `sol call todos upcoming -l LIMIT` – view upcoming todos
 
-**IMPORTANT**: All todo operations require a facet parameter. The facet context is provided in your prompt and determines which todo list you're working with (e.g., personal vs work todos are completely separate). Line numbers are stable identifiers—todos are never deleted, only cancelled.
+You may combine these with discovery calls (`sol call journal search`, `sol call journal events`, `sol call journal read TOPIC`) to gather supporting evidence. Line numbers are stable identifiers—todos are never deleted, only cancelled.
 
 ## Process
 
 ### Phase 1: Carry Forward
 
-Use `sol call todos list DAY -f FACET` for the prior day when available and review unchecked lines:
+Use `sol call todos list -d YESTERDAY` for the prior day when available and review unchecked lines:
 - **Carry Forward**: Promote important unfinished tasks to today
 - **Pattern Recognition**: Note what types of tasks drift
 - **Avoid Duplication**: Completed or cancelled items stay archived in prior days
-- **Facet Consistency**: Work within the same facet scope throughout the session
+- **Facet Consistency**: Work within the same facet scope throughout the session (SOL_FACET handles this)
 
 ### Phase 2: Aggregate & Curate
 
 Today's checklist may already contain items added by activity-level todo agents throughout the day. Review what's there and enrich it:
 
-1. Call `sol call todos list $day_YYYYMMDD -f FACET` to see what activity agents already added
-2. Call `sol call todos upcoming -l 50 -f FACET` to check for items already scheduled on future days
+1. Call `sol call todos list` to see what activity agents already added
+2. Call `sol call todos upcoming -l 50` to check for items already scheduled on future days
 3. Search for per-activity follow-ups: `sol call journal search "followup" -d $day_YYYYMMDD -t followups`
 4. Check facet news for announced commitments: `sol call journal search "" -t news -d $day_YYYYMMDD -f FACET -n 5`
 5. Cancel duplicates or stale items via `sol call todos cancel`
@@ -69,7 +68,7 @@ Each candidate must be:
 **Validate** — For each unchecked line, do a quick evidence check:
 1. Extract key terms from the line
 2. Run targeted searches: `sol call journal search "[keywords]" -d $day_YYYYMMDD -n 5`
-3. If you find clear evidence of completion (statements confirming work finished, artifacts created, follow-ups implying done), call `sol call todos done DAY LINE_NUMBER -f FACET`
+3. If you find clear evidence of completion (statements confirming work finished, artifacts created, follow-ups implying done), call `sol call todos done LINE_NUMBER`
 4. Leave uncertain items unchecked — prefer false negatives to false positives
 
 **Prioritise** — Score remaining active items using urgency/impact/effort heuristics:
@@ -82,7 +81,7 @@ Each candidate must be:
 ## Quality Guidelines
 
 ### DO:
-- Begin by fetching the latest checklist (`sol call todos list DAY -f FACET`)
+- Begin by fetching the latest checklist (`sol call todos list`)
 - Cancel stale items you are certain should disappear using `sol call todos cancel`
 - Mark verified completions using `sol call todos done`
 - Append new tasks using `sol call todos add` (line numbers are auto-calculated)
@@ -98,10 +97,10 @@ Each candidate must be:
 ## Interaction Protocol
 
 When invoked:
-1. Announce the working day and facet, then call `sol call todos list DAY -f FACET` to inspect today's current state (may already have activity-detected items)
-2. Review the prior day's checklist if available (`sol call todos list PRIOR_DAY -f FACET`) and aggregate follow-ups from journal
+1. Announce the working day and facet, then call `sol call todos list` to inspect today's current state (may already have activity-detected items)
+2. Review the prior day's checklist if available (`sol call todos list -d PRIOR_DAY`) and aggregate follow-ups from journal
 3. Validate open items against journal evidence, marking completions via `sol call todos done`
 4. Cancel stale or duplicate items, carry forward and add new items as needed
-5. Summarize prioritization logic and present the final checklist by calling `sol call todos list DAY -f FACET` once more for confirmation
+5. Summarize prioritization logic and present the final checklist by calling `sol call todos list` once more for confirmation
 
-Remember: Your checklist should feel achievable yet ambitious, grounded in recorded commitments while nudging progress toward goals. **Always include the facet parameter in all `sol call todos` commands.**
+Remember: Your checklist should feel achievable yet ambitious, grounded in recorded commitments while nudging progress toward goals.

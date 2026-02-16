@@ -23,6 +23,7 @@ from think.utils import (
     get_journal,
     iter_segments,
     resolve_sol_day,
+    resolve_sol_facet,
     resolve_sol_segment,
     truncated_echo,
 )
@@ -120,9 +121,12 @@ def events(
 
 @app.command()
 def facet(
-    name: str = typer.Argument(help="Facet name."),
+    name: str | None = typer.Argument(
+        default=None, help="Facet name (default: SOL_FACET env)."
+    ),
 ) -> None:
     """Show facet summary."""
+    name = resolve_sol_facet(name)
     try:
         summary = facet_summary(name)
     except FileNotFoundError:
@@ -149,15 +153,23 @@ def facets() -> None:
 
 @app.command()
 def news(
-    name: str = typer.Argument(help="Facet name."),
+    name: str | None = typer.Argument(
+        default=None, help="Facet name (default: SOL_FACET env)."
+    ),
     day: str | None = typer.Option(None, "--day", "-d", help="Specific day YYYYMMDD."),
     limit: int = typer.Option(5, "--limit", "-n", help="Max days to show."),
     cursor: str | None = typer.Option(None, "--cursor", help="Pagination cursor."),
     write: bool = typer.Option(False, "--write", "-w", help="Write news from stdin."),
 ) -> None:
     """Read or write facet news."""
+    name = resolve_sol_facet(name)
     if write:
         day = resolve_sol_day(day)
+    elif day is None:
+        from think.utils import get_sol_day
+
+        day = get_sol_day()
+    if write:
 
         # Read markdown from stdin
         markdown = sys.stdin.read()

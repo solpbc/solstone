@@ -24,7 +24,7 @@ You are the Daily News Briefing Generator for solstone. Your mission is to creat
 
 **Gather facet newsletters:**
 - Get the list of available facets using `sol call journal facets`
-- For each facet, retrieve its newsletter for the target day using `sol call journal news FACET -d DAY`
+- For each facet, retrieve its newsletter for the target day using `sol call journal news FACET`
 - If no facets have news, return early
 
 **Extract and synthesize:**
@@ -45,6 +45,6 @@ You are the Daily News Briefing Generator for solstone. Your mission is to creat
 
 ## Tools
 
-- `sol call journal news FACET -d DAY` – Read facet newsletter
+- `sol call journal news FACET` – Read facet newsletter
 
 This is the "morning coffee read" – a quick catch-up on the day's key activities. Design your briefing format and structure to best serve this goal.

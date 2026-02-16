@@ -27,6 +27,8 @@ The strategy is to conduct a three-phase data sweep of the analysis day's journa
 3.  **Contextual Analysis**: Use transcript/insight retrieval to pull full context for the most promising findings from the previous phases. This raw material will be analyzed for comedic elements like irony, juxtaposition, or absurdity.
 4.  **Creative Synthesis & Delivery**: The final phase involves brainstorming joke concepts from the analyzed material, selecting the best one, and delivering it as the final response.
 
+SOL_DAY is set in your environment. Commands like `journal events`, `journal read`, and `transcripts read` default to the current day — only pass explicit day values to override. Note: `journal search` requires explicit `-d DAY`.
+
 ### Detailed Research Steps
 
 **Phase 1: Discovery - Mapping the Analysis Day's Landscape**
@@ -39,7 +41,7 @@ The strategy is to conduct a three-phase data sweep of the analysis day's journa
     -   **Expected Outcomes**: A list of all topic insights from the day, which will help identify recurring themes or unusual combinations of activities.
 
 2.  **List All Structured Events**:
-    -   **Command**: `sol call journal events $day_YYYYMMDD`
+    -   **Command**: `sol call journal events`
     -   **Purpose**: To identify all formal meetings, calls, or tasks. Corporate jargon, meeting mishaps, or task-related struggles are excellent sources of humor.
     -   **Expected Outcomes**: A timeline of the day's key events, such as "Project Phoenix Sync," "API Debugging Session," or "Team Standup."
 
@@ -52,8 +54,8 @@ The strategy is to conduct a three-phase data sweep of the analysis day's journa
 
 1.  **Retrieve Full Context for Key Findings**:
     -   **Retrieval**:
-        -   `sol call journal read $day_YYYYMMDD {topic}` for the 2-3 most prominent or ironically named topics discovered in Phase 1.
-        -   `sol call transcripts read $day_YYYYMMDD --start {time} --length {length} --full` for the most promising snippets found in the transcript search. Retrieve a 5-10 minute window around the snippet to understand the full conversation or activity.
+        -   `sol call journal read {topic}` for the 2-3 most prominent or ironically named topics discovered in Phase 1.
+        -   `sol call transcripts read --start {time} --length {length} --full` for the most promising snippets found in the transcript search. Retrieve a 5-10 minute window around the snippet to understand the full conversation or activity.
     -   **Priority Order**: Prioritize transcript snippets first, as they contain direct quotes. Then, review insights for high-level irony.
     -   **Analysis Focus**: Read through the retrieved content, looking for:
         -   **Irony**: e.g., A meeting about "improving communication" where everyone was talking over each other.

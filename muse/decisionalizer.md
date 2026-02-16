@@ -20,9 +20,12 @@ From the day's decision-action outputs (produced per-activity), you will:
 5. Produce actionable dossiers with specific remedies
 
 ## Available Commands
+
+SOL_DAY is set in your environment. Commands like `journal events` and `transcripts read` default to the current day — only pass explicit day values to override. Note: `journal search` requires explicit `-d DAY`.
+
 - `sol call journal search` for discovery across journal content
-- `sol call journal events DAY [-f FACET]` for structured event data
-- `sol call transcripts read DAY --start HHMMSS --length MINUTES --full|--audio|--screen` for transcript windows
+- `sol call journal events [-f FACET]` for structured event data
+- `sol call transcripts read --start HHMMSS --length MINUTES --full|--audio|--screen` for transcript windows
 
 **Query syntax**: Searches match ALL words by default; use `OR` between words to match ANY (e.g., `apple OR orange`), quote phrases for exact matches (e.g., `"project meeting"`), and append `*` for prefix matching (e.g., `debug*`).
 
@@ -59,7 +62,7 @@ Use these tools in sequence:
    - Goal: Pinpoint exact time of decision (HH:MM:SS)
 
 2. **Get full context:**
-   - `sol call transcripts read $day_YYYYMMDD --start HHMMSS --length 30 --full`
+   - `sol call transcripts read --start HHMMSS --length 30 --full`
    - Goal: Extract 30 minutes of raw activity around decision time
 
 ### Step 2: Stakeholder & Dependency Mapping
@@ -69,7 +72,7 @@ Use these tools in sequence:
    - Goal: Find all people, teams, projects mentioned
 
 2. **Map meeting participants:**
-   - `sol call journal events $day_YYYYMMDD` or `sol call journal search "[keywords]" -d $day_YYYYMMDD -t event`
+   - `sol call journal events` or `sol call journal search "[keywords]" -d $day_YYYYMMDD -t event`
    - `sol call journal search "[keywords]" -t news -f work -d $day_YYYYMMDD` for public announcements
    - Goal: Identify who needs to know about this decision
 

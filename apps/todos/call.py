@@ -38,10 +38,12 @@ def list_todos(
     ),
 ) -> None:
     """Show the todo checklist for a day (or date range)."""
-    from think.utils import get_journal, resolve_sol_day
+    from think.utils import get_journal, get_sol_facet, resolve_sol_day
 
     get_journal()
     day = resolve_sol_day(day)
+    if facet is None:
+        facet = get_sol_facet()
 
     if to is not None and to < day:
         typer.echo(f"Error: --to ({to}) must not be before day ({day})", err=True)
@@ -192,9 +194,11 @@ def upcoming_todos(
     ),
 ) -> None:
     """Show upcoming todos across future days."""
-    from think.utils import get_journal
+    from think.utils import get_journal, get_sol_facet
 
     get_journal()
+    if facet is None:
+        facet = get_sol_facet()
 
     result = todo.upcoming(limit=limit, facet=facet)
     typer.echo(result)

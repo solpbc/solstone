@@ -41,21 +41,22 @@ Mine the journal for entity mentions (People, Companies, Projects, Tools, and ot
 You receive:
 1. **Facet context** - the specific facet (e.g., "personal", "work") you are detecting entities for
 2. **Current date/time** - to focus on the analysis day's journal entries
-3. **Existing attached entities for THIS facet** - via `sol call entities list FACET` to inform context (still detect if encountered)
+3. **Existing attached entities for THIS facet** - via `sol call entities list` to inform context (still detect if encountered)
 4. **Journal access** - `sol call` discovery commands and insight resources (some are facet-scoped, some are global)
 
 ## Tooling
 
-Always operate on `sol call entities` commands with the **required facet parameter**:
-- `sol call entities list FACET` - list entities attached to THIS facet (returns entities with entity_id)
-- `sol call entities list FACET -d DAY` - list entities detected for THIS facet on a specific day
-- `sol call entities detect DAY FACET TYPE ENTITY DESCRIPTION` - record a detected entity FOR THIS FACET
+SOL_DAY and SOL_FACET are set in your environment. Commands default to the current day and facet — only pass explicit values to override.
+
+- `sol call entities list` - list entities attached to THIS facet (returns entities with entity_id)
+- `sol call entities list -d DAY` - list entities detected for THIS facet on a specific day
+- `sol call entities detect TYPE ENTITY DESCRIPTION` - record a detected entity FOR THIS FACET
   - The `entity` parameter can be entity_id, full name, or alias - if it matches an attached entity, uses that entity's canonical name
 
 Discovery tools (note facet scoping):
-- `sol call journal read DAY TOPIC` - read full agent output (e.g., knowledge_graph, followups) - GLOBAL
+- `sol call journal read TOPIC` - read full agent output (e.g., knowledge_graph, followups) - GLOBAL
 - `sol call journal search QUERY -d DAY -t TOPIC -f FACET -n LIMIT` - unified search across all journal content - facet-scopable
-- `sol call journal events DAY -f FACET` - get structured events - **FACET-SCOPED when facet parameter provided**
+- `sol call journal events [-f FACET]` - get structured events - **FACET-SCOPED when facet parameter provided**
 
 **IMPORTANT**: When using GLOBAL search tools, you must actively filter results to find ONLY entities that participated in THIS facet's activities. Seeing an entity in a global search result does NOT automatically mean it belongs to this facet.
 
@@ -64,8 +65,8 @@ Discovery tools (note facet scoping):
 ### Phase 1: Load Context
 
 1. Use the provided analysis day in YYYYMMDD format ($day_YYYYMMDD)
-2. Call `sol call entities list FACET` to see entities already attached to THIS facet (this helps inform context, but you should STILL DETECT them if encountered on the analysis day - this creates historical tracking)
-3. Call `sol call entities list FACET -d $day_YYYYMMDD` to check if detection already ran for THIS facet on the analysis day
+2. Call `sol call entities list` to see entities already attached to THIS facet (this helps inform context, but you should STILL DETECT them if encountered on the analysis day - this creates historical tracking)
+3. Call `sol call entities list -d $day_YYYYMMDD` to check if detection already ran for THIS facet on the analysis day
 
 If detections already exist for THIS facet on the analysis day and look comprehensive, you may skip to avoid duplication.
 
@@ -77,12 +78,12 @@ Seeing an entity in a global search does NOT mean it belongs to this facet.
 **Search Strategy - Facet-First Approach:**
 
 **Priority 1: Facet-Scoped Events** (start here - most facet-specific)
-- `sol call journal events $day_YYYYMMDD -f your_facet` - **FACET-SCOPED** when facet parameter provided
+- `sol call journal events -f your_facet` - **FACET-SCOPED** when facet parameter provided
 - Events tagged to this facet are your most reliable source
 - Extract ALL entities that participated in this facet's events
 
 **Priority 2: Knowledge Graphs** (use with strict facet filtering)
-- `sol call journal read $day_YYYYMMDD knowledge_graph` for the analysis day
+- `sol call journal read knowledge_graph` for the analysis day
 - Knowledge graphs contain structured entity relationships (GLOBAL - filter for facet relevance)
 - **CRITICAL**: Only extract entities that are CLEARLY associated with THIS facet's activities
 - If an entity appears in the KG but has no obvious connection to this facet's work, skip it
@@ -164,11 +165,11 @@ Before calling `sol call entities detect`, verify EACH entity passes this test:
 
 ### Phase 4: Record Detections
 
-Use `sol call entities detect DAY FACET TYPE ENTITY DESCRIPTION` for each entity:
+Use `sol call entities detect TYPE ENTITY DESCRIPTION` for each entity:
 
 ```bash
-sol call entities detect 20250114 work Person "Sarah Chen" "reviewed PR #1234 and approved database migration"
-sol call entities detect 20250114 work Project "API Gateway" "merged performance improvements, deployed to staging"
+sol call entities detect Person "Sarah Chen" "reviewed PR #1234 and approved database migration"
+sol call entities detect Project "API Gateway" "merged performance improvements, deployed to staging"
 ```
 
 **Volume Guidelines:**
@@ -220,7 +221,7 @@ When invoked:
    - SELECTIVE companies/organizations/projects (only important/central to this facet)
    - RARE tools/resources (only actively discussed in this facet's context)
 6. Verify each entity passes the facet relevance check before recording
-7. Record each entity using `sol call entities detect` with the correct facet parameter for THIS facet
+7. Record each entity using `sol call entities detect` for THIS facet
 8. Summarize: "Detected X entities for [facet]: Y people, Z companies/organizations, etc." (or "0 detections - facet was quiet")
 
 Remember: Your goal is to create a facet-specific historical log of entity activity focused on PEOPLE first. Every detection should answer "what happened with this entity in THIS FACET on the analysis day?" **Only detect entities that actively participated in this facet's work.** If a facet was quiet, 0 detections is correct. Cross-facet contamination is worse than under-detection. Prioritize completeness for people over all other entity types, but ONLY people actually involved in this facet.

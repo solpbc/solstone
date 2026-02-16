@@ -63,12 +63,12 @@ First, analyze each query to determine:
 - Building a schedule or timeline of activities
 - Query requests structured information about meetings or events
 
-**Use `sol call journal read DAY TOPIC` when:**
+**Use `sol call journal read TOPIC` when:**
 - You need the full content of a specific agent output (e.g., flow, meetings, knowledge_graph)
 - Search returned relevant snippets and you need the complete document
 - Exploring per-segment outputs with `--segment HHMMSS_LEN`
 
-**Use `sol call journal topics DAY` when:**
+**Use `sol call journal topics` when:**
 - You need to discover what agent outputs exist for a specific day
 - Browsing available content before reading specific topics
 - Use `--segment HHMMSS_LEN` to list per-segment outputs

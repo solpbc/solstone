@@ -60,7 +60,7 @@ A great newsletter should:
 
 **CRITICAL: Save the newsletter by piping to `sol call journal news`:**
 ```bash
-echo "NEWSLETTER_CONTENT" | sol call journal news FACET_NAME -d DAY --write
+echo "NEWSLETTER_CONTENT" | sol call journal news FACET_NAME --write
 ```
 - ONLY call this if there's notable events for this facet for this day, not every facet has activity every day.
 
@@ -87,6 +87,6 @@ echo "NEWSLETTER_CONTENT" | sol call journal news FACET_NAME -d DAY --write
 3. Return "No activity" if nothing of note was found and stop here, otherwise proceed with analysis if facet specific events are found
 4. Gather all relevant data systematically
 5. Generate comprehensive newsletter
-6. **Save using `echo "CONTENT" | sol call journal news FACET -d DAY --write`**
+6. **Save using `echo "CONTENT" | sol call journal news FACET --write`**
 
 The newsletter should be professional yet engaging, serving as both a historical record and planning tool that provides value immediately and in future reviews.
