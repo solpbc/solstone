@@ -13,7 +13,7 @@ import logging
 import sys
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from think.activities import get_activity_output_path, load_activity_records
@@ -36,6 +36,7 @@ from think.utils import (
     get_rev,
     iso_date,
     setup_cli,
+    updated_days,
 )
 
 # Module-level callosum connection for event emission
@@ -1418,6 +1419,11 @@ def parse_args() -> argparse.ArgumentParser:
         metavar="N",
         help="Max concurrent agents per priority group (0=unlimited, default: 2)",
     )
+    parser.add_argument(
+        "--updated",
+        action="store_true",
+        help="List days with pending daily processing and exit",
+    )
     return parser
 
 
@@ -1426,6 +1432,29 @@ def main() -> None:
 
     parser = parse_args()
     args = setup_cli(parser)
+
+    if args.updated:
+        incompatible = []
+        if args.day:
+            incompatible.append("--day")
+        if args.segment:
+            incompatible.append("--segment")
+        if args.run:
+            incompatible.append("--run")
+        if args.facet:
+            incompatible.append("--facet")
+        if args.activity:
+            incompatible.append("--activity")
+        if args.flush:
+            incompatible.append("--flush")
+        if args.segments:
+            incompatible.append("--segments")
+        if incompatible:
+            parser.error(f"--updated is incompatible with {', '.join(incompatible)}")
+        today = date.today().strftime("%Y%m%d")
+        for d in updated_days(exclude={today}):
+            print(d)
+        sys.exit(0)
 
     day = args.day
     if day is None:
