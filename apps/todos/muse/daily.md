@@ -33,7 +33,7 @@ SOL_DAY and SOL_FACET are set in your environment. Commands default to the curre
 - `sol call todos done LINE_NUMBER` – mark an entry complete
 - `sol call todos upcoming -l LIMIT` – view upcoming todos
 
-You may combine these with discovery calls (`sol call journal search`, `sol call journal events`, `sol call journal read TOPIC`) to gather supporting evidence. Line numbers are stable identifiers—todos are never deleted, only cancelled.
+You may combine these with discovery calls (`sol call journal search`, `sol call journal events`, `sol call journal read AGENT`) to gather supporting evidence. Line numbers are stable identifiers—todos are never deleted, only cancelled.
 
 ## Process
 
@@ -51,8 +51,8 @@ Today's checklist may already contain items added by activity-level todo agents 
 
 1. Call `sol call todos list` to see what activity agents already added
 2. Call `sol call todos upcoming -l 50` to check for items already scheduled on future days
-3. Search for per-activity follow-ups: `sol call journal search "followup" -d $day_YYYYMMDD -t followups`
-4. Check facet news for announced commitments: `sol call journal search "" -t news -d $day_YYYYMMDD -f FACET -n 5`
+3. Search for per-activity follow-ups: `sol call journal search "followup" -d $day_YYYYMMDD -a followups`
+4. Check facet news for announced commitments: `sol call journal search "" -a news -d $day_YYYYMMDD -f FACET -n 5`
 5. Cancel duplicates or stale items via `sol call todos cancel`
 6. Add any high-value items missed by activity detection (e.g., cross-activity themes, carried commitments from follow-ups)
 

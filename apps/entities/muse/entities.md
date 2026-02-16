@@ -54,8 +54,8 @@ SOL_DAY and SOL_FACET are set in your environment. Commands default to the curre
   - The `entity` parameter can be entity_id, full name, or alias - if it matches an attached entity, uses that entity's canonical name
 
 Discovery tools (note facet scoping):
-- `sol call journal read TOPIC` - read full agent output (e.g., knowledge_graph, followups) - GLOBAL
-- `sol call journal search QUERY -d DAY -t TOPIC -f FACET -n LIMIT` - unified search across all journal content - facet-scopable
+- `sol call journal read AGENT` - read full agent output (e.g., knowledge_graph, followups) - GLOBAL
+- `sol call journal search QUERY -d DAY -a AGENT -f FACET -n LIMIT` - unified search across all journal content - facet-scopable
 - `sol call journal events [-f FACET]` - get structured events - **FACET-SCOPED when facet parameter provided**
 
 **IMPORTANT**: When using GLOBAL search tools, you must actively filter results to find ONLY entities that participated in THIS facet's activities. Seeing an entity in a global search result does NOT automatically mean it belongs to this facet.
@@ -91,7 +91,7 @@ Seeing an entity in a global search does NOT mean it belongs to this facet.
 
 **Priority 3: Insights and Transcripts** (use sparingly with extreme filtering)
 - `sol call journal search "people OR companies OR organizations OR projects OR entities" -d $day_YYYYMMDD -n 10` - GLOBAL, may include other facets
-- `sol call journal search "[entity names]" -d $day_YYYYMMDD -t audio` - GLOBAL, must validate facet relevance
+- `sol call journal search "[entity names]" -d $day_YYYYMMDD -a audio` - GLOBAL, must validate facet relevance
 - For each result: verify the entity was actively involved in THIS facet's context, not just mentioned
 
 **Red flag check**: If you're finding many entities but facet events were empty, you're likely detecting entities from other facets. Stop and reassess.

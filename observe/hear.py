@@ -479,8 +479,8 @@ def format_audio(
             }
         )
 
-    # Indexer metadata - topic is always "audio" for audio transcripts
-    meta["indexer"] = {"topic": "audio"}
+    # Indexer metadata - agent is always "audio" for audio transcripts
+    meta["indexer"] = {"agent": "audio"}
 
     return chunks, meta
 

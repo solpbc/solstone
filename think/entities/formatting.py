@@ -154,8 +154,8 @@ def format_entities(
             }
         )
 
-    # Indexer metadata - topic depends on attached vs detected
-    topic = "entity:detected" if is_detected else "entity:attached"
-    meta["indexer"] = {"topic": topic}
+    # Indexer metadata - agent depends on attached vs detected
+    agent = "entity:detected" if is_detected else "entity:attached"
+    meta["indexer"] = {"agent": agent}
 
     return chunks, meta

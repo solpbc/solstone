@@ -1525,7 +1525,7 @@ function cleanupOldPlacards() {
   }
 }
 
-// Format tool args into display-friendly params (query, facet, day, topic, etc.)
+// Format tool args into display-friendly params (query, facet, day, agent, etc.)
 function formatToolParams(args) {
   if (!args) return [];
   const params = [];
@@ -1545,8 +1545,8 @@ function formatToolParams(args) {
   if (args.day_to) {
     params.push({label: 'to', value: formatDay(args.day_to)});
   }
-  if (args.topic) {
-    params.push({label: 'topic', value: args.topic});
+  if (args.agent) {
+    params.push({label: 'agent', value: args.agent});
   }
 
   return params;

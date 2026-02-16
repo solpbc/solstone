@@ -66,8 +66,8 @@ def calendar_day_events(day: str) -> Any:
     # Transform events into timeline format
     result = []
     for event in raw_events:
-        topic = event.get("topic", "other")
-        topic_color = generators.get(topic, {}).get("color", "#6c757d")
+        agent = event.get("agent", "other")
+        agent_color = generators.get(agent, {}).get("color", "#6c757d")
 
         formatted = {
             "title": event.get("title", ""),
@@ -75,8 +75,8 @@ def calendar_day_events(day: str) -> Any:
             "subject": event.get("subject", ""),
             "details": event.get("details", event.get("description", "")),
             "participants": event.get("participants", []),
-            "topic": topic,
-            "color": topic_color,
+            "agent": agent,
+            "color": agent_color,
             "facet": event.get("facet", ""),
             "occurred": event.get("occurred", True),
             "source": event.get("source", ""),

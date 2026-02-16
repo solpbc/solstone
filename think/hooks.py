@@ -93,7 +93,7 @@ def log_extraction_failure(e: Exception, name: str) -> None:
 
 def write_events_jsonl(
     events: list[dict],
-    topic: str,
+    agent: str,
     occurred: bool,
     source_output: str,
     capture_day: str,
@@ -105,7 +105,7 @@ def write_events_jsonl(
 
     Args:
         events: List of event dictionaries from extraction.
-        topic: Source generator topic (e.g., "meetings", "schedule").
+        agent: Source generator agent (e.g., "meetings", "schedule").
         occurred: True for occurrences, False for anticipations.
         source_output: Relative path to source output file.
         capture_day: Day the output was captured (YYYYMMDD).
@@ -144,7 +144,7 @@ def write_events_jsonl(
 
         # Enrich event with metadata
         enriched = dict(event)
-        enriched["topic"] = topic
+        enriched["agent"] = agent
         enriched["occurred"] = occurred
         enriched["source"] = source_output
 
@@ -176,7 +176,7 @@ def compute_output_source(context: dict) -> str:
     Returns:
         Relative path like "20240101/agents/meetings.md".
     """
-    from think.muse import get_output_topic
+    from think.muse import get_output_name
     from think.utils import get_journal
 
     day = context.get("day", "")
@@ -188,11 +188,11 @@ def compute_output_source(context: dict) -> str:
         return os.path.relpath(output_path, journal)
     except ValueError:
         segment = context.get("segment")
-        topic = get_output_topic(name)
+        output_name = get_output_name(name)
         # Check for facet in meta (for multi-facet agents)
         meta = context.get("meta", {})
         facet = meta.get("facet") if meta else None
-        filename = f"{topic}.md"
+        filename = f"{output_name}.md"
         if segment and facet:
             return os.path.join(day, segment, "agents", facet, filename)
         if segment:

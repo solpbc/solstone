@@ -31,26 +31,26 @@ def _display_counts(counts: dict[str, Any], top_n: int = 5) -> None:
     """Display aggregated counts in a compact table format."""
     total = counts["total"]
     facets = counts["facets"]  # Counter
-    topics = counts["topics"]  # Counter
+    agents = counts["agents"]  # Counter
     days = counts["days"]  # Counter
 
     print(f"Total: {total:,} chunks\n")
 
     # Build columns
     facet_col = _format_count_column(facets.most_common(top_n), len(facets), top_n)
-    topic_col = _format_count_column(topics.most_common(top_n), len(topics), top_n)
+    agent_col = _format_count_column(agents.most_common(top_n), len(agents), top_n)
     day_col = _format_count_column(
         sorted(days.items(), reverse=True)[:top_n], len(days), top_n
     )
 
     # Header and rows
-    print(f"{'Facet':<20} {'Topic':<20} {'Day':<20}")
+    print(f"{'Facet':<20} {'Agent':<20} {'Day':<20}")
     print("-" * 60)
 
     from itertools import zip_longest
 
-    for f, t, d in zip_longest(facet_col, topic_col, day_col, fillvalue=""):
-        print(f"{f:<20} {t:<20} {d:<20}")
+    for f, a, d in zip_longest(facet_col, agent_col, day_col, fillvalue=""):
+        print(f"{f:<20} {a:<20} {d:<20}")
 
     print()
 
@@ -72,7 +72,7 @@ def _display_search_results(
         meta = r.get("metadata", {})
         text = r.get("text", "").replace("\n", " ")
         snippet = text[:100] + "..." if len(text) > 100 else text
-        label = meta.get("topic") or meta.get("time") or ""
+        label = meta.get("agent") or meta.get("time") or ""
         facet = meta.get("facet")
         facet_str = f" ({facet})" if facet else ""
         print(f"{idx}. {meta.get('day')} {label}{facet_str}: {snippet}")
@@ -120,8 +120,9 @@ def main() -> None:
         help="Filter search results by facet name",
     )
     parser.add_argument(
-        "--topic",
-        help="Filter search results by topic (e.g., 'flow', 'event', 'news')",
+        "--agent",
+        "-a",
+        help="Filter search results by agent (e.g., 'flow', 'event', 'news')",
     )
     parser.add_argument(
         "--stream",
@@ -193,8 +194,8 @@ def main() -> None:
             query_kwargs["day_to"] = args.day_to
         if args.facet:
             query_kwargs["facet"] = args.facet
-        if args.topic:
-            query_kwargs["topic"] = args.topic
+        if args.agent:
+            query_kwargs["agent"] = args.agent
         if args.stream:
             query_kwargs["stream"] = args.stream
 

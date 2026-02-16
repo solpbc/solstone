@@ -160,14 +160,14 @@ def test_cortex_request_returns_none_on_send_failure(callosum_server, monkeypatc
     assert agent_id is None
 
 
-def test_cortex_request_uses_default_path_when_journal_path_unset(callosum_server):
+def test_cortex_request_uses_default_path_when_journal_path_unset(monkeypatch):
     """Test cortex_request uses platform default when JOURNAL_PATH unset."""
-    _ = callosum_server  # Needed for side effects only
+    monkeypatch.setattr("think.cortex_client.callosum_send", lambda *a, **kw: True)
     old_path = os.environ.pop("JOURNAL_PATH", None)
     try:
-        # Should work (uses platform default) but no listener will respond
+        # Should work with JOURNAL_PATH unset because send is mocked successful.
         agent_id = cortex_request("test", "default", "openai")
-        # Returns an agent_id since the request is queued
+        # Returns an agent_id when request send succeeds.
         assert agent_id is not None
         assert len(agent_id) > 0
     finally:

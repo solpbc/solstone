@@ -379,7 +379,7 @@ def format_markdown(
     its full context (headers, intro paragraphs) rendered back to markdown.
 
     Note: Unlike JSONL formatters, this does not return indexer metadata.
-    Topic for markdown files is derived from path by extract_path_metadata().
+    Agent for markdown files is derived from path by extract_path_metadata().
 
     Args:
         text: Markdown text to chunk
@@ -389,7 +389,7 @@ def format_markdown(
         Tuple of (chunks, meta) where:
             - chunks: List of {"markdown": str} dicts (timestamp omitted)
             - meta: Empty dict (no header or indexer - context is in each chunk,
-              topic is path-derived)
+              agent is path-derived)
     """
     text = sanitize_markdown(text)
     raw_chunks = chunk_markdown(text)

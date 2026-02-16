@@ -38,7 +38,7 @@ You will receive:
 - Day insights (flow, opportunities, followups)
 - Events and meetings
 - Topic insights
-- Full insight markdown when needed via `sol call journal search QUERY -t TOPIC`
+- Full insight markdown when needed via `sol call journal search QUERY -a AGENT`
 - Facet-specific transcripts and mentions
 - Todo items with facet tags
 - Filter through all the data to focus only on things that are clearly related to this specific facet, ignoring other facets (they have their own newsletter). Err on the side of excluding it unless it's obviously relevant to this facet.

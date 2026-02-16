@@ -500,7 +500,7 @@
         const isPlanned = o.occurred === false;
         const cardClass = isPlanned ? 'all-day-card planned' : 'all-day-card';
         const badge = isPlanned ? '<span class="card-badge">Planned</span>' : '';
-        const title = escapeHtml(o.title || o.summary || o.topic || 'Event');
+        const title = escapeHtml(o.title || o.summary || o.agent || 'Event');
         html += `<div class="${cardClass}" data-index="${idx}" style="border-color:${o.color || '#6c757d'}">`;
         html += `<span class="card-title">${title}</span>${badge}</div>`;
       });
@@ -556,7 +556,7 @@
 
     // Process event blocks for column layout
     const processedEvents = [];
-    const topics = [];
+    const agents = [];
 
     timedEvents.forEach(o => {
       const idx = list.indexOf(o);
@@ -568,54 +568,54 @@
       e = Math.min(e, endHour * 60);
       if (e <= s) return;
 
-      const topic = o.topic || 'other';
-      if (!topics.includes(topic)) topics.push(topic);
+      const agent = o.agent || 'other';
+      if (!agents.includes(agent)) agents.push(agent);
 
       processedEvents.push({
-        startMinutes: s, endMinutes: e, topic: topic,
-        title: escapeHtml(o.title || o.summary || topic),
+        startMinutes: s, endMinutes: e, agent: agent,
+        title: escapeHtml(o.title || o.summary || agent),
         color: o.color || '#6c757d', index: idx,
         isPlanned: o.occurred === false
       });
     });
 
-    const eventsByTopic = {};
-    topics.forEach(topic => {
-      eventsByTopic[topic] = processedEvents.filter(e => e.topic === topic);
-      eventsByTopic[topic].sort((a, b) => a.startMinutes - b.startMinutes);
+    const eventsByAgent = {};
+    agents.forEach(agent => {
+      eventsByAgent[agent] = processedEvents.filter(e => e.agent === agent);
+      eventsByAgent[agent].sort((a, b) => a.startMinutes - b.startMinutes);
     });
 
-    const topicColumnCounts = {};
-    topics.forEach(topic => {
-      const topicEvents = eventsByTopic[topic];
-      const topicColumns = [];
-      topicEvents.forEach(event => {
+    const agentColumnCounts = {};
+    agents.forEach(agent => {
+      const agentEvents = eventsByAgent[agent];
+      const agentColumns = [];
+      agentEvents.forEach(event => {
         let columnIndex = 0;
-        while (columnIndex < topicColumns.length &&
-               topicColumns[columnIndex].some(existing =>
+        while (columnIndex < agentColumns.length &&
+               agentColumns[columnIndex].some(existing =>
                  event.startMinutes < existing.endMinutes &&
                  event.endMinutes > existing.startMinutes)) {
           columnIndex++;
         }
-        if (columnIndex === topicColumns.length) topicColumns.push([]);
-        topicColumns[columnIndex].push(event);
+        if (columnIndex === agentColumns.length) agentColumns.push([]);
+        agentColumns[columnIndex].push(event);
         event.slugColumn = columnIndex;
       });
-      topicColumnCounts[topic] = topicColumns.length;
+      agentColumnCounts[agent] = agentColumns.length;
     });
 
     let globalColumnOffset = 0;
-    const topicColumnOffsets = {};
-    topics.forEach(topic => {
-      topicColumnOffsets[topic] = globalColumnOffset;
-      globalColumnOffset += topicColumnCounts[topic];
+    const agentColumnOffsets = {};
+    agents.forEach(agent => {
+      agentColumnOffsets[agent] = globalColumnOffset;
+      globalColumnOffset += agentColumnCounts[agent];
     });
 
     const totalColumns = globalColumnOffset;
     const columnWidth = totalColumns > 0 ? 100 / totalColumns : 100;
 
     processedEvents.forEach(event => {
-      event.column = topicColumnOffsets[event.topic] + event.slugColumn;
+      event.column = agentColumnOffsets[event.agent] + event.slugColumn;
     });
 
     processedEvents.forEach(event => {
@@ -671,8 +671,8 @@
     if (!occ) return;
     const body = document.getElementById('modalBody');
     const isPlanned = occ.occurred === false;
-    const topic = occ.topic ? occ.topic.charAt(0).toUpperCase() + occ.topic.slice(1) : '';
-    const titleText = `${topic ? topic + ': ' : ''}${occ.title || ''}`.trim();
+    const agent = occ.agent ? occ.agent.charAt(0).toUpperCase() + occ.agent.slice(1) : '';
+    const titleText = `${agent ? agent + ': ' : ''}${occ.title || ''}`.trim();
     const subtitle = occ.subject || occ.summary || '';
 
     let html = '';

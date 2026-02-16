@@ -142,7 +142,7 @@
   flex-wrap: wrap;
 }
 
-.result-topic {
+.result-agent {
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -151,7 +151,7 @@
   color: #374151;
 }
 
-.result-topic-icon {
+.result-agent-icon {
   font-size: 0.9rem;
 }
 
@@ -289,9 +289,9 @@
         </div>
       </div>
 
-      <div class="filter-section" id="topic-filters">
-        <h3>Topics</h3>
-        <div class="filter-list" id="topic-list">
+      <div class="filter-section" id="agent-filters">
+        <h3>Agents</h3>
+        <div class="filter-list" id="agent-list">
           <!-- Populated dynamically -->
         </div>
       </div>
@@ -324,7 +324,7 @@
   // State
   let currentQuery = '';
   let currentFacet = '';
-  let currentTopic = '';
+  let currentAgent = '';
   let dayOffset = 0;
 
   // DOM elements
@@ -333,7 +333,7 @@
   const searchEmpty = document.getElementById('search-empty');
   const loadMoreDaysBtn = document.getElementById('load-more-days');
   const facetList = document.getElementById('facet-list');
-  const topicList = document.getElementById('topic-list');
+  const agentList = document.getElementById('agent-list');
 
   // Initialize
   loadFromHash();
@@ -353,12 +353,12 @@
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
     const q = hashParams.get('q') || '';
     const f = hashParams.get('facet') || '';
-    const t = hashParams.get('topic') || '';
+    const t = hashParams.get('agent') || '';
 
-    if (q !== currentQuery || f !== currentFacet || t !== currentTopic) {
+    if (q !== currentQuery || f !== currentFacet || t !== currentAgent) {
       currentQuery = q;
       currentFacet = f;
-      currentTopic = t;
+      currentAgent = t;
 
       // Notify app bar of query change
       window.dispatchEvent(new CustomEvent('search.queryUpdate', {
@@ -377,7 +377,7 @@
     const params = new URLSearchParams();
     if (currentQuery) params.set('q', currentQuery);
     if (currentFacet) params.set('facet', currentFacet);
-    if (currentTopic) params.set('topic', currentTopic);
+    if (currentAgent) params.set('agent', currentAgent);
     window.location.hash = params.toString();
   }
 
@@ -403,14 +403,14 @@
     url.searchParams.set('q', currentQuery);
     url.searchParams.set('offset', dayOffset);
     if (currentFacet) url.searchParams.set('facet', currentFacet);
-    if (currentTopic) url.searchParams.set('topic', currentTopic);
+    if (currentAgent) url.searchParams.set('agent', currentAgent);
 
     fetch(url)
       .then(r => r.json())
       .then(data => {
         if (reset) {
           resultsContainer.innerHTML = '';
-          renderFilters(data.facets, data.topics);
+          renderFilters(data.facets, data.agents);
         }
 
         renderResults(data, reset);
@@ -430,7 +430,7 @@
     loadMoreDaysBtn.style.display = 'none';
   }
 
-  function renderFilters(facets, topics) {
+  function renderFilters(facets, agents) {
     // Render facet filters
     let facetHtml = `
       <label class="filter-item ${!currentFacet ? 'active' : ''}">
@@ -465,32 +465,32 @@
       };
     });
 
-    // Render topic filters (radio buttons for single-select)
-    let topicHtml = `
-      <label class="filter-item ${!currentTopic ? 'active' : ''}">
-        <input type="radio" name="topic" value="" ${!currentTopic ? 'checked' : ''}>
+    // Render agent filters (radio buttons for single-select)
+    let agentHtml = `
+      <label class="filter-item ${!currentAgent ? 'active' : ''}">
+        <input type="radio" name="agent" value="" ${!currentAgent ? 'checked' : ''}>
         <span class="filter-label">All</span>
       </label>
     `;
-    for (const t of topics) {
-      const isActive = currentTopic === t.name;
-      topicHtml += `
+    for (const t of agents) {
+      const isActive = currentAgent === t.name;
+      agentHtml += `
         <label class="filter-item ${isActive ? 'active' : ''}">
-          <input type="radio" name="topic" value="${escapeHtml(t.name)}" ${isActive ? 'checked' : ''}>
+          <input type="radio" name="agent" value="${escapeHtml(t.name)}" ${isActive ? 'checked' : ''}>
           <span class="filter-icon">${t.icon}</span>
           <span class="filter-label">${escapeHtml(t.label)}</span>
           <span class="filter-count">${t.count}</span>
         </label>
       `;
     }
-    topicList.innerHTML = topicHtml;
+    agentList.innerHTML = agentHtml;
 
-    // Add topic change handlers
-    topicList.querySelectorAll('input[type="radio"]').forEach(input => {
+    // Add agent change handlers
+    agentList.querySelectorAll('input[type="radio"]').forEach(input => {
       input.onchange = function() {
-        currentTopic = this.value;
-        topicList.querySelectorAll('.filter-item').forEach(item => {
-          item.classList.toggle('active', item.querySelector('input').value === currentTopic);
+        currentAgent = this.value;
+        agentList.querySelectorAll('.filter-item').forEach(item => {
+          item.classList.toggle('active', item.querySelector('input').value === currentAgent);
         });
         updateHash();
         doSearch(true);
@@ -572,9 +572,9 @@
 
     item.innerHTML = `
       <div class="result-meta">
-        <span class="result-topic">
-          <span class="result-topic-icon">${result.topic_icon}</span>
-          ${escapeHtml(result.topic_label)}
+        <span class="result-agent">
+          <span class="result-agent-icon">${result.agent_icon}</span>
+          ${escapeHtml(result.agent_label)}
         </span>
         ${facetBadge}
       </div>
@@ -594,7 +594,7 @@
     url.searchParams.set('offset', currentOffset);
     url.searchParams.set('limit', 20);
     if (currentFacet) url.searchParams.set('facet', currentFacet);
-    if (currentTopic) url.searchParams.set('topic', currentTopic);
+    if (currentAgent) url.searchParams.set('agent', currentAgent);
 
     fetch(url)
       .then(r => r.json())

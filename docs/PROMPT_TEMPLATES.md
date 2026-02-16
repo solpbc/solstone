@@ -110,7 +110,7 @@ Context variables also get automatic uppercase-first versions (`$Day`, `$Day_yyy
 
 ### For Generators
 
-Generator prompts typically compose a shared preamble with topic-specific instructions:
+Generator prompts typically compose a shared preamble with agent-specific instructions:
 
 ```markdown
 {

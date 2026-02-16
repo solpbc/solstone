@@ -20,7 +20,7 @@ from think.utils import get_journal, setup_cli
 
 logger = logging.getLogger(__name__)
 
-EXPECTED_COLUMNS = {"content", "path", "day", "facet", "topic", "stream", "idx"}
+EXPECTED_COLUMNS = {"content", "path", "day", "facet", "agent", "stream", "idx"}
 
 
 def _get_db_path(journal: str) -> str:

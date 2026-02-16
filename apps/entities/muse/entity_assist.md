@@ -39,10 +39,10 @@ Entity operations:
 
 Research tools (use sparingly, be quick):
 - `sol call journal search QUERY -n 3` - find entity mentions in all journal content
-- `sol call journal search QUERY -t audio -n 3` - find entity in transcripts
-- `sol call journal search QUERY -t news -n 3` - find entity in facet news
+- `sol call journal search QUERY -a audio -n 3` - find entity in transcripts
+- `sol call journal search QUERY -a news -n 3` - find entity in facet news
 - `sol call journal events -d DAY` - find entity in events for a specific day
-- `sol call journal read TOPIC` - read full agent output when snippet search is insufficient
+- `sol call journal read AGENT` - read full agent output when snippet search is insufficient
 
 ## Quick Addition Process
 
@@ -72,8 +72,8 @@ If entity already exists (check by name or entity_id), consider if the request i
 ### Step 3: Quick Research
 
 Execute a few targeted searches based on type:
-- **Person**: `sol call journal search "{name}" -n 3` or `sol call journal search "{name}" -t event -n 3`
-- **Company**: `sol call journal search "{name}" -t news -n 3` or `sol call journal search "{name}" -n 3`
+- **Person**: `sol call journal search "{name}" -n 3` or `sol call journal search "{name}" -a event -n 3`
+- **Company**: `sol call journal search "{name}" -a news -n 3` or `sol call journal search "{name}" -n 3`
 - **Project**: `sol call journal search "{name}" -n 3`
 - **Tool**: `sol call journal search "{name}" -n 3`
 

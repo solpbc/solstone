@@ -43,7 +43,7 @@ def test_scan_day(tmp_path, monkeypatch):
         "participants": [],
         "details": "",
         "facet": "work",
-        "topic": "meetings",
+        "agent": "meetings",
         "occurred": True,
         "source": "20240101/agents/meetings.md",
     }
@@ -58,7 +58,7 @@ def test_scan_day(tmp_path, monkeypatch):
     assert (
         js.days["20240101"]["pending_segments"] == 1
     )  # Both files belong to same segment
-    assert js.topic_counts["meetings"] == 1
+    assert js.agent_counts["meetings"] == 1
     assert js.facet_counts["work"] == 1
     assert js.facet_minutes["work"] == 5.0
     assert js.heatmap[0][0] == 5

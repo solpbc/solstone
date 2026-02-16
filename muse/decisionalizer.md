@@ -38,7 +38,7 @@ SOL_DAY is set in your environment. Commands like `journal events` and `transcri
 **CRITICAL FIRST STEP**: Before any analysis, gather all decision outputs from the day's activities:
 
 ```
-sol call journal search "decision" -d $day_YYYYMMDD -t decisions
+sol call journal search "decision" -d $day_YYYYMMDD -a decisions
 ```
 
 Decision-actions are now produced per-activity, so this search may return multiple result sets (one per activity that had decisions). Collect ALL decision-actions across all activities into a single working list. If no decision outputs exist for this day, stop and report this clearly.
@@ -58,7 +58,7 @@ From all decision-actions gathered across activities, select the TWO most conseq
 Use these tools in sequence:
 
 1. **Find the decision moment:**
-   - `sol call journal search "decision keywords here" -d $day_YYYYMMDD -t audio -n 10`
+   - `sol call journal search "decision keywords here" -d $day_YYYYMMDD -a audio -n 10`
    - Goal: Pinpoint exact time of decision (HH:MM:SS)
 
 2. **Get full context:**
@@ -72,8 +72,8 @@ Use these tools in sequence:
    - Goal: Find all people, teams, projects mentioned
 
 2. **Map meeting participants:**
-   - `sol call journal events` or `sol call journal search "[keywords]" -d $day_YYYYMMDD -t event`
-   - `sol call journal search "[keywords]" -t news -f work -d $day_YYYYMMDD` for public announcements
+   - `sol call journal events` or `sol call journal search "[keywords]" -d $day_YYYYMMDD -a event`
+   - `sol call journal search "[keywords]" -a news -f work -d $day_YYYYMMDD` for public announcements
    - Goal: Identify who needs to know about this decision
 
 ### Step 3: Historical Precedent Mining (30-day lookback)
@@ -83,18 +83,18 @@ Use these tools in sequence:
    - Goal: Discover patterns in how similar decisions were handled
 
 2. **Check commitment history:**
-   - `sol call journal search "entity decision approve cancel" -t audio -n 15`
+   - `sol call journal search "entity decision approve cancel" -a audio -n 15`
    - Goal: Identify typical follow-up patterns
 
 ### Step 4: Forward Impact Assessment (2-6 hours post-decision)
 
 1. **Check for communications:**
-   - `sol call journal search "[keywords]" -d $day_YYYYMMDD -t audio -n 10`
-   - `sol call journal search "[keywords]" -t news -d $day_YYYYMMDD` for decision announcements
+   - `sol call journal search "[keywords]" -d $day_YYYYMMDD -a audio -n 10`
+   - `sol call journal search "[keywords]" -a news -d $day_YYYYMMDD` for decision announcements
    - Goal: Find follow-up notifications or discussions
 
 2. **Review meetings:**
-   - `sol call journal search "[keywords]" -d $day_YYYYMMDD -t event`
+   - `sol call journal search "[keywords]" -d $day_YYYYMMDD -a event`
    - Goal: See if decision was discussed
 
 3. **Check messaging:**
@@ -108,7 +108,7 @@ Use these tools in sequence:
    - Goal: Identify emerging issues
 
 2. **Verify updates:**
-   - `sol call journal search "document update change commit" -d $day_YYYYMMDD -t audio`
+   - `sol call journal search "document update change commit" -d $day_YYYYMMDD -a audio`
    - Goal: Confirm tracking artifacts were updated
 
 OBLIGATION CATEGORIES (derive expectations from decision type + precedents; adapt to what the data shows)

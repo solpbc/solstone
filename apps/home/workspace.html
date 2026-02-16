@@ -399,36 +399,36 @@
 
   function renderEvents(data, facet) {
     const container = document.getElementById('events-content');
-    let eventsByTopic;
+    let eventsByAgent;
 
     if (facet) {
       const facetData = data.facets[facet];
-      eventsByTopic = facetData ? facetData.events_by_topic : {};
+      eventsByAgent = facetData ? facetData.events_by_agent : {};
     } else {
-      eventsByTopic = data.totals.events_by_topic || {};
+      eventsByAgent = data.totals.events_by_agent || {};
     }
 
-    const topics = Object.keys(eventsByTopic);
-    if (topics.length === 0) {
+    const agents = Object.keys(eventsByAgent);
+    if (agents.length === 0) {
       container.innerHTML = '<div class="home-empty">No events</div>';
       return;
     }
 
     // Sort by count descending
-    topics.sort((a, b) => eventsByTopic[b] - eventsByTopic[a]);
+    agents.sort((a, b) => eventsByAgent[b] - eventsByAgent[a]);
 
     // Find max count for scaling
-    const maxCount = Math.max(...topics.map(t => eventsByTopic[t]));
+    const maxCount = Math.max(...agents.map(t => eventsByAgent[t]));
 
     container.innerHTML = `
       <div class="home-event-list">
-        ${topics.map(topic => {
-          const count = eventsByTopic[topic];
+        ${agents.map(agent => {
+          const count = eventsByAgent[agent];
           const percent = maxCount > 0 ? (count / maxCount) * 100 : 0;
           return `
             <div class="home-event-row">
               <div class="home-event-bar" style="width: ${percent}%"></div>
-              <span class="home-event-label">${topic}</span>
+              <span class="home-event-label">${agent}</span>
             </div>
           `;
         }).join('')}
@@ -543,7 +543,7 @@
         const facetData = data.facets[name] || {};
         const todos = facetData.todos || [];
         const pendingTodos = todos.filter(t => !t.completed).length;
-        const eventCount = Object.values(facetData.events_by_topic || {}).reduce((a, b) => a + b, 0);
+        const eventCount = Object.values(facetData.events_by_agent || {}).reduce((a, b) => a + b, 0);
         // For recent days, use recent entities count if no detected entities
         const detectedCount = (facetData.entities || []).length;
         const recentCount = recentDay ? (data.recent_entities?.[name] || []).length : 0;

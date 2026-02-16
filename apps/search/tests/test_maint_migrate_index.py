@@ -30,12 +30,12 @@ def _create_old_schema(tmp_path):
             path UNINDEXED,
             day UNINDEXED,
             facet UNINDEXED,
-            topic UNINDEXED,
+            agent UNINDEXED,
             idx UNINDEXED
         )
     """)
     conn.execute(
-        "INSERT INTO chunks(content, path, day, facet, topic, idx) "
+        "INSERT INTO chunks(content, path, day, facet, agent, idx) "
         "VALUES ('test', 'test.md', '20240101', 'work', 'flow', 0)"
     )
     conn.commit()
@@ -56,7 +56,7 @@ def _create_current_schema(tmp_path):
             path UNINDEXED,
             day UNINDEXED,
             facet UNINDEXED,
-            topic UNINDEXED,
+            agent UNINDEXED,
             stream UNINDEXED,
             idx UNINDEXED
         )
@@ -80,7 +80,7 @@ def test_migrate_old_schema_rebuilds(tmp_path):
     # Verify new schema accepts stream column
     conn = sqlite3.connect(db_path)
     conn.execute(
-        "INSERT INTO chunks(content, path, day, facet, topic, stream, idx) "
+        "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) "
         "VALUES ('test', 'test.md', '20240101', 'work', 'flow', 'archon', 0)"
     )
     row = conn.execute("SELECT stream FROM chunks").fetchone()

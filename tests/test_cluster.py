@@ -475,7 +475,7 @@ def test_cluster_with_agent_filter_app_namespaced(tmp_path, monkeypatch):
     mod = importlib.import_module("think.cluster")
 
     # Create segment with app-namespaced agent output files
-    # App agent output naming: "app:topic" -> "_app_topic.md"
+    # App agent output naming: "app:agent" -> "_app_agent.md"
     segment = day_dir / "default" / "120000_300"
     segment.mkdir(parents=True)
     (segment / "agents").mkdir()

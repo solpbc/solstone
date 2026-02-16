@@ -1376,7 +1376,7 @@ def parse_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--segment",
-        help="Segment key in HHMMSS_LEN format (processes segment topics only)",
+        help="Segment key in HHMMSS_LEN format (processes segment agents only)",
     )
     parser.add_argument(
         "--refresh", action="store_true", help="Refresh existing outputs"

@@ -25,7 +25,7 @@ def _date_str(day_dir: str) -> str:
 def _filename_to_agent_key(filename: str) -> str:
     """Convert output filename stem to agent key.
 
-    Reverse of get_output_topic(): converts filesystem names back to agent keys.
+    Reverse of get_output_name(): converts filesystem names back to agent keys.
 
     Args:
         filename: Filename stem (e.g., "entities" or "_todos_review")
@@ -34,7 +34,7 @@ def _filename_to_agent_key(filename: str) -> str:
         Agent key (e.g., "entities" or "todos:review")
     """
     if filename.startswith("_"):
-        # App agent: "_app_topic" -> "app:topic"
+        # App agent: "_app_name" -> "app:name"
         parts = filename[1:].split("_", 1)
         if len(parts) == 2:
             return f"{parts[0]}:{parts[1]}"

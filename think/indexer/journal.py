@@ -11,7 +11,7 @@ This module provides a single FTS5 index over journal content:
 - Action logs (facet/journal-level JSONL)
 
 All content is converted to markdown chunks via the formatters framework,
-then indexed with metadata fields for filtering (day, facet, topic).
+then indexed with metadata fields for filtering (day, facet, agent).
 Raw audio/screen transcripts are formattable but not indexed by default.
 """
 
@@ -47,7 +47,7 @@ SCHEMA = [
         path UNINDEXED,
         day UNINDEXED,
         facet UNINDEXED,
-        topic UNINDEXED,
+        agent UNINDEXED,
         stream UNINDEXED,
         idx UNINDEXED
     )
@@ -192,8 +192,8 @@ def _index_file(
 
     Metadata is sourced from two places:
     - Path-derived: day and facet from extract_path_metadata()
-    - Formatter-provided: topic from meta["indexer"]["topic"]
-    For markdown files, topic is also path-derived.
+    - Formatter-provided: agent from meta["indexer"]["agent"]
+    For markdown files, agent is also path-derived.
     """
     try:
         chunks, meta = format_file(path)
@@ -201,24 +201,24 @@ def _index_file(
         logger.warning("Skipping %s: %s", rel, e)
         return
 
-    # Get path-derived metadata (day, facet, topic for .md files)
+    # Get path-derived metadata (day, facet, agent for .md files)
     path_meta = extract_path_metadata(rel)
 
-    # Get formatter-provided metadata (topic for JSONL files)
+    # Get formatter-provided metadata (agent for JSONL files)
     formatter_indexer = meta.get("indexer", {})
 
     # Merge: formatter values override path values, normalize to lowercase
     day = formatter_indexer.get("day") or path_meta["day"]
     facet = (formatter_indexer.get("facet") or path_meta["facet"]).lower()
-    topic = (formatter_indexer.get("topic") or path_meta["topic"]).lower()
+    agent = (formatter_indexer.get("agent") or path_meta["agent"]).lower()
 
     if verbose:
         logger.info(
-            "  %s chunks, day=%s, facet=%s, topic=%s, stream=%s",
+            "  %s chunks, day=%s, facet=%s, agent=%s, stream=%s",
             len(chunks),
             day,
             facet,
-            topic,
+            agent,
             stream,
         )
 
@@ -228,8 +228,8 @@ def _index_file(
             continue
 
         conn.execute(
-            "INSERT INTO chunks(content, path, day, facet, topic, stream, idx) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (content, rel, day, facet, topic, stream, idx),
+            "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (content, rel, day, facet, agent, stream, idx),
         )
 
 
@@ -356,7 +356,7 @@ def _build_where_clause(
     day_from: str | None = None,
     day_to: str | None = None,
     facet: str | None = None,
-    topic: str | None = None,
+    agent: str | None = None,
     stream: str | None = None,
 ) -> tuple[str, list[Any]]:
     """Build WHERE clause and params for FTS5 search.
@@ -367,7 +367,7 @@ def _build_where_clause(
         day_from: Filter by date range start (YYYYMMDD, inclusive)
         day_to: Filter by date range end (YYYYMMDD, inclusive)
         facet: Filter by facet name
-        topic: Filter by topic
+        agent: Filter by agent
         stream: Filter by stream name
 
     Returns:
@@ -394,9 +394,9 @@ def _build_where_clause(
     if facet:
         where_clause += " AND facet=?"
         params.append(facet.lower())
-    if topic:
-        where_clause += " AND topic=?"
-        params.append(topic.lower())
+    if agent:
+        where_clause += " AND agent=?"
+        params.append(agent.lower())
     if stream:
         where_clause += " AND stream=?"
         params.append(stream)
@@ -413,7 +413,7 @@ def search_journal(
     day_from: str | None = None,
     day_to: str | None = None,
     facet: str | None = None,
-    topic: str | None = None,
+    agent: str | None = None,
     stream: str | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
     """Search the journal index.
@@ -427,19 +427,19 @@ def search_journal(
         day_from: Filter by date range start (YYYYMMDD, inclusive)
         day_to: Filter by date range end (YYYYMMDD, inclusive)
         facet: Filter by facet name
-        topic: Filter by topic (e.g., "flow", "event", "news")
+        agent: Filter by agent (e.g., "flow", "event", "news")
         stream: Filter by stream name
 
     Returns:
         Tuple of (total_count, results) where each result has:
             - id: "{path}:{idx}"
             - text: The matched markdown chunk
-            - metadata: {day, facet, topic, stream, path, idx}
+            - metadata: {day, facet, agent, stream, path, idx}
             - score: BM25 relevance score
     """
     conn, _ = get_journal_index()
     where_clause, params = _build_where_clause(
-        query, day, day_from, day_to, facet, topic, stream
+        query, day, day_from, day_to, facet, agent, stream
     )
 
     # Get total count
@@ -450,7 +450,7 @@ def search_journal(
     # Get results
     cursor = conn.execute(
         f"""
-        SELECT content, path, day, facet, topic, stream, idx, bm25(chunks) as rank
+        SELECT content, path, day, facet, agent, stream, idx, bm25(chunks) as rank
         FROM chunks WHERE {where_clause}
         ORDER BY rank LIMIT ? OFFSET ?
         """,
@@ -463,7 +463,7 @@ def search_journal(
         path,
         day_val,
         facet_val,
-        topic_val,
+        agent_val,
         stream_val,
         idx,
         rank,
@@ -475,7 +475,7 @@ def search_journal(
                 "metadata": {
                     "day": day_val,
                     "facet": facet_val,
-                    "topic": topic_val,
+                    "agent": agent_val,
                     "stream": stream_val,
                     "path": path,
                     "idx": idx,
@@ -495,7 +495,7 @@ def search_counts(
     day_from: str | None = None,
     day_to: str | None = None,
     facet: str | None = None,
-    topic: str | None = None,
+    agent: str | None = None,
     stream: str | None = None,
 ) -> dict[str, Any]:
     """Get aggregated counts for a search query.
@@ -508,14 +508,14 @@ def search_counts(
         day_from: Filter by date range start (YYYYMMDD, inclusive)
         day_to: Filter by date range end (YYYYMMDD, inclusive)
         facet: Filter by facet name
-        topic: Filter by topic
+        agent: Filter by agent
         stream: Filter by stream name
 
     Returns:
         Dict with:
             - total: Total matching chunks
             - facets: Counter of facet_name -> count
-            - topics: Counter of topic_name -> count
+            - agents: Counter of agent_name -> count
             - days: Counter of day -> count
             - streams: Counter of stream_name -> count
     """
@@ -523,11 +523,11 @@ def search_counts(
 
     conn, _ = get_journal_index()
     where_clause, params = _build_where_clause(
-        query, day, day_from, day_to, facet, topic, stream
+        query, day, day_from, day_to, facet, agent, stream
     )
 
     rows = conn.execute(
-        f"SELECT facet, topic, day, stream FROM chunks WHERE {where_clause}", params
+        f"SELECT facet, agent, day, stream FROM chunks WHERE {where_clause}", params
     ).fetchall()
 
     conn.close()
@@ -535,7 +535,7 @@ def search_counts(
     return {
         "total": len(rows),
         "facets": Counter(r[0] for r in rows if r[0]),
-        "topics": Counter(r[1] for r in rows if r[1]),
+        "agents": Counter(r[1] for r in rows if r[1]),
         "days": Counter(r[2] for r in rows if r[2]),
         "streams": Counter(r[3] for r in rows if r[3]),
     }

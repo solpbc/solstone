@@ -293,8 +293,8 @@ Define custom generator prompts that integrate with solstone's output generation
 **Key Points:**
 - Create `muse/` directory with `.md` files containing JSON frontmatter
 - App generators are automatically discovered alongside system generators
-- Keys are namespaced as `{app}:{topic}` (e.g., `my_app:weekly_summary`)
-- Outputs go to `JOURNAL/YYYYMMDD/agents/_<app>_<topic>.md` (or `.json` if `output: "json"`)
+- Keys are namespaced as `{app}:{agent}` (e.g., `my_app:weekly_summary`)
+- Outputs go to `JOURNAL/YYYYMMDD/agents/_<app>_<agent>.md` (or `.json` if `output: "json"`)
 
 **Metadata format:** Same schema as system generators in `muse/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `priority` (required for scheduled prompts), `hook`, `output`, `max_output_tokens`, and `thinking_budget` fields. The `schedule` field must be `"segment"` or `"daily"`. The `priority` field is required for all scheduled prompts - prompts without explicit priority will fail validation. Set `output: "json"` for structured JSON output instead of markdown. Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted).
 
@@ -309,7 +309,7 @@ Define custom generator prompts that integrate with solstone's output generation
 - `"hook": {"post": "occurrence"}` - Extracts past events to `facets/{facet}/events/{day}.jsonl`
 - `"hook": {"post": "anticipation"}` - Extracts future scheduled events
 
-The `occurrences` field (optional string) provides topic-specific extraction guidance when using the occurrence hook. Example:
+The `occurrences` field (optional string) provides agent-specific extraction guidance when using the occurrence hook. Example:
 
 ```json
 {
@@ -361,7 +361,7 @@ def post_process(result: str, context: dict) -> str | None:
 **Reference implementations:**
 - System generator templates: `muse/*.md` (files with `schedule` field but no `tools` field)
 - Extraction hooks: `muse/occurrence.py`, `muse/anticipation.py`
-- Discovery logic: `think/muse.py` - `get_muse_configs(has_tools=False)`, `get_output_topic()`
+- Discovery logic: `think/muse.py` - `get_muse_configs(has_tools=False)`, `get_output_name()`
 - Hook loading: `think/muse.py` - `load_pre_hook()`, `load_post_hook()`
 
 ---
@@ -406,7 +406,7 @@ Both generators and agents support an optional `instructions` key for customizin
   - `false` - don't load this source type
   - `true` - load if available
   - `"required"` - load, and skip generation if no content found (useful for generators that only make sense with specific input types, e.g., `"audio": "required"` for speaker detection)
-  - For `agents` only: a dict for selective filtering, e.g., `{"entities": true, "meetings": "required", "flow": false}`. Keys are agent names (system) or `"app:topic"` (app-namespaced). An empty dict `{}` means no agents.
+  - For `agents` only: a dict for selective filtering, e.g., `{"entities": true, "meetings": "required", "flow": false}`. Keys are agent names (system) or `"app:agent"` (app-namespaced). An empty dict `{}` means no agents.
 - `activity` - Activity-scheduled agents only: controls activity context in `extra_context`. Can be:
   - `false` - no activity context (default)
   - `true` - enable all activity context (shorthand for `{"context": true, "state": true, "focus": true}`)

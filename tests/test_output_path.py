@@ -6,22 +6,22 @@
 import os
 from pathlib import Path
 
-from think.muse import get_output_path, get_output_topic
+from think.muse import get_output_name, get_output_path
 
 os.environ.setdefault("JOURNAL_PATH", "tests/fixtures/journal")
 
 
-class TestGetOutputTopic:
-    """Tests for get_output_topic."""
+class TestGetOutputName:
+    """Tests for get_output_name."""
 
     def test_simple_key(self):
-        assert get_output_topic("activity") == "activity"
+        assert get_output_name("activity") == "activity"
 
     def test_app_key(self):
-        assert get_output_topic("chat:sentiment") == "_chat_sentiment"
+        assert get_output_name("chat:sentiment") == "_chat_sentiment"
 
     def test_entities_app_key(self):
-        assert get_output_topic("entities:observer") == "_entities_observer"
+        assert get_output_name("entities:observer") == "_entities_observer"
 
 
 class TestGetOutputPath:

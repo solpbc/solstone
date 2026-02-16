@@ -636,7 +636,7 @@ def get_activity_output_path(
     Output lives under the facet's activities directory, grouped by day
     and activity record ID:
 
-        facets/{facet}/activities/{day}/{activity_id}/{topic}.{ext}
+        facets/{facet}/activities/{day}/{activity_id}/{agent}.{ext}
 
     Args:
         facet: Facet name
@@ -648,9 +648,9 @@ def get_activity_output_path(
     Returns:
         Absolute path for the output file
     """
-    from think.muse import get_output_topic
+    from think.muse import get_output_name
 
-    topic = get_output_topic(key)
+    output_name = get_output_name(key)
     ext = "json" if output_format == "json" else "md"
     return (
         Path(get_journal())
@@ -659,7 +659,7 @@ def get_activity_output_path(
         / "activities"
         / day
         / activity_id
-        / f"{topic}.{ext}"
+        / f"{output_name}.{ext}"
     )
 
 

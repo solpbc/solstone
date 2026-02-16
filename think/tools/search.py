@@ -83,7 +83,7 @@ def search_journal(
     day_from: str | None = None,
     day_to: str | None = None,
     facet: str | None = None,
-    topic: str | None = None,
+    agent: str | None = None,
     stream: str | None = None,
 ) -> dict[str, Any]:
     """Search across all journal content using semantic full-text search.
@@ -102,7 +102,7 @@ def search_journal(
         day_from: Filter by date range start (``YYYYMMDD``, inclusive)
         day_to: Filter by date range end (``YYYYMMDD``, inclusive)
         facet: Filter by facet name (e.g., "work", "personal")
-        topic: Filter by topic (e.g., "flow", "event", "entity:detected", "news")
+        agent: Filter by agent (e.g., "flow", "event", "entity:detected", "news")
         stream: Filter by stream name (e.g., "archon", "import.apple")
 
     Returns:
@@ -111,16 +111,16 @@ def search_journal(
         - limit: Current limit value
         - offset: Current offset value
         - query: Echo of query text and applied filters
-        - counts: Aggregation metadata with facets, topics, and bucketed days
-        - results: List of matches with day, facet, topic, stream, text, path, and idx
+        - counts: Aggregation metadata with facets, agents, and bucketed days
+        - results: List of matches with day, facet, agent, stream, text, path, and idx
 
     Examples:
         - search_journal("machine learning")
         - search_journal("meeting notes", day="20240101")
         - search_journal("project planning", facet="work")
-        - search_journal("standup", topic="event")
+        - search_journal("standup", agent="event")
         - search_journal("weekly sync", day_from="20241201", day_to="20241207")
-        - search_journal(topic="flow", day="20240101")  # Browse all flow for a day
+        - search_journal(agent="flow", day="20240101")  # Browse all flow for a day
         - search_journal("meeting", stream="archon")  # Filter by stream
     """
     try:
@@ -138,9 +138,9 @@ def search_journal(
         if facet is not None:
             kwargs["facet"] = facet
             filters["facet"] = facet
-        if topic is not None:
-            kwargs["topic"] = topic
-            filters["topic"] = topic
+        if agent is not None:
+            kwargs["agent"] = agent
+            filters["agent"] = agent
         if stream is not None:
             kwargs["stream"] = stream
             filters["stream"] = stream
@@ -163,7 +163,7 @@ def search_journal(
             item = {
                 "day": meta.get("day", ""),
                 "facet": meta.get("facet", ""),
-                "topic": meta.get("topic", ""),
+                "agent": meta.get("agent", ""),
                 "text": text,
                 "path": meta.get("path", ""),
                 "idx": meta.get("idx", 0),
@@ -176,7 +176,7 @@ def search_journal(
         day_buckets = _bucket_day_counts(dict(counts_data["days"]))
         counts = {
             "facets": dict(counts_data["facets"]),
-            "topics": dict(counts_data["topics"]),
+            "agents": dict(counts_data["agents"]),
             **day_buckets,
         }
 

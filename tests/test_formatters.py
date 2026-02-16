@@ -1238,25 +1238,25 @@ class TestExtractPathMetadata:
         meta = extract_path_metadata("20240101/agents/flow.md")
         assert meta["day"] == "20240101"
         assert meta["facet"] == ""
-        assert meta["topic"] == "flow"
+        assert meta["agent"] == "flow"
 
     def test_segment_markdown(self):
-        """Test day and topic extraction from segment markdown."""
+        """Test day and agent extraction from segment markdown."""
         from think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("20240101/100000/agents/screen.md")
         assert meta["day"] == "20240101"
         assert meta["facet"] == ""
-        assert meta["topic"] == "screen"
+        assert meta["agent"] == "screen"
 
-    def test_segment_jsonl_no_topic(self):
-        """Test that JSONL files get empty topic (formatter provides it)."""
+    def test_segment_jsonl_no_agent(self):
+        """Test that JSONL files get empty agent (formatter provides it)."""
         from think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("20240101/100000/audio.jsonl")
         assert meta["day"] == "20240101"
         assert meta["facet"] == ""
-        assert meta["topic"] == ""  # Formatter provides topic for JSONL
+        assert meta["agent"] == ""  # Formatter provides agent for JSONL
 
     def test_facet_event(self):
         """Test facet and day extraction from event path."""
@@ -1265,7 +1265,7 @@ class TestExtractPathMetadata:
         meta = extract_path_metadata("facets/work/events/20240101.jsonl")
         assert meta["day"] == "20240101"
         assert meta["facet"] == "work"
-        assert meta["topic"] == ""  # Formatter provides topic
+        assert meta["agent"] == ""  # Formatter provides agent
 
     def test_facet_entities_detected_personal(self):
         """Test facet and day extraction from detected entities path."""
@@ -1274,7 +1274,7 @@ class TestExtractPathMetadata:
         meta = extract_path_metadata("facets/personal/entities/20260115.jsonl")
         assert meta["day"] == "20260115"
         assert meta["facet"] == "personal"
-        assert meta["topic"] == ""  # Formatter provides topic
+        assert meta["agent"] == ""  # Formatter provides agent
 
     def test_facet_entities_detected(self):
         """Test facet and day extraction from detected entities path."""
@@ -1283,16 +1283,16 @@ class TestExtractPathMetadata:
         meta = extract_path_metadata("facets/work/entities/20250101.jsonl")
         assert meta["day"] == "20250101"
         assert meta["facet"] == "work"
-        assert meta["topic"] == ""  # Formatter provides topic
+        assert meta["agent"] == ""  # Formatter provides agent
 
     def test_facet_news(self):
-        """Test facet news markdown gets topic from path."""
+        """Test facet news markdown gets agent from path."""
         from think.formatters import extract_path_metadata
 
         meta = extract_path_metadata("facets/work/news/20240101.md")
         assert meta["day"] == "20240101"
         assert meta["facet"] == "work"
-        assert meta["topic"] == "news"
+        assert meta["agent"] == "news"
 
     def test_import_summary(self):
         """Test import summary path extraction."""
@@ -1301,7 +1301,7 @@ class TestExtractPathMetadata:
         meta = extract_path_metadata("imports/20240101_093000/summary.md")
         assert meta["day"] == "20240101"
         assert meta["facet"] == ""
-        assert meta["topic"] == "import"
+        assert meta["agent"] == "import"
 
     def test_app_output(self):
         """Test app output path extraction."""
@@ -1310,7 +1310,7 @@ class TestExtractPathMetadata:
         meta = extract_path_metadata("apps/myapp/agents/custom.md")
         assert meta["day"] == ""
         assert meta["facet"] == ""
-        assert meta["topic"] == "myapp:custom"
+        assert meta["agent"] == "myapp:custom"
 
     def test_config_actions(self):
         """Test journal-level action log path extraction."""
@@ -1319,7 +1319,7 @@ class TestExtractPathMetadata:
         meta = extract_path_metadata("config/actions/20240101.jsonl")
         assert meta["day"] == "20240101"
         assert meta["facet"] == ""
-        assert meta["topic"] == ""
+        assert meta["agent"] == ""
 
     def test_activity_output_path(self):
         from think.formatters import extract_path_metadata
@@ -1329,7 +1329,7 @@ class TestExtractPathMetadata:
         )
         assert meta["day"] == "20260209"
         assert meta["facet"] == "work"
-        assert meta["topic"] == "session_review"
+        assert meta["agent"] == "session_review"
 
     def test_activity_output_path_json(self):
         from think.formatters import extract_path_metadata
@@ -1339,7 +1339,7 @@ class TestExtractPathMetadata:
         )
         assert meta["day"] == "20260210"
         assert meta["facet"] == "personal"
-        assert meta["topic"] == ""  # JSONL/JSON topic set by formatter, not path
+        assert meta["agent"] == ""  # JSONL/JSON agent set by formatter, not path
 
     def test_activity_output_app_key(self):
         from think.formatters import extract_path_metadata
@@ -1349,44 +1349,44 @@ class TestExtractPathMetadata:
         )
         assert meta["day"] == "20260209"
         assert meta["facet"] == "work"
-        assert meta["topic"] == "_chat_review"
+        assert meta["agent"] == "_chat_review"
 
 
 class TestFormatterIndexerMetadata:
     """Tests verifying formatters return indexer metadata."""
 
     def test_format_audio_returns_indexer(self):
-        """Test format_audio returns indexer with topic."""
+        """Test format_audio returns indexer with agent."""
         from observe.hear import format_audio
 
         entries = [{"start": "00:00:01", "text": "Hello"}]
         chunks, meta = format_audio(entries)
 
         assert "indexer" in meta
-        assert meta["indexer"]["topic"] == "audio"
+        assert meta["indexer"]["agent"] == "audio"
 
     def test_format_screen_returns_indexer(self):
-        """Test format_screen returns indexer with topic."""
+        """Test format_screen returns indexer with agent."""
         from observe.screen import format_screen
 
         entries = [{"timestamp": 0, "analysis": {"primary": "code"}}]
         chunks, meta = format_screen(entries)
 
         assert "indexer" in meta
-        assert meta["indexer"]["topic"] == "screen"
+        assert meta["indexer"]["agent"] == "screen"
 
     def test_format_events_returns_indexer(self):
-        """Test format_events returns indexer with topic."""
+        """Test format_events returns indexer with agent."""
         from think.events import format_events
 
         entries = [{"type": "meeting", "title": "Test", "occurred": True}]
         chunks, meta = format_events(entries)
 
         assert "indexer" in meta
-        assert meta["indexer"]["topic"] == "event"
+        assert meta["indexer"]["agent"] == "event"
 
     def test_format_entities_attached_returns_indexer(self):
-        """Test format_entities returns indexer with attached topic."""
+        """Test format_entities returns indexer with attached agent."""
         from think.entities import format_entities
 
         entries = [{"type": "Person", "name": "Alice", "description": "Test"}]
@@ -1394,10 +1394,10 @@ class TestFormatterIndexerMetadata:
         chunks, meta = format_entities(entries)
 
         assert "indexer" in meta
-        assert meta["indexer"]["topic"] == "entity:attached"
+        assert meta["indexer"]["agent"] == "entity:attached"
 
     def test_format_entities_detected_returns_indexer(self):
-        """Test format_entities returns indexer with detected topic."""
+        """Test format_entities returns indexer with detected agent."""
         from think.entities import format_entities
 
         entries = [{"type": "Person", "name": "Alice", "description": "Test"}]
@@ -1405,17 +1405,17 @@ class TestFormatterIndexerMetadata:
         chunks, meta = format_entities(entries, context)
 
         assert "indexer" in meta
-        assert meta["indexer"]["topic"] == "entity:detected"
+        assert meta["indexer"]["agent"] == "entity:detected"
 
     def test_format_todos_returns_indexer(self):
-        """Test format_todos returns indexer with topic."""
+        """Test format_todos returns indexer with agent."""
         from apps.todos.todo import format_todos
 
         entries = [{"text": "Test task", "completed": False}]
         chunks, meta = format_todos(entries)
 
         assert "indexer" in meta
-        assert meta["indexer"]["topic"] == "todo"
+        assert meta["indexer"]["agent"] == "todo"
 
 
 class TestFormatterSourceKey:
@@ -1641,7 +1641,7 @@ class TestFormatLogs:
         assert "action" in meta["error"]
 
     def test_format_logs_returns_indexer(self):
-        """Test format_logs returns indexer with topic 'action'."""
+        """Test format_logs returns indexer with agent 'action'."""
         from think.facets import format_logs
 
         entries = [
@@ -1657,7 +1657,7 @@ class TestFormatLogs:
         chunks, meta = format_logs(entries)
 
         assert "indexer" in meta
-        assert meta["indexer"]["topic"] == "action"
+        assert meta["indexer"]["agent"] == "action"
 
     def test_format_logs_header_with_path(self):
         """Test that header includes facet name and day from path."""

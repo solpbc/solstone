@@ -196,14 +196,14 @@ def test_load_prompt_context_uppercase_versions(
     mock_journal_with_config, mock_prompt_dir
 ):
     """Test that uppercase-first versions are created for context variables."""
-    context_prompt = """lowercase: $topic
-Uppercase: $Topic"""
+    context_prompt = """lowercase: $agent
+Uppercase: $Agent"""
     (mock_prompt_dir / "uppercase_test.md").write_text(context_prompt)
 
     result = load_prompt(
         "uppercase_test",
         base_dir=mock_prompt_dir,
-        context={"topic": "meetings"},
+        context={"agent": "meetings"},
     )
 
     assert "lowercase: meetings" in result.text

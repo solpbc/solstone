@@ -105,7 +105,7 @@ def journal_fixture(tmp_path):
         "title": "Standup",
         "summary": "Daily sync meeting",
         "facet": "work",
-        "topic": "meetings",
+        "agent": "meetings",
         "occurred": True,
     }
     (events_dir / "20240101.jsonl").write_text(json.dumps(event))
@@ -161,7 +161,7 @@ def test_search_journal_events(journal_fixture):
 
     scan_journal(str(journal_fixture))
 
-    total, results = search_journal("Standup", topic="event")
+    total, results = search_journal("Standup", agent="event")
     assert total >= 1
     assert any("Standup" in r["text"] for r in results)
 
@@ -192,17 +192,17 @@ def test_search_journal_filter_by_facet(journal_fixture):
         assert r["metadata"]["facet"] == "work"
 
 
-def test_search_journal_filter_by_topic(journal_fixture):
-    """Test filtering search by topic."""
+def test_search_journal_filter_by_agent(journal_fixture):
+    """Test filtering search by agent."""
     from think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
-    # Search events by topic
-    total, results = search_journal("", topic="event")
+    # Search events by agent
+    total, results = search_journal("", agent="event")
     assert total >= 1
     for r in results:
-        assert r["metadata"]["topic"] == "event"
+        assert r["metadata"]["agent"] == "event"
 
 
 def test_search_journal_facet_case_insensitive(journal_fixture):
@@ -223,22 +223,22 @@ def test_search_journal_facet_case_insensitive(journal_fixture):
         assert r["metadata"]["facet"] == "work"
 
 
-def test_search_journal_topic_case_insensitive(journal_fixture):
-    """Test topic filtering is case-insensitive."""
+def test_search_journal_agent_case_insensitive(journal_fixture):
+    """Test agent filtering is case-insensitive."""
     from think.indexer.journal import scan_journal, search_journal
 
     scan_journal(str(journal_fixture))
 
-    # Search with uppercase topic filter should find lowercase-indexed data
-    total_upper, results_upper = search_journal("", topic="EVENT")
-    total_lower, _ = search_journal("", topic="event")
-    total_mixed, _ = search_journal("", topic="Event")
+    # Search with uppercase agent filter should find lowercase-indexed data
+    total_upper, results_upper = search_journal("", agent="EVENT")
+    total_lower, _ = search_journal("", agent="event")
+    total_mixed, _ = search_journal("", agent="Event")
 
     assert total_upper == total_lower == total_mixed
     assert total_upper >= 1
-    # All results should have lowercase topic in metadata
+    # All results should have lowercase agent in metadata
     for r in results_upper:
-        assert r["metadata"]["topic"] == "event"
+        assert r["metadata"]["agent"] == "event"
 
 
 def test_get_events(journal_fixture):
@@ -420,7 +420,7 @@ def test_search_journal_returns_counts():
     assert "counts" in result
     counts = result["counts"]
     assert "facets" in counts
-    assert "topics" in counts
+    assert "agents" in counts
     assert "recent_days" in counts
     assert "top_days" in counts
     assert "bucketed_days" in counts
@@ -435,12 +435,12 @@ def test_search_journal_returns_query_echo():
 
     os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
 
-    result = search_journal("test query", facet="work", topic="flow")
+    result = search_journal("test query", facet="work", agent="flow")
 
     assert "query" in result
     assert result["query"]["text"] == "test query"
     assert result["query"]["filters"]["facet"] == "work"
-    assert result["query"]["filters"]["topic"] == "flow"
+    assert result["query"]["filters"]["agent"] == "flow"
 
 
 def test_search_journal_results_include_path():
@@ -472,14 +472,14 @@ def test_search_journal_truncates_large_results():
             "metadata": {
                 "day": "20240101",
                 "facet": "",
-                "topic": "test",
+                "agent": "test",
                 "path": "a.md",
                 "idx": 0,
             },
             "score": 1.0,
         }
     ]
-    fake_counts = {"facets": [], "topics": [], "days": []}
+    fake_counts = {"facets": [], "agents": [], "days": []}
 
     with (
         patch("think.tools.search.search_journal_impl", return_value=(1, fake_results)),
@@ -541,7 +541,7 @@ def test_light_scan_removes_deleted_facet_content(journal_fixture):
     scan_journal(str(journal_fixture), full=True)
 
     # Verify event is indexed
-    total, _ = search_journal("Standup", topic="event")
+    total, _ = search_journal("Standup", agent="event")
     assert total >= 1
 
     # Delete the facet event file
@@ -553,7 +553,7 @@ def test_light_scan_removes_deleted_facet_content(journal_fixture):
     assert changed is True
 
     # Event should no longer be searchable
-    total, _ = search_journal("Standup", topic="event")
+    total, _ = search_journal("Standup", agent="event")
     assert total == 0
 
 

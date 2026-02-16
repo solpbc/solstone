@@ -25,7 +25,7 @@ You receive:
 
 Use these `sol call` commands for quick research (be efficient, 2-3 calls max):
 - `sol call journal search QUERY -f FACET -n LIMIT` - find mentions in journal content, scoped to facet
-- `sol call journal search QUERY -t audio -n LIMIT` - find mentions in transcripts
+- `sol call journal search QUERY -a audio -n LIMIT` - find mentions in transcripts
 
 ## Process
 

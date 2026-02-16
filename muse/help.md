@@ -71,13 +71,13 @@ IMPORTANT: Only suggest commands, subcommands, and flags that are explicitly doc
 ## `sol call` Command Reference
 
 ### Journal
-- `sol call journal search [query] [-n limit] [--offset N] [-d YYYYMMDD] [--day-from YYYYMMDD] [--day-to YYYYMMDD] [-f facet] [-t topic]` - Search journal entries.
+- `sol call journal search [query] [-n limit] [--offset N] [-d YYYYMMDD] [--day-from YYYYMMDD] [--day-to YYYYMMDD] [-f facet] [-a agent]` - Search journal entries.
 - `sol call journal events [day] [-f facet]` - List events for a day (day defaults to SOL_DAY).
 - `sol call journal facet [name]` - Show facet details (name defaults to SOL_FACET).
 - `sol call journal facets` - List all facets.
 - `sol call journal news [name] [-d YYYYMMDD] [-n limit] [--cursor CURSOR] [-w]` - Get news feed for a facet (name defaults to SOL_FACET, -d defaults to SOL_DAY).
-- `sol call journal topics [day] [-s HHMMSS_LEN]` - List topics for a day (day defaults to SOL_DAY).
-- `sol call journal read <topic> [-d YYYYMMDD] [-s HHMMSS_LEN] [--max N]` - Read agent output for a topic (day defaults to SOL_DAY).
+- `sol call journal agents [day] [-s HHMMSS_LEN]` - List agents for a day (day defaults to SOL_DAY).
+- `sol call journal read <agent> [-d YYYYMMDD] [-s HHMMSS_LEN] [--max N]` - Read agent output for an agent (day defaults to SOL_DAY).
 
 ### Entities
 - `sol call entities list [facet] [-d day]` - List entities (facet defaults to SOL_FACET; without -d: attached, with -d: detected).
@@ -105,7 +105,7 @@ IMPORTANT: Only suggest commands, subcommands, and flags that are explicitly doc
 - If asked "How do I search journal entries?":
   - Use `sol call journal search "query"` for broad search.
   - Add `-d YYYYMMDD` to focus one day.
-  - Add `-t audio` or `-t flow` to narrow by topic.
+  - Add `-a audio` or `-a flow` to narrow by agent.
 - If asked "How do I inspect an agent run?":
   - Use `sol muse logs` to find run IDs.
   - Use `sol muse log <id>` for event details.

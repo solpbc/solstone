@@ -44,7 +44,7 @@ def search(
         None, "--day-to", help="Date range end YYYYMMDD."
     ),
     facet: str | None = typer.Option(None, "--facet", "-f", help="Filter by facet."),
-    topic: str | None = typer.Option(None, "--topic", "-t", help="Filter by topic."),
+    agent: str | None = typer.Option(None, "--agent", "-a", help="Filter by agent."),
 ) -> None:
     """Search the journal index."""
     kwargs = {}
@@ -56,8 +56,8 @@ def search(
         kwargs["day_to"] = day_to
     if facet is not None:
         kwargs["facet"] = facet
-    if topic is not None:
-        kwargs["topic"] = topic
+    if agent is not None:
+        kwargs["agent"] = agent
 
     total, results = search_journal_impl(query, limit, offset, **kwargs)
 
@@ -70,10 +70,10 @@ def search(
         parts = [f"{f}:{c}" for f, c in facet_counts.most_common(10)]
         typer.echo(f"Facets: {', '.join(parts)}")
 
-    topic_counts = counts.get("topics", {})
-    if topic_counts:
-        parts = [f"{t}:{c}" for t, c in topic_counts.most_common(10)]
-        typer.echo(f"Topics: {', '.join(parts)}")
+    agent_counts = counts.get("agents", {})
+    if agent_counts:
+        parts = [f"{a}:{c}" for a, c in agent_counts.most_common(10)]
+        typer.echo(f"Agents: {', '.join(parts)}")
 
     day_counts = counts.get("days", {})
     if day_counts:
@@ -84,7 +84,7 @@ def search(
     # Results
     for r in results:
         meta = r["metadata"]
-        typer.echo(f"\n--- {meta['day']} | {meta['facet']} | {meta['topic']} ---")
+        typer.echo(f"\n--- {meta['day']} | {meta['facet']} | {meta['agent']} ---")
         typer.echo(r["text"].strip())
 
 
@@ -200,7 +200,7 @@ def news(
 
 
 @app.command()
-def topics(
+def agents(
     day: str | None = typer.Argument(
         default=None, help="Day YYYYMMDD (default: SOL_DAY env)."
     ),
@@ -279,7 +279,7 @@ def _list_outputs(directory: Path, label: str) -> None:
 
 @app.command()
 def read(
-    topic: str = typer.Argument(help="Topic name (e.g., flow, meetings, activity)."),
+    agent: str = typer.Argument(help="Agent name (e.g., flow, meetings, activity)."),
     day: str | None = typer.Option(
         None, "--day", "-d", help="Day YYYYMMDD (default: SOL_DAY env)."
     ),
@@ -315,7 +315,7 @@ def read(
 
     # Try common extensions
     for ext in (".md", ".json", ".jsonl"):
-        candidate = base_dir / f"{topic}{ext}"
+        candidate = base_dir / f"{agent}{ext}"
         if candidate.is_file():
             truncated_echo(candidate.read_text(encoding="utf-8"), max_bytes)
             return
@@ -324,8 +324,8 @@ def read(
     available = _get_output_names(base_dir)
     if available:
         typer.echo(
-            f"Topic '{topic}' not found. Available: {', '.join(available)}", err=True
+            f"Agent '{agent}' not found. Available: {', '.join(available)}", err=True
         )
     else:
-        typer.echo(f"Topic '{topic}' not found and no outputs exist.", err=True)
+        typer.echo(f"Agent '{agent}' not found and no outputs exist.", err=True)
     raise typer.Exit(1)

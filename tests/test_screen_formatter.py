@@ -255,7 +255,7 @@ def test_format_screen_returns_chunks_with_timestamps():
 
 
 def test_format_screen_returns_indexer_metadata():
-    """Test that format_screen returns indexer metadata with topic."""
+    """Test that format_screen returns indexer metadata with agent."""
     frames = [
         {
             "timestamp": 0,
@@ -266,7 +266,7 @@ def test_format_screen_returns_indexer_metadata():
     chunks, meta = format_screen(frames)
 
     assert "indexer" in meta
-    assert meta["indexer"]["topic"] == "screen"
+    assert meta["indexer"]["agent"] == "screen"
 
 
 def test_load_category_formatter_finds_meeting():

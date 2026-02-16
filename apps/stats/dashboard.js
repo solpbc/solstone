@@ -574,7 +574,7 @@ const Dashboard = (function() {
     // Render Events stacked bar chart
     buildStackedCategoryChart(
       document.getElementById('eventsChart'),
-      stats.topic_counts_by_day || {},
+      stats.agent_counts_by_day || {},
       data.generators || {}  // Use generator metadata for titles/colors
     );
     

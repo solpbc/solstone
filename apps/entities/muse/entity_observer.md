@@ -34,8 +34,8 @@ SOL_DAY and SOL_FACET are set in your environment. Commands default to the curre
   - Use entity_id from `sol call entities observations` response for consistency
 
 Discovery tools:
-- `sol call journal read TOPIC` - read full agent output (e.g., knowledge_graph, followups)
-- `sol call journal search QUERY -d DAY -t TOPIC -f FACET -n LIMIT` - unified search across journal content
+- `sol call journal read AGENT` - read full agent output (e.g., knowledge_graph, followups)
+- `sol call journal search QUERY -d DAY -a AGENT -f FACET -n LIMIT` - unified search across journal content
 - `sol call journal events [-f FACET]` - get structured events
 
 ## What Makes a Good Observation
@@ -75,7 +75,7 @@ For each attached entity in this facet:
    The response includes the resolved entity with its `id` field.
 
 2. **Mine recent content** for factoids about this entity:
-   - Search transcripts: `sol call journal search "{name}" -t audio -n 5`
+   - Search transcripts: `sol call journal search "{name}" -a audio -n 5`
    - Check knowledge graph: `sol call journal read knowledge_graph`
    - Search insights: `sol call journal search "{name}" -n 5`
 

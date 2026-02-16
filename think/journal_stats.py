@@ -24,8 +24,8 @@ class JournalStats:
         self.totals: Counter[str] = Counter()
         self.total_audio_duration = 0.0
         self.total_screen_duration = 0.0
-        self.topic_counts: Counter[str] = Counter()
-        self.topic_minutes: Counter[str] = Counter()
+        self.agent_counts: Counter[str] = Counter()
+        self.agent_minutes: Counter[str] = Counter()
         self.facet_counts: Counter[str] = Counter()
         self.facet_minutes: Counter[str] = Counter()
         self.heatmap: list[list[float]] = [[0.0 for _ in range(24)] for _ in range(7)]
@@ -33,8 +33,8 @@ class JournalStats:
         self.token_usage: Dict[str, Dict[str, Dict[str, int]]] = {}
         # Total token usage by model: {model: {token_type: count}}
         self.token_totals: Dict[str, Dict[str, int]] = {}
-        # Per-day topic counts: {day: {topic: count}}
-        self.topic_counts_by_day: Dict[str, Dict[str, int]] = {}
+        # Per-day agent counts: {day: {agent: count}}
+        self.agent_counts_by_day: Dict[str, Dict[str, int]] = {}
         # Per-day facet counts: {day: {facet: count}}
         self.facet_counts_by_day: Dict[str, Dict[str, int]] = {}
 
@@ -120,7 +120,7 @@ class JournalStats:
         """Apply cached day stats to instance state."""
         # Extract components from cache
         stats = cached_data.get("stats", {})
-        topic_data = cached_data.get("topic_data", {})
+        agent_data = cached_data.get("agent_data", {})
         heatmap_data = cached_data.get("heatmap_data", {})
 
         # Apply day stats
@@ -138,16 +138,16 @@ class JournalStats:
         self.total_audio_duration += stats.get("audio_duration", 0.0)
         self.total_screen_duration += stats.get("screen_duration", 0.0)
 
-        # Apply topic data
-        day_topic_counts: Dict[str, int] = {}
-        for topic, data in topic_data.items():
+        # Apply agent data
+        day_agent_counts: Dict[str, int] = {}
+        for agent, data in agent_data.items():
             count = data.get("count", 0)
-            self.topic_counts[topic] += count
-            self.topic_minutes[topic] += data.get("minutes", 0.0)
+            self.agent_counts[agent] += count
+            self.agent_minutes[agent] += data.get("minutes", 0.0)
             if count > 0:
-                day_topic_counts[topic] = count
-        if day_topic_counts:
-            self.topic_counts_by_day[day] = day_topic_counts
+                day_agent_counts[agent] = count
+        if day_agent_counts:
+            self.agent_counts_by_day[day] = day_agent_counts
 
         # Apply facet data
         facet_data = cached_data.get("facet_data", {})
@@ -176,8 +176,8 @@ class JournalStats:
         screen_duration = 0.0
         day_dir = Path(path)
 
-        # Track topic data for cache
-        topic_data = {}
+        # Track agent data for cache
+        agent_data = {}
         facet_data = {}
         heatmap_hours = {}
 
@@ -278,10 +278,10 @@ class JournalStats:
                             except json.JSONDecodeError:
                                 continue
 
-                            topic = event.get("topic", "unknown")
-                            if topic not in topic_data:
-                                topic_data[topic] = {"count": 0, "minutes": 0.0}
-                            topic_data[topic]["count"] += 1
+                            agent = event.get("agent", "unknown")
+                            if agent not in agent_data:
+                                agent_data[agent] = {"count": 0, "minutes": 0.0}
+                            agent_data[agent]["count"] += 1
 
                             start = event.get("start")
                             end = event.get("end")
@@ -294,7 +294,7 @@ class JournalStats:
                             start_sec = sh * 3600 + sm * 60 + ss
                             end_sec = eh * 3600 + em * 60 + es
                             duration = max(0, end_sec - start_sec)
-                            topic_data[topic]["minutes"] += duration / 60
+                            agent_data[agent]["minutes"] += duration / 60
 
                             # Track facet stats
                             facet = event.get("facet", facet_name)
@@ -329,7 +329,7 @@ class JournalStats:
 
         return {
             "stats": dict(stats),
-            "topic_data": topic_data,
+            "agent_data": agent_data,
             "facet_data": facet_data,
             "heatmap_data": {"weekday": weekday, "hours": heatmap_hours},
         }
@@ -468,9 +468,9 @@ class JournalStats:
             "totals": dict(self.totals),
             "total_audio_duration": self.total_audio_duration,
             "total_screen_duration": self.total_screen_duration,
-            "topic_counts": dict(self.topic_counts),
-            "topic_minutes": {k: round(v, 2) for k, v in self.topic_minutes.items()},
-            "topic_counts_by_day": self.topic_counts_by_day,
+            "agent_counts": dict(self.agent_counts),
+            "agent_minutes": {k: round(v, 2) for k, v in self.agent_minutes.items()},
+            "agent_counts_by_day": self.agent_counts_by_day,
             "facet_counts": dict(self.facet_counts),
             "facet_minutes": {k: round(v, 2) for k, v in self.facet_minutes.items()},
             "facet_counts_by_day": self.facet_counts_by_day,

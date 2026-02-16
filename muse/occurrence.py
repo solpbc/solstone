@@ -20,7 +20,7 @@ from think.hooks import (
     write_events_jsonl,
 )
 from think.models import generate
-from think.muse import get_output_topic
+from think.muse import get_output_name
 from think.prompts import load_prompt
 
 
@@ -47,11 +47,11 @@ def post_process(result: str, context: dict) -> str | None:
     # Load extraction prompt
     prompt_content = load_prompt("occurrence", base_dir=Path(__file__).parent)
 
-    # Build context with facets + topic-specific instructions
+    # Build context with facets + agent-specific instructions
     facets_context = facet_summaries(detailed=True)
-    topic_instructions = context.get("meta", {}).get("occurrences")
-    if topic_instructions and isinstance(topic_instructions, str):
-        extra_instructions = f"{facets_context}\n\n{topic_instructions}"
+    agent_instructions = context.get("meta", {}).get("occurrences")
+    if agent_instructions and isinstance(agent_instructions, str):
+        extra_instructions = f"{facets_context}\n\n{agent_instructions}"
     else:
         extra_instructions = facets_context
 
@@ -85,12 +85,12 @@ def post_process(result: str, context: dict) -> str | None:
 
     # Write to facet JSONL files
     source_output = compute_output_source(context)
-    topic = get_output_topic(name)
+    output_name = get_output_name(name)
     day = context.get("day", "")
 
     written_paths = write_events_jsonl(
         events=events,
-        topic=topic,
+        agent=output_name,
         occurred=True,
         source_output=source_output,
         capture_day=day,

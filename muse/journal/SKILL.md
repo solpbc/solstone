@@ -20,7 +20,7 @@ sol call journal <command> [args...]
 ## search
 
 ```bash
-sol call journal search [QUERY] [-n LIMIT] [--offset N] [-d DAY] [--day-from DAY] [--day-to DAY] [-f FACET] [-t TOPIC]
+sol call journal search [QUERY] [-n LIMIT] [--offset N] [-d DAY] [--day-from DAY] [--day-to DAY] [-f FACET] [-a AGENT]
 ```
 
 Search the journal index across insights, transcripts, events, entities, and todos.
@@ -31,7 +31,7 @@ Search the journal index across insights, transcripts, events, entities, and tod
 - `-d, --day`: exact day filter (`YYYYMMDD`).
 - `--day-from`, `--day-to`: inclusive date-range filters (`YYYYMMDD`).
 - `-f, --facet`: facet filter (for example `work`, `personal`).
-- `-t, --topic`: topic/content filter (for example `flow`, `event`, `news`, `entity:detected`).
+- `-a, --agent`: agent/content filter (for example `flow`, `event`, `news`, `entity:detected`).
 
 Behavior notes:
 
@@ -47,7 +47,7 @@ Examples:
 ```bash
 sol call journal search "incident review" -n 20 -f work
 sol call journal search "standup OR sync" --day-from 20260101 --day-to 20260107
-sol call journal search "" -d 20260115 -t audio
+sol call journal search "" -d 20260115 -a audio
 ```
 
 ## events
@@ -89,10 +89,10 @@ sol call journal facet work
 sol call journal facet          # uses SOL_FACET
 ```
 
-## topics
+## agents
 
 ```bash
-sol call journal topics [DAY] [-s SEGMENT]
+sol call journal agents [DAY] [-s SEGMENT]
 ```
 
 List available agent outputs for a day.
@@ -105,19 +105,19 @@ Without `--segment`, lists daily agent outputs and per-segment outputs. With `--
 Example:
 
 ```bash
-sol call journal topics 20260115
-sol call journal topics -s 091500_300
+sol call journal agents 20260115
+sol call journal agents -s 091500_300
 ```
 
 ## read
 
 ```bash
-sol call journal read TOPIC [-d DAY] [-s SEGMENT] [--max BYTES]
+sol call journal read AGENT [-d DAY] [-s SEGMENT] [--max BYTES]
 ```
 
 Read full content of an agent output.
 
-- `TOPIC`: topic name, e.g. `flow`, `meetings`, `activity` (positional argument).
+- `AGENT`: agent name, e.g. `flow`, `meetings`, `activity` (positional argument).
 - `-d, --day`: day in `YYYYMMDD` (default: `SOL_DAY` env).
 - `-s, --segment`: optional segment key (default: `SOL_SEGMENT` env).
 - `--max`: max output bytes (default `16384`, `0` for unlimited).

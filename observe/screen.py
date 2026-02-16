@@ -243,8 +243,8 @@ def format_screen(
             }
         )
 
-    # Indexer metadata - topic is always "screen" for screen analysis
-    meta["indexer"] = {"topic": "screen"}
+    # Indexer metadata - agent is always "screen" for screen analysis
+    meta["indexer"] = {"agent": "screen"}
 
     return chunks, meta
 

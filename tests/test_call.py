@@ -39,7 +39,7 @@ class TestJournal:
         """Journal sub-app is registered and shows help."""
         result = runner.invoke(call_app, ["journal", "--help"])
         assert result.exit_code == 0
-        for cmd in ("search", "events", "facet", "facets", "news", "topics", "read"):
+        for cmd in ("search", "events", "facet", "facets", "news", "agents", "read"):
             assert cmd in result.output
 
     def test_journal_search(self):
@@ -78,14 +78,14 @@ class TestJournal:
         assert "Authentication" in result.output
 
     def test_journal_search_shows_counts(self):
-        """Search output includes facet/topic/day counts."""
+        """Search output includes facet/agent/day counts."""
         result = runner.invoke(call_app, ["journal", "search", ""])
         assert result.exit_code == 0
         assert "results" in result.output
         # Counts lines should appear when there are results
         output = result.output
         if "0 results" not in output:
-            assert "Facets:" in output or "Topics:" in output
+            assert "Facets:" in output or "Agents:" in output
 
     def test_journal_events_shows_details(self):
         """Events output includes participants and details."""
@@ -101,15 +101,15 @@ class TestJournal:
         assert result.exit_code == 0
         assert "test-facet" in result.output
 
-    def test_journal_topics(self):
-        """Topics command lists agent outputs for a day."""
-        result = runner.invoke(call_app, ["journal", "topics", "20240101"])
+    def test_journal_agents(self):
+        """Agents command lists agent outputs for a day."""
+        result = runner.invoke(call_app, ["journal", "agents", "20240101"])
         assert result.exit_code == 0
         assert "flow.md" in result.output
 
-    def test_journal_topics_no_data(self):
-        """Topics command reports no data for missing day."""
-        result = runner.invoke(call_app, ["journal", "topics", "19990101"])
+    def test_journal_agents_no_data(self):
+        """Agents command reports no data for missing day."""
+        result = runner.invoke(call_app, ["journal", "agents", "19990101"])
         assert result.exit_code == 0
         assert "No data" in result.output
 
@@ -140,7 +140,7 @@ class TestJournal:
         assert len(result.output.strip()) > 100
 
     def test_journal_read_not_found(self):
-        """Read command reports missing topic."""
+        """Read command reports missing agent output."""
         result = runner.invoke(
             call_app, ["journal", "read", "nonexistent", "--day", "20240101"]
         )
@@ -270,10 +270,10 @@ class TestJournalSolEnv:
         result = runner.invoke(call_app, ["journal", "events"])
         assert result.exit_code != 0
 
-    def test_topics_from_sol_day(self, monkeypatch):
-        """topics with SOL_DAY env and no arg works."""
+    def test_agents_from_sol_day(self, monkeypatch):
+        """agents with SOL_DAY env and no arg works."""
         monkeypatch.setenv("SOL_DAY", "20240101")
-        result = runner.invoke(call_app, ["journal", "topics"])
+        result = runner.invoke(call_app, ["journal", "agents"])
         assert result.exit_code == 0
         assert "flow.md" in result.output
 

@@ -24,17 +24,17 @@ def test_get_muse_configs_generators():
     assert info.get("source") == "system"
 
 
-def test_get_output_topic():
+def test_get_output_name():
     """Test generator key to filename conversion."""
     muse = importlib.import_module("think.muse")
 
     # System generators: key unchanged
-    assert muse.get_output_topic("activity") == "activity"
-    assert muse.get_output_topic("flow") == "flow"
+    assert muse.get_output_name("activity") == "activity"
+    assert muse.get_output_name("flow") == "flow"
 
-    # App generators: _app_topic format
-    assert muse.get_output_topic("chat:sentiment") == "_chat_sentiment"
-    assert muse.get_output_topic("my_app:weekly_summary") == "_my_app_weekly_summary"
+    # App generators: _app_name format
+    assert muse.get_output_name("chat:sentiment") == "_chat_sentiment"
+    assert muse.get_output_name("my_app:weekly_summary") == "_my_app_weekly_summary"
 
 
 def test_get_muse_configs_app_discovery(tmp_path, monkeypatch):

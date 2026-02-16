@@ -95,14 +95,14 @@ def _get_day_summary(day: str) -> dict[str, Any]:
         },
     }
 
-    # Events by topic (aggregated across facets for totals)
-    events_by_topic: dict[str, int] = defaultdict(int)
+    # Events by agent (aggregated across facets for totals)
+    events_by_agent: dict[str, int] = defaultdict(int)
 
     for facet_name in facet_names:
         facet_config = facet_map.get(facet_name, {})
         facet_data: dict[str, Any] = {
             "todos": [],
-            "events_by_topic": {},
+            "events_by_agent": {},
             "entities": [],
             "news_content": None,
         }
@@ -127,11 +127,11 @@ def _get_day_summary(day: str) -> dict[str, Any]:
             events = get_events(day, facet=facet_name)
             facet_events: dict[str, int] = defaultdict(int)
             for event in events:
-                topic = event.get("topic", "other")
-                facet_events[topic] += 1
-                events_by_topic[topic] += 1
+                agent = event.get("agent", "other")
+                facet_events[agent] += 1
+                events_by_agent[agent] += 1
                 result["totals"]["events"] += 1
-            facet_data["events_by_topic"] = dict(facet_events)
+            facet_data["events_by_agent"] = dict(facet_events)
         except Exception:
             pass
 
@@ -160,7 +160,7 @@ def _get_day_summary(day: str) -> dict[str, Any]:
         # Determine if facet has any activity for this day
         has_activity = bool(
             facet_data["todos"]
-            or facet_data["events_by_topic"]
+            or facet_data["events_by_agent"]
             or facet_data["entities"]
         )
 
@@ -172,8 +172,8 @@ def _get_day_summary(day: str) -> dict[str, Any]:
             "has_activity": has_activity,
         }
 
-    # Add aggregated events by topic to totals
-    result["totals"]["events_by_topic"] = dict(events_by_topic)
+    # Add aggregated events by agent to totals
+    result["totals"]["events_by_agent"] = dict(events_by_agent)
 
     # Load recent entities (attached entities with last_seen in lookback window)
     recent_entities = _get_recent_entities(day, facet_names)

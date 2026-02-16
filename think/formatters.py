@@ -20,15 +20,15 @@ Output contract: All formatters return tuple[list[dict], dict] where:
         - header: str - Optional header markdown (metadata summary, context, etc.)
         - error: str - Optional error/warning message (e.g., skipped entries)
         - indexer: dict - Indexing metadata with keys:
-            - topic: str - Content type (e.g., "event", "audio", "screen")
-            JSONL formatters must provide topic. Markdown topic is path-derived.
+            - agent: str - Content type (e.g., "event", "audio", "screen")
+            JSONL formatters must provide agent. Markdown agent is path-derived.
             Day and facet are extracted from path by extract_path_metadata().
 
 JSONL formatters receive list[dict] entries and are responsible for:
     - Extracting metadata from entries (typically first line)
     - Building header from metadata if applicable
     - Formatting content entries into chunks
-    - Providing indexer.topic in the meta dict
+    - Providing indexer.agent in the meta dict
 
 Markdown formatters receive str text and perform semantic chunking.
 """
@@ -49,17 +49,17 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
     """Extract indexing metadata from a journal-relative path.
 
     Extracts day and facet from path structure. For markdown files, also
-    derives topic from path. For JSONL files, topic should be provided
-    by the formatter via meta["indexer"]["topic"].
+    derives agent from path. For JSONL files, agent should be provided
+    by the formatter via meta["indexer"]["agent"].
 
     Args:
         rel_path: Journal-relative path (e.g., "20240101/agents/flow.md")
 
     Returns:
-        Dict with keys: day, facet, topic
+        Dict with keys: day, facet, agent
         - day: YYYYMMDD string or empty
         - facet: Facet name or empty
-        - topic: Derived topic for .md files, empty for .jsonl
+        - agent: Derived agent for .md files, empty for .jsonl
     """
     parts = rel_path.replace("\\", "/").split("/")
     filename = parts[-1]
@@ -68,7 +68,7 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
 
     day = ""
     facet = ""
-    topic = ""
+    agent = ""
 
     # Extract day from YYYYMMDD directory prefix
     if parts[0] and DATE_RE.fullmatch(parts[0]):
@@ -104,19 +104,19 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
         if DATE_RE.fullmatch(basename):
             day = basename
 
-    # Derive topic for markdown files only
+    # Derive agent for markdown files only
     if is_markdown:
         if parts[0] == "facets" and len(parts) >= 4 and parts[2] == "news":
-            topic = "news"
+            agent = "news"
         elif parts[0] == "imports":
-            topic = "import"
+            agent = "import"
         elif parts[0] == "apps" and len(parts) >= 4:
-            topic = f"{parts[1]}:{basename}"
+            agent = f"{parts[1]}:{basename}"
         else:
             # Daily agent outputs, segment markdown: use basename
-            topic = basename
+            agent = basename
 
-    return {"day": day, "facet": facet, "topic": topic}
+    return {"day": day, "facet": facet, "agent": agent}
 
 
 # Registry mapping glob patterns to (module_path, function_name, indexed).

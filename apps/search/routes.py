@@ -18,8 +18,8 @@ search_bp = Blueprint(
     url_prefix="/app/search",
 )
 
-# Topic icons for display
-TOPIC_ICONS = {
+# Agent icons for display
+AGENT_ICONS = {
     "flow": "📝",
     "knowledge_graph": "🗺️",
     "meetings": "📅",
@@ -34,8 +34,8 @@ TOPIC_ICONS = {
     "import": "📥",
 }
 
-# Topic display names
-TOPIC_LABELS = {
+# Agent display names
+AGENT_LABELS = {
     "flow": "Flow",
     "knowledge_graph": "Knowledge Graph",
     "meetings": "Meetings",
@@ -56,9 +56,9 @@ def _parse_facet_filter() -> str | None:
     return request.args.get("facet", "").strip() or None
 
 
-def _parse_topic_filter() -> str | None:
-    """Parse single topic filter from request args."""
-    return request.args.get("topic", "").strip() or None
+def _parse_agent_filter() -> str | None:
+    """Parse single agent filter from request args."""
+    return request.args.get("agent", "").strip() or None
 
 
 def _parse_stream_filter() -> str | None:
@@ -85,7 +85,7 @@ def _highlight_query_terms(text: str, query: str) -> str:
 def _format_result(result: dict, query: str, facets_map: dict) -> dict:
     """Format a search result for API response."""
     meta = result.get("metadata", {})
-    topic = meta.get("topic", "")
+    agent = meta.get("agent", "")
     text = result.get("text", "")
     facet_name = meta.get("facet", "")
 
@@ -105,9 +105,9 @@ def _format_result(result: dict, query: str, facets_map: dict) -> dict:
     return {
         "id": result.get("id", ""),
         "day": meta.get("day", ""),
-        "topic": topic,
-        "topic_icon": TOPIC_ICONS.get(topic, "📄"),
-        "topic_label": TOPIC_LABELS.get(topic, topic.title()),
+        "agent": agent,
+        "agent_icon": AGENT_ICONS.get(agent, "📄"),
+        "agent_label": AGENT_LABELS.get(agent, agent.title()),
         "facet": facet_name,
         "facet_title": facet_info.get("title", facet_name),
         "facet_color": facet_info.get("color", ""),
@@ -129,14 +129,14 @@ def search_journal_api() -> Any:
         limit: Max results per day (default 5)
         offset: Day offset for pagination (default 0)
         facet: Filter by facet name (optional, empty string for no-facet items)
-        topic: Filter by single topic (optional)
+        agent: Filter by single agent (optional)
 
     Returns:
         JSON with:
         - total: Total match count
         - days: List of day groups, each with date info and results
         - facets: List of facets with counts for filter sidebar
-        - topics: List of topics with counts for filter sidebar
+        - agents: List of agents with counts for filter sidebar
     """
     query = request.args.get("q", "").strip()
 
@@ -144,7 +144,7 @@ def search_journal_api() -> Any:
     results_per_day = int(request.args.get("limit", 5))
     day_offset = int(request.args.get("offset", 0))
     facet_filter = _parse_facet_filter()
-    topic_filter = _parse_topic_filter()
+    agent_filter = _parse_agent_filter()
     stream_filter = _parse_stream_filter()
 
     # Load facet metadata for enriching results
@@ -154,11 +154,11 @@ def search_journal_api() -> Any:
     # First get unfiltered counts for sidebar display
     base_counts = search_counts(query, stream=stream_filter)
     facet_counts = dict(base_counts["facets"])
-    topic_counts = dict(base_counts["topics"])
+    agent_counts = dict(base_counts["agents"])
 
     # Get filtered counts for results
     filtered_counts = search_counts(
-        query, facet=facet_filter, topic=topic_filter, stream=stream_filter
+        query, facet=facet_filter, agent=agent_filter, stream=stream_filter
     )
     day_counts = dict(filtered_counts["days"])
 
@@ -177,7 +177,7 @@ def search_journal_api() -> Any:
             offset=0,
             day=day,
             facet=facet_filter,
-            topic=topic_filter,
+            agent=agent_filter,
             stream=stream_filter,
         )
         total_in_day = day_counts.get(day, 0)
@@ -212,14 +212,14 @@ def search_journal_api() -> Any:
     # Sort by count descending
     facets_list.sort(key=lambda x: x["count"], reverse=True)
 
-    # Build topic list for sidebar (unfiltered counts for discovery)
-    topics_list = []
-    for topic, count in sorted(topic_counts.items(), key=lambda x: -x[1]):
-        topics_list.append(
+    # Build agent list for sidebar (unfiltered counts for discovery)
+    agents_list = []
+    for agent, count in sorted(agent_counts.items(), key=lambda x: -x[1]):
+        agents_list.append(
             {
-                "name": topic,
-                "label": TOPIC_LABELS.get(topic, topic.title()),
-                "icon": TOPIC_ICONS.get(topic, "📄"),
+                "name": agent,
+                "label": AGENT_LABELS.get(agent, agent.title()),
+                "icon": AGENT_ICONS.get(agent, "📄"),
                 "count": count,
             }
         )
@@ -231,7 +231,7 @@ def search_journal_api() -> Any:
             "showing_days": len(days_response),
             "days": days_response,
             "facets": facets_list,
-            "topics": topics_list,
+            "agents": agents_list,
         }
     )
 
@@ -246,7 +246,7 @@ def day_results_api() -> Any:
         offset: Result offset within the day (default 0)
         limit: Max results (default 20)
         facet: Facet filter (optional)
-        topic: Single topic filter (optional)
+        agent: Single agent filter (optional)
     """
     query = request.args.get("q", "").strip()
     day = request.args.get("day", "").strip()
@@ -256,14 +256,14 @@ def day_results_api() -> Any:
     offset = int(request.args.get("offset", 0))
     limit = int(request.args.get("limit", 20))
     facet_filter = _parse_facet_filter()
-    topic_filter = _parse_topic_filter()
+    agent_filter = _parse_agent_filter()
     stream_filter = _parse_stream_filter()
 
     facets_map = get_facets()
 
     # Get total count for this day with filters
     counts = search_counts(
-        query, day=day, facet=facet_filter, topic=topic_filter, stream=stream_filter
+        query, day=day, facet=facet_filter, agent=agent_filter, stream=stream_filter
     )
     total_in_day = counts["total"]
 
@@ -274,7 +274,7 @@ def day_results_api() -> Any:
         offset=offset,
         day=day,
         facet=facet_filter,
-        topic=topic_filter,
+        agent=agent_filter,
         stream=stream_filter,
     )
 

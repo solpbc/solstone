@@ -67,29 +67,29 @@ def key_to_context(key: str) -> str:
     return f"muse.system.{key}"
 
 
-def get_output_topic(key: str) -> str:
-    """Convert agent/generator key to filesystem-safe basename (no extension).
+def get_output_name(key: str) -> str:
+    """Convert agent/generator key to filesystem-safe filename stem.
 
     Parameters
     ----------
     key:
-        Generator key in format "topic" (system) or "app:topic" (app).
+        Generator key in format "name" (system) or "app:name" (app).
 
     Returns
     -------
     str
-        Filesystem-safe name: "topic" or "_app_topic".
+        Filesystem-safe stem: "name" or "_app_name".
 
     Examples
     --------
-    >>> get_output_topic("activity")
+    >>> get_output_name("activity")
     'activity'
-    >>> get_output_topic("chat:sentiment")
+    >>> get_output_name("chat:sentiment")
     '_chat_sentiment'
     """
     if ":" in key:
-        app, topic = key.split(":", 1)
-        return f"_{app}_{topic}"
+        app, name = key.split(":", 1)
+        return f"_{app}_{name}"
     return key
 
 
@@ -128,16 +128,16 @@ def get_output_path(
     -------
     Path
         Output file path:
-        - Segment + no facet: YYYYMMDD/{stream}/{segment}/agents/{topic}.{ext}
-        - Segment + facet: YYYYMMDD/{stream}/{segment}/agents/{facet}/{topic}.{ext}
-        - Daily + no facet: YYYYMMDD/agents/{topic}.{ext}
-        - Daily + facet: YYYYMMDD/agents/{facet}/{topic}.{ext}
-        Where topic is derived from key and ext is "json" or "md".
+        - Segment + no facet: YYYYMMDD/{stream}/{segment}/agents/{name}.{ext}
+        - Segment + facet: YYYYMMDD/{stream}/{segment}/agents/{facet}/{name}.{ext}
+        - Daily + no facet: YYYYMMDD/agents/{name}.{ext}
+        - Daily + facet: YYYYMMDD/agents/{facet}/{name}.{ext}
+        Where name is derived from key and ext is "json" or "md".
     """
     day = Path(day_dir)
-    topic = get_output_topic(key)
+    name = get_output_name(key)
     ext = "json" if output_format == "json" else "md"
-    filename = f"{topic}.{ext}"
+    filename = f"{name}.{ext}"
 
     if segment:
         if stream:

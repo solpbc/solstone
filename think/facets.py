@@ -842,8 +842,8 @@ def format_logs(
         meta["error"] = error_msg
         logging.info(error_msg)
 
-    # Indexer metadata - topic is "action" for action logs
-    meta["indexer"] = {"topic": "action"}
+    # Indexer metadata - agent is "action" for action logs
+    meta["indexer"] = {"agent": "action"}
 
     return chunks, meta
 
