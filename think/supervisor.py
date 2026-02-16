@@ -416,12 +416,9 @@ _observer_enabled: bool = True
 # Track whether running in remote mode (upload-only, no local processing)
 _is_remote_mode: bool = False
 
-# State for daily processing (dream runs in background, agents wait for completion)
+# State for daily processing (tracks day boundary for midnight dream trigger)
 _daily_state = {
-    "dream_running": False,  # True while dream subprocess is active
-    "dream_completed": False,  # True after dream finishes (reset each day)
     "last_day": None,  # Track which day we last processed
-    "start_time": 0,  # When daily processing started (for duration tracking)
 }
 
 # Timeout before flushing stale segments (seconds)
@@ -1008,43 +1005,12 @@ async def handle_health_checks(
     return now, stale_set
 
 
-def _run_daily_processing(day: str) -> None:
-    """Run complete daily processing via sol dream.
-
-    dream now handles both generators and agent execution, so we just
-    invoke it with --refresh and let it manage the full pipeline.
-
-    Args:
-        day: Target day in YYYYMMDD format
-    """
-    from think.runner import run_task
-
-    logging.info(f"Starting daily processing for {day}...")
-    success, exit_code, log_path = run_task(
-        ["sol", "dream", "-v", "--day", day, "--refresh"],
-        callosum=_supervisor_callosum,
-        day=day,
-    )
-
-    # Update state on completion
-    _daily_state["dream_running"] = False
-
-    if success:
-        logging.info(f"Daily processing completed for {day}")
-        _daily_state["dream_completed"] = True
-    else:
-        logging.error(
-            f"Daily processing failed for {day} with exit code {exit_code}, "
-            f"see {log_path}"
-        )
-
-
 def handle_daily_tasks() -> None:
-    """Check for day change and spawn daily dream if needed (non-blocking).
+    """Check for day change and submit daily dream via task queue (non-blocking).
 
     Dream only triggers when the day actually changes during runtime (at midnight).
     The supervisor initializes last_day on startup, so restarts don't trigger dream.
-    Scheduled agents are spawned after dream completes successfully.
+    Submitted via TaskQueue so it serializes with segment/activity/flush dreams.
 
     Skipped in remote mode (no local data to process).
     """
@@ -1069,14 +1035,6 @@ def handle_daily_tasks() -> None:
 
         # Update state for new day
         _daily_state["last_day"] = today
-        _daily_state["dream_completed"] = False
-
-        # Don't start new dream if one is already running (edge case)
-        if _daily_state["dream_running"]:
-            logging.warning(
-                f"Day changed to {today} but dream already running, skipping {prev_day_str}"
-            )
-            return
 
         # Flush any dangling segment state from the previous day before daily dream
         if not _flush_state["flushed"] and _flush_state["day"] == prev_day_str:
@@ -1086,19 +1044,22 @@ def handle_daily_tasks() -> None:
             f"Day changed to {today}, starting daily processing for {prev_day_str}"
         )
 
-        # Spawn processing in background thread with target day
-        _daily_state["dream_running"] = True
-        _daily_state["start_time"] = time.time()
-        threading.Thread(
-            target=_run_daily_processing, args=(prev_day_str,), daemon=True
-        ).start()
+        # Submit via task queue — serializes with other dream invocations
+        cmd = ["sol", "dream", "-v", "--day", prev_day_str, "--refresh"]
+        if _task_queue:
+            _task_queue.submit(cmd, day=prev_day_str)
+        else:
+            logging.warning(
+                "No task queue available for daily processing: %s", prev_day_str
+            )
 
 
 def _handle_segment_observed(message: dict) -> None:
     """Handle segment completion events (from live observation or imports).
 
-    Spawns sol dream in segment mode, which handles both generators and
-    segment agents. Also updates flush state to track segment recency.
+    Submits sol dream in segment mode via task queue, which handles both
+    generators and segment agents. Also updates flush state to track
+    segment recency.
     """
     if message.get("tract") != "observe" or message.get("event") != "observed":
         return
@@ -1119,36 +1080,17 @@ def _handle_segment_observed(message: dict) -> None:
     _flush_state["stream"] = stream
     _flush_state["flushed"] = False
 
-    logging.info(f"Segment observed: {day}/{segment}, spawning processing...")
+    logging.info(f"Segment observed: {day}/{segment}, submitting processing...")
 
-    # Run dream in segment mode (handles both generators and agents)
-    threading.Thread(
-        target=_run_segment_processing,
-        args=(day, segment, stream),
-        daemon=True,
-    ).start()
-
-
-def _run_segment_processing(day: str, segment: str, stream: str | None = None) -> None:
-    """Run sol dream for a specific segment."""
-    from think.runner import run_task
-
-    logging.info(f"Starting segment processing: {day}/{segment}")
+    # Submit via task queue — serializes with other dream invocations
     cmd = ["sol", "dream", "-v", "--day", day, "--segment", segment]
     if stream:
         cmd.extend(["--stream", stream])
-    success, exit_code, log_path = run_task(
-        cmd,
-        callosum=_supervisor_callosum,
-        day=day,
-    )
-
-    if success:
-        logging.info(f"Segment processing completed: {day}/{segment}")
+    if _task_queue:
+        _task_queue.submit(cmd, day=day)
     else:
-        logging.error(
-            f"Segment processing failed with exit code {exit_code}: "
-            f"{day}/{segment}, see {log_path}"
+        logging.warning(
+            "No task queue available for segment processing: %s/%s", day, segment
         )
 
 
@@ -1344,7 +1286,7 @@ async def supervise(
             # Check for segment flush (non-blocking, submits via task queue)
             _check_segment_flush()
 
-            # Check for daily processing (non-blocking, spawns dream in background)
+            # Check for daily processing (non-blocking, submits via task queue)
             if daily:
                 handle_daily_tasks()
 
