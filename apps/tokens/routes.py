@@ -79,6 +79,14 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
         }
     )
 
+    by_type: Dict[str, Dict[str, Any]] = defaultdict(
+        lambda: {
+            "requests": 0,
+            "tokens": 0,
+            "cost": 0.0,
+        }
+    )
+
     # Token type totals
     token_types = {
         "input": {"tokens": 0, "cost": 0.0},
@@ -156,6 +164,13 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
         by_segment[segment]["tokens"] += total_entry_tokens
         by_segment[segment]["cost"] += entry_cost
         by_segment[segment]["models"].add(model)
+
+        # Update type breakdown (generate vs cogitate)
+        entry_type = entry.get("type")
+        if entry_type:
+            by_type[entry_type]["requests"] += 1
+            by_type[entry_type]["tokens"] += total_entry_tokens
+            by_type[entry_type]["cost"] += entry_cost
 
         # Update token type breakdown
         token_types["input"]["tokens"] += input_tokens
@@ -295,6 +310,14 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
         "by_token_type": token_types,
         "by_context": context_list,
         "by_segment": segment_list,
+        "by_type": {
+            t: {
+                "requests": d["requests"],
+                "tokens": d["tokens"],
+                "cost": round(d["cost"], 6),
+            }
+            for t, d in by_type.items()
+        },
     }
 
 

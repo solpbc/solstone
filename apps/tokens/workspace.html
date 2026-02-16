@@ -22,6 +22,14 @@
         <div class="summary-label">Avg/Segment</div>
         <div class="summary-value" id="segment-avg-cost">-</div>
       </div>
+      <div class="summary-item">
+        <div class="summary-label">Generate</div>
+        <div class="summary-value" id="generate-cost">$0.00</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Cogitate</div>
+        <div class="summary-value" id="cogitate-cost">$0.00</div>
+      </div>
     </div>
 
     <!-- By Provider -->
@@ -394,6 +402,11 @@ function renderDashboard(data) {
   } else {
     segmentAvgEl.textContent = '-';
   }
+
+  // Update type breakdown costs
+  const byType = data.by_type || {};
+  document.getElementById('generate-cost').textContent = formatCost((byType.generate || {}).cost || 0);
+  document.getElementById('cogitate-cost').textContent = formatCost((byType.cogitate || {}).cost || 0);
 
   // Render provider table
   renderProviderTable(data.by_provider);
