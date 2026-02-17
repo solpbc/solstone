@@ -1531,6 +1531,7 @@ input:checked + .slider:before {
         <option value="vision">Vision</option>
         <option value="insights">Insights</option>
         <option value="security">Security</option>
+        <option value="sync">Sync</option>
       </optgroup>
       <optgroup label="Facet" id="navSelectFacetGroup" style="display:none">
         <option value="facet-appearance">Appearance</option>
@@ -1552,6 +1553,7 @@ input:checked + .slider:before {
       <button class="settings-nav-item" data-section="vision">Vision</button>
       <button class="settings-nav-item" data-section="insights">Insights</button>
       <button class="settings-nav-item" data-section="security">Security</button>
+      <button class="settings-nav-item" data-section="sync">Sync</button>
     </div>
     <div class="settings-nav-group" id="facetNavGroup" style="display:none">
       <div class="settings-nav-label" id="facetNavLabel">Facet</div>
@@ -2007,6 +2009,34 @@ input:checked + .slider:before {
       </div>
     </section>
 
+    <!-- Sync Section -->
+    <section class="settings-section" id="section-sync">
+      <h2>Sync</h2>
+      <p class="settings-section-desc">Configure automatic syncing of recordings from external devices.</p>
+
+      <div id="plaudSyncCard">
+        <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Plaud</h3>
+        <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
+          Automatically sync and import recordings from your Plaud device every hour.
+        </p>
+
+        <div class="settings-field" id="plaudSyncField">
+          <label>Hourly Sync</label>
+          <div style="display: flex; align-items: center; gap: 1em;">
+            <label class="toggle-switch toggle-positive">
+              <input type="checkbox" id="field-plaud-sync-enabled">
+              <span class="slider"></span>
+            </label>
+            <span style="color: #666; font-size: 0.9em;">Sync and import Plaud recordings every hour</span>
+          </div>
+        </div>
+
+        <p id="plaudSyncTokenNote" style="display: none; color: #888; font-size: 0.85em; margin-top: 1em; padding: 0.75em; background: #f8f9fa; border-radius: 4px;">
+          Configure your Plaud token in <a href="#apikeys" style="color: #667eea;">API Keys</a> to enable sync.
+        </p>
+      </div>
+    </section>
+
     <!-- Facet Appearance Section -->
     <section class="settings-section" id="section-facet-appearance" data-requires-facet>
       <div class="facet-header">
@@ -2164,7 +2194,7 @@ let logNextCursor = null;
 let insightsData = null;
 
 // ========== NAVIGATION ==========
-const VALID_SECTIONS = ['profile', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'facet-appearance', 'facet-activities', 'facet-activity'];
+const VALID_SECTIONS = ['profile', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'sync', 'facet-appearance', 'facet-activities', 'facet-activity'];
 
 function switchSection(sectionId, updateHash = true) {
   // Validate section exists
@@ -3404,6 +3434,59 @@ document.getElementById('field-tmux-capture-interval').addEventListener('change'
   showFieldStatus(this, success ? 'saved' : 'error', success ? 'Saved' : 'Error saving');
 });
 
+// ========== SYNC ==========
+async function loadSync() {
+  try {
+    const response = await fetch('api/sync');
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+    populateSync(data);
+  } catch (err) {
+    console.error('Error loading sync config:', err);
+  }
+}
+
+function populateSync(data) {
+  const plaud = data.plaud || {};
+  const toggle = document.getElementById('field-plaud-sync-enabled');
+  const card = document.getElementById('plaudSyncCard');
+  const field = document.getElementById('plaudSyncField');
+  const note = document.getElementById('plaudSyncTokenNote');
+
+  if (plaud.available) {
+    // Token configured — enable the card
+    card.style.opacity = '1';
+    toggle.disabled = false;
+    toggle.checked = plaud.enabled;
+    field.style.opacity = '1';
+    note.style.display = 'none';
+  } else {
+    // No token — grey out the card
+    card.style.opacity = '0.5';
+    toggle.disabled = true;
+    toggle.checked = false;
+    field.style.opacity = '0.5';
+    note.style.display = 'block';
+  }
+}
+
+document.getElementById('field-plaud-sync-enabled').addEventListener('change', async function() {
+  const enabled = this.checked;
+  try {
+    const response = await fetch('api/sync', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plaud: { enabled } })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    showFieldStatus(this, 'saved');
+  } catch (err) {
+    console.error('Error saving sync setting:', err);
+    showFieldStatus(this, 'error', err.message);
+  }
+});
+
 // ========== VISION ==========
 let visionData = null;
 
@@ -4308,6 +4391,7 @@ loadProviders();
 loadObserve();
 loadVision();
 loadInsights();
+loadSync();
 setupAutoSave();
 
 // If facet is selected on load, load its config

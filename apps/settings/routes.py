@@ -1480,3 +1480,103 @@ def remove_facet_activity(facet_name: str, activity_id: str) -> Any:
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/sync")
+def get_sync() -> Any:
+    """Return sync configuration (schedule entries + token availability)."""
+    try:
+        config_dir = Path(state.journal_root) / "config"
+        schedules_path = config_dir / "schedules.json"
+
+        # Load schedules
+        schedules = {}
+        if schedules_path.exists():
+            with open(schedules_path, "r", encoding="utf-8") as f:
+                schedules = json.load(f)
+
+        plaud_entry = schedules.get("sync:plaud", {})
+
+        # Check token availability from env/system_env
+        config = get_journal_config()
+        env_keys = config.get("env", {})
+        has_token = bool(env_keys.get("PLAUD_ACCESS_TOKEN")) or bool(
+            os.getenv("PLAUD_ACCESS_TOKEN")
+        )
+
+        return jsonify(
+            {
+                "plaud": {
+                    "available": has_token,
+                    "enabled": (
+                        plaud_entry.get("enabled", True) if plaud_entry else False
+                    ),
+                    "configured": bool(plaud_entry),
+                }
+            }
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/sync", methods=["PUT"])
+def update_sync() -> Any:
+    """Update sync schedule configuration."""
+    try:
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({"error": "No data provided"}), 400
+
+        config_dir = Path(state.journal_root) / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        schedules_path = config_dir / "schedules.json"
+
+        # Load existing schedules
+        schedules = {}
+        if schedules_path.exists():
+            with open(schedules_path, "r", encoding="utf-8") as f:
+                schedules = json.load(f)
+
+        changed_fields = {}
+
+        # Handle plaud sync toggle
+        if "plaud" in request_data:
+            plaud_data = request_data["plaud"]
+            if not isinstance(plaud_data, dict):
+                return jsonify({"error": "plaud must be an object"}), 400
+
+            if "enabled" in plaud_data:
+                enabled = plaud_data["enabled"]
+                if not isinstance(enabled, bool):
+                    return jsonify({"error": "plaud.enabled must be a boolean"}), 400
+
+                old_entry = schedules.get("sync:plaud", {})
+                old_enabled = old_entry.get("enabled", True) if old_entry else False
+
+                if enabled != old_enabled:
+                    # Ensure the entry exists with full config
+                    if "sync:plaud" not in schedules:
+                        schedules["sync:plaud"] = {
+                            "cmd": ["sol", "import", "--sync", "plaud", "--save"],
+                            "every": "hourly",
+                        }
+                    schedules["sync:plaud"]["enabled"] = enabled
+                    changed_fields["plaud.enabled"] = enabled
+
+        if changed_fields:
+            with open(schedules_path, "w", encoding="utf-8") as f:
+                json.dump(schedules, f, indent=2, ensure_ascii=False)
+                f.write("\n")
+
+            log_app_action(
+                app="settings",
+                facet=None,
+                action="sync_update",
+                params={"changed_fields": changed_fields},
+            )
+
+        return get_sync()
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
