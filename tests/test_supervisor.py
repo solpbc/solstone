@@ -298,7 +298,7 @@ async def test_supervise_logs_recovery(mock_callosum, monkeypatch, caplog):
     monkeypatch.setenv("JOURNAL_PATH", "/test/journal")
 
     with caplog.at_level(logging.INFO):
-        await mod.supervise(threshold=1, interval=1, procs=[])
+        await mod.supervise(threshold=1, interval=1, schedule=False, procs=[])
 
     messages = [record.getMessage() for record in caplog.records]
     assert "hear heartbeat recovered" in messages

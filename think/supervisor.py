@@ -19,6 +19,7 @@ from pathlib import Path
 from desktop_notifier import DesktopNotifier, Urgency
 
 from observe.sync import check_remote_health
+from think import scheduler
 from think.callosum import CallosumConnection, CallosumServer
 from think.runner import DailyLogWriter
 from think.runner import ManagedProcess as RunnerManagedProcess
@@ -776,12 +777,16 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
     # Stale heartbeats
     stale = check_health()
 
+    # Scheduled tasks
+    schedules = scheduler.collect_status()
+
     return {
         "services": services,
         "crashed": crashed,
         "tasks": tasks,
         "queues": queues,
         "stale_heartbeats": stale,
+        "schedules": schedules,
     }
 
 
@@ -1272,6 +1277,7 @@ async def supervise(
     threshold: int = DEFAULT_THRESHOLD,
     interval: int = CHECK_INTERVAL,
     daily: bool = True,
+    schedule: bool = True,
     procs: list[ManagedProcess] | None = None,
 ) -> None:
     """Monitor health via Callosum events and alert when stale.
@@ -1331,6 +1337,10 @@ async def supervise(
             if daily:
                 handle_daily_tasks()
 
+            # Check periodic task schedules (non-blocking, submits via callosum)
+            if schedule:
+                scheduler.check()
+
             # Sleep 1 second before next iteration (responsive to shutdown)
             await asyncio.sleep(1)
     finally:
@@ -1374,6 +1384,11 @@ def parse_args() -> argparse.ArgumentParser:
         "--no-convey",
         action="store_true",
         help="Do not start the Convey web application",
+    )
+    parser.add_argument(
+        "--no-schedule",
+        action="store_true",
+        help="Disable periodic task scheduler",
     )
     parser.add_argument(
         "--remote",
@@ -1508,6 +1523,11 @@ def main() -> None:
     # Initialize daily state to today - dream only triggers at midnight when day changes
     _daily_state["last_day"] = datetime.now().date()
 
+    # Initialize periodic task scheduler
+    schedule_enabled = not args.no_schedule and not _is_remote_mode
+    if schedule_enabled and _supervisor_callosum:
+        scheduler.init(_supervisor_callosum)
+
     # Show Convey URL if running
     if convey_port:
         print(f"Convey: http://localhost:{convey_port}/")
@@ -1523,6 +1543,7 @@ def main() -> None:
                 threshold=args.threshold,
                 interval=args.interval,
                 daily=daily_enabled,
+                schedule=schedule_enabled,
                 procs=procs if procs else None,
             )
         )
@@ -1555,6 +1576,13 @@ def main() -> None:
                 except Exception:
                     pass
             managed.cleanup()
+
+        # Save scheduler state before disconnecting
+        if schedule_enabled and scheduler._state:
+            try:
+                scheduler.save_state()
+            except Exception as exc:
+                logging.warning("Failed to save scheduler state on shutdown: %s", exc)
 
         # Disconnect supervisor's Callosum connection
         if _supervisor_callosum:

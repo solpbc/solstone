@@ -1,0 +1,15 @@
+{
+  "test:echo": {
+    "cmd": ["sol", "echo", "-v"],
+    "every": "hourly"
+  },
+  "test:daily": {
+    "cmd": ["sol", "dream", "-v"],
+    "every": "daily"
+  },
+  "test:disabled": {
+    "cmd": ["sol", "noop"],
+    "every": "hourly",
+    "enabled": false
+  }
+}
