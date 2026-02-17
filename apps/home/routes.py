@@ -165,7 +165,9 @@ def _get_day_summary(day: str) -> dict[str, Any]:
         )
 
         # Extract daily goal (first pending todo)
-        facet_data["goal"] = next((t["text"] for t in facet_data["todos"] if not t["completed"]), None)
+        facet_data["goal"] = next(
+            (t["text"] for t in facet_data["todos"] if not t["completed"]), None
+        )
 
         # Add facet metadata
         result["facet_meta"][facet_name] = {
@@ -186,23 +188,27 @@ def _get_day_summary(day: str) -> dict[str, Any]:
             next_day = (ref_date + timedelta(days=i)).strftime("%Y%m%d")
             day_events = get_events(next_day)
             for e in day_events:
-                upcoming_data.append({
-                    "type": "event",
-                    "day": next_day,
-                    "title": e.get("title") or e.get("summary", "Untitled Event"),
-                    "facet": e.get("facet")
-                })
+                upcoming_data.append(
+                    {
+                        "type": "event",
+                        "day": next_day,
+                        "title": e.get("title") or e.get("summary", "Untitled Event"),
+                        "facet": e.get("facet"),
+                    }
+                )
             for f_name in facet_names:
                 f_todos = get_todos(next_day, f_name)
                 if f_todos:
                     for t in f_todos:
                         if not t.get("completed") and not t.get("cancelled"):
-                            upcoming_data.append({
-                                "type": "todo",
-                                "day": next_day,
-                                "title": t.get("text"),
-                                "facet": f_name
-                            })
+                            upcoming_data.append(
+                                {
+                                    "type": "todo",
+                                    "day": next_day,
+                                    "title": t.get("text"),
+                                    "facet": f_name,
+                                }
+                            )
     except Exception:
         pass
     result["upcoming"] = upcoming_data[:5]  # Limit to 5 items

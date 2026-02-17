@@ -247,9 +247,7 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
     segment_list.sort(key=lambda x: x["cost"], reverse=True)
 
     # Count attributed segments (excluding [unattributed])
-    segment_count = sum(
-        1 for s in segment_list if s["segment"] != "[unattributed]"
-    )
+    segment_count = sum(1 for s in segment_list if s["segment"] != "[unattributed]")
 
     # Calculate cached/reasoning percentages for display annotations
     # - cached_tokens are a subset of input_tokens (reduce cost)
