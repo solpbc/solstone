@@ -1,6 +1,11 @@
 <!-- Menu Bar Component (left sidebar) -->
 <div class="menu-bar">
   <div class="menu-items">
+  <a href="/app/inbox" class="menu-item{% if app == 'inbox' %} current{% endif %}" data-app-name="inbox" data-starred="true">
+    <span class="icon">📥</span>
+    <span class="label">Inbox</span>
+  </a>
+
   {%- set app_names = apps.keys() | list -%}
   {%- set last_starred_index = -1 -%}
   {%- for i in range(app_names | length) -%}

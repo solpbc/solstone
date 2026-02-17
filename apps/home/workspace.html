@@ -19,7 +19,24 @@
   </div>
 
   <div class="home-dashboard" id="home-dashboard" style="display: none;">
-    <!-- Top row: Todos and Events -->
+    <!-- Top row: Goal and Upcoming -->
+    <div class="home-grid">
+      <div class="home-card" id="goal-card">
+        <h2 class="home-card-title">Daily Goal</h2>
+        <div class="home-card-content" id="goal-content">
+          <div class="home-empty">No goal set</div>
+        </div>
+      </div>
+
+      <div class="home-card" id="upcoming-card">
+        <h2 class="home-card-title">Upcoming</h2>
+        <div class="home-card-content" id="upcoming-content">
+          <div class="home-empty">Nothing upcoming</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Middle row: Todos and Events -->
     <div class="home-grid">
       <div class="home-card" id="todos-card">
         <h2 class="home-card-title">Todos</h2>
@@ -301,6 +318,45 @@
   font-size: 0.85rem;
 }
 
+/* Goal and Upcoming styles */
+.home-goal-text {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #111827;
+}
+
+.home-upcoming-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.home-upcoming-item {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.2rem 0;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.home-upcoming-item:last-child {
+  border-bottom: none;
+}
+
+.home-upcoming-day {
+  color: #6b7280;
+  font-weight: 600;
+  min-width: 3.5rem;
+  flex-shrink: 0;
+}
+
+.home-upcoming-title {
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* News content - markdown typography */
 .home-news-content {
   color: #374151;
@@ -357,6 +413,70 @@
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10).replace(/-/g, '');
     return currentDay === today || currentDay === yesterday;
+  }
+
+  function renderGoal(data, facet) {
+    const container = document.getElementById('goal-content');
+    let goal = null;
+
+    if (facet) {
+      goal = data.facets[facet]?.goal;
+    } else {
+      // Find first goal across facets
+      for (const facetName of Object.keys(data.facets)) {
+        if (data.facets[facetName].goal) {
+          goal = data.facets[facetName].goal;
+          break;
+        }
+      }
+    }
+
+    if (!goal) {
+      container.innerHTML = '<div class="home-empty">No goal set</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="home-goal-text">${escapeHtml(goal)}</div>
+    `;
+  }
+
+  function renderUpcoming(data) {
+    const container = document.getElementById('upcoming-content');
+    const upcoming = data.upcoming || [];
+
+    if (upcoming.length === 0) {
+      container.innerHTML = '<div class="home-empty">Nothing upcoming</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <ul class="home-upcoming-list">
+        ${upcoming.map(item => `
+          <li class="home-upcoming-item">
+            <span class="home-upcoming-day">${formatDay(item.day)}</span>
+            <span class="home-upcoming-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</span>
+          </li>
+        `).join('')}
+      </ul>
+    `;
+  }
+
+  function formatDay(dayStr) {
+    if (!dayStr) return '';
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    if (dayStr === today) return 'Today';
+    
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrow = tomorrowDate.toISOString().slice(0, 10).replace(/-/g, '');
+    if (dayStr === tomorrow) return 'Tomorrow';
+
+    // Return e.g. "Wed"
+    const year = parseInt(dayStr.substring(0, 4));
+    const month = parseInt(dayStr.substring(4, 6)) - 1;
+    const day = parseInt(dayStr.substring(6, 8));
+    return new Date(year, month, day).toLocaleDateString(undefined, { weekday: 'short' });
   }
 
   function renderTodos(data, facet) {
@@ -609,6 +729,8 @@
   }
 
   function renderSingleFacetView(data, facet) {
+    renderGoal(data, facet);
+    renderUpcoming(data);
     renderTodos(data, facet);
     renderEvents(data, facet);
     renderEntities(data, facet);

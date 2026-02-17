@@ -1,0 +1,34 @@
+{# Inbox app background service - manages badge and notifications for items requiring attention #}
+
+AppServices.register('inbox', {
+  count: 0,
+
+  initialize() {
+    // Listen for cortex events to track items that might need attention
+    appEvents.listen('cortex', (e) => this.handleCortexEvent(e));
+  },
+
+  handleCortexEvent(e) {
+    // We only care about completions and errors
+    if (e.event !== 'finish' && e.event !== 'error') return;
+
+    // Increment inbox count for errors
+    if (e.event === 'error') {
+      this.count++;
+      this.updateBadge();
+    }
+  },
+
+  updateBadge() {
+    if (this.count > 0) {
+      AppServices.badges.app.set('inbox', this.count);
+    } else {
+      AppServices.badges.app.clear('inbox');
+    }
+  },
+
+  clear() {
+    this.count = 0;
+    this.updateBadge();
+  }
+});
