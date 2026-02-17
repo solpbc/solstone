@@ -23,13 +23,6 @@ tokens_bp = Blueprint(
 )
 
 
-def _parse_context_prefix(context: str) -> str:
-    """Return full context string for grouping."""
-    if not context:
-        return "unknown"
-    return context
-
-
 def _aggregate_token_data(day: str) -> Dict[str, Any]:
     """
     Read and aggregate token usage data for a given day.
@@ -152,7 +145,7 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
         by_model[model]["provider"] = provider
 
         # Update context breakdown
-        context_prefix = _parse_context_prefix(context)
+        context_prefix = context or "unknown"
         by_context[context_prefix]["requests"] += 1
         by_context[context_prefix]["tokens"] += total_entry_tokens
         by_context[context_prefix]["cost"] += entry_cost
@@ -237,7 +230,7 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
     ]
     context_list.sort(key=lambda x: x["cost"], reverse=True)
 
-    # Build segment list (exclude [unattributed] from avg calculation)
+    # Build segment list
     segment_list = [
         {
             "segment": seg,
@@ -253,12 +246,9 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
     ]
     segment_list.sort(key=lambda x: x["cost"], reverse=True)
 
-    # Calculate segment average (excluding unattributed)
-    attributed_segments = [s for s in segment_list if s["segment"] != "[unattributed]"]
-    segment_count = len(attributed_segments)
-    segment_total_cost = sum(s["cost"] for s in attributed_segments)
-    segment_avg_cost = (
-        round(segment_total_cost / segment_count, 6) if segment_count > 0 else 0.0
+    # Count attributed segments (excluding [unattributed])
+    segment_count = sum(
+        1 for s in segment_list if s["segment"] != "[unattributed]"
     )
 
     # Calculate cached/reasoning percentages for display annotations
@@ -303,7 +293,7 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
             "requests": total_requests,
             "tokens": total_tokens,
             "cost": round(total_cost, 6),
-            "segment_avg_cost": segment_avg_cost,
+            "segment_count": segment_count,
         },
         "by_provider": provider_list,
         "by_model": model_list,

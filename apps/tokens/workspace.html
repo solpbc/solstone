@@ -6,48 +6,30 @@
   <div class="dashboard-content" id="dashboard" style="display: none;">
     <!-- Daily Summary Card -->
     <div class="summary-card">
-      <div class="summary-row">
-        <div class="summary-item">
-          <div class="summary-label">Daily Total</div>
-          <div class="summary-value" id="total-cost">$0.00</div>
-        </div>
-        <div class="summary-item">
-          <div class="summary-label">Total Tokens</div>
-          <div class="summary-value" id="total-tokens">0</div>
-        </div>
-        <div class="summary-item">
-          <div class="summary-label">Requests</div>
-          <div class="summary-value" id="total-requests">0</div>
-        </div>
-        <div class="summary-item">
-          <div class="summary-label">Avg/Segment</div>
-          <div class="summary-value" id="segment-avg-cost">-</div>
-        </div>
-      </div>
-      <table class="summary-type-table">
+      <table class="summary-table">
         <thead>
           <tr>
             <th></th>
             <th>Cost</th>
             <th>Tokens</th>
             <th>Requests</th>
-            <th>Avg/Req</th>
+            <th>$/Seg</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>Generate</td>
-            <td id="generate-cost">$0.00</td>
-            <td id="generate-tokens">0</td>
-            <td id="generate-requests">0</td>
-            <td id="generate-avg">-</td>
+            <td class="row-label">Generate</td>
+            <td id="generate-cost">-</td>
+            <td id="generate-tokens">-</td>
+            <td id="generate-requests">-</td>
+            <td id="generate-seg-avg">-</td>
           </tr>
           <tr>
-            <td>Cogitate</td>
-            <td id="cogitate-cost">$0.00</td>
-            <td id="cogitate-tokens">0</td>
-            <td id="cogitate-requests">0</td>
-            <td id="cogitate-avg">-</td>
+            <td class="row-label">Cogitate</td>
+            <td id="cogitate-cost">-</td>
+            <td id="cogitate-tokens">-</td>
+            <td id="cogitate-requests">-</td>
+            <td id="cogitate-seg-avg">-</td>
           </tr>
         </tbody>
       </table>
@@ -193,68 +175,43 @@
 }
 
 .summary-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border-radius: 12px;
-  padding: 2em;
+  padding: 1.2em 2em;
   margin-bottom: 2em;
   box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
-.summary-row {
-  display: flex;
-  gap: 2em;
-  justify-content: center;
-  width: 100%;
-}
-
-.summary-item {
-  text-align: center;
-}
-
-.summary-label {
-  font-size: 0.85em;
-  opacity: 0.9;
-  margin-bottom: 0.5em;
-}
-
-.summary-value {
-  font-size: 2em;
-  font-weight: bold;
-}
-
-.summary-type-table {
+.summary-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 1.5em;
-  border-top: 1px solid rgba(255,255,255,0.2);
 }
 
-.summary-type-table th {
+.summary-table th,
+.summary-table td {
   text-align: right;
-  font-size: 0.75em;
-  opacity: 0.7;
-  padding: 0.3em 1em;
-  font-weight: normal;
+  padding: 0.4em 1em;
 }
 
-.summary-type-table th:first-child {
+.summary-table th {
+  font-size: 0.8em;
+  font-weight: normal;
+  opacity: 0.7;
+}
+
+.summary-table th:first-child,
+.summary-table td.row-label {
   text-align: left;
 }
 
-.summary-type-table td {
-  text-align: right;
+.summary-table td {
   font-size: 1.3em;
   font-weight: bold;
-  padding: 0.3em 1em;
 }
 
-.summary-type-table td:first-child {
-  text-align: left;
-  font-size: 0.9em;
+.summary-table td.row-label {
+  font-size: 0.95em;
   font-weight: 600;
   opacity: 0.9;
 }
@@ -451,31 +408,19 @@ async function loadTokenData(day) {
 
 // Render dashboard
 function renderDashboard(data) {
-  // Update summary
-  document.getElementById('total-cost').textContent = formatCost(data.total.cost);
-  document.getElementById('total-tokens').textContent = formatNumber(data.total.tokens);
-  document.getElementById('total-requests').textContent = formatNumber(data.total.requests);
-
-  // Update segment avg cost (show "-" if no segment data)
-  const segmentAvgEl = document.getElementById('segment-avg-cost');
-  if (data.total.segment_avg_cost > 0) {
-    segmentAvgEl.textContent = formatCost(data.total.segment_avg_cost);
-  } else {
-    segmentAvgEl.textContent = '-';
-  }
-
   // Update type breakdown rows
   const byType = data.by_type || {};
+  const segCount = data.total.segment_count || 0;
   ['generate', 'cogitate'].forEach(type => {
     const d = byType[type] || {};
     const cost = d.cost || 0;
     const tokens = d.tokens || 0;
     const requests = d.requests || 0;
-    const avg = requests > 0 ? cost / requests : 0;
+    const segAvg = segCount > 0 ? cost / segCount : 0;
     document.getElementById(`${type}-cost`).textContent = formatCost(cost);
     document.getElementById(`${type}-tokens`).textContent = formatNumber(tokens);
     document.getElementById(`${type}-requests`).textContent = formatNumber(requests);
-    document.getElementById(`${type}-avg`).textContent = requests > 0 ? formatCost(avg) : '-';
+    document.getElementById(`${type}-seg-avg`).textContent = segCount > 0 ? formatCost(segAvg) : '-';
   });
 
   // Render provider table
@@ -661,14 +606,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Load initial data
-  loadTokenData(currentDay);
-});
-
-// Listen for day changes from app bar
-window.addEventListener('tokens:daychange', (e) => {
-  currentDay = e.detail.day;
-  document.getElementById('loading').style.display = 'block';
-  document.getElementById('dashboard').style.display = 'none';
   loadTokenData(currentDay);
 });
 </script>
