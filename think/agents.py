@@ -1329,14 +1329,22 @@ async def main_async() -> None:
             except Exception as e:
                 if getattr(e, "_evented", False):
                     continue
-                emit_event(
-                    {
-                        "event": "error",
-                        "error": str(e),
-                        "trace": traceback.format_exc(),
-                        "ts": now_ms(),
-                    }
-                )
+                from think.models import IncompleteJSONError
+
+                event = {
+                    "event": "error",
+                    "error": str(e),
+                    "trace": traceback.format_exc(),
+                    "ts": now_ms(),
+                }
+                if isinstance(e, IncompleteJSONError):
+                    from think.hooks import log_extraction_failure
+
+                    event["partial_text_length"] = len(e.partial_text)
+                    event["partial_text_tail"] = e.partial_text[-500:]
+                    name = config.get("name", "unknown") if config else "unknown"
+                    log_extraction_failure(e, name)
+                emit_event(event)
 
     except Exception as exc:
         err = {

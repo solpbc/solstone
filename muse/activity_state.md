@@ -11,7 +11,7 @@
   "hook": {"pre": "activity_state", "post": "activity_state"},
   "tier": 3,
   "thinking_budget": 4096,
-  "max_output_tokens": 2048,
+  "max_output_tokens": 3072,
   "instructions": {
     "sources": {"audio": true, "screen": true, "agents": false},
     "facets": true
