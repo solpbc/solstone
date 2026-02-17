@@ -14,7 +14,7 @@
       </div>
     </div>
 
-    <h3 style="margin-top: 16px;">Recent Activity</h3>
+    <h3 style="margin-top: 16px;">Recent Activity <span id="notif-bell" style="cursor: pointer; font-size: 14px; margin-left: 6px; opacity: 0.5;" title="Enable browser notifications">🔔</span></h3>
     <div id="notification-history" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
       <span style="color: #9ca3af;">No recent activity</span>
     </div>
@@ -86,6 +86,7 @@
 
     // Update notification history
     updateNotificationHistory();
+    updateBellState();
   }
 
   function updateNotificationHistory() {
@@ -130,6 +131,43 @@
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours}h ${mins}m`;
+  }
+
+  function updateBellState() {
+    const bell = document.getElementById('notif-bell');
+    if (!bell || !('Notification' in window)) {
+      if (bell) bell.style.display = 'none';
+      return;
+    }
+    const perm = Notification.permission;
+    if (perm === 'granted') {
+      bell.textContent = '🔔';
+      bell.style.opacity = '1';
+      bell.style.cursor = 'default';
+      bell.title = 'Browser notifications enabled';
+    } else if (perm === 'denied') {
+      bell.textContent = '🔕';
+      bell.style.opacity = '0.4';
+      bell.style.cursor = 'default';
+      bell.title = 'Notifications blocked — update in browser settings';
+    } else {
+      bell.textContent = '🔔';
+      bell.style.opacity = '0.5';
+      bell.style.cursor = 'pointer';
+      bell.title = 'Enable browser notifications';
+    }
+  }
+
+  const bellEl = document.getElementById('notif-bell');
+  if (bellEl) {
+    bellEl.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'default') {
+        await AppServices.requestNotificationPermission();
+        updateBellState();
+      }
+    });
   }
 
   // Update status pane every second
