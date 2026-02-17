@@ -68,21 +68,18 @@ def _get_segment_end_time(segment: str) -> datetime | None:
     return datetime(2000, 1, 1, end.hour, end.minute, end.second)
 
 
-def find_previous_segment(
+def _get_preceding_segments(
     day: str, current_segment: str, stream: str | None = None
-) -> str | None:
-    """Find the segment immediately before the current one.
+) -> list[str]:
+    """Return segment keys preceding *current_segment*, most-recent first.
 
     Uses iter_segments() to traverse the stream directory structure.
     When stream is provided, only segments in that stream are considered.
-
-    Returns None if current is the first segment or no segments found.
     """
     all_segments = iter_segments(day)
     if not all_segments:
-        return None
+        return []
 
-    # Filter by stream when provided
     if stream:
         segment_keys = [
             s_key for s_stream, s_key, _s_path in all_segments if s_stream == stream
@@ -91,14 +88,11 @@ def find_previous_segment(
         segment_keys = [s_key for _s_stream, s_key, _s_path in all_segments]
 
     if not segment_keys:
-        return None
+        return []
 
-    # Find current segment's position
     try:
         current_idx = segment_keys.index(current_segment)
     except ValueError:
-        # Current segment not in list - might be new
-        # Find where it would be inserted
         for i, seg in enumerate(segment_keys):
             if seg > current_segment:
                 current_idx = i
@@ -106,10 +100,19 @@ def find_previous_segment(
         else:
             current_idx = len(segment_keys)
 
-    # Return previous if exists
-    if current_idx > 0:
-        return segment_keys[current_idx - 1]
-    return None
+    # Return preceding keys in reverse order (most recent first)
+    return list(reversed(segment_keys[:current_idx]))
+
+
+def find_previous_segment(
+    day: str, current_segment: str, stream: str | None = None
+) -> str | None:
+    """Find the segment immediately before the current one.
+
+    Returns None if current is the first segment or no segments found.
+    """
+    preceding = _get_preceding_segments(day, current_segment, stream=stream)
+    return preceding[0] if preceding else None
 
 
 def load_previous_state(
@@ -146,6 +149,37 @@ def load_previous_state(
     except (json.JSONDecodeError, OSError) as e:
         logger.warning("Failed to load previous state from %s: %s", state_path, e)
         return None, segment
+
+
+# Maximum number of segments to walk back when looking for previous state.
+_MAX_LOOKBACK = 10
+
+
+def find_previous_state(
+    day: str,
+    current_segment: str,
+    facet: str,
+    stream: str | None = None,
+    timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
+) -> tuple[list | None, str | None]:
+    """Walk backwards to find the most recent segment with valid state.
+
+    Tries each preceding segment in reverse chronological order until it
+    finds one with a valid activity_state.json for *facet*, or until it
+    hits the timeout boundary or the look-back cap.
+
+    Returns (state_list, segment_key) — same contract as load_previous_state.
+    """
+    preceding = _get_preceding_segments(day, current_segment, stream=stream)
+
+    for seg in preceding[:_MAX_LOOKBACK]:
+        if check_timeout(current_segment, seg, timeout_seconds):
+            break
+        state, seg_key = load_previous_state(day, seg, facet, stream=stream)
+        if state is not None:
+            return state, seg_key
+
+    return None, None
 
 
 def check_timeout(
@@ -327,6 +361,15 @@ def pre_process(context: dict) -> dict | None:
             previous_state, _ = load_previous_state(
                 day, previous_segment, facet, stream=stream
             )
+
+            # Look further back if immediate predecessor has no state
+            if previous_state is None:
+                previous_state, found_seg = find_previous_state(
+                    day, segment, facet, stream=stream,
+                    timeout_seconds=timeout_seconds,
+                )
+                if found_seg:
+                    previous_segment = found_seg
 
     # Format previous state context
     previous_context = format_previous_state(

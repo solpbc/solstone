@@ -29,6 +29,7 @@ import os
 from muse.activity_state import (
     check_timeout,
     find_previous_segment,
+    find_previous_state,
 )
 from think.activities import (
     append_activity_record,
@@ -381,23 +382,81 @@ def _pre_process_normal(context: dict) -> dict | None:
     # Check timeout
     timed_out = check_timeout(segment, prev_segment)
 
-    # Scan all facets that had activity_state in the previous segment
+    # Scan all facets that had activity_state in the previous segment.
+    # If the adjacent previous segment is missing state (agent gap), walk
+    # back further to find facets that had active state before the gap.
     prev_facets = _list_facets_with_activity_state(day, prev_segment, stream=stream)
-    if not prev_facets:
+    prev_state_source: dict[str, tuple[str, list[dict]]] = {}
+
+    for facet in prev_facets:
+        state = _load_activity_state(day, prev_segment, facet, stream=stream)
+        prev_state_source[facet] = (prev_segment, state)
+
+    if not timed_out:
+        # Look back for facets missing from the adjacent previous segment
+        # but present in earlier segments (covers gaps from agent failures).
+        from muse.activity_state import _get_preceding_segments
+
+        for earlier_seg in _get_preceding_segments(day, prev_segment, stream=stream):
+            if check_timeout(segment, earlier_seg):
+                break
+            earlier_facets = _list_facets_with_activity_state(
+                day, earlier_seg, stream=stream
+            )
+            for facet in earlier_facets:
+                if facet not in prev_state_source:
+                    state = _load_activity_state(
+                        day, earlier_seg, facet, stream=stream
+                    )
+                    if any(item.get("state") == "active" for item in state):
+                        prev_state_source[facet] = (earlier_seg, state)
+            # Stop once we've found a segment that had activity state
+            if earlier_facets:
+                break
+
+    if not prev_state_source:
         return {"skip_reason": "no_previous_activity_state"}
+
+    # Facets that actually produced output in the current segment.
+    # Missing file = agent failed; don't treat as "all activities ended".
+    curr_facets_with_file = set(
+        _list_facets_with_activity_state(day, segment, stream=stream)
+    )
 
     # Detect ended activities across all facets
     ended_by_facet: dict[str, list[dict]] = {}
-    for facet in prev_facets:
-        prev_state = _load_activity_state(day, prev_segment, facet, stream=stream)
+    all_facets = list(prev_state_source.keys())
+    for facet in all_facets:
+        source_seg, prev_state = prev_state_source[facet]
+
+        if facet not in curr_facets_with_file:
+            # Agent didn't produce output for this facet — defer detection
+            logger.debug(
+                "Skipping ended detection for %s: no activity_state.json in %s",
+                facet,
+                segment,
+            )
+            continue
+
         curr_state = _load_activity_state(day, segment, facet, stream=stream)
         ended = _detect_ended_activities(prev_state, curr_state, timed_out)
         if ended:
             ended_by_facet[facet] = ended
 
-    all_ended = _collect_ended(
-        day, prev_facets, ended_by_facet, prev_segment, stream=stream
-    )
+    # Use each facet's actual source segment for the walk end-point.
+    # Group by source segment for _collect_ended calls.
+    source_segments: dict[str, list[str]] = {}
+    for facet in all_facets:
+        src_seg = prev_state_source[facet][0]
+        source_segments.setdefault(src_seg, []).append(facet)
+
+    all_ended: dict[str, list[dict]] = {}
+    for end_seg, facets in source_segments.items():
+        partial = _collect_ended(
+            day, facets, ended_by_facet, end_seg, stream=stream
+        )
+        all_ended.update(partial)
+
     return _build_result(context, all_ended)
 
 
