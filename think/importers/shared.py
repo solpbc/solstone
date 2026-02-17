@@ -146,6 +146,7 @@ _MIME_TYPES = {
     ".wav": "audio/wav",
     ".flac": "audio/flac",
     ".ogg": "audio/ogg",
+    ".opus": "audio/opus",
     ".mp4": "video/mp4",
     ".webm": "video/webm",
     ".mov": "video/quicktime",

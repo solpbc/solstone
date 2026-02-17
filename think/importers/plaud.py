@@ -10,7 +10,6 @@ import os
 import pathlib
 import re
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -56,26 +55,28 @@ def get_temp_url(
     }
     resp = session.get(url, headers=headers, timeout=20)
     if resp.status_code != 200:
-        print(
-            f"[{file_hash}] API error {resp.status_code}: {resp.text[:200]}",
-            file=sys.stderr,
+        logger.warning(
+            "[%s] API error %s: %s",
+            file_hash,
+            resp.status_code,
+            resp.text[:200],
         )
         return None
 
     try:
         data = resp.json()
     except json.JSONDecodeError:
-        print(f"[{file_hash}] Failed to parse JSON from API.", file=sys.stderr)
+        logger.warning("[%s] Failed to parse JSON from API.", file_hash)
         return None
 
     # Expected shape: {"status":0,"temp_url":"https://...mp3?...","temp_url_opus":null}
     if data.get("status") != 0:
-        print(f"[{file_hash}] API returned non-zero status: {data}", file=sys.stderr)
+        logger.warning("[%s] API returned non-zero status: %s", file_hash, data)
         return None
 
     temp_url = data.get("temp_url")
     if not temp_url:
-        print(f"[{file_hash}] No temp_url in response: {data}", file=sys.stderr)
+        logger.warning("[%s] No temp_url in response: %s", file_hash, data)
         return None
 
     return temp_url
@@ -101,21 +102,21 @@ def list_files(session: requests.Session, token: str) -> Optional[List[Dict[str,
     try:
         resp = session.get(url, headers=headers, params=params, timeout=30)
         if resp.status_code != 200:
-            print(f"API error {resp.status_code}: {resp.text[:200]}", file=sys.stderr)
+            logger.warning("API error %s: %s", resp.status_code, resp.text[:200])
             return None
 
         data = resp.json()
         if data.get("status") != 0:
-            print(f"API returned non-zero status: {data}", file=sys.stderr)
+            logger.warning("API returned non-zero status: %s", data)
             return None
 
         file_list = data.get("data_file_list", [])
         total = data.get("data_file_total", len(file_list))
-        print(f"Found {total} files in Plaud account")
+        logger.info("Found %s files in Plaud account", total)
         return file_list
 
     except Exception as e:
-        print(f"Error fetching file list: {e}", file=sys.stderr)
+        logger.warning("Error fetching file list: %s", e)
         return None
 
 
@@ -137,9 +138,11 @@ def download_to_file(
     dest_path.parent.mkdir(parents=True, exist_ok=True)
     with session.get(url, stream=True, timeout=60) as r:
         if r.status_code != 200:
-            print(
-                f"[{dest_path.stem}] Download error {r.status_code}: {r.text[:200]}",
-                file=sys.stderr,
+            logger.warning(
+                "[%s] Download error %s: %s",
+                dest_path.stem,
+                r.status_code,
+                r.text[:200],
             )
             return False
         total = int(r.headers.get("Content-Length", "0")) or None
@@ -160,14 +163,12 @@ def download_to_file(
             except Exception as e:
                 tmp.close()
                 tmp_path.unlink(missing_ok=True)
-                print(
-                    f"[{dest_path.stem}] Error while writing file: {e}", file=sys.stderr
-                )
+                logger.warning("[%s] Error while writing file: %s", dest_path.stem, e)
                 return False
 
     tmp_path.replace(dest_path)
     size_info = f" ({total} bytes)" if total else ""
-    print(f"[{dest_path.stem}] Saved -> {dest_path}{size_info}")
+    logger.info("[%s] Saved -> %s%s", dest_path.stem, dest_path, size_info)
     return True
 
 
@@ -383,10 +384,11 @@ class PlaudBackend:
                 if start_time:
                     ts = timestamp_from_start_time(start_time)
                 else:
-                    print(
-                        f"  [{idx}/{len(to_process)}] {filename} — skipping "
-                        f"(no start_time)",
-                        file=sys.stderr,
+                    logger.warning(
+                        "  [%s/%s] %s — skipping (no start_time)",
+                        idx,
+                        len(to_process),
+                        filename,
                     )
                     errors.append(f"{filename}: no start_time")
                     continue
@@ -395,9 +397,12 @@ class PlaudBackend:
                 ext = pathlib.Path(fullname).suffix or ".opus"
                 safe_name = f"{sanitize_filename(filename)}{ext}"
 
-                print(
-                    f"  [{idx}/{len(to_process)}] {filename} "
-                    f"({format_size(filesize)})"
+                logger.info(
+                    "  [%s/%s] %s (%s)",
+                    idx,
+                    len(to_process),
+                    filename,
+                    format_size(filesize),
                 )
 
                 # Download to imports/{timestamp}/
@@ -409,17 +414,17 @@ class PlaudBackend:
                 temp_url = get_temp_url(session, token, file_id)
                 if not temp_url:
                     msg = f"{filename}: failed to get download URL"
-                    print(f"    FAILED — {msg}", file=sys.stderr)
+                    logger.warning("    FAILED — %s", msg)
                     errors.append(msg)
                     continue
 
                 if not download_to_file(session, temp_url, dest_path):
                     msg = f"{filename}: download failed"
-                    print(f"    FAILED — {msg}", file=sys.stderr)
+                    logger.warning("    FAILED — %s", msg)
                     errors.append(msg)
                     continue
 
-                print(f"    Downloaded -> {dest_path.name}")
+                logger.info("    Downloaded -> %s", dest_path.name)
 
                 # Run through import pipeline
                 import_cmd = [
@@ -433,7 +438,7 @@ class PlaudBackend:
                     "--auto",
                     "--skip-summary",
                 ]
-                print(f"    Importing {ts}...")
+                logger.info("    Importing %s...", ts)
                 try:
                     proc = subprocess.run(
                         import_cmd,
@@ -446,20 +451,20 @@ class PlaudBackend:
                         info["import_timestamp"] = ts
                         info["imported_at"] = dt.datetime.now().isoformat()
                         downloaded += 1
-                        print("    Imported successfully")
+                        logger.info("    Imported successfully")
                     else:
                         stderr_tail = (
                             proc.stderr.strip().split("\n")[-1] if proc.stderr else ""
                         )
                         msg = f"{filename}: import failed — {stderr_tail}"
-                        print("    FAILED — import error", file=sys.stderr)
+                        logger.warning("    FAILED — import error")
                         logger.warning(
                             "Import failed for %s: %s", filename, proc.stderr
                         )
                         errors.append(msg)
                 except subprocess.TimeoutExpired:
                     msg = f"{filename}: import timed out"
-                    print("    FAILED — timed out", file=sys.stderr)
+                    logger.warning("    FAILED — timed out")
                     errors.append(msg)
 
             result["downloaded"] = downloaded

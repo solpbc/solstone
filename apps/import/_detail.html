@@ -216,7 +216,10 @@ fetch('/app/import/api/{{ timestamp }}')
 
       // Determine status based on task_id and imported_json
       let statusClass, statusText;
-      if (data.imported_json) {
+      if (data.imported_json && data.imported_json.error) {
+        statusClass = 'failed';
+        statusText = 'Failed';
+      } else if (data.imported_json) {
         statusClass = 'success';
         statusText = 'Completed';
       } else if (data.import_json.task_id) {
@@ -254,7 +257,17 @@ fetch('/app/import/api/{{ timestamp }}')
       }
     }
 
-    if (data.imported_json) {
+    if (data.imported_json && data.imported_json.error) {
+      // Error state
+      overviewHtml += `<div class="info-label">Processing Status:</div><div class="info-value status-badge failed">Failed</div>`;
+      overviewHtml += `<div class="info-label">Error:</div><div class="info-value">${data.imported_json.error}</div>`;
+      if (data.imported_json.error_stage) {
+        overviewHtml += `<div class="info-label">Failed At:</div><div class="info-value">${data.imported_json.error_stage}</div>`;
+      }
+      if (data.imported_json.processing_failed) {
+        overviewHtml += `<div class="info-label">Processing Time:</div><div class="info-value">${new Date(data.imported_json.processing_failed).toLocaleString()}</div>`;
+      }
+    } else if (data.imported_json) {
       overviewHtml += `<div class="info-label">Processing Status:</div><div class="info-value">Completed</div>`;
       overviewHtml += `<div class="info-label">Target Day:</div><div class="info-value">${data.imported_json.target_day || '-'}</div>`;
       overviewHtml += `<div class="info-label">Files Created:</div><div class="info-value">${data.imported_json.total_files_created || 0}</div>`;
