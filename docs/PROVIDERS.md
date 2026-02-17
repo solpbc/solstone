@@ -256,11 +256,12 @@ Context strings determine provider and model selection. Providers receive alread
 
 All contexts are discovered at runtime. Use `get_context_registry()` to get the complete context map.
 
-**Resolution** (handled by `think/models.py` `resolve_provider()`):
+**Resolution** (handled by `think/models.py` `resolve_provider(context, agent_type)`):
 1. Exact match in journal.json `providers.contexts`
 2. Glob pattern match (fnmatch) with specificity ranking
 3. Dynamic context registry (discovered prompts, categories, muse configs)
-4. Default provider/tier from config
+4. Type-specific default (from `providers.generate` or `providers.cogitate`)
+5. System defaults from `TYPE_DEFAULTS`
 
 Providers don't implement routing - they receive the resolved model.
 
@@ -271,9 +272,14 @@ Provider configuration lives in `journal.json` under the `providers` key.
 **Structure:**
 ```
 providers:
-  default:
+  generate:
     provider: <provider-name>
     tier: <1|2|3>
+    backup: <provider-name>
+  cogitate:
+    provider: <provider-name>
+    tier: <1|2|3>
+    backup: <provider-name>
   contexts:
     <context-pattern>:
       provider: <provider-name>
@@ -283,6 +289,10 @@ providers:
     <provider-name>:
       "<tier>": "<model-override>"
 ```
+
+The `generate` section controls text generation (analysis, extraction, transcription).
+The `cogitate` section controls tool-calling agents (interactive chat, daily briefings).
+Each section has its own provider, tier, and backup provider.
 
 **Tier system:**
 - 1 = PRO (most capable)

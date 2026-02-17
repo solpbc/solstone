@@ -450,7 +450,7 @@ class VideoProcessor:
                 output_file.flush()
 
             # Resolve model for frame description (tier from describe.md frontmatter)
-            _, frame_model = resolve_provider("observe.describe.frame")
+            _, frame_model = resolve_provider("observe.describe.frame", "generate")
 
             # Create vision requests for all qualified frames
             for frame_data in qualified_frames:
@@ -717,7 +717,7 @@ class VideoProcessor:
                     is_json = cat_meta.get("output") == "json"
 
                     # Resolve model for this category context
-                    _, cat_model = resolve_provider(cat_meta["context"])
+                    _, cat_model = resolve_provider(cat_meta["context"], "generate")
 
                     batch.update(
                         extract_req,

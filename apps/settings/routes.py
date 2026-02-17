@@ -249,8 +249,8 @@ def get_providers() -> Any:
 
     Returns:
         - providers: List of available providers with labels
-        - default: Current default provider and tier
-        - backup: Current backup provider
+        - generate: Current generate provider, tier, and backup
+        - cogitate: Current cogitate provider, tier, and backup
         - contexts: Configured context overrides from journal.json
         - context_defaults: Context registry with labels/groups for UI
           (includes muse configs with type, schedule, disabled, extract)
@@ -258,9 +258,7 @@ def get_providers() -> Any:
     """
     try:
         from think.models import (
-            BACKUP_PROVIDER,
-            DEFAULT_PROVIDER,
-            DEFAULT_TIER,
+            TYPE_DEFAULTS,
             get_context_registry,
         )
         from think.muse import get_muse_configs
@@ -269,12 +267,16 @@ def get_providers() -> Any:
         config = get_journal_config()
         providers_config = config.get("providers", {})
 
-        # Get default settings
-        default = providers_config.get("default", {})
-        default_provider = default.get("provider", DEFAULT_PROVIDER)
-        default_tier = default.get("tier", DEFAULT_TIER)
-        backup = providers_config.get("backup", {})
-        backup_provider = backup.get("provider", BACKUP_PROVIDER)
+        # Build type-specific settings from config with system defaults
+        type_settings = {}
+        for agent_type in ("generate", "cogitate"):
+            defaults = TYPE_DEFAULTS[agent_type]
+            type_config = providers_config.get(agent_type, {})
+            type_settings[agent_type] = {
+                "provider": type_config.get("provider", defaults["provider"]),
+                "tier": type_config.get("tier", defaults["tier"]),
+                "backup": type_config.get("backup", defaults["backup"]),
+            }
 
         # Get context overrides from config
         contexts = providers_config.get("contexts", {})
@@ -325,13 +327,8 @@ def get_providers() -> Any:
         return jsonify(
             {
                 "providers": providers_list,
-                "default": {
-                    "provider": default_provider,
-                    "tier": default_tier,
-                },
-                "backup": {
-                    "provider": backup_provider,
-                },
+                "generate": type_settings["generate"],
+                "cogitate": type_settings["cogitate"],
                 "contexts": contexts,
                 "context_defaults": context_defaults,
                 "api_keys": api_keys,
@@ -346,8 +343,8 @@ def update_providers() -> Any:
     """Update providers configuration.
 
     Accepts JSON with optional keys:
-        - default: {provider, tier} - Set default provider and/or tier
-        - backup: {provider} - Set backup provider
+        - generate: {provider?, tier?, backup?} - Set generate defaults
+        - cogitate: {provider?, tier?, backup?} - Set cogitate defaults
         - contexts: {pattern: {provider?, tier?, disabled?, extract?} | null}
           Set or clear context overrides
 
@@ -375,17 +372,20 @@ def update_providers() -> Any:
 
         changed_fields = {}
 
-        # Handle default updates
-        if "default" in request_data:
-            default_data = request_data["default"]
-            if "default" not in config["providers"]:
-                config["providers"]["default"] = {}
+        # Handle type-specific updates (generate, cogitate)
+        for agent_type in ("generate", "cogitate"):
+            if agent_type not in request_data:
+                continue
 
-            old_default = old_providers.get("default", {})
+            type_data = request_data[agent_type]
+            if agent_type not in config["providers"]:
+                config["providers"][agent_type] = {}
+
+            old_type = old_providers.get(agent_type, {})
 
             # Validate and update provider
-            if "provider" in default_data:
-                provider = default_data["provider"]
+            if "provider" in type_data:
+                provider = type_data["provider"]
                 if provider not in PROVIDER_REGISTRY:
                     return (
                         jsonify(
@@ -396,16 +396,16 @@ def update_providers() -> Any:
                         ),
                         400,
                     )
-                if old_default.get("provider") != provider:
-                    changed_fields["default.provider"] = {
-                        "old": old_default.get("provider"),
+                if old_type.get("provider") != provider:
+                    changed_fields[f"{agent_type}.provider"] = {
+                        "old": old_type.get("provider"),
                         "new": provider,
                     }
-                config["providers"]["default"]["provider"] = provider
+                config["providers"][agent_type]["provider"] = provider
 
             # Validate and update tier
-            if "tier" in default_data:
-                tier = default_data["tier"]
+            if "tier" in type_data:
+                tier = type_data["tier"]
                 if tier not in VALID_TIERS:
                     return (
                         jsonify(
@@ -413,40 +413,32 @@ def update_providers() -> Any:
                         ),
                         400,
                     )
-                if old_default.get("tier") != tier:
-                    changed_fields["default.tier"] = {
-                        "old": old_default.get("tier"),
+                if old_type.get("tier") != tier:
+                    changed_fields[f"{agent_type}.tier"] = {
+                        "old": old_type.get("tier"),
                         "new": tier,
                     }
-                config["providers"]["default"]["tier"] = tier
+                config["providers"][agent_type]["tier"] = tier
 
-        # Handle backup updates
-        if "backup" in request_data:
-            backup_data = request_data["backup"]
-            if "backup" not in config["providers"]:
-                config["providers"]["backup"] = {}
-
-            old_backup = old_providers.get("backup", {})
-
-            # Validate and update provider
-            if "provider" in backup_data:
-                provider = backup_data["provider"]
-                if provider not in PROVIDER_REGISTRY:
+            # Validate and update backup
+            if "backup" in type_data:
+                backup = type_data["backup"]
+                if backup not in PROVIDER_REGISTRY:
                     return (
                         jsonify(
                             {
-                                "error": f"Invalid provider: {provider}. "
+                                "error": f"Invalid backup provider: {backup}. "
                                 f"Must be one of: {', '.join(sorted(PROVIDER_REGISTRY.keys()))}"
                             }
                         ),
                         400,
                     )
-                if old_backup.get("provider") != provider:
-                    changed_fields["backup.provider"] = {
-                        "old": old_backup.get("provider"),
-                        "new": provider,
+                if old_type.get("backup") != backup:
+                    changed_fields[f"{agent_type}.backup"] = {
+                        "old": old_type.get("backup"),
+                        "new": backup,
                     }
-                config["providers"]["backup"]["provider"] = provider
+                config["providers"][agent_type]["backup"] = backup
 
         # Handle context overrides
         if "contexts" in request_data:

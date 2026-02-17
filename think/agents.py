@@ -381,13 +381,14 @@ def prepare_config(request: dict) -> dict:
 
     # Resolve provider and model from context
     context = key_to_context(name)
-    default_provider, default_model = resolve_provider(context)
+    agent_type = config["type"]
+    default_provider, default_model = resolve_provider(context, agent_type)
 
     provider = config.get("provider") or default_provider
     model = config.get("model")
     if not model:
         if provider != default_provider:
-            model = resolve_model_for_provider(context, provider)
+            model = resolve_model_for_provider(context, provider, agent_type)
         else:
             model = default_model
 
@@ -408,13 +409,15 @@ def prepare_config(request: dict) -> dict:
     config["health_stale"] = should_recheck_health(health_data)
 
     if not is_provider_healthy(provider, health_data):
-        backup = get_backup_provider()
+        backup = get_backup_provider(agent_type)
         if backup and backup != provider:
             env_key = PROVIDER_METADATA.get(backup, {}).get("env_key")
             if env_key and os.getenv(env_key):
                 config["fallback_from"] = provider
                 config["provider"] = backup
-                config["model"] = resolve_model_for_provider(context, backup)
+                config["model"] = resolve_model_for_provider(
+                    context, backup, agent_type
+                )
 
     # Check if disabled
     if config.get("disabled"):
@@ -712,7 +715,7 @@ async def _execute_with_tools(
         )
         from think.providers import PROVIDER_METADATA
 
-        backup = get_backup_provider()
+        backup = get_backup_provider("cogitate")
         if not backup or backup == provider:
             raise
         env_key = PROVIDER_METADATA.get(backup, {}).get("env_key")
@@ -724,7 +727,7 @@ async def _execute_with_tools(
             from think.muse import key_to_context
 
             context = key_to_context(config.get("name", "default"))
-        backup_model = resolve_model_for_provider(context, backup)
+        backup_model = resolve_model_for_provider(context, backup, "cogitate")
 
         emit_event(
             {
@@ -831,14 +834,14 @@ async def _execute_generate(
         from think.providers import PROVIDER_METADATA
 
         provider = config.get("provider", "google")
-        backup = get_backup_provider()
+        backup = get_backup_provider("generate")
         if not backup or backup == provider:
             raise
         env_key = PROVIDER_METADATA.get(backup, {}).get("env_key")
         if not env_key or not os.getenv(env_key):
             raise
 
-        backup_model = resolve_model_for_provider(context, backup)
+        backup_model = resolve_model_for_provider(context, backup, "generate")
 
         emit_event(
             {

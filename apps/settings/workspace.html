@@ -1662,44 +1662,72 @@ input:checked + .slider:before {
     <!-- Providers Section -->
     <section class="settings-section" id="section-providers">
       <h2>Providers</h2>
-      <p class="settings-section-desc">Configure which AI provider and model tier to use. Higher tiers are more capable but cost more.</p>
+      <p class="settings-section-desc">Configure AI providers separately for generation (text analysis) and cogitate (tool-calling agents).</p>
 
+      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">Generate</h3>
+      <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Text generation for analysis, extraction, and transcription tasks.</p>
       <div class="provider-row">
         <div class="settings-field">
-          <label for="field-provider">Default Provider</label>
-          <select id="field-provider">
+          <label for="field-generate-provider">Provider</label>
+          <select id="field-generate-provider">
             <!-- Populated dynamically from registry -->
           </select>
           <small></small>
         </div>
         <div class="settings-field">
-          <label for="field-tier">Default Tier</label>
-          <select id="field-tier">
+          <label for="field-generate-tier">Tier</label>
+          <select id="field-generate-tier">
             <option value="1">Best - Most capable</option>
             <option value="2">Average - Balanced</option>
             <option value="3">Fast - Lightweight</option>
           </select>
           <small></small>
         </div>
-      </div>
-      <div id="providerKeyWarning" class="provider-key-warning" style="display:none">
-        <span>&#9888;</span>
-        <span>API key not configured for this provider.</span>
-        <a href="#" id="providerKeyLink">Configure in API Keys</a>
-      </div>
-      <div class="provider-row">
         <div class="settings-field">
-          <label for="field-backup-provider">Backup Provider</label>
-          <select id="field-backup-provider">
+          <label for="field-generate-backup">Backup</label>
+          <select id="field-generate-backup">
             <!-- Populated dynamically from registry -->
           </select>
           <small></small>
         </div>
       </div>
-      <div id="backupProviderKeyWarning" class="provider-key-warning" style="display:none">
+      <div id="generateProviderKeyWarning" class="provider-key-warning" style="display:none">
         <span>&#9888;</span>
-        <span>API key not configured for backup provider.</span>
-        <a href="#" id="backupProviderKeyLink">Configure in API Keys</a>
+        <span>API key not configured for generate provider.</span>
+        <a href="#" id="generateProviderKeyLink">Configure in API Keys</a>
+      </div>
+
+      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">Cogitate</h3>
+      <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Tool-calling agents for interactive chat, daily briefings, and complex reasoning.</p>
+      <div class="provider-row">
+        <div class="settings-field">
+          <label for="field-cogitate-provider">Provider</label>
+          <select id="field-cogitate-provider">
+            <!-- Populated dynamically from registry -->
+          </select>
+          <small></small>
+        </div>
+        <div class="settings-field">
+          <label for="field-cogitate-tier">Tier</label>
+          <select id="field-cogitate-tier">
+            <option value="1">Best - Most capable</option>
+            <option value="2">Average - Balanced</option>
+            <option value="3">Fast - Lightweight</option>
+          </select>
+          <small></small>
+        </div>
+        <div class="settings-field">
+          <label for="field-cogitate-backup">Backup</label>
+          <select id="field-cogitate-backup">
+            <!-- Populated dynamically from registry -->
+          </select>
+          <small></small>
+        </div>
+      </div>
+      <div id="cogitateProviderKeyWarning" class="provider-key-warning" style="display:none">
+        <span>&#9888;</span>
+        <span>API key not configured for cogitate provider.</span>
+        <a href="#" id="cogitateProviderKeyLink">Configure in API Keys</a>
       </div>
       <small id="providerStatus">Loading...</small>
 
@@ -2915,38 +2943,30 @@ async function loadProviders() {
 }
 
 function populateProviders(data) {
-  // Populate provider dropdown from registry
-  const providerSelect = document.getElementById('field-provider');
-  providerSelect.innerHTML = '';
-  if (data.providers) {
-    for (const p of data.providers) {
-      const opt = document.createElement('option');
-      opt.value = p.name;
-      opt.textContent = p.label;
-      providerSelect.appendChild(opt);
+  // Populate all provider/backup dropdowns for both types
+  for (const type of ['generate', 'cogitate']) {
+    for (const suffix of ['provider', 'backup']) {
+      const select = document.getElementById(`field-${type}-${suffix}`);
+      if (!select) continue;
+      select.innerHTML = '';
+      if (data.providers) {
+        for (const p of data.providers) {
+          const opt = document.createElement('option');
+          opt.value = p.name;
+          opt.textContent = p.label;
+          select.appendChild(opt);
+        }
+      }
     }
+    // Set values from API response
+    const typeData = data[type] || {};
+    document.getElementById(`field-${type}-provider`).value = typeData.provider || '';
+    document.getElementById(`field-${type}-tier`).value = typeData.tier || 2;
+    document.getElementById(`field-${type}-backup`).value = typeData.backup || '';
+
+    // Update key warnings
+    updateTypeProviderKeyWarning(type, typeData.provider, data.api_keys);
   }
-
-  // Populate backup provider dropdown
-  const backupSelect = document.getElementById('field-backup-provider');
-  backupSelect.innerHTML = '';
-  if (data.providers) {
-    for (const p of data.providers) {
-      const opt = document.createElement('option');
-      opt.value = p.name;
-      opt.textContent = p.label;
-      backupSelect.appendChild(opt);
-    }
-  }
-
-  // Set default provider and tier
-  providerSelect.value = data.default.provider;
-  backupSelect.value = data.backup.provider;
-  document.getElementById('field-tier').value = data.default.tier;
-
-  // Update API key warning
-  updateProviderKeyWarning(data.default.provider, data.api_keys);
-  updateBackupProviderKeyWarning(data.backup.provider, data.api_keys);
 
   // Update status text
   document.getElementById('providerStatus').textContent = '';
@@ -2955,26 +2975,12 @@ function populateProviders(data) {
   renderContextGroups(data);
 }
 
-function updateProviderKeyWarning(provider, apiKeys) {
-  const warning = document.getElementById('providerKeyWarning');
-  const link = document.getElementById('providerKeyLink');
+function updateTypeProviderKeyWarning(type, provider, apiKeys) {
+  const warning = document.getElementById(`${type}ProviderKeyWarning`);
+  const link = document.getElementById(`${type}ProviderKeyLink`);
+  if (!warning || !link) return;
 
-  if (!apiKeys[provider]) {
-    warning.style.display = 'flex';
-    link.onclick = (e) => {
-      e.preventDefault();
-      switchSection('apikeys');
-    };
-  } else {
-    warning.style.display = 'none';
-  }
-}
-
-function updateBackupProviderKeyWarning(provider, apiKeys) {
-  const warning = document.getElementById('backupProviderKeyWarning');
-  const link = document.getElementById('backupProviderKeyLink');
-
-  if (!apiKeys[provider]) {
+  if (provider && !apiKeys[provider]) {
     warning.style.display = 'flex';
     link.onclick = (e) => {
       e.preventDefault();
@@ -3141,65 +3147,34 @@ async function saveContextOverride(pattern, provider, tier, remove = false) {
   }
 }
 
-// Provider change handlers
-document.getElementById('field-provider').addEventListener('change', async () => {
-  const provider = document.getElementById('field-provider').value;
-  try {
-    const response = await fetch('api/providers', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ default: { provider } })
+// Provider change handlers for generate and cogitate types
+for (const type of ['generate', 'cogitate']) {
+  for (const field of ['provider', 'tier', 'backup']) {
+    const el = document.getElementById(`field-${type}-${field}`);
+    if (!el) continue;
+    el.addEventListener('change', async () => {
+      const value = field === 'tier' ? parseInt(el.value) : el.value;
+      try {
+        const response = await fetch('api/providers', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [type]: { [field]: value } })
+        });
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+
+        providersData = result;
+        if (field === 'provider') {
+          updateTypeProviderKeyWarning(type, value, result.api_keys);
+        }
+        showFieldStatus(el, 'saved');
+      } catch (err) {
+        console.error(`Error saving ${type} ${field}:`, err);
+        showFieldStatus(el, 'error', err.message);
+      }
     });
-    const result = await response.json();
-    if (result.error) throw new Error(result.error);
-
-    providersData = result;
-    updateProviderKeyWarning(provider, result.api_keys);
-    showFieldStatus(document.getElementById('field-provider'), 'saved');
-  } catch (err) {
-    console.error('Error saving provider:', err);
-    showFieldStatus(document.getElementById('field-provider'), 'error', err.message);
   }
-});
-
-document.getElementById('field-backup-provider').addEventListener('change', async () => {
-  const provider = document.getElementById('field-backup-provider').value;
-  try {
-    const response = await fetch('api/providers', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ backup: { provider } })
-    });
-    const result = await response.json();
-    if (result.error) throw new Error(result.error);
-
-    providersData = result;
-    updateBackupProviderKeyWarning(provider, result.api_keys);
-    showFieldStatus(document.getElementById('field-backup-provider'), 'saved');
-  } catch (err) {
-    console.error('Error saving backup provider:', err);
-    showFieldStatus(document.getElementById('field-backup-provider'), 'error', err.message);
-  }
-});
-
-document.getElementById('field-tier').addEventListener('change', async () => {
-  const tier = parseInt(document.getElementById('field-tier').value);
-  try {
-    const response = await fetch('api/providers', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ default: { tier } })
-    });
-    const result = await response.json();
-    if (result.error) throw new Error(result.error);
-
-    providersData = result;
-    showFieldStatus(document.getElementById('field-tier'), 'saved');
-  } catch (err) {
-    console.error('Error saving tier:', err);
-    showFieldStatus(document.getElementById('field-tier'), 'error', err.message);
-  }
-});
+}
 
 // ========== TRANSCRIPTION ==========
 // Backend metadata loaded from API

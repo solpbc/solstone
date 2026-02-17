@@ -6,12 +6,9 @@
 import pytest
 
 from think.models import (
-    BACKUP_PROVIDER,
     CLAUDE_HAIKU_4,
     CLAUDE_OPUS_4,
     CLAUDE_SONNET_4,
-    DEFAULT_PROVIDER,
-    DEFAULT_TIER,
     GEMINI_FLASH,
     GEMINI_LITE,
     GEMINI_PRO,
@@ -23,6 +20,7 @@ from think.models import (
     TIER_FLASH,
     TIER_LITE,
     TIER_PRO,
+    TYPE_DEFAULTS,
     calc_token_cost,
     get_context_registry,
     get_usage_cost,
@@ -131,17 +129,24 @@ def use_fixtures_journal(monkeypatch):
     monkeypatch.setenv("JOURNAL_PATH", "tests/fixtures/journal")
 
 
-def test_resolve_provider_default(use_fixtures_journal):
-    """Test that default provider is returned for unknown context."""
-    provider, model = resolve_provider("unknown.context")
+def test_resolve_provider_default_generate(use_fixtures_journal):
+    """Test that generate default provider is returned for unknown context."""
+    provider, model = resolve_provider("unknown.context", "generate")
     assert provider == "google"
     # Default tier is 2, which is overridden in fixture config to custom model
     assert model == "gemini-custom-flash-test"
 
 
+def test_resolve_provider_default_cogitate(use_fixtures_journal):
+    """Test that cogitate default provider is returned for unknown context."""
+    provider, model = resolve_provider("unknown.context", "cogitate")
+    assert provider == "openai"
+    assert model == GPT_5_MINI
+
+
 def test_resolve_provider_exact_match(use_fixtures_journal):
     """Test that exact context match works."""
-    provider, model = resolve_provider("test.openai")
+    provider, model = resolve_provider("test.openai", "generate")
     assert provider == "openai"
     assert model == "gpt-5-mini"
 
@@ -149,26 +154,26 @@ def test_resolve_provider_exact_match(use_fixtures_journal):
 def test_resolve_provider_glob_match(use_fixtures_journal):
     """Test that glob pattern matching works."""
     # observe.* pattern should match
-    provider, model = resolve_provider("observe.describe.frame")
+    provider, model = resolve_provider("observe.describe.frame", "generate")
     assert provider == "google"
     assert model == "gemini-2.5-flash-lite"
 
     # Also matches with other suffixes
-    provider, model = resolve_provider("observe.enrich")
+    provider, model = resolve_provider("observe.enrich", "generate")
     assert provider == "google"
     assert model == "gemini-2.5-flash-lite"
 
 
 def test_resolve_provider_anthropic(use_fixtures_journal):
     """Test anthropic provider routing."""
-    provider, model = resolve_provider("test.anthropic")
+    provider, model = resolve_provider("test.anthropic", "generate")
     assert provider == "anthropic"
     assert model == "claude-sonnet-4-5"
 
 
 def test_resolve_provider_empty_context(use_fixtures_journal):
     """Test that empty context returns default."""
-    provider, model = resolve_provider("")
+    provider, model = resolve_provider("", "generate")
     assert provider == "google"
 
 
@@ -179,9 +184,13 @@ def test_resolve_provider_no_config(monkeypatch, tmp_path):
     empty_journal.mkdir()
     monkeypatch.setenv("JOURNAL_PATH", str(empty_journal))
 
-    provider, model = resolve_provider("anything")
+    provider, model = resolve_provider("anything", "generate")
     assert provider == "google"
     assert model == GEMINI_FLASH
+
+    provider, model = resolve_provider("anything", "cogitate")
+    assert provider == "openai"
+    assert model == GPT_5_MINI
 
 
 # ---------------------------------------------------------------------------
@@ -194,9 +203,21 @@ def test_tier_constants():
     assert TIER_PRO == 1
     assert TIER_FLASH == 2
     assert TIER_LITE == 3
-    assert DEFAULT_TIER == TIER_FLASH
-    assert DEFAULT_PROVIDER == "google"
-    assert BACKUP_PROVIDER == "anthropic"
+
+
+def test_type_defaults():
+    """Test TYPE_DEFAULTS structure for generate and cogitate."""
+    assert "generate" in TYPE_DEFAULTS
+    assert "cogitate" in TYPE_DEFAULTS
+
+    for agent_type in ("generate", "cogitate"):
+        defaults = TYPE_DEFAULTS[agent_type]
+        assert "provider" in defaults
+        assert "tier" in defaults
+        assert "backup" in defaults
+
+    assert TYPE_DEFAULTS["generate"]["provider"] == "google"
+    assert TYPE_DEFAULTS["cogitate"]["provider"] == "openai"
 
 
 def test_prompt_paths_exist():
@@ -281,23 +302,28 @@ def test_provider_defaults_models():
 def test_resolve_provider_tier_based(use_fixtures_journal):
     """Test tier-based resolution."""
     # test.tier has tier: 1 (pro)
-    provider, model = resolve_provider("test.tier")
+    provider, model = resolve_provider("test.tier", "generate")
     assert provider == "google"
     assert model == GEMINI_PRO
 
 
 def test_resolve_provider_tier_inherit_provider(use_fixtures_journal):
-    """Test tier with inherited provider from default."""
-    # test.tier.inherit has tier: 3 only, should inherit google from default
-    provider, model = resolve_provider("test.tier.inherit")
+    """Test tier with inherited provider from type default."""
+    # test.tier.inherit has tier: 3 only, should inherit google from generate default
+    provider, model = resolve_provider("test.tier.inherit", "generate")
     assert provider == "google"
     assert model == GEMINI_LITE
+
+    # Same context with cogitate should inherit openai
+    provider, model = resolve_provider("test.tier.inherit", "cogitate")
+    assert provider == "openai"
+    assert model == GPT_5_NANO
 
 
 def test_resolve_provider_tier_with_provider(use_fixtures_journal):
     """Test tier with explicit provider."""
     # test.tier.override has provider: openai, tier: 2
-    provider, model = resolve_provider("test.tier.override")
+    provider, model = resolve_provider("test.tier.override", "generate")
     assert provider == "openai"
     assert model == GPT_5_MINI
 
@@ -305,7 +331,7 @@ def test_resolve_provider_tier_with_provider(use_fixtures_journal):
 def test_resolve_provider_tier_glob(use_fixtures_journal):
     """Test tier-based glob pattern matching."""
     # observe.* now uses tier: 3 instead of explicit model
-    provider, model = resolve_provider("observe.describe.frame")
+    provider, model = resolve_provider("observe.describe.frame", "generate")
     assert provider == "google"
     assert model == GEMINI_LITE
 
@@ -313,15 +339,15 @@ def test_resolve_provider_tier_glob(use_fixtures_journal):
 def test_resolve_provider_model_overrides_tier(use_fixtures_journal):
     """Test that explicit model takes precedence over tier."""
     # test.openai has explicit model, not tier
-    provider, model = resolve_provider("test.openai")
+    provider, model = resolve_provider("test.openai", "generate")
     assert provider == "openai"
     assert model == "gpt-5-mini"
 
 
 def test_resolve_provider_default_tier(use_fixtures_journal):
     """Test default uses tier-based resolution with config override."""
-    # Default is tier: 2, which is overridden in config to custom model
-    provider, model = resolve_provider("unknown.context")
+    # Generate default is tier: 2, which is overridden in config to custom model
+    provider, model = resolve_provider("unknown.context", "generate")
     assert provider == "google"
     assert model == "gemini-custom-flash-test"
 
@@ -329,7 +355,7 @@ def test_resolve_provider_default_tier(use_fixtures_journal):
 def test_resolve_provider_config_model_override(use_fixtures_journal):
     """Test that config models section overrides system defaults."""
     # test.config.override uses tier: 2, which is overridden in config
-    provider, model = resolve_provider("test.config.override")
+    provider, model = resolve_provider("test.config.override", "generate")
     assert provider == "google"
     # Should use the custom model from config, not system default GEMINI_FLASH
     assert model == "gemini-custom-flash-test"
@@ -340,7 +366,7 @@ def test_resolve_provider_tier_fallback_to_system_default(use_fixtures_journal):
     """Test that tiers not in config fall back to system defaults."""
     # test.tier uses tier: 1 (pro), which is NOT overridden in config
     # Should fall back to system default GEMINI_PRO
-    provider, model = resolve_provider("test.tier")
+    provider, model = resolve_provider("test.tier", "generate")
     assert provider == "google"
     assert model == GEMINI_PRO
 
@@ -354,7 +380,7 @@ def test_resolve_provider_invalid_tier(use_fixtures_journal, monkeypatch, tmp_pa
     config_dir.mkdir()
     config = {
         "providers": {
-            "default": {"provider": "google", "tier": 2},
+            "generate": {"provider": "google", "tier": 2},
             "contexts": {
                 "test.invalid": {"provider": "google", "tier": 99},
                 "test.string": {"provider": "google", "tier": "flash"},
@@ -364,13 +390,13 @@ def test_resolve_provider_invalid_tier(use_fixtures_journal, monkeypatch, tmp_pa
     (config_dir / "journal.json").write_text(json.dumps(config))
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    # Invalid tier 99 should fall back to default tier (2)
-    provider, model = resolve_provider("test.invalid")
+    # Invalid tier 99 should fall back to generate default tier (2)
+    provider, model = resolve_provider("test.invalid", "generate")
     assert provider == "google"
     assert model == GEMINI_FLASH  # tier 2 system default
 
     # String tier should also fall back
-    provider, model = resolve_provider("test.string")
+    provider, model = resolve_provider("test.string", "generate")
     assert provider == "google"
     assert model == GEMINI_FLASH
 

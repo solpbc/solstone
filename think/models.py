@@ -74,9 +74,10 @@ PROVIDER_DEFAULTS: Dict[str, Dict[int, str]] = {
     },
 }
 
-DEFAULT_PROVIDER = "google"
-BACKUP_PROVIDER = "anthropic"
-DEFAULT_TIER = TIER_FLASH
+TYPE_DEFAULTS: Dict[str, Dict[str, Any]] = {
+    "generate": {"provider": "google", "tier": TIER_FLASH, "backup": "anthropic"},
+    "cogitate": {"provider": "openai", "tier": TIER_FLASH, "backup": "anthropic"},
+}
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +124,7 @@ class IncompleteJSONError(ValueError):
 #   1. Create a .md prompt file with YAML frontmatter containing:
 #      context, tier, label, group
 #   2. Add the path to PROMPT_PATHS
-#   3. If not listed, context falls back to DEFAULT_TIER (FLASH)
+#   3. If not listed, context falls back to the type's default tier
 # ---------------------------------------------------------------------------
 
 # Flat list of prompt files that define context metadata in frontmatter.
@@ -274,7 +275,7 @@ def get_context_registry() -> Dict[str, Dict[str, Any]]:
     return _context_registry
 
 
-def _resolve_tier(context: str) -> int:
+def _resolve_tier(context: str, agent_type: str) -> int:
     """Resolve context to tier number.
 
     Checks journal config contexts first, then dynamic context registry with glob matching.
@@ -283,6 +284,8 @@ def _resolve_tier(context: str) -> int:
     ----------
     context
         Context string (e.g., "muse.system.default", "observe.describe.frame").
+    agent_type
+        Agent type ("generate" or "cogitate").
 
     Returns
     -------
@@ -290,6 +293,8 @@ def _resolve_tier(context: str) -> int:
         Tier number (1=pro, 2=flash, 3=lite).
     """
     from think.utils import get_config
+
+    default_tier = TYPE_DEFAULTS[agent_type]["tier"]
 
     journal_config = get_config()
     providers_config = journal_config.get("providers", {})
@@ -300,7 +305,7 @@ def _resolve_tier(context: str) -> int:
 
     # Check journal config contexts first (exact match)
     if context in contexts:
-        return contexts[context].get("tier", DEFAULT_TIER)
+        return contexts[context].get("tier", default_tier)
 
     # Check context registry (exact match)
     if context in registry:
@@ -309,13 +314,13 @@ def _resolve_tier(context: str) -> int:
     # Check glob patterns in both
     for pattern, ctx_config in contexts.items():
         if fnmatch.fnmatch(context, pattern):
-            return ctx_config.get("tier", DEFAULT_TIER)
+            return ctx_config.get("tier", default_tier)
 
     for pattern, ctx_default in registry.items():
         if fnmatch.fnmatch(context, pattern):
             return ctx_default["tier"]
 
-    return DEFAULT_TIER
+    return default_tier
 
 
 def _resolve_model(provider: str, tier: int, config_models: Dict[str, Any]) -> str:
@@ -357,14 +362,14 @@ def _resolve_model(provider: str, tier: int, config_models: Dict[str, Any]) -> s
         if t in provider_defaults:
             return provider_defaults[t]
 
-    # Ultimate fallback: system default for provider at DEFAULT_TIER
-    provider_defaults = PROVIDER_DEFAULTS.get(
-        provider, PROVIDER_DEFAULTS[DEFAULT_PROVIDER]
-    )
-    return provider_defaults.get(DEFAULT_TIER, GEMINI_FLASH)
+    # Ultimate fallback: system default for provider at TIER_FLASH
+    provider_defaults = PROVIDER_DEFAULTS.get(provider, PROVIDER_DEFAULTS["google"])
+    return provider_defaults.get(TIER_FLASH, GEMINI_FLASH)
 
 
-def resolve_model_for_provider(context: str, provider: str) -> str:
+def resolve_model_for_provider(
+    context: str, provider: str, agent_type: str = "generate"
+) -> str:
     """Resolve model for a specific provider based on context tier.
 
     Use this when provider is overridden from the default - resolves the
@@ -376,6 +381,8 @@ def resolve_model_for_provider(context: str, provider: str) -> str:
         Context string (e.g., "muse.system.default").
     provider
         Provider name ("google", "openai", "anthropic").
+    agent_type
+        Agent type ("generate" or "cogitate").
 
     Returns
     -------
@@ -384,7 +391,7 @@ def resolve_model_for_provider(context: str, provider: str) -> str:
     """
     from think.utils import get_config
 
-    tier = _resolve_tier(context)
+    tier = _resolve_tier(context, agent_type)
     journal_config = get_config()
     providers_config = journal_config.get("providers", {})
     config_models = providers_config.get("models", {})
@@ -392,16 +399,16 @@ def resolve_model_for_provider(context: str, provider: str) -> str:
     return _resolve_model(provider, tier, config_models)
 
 
-def resolve_provider(context: str) -> tuple[str, str]:
+def resolve_provider(context: str, agent_type: str) -> tuple[str, str]:
     """Resolve context to provider and model based on configuration.
 
     Matches context against configured contexts using exact match first,
-    then glob patterns (via fnmatch), falling back to defaults.
+    then glob patterns (via fnmatch), falling back to type-specific defaults.
 
     Supports both explicit model strings and tier-based routing:
     - {"provider": "google", "model": "gemini-3-flash-preview"} - explicit model
     - {"provider": "google", "tier": 2} - tier-based (2=flash)
-    - {"tier": 1} - tier only, inherits provider from default
+    - {"tier": 1} - tier only, inherits provider from type default
 
     The "models" section in providers config allows overriding which model
     is used for each tier per provider.
@@ -410,6 +417,8 @@ def resolve_provider(context: str) -> tuple[str, str]:
     ----------
     context
         Context string (e.g., "observe.describe.frame", "muse.system.meetings").
+    agent_type
+        Agent type ("generate" or "cogitate").
 
     Returns
     -------
@@ -421,14 +430,15 @@ def resolve_provider(context: str) -> tuple[str, str]:
     providers = config.get("providers", {})
     config_models = providers.get("models", {})
 
-    # Get defaults
-    default = providers.get("default", {})
-    default_provider = default.get("provider", DEFAULT_PROVIDER)
-    default_tier = default.get("tier", DEFAULT_TIER)
+    # Get type-specific defaults from config, falling back to system constants
+    type_defaults = TYPE_DEFAULTS[agent_type]
+    type_config = providers.get(agent_type, {})
+    default_provider = type_config.get("provider", type_defaults["provider"])
+    default_tier = type_config.get("tier", type_defaults["tier"])
 
-    # Handle explicit "model" key in default (overrides tier-based resolution)
-    if "model" in default and "tier" not in default:
-        default_model = default["model"]
+    # Handle explicit "model" key in type config (overrides tier-based resolution)
+    if "model" in type_config and "tier" not in type_config:
+        default_model = type_config["model"]
     else:
         default_model = _resolve_model(default_provider, default_tier, config_models)
 
@@ -962,7 +972,7 @@ def generate(
     # Allow model override via kwargs (used by callers with explicit model selection)
     model_override = kwargs.pop("model", None)
 
-    provider, model = resolve_provider(context)
+    provider, model = resolve_provider(context, "generate")
     if model_override:
         model = model_override
 
@@ -1003,17 +1013,20 @@ def generate(
 # ---------------------------------------------------------------------------
 
 
-def get_backup_provider() -> Optional[str]:
-    """Get the backup provider from journal config, falling back to constant.
+def get_backup_provider(agent_type: str) -> Optional[str]:
+    """Get the backup provider for the given agent type.
 
-    Returns None if backup would be the same as the default provider.
+    Reads from the type-specific section in journal config, falling back
+    to TYPE_DEFAULTS.
+
+    Returns None if backup would be the same as the primary provider.
     """
+    type_defaults = TYPE_DEFAULTS[agent_type]
     config = get_config()
     providers_config = config.get("providers", {})
-    default_section = providers_config.get("default", {})
-    primary_provider = default_section.get("provider", DEFAULT_PROVIDER)
-    backup_section = providers_config.get("backup", {})
-    backup = backup_section.get("provider", BACKUP_PROVIDER)
+    type_config = providers_config.get(agent_type, {})
+    primary_provider = type_config.get("provider", type_defaults["provider"])
+    backup = type_config.get("backup", type_defaults["backup"])
     if backup == primary_provider:
         return None
     return backup
@@ -1115,11 +1128,11 @@ def generate_with_result(
     model_override = kwargs.pop("model", None)
     provider_override = kwargs.pop("provider", None)
 
-    provider, model = resolve_provider(context)
+    provider, model = resolve_provider(context, "generate")
     if provider_override:
         provider = provider_override
         if not model_override:
-            model = resolve_model_for_provider(context, provider)
+            model = resolve_model_for_provider(context, provider, "generate")
     if model_override:
         model = model_override
 
@@ -1208,7 +1221,7 @@ async def agenerate(
     # Allow model override via kwargs (used by Batch for explicit model selection)
     model_override = kwargs.pop("model", None)
 
-    provider, model = resolve_provider(context)
+    provider, model = resolve_provider(context, "generate")
     if model_override:
         model = model_override
 
@@ -1246,9 +1259,7 @@ async def agenerate(
 
 __all__ = [
     # Provider configuration
-    "DEFAULT_TIER",
-    "DEFAULT_PROVIDER",
-    "BACKUP_PROVIDER",
+    "TYPE_DEFAULTS",
     "PROMPT_PATHS",
     "get_context_registry",
     # Model constants (used by provider backends for defaults)

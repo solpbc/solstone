@@ -12,7 +12,7 @@ import pytest
 
 from think.agents import _is_retryable_error
 from think.models import (
-    BACKUP_PROVIDER,
+    TYPE_DEFAULTS,
     get_backup_provider,
     is_provider_healthy,
     should_recheck_health,
@@ -63,27 +63,27 @@ def test_should_recheck_health_fresh():
 def test_get_backup_provider_from_config(monkeypatch):
     monkeypatch.setattr(
         "think.models.get_config",
-        lambda: {"providers": {"backup": {"provider": "openai"}}},
+        lambda: {"providers": {"generate": {"provider": "google", "backup": "openai"}}},
     )
-    assert get_backup_provider() == "openai"
+    assert get_backup_provider("generate") == "openai"
 
 
 def test_get_backup_provider_fallback_constant(monkeypatch):
     monkeypatch.setattr("think.models.get_config", lambda: {})
-    assert get_backup_provider() == BACKUP_PROVIDER
+    assert get_backup_provider("generate") == TYPE_DEFAULTS["generate"]["backup"]
+    assert get_backup_provider("cogitate") == TYPE_DEFAULTS["cogitate"]["backup"]
 
 
-def test_get_backup_provider_none_when_same_as_config_default(monkeypatch):
+def test_get_backup_provider_none_when_same_as_primary(monkeypatch):
     monkeypatch.setattr(
         "think.models.get_config",
         lambda: {
             "providers": {
-                "default": {"provider": "openai"},
-                "backup": {"provider": "openai"},
+                "generate": {"provider": "openai", "backup": "openai"},
             }
         },
     )
-    assert get_backup_provider() is None
+    assert get_backup_provider("generate") is None
 
 
 def _mock_base_agent_config() -> dict:
@@ -107,7 +107,7 @@ def _patch_prepare_config_dependencies(monkeypatch):
     )
     monkeypatch.setattr(
         "think.models.resolve_provider",
-        lambda _context: ("google", "gemini-3-flash-preview"),
+        lambda _context, _type: ("google", "gemini-3-flash-preview"),
     )
 
 
@@ -120,10 +120,10 @@ def test_preflight_swap_unhealthy_primary(monkeypatch):
         lambda: {"results": [{"provider": "google", "ok": False}]},
     )
     monkeypatch.setattr("think.models.should_recheck_health", lambda _h: False)
-    monkeypatch.setattr("think.models.get_backup_provider", lambda: "anthropic")
+    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
     monkeypatch.setattr(
         "think.models.resolve_model_for_provider",
-        lambda _context, _provider: "claude-sonnet-4-5",
+        lambda _context, _provider, _type="generate": "claude-sonnet-4-5",
     )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
@@ -159,7 +159,7 @@ def test_preflight_no_swap_no_backup_key(monkeypatch):
         lambda: {"results": [{"provider": "google", "ok": False}]},
     )
     monkeypatch.setattr("think.models.should_recheck_health", lambda _h: False)
-    monkeypatch.setattr("think.models.get_backup_provider", lambda: "anthropic")
+    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
     config = prepare_config({"name": "default", "prompt": "hello"})
@@ -194,10 +194,10 @@ def test_on_failure_retry_cogitate(monkeypatch):
             run_cogitate=fail_cogitate if provider == "google" else pass_cogitate
         ),
     )
-    monkeypatch.setattr("think.models.get_backup_provider", lambda: "anthropic")
+    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
     monkeypatch.setattr(
         "think.models.resolve_model_for_provider",
-        lambda _context, _provider: "claude-sonnet-4-5",
+        lambda _context, _provider, _type="cogitate": "claude-sonnet-4-5",
     )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
@@ -233,7 +233,7 @@ def test_on_failure_retry_cogitate_uses_context_from_name(monkeypatch):
             on_event({"event": "finish", "result": "backup result"})
         return "backup result"
 
-    def resolve_model(context, _provider):
+    def resolve_model(context, _provider, _type="cogitate"):
         seen["context"] = context
         return "claude-sonnet-4-5"
 
@@ -250,7 +250,7 @@ def test_on_failure_retry_cogitate_uses_context_from_name(monkeypatch):
         "think.muse.key_to_context",
         lambda _name: "muse.system.default",
     )
-    monkeypatch.setattr("think.models.get_backup_provider", lambda: "anthropic")
+    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
     monkeypatch.setattr("think.models.resolve_model_for_provider", resolve_model)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
@@ -284,10 +284,10 @@ def test_on_failure_retry_generate(monkeypatch):
         "think.muse.key_to_context", lambda _name: "muse.system.default"
     )
     monkeypatch.setattr("think.models.generate_with_result", mock_generate_with_result)
-    monkeypatch.setattr("think.models.get_backup_provider", lambda: "anthropic")
+    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
     monkeypatch.setattr(
         "think.models.resolve_model_for_provider",
-        lambda _context, _provider: "claude-sonnet-4-5",
+        lambda _context, _provider, _type="generate": "claude-sonnet-4-5",
     )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
@@ -353,10 +353,10 @@ def test_on_failure_both_fail_raises_original(monkeypatch):
         "think.muse.key_to_context", lambda _name: "muse.system.default"
     )
     monkeypatch.setattr("think.models.generate_with_result", always_fail)
-    monkeypatch.setattr("think.models.get_backup_provider", lambda: "anthropic")
+    monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
     monkeypatch.setattr(
         "think.models.resolve_model_for_provider",
-        lambda _context, _provider: "claude-sonnet-4-5",
+        lambda _context, _provider, _type="generate": "claude-sonnet-4-5",
     )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 

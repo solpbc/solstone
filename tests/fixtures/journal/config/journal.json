@@ -30,9 +30,15 @@
     }
   },
   "providers": {
-    "default": {
+    "generate": {
       "provider": "google",
-      "tier": 2
+      "tier": 2,
+      "backup": "anthropic"
+    },
+    "cogitate": {
+      "provider": "openai",
+      "tier": 2,
+      "backup": "anthropic"
     },
     "contexts": {
       "test.openai": {"provider": "openai", "model": "gpt-5-mini"},
