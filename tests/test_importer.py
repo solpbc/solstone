@@ -90,7 +90,7 @@ def test_importer_text(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         "sys.argv",
-        ["sol import", str(txt), "--timestamp", "20240101_120000", "--skip-summary"],
+        ["sol import", str(txt), "--timestamp", "20240101_120000"],
     )
     mod.main()
 
@@ -257,54 +257,3 @@ def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
     assert seg_dir == day_dir / "import.audio" / "120001_300"
 
 
-def test_run_import_summary(tmp_path, monkeypatch):
-    """Test _run_import_summary calls cortex_request correctly."""
-    mod = importlib.import_module("think.importers.shared")
-
-    import_dir = tmp_path / "imports" / "20240101_120000"
-    import_dir.mkdir(parents=True)
-
-    captured_request = {}
-
-    def mock_cortex_request(prompt, name, config):
-        captured_request.update({"prompt": prompt, "name": name, "config": config})
-        # Create the summary file like the generator would
-        summary_path = import_dir / "summary.md"
-        summary_path.write_text("# Test Summary\n\nContent here.")
-        return "mock_agent_id"
-
-    def mock_wait_for_agents(agent_ids, timeout):
-        return ({aid: "finish" for aid in agent_ids}, [])  # All completed
-
-    with (
-        patch("think.cortex_client.cortex_request", side_effect=mock_cortex_request),
-        patch("think.cortex_client.wait_for_agents", side_effect=mock_wait_for_agents),
-    ):
-        result = mod._run_import_summary(
-            import_dir,
-            "20240101",
-            ["120000_300", "120500_300"],
-        )
-
-        assert result is True
-        assert (import_dir / "summary.md").exists()
-
-        # Verify cortex_request was called with correct config
-        assert captured_request["name"] == "importer"
-        assert captured_request["config"]["day"] == "20240101"
-        assert captured_request["config"]["span"] == ["120000_300", "120500_300"]
-        assert captured_request["config"]["output"] == "md"
-        assert (
-            str(import_dir / "summary.md") in captured_request["config"]["output_path"]
-        )
-
-
-def test_run_import_summary_no_segments(tmp_path):
-    """Test _run_import_summary returns False with no segments."""
-    mod = importlib.import_module("think.importers.shared")
-
-    import_dir = tmp_path / "imports" / "20240101_120000"
-    import_dir.mkdir(parents=True)
-
-    result = mod._run_import_summary(import_dir, "20240101", [])
-    assert result is False

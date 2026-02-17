@@ -18,7 +18,6 @@ from think.importers.audio import prepare_audio_segments
 from think.importers.shared import (
     _get_relative_path,
     _is_in_imports,
-    _run_import_summary,
     _setup_import,
 )
 from think.importers.text import process_transcript
@@ -67,17 +66,6 @@ def _status_emitter() -> None:
                 stage_elapsed_ms=stage_elapsed_ms,
             )
         time.sleep(5)
-
-
-def str2bool(value: str) -> bool:
-    if isinstance(value, bool):
-        return value
-    val = value.lower()
-    if val in {"y", "yes", "true", "t", "1"}:
-        return True
-    if val in {"n", "no", "false", "f", "0"}:
-        return False
-    raise argparse.ArgumentTypeError("boolean value expected")
 
 
 def _format_timestamp_display(timestamp: str) -> str:
@@ -179,12 +167,6 @@ def main() -> None:
         "--timestamp", help="Timestamp YYYYMMDD_HHMMSS for journal entry"
     )
     parser.add_argument(
-        "--summarize",
-        type=str2bool,
-        default=True,
-        help="Create summary.md after transcription completes",
-    )
-    parser.add_argument(
         "--facet",
         type=str,
         default=None,
@@ -201,11 +183,6 @@ def main() -> None:
         type=str,
         default=None,
         help="Import source type (apple, plaud, audio, text). Auto-detected if omitted.",
-    )
-    parser.add_argument(
-        "--skip-summary",
-        action="store_true",
-        help="Skip waiting for transcription and summary generation",
     )
     parser.add_argument(
         "--force",
@@ -352,10 +329,7 @@ def main() -> None:
         day=day,
         facet=args.facet,
         setting=args.setting,
-        options={
-            "summarize": args.summarize,
-            "skip_summary": args.skip_summary,
-        },
+        options={},
         stage=_current_stage,
         stream=stream,
     )
@@ -500,56 +474,55 @@ def main() -> None:
                 )
                 logger.info(f"Emitted observe.observing for segment: {day}/{seg_key}")
 
-            # Wait for transcription to complete (unless --no-wait)
-            if not args.skip_summary:
-                _set_stage("transcribing")
-                pending = set(created_segments)
-                segment_timeout = 600  # 10 minutes since last progress
-                last_progress = time.monotonic()
+            # Wait for transcription to complete
+            _set_stage("transcribing")
+            pending = set(created_segments)
+            segment_timeout = 600  # 10 minutes since last progress
+            last_progress = time.monotonic()
 
-                logger.info(f"Waiting for {len(pending)} segments to complete")
+            logger.info(f"Waiting for {len(pending)} segments to complete")
 
-                while pending:
-                    # Check for timeout since last progress
-                    if time.monotonic() - last_progress > segment_timeout:
-                        timed_out = sorted(pending)
-                        logger.error(f"Timed out waiting for segments: {timed_out}")
-                        failed_segments.extend(timed_out)
-                        break
+            while pending:
+                # Check for timeout since last progress
+                if time.monotonic() - last_progress > segment_timeout:
+                    timed_out = sorted(pending)
+                    logger.error(f"Timed out waiting for segments: {timed_out}")
+                    failed_segments.extend(timed_out)
+                    break
 
-                    # Poll for observe.observed events from message queue
-                    try:
-                        msg = _message_queue.get(timeout=5.0)
-                    except queue.Empty:
-                        continue
+                # Poll for observe.observed events from message queue
+                try:
+                    msg = _message_queue.get(timeout=5.0)
+                except queue.Empty:
+                    continue
 
-                    tract = msg.get("tract")
-                    event = msg.get("event")
-                    seg = msg.get("segment")
+                tract = msg.get("tract")
+                event = msg.get("event")
+                seg = msg.get("segment")
 
-                    if tract == "observe" and event == "observed" and seg in pending:
-                        pending.discard(seg)
-                        last_progress = time.monotonic()
-                        if msg.get("error"):
-                            errors = msg.get("errors", [])
-                            logger.warning(
-                                f"Segment {seg} failed: {errors} "
-                                f"({len(pending)} remaining)"
-                            )
-                            failed_segments.append(seg)
-                        else:
-                            logger.info(
-                                f"Segment {seg} transcribed "
-                                f"({len(pending)} remaining)"
-                            )
+                if tract == "observe" and event == "observed" and seg in pending:
+                    pending.discard(seg)
+                    last_progress = time.monotonic()
+                    if msg.get("error"):
+                        errors = msg.get("errors", [])
+                        logger.warning(
+                            f"Segment {seg} failed: {errors} "
+                            f"({len(pending)} remaining)"
+                        )
+                        failed_segments.append(seg)
+                    else:
+                        logger.info(
+                            f"Segment {seg} transcribed "
+                            f"({len(pending)} remaining)"
+                        )
 
-                if failed_segments:
-                    logger.warning(
-                        f"{len(failed_segments)} of {len(created_segments)} "
-                        f"segments failed: {failed_segments}"
-                    )
-                else:
-                    logger.info("All segments transcribed successfully")
+            if failed_segments:
+                logger.warning(
+                    f"{len(failed_segments)} of {len(created_segments)} "
+                    f"segments failed: {failed_segments}"
+                )
+            else:
+                logger.info("All segments transcribed successfully")
 
         # Complete processing metadata
         processing_results["processing_completed"] = dt.datetime.now().isoformat()
@@ -587,11 +560,6 @@ def main() -> None:
                 logger.info(f"Updated import metadata: {import_metadata_path}")
             except Exception as e:
                 logger.warning(f"Failed to update import metadata: {e}")
-
-        # Create summary if requested and we have segments
-        if args.summarize and created_segments and not args.skip_summary:
-            _set_stage("summarizing")
-            _run_import_summary(import_dir, day, created_segments)
 
         # Emit completed event
         duration_ms = int((time.monotonic() - _start_time) * 1000)

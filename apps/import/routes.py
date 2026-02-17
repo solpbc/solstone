@@ -270,44 +270,6 @@ def import_detail_api(timestamp: str) -> Any:
         return jsonify({"error": "Import not found"}), 404
 
 
-@import_bp.route("/api/<timestamp>/summary")
-def import_summary_api(timestamp: str) -> Any:
-    """Get the summary HTML for a specific import."""
-    import_dir = Path(state.journal_root) / "imports" / timestamp
-    if not import_dir.exists():
-        return jsonify({"error": "Import not found"}), 404
-
-    summary_path = import_dir / "summary.md"
-    if not summary_path.exists():
-        return jsonify(
-            {
-                "html": "<div class='no-data'>No summary available</div>",
-                "has_summary": False,
-            }
-        )
-
-    try:
-        with open(summary_path, "r", encoding="utf-8") as f:
-            summary_md = f.read()
-
-        # Render markdown to HTML server-side
-        import markdown  # type: ignore
-
-        html_output = markdown.markdown(
-            summary_md, extensions=["extra", "codehilite", "fenced_code", "tables"]
-        )
-
-        return jsonify({"html": html_output, "has_summary": True})
-    except Exception as e:
-        return jsonify(
-            {
-                "error": str(e),
-                "html": "<div class='no-data'>Error loading summary</div>",
-                "has_summary": False,
-            }
-        )
-
-
 @import_bp.route("/api/start", methods=["POST"])
 def import_start() -> Any:
     data = request.get_json(force=True)

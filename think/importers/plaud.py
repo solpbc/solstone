@@ -436,7 +436,6 @@ class PlaudBackend:
                     "--source",
                     "plaud",
                     "--auto",
-                    "--skip-summary",
                 ]
                 logger.info("    Importing %s...", ts)
                 try:

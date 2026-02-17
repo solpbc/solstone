@@ -13,7 +13,6 @@ from think.importers.utils import (
     build_import_info,
     calculate_duration_from_files,
     get_import_details,
-    has_summary,
     list_import_timestamps,
     load_import_segments,
     read_import_metadata,
@@ -158,21 +157,6 @@ def test_read_imported_results(temp_journal):
     assert read_results_none is None
 
 
-def test_has_summary(temp_journal):
-    """Test checking for summary.md existence."""
-    timestamp = "20250101_180000"
-    import_dir = temp_journal / "imports" / timestamp
-    import_dir.mkdir(parents=True)
-
-    # Initially no summary
-    assert has_summary(temp_journal, timestamp) is False
-
-    # Create summary
-    (import_dir / "summary.md").write_text("# Summary\n\nTest", encoding="utf-8")
-
-    # Now it exists
-    assert has_summary(temp_journal, timestamp) is True
-
 
 def test_list_import_timestamps(temp_journal):
     """Test listing all import timestamps."""
@@ -288,14 +272,11 @@ def test_get_import_details(temp_journal):
     (import_dir / "imported.json").write_text(
         '{"total_files_created": 2}', encoding="utf-8"
     )
-    (import_dir / "summary.md").write_text("# Summary", encoding="utf-8")
-
     details = get_import_details(temp_journal, timestamp)
 
     assert details["timestamp"] == timestamp
     assert details["import_json"]["file"] == "test.m4a"
     assert details["imported_json"]["total_files_created"] == 2
-    assert details["has_summary"] is True
 
 
 def test_get_import_details_not_found(temp_journal):

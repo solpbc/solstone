@@ -201,24 +201,6 @@ def read_imported_results(
         return None
 
 
-def has_summary(
-    journal_root: Path,
-    timestamp: str,
-) -> bool:
-    """Check if summary.md exists.
-
-    Args:
-        journal_root: Root journal directory
-        timestamp: Import timestamp
-
-    Returns:
-        True if summary exists, False otherwise
-    """
-    import_dir = journal_root / "imports" / timestamp
-    summary_path = import_dir / "summary.md"
-    return summary_path.exists()
-
-
 # ============================================================================
 # Scanning and Status Logic
 # ============================================================================
@@ -404,7 +386,6 @@ def get_import_details(
         "timestamp": timestamp,
         "import_json": None,
         "imported_json": None,
-        "has_summary": False,
     }
 
     # Read import.json
@@ -424,11 +405,6 @@ def get_import_details(
                 result["imported_json"] = json.load(f)
         except Exception:
             pass
-
-    # Check if summary.md exists
-    summary_path = import_dir / "summary.md"
-    if summary_path.exists():
-        result["has_summary"] = True
 
     # Read segments.json
     segments_json_path = import_dir / "segments.json"

@@ -50,23 +50,6 @@
 
 .no-data { color: #999; font-style: italic; padding: 2em; text-align: center; }
 
-/* Summary content */
-.summary-content { background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 4px; padding: 1.5em; overflow-x: auto; min-height: 100px; }
-.summary-content h1, .summary-content h2, .summary-content h3 { margin-top: 1em; margin-bottom: 0.5em; color: #333; }
-.summary-content h1:first-child, .summary-content h2:first-child { margin-top: 0; }
-.summary-content ul, .summary-content ol { margin: 0.5em 0; padding-left: 1.5em; }
-.summary-content p { margin: 0.5em 0; line-height: 1.6; }
-.summary-content code { background: #f5f5f5; padding: 2px 5px; border-radius: 3px; font-family: monospace; font-size: 0.9em; }
-.summary-content pre { background: #f5f5f5; padding: 1em; border-radius: 4px; overflow-x: auto; }
-.summary-content blockquote { border-left: 3px solid #007bff; margin: 1em 0; padding-left: 1em; color: #666; background: #f8f9fa; }
-.summary-content table { border-collapse: collapse; width: 100%; margin: 1em 0; }
-.summary-content table th, .summary-content table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-.summary-content table th { background: #f5f5f5; font-weight: bold; }
-.summary-content strong { font-weight: 600; color: #222; }
-.summary-loading { text-align: center; color: #666; padding: 2em; }
-.summary-loading .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #ccc; border-top-color: #007bff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 8px; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
   </style>
 
 <div class="import-detail-content">
@@ -83,7 +66,6 @@
     <div class="tab active" data-target="overview">Overview</div>
     <div class="tab" data-target="import-json">Upload Metadata</div>
     <div class="tab" data-target="imported-json">Processing Results</div>
-    <div class="tab" data-target="summary" id="summaryTab" style="display:none;">Summary</div>
   </div>
 
   <div class="tab-content active" id="overview">
@@ -114,51 +96,20 @@
     </div>
   </div>
 
-  <div class="tab-content" id="summary">
-    <div class="summary-content" id="summaryContent">
-      <div class="summary-loading">
-        Loading summary<span class="spinner"></span>
-      </div>
-    </div>
-  </div>
 </div>
 
 <script>
-// Tab switching with lazy loading
+// Tab switching
 const tabs = document.querySelectorAll('.tab');
 const contents = document.querySelectorAll('.tab-content');
-let summaryLoaded = false;
 
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
     const target = tab.dataset.target;
     tabs.forEach(t => t.classList.toggle('active', t.dataset.target === target));
     contents.forEach(c => c.classList.toggle('active', c.id === target));
-
-    // Lazy load summary when tab is clicked
-    if (target === 'summary' && !summaryLoaded) {
-      loadSummary();
-    }
   });
 });
-
-// Function to load summary
-function loadSummary() {
-  summaryLoaded = true;
-  fetch('/app/import/api/{{ timestamp }}/summary')
-    .then(r => r.json())
-    .then(data => {
-      const summaryContent = document.getElementById('summaryContent');
-      if (data.has_summary) {
-        summaryContent.innerHTML = data.html;
-      } else {
-        summaryContent.innerHTML = data.html || '<div class="no-data">No summary available</div>';
-      }
-    })
-    .catch(err => {
-      document.getElementById('summaryContent').innerHTML = '<div class="no-data" style="color: red;">Error loading summary</div>';
-    });
-}
 
 // Format JSON with syntax highlighting
 function formatJson(obj) {
@@ -308,11 +259,6 @@ fetch('/app/import/api/{{ timestamp }}')
     document.getElementById('importJsonContent').innerHTML = formatJson(data.import_json);
     document.getElementById('importedJsonContent').innerHTML = data.imported_json ? formatJson(data.imported_json) : '<span class="no-data">Processing not yet completed</span>';
 
-    // Show summary tab if summary exists
-    if (data.has_summary) {
-      const summaryTab = document.getElementById('summaryTab');
-      summaryTab.style.display = 'block';
-    }
   })
   .catch(err => {
     console.error('Error loading import details:', err);
