@@ -154,6 +154,173 @@ class TestThinkingAggregator:
         assert events[0]["summary"] == "padded"
 
 
+class _MockStderr:
+    """Async iterator yielding pre-set stderr lines."""
+
+    def __init__(self, lines: list[bytes]):
+        self._lines = lines
+        self._index = 0
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if self._index >= len(self._lines):
+            raise StopAsyncIteration
+        line = self._lines[self._index]
+        self._index += 1
+        return line
+
+
+class _MockStdout:
+    """Async iterator yielding pre-set stdout lines, with readline support."""
+
+    def __init__(self, lines: list[bytes]):
+        self._lines = lines
+        self._index = 0
+
+    async def readline(self):
+        if self._index >= len(self._lines):
+            return b""
+        line = self._lines[self._index]
+        self._index += 1
+        return line
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if self._index >= len(self._lines):
+            raise StopAsyncIteration
+        line = self._lines[self._index]
+        self._index += 1
+        return line
+
+
+def _make_process(stdout_lines, stderr_lines, return_code):
+    """Create a mock process with given stdout/stderr/exit code."""
+    process = AsyncMock()
+    process.stdout = _MockStdout(stdout_lines)
+    process.stderr = _MockStderr(stderr_lines)
+    process.stdin = AsyncMock()
+    process.stdin.write = lambda _data: None
+    process.stdin.close = lambda: None
+    process.kill = lambda: None
+    process.wait = AsyncMock(return_value=return_code)
+    return process
+
+
+class TestCLIRunnerExitCode:
+    """Tests for CLIRunner handling of non-zero exit codes."""
+
+    def test_nonzero_exit_no_output_raises(self):
+        """CLI exits with error and no result → RuntimeError with stderr."""
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+
+        process = _make_process(
+            stdout_lines=[],
+            stderr_lines=[b"TerminalQuotaError: quota exhausted\n"],
+            return_code=1,
+        )
+
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=lambda _e, _a, _c: None,
+            callback=callback,
+            aggregator=aggregator,
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(return_value=process),
+            ),
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+            pytest.raises(RuntimeError, match="quota exhausted"),
+        ):
+            asyncio.run(runner.run())
+
+        # CLIRunner should NOT emit error events — that's the caller's job
+        error_events = [e for e in events if e.get("event") == "error"]
+        assert len(error_events) == 0
+
+    def test_nonzero_exit_with_output_returns_result(self):
+        """CLI exits with error but produced output → return result + warning."""
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+
+        # translate accumulates text from stdout events
+        def translate(event, agg, cb):
+            if event.get("type") == "text":
+                agg.accumulate(event["content"])
+            return None
+
+        process = _make_process(
+            stdout_lines=[b'{"type": "text", "content": "The answer is 42"}\n'],
+            stderr_lines=[b"Warning: something went wrong\n"],
+            return_code=1,
+        )
+
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=translate,
+            callback=callback,
+            aggregator=aggregator,
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(return_value=process),
+            ),
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+        ):
+            result = asyncio.run(runner.run())
+
+        assert result == "The answer is 42"
+        warning_events = [e for e in events if e.get("event") == "warning"]
+        assert len(warning_events) == 1
+        assert "code 1" in warning_events[0]["message"]
+        assert "something went wrong" in warning_events[0]["stderr"]
+
+    def test_zero_exit_empty_result_ok(self):
+        """CLI exits 0 with no output → return empty string, no error."""
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+
+        process = _make_process(
+            stdout_lines=[],
+            stderr_lines=[],
+            return_code=0,
+        )
+
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=lambda _e, _a, _c: None,
+            callback=callback,
+            aggregator=aggregator,
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(return_value=process),
+            ),
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+        ):
+            result = asyncio.run(runner.run())
+
+        assert result == ""
+        assert not [e for e in events if e.get("event") in ("error", "warning")]
+
+
 class TestCLIRunnerFirstEventTimeout:
     def test_first_event_timeout_includes_stderr(self):
         events = []
@@ -165,29 +332,8 @@ class TestCLIRunnerFirstEventTimeout:
                 future = asyncio.get_running_loop().create_future()
                 return await future
 
-        class MockStderr:
-            def __init__(self):
-                self._lines = [b"Please authenticate first\n"]
-                self._index = 0
-
-            def __aiter__(self):
-                return self
-
-            async def __anext__(self):
-                if self._index >= len(self._lines):
-                    raise StopAsyncIteration
-                line = self._lines[self._index]
-                self._index += 1
-                return line
-
-        process = AsyncMock()
-        process.stdout = HangingStdout()
-        process.stderr = MockStderr()
-        process.stdin = AsyncMock()
-        process.stdin.write = lambda _data: None
-        process.stdin.close = lambda: None
-        process.kill = lambda: None
-        process.wait = AsyncMock(return_value=0)
+        process = _make_process([], [b"Please authenticate first\n"], 0)
+        process.stdout = HangingStdout()  # Override with hanging version
 
         runner = CLIRunner(
             cmd=["fakecli", "--json"],

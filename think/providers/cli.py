@@ -268,13 +268,41 @@ class CLIRunner:
 
         # Wait for process to exit
         return_code = await process.wait()
+        result = self.aggregator.flush_as_result()
 
         if return_code != 0:
             stderr_text = "\n".join(stderr_lines[-20:])  # Last 20 lines
-            LOG.error("CLI process exited with code %d: %s", return_code, stderr_text)
+            if result:
+                # CLI failed but produced output — warn and return what we got
+                LOG.warning(
+                    "CLI process exited with code %d but produced output. "
+                    "Stderr: %s",
+                    return_code,
+                    stderr_text,
+                )
+                self.callback.emit(
+                    {
+                        "event": "warning",
+                        "message": f"CLI exited with code {return_code}",
+                        "stderr": stderr_text,
+                        "ts": now_ms(),
+                    }
+                )
+            else:
+                # CLI failed with no output — this is an error.
+                # Don't emit error event here; the caller's exception
+                # handler is responsible for error event emission.
+                LOG.error(
+                    "CLI process exited with code %d: %s",
+                    return_code,
+                    stderr_text,
+                )
+                raise RuntimeError(
+                    f"CLI process exited with code {return_code}. "
+                    f"Stderr: {stderr_text}"
+                )
 
-        # Get final result from aggregator
-        return self.aggregator.flush_as_result()
+        return result
 
     async def _process_stdout(self, process: asyncio.subprocess.Process) -> None:
         """Read and translate JSONL lines from stdout."""
