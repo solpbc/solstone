@@ -6,7 +6,7 @@
   "schedule": "daily",
   "priority": 10,
   "output": "json",
-  "hook": {"pre": "daily_schedule"},
+  "hook": {"pre": "daily_schedule", "post": "daily_schedule"},
   "color": "#455a64",
   "thinking_budget": 4096,
   "max_output_tokens": 512,

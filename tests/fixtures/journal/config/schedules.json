@@ -1,4 +1,5 @@
 {
+  "daily_time": "03:00",
   "test:echo": {
     "cmd": ["sol", "echo", "-v"],
     "every": "hourly"

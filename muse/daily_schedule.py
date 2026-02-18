@@ -1,16 +1,20 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Pre-hook for daily_schedule generator.
+"""Hook for daily_schedule generator.
 
 Generates activity span data from journal segments to identify optimal
 maintenance windows when the user is consistently inactive.
 """
 
+import json
+import logging
 import re
+import tempfile
 from datetime import datetime, timedelta
+from pathlib import Path
 
-from think.utils import iter_segments
+from think.utils import get_journal, iter_segments
 
 
 def _parse_segment(folder_name: str) -> tuple[datetime, int] | None:
@@ -161,3 +165,68 @@ def pre_process(context: dict) -> dict | None:
     span_summary = generate_span_summary(days=days)
 
     return {"transcript": span_summary}
+
+
+def post_process(result: str, context: dict) -> str | None:
+    """Persist primary schedule time to config/schedules.json.
+
+    Extracts the primary time from the generator's JSON output and writes
+    it as daily_time in the schedules config for the scheduler to use.
+
+    Args:
+        result: The generated JSON output string.
+        context: Config dict from the agent pipeline.
+
+    Returns:
+        None — side-effect only, does not transform the result.
+    """
+    logger = logging.getLogger(__name__)
+
+    try:
+        data = json.loads(result)
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("daily_schedule: could not parse result as JSON")
+        return None
+
+    primary = data.get("primary")
+    if not primary or not isinstance(primary, str):
+        logger.warning("daily_schedule: no primary time in result")
+        return None
+
+    # Validate HH:MM format
+    try:
+        datetime.strptime(primary, "%H:%M")
+    except ValueError:
+        logger.warning("daily_schedule: invalid primary time format: %s", primary)
+        return None
+
+    # Atomic read-modify-write of config/schedules.json
+    config_path = Path(get_journal()) / "config" / "schedules.json"
+
+    try:
+        if config_path.exists():
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        else:
+            config = {}
+    except (json.JSONDecodeError, OSError):
+        config = {}
+
+    config["daily_time"] = primary
+
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(
+        dir=config_path.parent, suffix=".tmp", prefix=".schedules_"
+    )
+    tmp_file = Path(tmp_path)
+    try:
+        with open(fd, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2)
+            f.write("\n")
+        tmp_file.replace(config_path)
+    except BaseException:
+        tmp_file.unlink(missing_ok=True)
+        raise
+
+    logger.info("daily_schedule: saved daily_time=%s to schedules config", primary)
+    return None

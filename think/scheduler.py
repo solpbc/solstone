@@ -18,7 +18,7 @@ import json
 import logging
 import tempfile
 import time
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +36,8 @@ _entries: dict[str, dict[str, Any]] = {}
 _state: dict[str, dict[str, Any]] = {}
 _callosum: Any = None  # CallosumConnection
 _last_hour: datetime | None = None
-_last_day: date | None = None
+_daily_time: str | None = None
+_last_daily_mark: datetime | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -46,8 +47,11 @@ _last_day: date | None = None
 
 def load_config() -> dict[str, dict[str, Any]]:
     """Read config/schedules.json and return validated entries."""
+    global _daily_time
+
     config_path = Path(get_journal()) / "config" / "schedules.json"
     if not config_path.exists():
+        _daily_time = None
         return {}
 
     try:
@@ -55,13 +59,21 @@ def load_config() -> dict[str, dict[str, Any]]:
             raw = json.load(f)
     except (json.JSONDecodeError, OSError) as exc:
         logger.warning("Failed to load schedules config: %s", exc)
+        _daily_time = None
         return {}
 
     if not isinstance(raw, dict):
         logger.warning(
             "schedules.json must be a JSON object, got %s", type(raw).__name__
         )
+        _daily_time = None
         return {}
+
+    # Extract daily_time metadata (not a schedule entry)
+    _daily_time = raw.pop("daily_time", None)
+    if _daily_time is not None and not isinstance(_daily_time, str):
+        logger.warning("schedules.json: daily_time must be a string, ignoring")
+        _daily_time = None
 
     entries: dict[str, dict[str, Any]] = {}
     for name, entry in raw.items():
@@ -133,6 +145,39 @@ def _hour_mark(dt: datetime) -> datetime:
     return dt.replace(minute=0, second=0, microsecond=0)
 
 
+def _parse_daily_time(raw: str | None) -> tuple[int, int] | None:
+    """Parse HH:MM daily time string. Returns (hour, minute) or None."""
+    if not raw or not isinstance(raw, str):
+        return None
+    parts = raw.split(":")
+    if len(parts) != 2:
+        return None
+    try:
+        h, m = int(parts[0]), int(parts[1])
+        if 0 <= h <= 23 and 0 <= m <= 59:
+            return (h, m)
+    except ValueError:
+        return None
+    return None
+
+
+def _compute_daily_mark(now: datetime, daily_time_str: str | None) -> datetime:
+    """Compute the most recent daily boundary datetime.
+
+    With a configured daily_time (e.g. "03:00"), the boundary is that time
+    today if already passed, otherwise that time yesterday. Without a
+    configured time, falls back to midnight (start of today).
+    """
+    parsed = _parse_daily_time(daily_time_str)
+    if parsed is None:
+        return now.replace(hour=0, minute=0, second=0, microsecond=0)
+    h, m = parsed
+    today_mark = now.replace(hour=h, minute=m, second=0, microsecond=0)
+    if now >= today_mark:
+        return today_mark
+    return today_mark - timedelta(days=1)
+
+
 def _is_due(entry: dict, state_entry: dict | None, now: datetime) -> bool:
     """Check if an entry is due based on its interval and last_run."""
     last_run = (state_entry or {}).get("last_run")
@@ -148,7 +193,7 @@ def _is_due(entry: dict, state_entry: dict | None, now: datetime) -> bool:
     if every == "hourly":
         return last_dt < _hour_mark(now)
     if every == "daily":
-        return last_dt.date() < now.date()
+        return last_dt < _compute_daily_mark(now, _daily_time)
     return False
 
 
@@ -159,7 +204,7 @@ def _is_due(entry: dict, state_entry: dict | None, now: datetime) -> bool:
 
 def init(callosum: Any) -> None:
     """Initialize scheduler with a Callosum connection. Load config and state."""
-    global _entries, _state, _callosum, _last_hour, _last_day
+    global _entries, _state, _callosum, _last_hour, _last_daily_mark
 
     _callosum = callosum
     _entries = load_config()
@@ -167,7 +212,7 @@ def init(callosum: Any) -> None:
 
     now = datetime.now()
     _last_hour = _hour_mark(now)
-    _last_day = now.date()
+    _last_daily_mark = _compute_daily_mark(now, _daily_time)
 
     if _entries:
         logger.info(
@@ -185,25 +230,29 @@ def check() -> None:
     Called each supervisor tick (~1s). Does nothing unless an hour or day
     boundary has been crossed since the last check.
     """
-    global _entries, _last_hour, _last_day
+    global _entries, _last_hour, _last_daily_mark
 
     if _last_hour is None:
         return
 
     now = datetime.now()
     current_hour = _hour_mark(now)
-    current_day = now.date()
+    current_daily_mark = _compute_daily_mark(now, _daily_time)
 
     hour_changed = current_hour != _last_hour
-    day_changed = current_day != _last_day
+    daily_mark_changed = current_daily_mark != _last_daily_mark
 
-    if not hour_changed and not day_changed:
+    if not hour_changed and not daily_mark_changed:
         return
 
     # Boundary crossed — reload config for freshest definitions
     _entries = load_config()
     _last_hour = current_hour
-    _last_day = current_day
+    # Recompute with potentially updated _daily_time from config reload
+    new_daily_mark = _compute_daily_mark(now, _daily_time)
+    if new_daily_mark != _last_daily_mark:
+        daily_mark_changed = True
+    _last_daily_mark = new_daily_mark
 
     if not _entries:
         return
@@ -215,7 +264,7 @@ def check() -> None:
         # Only check entries matching the boundary that changed
         if every == "hourly" and not hour_changed:
             continue
-        if every == "daily" and not day_changed:
+        if every == "daily" and not daily_mark_changed:
             continue
 
         if not _is_due(entry, _state.get(name), now):
@@ -256,14 +305,15 @@ def collect_status() -> list[dict[str, Any]]:
     for name, entry in _entries.items():
         state_entry = _state.get(name)
         last_run = (state_entry or {}).get("last_run")
-        result.append(
-            {
-                "name": name,
-                "every": entry["every"],
-                "last_run": last_run,
-                "due": _is_due(entry, state_entry, now),
-            }
-        )
+        entry_status = {
+            "name": name,
+            "every": entry["every"],
+            "last_run": last_run,
+            "due": _is_due(entry, state_entry, now),
+        }
+        if entry["every"] == "daily" and _daily_time:
+            entry_status["daily_time"] = _daily_time
+        result.append(entry_status)
     return result
 
 
@@ -292,7 +342,8 @@ def _format_next_due(entry: dict, state_entry: dict | None, now: datetime) -> st
         nxt = _hour_mark(now) + timedelta(hours=1)
         return nxt.strftime("%H:%M")
     if every == "daily":
-        return "midnight"
+        parsed = _parse_daily_time(_daily_time)
+        return f"{parsed[0]:02d}:{parsed[1]:02d}" if parsed else "midnight"
     return "?"
 
 
@@ -314,6 +365,11 @@ def main() -> None:
         except (json.JSONDecodeError, OSError) as exc:
             print(f"Error reading {config_path}: {exc}")
             return
+
+    # Extract daily_time metadata before processing entries
+    global _daily_time
+    raw_daily_time = config.pop("daily_time", None)
+    _daily_time = raw_daily_time if isinstance(raw_daily_time, str) else None
 
     if not config:
         print("No schedules configured.")

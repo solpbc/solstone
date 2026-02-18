@@ -50,13 +50,15 @@ def reset_scheduler_state():
     mod._state = {}
     mod._callosum = None
     mod._last_hour = None
-    mod._last_day = None
+    mod._daily_time = None
+    mod._last_daily_mark = None
     yield
     mod._entries = {}
     mod._state = {}
     mod._callosum = None
     mod._last_hour = None
-    mod._last_day = None
+    mod._daily_time = None
+    mod._last_daily_mark = None
 
 
 @pytest.fixture
@@ -227,6 +229,212 @@ class TestIsDue:
         assert _is_due(entry, state, datetime(2026, 2, 17, 0, 1)) is True
 
 
+class TestDailyTime:
+    """Tests for daily_time-aware scheduling."""
+
+    def test_load_config_extracts_daily_time(self, journal_path):
+        """load_config extracts daily_time from schedules.json."""
+        import think.scheduler as mod
+
+        _write_config(
+            journal_path,
+            {
+                "daily_time": "03:00",
+                "a": {"cmd": ["sol", "x"], "every": "daily"},
+            },
+        )
+        entries = mod.load_config()
+        assert "a" in entries
+        assert "daily_time" not in entries  # Not a schedule entry
+        assert mod._daily_time == "03:00"
+
+    def test_load_config_no_daily_time(self, journal_path):
+        """When daily_time is absent, _daily_time is None."""
+        import think.scheduler as mod
+
+        _write_config(journal_path, {"a": {"cmd": ["sol", "x"], "every": "hourly"}})
+        mod.load_config()
+        assert mod._daily_time is None
+
+    def test_load_config_invalid_daily_time(self, journal_path):
+        """Non-string daily_time is ignored."""
+        import think.scheduler as mod
+
+        _write_config(
+            journal_path,
+            {
+                "daily_time": 300,
+                "a": {"cmd": ["sol", "x"], "every": "hourly"},
+            },
+        )
+        mod.load_config()
+        assert mod._daily_time is None
+
+    def test_is_due_with_daily_time(self):
+        """Daily task is due when last_run is before the daily_time boundary."""
+        import think.scheduler as mod
+
+        mod._daily_time = "03:00"
+        entry = {"cmd": ["sol", "x"], "every": "daily"}
+        # Last run at 02:00 today, now is 04:00 — past the 03:00 boundary
+        state = {"last_run": datetime(2026, 2, 17, 2, 0).timestamp()}
+        assert mod._is_due(entry, state, datetime(2026, 2, 17, 4, 0)) is True
+
+    def test_not_due_after_daily_time_boundary(self):
+        """Daily task is not due when last_run is after the daily_time boundary."""
+        import think.scheduler as mod
+
+        mod._daily_time = "03:00"
+        entry = {"cmd": ["sol", "x"], "every": "daily"}
+        # Last run at 03:30 today, now is 04:00 — already ran after boundary
+        state = {"last_run": datetime(2026, 2, 17, 3, 30).timestamp()}
+        assert mod._is_due(entry, state, datetime(2026, 2, 17, 4, 0)) is False
+
+    def test_not_due_before_daily_time_boundary(self):
+        """Before the daily_time, yesterday's boundary applies."""
+        import think.scheduler as mod
+
+        mod._daily_time = "03:00"
+        entry = {"cmd": ["sol", "x"], "every": "daily"}
+        # Last run at 04:00 yesterday, now is 02:00 today
+        # Yesterday's boundary was yesterday 03:00, last_run > that → not due
+        state = {"last_run": datetime(2026, 2, 16, 4, 0).timestamp()}
+        assert mod._is_due(entry, state, datetime(2026, 2, 17, 2, 0)) is False
+
+    def test_check_fires_at_daily_time_not_midnight(self, journal_path):
+        """check() fires daily tasks at the configured daily_time, not midnight."""
+        import think.scheduler as mod
+
+        callosum = Mock()
+        callosum.emit = Mock(return_value=True)
+
+        _write_config(
+            journal_path,
+            {
+                "daily_time": "03:00",
+                "d": {"cmd": ["sol", "daily-thing"], "every": "daily"},
+            },
+        )
+
+        mod.init(callosum)
+
+        # Set boundaries: last check at 02:59 (before 03:00 boundary)
+        # _last_daily_mark should be yesterday's 03:00 since 02:59 < 03:00
+        mod._last_hour = datetime(2026, 2, 17, 2, 0)
+        mod._last_daily_mark = datetime(2026, 2, 16, 3, 0)
+
+        # Now cross to 03:01 — daily mark changes from yesterday's to today's
+        with _fake_now(datetime(2026, 2, 17, 3, 1)):
+            mod.check()
+
+        callosum.emit.assert_called_once()
+        assert callosum.emit.call_args[1]["cmd"] == ["sol", "daily-thing"]
+
+    def test_check_no_fire_at_midnight_with_daily_time(self, journal_path):
+        """Midnight does not trigger daily tasks when daily_time is set."""
+        import think.scheduler as mod
+
+        callosum = Mock()
+        callosum.emit = Mock(return_value=True)
+
+        _write_config(
+            journal_path,
+            {
+                "daily_time": "03:00",
+                "d": {"cmd": ["sol", "daily-thing"], "every": "daily"},
+            },
+        )
+
+        # State: ran at 03:30 yesterday (after yesterday's boundary)
+        _write_state(
+            journal_path,
+            {"d": {"last_run": datetime(2026, 2, 16, 3, 30).timestamp()}},
+        )
+
+        mod.init(callosum)
+
+        # Set boundaries at 23:59 Feb 16
+        mod._last_hour = datetime(2026, 2, 16, 23, 0)
+        mod._last_daily_mark = datetime(2026, 2, 16, 3, 0)
+
+        # Cross midnight to 00:01 Feb 17 — hour changes but daily mark stays
+        # at Feb 16 03:00 (since 00:01 < 03:00, yesterday's mark applies)
+        with _fake_now(datetime(2026, 2, 17, 0, 1)):
+            mod.check()
+
+        # Only hourly tasks would fire, not daily (no daily_mark_changed)
+        # Since we only have a daily task and daily mark didn't change, nothing fires
+        callosum.emit.assert_not_called()
+
+    def test_format_next_due_with_daily_time(self):
+        """_format_next_due shows configured time instead of midnight."""
+        import think.scheduler as mod
+
+        mod._daily_time = "03:00"
+        entry = {"cmd": ["sol", "x"], "every": "daily"}
+        # Last ran after the boundary — not currently due
+        state = {"last_run": datetime(2026, 2, 17, 3, 30).timestamp()}
+        now = datetime(2026, 2, 17, 14, 0)
+
+        result = mod._format_next_due(entry, state, now)
+        assert result == "03:00"
+
+    def test_format_next_due_no_daily_time(self):
+        """_format_next_due shows midnight when no daily_time configured."""
+        import think.scheduler as mod
+
+        mod._daily_time = None
+        entry = {"cmd": ["sol", "x"], "every": "daily"}
+        state = {"last_run": datetime(2026, 2, 17, 0, 5).timestamp()}
+        now = datetime(2026, 2, 17, 14, 0)
+
+        result = mod._format_next_due(entry, state, now)
+        assert result == "midnight"
+
+    def test_invalid_daily_time_falls_back_to_midnight(self, journal_path):
+        """Invalid daily_time string falls back to midnight behavior."""
+        import think.scheduler as mod
+
+        _write_config(
+            journal_path,
+            {
+                "daily_time": "not-a-time",
+                "d": {"cmd": ["sol", "daily-thing"], "every": "daily"},
+            },
+        )
+        mod.load_config()
+        assert mod._daily_time == "not-a-time"  # Stored as-is
+
+        entry = {"cmd": ["sol", "x"], "every": "daily"}
+        # _parse_daily_time returns None for invalid → midnight fallback
+        # Last run yesterday, now is today → due (midnight boundary)
+        state = {"last_run": datetime(2026, 2, 16, 23, 50).timestamp()}
+        assert mod._is_due(entry, state, datetime(2026, 2, 17, 0, 1)) is True
+
+    def test_collect_status_includes_daily_time(self, journal_path):
+        """collect_status includes daily_time for daily entries."""
+        import think.scheduler as mod
+
+        mod._daily_time = "03:00"
+        mod._entries = {"d": {"cmd": ["sol", "x"], "every": "daily"}}
+        mod._state = {}
+
+        status = mod.collect_status()
+        assert len(status) == 1
+        assert status[0]["daily_time"] == "03:00"
+
+    def test_collect_status_no_daily_time_for_hourly(self, journal_path):
+        """collect_status does not include daily_time for hourly entries."""
+        import think.scheduler as mod
+
+        mod._daily_time = "03:00"
+        mod._entries = {"h": {"cmd": ["sol", "x"], "every": "hourly"}}
+        mod._state = {}
+
+        status = mod.collect_status()
+        assert "daily_time" not in status[0]
+
+
 # ---------------------------------------------------------------------------
 # init
 # ---------------------------------------------------------------------------
@@ -251,7 +459,7 @@ class TestInit:
         assert mod._state["a"]["last_run"] == 1700000000.0
         assert mod._callosum is callosum
         assert mod._last_hour is not None
-        assert mod._last_day is not None
+        assert mod._last_daily_mark is not None
 
     def test_no_config_file(self, journal_path):
         import think.scheduler as mod
@@ -295,7 +503,7 @@ class TestCheck:
         mod.init(callosum)
         # Set boundaries to current — no crossing
         mod._last_hour = mod._hour_mark(now)
-        mod._last_day = now.date()
+        mod._last_daily_mark = datetime(2026, 2, 17, 0, 0)
 
         with _fake_now(now):
             mod.check()
@@ -320,7 +528,7 @@ class TestCheck:
 
         # Simulate: last check was at 13:59, now it's 14:01
         mod._last_hour = datetime(2026, 2, 17, 13, 0)
-        mod._last_day = datetime(2026, 2, 17).date()
+        mod._last_daily_mark = datetime(2026, 2, 17, 0, 0)
         # No prior state → task is due
 
         with _fake_now(datetime(2026, 2, 17, 14, 1)):
@@ -359,7 +567,7 @@ class TestCheck:
 
         # Simulate: last check was yesterday 23:59, now it's 00:01
         mod._last_hour = datetime(2026, 2, 16, 23, 0)
-        mod._last_day = datetime(2026, 2, 16).date()
+        mod._last_daily_mark = datetime(2026, 2, 16, 0, 0)
 
         with _fake_now(datetime(2026, 2, 17, 0, 1)):
             mod.check()
@@ -390,7 +598,7 @@ class TestCheck:
 
         mod.init(callosum)
         mod._last_hour = datetime(2026, 2, 17, 14, 0)
-        mod._last_day = datetime(2026, 2, 17).date()
+        mod._last_daily_mark = datetime(2026, 2, 17, 0, 0)
 
         # Cross to hour 15
         with _fake_now(datetime(2026, 2, 17, 15, 0, 1)):
@@ -410,7 +618,7 @@ class TestCheck:
         _write_config(journal_path, {})
         mod.init(callosum)
         mod._last_hour = datetime(2026, 2, 17, 13, 0)
-        mod._last_day = datetime(2026, 2, 17).date()
+        mod._last_daily_mark = datetime(2026, 2, 17, 0, 0)
 
         # Now write a real config
         _write_config(
@@ -442,7 +650,7 @@ class TestCheck:
 
         mod.init(callosum)
         mod._last_hour = datetime(2026, 2, 17, 13, 0)
-        mod._last_day = datetime(2026, 2, 17).date()
+        mod._last_daily_mark = datetime(2026, 2, 17, 0, 0)
 
         with _fake_now(datetime(2026, 2, 17, 14, 1)):
             mod.check()
