@@ -365,7 +365,10 @@ def pre_process(context: dict) -> dict | None:
             # Look further back if immediate predecessor has no state
             if previous_state is None:
                 previous_state, found_seg = find_previous_state(
-                    day, segment, facet, stream=stream,
+                    day,
+                    segment,
+                    facet,
+                    stream=stream,
                     timeout_seconds=timeout_seconds,
                 )
                 if found_seg:

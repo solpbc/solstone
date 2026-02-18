@@ -512,8 +512,7 @@ def main() -> None:
                         failed_segments.append(seg)
                     else:
                         logger.info(
-                            f"Segment {seg} transcribed "
-                            f"({len(pending)} remaining)"
+                            f"Segment {seg} transcribed " f"({len(pending)} remaining)"
                         )
 
             if failed_segments:
