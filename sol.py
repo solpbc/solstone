@@ -48,6 +48,7 @@ COMMANDS: dict[str, str] = {
     "top": "think.top",
     "logs": "think.logs_cli",
     "callosum": "think.callosum",
+    "notify": "think.notify_cli",
     "streams": "think.streams",
     "journal-stats": "think.journal_stats",
     "config": "think.config_cli",
@@ -100,6 +101,7 @@ GROUPS: dict[str, list[str]] = {
         "top",
         "logs",
         "callosum",
+        "notify",
     ],
     "Observe (capture)": [
         "transcribe",
