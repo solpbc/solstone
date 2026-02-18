@@ -29,7 +29,6 @@ import os
 from muse.activity_state import (
     check_timeout,
     find_previous_segment,
-    find_previous_state,
 )
 from think.activities import (
     append_activity_record,
@@ -405,9 +404,7 @@ def _pre_process_normal(context: dict) -> dict | None:
             )
             for facet in earlier_facets:
                 if facet not in prev_state_source:
-                    state = _load_activity_state(
-                        day, earlier_seg, facet, stream=stream
-                    )
+                    state = _load_activity_state(day, earlier_seg, facet, stream=stream)
                     if any(item.get("state") == "active" for item in state):
                         prev_state_source[facet] = (earlier_seg, state)
             # Stop once we've found a segment that had activity state
@@ -452,9 +449,7 @@ def _pre_process_normal(context: dict) -> dict | None:
 
     all_ended: dict[str, list[dict]] = {}
     for end_seg, facets in source_segments.items():
-        partial = _collect_ended(
-            day, facets, ended_by_facet, end_seg, stream=stream
-        )
+        partial = _collect_ended(day, facets, ended_by_facet, end_seg, stream=stream)
         all_ended.update(partial)
 
     return _build_result(context, all_ended)

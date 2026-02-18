@@ -157,7 +157,6 @@ def test_read_imported_results(temp_journal):
     assert read_results_none is None
 
 
-
 def test_list_import_timestamps(temp_journal):
     """Test listing all import timestamps."""
     # Create some import folders

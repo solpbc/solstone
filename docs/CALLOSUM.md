@@ -127,6 +127,18 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **Key fields:** `queue_size`, `segment`, `state`, `host`, `platform`
 **Purpose:** Track remote sync service status for segment uploads to central server
 
+### `notification` - In-app notification display
+**Source:** `convey/static/websocket.js` (client-side listener; any service can emit)
+**Events:** any (event name is not interpreted)
+**Key fields:** `title` (string), `message` (string), `icon` (string, emoji), `action` (string, URL path), `facet` (string), `autoDismiss` (number, ms), `app` (string, app name)
+**Defaults:** `app` → "system", `icon` → "📬", `title` → "Notification" (applied by `AppServices.notifications.show()`)
+**Purpose:** Forward Callosum events directly to the browser notification UI — any service can trigger an in-app notification card by emitting to this tract
+
+**Example:**
+```python
+callosum_send("notification", "show", title="Import Complete", message="3 segments imported", icon="📥", autoDismiss=5000)
+```
+
 ---
 
 ## Key Concepts
