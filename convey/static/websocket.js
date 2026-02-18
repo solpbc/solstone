@@ -154,6 +154,11 @@
     }
   };
 
+  // Built-in tract: forward notification events to the in-app notification UI
+  listeners['notification'] = [function(msg) {
+    window.AppServices?.notifications?.show(msg);
+  }];
+
   // Auto-connect when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', connect);
