@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 SAMPLE_RATE = 16000
 
 VIDEO_EXTENSIONS = (".webm", ".mp4", ".mov")
-AUDIO_EXTENSIONS = (".flac", ".ogg", ".m4a", ".opus")
+AUDIO_EXTENSIONS = (".flac", ".ogg", ".m4a", ".opus", ".mp3")
 
 
 def audio_to_flac_bytes(audio: np.ndarray, sample_rate: int) -> bytes:

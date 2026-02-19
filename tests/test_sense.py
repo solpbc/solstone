@@ -252,6 +252,7 @@ def test_file_sensor_match_pattern():
         sensor = FileSensor(journal_dir)
         sensor.register("*.webm", "describe", ["echo", "{file}"])
         sensor.register("*.flac", "transcribe", ["cat", "{file}"])
+        sensor.register("*.mp3", "transcribe", ["cat", "{file}"])
 
         # Should match - files in segment directory
         webm_file = segment_dir / "center_DP-3_screen.webm"
@@ -261,6 +262,10 @@ def test_file_sensor_match_pattern():
         flac_file = segment_dir / "audio.flac"
         assert sensor._match_pattern(flac_file) is not None
         assert sensor._match_pattern(flac_file)[0] == "transcribe"
+
+        mp3_file = segment_dir / "imported_audio.mp3"
+        assert sensor._match_pattern(mp3_file) is not None
+        assert sensor._match_pattern(mp3_file)[0] == "transcribe"
 
         # Should not match - wrong extension
         txt_file = segment_dir / "test.txt"
