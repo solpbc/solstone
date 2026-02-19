@@ -274,7 +274,6 @@ app = typer.Typer(help="Description of your app commands.")
 
 **CLI vs tool functions:** CLI commands parallel tool functions but are optimized for interactive terminal use. Key differences:
 - Tool functions may accept a `Context` parameter for caller metadata; CLI has no context object
-- No guard parameters (e.g., `line_number`, `observation_number`) — auto-compute them internally since interactive users don't need optimistic locking
 - Print formatted text instead of returning dicts
 - Use `typer.Exit(1)` for errors instead of returning error dicts
 

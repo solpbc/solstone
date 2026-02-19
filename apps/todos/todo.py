@@ -24,7 +24,6 @@ __all__ = [
     "TodoChecklist",
     "TodoItem",
     "TodoError",
-    "TodoLineNumberError",
     "TodoEmptyTextError",
     "get_todos",
     "todo_file_path",
@@ -40,15 +39,6 @@ TIME_RE = re.compile(r"\((\d{1,2}:[0-5]\d)\)\s*$")
 
 class TodoError(Exception):
     """Base exception for todo checklist operations."""
-
-
-class TodoLineNumberError(TodoError):
-    """Raised when an unexpected line number is supplied."""
-
-    def __init__(self, expected: int, received: int) -> None:
-        super().__init__(f"line number {received} must match the next available line")
-        self.expected = expected
-        self.received = received
 
 
 class TodoEmptyTextError(TodoError):
@@ -215,29 +205,10 @@ class TodoChecklist:
         lines = [f"{item.index}: {item.display_line()}" for item in self.items]
         return "\n".join(lines)
 
-    def add_entry(
-        self, line_number: int, text: str, time: str | None = None
-    ) -> TodoItem:
-        """Append a new unchecked todo entry.
-
-        Args:
-            line_number: Expected next line value; must be ``current_count + 1``.
-            text: Body of the todo item.
-            time: Optional scheduled time in "HH:MM" format.
-
-        Returns:
-            The newly created TodoItem.
-        """
-        expected = len(self.items) + 1
-        if line_number != expected:
-            raise TodoLineNumberError(expected, line_number)
-
-        return self.append_entry(text, time)
-
     def append_entry(
         self, text: str, time: str | None = None, *, created_at: int | None = None
     ) -> TodoItem:
-        """Append a new unchecked todo entry without line validation.
+        """Append a new unchecked todo entry.
 
         Args:
             text: Body of the todo item.

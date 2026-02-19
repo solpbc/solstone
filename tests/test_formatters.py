@@ -1575,7 +1575,7 @@ class TestFormatLogs:
                 "source": "tool",
                 "actor": "todos:todo",
                 "action": "todo_add",
-                "params": {"line_number": 1, "text": "Test task"},
+                "params": {"text": "Test task"},
             }
         ]
 
@@ -1586,7 +1586,6 @@ class TestFormatLogs:
         assert "**Source:** tool" in chunks[0]["markdown"]
         assert "**Time:** 07:33:05" in chunks[0]["markdown"]
         assert "**Parameters:**" in chunks[0]["markdown"]
-        assert "- line_number: 1" in chunks[0]["markdown"]
         assert "- text: Test task" in chunks[0]["markdown"]
 
     def test_format_logs_with_agent_id(self):

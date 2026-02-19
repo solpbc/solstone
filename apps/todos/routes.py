@@ -20,7 +20,6 @@ from flask import (
 from apps.todos.todo import (
     TodoChecklist,
     TodoEmptyTextError,
-    TodoLineNumberError,
     get_todos,
 )
 from apps.utils import log_app_action
@@ -371,7 +370,7 @@ def todos_day(day: str):  # type: ignore[override]
                 return redirect(url_for("app:todos.todos_day", day=day))
         except TodoEmptyTextError:
             flash("Cannot update todo to empty text", "error")
-        except (TodoLineNumberError, IndexError):
+        except IndexError:
             flash("Todo list changed, please refresh and try again", "error")
 
         # If AJAX request, return JSON with updated counts
@@ -493,7 +492,7 @@ def move_todo(day: str):  # type: ignore[override]
 
     try:
         source_item = source_checklist.get_item(index)
-    except (IndexError, TodoLineNumberError) as exc:
+    except IndexError as exc:
         current_app.logger.debug("Failed to locate todo %s on %s: %s", index, day, exc)
         return (
             jsonify({"error": "Todo list changed, please refresh and try again."}),

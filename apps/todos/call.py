@@ -3,15 +3,13 @@
 
 """CLI commands for todo management.
 
-Provides human-friendly CLI access to todo operations, paralleling the
-tool functions in ``apps/todos/tools.py`` but optimized for terminal use.
-
 Auto-discovered by ``think.call`` and mounted as ``sol call todos ...``.
 """
 
 import typer
 
 from apps.todos import todo
+from think.facets import log_call_action
 
 app = typer.Typer(help="Todo checklist management.")
 
@@ -115,8 +113,13 @@ def add_todo(
 
     try:
         checklist = todo.TodoChecklist.load(day, facet)
-        line_number = len(checklist.items) + 1
-        checklist.add_entry(line_number, text)
+        item = checklist.append_entry(text)
+        log_call_action(
+            facet=facet,
+            action="todo_add",
+            params={"text": item.text},
+            day=day,
+        )
         typer.echo(checklist.display())
     except todo.TodoEmptyTextError:
         typer.echo("Error: todo text cannot be empty", err=True)
@@ -142,7 +145,13 @@ def done_todo(
 
     try:
         checklist = todo.TodoChecklist.load(day, facet)
-        checklist.mark_done(line_number)
+        item = checklist.mark_done(line_number)
+        log_call_action(
+            facet=facet,
+            action="todo_done",
+            params={"line_number": line_number, "text": item.text},
+            day=day,
+        )
         typer.echo(checklist.display())
     except FileNotFoundError:
         typer.echo(f"Error: no todos found for facet '{facet}' on {day}", err=True)
@@ -171,7 +180,13 @@ def cancel_todo(
 
     try:
         checklist = todo.TodoChecklist.load(day, facet)
-        checklist.cancel_entry(line_number)
+        item = checklist.cancel_entry(line_number)
+        log_call_action(
+            facet=facet,
+            action="todo_cancel",
+            params={"line_number": line_number, "text": item.text},
+            day=day,
+        )
         typer.echo(checklist.display())
     except FileNotFoundError:
         typer.echo(f"Error: no todos found for facet '{facet}' on {day}", err=True)

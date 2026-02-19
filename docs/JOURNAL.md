@@ -639,7 +639,7 @@ Each line is a JSON object with the following fields:
 **Tool Access:**
 All todo operations require both `day` and `facet` parameters:
 - `todo_list(day, facet)` – view numbered checklist for a specific facet
-- `todo_add(day, facet, line_number, text)` – add new todo (line_number must match next available)
+- `todo_add(day, facet, text)` – append new todo
 - `todo_done(day, facet, line_number)` – mark complete
 - `todo_cancel(day, facet, line_number)` – cancel entry (soft delete)
 - `todo_upcoming(limit, facet=None)` – view upcoming todos (optionally filtered by facet)
@@ -680,7 +680,6 @@ The `logs/` directory within each facet records facet-scoped actions. Logs are o
   "actor": "todos:todo",
   "action": "todo_add",
   "params": {
-    "line_number": 1,
     "text": "Review project proposal"
   },
   "facet": "work",

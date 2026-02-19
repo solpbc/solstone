@@ -32,7 +32,7 @@ Use the Activity Context and Activity State Per Segment sections above to unders
 
 ### Todo Commands (SOL_DAY and SOL_FACET are set in your environment)
 - `sol call todos list` – inspect the current numbered checklist
-- `sol call todos add TEXT` – append a new unchecked line (line number is auto-calculated)
+- `sol call todos add TEXT` – append a new unchecked line
 - `sol call todos done LINE_NUMBER` – mark an entry complete
 - `sol call todos upcoming` – view upcoming todos to avoid duplicates
 
