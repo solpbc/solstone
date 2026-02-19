@@ -2,7 +2,7 @@
   "ts": 1764019602551,
   "from": {
     "type": "agent",
-    "id": "mcp_tool"
+    "id": "agent"
   },
   "title": "Clean separation test - cortex creates agent, chat...",
   "unread": true

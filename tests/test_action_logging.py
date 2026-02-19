@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Test audit logging for entity tool actions."""
+"""Test audit logging for call and app actions."""
 
 import json
 from datetime import datetime
@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from apps.entities.tools import entity_attach, entity_detect
 from apps.utils import log_app_action
+from think.facets import log_call_action
 
 
 @pytest.fixture
@@ -59,40 +59,45 @@ def read_journal_log_entries(journal_path: Path, day: str) -> list[dict]:
     return entries
 
 
-def test_entity_detect_logging(test_facet):
-    """Test that entity_detect creates an audit log entry."""
+def test_call_action_logging_with_day(test_facet):
+    """Test that log_call_action creates an audit log entry for a specific day."""
     journal, facet = test_facet
     day = "20250101"
 
-    # Detect an entity
-    result = entity_detect(day, facet, "Person", "John Doe", "Test person")
-    assert "error" not in result
+    log_call_action(
+        facet=facet,
+        action="entity_detect",
+        params={"type": "Person", "name": "John Doe", "description": "Test person"},
+        day=day,
+    )
 
-    # Check log entry was created
     entries = read_log_entries(journal, facet, day)
     assert len(entries) == 1
     assert entries[0]["action"] == "entity_detect"
+    assert entries[0]["source"] == "call"
+    assert entries[0]["actor"] == "agent"
     assert entries[0]["params"]["type"] == "Person"
     assert entries[0]["params"]["name"] == "John Doe"
     assert entries[0]["params"]["description"] == "Test person"
 
 
-def test_entity_attach_logging(test_facet):
-    """Test that entity_attach creates an audit log entry."""
+def test_call_action_logging_defaults_today(test_facet):
+    """Test that log_call_action defaults to today when no day specified."""
     journal, facet = test_facet
     today = datetime.now().strftime("%Y%m%d")
 
-    # Attach an entity
-    result = entity_attach(facet, "Company", "Acme Corp", "Test company")
-    assert "error" not in result
+    log_call_action(
+        facet=facet,
+        action="entity_attach",
+        params={"type": "Company", "name": "Acme Corp", "description": "Test company"},
+    )
 
-    # Check log entry was created (uses today's date)
     entries = read_log_entries(journal, facet, today)
     assert len(entries) == 1
     assert entries[0]["action"] == "entity_attach"
+    assert entries[0]["source"] == "call"
     assert entries[0]["params"]["type"] == "Company"
     assert entries[0]["params"]["name"] == "Acme Corp"
-    assert entries[0]["params"]["description"] == "Test company"
 
 
 def test_journal_level_logging(test_facet):

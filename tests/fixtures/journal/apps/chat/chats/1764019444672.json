@@ -2,7 +2,7 @@
   "ts": 1764019444672,
   "from": {
     "type": "agent",
-    "id": "mcp_tool"
+    "id": "agent"
   },
   "title": "Unified storage test: synthetic agent with chat me...",
   "unread": true

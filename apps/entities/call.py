@@ -3,9 +3,6 @@
 
 """CLI commands for entity management.
 
-Provides human-friendly CLI access to entity operations, paralleling the
-tool functions in ``apps/entities/tools.py`` but optimized for terminal use.
-
 Auto-discovered by ``think.call`` and mounted as ``sol call entities ...``.
 """
 
@@ -21,7 +18,12 @@ from think.entities.observations import (
     add_observation,
     load_observations,
 )
-from think.entities.saving import save_entities
+from think.entities.saving import (
+    save_detected_entity,
+    save_entities,
+    update_detected_entity,
+)
+from think.facets import log_call_action
 from think.utils import now_ms, resolve_sol_day, resolve_sol_facet
 
 app = typer.Typer(help="Entity management.")
@@ -99,17 +101,24 @@ def detect_entity(
             raise typer.Exit(1)
 
     name = resolved.get("name", entity) if resolved else entity
-    existing = load_entities(facet, day)
 
-    name_lower = name.lower()
-    for e in existing:
-        if e.get("name", "").lower() == name_lower:
-            typer.echo(f"Error: Entity '{name}' already detected for {day}.", err=True)
-            raise typer.Exit(1)
+    try:
+        save_detected_entity(facet, day, type_, name, description)
+    except ValueError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1)
 
-    existing.append({"type": type_, "name": name, "description": description})
-    save_entities(facet, existing, day)
-
+    log_call_action(
+        facet=facet,
+        action="entity_detect",
+        params={
+            "type": type_,
+            "entity": entity,
+            "name": name,
+            "description": description,
+        },
+        day=day,
+    )
     typer.echo(f"Entity '{name}' detected for {day}.")
 
 
@@ -164,6 +173,16 @@ def attach_entity(
     )
     save_entities(facet, existing, day=None)
 
+    log_call_action(
+        facet=facet,
+        action="entity_attach",
+        params={
+            "type": type_,
+            "entity": entity,
+            "name": name,
+            "description": description,
+        },
+    )
     typer.echo(f"Entity '{name}' attached.")
 
 
@@ -200,22 +219,30 @@ def update_entity(
         target["description"] = description
         target["updated_at"] = now_ms()
         save_entities(facet, entities, day=None)
+        log_call_action(
+            facet=facet,
+            action="entity_update",
+            params={
+                "entity": entity,
+                "name": resolved_name,
+                "description": description,
+            },
+        )
         typer.echo(f"Entity '{resolved_name}' updated.")
         return
 
-    entities = load_entities(facet, day)
-    target = None
-    for e in entities:
-        if e.get("name") == entity:
-            target = e
-            break
-
-    if target is None:
-        typer.echo(f"Error: Entity '{entity}' not found for {day}.", err=True)
+    try:
+        update_detected_entity(facet, day, entity, description)
+    except ValueError as exc:
+        typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1)
 
-    target["description"] = description
-    save_entities(facet, entities, day)
+    log_call_action(
+        facet=facet,
+        action="entity_update",
+        params={"entity": entity, "description": description},
+        day=day,
+    )
     typer.echo(f"Entity '{entity}' updated for {day}.")
 
 
@@ -268,6 +295,11 @@ def add_aka(
             break
 
     save_entities(facet, entities, day=None)
+    log_call_action(
+        facet=facet,
+        action="entity_add_aka",
+        params={"entity": entity, "name": resolved_name, "aka": aka_value},
+    )
     typer.echo(f"Added alias '{aka_value}' to '{resolved_name}'.")
 
 
@@ -315,4 +347,14 @@ def observe_entity(
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1)
 
+    log_call_action(
+        facet=facet,
+        action="entity_observe",
+        params={
+            "entity": entity,
+            "name": resolved_name,
+            "content": content,
+            "observation_number": observation_number,
+        },
+    )
     typer.echo(f"Observation added to '{resolved_name}'.")

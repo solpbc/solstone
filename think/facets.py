@@ -126,7 +126,7 @@ def _write_action_log(
     writes to facets/{facet}/logs/{day}.jsonl. When facet is None, writes to
     config/actions/{day}.jsonl for journal-level actions.
 
-    Use log_tool_action() for agent tools or log_app_action() for web apps.
+    Use log_call_action() for CLI call commands or log_app_action() for web apps.
 
     Args:
         facet: Facet name where the action occurred, or None for journal-level
@@ -173,19 +173,17 @@ def _write_action_log(
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
-def log_tool_action(
+def log_call_action(
     facet: str | None,
     action: str,
     params: dict[str, Any],
     *,
-    agent_name: str = "agent",
-    agent_id: str | None = None,
     day: str | None = None,
 ) -> None:
-    """Log an agent-initiated action.
+    """Log an action from a ``sol call`` CLI command.
 
     Creates a JSONL log entry for tracking successful modifications made via
-    agent tools.
+    ``sol call`` subcommands (entities, todos, etc.).
 
     When facet is provided, writes to facets/{facet}/logs/{day}.jsonl.
     When facet is None, writes to config/actions/{day}.jsonl for journal-level
@@ -195,18 +193,15 @@ def log_tool_action(
         facet: Facet name where the action occurred, or None for journal-level
         action: Action type (e.g., "todo_add", "entity_attach")
         params: Dictionary of action-specific parameters
-        agent_name: Name of the agent performing the action (default "agent")
-        agent_id: Optional agent identifier
         day: Day in YYYYMMDD format (defaults to today)
     """
     _write_action_log(
         facet=facet,
         action=action,
         params=params,
-        source="tool",
-        actor=agent_name,
+        source="call",
+        actor="agent",
         day=day,
-        agent_id=agent_id,
     )
 
 
@@ -593,7 +588,7 @@ def set_facet_muted(facet: str, muted: bool) -> None:
 
     # Log the change
     action = "facet_mute" if muted else "facet_unmute"
-    log_tool_action(
+    log_call_action(
         facet=facet,
         action=action,
         params={"muted": muted},

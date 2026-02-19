@@ -2,7 +2,7 @@
   "ts": 1764019955580,
   "from": {
     "type": "agent",
-    "id": "mcp_tool"
+    "id": "agent"
   },
   "title": "Verify storage location test",
   "unread": true
