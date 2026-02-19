@@ -72,6 +72,7 @@ dependencies = [
     "soundfile",
     "faster-whisper>=1.0.0",
     "resemblyzer>=0.1.0",
+    "webrtcvad-wheels>=2.0.12",
 
     # Media processing
     "opencv-python",
@@ -144,6 +145,9 @@ ignore_errors = true
 [tool.uv]
 # resemblyzer -> librosa -> numba: force modern version (old numba only supports Python <3.10)
 constraint-dependencies = ["numba>=0.60"]
+# resemblyzer -> webrtcvad: abandoned (2017), uses pkg_resources removed in setuptools 82.
+# Replace with maintained fork webrtcvad-wheels (same Python module, pkg_resources fix since 2.0.12).
+override-dependencies = ["webrtcvad>=99; python_version < '0'"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
