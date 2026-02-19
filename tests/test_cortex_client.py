@@ -160,19 +160,14 @@ def test_cortex_request_returns_none_on_send_failure(callosum_server, monkeypatc
     assert agent_id is None
 
 
-def test_cortex_request_uses_default_path_when_journal_path_unset(monkeypatch):
-    """Test cortex_request uses platform default when JOURNAL_PATH unset."""
+def test_cortex_request_empty_journal(tmp_path, monkeypatch):
+    """Test cortex_request works with an empty journal directory."""
     monkeypatch.setattr("think.cortex_client.callosum_send", lambda *a, **kw: True)
-    old_path = os.environ.pop("JOURNAL_PATH", None)
-    try:
-        # Should work with JOURNAL_PATH unset because send is mocked successful.
-        agent_id = cortex_request("test", "default", "openai")
-        # Returns an agent_id when request send succeeds.
-        assert agent_id is not None
-        assert len(agent_id) > 0
-    finally:
-        if old_path:
-            os.environ["JOURNAL_PATH"] = old_path
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    agent_id = cortex_request("test", "default", "openai")
+    assert agent_id is not None
+    assert len(agent_id) > 0
 
 
 # Tests for cortex_agents remain mostly unchanged as they read from files
@@ -309,16 +304,11 @@ def test_cortex_agents_pagination(tmp_path, monkeypatch):
     assert result["pagination"]["has_more"] is True
 
 
-def test_cortex_agents_uses_default_path_when_journal_path_unset(monkeypatch):
-    """Test cortex_agents uses platform default when JOURNAL_PATH unset."""
-    import think.utils
+def test_cortex_agents_empty_journal(tmp_path, monkeypatch):
+    """Test cortex_agents works with an empty journal directory."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    monkeypatch.delenv("JOURNAL_PATH", raising=False)
-    monkeypatch.setattr(think.utils, "_journal_path_cache", None)
-
-    # Should work (uses platform default) - doesn't raise due to missing path
     result = cortex_agents()
-    # Just verify it returns the expected structure
     assert "agents" in result
     assert "pagination" in result
     assert isinstance(result["agents"], list)

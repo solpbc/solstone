@@ -213,18 +213,12 @@ def test_load_entity_names_with_env_var(monkeypatch):
         assert result == "Test User"
 
 
-def test_load_entity_names_uses_default_path_when_env_var_unset(monkeypatch):
-    """Test that missing JOURNAL_PATH falls back to platform default."""
-    # Ensure JOURNAL_PATH is not set
-    monkeypatch.delenv("JOURNAL_PATH", raising=False)
-    # Mock load_dotenv to prevent it from loading a .env file
-    monkeypatch.setattr("think.utils.load_dotenv", lambda: None)
+def test_load_entity_names_empty_journal(tmp_path, monkeypatch):
+    """Test that empty journal directory returns None."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    # With get_journal() fallback, this will use the platform default path
-    # The result depends on whether entities exist there
     result = load_entity_names()
-    # Result should be either None (no entities) or a string (entities exist)
-    assert result is None or isinstance(result, str)
+    assert result is None
 
 
 def test_load_entity_names_spoken_mode(monkeypatch):

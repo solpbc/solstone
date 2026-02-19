@@ -248,25 +248,15 @@ def test_client_socket_path_custom():
     assert client.socket_path == custom_path
 
 
-def test_callosum_send_uses_default_path_when_journal_path_unset():
-    """Test that callosum_send() uses default path when JOURNAL_PATH unset."""
+def test_callosum_send_empty_journal(tmp_path, monkeypatch):
+    """Test that callosum_send() works with an empty journal directory."""
     from think.callosum import callosum_send
 
-    # Temporarily remove JOURNAL_PATH
-    old_path = os.environ.get("JOURNAL_PATH")
-    if "JOURNAL_PATH" in os.environ:
-        del os.environ["JOURNAL_PATH"]
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    try:
-        # callosum_send will use the platform default path via get_journal()
-        # Result depends on whether a server is listening at that path
-        result = callosum_send("test", "event", data="value")
-        # Just verify it returns a boolean (doesn't raise due to missing path)
-        assert isinstance(result, bool)
-    finally:
-        # Restore JOURNAL_PATH
-        if old_path:
-            os.environ["JOURNAL_PATH"] = old_path
+    # No server listening at tmp_path, so send will fail gracefully
+    result = callosum_send("test", "event", data="value")
+    assert isinstance(result, bool)
 
 
 def test_callosum_send_with_custom_path():

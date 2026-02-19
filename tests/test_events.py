@@ -121,11 +121,11 @@ def test_get_month_event_counts_empty_month(tmp_path, monkeypatch):
     assert result == {}
 
 
-def test_get_month_event_counts_no_journal_path(monkeypatch):
-    """Test that missing JOURNAL_PATH returns empty dict."""
+def test_get_month_event_counts_empty_journal(tmp_path, monkeypatch):
+    """Test that empty journal directory returns empty dict."""
     from think.events import get_month_event_counts
 
-    monkeypatch.delenv("JOURNAL_PATH", raising=False)
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
     result = get_month_event_counts("202401")
 

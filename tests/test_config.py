@@ -128,14 +128,11 @@ def test_get_config_existing_is_master(tmp_path, monkeypatch):
     assert "describe" not in config
 
 
-def test_get_config_uses_default_when_journal_path_empty(monkeypatch, tmp_path):
-    """Test get_config uses platform default when JOURNAL_PATH is empty."""
-    # Set to empty string - should fall back to platform default
-    monkeypatch.setenv("JOURNAL_PATH", "")
+def test_get_config_empty_journal(tmp_path, monkeypatch):
+    """Test get_config returns defaults with an empty journal directory."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 
-    # get_config should work (will use platform default journal path)
     config = get_config()
-    # Returns default structure with empty identity
     assert "identity" in config
     assert config["identity"]["name"] == ""
 
