@@ -615,9 +615,11 @@ def log_token_usage(
             if "requests" in usage and usage["requests"] is not None:
                 normalized_usage["requests"] = usage["requests"]
 
-            # Pass through Anthropic cache fields if present
+            # Pass through cache fields from various providers
             if usage.get("cached_tokens"):
                 normalized_usage["cached_tokens"] = usage["cached_tokens"]
+            if usage.get("cached_input_tokens"):
+                normalized_usage["cached_tokens"] = usage["cached_input_tokens"]
             if usage.get("cache_creation_tokens"):
                 normalized_usage["cache_creation_tokens"] = usage[
                     "cache_creation_tokens"
@@ -637,6 +639,13 @@ def log_token_usage(
         # Already in unified format
         else:
             normalized_usage = {k: v for k, v in usage.items() if isinstance(v, int)}
+
+        # Compute total_tokens from parts when missing (e.g. Codex CLI omits it)
+        if not normalized_usage.get("total_tokens"):
+            inp = normalized_usage.get("input_tokens", 0)
+            out = normalized_usage.get("output_tokens", 0)
+            if inp or out:
+                normalized_usage["total_tokens"] = inp + out
 
         # Build token log entry
         token_data = {

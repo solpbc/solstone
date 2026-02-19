@@ -228,6 +228,8 @@ async def run_cogitate(
         finish_event["cli_session_id"] = runner.cli_session_id
     if usage_holder[0]:
         finish_event["usage"] = usage_holder[0]
+    else:
+        LOG.warning("No usage data captured from Codex CLI for model %s", raw_model)
     cb.emit(finish_event)
 
     return result

@@ -618,3 +618,79 @@ def test_get_usage_cost_combined_filters(use_fixtures_journal):
     )
     # Segment doesn't exist, so no matches
     assert result["requests"] == 0
+
+
+# ---------------------------------------------------------------------------
+# log_token_usage normalization tests
+# ---------------------------------------------------------------------------
+
+
+def test_log_token_usage_computes_total_tokens(tmp_path, monkeypatch):
+    """total_tokens is computed from input+output when missing (Codex CLI format)."""
+    import json
+
+    from think.models import log_token_usage
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    # Codex CLI format: no total_tokens
+    log_token_usage(
+        model="gpt-5.2",
+        usage={"input_tokens": 1000, "output_tokens": 200},
+        context="test",
+    )
+
+    log_file = tmp_path / "tokens" / (
+        __import__("time").strftime("%Y%m%d") + ".jsonl"
+    )
+    entry = json.loads(log_file.read_text().strip())
+    assert entry["usage"]["total_tokens"] == 1200
+    assert entry["usage"]["input_tokens"] == 1000
+    assert entry["usage"]["output_tokens"] == 200
+
+
+def test_log_token_usage_preserves_existing_total_tokens(tmp_path, monkeypatch):
+    """total_tokens is preserved when already present and non-zero."""
+    import json
+
+    from think.models import log_token_usage
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    log_token_usage(
+        model="gpt-5.2",
+        usage={"input_tokens": 1000, "output_tokens": 200, "total_tokens": 1500},
+        context="test",
+    )
+
+    log_file = tmp_path / "tokens" / (
+        __import__("time").strftime("%Y%m%d") + ".jsonl"
+    )
+    entry = json.loads(log_file.read_text().strip())
+    assert entry["usage"]["total_tokens"] == 1500
+
+
+def test_log_token_usage_maps_cached_input_tokens(tmp_path, monkeypatch):
+    """cached_input_tokens (Codex CLI format) maps to cached_tokens."""
+    import json
+
+    from think.models import log_token_usage
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    log_token_usage(
+        model="gpt-5.2",
+        usage={
+            "input_tokens": 1000,
+            "cached_input_tokens": 800,
+            "output_tokens": 200,
+        },
+        context="test",
+    )
+
+    log_file = tmp_path / "tokens" / (
+        __import__("time").strftime("%Y%m%d") + ".jsonl"
+    )
+    entry = json.loads(log_file.read_text().strip())
+    assert entry["usage"]["cached_tokens"] == 800
+    assert entry["usage"]["total_tokens"] == 1200
