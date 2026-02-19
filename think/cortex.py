@@ -664,9 +664,6 @@ class CortexService:
         """
         output_path_str = config.get("output_path")
         if not output_path_str:
-            self.logger.warning(
-                f"No output_path in config for agent {agent_id}, skipping write"
-            )
             return
 
         try:

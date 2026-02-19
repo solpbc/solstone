@@ -50,8 +50,8 @@ def should_skip_extraction(result: str, context: dict) -> str | None:
 def log_extraction_failure(e: Exception, name: str) -> None:
     """Log enhanced diagnostics for extraction generation failures.
 
-    Handles IncompleteJSONError specially by logging head+tail of the partial
-    text and detecting possible degenerate token repetition.
+    Handles IncompleteJSONError specially by logging a single-line summary
+    with a head+tail sample and degenerate repetition detection.
 
     Args:
         e: The exception from generate().
@@ -66,28 +66,34 @@ def log_extraction_failure(e: Exception, name: str) -> None:
     partial = e.partial_text
     length = len(partial)
 
-    # Log head + tail of partial output
-    if length <= 400:
-        preview = partial
+    # Build single-line head+tail sample (newlines collapsed for log grep)
+    def _collapse(s: str) -> str:
+        return s.replace("\n", "\\n").replace("\r", "")
+
+    if length <= 300:
+        sample = _collapse(partial)
     else:
-        preview = f"{partial[:200]}\n...[{length} chars total]...\n{partial[-200:]}"
+        sample = f"{_collapse(partial[:150])} ... {_collapse(partial[-150:])}"
 
     # Repetition detection: count unique chars in last 1000
     tail = partial[-1000:] if length >= 1000 else partial
     unique_count = len(set(tail))
     repetition_flag = ""
     if unique_count < 20:
-        repetition_flag = f" [POSSIBLE DEGENERATE REPETITION: {unique_count} unique chars in last {len(tail)}]"
+        repetition_flag = (
+            f" [POSSIBLE DEGENERATE REPETITION: "
+            f"{unique_count} unique chars in last {len(tail)}]"
+        )
 
     logging.error(
         "Extraction generation failed for %s: %s "
-        "(partial_text: %d chars, %d unique in tail%s)\n%s",
+        "(partial_text: %d chars, %d unique in tail%s) sample: %s",
         name,
         e,
         length,
         unique_count,
         repetition_flag,
-        preview,
+        sample,
     )
 
 

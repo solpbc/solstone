@@ -649,13 +649,11 @@ def test_write_output_with_error(cortex_service, mock_journal, caplog):
 
 def test_write_output_missing_path_skips(cortex_service, mock_journal, caplog):
     """Test write output skips when output_path is missing."""
-    import logging
+    config = {"output": "md", "name": "test"}
+    cortex_service._write_output("agent_id", "result", config)
 
-    with caplog.at_level(logging.WARNING):
-        config = {"output": "md", "name": "test"}
-        cortex_service._write_output("agent_id", "result", config)
-
-    assert "No output_path in config" in caplog.text
+    # No output written, no error — silent skip is expected
+    assert "Failed to write" not in caplog.text
 
 
 def test_write_output_with_day_parameter(cortex_service, mock_journal):
