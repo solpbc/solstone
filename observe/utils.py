@@ -52,7 +52,7 @@ def load_audio(raw_path: Path, sample_rate: int = SAMPLE_RATE) -> np.ndarray:
 
     For M4A files from sck-cli (which contain two mono streams: track 0 =
     system audio, track 1 = microphone), all streams are decoded and mixed
-    together. Other formats (.flac, .ogg, .opus) are decoded via ffmpeg.
+    together. Other formats (.flac, .mp3, .ogg, .opus) are decoded via ffmpeg.
 
     Parameters
     ----------
