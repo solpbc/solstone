@@ -477,16 +477,25 @@ def main() -> None:
             # Wait for transcription to complete
             _set_stage("transcribing")
             pending = set(created_segments)
-            segment_timeout = 600  # 10 minutes since last progress
+            completed_count = 0
+            segment_timeout = 1200  # 20 minutes since last progress
             last_progress = time.monotonic()
+            transcribe_start = time.monotonic()
 
             logger.info(f"Waiting for {len(pending)} segments to complete")
 
             while pending:
                 # Check for timeout since last progress
-                if time.monotonic() - last_progress > segment_timeout:
+                stall_duration = time.monotonic() - last_progress
+                if stall_duration > segment_timeout:
+                    total_elapsed = int(time.monotonic() - transcribe_start)
                     timed_out = sorted(pending)
-                    logger.error(f"Timed out waiting for segments: {timed_out}")
+                    logger.error(
+                        f"Transcription stalled: no progress for "
+                        f"{int(stall_duration)}s ({total_elapsed}s total). "
+                        f"{completed_count}/{len(created_segments)} segments "
+                        f"completed, {len(timed_out)} still pending: {timed_out}"
+                    )
                     failed_segments.extend(timed_out)
                     break
 
@@ -502,6 +511,7 @@ def main() -> None:
 
                 if tract == "observe" and event == "observed" and seg in pending:
                     pending.discard(seg)
+                    completed_count += 1
                     last_progress = time.monotonic()
                     if msg.get("error"):
                         errors = msg.get("errors", [])
@@ -512,7 +522,9 @@ def main() -> None:
                         failed_segments.append(seg)
                     else:
                         logger.info(
-                            f"Segment {seg} transcribed " f"({len(pending)} remaining)"
+                            f"Segment {seg} transcribed "
+                            f"({completed_count}/{len(created_segments)} done, "
+                            f"{len(pending)} remaining)"
                         )
 
             if failed_segments:
@@ -521,7 +533,11 @@ def main() -> None:
                     f"segments failed: {failed_segments}"
                 )
             else:
-                logger.info("All segments transcribed successfully")
+                total_elapsed = int(time.monotonic() - transcribe_start)
+                logger.info(
+                    f"All {len(created_segments)} segments "
+                    f"transcribed successfully ({total_elapsed}s)"
+                )
 
         # Complete processing metadata
         processing_results["processing_completed"] = dt.datetime.now().isoformat()

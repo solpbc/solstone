@@ -11,6 +11,7 @@ import pathlib
 import re
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -179,6 +180,21 @@ def format_size(bytes_size: int) -> str:
             return f"{bytes_size:.1f}{unit}"
         bytes_size /= 1024.0
     return f"{bytes_size:.1f}TB"
+
+
+def format_duration_ms(ms: int | float) -> str:
+    """Format milliseconds as human-readable duration (e.g., '15m', '1h 5m')."""
+    seconds = int(ms / 1000)
+    if seconds < 60:
+        return f"{seconds}s"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes}m"
+    hours = minutes // 60
+    remaining = minutes % 60
+    if remaining:
+        return f"{hours}h {remaining}m"
+    return f"{hours}h"
 
 
 def timestamp_from_start_time(start_time: int | float) -> str:
@@ -375,10 +391,31 @@ class PlaudBackend:
             downloaded = 0
             errors: list[str] = []
 
+            # Verbose detection — pass logging flags to subprocesses
+            verbose = logger.isEnabledFor(logging.INFO)
+            debug = logger.isEnabledFor(logging.DEBUG)
+
+            # Total sync timeout: 1 hour for all imports combined
+            sync_timeout = 3600
+            sync_start = time.monotonic()
+
             for idx, (file_id, info) in enumerate(to_process, 1):
+                # Check total sync timeout
+                sync_elapsed = time.monotonic() - sync_start
+                if sync_elapsed > sync_timeout:
+                    remaining = len(to_process) - idx + 1
+                    msg = (
+                        f"Sync timeout after {int(sync_elapsed)}s — "
+                        f"{remaining} files remaining"
+                    )
+                    logger.warning("  %s", msg)
+                    errors.append(msg)
+                    break
+
                 filename = info.get("filename", "unnamed")
                 filesize = info.get("filesize", 0)
                 start_time = info.get("start_time", 0)
+                duration = info.get("duration", 0)
 
                 # Derive timestamp from Plaud recording start time
                 if start_time:
@@ -397,12 +434,16 @@ class PlaudBackend:
                 ext = pathlib.Path(fullname).suffix or ".opus"
                 safe_name = f"{sanitize_filename(filename)}{ext}"
 
+                # Show size and duration in progress line
+                size_str = format_size(filesize)
+                dur_str = f", {format_duration_ms(duration)}" if duration else ""
                 logger.info(
-                    "  [%s/%s] %s (%s)",
+                    "  [%s/%s] %s (%s%s)",
                     idx,
                     len(to_process),
                     filename,
-                    format_size(filesize),
+                    size_str,
+                    dur_str,
                 )
 
                 # Download to imports/{timestamp}/
@@ -437,33 +478,62 @@ class PlaudBackend:
                     "plaud",
                     "--auto",
                 ]
+                if debug:
+                    import_cmd.append("-d")
+                elif verbose:
+                    import_cmd.append("-v")
+
                 logger.info("    Importing %s...", ts)
+                import_start = time.monotonic()
+                import_timeout = 600
+
                 try:
-                    proc = subprocess.run(
-                        import_cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=300,
-                    )
+                    # In verbose/debug mode, stream subprocess output to terminal
+                    if verbose:
+                        proc = subprocess.run(
+                            import_cmd,
+                            timeout=import_timeout,
+                        )
+                    else:
+                        proc = subprocess.run(
+                            import_cmd,
+                            capture_output=True,
+                            text=True,
+                            timeout=import_timeout,
+                        )
+                    import_elapsed = int(time.monotonic() - import_start)
                     if proc.returncode == 0:
                         info["status"] = "imported"
                         info["import_timestamp"] = ts
                         info["imported_at"] = dt.datetime.now().isoformat()
                         downloaded += 1
-                        logger.info("    Imported successfully")
+                        logger.info("    Imported successfully (%ss)", import_elapsed)
                     else:
-                        stderr_tail = (
-                            proc.stderr.strip().split("\n")[-1] if proc.stderr else ""
-                        )
-                        msg = f"{filename}: import failed — {stderr_tail}"
-                        logger.warning("    FAILED — import error")
-                        logger.warning(
-                            "Import failed for %s: %s", filename, proc.stderr
-                        )
+                        if verbose:
+                            # User already saw subprocess output
+                            msg = (
+                                f"{filename}: import failed "
+                                f"(exit code {proc.returncode}, {import_elapsed}s)"
+                            )
+                        else:
+                            stderr_tail = (
+                                proc.stderr.strip().split("\n")[-1]
+                                if proc.stderr
+                                else ""
+                            )
+                            msg = f"{filename}: import failed — {stderr_tail}"
+                            logger.warning(
+                                "Import failed for %s: %s", filename, proc.stderr
+                            )
+                        logger.warning("    FAILED — %s", msg)
                         errors.append(msg)
                 except subprocess.TimeoutExpired:
-                    msg = f"{filename}: import timed out"
-                    logger.warning("    FAILED — timed out")
+                    import_elapsed = int(time.monotonic() - import_start)
+                    msg = (
+                        f"{filename}: import subprocess timed out "
+                        f"after {import_timeout}s (elapsed {import_elapsed}s)"
+                    )
+                    logger.warning("    FAILED — %s", msg)
                     errors.append(msg)
 
             result["downloaded"] = downloaded
