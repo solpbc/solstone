@@ -41,6 +41,7 @@ def test_todo_add_logging(facet_env):
     assert entries[0]["action"] == "todo_add"
     assert entries[0]["source"] == "call"
     assert entries[0]["actor"] == "agent"
+    assert entries[0]["params"]["line_number"] == 1
     assert entries[0]["params"]["text"] == "Test task"
     assert "timestamp" in entries[0]
 

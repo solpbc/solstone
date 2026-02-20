@@ -113,8 +113,8 @@ def add_observation(
 ) -> dict[str, Any]:
     """Add an observation to an entity with guard validation.
 
-    Similar to todo_add, requires the caller to provide the expected next
-    observation number (current count + 1) to prevent stale writes.
+    Requires the caller to provide the expected next observation number
+    (current count + 1) to prevent stale writes.
 
     Args:
         facet: Facet name

@@ -117,7 +117,7 @@ def add_todo(
         log_call_action(
             facet=facet,
             action="todo_add",
-            params={"text": item.text},
+            params={"line_number": item.index, "text": item.text},
             day=day,
         )
         typer.echo(checklist.display())
