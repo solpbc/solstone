@@ -255,6 +255,7 @@ def get_providers() -> Any:
         - context_defaults: Context registry with labels/groups for UI
           (includes muse configs with type, schedule, disabled, extract)
         - api_keys: Boolean status for each provider's API key
+        - auth: Per-provider auth mode for cogitate ("platform" or "api_key")
     """
     try:
         from think.models import (
@@ -324,6 +325,10 @@ def get_providers() -> Any:
             env_key = p.get("env_key", "")
             api_keys[p["name"]] = bool(os.getenv(env_key)) if env_key else False
 
+        # Build auth settings (default "platform" for all providers)
+        auth_config = providers_config.get("auth", {})
+        auth = {p["name"]: auth_config.get(p["name"], "platform") for p in providers_list}
+
         return jsonify(
             {
                 "providers": providers_list,
@@ -332,6 +337,7 @@ def get_providers() -> Any:
                 "contexts": contexts,
                 "context_defaults": context_defaults,
                 "api_keys": api_keys,
+                "auth": auth,
             }
         )
     except Exception as e:
@@ -345,6 +351,7 @@ def update_providers() -> Any:
     Accepts JSON with optional keys:
         - generate: {provider?, tier?, backup?} - Set generate defaults
         - cogitate: {provider?, tier?, backup?} - Set cogitate defaults
+        - auth: {provider: "platform"|"api_key"} - Cogitate CLI auth mode
         - contexts: {pattern: {provider?, tier?, disabled?, extract?} | null}
           Set or clear context overrides
 
@@ -439,6 +446,40 @@ def update_providers() -> Any:
                         "new": backup,
                     }
                 config["providers"][agent_type]["backup"] = backup
+
+        # Handle auth mode updates
+        if "auth" in request_data:
+            auth_data = request_data["auth"]
+            if not isinstance(auth_data, dict):
+                return jsonify({"error": "auth must be an object"}), 400
+
+            if "auth" not in config["providers"]:
+                config["providers"]["auth"] = {}
+
+            old_auth = old_providers.get("auth", {})
+
+            for provider, mode in auth_data.items():
+                if provider not in PROVIDER_REGISTRY:
+                    return (
+                        jsonify({"error": f"Invalid provider in auth: {provider}"}),
+                        400,
+                    )
+                if mode not in ("platform", "api_key"):
+                    return (
+                        jsonify(
+                            {
+                                "error": f"Invalid auth mode: {mode}. "
+                                "Must be 'platform' or 'api_key'."
+                            }
+                        ),
+                        400,
+                    )
+                if old_auth.get(provider) != mode:
+                    changed_fields[f"auth.{provider}"] = {
+                        "old": old_auth.get(provider, "platform"),
+                        "new": mode,
+                    }
+                config["providers"]["auth"][provider] = mode
 
         # Handle context overrides
         if "contexts" in request_data:

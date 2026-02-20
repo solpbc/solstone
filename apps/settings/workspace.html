@@ -1724,6 +1724,16 @@ input:checked + .slider:before {
           <small></small>
         </div>
       </div>
+      <div class="provider-row" style="max-width:16em">
+        <div class="settings-field">
+          <label for="field-cogitate-auth">Auth</label>
+          <select id="field-cogitate-auth">
+            <option value="platform">Platform Account</option>
+            <option value="api_key">API Key</option>
+          </select>
+          <small>How the CLI authenticates with the provider</small>
+        </div>
+      </div>
       <div id="cogitateProviderKeyWarning" class="provider-key-warning" style="display:none">
         <span>&#9888;</span>
         <span>API key not configured for cogitate provider.</span>
@@ -2965,7 +2975,14 @@ function populateProviders(data) {
     document.getElementById(`field-${type}-backup`).value = typeData.backup || '';
 
     // Update key warnings
-    updateTypeProviderKeyWarning(type, typeData.provider, data.api_keys);
+    updateTypeProviderKeyWarning(type, typeData.provider, data.api_keys, data.auth);
+  }
+
+  // Set cogitate auth mode from API response
+  const cogitateProvider = (data.cogitate || {}).provider || '';
+  const authSelect = document.getElementById('field-cogitate-auth');
+  if (authSelect && data.auth) {
+    authSelect.value = data.auth[cogitateProvider] || 'platform';
   }
 
   // Update status text
@@ -2975,19 +2992,21 @@ function populateProviders(data) {
   renderContextGroups(data);
 }
 
-function updateTypeProviderKeyWarning(type, provider, apiKeys) {
+function updateTypeProviderKeyWarning(type, provider, apiKeys, auth) {
   const warning = document.getElementById(`${type}ProviderKeyWarning`);
   const link = document.getElementById(`${type}ProviderKeyLink`);
   if (!warning || !link) return;
 
-  if (provider && !apiKeys[provider]) {
+  // For cogitate, hide key warning when using platform auth
+  const authMode = (auth && type === 'cogitate') ? (auth[provider] || 'platform') : 'api_key';
+  if (authMode === 'platform' || !provider || apiKeys[provider]) {
+    warning.style.display = 'none';
+  } else {
     warning.style.display = 'flex';
     link.onclick = (e) => {
       e.preventDefault();
       switchSection('apikeys');
     };
-  } else {
-    warning.style.display = 'none';
   }
 }
 
@@ -3165,7 +3184,14 @@ for (const type of ['generate', 'cogitate']) {
 
         providersData = result;
         if (field === 'provider') {
-          updateTypeProviderKeyWarning(type, value, result.api_keys);
+          updateTypeProviderKeyWarning(type, value, result.api_keys, result.auth);
+          // Update cogitate auth select when provider changes
+          if (type === 'cogitate') {
+            const authSelect = document.getElementById('field-cogitate-auth');
+            if (authSelect && result.auth) {
+              authSelect.value = result.auth[value] || 'platform';
+            }
+          }
         }
         showFieldStatus(el, 'saved');
       } catch (err) {
@@ -3175,6 +3201,28 @@ for (const type of ['generate', 'cogitate']) {
     });
   }
 }
+
+// Cogitate auth mode change handler
+document.getElementById('field-cogitate-auth')?.addEventListener('change', async function() {
+  const authSelect = this;
+  const provider = document.getElementById('field-cogitate-provider')?.value;
+  if (!provider) return;
+  try {
+    const response = await fetch('api/providers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth: { [provider]: authSelect.value } })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    providersData = result;
+    updateTypeProviderKeyWarning('cogitate', provider, result.api_keys, result.auth);
+    showFieldStatus(authSelect, 'saved');
+  } catch (err) {
+    console.error('Error saving cogitate auth:', err);
+    showFieldStatus(authSelect, 'error', err.message);
+  }
+});
 
 // ========== TRANSCRIPTION ==========
 // Backend metadata loaded from API
