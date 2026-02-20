@@ -10,7 +10,10 @@ They capture useful information like preferences, expertise, relationships,
 and biographical facts that help with future interactions.
 """
 
+import fcntl
 import json
+import random
+import time
 from pathlib import Path
 from typing import Any
 
@@ -110,11 +113,14 @@ def add_observation(
     content: str,
     observation_number: int,
     source_day: str | None = None,
+    max_retries: int = 3,
 ) -> dict[str, Any]:
-    """Add an observation to an entity with guard validation.
+    """Add an observation to an entity with guard validation and file locking.
 
-    Requires the caller to provide the expected next observation number
-    (current count + 1) to prevent stale writes.
+    Acquires an exclusive file lock to serialize concurrent writes to the
+    same entity's observations file. Requires the caller to provide the
+    expected next observation number (current count + 1) to prevent stale
+    writes.
 
     Args:
         facet: Facet name
@@ -122,6 +128,7 @@ def add_observation(
         content: The observation text
         observation_number: Expected next number; must be current_count + 1
         source_day: Optional day (YYYYMMDD) when observation was made
+        max_retries: Maximum attempts on transient OS errors (default 3)
 
     Returns:
         Dictionary with updated observations list and count
@@ -129,6 +136,7 @@ def add_observation(
     Raises:
         ObservationNumberError: If observation_number doesn't match expected
         ValueError: If content is empty
+        OSError: If all retries exhausted
 
     Example:
         >>> add_observation("work", "Alice", "Prefers morning meetings", 1, "20250113")
@@ -138,21 +146,44 @@ def add_observation(
     if not content:
         raise ValueError("Observation content cannot be empty")
 
-    observations = load_observations(facet, name)
-    expected = len(observations) + 1
+    path = observations_file_path(facet, name)
+    lock_path = path.parent / f"{path.name}.lock"
 
-    if observation_number != expected:
-        raise ObservationNumberError(expected, observation_number)
+    last_error: Exception | None = None
+    for attempt in range(max_retries):
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(lock_path, "w") as lock_file:
+                fcntl.flock(lock_file, fcntl.LOCK_EX)
+                try:
+                    # Fresh load inside lock
+                    observations = load_observations(facet, name)
+                    expected = len(observations) + 1
 
-    # Create new observation
-    observation: dict[str, Any] = {
-        "content": content,
-        "observed_at": now_ms(),
-    }
-    if source_day:
-        observation["source_day"] = source_day
+                    if observation_number != expected:
+                        raise ObservationNumberError(expected, observation_number)
 
-    observations.append(observation)
-    save_observations(facet, name, observations)
+                    observation: dict[str, Any] = {
+                        "content": content,
+                        "observed_at": now_ms(),
+                    }
+                    if source_day:
+                        observation["source_day"] = source_day
 
-    return {"observations": observations, "count": len(observations)}
+                    observations.append(observation)
+                    save_observations(facet, name, observations)
+
+                    return {
+                        "observations": observations,
+                        "count": len(observations),
+                    }
+                finally:
+                    fcntl.flock(lock_file, fcntl.LOCK_UN)
+        except (ValueError, ObservationNumberError):
+            raise  # Logical errors — don't retry
+        except OSError as exc:
+            last_error = exc
+            if attempt < max_retries - 1:
+                time.sleep(random.uniform(0.05, 0.3) * (attempt + 1))
+
+    raise last_error  # type: ignore[misc]

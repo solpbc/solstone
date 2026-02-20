@@ -112,8 +112,13 @@ def add_todo(
         raise typer.Exit(1)
 
     try:
-        checklist = todo.TodoChecklist.load(day, facet)
-        item = checklist.append_entry(text)
+
+        def _add(checklist: todo.TodoChecklist) -> todo.TodoChecklist:
+            checklist.append_entry(text)
+            return checklist
+
+        checklist = todo.TodoChecklist.locked_modify(day, facet, _add)
+        item = checklist.items[-1]
         log_call_action(
             facet=facet,
             action="todo_add",
@@ -144,8 +149,12 @@ def done_todo(
     facet = resolve_sol_facet(facet)
 
     try:
-        checklist = todo.TodoChecklist.load(day, facet)
-        item = checklist.mark_done(line_number)
+
+        def _done(checklist: todo.TodoChecklist) -> tuple:
+            item = checklist.mark_done(line_number)
+            return checklist, item
+
+        checklist, item = todo.TodoChecklist.locked_modify(day, facet, _done)
         log_call_action(
             facet=facet,
             action="todo_done",
@@ -179,8 +188,12 @@ def cancel_todo(
     facet = resolve_sol_facet(facet)
 
     try:
-        checklist = todo.TodoChecklist.load(day, facet)
-        item = checklist.cancel_entry(line_number)
+
+        def _cancel(checklist: todo.TodoChecklist) -> tuple:
+            item = checklist.cancel_entry(line_number)
+            return checklist, item
+
+        checklist, item = todo.TodoChecklist.locked_modify(day, facet, _cancel)
         log_call_action(
             facet=facet,
             action="todo_cancel",

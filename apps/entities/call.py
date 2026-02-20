@@ -10,7 +10,8 @@ import re
 
 import typer
 
-from think.entities.core import is_valid_entity_type
+from think.entities.core import entity_slug, is_valid_entity_type
+from think.entities.journal import get_or_create_journal_entity, save_journal_entity
 from think.entities.loading import load_entities
 from think.entities.matching import resolve_entity, validate_aka_uniqueness
 from think.entities.observations import (
@@ -18,9 +19,12 @@ from think.entities.observations import (
     add_observation,
     load_observations,
 )
+from think.entities.relationships import (
+    load_facet_relationship,
+    save_facet_relationship,
+)
 from think.entities.saving import (
     save_detected_entity,
-    save_entities,
     update_detected_entity,
 )
 from think.facets import log_call_action
@@ -158,20 +162,27 @@ def attach_entity(
         return
 
     name = entity
-    existing = load_entities(
-        facet, day=None, include_detached=True, include_blocked=True
-    )
     now = now_ms()
-    existing.append(
+    entity_id = entity_slug(name)
+
+    # Create journal entity (identity record) if it doesn't exist
+    get_or_create_journal_entity(
+        entity_id=entity_id,
+        name=name,
+        entity_type=type_,
+    )
+
+    # Create facet relationship (per-entity file, no load-all needed)
+    save_facet_relationship(
+        facet,
+        entity_id,
         {
-            "type": type_,
-            "name": name,
+            "entity_id": entity_id,
             "description": description,
             "attached_at": now,
             "updated_at": now,
-        }
+        },
     )
-    save_entities(facet, existing, day=None)
 
     log_call_action(
         facet=facet,
@@ -202,23 +213,17 @@ def update_entity(
     if day is None:
         resolved = _resolve_or_exit(facet, entity)
         resolved_name = resolved.get("name", entity)
-        entities = load_entities(
-            facet, day=None, include_detached=True, include_blocked=True
-        )
+        entity_id = resolved.get("id", entity_slug(resolved_name))
 
-        target = None
-        for e in entities:
-            if not e.get("detached") and e.get("name") == resolved_name:
-                target = e
-                break
-
-        if target is None:
+        # Load and update only the target entity's relationship file
+        relationship = load_facet_relationship(facet, entity_id)
+        if relationship is None:
             typer.echo(f"Error: Entity '{resolved_name}' not found.", err=True)
             raise typer.Exit(1)
 
-        target["description"] = description
-        target["updated_at"] = now_ms()
-        save_entities(facet, entities, day=None)
+        relationship["description"] = description
+        relationship["updated_at"] = now_ms()
+        save_facet_relationship(facet, entity_id, relationship)
         log_call_action(
             facet=facet,
             action="entity_update",
@@ -275,6 +280,7 @@ def add_aka(
         typer.echo(f"Alias '{aka_value}' already exists for '{resolved_name}'.")
         return
 
+    # Validate uniqueness across all entities in facet
     entities = load_entities(
         facet, day=None, include_detached=True, include_blocked=True
     )
@@ -287,14 +293,26 @@ def add_aka(
         )
         raise typer.Exit(1)
 
-    for e in entities:
-        if e.get("name") == resolved_name:
-            aka_list.append(aka_value)
-            e["aka"] = aka_list
-            e["updated_at"] = now_ms()
-            break
+    entity_id = resolved.get("id", entity_slug(resolved_name))
+    aka_list.append(aka_value)
 
-    save_entities(facet, entities, day=None)
+    # Update journal entity aka (identity-level)
+    from think.entities.journal import load_journal_entity
+
+    journal_entity = load_journal_entity(entity_id)
+    if journal_entity:
+        existing_aka = set(journal_entity.get("aka", []))
+        existing_aka.add(aka_value)
+        journal_entity["aka"] = sorted(existing_aka)
+        save_journal_entity(journal_entity)
+
+    # Update facet relationship (per-entity file)
+    relationship = load_facet_relationship(facet, entity_id)
+    if relationship is not None:
+        relationship["aka"] = aka_list
+        relationship["updated_at"] = now_ms()
+        save_facet_relationship(facet, entity_id, relationship)
+
     log_call_action(
         facet=facet,
         action="entity_add_aka",

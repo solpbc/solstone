@@ -9,9 +9,12 @@ serves as the stable todo ID since todos are never removed, only cancelled.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import logging
+import random
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -179,6 +182,59 @@ class TodoChecklist:
                 exists = False
 
         return cls(day=day, facet=facet, path=path, items=items, exists=exists)
+
+    @classmethod
+    def locked_modify(
+        cls,
+        day: str,
+        facet: str,
+        modify_fn: Any,
+        max_retries: int = 3,
+    ) -> Any:
+        """Perform a locked load-modify-save on a todo checklist.
+
+        Acquires an exclusive file lock, loads current state, applies the
+        mutation function, and returns the result. The modify_fn receives a
+        fresh ``TodoChecklist`` and should call save-triggering methods
+        (``append_entry``, ``mark_done``, ``cancel_entry``) which persist
+        inside the lock.  Retries with randomized backoff on transient OS
+        errors.
+
+        Args:
+            day: Journal day in ``YYYYMMDD`` format.
+            facet: Facet name.
+            modify_fn: Called with a fresh TodoChecklist.  Must return the
+                value to propagate to the caller.
+            max_retries: Maximum attempts (default 3).
+
+        Returns:
+            Whatever ``modify_fn`` returns.
+
+        Raises:
+            OSError: If all retries exhausted on transient errors.
+        """
+        path = todo_file_path(day, facet)
+        lock_path = path.parent / f"{path.name}.lock"
+
+        last_error: Exception | None = None
+        for attempt in range(max_retries):
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with open(lock_path, "w") as lock_file:
+                    fcntl.flock(lock_file, fcntl.LOCK_EX)
+                    try:
+                        checklist = cls.load(day, facet)
+                        return modify_fn(checklist)
+                    finally:
+                        fcntl.flock(lock_file, fcntl.LOCK_UN)
+            except (IndexError, TodoError):
+                raise  # Logical errors — don't retry
+            except OSError as exc:
+                last_error = exc
+                if attempt < max_retries - 1:
+                    time.sleep(random.uniform(0.05, 0.3) * (attempt + 1))
+
+        raise last_error  # type: ignore[misc]
 
     def save(self) -> None:
         """Persist the checklist back to disk, creating parent directories if needed."""
