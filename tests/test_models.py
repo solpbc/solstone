@@ -640,9 +640,7 @@ def test_log_token_usage_computes_total_tokens(tmp_path, monkeypatch):
         context="test",
     )
 
-    log_file = tmp_path / "tokens" / (
-        __import__("time").strftime("%Y%m%d") + ".jsonl"
-    )
+    log_file = tmp_path / "tokens" / (__import__("time").strftime("%Y%m%d") + ".jsonl")
     entry = json.loads(log_file.read_text().strip())
     assert entry["usage"]["total_tokens"] == 1200
     assert entry["usage"]["input_tokens"] == 1000
@@ -663,9 +661,7 @@ def test_log_token_usage_preserves_existing_total_tokens(tmp_path, monkeypatch):
         context="test",
     )
 
-    log_file = tmp_path / "tokens" / (
-        __import__("time").strftime("%Y%m%d") + ".jsonl"
-    )
+    log_file = tmp_path / "tokens" / (__import__("time").strftime("%Y%m%d") + ".jsonl")
     entry = json.loads(log_file.read_text().strip())
     assert entry["usage"]["total_tokens"] == 1500
 
@@ -688,9 +684,7 @@ def test_log_token_usage_maps_cached_input_tokens(tmp_path, monkeypatch):
         context="test",
     )
 
-    log_file = tmp_path / "tokens" / (
-        __import__("time").strftime("%Y%m%d") + ".jsonl"
-    )
+    log_file = tmp_path / "tokens" / (__import__("time").strftime("%Y%m%d") + ".jsonl")
     entry = json.loads(log_file.read_text().strip())
     assert entry["usage"]["cached_tokens"] == 800
     assert entry["usage"]["total_tokens"] == 1200

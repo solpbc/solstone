@@ -102,7 +102,9 @@ from think.entities.relationships import (
 
 # Entity saving
 from think.entities.saving import (
+    save_detected_entity,
     save_entities,
+    update_detected_entity,
     update_entity_description,
 )
 
@@ -147,7 +149,9 @@ __all__ = [
     "load_recent_entity_names",
     "parse_entity_file",
     # Saving
+    "save_detected_entity",
     "save_entities",
+    "update_detected_entity",
     "update_entity_description",
     # Matching
     "find_matching_entity",

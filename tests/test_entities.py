@@ -30,11 +30,13 @@ from think.entities import (
     parse_knowledge_graph_entities,
     rename_entity_memory,
     resolve_entity,
+    save_detected_entity,
     save_entities,
     save_observations,
     touch_entities_from_activity,
     touch_entity,
     unblock_journal_entity,
+    update_detected_entity,
     validate_aka_uniqueness,
 )
 
@@ -284,6 +286,118 @@ def test_save_entities_sorting(fixture_journal, tmp_path):
     assert "acme" in journal_ids
     assert "alice" in journal_ids
     assert "beta_corp" in journal_ids
+
+
+def test_save_detected_entity_basic(fixture_journal, tmp_path):
+    """Test save_detected_entity adds an entity with locking."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
+
+    result = save_detected_entity("test_facet", "20250101", "Person", "Alice", "Friend")
+    assert result["name"] == "Alice"
+    assert result["type"] == "Person"
+
+    loaded = load_entities("test_facet", "20250101")
+    assert len(loaded) == 1
+    assert loaded[0]["name"] == "Alice"
+
+
+def test_save_detected_entity_duplicate(fixture_journal, tmp_path):
+    """Test save_detected_entity raises on duplicate."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
+
+    save_detected_entity("test_facet", "20250101", "Person", "Alice", "Friend")
+
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError, match="already detected"):
+        save_detected_entity("test_facet", "20250101", "Person", "Alice", "Different")
+
+
+def test_save_detected_entity_concurrent(fixture_journal, tmp_path):
+    """Test concurrent save_detected_entity calls don't lose data."""
+    import threading
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
+
+    errors = []
+    count = 10
+
+    def detect_entity(i):
+        try:
+            save_detected_entity(
+                "test_facet", "20250101", "Person", f"Entity{i}", f"Description {i}"
+            )
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=detect_entity, args=(i,)) for i in range(count)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, f"Unexpected errors: {errors}"
+    loaded = load_entities("test_facet", "20250101")
+    assert len(loaded) == count, f"Expected {count} entities, got {len(loaded)}"
+
+    names = {e["name"] for e in loaded}
+    for i in range(count):
+        assert f"Entity{i}" in names, f"Entity{i} missing from saved entities"
+
+
+def test_save_detected_entity_retry_on_error(fixture_journal, tmp_path):
+    """Test that save_detected_entity retries on transient OSError."""
+    from unittest.mock import patch
+
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
+
+    call_count = 0
+    original_atomic_write = __import__(
+        "think.entities.core", fromlist=["atomic_write"]
+    ).atomic_write
+
+    def flaky_atomic_write(path, content, prefix=".tmp_"):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise PermissionError("Simulated transient error")
+        return original_atomic_write(path, content, prefix)
+
+    with patch("think.entities.saving.atomic_write", side_effect=flaky_atomic_write):
+        save_detected_entity("test_facet", "20250101", "Person", "Alice", "Friend")
+
+    assert call_count == 2  # First attempt failed, second succeeded
+    loaded = load_entities("test_facet", "20250101")
+    assert len(loaded) == 1
+    assert loaded[0]["name"] == "Alice"
+
+
+def test_update_detected_entity(fixture_journal, tmp_path):
+    """Test update_detected_entity with locking."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
+
+    save_detected_entity("test_facet", "20250101", "Person", "Alice", "Friend")
+    result = update_detected_entity("test_facet", "20250101", "Alice", "Best friend")
+    assert result["description"] == "Best friend"
+
+    loaded = load_entities("test_facet", "20250101")
+    assert loaded[0]["description"] == "Best friend"
+
+
+def test_update_detected_entity_not_found(fixture_journal, tmp_path):
+    """Test update_detected_entity raises when entity missing."""
+    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    (tmp_path / "facets" / "test_facet" / "entities").mkdir(parents=True)
+
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError, match="not found"):
+        update_detected_entity("test_facet", "20250101", "Nobody", "Desc")
 
 
 def test_load_all_attached_entities(fixture_journal):
