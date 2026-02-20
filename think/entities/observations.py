@@ -22,17 +22,6 @@ from think.entities.relationships import entity_memory_path
 from think.utils import now_ms
 
 
-class ObservationNumberError(Exception):
-    """Raised when observation_number doesn't match expected value."""
-
-    def __init__(self, expected: int, actual: int):
-        self.expected = expected
-        self.actual = actual
-        super().__init__(
-            f"Observation number mismatch: expected {expected}, got {actual}"
-        )
-
-
 def observations_file_path(facet: str, name: str) -> Path:
     """Return path to observations file for an entity.
 
@@ -111,22 +100,18 @@ def add_observation(
     facet: str,
     name: str,
     content: str,
-    observation_number: int,
     source_day: str | None = None,
     max_retries: int = 3,
 ) -> dict[str, Any]:
-    """Add an observation to an entity with guard validation and file locking.
+    """Add an observation to an entity with file locking.
 
     Acquires an exclusive file lock to serialize concurrent writes to the
-    same entity's observations file. Requires the caller to provide the
-    expected next observation number (current count + 1) to prevent stale
-    writes.
+    same entity's observations file.
 
     Args:
         facet: Facet name
         name: Entity name
         content: The observation text
-        observation_number: Expected next number; must be current_count + 1
         source_day: Optional day (YYYYMMDD) when observation was made
         max_retries: Maximum attempts on transient OS errors (default 3)
 
@@ -134,12 +119,11 @@ def add_observation(
         Dictionary with updated observations list and count
 
     Raises:
-        ObservationNumberError: If observation_number doesn't match expected
         ValueError: If content is empty
         OSError: If all retries exhausted
 
     Example:
-        >>> add_observation("work", "Alice", "Prefers morning meetings", 1, "20250113")
+        >>> add_observation("work", "Alice", "Prefers morning meetings", "20250113")
         {"observations": [...], "count": 1}
     """
     content = content.strip()
@@ -156,12 +140,7 @@ def add_observation(
             with open(lock_path, "w") as lock_file:
                 fcntl.flock(lock_file, fcntl.LOCK_EX)
                 try:
-                    # Fresh load inside lock
                     observations = load_observations(facet, name)
-                    expected = len(observations) + 1
-
-                    if observation_number != expected:
-                        raise ObservationNumberError(expected, observation_number)
 
                     observation: dict[str, Any] = {
                         "content": content,
@@ -179,7 +158,7 @@ def add_observation(
                     }
                 finally:
                     fcntl.flock(lock_file, fcntl.LOCK_UN)
-        except (ValueError, ObservationNumberError):
+        except ValueError:
             raise  # Logical errors — don't retry
         except OSError as exc:
             last_error = exc

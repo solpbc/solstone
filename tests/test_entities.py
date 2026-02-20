@@ -9,7 +9,6 @@ import pytest
 
 from think.entities import (
     DEFAULT_ACTIVITY_TS,
-    ObservationNumberError,
     add_observation,
     block_journal_entity,
     delete_journal_entity,
@@ -1951,12 +1950,11 @@ def test_save_and_load_observations(fixture_journal, tmp_path):
 
 
 def test_add_observation_success(fixture_journal, tmp_path):
-    """Test adding observation with correct guard."""
+    """Test adding observations sequentially."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
-    # First observation (observation_number=1 for empty list)
     result = add_observation(
-        "personal", "Alice", "Prefers async communication", 1, "20250113"
+        "personal", "Alice", "Prefers async communication", "20250113"
     )
     assert result["count"] == 1
     assert len(result["observations"]) == 1
@@ -1964,8 +1962,7 @@ def test_add_observation_success(fixture_journal, tmp_path):
     assert result["observations"][0]["source_day"] == "20250113"
     assert "observed_at" in result["observations"][0]
 
-    # Second observation (observation_number=2)
-    result = add_observation("personal", "Alice", "Works PST timezone", 2)
+    result = add_observation("personal", "Alice", "Works PST timezone")
     assert result["count"] == 2
     assert len(result["observations"]) == 2
 
@@ -1974,30 +1971,15 @@ def test_add_observation_success(fixture_journal, tmp_path):
     assert len(loaded) == 2
 
 
-def test_add_observation_guard_failure(fixture_journal, tmp_path):
-    """Test adding observation with wrong guard fails."""
-    os.environ["JOURNAL_PATH"] = str(tmp_path)
-
-    # First observation
-    add_observation("personal", "Alice", "First observation", 1)
-
-    # Try to add with wrong observation_number (should be 2, not 1)
-    with pytest.raises(ObservationNumberError) as exc_info:
-        add_observation("personal", "Alice", "Second observation", 1)
-
-    assert exc_info.value.expected == 2
-    assert exc_info.value.actual == 1
-
-
 def test_add_observation_empty_content(fixture_journal, tmp_path):
     """Test adding observation with empty content fails."""
     os.environ["JOURNAL_PATH"] = str(tmp_path)
 
     with pytest.raises(ValueError, match="cannot be empty"):
-        add_observation("personal", "Alice", "", 1)
+        add_observation("personal", "Alice", "")
 
     with pytest.raises(ValueError, match="cannot be empty"):
-        add_observation("personal", "Alice", "   ", 1)
+        add_observation("personal", "Alice", "   ")
 
 
 def test_observations_with_entity_rename(fixture_journal, tmp_path):
@@ -2006,7 +1988,7 @@ def test_observations_with_entity_rename(fixture_journal, tmp_path):
 
     # Create entity memory folder and add observations
     ensure_entity_memory("work", "Alice Johnson")
-    add_observation("work", "Alice Johnson", "Test observation", 1)
+    add_observation("work", "Alice Johnson", "Test observation")
 
     # Verify observation exists
     observations = load_observations("work", "Alice Johnson")

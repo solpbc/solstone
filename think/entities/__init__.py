@@ -82,7 +82,6 @@ from think.entities.matching import (
 
 # Observations
 from think.entities.observations import (
-    ObservationNumberError,
     add_observation,
     load_observations,
     observations_file_path,
@@ -105,7 +104,6 @@ from think.entities.saving import (
     save_detected_entity,
     save_entities,
     update_detected_entity,
-    update_entity_description,
 )
 
 __all__ = [
@@ -152,7 +150,6 @@ __all__ = [
     "save_detected_entity",
     "save_entities",
     "update_detected_entity",
-    "update_entity_description",
     # Matching
     "find_matching_entity",
     "resolve_entity",
@@ -163,7 +160,6 @@ __all__ = [
     "touch_entities_from_activity",
     "touch_entity",
     # Observations
-    "ObservationNumberError",
     "add_observation",
     "load_observations",
     "observations_file_path",
