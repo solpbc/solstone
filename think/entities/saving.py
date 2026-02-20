@@ -6,7 +6,6 @@
 This module handles saving entities to storage:
 - save_entities: Save attached or detected entities for a facet
 - save_detected_entity: Concurrency-safe single entity detection with file locking
-- update_entity_description: Update a single entity's description with guard
 """
 
 import fcntl
@@ -18,7 +17,6 @@ from think.entities.core import EntityDict, atomic_write, entity_slug
 from think.entities.journal import get_or_create_journal_entity, save_journal_entity
 from think.entities.loading import detected_entities_path, load_entities
 from think.entities.relationships import save_facet_relationship
-from think.utils import now_ms
 
 
 def _save_entities_detected(facet: str, entities: list[EntityDict], day: str) -> None:
@@ -287,54 +285,3 @@ def update_detected_entity(
 
     result = _locked_modify_detected(facet, day, _update_entity)
     return next(e for e in result if e.get("name") == name)
-
-
-def update_entity_description(
-    facet: str,
-    name: str,
-    old_description: str,
-    new_description: str,
-    day: str | None = None,
-) -> EntityDict:
-    """Update an entity's description after validating current state.
-
-    Sets updated_at timestamp to current time on successful update.
-
-    Args:
-        facet: Facet name
-        name: Entity name to match (unique within facet)
-        old_description: Current description (guard - must match)
-        new_description: New description to set
-        day: Optional day for detected entities
-
-    Returns:
-        The updated entity dict
-
-    Raises:
-        ValueError: If entity not found or guard mismatch
-    """
-    # Load ALL entities including detached/blocked to avoid data loss on save
-    # For attached entities (day=None), we need include_detached=True and include_blocked=True
-    entities = (
-        load_entities(facet, day, include_detached=True, include_blocked=True)
-        if day is None
-        else load_entities(facet, day)
-    )
-
-    for entity in entities:
-        # Skip detached entities when searching
-        if entity.get("detached"):
-            continue
-        if entity.get("name") == name:
-            current_desc = entity.get("description", "")
-            if current_desc != old_description:
-                raise ValueError(
-                    f"Description mismatch for '{name}': expected '{old_description}', "
-                    f"found '{current_desc}'"
-                )
-            entity["description"] = new_description
-            entity["updated_at"] = now_ms()
-            save_entities(facet, entities, day)
-            return entity
-
-    raise ValueError(f"Entity '{name}' not found in facet '{facet}'")

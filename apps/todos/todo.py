@@ -227,7 +227,7 @@ class TodoChecklist:
                         return modify_fn(checklist)
                     finally:
                         fcntl.flock(lock_file, fcntl.LOCK_UN)
-            except (IndexError, TodoError):
+            except (IndexError, TodoError, FileNotFoundError):
                 raise  # Logical errors — don't retry
             except OSError as exc:
                 last_error = exc
