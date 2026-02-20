@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import shutil
 from pathlib import Path
 from typing import Any, Callable
@@ -369,9 +370,60 @@ def check_cli_binary(name: str) -> str:
     return path
 
 
+# ---------------------------------------------------------------------------
+# Cogitate Environment
+# ---------------------------------------------------------------------------
+
+
+def build_cogitate_env(env_key: str) -> dict[str, str]:
+    """Build environment dict for a cogitate CLI subprocess.
+
+    By default, strips the provider's API key so the CLI uses its own
+    platform/account-based auth. Controlled by the ``providers.auth``
+    section in journal config:
+
+        "providers": {
+            "auth": {
+                "anthropic": "platform"   // default — strip key
+            }
+        }
+
+    Values: ``"platform"`` (default) strips the key; ``"api_key"`` preserves it.
+
+    Args:
+        env_key: Environment variable name to consider stripping
+            (e.g., ``"ANTHROPIC_API_KEY"``).
+
+    Returns:
+        Copy of ``os.environ`` with the key removed when auth mode is platform.
+    """
+    from think.utils import get_config
+
+    config = get_config()
+    auth_config = config.get("providers", {}).get("auth", {})
+
+    # Determine provider name from env_key for config lookup
+    # e.g., "ANTHROPIC_API_KEY" -> lookup auth_config for matching provider
+    # We check all auth entries; default is "platform" for any missing provider
+    auth_mode = "platform"
+    for provider, mode in auth_config.items():
+        from think.providers import PROVIDER_METADATA
+
+        meta = PROVIDER_METADATA.get(provider, {})
+        if meta.get("env_key") == env_key:
+            auth_mode = mode
+            break
+
+    env = os.environ.copy()
+    if auth_mode == "platform":
+        env.pop(env_key, None)
+    return env
+
+
 __all__ = [
     "CLIRunner",
     "ThinkingAggregator",
     "assemble_prompt",
+    "build_cogitate_env",
     "check_cli_binary",
 ]

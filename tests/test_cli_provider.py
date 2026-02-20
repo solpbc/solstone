@@ -4,6 +4,7 @@
 """Tests for think.providers.cli — CLI subprocess runner infrastructure."""
 
 import asyncio
+import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -12,6 +13,7 @@ from think.providers.cli import (
     CLIRunner,
     ThinkingAggregator,
     assemble_prompt,
+    build_cogitate_env,
 )
 from think.providers.shared import JSONEventCallback, safe_raw
 
@@ -437,3 +439,99 @@ class TestSafeRaw:
         assert result[0] == {"type": "msg"}
         assert result[1] == {"type": "msg"}
         assert "_raw_trimmed" in result[2]
+
+
+# ---------------------------------------------------------------------------
+# build_cogitate_env
+# ---------------------------------------------------------------------------
+
+
+class TestBuildCogitateEnv:
+    """Tests for build_cogitate_env — API key stripping for CLI subprocesses."""
+
+    def test_default_strips_key(self):
+        """No auth config → default platform mode → key removed."""
+        config = {"providers": {}}
+        with (
+            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-secret"}, clear=False),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("ANTHROPIC_API_KEY")
+        assert "ANTHROPIC_API_KEY" not in env
+
+    def test_explicit_platform_strips_key(self):
+        """auth.anthropic = "platform" → key removed."""
+        config = {"providers": {"auth": {"anthropic": "platform"}}}
+        with (
+            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-secret"}, clear=False),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("ANTHROPIC_API_KEY")
+        assert "ANTHROPIC_API_KEY" not in env
+
+    def test_api_key_mode_preserves_key(self):
+        """auth.anthropic = "api_key" → key preserved."""
+        config = {"providers": {"auth": {"anthropic": "api_key"}}}
+        with (
+            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-secret"}, clear=False),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("ANTHROPIC_API_KEY")
+        assert env["ANTHROPIC_API_KEY"] == "sk-secret"
+
+    def test_missing_auth_section_strips_key(self):
+        """No providers section at all → safe default, key removed."""
+        config = {}
+        with (
+            patch.dict(os.environ, {"OPENAI_API_KEY": "sk-openai"}, clear=False),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("OPENAI_API_KEY")
+        assert "OPENAI_API_KEY" not in env
+
+    def test_other_env_vars_preserved(self):
+        """Non-API-key vars are never stripped."""
+        config = {"providers": {}}
+        with (
+            patch.dict(
+                os.environ,
+                {"ANTHROPIC_API_KEY": "sk-secret", "HOME": "/home/test"},
+                clear=False,
+            ),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("ANTHROPIC_API_KEY")
+        assert env["HOME"] == "/home/test"
+
+    def test_key_not_in_env_is_harmless(self):
+        """Stripping a key that doesn't exist doesn't error."""
+        config = {"providers": {}}
+        with (
+            patch.dict(os.environ, {}, clear=False),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GOOGLE_API_KEY" not in env
+
+    def test_per_provider_independence(self):
+        """Each provider's auth mode is independent."""
+        config = {
+            "providers": {
+                "auth": {
+                    "anthropic": "api_key",
+                    "openai": "platform",
+                }
+            }
+        }
+        with (
+            patch.dict(
+                os.environ,
+                {"ANTHROPIC_API_KEY": "sk-ant", "OPENAI_API_KEY": "sk-oai"},
+                clear=False,
+            ),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            ant_env = build_cogitate_env("ANTHROPIC_API_KEY")
+            oai_env = build_cogitate_env("OPENAI_API_KEY")
+        assert ant_env["ANTHROPIC_API_KEY"] == "sk-ant"
+        assert "OPENAI_API_KEY" not in oai_env

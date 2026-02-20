@@ -46,6 +46,7 @@ from .cli import (
     CLIRunner,
     ThinkingAggregator,
     assemble_prompt,
+    build_cogitate_env,
 )
 from .shared import (
     GenerateResult,
@@ -621,6 +622,7 @@ async def run_cogitate(
             translate=translate,
             callback=callback,
             aggregator=aggregator,
+            env=build_cogitate_env("GOOGLE_API_KEY"),
         )
 
         result = await runner.run()

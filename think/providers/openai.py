@@ -43,6 +43,7 @@ from think.providers.cli import (
     CLIRunner,
     ThinkingAggregator,
     assemble_prompt,
+    build_cogitate_env,
 )
 from think.utils import now_ms
 
@@ -203,6 +204,7 @@ async def run_cogitate(
         translate=translate,
         callback=cb,
         aggregator=aggregator,
+        env=build_cogitate_env("OPENAI_API_KEY"),
     )
 
     try:

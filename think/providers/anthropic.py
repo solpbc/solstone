@@ -50,6 +50,7 @@ from .cli import (
     CLIRunner,
     ThinkingAggregator,
     assemble_prompt,
+    build_cogitate_env,
     check_cli_binary,
 )
 from .shared import (
@@ -269,6 +270,7 @@ async def run_cogitate(
             translate=translate,
             callback=callback,
             aggregator=aggregator,
+            env=build_cogitate_env("ANTHROPIC_API_KEY"),
         )
 
         result = await runner.run()
