@@ -509,8 +509,15 @@ class VideoProcessor:
                 if not has_error:
                     try:
                         analysis = json.loads(req.response)
+                        # Unwrap single-element list (LLM sometimes wraps in [])
+                        if isinstance(analysis, list) and len(analysis) == 1:
+                            analysis = analysis[0]
+                        if not isinstance(analysis, dict):
+                            raise ValueError(
+                                f"Expected dict, got {type(analysis).__name__}"
+                            )
                         req.json_analysis = analysis
-                    except json.JSONDecodeError as e:
+                    except (json.JSONDecodeError, ValueError) as e:
                         has_error = True
                         error_msg = f"Invalid JSON response: {e}"
 
