@@ -1094,6 +1094,247 @@ def run_flush_prompts(
     return total_failed == 0
 
 
+def dry_run(
+    day: str,
+    *,
+    segment: str | None = None,
+    segments: bool = False,
+    facet: str | None = None,
+    activity: str | None = None,
+    flush: bool = False,
+    refresh: bool = False,
+    stream: str | None = None,
+) -> None:
+    """Print what dream would execute without spawning any agents."""
+    day_formatted = iso_date(day)
+
+    if activity:
+        _dry_run_activity(day, day_formatted, activity, facet or "", refresh)
+        return
+
+    if flush:
+        _dry_run_flush(day, segment or "")
+        return
+
+    if segments:
+        segs = cluster_segments(day)
+        if not segs:
+            print(f"No segments found for {day}")
+            return
+        print(f"Day {day_formatted} — re-process {len(segs)} segments\n")
+        for i, seg in enumerate(segs, 1):
+            seg_key = seg["key"]
+            seg_stream = seg.get("stream")
+            label = f"  [{i}/{len(segs)}] {seg_key} ({seg['start']}-{seg['end']})"
+            if seg_stream:
+                label += f" stream={seg_stream}"
+            print(label)
+        print()
+        # Show what prompts would run per segment
+        all_prompts = get_muse_configs(schedule="segment")
+        if all_prompts:
+            _print_prompt_table(all_prompts, day, segment="<each>", stream=stream)
+        return
+
+    # Default: full daily or segment run
+    target_schedule = "segment" if segment else "daily"
+    all_prompts = get_muse_configs(schedule=target_schedule)
+
+    header = f"Day {day_formatted}"
+    if segment:
+        header += f" segment {segment}"
+    if refresh:
+        header += " (refresh)"
+    print(header + "\n")
+
+    if not segment:
+        print("Pre-phase:  sol sense --day " + day)
+
+    if not all_prompts:
+        print(f"No prompts for schedule: {target_schedule}")
+    else:
+        _print_prompt_table(
+            all_prompts, day, segment=segment, refresh=refresh, stream=stream
+        )
+
+    if not segment:
+        print("Post-phase: sol indexer --rescan")
+        print("Post-phase: sol journal-stats")
+
+
+def _print_prompt_table(
+    prompts: dict[str, dict],
+    day: str,
+    *,
+    segment: str | None = None,
+    refresh: bool = False,
+    stream: str | None = None,
+) -> None:
+    """Print a grouped-by-priority table of prompts."""
+    enabled_facets = get_enabled_facets()
+
+    if segment and segment != "<each>":
+        active_facets = set(
+            f
+            for f in load_segment_facets(day, segment, stream=stream)
+            if f in enabled_facets
+        )
+    else:
+        active_facets = get_active_facets(day)
+
+    # Group by priority
+    groups: dict[int, list[tuple[str, dict]]] = {}
+    for name, config in prompts.items():
+        pri = config["priority"]
+        groups.setdefault(pri, []).append((name, config))
+
+    total = 0
+    for priority in sorted(groups.keys()):
+        items = groups[priority]
+        print(f"Priority {priority}:")
+        for name, config in items:
+            is_gen = config["type"] == "generate"
+            type_label = "gen" if is_gen else "agent"
+            output_fmt = config.get("output", "md") if is_gen else None
+
+            if config.get("multi_facet"):
+                always = config.get("always", False)
+                target_facets = [
+                    f for f in enabled_facets if always or f in active_facets
+                ]
+                skipped = [f for f in enabled_facets if f not in target_facets]
+                for f in target_facets:
+                    status = (
+                        _output_status(
+                            day, name, segment, output_fmt, facet=f, stream=stream
+                        )
+                        if is_gen
+                        else ""
+                    )
+                    print(f"  {type_label}  {name}/{f}{status}")
+                    total += 1
+                if skipped:
+                    print(f"  skip {name} — no activity: {', '.join(skipped)}")
+            else:
+                status = (
+                    _output_status(day, name, segment, output_fmt, stream=stream)
+                    if is_gen
+                    else ""
+                )
+                print(f"  {type_label}  {name}{status}")
+                total += 1
+        print()
+
+    print(f"Total: {total} agents")
+
+
+def _output_status(
+    day: str,
+    name: str,
+    segment: str | None,
+    output_format: str | None,
+    *,
+    facet: str | None = None,
+    stream: str | None = None,
+) -> str:
+    """Return a short status suffix for a generator output file."""
+    if segment == "<each>":
+        return ""
+    path = get_output_path(
+        day_path(day),
+        name,
+        segment=segment,
+        output_format=output_format,
+        facet=facet,
+        stream=stream,
+    )
+    if path.exists():
+        return " (exists)"
+    return " (new)"
+
+
+def _dry_run_activity(
+    day: str, day_formatted: str, activity_id: str, facet: str, refresh: bool
+) -> None:
+    """Dry-run for --activity mode."""
+    records = load_activity_records(facet, day)
+    record = next((r for r in records if r.get("id") == activity_id), None)
+
+    if not record:
+        print(f"Activity not found: {activity_id} in facet '{facet}' on {day}")
+        return
+
+    activity_type = record.get("activity", "")
+    segments = record.get("segments", [])
+
+    print(
+        f"Day {day_formatted} --activity {activity_id} --facet {facet}"
+        + (" (refresh)" if refresh else "")
+        + "\n"
+    )
+    print(f"  type:     {activity_type}")
+    print(f"  segments: {len(segments)}")
+
+    all_prompts = get_muse_configs(schedule="activity")
+    matching = {
+        n: c
+        for n, c in all_prompts.items()
+        if "*" in c.get("activities", []) or activity_type in c.get("activities", [])
+    }
+
+    if not matching:
+        print(f"\n  No agents match activity type '{activity_type}'")
+        return
+
+    groups: dict[int, list[tuple[str, dict]]] = {}
+    for n, c in matching.items():
+        groups.setdefault(c["priority"], []).append((n, c))
+
+    print()
+    total = 0
+    for priority in sorted(groups.keys()):
+        items = groups[priority]
+        print(f"Priority {priority}:")
+        for n, c in items:
+            is_gen = c["type"] == "generate"
+            type_label = "gen" if is_gen else "agent"
+            output_fmt = c.get("output", "md") if is_gen else None
+            status = ""
+            if is_gen:
+                path = get_activity_output_path(
+                    facet, day, activity_id, n, output_format=output_fmt
+                )
+                status = " (exists)" if path.exists() else " (new)"
+            print(f"  {type_label}  {n}{status}")
+            total += 1
+        print()
+
+    print(f"Total: {total} agents")
+
+
+def _dry_run_flush(day: str, segment: str) -> None:
+    """Dry-run for --flush mode."""
+    all_prompts = get_muse_configs(schedule="segment")
+    flush_prompts = {
+        n: c
+        for n, c in all_prompts.items()
+        if isinstance(c.get("hook"), dict) and c["hook"].get("flush")
+    }
+
+    day_formatted = iso_date(day)
+    print(f"Day {day_formatted} --flush segment {segment}\n")
+
+    if not flush_prompts:
+        print("  No flush-eligible agents")
+        return
+
+    for n, c in flush_prompts.items():
+        type_label = "gen" if c["type"] == "generate" else "agent"
+        print(f"  {type_label}  {n}")
+
+    print(f"\nTotal: {len(flush_prompts)} agents")
+
+
 def parse_args() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run processing tasks on a journal day or segment"
@@ -1145,6 +1386,11 @@ def parse_args() -> argparse.ArgumentParser:
         "--updated",
         action="store_true",
         help="List days with pending daily processing and exit",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would run without executing anything",
     )
     return parser
 
@@ -1218,6 +1464,19 @@ def main() -> None:
 
     if args.segments and (args.segment or args.facet):
         parser.error("--segments is incompatible with --segment and --facet")
+
+    if args.dry_run:
+        dry_run(
+            day,
+            segment=args.segment,
+            segments=args.segments,
+            facet=args.facet,
+            activity=args.activity,
+            flush=args.flush,
+            refresh=args.refresh,
+            stream=args.stream,
+        )
+        sys.exit(0)
 
     # Start callosum connection
     _callosum = CallosumConnection(defaults={"rev": get_rev()})
