@@ -142,10 +142,108 @@
   letter-spacing: 0.05em;
   margin-top: 0.25rem;
 }
+
+/* Events Card */
+.events-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.events-card.paused {
+  border-left: 4px solid #f59e0b;
+}
+
+.events-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1em;
+}
+
+.events-title {
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.events-controls {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+}
+
+.pause-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.5em 1em;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  transition: background 0.2s;
+}
+
+.pause-btn:hover {
+  background: #2563eb;
+}
+
+.pause-btn.paused {
+  background: #f59e0b;
+}
+
+.pause-btn.paused:hover {
+  background: #d97706;
+}
+
+.missed-count {
+  font-size: 0.85em;
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.event-log {
+  height: 400px;
+  overflow-y: auto;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.5em;
+  background: #f9fafb;
+}
+
+.event-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 3px 0;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+}
+
+.event-line:last-child {
+  border-bottom: none;
+}
+
+.event-line.error {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.event-log:empty::before {
+  content: 'Waiting for events...';
+  color: #9ca3af;
+  font-style: italic;
+}
 </style>
 
 <div class="dev-container">
-  <h1>🛠️ Dev Tools - Notification Testing</h1>
+  <h1>🛠️ Dev Tools</h1>
 
   <!-- Quick Tests -->
   <div class="dev-section">
@@ -239,6 +337,25 @@
     <h2>Console Log</h2>
     <p>Notification IDs and events</p>
     <div class="dev-output" id="console"></div>
+  </div>
+
+  <!-- Callosum Event Viewer -->
+  <div class="dev-section">
+    <h2>Callosum Event Viewer</h2>
+    <p>Raw callosum event stream with pause/resume</p>
+    <div class="events-card" id="eventsCard">
+      <div class="events-header">
+        <div class="events-title">EVENTS</div>
+        <div class="events-controls">
+          <span class="missed-count" id="missedCount" style="display: none;"></span>
+          <button class="pause-btn" id="pauseBtn">
+            <span>||</span>
+            <span>Pause</span>
+          </button>
+        </div>
+      </div>
+      <div id="eventLog" class="event-log"></div>
+    </div>
   </div>
 </div>
 
@@ -497,6 +614,60 @@ function populateFacetDropdown() {
     facetSelect.appendChild(option);
   });
 }
+
+// Callosum Event Viewer
+(function() {
+  const eventLog = document.getElementById('eventLog');
+  const eventsCard = document.getElementById('eventsCard');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const missedCountEl = document.getElementById('missedCount');
+  let paused = false;
+  let missed = 0;
+
+  function togglePause() {
+    paused = !paused;
+    if (paused) {
+      pauseBtn.classList.add('paused');
+      pauseBtn.innerHTML = '<span>|></span><span>Resume</span>';
+      eventsCard.classList.add('paused');
+      missed = 0;
+      missedCountEl.style.display = 'none';
+    } else {
+      pauseBtn.classList.remove('paused');
+      pauseBtn.innerHTML = '<span>||</span><span>Pause</span>';
+      eventsCard.classList.remove('paused');
+      missed = 0;
+      missedCountEl.style.display = 'none';
+    }
+  }
+
+  function appendEvent(msg) {
+    if (paused) {
+      missed++;
+      missedCountEl.textContent = missed + ' missed';
+      missedCountEl.style.display = 'inline';
+      return;
+    }
+
+    const line = document.createElement('div');
+    line.className = 'event-line';
+    if (msg.event === 'error' || (msg.event === 'exit' && msg.exit_code !== 0)) {
+      line.className = 'event-line error';
+    }
+    line.textContent = JSON.stringify(msg);
+    eventLog.appendChild(line);
+    eventLog.scrollTop = eventLog.scrollHeight;
+
+    while (eventLog.children.length > 100) {
+      eventLog.removeChild(eventLog.firstChild);
+    }
+  }
+
+  pauseBtn.addEventListener('click', togglePause);
+  if (window.appEvents) {
+    window.appEvents.listen('*', appendEvent);
+  }
+})();
 
 // Initial log and setup
 populateFacetDropdown();
