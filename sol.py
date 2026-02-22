@@ -138,29 +138,22 @@ GROUPS: dict[str, list[str]] = {
 
 def get_status() -> dict[str, Any]:
     """Return current journal status information."""
-    from dotenv import load_dotenv
+    from think.utils import get_journal_info
 
-    load_dotenv()
+    path, source = get_journal_info()
 
-    status: dict[str, Any] = {}
-
-    # Journal path
-    journal_path = os.environ.get("JOURNAL_PATH")
-    if journal_path:
-        status["journal_path"] = journal_path
-        status["journal_exists"] = os.path.isdir(journal_path)
-    else:
-        status["journal_path"] = "(not set)"
-        status["journal_exists"] = False
-
-    return status
+    return {
+        "journal_path": path,
+        "journal_source": source,
+        "journal_exists": os.path.isdir(path),
+    }
 
 
 def print_status() -> None:
     """Print current journal status."""
     status = get_status()
 
-    print(f"JOURNAL_PATH={status['journal_path']}")
+    print(f"JOURNAL_PATH={status['journal_path']} ({status['journal_source']})")
     if status["journal_exists"]:
         # Count day directories
         journal = status["journal_path"]
@@ -289,6 +282,14 @@ def main() -> None:
     # Version flag
     if cmd in ("--version", "-V"):
         print("sol (solstone) 0.1.0")
+        return
+
+    # Path flag
+    if cmd == "--path":
+        from think.utils import get_journal_info
+
+        path, _source = get_journal_info()
+        print(path)
         return
 
     # Resolve command to module path

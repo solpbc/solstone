@@ -130,6 +130,7 @@ class TestGetStatus:
 
         status = sol.get_status()
         assert status["journal_path"] == str(tmp_path)
+        assert status["journal_source"] == "shell"
         assert status["journal_exists"] is True
 
     def test_status_with_nonexistent_journal(self, monkeypatch, tmp_path):
@@ -139,16 +140,17 @@ class TestGetStatus:
 
         status = sol.get_status()
         assert status["journal_path"] == str(nonexistent)
+        assert status["journal_source"] == "shell"
         assert status["journal_exists"] is False
 
     def test_status_without_journal_path(self, monkeypatch):
-        """Test status when JOURNAL_PATH is not set."""
+        """Test status when JOURNAL_PATH is not set falls back to platform default."""
         monkeypatch.delenv("JOURNAL_PATH", raising=False)
-        # Also prevent .env from being loaded
-        with patch("dotenv.load_dotenv"):
+        with patch("think.utils.load_dotenv"):
             status = sol.get_status()
-            assert status["journal_path"] == "(not set)"
-            assert status["journal_exists"] is False
+            assert status["journal_path"] != "(not set)"
+            assert status["journal_source"] == "default"
+            assert isinstance(status["journal_exists"], bool)
 
 
 class TestMain:
@@ -193,6 +195,29 @@ class TestMain:
 
         captured = capsys.readouterr()
         assert "sol (solstone)" in captured.out
+
+    def test_main_path_flag(self, monkeypatch, capsys):
+        """Test --path flag prints resolved journal path."""
+        monkeypatch.setattr(sys, "argv", ["sol", "--path"])
+        monkeypatch.setenv("JOURNAL_PATH", "/tmp/test-journal")
+
+        sol.main()
+
+        captured = capsys.readouterr()
+        assert captured.out.strip() == "/tmp/test-journal"
+
+    def test_main_path_flag_default(self, monkeypatch, capsys):
+        """Test --path prints platform default when JOURNAL_PATH not set."""
+        monkeypatch.setattr(sys, "argv", ["sol", "--path"])
+        monkeypatch.delenv("JOURNAL_PATH", raising=False)
+        with patch("think.utils.load_dotenv"):
+            sol.main()
+
+        captured = capsys.readouterr()
+        path = captured.out.strip()
+        assert path != "(not set)"
+        assert path != ""
+        assert "solstone" in path or "journal" in path
 
     def test_main_unknown_command_exits(self, monkeypatch):
         """Test that unknown command exits with code 1."""
