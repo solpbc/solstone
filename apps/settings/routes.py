@@ -327,7 +327,9 @@ def get_providers() -> Any:
 
         # Build auth settings (default "platform" for all providers)
         auth_config = providers_config.get("auth", {})
-        auth = {p["name"]: auth_config.get(p["name"], "platform") for p in providers_list}
+        auth = {
+            p["name"]: auth_config.get(p["name"], "platform") for p in providers_list
+        }
 
         return jsonify(
             {
