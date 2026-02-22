@@ -779,6 +779,8 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
 
     # Scheduled tasks
     schedules = scheduler.collect_status()
+    # Connected callosum clients
+    callosum_clients = _callosum_server.client_count() if _callosum_server else 0
 
     return {
         "services": services,
@@ -787,6 +789,7 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
         "queues": queues,
         "stale_heartbeats": stale,
         "schedules": schedules,
+        "callosum_clients": callosum_clients,
     }
 
 
