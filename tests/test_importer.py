@@ -251,7 +251,9 @@ def test_format_audio_stream_path():
 
     # Stream-based path: day/stream/segment/imported_audio.jsonl
     context = {
-        "file_path": Path("/journal/20240101/import.text/120000_300/imported_audio.jsonl")
+        "file_path": Path(
+            "/journal/20240101/import.text/120000_300/imported_audio.jsonl"
+        )
     }
     chunks, meta = format_audio(entries, context)
 
@@ -273,9 +275,7 @@ def test_format_audio_legacy_path():
     ]
 
     # Legacy path: day/segment/audio.jsonl (no stream directory)
-    context = {
-        "file_path": Path("/journal/20240101/123456_300/audio.jsonl")
-    }
+    context = {"file_path": Path("/journal/20240101/123456_300/audio.jsonl")}
     chunks, meta = format_audio(entries, context)
 
     assert len(chunks) == 1
