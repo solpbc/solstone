@@ -31,6 +31,7 @@ def test_health_check_prints_status(capsys):
         "tasks": [{"name": "dream", "duration_seconds": 12}],
         "queues": {"indexer": 3, "planner": 0},
         "stale_heartbeats": [],
+        "callosum_clients": 5,
     }
 
     print_status(status)
@@ -46,6 +47,7 @@ def test_health_check_prints_status(capsys):
     assert "dream" in output
     assert "queued indexer" in output
     assert "Heartbeat: ok" in output
+    assert "Callosum: 5 clients" in output
 
 
 def test_health_check_timeout(tmp_path, monkeypatch, capsys):

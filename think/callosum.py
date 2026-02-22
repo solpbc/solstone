@@ -44,6 +44,11 @@ class CallosumServer:
         self.broadcast_queue: queue.Queue = queue.Queue(maxsize=10000)
         self.writer_thread: threading.Thread | None = None
 
+    def client_count(self) -> int:
+        """Return the number of currently connected clients."""
+        with self.lock:
+            return len(self.clients)
+
     def start(self) -> None:
         """Start the broadcast server."""
         # Ensure health directory exists

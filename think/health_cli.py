@@ -88,6 +88,8 @@ def print_status(status: dict[str, Any]) -> None:
         print(f"Heartbeat: STALE ({', '.join(stale)})")
     else:
         print("Heartbeat: ok")
+    callosum_clients = status.get("callosum_clients", 0)
+    print(f"Callosum: {callosum_clients} clients")
 
 
 def health_check() -> int:
