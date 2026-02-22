@@ -95,9 +95,32 @@ def get_provider_list() -> List[Dict[str, Any]]:
     ]
 
 
+def get_provider_models(provider: str) -> list[dict]:
+    """Get available models for a provider.
+
+    Parameters
+    ----------
+    provider
+        Provider name (e.g., "google", "openai", "anthropic").
+
+    Returns
+    -------
+    list[dict]
+        List of raw model info objects returned by the provider API.
+
+    Raises
+    ------
+    ValueError
+        If the provider is not registered.
+    """
+    module = get_provider_module(provider)
+    return module.list_models()
+
+
 __all__ = [
     "PROVIDER_REGISTRY",
     "PROVIDER_METADATA",
     "get_provider_module",
     "get_provider_list",
+    "get_provider_models",
 ]

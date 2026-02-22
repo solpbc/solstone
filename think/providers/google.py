@@ -661,9 +661,22 @@ async def run_cogitate(
         raise
 
 
+def list_models() -> list[dict]:
+    """List available Google Gemini models.
+
+    Returns
+    -------
+    list[dict]
+        List of raw model info objects from the Google Gemini API.
+    """
+    client = get_or_create_client()
+    return [m.model_dump() for m in client.models.list()]
+
+
 __all__ = [
     "run_cogitate",
     "run_generate",
     "run_agenerate",
     "get_or_create_client",
+    "list_models",
 ]

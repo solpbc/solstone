@@ -552,8 +552,21 @@ async def run_agenerate(
     )
 
 
+def list_models() -> list[dict]:
+    """List available Anthropic models.
+
+    Returns
+    -------
+    list[dict]
+        List of raw model info objects from the Anthropic API.
+    """
+    client = _get_anthropic_client()
+    return [m.model_dump() for m in client.models.list()]
+
+
 __all__ = [
     "run_cogitate",
     "run_generate",
     "run_agenerate",
+    "list_models",
 ]
