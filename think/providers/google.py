@@ -549,15 +549,23 @@ def _translate_gemini(
     if event_type == "result":
         stats = event.get("stats") or {}
         if usage_out is not None and stats:
+            input_tokens = stats.get("input_tokens", 0)
+            output_tokens = stats.get("output_tokens", 0)
+            total_tokens = stats.get("total_tokens", 0)
             usage_out.update(
                 {
-                    "input_tokens": stats.get("input_tokens", 0),
-                    "output_tokens": stats.get("output_tokens", 0),
-                    "total_tokens": stats.get("total_tokens", 0),
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens,
                 }
             )
             if stats.get("cached"):
                 usage_out["cached_tokens"] = stats["cached"]
+            # CLI doesn't break out thinking tokens, but they're the
+            # difference between total and input+output.
+            reasoning = total_tokens - input_tokens - output_tokens
+            if reasoning > 0:
+                usage_out["reasoning_tokens"] = reasoning
         return None
 
     # Unknown event type — log and skip

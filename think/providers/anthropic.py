@@ -197,13 +197,20 @@ def _translate_claude(
         result_meta["cost_usd"] = event.get("total_cost_usd")
         usage = event.get("usage")
         if usage:
-            result_meta["usage"] = {
-                "input_tokens": usage.get("input_tokens") or 0,
-                "output_tokens": usage.get("output_tokens") or 0,
-                "total_tokens": (
-                    (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
-                ),
+            input_tokens = usage.get("input_tokens") or 0
+            output_tokens = usage.get("output_tokens") or 0
+            usage_dict: dict[str, Any] = {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
             }
+            cache_creation = usage.get("cache_creation_input_tokens")
+            if cache_creation:
+                usage_dict["cache_creation_tokens"] = cache_creation
+            cache_read = usage.get("cache_read_input_tokens")
+            if cache_read:
+                usage_dict["cached_tokens"] = cache_read
+            result_meta["usage"] = usage_dict
 
     return None
 

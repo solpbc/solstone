@@ -133,6 +133,24 @@ Event = Union[
 
 
 # ---------------------------------------------------------------------------
+# Usage Schema
+# ---------------------------------------------------------------------------
+
+# Canonical keys for the normalized usage dict returned by all providers.
+# log_token_usage() passes through exactly these keys (when present and non-zero).
+USAGE_KEYS = frozenset(
+    {
+        "input_tokens",
+        "output_tokens",
+        "total_tokens",
+        "cached_tokens",
+        "reasoning_tokens",
+        "cache_creation_tokens",
+        "requests",
+    }
+)
+
+# ---------------------------------------------------------------------------
 # GenerateResult
 # ---------------------------------------------------------------------------
 
@@ -222,5 +240,6 @@ __all__ = [
     "GenerateResult",
     "JSONEventCallback",
     "ThinkingEvent",
+    "USAGE_KEYS",
     "safe_raw",
 ]

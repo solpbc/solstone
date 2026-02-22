@@ -688,3 +688,57 @@ def test_log_token_usage_maps_cached_input_tokens(tmp_path, monkeypatch):
     entry = json.loads(log_file.read_text().strip())
     assert entry["usage"]["cached_tokens"] == 800
     assert entry["usage"]["total_tokens"] == 1200
+
+
+def test_log_token_usage_passes_through_reasoning_tokens(tmp_path, monkeypatch):
+    """reasoning_tokens from provider-normalized usage are preserved in log."""
+    import json
+
+    from think.models import log_token_usage
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    # Normalized usage from Google provider (the bug: reasoning_tokens were dropped)
+    log_token_usage(
+        model="gemini-3-flash-preview",
+        usage={
+            "input_tokens": 13319,
+            "output_tokens": 969,
+            "total_tokens": 37878,
+            "reasoning_tokens": 23590,
+        },
+        context="test",
+    )
+
+    log_file = tmp_path / "tokens" / (__import__("time").strftime("%Y%m%d") + ".jsonl")
+    entry = json.loads(log_file.read_text().strip())
+    assert entry["usage"]["reasoning_tokens"] == 23590
+    assert entry["usage"]["total_tokens"] == 37878
+    assert entry["usage"]["input_tokens"] == 13319
+    assert entry["usage"]["output_tokens"] == 969
+
+
+def test_log_token_usage_passes_through_cache_creation_tokens(tmp_path, monkeypatch):
+    """cache_creation_tokens from Anthropic provider are preserved in log."""
+    import json
+
+    from think.models import log_token_usage
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    log_token_usage(
+        model="claude-sonnet-4-5",
+        usage={
+            "input_tokens": 5000,
+            "output_tokens": 1000,
+            "total_tokens": 6000,
+            "cached_tokens": 3000,
+            "cache_creation_tokens": 2000,
+        },
+        context="test",
+    )
+
+    log_file = tmp_path / "tokens" / (__import__("time").strftime("%Y%m%d") + ".jsonl")
+    entry = json.loads(log_file.read_text().strip())
+    assert entry["usage"]["cache_creation_tokens"] == 2000
+    assert entry["usage"]["cached_tokens"] == 3000

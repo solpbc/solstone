@@ -521,20 +521,17 @@ def log_token_usage(
 ) -> None:
     """Log token usage to journal with unified schema.
 
+    Providers normalize usage into the unified schema (see USAGE_KEYS in
+    shared.py) before returning GenerateResult.  This function passes
+    through those known keys, computes total_tokens when missing, and
+    handles a few legacy field aliases from CLI backends.
+
     Parameters
     ----------
     model : str
         Model name (e.g., "gpt-5", "gemini-2.5-flash")
-    usage : dict or response object
-        Usage data in provider-specific format, OR a Gemini response object.
-        Dict formats supported:
-        - OpenAI format: {input_tokens, output_tokens, total_tokens,
-                         details: {input: {cached_tokens}, output: {reasoning_tokens}}}
-        - Gemini format: {prompt_token_count, candidates_token_count,
-                         cached_content_token_count, thoughts_token_count, total_token_count}
-        - Unified format: {input_tokens, output_tokens, total_tokens,
-                          cached_tokens, reasoning_tokens, requests}
-        Response objects: Gemini GenerateContentResponse with usage_metadata attribute
+    usage : dict
+        Normalized usage dict with keys from USAGE_KEYS.
     context : str, optional
         Context string (e.g., "module.function:123" or "muse.system.default").
         If None, auto-detects from call stack.
@@ -544,28 +541,10 @@ def log_token_usage(
     type : str, optional
         Token entry type (e.g., "generate", "cogitate").
     """
+    from think.providers.shared import USAGE_KEYS
+
     try:
         journal = get_journal()
-
-        # Extract from Gemini response object if needed
-        if hasattr(usage, "usage_metadata"):
-            try:
-                metadata = usage.usage_metadata
-                usage = {
-                    "prompt_token_count": getattr(metadata, "prompt_token_count", 0),
-                    "candidates_token_count": getattr(
-                        metadata, "candidates_token_count", 0
-                    ),
-                    "cached_content_token_count": getattr(
-                        metadata, "cached_content_token_count", 0
-                    ),
-                    "thoughts_token_count": getattr(
-                        metadata, "thoughts_token_count", 0
-                    ),
-                    "total_token_count": getattr(metadata, "total_token_count", 0),
-                }
-            except Exception:
-                return  # Can't extract, fail silently
 
         # Auto-detect calling context if not provided
         if context is None:
@@ -589,56 +568,18 @@ def log_token_usage(
 
                 context = f"{module_name}.{func_name}:{line_num}"
 
-        # Normalize usage data to unified schema
+        # Pass through known keys from the already-normalized usage dict.
         normalized_usage: Dict[str, int] = {}
+        for key in USAGE_KEYS:
+            val = usage.get(key)
+            if val:
+                normalized_usage[key] = val
 
-        # Handle OpenAI format with nested details
-        if "input_tokens" in usage or "output_tokens" in usage:
-            normalized_usage["input_tokens"] = usage.get("input_tokens", 0)
-            normalized_usage["output_tokens"] = usage.get("output_tokens", 0)
-            normalized_usage["total_tokens"] = usage.get("total_tokens", 0)
-
-            # Extract nested details
-            details = usage.get("details", {})
-            if details:
-                input_details = details.get("input", {})
-                if input_details and input_details.get("cached_tokens"):
-                    normalized_usage["cached_tokens"] = input_details["cached_tokens"]
-
-                output_details = details.get("output", {})
-                if output_details and output_details.get("reasoning_tokens"):
-                    normalized_usage["reasoning_tokens"] = output_details[
-                        "reasoning_tokens"
-                    ]
-
-            # Optional requests field for OpenAI
-            if "requests" in usage and usage["requests"] is not None:
-                normalized_usage["requests"] = usage["requests"]
-
-            # Pass through cache fields from various providers
-            if usage.get("cached_tokens"):
-                normalized_usage["cached_tokens"] = usage["cached_tokens"]
-            if usage.get("cached_input_tokens"):
-                normalized_usage["cached_tokens"] = usage["cached_input_tokens"]
-            if usage.get("cache_creation_tokens"):
-                normalized_usage["cache_creation_tokens"] = usage[
-                    "cache_creation_tokens"
-                ]
-
-        # Handle Gemini format
-        elif "prompt_token_count" in usage or "candidates_token_count" in usage:
-            normalized_usage["input_tokens"] = usage.get("prompt_token_count", 0)
-            normalized_usage["output_tokens"] = usage.get("candidates_token_count", 0)
-            normalized_usage["total_tokens"] = usage.get("total_token_count", 0)
-
-            if usage.get("cached_content_token_count"):
-                normalized_usage["cached_tokens"] = usage["cached_content_token_count"]
-            if usage.get("thoughts_token_count"):
-                normalized_usage["reasoning_tokens"] = usage["thoughts_token_count"]
-
-        # Already in unified format
-        else:
-            normalized_usage = {k: v for k, v in usage.items() if isinstance(v, int)}
+        # Legacy alias: some CLI backends emit cached_input_tokens
+        if not normalized_usage.get("cached_tokens") and usage.get(
+            "cached_input_tokens"
+        ):
+            normalized_usage["cached_tokens"] = usage["cached_input_tokens"]
 
         # Compute total_tokens from parts when missing (e.g. Codex CLI omits it)
         if not normalized_usage.get("total_tokens"):

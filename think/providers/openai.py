@@ -325,11 +325,23 @@ def _extract_usage(response: Any) -> dict | None:
     if not response.usage:
         return None
 
-    return {
+    usage: dict[str, int] = {
         "input_tokens": response.usage.prompt_tokens,
         "output_tokens": response.usage.completion_tokens,
         "total_tokens": response.usage.total_tokens,
     }
+    # Extract optional detail fields
+    prompt_details = getattr(response.usage, "prompt_tokens_details", None)
+    if prompt_details:
+        cached = getattr(prompt_details, "cached_tokens", 0)
+        if cached:
+            usage["cached_tokens"] = cached
+    completion_details = getattr(response.usage, "completion_tokens_details", None)
+    if completion_details:
+        reasoning = getattr(completion_details, "reasoning_tokens", 0)
+        if reasoning:
+            usage["reasoning_tokens"] = reasoning
+    return usage
 
 
 def run_generate(

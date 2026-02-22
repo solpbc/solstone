@@ -198,38 +198,17 @@ Token logging is handled centrally by the wrapper in `think/models.py`. Provider
 
 **Usage dict format:**
 
-Providers should build a normalized usage dict from their response:
+Providers normalize usage into the unified schema defined by `USAGE_KEYS` in `think/providers/shared.py`. Each provider's `_extract_usage()` is responsible for mapping API-specific field names to these canonical keys. `log_token_usage()` passes through known keys — it does **not** re-normalize.
+
 ```python
 usage_dict = {
-    "input_tokens": 1500,      # Required
-    "output_tokens": 500,      # Required
-    "total_tokens": 2000,      # Required
-    "cached_tokens": 800,      # Optional: cache hits
-    "reasoning_tokens": 200,   # Optional: thinking/reasoning tokens
-}
-```
-
-Provider-specific extraction examples:
-```python
-# OpenAI / OpenAI-compatible
-usage_dict = {
-    "input_tokens": response.usage.prompt_tokens,
-    "output_tokens": response.usage.completion_tokens,
-    "total_tokens": response.usage.total_tokens,
-}
-
-# Anthropic
-usage_dict = {
-    "input_tokens": response.usage.input_tokens,
-    "output_tokens": response.usage.output_tokens,
-    "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
-}
-
-# Google
-usage_dict = {
-    "input_tokens": response.usage_metadata.prompt_token_count,
-    "output_tokens": response.usage_metadata.candidates_token_count,
-    "total_tokens": response.usage_metadata.total_token_count,
+    "input_tokens": 1500,            # Required
+    "output_tokens": 500,            # Required
+    "total_tokens": 2000,            # Required (computed if missing)
+    "cached_tokens": 800,            # Optional: cache hits
+    "reasoning_tokens": 200,         # Optional: thinking/reasoning tokens
+    "cache_creation_tokens": 100,    # Optional: cache creation cost
+    "requests": 1,                   # Optional: request count
 }
 ```
 
