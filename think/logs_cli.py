@@ -25,6 +25,9 @@ from typing import NamedTuple
 
 from think.utils import get_journal, setup_cli
 
+_DIM = "\033[2m"
+_RESET = "\033[0m"
+
 
 class LogLine(NamedTuple):
     timestamp: datetime
@@ -32,6 +35,13 @@ class LogLine(NamedTuple):
     stream: str
     message: str
     raw: str
+
+
+def _service_header(service: str, use_color: bool) -> str:
+    header = f"── {service} ──"
+    if use_color:
+        return f"{_DIM}{header}{_RESET}"
+    return header
 
 
 def parse_log_line(line: str) -> LogLine | None:
@@ -175,7 +185,14 @@ def collect_and_print(args: argparse.Namespace) -> None:
     lines.sort(key=lambda line: line.timestamp)
     if has_filters and args.c:
         lines = lines[-args.c:]
+    use_color = sys.stdout.isatty()
+    last_service = None
     for line in lines:
+        if use_color and line.service != last_service:
+            if last_service is not None:
+                print()
+            print(_service_header(line.service, use_color))
+            last_service = line.service
         print(line.raw)
 
 
@@ -186,6 +203,8 @@ def follow_logs(args: argparse.Namespace) -> None:
         print("No health directory found.", file=sys.stderr)
         return
 
+    last_service = None
+    use_color = sys.stdout.isatty()
     tracked: dict[Path, tuple[Path | None, object]] = {}
 
     def open_logs() -> None:
@@ -213,6 +232,13 @@ def follow_logs(args: argparse.Namespace) -> None:
                 while line:
                     line = line.rstrip("\n")
                     if line:
+                        parsed = parse_log_line(line)
+                        current_service = parsed.service if parsed else None
+                        if use_color and current_service and current_service != last_service:
+                            if last_service is not None:
+                                print(flush=True)
+                            print(_service_header(current_service, use_color), flush=True)
+                            last_service = current_service
                         print(line, flush=True)
                     line = fh.readline()
 

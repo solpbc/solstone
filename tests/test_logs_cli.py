@@ -172,6 +172,58 @@ def test_collect_count(tmp_path, monkeypatch, capsys):
     assert "line 9" in output[1]
 
 
+def test_collect_headers_on_tty(tmp_path, monkeypatch, capsys):
+    """Service headers appear when stdout is a TTY."""
+    from think import logs_cli
+
+    day = datetime.now().strftime("%Y%m%d")
+    echo_lines = [
+        "2026-02-09T10:00:00 [echo:stdout] line a",
+        "2026-02-09T10:02:00 [echo:stdout] line c",
+    ]
+    observer_lines = [
+        "2026-02-09T10:01:00 [observer:stdout] line b",
+    ]
+    make_journal(tmp_path, day, {"echo": echo_lines, "observer": observer_lines})
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+
+    logs_cli.collect_and_print(_args(c=5))
+
+    raw = capsys.readouterr().out
+    output = raw.strip().splitlines()
+    # Should have: header + line a, blank + header + line b, blank + header + line c
+    # That's 3 headers + 3 content lines + 2 blank lines = 8 lines total
+    assert any("── echo ──" in line for line in output)
+    assert any("── observer ──" in line for line in output)
+    # Content lines are still present
+    assert any("line a" in line for line in output)
+    assert any("line b" in line for line in output)
+    assert any("line c" in line for line in output)
+
+
+def test_collect_no_headers_when_piped(tmp_path, monkeypatch, capsys):
+    """No headers when stdout is not a TTY (piped)."""
+    from think import logs_cli
+
+    day = datetime.now().strftime("%Y%m%d")
+    echo_lines = [
+        "2026-02-09T10:00:00 [echo:stdout] line a",
+    ]
+    observer_lines = [
+        "2026-02-09T10:01:00 [observer:stdout] line b",
+    ]
+    make_journal(tmp_path, day, {"echo": echo_lines, "observer": observer_lines})
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr("sys.stdout.isatty", lambda: False)
+
+    logs_cli.collect_and_print(_args(c=5))
+
+    output = capsys.readouterr().out.strip().splitlines()
+    assert len(output) == 2
+    assert not any("──" in line for line in output)
+
+
 def test_filter_service(tmp_path, monkeypatch, capsys):
     from think import logs_cli
 
