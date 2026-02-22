@@ -27,7 +27,7 @@ IMPORTANT: Only suggest commands, subcommands, and flags that are explicitly doc
 - `sol supervisor` - Run supervisor services.
 - `sol detect-created` - Detect newly created content artifacts.
 - `sol top` - Show runtime/service activity status.
-- `sol logs` - View service health logs.
+- `sol health` - Show service health status. Use `sol health logs` to view service logs.
 - `sol callosum` - Interact with Callosum message bus tooling.
 - `sol streams` - Manage or inspect stream-related state.
 - `sol journal-stats` - Show journal statistics.

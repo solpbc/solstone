@@ -4,12 +4,12 @@
 """CLI for viewing service health logs.
 
 Usage:
-    sol logs                    Show last 5 lines from each service
-    sol logs -c 20              Show last 20 lines from each service
-    sol logs -f                 Follow all logs for new output
-    sol logs --since 30m        Lines from last 30 minutes
-    sol logs --service observer Only show observer logs
-    sol logs --grep "error"     Lines matching regex "error"
+    sol health logs                    Show last 5 lines from each service
+    sol health logs -c 20              Show last 20 lines from each service
+    sol health logs -f                 Follow all logs for new output
+    sol health logs --since 30m        Lines from last 30 minutes
+    sol health logs --service observer Only show observer logs
+    sol health logs --grep "error"     Lines matching regex "error"
 """
 
 from __future__ import annotations
