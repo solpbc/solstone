@@ -14,13 +14,13 @@ from pathlib import Path
 
 from think.callosum import CallosumConnection
 from think.detect_created import detect_created
-from think.importers.audio import prepare_audio_segments
+from think.importers.audio import _get_audio_duration, prepare_audio_segments
 from think.importers.shared import (
     _get_relative_path,
     _is_in_imports,
     _setup_import,
 )
-from think.importers.text import process_transcript
+from think.importers.text import _read_transcript, process_transcript
 from think.importers.utils import save_import_segments
 from think.streams import stream_name, update_stream, write_segment_stream
 from think.utils import day_path, get_journal, get_rev, segment_key, setup_cli
@@ -195,6 +195,11 @@ def main() -> None:
         help="Auto-accept detected timestamp and proceed with import",
     )
     parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be imported without writing to the journal",
+    )
+    parser.add_argument(
         "--backends",
         action="store_true",
         help="List syncable importer backends",
@@ -267,6 +272,77 @@ def main() -> None:
     if not TIME_RE.fullmatch(args.timestamp):
         raise SystemExit("timestamp must be in YYYYMMDD_HHMMSS format")
 
+    base_dt = dt.datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
+    day = base_dt.strftime("%Y%m%d")
+
+    # Derive stream identity for this import
+    if args.source:
+        import_source = args.source
+    else:
+        # Auto-detect from file extension
+        _ext = os.path.splitext(args.media)[1].lower()
+        if _ext == ".m4a":
+            import_source = "apple"
+        elif _ext in {".txt", ".md", ".pdf"}:
+            import_source = "text"
+        else:
+            import_source = "audio"
+    stream = stream_name(import_source=import_source)
+
+    if args.dry_run:
+        from think.importers.plaud import format_size
+
+        # Print summary without writing anything
+        file_size = os.path.getsize(args.media)
+        display = _format_timestamp_display(args.timestamp)
+
+        print()
+        print(f"  File:       {args.media}")
+        print(f"  Size:       {format_size(file_size)}")
+        print(f"  Timestamp:  {args.timestamp} ({display})")
+        print(f"  Source:     {import_source}")
+        print(f"  Stream:     {stream}")
+        print(f"  Target day: {day}")
+
+        ext = os.path.splitext(args.media)[1].lower()
+        if ext in {".txt", ".md", ".pdf"}:
+            text = _read_transcript(args.media)
+            chars = len(text)
+            lines = text.count("\n") + (1 if text and not text.endswith("\n") else 0)
+            print()
+            print(f"  Content:    {chars:,} characters, {lines:,} lines")
+        else:
+            duration = _get_audio_duration(args.media)
+            if duration is not None:
+                segment_duration = 300
+                num_segments = int(
+                    (duration + segment_duration - 1) // segment_duration
+                )
+                if num_segments == 0:
+                    num_segments = 1
+
+                keys = []
+                for i in range(num_segments):
+                    ts = base_dt + dt.timedelta(minutes=i * 5)
+                    keys.append(f"{ts.strftime('%H%M%S')}_{segment_duration}")
+
+                if duration < 60:
+                    dur_str = f"{duration:.0f} seconds"
+                elif duration < 3600:
+                    dur_str = f"{duration / 60:.1f} minutes"
+                else:
+                    dur_str = f"{duration / 3600:.1f} hours"
+
+                print()
+                print(f"  Duration:   {dur_str}")
+                print(f"  Segments:   {num_segments} (5-minute chunks)")
+                print(f"  Keys:       {', '.join(keys)}")
+            else:
+                print()
+                print("  Duration:   unknown (ffprobe failed)")
+        print()
+        return
+
     # Check if file needs setup (not already in imports/)
     needs_setup = not _is_in_imports(args.media)
 
@@ -282,24 +358,8 @@ def main() -> None:
         )
         print("Starting import...")
 
-    base_dt = dt.datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
-    day = base_dt.strftime("%Y%m%d")
     logger.info(f"Using provided timestamp: {args.timestamp}")
     day_dir = str(day_path(day))
-
-    # Derive stream identity for this import
-    if args.source:
-        import_source = args.source
-    else:
-        # Auto-detect from file extension
-        _ext = os.path.splitext(args.media)[1].lower()
-        if _ext == ".m4a":
-            import_source = "apple"
-        elif _ext in {".txt", ".md", ".pdf"}:
-            import_source = "text"
-        else:
-            import_source = "audio"
-    stream = stream_name(import_source=import_source)
 
     # Initialize importer tract state
     _import_id = args.timestamp

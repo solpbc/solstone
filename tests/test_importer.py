@@ -251,7 +251,9 @@ def test_format_audio_stream_path():
 
     # Stream-based path: day/stream/segment/imported_audio.jsonl
     context = {
-        "file_path": Path("/journal/20240101/import.text/120000_300/imported_audio.jsonl")
+        "file_path": Path(
+            "/journal/20240101/import.text/120000_300/imported_audio.jsonl"
+        )
     }
     chunks, meta = format_audio(entries, context)
 
@@ -273,9 +275,7 @@ def test_format_audio_legacy_path():
     ]
 
     # Legacy path: day/segment/audio.jsonl (no stream directory)
-    context = {
-        "file_path": Path("/journal/20240101/123456_300/audio.jsonl")
-    }
+    context = {"file_path": Path("/journal/20240101/123456_300/audio.jsonl")}
     chunks, meta = format_audio(entries, context)
 
     assert len(chunks) == 1
@@ -413,3 +413,106 @@ def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
     seg_key, seg_dir, seg_files = segments[0]
     assert seg_key == "120001_300"  # Deconflicted key
     assert seg_dir == day_dir / "import.audio" / "120001_300"
+
+
+def test_importer_dry_run_text(tmp_path, monkeypatch, capsys):
+    """Test --dry-run for text import prints plan without writing files."""
+    mod = importlib.import_module("think.importers.cli")
+
+    txt = tmp_path / "sample.txt"
+    txt.write_text("hello\nworld\n")
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(
+        "sys.argv",
+        ["sol import", str(txt), "--timestamp", "20240101_120000", "--dry-run"],
+    )
+
+    mod.main()
+
+    captured = capsys.readouterr()
+    assert "File:" in captured.out
+    assert "Size:" in captured.out
+    assert "Timestamp:" in captured.out
+    assert "Source:" in captured.out
+    assert "Stream:" in captured.out
+    assert "Target day:" in captured.out
+    assert "Content:" in captured.out
+    assert "characters" in captured.out
+    assert "lines" in captured.out
+    assert "import.text" in captured.out
+    assert "20240101" in captured.out
+    assert "12 characters" in captured.out
+    assert "2 lines" in captured.out
+
+    assert not (tmp_path / "imports").exists()
+    assert not (tmp_path / "20240101").exists()
+
+
+def test_importer_dry_run_audio(tmp_path, monkeypatch, capsys):
+    """Test --dry-run for audio import prints plan without writing files."""
+    mod = importlib.import_module("think.importers.cli")
+
+    mp3 = tmp_path / "sample.mp3"
+    mp3.write_bytes(b"fake audio")
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(mod, "_get_audio_duration", lambda p: 420.0)
+    callosum_cls = MagicMock()
+    monkeypatch.setattr(mod, "CallosumConnection", callosum_cls)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["sol import", str(mp3), "--timestamp", "20240101_120000", "--dry-run"],
+    )
+
+    mod.main()
+
+    captured = capsys.readouterr()
+    assert "File:" in captured.out
+    assert "Size:" in captured.out
+    assert "Timestamp:" in captured.out
+    assert "Source:" in captured.out
+    assert "Stream:" in captured.out
+    assert "Target day:" in captured.out
+    assert "Duration:" in captured.out
+    assert "Segments:" in captured.out
+    assert "Keys:" in captured.out
+    assert "import.audio" in captured.out
+    assert "20240101" in captured.out
+    assert "7.0 minutes" in captured.out
+    assert "2 (5-minute chunks)" in captured.out
+    assert "120000_300" in captured.out
+    assert "120500_300" in captured.out
+
+    assert not (tmp_path / "imports").exists()
+    assert not (tmp_path / "20240101").exists()
+    assert callosum_cls.call_count == 0
+
+
+def test_importer_dry_run_auto(tmp_path, monkeypatch, capsys):
+    """Test --dry-run with --auto detects timestamp and prints summary."""
+    mod = importlib.import_module("think.importers.cli")
+
+    txt = tmp_path / "notes.txt"
+    txt.write_text("meeting notes")
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(
+        mod, "detect_created", lambda p, **kw: {"day": "20240315", "time": "140000"}
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        ["sol import", str(txt), "--auto", "--dry-run"],
+    )
+
+    mod.main()
+
+    captured = capsys.readouterr()
+    assert "Detected timestamp: 20240315_140000" in captured.out
+    assert "auto-importing" in captured.out
+    assert "import.text" in captured.out
+    assert "Target day: 20240315" in captured.out
+    assert "Content:" in captured.out
+
+    assert not (tmp_path / "imports").exists()
+    assert not (tmp_path / "20240315").exists()
