@@ -11,6 +11,7 @@ import json
 import logging
 import queue
 import socket
+import sys
 import threading
 import time
 from pathlib import Path
@@ -437,22 +438,172 @@ def callosum_send(
         return False
 
 
+def _parse_value(value: str) -> Any:
+    """Parse a string value, auto-detecting JSON types.
+
+    Tries json.loads first (handles numbers, booleans, null, arrays, objects).
+    Falls back to raw string.
+    """
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, ValueError):
+        return value
+
+
+def _parse_kv_fields(pairs: list[str]) -> dict[str, Any]:
+    """Parse key=value pairs into a dict with auto-typed values."""
+    fields: dict[str, Any] = {}
+    for pair in pairs:
+        if "=" not in pair:
+            print(
+                f"Error: Invalid field '{pair}' (expected key=value)", file=sys.stderr
+            )
+            sys.exit(1)
+        key, value = pair.split("=", 1)
+        fields[key] = _parse_value(value)
+    return fields
+
+
+def _parse_json_message(text: str) -> dict[str, Any]:
+    """Parse a JSON string into a message dict, validating required fields."""
+    try:
+        message = json.loads(text)
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not isinstance(message, dict):
+        print("Error: JSON must be an object", file=sys.stderr)
+        sys.exit(1)
+
+    if "tract" not in message or "event" not in message:
+        print("Error: JSON must contain 'tract' and 'event' fields", file=sys.stderr)
+        sys.exit(1)
+
+    return message
+
+
+def _cmd_listen(args) -> None:
+    """Listen to Callosum events and print to stdout."""
+    conn = CallosumConnection()
+
+    def on_message(message: dict[str, Any]) -> None:
+        # Apply filters
+        if args.tract and message.get("tract") != args.tract:
+            return
+        if args.event and message.get("event") != args.event:
+            return
+
+        if args.pretty:
+            print(json.dumps(message, indent=2))
+        else:
+            print(json.dumps(message), flush=True)
+
+    conn.start(callback=on_message)
+
+    try:
+        # Block until Ctrl+C
+        import signal
+
+        signal.pause()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        conn.stop()
+
+
+def _cmd_send(args) -> None:
+    """Send a message to Callosum."""
+    positional = args.args or []
+
+    # Determine input mode:
+    # 1. First positional starts with '{' → JSON string arg
+    # 2. No positional args and stdin is not a TTY → read JSON from stdin
+    # 3. Otherwise → tract event [key=value ...] positional syntax
+    if positional and positional[0].lstrip().startswith("{"):
+        # JSON string argument
+        raw = " ".join(positional)
+        message = _parse_json_message(raw)
+    elif not positional and not sys.stdin.isatty():
+        # Read JSON from stdin (supports piping and heredoc)
+        raw = sys.stdin.read().strip()
+        if not raw:
+            print("Error: Empty input on stdin", file=sys.stderr)
+            sys.exit(1)
+        message = _parse_json_message(raw)
+    elif len(positional) >= 2:
+        # Positional: tract event [key=value ...]
+        tract, event = positional[0], positional[1]
+        fields = _parse_kv_fields(positional[2:])
+        message = {"tract": tract, "event": event, **fields}
+    else:
+        print(
+            "Usage: sol callosum send <tract> <event> [key=value ...]\n"
+            '       sol callosum send \'{"tract":"x","event":"y",...}\'\n'
+            "       echo '{...}' | sol callosum send",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    ok = callosum_send(message.pop("tract"), message.pop("event"), **message)
+    if ok:
+        print("Sent", file=sys.stderr)
+    else:
+        print("Failed to send (is callosum running?)", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
-    """CLI entry point."""
+    """CLI entry point for Callosum message bus tools."""
     import argparse
 
     from think.utils import setup_cli
 
-    parser = argparse.ArgumentParser(description="Callosum message bus")
-    setup_cli(parser)  # Handles logging setup based on -v/-d flags
+    parser = argparse.ArgumentParser(
+        description="Callosum message bus tools",
+        epilog="Run 'sol callosum' with no subcommand to listen to all events.",
+    )
+    subparsers = parser.add_subparsers(dest="subcommand")
 
-    server = CallosumServer()
+    # --- listen subcommand ---
+    listen_parser = subparsers.add_parser(
+        "listen", help="Listen to events on the message bus"
+    )
+    listen_parser.add_argument("--tract", help="Filter to a specific tract")
+    listen_parser.add_argument("--event", help="Filter to a specific event type")
+    listen_parser.add_argument(
+        "-p", "--pretty", action="store_true", help="Pretty-print JSON output"
+    )
 
-    try:
-        server.start()
-    except KeyboardInterrupt:
-        logger.info("Shutting down Callosum")
-        server.stop()
+    # --- send subcommand ---
+    send_parser = subparsers.add_parser(
+        "send",
+        help="Send a message to the bus",
+        epilog=(
+            "Examples:\n"
+            "  sol callosum send observe described day=20250101 segment=143045_300\n"
+            '  sol callosum send \'{"tract":"test","event":"ping"}\'\n'
+            "  echo '{...}' | sol callosum send"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    send_parser.add_argument(
+        "args", nargs="*", help="tract event [key=value ...] or JSON string"
+    )
+
+    args = setup_cli(parser)
+
+    if args.subcommand == "send":
+        _cmd_send(args)
+    else:
+        # Default: listen (both bare 'sol callosum' and 'sol callosum listen')
+        if not hasattr(args, "tract"):
+            args.tract = None
+        if not hasattr(args, "event"):
+            args.event = None
+        if not hasattr(args, "pretty"):
+            args.pretty = False
+        _cmd_listen(args)
 
 
 if __name__ == "__main__":

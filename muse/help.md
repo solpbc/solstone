@@ -28,7 +28,7 @@ IMPORTANT: Only suggest commands, subcommands, and flags that are explicitly doc
 - `sol detect-created` - Detect newly created content artifacts.
 - `sol top` - Show runtime/service activity status.
 - `sol health` - Show service health status. Use `sol health logs` to view service logs.
-- `sol callosum` - Interact with Callosum message bus tooling.
+- `sol callosum [listen] [--tract NAME] [--event NAME] [-p]` - Listen to Callosum events. `sol callosum send <tract> <event> [key=value ...]` to send.
 - `sol streams` - Manage or inspect stream-related state.
 - `sol journal-stats` - Show journal statistics.
 - `sol config` - Inspect or manage configuration.

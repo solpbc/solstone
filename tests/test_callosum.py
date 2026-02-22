@@ -269,3 +269,174 @@ def test_callosum_send_with_custom_path():
 
     # Should fail gracefully (no server listening)
     assert result is False
+
+
+# --- CLI helper tests ---
+
+
+class TestParseValue:
+    """Tests for _parse_value auto-type detection."""
+
+    def test_integer(self):
+        from think.callosum import _parse_value
+
+        assert _parse_value("42") == 42
+
+    def test_float(self):
+        from think.callosum import _parse_value
+
+        assert _parse_value("3.14") == 3.14
+
+    def test_boolean_true(self):
+        from think.callosum import _parse_value
+
+        assert _parse_value("true") is True
+
+    def test_boolean_false(self):
+        from think.callosum import _parse_value
+
+        assert _parse_value("false") is False
+
+    def test_null(self):
+        from think.callosum import _parse_value
+
+        assert _parse_value("null") is None
+
+    def test_plain_string(self):
+        from think.callosum import _parse_value
+
+        assert _parse_value("hello") == "hello"
+
+    def test_string_with_spaces(self):
+        from think.callosum import _parse_value
+
+        assert _parse_value("hello world") == "hello world"
+
+    def test_json_array(self):
+        from think.callosum import _parse_value
+
+        assert _parse_value("[1,2,3]") == [1, 2, 3]
+
+
+class TestParseKvFields:
+    """Tests for _parse_kv_fields key=value parsing."""
+
+    def test_basic_fields(self):
+        from think.callosum import _parse_kv_fields
+
+        result = _parse_kv_fields(["day=20250101", "count=5", "active=true"])
+        assert result == {"day": 20250101, "count": 5, "active": True}
+
+    def test_empty_list(self):
+        from think.callosum import _parse_kv_fields
+
+        assert _parse_kv_fields([]) == {}
+
+    def test_value_with_equals(self):
+        from think.callosum import _parse_kv_fields
+
+        # Value containing '=' should keep everything after first '='
+        result = _parse_kv_fields(["expr=a=b"])
+        assert result == {"expr": "a=b"}
+
+    def test_missing_equals_exits(self):
+        from think.callosum import _parse_kv_fields
+
+        with pytest.raises(SystemExit):
+            _parse_kv_fields(["no_equals_here"])
+
+
+class TestParseJsonMessage:
+    """Tests for _parse_json_message validation."""
+
+    def test_valid_json(self):
+        from think.callosum import _parse_json_message
+
+        result = _parse_json_message('{"tract":"test","event":"ping","data":1}')
+        assert result == {"tract": "test", "event": "ping", "data": 1}
+
+    def test_missing_tract(self):
+        from think.callosum import _parse_json_message
+
+        with pytest.raises(SystemExit):
+            _parse_json_message('{"event":"ping"}')
+
+    def test_missing_event(self):
+        from think.callosum import _parse_json_message
+
+        with pytest.raises(SystemExit):
+            _parse_json_message('{"tract":"test"}')
+
+    def test_invalid_json(self):
+        from think.callosum import _parse_json_message
+
+        with pytest.raises(SystemExit):
+            _parse_json_message("not json")
+
+    def test_json_array_rejected(self):
+        from think.callosum import _parse_json_message
+
+        with pytest.raises(SystemExit):
+            _parse_json_message("[1,2,3]")
+
+
+class TestCmdSendInputModes:
+    """Tests for _cmd_send input mode detection."""
+
+    def test_positional_mode(self):
+        """Test tract event key=value positional syntax."""
+        from types import SimpleNamespace
+
+        from think.callosum import _cmd_send
+
+        args = SimpleNamespace(args=["test", "ping", "data=42"])
+        with patch("think.callosum.callosum_send", return_value=True) as mock_send:
+            _cmd_send(args)
+            mock_send.assert_called_once_with("test", "ping", data=42)
+
+    def test_json_arg_mode(self):
+        """Test JSON string argument mode."""
+        from types import SimpleNamespace
+
+        from think.callosum import _cmd_send
+
+        args = SimpleNamespace(args=['{"tract":"test","event":"ping","n":1}'])
+        with patch("think.callosum.callosum_send", return_value=True) as mock_send:
+            _cmd_send(args)
+            mock_send.assert_called_once_with("test", "ping", n=1)
+
+    def test_stdin_mode(self, monkeypatch):
+        """Test reading JSON from stdin."""
+        import io
+        from types import SimpleNamespace
+
+        from think.callosum import _cmd_send
+
+        args = SimpleNamespace(args=[])
+        fake_stdin = io.StringIO('{"tract":"test","event":"ping"}')
+        monkeypatch.setattr("think.callosum.sys.stdin", fake_stdin)
+
+        with patch("think.callosum.callosum_send", return_value=True) as mock_send:
+            _cmd_send(args)
+            mock_send.assert_called_once_with("test", "ping")
+
+    def test_too_few_positional_args_exits(self):
+        """Test that a single positional arg (not JSON) exits with usage."""
+        from types import SimpleNamespace
+
+        from think.callosum import _cmd_send
+
+        args = SimpleNamespace(args=["only_one"])
+        with pytest.raises(SystemExit):
+            _cmd_send(args)
+
+    def test_send_failure_exits(self):
+        """Test that failed send exits with code 1."""
+        from types import SimpleNamespace
+
+        from think.callosum import _cmd_send
+
+        args = SimpleNamespace(args=["test", "ping"])
+        with patch("think.callosum.callosum_send", return_value=False):
+            with pytest.raises(SystemExit):
+                _cmd_send(args)

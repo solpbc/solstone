@@ -175,7 +175,7 @@ from think.callosum import callosum_send
 callosum_send("observe", "described", day="20251102", segment="143045_300")
 ```
 
-**`CallosumServer`** - Broadcast server (run via `sol callosum` or supervisor)
+**`CallosumServer`** - Broadcast server (started in-process by supervisor)
 
 ### Convey Integration
 
@@ -183,6 +183,22 @@ callosum_send("observe", "described", day="20251102", segment="143045_300")
 - `apps.events` - Server-side event handlers via `@on_event` decorator
 
 See [APPS.md](APPS.md) for app event handler patterns.
+
+### CLI Tools
+
+**`sol callosum`** / **`sol callosum listen`** - Listen to events on the message bus
+```bash
+sol callosum                              # Stream all events as JSONL
+sol callosum listen --tract cortex        # Filter to cortex tract
+sol callosum listen --event finish -p     # Pretty-print finish events
+```
+
+**`sol callosum send`** - Send a message to the bus
+```bash
+sol callosum send observe described day=20250101 segment=143045_300
+sol callosum send '{"tract":"test","event":"ping","data":42}'
+echo '{"tract":"test","event":"ping"}' | sol callosum send
+```
 
 ---
 
