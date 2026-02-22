@@ -815,7 +815,7 @@ Use `current_app.logger` from Flask for debugging. See `apps/todos/routes.py` fo
 
 Browse `apps/*/` directories for reference implementations. Apps range in complexity:
 
-- **Minimal** - Just `workspace.html` (e.g., `apps/home/`, `apps/live/`)
+- **Minimal** - Just `workspace.html` (e.g., `apps/home/`, `apps/health/`)
 - **Styled** - Custom CSS, background services (e.g., `apps/dev/`)
 - **Full-featured** - Routes, forms, AJAX, badges, tools (e.g., `apps/todos/`, `apps/chat/`)
 

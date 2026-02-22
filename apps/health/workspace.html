@@ -1,6 +1,6 @@
 <style>
-/* Live Dashboard Layout */
-.live-dashboard {
+/* Health Dashboard Layout */
+.health-dashboard {
   padding: 1em;
   max-width: 1400px;
   margin: 0 auto;
@@ -126,7 +126,7 @@
   gap: 0.5em;
 }
 
-.live-badge {
+.health-badge {
   background: #dc2626;
   color: white;
   padding: 0.2em 0.6em;
@@ -138,12 +138,12 @@
   animation: pulse 2s infinite;
 }
 
-.live-badge.idle {
+.health-badge.idle {
   background: #6b7280;
   animation: none;
 }
 
-.live-badge.tmux {
+.health-badge.tmux {
   background: #8b5cf6;
 }
 
@@ -365,70 +365,56 @@
   transition: width 0.3s ease;
 }
 
-/* Events Card */
-.events-card {
+/* Service Logs */
+.logs-card {
   background: white;
   border-radius: 12px;
   padding: 1.5em;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.events-card.paused {
-  border-left: 4px solid #f59e0b;
-}
-
-.events-header {
+.logs-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1em;
 }
 
-.events-title {
+.logs-title {
   font-size: 1.1em;
   font-weight: 600;
 }
 
-.events-controls {
+.logs-controls {
   display: flex;
   align-items: center;
-  gap: 1em;
+  gap: 0.75em;
 }
 
-.pause-btn {
+.logs-controls select {
+  padding: 0.3em 0.5em;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.8em;
+  background: white;
+}
+
+.logs-controls button {
+  padding: 0.3em 0.6em;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.8em;
+}
+
+.logs-controls button.active {
   background: #3b82f6;
   color: white;
-  border: none;
-  padding: 0.5em 1em;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.85em;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 0.4em;
-  transition: background 0.2s;
+  border-color: #3b82f6;
 }
 
-.pause-btn:hover {
-  background: #2563eb;
-}
-
-.pause-btn.paused {
-  background: #f59e0b;
-}
-
-.pause-btn.paused:hover {
-  background: #d97706;
-}
-
-.missed-count {
-  font-size: 0.85em;
-  color: #f59e0b;
-  font-weight: 500;
-}
-
-.event-log {
+.logs-viewport {
   height: 400px;
   overflow-y: auto;
   font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
@@ -436,31 +422,136 @@
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   padding: 0.5em;
-  background: #f9fafb;
+  background: #1e1e1e;
+  color: #d4d4d4;
 }
 
-.event-line {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 3px 0;
-  border-bottom: 1px solid #f3f4f6;
-  color: #374151;
-}
-
-.event-line:last-child {
-  border-bottom: none;
-}
-
-.event-line.error {
-  color: #dc2626;
-  background: #fef2f2;
-}
-
-.event-log:empty::before {
-  content: 'Waiting for events...';
-  color: #9ca3af;
+.logs-viewport:empty::before {
+  content: 'Waiting for log output...';
+  color: #6b7280;
   font-style: italic;
+}
+
+.logs-service-header {
+  color: #6b7280;
+  padding: 0.5em 0 0.2em;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.logs-service-header:first-child {
+  padding-top: 0;
+}
+
+.logs-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+  padding: 1px 0;
+  line-height: 1.4;
+}
+
+.logs-line.stderr {
+  color: #f87171;
+}
+
+.logs-line.log {
+  color: #a78bfa;
+}
+
+/* Dream Card */
+.dream-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-left: 4px solid #f59e0b;
+}
+
+.dream-card.hidden {
+  display: none;
+}
+
+.dream-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5em;
+  margin-bottom: 1em;
+  font-size: 0.9em;
+}
+
+.dream-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+}
+
+.dream-info-label {
+  font-size: 0.8em;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dream-progress {
+  margin-bottom: 0.5em;
+}
+
+.dream-progress-label {
+  font-size: 0.85em;
+  color: #374151;
+  margin-bottom: 0.3em;
+}
+
+.dream-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.dream-progress-fill {
+  height: 100%;
+  background: #f59e0b;
+  transition: width 0.3s ease;
+}
+
+.dream-agents {
+  font-size: 0.85em;
+  color: #6b7280;
+}
+
+/* Sync Card */
+.sync-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-left: 4px solid #06b6d4;
+}
+
+.sync-card.hidden {
+  display: none;
+}
+
+.sync-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5em;
+  font-size: 0.9em;
+}
+
+.sync-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+}
+
+.sync-info-label {
+  font-size: 0.8em;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* Stale heartbeats list */
@@ -468,9 +559,22 @@
   font-size: 0.85em;
   opacity: 0.9;
 }
+
+.vitals-chips {
+  display: flex;
+  gap: 0.3em;
+  flex-wrap: wrap;
+}
+
+.vitals-chip {
+  background: rgba(255,255,255,0.2);
+  padding: 0.15em 0.5em;
+  border-radius: 10px;
+  font-size: 0.8em;
+}
 </style>
 
-<div class="live-dashboard">
+<div class="health-dashboard">
   <!-- Vitals Bar -->
   <div class="vitals-bar">
     <div class="vitals-header">
@@ -512,6 +616,14 @@
           <span>Waiting for status...</span>
         </div>
       </div>
+      <div class="vitals-section" id="queuesSection" style="display: none;">
+        <div class="vitals-label">Queues</div>
+        <div class="vitals-value" id="queuesValue"></div>
+      </div>
+      <div class="vitals-section" id="schedulesSection" style="display: none;">
+        <div class="vitals-label">Schedules</div>
+        <div class="vitals-value" id="schedulesValue"></div>
+      </div>
     </div>
   </div>
 
@@ -521,7 +633,7 @@
       <div class="card-title">
         OBSERVATION STATUS
       </div>
-      <div class="live-badge idle" id="observeModeBadge">
+      <div class="health-badge idle" id="observeModeBadge">
         <span id="observeModeLabel">Waiting...</span>
       </div>
     </div>
@@ -588,19 +700,43 @@
     </div>
   </div>
 
-  <!-- Events Card -->
-  <div class="events-card" id="eventsCard">
-    <div class="events-header">
-      <div class="events-title">EVENTS</div>
-      <div class="events-controls">
-        <span class="missed-count" id="missedCount" style="display: none;"></span>
-        <button class="pause-btn" id="pauseBtn">
-          <span>||</span>
-          <span>Pause</span>
-        </button>
+  <!-- Dream Card (hidden when idle) -->
+  <div class="dream-card hidden" id="dreamCard">
+    <div class="card-header">
+      <div class="card-title">DREAM PROCESSING</div>
+    </div>
+    <div class="dream-info" id="dreamInfo"></div>
+    <div id="dreamProgress"></div>
+    <div class="dream-agents" id="dreamAgents"></div>
+  </div>
+
+  <!-- Sync Card (hidden when idle) -->
+  <div class="sync-card hidden" id="syncCard">
+    <div class="card-header">
+      <div class="card-title">SYNC</div>
+    </div>
+    <div class="sync-info" id="syncInfo"></div>
+  </div>
+
+  <!-- Service Logs -->
+  <div class="logs-card">
+    <div class="logs-header">
+      <div class="logs-title">SERVICE LOGS</div>
+      <div class="logs-controls">
+        <select id="logServiceFilter">
+          <option value="all">All Services</option>
+        </select>
+        <select id="logStreamFilter">
+          <option value="all">All Streams</option>
+          <option value="stdout">stdout</option>
+          <option value="stderr">stderr</option>
+          <option value="log">log</option>
+        </select>
+        <button id="logFollowBtn" class="active">Follow</button>
+        <button id="logClearBtn">Clear</button>
       </div>
     </div>
-    <div id="eventLog" class="event-log"></div>
+    <div class="logs-viewport" id="logsViewport"></div>
   </div>
 </div>
 
@@ -612,9 +748,16 @@
     crashed: new Map(),         // Crashed services (separate from running)
     tasks: [],
     health: null,
+    queues: {},                 // From supervisor.status
+    schedules: [],              // From supervisor.status
     agents: new Map(),
     agentCount: 0,              // Quick count from cortex.status
     imports: new Map(),
+    dream: null,                // Dream status snapshot (null when idle)
+    dreamActive: false,         // Whether dream is currently running
+    sync: null,                 // Sync status snapshot (null when idle)
+    serviceLogs: new Map(),     // service name -> array of {ts, stream, line}
+    logFollow: true,            // Auto-scroll log viewport
     remotes: new Map(),         // Remote observer status by host
     observe: {
       mode: null,               // Current observe mode
@@ -624,9 +767,7 @@
       activity: null,
       describe: null,
       transcribe: null
-    },
-    eventsPaused: false,
-    missedEvents: 0
+    }
   };
 
   // DOM elements
@@ -656,10 +797,21 @@
     cortexGrid: document.getElementById('cortexGrid'),
     importerSection: document.getElementById('importerSection'),
     importerGrid: document.getElementById('importerGrid'),
-    eventLog: document.getElementById('eventLog'),
-    eventsCard: document.getElementById('eventsCard'),
-    pauseBtn: document.getElementById('pauseBtn'),
-    missedCount: document.getElementById('missedCount')
+    dreamCard: document.getElementById('dreamCard'),
+    dreamInfo: document.getElementById('dreamInfo'),
+    dreamProgress: document.getElementById('dreamProgress'),
+    dreamAgents: document.getElementById('dreamAgents'),
+    syncCard: document.getElementById('syncCard'),
+    syncInfo: document.getElementById('syncInfo'),
+    queuesSection: document.getElementById('queuesSection'),
+    queuesValue: document.getElementById('queuesValue'),
+    schedulesSection: document.getElementById('schedulesSection'),
+    schedulesValue: document.getElementById('schedulesValue'),
+    logsViewport: document.getElementById('logsViewport'),
+    logServiceFilter: document.getElementById('logServiceFilter'),
+    logStreamFilter: document.getElementById('logStreamFilter'),
+    logFollowBtn: document.getElementById('logFollowBtn'),
+    logClearBtn: document.getElementById('logClearBtn')
   };
 
   // Utility functions
@@ -761,6 +913,27 @@
         updateVitalsStatus('ok');
       }
     }
+
+    // Queues (show when non-empty)
+    const queueEntries = Object.entries(state.queues).filter(([, count]) => count > 0);
+    if (queueEntries.length > 0) {
+      elements.queuesSection.style.display = '';
+      elements.queuesValue.innerHTML = '<div class="vitals-chips">' +
+        queueEntries.map(([cmd, count]) =>
+          `<span class="vitals-chip">${cmd}: ${count}</span>`
+        ).join('') + '</div>';
+    } else {
+      elements.queuesSection.style.display = 'none';
+    }
+
+    // Schedules (show when any exist)
+    if (state.schedules.length > 0) {
+      elements.schedulesSection.style.display = '';
+      const dueCount = state.schedules.filter(s => s.due).length;
+      elements.schedulesValue.innerHTML = `<span>${dueCount} due / ${state.schedules.length} total</span>`;
+    } else {
+      elements.schedulesSection.style.display = 'none';
+    }
   }
 
   function updateVitalsStatus(status) {
@@ -790,16 +963,16 @@
     const label = elements.observeModeLabel;
 
     if (mode === 'screencast') {
-      badge.className = 'live-badge';
+      badge.className = 'health-badge';
       label.textContent = 'Recording';
     } else if (mode === 'tmux') {
-      badge.className = 'live-badge tmux';
+      badge.className = 'health-badge tmux';
       label.textContent = 'Tmux';
     } else if (mode === 'idle') {
-      badge.className = 'live-badge idle';
+      badge.className = 'health-badge idle';
       label.textContent = 'Idle';
     } else {
-      badge.className = 'live-badge idle';
+      badge.className = 'health-badge idle';
       label.textContent = 'Waiting...';
     }
   }
@@ -1003,53 +1176,155 @@
     elements.importerGrid.innerHTML = html;
   }
 
-  // Pause/resume event stream
-  function togglePause() {
-    state.eventsPaused = !state.eventsPaused;
-
-    if (state.eventsPaused) {
-      // Paused
-      elements.pauseBtn.classList.add('paused');
-      elements.pauseBtn.innerHTML = '<span>|></span><span>Resume</span>';
-      elements.eventsCard.classList.add('paused');
-      state.missedEvents = 0;
-      elements.missedCount.style.display = 'none';
-    } else {
-      // Resumed
-      elements.pauseBtn.classList.remove('paused');
-      elements.pauseBtn.innerHTML = '<span>||</span><span>Pause</span>';
-      elements.eventsCard.classList.remove('paused');
-      state.missedEvents = 0;
-      elements.missedCount.style.display = 'none';
+  function handleDreamEvent(msg) {
+    if (msg.event === 'started') {
+      state.dreamActive = true;
+      state.dream = { mode: msg.mode, day: msg.day };
+      updateDreamCard();
+    } else if (msg.event === 'status') {
+      state.dreamActive = true;
+      state.dream = { ...state.dream, ...msg };
+      updateDreamCard();
+    } else if (msg.event === 'completed') {
+      state.dreamActive = false;
+      state.dream = null;
+      updateDreamCard();
     }
   }
 
-  // Append to event log
-  function appendEvent(msg) {
-    if (state.eventsPaused) {
-      state.missedEvents++;
-      elements.missedCount.textContent = `${state.missedEvents} missed`;
-      elements.missedCount.style.display = 'inline';
+  function updateDreamCard() {
+    if (!state.dreamActive || !state.dream) {
+      elements.dreamCard.classList.add('hidden');
       return;
     }
 
-    const line = document.createElement('div');
-    line.className = 'event-line';
+    elements.dreamCard.classList.remove('hidden');
+    const d = state.dream;
 
-    // Highlight error events
-    if (msg.event === 'error' || (msg.event === 'exit' && msg.exit_code !== 0)) {
-      line.className = 'event-line error';
+    // Info fields
+    const infoParts = [];
+    if (d.mode) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Mode</div><div>${d.mode}</div></div>`);
+    if (d.day) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Day</div><div>${d.day}</div></div>`);
+    if (d.facet) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Facet</div><div>${d.facet}</div></div>`);
+    if (d.segment) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Segment</div><div>${d.segment}</div></div>`);
+    elements.dreamInfo.innerHTML = infoParts.join('');
+
+    // Progress bars
+    let progressHtml = '';
+    if (d.agents_total > 0) {
+      const pct = Math.round((d.agents_completed || 0) / d.agents_total * 100);
+      progressHtml += `
+        <div class="dream-progress">
+          <div class="dream-progress-label">Agents: ${d.agents_completed || 0} / ${d.agents_total}</div>
+          <div class="dream-progress-bar"><div class="dream-progress-fill" style="width:${pct}%"></div></div>
+        </div>`;
+    }
+    if (d.segments_total > 0) {
+      const pct = Math.round((d.segments_completed || 0) / d.segments_total * 100);
+      progressHtml += `
+        <div class="dream-progress">
+          <div class="dream-progress-label">Segments: ${d.segments_completed || 0} / ${d.segments_total}</div>
+          <div class="dream-progress-bar"><div class="dream-progress-fill" style="width:${pct}%"></div></div>
+        </div>`;
+    }
+    elements.dreamProgress.innerHTML = progressHtml;
+
+    // Current agents
+    if (d.current_agents && d.current_agents.length > 0) {
+      elements.dreamAgents.textContent = 'Running: ' + d.current_agents.join(', ');
+    } else {
+      elements.dreamAgents.textContent = '';
+    }
+  }
+
+  function handleSyncEvent(msg) {
+    if (msg.event !== 'status') return;
+
+    state.sync = msg;
+    updateSyncCard();
+  }
+
+  function updateSyncCard() {
+    const s = state.sync;
+    // Show when there's queued work or active upload
+    if (!s || (s.queue_size === 0 && !s.segment)) {
+      elements.syncCard.classList.add('hidden');
+      return;
     }
 
-    line.textContent = JSON.stringify(msg);
-    elements.eventLog.appendChild(line);
+    elements.syncCard.classList.remove('hidden');
 
-    // Auto-scroll to bottom
-    elements.eventLog.scrollTop = elements.eventLog.scrollHeight;
+    const infoParts = [];
+    if (s.host) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Host</div><div>${s.host}</div></div>`);
+    if (s.platform) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Platform</div><div>${s.platform}</div></div>`);
+    infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Queue</div><div>${s.queue_size}</div></div>`);
+    if (s.state) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">State</div><div>${s.state}${s.confirm_attempt ? ' (' + s.confirm_attempt + ')' : ''}</div></div>`);
+    if (s.segment) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Segment</div><div>${s.segment}</div></div>`);
+    elements.syncInfo.innerHTML = infoParts.join('');
+  }
 
-    // Limit to last 100 events
-    while (elements.eventLog.children.length > 100) {
-      elements.eventLog.removeChild(elements.eventLog.firstChild);
+  const LOG_BUFFER_SIZE = 50;
+
+  function handleLogsEvent(msg) {
+    if (msg.event !== 'line') return;
+
+    const name = msg.name || 'unknown';
+    const record = { ts: msg.ts || Date.now(), stream: msg.stream || 'stdout', line: msg.line || '' };
+
+    // Check if this is a new service before adding to buffer
+    const isNew = !state.serviceLogs.has(name);
+
+    // Buffer per service
+    if (isNew) {
+      state.serviceLogs.set(name, []);
+    }
+    const buf = state.serviceLogs.get(name);
+    buf.push(record);
+    if (buf.length > LOG_BUFFER_SIZE) buf.shift();
+
+    // Update service filter dropdown if new service
+    if (isNew) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      elements.logServiceFilter.appendChild(opt);
+    }
+
+    renderLogs();
+  }
+
+  function renderLogs() {
+    const serviceFilter = elements.logServiceFilter.value;
+    const streamFilter = elements.logStreamFilter.value;
+    const viewport = elements.logsViewport;
+
+    // Check if user has scrolled away from bottom before updating
+    const wasAtBottom = state.logFollow && (viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 50);
+
+    let html = '';
+    // Get services to display, sorted alphabetically
+    const services = serviceFilter === 'all'
+      ? Array.from(state.serviceLogs.keys()).sort()
+      : (state.serviceLogs.has(serviceFilter) ? [serviceFilter] : []);
+
+    for (const svc of services) {
+      const lines = state.serviceLogs.get(svc) || [];
+      const filtered = streamFilter === 'all' ? lines : lines.filter(l => l.stream === streamFilter);
+      if (filtered.length === 0) continue;
+
+      html += `<div class="logs-service-header">── ${svc} ──</div>`;
+      for (const rec of filtered) {
+        const cls = rec.stream === 'stderr' ? 'logs-line stderr' : rec.stream === 'log' ? 'logs-line log' : 'logs-line';
+        const escaped = rec.line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        html += `<div class="${cls}">${escaped}</div>`;
+      }
+    }
+
+    viewport.innerHTML = html;
+
+    // Auto-scroll if following
+    if (wasAtBottom || state.logFollow) {
+      viewport.scrollTop = viewport.scrollHeight;
     }
   }
 
@@ -1081,6 +1356,10 @@
       state.health = {
         stale_heartbeats: msg.stale_heartbeats || []
       };
+
+      // Update queues
+      state.queues = msg.queues || {};
+      state.schedules = msg.schedules || [];
 
       updateVitals();
     }
@@ -1234,23 +1513,33 @@
     updateImporterGrid();
   }
 
-  // Logs events are displayed in the event log via appendEvent
-  // Error highlighting is handled there based on event type
-
   // Main event handler
   function handleEvent(msg) {
-    appendEvent(msg);
-
     const tract = msg.tract;
     if (tract === 'supervisor') handleSupervisorEvent(msg);
     else if (tract === 'cortex') handleCortexEvent(msg);
     else if (tract === 'observe') handleObserveEvent(msg);
     else if (tract === 'importer') handleImporterEvent(msg);
-    // logs tract events are displayed in event log via appendEvent
+    else if (tract === 'dream') handleDreamEvent(msg);
+    else if (tract === 'sync') handleSyncEvent(msg);
+    else if (tract === 'logs') handleLogsEvent(msg);
   }
 
-  // Event listeners
-  elements.pauseBtn.addEventListener('click', togglePause);
+  // Log controls
+  elements.logServiceFilter.addEventListener('change', renderLogs);
+  elements.logStreamFilter.addEventListener('change', renderLogs);
+  elements.logFollowBtn.addEventListener('click', () => {
+    state.logFollow = !state.logFollow;
+    elements.logFollowBtn.classList.toggle('active', state.logFollow);
+    if (state.logFollow) {
+      elements.logsViewport.scrollTop = elements.logsViewport.scrollHeight;
+    }
+  });
+  elements.logClearBtn.addEventListener('click', () => {
+    state.serviceLogs.clear();
+    elements.logServiceFilter.innerHTML = '<option value="all">All Services</option>';
+    renderLogs();
+  });
 
   // Listen to all Callosum events
   window.appEvents.listen('*', handleEvent);
