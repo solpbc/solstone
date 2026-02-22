@@ -1,7 +1,7 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail
 
 # Default target - install package in editable mode
 all: install
@@ -100,6 +100,10 @@ skills:
 # Start local dev stack against fixture journal (no observers, no daily processing)
 dev: .installed
 	$(TEST_ENV) PATH=$(CURDIR)/$(VENV_BIN):$$PATH $(VENV_BIN)/sol supervisor 0 --no-observers --no-daily
+
+# Emit a code.shipped event with current git hash
+sail: .installed
+	$(VENV_BIN)/sol callosum send code shipped hash=$$(git rev-parse --short HEAD)
 
 # Test environment - use fixtures journal for all tests
 TEST_ENV = JOURNAL_PATH=tests/fixtures/journal

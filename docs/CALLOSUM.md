@@ -139,6 +139,12 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 callosum_send("notification", "show", title="Import Complete", message="3 segments imported", icon="📥", autoDismiss=5000)
 ```
 
+### `code` - Code lifecycle events
+**Source:** `make sail` (Makefile)
+**Events:** `shipped`
+**Key fields:** `hash` (short git commit hash)
+**Purpose:** Track code deployment and release events
+
 ---
 
 ## Key Concepts
