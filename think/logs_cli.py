@@ -93,7 +93,7 @@ def compile_grep(pattern: str) -> re.Pattern[str]:
         return re.compile(pattern)
     except re.error as error:
         raise argparse.ArgumentTypeError(
-            f"Invalid regex: {pattern!r}: {error}"
+            f"Invalid Python regex: {pattern!r}: {error}"
         ) from error
 
 
@@ -275,7 +275,7 @@ def main() -> None:
         "--grep",
         type=compile_grep,
         metavar="PATTERN",
-        help="filter lines matching regex PATTERN",
+        help="filter lines matching Python regex PATTERN",
     )
     args = setup_cli(parser)
 
