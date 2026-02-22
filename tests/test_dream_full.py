@@ -111,25 +111,3 @@ def test_priority_validation_required(tmp_path, monkeypatch):
     configs = get_muse_configs(schedule="daily")
     for name, config in configs.items():
         assert "priority" in config, f"Scheduled prompt '{name}' missing priority"
-
-
-def test_run_single_prompt_validates_schedule(tmp_path, monkeypatch):
-    """Test that --run validates schedule compatibility."""
-    mod = importlib.import_module("think.dream")
-    journal = copy_journal(tmp_path)
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
-
-    # Mock to avoid actual execution
-    def mock_cortex_request(*args, **kwargs):
-        return "mock-id"
-
-    def mock_wait_for_agents(*args, **kwargs):
-        return ({"mock-id": "finish"}, [])
-
-    monkeypatch.setattr(mod, "cortex_request", mock_cortex_request)
-    monkeypatch.setattr(mod, "wait_for_agents", mock_wait_for_agents)
-
-    # Running a daily prompt with --segment should fail
-    # Note: This requires a real daily prompt in the fixtures
-    # For now, just verify the function exists and is callable
-    assert callable(mod.run_single_prompt)

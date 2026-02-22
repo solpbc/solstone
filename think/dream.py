@@ -605,279 +605,6 @@ def run_prompts_by_priority(
     return (total_success, total_failed, all_failed_names)
 
 
-def run_single_prompt(
-    day: str,
-    name: str,
-    segment: str | None = None,
-    refresh: bool = False,
-    facet: str | None = None,
-    stream: str | None = None,
-) -> bool:
-    """Run a single prompt (generator or agent) by name.
-
-    Args:
-        day: Day in YYYYMMDD format
-        name: Prompt name from muse/*.md (e.g., 'activity', 'timeline')
-        segment: Optional segment key in HHMMSS_LEN format
-        refresh: Whether to regenerate existing output
-        facet: Optional facet name for multi-facet agents
-
-    Returns:
-        True if successful, False if failed
-    """
-    # Load all configs to find the prompt
-    all_configs = get_muse_configs(include_disabled=True)
-
-    if name not in all_configs:
-        logging.error(f"Prompt not found: {name}")
-        logging.info(f"Available prompts: {', '.join(sorted(all_configs.keys()))}")
-        return False
-
-    config = all_configs[name]
-
-    if config.get("disabled"):
-        logging.warning(f"Prompt '{name}' is disabled")
-        return False
-
-    is_generate = config["type"] == "generate"
-
-    # Validate segment compatibility with schedule
-    prompt_schedule = config.get("schedule")
-    if segment and prompt_schedule == "daily":
-        logging.error(
-            f"'{name}' is a daily prompt (schedule='daily'), "
-            "but --segment was specified. Remove --segment to run this prompt."
-        )
-        return False
-    if not segment and prompt_schedule == "segment":
-        logging.error(
-            f"'{name}' is a segment prompt (schedule='segment'), "
-            "but no --segment was specified. Add --segment HHMMSS_LEN to run this prompt."
-        )
-        return False
-
-    if facet and not config.get("multi_facet"):
-        logging.warning(f"'{name}' is not a multi-facet agent, --facet will be ignored")
-        facet = None
-
-    day_formatted = iso_date(day)
-
-    if is_generate:
-        logging.info(f"Running generator: {name}")
-
-        request_config = {
-            "day": day,
-            "output": config.get("output", "md"),
-        }
-        if segment:
-            request_config["segment"] = segment
-        if refresh:
-            request_config["refresh"] = True
-
-        try:
-            agent_id = _cortex_request_with_retry(
-                prompt="",
-                name=name,
-                config=request_config,
-            )
-            if agent_id is None:
-                logging.error(f"Failed to send cortex request for generator '{name}'")
-                return False
-            logging.info(f"Spawned generator {name} (ID: {agent_id})")
-            emit(
-                "agent_started",
-                day=day,
-                segment=segment,
-                name=name,
-                agent_id=agent_id,
-            )
-
-            completed, timed_out = wait_for_agents([agent_id], timeout=610)
-
-            if timed_out:
-                logging.error(f"Generator {name} timed out (ID: {agent_id})")
-                emit(
-                    "agent_completed",
-                    day=day,
-                    segment=segment,
-                    name=name,
-                    agent_id=agent_id,
-                    state="timeout",
-                )
-                return False
-
-            end_state = completed.get(agent_id, "unknown")
-            if end_state == "finish":
-                logging.info(f"Generator {name} completed successfully")
-                emit(
-                    "agent_completed",
-                    day=day,
-                    segment=segment,
-                    name=name,
-                    agent_id=agent_id,
-                    state="finish",
-                )
-                day_log(day, f"dream --run {name} ok")
-                return True
-            else:
-                logging.error(f"Generator {name} ended with state: {end_state}")
-                emit(
-                    "agent_completed",
-                    day=day,
-                    segment=segment,
-                    name=name,
-                    agent_id=agent_id,
-                    state=end_state,
-                )
-                return False
-
-        except Exception as e:
-            logging.error(f"Failed to run generator {name}: {e}")
-            return False
-
-    else:
-        logging.info(f"Running agent: {name}")
-
-        input_summary = day_input_summary(day)
-        spawned_ids: list[tuple[str, str | None]] = []
-
-        if config.get("multi_facet"):
-            facets_data = get_facets()
-            enabled_facets = {
-                k: v for k, v in facets_data.items() if not v.get("muted", False)
-            }
-            active_facets = get_active_facets(day)
-            always_run = config.get("always", False)
-
-            if facet:
-                if facet not in enabled_facets:
-                    logging.error(f"Facet '{facet}' not found or is muted")
-                    return False
-                target_facets = [facet]
-            else:
-                target_facets = [
-                    f for f in enabled_facets.keys() if always_run or f in active_facets
-                ]
-
-            if not target_facets:
-                logging.warning(f"No active facets for {name} on {day_formatted}")
-                return True
-
-            for facet_name in target_facets:
-                try:
-                    logging.info(f"Spawning {name} for facet: {facet_name}")
-                    request_config = {"facet": facet_name, "day": day}
-                    env: dict[str, str] = {
-                        "SOL_DAY": day,
-                        "SOL_FACET": facet_name,
-                    }
-                    if segment:
-                        request_config["segment"] = segment
-                        env["SOL_SEGMENT"] = segment
-                        if stream:
-                            env["SOL_STREAM"] = stream
-                    request_config["env"] = env
-                    agent_id = _cortex_request_with_retry(
-                        prompt=f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context.",
-                        name=name,
-                        config=request_config,
-                    )
-                    if agent_id is None:
-                        logging.error(
-                            f"Failed to send cortex request for {name}/{facet_name}"
-                        )
-                        continue
-                    spawned_ids.append((agent_id, facet_name))
-                    emit(
-                        "agent_started",
-                        day=day,
-                        segment=segment,
-                        name=name,
-                        agent_id=agent_id,
-                        facet=facet_name,
-                    )
-                    logging.info(f"Started {name} for {facet_name} (ID: {agent_id})")
-                except Exception as e:
-                    logging.error(f"Failed to spawn {name} for {facet_name}: {e}")
-
-        else:
-            try:
-                request_config = {"day": day}
-                env: dict[str, str] = {"SOL_DAY": day}
-                if segment:
-                    request_config["segment"] = segment
-                    env["SOL_SEGMENT"] = segment
-                    if stream:
-                        env["SOL_STREAM"] = stream
-                request_config["env"] = env
-
-                agent_id = _cortex_request_with_retry(
-                    prompt=f"Running task for {day_formatted}: {input_summary}.",
-                    name=name,
-                    config=request_config,
-                )
-                if agent_id is None:
-                    logging.error(f"Failed to send cortex request for '{name}'")
-                    return False
-                spawned_ids.append((agent_id, None))
-                emit(
-                    "agent_started",
-                    day=day,
-                    segment=segment,
-                    name=name,
-                    agent_id=agent_id,
-                )
-                logging.info(f"Started {name} agent (ID: {agent_id})")
-            except Exception as e:
-                logging.error(f"Failed to spawn {name}: {e}")
-                return False
-
-        if not spawned_ids:
-            return False
-
-        logging.info(f"Waiting for {len(spawned_ids)} agent(s)...")
-        completed, timed_out = wait_for_agents(
-            [agent_id for agent_id, _ in spawned_ids], timeout=610
-        )
-
-        if timed_out:
-            logging.warning(f"{len(timed_out)} agent(s) timed out: {timed_out}")
-
-        error_count = 0
-        for agent_id, agent_facet in spawned_ids:
-            if agent_id in timed_out:
-                emit(
-                    "agent_completed",
-                    day=day,
-                    segment=segment,
-                    name=name,
-                    agent_id=agent_id,
-                    state="timeout",
-                    **({"facet": agent_facet} if agent_facet else {}),
-                )
-                continue
-            end_state = completed.get(agent_id, "unknown")
-            emit(
-                "agent_completed",
-                day=day,
-                segment=segment,
-                name=name,
-                agent_id=agent_id,
-                state=end_state,
-                **({"facet": agent_facet} if agent_facet else {}),
-            )
-            if end_state == "error":
-                logging.error(f"Agent {agent_id} ended with error")
-                error_count += 1
-
-        success = len(completed) > 0 and len(timed_out) == 0 and error_count == 0
-        if success:
-            day_log(day, f"dream --run {name} ok")
-        elif error_count > 0:
-            logging.error(f"{error_count} agent(s) ended with errors")
-        return success
-
-
 def run_activity_prompts(
     day: str,
     activity_id: str,
@@ -1385,17 +1112,12 @@ def parse_args() -> argparse.ArgumentParser:
     parser.add_argument(
         "--segments",
         action="store_true",
-        help="Re-process all segments for the day (incompatible with --segment, --run, --facet)",
-    )
-    parser.add_argument(
-        "--run",
-        metavar="NAME",
-        help="Run a single prompt by name (e.g., 'activity', 'timeline')",
+        help="Re-process all segments for the day (incompatible with --segment, --facet)",
     )
     parser.add_argument(
         "--facet",
         metavar="NAME",
-        help="Target a specific facet (only used with --run or --activity)",
+        help="Target a specific facet (only used with --activity)",
     )
     parser.add_argument(
         "--activity",
@@ -1439,8 +1161,6 @@ def main() -> None:
             incompatible.append("--day")
         if args.segment:
             incompatible.append("--segment")
-        if args.run:
-            incompatible.append("--run")
         if args.facet:
             incompatible.append("--facet")
         if args.activity:
@@ -1464,8 +1184,8 @@ def main() -> None:
     if not day_dir.is_dir():
         parser.error(f"Day folder not found: {day_dir}")
 
-    if args.facet and not args.run and not args.activity:
-        parser.error("--facet requires --run or --activity")
+    if args.facet and not args.activity:
+        parser.error("--facet requires --activity")
 
     if args.activity and not args.facet:
         parser.error("--activity requires --facet")
@@ -1485,19 +1205,19 @@ def main() -> None:
     if args.activity and not args.day:
         parser.error("--activity requires --day")
 
-    if args.activity and (args.segment or args.run or args.segments or args.flush):
+    if args.activity and (args.segment or args.segments or args.flush):
         parser.error(
-            "--activity is incompatible with --segment, --run, --segments, and --flush"
+            "--activity is incompatible with --segment, --segments, and --flush"
         )
 
     if args.flush and not args.segment:
         parser.error("--flush requires --segment")
 
-    if args.flush and (args.run or args.segments or args.refresh):
-        parser.error("--flush is incompatible with --run, --segments, and --refresh")
+    if args.flush and (args.segments or args.refresh):
+        parser.error("--flush is incompatible with --segments and --refresh")
 
-    if args.segments and (args.segment or args.run or args.facet):
-        parser.error("--segments is incompatible with --segment, --run, and --facet")
+    if args.segments and (args.segment or args.facet):
+        parser.error("--segments is incompatible with --segment and --facet")
 
     # Start callosum connection
     _callosum = CallosumConnection(defaults={"rev": get_rev()})
@@ -1527,18 +1247,6 @@ def main() -> None:
                 day=day,
                 segment=args.segment,
                 verbose=args.verbose,
-                stream=args.stream,
-            )
-            sys.exit(0 if success else 1)
-
-        # Handle single prompt execution mode
-        if args.run:
-            success = run_single_prompt(
-                day=day,
-                name=args.run,
-                segment=args.segment,
-                refresh=args.refresh,
-                facet=args.facet,
                 stream=args.stream,
             )
             sys.exit(0 if success else 1)
