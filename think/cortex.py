@@ -336,6 +336,15 @@ class CortexService:
                     f.write(json.dumps(error_event) + "\n")
             except Exception as e:
                 self.logger.error(f"Failed to write timeout event: {e}")
+
+            # Broadcast to callosum so wait_for_agents detects immediately
+            try:
+                event_copy = error_event.copy()
+                event_type = event_copy.pop("event", "error")
+                self.callosum.emit("cortex", event_type, **event_copy)
+            except Exception:
+                pass
+
             agent.stop()
 
     def _monitor_stdout(self, agent: AgentProcess) -> None:

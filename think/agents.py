@@ -800,6 +800,12 @@ async def _execute_generate(
     max_output_tokens = config.get("max_output_tokens") or 8192 * 6
     is_json_output = output_format == "json"
 
+    # Derive LLM request timeout from token budget: scale with output size,
+    # floor at 120s, cap at 480s (well under cortex's 600s subprocess kill).
+    timeout_s = config.get("timeout_s") or min(
+        480, max(120, (max_output_tokens + thinking_budget) // 100)
+    )
+
     # Build contents: transcript + instruction + prompt
     contents = []
     if transcript:
@@ -823,6 +829,7 @@ async def _execute_generate(
             thinking_budget=thinking_budget,
             system_instruction=system_instruction,
             json_output=is_json_output,
+            timeout_s=timeout_s,
         )
     except Exception as exc:
         if not _is_retryable_error(exc) or config.get("fallback_from"):
@@ -867,6 +874,7 @@ async def _execute_generate(
                 thinking_budget=thinking_budget,
                 system_instruction=system_instruction,
                 json_output=is_json_output,
+                timeout_s=timeout_s,
                 provider=backup,
                 model=backup_model,
             )

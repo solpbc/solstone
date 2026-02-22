@@ -216,7 +216,7 @@ def _drain_priority_batch(
     agent_ids = [agent_id for agent_id, _, _, _ in spawned]
     logging.info(f"Waiting for {len(agent_ids)} agents...")
 
-    completed, timed_out = wait_for_agents(agent_ids, timeout=600)
+    completed, timed_out = wait_for_agents(agent_ids, timeout=610)
 
     success = 0
     failed = 0
@@ -692,7 +692,7 @@ def run_single_prompt(
                 agent_id=agent_id,
             )
 
-            completed, timed_out = wait_for_agents([agent_id], timeout=600)
+            completed, timed_out = wait_for_agents([agent_id], timeout=610)
 
             if timed_out:
                 logging.error(f"Generator {name} timed out (ID: {agent_id})")
@@ -837,7 +837,7 @@ def run_single_prompt(
 
         logging.info(f"Waiting for {len(spawned_ids)} agent(s)...")
         completed, timed_out = wait_for_agents(
-            [agent_id for agent_id, _ in spawned_ids], timeout=600
+            [agent_id for agent_id, _ in spawned_ids], timeout=610
         )
 
         if timed_out:
@@ -1021,7 +1021,7 @@ def run_activity_prompts(
             agent_ids = [aid for aid, _, _ in spawned]
             logging.info(f"Waiting for {len(agent_ids)} agents...")
 
-            completed, timed_out = wait_for_agents(agent_ids, timeout=600)
+            completed, timed_out = wait_for_agents(agent_ids, timeout=610)
 
             if timed_out:
                 logging.warning(f"{len(timed_out)} agents timed out")
@@ -1308,7 +1308,7 @@ def run_flush_prompts(
     if spawned:
         _update_status(current_agents=[name for _, name, _ in spawned])
         agent_ids = [aid for aid, _, _ in spawned]
-        completed, timed_out = wait_for_agents(agent_ids, timeout=600)
+        completed, timed_out = wait_for_agents(agent_ids, timeout=610)
 
         if timed_out:
             logging.warning(f"Flush: {len(timed_out)} agents timed out")
