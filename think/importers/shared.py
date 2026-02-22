@@ -41,7 +41,7 @@ def _write_import_jsonl(
         file_path: Path to write JSONL file
         entries: List of transcript entries
         import_id: Import identifier
-        raw_filename: Source file name (relative path from segment to imports/)
+        raw_filename: Source filename (basename only, used to build relative path)
         facet: Optional facet name
         setting: Optional setting description
     """
@@ -56,7 +56,7 @@ def _write_import_jsonl(
 
     # Add raw file reference (path relative from segment to imports directory)
     if raw_filename:
-        metadata["raw"] = f"../../imports/{import_id}/{raw_filename}"
+        metadata["raw"] = f"../../../imports/{import_id}/{raw_filename}"
 
     # Write JSONL: metadata first, then entries with source field
     jsonl_lines = [json.dumps(metadata)]

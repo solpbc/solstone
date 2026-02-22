@@ -116,12 +116,170 @@ def test_importer_text(tmp_path, monkeypatch):
     ]
     assert metadata1["imported"]["id"] == "20240101_120000"
     assert "facet" not in metadata1["imported"]
+    # raw path should resolve from segment dir (3 levels deep) to imports/
+    assert metadata1["raw"] == "../../../imports/20240101_120000/sample.txt"
 
     assert entries2 == [
         {"start": "12:05:00", "speaker": "Unknown", "text": "seg2", "source": "import"}
     ]
     assert metadata2["imported"]["id"] == "20240101_120000"
     assert "facet" not in metadata2["imported"]
+
+    # segments.json should be written in the import directory
+    segments_json = tmp_path / "imports" / "20240101_120000" / "segments.json"
+    assert segments_json.exists()
+    seg_data = json.loads(segments_json.read_text())
+    assert seg_data["day"] == "20240101"
+    assert "120000_300" in seg_data["segments"]
+    assert "120500_5" in seg_data["segments"]
+
+    # stream.json should be written in each segment directory
+    stream1 = day_dir / "import.text" / "120000_300" / "stream.json"
+    assert stream1.exists()
+    stream1_data = json.loads(stream1.read_text())
+    assert stream1_data["stream"] == "import.text"
+
+
+def test_importer_pdf(tmp_path, monkeypatch):
+    """Test importing a PDF transcript file."""
+    mod = importlib.import_module("think.importers.cli")
+    text_mod = importlib.import_module("think.importers.text")
+
+    # Create a fake PDF file (content doesn't matter — pypdf is mocked)
+    pdf = tmp_path / "meeting.pdf"
+    pdf.write_bytes(b"%PDF-1.4 fake")
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(
+        mod, "detect_created", lambda p, **kw: {"day": "20251205", "time": "163000"}
+    )
+
+    # Mock _read_transcript to return extracted text (bypasses pypdf)
+    monkeypatch.setattr(
+        text_mod, "_read_transcript", lambda path: "Board meeting notes\nAction items"
+    )
+
+    # Mock segment detection: single segment for short text
+    def mock_detect_segment(text, start_time):
+        return [("16:30:00", text)]
+
+    monkeypatch.setattr(text_mod, "detect_transcript_segment", mock_detect_segment)
+
+    # Mock JSON conversion
+    def mock_detect_json(text, segment_start):
+        return [
+            {"start": segment_start, "speaker": "Jack", "text": "Board meeting notes"},
+            {"start": "16:30:30", "speaker": "Ramon", "text": "Action items"},
+            {"topics": "board meeting, action items", "setting": "workplace"},
+        ]
+
+    monkeypatch.setattr(text_mod, "detect_transcript_json", mock_detect_json)
+
+    # Mock CallosumConnection and status emitter
+    monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: MagicMock())
+    monkeypatch.setattr(mod, "_status_emitter", lambda: None)
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "sol import",
+            str(pdf),
+            "--timestamp",
+            "20251205_163000",
+            "--facet",
+            "work",
+            "--setting",
+            "board meeting",
+        ],
+    )
+    mod.main()
+
+    day_dir = day_path("20251205")
+    # Single segment, last segment defaults to 5s
+    f1 = day_dir / "import.text" / "163000_5" / "imported_audio.jsonl"
+    assert f1.exists()
+
+    lines = f1.read_text().strip().split("\n")
+    metadata = json.loads(lines[0])
+    entries = [json.loads(line) for line in lines[1:]]
+
+    # Verify metadata
+    assert metadata["imported"]["id"] == "20251205_163000"
+    assert metadata["imported"]["facet"] == "work"
+    assert metadata["imported"]["setting"] == "board meeting"
+    assert metadata["raw"] == "../../../imports/20251205_163000/meeting.pdf"
+
+    # Verify entries — text entries get source="import", topics/setting entry does not
+    assert entries[0] == {
+        "start": "16:30:00",
+        "speaker": "Jack",
+        "text": "Board meeting notes",
+        "source": "import",
+    }
+    assert entries[1] == {
+        "start": "16:30:30",
+        "speaker": "Ramon",
+        "text": "Action items",
+        "source": "import",
+    }
+    # Topics/setting metadata entry preserved without source field
+    assert entries[2] == {
+        "topics": "board meeting, action items",
+        "setting": "workplace",
+    }
+
+    # Verify .pdf auto-detected as text import (stream = import.text)
+    stream_json = day_dir / "import.text" / "163000_5" / "stream.json"
+    assert stream_json.exists()
+    stream_data = json.loads(stream_json.read_text())
+    assert stream_data["stream"] == "import.text"
+
+    # Verify segments.json written
+    segments_json = tmp_path / "imports" / "20251205_163000" / "segments.json"
+    assert segments_json.exists()
+
+
+def test_format_audio_stream_path():
+    """Test format_audio correctly parses timestamps from stream-based paths."""
+    from observe.hear import format_audio
+
+    entries = [
+        {"imported": {"id": "20240101_120000"}, "raw": "test.txt"},
+        {"start": "12:00:00", "speaker": "Alice", "text": "Hello"},
+        {"start": "12:00:30", "speaker": "Bob", "text": "Hi there"},
+    ]
+
+    # Stream-based path: day/stream/segment/imported_audio.jsonl
+    context = {
+        "file_path": Path("/journal/20240101/import.text/120000_300/imported_audio.jsonl")
+    }
+    chunks, meta = format_audio(entries, context)
+
+    assert len(chunks) == 2
+    # Verify timestamps are non-zero (base_timestamp correctly parsed from path)
+    assert chunks[0]["timestamp"] > 0
+    assert chunks[1]["timestamp"] > chunks[0]["timestamp"]
+    # Verify header includes start time
+    assert meta.get("header") and "12:00" in meta["header"]
+
+
+def test_format_audio_legacy_path():
+    """Test format_audio still works with legacy day/segment/ paths."""
+    from observe.hear import format_audio
+
+    entries = [
+        {"raw": "raw.flac", "model": "whisper-1"},
+        {"start": "12:34:56", "source": "mic", "text": "Test"},
+    ]
+
+    # Legacy path: day/segment/audio.jsonl (no stream directory)
+    context = {
+        "file_path": Path("/journal/20240101/123456_300/audio.jsonl")
+    }
+    chunks, meta = format_audio(entries, context)
+
+    assert len(chunks) == 1
+    assert chunks[0]["timestamp"] > 0
 
 
 def test_get_audio_duration(tmp_path):

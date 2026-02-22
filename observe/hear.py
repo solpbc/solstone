@@ -354,7 +354,9 @@ def format_audio(
     chunks: list[dict[str, Any]] = []
 
     # Parse day and time from path structure
-    # Expected format: YYYYMMDD/HHMMSS_LEN/audio.jsonl
+    # Supports both layouts:
+    #   YYYYMMDD/HHMMSS_LEN/audio.jsonl           (legacy)
+    #   YYYYMMDD/stream/HHMMSS_LEN/audio.jsonl    (stream-based)
     day_str = None
     start_time = None
     base_timestamp = 0
@@ -362,17 +364,20 @@ def format_audio(
     if file_path:
         file_path = Path(file_path)
         parts = file_path.parts
+        rev_parts = list(reversed(parts))
 
-        # Try to find YYYYMMDD and HHMMSS_LEN in path
-        for i, part in enumerate(reversed(parts)):
+        # Try to find YYYYMMDD in path
+        for i, part in enumerate(rev_parts):
             if re.match(r"^\d{8}$", part):
                 day_str = part
-                # Check if previous part (parent dir) is HHMMSS_LEN segment
-                if i > 0:
-                    from think.utils import segment_parse
+                # Scan parts between file and day for a valid segment key
+                from think.utils import segment_parse
 
-                    prev_part = list(reversed(parts))[i - 1]
-                    start_time, _ = segment_parse(prev_part)
+                for j in range(1, i):
+                    parsed_time, _ = segment_parse(rev_parts[j])
+                    if parsed_time is not None:
+                        start_time = parsed_time
+                        break
                 break
 
     # Build header line

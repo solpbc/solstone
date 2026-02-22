@@ -400,6 +400,9 @@ def main() -> None:
                 except Exception as e:
                     logger.warning(f"Failed to write stream identity: {e}")
 
+            # Save segment list for tracking (same as audio path)
+            save_import_segments(journal_root, args.timestamp, created_segments, day)
+
             # Emit observe.observed for text imports (already processed)
             for seg in created_segments:
                 _callosum.emit(
@@ -635,10 +638,12 @@ def main() -> None:
         raise
 
     finally:
-        # Stop status thread
+        # Stop status thread and Callosum connection
         _status_running = False
         if _status_thread:
             _status_thread.join(timeout=6)
+        if _callosum:
+            _callosum.stop()
 
 
 if __name__ == "__main__":
