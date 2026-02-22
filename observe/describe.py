@@ -238,7 +238,7 @@ class VideoProcessor:
                             pil_img.close()
                             logger.debug(
                                 f"Skipping frame at {timestamp:.2f}s "
-                                f"(Convey UI covers {mask_area/frame_area:.0%})"
+                                f"(Convey UI covers {mask_area / frame_area:.0%})"
                             )
                             continue
                         # Mask the Convey region with black

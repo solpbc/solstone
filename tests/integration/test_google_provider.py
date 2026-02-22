@@ -87,9 +87,9 @@ def test_google_provider_basic():
                 pytest.fail(f"Failed to parse JSON line: {line}\nError: {e}")
 
     # Verify we have events
-    assert (
-        len(events) >= 2
-    ), f"Expected at least start and finish events, got {len(events)}"
+    assert len(events) >= 2, (
+        f"Expected at least start and finish events, got {len(events)}"
+    )
 
     # Check start event
     start_event = events[0]
@@ -107,9 +107,9 @@ def test_google_provider_basic():
 
     # The result should contain "2"
     result_text = finish_event["result"].lower()
-    assert (
-        "2" in result_text or "two" in result_text
-    ), f"Expected '2' in response, got: {finish_event['result']}"
+    assert "2" in result_text or "two" in result_text, (
+        f"Expected '2' in response, got: {finish_event['result']}"
+    )
 
     # Check for no errors
     error_events = [e for e in events if e.get("event") == "error"]
@@ -198,15 +198,15 @@ def test_google_provider_with_thinking():
         else:
             pytest.fail(f"Unexpected error: {error_msg}\nTrace: {trace}")
 
-    assert (
-        finish_event["event"] == "finish"
-    ), f"Expected finish event, got: {finish_event}"
+    assert finish_event["event"] == "finish", (
+        f"Expected finish event, got: {finish_event}"
+    )
     assert "result" in finish_event, f"No result in finish event: {finish_event}"
     if finish_event["result"]:
         result_text = finish_event["result"].lower()
-        assert (
-            "4" in result_text or "four" in result_text
-        ), f"Expected '4' in response, got: {finish_event['result']}"
+        assert "4" in result_text or "four" in result_text, (
+            f"Expected '4' in response, got: {finish_event['result']}"
+        )
 
 
 @pytest.mark.integration
@@ -239,8 +239,8 @@ def test_google_json_truncation_detection():
     )
 
     # Verify truncation was detected via finish_reason
-    assert (
-        result["finish_reason"] == "max_tokens"
-    ), f"Expected max_tokens finish_reason, got: {result['finish_reason']}"
+    assert result["finish_reason"] == "max_tokens", (
+        f"Expected max_tokens finish_reason, got: {result['finish_reason']}"
+    )
     # Partial text should be present
     assert isinstance(result["text"], str)

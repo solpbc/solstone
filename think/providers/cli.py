@@ -192,8 +192,7 @@ class CLIRunner:
         binary = self.cmd[0]
         if not shutil.which(binary):
             raise RuntimeError(
-                f"CLI tool '{binary}' not found. "
-                f"Install it and ensure it's on PATH."
+                f"CLI tool '{binary}' not found. Install it and ensure it's on PATH."
             )
 
         import os
@@ -276,8 +275,7 @@ class CLIRunner:
             if result:
                 # CLI failed but produced output — warn and return what we got
                 LOG.warning(
-                    "CLI process exited with code %d but produced output. "
-                    "Stderr: %s",
+                    "CLI process exited with code %d but produced output. Stderr: %s",
                     return_code,
                     stderr_text,
                 )
@@ -299,8 +297,7 @@ class CLIRunner:
                     stderr_text,
                 )
                 raise RuntimeError(
-                    f"CLI process exited with code {return_code}. "
-                    f"Stderr: {stderr_text}"
+                    f"CLI process exited with code {return_code}. Stderr: {stderr_text}"
                 )
 
         return result

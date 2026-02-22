@@ -21,6 +21,4 @@ def log_all_events(ctx: EventContext) -> None:
     This handler matches all events via wildcards and logs them at DEBUG level.
     Useful for understanding event flow during development.
     """
-    logger.debug(
-        f"[dev] Event: {ctx.tract}/{ctx.event} - " f"keys: {list(ctx.msg.keys())}"
-    )
+    logger.debug(f"[dev] Event: {ctx.tract}/{ctx.event} - keys: {list(ctx.msg.keys())}")

@@ -236,20 +236,20 @@ def test_prompt_paths_exist():
         post = frontmatter.load(path)
         meta = post.metadata or {}
 
-        assert required_keys <= set(
-            meta.keys()
-        ), f"{rel_path} missing keys: {required_keys - set(meta.keys())}"
+        assert required_keys <= set(meta.keys()), (
+            f"{rel_path} missing keys: {required_keys - set(meta.keys())}"
+        )
         assert meta["tier"] in (
             TIER_PRO,
             TIER_FLASH,
             TIER_LITE,
         ), f"{rel_path} has invalid tier: {meta['tier']}"
-        assert (
-            isinstance(meta["label"], str) and meta["label"]
-        ), f"{rel_path} has invalid label: {meta['label']}"
-        assert (
-            isinstance(meta["group"], str) and meta["group"]
-        ), f"{rel_path} has invalid group: {meta['group']}"
+        assert isinstance(meta["label"], str) and meta["label"], (
+            f"{rel_path} has invalid label: {meta['label']}"
+        )
+        assert isinstance(meta["group"], str) and meta["group"], (
+            f"{rel_path} has invalid group: {meta['group']}"
+        )
 
 
 def test_prompt_contexts_in_registry():
@@ -478,9 +478,9 @@ def test_context_registry_structure():
 
     for context, config in registry.items():
         assert isinstance(config, dict), f"{context} should be a dict"
-        assert required_keys <= set(
-            config.keys()
-        ), f"{context} missing keys: {required_keys - set(config.keys())}"
+        assert required_keys <= set(config.keys()), (
+            f"{context} missing keys: {required_keys - set(config.keys())}"
+        )
         assert config["tier"] in (
             TIER_PRO,
             TIER_FLASH,

@@ -170,7 +170,6 @@ def news(
 
         day = get_sol_day()
     if write:
-
         # Read markdown from stdin
         markdown = sys.stdin.read()
         if not markdown.strip():

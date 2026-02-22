@@ -106,9 +106,7 @@ TEST_ENV = JOURNAL_PATH=tests/fixtures/journal
 
 # Venv tool shortcuts
 PYTEST := $(VENV_BIN)/pytest
-BLACK := $(VENV_BIN)/black
-ISORT := $(VENV_BIN)/isort
-FLAKE8 := $(VENV_BIN)/flake8
+RUFF := $(VENV_BIN)/ruff
 MYPY := $(VENV_BIN)/mypy
 
 # Run core tests (excluding integration and app tests)
@@ -159,18 +157,17 @@ test-all: .installed
 	@echo "Running all tests (core + apps + integration)..."
 	$(TEST_ENV) $(PYTEST) tests/ -v --cov=. && $(TEST_ENV) $(PYTEST) apps/ -v --cov=. --cov-append
 
-# Auto-format code, then report any remaining issues
-# Linting config: .flake8  |  Formatting config: pyproject.toml [tool.black] / [tool.isort]
+# Auto-format and fix code, then report any remaining issues
 format: .installed
-	@echo "Formatting code with black and isort..."
-	@$(BLACK) .
-	@$(ISORT) .
+	@echo "Formatting and fixing code with ruff..."
+	@$(RUFF) format .
+	@$(RUFF) check --fix .
 	@echo ""
 	@echo "Checking for remaining issues..."
-	@FLAKE8_OK=true; MYPY_OK=true; \
-	$(FLAKE8) . || FLAKE8_OK=false; \
+	@RUFF_OK=true; MYPY_OK=true; \
+	$(RUFF) check . || RUFF_OK=false; \
 	$(MYPY) . || MYPY_OK=false; \
-	if $$FLAKE8_OK && $$MYPY_OK; then \
+	if $$RUFF_OK && $$MYPY_OK; then \
 		echo ""; \
 		echo "All clean!"; \
 	else \
@@ -206,11 +203,10 @@ clean-install: uninstall install
 ci: .installed
 	@echo "Running CI checks..."
 	@echo "=== Checking formatting ==="
-	@$(BLACK) --check . || { echo "Run 'make format' to fix formatting"; exit 1; }
-	@$(ISORT) --check-only . || { echo "Run 'make format' to fix imports"; exit 1; }
+	@$(RUFF) format --check . || { echo "Run 'make format' to fix formatting"; exit 1; }
 	@echo ""
-	@echo "=== Running flake8 ==="
-	@$(FLAKE8) . || exit 1
+	@echo "=== Running ruff ==="
+	@$(RUFF) check . || { echo "Run 'make format' to auto-fix"; exit 1; }
 	@echo ""
 	@echo "=== Running mypy ==="
 	@$(MYPY) . || true
@@ -252,7 +248,7 @@ versions: .installed
 	$(PYTHON) --version
 	@echo ""
 	@echo "=== Key package versions ==="
-	@$(UV) pip list | grep -E "^(pytest|black|flake8|mypy|isort|Flask|numpy|Pillow|openai|anthropic|google-genai)" || true
+	@$(UV) pip list | grep -E "^(pytest|ruff|mypy|Flask|numpy|Pillow|openai|anthropic|google-genai)" || true
 
 # Install pre-commit hooks (if using pre-commit)
 pre-commit: .installed

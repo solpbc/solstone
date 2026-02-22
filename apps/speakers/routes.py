@@ -42,9 +42,8 @@ from think.entities.journal import (
     load_all_journal_entities,
     load_journal_entity,
 )
-from think.utils import day_dirs, day_path, iter_segments, now_ms
+from think.utils import day_dirs, day_path, iter_segments, now_ms, segment_parse
 from think.utils import segment_key as validate_segment_key
-from think.utils import segment_parse
 from think.utils import segment_path as get_segment_path
 
 logger = logging.getLogger(__name__)

@@ -78,9 +78,7 @@ dependencies = [
     "opencv-python",
 
     # Development tools
-    "black",
-    "flake8",
-    "isort",
+    "ruff",
     "mypy",
     "pytest",
     "pytest-asyncio",
@@ -116,23 +114,16 @@ convey = [
 ]
 
 # Development tools configuration
-[tool.black]
-target-version = ['py39']
-extend-exclude = '''
-(
-  \.venv
-  | scratch
-  | logs
-  | build
-  | dist
-)
-'''
+[tool.ruff]
+target-version = "py310"
+exclude = [".venv", "scratch", "logs", "build", "dist"]
 
-[tool.isort]
-profile = "black"
-extend_skip = ["journal", ".venv", "scratch", "logs", "build", "dist"]
+[tool.ruff.lint]
+select = ["F", "E", "W", "I"]
+ignore = ["E501", "E203", "E402"]
 
-# NOTE: flake8 config lives in .flake8 (flake8 does not read pyproject.toml)
+[tool.ruff.lint.per-file-ignores]
+"observe/gnome/activity.py" = ["E402"]
 
 [tool.mypy]
 python_version = "3.12"

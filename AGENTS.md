@@ -97,9 +97,7 @@ The `tests/fixtures/journal/` directory contains a complete mock journal structu
 ## Coding Standards & Style
 
 ### Language & Tools
-* **Black** (`make format`) - Code formatting
-* **isort** (`make format`) - Import sorting
-* **flake8** (`make lint`) - Linting
+* **Ruff** (`make format`) - Formatting, linting, and import sorting
 * **mypy** (`make check`) - Type checking
 * Configuration in `pyproject.toml`
 

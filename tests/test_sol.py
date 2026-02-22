@@ -280,9 +280,9 @@ class TestCommandRegistry:
         """Test that all commands in groups exist in registry."""
         for group_name, commands in sol.GROUPS.items():
             for cmd in commands:
-                assert (
-                    cmd in sol.COMMANDS
-                ), f"Command '{cmd}' in group '{group_name}' not in registry"
+                assert cmd in sol.COMMANDS, (
+                    f"Command '{cmd}' in group '{group_name}' not in registry"
+                )
 
     def test_critical_commands_registered(self):
         """Test that critical commands are registered."""

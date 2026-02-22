@@ -95,7 +95,7 @@ def _run_sync(backend_name: str, *, dry_run: bool = True) -> None:
     if backend is None:
         available = ", ".join(b.name for b in backends) or "(none)"
         raise SystemExit(
-            f"Unknown sync backend: {backend_name}\n" f"Available backends: {available}"
+            f"Unknown sync backend: {backend_name}\nAvailable backends: {available}"
         )
 
     mode = "save" if not dry_run else "catalog"
@@ -579,8 +579,7 @@ def main() -> None:
                     if msg.get("error"):
                         errors = msg.get("errors", [])
                         logger.warning(
-                            f"Segment {seg} failed: {errors} "
-                            f"({len(pending)} remaining)"
+                            f"Segment {seg} failed: {errors} ({len(pending)} remaining)"
                         )
                         failed_segments.append(seg)
                     else:

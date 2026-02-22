@@ -305,7 +305,7 @@ def _format_chunk_summary(chunks: list[dict], raw_chunks: list[dict] | None) -> 
         if path:
             print(f"      path: {path}")
         if intro:
-            print(f"      intro: \"{intro[:60]}{'...' if len(intro) > 60 else ''}\"")
+            print(f'      intro: "{intro[:60]}{"..." if len(intro) > 60 else ""}"')
         print(f"      {preview[:70]}{'...' if len(preview) > 70 else ''}")
         print()
 

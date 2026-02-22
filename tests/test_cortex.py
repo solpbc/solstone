@@ -315,7 +315,7 @@ def test_monitor_stdout_non_json_output(cortex_service, mock_journal):
     mock_process = MagicMock()
     mock_process.poll.return_value = 0
     mock_process.stdout = StringIO(
-        "Plain text output\n" '{"event": "finish", "ts": 1234567890}\n'
+        'Plain text output\n{"event": "finish", "ts": 1234567890}\n'
     )
 
     agent = AgentProcess(agent_id, mock_process, log_path)
@@ -410,7 +410,7 @@ def test_monitor_stderr(cortex_service, mock_journal):
     mock_process = MagicMock()
     mock_process.poll.return_value = 1  # Error exit
     mock_process.stderr = StringIO(
-        "Error: Something went wrong\n" "Stack trace line 1\n" "Stack trace line 2\n"
+        "Error: Something went wrong\nStack trace line 1\nStack trace line 2\n"
     )
 
     agent = AgentProcess(agent_id, mock_process, log_path)
@@ -435,13 +435,13 @@ def test_has_finish_event(cortex_service, mock_journal):
 
     # File with finish event
     file_path.write_text(
-        '{"event": "start", "ts": 123}\n' '{"event": "finish", "ts": 124}\n'
+        '{"event": "start", "ts": 123}\n{"event": "finish", "ts": 124}\n'
     )
     assert cortex_service._has_finish_event(file_path) is True
 
     # File with error event
     file_path.write_text(
-        '{"event": "start", "ts": 123}\n' '{"event": "error", "ts": 124}\n'
+        '{"event": "start", "ts": 123}\n{"event": "error", "ts": 124}\n'
     )
     assert cortex_service._has_finish_event(file_path) is True
 

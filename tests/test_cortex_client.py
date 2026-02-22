@@ -4,7 +4,6 @@
 """Tests for cortex_client module with Callosum."""
 
 import json
-import os
 import shutil
 import tempfile
 import threading

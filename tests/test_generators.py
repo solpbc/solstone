@@ -77,9 +77,9 @@ def test_get_muse_configs_by_schedule():
         assert meta.get("schedule") == "segment", f"{key} should have schedule=segment"
 
     # Verify no overlap
-    assert not set(daily.keys()) & set(
-        segment.keys()
-    ), "daily and segment should not overlap"
+    assert not set(daily.keys()) & set(segment.keys()), (
+        "daily and segment should not overlap"
+    )
 
     # Unknown schedule returns empty dict
     assert muse.get_muse_configs(type="generate", schedule="hourly") == {}
@@ -118,9 +118,9 @@ def test_scheduled_generators_have_valid_schedule():
     for key, meta in generators.items():
         sched = meta.get("schedule")
         if sched is not None:
-            assert (
-                sched in valid_schedules
-            ), f"Generator '{key}' has invalid schedule '{sched}'"
+            assert sched in valid_schedules, (
+                f"Generator '{key}' has invalid schedule '{sched}'"
+            )
 
 
 def test_speakers_has_required_audio():

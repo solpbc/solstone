@@ -166,7 +166,9 @@ def collect_and_print(args: argparse.Namespace) -> None:
     health_dir = get_today_health_dir()
     if health_dir:
         for log_path in get_day_log_files(health_dir):
-            raw_lines = tail_lines(log_path, 0) if has_filters else tail_lines(log_path, args.c)
+            raw_lines = (
+                tail_lines(log_path, 0) if has_filters else tail_lines(log_path, args.c)
+            )
             for raw in raw_lines:
                 parsed = parse_log_line(raw)
                 if parsed and _matches_filters(parsed, args):
@@ -184,7 +186,7 @@ def collect_and_print(args: argparse.Namespace) -> None:
 
     lines.sort(key=lambda line: line.timestamp)
     if has_filters and args.c:
-        lines = lines[-args.c:]
+        lines = lines[-args.c :]
     use_color = sys.stdout.isatty()
     last_service = None
     for line in lines:
@@ -234,10 +236,16 @@ def follow_logs(args: argparse.Namespace) -> None:
                     if line:
                         parsed = parse_log_line(line)
                         current_service = parsed.service if parsed else None
-                        if use_color and current_service and current_service != last_service:
+                        if (
+                            use_color
+                            and current_service
+                            and current_service != last_service
+                        ):
                             if last_service is not None:
                                 print(flush=True)
-                            print(_service_header(current_service, use_color), flush=True)
+                            print(
+                                _service_header(current_service, use_color), flush=True
+                            )
                             last_service = current_service
                         print(line, flush=True)
                     line = fh.readline()

@@ -79,7 +79,7 @@ async def test_batch_concurrent_timing():
     batch_seq = Batch(max_concurrent=1)
     for i in range(2):
         req = batch_seq.create(
-            contents=f"Count to {i+1}. Reply with just the number.",
+            contents=f"Count to {i + 1}. Reply with just the number.",
             context=TEST_CONTEXT,
             model=_TIMING_MODEL,
         )
@@ -95,7 +95,7 @@ async def test_batch_concurrent_timing():
     batch_conc = Batch(max_concurrent=2)
     for i in range(2):
         req = batch_conc.create(
-            contents=f"Count to {i+1}. Reply with just the number.",
+            contents=f"Count to {i + 1}. Reply with just the number.",
             context=TEST_CONTEXT,
             model=_TIMING_MODEL,
         )

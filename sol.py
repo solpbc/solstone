@@ -222,8 +222,7 @@ def resolve_command(name: str) -> tuple[str, list[str]]:
     # Not found
     available = sorted(set(COMMANDS.keys()) | set(ALIASES.keys()))
     raise ValueError(
-        f"Unknown command: {name}\n"
-        f"Available commands: {', '.join(available[:10])}..."
+        f"Unknown command: {name}\nAvailable commands: {', '.join(available[:10])}..."
     )
 
 

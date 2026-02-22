@@ -49,9 +49,7 @@ class ServiceManager:
         self.STATUS_TIMEOUT = 5  # Seconds before auto-clearing service status
         # Fixed column width for log truncation (icon + name + pid + time + mem + cpu + age + spacing)
         self.LOG_FIXED_WIDTH = 63
-        self.last_log_lines = (
-            {}
-        )  # Maps ref -> (timestamp, stream, line) for most recent log
+        self.last_log_lines = {}  # Maps ref -> (timestamp, stream, line) for most recent log
         self.cpu_cache = {}  # Maps pid -> last cpu_percent value
         self.cpu_procs = {}  # Maps pid -> Process object for cpu tracking
         self.running_tasks = {}  # Maps ref -> task info from logs tract

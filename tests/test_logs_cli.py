@@ -61,7 +61,9 @@ def test_parse_log_line_runner():
 def test_parse_log_line_supervisor():
     from think.logs_cli import parse_log_line
 
-    result = parse_log_line("2026-02-09T10:00:00 [supervisor:log] INFO Starting service")
+    result = parse_log_line(
+        "2026-02-09T10:00:00 [supervisor:log] INFO Starting service"
+    )
     assert result is not None
     assert result.service == "supervisor"
     assert result.stream == "log"
@@ -308,7 +310,9 @@ def test_count_limits_filtered_output(tmp_path, monkeypatch, capsys):
     from think import logs_cli
 
     day = datetime.now().strftime("%Y%m%d")
-    lines = [f"2026-02-09T10:{i:02d}:00 [echo:stdout] special line {i}" for i in range(10)]
+    lines = [
+        f"2026-02-09T10:{i:02d}:00 [echo:stdout] special line {i}" for i in range(10)
+    ]
     make_journal(tmp_path, day, {"echo": lines})
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
 

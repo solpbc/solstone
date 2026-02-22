@@ -23,7 +23,6 @@ from think.cortex_client import cortex_request, wait_for_agents
 from think.facets import (
     get_active_facets,
     get_enabled_facets,
-    get_facets,
     load_segment_facets,
 )
 from think.muse import get_muse_configs, get_output_path
@@ -403,9 +402,9 @@ def run_prompts_by_priority(
             raw_facets = load_segment_facets(day, segment, stream=stream)
             active_facets = set(f for f in raw_facets if f in enabled_facets)
 
-        spawned: list[tuple[str, str, dict, str | None]] = (
-            []
-        )  # (agent_id, name, config, facet)
+        spawned: list[
+            tuple[str, str, dict, str | None]
+        ] = []  # (agent_id, name, config, facet)
         group_success = 0
         group_failed = 0
 

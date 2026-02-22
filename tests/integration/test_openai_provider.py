@@ -87,9 +87,9 @@ def test_openai_provider_basic():
                 pytest.fail(f"Failed to parse JSON line: {line}\nError: {e}")
 
     # Verify we have events
-    assert (
-        len(events) >= 2
-    ), f"Expected at least start and finish events, got {len(events)}"
+    assert len(events) >= 2, (
+        f"Expected at least start and finish events, got {len(events)}"
+    )
 
     # Check start event
     start_event = events[0]
@@ -107,9 +107,9 @@ def test_openai_provider_basic():
 
     # The result should contain "2"
     result_text = finish_event["result"].lower()
-    assert (
-        "2" in result_text or "two" in result_text
-    ), f"Expected '2' in response, got: {finish_event['result']}"
+    assert "2" in result_text or "two" in result_text, (
+        f"Expected '2' in response, got: {finish_event['result']}"
+    )
 
     # Check for no errors
     error_events = [e for e in events if e.get("event") == "error"]
@@ -190,9 +190,9 @@ def test_openai_provider_with_reasoning():
     # If we have thinking events, verify their structure
     for thinking in thinking_events:
         assert "summary" in thinking, f"Thinking event missing 'summary': {thinking}"
-        assert isinstance(
-            thinking["summary"], str
-        ), f"Thinking summary should be string: {thinking}"
+        assert isinstance(thinking["summary"], str), (
+            f"Thinking summary should be string: {thinking}"
+        )
         assert len(thinking["summary"]) > 0, "Thinking summary should not be empty"
         assert "model" in thinking, f"Thinking event missing 'model': {thinking}"
         assert "ts" in thinking, f"Thinking event missing 'ts': {thinking}"
@@ -202,9 +202,9 @@ def test_openai_provider_with_reasoning():
     finish_event = events[-1]
     assert finish_event["event"] == "finish"
     result_text = finish_event["result"].lower()
-    assert (
-        "6" in result_text or "six" in result_text
-    ), f"Expected '6' in response, got: {finish_event['result']}"
+    assert "6" in result_text or "six" in result_text, (
+        f"Expected '6' in response, got: {finish_event['result']}"
+    )
 
     # Log whether we got thinking events for debugging
     print(f"Received {len(thinking_events)} thinking events")
@@ -269,12 +269,12 @@ def test_openai_provider_with_extra_context():
     error_events = [e for e in events if e.get("event") == "error"]
     for err in error_events:
         error_msg = err.get("error", "")
-        assert (
-            "Invalid value: 'text'" not in error_msg
-        ), f"Got content type format error - regression! Error: {error_msg}"
-        assert (
-            "input_text" not in error_msg or "Supported values" not in error_msg
-        ), f"Got content type format error - regression! Error: {error_msg}"
+        assert "Invalid value: 'text'" not in error_msg, (
+            f"Got content type format error - regression! Error: {error_msg}"
+        )
+        assert "input_text" not in error_msg or "Supported values" not in error_msg, (
+            f"Got content type format error - regression! Error: {error_msg}"
+        )
 
     # Verify we got past the format validation (start event was emitted)
     start_events = [e for e in events if e.get("event") == "start"]
@@ -284,9 +284,9 @@ def test_openai_provider_with_extra_context():
     finish_events = [e for e in events if e.get("event") == "finish"]
     if finish_events:
         result_text = finish_events[0].get("result", "").lower()
-        assert (
-            "moonshot" in result_text
-        ), f"Expected 'moonshot' in response, got: {finish_events[0].get('result')}"
+        assert "moonshot" in result_text, (
+            f"Expected 'moonshot' in response, got: {finish_events[0].get('result')}"
+        )
 
 
 @pytest.mark.integration
@@ -319,8 +319,8 @@ def test_openai_json_truncation_detection():
     )
 
     # Verify truncation was detected via finish_reason
-    assert (
-        result["finish_reason"] == "max_tokens"
-    ), f"Expected max_tokens finish_reason, got: {result['finish_reason']}"
+    assert result["finish_reason"] == "max_tokens", (
+        f"Expected max_tokens finish_reason, got: {result['finish_reason']}"
+    )
     # Partial text should be present
     assert isinstance(result["text"], str)

@@ -697,7 +697,6 @@ class FileSensor:
         logger.info("Listening for observe.observing events via Callosum")
 
         while self.running_flag:
-
             # Emit status every 5 seconds if there's activity
             now = time.time()
             if now - self.last_status_emit >= 5:
@@ -778,7 +777,6 @@ class FileSensor:
         to_process = []
         segment_meta_cache: Dict[str, Optional[Dict[str, Any]]] = {}
         for stream_name, seg_key, seg_path in iter_segments(day):
-
             # Apply segment filter if specified
             if segment_filter and seg_key != segment_filter:
                 continue
@@ -885,7 +883,6 @@ def delete_outputs(
         return deleted
 
     for _stream_name, seg_key, seg_path in iter_segments(day_dir):
-
         # Apply segment filter if specified
         if segment_filter and seg_key != segment_filter:
             continue
@@ -951,7 +948,6 @@ def scan_day(day_dir: Path) -> dict:
         return {"processed": [], "unprocessed": [], "pending_segments": 0}
 
     for stream_name, seg_key, seg_path in iter_segments(day_dir):
-
         # Check each file in the segment
         for file_path in seg_path.iterdir():
             if not file_path.is_file():

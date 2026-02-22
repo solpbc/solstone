@@ -565,10 +565,10 @@ def generate_todos(day: str):  # type: ignore[override]
         except OSError:
             yesterday_content = ""
 
-    prompt = f"""Generate a TODO checklist for {day_date.strftime('%Y-%m-%d')} in the {facet} facet.
+    prompt = f"""Generate a TODO checklist for {day_date.strftime("%Y-%m-%d")} in the {facet} facet.
 
-Current date/time: {datetime.now().strftime('%Y-%m-%d %H:%M')}
-Target day: {day_date.strftime('%Y-%m-%d')}
+Current date/time: {datetime.now().strftime("%Y-%m-%d %H:%M")}
+Target day: {day_date.strftime("%Y-%m-%d")}
 Target facet: {facet}
 Target file: facets/{facet}/todos/{day}.jsonl
 
@@ -657,8 +657,8 @@ def generate_weekly_todos(day: str, facet: str):  # type: ignore[override]
 
     prompt = f"""Review the past week and generate high-impact todos for {facet} facet.
 
-Current date/time: {datetime.now().strftime('%Y-%m-%d %H:%M')}
-Target day: {day_date.strftime('%Y-%m-%d')}
+Current date/time: {datetime.now().strftime("%Y-%m-%d %H:%M")}
+Target day: {day_date.strftime("%Y-%m-%d")}
 Target facet: {facet}
 Target file: facets/{facet}/todos/{day}.jsonl
 
