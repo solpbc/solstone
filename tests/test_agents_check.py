@@ -57,6 +57,92 @@ def test_run_check_writes_health_file(tmp_path, monkeypatch):
     assert payload["summary"]["passed"] > 0
 
 
+def test_run_check_partial_failure_exits_zero(tmp_path, monkeypatch):
+    """_run_check exits 0 when some checks fail but no provider is fully broken."""
+    import think.agents as agents
+
+    fake_registry = {"fake": object()}
+    fake_defaults = {
+        "fake": {
+            1: "fake-pro-model",
+            2: "fake-flash-model",
+            3: "fake-lite-model",
+        }
+    }
+
+    monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
+    monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
+    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(agents, "_check_generate", lambda *_args: (True, "ok"))
+
+    async def mock_check_cogitate(*_args):
+        return False, "FAIL: timeout"
+
+    monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
+
+    args = argparse.Namespace(
+        provider=None,
+        interface=None,
+        tier=None,
+        json=False,
+        timeout=1,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        asyncio.run(agents._run_check(args))
+
+    assert exc_info.value.code == 0
+
+    health_file = tmp_path / "health" / "agents.json"
+    payload = json.loads(health_file.read_text())
+    assert payload["summary"]["passed"] == 3
+    assert payload["summary"]["failed"] == 3
+
+
+def test_run_check_full_provider_failure_exits_one(tmp_path, monkeypatch):
+    """_run_check exits 1 when all checks for a provider fail."""
+    import think.agents as agents
+
+    fake_registry = {"fake": object()}
+    fake_defaults = {
+        "fake": {
+            1: "fake-pro-model",
+            2: "fake-flash-model",
+            3: "fake-lite-model",
+        }
+    }
+
+    monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
+    monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
+    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(
+        agents, "_check_generate", lambda *_args: (False, "FAIL: key not set")
+    )
+
+    async def mock_check_cogitate(*_args):
+        return False, "FAIL: key not set"
+
+    monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
+
+    args = argparse.Namespace(
+        provider=None,
+        interface=None,
+        tier=None,
+        json=False,
+        timeout=1,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        asyncio.run(agents._run_check(args))
+
+    assert exc_info.value.code == 1
+
+    health_file = tmp_path / "health" / "agents.json"
+    payload = json.loads(health_file.read_text())
+    assert payload["summary"]["passed"] == 0
+    assert payload["summary"]["failed"] == 6
+
+
 def test_run_check_dedup_same_model(tmp_path, monkeypatch):
     """_run_check deduplicates checks when tiers resolve to the same model."""
     import think.agents as agents

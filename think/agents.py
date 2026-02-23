@@ -1221,6 +1221,16 @@ async def _run_check(args: argparse.Namespace) -> None:
                 else:
                     failed += 1
 
+    # Determine if any provider is fully failed (all checks failed)
+    provider_failed = False
+    providers_seen: dict[str, list[bool]] = {}
+    for r in results:
+        providers_seen.setdefault(r["provider"], []).append(r["ok"])
+    for ok_values in providers_seen.values():
+        if ok_values and not any(ok_values):
+            provider_failed = True
+            break
+
     # Write results to health file
     payload = {
         "results": results,
@@ -1243,7 +1253,7 @@ async def _run_check(args: argparse.Namespace) -> None:
         )
     else:
         print(f"{total} checks: {passed} passed, {failed} failed")
-    sys.exit(1 if failed > 0 else 0)
+    sys.exit(1 if provider_failed else 0)
 
 
 # =============================================================================
