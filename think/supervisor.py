@@ -286,12 +286,16 @@ class TaskQueue:
                 )
 
             if exit_code == 0:
-                logging.info(f"Task {primary_ref} finished successfully")
+                logging.info(f"Task {cmd_name} ({primary_ref}) finished successfully")
             else:
-                logging.warning(f"Task {primary_ref} failed with exit code {exit_code}")
+                logging.warning(
+                    f"Task {cmd_name} ({primary_ref}) failed with exit code {exit_code}"
+                )
 
         except Exception as e:
-            logging.exception(f"Task {primary_ref} encountered exception: {e}")
+            logging.exception(
+                f"Task {cmd_name} ({primary_ref}) encountered exception: {e}"
+            )
             for ref in refs:
                 callosum.emit(
                     "supervisor",
