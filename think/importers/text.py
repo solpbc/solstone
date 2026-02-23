@@ -103,7 +103,9 @@ def process_transcript(
                 try:
                     entry_seconds = _time_to_seconds(entry["start"])
                     offset = max(0, entry_seconds - seg_start_seconds)
-                    entry["start"] = f"{offset // 3600:02d}:{offset % 3600 // 60:02d}:{offset % 60:02d}"
+                    entry["start"] = (
+                        f"{offset // 3600:02d}:{offset % 3600 // 60:02d}:{offset % 60:02d}"
+                    )
                 except (ValueError, AttributeError):
                     pass
 
