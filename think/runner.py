@@ -59,7 +59,7 @@ def _atomic_symlink(link_path: Path, target: str) -> None:
         target: Target path (can be relative or absolute)
     """
     link_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_link = link_path.with_suffix(f".tmp{os.getpid()}")
+    tmp_link = link_path.with_suffix(f".tmp{os.getpid()}_{threading.get_ident()}")
     try:
         tmp_link.symlink_to(target)
         tmp_link.replace(link_path)
