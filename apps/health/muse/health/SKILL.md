@@ -1,0 +1,148 @@
+---
+name: health
+description: Diagnoses service health and inspects agent runs using sol health and sol muse logs commands. Provides a journal layout reference for navigating logs, agent outputs, and data files at the journal, day, and segment levels.
+---
+
+# Health CLI Skill
+
+Use these commands to check service health, view logs, and inspect agent runs.
+
+**Typical workflow**: `sol health` to check service status → `sol health logs` to inspect recent log output → `sol muse logs` to review agent runs → `sol muse log <ID>` for run details.
+
+## status
+
+```bash
+sol health
+```
+
+Show current supervisor status: running services (names, PIDs, uptimes), crashed services, active tasks, queue depths, heartbeat health, and callosum client count.
+
+Connects to `$JOURNAL_PATH/health/callosum.sock` with a 10-second timeout.
+
+Example:
+
+```bash
+sol health
+```
+
+## logs
+
+```bash
+sol health logs [-c N] [-f] [--since TIME] [--service NAME] [--grep PATTERN]
+```
+
+View service health logs from today's log files.
+
+- `-c N`: lines per service (default `5`).
+- `-f`: follow mode — tail all logs continuously.
+- `--since TIME`: filter by time. Accepts relative (`30m`, `2h`, `1d`) or absolute (`4pm`, `16:00`).
+- `--service NAME`: filter to one service.
+- `--grep PATTERN`: filter lines matching a Python regex.
+
+Behavior notes:
+
+- Reads symlinked logs from `$JOURNAL_PATH/YYYYMMDD/health/*.log`.
+- Includes `$JOURNAL_PATH/health/supervisor.log` when no filters are active.
+- Log line format: `ISO8601 [service:stream] LEVEL:logger:message`.
+- `-f` mode handles symlink target rotation at midnight.
+
+Examples:
+
+```bash
+sol health logs
+sol health logs -c 20 --service cortex
+sol health logs --since 30m --grep "ERROR"
+sol health logs -f
+```
+
+## agent runs
+
+```bash
+sol muse logs [AGENT] [-c COUNT]
+```
+
+List recent agent runs.
+
+- `AGENT`: optional agent name filter.
+- `-c, --count`: max runs shown (default `20`).
+
+Output columns: agent_id, time, name, status, runtime, cost, events, tools, output_size, model, facet.
+
+Example:
+
+```bash
+sol muse logs
+sol muse logs activity -c 10
+```
+
+## agent run detail
+
+```bash
+sol muse log <ID> [--json] [--full]
+```
+
+Show events for a single agent run.
+
+- `ID`: agent run ID (from `sol muse logs` output).
+- `--json`: raw JSONL events.
+- `--full`: expanded event detail (no truncation).
+
+Without flags, shows a one-line-per-event timeline: timestamp, event type, detail.
+
+Examples:
+
+```bash
+sol muse log 1700000000001
+sol muse log 1700000000001 --json
+sol muse log 1700000000001 --full
+```
+
+## journal layout
+
+Reference map of key paths. `$JOURNAL_PATH` is the journal root.
+
+### journal level
+
+| Path | Purpose |
+|------|---------|
+| `health/` | Service logs: `<service>.log` symlinks, `callosum.sock`, `supervisor.log` |
+| `agents/` | Agent run logs: `<name>/<id>.jsonl`, `<name>/<id>_active.jsonl`, `<name>.log` symlink, `<day>.jsonl` day index |
+| `config/` | `journal.json`, `convey.json`, `schedules.json`, `actions/YYYYMMDD.jsonl` |
+| `facets/<facet>/` | Per-facet data: `facet.json`, `entities/`, `todos/`, `events/`, `news/`, `logs/` |
+| `entities/<id>/` | Canonical entity records: `entity.json` |
+| `tokens/` | Token usage: `YYYYMMDD.jsonl` per day |
+| `indexer/` | Search index: `journal.sqlite` (FTS5) |
+| `streams/` | Stream state: `<name>.json` |
+| `imports/` | Imported audio and processing artifacts |
+
+### day level (`YYYYMMDD/`)
+
+| Path | Purpose |
+|------|---------|
+| `<stream>/HHMMSS_LEN/` | Segment folders (captures, extracts, agent outputs) |
+| `agents/` | Daily agent outputs: `<name>.md`, `<name>.json` |
+| `health/` | Service logs for that day: `<ref>_<service>.log` (symlinked from journal-level `health/`) |
+| `stats.json` | Day statistics |
+
+### segment level (`YYYYMMDD/<stream>/HHMMSS_LEN/`)
+
+| Path | Purpose |
+|------|---------|
+| `audio.*` | Audio captures (`.flac`, `.m4a`, `.ogg`, `.opus`) |
+| `<pos>_<connector>_screen.*` | Screen captures (`.webm`, `.mov`, `.mp4`) |
+| `audio.jsonl` | Audio transcript extract |
+| `<pos>_<connector>_screen.jsonl` | Screen analysis extract |
+| `stream.json` | Segment metadata and stream linkage |
+| `*.md` | Segment-level agent outputs |
+
+## services
+
+Which services write where:
+
+| Service | Writes to |
+|---------|-----------|
+| Observer | Audio/video captures in segment folders |
+| Sense | Transcripts + screen analysis (JSONL) in segment folders |
+| Cortex | Agent JSONL in `agents/<name>/`, outputs in segment/day dirs |
+| Indexer | `indexer/journal.sqlite` |
+| Supervisor | `health/supervisor.log`, service logs in `YYYYMMDD/health/` |
