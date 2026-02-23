@@ -664,6 +664,42 @@ def _handle_task_request(message: dict) -> None:
         _task_queue.submit(cmd, ref, day=day)
 
 
+def _restart_service(service: str) -> bool:
+    """Send SIGINT to a managed service to trigger graceful restart.
+
+    Returns True if the service was found and running, False if not found
+    or already exited.
+    """
+    for proc in _managed_procs:
+        if proc.name == service:
+            if proc.process.poll() is not None:
+                logging.debug(
+                    f"Ignoring restart for {service}: already exited, awaiting auto-restart"
+                )
+                return False
+
+            logging.info(f"Restart requested for {service}, sending SIGINT...")
+
+            if _supervisor_callosum:
+                _supervisor_callosum.emit(
+                    "supervisor",
+                    "restarting",
+                    service=service,
+                    pid=proc.process.pid,
+                    ref=proc.ref,
+                )
+
+            try:
+                proc.process.send_signal(signal.SIGINT)
+                _restart_requests[service] = (time.time(), proc.process)
+            except Exception as e:
+                logging.error(f"Failed to send SIGINT to {service}: {e}")
+            return True
+
+    logging.warning(f"Cannot restart {service}: not found in managed processes")
+    return False
+
+
 def _handle_supervisor_request(message: dict) -> None:
     """Handle incoming supervisor control messages."""
     if message.get("tract") != "supervisor" or message.get("event") != "restart":
@@ -677,39 +713,20 @@ def _handle_supervisor_request(message: dict) -> None:
         logging.debug("Ignoring restart request for supervisor itself")
         return
 
-    # Find the process
-    for proc in _managed_procs:
-        if proc.name == service:
-            # Check if process is still running
-            if proc.process.poll() is not None:
-                # Already exited - ignore, supervision loop will auto-restart
-                logging.debug(
-                    f"Ignoring restart for {service}: already exited, awaiting auto-restart"
-                )
-                return
+    _restart_service(service)
 
-            logging.info(f"Restart requested for {service}, sending SIGINT...")
 
-            # Emit restarting event
-            if _supervisor_callosum:
-                _supervisor_callosum.emit(
-                    "supervisor",
-                    "restarting",
-                    service=service,
-                    pid=proc.process.pid,
-                    ref=proc.ref,
-                )
+def _handle_code_shipped(message: dict) -> None:
+    """Restart cortex when new code is deployed via sail."""
+    if message.get("tract") != "code" or message.get("event") != "shipped":
+        return
 
-            # Send SIGINT to trigger graceful shutdown
-            try:
-                proc.process.send_signal(signal.SIGINT)
-                # Track restart request for SIGKILL enforcement
-                _restart_requests[service] = (time.time(), proc.process)
-            except Exception as e:
-                logging.error(f"Failed to send SIGINT to {service}: {e}")
-            return
+    if "cortex" in _restart_requests:
+        logging.debug("Skipping code.shipped restart: cortex already restarting")
+        return
 
-    logging.warning(f"Cannot restart {service}: not found in managed processes")
+    logging.info("Code shipped (hash=%s), restarting cortex", message.get("hash"))
+    _restart_service("cortex")
 
 
 def get_task_status(ref: str) -> dict:
@@ -1269,6 +1286,7 @@ def _handle_callosum_message(message: dict) -> None:
     """Dispatch incoming Callosum messages to appropriate handlers."""
     _handle_task_request(message)
     _handle_supervisor_request(message)
+    _handle_code_shipped(message)
     _handle_segment_observed(message)
     _handle_observe_status(message)
     _handle_activity_recorded(message)
