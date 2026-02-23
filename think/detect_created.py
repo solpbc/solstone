@@ -48,7 +48,7 @@ def _debug_write_content(content: str, path: str) -> None:
 
 
 def detect_created(
-    path: str, original_filename: Optional[str] = None
+    path: str, original_filename: Optional[str] = None, guidance: Optional[str] = None
 ) -> Optional[dict]:
     """Return creation time information for *path* using configured provider.
 
@@ -58,6 +58,8 @@ def detect_created(
         Path to the file to analyze
     original_filename : Optional[str]
         Original filename if path is a temporary file
+    guidance : Optional[str]
+        Optional guidance text from the user to help the LLM interpret ambiguous metadata
     """
     metadata = _extract_metadata(path)
 
@@ -81,6 +83,8 @@ def detect_created(
 
     lines.append(metadata)
     markdown = "\n".join(lines)
+    if guidance:
+        markdown += f"\n\nImportant guidance from the user: {guidance}"
 
     # Debug: write content to temp file
     _debug_write_content(markdown, path)

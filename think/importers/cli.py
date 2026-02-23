@@ -191,8 +191,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--auto",
-        action="store_true",
-        help="Auto-accept detected timestamp and proceed with import",
+        nargs="?",
+        const=True,
+        default=None,
+        help="Auto-accept detected timestamp. Optionally provide guidance text for the LLM (e.g., --auto 'timestamps are Pacific time').",
     )
     parser.add_argument(
         "--dry-run",
@@ -247,7 +249,9 @@ def main() -> None:
     if not args.timestamp:
         # Pass the original filename for better detection
         detection_result = detect_created(
-            args.media, original_filename=os.path.basename(args.media)
+            args.media,
+            original_filename=os.path.basename(args.media),
+            guidance=args.auto if isinstance(args.auto, str) else None,
         )
         if (
             detection_result
