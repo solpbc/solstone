@@ -717,16 +717,16 @@ def _handle_supervisor_request(message: dict) -> None:
 
 
 def _handle_code_shipped(message: dict) -> None:
-    """Restart cortex when new code is deployed via sail."""
+    """Restart convey when new code is deployed via sail."""
     if message.get("tract") != "code" or message.get("event") != "shipped":
         return
 
-    if "cortex" in _restart_requests:
-        logging.debug("Skipping code.shipped restart: cortex already restarting")
+    if "convey" in _restart_requests:
+        logging.debug("Skipping code.shipped restart: convey already restarting")
         return
 
-    logging.info("Code shipped (hash=%s), restarting cortex", message.get("hash"))
-    _restart_service("cortex")
+    logging.info("Code shipped (hash=%s), restarting convey", message.get("hash"))
+    _restart_service("convey")
 
 
 def get_task_status(ref: str) -> dict:

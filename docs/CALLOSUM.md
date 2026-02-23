@@ -143,7 +143,7 @@ callosum_send("notification", "show", title="Import Complete", message="3 segmen
 **Source:** `make sail` (Makefile)
 **Events:** `shipped`
 **Key fields:** `hash` (short git commit hash)
-**Consumer:** Supervisor restarts cortex on `shipped` events (`think/supervisor.py:_handle_code_shipped`)
+**Consumer:** Supervisor restarts convey on `shipped` events (`think/supervisor.py:_handle_code_shipped`)
 **Purpose:** Track code deployment and release events
 
 ---
