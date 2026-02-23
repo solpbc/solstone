@@ -31,6 +31,8 @@ def _write_import_jsonl(
     raw_filename: str | None = None,
     facet: str | None = None,
     setting: str | None = None,
+    topics: str | None = None,
+    detected_setting: str | None = None,
 ) -> None:
     """Write imported transcript entries in JSONL format.
 
@@ -44,6 +46,8 @@ def _write_import_jsonl(
         raw_filename: Source filename (basename only, used to build relative path)
         facet: Optional facet name
         setting: Optional setting description
+        topics: Optional LLM-detected topics (top-level metadata for format_audio)
+        detected_setting: Optional LLM-detected setting context (top-level metadata)
     """
     imported_meta: dict[str, str] = {"id": import_id}
     if facet:
@@ -57,6 +61,12 @@ def _write_import_jsonl(
     # Add raw file reference (path relative from segment to imports directory)
     if raw_filename:
         metadata["raw"] = f"../../../imports/{import_id}/{raw_filename}"
+
+    # Add LLM-detected enrichment at top level (displayed by format_audio header)
+    if topics:
+        metadata["topics"] = topics
+    if detected_setting:
+        metadata["setting"] = detected_setting
 
     # Write JSONL: metadata first, then entries with source field
     jsonl_lines = [json.dumps(metadata)]

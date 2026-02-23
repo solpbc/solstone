@@ -110,9 +110,9 @@ def test_importer_text(tmp_path, monkeypatch):
     metadata2 = json.loads(lines2[0])
     entries2 = [json.loads(line) for line in lines2[1:]]
 
-    # Output has absolute timestamps from segment detection and source="import"
+    # Timestamps are relative offsets from segment start (not absolute time-of-day)
     assert entries1 == [
-        {"start": "12:00:00", "speaker": "Unknown", "text": "seg1", "source": "import"}
+        {"start": "00:00:00", "speaker": "Unknown", "text": "seg1", "source": "import"}
     ]
     assert metadata1["imported"]["id"] == "20240101_120000"
     assert "facet" not in metadata1["imported"]
@@ -120,7 +120,7 @@ def test_importer_text(tmp_path, monkeypatch):
     assert metadata1["raw"] == "../../../imports/20240101_120000/sample.txt"
 
     assert entries2 == [
-        {"start": "12:05:00", "speaker": "Unknown", "text": "seg2", "source": "import"}
+        {"start": "00:00:00", "speaker": "Unknown", "text": "seg2", "source": "import"}
     ]
     assert metadata2["imported"]["id"] == "20240101_120000"
     assert "facet" not in metadata2["imported"]
@@ -209,24 +209,23 @@ def test_importer_pdf(tmp_path, monkeypatch):
     assert metadata["imported"]["setting"] == "board meeting"
     assert metadata["raw"] == "../../../imports/20251205_163000/meeting.pdf"
 
-    # Verify entries — text entries get source="import", topics/setting entry does not
+    # Verify entries — timestamps are relative offsets, topics/setting in metadata
     assert entries[0] == {
-        "start": "16:30:00",
+        "start": "00:00:00",
         "speaker": "Jack",
         "text": "Board meeting notes",
         "source": "import",
     }
     assert entries[1] == {
-        "start": "16:30:30",
+        "start": "00:00:30",
         "speaker": "Ramon",
         "text": "Action items",
         "source": "import",
     }
-    # Topics/setting metadata entry preserved without source field
-    assert entries[2] == {
-        "topics": "board meeting, action items",
-        "setting": "workplace",
-    }
+    # Topics/setting extracted to metadata (not written as entry)
+    assert len(entries) == 2
+    assert metadata["topics"] == "board meeting, action items"
+    assert metadata["setting"] == "workplace"
 
     # Verify .pdf auto-detected as text import (stream = import.text)
     stream_json = day_dir / "import.text" / "163000_5" / "stream.json"

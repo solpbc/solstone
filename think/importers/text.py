@@ -82,6 +82,31 @@ def process_transcript(
         if not json_data:
             continue
 
+        # Extract topics/setting from last entry (LLM appends it without a start field)
+        topics = None
+        detected_setting = None
+        if (
+            json_data
+            and isinstance(json_data[-1], dict)
+            and "start" not in json_data[-1]
+            and ("topics" in json_data[-1] or "setting" in json_data[-1])
+        ):
+            meta_entry = json_data.pop()
+            topics = meta_entry.get("topics")
+            detected_setting = meta_entry.get("setting")
+
+        # Convert absolute timestamps to relative offsets from segment start
+        # (format_audio treats start as offset from the segment base time)
+        seg_start_seconds = _time_to_seconds(start_at)
+        for entry in json_data:
+            if "start" in entry:
+                try:
+                    entry_seconds = _time_to_seconds(entry["start"])
+                    offset = max(0, entry_seconds - seg_start_seconds)
+                    entry["start"] = f"{offset // 3600:02d}:{offset % 3600 // 60:02d}:{offset % 60:02d}"
+                except (ValueError, AttributeError):
+                    pass
+
         # Parse absolute time for segment directory name
         time_part = start_at.replace(":", "")  # "12:05:30" -> "120530"
 
@@ -124,6 +149,8 @@ def process_transcript(
             raw_filename=os.path.basename(path),
             facet=facet,
             setting=setting,
+            topics=topics,
+            detected_setting=detected_setting,
         )
         logger.info(f"Added transcript segment to journal: {json_path}")
         created_files.append(json_path)

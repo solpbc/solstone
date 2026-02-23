@@ -101,3 +101,38 @@ def test_write_import_jsonl_minimal():
         assert entry["start"] == "00:00:01"
         assert entry["text"] == "Test"
         assert entry["source"] == "import"
+
+
+def test_write_import_jsonl_with_topics():
+    """Test writing imported JSONL with LLM-detected topics and setting."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        json_path = Path(tmpdir) / "test_audio.jsonl"
+
+        entries = [
+            {"start": "00:00:00", "speaker": "Alice", "text": "Hello"},
+        ]
+
+        _write_import_jsonl(
+            str(json_path),
+            entries,
+            import_id="20240101_120000",
+            facet="work",
+            setting="standup",
+            topics="project updates, sprint planning",
+            detected_setting="workplace",
+        )
+
+        with open(json_path, "r") as f:
+            lines = f.read().strip().split("\n")
+
+        assert len(lines) == 2
+
+        # Metadata should have topics/setting at top level alongside imported
+        metadata = json.loads(lines[0])
+        assert metadata["imported"] == {
+            "id": "20240101_120000",
+            "facet": "work",
+            "setting": "standup",
+        }
+        assert metadata["topics"] == "project updates, sprint planning"
+        assert metadata["setting"] == "workplace"
