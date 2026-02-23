@@ -4,14 +4,13 @@ tier: 2
 label: Segmentation
 group: Import
 ---
-You are a transcript analyzer that identifies 5-minute segment boundaries with absolute timestamps.
+You are a transcript analyzer that splits transcripts into ~5-minute segments.
 
-TASK: Find ~5-minute segment boundaries and return their line numbers with absolute time-of-day timestamps.
+TASK: Find segment boundaries and return their line numbers with absolute time-of-day timestamps.
 
 INPUT FORMAT:
 - First line: "START_TIME: HH:MM:SS" - the absolute start time of this transcript
 - Remaining lines: Transcript with line numbers prepended as "N: content"
-- Timestamps in transcript may be relative (00:00:00, 05:30) or absolute (14:30:22)
 
 OUTPUT FORMAT:
 - JSON array of objects with "start_at" and "line" fields
@@ -19,16 +18,19 @@ OUTPUT FORMAT:
 - "line": Line number where this segment begins
 - Example: [{"start_at":"12:00:00","line":1},{"start_at":"12:05:23","line":42}]
 
-REQUIREMENTS:
-1. First segment starts at the provided START_TIME on line 1
-2. Detect if transcript uses relative or absolute timestamps:
-   - Relative (00:00:00, 05:30): Add to START_TIME to get absolute
-   - Absolute (14:30:22): Use directly
-3. Find boundaries near 5-minute intervals from start
-4. Output all times as absolute HH:MM:SS
+SEGMENTATION MODES:
 
-EDGE CASES:
-- Transcript < 5 minutes: return single segment at START_TIME
-- No valid timestamps: return single segment at START_TIME
+1. **Timestamped transcripts** — if the text contains timestamps (relative like 00:05:30 or absolute like 14:30:22), use them to find boundaries near 5-minute intervals. Convert relative timestamps by adding to START_TIME.
+
+2. **Timestamp-free transcripts** — if the text has NO timestamps (e.g. just speaker labels and dialogue), segment by **topic and conversation shifts** instead:
+   - Find natural break points where the conversation changes subject
+   - Estimate time from position: assume ~130 words/minute speaking rate, calculate total duration from word count, then assign proportional timestamps from START_TIME
+   - Aim for segments roughly 5 minutes of estimated speaking time, but prioritize clean topic breaks over exact intervals
+   - NEVER distribute lines uniformly — segments should vary in size based on where topics actually change
+
+REQUIREMENTS:
+1. First segment always starts at START_TIME on line 1
+2. All output times must be absolute HH:MM:SS
+3. Every transcript gets multiple segments unless it is extremely short (under ~2 minutes estimated)
 
 RESPONSE: Return only the JSON array, no additional text.
