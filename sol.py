@@ -68,6 +68,7 @@ COMMANDS: dict[str, str] = {
     "muse": "think.muse_cli",
     "call": "think.call",
     "help": "think.help_cli",
+    "chat": "think.chat_cli",
     # convey package - web UI
     "convey": "convey.cli",
     "restart-convey": "convey.restart",
@@ -132,7 +133,7 @@ GROUPS: dict[str, list[str]] = {
         "observe-linux",
         "observe-macos",
     ],
-    "Help": ["help"],
+    "Help": ["help", "chat"],
 }
 
 
