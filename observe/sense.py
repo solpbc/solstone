@@ -753,30 +753,18 @@ class FileSensor:
         with self.lock:
             self.running.clear()
 
-    def process_day(
-        self, day: str, max_jobs: int = 1, segment_filter: Optional[str] = None
-    ):
-        """Process all matching unprocessed files from a specific day directory.
-
-        Files are in segment directories (HHMMSS_LEN/). A file is considered
-        unprocessed if it has no corresponding .jsonl output file.
-
-        Args:
-            day: Day in YYYYMMDD format
-            max_jobs: Maximum number of concurrent processing jobs
-            segment_filter: Optional segment key to filter (HHMMSS_LEN format)
-        """
+    def scan_unprocessed(
+        self, day: str, segment_filter: Optional[str] = None
+    ) -> tuple[list[tuple[Path, str, List[str]]], Dict[str, Optional[Dict[str, Any]]]]:
+        """Scan a day and return matching unprocessed files and segment stream metadata."""
         day_dir = day_path(day)
-        if not day_dir.exists():
-            logger.error(f"Day directory not found: {day_dir}")
-            return
 
         # Find all matching unprocessed files in segment directories
         from think.streams import read_segment_stream
 
         to_process = []
         segment_meta_cache: Dict[str, Optional[Dict[str, Any]]] = {}
-        for stream_name, seg_key, seg_path in iter_segments(day):
+        for stream_name, seg_key, seg_path in iter_segments(day_dir):
             # Apply segment filter if specified
             if segment_filter and seg_key != segment_filter:
                 continue
@@ -802,6 +790,30 @@ class FileSensor:
                 if handler_info:
                     handler_name, command = handler_info
                     to_process.append((file_path, handler_name, command))
+
+        return to_process, segment_meta_cache
+
+    def process_day(
+        self, day: str, max_jobs: int = 1, segment_filter: Optional[str] = None
+    ):
+        """Process all matching unprocessed files from a specific day directory.
+
+        Files are in segment directories (HHMMSS_LEN/). A file is considered
+        unprocessed if it has no corresponding .jsonl output file.
+
+        Args:
+            day: Day in YYYYMMDD format
+            max_jobs: Maximum number of concurrent processing jobs
+            segment_filter: Optional segment key to filter (HHMMSS_LEN format)
+        """
+        day_dir = day_path(day)
+        if not day_dir.exists():
+            logger.error(f"Day directory not found: {day_dir}")
+            return
+
+        to_process, segment_meta_cache = self.scan_unprocessed(
+            day, segment_filter=segment_filter
+        )
 
         if not to_process:
             logger.info(f"No unprocessed files found in {day_dir}")
@@ -1007,7 +1019,7 @@ def main():
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Show what would be deleted/processed without making changes",
+        help="Show what would be processed (or deleted with --reprocess) without making changes",
     )
     args = setup_cli(parser)
 
@@ -1018,8 +1030,8 @@ def main():
         parser.error("--reprocess requires --day")
     if args.segment and not args.day:
         parser.error("--segment requires --day")
-    if args.dry_run and not args.reprocess:
-        parser.error("--dry-run requires --reprocess")
+    if args.dry_run and not args.day:
+        parser.error("--dry-run requires --day")
 
     # Validate segment format if provided
     if args.segment:
@@ -1061,6 +1073,26 @@ def main():
                 return
             else:
                 logger.info(f"Deleted {len(deleted)} output file(s)")
+
+        # Standalone dry-run: show what would be processed
+        if args.dry_run:
+            to_process, _ = sensor.scan_unprocessed(
+                args.day, segment_filter=args.segment
+            )
+            if to_process:
+                ext_counts = {}
+                for file_path, handler_name, command in to_process:
+                    ext = file_path.suffix.lower()
+                    ext_counts[ext] = ext_counts.get(ext, 0) + 1
+                breakdown = ", ".join(
+                    f"{count} {ext}" for ext, count in sorted(ext_counts.items())
+                )
+                logger.info(f"Would process {len(to_process)} file(s) ({breakdown}):")
+                for file_path, handler_name, command in to_process:
+                    logger.info(f"  {file_path.relative_to(journal)}")
+            else:
+                logger.info("No unprocessed files found")
+            return
 
         # Batch mode: process specific day
         segment_msg = f" (segment: {args.segment})" if args.segment else ""
