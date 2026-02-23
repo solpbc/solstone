@@ -280,6 +280,65 @@ def test_file_sensor_match_pattern():
         assert sensor._match_pattern(jsonl_file) is None
 
 
+def test_standalone_dry_run(tmp_path, monkeypatch):
+    """Test scan_unprocessed finds only unprocessed media files."""
+    from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    day_dir = tmp_path / "20250101"
+    segment_dir = day_dir / "default" / "143022_300"
+    segment_dir.mkdir(parents=True)
+
+    (segment_dir / "audio.flac").write_text("audio")
+    (segment_dir / "screen.webm").write_text("video")
+    (segment_dir / "other.flac").write_text("audio2")
+    (segment_dir / "other.jsonl").write_text('{"raw": "test"}')
+
+    sensor = FileSensor(journal_dir=tmp_path)
+
+    for ext in AUDIO_EXTENSIONS:
+        sensor.register(f"*{ext}", "transcribe", ["sol", "transcribe", "{file}"])
+    for ext in VIDEO_EXTENSIONS:
+        sensor.register(f"*{ext}", "describe", ["sol", "describe", "{file}"])
+
+    to_process, _ = sensor.scan_unprocessed("20250101")
+
+    assert len(to_process) == 2
+    file_names = {file_path.name for file_path, _, _ in to_process}
+    assert file_names == {"audio.flac", "screen.webm"}
+    assert "other.flac" not in file_names
+
+
+def test_standalone_dry_run_with_segment_filter(tmp_path, monkeypatch):
+    """Test scan_unprocessed honors segment filters."""
+    from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    day_dir = tmp_path / "20250101"
+    segment_1 = day_dir / "default" / "143022_300"
+    segment_2 = day_dir / "default" / "150022_300"
+    segment_1.mkdir(parents=True)
+    segment_2.mkdir(parents=True)
+
+    (segment_1 / "audio.flac").write_text("audio")
+    (segment_2 / "screen.webm").write_text("video")
+
+    sensor = FileSensor(journal_dir=tmp_path)
+
+    for ext in AUDIO_EXTENSIONS:
+        sensor.register(f"*{ext}", "transcribe", ["sol", "transcribe", "{file}"])
+    for ext in VIDEO_EXTENSIONS:
+        sensor.register(f"*{ext}", "describe", ["sol", "describe", "{file}"])
+
+    to_process, _ = sensor.scan_unprocessed("20250101", segment_filter="143022_300")
+
+    assert len(to_process) == 1
+    file_names = {file_path.name for file_path, _, _ in to_process}
+    assert file_names == {"audio.flac"}
+
+
 @patch("think.runner._get_journal_path")
 @patch("think.runner._current_day")
 @patch("think.runner.subprocess.Popen")
