@@ -161,8 +161,8 @@ def main() -> None:
     global _callosum, _message_queue, _import_id, _current_stage, _start_time
     global _stage_start_time, _stages_run, _status_thread, _status_running
 
-    parser = argparse.ArgumentParser(description="Chunk a media file into the journal")
-    parser.add_argument("media", nargs="?", help="Path to video or audio file")
+    parser = argparse.ArgumentParser(description="Import a media file into the journal")
+    parser.add_argument("media", nargs="?", help="Path to audio or text file")
     parser.add_argument(
         "--timestamp", help="Timestamp YYYYMMDD_HHMMSS for journal entry"
     )
@@ -238,6 +238,8 @@ def main() -> None:
     if not args.media:
         parser.error("the following arguments are required: media")
 
+    args.media = os.path.expanduser(args.media)
+
     # Track detection result for metadata
     detection_result = None
 
@@ -306,11 +308,53 @@ def main() -> None:
 
         ext = os.path.splitext(args.media)[1].lower()
         if ext in {".txt", ".md", ".pdf"}:
+            from think.detect_transcript import detect_transcript_segment
+            from think.importers.text import _time_to_seconds
+
             text = _read_transcript(args.media)
             chars = len(text)
             lines = text.count("\n") + (1 if text and not text.endswith("\n") else 0)
             print()
             print(f"  Content:    {chars:,} characters, {lines:,} lines")
+
+            # Run segmentation to preview what would be created
+            start_time = base_dt.strftime("%H:%M:%S")
+            if args.verbose:
+                print()
+                print("  Segmenting transcript...")
+            segments = detect_transcript_segment(text, start_time)
+            if segments:
+                keys = []
+                for idx, (start_at, seg_text) in enumerate(segments):
+                    time_part = start_at.replace(":", "")
+                    start_seconds = _time_to_seconds(start_at)
+                    if idx + 1 < len(segments):
+                        next_start_at, _ = segments[idx + 1]
+                        duration = _time_to_seconds(next_start_at) - start_seconds
+                    else:
+                        duration = 5
+                    duration = max(1, duration)
+                    key = f"{time_part}_{duration}"
+                    keys.append(key)
+
+                print(f"  Segments:   {len(segments)}")
+                print(f"  Keys:       {', '.join(keys)}")
+
+                if args.verbose:
+                    print()
+                    for idx, (key, (start_at, seg_text)) in enumerate(
+                        zip(keys, segments), 1
+                    ):
+                        seg_lines = seg_text.count("\n") + (
+                            1 if seg_text and not seg_text.endswith("\n") else 0
+                        )
+                        print(
+                            f"  Segment {idx}: {key} "
+                            f"({seg_lines:,} lines, {len(seg_text):,} chars)"
+                        )
+            else:
+                print()
+                print("  Segments:   segmentation failed")
         else:
             duration = _get_audio_duration(args.media)
             if duration is not None:
