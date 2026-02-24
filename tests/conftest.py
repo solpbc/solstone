@@ -162,9 +162,15 @@ def add_module_stubs(request, monkeypatch):
     google_mod = sys.modules.get("google", types.ModuleType("google"))
     genai_mod = types.ModuleType("google.genai")
 
+    class DummyModels:
+        def generate_content(self, *, model, contents, config=None):
+            return types.SimpleNamespace(
+                text="[]", candidates=[], usage_metadata=None
+            )
+
     class DummyClient:
         def __init__(self, *a, **k):
-            pass
+            self.models = DummyModels()
 
     genai_mod.Client = DummyClient
 
@@ -392,10 +398,19 @@ def setup_google_genai_stub(monkeypatch, *, with_thinking=False):
         def create(self, *, model, config=None, history=None):
             return DummyChat(model, history=history, config=config)
 
+    class DummyModels:
+        """Mock for client.models.generate_content (non-chat generate API)."""
+
+        def generate_content(self, *, model, contents, config=None):
+            return SimpleNamespace(text="[]", candidates=[], usage_metadata=None)
+
     class DummyClient:
         def __init__(self, *a, **k):
             self.chats = DummyChats()
-            self.aio = SimpleNamespace(chats=DummyChats())
+            self.models = DummyModels()
+            self.aio = SimpleNamespace(
+                chats=DummyChats(), models=DummyModels()
+            )
 
     genai_mod.Client = DummyClient
     genai_mod.errors = errors_mod
