@@ -254,6 +254,7 @@ class TestFormatActivitiesContext:
                     os.environ["JOURNAL_PATH"] = original_path
 
     def test_handles_empty_activities(self):
+        """Facet with no activities.jsonl still gets always-on defaults."""
         from muse.activity_state import format_activities_context
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -266,7 +267,10 @@ class TestFormatActivitiesContext:
                 facet_dir.mkdir(parents=True)
 
                 result = format_activities_context("work")
-                assert "No activities configured" in result
+                # Always-on activities (messaging, email) are auto-included
+                assert "Facet Activities" in result
+                assert "messaging" in result
+                assert "email" in result
 
             finally:
                 if original_path:

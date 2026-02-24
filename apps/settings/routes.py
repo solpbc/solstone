@@ -1491,13 +1491,18 @@ def remove_facet_activity(facet_name: str, activity_id: str) -> Any:
     it can be re-added later. For custom activities, this deletes it.
     """
     try:
-        from think.activities import remove_activity_from_facet
+        from think.activities import DEFAULT_ACTIVITIES, remove_activity_from_facet
         from think.facets import get_facets
 
         # Verify facet exists
         facets = get_facets()
         if facet_name not in facets:
             return jsonify({"error": "Facet not found"}), 404
+
+        # Prevent removing always-on activities
+        always_on_ids = {a["id"] for a in DEFAULT_ACTIVITIES if a.get("always_on")}
+        if activity_id in always_on_ids:
+            return jsonify({"error": "Cannot remove always-on activity"}), 400
 
         removed = remove_activity_from_facet(facet_name, activity_id)
 

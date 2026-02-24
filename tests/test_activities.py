@@ -54,6 +54,43 @@ def test_get_default_activities_returns_copy():
     assert defaults2[0]["id"] != "modified"
 
 
+def test_always_on_activities():
+    """Test that always-on activities are auto-included for all facets."""
+    from think.activities import DEFAULT_ACTIVITIES, get_facet_activities
+
+    always_on = [a for a in DEFAULT_ACTIVITIES if a.get("always_on")]
+    assert len(always_on) >= 2  # messaging and email
+
+    always_on_ids = {a["id"] for a in always_on}
+    assert "messaging" in always_on_ids
+    assert "email" in always_on_ids
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_path = os.environ.get("JOURNAL_PATH")
+        os.environ["JOURNAL_PATH"] = tmpdir
+
+        facet_path = Path(tmpdir) / "facets" / "test_facet"
+        facet_path.mkdir(parents=True)
+
+        try:
+            # Empty facet should still have always-on activities
+            activities = get_facet_activities("test_facet")
+            activity_ids = {a["id"] for a in activities}
+            assert always_on_ids <= activity_ids
+
+            # Explicitly attaching one should not duplicate it
+            from think.activities import add_activity_to_facet
+
+            add_activity_to_facet("test_facet", "messaging")
+            activities = get_facet_activities("test_facet")
+            messaging_count = sum(1 for a in activities if a["id"] == "messaging")
+            assert messaging_count == 1
+
+        finally:
+            if original_path:
+                os.environ["JOURNAL_PATH"] = original_path
+
+
 def test_generate_activity_id():
     """Test activity ID generation from names."""
     from think.activities import generate_activity_id
@@ -66,19 +103,24 @@ def test_generate_activity_id():
 
 
 def test_facet_activities_empty():
-    """Test loading activities from a facet with no activities file."""
-    from think.activities import get_facet_activities
+    """Test loading activities from a facet with no activities file.
 
-    # The test journal may not have activities set up
+    Even with no activities.jsonl, always-on defaults are included.
+    """
+    from think.activities import DEFAULT_ACTIVITIES, get_facet_activities
+
     activities = get_facet_activities("personal")
-
-    # Should return empty list if no file
     assert isinstance(activities, list)
+
+    # Should contain exactly the always-on defaults
+    always_on_ids = {a["id"] for a in DEFAULT_ACTIVITIES if a.get("always_on")}
+    assert {a["id"] for a in activities} == always_on_ids
 
 
 def test_facet_activities_roundtrip():
     """Test saving and loading activities."""
     from think.activities import (
+        DEFAULT_ACTIVITIES,
         _get_activities_path,
         get_facet_activities,
         save_facet_activities,
@@ -117,9 +159,12 @@ def test_facet_activities_roundtrip():
             path = _get_activities_path("test_facet")
             assert path.exists()
 
-            # Load and verify
+            # Load and verify (4 saved + always-on defaults not already saved)
             loaded = get_facet_activities("test_facet")
-            assert len(loaded) == 4
+            loaded_ids = {a["id"] for a in loaded}
+            saved_ids = {a["id"] for a in activities}
+            always_on_ids = {a["id"] for a in DEFAULT_ACTIVITIES if a.get("always_on")}
+            assert loaded_ids == saved_ids | always_on_ids
 
             # Check meeting (predefined with priority override)
             meeting = next(a for a in loaded if a["id"] == "meeting")
@@ -174,14 +219,16 @@ def test_add_activity_to_facet():
             result = add_activity_to_facet("test_facet", "meeting", priority="high")
             assert result["id"] == "meeting"
 
-            # Verify it was added
+            # Verify it was added (+ always-on defaults)
             activities = get_facet_activities("test_facet")
-            assert len(activities) == 1
+            activity_ids = {a["id"] for a in activities}
+            assert "meeting" in activity_ids
 
             # Adding same activity again should not duplicate
+            prev_count = len(activities)
             add_activity_to_facet("test_facet", "meeting")
             activities = get_facet_activities("test_facet")
-            assert len(activities) == 1
+            assert len(activities) == prev_count
 
             # Add a predefined activity with custom instructions
             add_activity_to_facet(

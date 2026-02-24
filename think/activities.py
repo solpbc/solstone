@@ -68,6 +68,7 @@ DEFAULT_ACTIVITIES: list[dict[str, str]] = [
         "name": "Email",
         "description": "Email reading and composition",
         "icon": "📧",
+        "always_on": True,
         "instructions": (
             "Levels: high=composing or actively reading email,"
             " medium=scanning inbox, low=email client visible but idle."
@@ -79,6 +80,7 @@ DEFAULT_ACTIVITIES: list[dict[str, str]] = [
         "name": "Messaging",
         "description": "Chat, Slack, Discord, and text messaging",
         "icon": "💬",
+        "always_on": True,
         "instructions": (
             "Levels: high=active conversation, medium=reading messages,"
             " low=chat app visible but idle."
@@ -241,9 +243,9 @@ def _save_activities_jsonl(facet: str, activities: list[dict[str, Any]]) -> None
 def get_facet_activities(facet: str) -> list[dict[str, Any]]:
     """Load activities attached to a facet.
 
-    Returns only activities that have been explicitly attached to the facet.
-    Each returned activity includes all fields from the facet config merged
-    with default metadata (name, icon) if the activity is predefined.
+    Returns activities explicitly attached to the facet plus any default
+    activities marked ``always_on``. Always-on activities are auto-included
+    even if the facet's ``activities.jsonl`` does not list them.
 
     Args:
         facet: Facet name
@@ -256,6 +258,7 @@ def get_facet_activities(facet: str) -> list[dict[str, Any]]:
         - icon: Emoji icon (if predefined)
         - priority: "high", "normal", or "low"
         - custom: True if user-created (not in defaults)
+        - always_on: True if auto-included from defaults
     """
     # Build lookup for defaults
     defaults_by_id = {a["id"]: a for a in DEFAULT_ACTIVITIES}
@@ -263,11 +266,14 @@ def get_facet_activities(facet: str) -> list[dict[str, Any]]:
     # Load facet-specific activities
     facet_activities = _load_activities_jsonl(facet)
 
+    seen_ids: set[str] = set()
     result = []
     for fa in facet_activities:
         activity_id = fa.get("id")
         if not activity_id:
             continue
+
+        seen_ids.add(activity_id)
 
         # Start with default metadata if predefined
         if activity_id in defaults_by_id:
@@ -294,6 +300,14 @@ def get_facet_activities(facet: str) -> list[dict[str, Any]]:
         activity.setdefault("priority", "normal")
 
         result.append(activity)
+
+    # Auto-include always-on defaults not already attached
+    for default in DEFAULT_ACTIVITIES:
+        if default.get("always_on") and default["id"] not in seen_ids:
+            activity = dict(default)
+            activity["custom"] = False
+            activity.setdefault("priority", "normal")
+            result.append(activity)
 
     return result
 
