@@ -35,6 +35,46 @@ class TestHasToken:
             assert has_token() is True
 
 
+class TestNoisyHighSpeechSkipsReduction:
+    """Tests for skipping audio reduction on noisy clips with high speech ratio."""
+
+    def test_noisy_high_speech_skips_reduction(self):
+        """Noisy clip with >=70% speech should skip audio reduction."""
+        vad = VadResult(
+            duration=10.0,
+            speech_duration=8.0,  # 80% speech
+            has_speech=True,
+            speech_segments=[(0.0, 3.0), (4.0, 9.0)],
+            noisy_rms=0.02,
+        )
+        assert vad.is_noisy()
+        assert vad.speech_ratio >= 0.7
+
+    def test_noisy_low_speech_does_not_skip(self):
+        """Noisy clip with <70% speech should still reduce audio."""
+        vad = VadResult(
+            duration=10.0,
+            speech_duration=5.0,  # 50% speech
+            has_speech=True,
+            speech_segments=[(1.0, 6.0)],
+            noisy_rms=0.02,
+        )
+        assert vad.is_noisy()
+        assert vad.speech_ratio < 0.7
+
+    def test_quiet_high_speech_does_not_skip(self):
+        """Quiet clip with high speech should still reduce audio."""
+        vad = VadResult(
+            duration=10.0,
+            speech_duration=8.0,  # 80% speech
+            has_speech=True,
+            speech_segments=[(0.0, 3.0), (4.0, 9.0)],
+            noisy_rms=0.005,  # Below noise threshold
+        )
+        assert not vad.is_noisy()
+        assert vad.speech_ratio >= 0.7
+
+
 class TestNoiseUpgradeLogic:
     """Tests for noise upgrade decision logic."""
 

@@ -135,6 +135,24 @@ class TestVadResult:
         # With higher threshold (0.02), should not be noisy
         assert result.is_noisy(threshold=0.02) is False
 
+    def test_speech_ratio(self):
+        """speech_ratio should return speech_duration / duration."""
+        result = VadResult(
+            duration=10.0,
+            speech_duration=7.5,
+            has_speech=True,
+        )
+        assert result.speech_ratio == 0.75
+
+    def test_speech_ratio_zero_duration(self):
+        """speech_ratio should return 0.0 when duration is zero."""
+        result = VadResult(
+            duration=0.0,
+            speech_duration=0.0,
+            has_speech=False,
+        )
+        assert result.speech_ratio == 0.0
+
 
 class TestGetNonspeechSegments:
     """Test get_nonspeech_segments function."""

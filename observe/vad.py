@@ -223,6 +223,13 @@ class VadResult:
         """
         return self.noisy_rms is not None and self.noisy_rms > threshold
 
+    @property
+    def speech_ratio(self) -> float:
+        """Ratio of speech to total audio duration (0.0 to 1.0)."""
+        if self.duration <= 0:
+            return 0.0
+        return self.speech_duration / self.duration
+
 
 def run_vad(
     audio: np.ndarray,

@@ -706,7 +706,16 @@ def main():
         return
 
     # Stage 2: Reduce audio by trimming long silence gaps (>2s)
-    reduced_audio, reduction = reduce_audio(audio_buffer, vad_result)
+    # Skip reduction for noisy clips with >70% speech — the "silence" gaps are
+    # mostly noise and VAD boundaries are less reliable, so process the full audio.
+    if vad_result.is_noisy() and vad_result.speech_ratio >= 0.7:
+        logging.info(
+            f"  Skipping audio reduction: noisy clip with "
+            f"{vad_result.speech_ratio:.0%} speech"
+        )
+        reduced_audio, reduction = None, None
+    else:
+        reduced_audio, reduction = reduce_audio(audio_buffer, vad_result)
 
     # Stage 3: Determine backend and build backend config
     # CLI --backend flag overrides config, otherwise use config or default
