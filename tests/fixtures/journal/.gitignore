@@ -6,6 +6,8 @@ stats.json
 
 # Dream / supervisor runtime markers and logs
 */health/daily.updated
+*/health/dream.log
+health/dream.log
 task_log.txt
 
 # Service port files from make dev
