@@ -40,6 +40,7 @@
 .import-status.running::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #084298; animation: pulse 1.5s ease-in-out infinite; }
 .progress-detail { font-size: 0.8em; color: #666; margin-top: 2px; }
 .file-size { color: #666; font-size: 0.9em; }
+.nowrap { white-space: nowrap; }
 .timestamp-link { color: #007bff; text-decoration: none; }
 .timestamp-link:hover { text-decoration: underline; }
 .no-imports { color: #666; font-style: italic; padding: 2em; text-align: center; }
@@ -259,10 +260,10 @@ function loadImports(){
       }
 
       html += `<tr data-import-id="${imp.timestamp}" data-facet="${imp.facet || ''}" onclick="window.location.href='/app/import/${imp.timestamp}'">`;
-      html += `<td>${importedAt}</td>`;
+      html += `<td class="nowrap">${importedAt}</td>`;
       html += `<td>${imp.original_filename || 'Unknown'}</td>`;
-      html += `<td class="file-size">${formatFileSize(imp.file_size || 0)}</td>`;
-      html += `<td>`;
+      html += `<td class="file-size nowrap">${formatFileSize(imp.file_size || 0)}</td>`;
+      html += `<td class="nowrap">`;
       if (imp.target_day) {
         html += `<a href="/calendar/${imp.target_day}" class="timestamp-link" onclick="event.stopPropagation();">${targetDay}</a>`;
       } else {
