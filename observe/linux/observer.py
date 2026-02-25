@@ -21,8 +21,10 @@ import asyncio
 import logging
 import os
 import platform
+import shutil
 import signal
 import socket
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -59,10 +61,17 @@ CHUNK_DURATION = 5  # seconds
 TMUX_ACTIVITY_THRESHOLD = 5  # seconds - fixed window for activity detection
 
 
+# Exit codes
+EXIT_TEMPFAIL = 75  # EX_TEMPFAIL: session not ready, retry later
+
 # Capture modes
 MODE_IDLE = "idle"
 MODE_SCREENCAST = "screencast"
 MODE_TMUX = "tmux"
+
+# Audio detection retry
+DETECT_RETRIES = 3
+DETECT_RETRY_DELAY = 5  # seconds
 
 
 class Observer:
@@ -140,8 +149,21 @@ class Observer:
 
     async def setup(self):
         """Initialize audio devices and DBus connection."""
-        # Detect and start audio recorder
-        if not self.audio_recorder.detect():
+        # Detect audio devices with retry (devices may still be initializing)
+        detected = False
+        for attempt in range(DETECT_RETRIES):
+            if self.audio_recorder.detect():
+                detected = True
+                break
+            if attempt < DETECT_RETRIES - 1:
+                logger.info(
+                    "Audio detection attempt %d/%d failed, retrying in %ds",
+                    attempt + 1,
+                    DETECT_RETRIES,
+                    DETECT_RETRY_DELAY,
+                )
+                await asyncio.sleep(DETECT_RETRY_DELAY)
+        if not detected:
             logger.error("Failed to detect audio devices")
             return False
 
@@ -807,8 +829,41 @@ class Observer:
         logger.info("Callosum connection stopped")
 
 
+def check_session_ready() -> str | None:
+    """Check if the desktop session is ready for observation.
+
+    Returns None if ready, or a description of what's missing.
+    """
+    # Display server
+    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        return "no display server (DISPLAY/WAYLAND_DISPLAY not set)"
+
+    # DBus session bus
+    if not os.environ.get("DBUS_SESSION_BUS_ADDRESS"):
+        return "no DBus session bus (DBUS_SESSION_BUS_ADDRESS not set)"
+
+    # PulseAudio / PipeWire audio
+    pactl = shutil.which("pactl")
+    if pactl:
+        try:
+            subprocess.run(
+                [pactl, "info"],
+                capture_output=True,
+                timeout=5,
+            ).check_returncode()
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            return "audio server not responding (pactl info failed)"
+    return None
+
+
 async def async_main(args):
     """Async entry point."""
+    # Pre-flight: check session prerequisites before attempting setup
+    not_ready = check_session_ready()
+    if not_ready:
+        logger.warning("Session not ready: %s", not_ready)
+        return EXIT_TEMPFAIL
+
     observer = Observer(
         interval=args.interval,
     )

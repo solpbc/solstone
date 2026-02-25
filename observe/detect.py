@@ -1,21 +1,26 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+import logging
 import threading
 
 import numpy as np
 import soundcard as sc
+
+logger = logging.getLogger(__name__)
 
 
 def input_detect(duration=0.4, sample_rate=44100):
     t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
     tone = 0.5 * np.sin(2 * np.pi * 18000 * t)  # ultrasonic
 
-    devices = sc.all_microphones(include_loopback=True)
+    try:
+        devices = sc.all_microphones(include_loopback=True)
+    except Exception:
+        logger.warning("Failed to enumerate audio devices")
+        return None, None
     if not devices:
-        print("No matching devices found:")
-        for mic in devices:
-            print(mic)
+        logger.warning("No audio devices found")
         return None, None
 
     results = {}
@@ -33,8 +38,11 @@ def input_detect(duration=0.4, sample_rate=44100):
 
     def play_tone():
         barrier.wait()
-        sp = sc.default_speaker()
-        sp.play(tone, samplerate=sample_rate)
+        try:
+            sp = sc.default_speaker()
+            sp.play(tone, samplerate=sample_rate)
+        except Exception:
+            logger.warning("No default speaker available for tone detection")
 
     threads = []
     for mic in devices:

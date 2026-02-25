@@ -36,6 +36,8 @@ from think.utils import (
 DEFAULT_THRESHOLD = 60
 CHECK_INTERVAL = 30
 MAX_UPDATED_CATCHUP = 4
+EXIT_TEMPFAIL = 75  # EX_TEMPFAIL: service prerequisites not ready
+TEMPFAIL_DELAY = 15  # seconds to wait before retrying a tempfail exit
 
 # Global shutdown flag
 shutdown_requested = False
@@ -933,17 +935,24 @@ async def handle_runner_exits(
         return
 
     exited_names = [managed.name for managed in exited]
-    msg = f"Runner process exited: {', '.join(sorted(exited_names))}"
-    logging.error(msg)
     exit_key = ("runner_exit", tuple(sorted(exited_names)))
 
-    await alert_mgr.alert_if_ready(exit_key, msg)
+    # Check if all exits are tempfail (session not ready)
+    all_tempfail = all(m.process.returncode == EXIT_TEMPFAIL for m in exited)
+
+    if all_tempfail:
+        logging.info("Runner waiting for session: %s", ", ".join(sorted(exited_names)))
+    else:
+        msg = f"Runner process exited: {', '.join(sorted(exited_names))}"
+        logging.error(msg)
+        await alert_mgr.alert_if_ready(exit_key, msg)
 
     for managed in exited:
         # Clear any pending restart request for this service
         _restart_requests.pop(managed.name, None)
 
         returncode = managed.process.returncode
+        is_tempfail = returncode == EXIT_TEMPFAIL
         logging.info("%s exited with code %s", managed.name, returncode)
 
         # Emit stopped event
@@ -967,11 +976,15 @@ async def handle_runner_exits(
 
         # Handle restart if needed
         if managed.restart and not shutdown_requested:
-            policy = _get_restart_policy(managed.name)
-            uptime = time.time() - policy.last_start if policy.last_start else 0
-            if uptime >= 60:
-                policy.reset_attempts()
-            delay = policy.next_delay()
+            # Tempfail: use fixed longer delay, don't burn through backoff
+            if is_tempfail:
+                delay = TEMPFAIL_DELAY
+            else:
+                policy = _get_restart_policy(managed.name)
+                uptime = time.time() - policy.last_start if policy.last_start else 0
+                if uptime >= 60:
+                    policy.reset_attempts()
+                delay = policy.next_delay()
             if delay:
                 logging.info("Waiting %ss before restarting %s", delay, managed.name)
                 for _ in range(delay):
