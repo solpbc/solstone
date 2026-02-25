@@ -164,9 +164,7 @@ def add_module_stubs(request, monkeypatch):
 
     class DummyModels:
         def generate_content(self, *, model, contents, config=None):
-            return types.SimpleNamespace(
-                text="[]", candidates=[], usage_metadata=None
-            )
+            return types.SimpleNamespace(text="[]", candidates=[], usage_metadata=None)
 
     class DummyClient:
         def __init__(self, *a, **k):
@@ -408,9 +406,7 @@ def setup_google_genai_stub(monkeypatch, *, with_thinking=False):
         def __init__(self, *a, **k):
             self.chats = DummyChats()
             self.models = DummyModels()
-            self.aio = SimpleNamespace(
-                chats=DummyChats(), models=DummyModels()
-            )
+            self.aio = SimpleNamespace(chats=DummyChats(), models=DummyModels())
 
     genai_mod.Client = DummyClient
     genai_mod.errors = errors_mod
