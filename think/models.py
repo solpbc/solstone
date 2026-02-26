@@ -40,7 +40,7 @@ TIER_LITE = 3
 # E.g., "gpt-5.2-high" → reasoning_effort="high", "gpt-5.2" → omitted.
 OPENAI_EFFORT_SUFFIXES = ("-none", "-low", "-medium", "-high", "-xhigh")
 
-GEMINI_PRO = "gemini-3-pro-preview"
+GEMINI_PRO = "gemini-3.1-pro-preview"
 GEMINI_FLASH = "gemini-3-flash-preview"
 GEMINI_LITE = "gemini-2.5-flash-lite"
 
