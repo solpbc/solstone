@@ -151,6 +151,35 @@
   width: 100%;
 }
 
+.spk-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spk-player-controls audio {
+  flex: 1;
+  min-width: 0;
+}
+
+.spk-skip-back,
+.spk-speed-toggle {
+  padding: 4px 8px;
+  background: #e5e7eb;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: #374151;
+  transition: background 0.15s;
+}
+
+.spk-skip-back:hover,
+.spk-speed-toggle:hover {
+  background: #d1d5db;
+}
+
 /* Sentence list */
 .spk-sentences {
   margin-top: 16px;
@@ -644,9 +673,13 @@
     const audioContainer = document.getElementById('spkAudioContainer');
     if (audio_file) {
       audioContainer.innerHTML = `
-        <audio id="spkAudio" controls preload="metadata">
-          <source src="${audio_file}" type="audio/flac">
-        </audio>
+        <div class="spk-player-controls">
+          <button class="spk-skip-back" id="spkSkipBack" title="Back 5s">&#8634; 5s</button>
+          <audio id="spkAudio" controls preload="metadata">
+            <source src="${audio_file}" type="audio/flac">
+          </audio>
+          <button class="spk-speed-toggle" id="spkSpeedToggle" title="Playback speed">1x</button>
+        </div>
       `;
       audioPlayer = document.getElementById('spkAudio');
       setupAudioListeners();
@@ -706,6 +739,26 @@
         playingSentenceId = null;
       }
     });
+
+    // Skip back 5 seconds
+    const skipBackBtn = document.getElementById('spkSkipBack');
+    if (skipBackBtn) {
+      skipBackBtn.addEventListener('click', () => {
+        audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 5);
+      });
+    }
+
+    // Playback speed toggle: 1x -> 1.5x -> 2x -> 1x
+    const speedToggleBtn = document.getElementById('spkSpeedToggle');
+    if (speedToggleBtn) {
+      const speeds = [1, 1.5, 2];
+      speedToggleBtn.addEventListener('click', () => {
+        const currentIndex = speeds.indexOf(audioPlayer.playbackRate);
+        const nextIndex = (currentIndex + 1) % speeds.length;
+        audioPlayer.playbackRate = speeds[nextIndex];
+        speedToggleBtn.textContent = speeds[nextIndex] + 'x';
+      });
+    }
   }
 
   function updateActiveSentence(currentTime) {
