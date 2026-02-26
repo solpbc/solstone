@@ -981,8 +981,14 @@
           showStatus(row, data.error, 'error');
         } else {
           showStatus(row, `Saved to ${entityName}`, 'success');
-          // Reload to refresh matches
-          setTimeout(() => loadSentences(selectedSegment, selectedSource), 1500);
+          // Update match display to show confirmed state
+          const matchEl = row.querySelector('.spk-sentence-match');
+          matchEl.innerHTML = `<span class="spk-match-label spk-match-high">${escapeHtml(entityName)} &#10003;</span>`;
+          // Disable save controls to prevent double-save
+          const select = row.querySelector('.spk-entity-select');
+          if (select) select.disabled = true;
+          const saveBtn = row.querySelector('.spk-save-btn');
+          if (saveBtn) saveBtn.disabled = true;
         }
       })
       .catch(() => {
@@ -1012,8 +1018,25 @@
           showStatus(row, `Created ${name}`, 'success');
           const form = row.querySelector('.spk-inline-form');
           form.classList.remove('visible');
-          // Reload to refresh matches and entity list
-          setTimeout(() => loadSentences(selectedSegment, selectedSource), 1500);
+          // Update match display to show confirmed state
+          const matchEl = row.querySelector('.spk-sentence-match');
+          matchEl.innerHTML = `<span class="spk-match-label spk-match-high">${escapeHtml(name)} &#10003;</span>`;
+          // Disable save controls to prevent double-save
+          const select = row.querySelector('.spk-entity-select');
+          if (select) select.disabled = true;
+          const saveBtn = row.querySelector('.spk-save-btn');
+          if (saveBtn) saveBtn.disabled = true;
+          // Add new entity to all dropdowns so other rows can use it
+          document.querySelectorAll('.spk-entity-select').forEach(sel => {
+            const newOption = sel.querySelector('option[value="__new__"]');
+            const exists = Array.from(sel.options).some(o => o.value === name);
+            if (!exists && newOption) {
+              const opt = document.createElement('option');
+              opt.value = name;
+              opt.textContent = name;
+              sel.insertBefore(opt, newOption);
+            }
+          });
         }
       })
       .catch(() => {
