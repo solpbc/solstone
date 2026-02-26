@@ -180,12 +180,45 @@
   background: #d1d5db;
 }
 
+.spk-filter-toggle {
+  padding: 4px 8px;
+  background: #e5e7eb;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: #374151;
+  transition: background 0.15s;
+  margin-left: auto;
+}
+
+.spk-filter-toggle:hover {
+  background: #d1d5db;
+}
+
+.spk-filter-toggle.spk-filter-active {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.spk-filter-toggle.spk-filter-active:hover {
+  background: #2563eb;
+}
+
+.spk-filter-unmatched .spk-sentence[data-match="high"] {
+  display: none;
+}
+
 /* Sentence list */
 .spk-sentences {
   margin-top: 16px;
 }
 
 .spk-sentences-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
   font-weight: 600;
   color: #374151;
@@ -477,6 +510,7 @@
   let audioPlayer = null;
   let currentSentences = [];  // Sentence data with offsets for time tracking
   let playingSentenceId = null;  // Currently playing/highlighted sentence
+  let filterMatched = false;  // Toggle: hide high-confidence matches
 
   // Load segments on page load
   loadSegments();
@@ -715,12 +749,44 @@
     }
 
     container.innerHTML = `
-      <div class="spk-sentences-title">Sentences (${sentences.length})</div>
+      <div class="spk-sentences-title">
+        <span id="spkSentenceCount">Sentences (${sentences.length})</span>
+        <button class="spk-filter-toggle${filterMatched ? ' spk-filter-active' : ''}" id="spkFilterToggle">Hide matched</button>
+      </div>
       ${sentences.map(s => renderSentence(s, all_entities)).join('')}
     `;
 
     // Setup event handlers
     setupSentenceHandlers(source);
+
+    // Setup filter toggle
+    const filterBtn = document.getElementById('spkFilterToggle');
+    if (filterBtn) {
+      filterBtn.addEventListener('click', () => {
+        filterMatched = !filterMatched;
+        filterBtn.classList.toggle('spk-filter-active', filterMatched);
+        container.classList.toggle('spk-filter-unmatched', filterMatched);
+        updateSentenceCount();
+      });
+    }
+
+    // Apply persisted filter state
+    if (filterMatched) {
+      container.classList.add('spk-filter-unmatched');
+    }
+    updateSentenceCount();
+  }
+
+  function updateSentenceCount() {
+    const countEl = document.getElementById('spkSentenceCount');
+    if (!countEl) return;
+    const total = currentSentences.length;
+    if (filterMatched) {
+      const visible = currentSentences.filter(s => !s.match || s.match.score < 0.7).length;
+      countEl.textContent = `Sentences (${visible} of ${total})`;
+    } else {
+      countEl.textContent = `Sentences (${total})`;
+    }
   }
 
   function setupAudioListeners() {
@@ -822,10 +888,12 @@
     const timeStr = formatOffset(sentence.offset);
     const match = sentence.match;
     let matchHtml = '<span class="spk-no-match">No match</span>';
+    let matchTier = 'none';
 
     if (match) {
       const scorePct = Math.round(match.score * 100);
       const scoreClass = match.score >= 0.7 ? 'high' : match.score >= 0.5 ? 'med' : 'low';
+      matchTier = scoreClass;
       const confirmBtn = match.score >= 0.5
         ? `<button class="spk-btn spk-btn-confirm spk-confirm-match-btn" data-entity="${escapeHtml(match.entity)}" title="Confirm ${escapeHtml(match.entity)}">&#10003;</button>`
         : '';
@@ -833,7 +901,7 @@
     }
 
     return `
-      <div class="spk-sentence" data-id="${sentence.id}" data-offset="${sentence.offset}">
+      <div class="spk-sentence" data-id="${sentence.id}" data-offset="${sentence.offset}" data-match="${matchTier}">
         <div class="spk-sentence-time">${timeStr}</div>
         <div class="spk-sentence-content">
           <div class="spk-sentence-text">${escapeHtml(sentence.text)}</div>
