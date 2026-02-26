@@ -297,6 +297,24 @@
   cursor: not-allowed;
 }
 
+.spk-btn-confirm {
+  background: #16a34a;
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.spk-btn-confirm:hover {
+  background: #15803d;
+}
+
+.spk-btn-confirm:disabled {
+  background: #86efac;
+  cursor: not-allowed;
+}
+
 .spk-select-small {
   padding: 4px 8px;
   border: 1px solid #d1d5db;
@@ -808,7 +826,10 @@
     if (match) {
       const scorePct = Math.round(match.score * 100);
       const scoreClass = match.score >= 0.7 ? 'high' : match.score >= 0.5 ? 'med' : 'low';
-      matchHtml = `<span class="spk-match-label spk-match-${scoreClass}">${escapeHtml(match.entity)} ${scorePct}%</span>`;
+      const confirmBtn = match.score >= 0.5
+        ? `<button class="spk-btn spk-btn-confirm spk-confirm-match-btn" data-entity="${escapeHtml(match.entity)}" title="Confirm ${escapeHtml(match.entity)}">&#10003;</button>`
+        : '';
+      matchHtml = `<span class="spk-match-label spk-match-${scoreClass}">${escapeHtml(match.entity)} ${scorePct}%</span>${confirmBtn}`;
     }
 
     return `
@@ -896,6 +917,18 @@
 
         if (!entityName || entityName === '__new__') return;
 
+        saveVoiceprint(entityName, source, sentenceId, row);
+      });
+    });
+
+    // Confirm match button
+    detailPanel.querySelectorAll('.spk-confirm-match-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const row = btn.closest('.spk-sentence');
+        const sentenceId = parseInt(row.dataset.id);
+        const entityName = btn.dataset.entity;
+
+        btn.disabled = true;
         saveVoiceprint(entityName, source, sentenceId, row);
       });
     });
