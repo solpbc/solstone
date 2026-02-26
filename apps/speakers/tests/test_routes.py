@@ -426,8 +426,8 @@ def test_load_segment_speakers_not_list(speakers_env):
     assert speakers == []
 
 
-def test_scan_segment_embeddings_requires_speakers(speakers_env):
-    """Test that segments without speakers.json are filtered out."""
+def test_scan_segment_embeddings_without_speakers(speakers_env):
+    """Test that segments without speakers.json are included with empty speakers."""
     from apps.speakers.routes import _scan_segment_embeddings
 
     env = speakers_env()
@@ -435,7 +435,10 @@ def test_scan_segment_embeddings_requires_speakers(speakers_env):
     env.create_segment("20240101", "143022_300", ["mic_audio"])
 
     segments = _scan_segment_embeddings("20240101")
-    assert segments == []
+    assert len(segments) == 1
+    assert segments[0]["key"] == "143022_300"
+    assert segments[0]["speakers"] == []
+    assert segments[0]["speaker_count"] == 0
 
 
 def test_scan_segment_embeddings_single_speaker(speakers_env):
@@ -453,7 +456,7 @@ def test_scan_segment_embeddings_single_speaker(speakers_env):
 
 
 def test_scan_segment_embeddings_empty_speakers(speakers_env):
-    """Test that segments with 0 speakers are filtered out."""
+    """Test that segments with empty speakers.json are included."""
     from apps.speakers.routes import _scan_segment_embeddings
 
     env = speakers_env()
@@ -461,7 +464,9 @@ def test_scan_segment_embeddings_empty_speakers(speakers_env):
     env.create_speakers_json("20240101", "143022_300", [])  # No speakers
 
     segments = _scan_segment_embeddings("20240101")
-    assert segments == []
+    assert len(segments) == 1
+    assert segments[0]["speakers"] == []
+    assert segments[0]["speaker_count"] == 0
 
 
 def test_scan_segment_embeddings_includes_speaker_data(speakers_env):
@@ -477,6 +482,27 @@ def test_scan_segment_embeddings_includes_speaker_data(speakers_env):
     assert len(segments) == 1
     assert segments[0]["speakers"] == ["Alice", "Bob"]
     assert segments[0]["speaker_count"] == 2
+
+
+def test_api_speakers_empty_when_no_speakers_json(speakers_env):
+    """Test /api/speakers/ returns empty matched/unmatched when no speakers.json."""
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    # No speakers.json created
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        response = client.get("/app/speakers/api/speakers/20240101/test/143022_300")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["matched"] == []
+        assert data["unmatched"] == []
 
 
 def test_get_journal_principal(speakers_env):
