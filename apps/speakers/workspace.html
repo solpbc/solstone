@@ -488,7 +488,7 @@
 
   function renderSegmentList() {
     if (segments.length === 0) {
-      segmentList.innerHTML = '<div class="spk-empty">No segments with speakers found for this day</div>';
+      segmentList.innerHTML = '<div class="spk-empty">No segments with embeddings found for this day</div>';
       return;
     }
 
@@ -496,7 +496,7 @@
       <div class="spk-segment${selectedSegment?.key === seg.key ? ' active' : ''}" data-key="${seg.key}">
         <div class="spk-segment-time">
           ${seg.start} - ${seg.end}
-          <span class="spk-speaker-count">${seg.speaker_count} speakers</span>
+          ${seg.speaker_count > 0 ? `<span class="spk-speaker-count">${seg.speaker_count} speakers</span>` : ''}
         </div>
         <div class="spk-segment-meta">${formatDuration(seg.duration)}</div>
         <div class="spk-segment-sources">
@@ -584,7 +584,7 @@
     const container = document.getElementById('spkSpeakers');
     if (!container) return;
 
-    fetch(`/app/speakers/api/speakers/${day}/${seg.key}`)
+    fetch(`/app/speakers/api/speakers/${day}/${seg.stream}/${seg.key}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) {
@@ -648,7 +648,7 @@
     const container = document.getElementById('spkSentences');
     container.innerHTML = '<div class="spk-empty">Loading...</div>';
 
-    fetch(`/app/speakers/api/sentences/${day}/${seg.key}/${source}`)
+    fetch(`/app/speakers/api/sentences/${day}/${seg.stream}/${seg.key}/${source}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) {
@@ -936,6 +936,7 @@
       body: JSON.stringify({
         entity_name: entityName,
         day,
+        stream: selectedSegment.stream,
         segment_key: selectedSegment.key,
         source,
         sentence_id: sentenceId,
@@ -964,6 +965,7 @@
         type,
         name,
         day,
+        stream: selectedSegment.stream,
         segment_key: selectedSegment.key,
         source,
         sentence_id: sentenceId,

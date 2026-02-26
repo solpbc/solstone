@@ -226,11 +226,11 @@ def _save_voiceprint(
 
 
 def _scan_segment_embeddings(day: str) -> list[dict]:
-    """Scan a day for segments with embeddings and 1+ speakers.
+    """Scan a day for segments with audio embeddings.
 
-    Only includes segments that have:
-    1. Audio embedding NPZ files
-    2. A speakers.json file with 1 or more speaker names
+    Only includes segments that have audio embedding NPZ files.
+    Segments with a speakers.json file will include speaker names;
+    segments without speakers.json will have an empty speakers list.
 
     Returns list of segment info dicts with keys:
         - key: segment directory name (HHMMSS_LEN)
@@ -263,10 +263,8 @@ def _scan_segment_embeddings(day: str) -> list[dict]:
         if not sources:
             continue
 
-        # Load speakers.json - require at least one speaker
+        # Load speakers.json (may be empty if not yet processed)
         speakers = _load_segment_speakers(s_path)
-        if not speakers:
-            continue
 
         # Calculate duration from start and end times
         duration = _time_to_seconds(end_time) - _time_to_seconds(start_time)
@@ -469,7 +467,7 @@ def speakers_day(day: str) -> str:
 def api_stats(month: str) -> Any:
     """Return segment counts for each day in a month.
 
-    Used by calendar heatmap to show days with speaker segments.
+    Used by calendar heatmap to show days with embedding segments.
     """
     if not re.fullmatch(r"\d{6}", month):
         return error_response("Invalid month format, expected YYYYMM", 400)
@@ -489,7 +487,7 @@ def api_stats(month: str) -> Any:
 
 @speakers_bp.route("/api/segments/<day>")
 def api_segments(day: str) -> Any:
-    """Return segments with embeddings and 1+ speakers for a day."""
+    """Return segments with audio embeddings for a day."""
     if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 400)
 
@@ -513,7 +511,7 @@ def api_segment_speakers(day: str, stream: str, segment_key: str) -> Any:
     segment_dir = get_segment_path(day, segment_key, stream)
     speakers = _load_segment_speakers(segment_dir)
     if not speakers:
-        return error_response("No speakers found for segment", 404)
+        return jsonify({"matched": [], "unmatched": []})
 
     # Load all journal entities for matching
     journal_entities = load_all_journal_entities()
