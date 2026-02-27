@@ -50,7 +50,8 @@ def test_upload_segment_success(mock_session, tmp_path):
     client = RemoteClient("https://server/ingest/key")
     result = client.upload_segment("20250103", "120000_300", [file1, file2])
 
-    assert result is True
+    assert result.success is True
+    assert result.duplicate is False
     mock_session.post.assert_called_once()
 
     # Check the call arguments
@@ -88,7 +89,7 @@ def test_upload_segment_retry_on_failure(mock_session, tmp_path):
         client = RemoteClient("https://server/ingest/key")
         result = client.upload_segment("20250103", "120000_300", [file1])
 
-    assert result is True
+    assert result.success is True
     assert mock_session.post.call_count == 2
 
 
@@ -111,7 +112,7 @@ def test_upload_segment_all_retries_fail(mock_session, tmp_path):
         client = RemoteClient("https://server/ingest/key")
         result = client.upload_segment("20250103", "120000_300", [file1])
 
-    assert result is False
+    assert result.success is False
     assert mock_session.post.call_count == len(RETRY_BACKOFF)
 
 
@@ -135,7 +136,7 @@ def test_upload_segment_skips_missing_files(mock_session, tmp_path):
     client = RemoteClient("https://server/ingest/key")
     result = client.upload_segment("20250103", "120000_300", [file1, file2])
 
-    assert result is True
+    assert result.success is True
 
 
 def test_upload_segment_fails_if_all_missing(mock_session, tmp_path):
@@ -149,7 +150,7 @@ def test_upload_segment_fails_if_all_missing(mock_session, tmp_path):
     client = RemoteClient("https://server/ingest/key")
     result = client.upload_segment("20250103", "120000_300", [file1, file2])
 
-    assert result is False
+    assert result.success is False
     mock_session.post.assert_not_called()
 
 
@@ -160,5 +161,28 @@ def test_upload_segment_empty_list(mock_session):
     client = RemoteClient("https://server/ingest/key")
     result = client.upload_segment("20250103", "120000_300", [])
 
-    assert result is False
+    assert result.success is False
     mock_session.post.assert_not_called()
+
+
+def test_upload_segment_duplicate_response(mock_session, tmp_path):
+    """Test that duplicate server response is detected."""
+    from observe.sync import RemoteClient
+
+    file1 = tmp_path / "audio.flac"
+    file1.write_bytes(b"audio data")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "status": "duplicate",
+        "existing_segment": "120000_300",
+        "message": "All files already received",
+    }
+    mock_session.post.return_value = mock_response
+
+    client = RemoteClient("https://server/ingest/key")
+    result = client.upload_segment("20250103", "120000_300", [file1])
+
+    assert result.success is True
+    assert result.duplicate is True

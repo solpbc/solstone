@@ -424,7 +424,7 @@ def test_sync_service_startup_with_pending(sync_journal, monkeypatch):
 
 def test_process_segment_skips_upload_if_already_confirmed(sync_journal, monkeypatch):
     """Test that segment already on server is skipped without upload."""
-    from observe.sync import SegmentInfo, SyncService
+    from observe.sync import SegmentInfo, SyncService, UploadResult
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
@@ -463,7 +463,7 @@ def test_process_segment_skips_upload_if_already_confirmed(sync_journal, monkeyp
             ]
             mock_session.get.return_value = server_response
             mock_client.session = mock_session
-            mock_client.upload_segment = MagicMock(return_value=True)
+            mock_client.upload_segment = MagicMock(return_value=UploadResult(True))
             mock_client_class.return_value = mock_client
 
             service = SyncService("https://server/ingest/key")
@@ -477,7 +477,7 @@ def test_process_segment_skips_upload_if_already_confirmed(sync_journal, monkeyp
 
 def test_process_segment_uploads_if_not_on_server(sync_journal, monkeypatch):
     """Test that segment not on server is uploaded."""
-    from observe.sync import SegmentInfo, SyncService
+    from observe.sync import SegmentInfo, SyncService, UploadResult
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
@@ -518,7 +518,7 @@ def test_process_segment_uploads_if_not_on_server(sync_journal, monkeypatch):
             ]
             mock_session.get.side_effect = responses
             mock_client.session = mock_session
-            mock_client.upload_segment = MagicMock(return_value=True)
+            mock_client.upload_segment = MagicMock(return_value=UploadResult(True))
             mock_client_class.return_value = mock_client
 
             service = SyncService("https://server/ingest/key")
@@ -530,7 +530,7 @@ def test_process_segment_uploads_if_not_on_server(sync_journal, monkeypatch):
 
 def test_process_segment_passes_metadata_to_upload(sync_journal, monkeypatch):
     """Test that metadata is passed through to upload_segment call."""
-    from observe.sync import SegmentInfo, SyncService
+    from observe.sync import SegmentInfo, SyncService, UploadResult
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
@@ -577,7 +577,7 @@ def test_process_segment_passes_metadata_to_upload(sync_journal, monkeypatch):
             ]
             mock_session.get.side_effect = responses
             mock_client.session = mock_session
-            mock_client.upload_segment = MagicMock(return_value=True)
+            mock_client.upload_segment = MagicMock(return_value=UploadResult(True))
             mock_client_class.return_value = mock_client
 
             service = SyncService("https://server/ingest/key")
@@ -592,6 +592,138 @@ def test_process_segment_passes_metadata_to_upload(sync_journal, monkeypatch):
                 "facet": "meetings",
                 "stream": "default",
             }
+
+
+def test_handle_message_skips_zero_byte_files(sync_journal, monkeypatch):
+    """Test that 0-byte files are skipped during message handling."""
+    from observe.sync import SyncService, load_sync_state
+
+    journal = sync_journal["path"]
+    day = sync_journal["day"]
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    # Create segment directory with mixed files
+    seg_dir = journal / day / "default" / "120000_300"
+    seg_dir.mkdir(parents=True, exist_ok=True)
+    (seg_dir / "audio.flac").write_bytes(b"real audio data")
+    (seg_dir / "screen.webm").write_bytes(b"")  # 0-byte
+
+    with patch("observe.sync.RemoteClient"), patch("observe.sync.CallosumConnection"):
+        service = SyncService("https://server/ingest/key")
+
+        message = {
+            "tract": "observe",
+            "event": "observing",
+            "day": day,
+            "segment": "120000_300",
+            "files": ["audio.flac", "screen.webm"],
+            "stream": "default",
+        }
+        service._handle_message(message)
+
+        # Only valid file should be queued
+        assert service._queue.qsize() == 1
+        seg_info = service._queue.get_nowait()
+        assert len(seg_info.files) == 1
+        assert seg_info.files[0]["name"] == "audio.flac"
+
+        # Pending record should only have 1 file
+        records = load_sync_state(day)
+        assert len(records) == 1
+        assert len(records[0]["files"]) == 1
+
+
+def test_handle_message_skips_all_zero_byte_files(sync_journal, monkeypatch):
+    """Test that segment is not queued when all files are 0-byte."""
+    from observe.sync import SyncService, load_sync_state
+
+    journal = sync_journal["path"]
+    day = sync_journal["day"]
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    # Create segment directory with only 0-byte files
+    seg_dir = journal / day / "default" / "120000_300"
+    seg_dir.mkdir(parents=True, exist_ok=True)
+    (seg_dir / "audio.flac").write_bytes(b"")
+    (seg_dir / "screen.webm").write_bytes(b"")
+
+    with patch("observe.sync.RemoteClient"), patch("observe.sync.CallosumConnection"):
+        service = SyncService("https://server/ingest/key")
+
+        message = {
+            "tract": "observe",
+            "event": "observing",
+            "day": day,
+            "segment": "120000_300",
+            "files": ["audio.flac", "screen.webm"],
+            "stream": "default",
+        }
+        service._handle_message(message)
+
+        # No segment should be queued
+        assert service._queue.qsize() == 0
+
+        # No pending record should be written
+        records = load_sync_state(day)
+        assert len(records) == 0
+
+
+def test_process_segment_duplicate_skips_confirmation(sync_journal, monkeypatch):
+    """Test that duplicate upload skips confirmation polling."""
+    from observe.sync import SegmentInfo, SyncService, UploadResult, load_sync_state
+
+    journal = sync_journal["path"]
+    day = sync_journal["day"]
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    seg_info = SegmentInfo(
+        day=day,
+        segment="120000_300",
+        files=[
+            {"name": "audio.flac", "sha256": "abc123"},
+        ],
+        meta={"stream": "default"},
+    )
+
+    # Create the segment file so cleanup has something to work with
+    seg_dir = journal / day / "default" / "120000_300"
+    seg_dir.mkdir(parents=True, exist_ok=True)
+    (seg_dir / "audio.flac").write_bytes(b"audio data")
+
+    with patch("observe.sync.CallosumConnection") as mock_callosum_class:
+        mock_callosum = MagicMock()
+        mock_callosum_class.return_value = mock_callosum
+
+        with patch("observe.sync.RemoteClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_session = MagicMock()
+
+            # Pre-check: server doesn't have segment yet
+            mock_session.get.return_value = MagicMock(
+                status_code=200, json=MagicMock(return_value=[])
+            )
+            mock_client.session = mock_session
+            # Upload returns duplicate
+            mock_client.upload_segment = MagicMock(
+                return_value=UploadResult(True, duplicate=True)
+            )
+            mock_client_class.return_value = mock_client
+
+            service = SyncService("https://server/ingest/key")
+            service._process_segment(seg_info)
+
+            # Upload should have been called
+            mock_client.upload_segment.assert_called_once()
+
+            # Confirmation polling should NOT have happened
+            # (only 1 GET call for pre-check, no additional confirmation GETs)
+            assert mock_session.get.call_count == 1
+
+            # Confirmed record should have been written
+            records = load_sync_state(day)
+            confirmed = [r for r in records if r.get("status") == "confirmed"]
+            assert len(confirmed) == 1
+            assert confirmed[0]["segment"] == "120000_300"
 
 
 class TestCheckRemoteHealth:

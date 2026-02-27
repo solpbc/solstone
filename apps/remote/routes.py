@@ -367,6 +367,9 @@ def ingest_upload(key: str) -> Any:
 
         # Read content and compute SHA256
         content = upload.read()
+        if len(content) == 0:
+            logger.warning(f"Skipping 0-byte file: {submitted_filename}")
+            continue
         sha256 = compute_bytes_sha256(content)
 
         file_data.append((submitted_filename, simple_filename, content, sha256))

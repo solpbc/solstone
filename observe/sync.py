@@ -22,7 +22,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import urlparse
 
 import requests
@@ -43,6 +43,13 @@ MAX_RETRIES = 3
 RETRY_BACKOFF = [1, 5, 15]  # seconds
 UPLOAD_TIMEOUT = 300  # 5 minutes for large files
 HEALTH_CHECK_TIMEOUT = 10  # seconds for startup health check
+
+
+class UploadResult(NamedTuple):
+    """Result of an upload_segment() call."""
+
+    success: bool
+    duplicate: bool = False
 
 
 def check_remote_health(
@@ -129,7 +136,7 @@ class RemoteClient:
         segment: str,
         files: list[Path],
         meta: dict | None = None,
-    ) -> bool:
+    ) -> UploadResult:
         """Upload segment files to remote server.
 
         Args:
@@ -142,11 +149,12 @@ class RemoteClient:
                   fields and the server merges them into meta.
 
         Returns:
-            True if upload succeeded, False otherwise
+            UploadResult with success=True/False and duplicate=True if server
+            reported duplicate
         """
         if not files:
             logger.warning("No files to upload")
-            return False
+            return UploadResult(False)
 
         for attempt, delay in enumerate(RETRY_BACKOFF):
             # Open file handles and ensure they're closed
@@ -166,7 +174,7 @@ class RemoteClient:
 
                 if not files_data:
                     logger.error("No valid files to upload")
-                    return False
+                    return UploadResult(False)
 
                 # Build request data
                 data: dict[str, Any] = {
@@ -190,12 +198,16 @@ class RemoteClient:
                 )
 
                 if response.status_code == 200:
-                    result = response.json()
-                    logger.info(
-                        f"Uploaded {len(result.get('files', []))} files "
-                        f"({result.get('bytes', 0)} bytes) for {day}/{segment}"
-                    )
-                    return True
+                    resp_data = response.json()
+                    is_duplicate = resp_data.get("status") == "duplicate"
+                    if is_duplicate:
+                        logger.info(f"Server reported duplicate for {day}/{segment}")
+                    else:
+                        logger.info(
+                            f"Uploaded {len(resp_data.get('files', []))} files "
+                            f"({resp_data.get('bytes', 0)} bytes) for {day}/{segment}"
+                        )
+                    return UploadResult(True, duplicate=is_duplicate)
 
                 logger.warning(f"Upload failed: {response.status_code} {response.text}")
 
@@ -215,7 +227,7 @@ class RemoteClient:
                 time.sleep(delay)
 
         logger.error(f"Upload failed after {MAX_RETRIES} attempts: {day}/{segment}")
-        return False
+        return UploadResult(False)
 
 
 # Confirmation polling configuration
@@ -426,11 +438,14 @@ class SyncService:
         file_info = []
         for filename in files:
             file_path = segment_dir / filename
-            if file_path.exists():
-                sha = compute_file_sha256(file_path)
-                file_info.append({"name": filename, "sha256": sha})
-            else:
+            if not file_path.exists():
                 logger.warning(f"File not found: {file_path}")
+                continue
+            if file_path.stat().st_size == 0:
+                logger.warning(f"Skipping 0-byte file: {file_path}")
+                continue
+            sha = compute_file_sha256(file_path)
+            file_info.append({"name": filename, "sha256": sha})
 
         if not file_info:
             logger.error(f"No valid files for segment {day}/{segment}")
@@ -530,13 +545,28 @@ class SyncService:
                 logger.warning(f"No files found for segment {day}/{segment}, skipping")
                 break
 
-            success = self._client.upload_segment(
+            result = self._client.upload_segment(
                 day, segment, existing_files, meta=seg_info.meta
             )
-            if not success:
+            if not result.success:
                 logger.error(f"Upload failed for {day}/{segment}, will retry")
                 time.sleep(CONFIRM_POLL_INTERVAL)
                 continue
+
+            if result.duplicate:
+                # Server already has these files - mark confirmed immediately
+                # without entering the confirmation polling loop
+                record = {
+                    "ts": now_ms(),
+                    "segment": segment,
+                    "status": "confirmed",
+                }
+                append_sync_record(day, record)
+                self._cleanup_segment(seg_dir, existing_files)
+                with self._lock:
+                    self._last_confirmed = f"{day}/{segment}"
+                logger.info(f"Duplicate upload confirmed, cleaned up: {day}/{segment}")
+                break
 
             logger.info(f"Upload complete for {day}/{segment}, confirming...")
 

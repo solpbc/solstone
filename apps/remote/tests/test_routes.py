@@ -1464,3 +1464,67 @@ def test_ingest_returns_collision_status_when_adjusted(remote_env):
     data = resp.get_json()
     assert data["status"] == "collision"
     assert data["segment"] != "120000_300"  # Adjusted
+
+
+def test_ingest_zero_byte_file_rejected(remote_env):
+    """Test that uploading only 0-byte files returns 400."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "test-remote"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    # Upload a 0-byte file
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": (io.BytesIO(b""), "empty_audio.flac"),
+        },
+    )
+    assert resp.status_code == 400
+    assert "No valid files" in resp.get_json()["error"]
+
+
+def test_ingest_mixed_zero_byte_files(remote_env):
+    """Test that 0-byte files are skipped but valid files are accepted."""
+    env = remote_env()
+
+    # Create a remote
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "test-remote"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    # Upload one valid file and one 0-byte file
+    valid_data = b"real audio content"
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "files": [
+                (io.BytesIO(b""), "empty.flac"),
+                (io.BytesIO(valid_data), "audio.flac"),
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["status"] == "ok"
+    assert data["files"] == ["audio.flac"]
+    assert data["bytes"] == len(valid_data)
+
+    # Verify only valid file was written
+    expected_file = (
+        env.journal / "20250103" / "test-remote" / "120000_300" / "audio.flac"
+    )
+    assert expected_file.exists()
+    assert expected_file.read_bytes() == valid_data
