@@ -399,18 +399,21 @@ class PlaudBackend:
             verbose = logger.isEnabledFor(logging.INFO)
             debug = logger.isEnabledFor(logging.DEBUG)
 
-            # Total sync timeout: 1 hour for all imports combined
+            # Inactivity-based sync timeout: bail if no file completes
+            # within this window.  The inner import process has its own
+            # 600s inactivity timeout for stall detection, so this is a
+            # generous outer safety net.
             sync_timeout = 3600
-            sync_start = time.monotonic()
+            last_completed = time.monotonic()
 
             for idx, (file_id, info) in enumerate(to_process, 1):
-                # Check total sync timeout
-                sync_elapsed = time.monotonic() - sync_start
-                if sync_elapsed > sync_timeout:
+                # Check inactivity timeout (time since last file completed)
+                idle_duration = time.monotonic() - last_completed
+                if idle_duration > sync_timeout:
                     remaining = len(to_process) - idx + 1
                     msg = (
-                        f"Sync timeout after {int(sync_elapsed)}s — "
-                        f"{remaining} files remaining"
+                        f"Sync stalled after {int(idle_duration)}s with no "
+                        f"completed import — {remaining} files remaining"
                     )
                     logger.warning("  %s", msg)
                     errors.append(msg)
@@ -489,54 +492,40 @@ class PlaudBackend:
 
                 logger.info("    Importing %s...", ts)
                 import_start = time.monotonic()
-                import_timeout = 3600
 
-                try:
-                    # In verbose/debug mode, stream subprocess output to terminal
-                    if verbose:
-                        proc = subprocess.run(
-                            import_cmd,
-                            timeout=import_timeout,
-                        )
-                    else:
-                        proc = subprocess.run(
-                            import_cmd,
-                            capture_output=True,
-                            text=True,
-                            timeout=import_timeout,
-                        )
-                    import_elapsed = int(time.monotonic() - import_start)
-                    if proc.returncode == 0:
-                        info["status"] = "imported"
-                        info["import_timestamp"] = ts
-                        info["imported_at"] = dt.datetime.now().isoformat()
-                        downloaded += 1
-                        logger.info("    Imported successfully (%ss)", import_elapsed)
-                    else:
-                        if verbose:
-                            # User already saw subprocess output
-                            msg = (
-                                f"{filename}: import failed "
-                                f"(exit code {proc.returncode}, {import_elapsed}s)"
-                            )
-                        else:
-                            stderr_tail = (
-                                proc.stderr.strip().split("\n")[-1]
-                                if proc.stderr
-                                else ""
-                            )
-                            msg = f"{filename}: import failed — {stderr_tail}"
-                            logger.warning(
-                                "Import failed for %s: %s", filename, proc.stderr
-                            )
-                        logger.warning("    FAILED — %s", msg)
-                        errors.append(msg)
-                except subprocess.TimeoutExpired:
-                    import_elapsed = int(time.monotonic() - import_start)
-                    msg = (
-                        f"{filename}: import subprocess timed out "
-                        f"after {import_timeout}s (elapsed {import_elapsed}s)"
+                # No subprocess timeout — the inner import process has its
+                # own inactivity-based timeout (600s) for stall detection.
+                if verbose:
+                    proc = subprocess.run(import_cmd)
+                else:
+                    proc = subprocess.run(
+                        import_cmd,
+                        capture_output=True,
+                        text=True,
                     )
+                import_elapsed = int(time.monotonic() - import_start)
+                last_completed = time.monotonic()
+
+                if proc.returncode == 0:
+                    info["status"] = "imported"
+                    info["import_timestamp"] = ts
+                    info["imported_at"] = dt.datetime.now().isoformat()
+                    downloaded += 1
+                    logger.info("    Imported successfully (%ss)", import_elapsed)
+                else:
+                    if verbose:
+                        msg = (
+                            f"{filename}: import failed "
+                            f"(exit code {proc.returncode}, {import_elapsed}s)"
+                        )
+                    else:
+                        stderr_tail = (
+                            proc.stderr.strip().split("\n")[-1] if proc.stderr else ""
+                        )
+                        msg = f"{filename}: import failed — {stderr_tail}"
+                        logger.warning(
+                            "Import failed for %s: %s", filename, proc.stderr
+                        )
                     logger.warning("    FAILED — %s", msg)
                     errors.append(msg)
 
