@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "solstone"
 version = "0.1.0"
-description = "Navigate Intelligently - A collection of utilities for multimodal navigation and analysis"
+description = "Navigate Life Intelligently"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "AGPL-3.0-only"}
