@@ -383,11 +383,15 @@ class PlaudBackend:
 
         # Download and import if not dry-run
         if not dry_run and available > 0:
-            to_process = [
-                (fid, info)
-                for fid, info in known_files.items()
-                if info.get("status") == "available"
-            ]
+            to_process = sorted(
+                [
+                    (fid, info)
+                    for fid, info in known_files.items()
+                    if info.get("status") == "available"
+                ],
+                key=lambda x: x[1].get("start_time", 0),
+                reverse=True,
+            )
             downloaded = 0
             errors: list[str] = []
 
