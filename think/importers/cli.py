@@ -589,7 +589,7 @@ def main() -> None:
             _set_stage("transcribing")
             pending = set(created_segments)
             completed_count = 0
-            segment_timeout = 1200  # 20 minutes since last progress
+            segment_timeout = 600  # 10 minutes since last progress
             last_progress = time.monotonic()
             transcribe_start = time.monotonic()
 
@@ -636,6 +636,8 @@ def main() -> None:
                             f"({completed_count}/{len(created_segments)} done, "
                             f"{len(pending)} remaining)"
                         )
+                elif tract == "observe" and event == "status":
+                    last_progress = time.monotonic()
 
             if failed_segments:
                 logger.warning(

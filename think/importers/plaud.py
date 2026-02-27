@@ -489,7 +489,7 @@ class PlaudBackend:
 
                 logger.info("    Importing %s...", ts)
                 import_start = time.monotonic()
-                import_timeout = 600
+                import_timeout = 3600
 
                 try:
                     # In verbose/debug mode, stream subprocess output to terminal
