@@ -159,6 +159,20 @@
     window.AppServices?.notifications?.show(msg);
   }];
 
+  // Built-in tract: navigate browser to a path and/or switch facet
+  listeners['navigate'] = [function(msg) {
+    if (msg.facet && !msg.path) {
+      window.selectFacet && window.selectFacet(msg.facet);
+    } else if (msg.path) {
+      if (msg.facet) {
+        var expires = new Date();
+        expires.setFullYear(expires.getFullYear() + 1);
+        document.cookie = 'selectedFacet=' + msg.facet + '; expires=' + expires.toUTCString() + '; path=/; SameSite=Lax';
+      }
+      window.location.href = msg.path;
+    }
+  }];
+
   // Auto-connect when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', connect);

@@ -139,6 +139,13 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 callosum_send("notification", "show", title="Import Complete", message="3 segments imported", icon="📥", autoDismiss=5000)
 ```
 
+### `navigate` - Browser navigation control
+**Source:** `apps/chat/call.py` (or any service)
+**Events:** `request`
+**Key fields:** `path` (string, URL path), `facet` (string, facet name) — at least one required
+**Consumer:** `convey/static/websocket.js` (built-in listener)
+**Purpose:** Navigate the browser to a URL path and/or switch to a facet — facet-only triggers `selectFacet()` without page reload, path triggers full page load, path+facet sets facet cookie before navigating
+
 ### `code` - Code lifecycle events
 **Source:** `make sail` (Makefile)
 **Events:** `shipped`
