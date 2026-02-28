@@ -58,21 +58,31 @@ sol health logs -f
 ## agent runs
 
 ```bash
-sol muse logs [AGENT] [-c COUNT]
+sol muse logs [AGENT] [-c COUNT] [--day YYYYMMDD] [--daily] [--errors] [--summary]
 ```
 
 List recent agent runs.
 
 - `AGENT`: optional agent name filter.
-- `-c, --count`: max runs shown (default `20`).
+- `-c, --count`: max runs shown (default `20`; `50` when `--daily`).
+- `--day YYYYMMDD`: show only runs from a specific day.
+- `--daily`: show only daily-scheduled runs.
+- `--errors`: show only error runs.
+- `--summary`: show grouped aggregation instead of individual lines.
+
+Flags compose with AND logic. For example, `--daily --errors` shows only daily runs that errored.
 
 Output columns: agent_id, time, name, status, runtime, cost, events, tools, output_size, model, facet.
 
-Example:
+Examples:
 
 ```bash
 sol muse logs
 sol muse logs activity -c 10
+sol muse logs --daily
+sol muse logs --daily --summary
+sol muse logs --day 20260228
+sol muse logs --daily --errors
 ```
 
 ## agent run detail

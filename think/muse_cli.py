@@ -821,7 +821,58 @@ def _get_output_size(request_event: dict[str, Any], journal_root: str) -> int | 
     return None
 
 
-def logs_runs(*, agent: str | None = None, count: int = 20) -> None:
+def _print_summary(records: list[dict[str, Any]]) -> None:
+    """Print grouped summary of agent runs."""
+    from collections import defaultdict
+
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for r in records:
+        groups[r.get("name", "unknown")].append(r)
+
+    total_pass = 0
+    total_fail = 0
+    total_runtime = 0.0
+
+    for name in sorted(groups):
+        runs = groups[name]
+        passed = sum(1 for r in runs if r.get("status") == "completed")
+        failed = len(runs) - passed
+        runtimes = [r.get("runtime_seconds") or 0 for r in runs]
+        min_rt = min(runtimes)
+        max_rt = max(runtimes)
+        total_rt = sum(runtimes)
+
+        total_pass += passed
+        total_fail += failed
+        total_runtime += total_rt
+
+        if min_rt == max_rt:
+            rt_str = f"{min_rt:.1f}s"
+        else:
+            rt_str = f"{min_rt:.1f}s–{max_rt:.1f}s"
+
+        status_str = f"{passed}✓"
+        if failed:
+            status_str += f" {failed}✗"
+
+        print(f"  {name:<20} {status_str:<10} {rt_str}")
+
+    print(f"  {'—' * 40}")
+    status_str = f"{total_pass}✓"
+    if total_fail:
+        status_str += f" {total_fail}✗"
+    print(f"  {'total':<20} {status_str:<10} {total_runtime:.1f}s")
+
+
+def logs_runs(
+    *,
+    agent: str | None = None,
+    count: int | None = None,
+    day: str | None = None,
+    daily: bool = False,
+    errors: bool = False,
+    summary: bool = False,
+) -> None:
     """Print one-line summaries of recent agent runs from day-index files."""
     from think.models import calc_agent_cost
     from think.utils import get_journal
@@ -831,13 +882,27 @@ def logs_runs(*, agent: str | None = None, count: int = 20) -> None:
     if not agents_dir.is_dir():
         return
 
+    # Validate --day format
+    if day and (len(day) != 8 or not day.isdigit()):
+        print(f"Invalid --day format: {day}. Expected YYYYMMDD.", file=sys.stderr)
+        sys.exit(1)
+
+    # Resolve default count: 50 for --daily, 20 otherwise
+    if count is None:
+        count = 50 if daily else 20
+
     # Find day-index files, most recent first
-    day_files = sorted(agents_dir.glob("????????.jsonl"), reverse=True)
+    if day:
+        day_file = agents_dir / f"{day}.jsonl"
+        day_files = [day_file] if day_file.is_file() else []
+    else:
+        day_files = sorted(agents_dir.glob("????????.jsonl"), reverse=True)
     if not day_files:
         return
 
     # Collect records across day files
     records: list[dict[str, Any]] = []
+    _schedule_lookup: dict[str, str | None] | None = None
     for day_file in day_files:
         for line in day_file.read_text().splitlines():
             if not line.strip():
@@ -848,6 +913,20 @@ def logs_runs(*, agent: str | None = None, count: int = 20) -> None:
                 continue
             if agent and record.get("name") != agent:
                 continue
+            if errors and record.get("status") != "error":
+                continue
+            if daily:
+                rec_schedule = record.get("schedule")
+                if rec_schedule is None:
+                    if _schedule_lookup is None:
+                        all_configs = get_muse_configs(include_disabled=True)
+                        _schedule_lookup = {
+                            key: info.get("schedule")
+                            for key, info in all_configs.items()
+                        }
+                    rec_schedule = _schedule_lookup.get(record.get("name"))
+                if rec_schedule != "daily":
+                    continue
             records.append(record)
         if len(records) >= count:
             break
@@ -858,6 +937,10 @@ def logs_runs(*, agent: str | None = None, count: int = 20) -> None:
     # Sort by timestamp descending and trim
     records.sort(key=lambda r: r.get("ts", 0), reverse=True)
     records = records[:count]
+
+    if summary:
+        _print_summary(records)
+        return
 
     # Compute column widths
     name_width = max((len(r.get("name", "")) for r in records), default=10)
@@ -1086,8 +1169,20 @@ def main() -> None:
         "-c",
         "--count",
         type=int,
-        default=20,
+        default=None,
         help="Number of runs to show (default: 20)",
+    )
+    logs_parser.add_argument(
+        "--day", metavar="YYYYMMDD", help="Show only runs from this day"
+    )
+    logs_parser.add_argument(
+        "--daily", action="store_true", help="Show only daily-scheduled runs"
+    )
+    logs_parser.add_argument(
+        "--errors", action="store_true", help="Show only error runs"
+    )
+    logs_parser.add_argument(
+        "--summary", action="store_true", help="Show grouped summary"
     )
 
     # --- log subcommand ---
@@ -1114,7 +1209,14 @@ def main() -> None:
         else:
             show_prompt(args.name, as_json=args.json)
     elif args.subcommand == "logs":
-        logs_runs(agent=args.agent, count=args.count)
+        logs_runs(
+            agent=args.agent,
+            count=args.count,
+            day=args.day,
+            daily=args.daily,
+            errors=args.errors,
+            summary=args.summary,
+        )
     elif args.subcommand == "log":
         log_run(args.id, json_mode=args.json_mode, full=args.full)
     elif args.subcommand == "list" and args.json:

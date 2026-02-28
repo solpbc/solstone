@@ -441,6 +441,7 @@ def run_prompts_by_priority(
                             if stream:
                                 env["SOL_STREAM"] = stream
                         request_config["env"] = env
+                        request_config["schedule"] = target_schedule
 
                         prompt = (
                             ""
@@ -509,6 +510,7 @@ def run_prompts_by_priority(
                         if stream:
                             env["SOL_STREAM"] = stream
                     request_config["env"] = env
+                    request_config["schedule"] = target_schedule
 
                     prompt = (
                         ""
@@ -838,6 +840,7 @@ def run_activity_prompts(
                         "SOL_ACTIVITY": activity_id,
                     },
                 }
+                request_config["schedule"] = "activity"
                 if is_generate:
                     request_config["output"] = output_format
                     if refresh:
@@ -1005,6 +1008,7 @@ def run_flush_prompts(
                 "refresh": True,
                 "env": env,
             }
+            request_config["schedule"] = "segment"
             if is_generate:
                 request_config["output"] = config.get("output", "md")
 

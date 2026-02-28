@@ -640,6 +640,7 @@ class CortexService:
                 "runtime_seconds": runtime_seconds,
                 "provider": request.get("provider"),
                 "model": request.get("model"),
+                "schedule": request.get("schedule"),
             }
 
             day_index_path = self.agents_dir / f"{day}.jsonl"

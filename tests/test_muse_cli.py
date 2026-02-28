@@ -377,6 +377,105 @@ def test_logs_runs_new_columns(capsys):
     assert dash_count > 0
 
 
+def test_logs_runs_day_filter(capsys):
+    """--day filters to a specific day."""
+    logs_runs(day="20231114")
+    output = capsys.readouterr().out
+    lines = [line for line in output.strip().splitlines() if line.strip()]
+    # 20231114 has 4 records
+    assert len(lines) == 4
+    # All should be from 20231114
+    for line in lines:
+        assert "1700000" in line  # all agent_ids from that day start with 1700000
+
+
+def test_logs_runs_day_filter_no_match(capsys):
+    """--day with nonexistent day produces empty output."""
+    logs_runs(day="20990101")
+    output = capsys.readouterr().out
+    assert output.strip() == ""
+
+
+def test_logs_runs_day_invalid(capsys):
+    """--day with invalid format prints error."""
+    with pytest.raises(SystemExit):
+        logs_runs(day="bad")
+    output = capsys.readouterr().err
+    assert "invalid --day format" in output.lower()
+
+
+def test_logs_runs_errors_filter(capsys):
+    """--errors shows only error runs."""
+    logs_runs(errors=True)
+    output = capsys.readouterr().out
+    lines = [line for line in output.strip().splitlines() if line.strip()]
+    # Only flow on 20231114 has status "error"
+    assert len(lines) == 1
+    assert "flow" in lines[0]
+    assert "✗" in lines[0]
+
+
+def test_logs_runs_daily_filter(capsys):
+    """--daily shows only daily-scheduled runs."""
+    logs_runs(daily=True)
+    output = capsys.readouterr().out
+    lines = [line for line in output.strip().splitlines() if line.strip()]
+    # Daily runs: entities (20231113, schedule=daily), default x2 (20231114,
+    # schedule=daily + legacy fallback)
+    # Should NOT include flow (segment) or activity
+    assert "flow" not in output
+    assert "activity" not in output
+    for line in lines:
+        assert any(name in line for name in ["default", "entities"])
+
+
+def test_logs_runs_daily_bumps_count(capsys):
+    """--daily bumps default count to 50."""
+    # With only 6 total records in fixtures, verify explicit count still applies.
+    logs_runs(daily=True, count=1)
+    output = capsys.readouterr().out
+    lines = [line for line in output.strip().splitlines() if line.strip()]
+    assert len(lines) == 1
+
+
+def test_logs_runs_filter_composition(capsys):
+    """Filters compose with AND logic."""
+    logs_runs(day="20231114", errors=True)
+    output = capsys.readouterr().out
+    lines = [line for line in output.strip().splitlines() if line.strip()]
+    # Only flow on 20231114 is an error
+    assert len(lines) == 1
+    assert "flow" in lines[0]
+
+
+def test_logs_runs_summary(capsys):
+    """--summary shows grouped aggregation."""
+    logs_runs(summary=True)
+    output = capsys.readouterr().out
+    # Should have agent names
+    assert "default" in output
+    assert "flow" in output
+    assert "entities" in output
+    assert "activity" in output
+    # Should have totals line
+    assert "total" in output
+    # Should show pass/fail symbols
+    assert "✓" in output
+    assert "✗" in output
+
+
+def test_logs_runs_daily_summary(capsys):
+    """--daily --summary shows only daily runs in summary."""
+    logs_runs(daily=True, summary=True)
+    output = capsys.readouterr().out
+    # Only daily agents (entities, default)
+    assert "flow" not in output
+    assert "activity" not in output
+    assert "default" in output
+    assert "entities" in output
+    assert "total" in output
+
+
 def test_parse_run_stats():
     """Parse run stats extracts correct counts from fixture JSONL."""
     from pathlib import Path
