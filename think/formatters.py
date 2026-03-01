@@ -132,6 +132,7 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     "config/actions/*.jsonl": ("think.facets", "format_logs", True),
     "facets/*/entities/*.jsonl": ("think.entities.formatting", "format_entities", True),
     "facets/*/events/*.jsonl": ("think.events", "format_events", True),
+    "facets/*/calendar/*.jsonl": ("think.events", "format_events", True),
     "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos", True),
     "facets/*/logs/*.jsonl": ("think.facets", "format_logs", True),
     # Raw transcripts — formattable but not indexed (agent outputs are more useful)

@@ -265,6 +265,52 @@ def test_get_events_filter_by_facet(journal_fixture):
     assert len(events) == 0
 
 
+def test_get_events_includes_calendar_entries(journal_fixture):
+    """Test get_events includes non-cancelled calendar entries."""
+    from think.indexer.journal import get_events
+
+    calendar_dir = journal_fixture / "facets" / "work" / "calendar"
+    calendar_dir.mkdir(parents=True)
+    (calendar_dir / "20240101.jsonl").write_text(
+        json.dumps({"title": "User event", "start": "10:00"})
+        + "\n"
+        + json.dumps({"title": "Cancelled", "start": "11:00", "cancelled": True})
+        + "\n"
+    )
+
+    events = get_events("20240101", facet="work")
+
+    titles = {e["title"] for e in events}
+    assert "Standup" in titles
+    assert "User event" in titles
+    assert "Cancelled" not in titles
+
+    user_event = next(e for e in events if e["title"] == "User event")
+    assert user_event["agent"] == "user"
+    assert user_event["occurred"] is False
+    assert user_event["facet"] == "work"
+
+
+def test_get_events_calendar_without_events_dir(journal_fixture):
+    """Test get_events reads calendar events even when events/ file is missing."""
+    from think.indexer.journal import get_events
+
+    events_file = journal_fixture / "facets" / "work" / "events" / "20240101.jsonl"
+    events_file.unlink()
+
+    calendar_dir = journal_fixture / "facets" / "work" / "calendar"
+    calendar_dir.mkdir(parents=True)
+    (calendar_dir / "20240101.jsonl").write_text(
+        json.dumps({"title": "Calendar only", "start": "12:00"}) + "\n"
+    )
+
+    events = get_events("20240101", facet="work")
+
+    assert len(events) == 1
+    assert events[0]["title"] == "Calendar only"
+    assert events[0]["agent"] == "user"
+
+
 def test_reset_journal_index(journal_fixture):
     """Test resetting the journal index."""
     from think.indexer.journal import reset_journal_index, scan_journal

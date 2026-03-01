@@ -547,8 +547,10 @@ def get_events(
 ) -> list[dict[str, Any]]:
     """Get structured events for a day, re-hydrated from source files.
 
-    This function reads the source JSONL files directly to return full
-    event objects with all fields (title, summary, start, end, participants, etc.).
+    This function reads source JSONL files directly from both
+    facets/*/events/{day}.jsonl and facets/*/calendar/{day}.jsonl to return
+    full event objects with all fields (title, summary, start, end,
+    participants, etc.). Cancelled calendar entries are excluded.
 
     Args:
         day: Day in YYYYMMDD format
@@ -572,13 +574,23 @@ def get_events(
             continue
 
         events_file = facet_dir / "events" / f"{day}.jsonl"
-        if not events_file.is_file():
-            continue
+        if events_file.is_file():
+            entries = load_jsonl(str(events_file))
+            for entry in entries:
+                # Add facet to event if not present
+                entry.setdefault("facet", facet_name)
+                events.append(entry)
 
-        entries = load_jsonl(str(events_file))
-        for entry in entries:
-            # Add facet to event if not present
-            entry.setdefault("facet", facet_name)
-            events.append(entry)
+        # Also check calendar/ subdir for user-created events
+        calendar_file = facet_dir / "calendar" / f"{day}.jsonl"
+        if calendar_file.is_file():
+            cal_entries = load_jsonl(str(calendar_file))
+            for entry in cal_entries:
+                if entry.get("cancelled"):
+                    continue
+                entry.setdefault("facet", facet_name)
+                entry.setdefault("agent", "user")
+                entry.setdefault("occurred", False)
+                events.append(entry)
 
     return events

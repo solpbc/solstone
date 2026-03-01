@@ -130,3 +130,50 @@ def test_get_month_event_counts_empty_journal(tmp_path, monkeypatch):
     result = get_month_event_counts("202401")
 
     assert result == {}
+
+
+def test_get_month_event_counts_includes_calendar_entries(tmp_path, monkeypatch):
+    """Calendar entries are counted and merged with events counts."""
+    from think.events import get_month_event_counts
+
+    journal = tmp_path
+
+    work_events = journal / "facets" / "work" / "events"
+    work_events.mkdir(parents=True)
+    (work_events / "20240101.jsonl").write_text(
+        json.dumps({"title": "AI event", "start": "09:00:00"}) + "\n"
+    )
+
+    work_calendar = journal / "facets" / "work" / "calendar"
+    work_calendar.mkdir(parents=True)
+    (work_calendar / "20240101.jsonl").write_text(
+        json.dumps({"title": "User event", "start": "10:00"})
+        + "\n"
+        + json.dumps({"title": "Cancelled", "start": "11:00", "cancelled": True})
+        + "\n"
+    )
+
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    result = get_month_event_counts("202401")
+
+    assert result["20240101"]["work"] == 2
+
+
+def test_get_month_event_counts_calendar_without_events_dir(tmp_path, monkeypatch):
+    """Calendar counts work even when events/ directory does not exist."""
+    from think.events import get_month_event_counts
+
+    journal = tmp_path
+
+    personal_calendar = journal / "facets" / "personal" / "calendar"
+    personal_calendar.mkdir(parents=True)
+    (personal_calendar / "20240105.jsonl").write_text(
+        json.dumps({"title": "Gym", "start": "18:00"}) + "\n"
+    )
+
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    result = get_month_event_counts("202401")
+
+    assert result["20240105"]["personal"] == 1

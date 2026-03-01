@@ -1,0 +1,2 @@
+{"title": "Team standup", "start": "09:00", "end": "09:30", "summary": "Daily sync", "participants": ["Alice", "Bob"], "cancelled": false, "created_at": 1704067200000, "updated_at": 1704067200000}
+{"title": "Cancelled meeting", "start": "14:00", "cancelled": true, "created_at": 1704067200000, "updated_at": 1704070800000}
