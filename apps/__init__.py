@@ -10,7 +10,6 @@ Directory Structure:
       workspace.html       # Required: Main template
       routes.py            # Optional: Flask blueprint (for custom routes beyond index)
       background.html      # Optional: Background service
-      app_bar.html         # Optional: Bottom bar
       app.json             # Optional: Metadata overrides
       agents/              # Optional: Custom agents
       tests/               # Optional: App-specific tests
@@ -64,7 +63,6 @@ class App:
 
     # Template paths (relative to Flask template root)
     workspace_template: str = ""
-    app_bar_template: Optional[str] = None
     background_template: Optional[str] = None
 
     # Facet configuration (optional, default {})
@@ -99,10 +97,6 @@ class App:
         """Return path to workspace template."""
         return self.workspace_template
 
-    def get_app_bar_template(self) -> Optional[str]:
-        """Return path to custom app-bar template, or None."""
-        return self.app_bar_template
-
     def get_background_template(self) -> Optional[str]:
         """Return path to background service template, or None."""
         return self.background_template
@@ -121,7 +115,7 @@ class AppRegistry:
         1. Check for workspace.html (required)
         2. Load app.json if present (for icon, label overrides)
         3. Import routes.py and get blueprint (optional - for custom routes)
-        4. Check for background.html, app_bar.html (optional)
+        4. Check for background.html (optional)
         """
         apps_dir = Path(__file__).parent
 
@@ -236,17 +230,12 @@ class AppRegistry:
         if (app_path / "background.html").exists():
             background_template = f"{app_name}/background.html"
 
-        app_bar_template = None
-        if (app_path / "app_bar.html").exists():
-            app_bar_template = f"{app_name}/app_bar.html"
-
         return App(
             name=app_name,
             icon=icon,
             label=label,
             blueprint=blueprint,
             workspace_template=workspace_template,
-            app_bar_template=app_bar_template,
             background_template=background_template,
             facets_config=facets_config,
             date_nav=date_nav,
