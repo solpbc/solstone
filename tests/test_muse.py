@@ -56,12 +56,12 @@ def test_merge_instructions_config_ignores_unknown_keys():
 
 
 def test_merge_instructions_config_facets_override():
-    """Test that facets key can be overridden with different values."""
+    """Test that facets key can be overridden."""
     defaults = {"system": "journal", "facets": True}
-    overrides = {"facets": "full"}
+    overrides = {"facets": False}
     result = _merge_instructions_config(defaults, overrides)
     assert result["system"] == "journal"
-    assert result["facets"] == "full"
+    assert result["facets"] is False
 
 
 # =============================================================================

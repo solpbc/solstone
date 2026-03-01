@@ -423,10 +423,9 @@ def compose_instructions(
     config_overrides:
         Optional dict from .json "instructions" key. Supported keys:
         - "system": prompt name for system instruction (default: None)
-        - "facets": false | true | "full" (default: false)
+        - "facets": false | true (default: false)
           false = skip facet context
-          true = include facet context with names only
-          "full" = include facet context with full descriptions
+          true = include facet context
           For faceted generators, shows focused facet; for unfaceted, shows all facets.
         - "now": false | true (default: false)
           true = include current date/time in extra_context
@@ -478,7 +477,6 @@ def compose_instructions(
 
     # Facets context
     facets_setting = cfg.get("facets", False)
-    facets_full = facets_setting == "full"
 
     if facets_setting:
         if facet:
@@ -486,7 +484,7 @@ def compose_instructions(
             try:
                 from think.facets import facet_summary
 
-                summary = facet_summary(facet, detailed=facets_full)
+                summary = facet_summary(facet)
                 extra_parts.append(f"## Facet Focus\n{summary}")
             except Exception:
                 pass  # Ignore if facet can't be loaded
@@ -495,7 +493,7 @@ def compose_instructions(
             try:
                 from think.facets import facet_summaries
 
-                summary = facet_summaries(detailed=facets_full)
+                summary = facet_summaries()
                 if summary and summary != "No facets found.":
                     extra_parts.append(summary)
             except Exception:

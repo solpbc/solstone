@@ -400,7 +400,7 @@ Both generators and agents support an optional `instructions` key for customizin
 ```
 
 - `system` - System prompt file name (loads from `think/{name}.txt`)
-- `facets` - `false` | `true` | `"full"` - whether to include facet context (true=names only, "full"=with descriptions)
+- `facets` - `false` | `true` - whether to include facet context
 - `sources` - Generators only: which content types to cluster. Values can be:
   - `false` - don't load this source type
   - `true` - load if available
