@@ -23,6 +23,9 @@ def main() -> None:
     parser.add_argument("message", nargs="*", help="Chat message")
     parser.add_argument("--facet", help="Facet context")
     parser.add_argument("--provider", help="AI provider override")
+    parser.add_argument(
+        "--muse", default="default", help="Muse agent name (default: default)"
+    )
     args = setup_cli(parser)
 
     if not args.message:
@@ -37,7 +40,7 @@ def main() -> None:
 
     agent_id = cortex_request(
         prompt=message,
-        name="default",
+        name=args.muse,
         provider=args.provider,
         config=config if config else None,
     )
