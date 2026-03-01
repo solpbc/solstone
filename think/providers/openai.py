@@ -161,7 +161,7 @@ async def run_cogitate(
         on_event: Optional event callback
     """
     raw_model = config.get("model") or GPT_5
-    model, _effort = _parse_model_effort(raw_model)  # strip suffix for CLI
+    model, effort = _parse_model_effort(raw_model)  # strip suffix for CLI
     LOG.info("Running agent with model %s", model)
     cb = JSONEventCallback(on_event)
 
@@ -191,6 +191,9 @@ async def run_cogitate(
         ]
     else:
         cmd = ["codex", "exec", "--json", "-s", "read-only", "-m", model]
+
+    if effort:
+        cmd.extend(["-c", f'model_reasoning_effort="{effort}"'])
 
     cmd.append("-")  # read prompt from stdin
 
