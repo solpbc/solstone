@@ -262,8 +262,18 @@ class CortexService:
             # Pass the full config through as NDJSON
             ndjson_input = json.dumps(config)
 
-            # Prepare environment - apply config overrides first, then force JOURNAL_PATH
+            # Prepare environment
             env = os.environ.copy()
+
+            # Promote top-level config keys to environment so tools can read
+            # them as defaults (e.g., sol call todos add uses SOL_FACET).
+            # Explicit env overrides below take precedence.
+            if config.get("facet"):
+                env["SOL_FACET"] = str(config["facet"])
+            if config.get("day"):
+                env["SOL_DAY"] = str(config["day"])
+
+            # Apply explicit env overrides (from dream.py etc.) — these win
             env_overrides = config.get("env")
             if env_overrides and isinstance(env_overrides, dict):
                 env.update({k: str(v) for k, v in env_overrides.items()})
