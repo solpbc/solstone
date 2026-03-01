@@ -106,10 +106,6 @@ body {
 .workspace {
   margin-top: var(--facet-bar-height);
   margin-left: var(--menu-bar-width-minimal);
-}
-
-/* Add bottom margin when app-bar is present */
-body.has-app-bar .workspace {
   margin-bottom: var(--app-bar-height);
 }
 
@@ -1026,6 +1022,87 @@ body.menu-all .menu-bar {
   pointer-events: none;
   z-index: -1;
   border-radius: 12px;
+}
+
+/* Chat Bar Elements */
+.chat-bar-input {
+  flex: 1;
+  resize: none;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  padding: 0.75em 1em;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  max-height: 120px;
+  min-height: 42px;
+  background: transparent;
+  position: relative;
+  z-index: 1;
+}
+
+.chat-bar-input:focus {
+  outline: none;
+  border-color: var(--facet-color, #667eea);
+}
+
+.chat-bar-input::placeholder {
+  color: #999;
+}
+
+.chat-bar-send {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--facet-color, #667eea);
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.chat-bar-send:hover {
+  opacity: 0.85;
+}
+
+.chat-bar-thinking {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  color: #999;
+  font-size: 13px;
+  position: relative;
+  z-index: 1;
+}
+
+.chat-bar-thinking-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--facet-color, #667eea);
+  border-radius: 50%;
+  animation: chat-bar-pulse 1s ease-in-out infinite;
+}
+
+@keyframes chat-bar-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.chat-bar-response {
+  flex: 1;
+  font-size: 13px;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  z-index: 1;
 }
 
 /* Error log display */

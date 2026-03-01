@@ -34,7 +34,7 @@
   {% endif %}
 </head>
 {% set body_classes = [] %}
-{% if app_registry.apps[app].get_app_bar_template() %}{% set _ = body_classes.append('has-app-bar') %}{% endif %}
+{% set _ = body_classes.append('has-app-bar') %}
 {% if app_registry.apps[app].date_nav_enabled() and day %}{% set _ = body_classes.append('has-date-nav') %}{% endif %}
 <body{% if body_classes %} class="{{ body_classes|join(' ') }}"{% endif %}>
 <!-- Corner Tags (screen region detection) -->
@@ -66,13 +66,18 @@
 <!-- Notification Center -->
 <div class="notification-center" id="notification-center"></div>
 
-<!-- App Bar (bottom) - only render if app provides template -->
-{% set app_bar_template = app_registry.apps[app].get_app_bar_template() %}
-{% if app_bar_template %}
+<!-- Chat Bar (universal) -->
 <div class="app-bar">
-  {% include app_bar_template %}
+  <form id="chatInputForm" style="display: contents;">
+    <textarea id="chatMessageInput" class="chat-bar-input" rows="1" placeholder="Send a message..."></textarea>
+    <button type="submit" class="chat-bar-send" title="Send" style="display: none;">↑</button>
+  </form>
+  <div class="chat-bar-thinking" style="display: none;">
+    <span class="chat-bar-thinking-dot"></span>
+    Thinking…
+  </div>
+  <div class="chat-bar-response" style="display: none;"></div>
 </div>
-{% endif %}
 
 <!-- Main Content -->
 <div class="workspace">
@@ -81,6 +86,123 @@
 
 <!-- App JavaScript (includes AppServices framework) -->
 <script src="{{ url_for('root.static', filename='app.js') }}"></script>
+
+<script>
+(function() {
+  const chatBarInput = document.getElementById('chatMessageInput');
+  const chatBarForm = document.getElementById('chatInputForm');
+  const chatBarThinking = document.querySelector('.chat-bar-thinking');
+  const chatBarResponse = document.querySelector('.chat-bar-response');
+  const chatBarSend = document.querySelector('.chat-bar-send');
+  const isChatApp = window.location.pathname.startsWith('/app/chat');
+  const STORAGE_KEY = 'solstone:chatBarState';
+
+  if (!chatBarInput || !chatBarForm) return;
+
+  // --- Auto-resize textarea ---
+  chatBarInput.addEventListener('input', () => {
+    chatBarInput.style.height = 'auto';
+    chatBarInput.style.height = Math.min(chatBarInput.scrollHeight, 120) + 'px';
+    // Show/hide send button
+    if (chatBarSend) {
+      chatBarSend.style.display = chatBarInput.value.trim() ? '' : 'none';
+    }
+  });
+
+  // --- Focus on load (only if nothing else focused) ---
+  setTimeout(() => {
+    if (document.activeElement === document.body) {
+      chatBarInput.focus();
+    }
+  }, 100);
+
+  // --- Restore state from localStorage ---
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    if (saved && saved.response && !isChatApp && chatBarResponse) {
+      chatBarResponse.textContent = saved.response;
+      chatBarResponse.style.display = '';
+    }
+  } catch {}
+
+  // --- Non-chat app: triage submit ---
+  if (!isChatApp) {
+    // Enter to submit, shift+enter for newline
+    chatBarInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        chatBarForm.requestSubmit();
+      }
+    });
+
+    chatBarForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const text = chatBarInput.value.trim();
+      if (!text) return;
+
+      // Show thinking state
+      chatBarInput.value = '';
+      chatBarInput.style.height = '';
+      if (chatBarSend) {
+        chatBarSend.style.display = 'none';
+      }
+      chatBarInput.disabled = true;
+      if (chatBarThinking) {
+        chatBarThinking.style.display = '';
+      }
+      if (chatBarResponse) {
+        chatBarResponse.style.display = 'none';
+      }
+
+      try {
+        const r = await fetch('/api/triage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            app: '{{ app }}',
+            path: window.location.pathname,
+            facet: window.selectedFacet || null
+          })
+        });
+
+        if (r.ok) {
+          const data = await r.json();
+          if (chatBarResponse) {
+            chatBarResponse.textContent = data.response || '';
+            chatBarResponse.style.display = data.response ? '' : 'none';
+          }
+
+          // Save to localStorage
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            message: text,
+            response: data.response || '',
+            timestamp: Date.now(),
+            app: '{{ app }}',
+            path: window.location.pathname
+          }));
+        } else if (chatBarResponse) {
+          chatBarResponse.textContent = 'Something went wrong. Try again.';
+          chatBarResponse.style.display = '';
+        }
+      } catch (err) {
+        if (chatBarResponse) {
+          chatBarResponse.textContent = 'Connection error. Try again.';
+          chatBarResponse.style.display = '';
+        }
+      } finally {
+        if (chatBarThinking) {
+          chatBarThinking.style.display = 'none';
+        }
+        chatBarInput.disabled = false;
+        chatBarInput.focus();
+      }
+    };
+  }
+  // In chat app: workspace's setupFormHandlers() takes over form submission.
+  // The bar just provides the DOM elements (chatInputForm, chatMessageInput).
+})();
+</script>
 
 <!-- Load all app background scripts -->
 {% for app_name, app_instance in app_registry.apps.items() %}

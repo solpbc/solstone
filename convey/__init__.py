@@ -19,6 +19,7 @@ from .apps import register_app_context
 from .bridge import emit, register_websocket
 from .config import bp as config_bp
 from .root import bp as root_bp
+from .triage import bp as triage_bp
 
 __all__ = [
     "create_app",
@@ -53,6 +54,9 @@ def create_app(journal: str = "") -> Flask:
 
     # Register config API blueprint
     app.register_blueprint(config_bp)
+
+    # Register triage API blueprint (universal chat bar)
+    app.register_blueprint(triage_bp)
 
     # Initialize and register app system
     registry = AppRegistry()

@@ -1020,10 +1020,12 @@ const providers = {
  * @param {string} provider - Provider key (anthropic, google, openai)
  */
 function setProvider(provider) {
-  if (!provider || !providers[provider] || !providerToggle) return;
+  if (!provider || !providers[provider]) return;
   currentProvider = provider;
-  providerToggle.dataset.provider = provider;
-  providerToggle.textContent = providers[provider].label;
+  if (providerToggle) {
+    providerToggle.dataset.provider = provider;
+    providerToggle.textContent = providers[provider].label;
+  }
 }
 
 function initAppBarControls() {
@@ -1031,18 +1033,21 @@ function initAppBarControls() {
   input = document.getElementById('chatMessageInput');
   providerToggle = document.getElementById('chatProviderToggle');
 
-  if (!form || !input || !providerToggle) {
+  if (!form || !input) {
     console.error('Chat controls not found');
     return;
   }
 
-  currentProvider = providerToggle.dataset.provider;
+  // Provider toggle is optional (removed from universal bar)
+  currentProvider = providerToggle ? providerToggle.dataset.provider : 'google';
 
-  providerToggle.addEventListener('click', () => {
-    currentProvider = providers[currentProvider].next;
-    providerToggle.dataset.provider = currentProvider;
-    providerToggle.textContent = providers[currentProvider].label;
-  });
+  if (providerToggle) {
+    providerToggle.addEventListener('click', () => {
+      currentProvider = providers[currentProvider].next;
+      providerToggle.dataset.provider = currentProvider;
+      providerToggle.textContent = providers[currentProvider].label;
+    });
+  }
 
   setupFormHandlers();
   input.focus();
