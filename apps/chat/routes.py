@@ -513,3 +513,83 @@ def retry_chat(chat_id: str) -> Any:
 
     except Exception as e:
         return error_response(str(e), 500)
+
+
+@chat_bp.route("/api/triage", methods=["POST"])
+def triage() -> Any:
+    """Handle a quick triage request synchronously.
+
+    Spawns the triage agent, waits for completion, and returns the text
+    response. No chat record is created — triage responses are ephemeral.
+    """
+    payload = request.get_json(force=True)
+    message = payload.get("message", "").strip()
+    app_name = payload.get("app", "")
+    path = payload.get("path", "")
+    facet = payload.get("facet", "")
+    provider = payload.get("provider")
+
+    if not message:
+        return error_response("message is required", 400)
+    if not provider:
+        return error_response("provider is required", 400)
+
+    api_key_error = _check_provider_api_key(provider)
+    if api_key_error:
+        return error_response(api_key_error, 503)
+
+    # Build prompt with location context prepended
+    context_lines = []
+    if app_name:
+        context_lines.append(f"Current app: {app_name}")
+    if path:
+        context_lines.append(f"Current path: {path}")
+    if facet:
+        context_lines.append(f"Current facet: {facet}")
+
+    if context_lines:
+        full_prompt = "\n".join(context_lines) + "\n\n" + message
+    else:
+        full_prompt = message
+
+    try:
+        from convey.utils import spawn_agent
+
+        config: dict[str, Any] = {}
+        if facet:
+            config["facet"] = facet
+
+        agent_id = spawn_agent(
+            prompt=full_prompt,
+            name="triage",
+            provider=provider,
+            config=config,
+        )
+        if agent_id is None:
+            return error_response("Failed to connect to agent service", 503)
+
+        # Wait synchronously for agent completion
+        from think.cortex_client import read_agent_events, wait_for_agents
+
+        completed, timed_out = wait_for_agents([agent_id], timeout=60)
+
+        if agent_id in timed_out:
+            return error_response("Triage request timed out", 504)
+
+        end_state = completed.get(agent_id)
+        if end_state == "error":
+            return error_response("Triage agent encountered an error", 500)
+
+        # Extract result text from finish event
+        try:
+            events = read_agent_events(agent_id)
+            for event in reversed(events):
+                if event.get("event") == "finish":
+                    return jsonify(response=event.get("result", ""))
+        except FileNotFoundError:
+            pass
+
+        return error_response("No response from triage agent", 500)
+
+    except Exception as e:
+        return error_response(str(e), 500)
