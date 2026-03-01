@@ -48,8 +48,8 @@ def test_get_todos_parses_basic_fields(monkeypatch, journal_root):
         "personal",
         "20240102",
         [
-            {"text": "Merge analytics PR", "time": "10:30"},
-            {"text": "Project sync", "completed": True},  # no time
+            {"text": "Merge analytics PR", "nudge": "20240102T10:30"},
+            {"text": "Project sync", "completed": True},  # no nudge
             {"text": "Write retrospective notes"},
         ],
     )
@@ -60,13 +60,13 @@ def test_get_todos_parses_basic_fields(monkeypatch, journal_root):
 
     first = todos[0]
     assert first["index"] == 1
-    assert first["time"] == "10:30"
+    assert first["nudge"] == "20240102T10:30"
     assert first["completed"] is False
     assert first["text"] == "Merge analytics PR"
 
     second = todos[1]
     assert second["completed"] is True
-    assert second["time"] is None
+    assert second["nudge"] is None
     assert second["text"] == "Project sync"
 
     third = todos[2]
@@ -82,7 +82,7 @@ def test_get_todos_handles_cancelled(monkeypatch, journal_root):
         "20240103",
         [
             {"text": "Optional experiment", "cancelled": True},
-            {"text": "Address bug", "time": "14:45"},
+            {"text": "Address bug", "nudge": "20240103T14:45"},
             {"text": "Draft report", "completed": True},
         ],
     )
@@ -96,7 +96,7 @@ def test_get_todos_handles_cancelled(monkeypatch, journal_root):
     assert cancelled["text"] == "Optional experiment"
 
     second = todos[1]
-    assert second["time"] == "14:45"
+    assert second["nudge"] == "20240103T14:45"
     assert second["index"] == 2
 
     third = todos[2]
@@ -122,47 +122,55 @@ def test_get_todos_ignores_blank_lines(monkeypatch, journal_root):
 def test_todo_item_display_line():
     """Test TodoItem.display_line() formatting."""
     item = TodoItem(
-        index=1, text="Simple task", time=None, completed=False, cancelled=False
+        index=1, text="Simple task", nudge=None, completed=False, cancelled=False
     )
     assert item.display_line() == "[ ] Simple task"
 
     item_done = TodoItem(
-        index=2, text="Done task", time=None, completed=True, cancelled=False
+        index=2, text="Done task", nudge=None, completed=True, cancelled=False
     )
     assert item_done.display_line() == "[x] Done task"
 
     item_cancelled = TodoItem(
-        index=3, text="Cancelled task", time=None, completed=False, cancelled=True
+        index=3, text="Cancelled task", nudge=None, completed=False, cancelled=True
     )
     assert item_cancelled.display_line() == "~~[cancelled] Cancelled task~~"
 
-    item_with_time = TodoItem(
-        index=4, text="Meeting", time="14:30", completed=False, cancelled=False
+    item_with_nudge = TodoItem(
+        index=4,
+        text="Meeting",
+        nudge="20240101T14:30",
+        completed=False,
+        cancelled=False,
     )
-    assert item_with_time.display_line() == "[ ] Meeting (14:30)"
+    assert "[ ] Meeting (" in item_with_nudge.display_line()
 
     item_cancelled_done = TodoItem(
-        index=5, text="Was done", time=None, completed=True, cancelled=True
+        index=5, text="Was done", nudge=None, completed=True, cancelled=True
     )
     assert item_cancelled_done.display_line() == "~~[cancelled] Was done~~"
 
 
 def test_todo_item_to_jsonl():
     """Test TodoItem.to_jsonl() serialization."""
-    item = TodoItem(index=1, text="Task", time=None, completed=False, cancelled=False)
+    item = TodoItem(index=1, text="Task", nudge=None, completed=False, cancelled=False)
     assert item.to_jsonl() == {"text": "Task"}
 
     item_full = TodoItem(
-        index=2, text="Full task", time="10:00", completed=True, cancelled=False
+        index=2,
+        text="Full task",
+        nudge="20240102T10:00",
+        completed=True,
+        cancelled=False,
     )
     assert item_full.to_jsonl() == {
         "text": "Full task",
-        "time": "10:00",
+        "nudge": "20240102T10:00",
         "completed": True,
     }
 
     item_cancelled = TodoItem(
-        index=3, text="Cancelled", time=None, completed=False, cancelled=True
+        index=3, text="Cancelled", nudge=None, completed=False, cancelled=True
     )
     assert item_cancelled.to_jsonl() == {"text": "Cancelled", "cancelled": True}
 
@@ -174,13 +182,93 @@ def test_todo_item_from_jsonl():
     assert item.text == "Simple"
     assert item.completed is False
     assert item.cancelled is False
-    assert item.time is None
+    assert item.nudge is None
 
     item_full = TodoItem.from_jsonl(
-        {"text": "Full", "time": "10:00", "completed": True, "cancelled": False}, 2
+        {
+            "text": "Full",
+            "nudge": "20240102T10:00",
+            "completed": True,
+            "cancelled": False,
+        },
+        2,
     )
-    assert item_full.time == "10:00"
+    assert item_full.nudge == "20240102T10:00"
     assert item_full.completed is True
+
+
+def test_todo_item_from_jsonl_legacy_time_with_day():
+    """Legacy 'time' field should be converted when day context is provided."""
+    item = TodoItem.from_jsonl({"text": "Legacy", "time": "10:00"}, 1, day="20240102")
+    assert item.nudge == "20240102T10:00"
+
+
+class TestParseNudge:
+    """Tests for parse_nudge()."""
+
+    def test_hhmm(self):
+        from apps.todos.todo import parse_nudge
+
+        assert parse_nudge("15:00", "20260301") == "20260301T15:00"
+
+    def test_now(self):
+        from apps.todos.todo import parse_nudge
+
+        result = parse_nudge("now", "20260301")
+        assert result.startswith("20")
+        assert "T" in result
+
+    def test_tomorrow(self):
+        from apps.todos.todo import parse_nudge
+
+        assert parse_nudge("tomorrow 09:00", "20260301") == "20260302T09:00"
+
+    def test_full_datetime(self):
+        from apps.todos.todo import parse_nudge
+
+        assert parse_nudge("20260315T14:30", "20260301") == "20260315T14:30"
+
+    def test_invalid(self):
+        from apps.todos.todo import parse_nudge
+
+        with pytest.raises(ValueError):
+            parse_nudge("garbage", "20260301")
+
+
+class TestFormatNudge:
+    """Tests for format_nudge()."""
+
+    def test_past_minutes(self):
+        from datetime import datetime
+
+        from apps.todos.todo import format_nudge
+
+        now = datetime(2026, 3, 1, 15, 30)
+        assert format_nudge("20260301T15:00", now) == "30m ago"
+
+    def test_past_hours(self):
+        from datetime import datetime
+
+        from apps.todos.todo import format_nudge
+
+        now = datetime(2026, 3, 1, 18, 0)
+        assert format_nudge("20260301T15:00", now) == "3h ago"
+
+    def test_future_today(self):
+        from datetime import datetime
+
+        from apps.todos.todo import format_nudge
+
+        now = datetime(2026, 3, 1, 10, 0)
+        assert format_nudge("20260301T15:00", now) == "nudge 15:00"
+
+    def test_future_tomorrow(self):
+        from datetime import datetime
+
+        from apps.todos.todo import format_nudge
+
+        now = datetime(2026, 3, 1, 10, 0)
+        assert format_nudge("20260302T09:00", now) == "tomorrow 09:00"
 
 
 def test_upcoming_groups_future_days(monkeypatch, journal_root):
@@ -352,16 +440,16 @@ def test_checklist_append_entry(monkeypatch, journal_root):
     checklist = TodoChecklist.load("20240105", "work")
 
     # Test normal entry works
-    item = checklist.append_entry("Test task (10:30)")
+    item = checklist.append_entry("Test task", nudge="20240105T10:30")
     assert len(checklist.items) == 1
     assert item.text == "Test task"
-    assert item.time == "10:30"
+    assert item.nudge == "20240105T10:30"
 
     # Verify file contents
     content = checklist.path.read_text(encoding="utf-8")
     data = json.loads(content.strip())
     assert data["text"] == "Test task"
-    assert data["time"] == "10:30"
+    assert data["nudge"] == "20240105T10:30"
 
 
 def test_checklist_cancel_entry(monkeypatch, journal_root):

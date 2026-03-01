@@ -273,6 +273,20 @@
   color: #6b7280;
 }
 
+.home-todo-nudge {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-todo-item.has-nudge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 /* Event bar chart styles */
 .home-event-list {
   display: flex;
@@ -479,6 +493,37 @@
     return new Date(year, month, day).toLocaleDateString(undefined, { weekday: 'short' });
   }
 
+  function formatHomeNudge(nudge) {
+    // Parse YYYYMMDDTHH:MM
+    const year = parseInt(nudge.slice(0, 4));
+    const month = parseInt(nudge.slice(4, 6)) - 1;
+    const day = parseInt(nudge.slice(6, 8));
+    const hour = parseInt(nudge.slice(9, 11));
+    const minute = parseInt(nudge.slice(12, 14));
+    const nudgeDate = new Date(year, month, day, hour, minute);
+    const now = new Date();
+    const diffMs = now - nudgeDate;
+
+    if (diffMs > 0) {
+      const mins = Math.floor(diffMs / 60000);
+      const hours = Math.floor(diffMs / 3600000);
+      const days = Math.floor(diffMs / 86400000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return `${mins}m ago`;
+      if (hours < 24) return `${hours}h ago`;
+      if (days === 1) return 'yesterday';
+      return `${days}d ago`;
+    } else {
+      const timeStr = nudge.slice(9);
+      const today = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const tomorrow = new Date(now.getTime() + 86400000).toISOString().slice(0, 10).replace(/-/g, '');
+      const nudgeDay = nudge.slice(0, 8);
+      if (nudgeDay === today) return timeStr;
+      if (nudgeDay === tomorrow) return `tomorrow ${timeStr}`;
+      return `${nudgeDate.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} ${timeStr}`;
+    }
+  }
+
   function renderTodos(data, facet) {
     const container = document.getElementById('todos-content');
     let todos = [];
@@ -508,9 +553,10 @@
     container.innerHTML = `
       <ul class="home-todo-list">
         ${todos.map(todo => `
-          <li class="home-todo-item ${todo.completed ? 'completed' : ''}">
+          <li class="home-todo-item ${todo.completed ? 'completed' : ''}${todo.nudge ? ' has-nudge' : ''}">
             <input type="checkbox" class="home-todo-checkbox" ${todo.completed ? 'checked' : ''} disabled>
             <span class="home-todo-text" title="${escapeHtml(todo.text)}">${escapeHtml(todo.text)}</span>
+            ${todo.nudge ? `<span class="home-todo-nudge">${escapeHtml(formatHomeNudge(todo.nudge))}</span>` : ''}
           </li>
         `).join('')}
       </ul>

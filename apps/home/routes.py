@@ -115,6 +115,7 @@ def _get_day_summary(day: str) -> dict[str, Any]:
                     {
                         "text": todo.get("text", ""),
                         "completed": todo.get("completed", False),
+                        "nudge": todo.get("nudge"),
                     }
                 )
                 if todo.get("completed"):

@@ -1,6 +1,9 @@
 AppServices.register('todos', {
+  _nudgeTimers: [],
+
   initialize() {
     this.updateBadge();
+    this.checkNudges();
   },
 
   async updateBadge() {
@@ -17,5 +20,50 @@ AppServices.register('todos', {
     } catch (err) {
       console.error('[Todos] Failed to fetch badge count:', err);
     }
+  },
+
+  async checkNudges() {
+    try {
+      const response = await fetch('/app/todos/api/nudges');
+      if (!response.ok) return;
+      const data = await response.json();
+
+      // Clear existing timers
+      this._nudgeTimers.forEach(t => clearTimeout(t));
+      this._nudgeTimers = [];
+
+      const now = Date.now();
+      for (const nudge of data.nudges) {
+        const nudgeTime = this._parseNudge(nudge.nudge);
+        const delay = nudgeTime - now;
+
+        if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
+          const timer = setTimeout(() => {
+            AppServices.notifications.show({
+              app: 'todos',
+              icon: '✅',
+              title: 'Todo Reminder',
+              message: nudge.text,
+              action: `/app/todos/${nudge.day}`,
+              facet: nudge.facet,
+              autoDismiss: 30000,
+            });
+          }, delay);
+          this._nudgeTimers.push(timer);
+        }
+      }
+    } catch (err) {
+      console.error('[Todos] Failed to check nudges:', err);
+    }
+  },
+
+  _parseNudge(nudgeStr) {
+    // YYYYMMDDTHH:MM -> timestamp
+    const year = parseInt(nudgeStr.slice(0, 4));
+    const month = parseInt(nudgeStr.slice(4, 6)) - 1;
+    const day = parseInt(nudgeStr.slice(6, 8));
+    const hour = parseInt(nudgeStr.slice(9, 11));
+    const minute = parseInt(nudgeStr.slice(12, 14));
+    return new Date(year, month, day, hour, minute).getTime();
   }
 });

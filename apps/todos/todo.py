@@ -16,7 +16,7 @@ import random
 import re
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +28,8 @@ __all__ = [
     "TodoItem",
     "TodoError",
     "TodoEmptyTextError",
+    "parse_nudge",
+    "format_nudge",
     "get_todos",
     "todo_file_path",
     "validate_line_number",
@@ -36,8 +38,108 @@ __all__ = [
     "get_todo_days_in_range",
 ]
 
-# Regex for extracting time annotation from text
-TIME_RE = re.compile(r"\((\d{1,2}:[0-5]\d)\)\s*$")
+
+def parse_nudge(value: str, day: str) -> str:
+    """Parse nudge input and return normalized YYYYMMDDTHH:MM string.
+
+    Args:
+        value: One of: "HH:MM", "now", "tomorrow HH:MM", "YYYYMMDDTHH:MM".
+        day: Current day in YYYYMMDD format, used to resolve relative times.
+
+    Returns:
+        Normalized nudge string in YYYYMMDDTHH:MM format.
+
+    Raises:
+        ValueError: If the input format is not recognized.
+    """
+    value = value.strip()
+
+    # "now" — use current time
+    if value.lower() == "now":
+        now = datetime.now()
+        return now.strftime("%Y%m%dT%H:%M")
+
+    # "YYYYMMDDTHH:MM" — already normalized, validate
+    if len(value) == 14 and value[8] == "T":
+        date_part = value[:8]
+        time_part = value[9:]
+        try:
+            datetime.strptime(f"{date_part} {time_part}", "%Y%m%d %H:%M")
+        except ValueError:
+            raise ValueError(f"invalid nudge datetime: {value}") from None
+        return value
+
+    # "tomorrow HH:MM"
+    if value.lower().startswith("tomorrow"):
+        time_str = value[len("tomorrow") :].strip()
+        try:
+            parsed = datetime.strptime(time_str, "%H:%M")
+        except ValueError:
+            raise ValueError(
+                f"invalid nudge time after 'tomorrow': {time_str}"
+            ) from None
+        day_date = datetime.strptime(day, "%Y%m%d") + timedelta(days=1)
+        return f"{day_date.strftime('%Y%m%d')}T{parsed.strftime('%H:%M')}"
+
+    # "HH:MM" — use the provided day
+    try:
+        parsed = datetime.strptime(value, "%H:%M")
+    except ValueError:
+        raise ValueError(f"unrecognized nudge format: {value}") from None
+    return f"{day}T{parsed.strftime('%H:%M')}"
+
+
+def format_nudge(nudge: str, now: datetime | None = None) -> str:
+    """Format a nudge datetime for display.
+
+    Past nudges show age: "3h ago", "yesterday", "2d ago".
+    Future nudges show scheduled time: "15:00", "tomorrow 09:00".
+
+    Args:
+        nudge: Nudge string in YYYYMMDDTHH:MM format.
+        now: Current datetime (defaults to datetime.now()).
+
+    Returns:
+        Human-readable nudge display string.
+    """
+    if now is None:
+        now = datetime.now()
+
+    try:
+        nudge_dt = datetime.strptime(nudge, "%Y%m%dT%H:%M")
+    except ValueError:
+        return nudge  # fallback: return raw
+
+    delta = now - nudge_dt
+    total_seconds = delta.total_seconds()
+
+    if total_seconds > 0:
+        # Past nudge
+        minutes = int(total_seconds // 60)
+        hours = int(total_seconds // 3600)
+        days = int(total_seconds // 86400)
+        if minutes < 1:
+            return "just now"
+        if minutes < 60:
+            return f"{minutes}m ago"
+        if hours < 24:
+            return f"{hours}h ago"
+        if days == 1:
+            return "yesterday"
+        return f"{days}d ago"
+
+    # Future nudge
+    nudge_day = nudge[:8]
+    now_day = now.strftime("%Y%m%d")
+    time_str = nudge[9:]
+    if nudge_day == now_day:
+        return f"nudge {time_str}"
+    # Check if tomorrow
+    tomorrow = now + timedelta(days=1)
+    if nudge_day == tomorrow.strftime("%Y%m%d"):
+        return f"tomorrow {time_str}"
+    # Further out — show date
+    return f"{nudge_dt.strftime('%b %-d')} {time_str}"
 
 
 class TodoError(Exception):
@@ -57,33 +159,37 @@ class TodoItem:
 
     index: int
     text: str
-    time: str | None
+    nudge: str | None
     completed: bool
     cancelled: bool
     created_at: int | None = None
     updated_at: int | None = None
+    notified: bool = False
 
     def as_dict(self) -> dict[str, object]:
         """Return the item as a JSON-serializable dictionary."""
         return {
             "index": self.index,
             "text": self.text,
-            "time": self.time,
+            "nudge": self.nudge,
             "completed": self.completed,
             "cancelled": self.cancelled,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "notified": self.notified,
         }
 
     def to_jsonl(self) -> dict[str, Any]:
         """Return the item as a JSONL-compatible dictionary for storage."""
         data: dict[str, Any] = {"text": self.text}
-        if self.time:
-            data["time"] = self.time
+        if self.nudge:
+            data["nudge"] = self.nudge
         if self.completed:
             data["completed"] = True
         if self.cancelled:
             data["cancelled"] = True
+        if self.notified:
+            data["notified"] = True
         if self.created_at is not None:
             data["created_at"] = self.created_at
         if self.updated_at is not None:
@@ -91,16 +197,22 @@ class TodoItem:
         return data
 
     @classmethod
-    def from_jsonl(cls, data: dict[str, Any], index: int) -> "TodoItem":
+    def from_jsonl(
+        cls, data: dict[str, Any], index: int, day: str | None = None
+    ) -> "TodoItem":
         """Create a TodoItem from a JSONL dictionary."""
+        nudge = data.get("nudge")
+        if nudge is None and data.get("time") and day:
+            nudge = f"{day}T{data['time']}"
         return cls(
             index=index,
             text=data.get("text", ""),
-            time=data.get("time"),
+            nudge=nudge,
             completed=data.get("completed", False),
             cancelled=data.get("cancelled", False),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
+            notified=data.get("notified", False),
         )
 
     def display_line(self) -> str:
@@ -113,8 +225,8 @@ class TodoItem:
             checkbox = "[ ]"
 
         text = self.text
-        if self.time:
-            text = f"{text} ({self.time})"
+        if self.nudge:
+            text = f"{text} ({format_nudge(self.nudge)})"
 
         if self.cancelled:
             return f"~~{checkbox} {text}~~"
@@ -171,7 +283,7 @@ class TodoChecklist:
                     item_index += 1
                     try:
                         data = json.loads(line)
-                        items.append(TodoItem.from_jsonl(data, item_index))
+                        items.append(TodoItem.from_jsonl(data, item_index, day=day))
                     except json.JSONDecodeError:
                         logging.debug(
                             "Skipping malformed JSONL line %d in %s", item_index, path
@@ -262,39 +374,25 @@ class TodoChecklist:
         return "\n".join(lines)
 
     def append_entry(
-        self, text: str, time: str | None = None, *, created_at: int | None = None
+        self, text: str, nudge: str | None = None, *, created_at: int | None = None
     ) -> TodoItem:
         """Append a new unchecked todo entry.
 
         Args:
             text: Body of the todo item.
-            time: Optional scheduled time in "HH:MM" format. If not provided,
-                  will be extracted from text if present as (HH:MM) suffix.
+            nudge: Optional nudge datetime in YYYYMMDDTHH:MM format.
             created_at: Optional creation timestamp to preserve (e.g., when moving todos).
-                        If not provided, uses current time.
 
         Returns:
             The newly created TodoItem.
         """
         body = self._validated_text(text)
 
-        # Extract time from text if not explicitly provided
-        if time is None:
-            time_match = TIME_RE.search(body)
-            if time_match:
-                hour_str = time_match.group(1).split(":", 1)[0]
-                try:
-                    if 0 <= int(hour_str) <= 23:
-                        time = time_match.group(1)
-                        body = body[: time_match.start()].rstrip()
-                except ValueError:
-                    pass
-
         now = now_ms()
         item = TodoItem(
             index=len(self.items) + 1,
             text=body,
-            time=time,
+            nudge=nudge,
             completed=False,
             cancelled=False,
             created_at=created_at if created_at is not None else now,
@@ -366,20 +464,7 @@ class TodoChecklist:
         _, item = self._get_item(line_number)
         body = self._validated_text(text)
 
-        # Extract time from new text
-        time: str | None = None
-        time_match = TIME_RE.search(body)
-        if time_match:
-            hour_str = time_match.group(1).split(":", 1)[0]
-            try:
-                if 0 <= int(hour_str) <= 23:
-                    time = time_match.group(1)
-                    body = body[: time_match.start()].rstrip()
-            except ValueError:
-                pass
-
         item.text = body
-        item.time = time
         item.updated_at = now_ms()
         self.save()
         return item
@@ -683,7 +768,7 @@ def format_todos(
             continue
 
         # Create TodoItem using existing from_jsonl
-        item = TodoItem.from_jsonl(entry, i + 1)
+        item = TodoItem.from_jsonl(entry, i + 1, day=day_str)
 
         # Determine timestamp: updated_at -> created_at -> file mtime
         ts = item.updated_at or item.created_at or file_mtime_ms

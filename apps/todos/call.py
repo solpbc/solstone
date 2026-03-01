@@ -95,6 +95,12 @@ def add_todo(
     facet: str | None = typer.Option(
         None, "--facet", "-f", help="Facet name (or set SOL_FACET)."
     ),
+    nudge: str | None = typer.Option(
+        None,
+        "--nudge",
+        "-n",
+        help="Nudge time: HH:MM, now, tomorrow HH:MM, or YYYYMMDDTHH:MM.",
+    ),
 ) -> None:
     """Add a new todo item."""
     from datetime import datetime
@@ -111,10 +117,19 @@ def add_todo(
         typer.echo(f"Error: invalid day format '{day}'", err=True)
         raise typer.Exit(1)
 
+    # Parse nudge if provided
+    parsed_nudge: str | None = None
+    if nudge is not None:
+        try:
+            parsed_nudge = todo.parse_nudge(nudge, day)
+        except ValueError as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(1) from None
+
     try:
 
         def _add(checklist: todo.TodoChecklist) -> todo.TodoChecklist:
-            checklist.append_entry(text)
+            checklist.append_entry(text, nudge=parsed_nudge)
             return checklist
 
         checklist = todo.TodoChecklist.locked_modify(day, facet, _add)
@@ -225,3 +240,78 @@ def upcoming_todos(
 
     result = todo.upcoming(limit=limit, facet=facet)
     typer.echo(result)
+
+
+@app.command("check-nudges")
+def check_nudges(
+    facet: str | None = typer.Option(
+        None,
+        "--facet",
+        "-f",
+        help="Facet name (or set SOL_FACET). Omit to check all facets.",
+    ),
+) -> None:
+    """Check for un-notified past nudges and send notifications."""
+    import subprocess
+    from datetime import datetime
+    from pathlib import Path
+
+    from think.utils import get_journal, resolve_sol_facet
+
+    journal = get_journal()
+    today = datetime.now().strftime("%Y%m%d")
+    now_str = datetime.now().strftime("%Y%m%dT%H:%M")
+
+    facets_dir = Path(journal) / "facets"
+    if not facets_dir.is_dir():
+        return
+
+    if facet is not None:
+        facet = resolve_sol_facet(facet)
+        facet_names = [facet]
+    else:
+        facet_names = [d.name for d in facets_dir.iterdir() if d.is_dir()]
+
+    for facet_name in facet_names:
+        checklist = todo.TodoChecklist.load(today, facet_name)
+        if not checklist.exists:
+            continue
+
+        modified = False
+        for item in checklist.items:
+            if (
+                item.nudge
+                and item.nudge <= now_str
+                and not item.notified
+                and not item.completed
+                and not item.cancelled
+            ):
+                # Send notification via sol notify
+                try:
+                    subprocess.run(
+                        [
+                            "sol",
+                            "notify",
+                            item.text,
+                            "--title",
+                            "Todo Reminder",
+                            "--icon",
+                            "✅",
+                            "--app",
+                            "todos",
+                            "--facet",
+                            facet_name,
+                            "--action",
+                            f"/app/todos/{today}",
+                        ],
+                        check=False,
+                        capture_output=True,
+                    )
+                except FileNotFoundError:
+                    pass  # sol not available
+                item.notified = True
+                modified = True
+                typer.echo(f"Notified: [{facet_name}] {item.text}")
+
+        if modified:
+            checklist.save()

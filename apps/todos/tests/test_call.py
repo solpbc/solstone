@@ -107,6 +107,26 @@ class TestTodosAdd:
         )
         assert result.exit_code == 1
 
+    def test_add_with_nudge(self, todo_env):
+        """Add a todo with --nudge flag."""
+        todo_env(day="20260301", facet="personal")
+        result = runner.invoke(
+            call_app,
+            [
+                "todos",
+                "add",
+                "Test nudge",
+                "--nudge",
+                "15:00",
+                "-f",
+                "personal",
+                "-d",
+                "20260301",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Test nudge" in result.output
+
 
 class TestTodosDone:
     """Tests for 'sol call todos done' command."""

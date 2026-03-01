@@ -20,6 +20,7 @@ from flask import (
 from apps.todos.todo import (
     TodoChecklist,
     TodoEmptyTextError,
+    format_nudge,
     get_todos,
 )
 from apps.utils import log_app_action
@@ -88,6 +89,48 @@ def badge_count():
             )
 
     return jsonify({"count": total})
+
+
+@todos_bp.route("/api/nudges")
+def nudges_api():
+    """Return todos with future nudges for today and tomorrow."""
+    now = datetime.now()
+    today = now.strftime("%Y%m%d")
+    tomorrow = (now + timedelta(days=1)).strftime("%Y%m%d")
+    now_str = now.strftime("%Y%m%dT%H:%M")
+
+    nudges = []
+    facets_dir = Path(state.journal_root) / "facets"
+    if not facets_dir.is_dir():
+        return jsonify({"nudges": []})
+
+    for facet_dir in facets_dir.iterdir():
+        if not facet_dir.is_dir():
+            continue
+        facet_name = facet_dir.name
+        for day in [today, tomorrow]:
+            checklist = TodoChecklist.load(day, facet_name)
+            if not checklist.exists:
+                continue
+            for item in checklist.items:
+                if (
+                    item.nudge
+                    and item.nudge > now_str
+                    and not item.completed
+                    and not item.cancelled
+                    and not item.notified
+                ):
+                    nudges.append(
+                        {
+                            "facet": facet_name,
+                            "day": day,
+                            "index": item.index,
+                            "text": item.text,
+                            "nudge": item.nudge,
+                        }
+                    )
+
+    return jsonify({"nudges": nudges})
 
 
 @todos_bp.route("/api/stats/<month>")
@@ -216,7 +259,10 @@ def todos_day(day: str):  # type: ignore[override]
                                         "facet": facet,
                                         "index": item.index,
                                         "text": item.text,
-                                        "time": item.time,
+                                        "nudge": item.nudge,
+                                        "nudge_display": format_nudge(item.nudge)
+                                        if item.nudge
+                                        else None,
                                         "completed": False,
                                     },
                                     **counts,
@@ -325,7 +371,9 @@ def todos_day(day: str):  # type: ignore[override]
                         # Add to new facet, preserving original created_at
                         new_checklist = TodoChecklist.load(day, new_facet)
                         new_item = new_checklist.append_entry(
-                            text, created_at=source_item.created_at
+                            text,
+                            nudge=source_item.nudge,
+                            created_at=source_item.created_at,
                         )
 
                         # Preserve completed status
@@ -437,6 +485,7 @@ def todos_day(day: str):  # type: ignore[override]
         todos_by_facet=sorted_todos_by_facet,
         facet_map=facet_map,
         facet_counts=facet_counts,
+        format_nudge=format_nudge,
     )
 
 
@@ -501,13 +550,8 @@ def move_todo(day: str):  # type: ignore[override]
 
     # Add to target day
     try:
-        # Reconstruct text with time if present
-        text = source_item.text
-        if source_item.time:
-            text = f"{text} ({source_item.time})"
-        # Preserve original created_at timestamp when moving
         new_item = target_checklist.append_entry(
-            text, created_at=source_item.created_at
+            source_item.text, nudge=source_item.nudge, created_at=source_item.created_at
         )
     except TodoEmptyTextError as exc:
         current_app.logger.debug("Failed to append todo to %s: %s", target_day, exc)

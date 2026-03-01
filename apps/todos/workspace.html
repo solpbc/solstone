@@ -106,7 +106,7 @@
   color: #6b7280;
 }
 
-.todo-time {
+.todo-nudge {
   flex-shrink: 0;
   font-size: 0.8rem;
   color: #6b7280;
@@ -278,8 +278,8 @@
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
                 >{{ item.text }}</span>
-                {% if item.time %}
-                  <span class="todo-time">{{ item.time }}</span>
+                {% if item.nudge %}
+                  <span class="todo-nudge">{{ format_nudge(item.nudge) }}</span>
                 {% endif %}
               </div>
 
@@ -1230,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', function() {
           data-index="${todo.index}"
           data-facet="${facetName}"
         >${todo.text}</span>
-        ${todo.time ? `<span class="todo-time">${todo.time}</span>` : ''}
+        ${todo.nudge_display ? `<span class="todo-nudge">${todo.nudge_display}</span>` : ''}
       </div>
 
       <div class="todo-actions">

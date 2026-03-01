@@ -759,15 +759,16 @@ class TestFormatTodos:
         assert "~~[cancelled] Cancelled~~" in chunks[2]["markdown"]
 
     def test_format_todos_with_time(self):
-        """Test formatting with time annotation."""
+        """Test formatting with legacy time annotation input."""
         from apps.todos.todo import format_todos
 
         entries = [{"text": "Meeting", "time": "14:00", "completed": False}]
+        context = {"file_path": "/journal/facets/work/todos/20251215.jsonl"}
 
-        chunks, meta = format_todos(entries)
+        chunks, meta = format_todos(entries, context)
 
         assert len(chunks) == 1
-        assert "Meeting (14:00)" in chunks[0]["markdown"]
+        assert "Meeting (" in chunks[0]["markdown"]
 
     def test_format_todos_header_facet_from_path(self):
         """Test that facet name and day are extracted from file path."""
