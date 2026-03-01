@@ -4,7 +4,7 @@
 import asyncio
 import functools
 import importlib
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from think.models import GPT_5
 from think.providers.cli import ThinkingAggregator
@@ -454,3 +454,308 @@ class TestRunCogitate:
         assert getattr(exc, "_evented", False) is True
         assert events[-1]["event"] == "error"
         assert events[-1]["error"] == "boom"
+
+
+class TestBuildInput:
+    def test_string_input(self):
+        provider = _openai_provider()
+        assert provider._build_input("hello") == ("hello", None)
+
+    def test_string_with_system(self):
+        provider = _openai_provider()
+        assert provider._build_input("hello", "sys") == ("hello", "sys")
+
+    def test_list_of_parts(self):
+        provider = _openai_provider()
+        assert provider._build_input(["part1", "part2"]) == ("part1\npart2", None)
+
+    def test_message_list(self):
+        provider = _openai_provider()
+        message = [{"role": "user", "content": "hi"}]
+        assert provider._build_input(message) == (message, None)
+
+    def test_non_string(self):
+        provider = _openai_provider()
+        assert provider._build_input(42) == ("42", None)
+
+
+class TestExtractUsage:
+    def test_extract_usage_with_details(self):
+        provider = _openai_provider()
+        mock_response = MagicMock()
+        mock_response.usage.input_tokens = 100
+        mock_response.usage.output_tokens = 50
+        mock_response.usage.total_tokens = 150
+        mock_response.usage.input_tokens_details.cached_tokens = 20
+        mock_response.usage.output_tokens_details.reasoning_tokens = 10
+
+        assert provider._extract_usage(mock_response) == {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+            "cached_tokens": 20,
+            "reasoning_tokens": 10,
+        }
+
+    def test_extract_usage_missing(self):
+        provider = _openai_provider()
+        mock_response = MagicMock()
+        mock_response.usage = None
+        assert provider._extract_usage(mock_response) is None
+
+    def test_extract_usage_without_details(self):
+        provider = _openai_provider()
+        mock_response = MagicMock()
+        mock_response.usage.input_tokens = 100
+        mock_response.usage.output_tokens = 50
+        mock_response.usage.total_tokens = 150
+        mock_response.usage.input_tokens_details = None
+        mock_response.usage.output_tokens_details = None
+
+        assert provider._extract_usage(mock_response) == {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }
+
+
+class TestNormalizeFinishReason:
+    def test_completed(self):
+        provider = _openai_provider()
+        mock_response = MagicMock()
+        mock_response.status = "completed"
+        assert provider._normalize_finish_reason(mock_response) == "stop"
+
+    def test_incomplete_max_tokens(self):
+        provider = _openai_provider()
+        incomplete_details = MagicMock()
+        incomplete_details.reason = "max_output_tokens"
+        mock_response = MagicMock()
+        mock_response.status = "incomplete"
+        mock_response.incomplete_details = incomplete_details
+        assert provider._normalize_finish_reason(mock_response) == "max_tokens"
+
+    def test_incomplete_content_filter(self):
+        provider = _openai_provider()
+        incomplete_details = MagicMock()
+        incomplete_details.reason = "content_filter"
+        mock_response = MagicMock()
+        mock_response.status = "incomplete"
+        mock_response.incomplete_details = incomplete_details
+        assert provider._normalize_finish_reason(mock_response) == "content_filter"
+
+    def test_incomplete_without_details(self):
+        provider = _openai_provider()
+        mock_response = MagicMock()
+        mock_response.status = "incomplete"
+        mock_response.incomplete_details = None
+        assert provider._normalize_finish_reason(mock_response) == "max_tokens"
+
+    def test_failed(self):
+        provider = _openai_provider()
+        mock_response = MagicMock()
+        mock_response.status = "failed"
+        assert provider._normalize_finish_reason(mock_response) == "error"
+
+
+class TestExtractThinking:
+    def test_reasoning_summary_extracted(self):
+        provider = _openai_provider()
+        mock_response = MagicMock()
+        reasoning_item = MagicMock()
+        reasoning_item.type = "reasoning"
+        summary = MagicMock()
+        summary.text = "Let me think..."
+        reasoning_item.summary = [summary]
+        mock_response.output = [reasoning_item]
+
+        assert provider._extract_thinking(mock_response) == [
+            {"summary": "Let me think..."},
+        ]
+
+    def test_no_reasoning_items(self):
+        provider = _openai_provider()
+        mock_response = MagicMock()
+        mock_response.output = [MagicMock(type="message")]
+        assert provider._extract_thinking(mock_response) is None
+
+    def test_empty_output(self):
+        provider = _openai_provider()
+        mock_response = MagicMock()
+        mock_response.output = []
+        assert provider._extract_thinking(mock_response) is None
+
+
+class TestRunGenerate:
+    def test_basic_generate(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = MagicMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "Hello world"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = MagicMock()
+        mock_response.usage.input_tokens = 10
+        mock_response.usage.output_tokens = 5
+        mock_response.usage.total_tokens = 15
+        mock_response.usage.input_tokens_details = None
+        mock_response.usage.output_tokens_details = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_openai_client", return_value=mock_client
+        ):
+            result = provider.run_generate("hello", model="gpt-5.2")
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["model"] == "gpt-5.2"
+        assert called_kwargs["input"] == "hello"
+        assert called_kwargs["max_output_tokens"] == 16384
+        assert "instructions" not in called_kwargs
+        assert result["text"] == "Hello world"
+        assert result["finish_reason"] == "stop"
+        assert result["thinking"] is None
+        assert result["usage"] == {
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "total_tokens": 15,
+        }
+
+    def test_with_effort_suffix(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = MagicMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "Hello"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_openai_client", return_value=mock_client
+        ):
+            provider.run_generate("hello", model="gpt-5.2-high")
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["model"] == "gpt-5.2"
+        assert called_kwargs["reasoning"] == {"effort": "high"}
+
+    def test_with_json_output(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = MagicMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "Hello"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_openai_client", return_value=mock_client
+        ):
+            provider.run_generate("hello", model="gpt-5.2", json_output=True)
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["text"] == {"format": {"type": "json_object"}}
+
+    def test_with_system_instruction(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = MagicMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "Hello"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_openai_client", return_value=mock_client
+        ):
+            provider.run_generate("hello", system_instruction="Be helpful")
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["instructions"] == "Be helpful"
+
+    def test_with_timeout(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = MagicMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "Hello"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_openai_client", return_value=mock_client
+        ):
+            provider.run_generate("hello", timeout_s=30.0)
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["timeout"] == 30.0
+
+
+class TestRunAgenerate:
+    def test_basic_agenerate(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.output_text = "Hello world"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = MagicMock()
+        mock_response.usage.input_tokens = 10
+        mock_response.usage.output_tokens = 5
+        mock_response.usage.total_tokens = 15
+        mock_response.usage.input_tokens_details = None
+        mock_response.usage.output_tokens_details = None
+        mock_response.output = []
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_async_openai_client", return_value=mock_client
+        ):
+            result = asyncio.run(provider.run_agenerate("hello", model="gpt-5.2"))
+
+        called_kwargs = mock_client.responses.create.call_args.kwargs
+        assert called_kwargs["model"] == "gpt-5.2"
+        assert called_kwargs["input"] == "hello"
+        assert called_kwargs["max_output_tokens"] == 16384
+        assert result["text"] == "Hello world"
+        assert result["finish_reason"] == "stop"
+        assert result["thinking"] is None
+
+    def test_with_thinking(self):
+        provider = _openai_provider()
+        mock_client = MagicMock()
+        mock_client.responses.create = AsyncMock()
+        reasoning_item = MagicMock()
+        reasoning_item.type = "reasoning"
+        summary = MagicMock()
+        summary.text = "Let me think..."
+        reasoning_item.summary = [summary]
+        mock_response = MagicMock()
+        mock_response.output_text = "Hello"
+        mock_response.status = "completed"
+        mock_response.incomplete_details = None
+        mock_response.usage = None
+        mock_response.output = [reasoning_item]
+        mock_client.responses.create.return_value = mock_response
+
+        with patch(
+            "think.providers.openai._get_async_openai_client", return_value=mock_client
+        ):
+            result = asyncio.run(provider.run_agenerate("hello", model="gpt-5.2"))
+
+        assert result["thinking"] == [{"summary": "Let me think..."}]
