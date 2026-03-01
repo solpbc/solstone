@@ -272,9 +272,18 @@ class TestRunCogitate:
             "read-only",
             "-m",
         ]
-        assert MockCLIRunner.last_instance.cmd[-1] == "-"
         # Model should have effort suffix stripped for codex CLI
-        assert MockCLIRunner.last_instance.cmd[6] == "gpt-5.2"
+        expected_model, expected_effort = provider._parse_model_effort(GPT_5)
+        assert MockCLIRunner.last_instance.cmd[6] == expected_model
+        # Effort should be forwarded via -c flag
+        if expected_effort:
+            assert "-c" in MockCLIRunner.last_instance.cmd
+            c_idx = MockCLIRunner.last_instance.cmd.index("-c")
+            assert (
+                MockCLIRunner.last_instance.cmd[c_idx + 1]
+                == f'model_reasoning_effort="{expected_effort}"'
+            )
+        assert MockCLIRunner.last_instance.cmd[-1] == "-"
 
     def test_resume_command(self):
         provider = _openai_provider()
