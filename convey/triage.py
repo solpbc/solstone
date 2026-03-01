@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from flask import Blueprint, request
+from flask import Blueprint, jsonify, request
 
 from convey.utils import error_response
 
@@ -32,27 +32,59 @@ def triage() -> Any:
 
     app_name = payload.get("app", "")
     path = payload.get("path", "")
-    facet = payload.get("facet")
+    facet = payload.get("facet", "")
+
+    # Build prompt with location context
+    context_lines = []
+    if app_name:
+        context_lines.append(f"Current app: {app_name}")
+    if path:
+        context_lines.append(f"Current path: {path}")
+    if facet:
+        context_lines.append(f"Current facet: {facet}")
+
+    if context_lines:
+        full_prompt = "\n".join(context_lines) + "\n\n" + message
+    else:
+        full_prompt = message
 
     try:
-        from think.models import generate
+        from convey.utils import spawn_agent
+        from think.cortex_client import read_agent_events, wait_for_agents
 
-        system_prompt = (
-            "You are a helpful assistant in solstone, a journaling toolkit. "
-            "The user is asking from the app bar. "
-            "Give a brief, one-sentence answer."
-        )
-
-        ctx = f"App: {app_name}, Path: {path}"
+        config: dict[str, Any] = {}
         if facet:
-            ctx += f", Facet: {facet}"
+            config["facet"] = facet
 
-        full_prompt = f"[Context: {ctx}]\n\n{message}"
-
-        response_text = generate(
-            full_prompt, context="convey.triage", system_instruction=system_prompt
+        agent_id = spawn_agent(
+            prompt=full_prompt,
+            name="triage",
+            provider=None,
+            config=config,
         )
-        return {"response": response_text}
+        if agent_id is None:
+            return error_response("Failed to connect to agent service", 503)
+
+        completed, timed_out = wait_for_agents([agent_id], timeout=60)
+
+        if agent_id in timed_out:
+            return error_response("Triage request timed out", 504)
+
+        end_state = completed.get(agent_id)
+        if end_state == "error":
+            return error_response("Triage agent encountered an error", 500)
+
+        # Extract result text from finish event
+        try:
+            events = read_agent_events(agent_id)
+            for event in reversed(events):
+                if event.get("event") == "finish":
+                    return jsonify(response=event.get("result", ""))
+        except FileNotFoundError:
+            pass
+
+        return error_response("No response from triage agent", 500)
+
     except Exception:
-        logger.exception("Triage generation failed")
-        return error_response("Failed to generate response", 500)
+        logger.exception("Triage request failed")
+        return error_response("Failed to process triage request", 500)
