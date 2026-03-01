@@ -40,6 +40,11 @@ TIER_LITE = 3
 # E.g., "gpt-5.2-high" → reasoning_effort="high", "gpt-5.2" → omitted.
 OPENAI_EFFORT_SUFFIXES = ("-none", "-low", "-medium", "-high", "-xhigh")
 
+# Map model names that genai-prices doesn't recognize yet to a known equivalent.
+MODEL_PRICE_ALIASES: Dict[str, str] = {
+    "gpt-5.3-codex-spark": "codex-mini",
+}
+
 GEMINI_PRO = "gemini-3.1-pro-preview"
 GEMINI_FLASH = "gemini-3-flash-preview"
 GEMINI_LITE = "gemini-2.5-flash-lite"
@@ -689,10 +694,13 @@ def calc_token_cost(token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 model = model[: -len(suffix)]
                 break
 
-        # Get provider ID
+        # Get provider ID before aliasing (alias may change the model family)
         provider_id = get_model_provider(model)
         if provider_id == "unknown":
             return None
+
+        # Apply price aliases for models genai-prices doesn't recognize yet
+        model = MODEL_PRICE_ALIASES.get(model, model)
 
         # Map our token fields to genai_prices Usage format
         # Note: Gemini reports reasoning_tokens separately, but they're billed at
