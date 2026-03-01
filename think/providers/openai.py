@@ -14,8 +14,8 @@ contents : str or list
 model : str
     Model name, optionally with a reasoning effort suffix.
     Supported suffixes: ``-none``, ``-low``, ``-medium``, ``-high``, ``-xhigh``.
-    Example: ``"gpt-5.2-high"`` sends ``reasoning_effort="high"`` to the API.
-    Without a suffix, ``reasoning_effort`` is omitted (OpenAI model default).
+    Example: ``"gpt-5.2-high"`` sends ``reasoning={"effort": "high"}`` to the API.
+    Without a suffix, ``reasoning`` is omitted (OpenAI model default).
 max_output_tokens : int
     Maximum tokens for the model's response output.
 system_instruction : str, optional
@@ -62,7 +62,7 @@ def _parse_model_effort(model: str) -> tuple[str, str | None]:
     """Extract reasoning effort suffix from a model name.
 
     Returns (api_model, effort) where api_model has the suffix stripped
-    and effort is the reasoning_effort value (or None if no suffix).
+    and effort is the reasoning effort value (or None if no suffix).
     """
     for suffix in OPENAI_EFFORT_SUFFIXES:
         if model.endswith(suffix):
@@ -275,52 +275,62 @@ def _get_async_openai_client():
     return _async_openai_client
 
 
-def _convert_contents_to_messages(
+def _build_input(
     contents: Any,
     system_instruction: str | None = None,
-) -> list[dict]:
-    """Convert contents to OpenAI messages format."""
-    messages = []
-
-    # Add system message if provided
-    if system_instruction:
-        messages.append({"role": "system", "content": system_instruction})
-
-    # Handle different content formats
+) -> tuple[Any, str | None]:
+    """Build OpenAI Responses input and system instructions."""
     if isinstance(contents, str):
-        messages.append({"role": "user", "content": contents})
-    elif isinstance(contents, list):
-        # Check if it's a list of messages or a list of content parts
+        return contents, system_instruction
+    if isinstance(contents, list):
         if contents and isinstance(contents[0], dict) and "role" in contents[0]:
-            # Already in messages format
-            messages.extend(contents)
-        else:
-            # List of content parts - combine into single user message
-            combined = "\n".join(str(c) for c in contents)
-            messages.append({"role": "user", "content": combined})
-    else:
-        messages.append({"role": "user", "content": str(contents)})
-
-    return messages
+            return contents, system_instruction
+        return "\n".join(str(c) for c in contents), system_instruction
+    return str(contents), system_instruction
 
 
-def _normalize_finish_reason(finish_reason: str | None) -> str | None:
+def _normalize_finish_reason(response: Any) -> str | None:
     """Normalize OpenAI finish_reason to standard values.
 
     Returns normalized string: "stop", "max_tokens", "content_filter", or None.
     """
-    if not finish_reason:
+    if not response or not getattr(response, "status", None):
         return None
 
-    reason = finish_reason.lower()
-    if reason == "stop":
+    status = response.status
+    if status == "completed":
         return "stop"
-    elif reason == "length":
+    if status == "incomplete":
+        incomplete_details = getattr(response, "incomplete_details", None)
+        if (
+            incomplete_details is not None
+            and getattr(incomplete_details, "reason", None) == "content_filter"
+        ):
+            return "content_filter"
         return "max_tokens"
-    elif reason == "content_filter":
-        return "content_filter"
-    else:
-        return reason
+    if status == "failed":
+        return "error"
+    return status
+
+
+def _extract_thinking(response: Any) -> list | None:
+    """Extract reasoning summaries from Responses API output.
+
+    Returns list of thinking block dicts or None if no reasoning.
+    """
+    if not hasattr(response, "output") or not response.output:
+        return None
+
+    thinking_blocks = []
+    for item in response.output:
+        if getattr(item, "type", None) != "reasoning":
+            continue
+        for summary in getattr(item, "summary", None) or []:
+            text = getattr(summary, "text", None)
+            if text:
+                thinking_blocks.append({"summary": text})
+
+    return thinking_blocks if thinking_blocks else None
 
 
 def _extract_usage(response: Any) -> dict | None:
@@ -329,19 +339,19 @@ def _extract_usage(response: Any) -> dict | None:
         return None
 
     usage: dict[str, int] = {
-        "input_tokens": response.usage.prompt_tokens,
-        "output_tokens": response.usage.completion_tokens,
+        "input_tokens": response.usage.input_tokens,
+        "output_tokens": response.usage.output_tokens,
         "total_tokens": response.usage.total_tokens,
     }
     # Extract optional detail fields
-    prompt_details = getattr(response.usage, "prompt_tokens_details", None)
-    if prompt_details:
-        cached = getattr(prompt_details, "cached_tokens", 0)
+    input_details = getattr(response.usage, "input_tokens_details", None)
+    if input_details:
+        cached = getattr(input_details, "cached_tokens", 0)
         if cached:
             usage["cached_tokens"] = cached
-    completion_details = getattr(response.usage, "completion_tokens_details", None)
-    if completion_details:
-        reasoning = getattr(completion_details, "reasoning_tokens", 0)
+    output_details = getattr(response.usage, "output_tokens_details", None)
+    if output_details:
+        reasoning = getattr(output_details, "reasoning_tokens", 0)
         if reasoning:
             usage["reasoning_tokens"] = reasoning
     return usage
@@ -362,36 +372,34 @@ def run_generate(
     See module docstring for parameter details.
     """
     client = _get_openai_client()
-    messages = _convert_contents_to_messages(contents, system_instruction)
+    input_content, instructions = _build_input(contents, system_instruction)
 
     # Parse effort suffix from model name (e.g., "gpt-5.2-high" → "gpt-5.2", "high")
     api_model, effort = _parse_model_effort(model)
 
     # Build request kwargs
-    # Note: GPT-5+ models require max_completion_tokens instead of max_tokens
-    # Note: Reasoning models don't support custom temperature (only 1.0)
     request_kwargs: dict[str, Any] = {
         "model": api_model,
-        "messages": messages,
-        "max_completion_tokens": max_output_tokens,
+        "input": input_content,
+        "max_output_tokens": max_output_tokens,
     }
+    if instructions is not None:
+        request_kwargs["instructions"] = instructions
     if effort is not None:
-        request_kwargs["reasoning_effort"] = effort
+        request_kwargs["reasoning"] = {"effort": effort}
 
     if json_output:
-        request_kwargs["response_format"] = {"type": "json_object"}
+        request_kwargs["text"] = {"format": {"type": "json_object"}}
 
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    response = client.chat.completions.create(**request_kwargs)
-
-    choice = response.choices[0]
+    response = client.responses.create(**request_kwargs)
     return GenerateResult(
-        text=choice.message.content or "",
+        text=response.output_text or "",
         usage=_extract_usage(response),
-        finish_reason=_normalize_finish_reason(choice.finish_reason),
-        thinking=None,  # OpenAI reasoning not exposed in generate response
+        finish_reason=_normalize_finish_reason(response),
+        thinking=_extract_thinking(response),
     )
 
 
@@ -410,36 +418,34 @@ async def run_agenerate(
     See module docstring for parameter details.
     """
     client = _get_async_openai_client()
-    messages = _convert_contents_to_messages(contents, system_instruction)
+    input_content, instructions = _build_input(contents, system_instruction)
 
     # Parse effort suffix from model name (e.g., "gpt-5.2-high" → "gpt-5.2", "high")
     api_model, effort = _parse_model_effort(model)
 
     # Build request kwargs
-    # Note: GPT-5+ models require max_completion_tokens instead of max_tokens
-    # Note: Reasoning models don't support custom temperature (only 1.0)
     request_kwargs: dict[str, Any] = {
         "model": api_model,
-        "messages": messages,
-        "max_completion_tokens": max_output_tokens,
+        "input": input_content,
+        "max_output_tokens": max_output_tokens,
     }
+    if instructions is not None:
+        request_kwargs["instructions"] = instructions
     if effort is not None:
-        request_kwargs["reasoning_effort"] = effort
+        request_kwargs["reasoning"] = {"effort": effort}
 
     if json_output:
-        request_kwargs["response_format"] = {"type": "json_object"}
+        request_kwargs["text"] = {"format": {"type": "json_object"}}
 
     if timeout_s:
         request_kwargs["timeout"] = timeout_s
 
-    response = await client.chat.completions.create(**request_kwargs)
-
-    choice = response.choices[0]
+    response = await client.responses.create(**request_kwargs)
     return GenerateResult(
-        text=choice.message.content or "",
+        text=response.output_text or "",
         usage=_extract_usage(response),
-        finish_reason=_normalize_finish_reason(choice.finish_reason),
-        thinking=None,  # OpenAI reasoning not exposed in generate response
+        finish_reason=_normalize_finish_reason(response),
+        thinking=_extract_thinking(response),
     )
 
 
