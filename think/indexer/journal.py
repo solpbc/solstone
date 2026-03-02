@@ -82,6 +82,23 @@ SCHEMA = [
     "CREATE INDEX IF NOT EXISTS idx_entities_id ON entities(entity_id)",
     "CREATE INDEX IF NOT EXISTS idx_entities_facet ON entities(facet)",
     "CREATE INDEX IF NOT EXISTS idx_entities_source ON entities(source)",
+    """
+    CREATE TABLE IF NOT EXISTS entity_signals(
+        signal_type TEXT NOT NULL,
+        entity_name TEXT NOT NULL,
+        entity_type TEXT,
+        target_name TEXT,
+        relationship_type TEXT,
+        day TEXT,
+        facet TEXT,
+        event_title TEXT,
+        event_type TEXT,
+        path TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_signals_type ON entity_signals(signal_type)",
+    "CREATE INDEX IF NOT EXISTS idx_signals_entity ON entity_signals(entity_name)",
+    "CREATE INDEX IF NOT EXISTS idx_signals_day ON entity_signals(day)",
 ]
 
 ENTITY_COLUMNS = [
@@ -107,6 +124,19 @@ ENTITY_COLUMNS = [
     "path",
 ]
 
+SIGNAL_COLUMNS = [
+    "signal_type",
+    "entity_name",
+    "entity_type",
+    "target_name",
+    "relationship_type",
+    "day",
+    "facet",
+    "event_title",
+    "event_type",
+    "path",
+]
+
 
 def _insert_entity_row(conn: sqlite3.Connection, row: dict[str, Any]) -> None:
     """Insert one entity row into the entities table."""
@@ -114,6 +144,16 @@ def _insert_entity_row(conn: sqlite3.Connection, row: dict[str, Any]) -> None:
     placeholders = ",".join("?" for _ in ENTITY_COLUMNS)
     values = [row.get(col) for col in ENTITY_COLUMNS]
     conn.execute(f"INSERT INTO entities({columns}) VALUES ({placeholders})", values)
+
+
+def _insert_signal_row(conn: sqlite3.Connection, row: dict[str, Any]) -> None:
+    """Insert one signal row into the entity_signals table."""
+    columns = ",".join(SIGNAL_COLUMNS)
+    placeholders = ",".join("?" for _ in SIGNAL_COLUMNS)
+    values = [row.get(col) for col in SIGNAL_COLUMNS]
+    conn.execute(
+        f"INSERT INTO entity_signals({columns}) VALUES ({placeholders})", values
+    )
 
 
 def _entity_source_from_path(rel_path: str) -> str | None:
@@ -161,6 +201,24 @@ def _find_entity_files(journal: str) -> dict[str, tuple[str, str]]:
         if path.is_file():
             rel = path.relative_to(journal_path).as_posix()
             files[rel] = (str(path), "observation")
+
+    return files
+
+
+def _find_signal_files(journal: str) -> dict[str, tuple[str, str]]:
+    """Find all signal source files (KG markdown + event JSONL)."""
+    journal_path = Path(journal)
+    files: dict[str, tuple[str, str]] = {}
+
+    for path in journal_path.glob("*/agents/knowledge_graph.md"):
+        if path.is_file():
+            rel = path.relative_to(journal_path).as_posix()
+            files[rel] = (str(path), "kg")
+
+    for path in journal_path.glob("facets/*/events/*.jsonl"):
+        if path.is_file() and re.match(r"\d{8}\.jsonl$", path.name):
+            rel = path.relative_to(journal_path).as_posix()
+            files[rel] = (str(path), "event")
 
     return files
 
@@ -367,6 +425,139 @@ def _extract_entity_observations(journal: str, rel_path: str) -> list[dict[str, 
             "path": rel_path,
         }
     ]
+
+
+def _is_historical_signal_file(rel_path: str, source_type: str) -> bool:
+    """Check if a signal source file is historical and should be skipped in light mode."""
+    if source_type == "kg":
+        return _is_historical_day(rel_path)
+    return False
+
+
+def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
+    """Extract KG appearance and edge signals from a knowledge graph markdown file."""
+    abs_path = os.path.join(journal, rel_path)
+    day = rel_path.split("/")[0]
+
+    try:
+        with open(abs_path, encoding="utf-8") as f:
+            content = f.read()
+    except OSError as e:
+        logger.warning("Skipping %s: %s", rel_path, e)
+        return []
+
+    parts = re.split(
+        r"^##\s+Relationship\b", content, maxsplit=1, flags=re.MULTILINE | re.IGNORECASE
+    )
+    entity_section = parts[0]
+    relationship_section = parts[1] if len(parts) > 1 else ""
+
+    rows: list[dict[str, Any]] = []
+
+    appearance_re = re.compile(
+        r"^\|\s*\*\*(.+?)\*\*\s*\|\s*([^|]+?)\s*\|",
+        re.MULTILINE,
+    )
+    for m in appearance_re.finditer(entity_section):
+        entity_name = m.group(1).strip()
+        entity_type = m.group(2).strip()
+        if entity_type.startswith(":") or entity_type.startswith("-"):
+            continue
+        rows.append(
+            {
+                "signal_type": "kg_appearance",
+                "entity_name": entity_name,
+                "entity_type": entity_type,
+                "target_name": None,
+                "relationship_type": None,
+                "day": day,
+                "facet": None,
+                "event_title": None,
+                "event_type": None,
+                "path": rel_path,
+            }
+        )
+
+    edge_re = re.compile(
+        r"^\|\s*\*\*(.+?)\*\*\s*\|\s*\*\*(.+?)\*\*\s*\|\s*`?([^|`]+?)`?\s*\|",
+        re.MULTILINE,
+    )
+    for m in edge_re.finditer(relationship_section):
+        source = m.group(1).strip()
+        target = m.group(2).strip()
+        rel_type = m.group(3).strip()
+        if rel_type.startswith(":") or rel_type.startswith("-"):
+            continue
+        rows.append(
+            {
+                "signal_type": "kg_edge",
+                "entity_name": source,
+                "entity_type": None,
+                "target_name": target,
+                "relationship_type": rel_type,
+                "day": day,
+                "facet": None,
+                "event_title": None,
+                "event_type": None,
+                "path": rel_path,
+            }
+        )
+
+    return rows
+
+
+def _extract_signal_event_participants(
+    journal: str, rel_path: str
+) -> list[dict[str, Any]]:
+    """Extract participant signals from an event JSONL file."""
+    abs_path = os.path.join(journal, rel_path)
+    parts = rel_path.replace("\\", "/").split("/")
+    if len(parts) < 4:
+        return []
+    facet = parts[1]
+    day = Path(rel_path).stem
+
+    rows: list[dict[str, Any]] = []
+    try:
+        with open(abs_path, encoding="utf-8") as f:
+            for raw in f:
+                raw = raw.strip()
+                if not raw:
+                    continue
+                try:
+                    event = json.loads(raw)
+                except json.JSONDecodeError as e:
+                    logger.warning("Skipping malformed JSONL in %s: %s", rel_path, e)
+                    continue
+
+                participants = event.get("participants", [])
+                if not participants:
+                    continue
+
+                title = event.get("title", "")
+                event_type = event.get("type", "")
+                for name in participants:
+                    if not name:
+                        continue
+                    rows.append(
+                        {
+                            "signal_type": "event_participant",
+                            "entity_name": name,
+                            "entity_type": None,
+                            "target_name": None,
+                            "relationship_type": None,
+                            "day": day,
+                            "facet": facet,
+                            "event_title": title,
+                            "event_type": event_type,
+                            "path": rel_path,
+                        }
+                    )
+    except OSError as e:
+        logger.warning("Skipping %s: %s", rel_path, e)
+        return []
+
+    return rows
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
@@ -691,6 +882,109 @@ def scan_entities(
     return bool(to_index or removed)
 
 
+def scan_signals(
+    journal: str,
+    conn: sqlite3.Connection,
+    verbose: bool = False,
+    full: bool = False,
+) -> bool:
+    """Scan and index signal source files."""
+    signal_files = _find_signal_files(journal)
+
+    in_scope: dict[str, tuple[str, str]] = signal_files
+    if not full:
+        in_scope = {
+            rel: (path, source_type)
+            for rel, (path, source_type) in signal_files.items()
+            if not _is_historical_signal_file(rel, source_type)
+        }
+
+    logger.info("Scanning %s signal files...", len(in_scope))
+
+    SIGNAL_PREFIX = "signal:"
+    db_mtimes = {
+        path: mtime
+        for path, mtime in conn.execute(
+            "SELECT path, mtime FROM files WHERE path LIKE 'signal:%'"
+        )
+    }
+    to_index: list[tuple[str, str, int, str]] = []
+    for rel, (path, source_type) in in_scope.items():
+        try:
+            mtime = int(os.path.getmtime(path))
+        except OSError as e:
+            logger.warning("Unable to stat %s: %s", rel, e)
+            continue
+        if db_mtimes.get(SIGNAL_PREFIX + rel) != mtime:
+            to_index.append((rel, path, mtime, source_type))
+
+    cached = len(in_scope) - len(to_index)
+    logger.info(
+        "%s total signal files, %s cached, %s to index",
+        len(in_scope),
+        cached,
+        len(to_index),
+    )
+
+    start = time.time()
+
+    for i, (rel, path, mtime, source_type) in enumerate(to_index, 1):
+        if verbose:
+            logger.info("[%s/%s] %s", i, len(to_index), rel)
+
+        conn.execute("DELETE FROM entity_signals WHERE path=?", (rel,))
+
+        if source_type == "kg":
+            rows = _extract_signal_kg(journal, rel)
+        elif source_type == "event":
+            rows = _extract_signal_event_participants(journal, rel)
+        else:
+            rows = []
+
+        for row in rows:
+            _insert_signal_row(conn, row)
+
+        conn.execute(
+            "REPLACE INTO files(path, mtime) VALUES (?, ?)",
+            (SIGNAL_PREFIX + rel, mtime),
+        )
+
+    removed: set[str] = set()
+    db_signal_paths = {
+        row[0]
+        for row in conn.execute("SELECT DISTINCT path FROM entity_signals").fetchall()
+    }
+
+    if full:
+        removed = db_signal_paths - set(signal_files)
+    else:
+        in_scope_db = {
+            path
+            for path in db_signal_paths
+            if not _is_historical_signal_file(
+                path, "kg" if "/agents/knowledge_graph.md" in path else "event"
+            )
+        }
+        removed = in_scope_db - set(in_scope)
+
+    for rel in removed:
+        conn.execute("DELETE FROM entity_signals WHERE path=?", (rel,))
+        conn.execute("DELETE FROM files WHERE path=?", (SIGNAL_PREFIX + rel,))
+
+    if to_index or removed:
+        conn.commit()
+
+    elapsed = time.time() - start
+    logger.info(
+        "%s signal files indexed, %s removed in %.2f seconds",
+        len(to_index),
+        len(removed),
+        elapsed,
+    )
+
+    return bool(to_index or removed)
+
+
 def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> bool:
     """Scan and index journal content.
 
@@ -716,7 +1010,9 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
 
     # Get current file mtimes from database
     db_mtimes = {
-        path: mtime for path, mtime in conn.execute("SELECT path, mtime FROM files")
+        path: mtime
+        for path, mtime in conn.execute("SELECT path, mtime FROM files")
+        if not (path.startswith("entity:") or path.startswith("signal:"))
     }
 
     to_index = []
@@ -773,9 +1069,10 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
     )
 
     entity_changed = scan_entities(journal, conn, verbose=verbose, full=full)
+    signal_changed = scan_signals(journal, conn, verbose=verbose, full=full)
 
     conn.close()
-    return bool(to_index or removed or entity_changed)
+    return bool(to_index or removed or entity_changed or signal_changed)
 
 
 def sanitize_fts_query(query: str) -> str:

@@ -1027,3 +1027,137 @@ def test_scan_entities_preserves_fts():
     scan_journal("tests/fixtures/journal", full=True)
     total, results = search_journal("Alice", limit=5)
     assert isinstance(total, int)
+
+
+def test_signal_schema_creation():
+    """Verify entity_signals table exists after schema init."""
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    conn, _ = get_journal_index()
+
+    tables = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='entity_signals'"
+    ).fetchall()
+    conn.close()
+    assert len(tables) == 1
+
+
+def test_scan_signals_kg_appearances():
+    """Verify KG appearance signals are extracted."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    rows = conn.execute(
+        """
+        SELECT entity_name, entity_type, day FROM entity_signals
+        WHERE signal_type='kg_appearance'
+        """
+    ).fetchall()
+    conn.close()
+
+    assert len(rows) == 4
+    names = {r[0] for r in rows}
+    assert names == {"Alice Johnson", "Bob Smith", "Acme Corp", "Project Alpha"}
+    assert all(r[2] == "20240101" for r in rows)
+    by_name = {r[0]: r[1] for r in rows}
+    assert by_name["Alice Johnson"] == "Person"
+    assert by_name["Acme Corp"] == "Organization"
+
+
+def test_scan_signals_kg_edges():
+    """Verify KG edge signals are extracted."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    rows = conn.execute(
+        """
+        SELECT entity_name, target_name, relationship_type, day FROM entity_signals
+        WHERE signal_type='kg_edge'
+        """
+    ).fetchall()
+    conn.close()
+
+    assert len(rows) == 3
+    edges = {(r[0], r[1]): r[2] for r in rows}
+    assert edges[("Alice Johnson", "Bob Smith")] == "collaborates-with"
+    assert edges[("Alice Johnson", "Acme Corp")] == "client-liaison"
+    assert edges[("Bob Smith", "Project Alpha")] == "contributor"
+
+
+def test_scan_signals_event_participants():
+    """Verify event participant signals are extracted."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    rows = conn.execute(
+        """
+        SELECT entity_name, event_title, event_type, day, facet
+        FROM entity_signals
+        WHERE signal_type='event_participant'
+        """
+    ).fetchall()
+    conn.close()
+
+    assert len(rows) == 5
+    names = [r[0] for r in rows]
+    assert names.count("Alice") == 2
+    assert names.count("Bob") == 2
+    assert names.count("Charlie") == 1
+
+
+def test_scan_signals_incremental_noop():
+    """Verify second scan is a no-op."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    count1 = conn.execute("SELECT count(*) FROM entity_signals").fetchone()[0]
+    conn.close()
+
+    scan_journal("tests/fixtures/journal", full=True)
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    count2 = conn.execute("SELECT count(*) FROM entity_signals").fetchone()[0]
+    conn.close()
+    assert count1 == count2
+
+
+def test_scan_signals_deletion(tmp_path):
+    """Verify signal rows are removed when source file is deleted."""
+    import shutil
+
+    src = Path("tests/fixtures/journal")
+    dst = tmp_path / "journal"
+    shutil.copytree(src, dst)
+    j = str(dst)
+
+    from think.indexer.journal import scan_journal
+
+    scan_journal(j, full=True)
+
+    conn, _ = get_journal_index(j)
+    initial = conn.execute(
+        "SELECT count(*) FROM entity_signals WHERE signal_type='kg_appearance'"
+    ).fetchone()[0]
+    conn.close()
+    assert initial == 4
+
+    kg_file = dst / "20240101" / "agents" / "knowledge_graph.md"
+    kg_file.unlink()
+
+    scan_journal(j, full=True)
+    conn, _ = get_journal_index(j)
+    after = conn.execute(
+        "SELECT count(*) FROM entity_signals WHERE signal_type='kg_appearance'"
+    ).fetchone()[0]
+    conn.close()
+    assert after == 0
