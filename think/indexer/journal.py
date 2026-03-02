@@ -15,6 +15,7 @@ then indexed with metadata fields for filtering (day, facet, agent).
 Raw audio/screen transcripts are formattable but not indexed by default.
 """
 
+import json
 import logging
 import os
 import re
@@ -23,6 +24,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from think.entities.core import entity_slug
 from think.formatters import (
     extract_path_metadata,
     find_formattable_files,
@@ -52,7 +54,319 @@ SCHEMA = [
         idx UNINDEXED
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS entities(
+        entity_id TEXT NOT NULL,
+        source TEXT NOT NULL,
+        facet TEXT,
+        day TEXT,
+        name TEXT,
+        type TEXT,
+        description TEXT,
+        tags TEXT,
+        contact TEXT,
+        aka TEXT,
+        is_principal INTEGER,
+        blocked INTEGER,
+        observation_count INTEGER,
+        last_observed TEXT,
+        attached_at TEXT,
+        updated_at TEXT,
+        last_seen TEXT,
+        created_at TEXT,
+        detached INTEGER,
+        path TEXT NOT NULL,
+        PRIMARY KEY (path, entity_id, source)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_entities_id ON entities(entity_id)",
+    "CREATE INDEX IF NOT EXISTS idx_entities_facet ON entities(facet)",
+    "CREATE INDEX IF NOT EXISTS idx_entities_source ON entities(source)",
 ]
+
+ENTITY_COLUMNS = [
+    "entity_id",
+    "source",
+    "facet",
+    "day",
+    "name",
+    "type",
+    "description",
+    "tags",
+    "contact",
+    "aka",
+    "is_principal",
+    "blocked",
+    "observation_count",
+    "last_observed",
+    "attached_at",
+    "updated_at",
+    "last_seen",
+    "created_at",
+    "detached",
+    "path",
+]
+
+
+def _insert_entity_row(conn: sqlite3.Connection, row: dict[str, Any]) -> None:
+    """Insert one entity row into the entities table."""
+    columns = ",".join(ENTITY_COLUMNS)
+    placeholders = ",".join("?" for _ in ENTITY_COLUMNS)
+    values = [row.get(col) for col in ENTITY_COLUMNS]
+    conn.execute(f"INSERT INTO entities({columns}) VALUES ({placeholders})", values)
+
+
+def _entity_source_from_path(rel_path: str) -> str | None:
+    """Infer entity source type from a relative path."""
+    rel = rel_path.replace("\\", "/")
+    if re.fullmatch(r"entities/[^/]+/entity\.json", rel):
+        return "identity"
+    if re.fullmatch(r"facets/[^/]+/entities/[^/]+/entity\.json", rel):
+        return "relationship"
+    if re.match(r"\d{8}\.jsonl$", Path(rel).name) and re.fullmatch(
+        r"facets/[^/]+/entities/\d{8}\.jsonl", rel
+    ):
+        return "detected"
+    if re.fullmatch(r"facets/[^/]+/entities/[^/]+/observations\.jsonl", rel):
+        return "observation"
+    return None
+
+
+def _find_entity_files(journal: str) -> dict[str, tuple[str, str]]:
+    """Find all supported entity source files.
+
+    Returns:
+        Mapping from relative path to tuple of (absolute_path, source_type).
+    """
+    journal_path = Path(journal)
+    files: dict[str, tuple[str, str]] = {}
+
+    for path in journal_path.glob("entities/*/entity.json"):
+        if path.is_file():
+            rel = path.relative_to(journal_path).as_posix()
+            files[rel] = (str(path), "identity")
+
+    for path in journal_path.glob("facets/*/entities/*/entity.json"):
+        if path.is_file():
+            rel = path.relative_to(journal_path).as_posix()
+            files[rel] = (str(path), "relationship")
+
+    for path in journal_path.glob("facets/*/entities/*.jsonl"):
+        filename = path.name
+        if re.match(r"\d{8}\.jsonl$", filename):
+            rel = path.relative_to(journal_path).as_posix()
+            files[rel] = (str(path), "detected")
+
+    for path in journal_path.glob("facets/*/entities/*/observations.jsonl"):
+        if path.is_file():
+            rel = path.relative_to(journal_path).as_posix()
+            files[rel] = (str(path), "observation")
+
+    return files
+
+
+def _extract_entity_identity(journal: str, rel_path: str) -> list[dict[str, Any]]:
+    """Read a journal entity file and return row data."""
+    abs_path = os.path.join(journal, rel_path)
+    rel_parts = rel_path.replace("\\", "/").split("/")
+    if len(rel_parts) < 2:
+        return []
+    entity_id = rel_parts[1]
+
+    try:
+        with open(abs_path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        logger.warning("Skipping %s: %s", rel_path, e)
+        return []
+
+    return [
+        {
+            "entity_id": entity_id,
+            "source": "identity",
+            "facet": None,
+            "day": None,
+            "name": data.get("name"),
+            "type": data.get("type"),
+            "description": None,
+            "tags": None,
+            "contact": None,
+            "aka": json.dumps(data["aka"]) if data.get("aka") else None,
+            "is_principal": 1 if data.get("is_principal") else 0,
+            "blocked": 1 if data.get("blocked") else 0,
+            "observation_count": None,
+            "last_observed": None,
+            "attached_at": None,
+            "updated_at": data.get("updated_at"),
+            "last_seen": None,
+            "created_at": data.get("created_at"),
+            "detached": None,
+            "path": rel_path,
+        }
+    ]
+
+
+def _extract_entity_relationship(journal: str, rel_path: str) -> list[dict[str, Any]]:
+    """Read a relationship entity file and return row data."""
+    abs_path = os.path.join(journal, rel_path)
+    rel_parts = rel_path.replace("\\", "/").split("/")
+    if len(rel_parts) < 4:
+        return []
+    facet = rel_parts[1]
+    entity_id = rel_parts[3]
+
+    try:
+        with open(abs_path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        logger.warning("Skipping %s: %s", rel_path, e)
+        return []
+
+    return [
+        {
+            "entity_id": entity_id,
+            "source": "relationship",
+            "facet": facet,
+            "day": None,
+            "name": None,
+            "type": None,
+            "description": data.get("description"),
+            "tags": json.dumps(data["tags"]) if data.get("tags") else None,
+            "contact": data.get("contact"),
+            "aka": None,
+            "is_principal": None,
+            "blocked": None,
+            "observation_count": None,
+            "last_observed": None,
+            "attached_at": data.get("attached_at"),
+            "updated_at": data.get("updated_at"),
+            "last_seen": data.get("last_seen"),
+            "created_at": None,
+            "detached": 1 if data.get("detached") else 0,
+            "path": rel_path,
+        }
+    ]
+
+
+def _extract_entity_detected(journal: str, rel_path: str) -> list[dict[str, Any]]:
+    """Read an entities JSONL file and return one row per valid entity."""
+    abs_path = os.path.join(journal, rel_path)
+    rel_parts = rel_path.replace("\\", "/").split("/")
+    if len(rel_parts) < 3:
+        return []
+    facet = rel_parts[1]
+    day = Path(rel_path).name.removesuffix(".jsonl")
+
+    rows: list[dict[str, Any]] = []
+    try:
+        with open(abs_path, encoding="utf-8") as f:
+            for raw in f:
+                raw = raw.strip()
+                if not raw:
+                    continue
+                try:
+                    data = json.loads(raw)
+                except json.JSONDecodeError as e:
+                    logger.warning("Skipping malformed JSONL in %s: %s", rel_path, e)
+                    continue
+
+                name = data.get("name")
+                if not name:
+                    continue
+
+                entity_id = data.get("id") or entity_slug(name)
+                rows.append(
+                    {
+                        "entity_id": entity_id,
+                        "source": "detected",
+                        "facet": facet,
+                        "day": day,
+                        "name": name,
+                        "type": data.get("type"),
+                        "description": data.get("description"),
+                        "tags": None,
+                        "contact": None,
+                        "aka": None,
+                        "is_principal": None,
+                        "blocked": None,
+                        "observation_count": None,
+                        "last_observed": None,
+                        "attached_at": None,
+                        "updated_at": None,
+                        "last_seen": None,
+                        "created_at": None,
+                        "detached": None,
+                        "path": rel_path,
+                    }
+                )
+    except OSError as e:
+        logger.warning("Skipping %s: %s", rel_path, e)
+        return []
+
+    return rows
+
+
+def _extract_entity_observations(journal: str, rel_path: str) -> list[dict[str, Any]]:
+    """Summarize observations for an entity into a single row."""
+    abs_path = os.path.join(journal, rel_path)
+    rel_parts = rel_path.replace("\\", "/").split("/")
+    if len(rel_parts) < 4:
+        return []
+    facet = rel_parts[1]
+    entity_id = rel_parts[3]
+
+    count = 0
+    last_observed = None
+
+    try:
+        with open(abs_path, encoding="utf-8") as f:
+            for raw in f:
+                raw = raw.strip()
+                if not raw:
+                    continue
+                try:
+                    data = json.loads(raw)
+                except json.JSONDecodeError as e:
+                    logger.warning("Skipping malformed JSONL in %s: %s", rel_path, e)
+                    continue
+
+                count += 1
+                observed_at = data.get("observed_at")
+                if observed_at and (
+                    last_observed is None or observed_at > last_observed
+                ):
+                    last_observed = observed_at
+    except OSError as e:
+        logger.warning("Skipping %s: %s", rel_path, e)
+        return []
+
+    if count == 0:
+        return []
+
+    return [
+        {
+            "entity_id": entity_id,
+            "source": "observation",
+            "facet": facet,
+            "day": None,
+            "name": None,
+            "type": None,
+            "description": None,
+            "tags": None,
+            "contact": None,
+            "aka": None,
+            "is_principal": None,
+            "blocked": None,
+            "observation_count": count,
+            "last_observed": last_observed,
+            "attached_at": None,
+            "updated_at": None,
+            "last_seen": None,
+            "created_at": None,
+            "detached": None,
+            "path": rel_path,
+        }
+    ]
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
@@ -252,6 +566,122 @@ def _is_historical_day(rel_path: str) -> bool:
     return first_part < today
 
 
+def _is_historical_entity_file(rel_path: str, source_type: str | None) -> bool:
+    """Check if a detected entity file is historical based on filename day."""
+    if source_type != "detected":
+        return False
+
+    from datetime import datetime
+
+    filename = Path(rel_path).name
+    match = re.match(r"\d{8}\.jsonl$", filename)
+    if not match:
+        return False
+
+    today = datetime.now().strftime("%Y%m%d")
+    day = filename[:-6]
+    return day < today
+
+
+def scan_entities(
+    journal: str,
+    conn: sqlite3.Connection,
+    verbose: bool = False,
+    full: bool = False,
+) -> bool:
+    """Scan and index entity source files."""
+    entity_files = _find_entity_files(journal)
+
+    in_scope: dict[str, tuple[str, str]] = entity_files
+    if not full:
+        in_scope = {
+            rel: (path, source_type)
+            for rel, (path, source_type) in entity_files.items()
+            if not _is_historical_entity_file(rel, source_type)
+        }
+
+    logger.info("Scanning %s entity files...", len(in_scope))
+
+    # Get current file mtimes from database
+    db_mtimes = {
+        path: mtime for path, mtime in conn.execute("SELECT path, mtime FROM files")
+    }
+    to_index: list[tuple[str, str, int, str]] = []
+    for rel, (path, source_type) in in_scope.items():
+        try:
+            mtime = int(os.path.getmtime(path))
+        except OSError as e:
+            logger.warning("Unable to stat %s: %s", rel, e)
+            continue
+        if db_mtimes.get(rel) != mtime:
+            to_index.append((rel, path, mtime, source_type))
+
+    cached = len(in_scope) - len(to_index)
+    logger.info(
+        "%s total entity files, %s cached, %s to index",
+        len(in_scope),
+        cached,
+        len(to_index),
+    )
+
+    start = time.time()
+
+    for i, (rel, path, mtime, source_type) in enumerate(to_index, 1):
+        if verbose:
+            logger.info("[%s/%s] %s", i, len(to_index), rel)
+
+        conn.execute("DELETE FROM entities WHERE path=?", (rel,))
+
+        if source_type == "identity":
+            rows = _extract_entity_identity(journal, rel)
+        elif source_type == "relationship":
+            rows = _extract_entity_relationship(journal, rel)
+        elif source_type == "detected":
+            rows = _extract_entity_detected(journal, rel)
+        elif source_type == "observation":
+            rows = _extract_entity_observations(journal, rel)
+        else:
+            rows = []
+
+        for row in rows:
+            _insert_entity_row(conn, row)
+
+        conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel, mtime))
+
+    # Entity files removed from scope (full vs light)
+    removed: set[str] = set()
+    db_entity_paths = {
+        row[0] for row in conn.execute("SELECT DISTINCT path FROM entities").fetchall()
+    }
+
+    if full:
+        removed = db_entity_paths - set(entity_files)
+    else:
+        in_scope_db = {
+            path
+            for path in db_entity_paths
+            if not _is_historical_entity_file(path, _entity_source_from_path(path))
+        }
+        removed = in_scope_db - set(in_scope)
+
+    for rel in removed:
+        conn.execute("DELETE FROM entities WHERE path=?", (rel,))
+        conn.execute("DELETE FROM files WHERE path=?", (rel,))
+
+    if to_index or removed:
+        conn.commit()
+
+    elapsed = time.time() - start
+    logger.info(
+        "%s entity files indexed, %s entity rows removed in %.2f seconds",
+        len(to_index),
+        len(removed),
+        elapsed,
+    )
+
+    return bool(to_index or removed)
+
+
 def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> bool:
     """Scan and index journal content.
 
@@ -333,8 +763,10 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
         "%s indexed, %s removed in %.2f seconds", len(to_index), len(removed), elapsed
     )
 
+    entity_changed = scan_entities(journal, conn, verbose=verbose, full=full)
+
     conn.close()
-    return bool(to_index or removed)
+    return bool(to_index or removed or entity_changed)
 
 
 def sanitize_fts_query(query: str) -> str:

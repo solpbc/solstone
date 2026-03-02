@@ -5,10 +5,12 @@
 
 import json
 import os
+from pathlib import Path
 
 import pytest
 
 from think.indexer import sanitize_fts_query
+from think.indexer.journal import get_journal_index, search_journal
 
 
 class TestSanitizeFtsQuery:
@@ -895,3 +897,133 @@ def test_search_tool_stream_filter():
     assert "results" in result
     assert result["total"] > 0
     assert result["query"]["filters"]["stream"] == "default"
+
+
+def test_entity_schema_creation():
+    """Verify entities table exists after schema init."""
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    conn, _ = get_journal_index()
+
+    tables = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='entities'"
+    ).fetchall()
+    conn.close()
+    assert len(tables) == 1
+
+
+def test_scan_entities_identity():
+    """Verify journal entity identity rows are indexed."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    rows = conn.execute("SELECT * FROM entities WHERE source='identity'").fetchall()
+    conn.close()
+    assert len(rows) == 15
+
+
+def test_scan_entities_relationship():
+    """Verify facet relationship rows are indexed."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    rows = conn.execute("SELECT * FROM entities WHERE source='relationship'").fetchall()
+    conn.close()
+    assert len(rows) == 16
+
+
+def test_scan_entities_detected():
+    """Verify detected entity rows are indexed."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    rows = conn.execute("SELECT * FROM entities WHERE source='detected'").fetchall()
+    conn.close()
+    assert len(rows) >= 4
+
+
+def test_scan_entities_observations():
+    """Verify observation summary rows are indexed."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    rows = conn.execute(
+        "SELECT entity_id, facet, observation_count, last_observed FROM entities WHERE source='observation'"
+    ).fetchall()
+    conn.close()
+    assert len(rows) == 2
+
+    by_entity = {(r[0], r[1]): (r[2], r[3]) for r in rows}
+    assert by_entity[("alice_johnson", "personal")][0] == 3
+    assert by_entity[("john_smith", "test-facet")][0] == 2
+
+
+def test_scan_entities_incremental_noop():
+    """Verify second scan is a no-op."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    count1 = conn.execute("SELECT count(*) FROM entities").fetchone()[0]
+    conn.close()
+
+    scan_journal("tests/fixtures/journal", full=True)
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    count2 = conn.execute("SELECT count(*) FROM entities").fetchone()[0]
+    conn.close()
+    assert count1 == count2
+
+
+def test_scan_entities_deletion(tmp_path):
+    """Verify entity rows are removed when source file is deleted."""
+    import shutil
+
+    src = Path("tests/fixtures/journal")
+    dst = tmp_path / "journal"
+    shutil.copytree(src, dst)
+    j = str(dst)
+
+    from think.indexer.journal import scan_journal
+
+    scan_journal(j, full=True)
+
+    conn, _ = get_journal_index(j)
+    initial = conn.execute(
+        "SELECT count(*) FROM entities WHERE source='identity'"
+    ).fetchone()[0]
+    conn.close()
+    assert initial == 15
+
+    entity_file = dst / "entities" / "alice_johnson" / "entity.json"
+    entity_file.unlink()
+
+    scan_journal(j, full=True)
+    conn, _ = get_journal_index(j)
+    after = conn.execute(
+        "SELECT count(*) FROM entities WHERE source='identity'"
+    ).fetchone()[0]
+    conn.close()
+    assert after == 14
+
+
+def test_scan_entities_preserves_fts():
+    """Verify FTS5 chunks still work after entity scan."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+    total, results = search_journal("Alice", limit=5)
+    assert isinstance(total, int)
