@@ -602,9 +602,15 @@ def scan_entities(
 
     logger.info("Scanning %s entity files...", len(in_scope))
 
-    # Get current file mtimes from database
+    # Get current file mtimes from database.
+    # Entity paths are stored with an "entity:" prefix to avoid collisions
+    # with the chunk indexer, which also tracks some of the same files.
+    ENTITY_PREFIX = "entity:"
     db_mtimes = {
-        path: mtime for path, mtime in conn.execute("SELECT path, mtime FROM files")
+        path: mtime
+        for path, mtime in conn.execute(
+            "SELECT path, mtime FROM files WHERE path LIKE 'entity:%'"
+        )
     }
     to_index: list[tuple[str, str, int, str]] = []
     for rel, (path, source_type) in in_scope.items():
@@ -613,7 +619,7 @@ def scan_entities(
         except OSError as e:
             logger.warning("Unable to stat %s: %s", rel, e)
             continue
-        if db_mtimes.get(rel) != mtime:
+        if db_mtimes.get(ENTITY_PREFIX + rel) != mtime:
             to_index.append((rel, path, mtime, source_type))
 
     cached = len(in_scope) - len(to_index)
@@ -646,7 +652,10 @@ def scan_entities(
         for row in rows:
             _insert_entity_row(conn, row)
 
-        conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel, mtime))
+        conn.execute(
+            "REPLACE INTO files(path, mtime) VALUES (?, ?)",
+            (ENTITY_PREFIX + rel, mtime),
+        )
 
     # Entity files removed from scope (full vs light)
     removed: set[str] = set()
@@ -666,7 +675,7 @@ def scan_entities(
 
     for rel in removed:
         conn.execute("DELETE FROM entities WHERE path=?", (rel,))
-        conn.execute("DELETE FROM files WHERE path=?", (rel,))
+        conn.execute("DELETE FROM files WHERE path=?", (ENTITY_PREFIX + rel,))
 
     if to_index or removed:
         conn.commit()
