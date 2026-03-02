@@ -44,7 +44,7 @@ from think.entities.core import (
 )
 
 # Formatting (for indexer)
-from think.entities.formatting import format_entities
+from think.entities.formatting import format_entities, format_observations
 
 # Journal-level entity management
 from think.entities.journal import (
@@ -166,4 +166,5 @@ __all__ = [
     "save_observations",
     # Formatting
     "format_entities",
+    "format_observations",
 ]

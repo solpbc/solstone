@@ -687,6 +687,125 @@ class TestFormatEntities:
         assert "2025-12-01" in meta["header"]
 
 
+class TestFormatObservations:
+    """Tests for the observations formatter."""
+
+    def test_get_formatter_observations(self):
+        """Test pattern matching for observations.jsonl."""
+        from think.formatters import get_formatter
+
+        formatter = get_formatter(
+            "facets/work/entities/alice_johnson/observations.jsonl"
+        )
+        assert formatter is not None
+        assert formatter.__name__ == "format_observations"
+
+    def test_get_formatter_no_collision_with_entities(self):
+        """Test that detected entity files still match format_entities."""
+        from think.formatters import get_formatter
+
+        formatter = get_formatter("facets/work/entities/20260115.jsonl")
+        assert formatter is not None
+        assert formatter.__name__ == "format_entities"
+
+    def test_format_observations_basic(self):
+        """Test basic observations formatting."""
+        from think.entities import format_observations
+
+        entries = [
+            {
+                "content": "Prefers morning meetings",
+                "observed_at": 1736784000000,
+                "source_day": "20250113",
+            },
+            {"content": "Expert in distributed systems", "observed_at": 1736870400000},
+        ]
+        context = {"file_path": "facets/work/entities/alice_johnson/observations.jsonl"}
+        chunks, meta = format_observations(entries, context)
+
+        assert len(chunks) == 2
+        assert "Prefers morning meetings" in chunks[0]["markdown"]
+        assert "20250113" in chunks[0]["markdown"]  # source_day rendered
+        assert chunks[0]["timestamp"] == 1736784000000
+        assert chunks[0]["source"] == entries[0]
+
+        # Second entry has no source_day
+        assert "Expert in distributed systems" in chunks[1]["markdown"]
+        assert (
+            "observed" not in chunks[1]["markdown"]
+        )  # no source_day means no "(observed: ...)"
+        assert chunks[1]["timestamp"] == 1736870400000
+
+    def test_format_observations_indexer_metadata(self):
+        """Test that indexer metadata uses singular 'observation'."""
+        from think.entities import format_observations
+
+        entries = [{"content": "A fact", "observed_at": 1000}]
+        chunks, meta = format_observations(entries)
+        assert meta["indexer"] == {"agent": "observation"}
+
+    def test_format_observations_header(self):
+        """Test header includes entity name and count."""
+        from think.entities import format_observations
+
+        entries = [
+            {"content": "Fact 1", "observed_at": 1000},
+            {"content": "Fact 2", "observed_at": 2000},
+        ]
+        context = {
+            "file_path": "facets/personal/entities/alice_johnson/observations.jsonl"
+        }
+        chunks, meta = format_observations(entries, context)
+        assert "Observations: Alice Johnson" in meta["header"]
+        assert "2 observations" in meta["header"]
+
+    def test_format_observations_entity_name_from_path(self):
+        """Test entity name extraction from various path formats."""
+        from think.entities import format_observations
+
+        entries = [{"content": "Test", "observed_at": 0}]
+
+        # Multi-word entity slug
+        context = {
+            "file_path": "/journal/facets/work/entities/bob_smith/observations.jsonl"
+        }
+        chunks, meta = format_observations(entries, context)
+        assert "Observations: Bob Smith" in meta["header"]
+
+    def test_format_observations_no_context(self):
+        """Test formatting without context still works."""
+        from think.entities import format_observations
+
+        entries = [{"content": "A fact", "observed_at": 5000}]
+        chunks, meta = format_observations(entries)
+        assert len(chunks) == 1
+        assert "A fact" in chunks[0]["markdown"]
+        assert meta["indexer"] == {"agent": "observation"}
+
+    def test_format_observations_via_format_file(self):
+        """Test integration via format_file with fixture data."""
+        from think.formatters import format_file
+
+        path = (
+            Path(os.environ["JOURNAL_PATH"])
+            / "facets/personal/entities/alice_johnson/observations.jsonl"
+        )
+        chunks, meta = format_file(path)
+
+        assert len(chunks) == 3  # 3 entries in fixture
+        assert "header" in meta
+        assert "Observations: Alice Johnson" in meta["header"]
+        assert "3 observations" in meta["header"]
+        assert meta["indexer"] == {"agent": "observation"}
+
+        # Verify first chunk has source_day rendered
+        assert "Prefers morning meetings" in chunks[0]["markdown"]
+        assert "20250113" in chunks[0]["markdown"]
+
+        # Third entry has no source_day
+        assert "Allergic to peanuts" in chunks[2]["markdown"]
+
+
 class TestFormatTodos:
     """Tests for the todos formatter."""
 

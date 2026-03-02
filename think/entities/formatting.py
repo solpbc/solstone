@@ -3,8 +3,8 @@
 
 """Entity formatting for indexer.
 
-This module provides format_entities() which is registered in the formatters
-registry to convert entity JSONL files into markdown chunks for indexing.
+Formatters for entity-related JSONL files, registered in the formatters
+registry to convert structured data into markdown chunks for indexing.
 """
 
 import re
@@ -157,5 +157,56 @@ def format_entities(
     # Indexer metadata - agent depends on attached vs detected
     agent = "entity:detected" if is_detected else "entity:attached"
     meta["indexer"] = {"agent": agent}
+
+    return chunks, meta
+
+
+def format_observations(
+    entries: list[dict[str, Any]],
+    context: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Format entity observation JSONL entries to markdown chunks.
+
+    This formatter handles observations stored under:
+    facets/{facet}/entities/{slug}/observations.jsonl.
+
+    Args:
+        entries: Raw JSONL entries (one observation per line)
+        context: Optional context with:
+            - file_path: Path to observations file (for extracting slug)
+
+    Returns:
+        Tuple of (chunks, meta) where:
+            - chunks: List of dicts with keys:
+                - timestamp: int (observed_at in milliseconds, default 0)
+                - markdown: str
+                - source: dict (original observation entry)
+            - meta: Dict with "header" and "indexer" keys
+    """
+    ctx = context or {}
+    file_path = ctx.get("file_path")
+    slug = Path(file_path).parent.name if file_path else "unknown"
+    entity_name = slug.replace("_", " ").title()
+
+    meta: dict[str, Any] = {
+        "header": f"# Observations: {entity_name}\n\n{len(entries)} observations",
+        "indexer": {"agent": "observation"},
+    }
+
+    chunks: list[dict[str, Any]] = []
+    for entry in entries:
+        content = entry.get("content", "")
+        markdown = f"- {content}"
+        source_day = entry.get("source_day")
+        if source_day:
+            markdown += f" (observed: {source_day})"
+
+        chunks.append(
+            {
+                "timestamp": entry.get("observed_at", 0),
+                "markdown": markdown,
+                "source": entry,
+            }
+        )
 
     return chunks, meta

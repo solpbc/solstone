@@ -130,6 +130,11 @@ def extract_path_metadata(rel_path: str) -> dict[str, str]:
 FORMATTERS: dict[str, tuple[str, str, bool]] = {
     # JSONL formatters (indexed)
     "config/actions/*.jsonl": ("think.facets", "format_logs", True),
+    "facets/*/entities/*/observations.jsonl": (
+        "think.entities.formatting",
+        "format_observations",
+        True,
+    ),
     "facets/*/entities/*.jsonl": ("think.entities.formatting", "format_entities", True),
     "facets/*/events/*.jsonl": ("think.events", "format_events", True),
     "facets/*/calendar/*.jsonl": ("think.events", "format_events", True),
