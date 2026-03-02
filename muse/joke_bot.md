@@ -7,7 +7,7 @@
   "schedule": "daily",
   "priority": 99,
   "output": "md",
-  "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
+  "instructions": {"system": "journal", "now": true, "day": true}
 
 }
 

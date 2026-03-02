@@ -8,8 +8,7 @@
   "output": "json",
   "color": "#e64a19",
   "instructions": {
-    "sources": {"audio": "required", "screen": true, "agents": false},
-    "facets": true
+    "sources": {"audio": "required", "screen": true, "agents": false}
   }
 
 }
