@@ -1,9 +1,9 @@
 {
   "ts": 1764019955580,
-  "from": {
-    "type": "agent",
-    "id": "agent"
-  },
+  "facet": "personal",
+  "provider": "anthropic",
+  "muse": "default",
   "title": "Verify storage location test",
+  "agent_ids": ["1764019955580"],
   "unread": true
 }
