@@ -1094,6 +1094,20 @@ wheels = [
 ]
 
 [[package]]
+name = "icalendar"
+version = "7.0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dateutil" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "tzdata" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b8/60/6b0356a2ed1c9689ae14bd8e44f22eac67c420a0ecca4df8306b70906600/icalendar-7.0.3.tar.gz", hash = "sha256:95027ece087ab87184d765f03761f25875821f74cdd18d3b57e9c868216d8fde", size = 443788, upload-time = "2026-03-03T12:00:10.952Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fa/c6/431fbf9063a6a4306d4cedae7823d69baf0979ba6ca57ab24a9d898cd0aa/icalendar-7.0.3-py3-none-any.whl", hash = "sha256:8c9fea6d3a89671bba8b6938d8565b4d0ec465c6a2796ef0f92790dcb9e627cd", size = 442406, upload-time = "2026-03-03T12:00:09.228Z" },
+]
+
+[[package]]
 name = "idna"
 version = "3.11"
 source = { registry = "https://pypi.org/simple" }
@@ -3550,6 +3564,7 @@ dependencies = [
     { name = "flask-sock" },
     { name = "genai-prices" },
     { name = "google-genai" },
+    { name = "icalendar" },
     { name = "markdown" },
     { name = "mistune" },
     { name = "mypy" },
@@ -3599,6 +3614,7 @@ requires-dist = [
     { name = "flask-sock" },
     { name = "genai-prices" },
     { name = "google-genai" },
+    { name = "icalendar" },
     { name = "markdown" },
     { name = "mistune" },
     { name = "mypy" },
