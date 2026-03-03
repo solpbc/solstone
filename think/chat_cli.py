@@ -28,6 +28,12 @@ def main() -> None:
     )
     args = setup_cli(parser)
 
+    if args.muse == "default":
+        from think.facets import get_enabled_facets
+
+        if not get_enabled_facets():
+            args.muse = "onboarding"
+
     if not args.message:
         parser.print_help()
         return

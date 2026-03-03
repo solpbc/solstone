@@ -34,6 +34,13 @@ def triage() -> Any:
     path = payload.get("path", "")
     facet = payload.get("facet", "")
 
+    from think.facets import get_enabled_facets
+
+    if not get_enabled_facets():
+        agent_name = "onboarding"
+    else:
+        agent_name = "triage"
+
     # Build prompt with location context
     context_lines = []
     if app_name:
@@ -58,7 +65,7 @@ def triage() -> Any:
 
         agent_id = spawn_agent(
             prompt=full_prompt,
-            name="triage",
+            name=agent_name,
             provider=None,
             config=config,
         )
