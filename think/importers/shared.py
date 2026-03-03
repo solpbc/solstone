@@ -1,15 +1,21 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+from __future__ import annotations
+
 import datetime as dt
 import json
 import logging
 import os
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from think.importers.utils import save_import_file, write_import_metadata
 from think.utils import day_path, get_journal, now_ms
+
+if TYPE_CHECKING:
+    from think.entities.core import EntityDict
 
 logger = logging.getLogger(__name__)
 
@@ -243,9 +249,7 @@ def write_structured_import(
             raise
 
         created.append(str(out_path))
-        logger.info(
-            "Wrote %d entries to %s", len(day_entries), out_path
-        )
+        logger.info("Wrote %d entries to %s", len(day_entries), out_path)
 
     return created
 
@@ -254,7 +258,7 @@ def seed_entities(
     facet: str,
     day: str,
     entities: list[dict],
-) -> list["EntityDict"]:
+) -> list[EntityDict]:
     """Seed entities from structured imports.
 
     Each dict should have: name (required), type (default "Person"),
@@ -270,7 +274,7 @@ def seed_entities(
     Returns:
         List of resolved/created entity dicts
     """
-    from think.entities.core import EntityDict, entity_slug
+    from think.entities.core import entity_slug
     from think.entities.journal import (
         get_or_create_journal_entity,
         load_all_journal_entities,

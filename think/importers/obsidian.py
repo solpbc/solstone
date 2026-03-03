@@ -34,11 +34,34 @@ TAGS_LIST_RE = re.compile(r"^  ?- (.+)$", re.MULTILINE)
 
 # Binary/non-text extensions to skip
 SKIP_EXTENSIONS = {
-    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".ico",
-    ".pdf", ".mp3", ".mp4", ".wav", ".ogg", ".flac", ".m4a",
-    ".zip", ".tar", ".gz", ".7z", ".rar",
-    ".exe", ".dll", ".so", ".dylib",
-    ".woff", ".woff2", ".ttf", ".eot",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".svg",
+    ".webp",
+    ".ico",
+    ".pdf",
+    ".mp3",
+    ".mp4",
+    ".wav",
+    ".ogg",
+    ".flac",
+    ".m4a",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".7z",
+    ".rar",
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
 }
 
 
@@ -123,7 +146,6 @@ class ObsidianImporter:
         dates: list[str] = []
 
         for md_path in md_files:
-            rel = md_path.relative_to(path)
             date = _parse_daily_note_date(md_path.name)
             if date:
                 daily_count += 1
@@ -203,16 +225,18 @@ class ObsidianImporter:
             wikilinks = WIKILINK_RE.findall(content)
             all_wikilinks.update(wikilinks)
 
-            entries.append({
-                "type": "note",
-                "ts": ts,
-                "title": title,
-                "content": content,
-                "source_path": rel_path,
-                "is_daily": is_daily,
-                "tags": tags,
-                "wikilinks": wikilinks,
-            })
+            entries.append(
+                {
+                    "type": "note",
+                    "ts": ts,
+                    "title": title,
+                    "content": content,
+                    "source_path": rel_path,
+                    "is_daily": is_daily,
+                    "tags": tags,
+                    "wikilinks": wikilinks,
+                }
+            )
 
             if progress_callback:
                 progress_callback(i + 1, total)
@@ -230,8 +254,14 @@ class ObsidianImporter:
         if all_wikilinks and facet:
             # Use the earliest date for seeding
             dates = sorted(e["ts"] for e in entries)
-            day = dt.datetime.fromisoformat(dates[0]).strftime("%Y%m%d") if dates else dt.datetime.now().strftime("%Y%m%d")
-            entity_dicts = [{"name": link, "type": "Topic"} for link in sorted(all_wikilinks)]
+            day = (
+                dt.datetime.fromisoformat(dates[0]).strftime("%Y%m%d")
+                if dates
+                else dt.datetime.now().strftime("%Y%m%d")
+            )
+            entity_dicts = [
+                {"name": link, "type": "Topic"} for link in sorted(all_wikilinks)
+            ]
             resolved = seed_entities(facet, day, entity_dicts)
             entities_seeded = len(resolved)
 
@@ -249,12 +279,18 @@ class ObsidianImporter:
         for dirpath, dirnames, filenames in os.walk(root):
             # Filter out hidden directories and logseq recycle in-place
             dirnames[:] = [
-                d for d in dirnames
-                if not _is_hidden(d) and not (d == ".recycle" and Path(dirpath).name == "logseq")
+                d
+                for d in dirnames
+                if not _is_hidden(d)
+                and not (d == ".recycle" and Path(dirpath).name == "logseq")
             ]
             # Also skip the logseq/.recycle path explicitly
             rel = Path(dirpath).relative_to(root)
-            if len(rel.parts) >= 2 and rel.parts[0] == "logseq" and rel.parts[1] == ".recycle":
+            if (
+                len(rel.parts) >= 2
+                and rel.parts[0] == "logseq"
+                and rel.parts[1] == ".recycle"
+            ):
                 continue
 
             for fname in filenames:
