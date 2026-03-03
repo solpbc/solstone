@@ -107,7 +107,6 @@ def _expand_rrule(component: Any, dtstart_val: Any) -> list[dt.datetime]:
     Returns list of occurrence datetimes (excluding the original DTSTART).
     """
     from dateutil import rrule as du_rrule
-    from dateutil import tz as du_tz
 
     rrule_prop = component.get("RRULE")
     if not rrule_prop:
