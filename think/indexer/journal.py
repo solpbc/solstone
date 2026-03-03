@@ -21,6 +21,7 @@ import os
 import re
 import sqlite3
 import time
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -1332,3 +1333,534 @@ def get_events(
                 events.append(entry)
 
     return events
+
+
+def _build_entity_name_map(conn: sqlite3.Connection) -> dict[str, str]:
+    """Map signal entity_names to entity_ids via slug matching.
+
+    Returns dict mapping entity_name -> entity_id. Uses exact slug match first,
+    then prefix fallback for first-name-only signals.
+    """
+    rows = conn.execute(
+        "SELECT entity_id, name FROM entities WHERE source='identity'"
+    ).fetchall()
+    id_set = {r[0] for r in rows}
+    name_to_id: dict[str, str] = {name: eid for eid, name in rows}
+
+    signal_names = conn.execute(
+        "SELECT DISTINCT entity_name FROM entity_signals"
+    ).fetchall()
+
+    result: dict[str, str] = {}
+    for (sname,) in signal_names:
+        slug = entity_slug(sname)
+        if slug in id_set:
+            result[sname] = slug
+            continue
+        if sname in name_to_id:
+            result[sname] = name_to_id[sname]
+            continue
+
+        candidates = sorted(eid for eid in id_set if eid.startswith(slug + "_"))
+        if len(candidates) == 1:
+            result[sname] = candidates[0]
+        elif len(candidates) > 1:
+            result[sname] = candidates[0]
+
+    return result
+
+
+def _compute_strength_scores(
+    conn: sqlite3.Connection,
+    facet: str | None = None,
+    since: str | None = None,
+) -> tuple[dict[str, dict[str, Any]], dict[str, int]]:
+    """Compute strength score components for all entities in signals table."""
+    where_parts: list[str] = []
+    params: list[Any] = []
+    if facet:
+        where_parts.append("facet=?")
+        params.append(facet.lower())
+    if since:
+        where_parts.append("day>=?")
+        params.append(since)
+    where = " AND ".join(where_parts) if where_parts else "1=1"
+
+    rows = conn.execute(
+        f"""
+        SELECT entity_name, COUNT(*) as appearance, MAX(day) as last_day,
+               COUNT(DISTINCT facet) as facet_breadth
+        FROM entity_signals
+        WHERE {where}
+        GROUP BY entity_name
+        """,
+        params,
+    ).fetchall()
+
+    scores: dict[str, dict[str, Any]] = {}
+    for entity_name, appearance, last_day, facet_breadth in rows:
+        scores[entity_name] = {
+            "appearance": appearance,
+            "last_day": last_day or "",
+            "facet_breadth": facet_breadth,
+            "co_occurrence": 0,
+        }
+
+    co_where_parts: list[str] = []
+    co_params: list[Any] = []
+    if facet:
+        co_where_parts.append("s1.facet=?")
+        co_params.append(facet.lower())
+    if since:
+        co_where_parts.append("s1.day>=?")
+        co_params.append(since)
+    co_where = " AND ".join(co_where_parts) if co_where_parts else "1=1"
+
+    co_rows = conn.execute(
+        f"""
+        SELECT s1.entity_name, COUNT(DISTINCT s2.entity_name) as co_count
+        FROM entity_signals s1
+        JOIN entity_signals s2
+          ON s1.path = s2.path
+         AND s1.entity_name != s2.entity_name
+        WHERE {co_where}
+        GROUP BY s1.entity_name
+        """,
+        co_params,
+    ).fetchall()
+    for entity_name, co_count in co_rows:
+        if entity_name in scores:
+            scores[entity_name]["co_occurrence"] = co_count
+
+    obs_rows = conn.execute(
+        "SELECT entity_id, observation_count FROM entities WHERE source='observation'"
+    ).fetchall()
+    obs_map = {
+        entity_id: int(observation_count or 0)
+        for entity_id, observation_count in obs_rows
+    }
+
+    return scores, obs_map
+
+
+def get_entity_strength(
+    facet: str | None = None,
+    since: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Rank entities by composite relationship strength score."""
+    conn, _ = get_journal_index()
+    try:
+        name_map = _build_entity_name_map(conn)
+        scores, obs_map = _compute_strength_scores(conn, facet, since)
+
+        today = date.today().strftime("%Y%m%d")
+        results: dict[str, dict[str, Any]] = {}
+
+        for entity_name, components in scores.items():
+            entity_id = name_map.get(entity_name)
+            key = entity_id or entity_name
+
+            if key not in results:
+                results[key] = {
+                    "entity_id": entity_id,
+                    "entity_name": entity_name,
+                    "co_occurrence": 0,
+                    "appearance": 0,
+                    "recency": 0.0,
+                    "facet_breadth": 0,
+                    "observation_depth": 0,
+                }
+
+            r = results[key]
+            r["appearance"] += components["appearance"]
+            r["co_occurrence"] = max(
+                r["co_occurrence"], components.get("co_occurrence", 0)
+            )
+            r["facet_breadth"] = max(
+                r["facet_breadth"], components.get("facet_breadth", 0)
+            )
+            last_day = components.get("last_day", "")
+            if last_day and last_day > r.get("_last_day", ""):
+                r["_last_day"] = last_day
+
+        for r in results.values():
+            last_day = r.pop("_last_day", "")
+            if last_day:
+                try:
+                    last = date(
+                        int(last_day[:4]), int(last_day[4:6]), int(last_day[6:8])
+                    )
+                    ref = date(int(today[:4]), int(today[4:6]), int(today[6:8]))
+                    days_since = max(0, (ref - last).days)
+                    r["recency"] = round(1.0 / (1 + days_since), 4)
+                except (ValueError, IndexError):
+                    r["recency"] = 0.0
+            if r["entity_id"] and r["entity_id"] in obs_map:
+                r["observation_depth"] = obs_map[r["entity_id"]]
+
+            r["score"] = round(
+                5 * r["co_occurrence"]
+                + 3 * r["appearance"]
+                + 2 * r["recency"]
+                + 1 * r["facet_breadth"]
+                + 1 * r["observation_depth"],
+                4,
+            )
+
+        ranked = sorted(results.values(), key=lambda x: x["score"], reverse=True)
+        return ranked[:limit]
+    finally:
+        conn.close()
+
+
+def _extract_match_candidates(fts_results: list[dict[str, Any]]) -> set[str]:
+    """Extract candidate entity names from FTS result text."""
+    names: set[str] = set()
+    for result in fts_results:
+        text = result.get("text", "")
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("### "):
+                name = stripped[4:].strip()
+                if name.startswith("Project: "):
+                    names.add(name[len("Project: ") :].strip())
+                elif name.startswith("Person: "):
+                    names.add(name[len("Person: ") :].strip())
+                elif name:
+                    names.add(name)
+    return names
+
+
+def search_entities(
+    query: str | None = None,
+    entity_type: str | None = None,
+    facet: str | None = None,
+    since: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Search entities by text query, type, facet, and/or signal activity."""
+    conn, _ = get_journal_index()
+    try:
+        id_where_parts = ["source='identity'"]
+        id_params: list[Any] = []
+        if entity_type:
+            id_where_parts.append("LOWER(type)=LOWER(?)")
+            id_params.append(entity_type)
+
+        id_rows = conn.execute(
+            f"SELECT entity_id, name, type, description FROM entities WHERE {' AND '.join(id_where_parts)}",
+            id_params,
+        ).fetchall()
+
+        entities: dict[str, dict[str, Any]] = {
+            r[0]: {
+                "entity_id": r[0],
+                "name": r[1],
+                "type": r[2],
+                "description": r[3] or "",
+            }
+            for r in id_rows
+        }
+
+        if facet or since:
+            sig_where = []
+            sig_params: list[Any] = []
+            if facet:
+                sig_where.append("facet=?")
+                sig_params.append(facet.lower())
+            if since:
+                sig_where.append("day>=?")
+                sig_params.append(since)
+
+            sig_rows = conn.execute(
+                f"SELECT DISTINCT entity_name FROM entity_signals WHERE {' AND '.join(sig_where)}",
+                sig_params,
+            ).fetchall()
+            name_map = _build_entity_name_map(conn)
+            active_ids = set()
+            for (sname,) in sig_rows:
+                eid = name_map.get(sname)
+                if eid:
+                    active_ids.add(eid)
+
+            if facet:
+                rel_rows = conn.execute(
+                    "SELECT DISTINCT entity_id FROM entities WHERE source='relationship' AND facet=?",
+                    [facet.lower()],
+                ).fetchall()
+                for (eid,) in rel_rows:
+                    active_ids.add(eid)
+
+            entities = {eid: e for eid, e in entities.items() if eid in active_ids}
+
+        if query:
+            _, fts_results = search_journal(query, limit=100, agent="entity:detected")
+            fts_ids = set()
+            for r in fts_results:
+                path = r.get("metadata", {}).get("path", "")
+                parts = path.split("/")
+                if "entities" in parts:
+                    idx = parts.index("entities")
+                    if idx + 1 < len(parts):
+                        candidate = parts[idx + 1]
+                        if candidate and "." not in candidate:
+                            fts_ids.add(candidate)
+
+            if not fts_ids:
+                name_map = _build_entity_name_map(conn)
+                match_names = _extract_match_candidates(fts_results)
+                for sname, eid in name_map.items():
+                    if sname in match_names:
+                        fts_ids.add(eid)
+
+            if not fts_ids:
+                like_term = f"%{query.lower()}%"
+                identity_rows = conn.execute(
+                    """
+                    SELECT DISTINCT entity_id
+                    FROM entities
+                    WHERE source='identity'
+                      AND (
+                        LOWER(name) LIKE ?
+                        OR LOWER(type) LIKE ?
+                        OR LOWER(description) LIKE ?
+                      )
+                    """,
+                    [like_term, like_term, like_term],
+                ).fetchall()
+                for (eid,) in identity_rows:
+                    fts_ids.add(eid)
+
+            entities = {eid: e for eid, e in entities.items() if eid in fts_ids}
+
+        name_map = _build_entity_name_map(conn)
+        reverse_map: dict[str, list[str]] = {}
+        for sname, eid in name_map.items():
+            reverse_map.setdefault(eid, []).append(sname)
+
+        result_list = []
+        for eid, e in entities.items():
+            signal_names = reverse_map.get(eid, [])
+            if signal_names:
+                placeholders = ",".join("?" for _ in signal_names)
+                row = conn.execute(
+                    f"SELECT COUNT(*), MAX(day), COUNT(DISTINCT facet) FROM entity_signals WHERE entity_name IN ({placeholders})",
+                    signal_names,
+                ).fetchone()
+                e["signal_count"] = row[0]
+                e["last_active"] = row[1] or ""
+                facet_rows = conn.execute(
+                    f"SELECT DISTINCT facet FROM entity_signals WHERE entity_name IN ({placeholders}) AND facet IS NOT NULL AND facet != ''",
+                    signal_names,
+                ).fetchall()
+                e["facets"] = [r[0] for r in facet_rows if r[0]]
+            else:
+                e["signal_count"] = 0
+                e["last_active"] = ""
+                e["facets"] = []
+
+            rel_facets = conn.execute(
+                "SELECT DISTINCT facet FROM entities WHERE entity_id=? AND source='relationship' AND facet IS NOT NULL AND facet != ''",
+                [eid],
+            ).fetchall()
+            for (rf,) in rel_facets:
+                if rf and rf not in e["facets"]:
+                    e["facets"].append(rf)
+
+            result_list.append(e)
+
+        result_list.sort(key=lambda x: (-x["signal_count"], x["name"]))
+        return result_list[:limit]
+    finally:
+        conn.close()
+
+
+def get_entity_intelligence(
+    entity: str,
+    facet: str | None = None,
+) -> dict[str, Any] | None:
+    """Get a full intelligence briefing for an entity."""
+    conn, _ = get_journal_index()
+    try:
+        slug = entity_slug(entity)
+
+        identity_row = conn.execute(
+            """
+            SELECT entity_id, name, type, description, tags, contact, aka, is_principal
+            FROM entities WHERE source='identity' AND entity_id=?
+            """,
+            [slug],
+        ).fetchone()
+
+        if not identity_row:
+            candidates = conn.execute(
+                """
+                SELECT entity_id, name, type, description, tags, contact, aka, is_principal
+                FROM entities WHERE source='identity' AND entity_id LIKE ?
+                ORDER BY entity_id
+                """,
+                [slug + "_%"],
+            ).fetchall()
+            if candidates:
+                identity_row = candidates[0]
+
+        if not identity_row:
+            return None
+
+        identity = {
+            "entity_id": identity_row[0],
+            "name": identity_row[1],
+            "type": identity_row[2],
+            "description": identity_row[3] or "",
+            "tags": identity_row[4] or "",
+            "contact": identity_row[5] or "",
+            "aka": identity_row[6] or "",
+            "is_principal": bool(identity_row[7]),
+        }
+        entity_id = identity["entity_id"]
+
+        rel_where = "entity_id=? AND source='relationship'"
+        rel_params: list[Any] = [entity_id]
+        if facet:
+            rel_where += " AND facet=?"
+            rel_params.append(facet.lower())
+
+        rel_rows = conn.execute(
+            f"SELECT facet, description, attached_at, updated_at, detached FROM entities WHERE {rel_where}",
+            rel_params,
+        ).fetchall()
+        relationships = [
+            {
+                "facet": r[0],
+                "description": r[1] or "",
+                "attached_at": r[2] or "",
+                "updated_at": r[3] or "",
+                "detached": bool(r[4]),
+            }
+            for r in rel_rows
+        ]
+
+        obs_rows = conn.execute(
+            "SELECT facet, observation_count, last_observed FROM entities WHERE entity_id=? AND source='observation'",
+            [entity_id],
+        ).fetchall()
+        observations = [
+            {
+                "facet": r[0] or "",
+                "observation_count": int(r[1] or 0),
+                "last_observed": r[2] or "",
+            }
+            for r in obs_rows
+        ]
+
+        name_map = _build_entity_name_map(conn)
+        signal_names = [sname for sname, eid in name_map.items() if eid == entity_id]
+        if identity["name"] not in signal_names:
+            signal_names.append(identity["name"])
+
+        activity: list[dict[str, Any]] = []
+        network: dict[str, int] = {}
+        signal_facets: list[str] = []
+
+        if signal_names:
+            placeholders = ",".join("?" for _ in signal_names)
+            sig_rows = conn.execute(
+                f"SELECT signal_type, entity_name, target_name, relationship_type, day, facet, event_title, event_type, path FROM entity_signals WHERE entity_name IN ({placeholders}) ORDER BY day DESC",
+                signal_names,
+            ).fetchall()
+
+            for row in sig_rows:
+                activity.append(
+                    {
+                        "signal_type": row[0],
+                        "entity_name": row[1],
+                        "target_name": row[2] or "",
+                        "relationship_type": row[3] or "",
+                        "day": row[4] or "",
+                        "facet": row[5] or "",
+                        "event_title": row[6] or "",
+                        "event_type": row[7] or "",
+                        "path": row[8],
+                    }
+                )
+
+            co_rows = conn.execute(
+                f"""
+                SELECT s2.entity_name, COUNT(DISTINCT s2.path) as co_count
+                FROM entity_signals s1
+                JOIN entity_signals s2 ON s1.path = s2.path
+                WHERE s1.entity_name IN ({placeholders}) AND s2.entity_name NOT IN ({placeholders})
+                GROUP BY s2.entity_name
+                ORDER BY COUNT(DISTINCT s2.path) DESC
+                """,
+                signal_names + signal_names,
+            ).fetchall()
+            network = {r[0]: r[1] for r in co_rows}
+
+            facet_rows = conn.execute(
+                f"SELECT DISTINCT facet FROM entity_signals WHERE entity_name IN ({placeholders}) AND facet IS NOT NULL AND facet != ''",
+                signal_names,
+            ).fetchall()
+            signal_facets = [r[0] for r in facet_rows if r[0]]
+
+        all_facets = list(
+            set(signal_facets + [r["facet"] for r in relationships if r["facet"]])
+        )
+
+        scores, obs_map_data = _compute_strength_scores(conn, facet, None)
+        total_appearance = 0
+        max_co = 0
+        max_breadth = 0
+        best_last_day = ""
+        for sname in signal_names:
+            if sname in scores:
+                c = scores[sname]
+                total_appearance += c["appearance"]
+                max_co = max(max_co, c.get("co_occurrence", 0))
+                max_breadth = max(max_breadth, c.get("facet_breadth", 0))
+                if c.get("last_day", "") > best_last_day:
+                    best_last_day = c["last_day"]
+
+        obs_depth = obs_map_data.get(entity_id, 0)
+        recency = 0.0
+        if best_last_day:
+            try:
+                last = date(
+                    int(best_last_day[:4]),
+                    int(best_last_day[4:6]),
+                    int(best_last_day[6:8]),
+                )
+                ref = date.today()
+                days_since = max(0, (ref - last).days)
+                recency = round(1.0 / (1 + days_since), 4)
+            except (ValueError, IndexError):
+                pass
+
+        strength = {
+            "score": round(
+                5 * max_co
+                + 3 * total_appearance
+                + 2 * recency
+                + 1 * max_breadth
+                + 1 * obs_depth,
+                4,
+            ),
+            "co_occurrence": max_co,
+            "appearance": total_appearance,
+            "recency": recency,
+            "facet_breadth": max_breadth,
+            "observation_depth": obs_depth,
+        }
+
+        return {
+            "identity": identity,
+            "relationships": relationships,
+            "observations": observations,
+            "activity": activity,
+            "strength": strength,
+            "network": network,
+            "facets": all_facets,
+        }
+    finally:
+        conn.close()

@@ -28,6 +28,11 @@ from think.entities.saving import (
     update_detected_entity,
 )
 from think.facets import log_call_action
+from think.indexer.journal import (
+    get_entity_intelligence,
+    get_entity_strength,
+    search_entities,
+)
 from think.utils import now_ms, resolve_sol_day, resolve_sol_facet
 
 app = typer.Typer(help="Entity management.")
@@ -363,3 +368,67 @@ def observe_entity(
         },
     )
     typer.echo(f"Observation added to '{resolved_name}'.")
+
+
+@app.command("strength")
+def entity_strength(
+    facet: str | None = typer.Option(None, "--facet", "-f", help="Filter by facet."),
+    since: str | None = typer.Option(None, "--since", help="Signals since YYYYMMDD."),
+    limit: int = typer.Option(20, "--limit", "-n", help="Max results."),
+) -> None:
+    """Rank entities by relationship strength score."""
+    results = get_entity_strength(facet=facet, since=since, limit=limit)
+    if not results:
+        typer.echo("No entity signals found.")
+        return
+    for r in results:
+        name = r.get("entity_name", "")
+        score = r.get("score", 0)
+        eid = r.get("entity_id", "")
+        label = f"{name} ({eid})" if eid and eid != entity_slug(name) else name
+        typer.echo(f"  {score:>8.1f}  {label}")
+        typer.echo(
+            f"           co={r['co_occurrence']} app={r['appearance']} rec={r['recency']:.3f} fac={r['facet_breadth']} obs={r['observation_depth']}"
+        )
+
+
+@app.command("search")
+def entity_search(
+    query: str | None = typer.Option(None, "--query", "-q", help="Text search."),
+    type_: str | None = typer.Option(None, "--type", "-t", help="Entity type."),
+    facet: str | None = typer.Option(None, "--facet", "-f", help="Filter by facet."),
+    since: str | None = typer.Option(None, "--since", help="Signals since YYYYMMDD."),
+    limit: int = typer.Option(20, "--limit", "-n", help="Max results."),
+) -> None:
+    """Search entities by text, type, facet, or activity."""
+    results = search_entities(
+        query=query,
+        entity_type=type_,
+        facet=facet,
+        since=since,
+        limit=limit,
+    )
+    if not results:
+        typer.echo("No entities found.")
+        return
+    typer.echo(f"{len(results)} entities:")
+    for e in results:
+        facets = ", ".join(e.get("facets", []))
+        typer.echo(f"  - {e['name']} ({e['type']}): {e['description']}")
+        if facets:
+            typer.echo(f"    facets: {facets} | signals: {e.get('signal_count', 0)}")
+
+
+@app.command("intelligence")
+def entity_intel(
+    entity: str = typer.Argument(help="Entity name or identifier."),
+    facet: str | None = typer.Option(None, "--facet", "-f", help="Filter by facet."),
+) -> None:
+    """Get a full intelligence briefing for an entity."""
+    import json as _json
+
+    result = get_entity_intelligence(entity, facet=facet)
+    if result is None:
+        typer.echo(f"Error: Entity '{entity}' not found.", err=True)
+        raise typer.Exit(1)
+    typer.echo(_json.dumps(result, indent=2))
