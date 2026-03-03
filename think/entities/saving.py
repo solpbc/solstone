@@ -67,7 +67,7 @@ def _save_entities_attached(facet: str, entities: list[EntityDict]) -> None:
         seen_ids.add(expected_id)
 
     # Fields that belong to journal entity (identity)
-    journal_fields = {"id", "name", "type", "aka", "is_principal", "created_at"}
+    journal_fields = {"id", "name", "type", "aka", "is_principal", "created_at", "emails"}
 
     # Process each entity
     for entity in entities:
@@ -101,6 +101,14 @@ def _save_entities_attached(facet: str, entities: list[EntityDict]) -> None:
             new_aka = existing_aka | set(aka)
             if new_aka != existing_aka:
                 journal_entity["aka"] = sorted(new_aka)
+                journal_updated = True
+        # Merge emails (union, lowercased, deduplicated)
+        emails = entity.get("emails")
+        if emails and isinstance(emails, list):
+            existing_emails = set(e.lower() for e in journal_entity.get("emails", []))
+            new_emails = existing_emails | set(e.lower() for e in emails)
+            if new_emails != existing_emails:
+                journal_entity["emails"] = sorted(new_emails)
                 journal_updated = True
         # Only propagate is_principal if explicitly set and entity not detached
         if (

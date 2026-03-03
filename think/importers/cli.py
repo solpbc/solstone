@@ -182,7 +182,7 @@ def main() -> None:
         "--source",
         type=str,
         default=None,
-        help="Import source type (apple, plaud, audio, text). Auto-detected if omitted.",
+        help="Import source type (apple, plaud, audio, text, or a file importer name). Auto-detected if omitted.",
     )
     parser.add_argument(
         "--force",
@@ -217,6 +217,11 @@ def main() -> None:
         action="store_true",
         help="With --sync: download and import new files (default is dry-run)",
     )
+    parser.add_argument(
+        "--list-importers",
+        action="store_true",
+        help="List available file importers",
+    )
     args, extra = setup_cli(parser, parse_known=True)
     if extra and not args.timestamp:
         args.timestamp = extra[0]
@@ -231,6 +236,20 @@ def main() -> None:
                 print(f"  {b.name}")
         else:
             print("No syncable backends available")
+        return
+
+    if args.list_importers:
+        from think.importers.file_importer import get_file_importers
+
+        importers = get_file_importers()
+        if importers:
+            print("File importers:")
+            for imp in importers:
+                patterns = ", ".join(imp.file_patterns)
+                print(f"  {imp.name:<12} {imp.display_name} ({patterns})")
+                print(f"               {imp.description}")
+        else:
+            print("No file importers available")
         return
 
     if args.sync:
@@ -282,8 +301,21 @@ def main() -> None:
     day = base_dt.strftime("%Y%m%d")
 
     # Derive stream identity for this import
+    _file_importer = None
     if args.source:
-        import_source = args.source
+        # Check if source names a file importer
+        from think.importers.file_importer import (
+            FILE_IMPORTER_REGISTRY,
+            get_file_importer,
+        )
+
+        if args.source in FILE_IMPORTER_REGISTRY:
+            _file_importer = get_file_importer(args.source)
+            if _file_importer is None:
+                raise SystemExit(f"Failed to load file importer: {args.source}")
+            import_source = args.source
+        else:
+            import_source = args.source
     else:
         # Auto-detect from file extension
         _ext = os.path.splitext(args.media)[1].lower()
@@ -292,8 +324,38 @@ def main() -> None:
         elif _ext in {".txt", ".md", ".pdf"}:
             import_source = "text"
         else:
-            import_source = "audio"
+            # Try file importer detection for unknown extensions / directories
+            from think.importers.file_importer import detect_file_importer
+
+            detected = detect_file_importer(Path(args.media))
+            if detected is not None:
+                _file_importer = detected
+                import_source = detected.name
+            else:
+                import_source = "audio"
+
+    # Also try file importer detection for directories
+    if _file_importer is None and os.path.isdir(args.media):
+        from think.importers.file_importer import detect_file_importer
+
+        detected = detect_file_importer(Path(args.media))
+        if detected is not None:
+            _file_importer = detected
+            import_source = detected.name
+
     stream = stream_name(import_source=import_source)
+
+    if args.dry_run and _file_importer is not None:
+        preview = _file_importer.preview(Path(args.media))
+        print()
+        print(f"  Importer:   {_file_importer.display_name}")
+        print(f"  Source:     {args.media}")
+        print(f"  Date range: {preview.date_range[0]} — {preview.date_range[1]}")
+        print(f"  Items:      {preview.item_count}")
+        print(f"  Entities:   {preview.entity_count}")
+        print(f"  Summary:    {preview.summary}")
+        print()
+        return
 
     if args.dry_run:
         from think.importers.plaud import format_size
@@ -463,7 +525,57 @@ def main() -> None:
     failed_segments: list[str] = []
 
     try:
-        if ext in {".txt", ".md", ".pdf"}:
+        if _file_importer is not None:
+            # File importer processing — structured file/directory imports
+            _set_stage("importing")
+
+            result = _file_importer.process(
+                Path(args.media), journal_root, facet=args.facet
+            )
+
+            all_created_files.extend(result.files_created)
+            processing_results["outputs"].append(
+                {
+                    "type": "file_import",
+                    "importer": _file_importer.name,
+                    "description": result.summary,
+                    "files": result.files_created,
+                    "entries_written": result.entries_written,
+                    "entities_seeded": result.entities_seeded,
+                    "count": len(result.files_created),
+                }
+            )
+
+            if result.errors:
+                logger.warning(
+                    "%d errors during %s import: %s",
+                    len(result.errors),
+                    _file_importer.name,
+                    result.errors,
+                )
+
+            # Emit callosum events for file imports
+            _callosum.emit(
+                "importer",
+                "file_imported",
+                import_id=_import_id,
+                importer=_file_importer.name,
+                entries_written=result.entries_written,
+                entities_seeded=result.entities_seeded,
+                files_created=len(result.files_created),
+                errors=len(result.errors),
+                stream=stream,
+            )
+
+            logger.info(
+                "%s import complete: %d entries, %d entities, %d files",
+                _file_importer.display_name,
+                result.entries_written,
+                result.entities_seeded,
+                len(result.files_created),
+            )
+
+        elif ext in {".txt", ".md", ".pdf"}:
             # Text transcript processing — no observe pipeline
             _set_stage("segmenting")
 

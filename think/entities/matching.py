@@ -107,6 +107,8 @@ def find_matching_entity(
     first_word_map: dict[str, list[EntityDict]] = {}
     # All candidate strings for fuzzy matching -> entity
     fuzzy_candidates: dict[str, EntityDict] = {}
+    # Maps lowercase email -> entity
+    email_map: dict[str, EntityDict] = {}
 
     for entity in entities:
         name = entity.get("name", "")
@@ -138,6 +140,13 @@ def find_matching_entity(
                     exact_map[aka] = entity
                     exact_map[aka.lower()] = entity
 
+        # Build email lookup
+        entity_emails = entity.get("emails", [])
+        if isinstance(entity_emails, list):
+            for email in entity_emails:
+                if email:
+                    email_map[email.lower()] = entity
+
         # Tier 4: First word
         first_word = name.split()[0].lower() if name else ""
         if first_word and len(first_word) >= 3:
@@ -159,6 +168,12 @@ def find_matching_entity(
     # Tier 2: Case-insensitive match
     if detected_lower in exact_map:
         return exact_map[detected_lower]
+
+    # Tier 2.5: Email match
+    if "@" in detected_name:
+        email_match = email_map.get(detected_lower)
+        if email_match:
+            return email_match
 
     # Tier 3: Slugified query match against id
     if detected_slug and detected_slug in id_map:
@@ -188,6 +203,30 @@ def find_matching_entity(
             # rapidfuzz not available, skip fuzzy matching
             pass
 
+    return None
+
+
+def find_entity_by_email(
+    email: str,
+    entities: list[EntityDict],
+) -> EntityDict | None:
+    """Find an entity by email address.
+
+    Args:
+        email: Email address to search for
+        entities: List of entity dicts to search
+
+    Returns:
+        Matched entity dict, or None if no match
+    """
+    if not email:
+        return None
+    email_lower = email.lower()
+    for entity in entities:
+        entity_emails = entity.get("emails", [])
+        if isinstance(entity_emails, list):
+            if email_lower in [e.lower() for e in entity_emails]:
+                return entity
     return None
 
 

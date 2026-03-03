@@ -75,6 +75,7 @@ from think.entities.loading import (
 
 # Entity matching and resolution
 from think.entities.matching import (
+    find_entity_by_email,
     find_matching_entity,
     resolve_entity,
     validate_aka_uniqueness,
@@ -151,6 +152,7 @@ __all__ = [
     "save_entities",
     "update_detected_entity",
     # Matching
+    "find_entity_by_email",
     "find_matching_entity",
     "resolve_entity",
     "validate_aka_uniqueness",

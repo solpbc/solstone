@@ -164,6 +164,7 @@ def get_or_create_journal_entity(
     name: str,
     entity_type: str,
     aka: list[str] | None = None,
+    emails: list[str] | None = None,
     *,
     skip_principal: bool = False,
 ) -> EntityDict:
@@ -195,6 +196,8 @@ def get_or_create_journal_entity(
     }
     if aka:
         entity["aka"] = aka
+    if emails:
+        entity["emails"] = [e.lower() for e in emails]
 
     # Check if this should be the principal
     # Only flag if: matches identity, no existing principal, and not skipped

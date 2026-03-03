@@ -59,6 +59,7 @@ dependencies = [
     "anthropic",
     "genai-prices",
     "pypdf",
+    "icalendar",
     "blessed>=1.20.0",
     "psutil",
     "tzlocal",
