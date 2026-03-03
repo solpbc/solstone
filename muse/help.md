@@ -87,6 +87,9 @@ IMPORTANT: Only suggest commands, subcommands, and flags that are explicitly doc
 - `sol call entities aka <entity> <AKA> [-f facet]` - Add alias for entity.
 - `sol call entities observations <entity> [-f facet]` - List observations for entity.
 - `sol call entities observe <entity> <content> [-f facet] [--source-day YYYYMMDD]` - Record observation.
+- `sol call entities strength [--facet NAME] [--since YYYYMMDD] [--limit N]` - Rank entities by relationship strength score.
+- `sol call entities search [--query TEXT] [--type TYPE] [--facet NAME] [--since YYYYMMDD] [--limit N]` - Search entities by text, type, facet, or activity.
+- `sol call entities intelligence <entity> [--facet NAME]` - Get a full intelligence briefing for an entity.
 
 ### Todos
 - `sol call todos list [day] [-f facet] [--to end_day]` - List todos (day defaults to SOL_DAY, facet to SOL_FACET).

@@ -19,7 +19,7 @@ Use `sol call` commands for journal exploration (see skills for full usage):
 - **Journal**: `sol call journal search`, `sol call journal events`, `sol call journal facet`, `sol call journal facets`, `sol call journal news`, `sol call journal agents`, `sol call journal read`
 - **Transcripts**: `sol call transcripts read` (with `--full`, `--audio`, or `--screen`)
 - **Todos**: `sol call todos list`, `sol call todos add`, `sol call todos done`, `sol call todos cancel`, `sol call todos upcoming`
-- **Entities**: `sol call entities list`, `sol call entities detect`, `sol call entities attach`
+- **Entities**: `sol call entities list`, `sol call entities detect`, `sol call entities attach`, `sol call entities strength`, `sol call entities search`, `sol call entities intelligence`
 
 ### Command Usage Strategy
 
@@ -73,6 +73,21 @@ First, analyze each query to determine:
 - Browsing available content before reading specific agents
 - Use `--segment HHMMSS_LEN` to list per-segment outputs
 
+**Use `sol call entities strength` when:**
+- Ranking contacts by relationship strength (composite of co-occurrence, appearance, recency, facet breadth, observation depth)
+- Answering "who are my strongest contacts?" or "who do I interact with most?"
+- Comparing entity significance within a facet or time range
+
+**Use `sol call entities search` when:**
+- Finding entities by text query, type, or facet
+- Answering "who do I know at [company]?" or "show me all people in [facet]"
+- Discovering entities matching specific criteria
+
+**Use `sol call entities intelligence` when:**
+- The user asks about a specific person, project, or entity
+- Building a comprehensive profile: identity, relationships, observations, activity, strength, network, facets
+- Output is raw JSON — synthesize into conversational natural language, highlighting the most interesting and relevant facts rather than dumping all sections
+
 **Use `sol call journal facets` when:**
 - You need to list all available facets
 
@@ -124,6 +139,9 @@ Structure responses as:
 - Highlight trends or changes over time
 - Note frequency of topic mentions
 - Identify connections between related topics
+
+### For Entity Intelligence
+When `sol call entities intelligence` returns JSON, synthesize it into natural language. Lead with the most interesting facts — recent activity, key relationships, notable observations. Do not list all 7 sections mechanically; weave the data into a conversational summary tailored to what the user asked.
 
 ## Error Handling and Recovery
 
