@@ -8,7 +8,32 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from think.importers.file_importer import ImportPreview, ImportResult
 from think.utils import day_path
+
+
+def _make_mock_file_importer(name="ics", display_name="ICS Calendar"):
+    """Create a mock FileImporter for testing."""
+    mock_imp = MagicMock()
+    mock_imp.name = name
+    mock_imp.display_name = display_name
+    mock_imp.file_patterns = ["*.ics"]
+    mock_imp.description = "Import calendar events from ICS files"
+
+    mock_imp.preview.return_value = ImportPreview(
+        date_range=("20250101", "20250301"),
+        item_count=42,
+        entity_count=5,
+        summary="42 calendar events from 5 calendars",
+    )
+    mock_imp.process.return_value = ImportResult(
+        entries_written=42,
+        entities_seeded=5,
+        files_created=["/journal/20250101/import.ics/imported.jsonl"],
+        errors=[],
+        summary="Imported 42 events",
+    )
+    return mock_imp
 
 
 def test_slice_audio_segment(tmp_path):
@@ -515,3 +540,201 @@ def test_importer_dry_run_auto(tmp_path, monkeypatch, capsys):
 
     assert not (tmp_path / "imports").exists()
     assert not (tmp_path / "20240315").exists()
+
+
+def test_file_importer_without_timestamp(tmp_path, monkeypatch, capsys):
+    """File importers auto-generate timestamp and skip import setup."""
+    mod = importlib.import_module("think.importers.cli")
+
+    ics_file = tmp_path / "calendar.ics"
+    ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
+
+    fixed_dt = dt.datetime(2026, 3, 3, 12, 34, 56)
+
+    class FixedDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_dt
+
+    monkeypatch.setattr(mod.dt, "datetime", FixedDateTime)
+
+    mock_imp = _make_mock_file_importer()
+    callosum = MagicMock()
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr("sys.argv", ["sol import", str(ics_file), "--source", "ics"])
+    monkeypatch.setattr(
+        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+    )
+    monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
+    monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
+    monkeypatch.setattr(mod, "_status_emitter", lambda: None)
+
+    mod.main()
+
+    mock_imp.process.assert_called_once_with(Path(ics_file), Path(tmp_path), facet=None)
+    mock_call = callosum.emit.call_args_list[0]
+    assert mock_call.args[0] == "importer"
+    assert mock_call.args[1] == "started"
+    assert mock_call.kwargs["import_id"] == "20260303_123456"
+    assert not (tmp_path / "imports").exists()
+
+
+def test_file_importer_with_timestamp(tmp_path, monkeypatch):
+    """File importer uses provided --timestamp and still skips import setup."""
+    mod = importlib.import_module("think.importers.cli")
+
+    ics_file = tmp_path / "calendar.ics"
+    ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
+
+    mock_imp = _make_mock_file_importer()
+    callosum = MagicMock()
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "sol import",
+            str(ics_file),
+            "--source",
+            "ics",
+            "--timestamp",
+            "20260303_120000",
+        ],
+    )
+    monkeypatch.setattr(
+        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+    )
+    monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
+    monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
+    monkeypatch.setattr(mod, "_status_emitter", lambda: None)
+
+    mod.main()
+
+    mock_imp.process.assert_called_once_with(Path(ics_file), Path(tmp_path), facet=None)
+    mock_call = callosum.emit.call_args_list[0]
+    assert mock_call.args[0] == "importer"
+    assert mock_call.args[1] == "started"
+    assert mock_call.kwargs["import_id"] == "20260303_120000"
+    assert not (tmp_path / "imports").exists()
+
+
+def test_list_importers_json(capsys, monkeypatch):
+    """--list-importers --json returns machine-readable output."""
+    mod = importlib.import_module("think.importers.cli")
+
+    mock_imp = _make_mock_file_importer()
+    monkeypatch.setattr("sys.argv", ["sol import", "--list-importers", "--json"])
+    with patch(
+        "think.importers.file_importer.get_file_importers", return_value=[mock_imp]
+    ):
+        mod.main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert isinstance(data, list)
+    assert len(data) == 1
+    assert data[0]["name"] == "ics"
+    assert "display_name" in data[0]
+    assert "file_patterns" in data[0]
+    assert "description" in data[0]
+
+
+def test_dry_run_file_importer_json(tmp_path, monkeypatch, capsys):
+    """--dry-run --json for file importer returns JSON metadata."""
+    mod = importlib.import_module("think.importers.cli")
+
+    ics_file = tmp_path / "calendar.ics"
+    ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
+
+    mock_imp = _make_mock_file_importer()
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(
+        "sys.argv",
+        ["sol import", str(ics_file), "--source", "ics", "--dry-run", "--json"],
+    )
+    monkeypatch.setattr(
+        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+    )
+
+    mod.main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["importer"] == "ics"
+    assert data["source"] == str(ics_file)
+    assert data["item_count"] == 42
+    assert data["entity_count"] == 5
+    assert data["summary"] == "42 calendar events from 5 calendars"
+    assert isinstance(data["date_range"], list)
+    mock_imp.process.assert_not_called()
+
+
+def test_file_import_json(tmp_path, monkeypatch, capsys):
+    """File importer prints machine-readable completion output."""
+    mod = importlib.import_module("think.importers.cli")
+
+    ics_file = tmp_path / "calendar.ics"
+    ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
+    fixed_dt = dt.datetime(2026, 3, 3, 12, 34, 56)
+
+    class FixedDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_dt
+
+    monkeypatch.setattr(mod.dt, "datetime", FixedDateTime)
+
+    mock_imp = _make_mock_file_importer()
+    callosum = MagicMock()
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(
+        "sys.argv",
+        ["sol import", str(ics_file), "--source", "ics", "--json"],
+    )
+    monkeypatch.setattr(
+        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+    )
+    monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: callosum)
+    monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
+    monkeypatch.setattr(mod, "_status_emitter", lambda: None)
+
+    mod.main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["importer"] == "ics"
+    assert data["entries_written"] == 42
+    assert data["entities_seeded"] == 5
+    assert data["files_created"] == ["/journal/20250101/import.ics/imported.jsonl"]
+    assert data["errors"] == []
+    assert data["summary"] == "Imported 42 events"
+    assert not (tmp_path / "imports").exists()
+
+
+def test_file_importer_no_imports_dir(tmp_path, monkeypatch):
+    """File importers should never create the legacy imports/ folder."""
+    mod = importlib.import_module("think.importers.cli")
+
+    ics_file = tmp_path / "calendar.ics"
+    ics_file.write_text("BEGIN:VCALENDAR\nEND:VCALENDAR")
+
+    mock_imp = _make_mock_file_importer()
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setattr(
+        "sys.argv",
+        ["sol import", str(ics_file), "--source", "ics"],
+    )
+    monkeypatch.setattr(
+        "think.importers.file_importer.get_file_importer", lambda name: mock_imp
+    )
+    monkeypatch.setattr(mod, "CallosumConnection", lambda **kwargs: MagicMock())
+    monkeypatch.setattr(mod, "get_rev", lambda: "test-rev")
+    monkeypatch.setattr(mod, "_status_emitter", lambda: None)
+
+    mod.main()
+
+    assert not (tmp_path / "imports").exists()

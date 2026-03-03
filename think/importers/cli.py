@@ -222,6 +222,11 @@ def main() -> None:
         action="store_true",
         help="List available file importers",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results as JSON (file importers only)",
+    )
     args, extra = setup_cli(parser, parse_known=True)
     if extra and not args.timestamp:
         args.timestamp = extra[0]
@@ -242,7 +247,21 @@ def main() -> None:
         from think.importers.file_importer import get_file_importers
 
         importers = get_file_importers()
-        if importers:
+        if args.json:
+            print(
+                json.dumps(
+                    [
+                        {
+                            "name": imp.name,
+                            "display_name": imp.display_name,
+                            "file_patterns": imp.file_patterns,
+                            "description": imp.description,
+                        }
+                        for imp in importers
+                    ]
+                )
+            )
+        elif importers:
             print("File importers:")
             for imp in importers:
                 patterns = ", ".join(imp.file_patterns)
@@ -261,11 +280,51 @@ def main() -> None:
 
     args.media = os.path.expanduser(args.media)
 
+    _file_importer = None
+    import_source = None
+
     # Track detection result for metadata
     detection_result = None
 
-    # If no timestamp provided, detect it
-    if not args.timestamp:
+    # --- File importer detection (before timestamp resolution) ---
+    if args.source:
+        from think.importers.file_importer import (
+            FILE_IMPORTER_REGISTRY,
+            get_file_importer,
+        )
+
+        if args.source in FILE_IMPORTER_REGISTRY:
+            _file_importer = get_file_importer(args.source)
+            if _file_importer is None:
+                raise SystemExit(f"Failed to load file importer: {args.source}")
+            import_source = args.source
+
+    # Also try file importer detection for directories
+    if _file_importer is None and os.path.isdir(args.media):
+        from think.importers.file_importer import detect_file_importer
+
+        detected = detect_file_importer(Path(args.media))
+        if detected is not None:
+            _file_importer = detected
+            import_source = detected.name
+
+    # Try file importer detection for unknown file extensions
+    if _file_importer is None and not args.source:
+        _ext = os.path.splitext(args.media)[1].lower()
+        if _ext not in {".m4a", ".txt", ".md", ".pdf"}:
+            from think.importers.file_importer import detect_file_importer
+
+            detected = detect_file_importer(Path(args.media))
+            if detected is not None:
+                _file_importer = detected
+                import_source = detected.name
+
+    # --- Timestamp resolution ---
+    if _file_importer is not None and not args.timestamp:
+        # File importers don't need an external timestamp — auto-generate for metadata
+        args.timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    elif not args.timestamp:
+        # If no timestamp provided, detect it
         # Pass the original filename for better detection
         detection_result = detect_created(
             args.media,
@@ -300,61 +359,45 @@ def main() -> None:
     base_dt = dt.datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
     day = base_dt.strftime("%Y%m%d")
 
-    # Derive stream identity for this import
-    _file_importer = None
-    if args.source:
-        # Check if source names a file importer
-        from think.importers.file_importer import (
-            FILE_IMPORTER_REGISTRY,
-            get_file_importer,
-        )
-
-        if args.source in FILE_IMPORTER_REGISTRY:
-            _file_importer = get_file_importer(args.source)
-            if _file_importer is None:
-                raise SystemExit(f"Failed to load file importer: {args.source}")
+    # --- Derive import_source for non-file-importer paths ---
+    if import_source is None:
+        if args.source:
             import_source = args.source
         else:
-            import_source = args.source
-    else:
-        # Auto-detect from file extension
-        _ext = os.path.splitext(args.media)[1].lower()
-        if _ext == ".m4a":
-            import_source = "apple"
-        elif _ext in {".txt", ".md", ".pdf"}:
-            import_source = "text"
-        else:
-            # Try file importer detection for unknown extensions / directories
-            from think.importers.file_importer import detect_file_importer
-
-            detected = detect_file_importer(Path(args.media))
-            if detected is not None:
-                _file_importer = detected
-                import_source = detected.name
+            _ext = os.path.splitext(args.media)[1].lower()
+            if _ext == ".m4a":
+                import_source = "apple"
+            elif _ext in {".txt", ".md", ".pdf"}:
+                import_source = "text"
             else:
                 import_source = "audio"
-
-    # Also try file importer detection for directories
-    if _file_importer is None and os.path.isdir(args.media):
-        from think.importers.file_importer import detect_file_importer
-
-        detected = detect_file_importer(Path(args.media))
-        if detected is not None:
-            _file_importer = detected
-            import_source = detected.name
 
     stream = stream_name(import_source=import_source)
 
     if args.dry_run and _file_importer is not None:
         preview = _file_importer.preview(Path(args.media))
-        print()
-        print(f"  Importer:   {_file_importer.display_name}")
-        print(f"  Source:     {args.media}")
-        print(f"  Date range: {preview.date_range[0]} — {preview.date_range[1]}")
-        print(f"  Items:      {preview.item_count}")
-        print(f"  Entities:   {preview.entity_count}")
-        print(f"  Summary:    {preview.summary}")
-        print()
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "importer": _file_importer.name,
+                        "source": args.media,
+                        "date_range": list(preview.date_range),
+                        "item_count": preview.item_count,
+                        "entity_count": preview.entity_count,
+                        "summary": preview.summary,
+                    }
+                )
+            )
+        else:
+            print()
+            print(f"  Importer:   {_file_importer.display_name}")
+            print(f"  Source:     {args.media}")
+            print(f"  Date range: {preview.date_range[0]} — {preview.date_range[1]}")
+            print(f"  Items:      {preview.item_count}")
+            print(f"  Entities:   {preview.entity_count}")
+            print(f"  Summary:    {preview.summary}")
+            print()
         return
 
     if args.dry_run:
@@ -454,7 +497,7 @@ def main() -> None:
         return
 
     # Check if file needs setup (not already in imports/)
-    needs_setup = not _is_in_imports(args.media)
+    needs_setup = _file_importer is None and not _is_in_imports(args.media)
 
     # Copy to imports/ if file is not already there
     if needs_setup:
@@ -574,6 +617,19 @@ def main() -> None:
                 result.entities_seeded,
                 len(result.files_created),
             )
+            if args.json:
+                print(
+                    json.dumps(
+                        {
+                            "importer": _file_importer.name,
+                            "entries_written": result.entries_written,
+                            "entities_seeded": result.entities_seeded,
+                            "files_created": result.files_created,
+                            "errors": result.errors,
+                            "summary": result.summary,
+                        }
+                    )
+                )
 
         elif ext in {".txt", ".md", ".pdf"}:
             # Text transcript processing — no observe pipeline
@@ -771,34 +827,35 @@ def main() -> None:
         if failed_segments:
             processing_results["failed_segments"] = failed_segments
 
-        # Write imported.json with all processing metadata
         imported_path = import_dir / "imported.json"
-        try:
-            with open(imported_path, "w", encoding="utf-8") as f:
-                json.dump(processing_results, f, indent=2)
-            logger.info(f"Saved import processing metadata: {imported_path}")
-        except Exception as e:
-            logger.warning(f"Failed to save imported.json: {e}")
-
-        # Update import.json with processing summary if it exists
-        import_metadata_path = import_dir / "import.json"
-        if import_metadata_path.exists():
+        if _file_importer is None:
+            # Write imported.json with all processing metadata
             try:
-                with open(import_metadata_path, "r", encoding="utf-8") as f:
-                    import_meta = json.load(f)
-                import_meta["processing_completed"] = processing_results[
-                    "processing_completed"
-                ]
-                import_meta["total_files_created"] = processing_results[
-                    "total_files_created"
-                ]
-                import_meta["imported_json_path"] = str(imported_path)
-                import_meta["segments"] = created_segments
-                with open(import_metadata_path, "w", encoding="utf-8") as f:
-                    json.dump(import_meta, f, indent=2)
-                logger.info(f"Updated import metadata: {import_metadata_path}")
+                with open(imported_path, "w", encoding="utf-8") as f:
+                    json.dump(processing_results, f, indent=2)
+                logger.info(f"Saved import processing metadata: {imported_path}")
             except Exception as e:
-                logger.warning(f"Failed to update import metadata: {e}")
+                logger.warning(f"Failed to save imported.json: {e}")
+
+            # Update import.json with processing summary if it exists
+            import_metadata_path = import_dir / "import.json"
+            if import_metadata_path.exists():
+                try:
+                    with open(import_metadata_path, "r", encoding="utf-8") as f:
+                        import_meta = json.load(f)
+                    import_meta["processing_completed"] = processing_results[
+                        "processing_completed"
+                    ]
+                    import_meta["total_files_created"] = processing_results[
+                        "total_files_created"
+                    ]
+                    import_meta["imported_json_path"] = str(imported_path)
+                    import_meta["segments"] = created_segments
+                    with open(import_metadata_path, "w", encoding="utf-8") as f:
+                        json.dump(import_meta, f, indent=2)
+                    logger.info(f"Updated import metadata: {import_metadata_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to update import metadata: {e}")
 
         # Emit completed event
         duration_ms = int((time.monotonic() - _start_time) * 1000)
@@ -820,7 +877,6 @@ def main() -> None:
         )
 
     except Exception as e:
-        # Write error state to imported.json for persistent failure tracking
         duration_ms = int((time.monotonic() - _start_time) * 1000)
         partial_outputs = [_get_relative_path(f) for f in all_created_files]
         imported_path = import_dir / "imported.json"
@@ -836,12 +892,14 @@ def main() -> None:
             "stages_run": _stages_run,
         }
 
-        try:
-            with open(imported_path, "w", encoding="utf-8") as f:
-                json.dump(error_results, f, indent=2)
-            logger.info(f"Saved error state: {imported_path}")
-        except Exception as write_err:
-            logger.warning(f"Failed to write error state: {write_err}")
+        if _file_importer is None:
+            # Write error state to imported.json for persistent failure tracking
+            try:
+                with open(imported_path, "w", encoding="utf-8") as f:
+                    json.dump(error_results, f, indent=2)
+                logger.info(f"Saved error state: {imported_path}")
+            except Exception as write_err:
+                logger.warning(f"Failed to write error state: {write_err}")
 
         # Emit error event
         if _callosum:
