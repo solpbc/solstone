@@ -15,7 +15,18 @@ from pathlib import Path
 
 import typer
 
-from think.facets import facet_summary, get_enabled_facets, get_facet_news
+from think.facets import (
+    create_facet,
+    delete_facet,
+    facet_summary,
+    get_enabled_facets,
+    get_facet_news,
+    get_facets,
+    log_call_action,
+    rename_facet,
+    set_facet_muted,
+    update_facet,
+)
 from think.indexer.journal import get_events as get_events_impl
 from think.indexer.journal import search_counts as search_counts_impl
 from think.indexer.journal import search_journal as search_journal_impl
@@ -29,6 +40,8 @@ from think.utils import (
 )
 
 app = typer.Typer(help="Journal search and browsing.")
+facet_app = typer.Typer(help="Facet management.")
+app.add_typer(facet_app, name="facet")
 
 
 @app.command()
@@ -119,8 +132,8 @@ def events(
             typer.echo(f"  Details: {ev['details']}")
 
 
-@app.command()
-def facet(
+@facet_app.command()
+def show(
     name: str | None = typer.Argument(
         default=None, help="Facet name (default: SOL_FACET env)."
     ),
@@ -136,19 +149,155 @@ def facet(
 
 
 @app.command()
-def facets() -> None:
-    """List enabled (non-muted) facets."""
-    all_facets = get_enabled_facets()
+def facets(
+    all_: bool = typer.Option(False, "--all", help="Include muted facets."),
+) -> None:
+    """List facets."""
+    if all_:
+        all_facets = get_facets()
+    else:
+        all_facets = get_enabled_facets()
     if not all_facets:
         typer.echo("No facets found.")
         return
     for name, info in sorted(all_facets.items()):
         title = info.get("title", name)
+        emoji = info.get("emoji", "")
         desc = info.get("description", "")
-        line = f"- {title} ({name})"
+        muted = info.get("muted", False)
+
+        parts = []
+        if emoji:
+            parts.append(f"{emoji} {title} ({name})")
+        else:
+            parts.append(f"{title} ({name})")
         if desc:
-            line += f": {desc}"
-        typer.echo(line)
+            parts.append(f": {desc}")
+        if muted:
+            parts.append(" [muted]")
+        typer.echo(f"- {''.join(parts)}")
+
+
+@facet_app.command()
+def create(
+    title: str = typer.Argument(help="Display title for the new facet."),
+    emoji: str = typer.Option("📦", "--emoji", help="Icon emoji."),
+    color: str = typer.Option("#667eea", "--color", help="Hex color."),
+    description: str = typer.Option("", "--description", help="Facet description."),
+) -> None:
+    """Create a new facet."""
+    try:
+        slug = create_facet(title, emoji=emoji, color=color, description=description)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Created facet '{slug}'.")
+
+
+@facet_app.command()
+def update(
+    name: str = typer.Argument(help="Facet name to update."),
+    title: str | None = typer.Option(None, "--title", help="New display title."),
+    description: str | None = typer.Option(
+        None, "--description", help="New description."
+    ),
+    emoji: str | None = typer.Option(None, "--emoji", help="New icon emoji."),
+    color: str | None = typer.Option(None, "--color", help="New hex color."),
+) -> None:
+    """Update facet configuration."""
+    kwargs = {}
+    if title is not None:
+        kwargs["title"] = title
+    if description is not None:
+        kwargs["description"] = description
+    if emoji is not None:
+        kwargs["emoji"] = emoji
+    if color is not None:
+        kwargs["color"] = color
+
+    if not kwargs:
+        typer.echo(
+            "Error: No fields to update. Use --title, --description, --emoji, or --color.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    try:
+        changed = update_facet(name, **kwargs)
+    except FileNotFoundError:
+        typer.echo(f"Error: Facet '{name}' not found.", err=True)
+        raise typer.Exit(1)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+
+    if changed:
+        fields = ", ".join(changed.keys())
+        typer.echo(f"Updated {fields} for facet '{name}'.")
+    else:
+        typer.echo(f"No changes for facet '{name}'.")
+
+
+@facet_app.command()
+def rename(
+    name: str = typer.Argument(help="Current facet name."),
+    new_name: str = typer.Argument(help="New facet name."),
+) -> None:
+    """Rename a facet."""
+    try:
+        rename_facet(name, new_name)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    log_call_action(
+        facet=new_name,
+        action="facet_rename",
+        params={"old_name": name, "new_name": new_name},
+    )
+
+
+@facet_app.command()
+def mute(name: str = typer.Argument(help="Facet name to mute.")) -> None:
+    """Mute a facet (hide from default listings)."""
+    try:
+        set_facet_muted(name, True)
+    except FileNotFoundError:
+        typer.echo(f"Error: Facet '{name}' not found.", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Facet '{name}' muted.")
+
+
+@facet_app.command()
+def unmute(name: str = typer.Argument(help="Facet name to unmute.")) -> None:
+    """Unmute a facet (show in default listings)."""
+    try:
+        set_facet_muted(name, False)
+    except FileNotFoundError:
+        typer.echo(f"Error: Facet '{name}' not found.", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Facet '{name}' unmuted.")
+
+
+@facet_app.command()
+def delete(
+    name: str = typer.Argument(help="Facet name to delete."),
+    yes: bool = typer.Option(False, "--yes", help="Skip confirmation."),
+) -> None:
+    """Delete a facet and all its data."""
+    if not yes:
+        typer.echo(
+            f"This will permanently delete facet '{name}' and all its data "
+            "(entities, todos, events, logs, news).\n"
+            "Use --yes to confirm."
+        )
+        raise typer.Exit(1)
+
+    try:
+        delete_facet(name)
+    except FileNotFoundError:
+        typer.echo(f"Error: Facet '{name}' not found.", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Deleted facet '{name}'.")
 
 
 @app.command()

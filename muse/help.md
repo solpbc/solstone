@@ -73,8 +73,14 @@ IMPORTANT: Only suggest commands, subcommands, and flags that are explicitly doc
 ### Journal
 - `sol call journal search [query] [-n limit] [--offset N] [-d YYYYMMDD] [--day-from YYYYMMDD] [--day-to YYYYMMDD] [-f facet] [-a agent]` - Search journal entries.
 - `sol call journal events [day] [-f facet]` - List events for a day (day defaults to SOL_DAY).
-- `sol call journal facet [name]` - Show facet details (name defaults to SOL_FACET).
-- `sol call journal facets` - List all facets.
+- `sol call journal facet show [name]` - Show facet details (name defaults to SOL_FACET).
+- `sol call journal facet create <title> [--emoji EMOJI] [--color COLOR] [--description DESC]` - Create a new facet.
+- `sol call journal facet update <name> [--title T] [--description D] [--emoji E] [--color C]` - Update facet settings.
+- `sol call journal facet rename <name> <new-name>` - Rename a facet.
+- `sol call journal facet mute <name>` - Mute a facet.
+- `sol call journal facet unmute <name>` - Unmute a facet.
+- `sol call journal facet delete <name> [--yes]` - Delete a facet.
+- `sol call journal facets [--all]` - List facets (`--all` includes muted).
 - `sol call journal news [name] [-d YYYYMMDD] [-n limit] [--cursor CURSOR] [-w]` - Get news feed for a facet (name defaults to SOL_FACET, -d defaults to SOL_DAY).
 - `sol call journal agents [day] [-s HHMMSS_LEN]` - List agents for a day (day defaults to SOL_DAY).
 - `sol call journal read <agent> [-d YYYYMMDD] [-s HHMMSS_LEN] [--max N]` - Read agent output for an agent (day defaults to SOL_DAY).

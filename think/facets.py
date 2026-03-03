@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -593,6 +594,209 @@ def set_facet_muted(facet: str, muted: bool) -> None:
         action=action,
         params={"muted": muted},
     )
+
+
+def create_facet(
+    title: str,
+    emoji: str = "📦",
+    color: str = "#667eea",
+    description: str = "",
+) -> str:
+    """Create a new facet directory with facet.json.
+
+    Args:
+        title: Display title for the facet
+        emoji: Icon emoji (default: "📦")
+        color: Hex color (default: "#667eea")
+        description: Facet description
+
+    Returns:
+        The generated slug name for the facet
+
+    Raises:
+        ValueError: If title is empty, slug is invalid, or facet already exists
+    """
+    title = title.strip()
+    if not title:
+        raise ValueError("Facet title is required.")
+
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    if not re.fullmatch(r"[a-z][a-z0-9_-]*", slug):
+        raise ValueError(
+            f"Invalid facet name '{slug}': must be lowercase, start with a letter, "
+            "and contain only letters, digits, hyphens, or underscores"
+        )
+
+    if slug in get_facets():
+        raise ValueError(f"Facet '{slug}' already exists")
+
+    facet_path = Path(get_journal()) / "facets" / slug
+    facet_path.mkdir(parents=True, exist_ok=True)
+    facet_json_path = facet_path / "facet.json"
+
+    facet_data = {
+        "title": title,
+        "description": description,
+        "color": color,
+        "emoji": emoji,
+    }
+
+    import tempfile
+
+    temp_fd, temp_path = tempfile.mkstemp(
+        dir=facet_json_path.parent, suffix=".json", text=True
+    )
+    try:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            json.dump(facet_data, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        os.replace(temp_path, facet_json_path)
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except Exception:
+            pass
+        raise
+
+    log_call_action(
+        facet=slug,
+        action="facet_create",
+        params={
+            "title": title,
+            "emoji": emoji,
+            "color": color,
+            "description": description,
+        },
+    )
+    return slug
+
+
+def update_facet(name: str, **kwargs: Any) -> dict[str, Any]:
+    """Update facet.json fields for an existing facet.
+
+    Args:
+        name: Facet name
+        **kwargs: Fields to update (title, description, emoji, color)
+
+    Returns:
+        Dict of changed fields {field: {"old": ..., "new": ...}}
+
+    Raises:
+        FileNotFoundError: If facet doesn't exist
+        ValueError: If no valid fields provided
+    """
+    facet_path = Path(get_journal()) / "facets" / name
+    if not facet_path.exists():
+        raise FileNotFoundError(f"Facet '{name}' not found at {facet_path}")
+
+    facet_json_path = facet_path / "facet.json"
+    if facet_json_path.exists():
+        with open(facet_json_path, "r", encoding="utf-8") as f:
+            facet_data = json.load(f)
+    else:
+        facet_data = {}
+
+    allowed_fields = {"title", "description", "color", "emoji"}
+    changed_fields: dict[str, Any] = {}
+    filtered = {k: v for k, v in kwargs.items() if k in allowed_fields}
+    if not filtered:
+        raise ValueError("No valid fields to update")
+
+    for field, new_value in filtered.items():
+        old_value = facet_data.get(field)
+        if old_value != new_value:
+            changed_fields[field] = {"old": old_value, "new": new_value}
+            facet_data[field] = new_value
+
+    import tempfile
+
+    temp_fd, temp_path = tempfile.mkstemp(
+        dir=facet_json_path.parent, suffix=".json", text=True
+    )
+    try:
+        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+            json.dump(facet_data, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        os.replace(temp_path, facet_json_path)
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except Exception:
+            pass
+        raise
+
+    if changed_fields:
+        log_call_action(
+            facet=name,
+            action="facet_update",
+            params={"changed_fields": changed_fields},
+        )
+
+    return changed_fields
+
+
+def delete_facet(name: str) -> None:
+    """Delete a facet directory and clean up references.
+
+    Removes the facet directory tree and updates convey.json and chat metadata.
+
+    Args:
+        name: Facet name to delete
+
+    Raises:
+        FileNotFoundError: If facet doesn't exist
+    """
+    facet_path = Path(get_journal()) / "facets" / name
+    if not facet_path.exists():
+        raise FileNotFoundError(f"Facet '{name}' not found at {facet_path}")
+
+    convey_config_path = Path(get_journal()) / "config" / "convey.json"
+    if convey_config_path.exists():
+        try:
+            with open(convey_config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+
+            changed = False
+            facets_config = config.get("facets", {})
+
+            if facets_config.get("selected") == name:
+                facets_config["selected"] = ""
+                changed = True
+
+            order = facets_config.get("order", [])
+            if name in order:
+                facets_config["order"] = [item for item in order if item != name]
+                changed = True
+
+            if changed:
+                config["facets"] = facets_config
+                with open(convey_config_path, "w", encoding="utf-8") as f:
+                    json.dump(config, f, indent=2, ensure_ascii=False)
+                    f.write("\n")
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    chats_dir = Path(get_journal()) / "apps" / "chat" / "chats"
+    if chats_dir.is_dir():
+        for chat_file in chats_dir.glob("*.json"):
+            try:
+                with open(chat_file, "r", encoding="utf-8") as f:
+                    chat_data = json.load(f)
+
+                if chat_data.get("facet") == name:
+                    chat_data["facet"] = ""
+                    with open(chat_file, "w", encoding="utf-8") as f:
+                        json.dump(chat_data, f, indent=2, ensure_ascii=False)
+                        f.write("\n")
+            except (json.JSONDecodeError, OSError):
+                continue
+
+    log_call_action(
+        facet=None,
+        action="facet_delete",
+        params={"name": name},
+    )
+    shutil.rmtree(facet_path)
 
 
 def facet_summaries(*, detailed: bool = False) -> str:

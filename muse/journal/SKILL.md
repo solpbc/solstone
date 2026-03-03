@@ -70,24 +70,131 @@ sol call journal events 20260115
 sol call journal events 20260115 -f work
 ```
 
-## facet
+## facet show
 
 ```bash
-sol call journal facet [NAME]
+sol call journal facet show [NAME]
 ```
 
 Show a comprehensive facet summary.
 
 - `NAME`: facet name (default: `SOL_FACET` env).
 
-Use this for a quick overview of facet metadata, entities, and current state.
+Example:
+
+```bash
+sol call journal facet show work
+sol call journal facet show         # uses SOL_FACET
+```
+
+## facet create
+
+```bash
+sol call journal facet create <title> [--emoji EMOJI] [--color COLOR] [--description DESC]
+```
+
+Create a new facet directory and initial `facet.json`.
+
+- `title`: display title used for the facet.
+- `--emoji`: optional icon emoji (default: `📦`).
+- `--color`: optional hex color (default: `#667eea`).
+- `--description`: optional description text.
+
+Examples:
+
+```bash
+sol call journal facet create "Acme Project"
+sol call journal facet create "Personal" --emoji "🏠" --color "#ff6f61" --description "Life admin"
+```
+
+## facet update
+
+```bash
+sol call journal facet update <name> [--title T] [--description D] [--emoji E] [--color C]
+```
+
+Update facet metadata fields.
+
+- `name`: facet identifier.
+- `--title`: optional new display title.
+- `--description`: optional new description.
+- `--emoji`: optional new icon emoji.
+- `--color`: optional new hex color.
 
 Example:
 
 ```bash
-sol call journal facet work
-sol call journal facet          # uses SOL_FACET
+sol call journal facet update work --description "Client work and planning" --emoji "🛠"
 ```
+
+## facet rename
+
+```bash
+sol call journal facet rename <name> <new-name>
+```
+
+Rename a facet (directory and references in config/chat metadata).
+
+Example:
+
+```bash
+sol call journal facet rename personal personal-life
+```
+
+## facet mute
+
+```bash
+sol call journal facet mute <name>
+```
+
+Hide a facet from default facet listings.
+
+Example:
+
+```bash
+sol call journal facet mute personal
+```
+
+## facet unmute
+
+```bash
+sol call journal facet unmute <name>
+```
+
+Show a previously muted facet in default listings again.
+
+Example:
+
+```bash
+sol call journal facet unmute personal
+```
+
+## facet delete
+
+```bash
+sol call journal facet delete <name> [--yes]
+```
+
+Delete a facet directory and all its data.
+
+- `--yes`: skip confirmation prompt.
+
+Example:
+
+```bash
+sol call journal facet delete old-facet
+sol call journal facet delete old-facet --yes
+```
+
+## facets
+
+```bash
+sol call journal facets [--all]
+```
+
+List available facets.
+
+- `--all`: include muted facets in the listing.
 
 ## agents
 

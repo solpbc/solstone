@@ -3,6 +3,9 @@
 
 """Tests for think/call.py CLI dispatcher and app discovery."""
 
+import json
+
+import pytest
 import typer
 from typer.testing import CliRunner
 
@@ -10,6 +13,39 @@ from think.call import call_app
 from think.utils import resolve_sol_day, resolve_sol_facet, resolve_sol_segment
 
 runner = CliRunner()
+
+
+@pytest.fixture
+def facet_journal(tmp_path, monkeypatch):
+    """Create a journal with test facets for CRUD testing."""
+    journal = tmp_path / "journal"
+    # Create a facet with full metadata
+    facet_dir = journal / "facets" / "test-facet"
+    facet_dir.mkdir(parents=True)
+    (facet_dir / "facet.json").write_text(
+        json.dumps(
+            {
+                "title": "Test Facet",
+                "description": "A test",
+                "emoji": "🧪",
+                "color": "#007bff",
+            }
+        ),
+        encoding="utf-8",
+    )
+    # Create a muted facet
+    muted_dir = journal / "facets" / "muted-one"
+    muted_dir.mkdir(parents=True)
+    (muted_dir / "facet.json").write_text(
+        json.dumps({"title": "Muted Facet", "muted": True}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    import think.utils
+
+    think.utils._journal_path_cache = None
+    yield journal
+    think.utils._journal_path_cache = None
 
 
 class TestDiscovery:
@@ -65,7 +101,7 @@ class TestJournal:
 
     def test_journal_facet(self):
         """Facet command shows summary for test-facet."""
-        result = runner.invoke(call_app, ["journal", "facet", "test-facet"])
+        result = runner.invoke(call_app, ["journal", "facet", "show", "test-facet"])
         assert result.exit_code == 0
         assert "Test Facet" in result.output
 
@@ -188,6 +224,193 @@ class TestJournal:
         )
         assert result.exit_code == 1
         assert "day is required" in result.output
+
+
+class TestFacetCRUD:
+    """Tests for journal facet CRUD and listing commands."""
+
+    def test_facet_show(self, facet_journal):
+        """Facet show displays the requested facet."""
+        result = runner.invoke(call_app, ["journal", "facet", "show", "test-facet"])
+        assert result.exit_code == 0
+        assert "Test Facet" in result.output
+
+    def test_facet_show_not_found(self, facet_journal):
+        """Facet show returns error for missing facet."""
+        result = runner.invoke(call_app, ["journal", "facet", "show", "nonexistent"])
+        assert result.exit_code == 1
+
+    def test_facet_create(self, facet_journal):
+        """Create creates a new facet with defaults."""
+        result = runner.invoke(call_app, ["journal", "facet", "create", "My Project"])
+        assert result.exit_code == 0
+        assert "my-project" in result.output
+        facet_file = facet_journal / "facets" / "my-project" / "facet.json"
+        assert facet_file.exists()
+        payload = json.loads(facet_file.read_text(encoding="utf-8"))
+        assert payload["title"] == "My Project"
+        assert payload["emoji"] == "📦"
+        assert payload["color"] == "#667eea"
+
+    def test_facet_create_with_options(self, facet_journal):
+        """Create respects provided emoji, color, and description."""
+        result = runner.invoke(
+            call_app,
+            [
+                "journal",
+                "facet",
+                "create",
+                "Cool Project",
+                "--emoji",
+                "🎯",
+                "--color",
+                "#ff0000",
+                "--description",
+                "A cool project",
+            ],
+        )
+        assert result.exit_code == 0
+        facet_file = facet_journal / "facets" / "cool-project" / "facet.json"
+        payload = json.loads(facet_file.read_text(encoding="utf-8"))
+        assert payload["title"] == "Cool Project"
+        assert payload["emoji"] == "🎯"
+        assert payload["color"] == "#ff0000"
+        assert payload["description"] == "A cool project"
+
+    def test_facet_create_duplicate(self, facet_journal):
+        """Create rejects duplicate slugs."""
+        result = runner.invoke(call_app, ["journal", "facet", "create", "Test Facet"])
+        assert result.exit_code == 1
+        assert "already exists" in result.output
+
+    def test_facet_update(self, facet_journal):
+        """Update modifies allowed fields and reports changed fields."""
+        result = runner.invoke(
+            call_app,
+            [
+                "journal",
+                "facet",
+                "update",
+                "test-facet",
+                "--description",
+                "New desc",
+                "--emoji",
+                "🎯",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Updated" in result.output
+        facet_file = facet_journal / "facets" / "test-facet" / "facet.json"
+        payload = json.loads(facet_file.read_text(encoding="utf-8"))
+        assert payload["description"] == "New desc"
+        assert payload["emoji"] == "🎯"
+
+    def test_facet_update_not_found(self, facet_journal):
+        """Update fails when facet does not exist."""
+        result = runner.invoke(
+            call_app,
+            [
+                "journal",
+                "facet",
+                "update",
+                "nonexistent",
+                "--title",
+                "X",
+            ],
+        )
+        assert result.exit_code == 1
+
+    def test_facet_update_no_fields(self, facet_journal):
+        """Update requires at least one updatable field."""
+        result = runner.invoke(call_app, ["journal", "facet", "update", "test-facet"])
+        assert result.exit_code == 1
+        assert "No fields" in result.output
+
+    def test_facet_rename(self, facet_journal):
+        """Rename moves facet path."""
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "rename", "test-facet", "renamed-facet"],
+        )
+        assert result.exit_code == 0
+        assert not (facet_journal / "facets" / "test-facet").exists()
+        assert (facet_journal / "facets" / "renamed-facet").is_dir()
+
+    def test_facet_rename_invalid(self, facet_journal):
+        """Rename fails with invalid new facet name."""
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "rename", "test-facet", "INVALID"],
+        )
+        assert result.exit_code == 1
+
+    def test_facet_mute(self, facet_journal):
+        """Mute sets muted=true in facet metadata."""
+        result = runner.invoke(call_app, ["journal", "facet", "mute", "test-facet"])
+        assert result.exit_code == 0
+        assert "muted" in result.output.lower()
+        payload = json.loads(
+            (facet_journal / "facets" / "test-facet" / "facet.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert payload.get("muted") is True
+
+    def test_facet_unmute(self, facet_journal):
+        """Unmute removes muted field from metadata."""
+        result = runner.invoke(call_app, ["journal", "facet", "unmute", "muted-one"])
+        assert result.exit_code == 0
+        assert "unmuted" in result.output.lower()
+        payload = json.loads(
+            (facet_journal / "facets" / "muted-one" / "facet.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert payload.get("muted", False) is False
+
+    def test_facet_mute_not_found(self, facet_journal):
+        """Mute fails for missing facet."""
+        result = runner.invoke(call_app, ["journal", "facet", "mute", "nonexistent"])
+        assert result.exit_code == 1
+
+    def test_facet_delete_no_confirm(self, facet_journal):
+        """Delete requires --yes confirmation."""
+        result = runner.invoke(call_app, ["journal", "facet", "delete", "test-facet"])
+        assert result.exit_code == 1
+        assert "permanently delete" in result.output
+
+    def test_facet_delete_with_yes(self, facet_journal):
+        """Delete removes facet directory."""
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "delete", "test-facet", "--yes"],
+        )
+        assert result.exit_code == 0
+        assert "Deleted" in result.output
+        assert not (facet_journal / "facets" / "test-facet").exists()
+
+    def test_facet_delete_not_found(self, facet_journal):
+        """Delete fails for nonexistent facet."""
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "delete", "nonexistent", "--yes"],
+        )
+        assert result.exit_code == 1
+
+    def test_facets_list_shows_metadata(self, facet_journal):
+        """facets lists unmuted facets with metadata."""
+        result = runner.invoke(call_app, ["journal", "facets"])
+        assert result.exit_code == 0
+        assert "🧪" in result.output
+        assert "test-facet" in result.output
+        assert "muted-one" not in result.output
+
+    def test_facets_list_all(self, facet_journal):
+        """facets --all includes muted facets."""
+        result = runner.invoke(call_app, ["journal", "facets", "--all"])
+        assert result.exit_code == 0
+        assert "muted-one" in result.output
+        assert "[muted]" in result.output
 
 
 class TestResolveHelpers:
