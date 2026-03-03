@@ -221,6 +221,7 @@ def send_message() -> Any:
                 "ts": ts,
                 "facet": facet,
                 "provider": provider,
+                "muse": "default",
                 "title": title,
                 "agent_ids": [agent_id],
             }

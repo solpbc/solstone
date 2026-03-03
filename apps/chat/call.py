@@ -94,6 +94,7 @@ def redirect(
         "ts": ts,
         "facet": facet or None,
         "provider": provider,
+        "muse": "default",
         "title": title,
         "agent_ids": [agent_id],
     }
@@ -102,3 +103,118 @@ def redirect(
 
     callosum_send("navigate", "request", path=f"/app/chat#{chat_id}")
     typer.echo(f"Redirected to chat: {chat_id}")
+
+
+@app.command("history")
+def history(
+    muse: str | None = typer.Option(None, "--muse", "-m", help="Filter by muse name."),
+    facet: str | None = typer.Option(None, "--facet", "-f", help="Filter by facet."),
+    day: str | None = typer.Option(None, "--day", "-d", help="Filter by day YYYYMMDD."),
+    limit: int = typer.Option(20, "--limit", "-n", help="Max results."),
+) -> None:
+    """List chat threads with optional filters."""
+    from datetime import datetime
+
+    import convey.state
+    from apps.chat.routes import _load_all_chats
+    from think.utils import get_journal
+
+    convey.state.journal_root = str(get_journal())
+
+    chats, _unread = _load_all_chats()
+
+    # Filter
+    if muse:
+        chats = [c for c in chats if c.get("muse") == muse]
+    if facet:
+        chats = [c for c in chats if c.get("facet") == facet]
+    if day:
+        chats = [
+            c
+            for c in chats
+            if datetime.fromtimestamp(c["ts"] / 1000).strftime("%Y%m%d") == day
+        ]
+
+    # Sort by ts descending
+    chats.sort(key=lambda c: c.get("ts", 0), reverse=True)
+    chats = chats[:limit]
+
+    if not chats:
+        typer.echo("No chats found.")
+        return
+
+    for c in chats:
+        chat_day = datetime.fromtimestamp(c["ts"] / 1000).strftime("%Y%m%d")
+        parts = [
+            c.get("chat_id", ""),
+            c.get("title", "(untitled)"),
+            chat_day,
+        ]
+        if c.get("facet"):
+            parts.append(c["facet"])
+        if c.get("muse"):
+            parts.append(c["muse"])
+        typer.echo("  ".join(parts))
+
+
+@app.command("read")
+def read(
+    chat_id: str = typer.Argument(..., help="Chat ID to read."),
+    summary: bool = typer.Option(
+        False, "--summary", "-s", help="Show only prompts and results."
+    ),
+    max_bytes: int = typer.Option(16384, "--max", help="Max output bytes."),
+) -> None:
+    """Display conversation events for a chat thread."""
+    import json
+
+    import convey.state
+    from apps.chat.routes import _load_chat
+    from think.cortex_client import read_agent_events
+    from think.utils import get_journal, truncated_echo
+
+    convey.state.journal_root = str(get_journal())
+
+    chat = _load_chat(chat_id)
+    if not chat:
+        typer.echo(f"Chat not found: {chat_id}", err=True)
+        raise typer.Exit(1)
+
+    agent_ids = chat.get("agent_ids", [])
+    all_events: list[dict] = []
+    for agent_id in agent_ids:
+        try:
+            events = read_agent_events(agent_id)
+            all_events.extend(events)
+        except FileNotFoundError:
+            pass
+
+    if summary:
+        all_events = [e for e in all_events if e.get("event") in ("request", "finish")]
+
+    lines: list[str] = []
+    for e in all_events:
+        event_type = e.get("event", "unknown")
+        if event_type == "request":
+            lines.append(f"[request] {e.get('prompt', '')}")
+        elif event_type == "start":
+            name = e.get("name", "")
+            provider = e.get("provider", "")
+            model = e.get("model", "")
+            lines.append(f"[start] {name} ({provider}/{model})")
+        elif event_type == "thinking":
+            lines.append(f"[thinking] {e.get('content', '')}")
+        elif event_type == "tool_start":
+            tool = e.get("tool", "")
+            args = json.dumps(e.get("args", {}))
+            lines.append(f"[tool_start] {tool}({args})")
+        elif event_type == "tool_end":
+            lines.append(f"[tool_end] {e.get('result', '')}")
+        elif event_type == "finish":
+            lines.append(f"[finish] {e.get('result', '')}")
+
+    if not lines:
+        typer.echo("No events found.")
+        return
+
+    truncated_echo("\n".join(lines), max_bytes)
