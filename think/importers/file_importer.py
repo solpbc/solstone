@@ -6,7 +6,7 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Callable, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 

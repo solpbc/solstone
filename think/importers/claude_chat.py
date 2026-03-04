@@ -12,7 +12,6 @@ from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
 from think.importers.shared import write_structured_import
-from think.utils import get_journal
 
 logger = logging.getLogger(__name__)
 
@@ -138,14 +137,16 @@ class ClaudeChatImporter:
                 skipped += 1
                 continue
 
-            entries.append({
-                "type": "ai_chat",
-                "ts": ts,
-                "title": title,
-                "source": "claude",
-                "message_count": len(messages),
-                "content": content,
-            })
+            entries.append(
+                {
+                    "type": "ai_chat",
+                    "ts": ts,
+                    "title": title,
+                    "source": "claude",
+                    "message_count": len(messages),
+                    "content": content,
+                }
+            )
 
             if progress_callback and (i + 1) % 100 == 0:
                 progress_callback(i + 1, len(conversations))

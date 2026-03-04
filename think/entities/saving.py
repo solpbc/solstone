@@ -67,7 +67,15 @@ def _save_entities_attached(facet: str, entities: list[EntityDict]) -> None:
         seen_ids.add(expected_id)
 
     # Fields that belong to journal entity (identity)
-    journal_fields = {"id", "name", "type", "aka", "is_principal", "created_at", "emails"}
+    journal_fields = {
+        "id",
+        "name",
+        "type",
+        "aka",
+        "is_principal",
+        "created_at",
+        "emails",
+    }
 
     # Process each entity
     for entity in entities:

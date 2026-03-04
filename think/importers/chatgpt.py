@@ -155,9 +155,7 @@ class ChatGPTImporter:
         model_info = ""
         if model_counts:
             top_models = sorted(model_counts.items(), key=lambda x: -x[1])[:3]
-            model_info = "; models: " + ", ".join(
-                f"{m} ({n})" for m, n in top_models
-            )
+            model_info = "; models: " + ", ".join(f"{m} ({n})" for m, n in top_models)
 
         return ImportPreview(
             date_range=date_range,
@@ -242,9 +240,7 @@ class ChatGPTImporter:
         model_info = ""
         if model_counts:
             top_models = sorted(model_counts.items(), key=lambda x: -x[1])[:5]
-            model_info = " — models: " + ", ".join(
-                f"{m} ({n})" for m, n in top_models
-            )
+            model_info = " — models: " + ", ".join(f"{m} ({n})" for m, n in top_models)
 
         return ImportResult(
             entries_written=len(entries),

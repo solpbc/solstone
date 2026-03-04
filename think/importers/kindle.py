@@ -188,7 +188,9 @@ class KindleImporter:
         for e in entries:
             ct = e["clip_type"]
             type_counts[ct] = type_counts.get(ct, 0) + 1
-        type_parts = [f"{n} {t}s" for t, n in sorted(type_counts.items(), key=lambda x: -x[1])]
+        type_parts = [
+            f"{n} {t}s" for t, n in sorted(type_counts.items(), key=lambda x: -x[1])
+        ]
 
         entity_count = len(books) + len(authors)
 
