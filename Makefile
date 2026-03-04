@@ -1,7 +1,7 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines
 
 # Default target - install package in editable mode
 all: install
@@ -190,6 +190,38 @@ verify-api: .installed
 update-api-baselines: .installed
 	@echo "Updating API baselines..."
 	$(TEST_ENV) $(VENV_BIN)/python tests/verify_api.py update
+
+
+# Install pinchtab browser automation tool
+install-pinchtab:
+	@if command -v pinchtab >/dev/null 2>&1; then \
+		echo "pinchtab already installed: $$(pinchtab --version 2>/dev/null || echo 'unknown')"; \
+	else \
+		echo "Installing pinchtab..."; \
+		curl -fsSL https://pinchtab.com/install.sh | bash; \
+	fi
+
+# Run browser scenarios against sandbox
+verify-browser: .installed
+	@echo "Running browser scenarios (sandbox)..."
+	@$(MAKE) sandbox
+	@SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
+	CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port"); \
+	RESULT=0; \
+	$(VENV_BIN)/python tests/verify_browser.py verify --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
+	$(MAKE) sandbox-stop; \
+	exit $$RESULT
+
+# Re-capture all browser baseline screenshots
+update-browser-baselines: .installed
+	@echo "Updating browser baselines (sandbox)..."
+	@$(MAKE) sandbox
+	@SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
+	CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port"); \
+	RESULT=0; \
+	$(VENV_BIN)/python tests/verify_browser.py update --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
+	$(MAKE) sandbox-stop; \
+	exit $$RESULT
 
 # Test environment - use fixtures journal for all tests
 TEST_ENV = JOURNAL_PATH=tests/fixtures/journal
