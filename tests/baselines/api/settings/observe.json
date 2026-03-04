@@ -1,0 +1,14 @@
+{
+  "defaults": {
+    "tmux": {
+      "capture_interval": 5,
+      "capture_interval_max": 60,
+      "capture_interval_min": 1,
+      "enabled": true
+    }
+  },
+  "tmux": {
+    "capture_interval": 5,
+    "enabled": true
+  }
+}

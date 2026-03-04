@@ -1,0 +1,65 @@
+{
+  "chats": [
+    {
+      "agent_ids": [
+        "1773187200001"
+      ],
+      "chat_id": "1773187200000",
+      "facet": "verona",
+      "muse": "default",
+      "provider": "openai",
+      "title": "Verona Platform joint venture approved - planning next steps",
+      "ts": 1773187200000,
+      "unread": true
+    },
+    {
+      "agent_ids": [
+        "1772737200001"
+      ],
+      "chat_id": "1772737200000",
+      "facet": "verona",
+      "muse": "default",
+      "provider": "openai",
+      "title": "Discussing collaboration with Capulet Industries on unified API gateway",
+      "ts": 1772737200000,
+      "unread": false
+    },
+    {
+      "agent_ids": [
+        "1764019955580"
+      ],
+      "chat_id": "1764019955580",
+      "facet": "personal",
+      "muse": "default",
+      "provider": "anthropic",
+      "title": "Verify storage location test",
+      "ts": 1764019955580,
+      "unread": true
+    },
+    {
+      "agent_ids": [
+        "1764019602551"
+      ],
+      "chat_id": "1764019602551",
+      "facet": null,
+      "muse": "default",
+      "provider": "openai",
+      "title": "Clean separation test - cortex creates agent, chat...",
+      "ts": 1764019602551,
+      "unread": true
+    },
+    {
+      "agent_ids": [
+        "1700000000001"
+      ],
+      "chat_id": "1764019444672",
+      "facet": "work",
+      "muse": "default",
+      "provider": "openai",
+      "title": "Unified storage test: synthetic agent with chat me...",
+      "ts": 1764019444672,
+      "unread": true
+    }
+  ],
+  "unread_count": 4
+}

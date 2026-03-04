@@ -1,0 +1,13 @@
+{
+  "entity": {
+    "aka": [],
+    "has_voiceprint": false,
+    "id": "romeo_montague",
+    "is_principal": false,
+    "name": "Romeo Montague",
+    "needs_attachment": true,
+    "observation_count": 0,
+    "type": "Person"
+  },
+  "observations": []
+}

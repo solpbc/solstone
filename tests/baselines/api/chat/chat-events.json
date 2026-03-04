@@ -1,0 +1,81 @@
+{
+  "agent_ids": [
+    "1700000000001"
+  ],
+  "can_continue": false,
+  "chat": {
+    "agent_ids": [
+      "1700000000001"
+    ],
+    "chat_id": "1764019444672",
+    "facet": "work",
+    "muse": "default",
+    "provider": "openai",
+    "title": "Unified storage test: synthetic agent with chat me...",
+    "ts": 1764019444672,
+    "unread": true
+  },
+  "end_state": "finish",
+  "events": [
+    {
+      "agent_id": "1700000000001",
+      "event": "request",
+      "name": "default",
+      "prompt": "Search for meetings about project updates",
+      "provider": "openai",
+      "ts": 1700000000001
+    },
+    {
+      "agent_id": "1700000000001",
+      "event": "start",
+      "model": "gpt-4o",
+      "name": "default",
+      "prompt": "Search for meetings about project updates",
+      "provider": "openai",
+      "ts": 1700000000100
+    },
+    {
+      "agent": "solstone",
+      "agent_id": "1700000000001",
+      "event": "agent_updated",
+      "ts": 1700000000200
+    },
+    {
+      "agent_id": "1700000000001",
+      "content": "The user wants to search for meetings about project updates.\nI should use the search_events tool to find relevant meetings.",
+      "event": "thinking",
+      "ts": 1700000000300
+    },
+    {
+      "agent_id": "1700000000001",
+      "args": {
+        "limit": 5,
+        "query": "project updates"
+      },
+      "call_id": "call_001",
+      "event": "tool_start",
+      "tool": "search_events",
+      "ts": 1700000000400
+    },
+    {
+      "agent_id": "1700000000001",
+      "args": null,
+      "call_id": "call_001",
+      "event": "tool_end",
+      "result": "{\"total\": 2, \"results\": [{\"title\": \"Project Update Meeting\", \"day\": \"20231114\"}, {\"title\": \"Weekly Status\", \"day\": \"20231115\"}]}",
+      "tool": "tool",
+      "ts": 1700000000500
+    },
+    {
+      "agent_id": "1700000000001",
+      "event": "finish",
+      "result": "I found 2 meetings about project updates:\n\n1. **Project Update Meeting** on 2023-11-14\n2. **Weekly Status** on 2023-11-15",
+      "ts": 1700000000600,
+      "usage": {
+        "input_tokens": 150,
+        "output_tokens": 80
+      }
+    }
+  ],
+  "is_complete": true
+}

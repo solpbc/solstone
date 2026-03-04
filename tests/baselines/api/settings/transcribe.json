@@ -1,0 +1,49 @@
+{
+  "api_keys": {
+    "gemini": false,
+    "revai": false,
+    "whisper": true
+  },
+  "backends": [
+    {
+      "description": "Local speech recognition using faster-whisper",
+      "env_key": null,
+      "label": "Whisper - Local processing",
+      "name": "whisper",
+      "settings": [
+        "device",
+        "model",
+        "compute_type"
+      ]
+    },
+    {
+      "description": "Cloud-based transcription with speaker identification",
+      "env_key": "REVAI_ACCESS_TOKEN",
+      "label": "Rev.ai - Cloud with speaker diarization",
+      "name": "revai",
+      "settings": [
+        "model"
+      ]
+    },
+    {
+      "description": "Cloud-based transcription with speaker identification",
+      "env_key": "GOOGLE_API_KEY",
+      "label": "Gemini - Cloud with speaker diarization",
+      "name": "gemini",
+      "settings": []
+    }
+  ],
+  "config": {
+    "backend": "whisper",
+    "enrich": true,
+    "noise_upgrade": true,
+    "revai": {
+      "model": "fusion"
+    },
+    "whisper": {
+      "compute_type": "default",
+      "device": "auto",
+      "model": "medium.en"
+    }
+  }
+}

@@ -175,6 +175,22 @@ sandbox-stop:
 	rm -f .sandbox.pid .sandbox.journal; \
 	echo "Sandbox stopped."
 
+# Verify API baselines against running sandbox
+verify-api: .installed
+	@echo "Verifying API baselines (sandbox)..."
+	@$(MAKE) sandbox
+	@SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
+	CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port"); \
+	RESULT=0; \
+	JOURNAL_PATH="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py verify --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
+	$(MAKE) sandbox-stop; \
+	exit $$RESULT
+
+# Regenerate all API baseline files from current responses
+update-api-baselines: .installed
+	@echo "Updating API baselines..."
+	$(TEST_ENV) $(VENV_BIN)/python tests/verify_api.py update
+
 # Test environment - use fixtures journal for all tests
 TEST_ENV = JOURNAL_PATH=tests/fixtures/journal
 

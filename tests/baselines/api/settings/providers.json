@@ -1,0 +1,485 @@
+{
+  "api_keys": {
+    "anthropic": false,
+    "google": false,
+    "openai": false
+  },
+  "auth": {
+    "anthropic": "platform",
+    "google": "platform",
+    "openai": "platform"
+  },
+  "cogitate": {
+    "backup": "anthropic",
+    "provider": "openai",
+    "tier": 2
+  },
+  "context_defaults": {
+    "app.chat.title": {
+      "group": "Apps",
+      "label": "Chat Title Generation",
+      "tier": 3
+    },
+    "detect.created": {
+      "group": "Import",
+      "label": "Date Detection",
+      "tier": 3
+    },
+    "muse.entities.entities": {
+      "disabled": false,
+      "group": "Entities",
+      "label": "Entity Detector",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.entities.entities_review": {
+      "disabled": false,
+      "group": "Entities",
+      "label": "Entity Reviewer",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.entities.entity_assist": {
+      "disabled": false,
+      "group": "Entities",
+      "label": "Entity Assistant",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.entities.entity_describe": {
+      "disabled": false,
+      "group": "Entities",
+      "label": "Entity Description",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.entities.entity_observer": {
+      "disabled": false,
+      "group": "Entities",
+      "label": "Entity Observer",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.system.activities": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Activity Records",
+      "schedule": "segment",
+      "tier": 3,
+      "type": "generate"
+    },
+    "muse.system.activity": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Activity Synthesis",
+      "schedule": "segment",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.activity_state": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Activity State",
+      "schedule": "segment",
+      "tier": 3,
+      "type": "generate"
+    },
+    "muse.system.anticipation": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Anticipation Extraction",
+      "tier": 2,
+      "type": null
+    },
+    "muse.system.daily_news": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Daily News Briefing",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.system.daily_schedule": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Maintenance Window",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.decisionalizer": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Decision Dossier Generator",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.system.decisions": {
+      "disabled": false,
+      "extract": true,
+      "group": "Think",
+      "label": "Decision Actions",
+      "schedule": "activity",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.default": {
+      "disabled": false,
+      "group": "Apps",
+      "label": "Chat Messages",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.system.documentation": {
+      "disabled": true,
+      "extract": true,
+      "group": "Think",
+      "label": "Documentation Moments",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.entities": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Entity Extraction",
+      "schedule": "segment",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.facet_newsletter": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Facet Newsletter Generator",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.system.facets": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Facet Classification",
+      "schedule": "segment",
+      "tier": 3,
+      "type": "generate"
+    },
+    "muse.system.files": {
+      "disabled": true,
+      "extract": true,
+      "group": "Think",
+      "label": "File Interactions",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.flow": {
+      "disabled": false,
+      "extract": true,
+      "group": "Think",
+      "label": "Day Overview",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.followups": {
+      "disabled": false,
+      "extract": true,
+      "group": "Think",
+      "label": "Follow-Up Items",
+      "schedule": "activity",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.help": {
+      "disabled": false,
+      "group": "Think",
+      "label": "CLI Help",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.system.joke_bot": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Joke Bot",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.system.knowledge_graph": {
+      "disabled": false,
+      "extract": true,
+      "group": "Think",
+      "label": "Knowledge Graph",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.media": {
+      "disabled": true,
+      "extract": true,
+      "group": "Think",
+      "label": "Media Consumption",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.meetings": {
+      "disabled": false,
+      "extract": true,
+      "group": "Think",
+      "label": "Meeting Notes",
+      "schedule": "activity",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.messaging": {
+      "disabled": false,
+      "extract": true,
+      "group": "Think",
+      "label": "Messaging Summary",
+      "schedule": "activity",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.occurrence": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Occurrence Extraction",
+      "tier": 2,
+      "type": null
+    },
+    "muse.system.onboarding": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Onboarding",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.system.opportunities": {
+      "disabled": true,
+      "extract": true,
+      "group": "Think",
+      "label": "Innovation Opportunities",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.research": {
+      "disabled": true,
+      "extract": true,
+      "group": "Think",
+      "label": "Research Needs",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.schedule": {
+      "disabled": false,
+      "extract": true,
+      "group": "Think",
+      "label": "Upcoming Schedule",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.screen": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Screen Record",
+      "schedule": "segment",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.speakers": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Meeting Speakers",
+      "schedule": "segment",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.timeline": {
+      "disabled": false,
+      "extract": true,
+      "group": "Think",
+      "label": "Day Timeline",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.tools": {
+      "disabled": true,
+      "extract": true,
+      "group": "Think",
+      "label": "Tool Usage",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "generate"
+    },
+    "muse.system.triage": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Triage",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.todos.daily": {
+      "disabled": false,
+      "group": "Todos",
+      "label": "Daily TODO Curator",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.todos.todo": {
+      "disabled": false,
+      "group": "Todos",
+      "label": "TODO Detector",
+      "schedule": "activity",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.todos.weekly": {
+      "disabled": false,
+      "group": "Todos",
+      "label": "TODO Weekly Scout",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "observe.describe.browsing": {
+      "group": "Screen Analysis",
+      "label": "Browsing",
+      "tier": 2
+    },
+    "observe.describe.code": {
+      "group": "Screen Analysis",
+      "label": "Code",
+      "tier": 2
+    },
+    "observe.describe.frame": {
+      "group": "Observe",
+      "label": "Screen Categorization",
+      "tier": 3
+    },
+    "observe.describe.gaming": {
+      "group": "Screen Analysis",
+      "label": "Gaming",
+      "tier": 2
+    },
+    "observe.describe.media": {
+      "group": "Screen Analysis",
+      "label": "Media",
+      "tier": 2
+    },
+    "observe.describe.meeting": {
+      "group": "Screen Analysis",
+      "label": "Meeting",
+      "tier": 2
+    },
+    "observe.describe.messaging": {
+      "group": "Screen Analysis",
+      "label": "Messaging",
+      "tier": 2
+    },
+    "observe.describe.productivity": {
+      "group": "Screen Analysis",
+      "label": "Productivity",
+      "tier": 2
+    },
+    "observe.describe.reading": {
+      "group": "Screen Analysis",
+      "label": "Reading",
+      "tier": 2
+    },
+    "observe.describe.terminal": {
+      "group": "Screen Analysis",
+      "label": "Terminal",
+      "tier": 2
+    },
+    "observe.detect.json": {
+      "group": "Import",
+      "label": "Normalization",
+      "tier": 2
+    },
+    "observe.detect.segment": {
+      "group": "Import",
+      "label": "Segmentation",
+      "tier": 2
+    },
+    "observe.enrich": {
+      "group": "Observe",
+      "label": "Audio Enrichment",
+      "tier": 2
+    },
+    "observe.extract.selection": {
+      "group": "Observe",
+      "label": "Frame Selection",
+      "tier": 2
+    },
+    "observe.transcribe.gemini": {
+      "group": "Observe",
+      "label": "Audio Transcription (Gemini)",
+      "tier": 2
+    },
+    "planner.generate": {
+      "group": "Think",
+      "label": "Agent Prompt Generation",
+      "tier": 2
+    }
+  },
+  "contexts": {
+    "observe.*": {
+      "provider": "google",
+      "tier": 3
+    },
+    "test.anthropic": {
+      "model": "claude-sonnet-4-5",
+      "provider": "anthropic"
+    },
+    "test.config.override": {
+      "provider": "google",
+      "tier": 2
+    },
+    "test.openai": {
+      "model": "gpt-5-mini",
+      "provider": "openai"
+    },
+    "test.tier": {
+      "provider": "google",
+      "tier": 1
+    },
+    "test.tier.inherit": {
+      "tier": 3
+    },
+    "test.tier.override": {
+      "provider": "openai",
+      "tier": 2
+    }
+  },
+  "generate": {
+    "backup": "anthropic",
+    "provider": "google",
+    "tier": 2
+  },
+  "providers": [
+    {
+      "env_key": "GOOGLE_API_KEY",
+      "label": "Google (Gemini)",
+      "name": "google"
+    },
+    {
+      "env_key": "OPENAI_API_KEY",
+      "label": "OpenAI (GPT)",
+      "name": "openai"
+    },
+    {
+      "env_key": "ANTHROPIC_API_KEY",
+      "label": "Anthropic (Claude)",
+      "name": "anthropic"
+    }
+  ]
+}

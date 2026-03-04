@@ -1,0 +1,31 @@
+{
+  "config": {
+    "apps": {
+      "order": [
+        "home",
+        "calendar",
+        "chat",
+        "todos",
+        "entities",
+        "search"
+      ],
+      "starred": [
+        "home",
+        "chat",
+        "todos"
+      ]
+    },
+    "facets": {
+      "order": [
+        "work",
+        "personal",
+        "full-featured",
+        "montague",
+        "capulet",
+        "verona"
+      ],
+      "selected": "work"
+    }
+  },
+  "success": true
+}

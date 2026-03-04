@@ -1,0 +1,63 @@
+{
+  "categories": {},
+  "category_defaults": {
+    "browsing": {
+      "extraction": "Extract when visiting distinctly different websites or search results",
+      "group": "Screen Analysis",
+      "importance": "normal",
+      "label": "Browsing"
+    },
+    "code": {
+      "extraction": "Extract when viewing different repositories, files, or switching between editor and browser",
+      "group": "Screen Analysis",
+      "importance": "low",
+      "label": "Code"
+    },
+    "gaming": {
+      "extraction": "",
+      "group": "Screen Analysis",
+      "importance": "ignore",
+      "label": "Gaming"
+    },
+    "media": {
+      "extraction": "Extract 1 frame only - video playback content does not benefit from text extraction",
+      "group": "Screen Analysis",
+      "importance": "low",
+      "label": "Media"
+    },
+    "meeting": {
+      "extraction": "Extract when shared content type changes (screen share vs participant grid) or meeting platform differs",
+      "group": "Screen Analysis",
+      "importance": "high",
+      "label": "Meeting"
+    },
+    "messaging": {
+      "extraction": "Extract when conversation partner, channel, or messaging app changes",
+      "group": "Screen Analysis",
+      "importance": "high",
+      "label": "Messaging"
+    },
+    "productivity": {
+      "extraction": "Extract when different application or service is shown (e.g. ChatGPT vs Calendar vs Docs)",
+      "group": "Screen Analysis",
+      "importance": "high",
+      "label": "Productivity"
+    },
+    "reading": {
+      "extraction": "Extract when viewing a different document, article, or PDF",
+      "group": "Screen Analysis",
+      "importance": "high",
+      "label": "Reading"
+    },
+    "terminal": {
+      "extraction": "Extract when showing distinctly different content (code diffs vs logs vs documentation)",
+      "group": "Screen Analysis",
+      "importance": "low",
+      "label": "Terminal"
+    }
+  },
+  "max_extractions": 20,
+  "redact": [
+    "replace test-secret-key with ***"
+  ]
+}

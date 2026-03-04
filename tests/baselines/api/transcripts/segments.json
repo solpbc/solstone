@@ -1,0 +1,34 @@
+{
+  "segments": [
+    {
+      "end": "09:05",
+      "key": "090000_300",
+      "start": "09:00",
+      "stream": "default",
+      "types": [
+        "audio",
+        "screen"
+      ]
+    },
+    {
+      "end": "14:05",
+      "key": "140000_300",
+      "start": "14:00",
+      "stream": "default",
+      "types": [
+        "audio",
+        "screen"
+      ]
+    },
+    {
+      "end": "18:05",
+      "key": "180000_300",
+      "start": "18:00",
+      "stream": "default",
+      "types": [
+        "audio",
+        "screen"
+      ]
+    }
+  ]
+}

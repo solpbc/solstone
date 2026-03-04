@@ -1,0 +1,417 @@
+{
+  "generators": {
+    "activities": {
+      "color": "#00695c",
+      "description": "Detects completed activities across all facets and writes records with synthesized descriptions",
+      "hook": {
+        "flush": true,
+        "post": "activities",
+        "pre": "activities"
+      },
+      "instructions": {
+        "facets": false,
+        "sources": {
+          "agents": false,
+          "audio": false,
+          "screen": false
+        }
+      },
+      "max_output_tokens": 2048,
+      "mtime": 0,
+      "output": "json",
+      "path": "<PROJECT>/muse/activities.md",
+      "priority": 96,
+      "schedule": "segment",
+      "source": "system",
+      "thinking_budget": 4096,
+      "tier": 3,
+      "title": "Activity Records",
+      "type": "generate"
+    },
+    "activity": {
+      "color": "#00bcd4",
+      "description": "Synthesizes segment activity from screenshots and audio, focusing on observable changes and searchability.",
+      "instructions": {
+        "facets": true,
+        "sources": {
+          "agents": false,
+          "audio": true,
+          "screen": true
+        }
+      },
+      "mtime": 0,
+      "output": "md",
+      "path": "<PROJECT>/muse/activity.md",
+      "priority": 10,
+      "schedule": "segment",
+      "source": "system",
+      "title": "Activity Synthesis",
+      "type": "generate"
+    },
+    "activity_state": {
+      "color": "#00897b",
+      "description": "Detects configured activities present in segment and tracks state across segments",
+      "hook": {
+        "post": "activity_state",
+        "pre": "activity_state"
+      },
+      "instructions": {
+        "facets": true,
+        "sources": {
+          "agents": false,
+          "audio": true,
+          "screen": true
+        }
+      },
+      "max_output_tokens": 3072,
+      "mtime": 0,
+      "multi_facet": true,
+      "output": "json",
+      "path": "<PROJECT>/muse/activity_state.md",
+      "priority": 95,
+      "schedule": "segment",
+      "source": "system",
+      "thinking_budget": 4096,
+      "tier": 3,
+      "title": "Activity State",
+      "type": "generate"
+    },
+    "daily_schedule": {
+      "color": "#455a64",
+      "description": "Analyzes activity patterns to identify optimal times for scheduled maintenance tasks.",
+      "hook": {
+        "post": "daily_schedule",
+        "pre": "daily_schedule"
+      },
+      "instructions": {
+        "facets": true,
+        "sources": {
+          "agents": {
+            "screen": true
+          },
+          "audio": true,
+          "screen": false
+        }
+      },
+      "max_output_tokens": 512,
+      "mtime": 0,
+      "output": "json",
+      "path": "<PROJECT>/muse/daily_schedule.md",
+      "priority": 10,
+      "schedule": "daily",
+      "source": "system",
+      "thinking_budget": 4096,
+      "title": "Maintenance Window",
+      "type": "generate"
+    },
+    "decisions": {
+      "activities": [
+        "*"
+      ],
+      "color": "#dc3545",
+      "description": "Tracks consequential decision-actions that change state, plans, resources, responsibilities, or timing in ways that affect other people.",
+      "hook": {
+        "post": "occurrence"
+      },
+      "instructions": {
+        "activity": true,
+        "facets": true,
+        "sources": {
+          "agents": {
+            "screen": true
+          },
+          "audio": true,
+          "screen": false
+        }
+      },
+      "mtime": 0,
+      "occurrences": "Create an occurrence for every decision-action observed. Include the time span, decision type, actors involved, entities affected, and impact assessment. Each occurrence should capture both the intent and enactment of the decision.",
+      "output": "md",
+      "path": "<PROJECT>/muse/decisions.md",
+      "priority": 10,
+      "schedule": "activity",
+      "source": "system",
+      "title": "Decision Actions",
+      "type": "generate"
+    },
+    "entities": {
+      "color": "#2e7d32",
+      "description": "Extracts people, companies, projects, and tools from segment content",
+      "hook": {
+        "post": "entities"
+      },
+      "instructions": {
+        "facets": false,
+        "sources": {
+          "agents": false,
+          "audio": true,
+          "screen": true
+        }
+      },
+      "max_output_tokens": 1024,
+      "mtime": 0,
+      "output": "md",
+      "path": "<PROJECT>/muse/entities.md",
+      "priority": 10,
+      "schedule": "segment",
+      "source": "system",
+      "thinking_budget": 4096,
+      "title": "Entity Extraction",
+      "type": "generate"
+    },
+    "facets": {
+      "color": "#7c4dff",
+      "description": "Classifies segment activity into relevant facets based on other segment outputs",
+      "instructions": {
+        "facets": true,
+        "sources": {
+          "agents": true,
+          "audio": false,
+          "screen": false
+        }
+      },
+      "max_output_tokens": 512,
+      "mtime": 0,
+      "output": "json",
+      "path": "<PROJECT>/muse/facets.md",
+      "priority": 90,
+      "schedule": "segment",
+      "source": "system",
+      "thinking_budget": 1024,
+      "tier": 3,
+      "title": "Facet Classification",
+      "type": "generate"
+    },
+    "flow": {
+      "color": "#17a2b8",
+      "description": "Summarizes the overall flow of the workday. Looks for patterns in focus, energy, context switching and highlights productivity insights in a Markdown report.",
+      "hook": {
+        "post": "occurrence"
+      },
+      "instructions": {
+        "facets": true,
+        "sources": {
+          "agents": {
+            "screen": true
+          },
+          "audio": true,
+          "screen": false
+        }
+      },
+      "mtime": 0,
+      "occurrences": "Create an occurrence for noteworthy shifts in work rhythms or focus. Include timestamps when deep work starts or ends, or when energy levels noticeably change. Classify each as work or personal based on the surrounding context.",
+      "output": "md",
+      "path": "<PROJECT>/muse/flow.md",
+      "priority": 10,
+      "schedule": "daily",
+      "source": "system",
+      "title": "Day Overview",
+      "type": "generate"
+    },
+    "followups": {
+      "activities": [
+        "*"
+      ],
+      "color": "#ffc107",
+      "description": "Detects promised tasks, commitments, and reminders for future action within each activity. Outputs a concise Markdown list of follow-ups with context.",
+      "hook": {
+        "post": "occurrence"
+      },
+      "instructions": {
+        "activity": true,
+        "facets": true,
+        "sources": {
+          "agents": {
+            "screen": true
+          },
+          "audio": true,
+          "screen": false
+        }
+      },
+      "mtime": 0,
+      "occurrences": "Whenever a future task or commitment is mentioned, create an occurrence with the expected action and deadline if known. Note who requested it and whether it is work or personal.",
+      "output": "md",
+      "path": "<PROJECT>/muse/followups.md",
+      "priority": 10,
+      "schedule": "activity",
+      "source": "system",
+      "title": "Follow-Up Items",
+      "type": "generate"
+    },
+    "knowledge_graph": {
+      "color": "#6f42c1",
+      "description": "Extracts people, projects, tools and other entities from the transcript and maps how they relate. Produces a Markdown report plus narrative describing network hubs and bridges discovered during the day.",
+      "hook": {
+        "post": "occurrence"
+      },
+      "instructions": {
+        "facets": true,
+        "sources": {
+          "agents": {
+            "screen": true
+          },
+          "audio": true,
+          "screen": false
+        }
+      },
+      "mtime": 0,
+      "occurrences": "For each entity interaction or relationship mentioned, create an occurrence describing the connection. Include start and end times when the relationship is visible, and capture the type of link such as works-on or discusses-with.",
+      "output": "md",
+      "path": "<PROJECT>/muse/knowledge_graph.md",
+      "priority": 10,
+      "schedule": "daily",
+      "source": "system",
+      "title": "Knowledge Graph",
+      "type": "generate"
+    },
+    "meetings": {
+      "activities": [
+        "meeting"
+      ],
+      "color": "#e83e8c",
+      "description": "Produces detailed meeting notes for each meeting activity, including participants, topics discussed, action items, and presentation details.",
+      "hook": {
+        "post": "occurrence"
+      },
+      "instructions": {
+        "activity": true,
+        "facets": true,
+        "sources": {
+          "agents": {
+            "screen": true
+          },
+          "audio": true,
+          "screen": false
+        }
+      },
+      "mtime": 0,
+      "occurrences": "Each meeting should generate an occurrence with start and end times, list of participants and a concise summary. If slides are present, mention them in the details field.",
+      "output": "md",
+      "path": "<PROJECT>/muse/meetings.md",
+      "priority": 10,
+      "schedule": "activity",
+      "source": "system",
+      "title": "Meeting Notes",
+      "type": "generate"
+    },
+    "messaging": {
+      "activities": [
+        "messaging",
+        "email"
+      ],
+      "color": "#78909c",
+      "description": "Extracts contacts, channels, apps, and message content from completed messaging and email activities.",
+      "hook": {
+        "post": "occurrence"
+      },
+      "instructions": {
+        "activity": true,
+        "facets": true,
+        "sources": {
+          "agents": {
+            "screen": true
+          },
+          "audio": true,
+          "screen": false
+        }
+      },
+      "mtime": 0,
+      "occurrences": "Create an occurrence for every distinct message interaction. Include the time block, app name, contacts or channels involved, whether $preferred was reading or replying, and a summary of visible content.",
+      "output": "md",
+      "path": "<PROJECT>/muse/messaging.md",
+      "priority": 10,
+      "schedule": "activity",
+      "source": "system",
+      "title": "Messaging Summary",
+      "type": "generate"
+    },
+    "schedule": {
+      "color": "#5e35b1",
+      "description": "Identifies all future calendar events and scheduled activities noted in transcripts. Extracts dates, times, participants, and event details for anything scheduled beyond today.",
+      "hook": {
+        "post": "anticipation"
+      },
+      "instructions": {
+        "sources": {
+          "agents": {
+            "screen": true
+          },
+          "audio": true,
+          "screen": false
+        }
+      },
+      "mtime": 0,
+      "output": "md",
+      "path": "<PROJECT>/muse/schedule.md",
+      "priority": 10,
+      "schedule": "daily",
+      "source": "system",
+      "title": "Upcoming Schedule",
+      "type": "generate"
+    },
+    "screen": {
+      "color": "#9c27b0",
+      "description": "Creates a detailed documentary record of screen activity. Focuses on the 'what' - chronological account with preserved details, excerpts, and entities.",
+      "instructions": {
+        "sources": {
+          "agents": false,
+          "audio": true,
+          "screen": "required"
+        }
+      },
+      "mtime": 0,
+      "output": "md",
+      "path": "<PROJECT>/muse/screen.md",
+      "priority": 10,
+      "schedule": "segment",
+      "source": "system",
+      "title": "Screen Record",
+      "type": "generate"
+    },
+    "speakers": {
+      "color": "#e64a19",
+      "description": "Detects meetings in the segment and extracts participant names from screen and conversation.",
+      "instructions": {
+        "sources": {
+          "agents": false,
+          "audio": "required",
+          "screen": true
+        }
+      },
+      "mtime": 0,
+      "output": "json",
+      "path": "<PROJECT>/muse/speakers.md",
+      "priority": 10,
+      "schedule": "segment",
+      "source": "system",
+      "title": "Meeting Speakers",
+      "type": "generate"
+    },
+    "timeline": {
+      "color": "#7b1fa2",
+      "description": "Constructs a detailed chronological timeline documenting every activity, task shift, and event throughout the workday. Creates a comprehensive historical record with rich descriptions of what happened when.",
+      "hook": {
+        "post": "occurrence"
+      },
+      "instructions": {
+        "sources": {
+          "agents": {
+            "screen": true
+          },
+          "audio": true,
+          "screen": false
+        }
+      },
+      "mtime": 0,
+      "occurrences": "Create an occurrence for each hour segment, don't break down hours into any smaller segments the goal for timeline occurrences is for them to capture whatever happened within each hour of the day where there was activity.",
+      "output": "md",
+      "path": "<PROJECT>/muse/timeline.md",
+      "priority": 10,
+      "schedule": "daily",
+      "source": "system",
+      "title": "Day Timeline",
+      "type": "generate"
+    }
+  },
+  "stats": {}
+}

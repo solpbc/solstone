@@ -1,0 +1,111 @@
+{
+  "audio_file": "/app/transcripts/api/serve_file/20260304/default__090000_300__raw.flac",
+  "chunks": [
+    {
+      "basic": true,
+      "markdown": "### 09:00:00\n\n**Category:** unknown\n\nConference hall with slides showing API architecture diagram\n",
+      "source_ref": {
+        "analysis": {
+          "visible": "presentation",
+          "visual_description": "Conference hall with slides showing API architecture diagram"
+        },
+        "aruco": null,
+        "box_2d": null,
+        "filename": "screen.jsonl",
+        "frame_id": null,
+        "monitor": "",
+        "offset": 0,
+        "participants": null
+      },
+      "time": "09:00:00",
+      "timestamp": 1772640000000,
+      "type": "screen"
+    },
+    {
+      "markdown": "[00:00:05] (mic) Speaker 1: Welcome everyone to the Denver Tech Summit. We have an incredible lineup today.",
+      "source_ref": {
+        "source": "mic",
+        "speaker": 1,
+        "start": "00:00:05"
+      },
+      "time": "00:00:05",
+      "timestamp": 1772640005000,
+      "type": "audio"
+    },
+    {
+      "markdown": "[00:00:20] (mic) Speaker 1: Our first presenter is Juliet Capulet from Capulet Industries, talking about enterprise API architecture.",
+      "source_ref": {
+        "source": "mic",
+        "speaker": 1,
+        "start": "00:00:20"
+      },
+      "time": "00:00:20",
+      "timestamp": 1772640020000,
+      "type": "audio"
+    },
+    {
+      "markdown": "[00:00:45] (mic) Speaker 2: Thank you. Today I want to share our vision for unified API gateways that can serve both enterprise and startup clients.",
+      "source_ref": {
+        "source": "mic",
+        "speaker": 2,
+        "start": "00:00:45"
+      },
+      "time": "00:00:45",
+      "timestamp": 1772640045000,
+      "type": "audio"
+    },
+    {
+      "basic": true,
+      "markdown": "### 09:01:00\n\n**Category:** unknown\n\nSlide showing unified gateway concept with enterprise integration points\n",
+      "source_ref": {
+        "analysis": {
+          "visible": "presentation",
+          "visual_description": "Slide showing unified gateway concept with enterprise integration points"
+        },
+        "aruco": null,
+        "box_2d": null,
+        "filename": "screen.jsonl",
+        "frame_id": null,
+        "monitor": "",
+        "offset": 60,
+        "participants": null
+      },
+      "time": "09:01:00",
+      "timestamp": 1772640060000,
+      "type": "screen"
+    },
+    {
+      "markdown": "[00:01:10] (mic) Speaker 2: The key insight is that API compatibility does not have to mean lowest common denominator. We can build bridges.",
+      "source_ref": {
+        "source": "mic",
+        "speaker": 2,
+        "start": "00:01:10"
+      },
+      "time": "00:01:10",
+      "timestamp": 1772640070000,
+      "type": "audio"
+    },
+    {
+      "markdown": "[00:01:30] (mic) Speaker 3: Romeo, are you seeing this? Her architecture is almost identical to what we have been building.",
+      "source_ref": {
+        "source": "mic",
+        "speaker": 3,
+        "start": "00:01:30"
+      },
+      "time": "00:01:30",
+      "timestamp": 1772640090000,
+      "type": "audio"
+    }
+  ],
+  "cost": 0.0,
+  "md_files": {
+    "audio": "# Audio Summary\n\nMorning keynote at Denver Tech Summit. Juliet Capulet presented on unified API gateway architecture. Romeo Montague and Mercutio Escalus attended. Mercutio noted the similarity to Montague Tech's approach.\n",
+    "screen": "# Screen Summary\n\nConference live stream showing presentation slides on enterprise API architecture. Juliet Capulet presenting unified gateway concept.\n"
+  },
+  "media_sizes": {
+    "audio": 0,
+    "screen": 0
+  },
+  "segment_key": "090000_300",
+  "video_files": {}
+}

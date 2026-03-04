@@ -1,0 +1,479 @@
+{
+  "agents": {
+    "activities": {
+      "app": null,
+      "color": "#00695c",
+      "description": "Detects completed activities across all facets and writes records with synthesized descriptions",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Activity Records",
+      "type": "generate"
+    },
+    "activity": {
+      "app": null,
+      "color": "#00bcd4",
+      "description": "Synthesizes segment activity from screenshots and audio, focusing on observable changes and searchability.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Activity Synthesis",
+      "type": "generate"
+    },
+    "activity_state": {
+      "app": null,
+      "color": "#00897b",
+      "description": "Detects configured activities present in segment and tracks state across segments",
+      "multi_facet": true,
+      "output_format": "json",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Activity State",
+      "type": "generate"
+    },
+    "anticipation": {
+      "app": null,
+      "color": "#4527a0",
+      "description": "Extracts structured anticipation events (future scheduled items) from insight summaries.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Anticipation Extraction",
+      "type": null
+    },
+    "daily_news": {
+      "app": null,
+      "color": "#1565c0",
+      "description": "Creates a crisp TL;DR briefing highlighting the day's top activities across all facets, delivered to inbox",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": "daily",
+      "source": "system",
+      "title": "Daily News Briefing",
+      "type": "cogitate"
+    },
+    "daily_schedule": {
+      "app": null,
+      "color": "#455a64",
+      "description": "Analyzes activity patterns to identify optimal times for scheduled maintenance tasks.",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Maintenance Window",
+      "type": "generate"
+    },
+    "decisionalizer": {
+      "app": null,
+      "color": "#c62828",
+      "description": "Analyzes the day's top decision-actions to create detailed dossiers identifying gaps and stakeholder impacts",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Decision Dossier Generator",
+      "type": "cogitate"
+    },
+    "decisions": {
+      "app": null,
+      "color": "#dc3545",
+      "description": "Tracks consequential decision-actions that change state, plans, resources, responsibilities, or timing in ways that affect other people.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Decision Actions",
+      "type": "generate"
+    },
+    "default": {
+      "app": null,
+      "color": "#455a64",
+      "description": "Interactive assistant for searching, exploring, and understanding journal entries across all facets",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Journal Chat",
+      "type": "cogitate"
+    },
+    "documentation": {
+      "app": null,
+      "color": "#007bff",
+      "description": "Finds when important knowledge is shared in the transcript and suggests what should be written down. Output is a Markdown list of documentation opportunities with time ranges and destinations.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Documentation Moments",
+      "type": "generate"
+    },
+    "entities": {
+      "app": null,
+      "color": "#2e7d32",
+      "description": "Extracts people, companies, projects, and tools from segment content",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Entity Extraction",
+      "type": "generate"
+    },
+    "entities:entities": {
+      "app": "entities",
+      "color": "#00897b",
+      "description": "Mines journal for entity mentions and records facet-scoped detections with day-specific context",
+      "multi_facet": true,
+      "output_format": null,
+      "schedule": "daily",
+      "source": "app",
+      "title": "Entity Detector",
+      "type": "cogitate"
+    },
+    "entities:entities_review": {
+      "app": "entities",
+      "color": "#00796b",
+      "description": "Reviews detected entities and promotes recurring ones to attached status",
+      "multi_facet": true,
+      "output_format": null,
+      "schedule": "daily",
+      "source": "app",
+      "title": "Entity Reviewer",
+      "type": "cogitate"
+    },
+    "entities:entity_assist": {
+      "app": "entities",
+      "color": "#00695c",
+      "description": "Quick entity addition with intelligent type detection and automatic description generation",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "Entity Assistant",
+      "type": "cogitate"
+    },
+    "entities:entity_describe": {
+      "app": "entities",
+      "color": "#26a69a",
+      "description": "Research and generate single-sentence descriptions for attached entities",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "Entity Description",
+      "type": "cogitate"
+    },
+    "entities:entity_observer": {
+      "app": "entities",
+      "color": "#004d40",
+      "description": "Extracts durable factoids about attached entities from journal content",
+      "multi_facet": true,
+      "output_format": null,
+      "schedule": "daily",
+      "source": "app",
+      "title": "Entity Observer",
+      "type": "cogitate"
+    },
+    "facet_newsletter": {
+      "app": null,
+      "color": "#0d47a1",
+      "description": "Creates comprehensive daily newsletters for each facet, capturing activities, progress, and insights",
+      "multi_facet": true,
+      "output_format": null,
+      "schedule": "daily",
+      "source": "system",
+      "title": "Facet Newsletter Generator",
+      "type": "cogitate"
+    },
+    "facets": {
+      "app": null,
+      "color": "#7c4dff",
+      "description": "Classifies segment activity into relevant facets based on other segment outputs",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Facet Classification",
+      "type": "generate"
+    },
+    "files": {
+      "app": null,
+      "color": "#28a745",
+      "description": "Reviews the day's transcript to capture each significant file or attachment that was opened, saved or shared. Generates a Markdown timeline with context about how the file was used.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "File Interactions",
+      "type": "generate"
+    },
+    "flow": {
+      "app": null,
+      "color": "#17a2b8",
+      "description": "Summarizes the overall flow of the workday. Looks for patterns in focus, energy, context switching and highlights productivity insights in a Markdown report.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Day Overview",
+      "type": "generate"
+    },
+    "followups": {
+      "app": null,
+      "color": "#ffc107",
+      "description": "Detects promised tasks, commitments, and reminders for future action within each activity. Outputs a concise Markdown list of follow-ups with context.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Follow-Up Items",
+      "type": "generate"
+    },
+    "help": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Answer questions about sol commands and usage",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "CLI Help",
+      "type": "cogitate"
+    },
+    "joke_bot": {
+      "app": null,
+      "color": "#f9a825",
+      "description": "Mines the analysis day's journal for poignant moments and crafts a personalized joke delivered via message",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Joke Bot",
+      "type": "cogitate"
+    },
+    "knowledge_graph": {
+      "app": null,
+      "color": "#6f42c1",
+      "description": "Extracts people, projects, tools and other entities from the transcript and maps how they relate. Produces a Markdown report plus narrative describing network hubs and bridges discovered during the day.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Knowledge Graph",
+      "type": "generate"
+    },
+    "media": {
+      "app": null,
+      "color": "#fd7e14",
+      "description": "Identifies when videos, articles, music or social content are consumed. Classifies each instance as work or personal and reports the source in chronological sections.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Media Consumption",
+      "type": "generate"
+    },
+    "meetings": {
+      "app": null,
+      "color": "#e83e8c",
+      "description": "Produces detailed meeting notes for each meeting activity, including participants, topics discussed, action items, and presentation details.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Meeting Notes",
+      "type": "generate"
+    },
+    "messaging": {
+      "app": null,
+      "color": "#78909c",
+      "description": "Extracts contacts, channels, apps, and message content from completed messaging and email activities.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Messaging Summary",
+      "type": "generate"
+    },
+    "occurrence": {
+      "app": null,
+      "color": "#37474f",
+      "description": "Extracts structured occurrence events from insight summaries.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Occurrence Extraction",
+      "type": null
+    },
+    "onboarding": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Guided setup for new users — creates facets and seeds entities through conversation",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Onboarding",
+      "type": "cogitate"
+    },
+    "opportunities": {
+      "app": null,
+      "color": "#20c997",
+      "description": "Scans conversations and tasks for sparks of new ideas, problem statements and potential ventures. Outputs a list of the most promising opportunities with context and suggested next steps.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Innovation Opportunities",
+      "type": "generate"
+    },
+    "research": {
+      "app": null,
+      "color": "#ff5722",
+      "description": "Highlights moments where additional information would help progress work. Produces a list of targeted research tasks with time ranges and context.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Research Needs",
+      "type": "generate"
+    },
+    "schedule": {
+      "app": null,
+      "color": "#5e35b1",
+      "description": "Identifies all future calendar events and scheduled activities noted in transcripts. Extracts dates, times, participants, and event details for anything scheduled beyond today.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Upcoming Schedule",
+      "type": "generate"
+    },
+    "screen": {
+      "app": null,
+      "color": "#9c27b0",
+      "description": "Creates a detailed documentary record of screen activity. Focuses on the 'what' - chronological account with preserved details, excerpts, and entities.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Screen Record",
+      "type": "generate"
+    },
+    "speakers": {
+      "app": null,
+      "color": "#e64a19",
+      "description": "Detects meetings in the segment and extracts participant names from screen and conversation.",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Meeting Speakers",
+      "type": "generate"
+    },
+    "timeline": {
+      "app": null,
+      "color": "#7b1fa2",
+      "description": "Constructs a detailed chronological timeline documenting every activity, task shift, and event throughout the workday. Creates a comprehensive historical record with rich descriptions of what happened when.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Day Timeline",
+      "type": "generate"
+    },
+    "todos:daily": {
+      "app": "todos",
+      "color": "#ef6c00",
+      "description": "Carries forward unfinished tasks, aggregates per-activity todo detections, validates completions against journal evidence, and prioritises the day's checklist.",
+      "multi_facet": true,
+      "output_format": null,
+      "schedule": "daily",
+      "source": "app",
+      "title": "Daily TODO Curator",
+      "type": "cogitate"
+    },
+    "todos:todo": {
+      "app": "todos",
+      "color": "#e65100",
+      "description": "Detects todo items from activity transcripts and validates existing todos against activity evidence via sol call commands.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": "activity",
+      "source": "app",
+      "title": "TODO Detector",
+      "type": "cogitate"
+    },
+    "todos:weekly": {
+      "app": "todos",
+      "color": "#f4511e",
+      "description": "Audits the past week's journal follow-ups to confirm completions and surface the next five high-impact todos for today.",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "TODO Weekly Scout",
+      "type": "cogitate"
+    },
+    "tools": {
+      "app": null,
+      "color": "#795548",
+      "description": "Catalogues every application or service used throughout the day and how long it was active. The report details which tools are critical, supporting or distracting.",
+      "multi_facet": false,
+      "output_format": "md",
+      "schedule": "daily",
+      "source": "system",
+      "title": "Tool Usage",
+      "type": "generate"
+    },
+    "triage": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Quick-action assistant for the chat bar — handles navigation, todos, calendar, and entity lookups",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Triage",
+      "type": "cogitate"
+    }
+  },
+  "facets": {
+    "capulet": {
+      "color": "#dc143c",
+      "title": "Capulet Industries"
+    },
+    "empty-entities": {
+      "color": "",
+      "title": "Empty Entities Test"
+    },
+    "full-featured": {
+      "color": "#28a745",
+      "title": "Full Featured Facet"
+    },
+    "minimal-facet": {
+      "color": "",
+      "title": "Minimal Facet"
+    },
+    "montague": {
+      "color": "#1e90ff",
+      "title": "Montague Tech"
+    },
+    "priority-test": {
+      "color": "",
+      "title": "Priority Test"
+    },
+    "test-facet": {
+      "color": "#007bff",
+      "title": "Test Facet"
+    },
+    "verona": {
+      "color": "#9370db",
+      "title": "Verona"
+    }
+  },
+  "runs": []
+}

@@ -1,0 +1,39 @@
+{
+  "all_entities": [
+    "Acme Corp",
+    "Alice Johnson",
+    "API Optimization",
+    "Balcony App",
+    "Benvolio Montague",
+    "Bob Smith",
+    "Bob Wilson",
+    "Capulet Industries",
+    "Dashboard Redesign",
+    "Docker",
+    "First test entity",
+    "Friar Lawrence",
+    "Jane Doe",
+    "John Smith",
+    "Juliet Capulet",
+    "Mercutio Escalus",
+    "Montague Tech",
+    "Nurse Angela",
+    "Paris Duke",
+    "PostgreSQL",
+    "Romeo Montague",
+    "Second test entity",
+    "Tech Solutions Inc",
+    "Third test entity with description",
+    "Tybalt Capulet",
+    "Verona Platform",
+    "Visual Studio Code"
+  ],
+  "audio_file": null,
+  "segment": {
+    "end": "09:05",
+    "key": "090000_300",
+    "start": "09:00"
+  },
+  "sentences": [],
+  "source": "audio"
+}

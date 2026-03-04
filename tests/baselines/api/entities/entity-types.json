@@ -1,0 +1,16 @@
+{
+  "types": [
+    {
+      "name": "Person"
+    },
+    {
+      "name": "Company"
+    },
+    {
+      "name": "Project"
+    },
+    {
+      "name": "Tool"
+    }
+  ]
+}
