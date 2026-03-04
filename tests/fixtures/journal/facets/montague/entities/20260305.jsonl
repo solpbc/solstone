@@ -1,0 +1,3 @@
+{"id": "romeo_montague", "type": "Person", "name": "Romeo Montague", "description": "Started Balcony App prototype with Juliet"}
+{"id": "benvolio_montague", "type": "Person", "name": "Benvolio Montague", "description": "Reported CI pipeline all green"}
+{"id": "balcony_app", "type": "Project", "name": "Balcony App", "description": "Encrypted messaging and unified gateway prototype"}

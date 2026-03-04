@@ -1,0 +1,9 @@
+{
+  "app": "VS Code",
+  "app_title": "architecture_notes.md - Visual Studio Code",
+  "visual_description": "Comparing Montague Tech and Capulet Industries API architectures",
+  "user_input_text": "",
+  "full_ocr": "architecture_notes.md\n# API Architecture Comparison\n\n## Montague Tech Approach\n- Lightweight mesh routing\n- Microservice-first\n\n## Capulet Industries Approach\n- Enterprise schema translation\n- Backward compatibility focus",
+  "meeting_state": "No meeting visible",
+  "activity_category": "Software Development"
+}

@@ -1,0 +1,2 @@
+{"id": "verona_platform", "type": "Project", "name": "Verona Platform", "description": "Demo deployed on Kubernetes cluster"}
+{"id": "balcony_app", "type": "Project", "name": "Balcony App", "description": "Core technology powering Verona Platform"}

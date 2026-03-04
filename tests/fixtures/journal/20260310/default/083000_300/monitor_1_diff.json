@@ -1,0 +1,9 @@
+{
+  "app": "Chrome",
+  "app_title": "Grafana - Verona Platform Demo",
+  "visual_description": "Monitoring dashboard for demo cluster health check",
+  "user_input_text": "",
+  "full_ocr": "Grafana\nVerona Platform Demo\nCPU: 12%\nMemory: 34%\nLatency p99: 0.8ms\nError rate: 0%",
+  "meeting_state": "No meeting visible",
+  "activity_category": "DevOps"
+}

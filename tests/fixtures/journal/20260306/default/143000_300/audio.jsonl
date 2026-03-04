@@ -1,0 +1,6 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 300}
+{"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Juliet, I have got the routing layer fully integrated. Want to test the end-to-end flow?", "description": "coding"}
+{"start": "00:00:25", "source": "mic", "speaker": 2, "text": "Yes. Let me also tell you, Tybalt presented a competing proposal today at our board meeting.", "description": "update"}
+{"start": "00:00:45", "source": "mic", "speaker": 2, "text": "He wants Capulet Industries to build their own mesh routing from scratch. It would take months.", "description": "concern"}
+{"start": "00:01:05", "source": "mic", "speaker": 1, "text": "Meanwhile we have got a working prototype in two days. The Verona Platform is the better path.", "description": "confidence"}
+{"start": "00:01:25", "source": "mic", "speaker": 2, "text": "Agreed. Angela is helping me block out calendar time so Tybalt does not notice.", "description": "logistics"}

@@ -1,0 +1,9 @@
+{
+  "app": "Terminal",
+  "app_title": "Terminal - kubectl",
+  "visual_description": "Setting up Kubernetes staging cluster for Verona Platform demo",
+  "user_input_text": "kubectl create namespace verona-demo",
+  "full_ocr": "Terminal\n$ kubectl create namespace verona-demo\nnamespace/verona-demo created\n$ kubectl apply -f deploy/",
+  "meeting_state": "No meeting visible",
+  "activity_category": "DevOps"
+}

@@ -1,0 +1,2 @@
+{"id": "romeo_montague", "type": "Person", "name": "Romeo Montague", "description": "Confessed project to Benvolio, preparing demo"}
+{"id": "benvolio_montague", "type": "Person", "name": "Benvolio Montague", "description": "Deployed Kubernetes staging cluster for demo"}

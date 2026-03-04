@@ -1,0 +1,6 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 90}
+{"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Hey, I really loved your talk today. The unified gateway concept is exactly what we need in the industry.", "description": "conversation"}
+{"start": "00:00:25", "source": "mic", "speaker": 2, "text": "Thanks, Romeo. I have actually read your blog posts about microservice mesh architectures. Really innovative stuff.", "description": "conversation"}
+{"start": "00:00:45", "source": "mic", "speaker": 1, "text": "What if we could combine our approaches? Your enterprise schema translation with our lightweight mesh routing?", "description": "brainstorming"}
+{"start": "00:01:05", "source": "mic", "speaker": 2, "text": "That would be incredible. But our companies would never approve a formal collaboration.", "description": "reflection"}
+{"start": "00:01:20", "source": "mic", "speaker": 3, "text": "Romeo! Come on, the karaoke machine is free. Leave the architecture talk for Monday.", "description": "social"}

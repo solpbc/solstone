@@ -1,0 +1,2 @@
+{"id": "engineering_090000_300", "activity": "engineering", "segments": ["090000_300"], "level_avg": 0.85, "description": "Kubernetes cluster setup for demo", "active_entities": ["benvolio_montague"], "created_at": 1773072000000}
+{"id": "meeting_133000_300", "activity": "meeting", "segments": ["133000_300"], "level_avg": 0.8, "description": "Board presentation sprint session", "active_entities": ["romeo_montague", "juliet_capulet", "nurse_angela"], "created_at": 1773088800000}

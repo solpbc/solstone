@@ -1,0 +1,1 @@
+{"type": "task", "start": "09:00:00", "end": "11:00:00", "title": "Infrastructure Setup", "summary": "Benvolio deployed Kubernetes cluster", "facet": "montague", "agent": "flow", "occurred": true, "source": "20260309/agents/flow.md", "participants": ["Benvolio Montague"], "work": true, "details": "Staging cluster for Verona Platform demo"}

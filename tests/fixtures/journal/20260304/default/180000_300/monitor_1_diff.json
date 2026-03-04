@@ -1,0 +1,9 @@
+{
+  "app": "Signal",
+  "app_title": "Signal Messenger",
+  "visual_description": "Exchanging contact information at conference mixer",
+  "user_input_text": "",
+  "full_ocr": "Signal\nNew contact: Juliet Capulet\nMessage: Looking forward to discussing the gateway idea more",
+  "meeting_state": "No meeting visible",
+  "activity_category": "Networking"
+}

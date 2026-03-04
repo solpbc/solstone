@@ -1,0 +1,5 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 240}
+{"start": "00:00:05", "source": "mic", "speaker": 2, "text": "Romeo, the presentation deck is looking good. I have added the revenue projections.", "description": "progress"}
+{"start": "00:00:25", "source": "mic", "speaker": 1, "text": "Excellent. The demo is running on Benvolio's cluster. Schema translation is hitting 0.3ms average.", "description": "metrics"}
+{"start": "00:00:50", "source": "mic", "speaker": 7, "text": "Angela here. I have got you on tomorrow's agenda as Strategic Technology Review. Tybalt does not suspect.", "description": "logistics"}
+{"start": "00:01:10", "source": "mic", "speaker": 2, "text": "You are the best, Angela. Can you make sure the conference room has a good projector?", "description": "request"}

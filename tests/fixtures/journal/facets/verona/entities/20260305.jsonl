@@ -1,0 +1,3 @@
+{"id": "romeo_montague", "type": "Person", "name": "Romeo Montague", "description": "Set up private repo for collaboration"}
+{"id": "juliet_capulet", "type": "Person", "name": "Juliet Capulet", "description": "Built schema translation module"}
+{"id": "balcony_app", "type": "Project", "name": "Balcony App", "description": "Initial prototype of unified gateway"}

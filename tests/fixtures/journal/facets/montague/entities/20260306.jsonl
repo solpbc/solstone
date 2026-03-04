@@ -1,0 +1,3 @@
+{"id": "romeo_montague", "type": "Person", "name": "Romeo Montague", "description": "Continued Verona Platform development"}
+{"id": "benvolio_montague", "type": "Person", "name": "Benvolio Montague", "description": "Noticed suspicious late-night commits"}
+{"id": "verona_platform", "type": "Project", "name": "Verona Platform", "description": "Cross-company unified API gateway"}

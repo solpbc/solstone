@@ -1,0 +1,6 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 180}
+{"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Alright team, the hackathon challenge is to build a working API bridge in four hours.", "description": "hackathon"}
+{"start": "00:00:25", "source": "mic", "speaker": 3, "text": "Romeo, I already have a prototype. Let me show you what I sketched during the keynote.", "description": "collaboration"}
+{"start": "00:00:50", "source": "mic", "speaker": 1, "text": "This is brilliant, Mercutio. But look at what Capulet Industries demoed. Their approach to schema translation is cleaner.", "description": "analysis"}
+{"start": "00:01:15", "source": "mic", "speaker": 4, "text": "What are you doing talking to those Montague people? Juliet, we have our own team for this.", "description": "confrontation"}
+{"start": "00:01:35", "source": "mic", "speaker": 2, "text": "Tybalt, relax. It is a hackathon. We are all here to learn and collaborate.", "description": "mediation"}

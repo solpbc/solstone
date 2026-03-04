@@ -1,0 +1,3 @@
+{"raw": "screen.webm", "type": "screencast"}
+{"timestamp": 0, "analysis": {"visible": "code_editor", "visual_description": "VS Code with API bridge prototype code"}}
+{"timestamp": 90, "analysis": {"visible": "terminal", "visual_description": "Running API integration tests"}}

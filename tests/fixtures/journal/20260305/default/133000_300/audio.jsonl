@@ -1,0 +1,4 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 120}
+{"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Juliet just sent over her architecture docs. This schema translation layer is exactly what we need.", "description": "analysis"}
+{"start": "00:00:25", "source": "mic", "speaker": 1, "text": "If we combine this with our mesh routing, we could build something neither company could build alone.", "description": "brainstorming"}
+{"start": "00:00:50", "source": "mic", "speaker": 1, "text": "I am going to prototype this tonight. Just a proof of concept, nothing official.", "description": "planning"}

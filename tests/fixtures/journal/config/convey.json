@@ -1,7 +1,7 @@
 {
   "facets": {
     "selected": "work",
-    "order": ["work", "personal", "full-featured"]
+    "order": ["work", "personal", "full-featured", "montague", "capulet", "verona"]
   },
   "apps": {
     "order": ["home", "calendar", "chat", "todos", "entities", "search"],

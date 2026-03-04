@@ -1,0 +1,2 @@
+{"id": "engineering_090000_300", "activity": "engineering", "segments": ["090000_300"], "level_avg": 0.88, "description": "Infrastructure deployment for demo", "active_entities": ["benvolio_montague", "romeo_montague"], "created_at": 1773072000000}
+{"id": "design_review_133000_300", "activity": "design_review", "segments": ["133000_300"], "level_avg": 0.85, "description": "Board presentation preparation", "active_entities": ["romeo_montague", "juliet_capulet", "nurse_angela"], "created_at": 1773088800000}

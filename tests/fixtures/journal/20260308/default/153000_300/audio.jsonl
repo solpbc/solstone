@@ -1,0 +1,6 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 90}
+{"start": "00:00:05", "source": "mic", "speaker": 6, "text": "Here is my plan. Tuesday board meeting is the window. Both boards will be present for the quarterly review.", "description": "strategy"}
+{"start": "00:00:25", "source": "mic", "speaker": 6, "text": "You need a working demo that shows clear business value. Revenue projections, client interest, the works.", "description": "requirements"}
+{"start": "00:00:45", "source": "mic", "speaker": 1, "text": "We can have the demo ready. The core platform works. We just need to polish the presentation layer.", "description": "commitment"}
+{"start": "00:01:05", "source": "mic", "speaker": 2, "text": "Angela can get us on the agenda. She will frame it as a strategic technology review.", "description": "logistics"}
+{"start": "00:01:25", "source": "mic", "speaker": 6, "text": "Good. And get Benvolio on board. You will need infrastructure support.", "description": "advice"}

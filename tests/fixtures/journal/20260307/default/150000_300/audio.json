@@ -1,0 +1,7 @@
+[
+  {"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Thank you all for joining on short notice. We need to address the situation with Capulet Industries.", "description": "meeting"},
+  {"start": "00:00:25", "source": "mic", "speaker": 5, "text": "Romeo, what exactly have you been building? And who authorized the use of company resources?", "description": "inquiry"},
+  {"start": "00:00:45", "source": "mic", "speaker": 1, "text": "I used personal time and a private repo. No Montague Tech IP was shared. We built something entirely new.", "description": "explanation"},
+  {"start": "00:01:05", "source": "mic", "speaker": 5, "text": "That is a relief, but the optics are terrible. Capulet legal team is making noise.", "description": "assessment"},
+  {"start": "00:01:25", "source": "mic", "speaker": 1, "text": "I understand. I will reach out to Professor Lawrence. He can mediate. He is respected by both families.", "description": "proposal"}
+]

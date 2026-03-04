@@ -1,0 +1,2 @@
+{"timestamp": "2026-03-06T14:35:00-07:00", "source": "github", "actor": "romeo_montague", "action": "push", "params": {"repo": "verona-platform", "branch": "main", "files": ["verona/gateway.py"]}, "facet": "verona"}
+{"timestamp": "2026-03-06T17:00:00-07:00", "source": "ci", "actor": "agent", "action": "test_passed", "params": {"suite": "e2e", "passed": 24, "failed": 0}, "facet": "verona"}

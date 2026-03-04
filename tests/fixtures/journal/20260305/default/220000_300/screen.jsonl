@@ -1,0 +1,3 @@
+{"raw": "screen.webm", "type": "screencast"}
+{"timestamp": 0, "analysis": {"visible": "code_editor", "visual_description": "VS Code with Balcony App repository"}}
+{"timestamp": 120, "analysis": {"visible": "terminal", "visual_description": "Running benchmark tests showing sub-ms latency"}}

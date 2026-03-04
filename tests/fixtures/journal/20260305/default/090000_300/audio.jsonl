@@ -1,0 +1,5 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 60}
+{"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Morning everyone. Quick standup. Benvolio, how is the CI pipeline looking?", "description": "standup"}
+{"start": "00:00:15", "source": "mic", "speaker": 5, "text": "All green. I patched that flaky integration test last night. We are solid for the sprint.", "description": "status"}
+{"start": "00:00:30", "source": "mic", "speaker": 1, "text": "Great. I had some ideas at the conference yesterday that I want to explore. Might do some prototyping today.", "description": "planning"}
+{"start": "00:00:45", "source": "mic", "speaker": 3, "text": "The conference was wild. Romeo met someone interesting.", "description": "aside"}

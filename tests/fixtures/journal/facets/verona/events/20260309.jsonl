@@ -1,0 +1,1 @@
+{"type": "task", "start": "09:00:00", "end": "21:00:00", "title": "Demo Sprint Day", "summary": "Full day preparing board demo", "facet": "verona", "agent": "flow", "occurred": true, "source": "20260309/agents/flow.md", "participants": ["Romeo Montague", "Juliet Capulet", "Benvolio Montague", "Nurse Angela"], "work": true, "details": "Demo deployed, presentation rehearsed"}
