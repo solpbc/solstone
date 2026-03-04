@@ -10,5 +10,9 @@ stats.json
 health/dream.log
 task_log.txt
 
+# Health check logs (timestamped + symlinks) from make dev
+*/health/*.log
+health/*.log
+
 # Service port files from make dev
 health/*.port

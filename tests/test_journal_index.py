@@ -993,7 +993,7 @@ def test_scan_entities_deletion(tmp_path):
 
     src = Path("tests/fixtures/journal")
     dst = tmp_path / "journal"
-    shutil.copytree(src, dst)
+    shutil.copytree(src, dst, symlinks=True)
     j = str(dst)
 
     from think.indexer.journal import scan_journal
@@ -1139,7 +1139,7 @@ def test_scan_signals_deletion(tmp_path):
 
     src = Path("tests/fixtures/journal")
     dst = tmp_path / "journal"
-    shutil.copytree(src, dst)
+    shutil.copytree(src, dst, symlinks=True)
     j = str(dst)
 
     from think.indexer.journal import scan_journal

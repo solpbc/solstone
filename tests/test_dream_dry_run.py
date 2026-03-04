@@ -13,7 +13,7 @@ FIXTURES = Path("tests/fixtures")
 def copy_journal(tmp_path: Path) -> Path:
     src = FIXTURES / "journal"
     dest = tmp_path / "journal"
-    shutil.copytree(src, dest)
+    shutil.copytree(src, dest, symlinks=True)
     return dest
 
 
