@@ -1,7 +1,7 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop
 
 # Default target - install package in editable mode
 all: install
@@ -104,6 +104,76 @@ dev: .installed
 # Emit a code.shipped event with current git hash
 sail: .installed
 	$(VENV_BIN)/sol callosum send code shipped hash=$$(git rev-parse --short HEAD)
+
+# Start sandbox stack: fixture copy + background supervisor + readiness wait
+sandbox: .installed
+	@# Fail if sandbox already running
+	@if [ -f .sandbox.pid ] && kill -0 $$(cat .sandbox.pid) 2>/dev/null; then \
+		echo "Sandbox already running (PID $$(cat .sandbox.pid))"; \
+		echo "Run 'make sandbox-stop' first."; \
+		exit 1; \
+	fi
+	@# Clean up stale state from a previous crashed sandbox
+	@if [ -f .sandbox.journal ]; then \
+		rm -rf "$$(cat .sandbox.journal)" 2>/dev/null; \
+		rm -f .sandbox.pid .sandbox.journal; \
+	fi
+	@# Copy fixtures to temp dir
+	@SANDBOX_JOURNAL=$$(mktemp -d /tmp/solstone-sandbox-XXXXXX); \
+	cp -r tests/fixtures/journal/* "$$SANDBOX_JOURNAL/"; \
+	echo "$$SANDBOX_JOURNAL" > .sandbox.journal; \
+	echo "Sandbox journal: $$SANDBOX_JOURNAL"; \
+	# Boot supervisor in background \
+	JOURNAL_PATH="$$SANDBOX_JOURNAL" PATH=$(CURDIR)/$(VENV_BIN):$$PATH \
+		$(VENV_BIN)/sol supervisor 0 --no-observers --no-daily \
+		> "$$SANDBOX_JOURNAL/health/supervisor.log" 2>&1 & \
+	echo $$! > .sandbox.pid; \
+	echo "Supervisor PID: $$(cat .sandbox.pid)"; \
+	# Poll for readiness \
+	echo "Waiting for services..."; \
+	READY=false; \
+	for i in $$(seq 1 20); do \
+		if JOURNAL_PATH="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol health > /dev/null 2>&1; then \
+			READY=true; \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
+	if [ "$$READY" = "false" ]; then \
+		echo "Readiness timeout - killing supervisor"; \
+		kill $$(cat .sandbox.pid) 2>/dev/null || true; \
+		rm -rf "$$SANDBOX_JOURNAL" .sandbox.pid .sandbox.journal; \
+		exit 1; \
+	fi; \
+	CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port" 2>/dev/null); \
+	echo ""; \
+	echo "Sandbox is ready!"; \
+	echo "  Convey: http://localhost:$$CONVEY_PORT/"; \
+	echo "  Journal: $$SANDBOX_JOURNAL"; \
+	echo "  Stop:   make sandbox-stop"
+
+# Stop sandbox: terminate supervisor, clean up temp dir and state files
+sandbox-stop:
+	@if [ ! -f .sandbox.pid ]; then \
+		echo "No sandbox running."; \
+		exit 0; \
+	fi; \
+	PID=$$(cat .sandbox.pid); \
+	echo "Stopping supervisor (PID $$PID)..."; \
+	kill "$$PID" 2>/dev/null || true; \
+	# Wait up to 5s for clean shutdown \
+	for i in $$(seq 1 10); do \
+		kill -0 "$$PID" 2>/dev/null || break; \
+		sleep 0.5; \
+	done; \
+	kill -9 "$$PID" 2>/dev/null || true; \
+	if [ -f .sandbox.journal ]; then \
+		SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
+		rm -rf "$$SANDBOX_JOURNAL"; \
+		echo "Removed $$SANDBOX_JOURNAL"; \
+	fi; \
+	rm -f .sandbox.pid .sandbox.journal; \
+	echo "Sandbox stopped."
 
 # Test environment - use fixtures journal for all tests
 TEST_ENV = JOURNAL_PATH=tests/fixtures/journal

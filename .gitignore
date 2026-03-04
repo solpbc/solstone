@@ -18,3 +18,5 @@ tests/fixtures/journal/tokens/*.json
 /journal
 .agents/
 .claude/
+.sandbox.pid
+.sandbox.journal
