@@ -1,0 +1,1 @@
+{"type": "task", "start": "22:00:00", "end": "23:59:00", "title": "Balcony App Prototype Session", "summary": "Late night coding session", "facet": "verona", "agent": "flow", "occurred": true, "source": "20260305/agents/flow.md", "participants": ["Romeo Montague", "Juliet Capulet"], "work": true, "details": "Created Balcony App with sub-ms latency"}

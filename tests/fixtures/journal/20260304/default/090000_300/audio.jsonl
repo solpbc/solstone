@@ -1,0 +1,6 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 120}
+{"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Welcome everyone to the Denver Tech Summit. We have an incredible lineup today.", "description": "keynote"}
+{"start": "00:00:20", "source": "mic", "speaker": 1, "text": "Our first presenter is Juliet Capulet from Capulet Industries, talking about enterprise API architecture.", "description": "introduction"}
+{"start": "00:00:45", "source": "mic", "speaker": 2, "text": "Thank you. Today I want to share our vision for unified API gateways that can serve both enterprise and startup clients.", "description": "presentation"}
+{"start": "00:01:10", "source": "mic", "speaker": 2, "text": "The key insight is that API compatibility does not have to mean lowest common denominator. We can build bridges.", "description": "presentation"}
+{"start": "00:01:30", "source": "mic", "speaker": 3, "text": "Romeo, are you seeing this? Her architecture is almost identical to what we have been building.", "description": "aside"}

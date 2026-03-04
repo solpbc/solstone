@@ -307,14 +307,16 @@ def test_show_prompt_context_day_format_validation(capsys):
 
 def test_logs_runs_default(capsys):
     """Logs shows recent runs from fixture day-index files."""
-    logs_runs()
+    logs_runs(count=50)
     output = capsys.readouterr().out
 
-    # Should have runs from both fixture days
+    # Should have runs from all fixture days (original + R&J)
     assert "default" in output
     assert "flow" in output
     assert "activity" in output
     assert "entities" in output
+    assert "meetings" in output
+    assert "knowledge_graph" in output
     # Error run should show ✗
     assert "\u2717" in output
     # Completed runs should show ✓
@@ -327,8 +329,8 @@ def test_logs_runs_filter_agent(capsys):
     output = capsys.readouterr().out
 
     lines = [line for line in output.strip().splitlines() if line.strip()]
-    # fixture has 2 "default" runs in 20231114.jsonl
-    assert len(lines) == 2
+    # fixture has 2 "default" runs in 20231114 + 2 from R&J (20260305, 20260310)
+    assert len(lines) == 4
     for line in lines:
         assert "default" in line
     # Should NOT contain other agents
@@ -354,7 +356,7 @@ def test_logs_runs_no_results(capsys):
 
 def test_logs_runs_new_columns(capsys):
     """Logs output includes enriched columns for runs with JSONL files."""
-    logs_runs()
+    logs_runs(count=50)
     output = capsys.readouterr().out
     lines = [line for line in output.strip().splitlines() if line.strip()]
 
@@ -426,7 +428,10 @@ def test_logs_runs_daily_filter(capsys):
     assert "flow" not in output
     assert "activity" not in output
     for line in lines:
-        assert any(name in line for name in ["default", "entities"])
+        assert any(
+            name in line
+            for name in ["default", "entities", "meetings", "knowledge_graph"]
+        )
 
 
 def test_logs_runs_daily_bumps_count(capsys):
@@ -450,13 +455,15 @@ def test_logs_runs_filter_composition(capsys):
 
 def test_logs_runs_summary(capsys):
     """--summary shows grouped aggregation."""
-    logs_runs(summary=True)
+    logs_runs(summary=True, count=50)
     output = capsys.readouterr().out
-    # Should have agent names
+    # Should have agent names (original + R&J)
     assert "default" in output
     assert "flow" in output
     assert "entities" in output
     assert "activity" in output
+    assert "meetings" in output
+    assert "knowledge_graph" in output
     # Should have totals line
     assert "total" in output
     # Should show pass/fail symbols
@@ -468,11 +475,13 @@ def test_logs_runs_daily_summary(capsys):
     """--daily --summary shows only daily runs in summary."""
     logs_runs(daily=True, summary=True)
     output = capsys.readouterr().out
-    # Only daily agents (entities, default)
+    # Only daily agents (entities, default, meetings, knowledge_graph)
     assert "flow" not in output
     assert "activity" not in output
     assert "default" in output
     assert "entities" in output
+    assert "meetings" in output
+    assert "knowledge_graph" in output
     assert "total" in output
 
 

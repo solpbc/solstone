@@ -1,0 +1,10 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 180}
+{"start": "00:00:05", "source": "mic", "speaker": 8, "text": "Before we begin the strategic review, I would like to present an alternative investment opportunity.", "description": "preempt"}
+{"start": "00:00:25", "source": "mic", "speaker": 6, "text": "Paris, with respect, the agenda has the strategic technology review first. Let us follow the order.", "description": "moderation"}
+{"start": "00:00:45", "source": "mic", "speaker": 2, "text": "Thank you, Professor Lawrence. Good morning, board members. Today Romeo and I want to show you something unprecedented.", "description": "presentation"}
+{"start": "00:01:10", "source": "mic", "speaker": 1, "text": "The Verona Platform is a unified API gateway that combines Montague Tech mesh routing with Capulet Industries schema translation.", "description": "demo"}
+{"start": "00:01:35", "source": "mic", "speaker": 1, "text": "Let me show you a live demo. This is processing ten thousand requests per second with sub-millisecond latency.", "description": "demo"}
+{"start": "00:02:00", "source": "mic", "speaker": 4, "text": "I have to admit, the technical execution is impressive. We have been trying to build mesh routing internally for months.", "description": "concession"}
+{"start": "00:02:20", "source": "mic", "speaker": 8, "text": "But my proposal offers guaranteed VC funding of fifty million dollars. Can your platform match that?", "description": "challenge"}
+{"start": "00:02:40", "source": "mic", "speaker": 2, "text": "Our revenue projections show fifteen million in organic revenue by year three. No dilution, no outside control.", "description": "counter"}
+{"start": "00:03:00", "source": "mic", "speaker": 6, "text": "Board members, the question is not just about money. It is about whether two great companies can build something greater together.", "description": "advocacy"}

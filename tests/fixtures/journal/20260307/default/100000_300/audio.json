@@ -1,0 +1,8 @@
+[
+  {"start": "00:00:05", "source": "mic", "speaker": 4, "text": "I know what you have been doing, Montague. Working with my cousin behind our backs.", "description": "confrontation"},
+  {"start": "00:00:20", "source": "mic", "speaker": 1, "text": "Tybalt, it is not what you think. We are building something that could benefit both companies.", "description": "defense"},
+  {"start": "00:00:40", "source": "mic", "speaker": 4, "text": "Benefit? You are stealing our IP. I have already flagged this to our legal team.", "description": "escalation"},
+  {"start": "00:00:55", "source": "mic", "speaker": 3, "text": "Back off, Tybalt. Romeo has not stolen anything. They built something new together.", "description": "defense"},
+  {"start": "00:01:10", "source": "mic", "speaker": 4, "text": "Stay out of this, Mercutio. And consider your consulting contract with us terminated.", "description": "retaliation"},
+  {"start": "00:01:25", "source": "mic", "speaker": 3, "text": "You cannot fire me for telling the truth. This is ridiculous.", "description": "confrontation"}
+]

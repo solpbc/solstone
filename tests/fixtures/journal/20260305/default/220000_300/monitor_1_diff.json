@@ -1,0 +1,9 @@
+{
+  "app": "VS Code",
+  "app_title": "balcony/gateway.py - Visual Studio Code",
+  "visual_description": "Late night coding session building the Balcony App prototype",
+  "user_input_text": "class UnifiedGateway:",
+  "full_ocr": "balcony/gateway.py\nfrom balcony.schema import SchemaTranslator\nfrom balcony.mesh import MeshRouter\n\nclass UnifiedGateway:\n    def __init__(self):\n        self.translator = SchemaTranslator()\n        self.router = MeshRouter()",
+  "meeting_state": "No meeting visible",
+  "activity_category": "Software Development"
+}

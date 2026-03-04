@@ -1,0 +1,2 @@
+{"agent_id": "1772812800001", "name": "flow", "day": "20260306", "facet": null, "ts": 1772848800000, "status": "completed", "runtime_seconds": 5.5, "provider": "google", "model": "gemini-2.5-flash", "schedule": "segment"}
+{"agent_id": "1772812800002", "name": "knowledge_graph", "day": "20260306", "facet": null, "ts": 1772848860000, "status": "completed", "runtime_seconds": 9.1, "provider": "anthropic", "model": "claude-sonnet-4-5", "schedule": "daily"}

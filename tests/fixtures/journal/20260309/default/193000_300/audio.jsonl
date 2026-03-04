@@ -1,0 +1,5 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 180}
+{"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Final run-through. Juliet, you take the architecture overview. I will handle the live demo.", "description": "rehearsal"}
+{"start": "00:00:25", "source": "mic", "speaker": 2, "text": "And if Paris tries to interrupt, Professor Lawrence will moderate. He has confirmed attendance.", "description": "contingency"}
+{"start": "00:00:45", "source": "mic", "speaker": 5, "text": "The cluster is rock solid. I have added auto-scaling and a fallback region just in case.", "description": "infrastructure"}
+{"start": "00:01:05", "source": "mic", "speaker": 1, "text": "Benvolio, you are a lifesaver. Whatever happens tomorrow, I am grateful for this team.", "description": "gratitude"}

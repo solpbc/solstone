@@ -1,0 +1,3 @@
+{"raw": "screen.webm", "type": "screencast"}
+{"timestamp": 0, "analysis": {"visible": "presentation", "visual_description": "Presentation rehearsal with live demo testing"}}
+{"timestamp": 90, "analysis": {"visible": "terminal", "visual_description": "Load testing the demo cluster"}}

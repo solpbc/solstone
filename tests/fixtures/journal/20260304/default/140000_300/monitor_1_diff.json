@@ -1,0 +1,9 @@
+{
+  "app": "VS Code",
+  "app_title": "api_bridge.py - Visual Studio Code",
+  "visual_description": "Hackathon coding session with API bridge prototype",
+  "user_input_text": "async def bridge_request(source, target):",
+  "full_ocr": "api_bridge.py\nimport asyncio\nfrom typing import Dict\n\nasync def bridge_request(source: str, target: str) -> Dict:",
+  "meeting_state": "No meeting visible",
+  "activity_category": "Software Development"
+}

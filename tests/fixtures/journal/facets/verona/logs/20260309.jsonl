@@ -1,0 +1,3 @@
+{"timestamp": "2026-03-09T09:30:00-07:00", "source": "kubernetes", "actor": "benvolio_montague", "action": "cluster_created", "params": {"namespace": "verona-demo", "nodes": 3}, "facet": "verona"}
+{"timestamp": "2026-03-09T13:45:00-07:00", "source": "deploy", "actor": "romeo_montague", "action": "deploy_complete", "params": {"service": "verona-gateway", "version": "0.9.0"}, "facet": "verona"}
+{"timestamp": "2026-03-09T19:45:00-07:00", "source": "loadtest", "actor": "benvolio_montague", "action": "benchmark_complete", "params": {"throughput": "10000 req/s", "latency_p99": "0.8ms"}, "facet": "verona"}

@@ -1,0 +1,5 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 60}
+{"start": "00:00:05", "source": "mic", "speaker": 6, "text": "Romeo, Juliet, I have been reviewing the situation. The technical work is sound, but the political damage is real.", "description": "advice"}
+{"start": "00:00:25", "source": "mic", "speaker": 1, "text": "Professor Lawrence, what do you suggest? The board is telling me to cut all contact.", "description": "despair"}
+{"start": "00:00:45", "source": "mic", "speaker": 6, "text": "I have an idea. Present the Verona Platform to both boards simultaneously as a joint venture proposal.", "description": "strategy"}
+{"start": "00:01:05", "source": "mic", "speaker": 2, "text": "That is bold. But Paris Duke is pushing the board to adopt his VC-backed alternative.", "description": "concern"}

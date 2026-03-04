@@ -1,0 +1,9 @@
+{
+  "app": "Chrome",
+  "app_title": "Verona Platform Demo - localhost:8080",
+  "visual_description": "Rehearsing board presentation with live demo",
+  "user_input_text": "",
+  "full_ocr": "Verona Platform Demo\nUnified API Gateway\n\nLatency: 0.3ms avg\nThroughput: 10,000 req/s\nSchema compatibility: 100%",
+  "meeting_state": "No meeting visible",
+  "activity_category": "Presentation Rehearsal"
+}

@@ -1,0 +1,5 @@
+[
+  {"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Final checks before the board meeting. Juliet, demo is live?", "description": "preparation"},
+  {"start": "00:00:15", "source": "mic", "speaker": 2, "text": "Live and green. Angela confirmed the conference room is set up.", "description": "status"},
+  {"start": "00:00:30", "source": "mic", "speaker": 5, "text": "Cluster metrics look perfect. I will be monitoring from my desk during the presentation.", "description": "support"}
+]

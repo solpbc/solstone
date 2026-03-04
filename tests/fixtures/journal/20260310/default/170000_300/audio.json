@@ -1,0 +1,8 @@
+[
+  {"start": "00:00:05", "source": "mic", "speaker": 1, "text": "They approved it! Both boards voted yes to the Verona Platform joint venture!", "description": "celebration"},
+  {"start": "00:00:20", "source": "mic", "speaker": 2, "text": "And they named us co-leads! Romeo, we actually did it.", "description": "celebration"},
+  {"start": "00:00:35", "source": "mic", "speaker": 3, "text": "I hear you need a security lead for this new venture. I happen to be available.", "description": "humor"},
+  {"start": "00:00:50", "source": "mic", "speaker": 1, "text": "Mercutio, you are hired. First order of business: security audit of the entire platform.", "description": "hiring"},
+  {"start": "00:01:05", "source": "mic", "speaker": 5, "text": "The cluster handled the live demo without a single hiccup. Congratulations, everyone.", "description": "celebration"},
+  {"start": "00:01:20", "source": "mic", "speaker": 4, "text": "Romeo, Juliet, I was wrong. The platform is the right move. I look forward to working together.", "description": "reconciliation"}
+]

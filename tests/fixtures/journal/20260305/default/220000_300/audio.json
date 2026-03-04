@@ -1,0 +1,7 @@
+[
+  {"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Okay Juliet, I have got the repo set up. Private GitHub, encrypted with our shared key.", "description": "coding"},
+  {"start": "00:00:25", "source": "mic", "speaker": 2, "text": "Perfect. I am pushing the schema translation module now. I called it balcony, our little inside joke.", "description": "coding"},
+  {"start": "00:00:50", "source": "mic", "speaker": 1, "text": "I love it. The Balcony App. Let me wire up the mesh routing layer on top.", "description": "coding"},
+  {"start": "00:01:15", "source": "mic", "speaker": 2, "text": "Romeo, look at this. The latency benchmarks are incredible. Sub-millisecond schema translation.", "description": "achievement"},
+  {"start": "00:01:35", "source": "mic", "speaker": 1, "text": "We should show this to Professor Lawrence. He always said the two approaches were complementary.", "description": "planning"}
+]

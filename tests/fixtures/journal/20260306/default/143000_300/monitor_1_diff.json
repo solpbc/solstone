@@ -1,0 +1,9 @@
+{
+  "app": "VS Code",
+  "app_title": "verona/tests/test_e2e.py - Visual Studio Code",
+  "visual_description": "Deep work session on Verona Platform end-to-end integration",
+  "user_input_text": "def test_unified_gateway_e2e():",
+  "full_ocr": "verona/tests/test_e2e.py\nimport pytest\nfrom verona.gateway import UnifiedGateway\n\ndef test_unified_gateway_e2e():\n    gw = UnifiedGateway()\n    result = gw.translate_and_route(payload)\n    assert result.latency < 0.001",
+  "meeting_state": "No meeting visible",
+  "activity_category": "Software Development"
+}

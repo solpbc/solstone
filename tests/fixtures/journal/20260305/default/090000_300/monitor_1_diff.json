@@ -1,0 +1,9 @@
+{
+  "app": "Slack",
+  "app_title": "Montague Tech - #standup",
+  "visual_description": "Morning standup in Slack with team status updates",
+  "user_input_text": "",
+  "full_ocr": "Slack - Montague Tech\n#standup\nBenvolio: CI pipeline all green\nRomeo: Prototyping new ideas from conference",
+  "meeting_state": "No meeting visible",
+  "activity_category": "Team Communication"
+}

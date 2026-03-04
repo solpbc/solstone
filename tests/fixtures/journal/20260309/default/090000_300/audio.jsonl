@@ -1,0 +1,5 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 60}
+{"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Benvolio, I need to tell you something. I have been working on a project with Juliet Capulet.", "description": "confession"}
+{"start": "00:00:20", "source": "mic", "speaker": 5, "text": "I figured as much from the late-night commits. What do you need from me?", "description": "acceptance"}
+{"start": "00:00:35", "source": "mic", "speaker": 1, "text": "We need the demo environment deployed on our cloud infrastructure. Can you spin up a staging cluster?", "description": "request"}
+{"start": "00:00:50", "source": "mic", "speaker": 5, "text": "Give me two hours. I will have a Kubernetes cluster ready with full monitoring.", "description": "commitment"}

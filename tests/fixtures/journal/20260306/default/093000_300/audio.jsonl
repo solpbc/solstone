@@ -1,0 +1,5 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 60}
+{"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Morning team. I was up late working on a side project. Nothing major.", "description": "standup"}
+{"start": "00:00:15", "source": "mic", "speaker": 5, "text": "Romeo, I saw commits to a private repo at 3 AM. Everything okay?", "description": "concern"}
+{"start": "00:00:30", "source": "mic", "speaker": 1, "text": "Yeah, just exploring some ideas from the conference. Personal project.", "description": "deflection"}
+{"start": "00:00:45", "source": "mic", "speaker": 3, "text": "Leave him alone, Benvolio. A man needs his hobbies.", "description": "humor"}

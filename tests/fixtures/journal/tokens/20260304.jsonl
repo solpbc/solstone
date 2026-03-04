@@ -1,0 +1,2 @@
+{"timestamp": 1772676000.0, "model": "gemini-2.5-flash", "context": "think.cortex.flow:42", "usage": {"input_tokens": 2500, "output_tokens": 800, "cached_tokens": 500, "reasoning_tokens": 0, "total_tokens": 3300}}
+{"timestamp": 1772676000.5, "model": "claude-sonnet-4-5", "context": "think.cortex.knowledge_graph:88", "usage": {"input_tokens": 4200, "output_tokens": 1500, "cached_tokens": 1000, "reasoning_tokens": 200, "total_tokens": 5700}}
