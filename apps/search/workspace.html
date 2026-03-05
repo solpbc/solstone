@@ -222,6 +222,30 @@
   background: #f9fafb;
 }
 
+/* Search input */
+.search-input-form {
+  margin-bottom: 1rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1.1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.search-input:focus {
+  border-color: #2563eb;
+}
+
+.search-input::placeholder {
+  color: #9ca3af;
+}
+
 /* Empty state */
 .search-empty {
   text-align: center;
@@ -299,6 +323,11 @@
 
     <!-- Main content -->
     <main class="search-main">
+      <form class="search-input-form" id="search-input-form">
+        <input type="text" class="search-input" id="search-input"
+               placeholder="Search your journal..." autocomplete="off">
+      </form>
+
       <div class="search-summary" id="search-summary" style="display: none;"></div>
 
       <div id="results-container">
@@ -334,16 +363,33 @@
   const loadMoreDaysBtn = document.getElementById('load-more-days');
   const facetList = document.getElementById('facet-list');
   const agentList = document.getElementById('agent-list');
+  const searchInput = document.getElementById('search-input');
+  const searchInputForm = document.getElementById('search-input-form');
 
   // Initialize
   loadFromHash();
+  searchInput.focus();
   window.addEventListener('hashchange', loadFromHash);
+
+  searchInputForm.onsubmit = function(e) {
+    e.preventDefault();
+    const query = searchInput.value.trim();
+    currentQuery = query;
+    dayOffset = 0;
+    updateHash();
+    if (query) {
+      doSearch(true);
+    } else {
+      showEmpty();
+    }
+  };
 
   // Listen for search submissions from app bar
   window.addEventListener('search.submit', (e) => {
     const query = e.detail.query;
     if (!query) return;
     currentQuery = query;
+    searchInput.value = query;
     dayOffset = 0;
     updateHash();
     doSearch(true);
@@ -364,6 +410,7 @@
       window.dispatchEvent(new CustomEvent('search.queryUpdate', {
         detail: { query: q }
       }));
+      searchInput.value = q;
 
       if (q) {
         doSearch(true);
