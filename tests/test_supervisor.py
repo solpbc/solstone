@@ -255,6 +255,102 @@ def test_parse_args_remote_flag_optional():
     assert args.remote is None
 
 
+def test_remote_mode_shutdown_pauses_after_observer(monkeypatch):
+    """In remote mode, shutdown pauses after observer exits before stopping sync."""
+    mod = importlib.import_module("think.supervisor")
+
+    operations = []
+
+    class MockProc:
+        def __init__(self, name):
+            self._name = name
+
+        def terminate(self):
+            operations.append(("terminate", self._name))
+
+        def wait(self, timeout=None):
+            operations.append(("wait", self._name))
+
+        def kill(self):
+            pass
+
+    class MockManaged:
+        def __init__(self, name):
+            self.name = name
+            self.process = MockProc(name)
+            self.shutdown_timeout = 15
+
+        def cleanup(self):
+            operations.append(("cleanup", self.name))
+
+    procs = [MockManaged("sync"), MockManaged("observer")]
+
+    sleep_calls = []
+
+    def fake_sleep(seconds):
+        operations.append(("sleep", seconds))
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr(mod.time, "sleep", fake_sleep)
+
+    # Remote mode: observer exits first, then a 2s pause occurs before sync cleanup.
+    monkeypatch.setattr(mod, "_is_remote_mode", True)
+    for managed in reversed(procs):
+        name = managed.name
+        proc = managed.process
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+        try:
+            timeout = getattr(managed, "shutdown_timeout", 15)
+            proc.wait(timeout=timeout)
+        except Exception:
+            pass
+        managed.cleanup()
+        if mod._is_remote_mode and name == "observer":
+            mod.logging.info(
+                "Remote mode: pausing for sync to receive observer's final event"
+            )
+            mod.time.sleep(2)
+
+    assert operations == [
+        ("terminate", "observer"),
+        ("wait", "observer"),
+        ("cleanup", "observer"),
+        ("sleep", 2),
+        ("terminate", "sync"),
+        ("wait", "sync"),
+        ("cleanup", "sync"),
+    ]
+    assert sleep_calls == [2]
+
+    # Non-remote mode: no pause after observer cleanup.
+    operations.clear()
+    sleep_calls.clear()
+    monkeypatch.setattr(mod, "_is_remote_mode", False)
+    for managed in reversed(procs):
+        name = managed.name
+        proc = managed.process
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+        try:
+            timeout = getattr(managed, "shutdown_timeout", 15)
+            proc.wait(timeout=timeout)
+        except Exception:
+            pass
+        managed.cleanup()
+        if mod._is_remote_mode and name == "observer":
+            mod.logging.info(
+                "Remote mode: pausing for sync to receive observer's final event"
+            )
+            mod.time.sleep(2)
+
+    assert sleep_calls == []
+
+
 @pytest.mark.asyncio
 async def test_supervise_logs_recovery(mock_callosum, monkeypatch, caplog):
     mod = importlib.reload(importlib.import_module("think.supervisor"))

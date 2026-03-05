@@ -1620,6 +1620,13 @@ def main() -> None:
                 except Exception:
                     pass
             managed.cleanup()
+            # In remote mode, pause after observer exits so sync can receive
+            # the final observe.observing event before entering drain mode
+            if _is_remote_mode and name == "observer":
+                logging.info(
+                    "Remote mode: pausing for sync to receive observer's final event"
+                )
+                time.sleep(2)
 
         # Save scheduler state before disconnecting
         if schedule_enabled and scheduler._state:
