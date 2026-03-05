@@ -161,7 +161,23 @@
 .no-todos {
   text-align: center;
   padding: 3rem 1rem;
-  color: #9ca3af;
+  color: #666;
+}
+
+.no-todos-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.no-todos-text {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.no-todos-hint {
+  font-size: 0.9rem;
+  color: #999;
 }
 
 .flash-messages {
@@ -312,8 +328,9 @@
     {% endfor %}
   {% else %}
     <div class="no-todos">
-      <p>No todos for this day yet.</p>
-      <p>Add one above to get started!</p>
+      <div class="no-todos-icon">✅</div>
+      <div class="no-todos-text">No todos for this day</div>
+      <div class="no-todos-hint">Todos appear from recordings and AI analysis</div>
     </div>
   {% endif %}
 </div>
@@ -353,7 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
       workspaceContent?.classList.remove('single-facet-mode');
       sections.forEach(s => s.style.display = '');
       if (noTodosEl) {
-        noTodosEl.querySelector('p').textContent = 'No todos for this day yet.';
+        noTodosEl.querySelector('.no-todos-text').textContent = 'No todos for this day';
       }
     } else {
       // Single-facet mode - hide headers, disable auto-collapse
@@ -376,7 +393,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (noTodosEl && !hasVisibleSection) {
         const facetData = window.facetsData?.find(f => f.name === facetName);
         const facetTitle = facetData?.title || facetName;
-        noTodosEl.querySelector('p').textContent = `No todos for ${facetTitle} yet.`;
+        noTodosEl.querySelector('.no-todos-text').textContent = `No todos for ${facetTitle}`;
       }
     }
   }
