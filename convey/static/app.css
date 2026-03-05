@@ -879,9 +879,13 @@ body.menu-all .menu-bar {
   pointer-events: none;
 }
 
-/* Dim unselected pills (includes all pills in all-facet mode) */
+/* Dim unselected pills when a facet is selected */
 .facet-pill:not(.selected) {
-  opacity: 0.5;
+  opacity: 0.85;
+}
+
+.facet-pills-container:not(:has(.selected)) .facet-pill {
+  opacity: 1;
 }
 
 .facet-pill:hover {
@@ -893,9 +897,11 @@ body.menu-all .menu-bar {
 }
 
 .facet-pill.selected {
-  border-color: #007bff;
-  font-weight: 500;
-  box-shadow: 0 2px 6px rgba(0,123,255,0.2);
+  opacity: 1;
+  background: var(--pill-color);
+  color: white;
+  border-color: var(--pill-color);
+  font-weight: 600;
 }
 
 .facet-pill .emoji-container {
@@ -974,7 +980,11 @@ body.menu-all .menu-bar {
 }
 
 .facet-pill.muted.selected {
-  opacity: 0.75;
+  opacity: 1;
+  font-style: italic;
+  border-style: dashed;
+  background: color-mix(in srgb, var(--pill-color) 75%, white);
+  border-color: var(--pill-color);
 }
 
 /* App Bar (bottom) */

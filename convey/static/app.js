@@ -65,12 +65,14 @@
 
     if (isSelected) {
       pill.classList.add('selected');
-      pill.style.background = facet.color ? hexToRgba(facet.color, 0.2) : '';
+      pill.style.background = facet.color || '';
+      pill.style.color = 'white';
       pill.style.borderColor = facet.color || '';
       pill.title = 'Click to show all facets';
     } else {
       pill.classList.remove('selected');
       pill.style.background = '';
+      pill.style.color = '';
       pill.style.borderColor = '';
       pill.title = `Click to filter by ${facet.title}`;
     }
