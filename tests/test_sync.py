@@ -3,6 +3,9 @@
 
 """Tests for observe/sync.py - sync service for remote uploads."""
 
+import signal
+import threading
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -724,6 +727,173 @@ def test_process_segment_duplicate_skips_confirmation(sync_journal, monkeypatch)
             confirmed = [r for r in records if r.get("status") == "confirmed"]
             assert len(confirmed) == 1
             assert confirmed[0]["segment"] == "120000_300"
+
+
+def test_sync_service_stop_drains_queue(sync_journal, monkeypatch):
+    """stop() should drain queued segments before returning."""
+    from observe.sync import SegmentInfo, SyncService
+
+    journal = sync_journal["path"]
+    day = sync_journal["day"]
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    with (
+        patch("observe.sync.RemoteClient"),
+        patch("observe.sync.CallosumConnection"),
+    ):
+        service = SyncService("https://server/ingest/key")
+        # Prevent start() from running the real worker
+        real_worker = service._sync_worker
+        service._sync_worker = lambda: None
+        service.start()
+
+    assert service._worker_thread is not None
+    service._worker_thread.join(timeout=1.0)
+    assert not service._worker_thread.is_alive()
+
+    service._queue.put(
+        SegmentInfo(
+            day=day, segment="120000_301", files=[{"name": "audio.flac"}], meta={}
+        )
+    )
+    service._queue.put(
+        SegmentInfo(
+            day=day, segment="120000_302", files=[{"name": "audio.flac"}], meta={}
+        )
+    )
+
+    service._sync_worker = real_worker
+    service._stop_event.clear()
+
+    with patch.object(service, "_process_segment") as mock_process:
+        mock_process.return_value = None
+
+        service._worker_thread = threading.Thread(
+            target=service._sync_worker, daemon=False
+        )
+        service._worker_thread.start()
+
+        service.stop()
+
+        assert mock_process.call_count == 2
+        service._worker_thread.join(timeout=1.0)
+
+
+def test_sync_service_stop_disconnects_callosum_first(sync_journal, monkeypatch):
+    """stop() should stop callosum before setting the stop event."""
+    from observe.sync import SyncService
+
+    journal = sync_journal["path"]
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    mock_callosum = MagicMock()
+    shutdown_order: list[str] = []
+    service = SyncService("https://server/ingest/key")
+    service._callosum = mock_callosum
+    service._worker_thread = None
+    service._stop_event = MagicMock()
+
+    service._callosum.stop.side_effect = lambda: shutdown_order.append("callosum")
+    service._stop_event.set.side_effect = lambda: shutdown_order.append("stop_event")
+
+    service.stop()
+
+    assert shutdown_order == ["callosum", "stop_event"]
+
+
+def test_sync_service_worker_thread_not_daemon(sync_journal, monkeypatch):
+    """Worker thread should be non-daemon."""
+    from observe.sync import SyncService
+
+    journal = sync_journal["path"]
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    with (
+        patch("observe.sync.get_pending_segments", return_value=[]),
+        patch("observe.sync.RemoteClient"),
+        patch("observe.sync.CallosumConnection"),
+    ):
+        service = SyncService("https://server/ingest/key")
+        service.start()
+
+        assert service._worker_thread is not None
+        assert service._worker_thread.daemon is False
+
+        service.stop()
+
+
+def test_sync_service_drain_completes_current_segment(sync_journal, monkeypatch):
+    """Current segment should finish when stop_event is set and draining is active."""
+    from observe.sync import SegmentInfo, SyncService, UploadResult
+
+    journal = sync_journal["path"]
+    day = sync_journal["day"]
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+
+    service = SyncService("https://server/ingest/key")
+    service._client.upload_segment = MagicMock(return_value=UploadResult(True))
+    service._check_confirmation = MagicMock(side_effect=[False, True])
+
+    segment_info = SegmentInfo(
+        day=day,
+        segment="120000_300",
+        files=[{"name": "audio.flac", "sha256": "abc123"}],
+        meta={"stream": "default"},
+    )
+    service._queue.put(segment_info)
+
+    service._draining = True
+    service._stop_event.set()
+
+    def upload_side_effect(*_args, **_kwargs):
+        service._stop_event.set()
+        return UploadResult(True)
+
+    service._client.upload_segment.side_effect = upload_side_effect
+
+    service._process_segment(service._queue.get_nowait())
+
+    assert service._client.upload_segment.call_count == 1
+    assert not (journal / day / "default" / "120000_300" / "audio.flac").exists()
+
+
+def test_main_sigterm_triggers_stop(monkeypatch):
+    """main() should stop the service on SIGTERM."""
+    import argparse
+
+    import observe.sync
+
+    handlers: dict[int, object] = {}
+
+    def capture_signal(signum, handler):
+        handlers[signum] = handler
+        return handler
+
+    args = argparse.Namespace(remote="https://server/ingest/key", days_back=7)
+
+    with (
+        patch("observe.sync.setup_cli", return_value=args),
+        patch("observe.sync.SyncService") as mock_service,
+        patch("observe.sync.signal.signal", side_effect=capture_signal),
+    ):
+        service_instance = MagicMock()
+        mock_service.return_value = service_instance
+
+        thread = threading.Thread(target=observe.sync.main)
+        thread.start()
+
+        deadline = time.time() + 1.0
+        while signal.SIGTERM not in handlers and time.time() < deadline:
+            time.sleep(0.01)
+        assert signal.SIGTERM in handlers
+        assert signal.SIGINT in handlers
+
+        handlers[signal.SIGTERM](signal.SIGTERM, None)
+        thread.join(timeout=1.0)
+
+        assert thread.is_alive() is False
+        service_instance.start.assert_called_once()
+        service_instance.stop.assert_called_once()
 
 
 class TestCheckRemoteHealth:

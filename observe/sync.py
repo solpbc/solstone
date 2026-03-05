@@ -16,6 +16,7 @@ import json
 import logging
 import platform
 import queue
+import signal
 import socket
 import threading
 import time
@@ -357,6 +358,7 @@ class SyncService:
         # Worker thread
         self._worker_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
+        self._draining = False
 
         # Status tracking
         self._current_segment: SegmentInfo | None = None
@@ -381,26 +383,44 @@ class SyncService:
 
         # Start worker thread
         self._stop_event.clear()
-        self._worker_thread = threading.Thread(target=self._sync_worker, daemon=True)
+        self._worker_thread = threading.Thread(target=self._sync_worker, daemon=False)
         self._worker_thread.start()
 
         logger.info(f"Sync service started: {self.remote_url[:50]}...")
 
     def stop(self) -> None:
-        """Stop the sync service."""
-        self._stop_event.set()
-
-        if self._worker_thread:
-            self._worker_thread.join(timeout=5.0)
-
+        """Stop the sync service, draining queued segments first."""
+        # Disconnect callosum first so no new events arrive
         if self._callosum:
             self._callosum.stop()
             self._callosum = None
+
+        # Enter drain mode before setting stop_event
+        self._draining = True
+
+        remaining = self._queue.qsize()
+        with self._lock:
+            if self._current_segment:
+                remaining += 1
+        if remaining > 0:
+            print(f"Syncing {remaining} remaining segment(s)...", flush=True)
+
+        # Signal worker to exit main loop (it will drain remaining items)
+        self._stop_event.set()
+
+        if self._worker_thread:
+            self._worker_thread.join(timeout=90.0)
+
+        if self._worker_thread and self._worker_thread.is_alive():
+            logger.warning("Sync worker did not finish within 90s timeout")
 
         logger.info("Sync service stopped")
 
     def _handle_message(self, message: dict[str, Any]) -> None:
         """Handle incoming Callosum messages."""
+        if self._draining or self._stop_event.is_set():
+            return
+
         tract = message.get("tract")
         event = message.get("event")
 
@@ -486,6 +506,16 @@ class SyncService:
             # Process this segment
             self._process_segment(seg_info)
 
+        # Drain remaining segments after stop
+        if self._draining:
+            while not self._queue.empty():
+                try:
+                    seg_info = self._queue.get_nowait()
+                except queue.Empty:
+                    break
+                logger.info(f"Draining: {self._queue.qsize() + 1} segment(s) remaining")
+                self._process_segment(seg_info)
+
     def _process_segment(self, seg_info: SegmentInfo) -> None:
         """Process a single segment: upload, confirm, cleanup."""
         day = seg_info.day
@@ -529,7 +559,7 @@ class SyncService:
                 self._current_state = None
             return
 
-        while not self._stop_event.is_set():
+        while self._draining or not self._stop_event.is_set():
             # Upload
             with self._lock:
                 self._current_segment = seg_info
@@ -577,7 +607,7 @@ class SyncService:
 
             confirmed = False
             for attempt in range(CONFIRM_MAX_ATTEMPTS):
-                if self._stop_event.is_set():
+                if not self._draining and self._stop_event.is_set():
                     return
 
                 with self._lock:
@@ -734,15 +764,26 @@ def main():
         days_back=args.days_back,
     )
 
+    shutdown_event = threading.Event()
+
+    def shutdown_handler(signum, frame):
+        logger.info(f"Received signal {signum}, shutting down...")
+        shutdown_event.set()
+
+    signal.signal(signal.SIGTERM, shutdown_handler)
+    signal.signal(signal.SIGINT, shutdown_handler)
+
     logger.info("Starting sync service...")
     try:
         service.start()
 
-        # Main loop - just wait for stop
-        while True:
-            time.sleep(1)
+        # Main loop - wait for shutdown signal
+        while not shutdown_event.is_set():
+            shutdown_event.wait(timeout=1.0)
 
     except KeyboardInterrupt:
+        pass
+    finally:
         logger.info("Shutting down...")
         service.stop()
 

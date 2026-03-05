@@ -492,6 +492,7 @@ class ManagedProcess:
     log_writer: DailyLogWriter
     cmd: list[str]
     restart: bool = False
+    shutdown_timeout: int = 15
     threads: list[threading.Thread] = field(default_factory=list)
     ref: str = ""
 
@@ -832,9 +833,15 @@ def start_sync(remote_url: str) -> ManagedProcess:
     Args:
         remote_url: Remote ingest URL for sync service
     """
-    return _launch_process(
-        "sync", ["sol", "sync", "-v", "--remote", remote_url], restart=True
+    managed = _launch_process(
+        "sync",
+        ["sol", "sync", "-v", "--remote", remote_url],
+        restart=True,
     )
+    # Sync shutdown can block while draining pending segments.
+    # Give it extra time so the supervisor does not cut it off early.
+    managed.shutdown_timeout = 90
+    return managed
 
 
 def start_callosum_in_process() -> CallosumServer:
@@ -1589,9 +1596,7 @@ def main() -> None:
         logging.info("Caught KeyboardInterrupt, shutting down...")
     finally:
         logging.info("Stopping all processes...")
-        print(
-            "\nShutting down gracefully (this may take up to 15 seconds)...", flush=True
-        )
+        print("\nShutting down gracefully (this may take a moment)...", flush=True)
         # Shut down managed processes in reverse order to respect dependencies
         for managed in reversed(procs):
             name = managed.name
@@ -1603,7 +1608,8 @@ def main() -> None:
             except Exception:
                 pass
             try:
-                proc.wait(timeout=15)
+                timeout = getattr(managed, "shutdown_timeout", 15)
+                proc.wait(timeout=timeout)
                 print(" done", flush=True)
             except subprocess.TimeoutExpired:
                 logging.warning(f"{name} did not terminate gracefully, killing...")
