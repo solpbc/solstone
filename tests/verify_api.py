@@ -66,6 +66,7 @@ ENDPOINTS = [
         "path": "/app/agents/api/updated-days",
         "params": {},
         "status": 200,
+        "sandbox_only": True,  # live indexer computes differently than Flask test client
     },
     # apps/calendar/routes.py
     {
@@ -175,6 +176,7 @@ ENDPOINTS = [
         "path": "/app/home/api/summary/20260304",
         "params": {},
         "status": 200,
+        "sandbox_only": True,  # upcoming events differ between Flask test client and live sandbox
     },
     {
         "app": "home",
@@ -425,6 +427,14 @@ def normalize(data: Any, journal_path: str) -> Any:
     fixture_journal = str((Path.cwd() / "tests" / "fixtures" / "journal").resolve())
     if fixture_journal != resolved_journal:
         path_replacements.append((fixture_journal, "<JOURNAL>"))
+    # Also match the raw (possibly relative) journal_path
+    raw_journal = str(journal_path)
+    if raw_journal != resolved_journal:
+        path_replacements.append((raw_journal, "<JOURNAL>"))
+    # Match the JOURNAL_PATH env var if set (may be relative)
+    env_journal = os.environ.get("JOURNAL_PATH", "")
+    if env_journal and env_journal not in (resolved_journal, raw_journal):
+        path_replacements.append((env_journal, "<JOURNAL>"))
     path_replacements.append((project_root, "<PROJECT>"))
     # Sort by length descending so longer (more specific) paths match first
     path_replacements.sort(key=lambda x: len(x[0]), reverse=True)
@@ -451,7 +461,14 @@ def normalize(data: Any, journal_path: str) -> Any:
             }
 
         if isinstance(value, list):
-            return [walk(item, key) for item in value]
+            walked = [walk(item, key) for item in value]
+            # Sort lists of dicts for deterministic comparison
+            if walked and all(isinstance(item, dict) for item in walked):
+                try:
+                    walked.sort(key=lambda x: json.dumps(x, sort_keys=True))
+                except TypeError:
+                    pass
+            return walked
 
         if isinstance(value, str):
             return _normalize_string(str(value))

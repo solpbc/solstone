@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import logging
 import os
@@ -238,124 +239,121 @@ _ERROR_LISTENER_JS = (
 
 
 def baseline_path(scenario: dict[str, Any]) -> Path:
-    return Path("tests/baselines/visual") / scenario["app"] / f"{scenario['name']}.png"
+    return Path("tests/baselines/visual") / scenario["app"] / f"{scenario['name']}.jpg"
 
 
 class PinchTab:
-    """Minimal pinchtab HTTP client with process lifecycle."""
+    """Minimal pinchtab HTTP client with process lifecycle.
+
+    Pinchtab v0.7.x uses a flat API — endpoints are at the root level
+    (e.g., /navigate, /screenshot, /snapshot) rather than nested under
+    /tabs/<id>/ or /instances/. Chrome is auto-managed by the server.
+    """
 
     def __init__(self, port: int = 19867) -> None:
         self.port = port
         self.base_url = f"http://localhost:{port}"
-        self.instance_id: str | None = None
-        self.tab_id: str | None = None
         self._process: subprocess.Popen | None = None
         self._session = requests.Session()
 
-    def start(self, timeout: int = 20) -> None:
-        """Launch pinchtab, create instance and tab."""
+    def start(self, timeout: int = 30) -> None:
+        """Launch pinchtab and wait for health check."""
         env = {
             **os.environ,
             "BRIDGE_PORT": str(self.port),
             "BRIDGE_HEADLESS": "true",
         }
+        self._stderr_path = f"/tmp/pinchtab-{self.port}.log"
+        self._stderr_file = open(self._stderr_path, "w")
         try:
             self._process = subprocess.Popen(
                 ["pinchtab"],
                 env=env,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=self._stderr_file,
+                start_new_session=True,
             )
-        except Exception as exc:  # include FileNotFoundError and launch failures
+        except Exception as exc:
+            self._stderr_file.close()
             raise RuntimeError("failed to start pinchtab") from exc
 
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            if self._process.poll() is not None:
+                self._stderr_file.close()
+                try:
+                    stderr = Path(self._stderr_path).read_text()
+                except Exception:
+                    stderr = ""
+                raise RuntimeError(
+                    f"pinchtab exited with code {self._process.returncode}\n{stderr}"
+                )
             try:
                 response = self._session.get(f"{self.base_url}/health", timeout=2)
                 if response.status_code == 200:
-                    break
+                    health = response.json()
+                    if health.get("status") == "ok":
+                        return
             except requests.ConnectionError:
                 pass
             time.sleep(0.5)
-        else:
-            self.stop()
-            raise RuntimeError("pinchtab failed to start")
-
-        response = self._session.post(
-            f"{self.base_url}/instances/start", json={}, timeout=30
-        )
-        response.raise_for_status()
-        self.instance_id = response.json()["id"]
-
-        response = self._session.post(
-            f"{self.base_url}/instances/{self.instance_id}/tabs/open",
-            json={},
-            timeout=30,
-        )
-        response.raise_for_status()
-        self.tab_id = response.json()["id"]
+        self.stop()
+        raise RuntimeError("pinchtab failed to start")
 
     def stop(self) -> None:
-        """Stop instance and terminate pinchtab process."""
-        if self.instance_id:
+        """Terminate pinchtab process and all children."""
+        if hasattr(self, "_stderr_file") and self._stderr_file:
             try:
-                self._session.post(
-                    f"{self.base_url}/instances/{self.instance_id}/stop",
-                    timeout=5,
-                )
+                self._stderr_file.close()
             except Exception:
-                logger.debug("Failed to stop pinchtab instance %s", self.instance_id)
-            self.instance_id = None
-            self.tab_id = None
-
+                pass
         if self._process:
+            pid = self._process.pid
             if self._process.poll() is None:
                 self._session.close()
-                self._process.terminate()
+                # Kill the entire process group to catch the Go binary child
+                try:
+                    os.killpg(os.getpgid(pid), signal.SIGTERM)
+                except (ProcessLookupError, PermissionError):
+                    self._process.terminate()
                 try:
                     self._process.wait(timeout=5)
                 except subprocess.TimeoutExpired:
-                    self._process.send_signal(signal.SIGKILL)
+                    try:
+                        os.killpg(os.getpgid(pid), signal.SIGKILL)
+                    except (ProcessLookupError, PermissionError):
+                        self._process.send_signal(signal.SIGKILL)
                     self._process.wait()
             self._process = None
 
     def navigate(self, url: str) -> None:
-        if not self.tab_id:
-            raise RuntimeError("no active tab")
         response = self._session.post(
-            f"{self.base_url}/tabs/{self.tab_id}/navigate",
+            f"{self.base_url}/navigate",
             json={"url": url},
             timeout=30,
         )
         response.raise_for_status()
 
     def screenshot(self) -> bytes:
-        if not self.tab_id:
-            raise RuntimeError("no active tab")
         response = self._session.get(
-            f"{self.base_url}/tabs/{self.tab_id}/screenshot",
+            f"{self.base_url}/screenshot",
             timeout=30,
         )
         response.raise_for_status()
-        return response.content
+        payload = response.json()
+        return base64.b64decode(payload["base64"])
 
     def snapshot(self) -> dict:
-        if not self.tab_id:
-            raise RuntimeError("no active tab")
         response = self._session.get(
-            f"{self.base_url}/tabs/{self.tab_id}/snapshot",
-            params={"interactive": "true", "compact": "true"},
+            f"{self.base_url}/snapshot",
             timeout=30,
         )
         response.raise_for_status()
         return response.json()
 
     def text(self) -> str:
-        if not self.tab_id:
-            raise RuntimeError("no active tab")
         response = self._session.get(
-            f"{self.base_url}/tabs/{self.tab_id}/text",
+            f"{self.base_url}/text",
             timeout=30,
         )
         response.raise_for_status()
@@ -367,20 +365,16 @@ class PinchTab:
         return ""
 
     def action(self, kind: str, **kwargs: Any) -> None:
-        if not self.tab_id:
-            raise RuntimeError("no active tab")
         response = self._session.post(
-            f"{self.base_url}/tabs/{self.tab_id}/action",
+            f"{self.base_url}/action",
             json={"kind": kind, **kwargs},
             timeout=30,
         )
         response.raise_for_status()
 
     def evaluate(self, expression: str) -> Any:
-        if not self.tab_id:
-            raise RuntimeError("no active tab")
         response = self._session.post(
-            f"{self.base_url}/tabs/{self.tab_id}/evaluate",
+            f"{self.base_url}/evaluate",
             json={"expression": expression},
             timeout=30,
         )
@@ -405,27 +399,28 @@ def collect_console_errors(pt: PinchTab) -> list[str]:
 
 
 def find_input_ref(snapshot: dict) -> str | None:
-    """Find first text input element ref from snapshot."""
-    for element in snapshot.get("elements", []):
-        role = str(element.get("role", "")).lower()
-        tag = str(element.get("tag", "")).lower()
+    """Find first text input node ref from snapshot."""
+    for node in snapshot.get("nodes", []):
+        role = str(node.get("role", "")).lower()
+        tag = str(node.get("tag", "")).lower()
         if role in ("textbox", "searchbox", "combobox") or tag == "input":
-            return element.get("ref")
+            return node.get("ref")
     return None
 
 
 def find_ref(snapshot: dict, text: str) -> str | None:
     needle = str(text).lower()
-    for element in snapshot.get("elements", []):
-        ref = element.get("ref")
+    for node in snapshot.get("nodes", []):
+        ref = node.get("ref")
         if not ref:
             continue
         if needle == "":
             return ref
         if (
-            needle in str(element.get("text", "")).lower()
-            or needle in str(element.get("label", "")).lower()
-            or needle in str(element.get("value", "")).lower()
+            needle in str(node.get("name", "")).lower()
+            or needle in str(node.get("text", "")).lower()
+            or needle in str(node.get("label", "")).lower()
+            or needle in str(node.get("value", "")).lower()
         ):
             return ref
     return None

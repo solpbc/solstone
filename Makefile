@@ -186,10 +186,16 @@ verify-api: .installed
 	$(MAKE) sandbox-stop; \
 	exit $$RESULT
 
-# Regenerate all API baseline files from current responses
+# Regenerate all API baseline files from current responses (uses sandbox for consistency)
 update-api-baselines: .installed
-	@echo "Updating API baselines..."
-	$(TEST_ENV) $(VENV_BIN)/python tests/verify_api.py update
+	@echo "Updating API baselines (sandbox)..."
+	@$(MAKE) sandbox
+	@SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
+	CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port"); \
+	RESULT=0; \
+	JOURNAL_PATH="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py update --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
+	$(MAKE) sandbox-stop; \
+	exit $$RESULT
 
 
 # Install pinchtab browser automation tool

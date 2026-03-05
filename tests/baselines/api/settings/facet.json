@@ -4,7 +4,7 @@
     "description": "Montague Tech startup operations",
     "emoji": "⚔️",
     "muted": false,
-    "path": "tests/fixtures/journal/facets/montague",
+    "path": "<JOURNAL>/facets/montague",
     "title": "Montague Tech"
   },
   "facet": "montague"

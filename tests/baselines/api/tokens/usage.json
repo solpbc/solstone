@@ -1,16 +1,6 @@
 {
   "by_context": [
     {
-      "context": "think.cortex.knowledge_graph:88",
-      "cost": 0.0354,
-      "models_used": [
-        "claude-sonnet-4-5"
-      ],
-      "percent": 93.1,
-      "requests": 1,
-      "tokens": 5700
-    },
-    {
       "context": "think.cortex.flow:42",
       "cost": 0.002615,
       "models_used": [
@@ -19,18 +9,19 @@
       "percent": 6.9,
       "requests": 1,
       "tokens": 3300
+    },
+    {
+      "context": "think.cortex.knowledge_graph:88",
+      "cost": 0.0354,
+      "models_used": [
+        "claude-sonnet-4-5"
+      ],
+      "percent": 93.1,
+      "requests": 1,
+      "tokens": 5700
     }
   ],
   "by_model": [
-    {
-      "avg_cost_per_request": 0.0354,
-      "cost": 0.0354,
-      "model": "claude-sonnet-4-5",
-      "percent": 93.1,
-      "provider": "anthropic",
-      "requests": 1,
-      "tokens": 5700
-    },
     {
       "avg_cost_per_request": 0.002615,
       "cost": 0.002615,
@@ -39,6 +30,15 @@
       "provider": "google",
       "requests": 1,
       "tokens": 3300
+    },
+    {
+      "avg_cost_per_request": 0.0354,
+      "cost": 0.0354,
+      "model": "claude-sonnet-4-5",
+      "percent": 93.1,
+      "provider": "anthropic",
+      "requests": 1,
+      "tokens": 5700
     }
   ],
   "by_provider": [

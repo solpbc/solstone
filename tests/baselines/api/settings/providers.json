@@ -467,6 +467,11 @@
   },
   "providers": [
     {
+      "env_key": "ANTHROPIC_API_KEY",
+      "label": "Anthropic (Claude)",
+      "name": "anthropic"
+    },
+    {
       "env_key": "GOOGLE_API_KEY",
       "label": "Google (Gemini)",
       "name": "google"
@@ -475,11 +480,6 @@
       "env_key": "OPENAI_API_KEY",
       "label": "OpenAI (GPT)",
       "name": "openai"
-    },
-    {
-      "env_key": "ANTHROPIC_API_KEY",
-      "label": "Anthropic (Claude)",
-      "name": "anthropic"
     }
   ]
 }

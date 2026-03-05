@@ -6,15 +6,11 @@
   },
   "backends": [
     {
-      "description": "Local speech recognition using faster-whisper",
-      "env_key": null,
-      "label": "Whisper - Local processing",
-      "name": "whisper",
-      "settings": [
-        "device",
-        "model",
-        "compute_type"
-      ]
+      "description": "Cloud-based transcription with speaker identification",
+      "env_key": "GOOGLE_API_KEY",
+      "label": "Gemini - Cloud with speaker diarization",
+      "name": "gemini",
+      "settings": []
     },
     {
       "description": "Cloud-based transcription with speaker identification",
@@ -26,11 +22,15 @@
       ]
     },
     {
-      "description": "Cloud-based transcription with speaker identification",
-      "env_key": "GOOGLE_API_KEY",
-      "label": "Gemini - Cloud with speaker diarization",
-      "name": "gemini",
-      "settings": []
+      "description": "Local speech recognition using faster-whisper",
+      "env_key": null,
+      "label": "Whisper - Local processing",
+      "name": "whisper",
+      "settings": [
+        "device",
+        "model",
+        "compute_type"
+      ]
     }
   ],
   "config": {

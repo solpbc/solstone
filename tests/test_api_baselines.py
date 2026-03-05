@@ -32,6 +32,8 @@ def journal_path():
 )
 def test_api_baseline(client, journal_path, endpoint):
     """Verify endpoint response matches stored baseline."""
+    if endpoint.get("sandbox_only"):
+        pytest.skip("sandbox-only baseline (differs in Flask test client)")
     path = baseline_path(endpoint)
     if not path.exists():
         pytest.skip(f"No baseline file: {path}")

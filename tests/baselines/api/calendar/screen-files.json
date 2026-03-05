@@ -1,12 +1,12 @@
 {
   "files": [
     {
-      "file_size": 346,
+      "file_size": 167,
       "filename": "screen.jsonl",
-      "frame_count": 2,
-      "human_time": "9:00:00 AM",
+      "frame_count": 1,
+      "human_time": "6:00:00 PM",
       "stream": "default",
-      "timestamp": "090000_300"
+      "timestamp": "180000_300"
     },
     {
       "file_size": 276,
@@ -17,12 +17,12 @@
       "timestamp": "140000_300"
     },
     {
-      "file_size": 167,
+      "file_size": 346,
       "filename": "screen.jsonl",
-      "frame_count": 1,
-      "human_time": "6:00:00 PM",
+      "frame_count": 2,
+      "human_time": "9:00:00 AM",
       "stream": "default",
-      "timestamp": "180000_300"
+      "timestamp": "090000_300"
     }
   ]
 }

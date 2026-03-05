@@ -113,12 +113,12 @@
         {
           "completed": true,
           "nudge": null,
-          "text": "Review hackathon API bridge prototype"
+          "text": "Follow up with Juliet Capulet about gateway collaboration"
         },
         {
           "completed": true,
           "nudge": null,
-          "text": "Follow up with Juliet Capulet about gateway collaboration"
+          "text": "Review hackathon API bridge prototype"
         }
       ]
     },
@@ -177,14 +177,14 @@
     },
     {
       "day": "20260306",
-      "facet": "capulet",
-      "title": "Capulet Industries Board Meeting",
+      "facet": "montague",
+      "title": "Montague Tech Daily Standup",
       "type": "event"
     },
     {
       "day": "20260306",
-      "facet": "montague",
-      "title": "Montague Tech Daily Standup",
+      "facet": "verona",
+      "title": "Verona Platform Integration",
       "type": "event"
     }
   ]

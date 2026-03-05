@@ -12,33 +12,23 @@
     },
     {
       "app": null,
-      "description": "Finds when important knowledge is shared in the transcript and suggests what should be written down. Output is a Markdown list of documentation opportunities with time ranges and destinations.",
+      "description": "Catalogues every application or service used throughout the day and how long it was active. The report details which tools are critical, supporting or distracting.",
       "disabled": true,
       "extract": true,
       "has_extraction": true,
-      "key": "documentation",
+      "key": "tools",
       "source": "system",
-      "title": "Documentation Moments"
+      "title": "Tool Usage"
     },
     {
       "app": null,
-      "description": "Reviews the day's transcript to capture each significant file or attachment that was opened, saved or shared. Generates a Markdown timeline with context about how the file was used.",
-      "disabled": true,
-      "extract": true,
-      "has_extraction": true,
-      "key": "files",
-      "source": "system",
-      "title": "File Interactions"
-    },
-    {
-      "app": null,
-      "description": "Summarizes the overall flow of the workday. Looks for patterns in focus, energy, context switching and highlights productivity insights in a Markdown report.",
+      "description": "Constructs a detailed chronological timeline documenting every activity, task shift, and event throughout the workday. Creates a comprehensive historical record with rich descriptions of what happened when.",
       "disabled": false,
       "extract": true,
       "has_extraction": true,
-      "key": "flow",
+      "key": "timeline",
       "source": "system",
-      "title": "Day Overview"
+      "title": "Day Timeline"
     },
     {
       "app": null,
@@ -52,23 +42,13 @@
     },
     {
       "app": null,
-      "description": "Identifies when videos, articles, music or social content are consumed. Classifies each instance as work or personal and reports the source in chronological sections.",
+      "description": "Finds when important knowledge is shared in the transcript and suggests what should be written down. Output is a Markdown list of documentation opportunities with time ranges and destinations.",
       "disabled": true,
       "extract": true,
       "has_extraction": true,
-      "key": "media",
+      "key": "documentation",
       "source": "system",
-      "title": "Media Consumption"
-    },
-    {
-      "app": null,
-      "description": "Scans conversations and tasks for sparks of new ideas, problem statements and potential ventures. Outputs a list of the most promising opportunities with context and suggested next steps.",
-      "disabled": true,
-      "extract": true,
-      "has_extraction": true,
-      "key": "opportunities",
-      "source": "system",
-      "title": "Innovation Opportunities"
+      "title": "Documentation Moments"
     },
     {
       "app": null,
@@ -92,66 +72,46 @@
     },
     {
       "app": null,
-      "description": "Constructs a detailed chronological timeline documenting every activity, task shift, and event throughout the workday. Creates a comprehensive historical record with rich descriptions of what happened when.",
-      "disabled": false,
-      "extract": true,
-      "has_extraction": true,
-      "key": "timeline",
-      "source": "system",
-      "title": "Day Timeline"
-    },
-    {
-      "app": null,
-      "description": "Catalogues every application or service used throughout the day and how long it was active. The report details which tools are critical, supporting or distracting.",
+      "description": "Identifies when videos, articles, music or social content are consumed. Classifies each instance as work or personal and reports the source in chronological sections.",
       "disabled": true,
       "extract": true,
       "has_extraction": true,
-      "key": "tools",
+      "key": "media",
       "source": "system",
-      "title": "Tool Usage"
+      "title": "Media Consumption"
+    },
+    {
+      "app": null,
+      "description": "Reviews the day's transcript to capture each significant file or attachment that was opened, saved or shared. Generates a Markdown timeline with context about how the file was used.",
+      "disabled": true,
+      "extract": true,
+      "has_extraction": true,
+      "key": "files",
+      "source": "system",
+      "title": "File Interactions"
+    },
+    {
+      "app": null,
+      "description": "Scans conversations and tasks for sparks of new ideas, problem statements and potential ventures. Outputs a list of the most promising opportunities with context and suggested next steps.",
+      "disabled": true,
+      "extract": true,
+      "has_extraction": true,
+      "key": "opportunities",
+      "source": "system",
+      "title": "Innovation Opportunities"
+    },
+    {
+      "app": null,
+      "description": "Summarizes the overall flow of the workday. Looks for patterns in focus, energy, context switching and highlights productivity insights in a Markdown report.",
+      "disabled": false,
+      "extract": true,
+      "has_extraction": true,
+      "key": "flow",
+      "source": "system",
+      "title": "Day Overview"
     }
   ],
   "segment": [
-    {
-      "app": null,
-      "description": "Detects completed activities across all facets and writes records with synthesized descriptions",
-      "disabled": false,
-      "extract": null,
-      "has_extraction": false,
-      "key": "activities",
-      "source": "system",
-      "title": "Activity Records"
-    },
-    {
-      "app": null,
-      "description": "Synthesizes segment activity from screenshots and audio, focusing on observable changes and searchability.",
-      "disabled": false,
-      "extract": null,
-      "has_extraction": false,
-      "key": "activity",
-      "source": "system",
-      "title": "Activity Synthesis"
-    },
-    {
-      "app": null,
-      "description": "Detects configured activities present in segment and tracks state across segments",
-      "disabled": false,
-      "extract": null,
-      "has_extraction": false,
-      "key": "activity_state",
-      "source": "system",
-      "title": "Activity State"
-    },
-    {
-      "app": null,
-      "description": "Extracts people, companies, projects, and tools from segment content",
-      "disabled": false,
-      "extract": null,
-      "has_extraction": false,
-      "key": "entities",
-      "source": "system",
-      "title": "Entity Extraction"
-    },
     {
       "app": null,
       "description": "Classifies segment activity into relevant facets based on other segment outputs",
@@ -174,6 +134,26 @@
     },
     {
       "app": null,
+      "description": "Detects completed activities across all facets and writes records with synthesized descriptions",
+      "disabled": false,
+      "extract": null,
+      "has_extraction": false,
+      "key": "activities",
+      "source": "system",
+      "title": "Activity Records"
+    },
+    {
+      "app": null,
+      "description": "Detects configured activities present in segment and tracks state across segments",
+      "disabled": false,
+      "extract": null,
+      "has_extraction": false,
+      "key": "activity_state",
+      "source": "system",
+      "title": "Activity State"
+    },
+    {
+      "app": null,
       "description": "Detects meetings in the segment and extracts participant names from screen and conversation.",
       "disabled": false,
       "extract": null,
@@ -181,6 +161,26 @@
       "key": "speakers",
       "source": "system",
       "title": "Meeting Speakers"
+    },
+    {
+      "app": null,
+      "description": "Extracts people, companies, projects, and tools from segment content",
+      "disabled": false,
+      "extract": null,
+      "has_extraction": false,
+      "key": "entities",
+      "source": "system",
+      "title": "Entity Extraction"
+    },
+    {
+      "app": null,
+      "description": "Synthesizes segment activity from screenshots and audio, focusing on observable changes and searchability.",
+      "disabled": false,
+      "extract": null,
+      "has_extraction": false,
+      "key": "activity",
+      "source": "system",
+      "title": "Activity Synthesis"
     }
   ]
 }

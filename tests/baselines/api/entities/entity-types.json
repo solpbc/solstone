@@ -1,10 +1,10 @@
 {
   "types": [
     {
-      "name": "Person"
+      "name": "Company"
     },
     {
-      "name": "Company"
+      "name": "Person"
     },
     {
       "name": "Project"
