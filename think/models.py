@@ -42,16 +42,16 @@ OPENAI_EFFORT_SUFFIXES = ("-none", "-low", "-medium", "-high", "-xhigh")
 
 # Map model names that genai-prices doesn't recognize yet to a known equivalent.
 MODEL_PRICE_ALIASES: Dict[str, str] = {
-    "gpt-5.3-codex-spark": "codex-mini",
+    "gpt-5.4": "gpt-5.2",
 }
 
 GEMINI_PRO = "gemini-3.1-pro-preview"
 GEMINI_FLASH = "gemini-3-flash-preview"
 GEMINI_LITE = "gemini-2.5-flash-lite"
 
-GPT_5 = "gpt-5.2-high"
-GPT_5_MINI = "gpt-5.3-codex-spark-low"  # cogitate-only (no chat completions API)
-GPT_5_NANO = "gpt-5.2-low"
+GPT_5 = "gpt-5.4-high"
+GPT_5_MINI = "gpt-5.4-medium"
+GPT_5_NANO = "gpt-5.4-low"
 
 CLAUDE_OPUS_4 = "claude-opus-4-5"
 CLAUDE_SONNET_4 = "claude-sonnet-4-5"
