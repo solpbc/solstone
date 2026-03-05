@@ -106,7 +106,7 @@ body {
 .workspace {
   margin-top: var(--facet-bar-height);
   margin-left: var(--menu-bar-width-minimal);
-  margin-bottom: var(--app-bar-height);
+  margin-bottom: calc(var(--app-bar-height) + 24px);
 }
 
 /* Add extra top margin when date-nav is present */
