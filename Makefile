@@ -1,7 +1,7 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines
 
 # Default target - install package in editable mode
 all: install
@@ -222,6 +222,49 @@ update-browser-baselines: .installed
 	$(VENV_BIN)/python tests/verify_browser.py update --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
 	$(MAKE) sandbox-stop; \
 	exit $$RESULT
+
+# Full product verification: API baselines + browser scenarios
+review: .installed
+	@command -v pinchtab >/dev/null 2>&1 || { \
+		echo "pinchtab is required for browser verification."; \
+		echo "Run 'make install-pinchtab' to install it."; \
+		exit 1; \
+	}
+	@echo "=== Starting review ==="
+	@$(MAKE) sandbox
+	@SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
+	CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port"); \
+	BASE_URL="http://localhost:$$CONVEY_PORT"; \
+	RESULT_API=0; \
+	RESULT_BROWSER=0; \
+	echo ""; \
+	echo "=== API baseline verification ==="; \
+	JOURNAL_PATH="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py verify --base-url "$$BASE_URL" || RESULT_API=$$?; \
+	echo ""; \
+	echo "=== Browser scenario verification ==="; \
+	$(VENV_BIN)/python tests/verify_browser.py verify --base-url "$$BASE_URL" || RESULT_BROWSER=$$?; \
+	echo ""; \
+	echo "=== Stopping sandbox ==="; \
+	$(MAKE) sandbox-stop; \
+	echo ""; \
+	echo "=== Review Summary ==="; \
+	if [ $$RESULT_API -eq 0 ]; then \
+		echo "  API:     PASS"; \
+	else \
+		echo "  API:     FAIL"; \
+	fi; \
+	if [ $$RESULT_BROWSER -eq 0 ]; then \
+		echo "  Browser: PASS"; \
+	else \
+		echo "  Browser: FAIL"; \
+	fi; \
+	echo ""; \
+	if [ $$RESULT_API -eq 0 ] && [ $$RESULT_BROWSER -eq 0 ]; then \
+		echo "Review: ALL PASS"; \
+	else \
+		echo "Review: FAIL"; \
+		exit 1; \
+	fi
 
 # Test environment - use fixtures journal for all tests
 TEST_ENV = JOURNAL_PATH=tests/fixtures/journal
