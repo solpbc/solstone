@@ -444,6 +444,142 @@ def test_chatgpt_importer_segments(tmp_path, monkeypatch):
     ]
 
 
+def test_claude_chat_importer_segments(tmp_path, monkeypatch):
+    """Claude importer should write message windows as import segments."""
+    mod = importlib.import_module("think.importers.claude_chat")
+
+    base = dt.datetime(2026, 1, 15, 12, 0, 0)
+    conversations = [
+        {
+            "name": "First",
+            "created_at": base.isoformat(),
+            "chat_messages": [
+                {
+                    "sender": "human",
+                    "text": "Hello",
+                    "created_at": base.isoformat(),
+                },
+                {
+                    "sender": "assistant",
+                    "text": "Hi there",
+                    "created_at": (base + dt.timedelta(seconds=60)).isoformat(),
+                },
+                {
+                    "sender": "human",
+                    "text": "New topic",
+                    "created_at": (base + dt.timedelta(seconds=301)).isoformat(),
+                },
+            ],
+        },
+        {
+            "name": "Second",
+            "created_at": (base + dt.timedelta(hours=12)).isoformat(),
+            "chat_messages": [
+                {
+                    "sender": "assistant",
+                    "text": "Fallback time",
+                },
+                {
+                    "sender": "assistant",
+                    "text": "Next day reply",
+                    "created_at": (base + dt.timedelta(hours=12)).isoformat(),
+                },
+            ],
+        },
+        {
+            "name": "Empty",
+            "created_at": base.isoformat(),
+            "chat_messages": [],
+        },
+    ]
+
+    archive = tmp_path / "claude.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("conversations.json", json.dumps(conversations))
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    fixed_dt = dt.datetime(2026, 1, 20, 8, 30, 0)
+
+    class FixedDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_dt
+
+    monkeypatch.setattr(mod.dt, "datetime", FixedDateTime)
+
+    result = mod.ClaudeChatImporter().process(archive, tmp_path, facet="work")
+
+    assert result.entries_written == 5
+    assert result.errors == []
+    assert result.segments == [
+        ("20260115", "120000_300"),
+        ("20260115", "120501_300"),
+        ("20260116", "000000_300"),
+    ]
+    assert len(result.files_created) == 3
+
+    first_segment = (
+        day_path("20260115") / "import.claude" / "120000_300" / "imported_audio.jsonl"
+    )
+    second_segment = (
+        day_path("20260115") / "import.claude" / "120501_300" / "imported_audio.jsonl"
+    )
+    third_segment = (
+        day_path("20260116") / "import.claude" / "000000_300" / "imported_audio.jsonl"
+    )
+
+    assert first_segment.exists()
+    assert second_segment.exists()
+    assert third_segment.exists()
+
+    first_lines = first_segment.read_text().strip().split("\n")
+    first_meta = json.loads(first_lines[0])
+    first_entries = [json.loads(line) for line in first_lines[1:]]
+    assert first_meta["imported"] == {"id": "20260120_083000", "facet": "work"}
+    assert first_entries == [
+        {"start": "00:00:00", "speaker": "Human", "text": "Hello", "source": "import"},
+        {
+            "start": "00:01:00",
+            "speaker": "Assistant",
+            "text": "Hi there",
+            "source": "import",
+        },
+    ]
+
+    second_lines = second_segment.read_text().strip().split("\n")
+    second_meta = json.loads(second_lines[0])
+    second_entries = [json.loads(line) for line in second_lines[1:]]
+    assert second_meta == {"imported": {"id": "20260120_083000", "facet": "work"}}
+    assert second_entries == [
+        {
+            "start": "00:00:00",
+            "speaker": "Human",
+            "text": "New topic",
+            "source": "import",
+        }
+    ]
+
+    third_lines = third_segment.read_text().strip().split("\n")
+    third_meta = json.loads(third_lines[0])
+    third_entries = [json.loads(line) for line in third_lines[1:]]
+    assert third_meta == {"imported": {"id": "20260120_083000", "facet": "work"}}
+    assert third_entries == [
+        {
+            "start": "00:00:00",
+            "speaker": "Assistant",
+            "text": "Fallback time",
+            "source": "import",
+        },
+        {
+            "start": "00:00:00",
+            "speaker": "Assistant",
+            "text": "Next day reply",
+            "source": "import",
+        },
+    ]
+
+
 def test_format_audio_stream_path():
     """Test format_audio correctly parses timestamps from stream-based paths."""
     from observe.hear import format_audio

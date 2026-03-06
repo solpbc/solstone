@@ -10,7 +10,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from think.importers.utils import save_import_file, write_import_metadata
 from think.utils import day_path, get_journal, now_ms
@@ -121,6 +121,61 @@ def write_segment(
         model=model,
     )
     return json_path
+
+
+def _window_messages(
+    messages: list[dict[str, Any]],
+    window_duration: int = 300,
+) -> list[tuple[str, str, str | None, list[dict[str, Any]]]]:
+    """Group sorted messages into fixed-duration windows per day."""
+    if not messages:
+        return []
+
+    windows: list[tuple[str, str, str | None, list[dict[str, Any]]]] = []
+    window_start: float | None = None
+    window_day: str | None = None
+    window_entries: list[dict[str, Any]] = []
+    window_model: str | None = None
+
+    for msg in messages:
+        msg_dt = dt.datetime.fromtimestamp(msg["create_time"])
+        msg_day = msg_dt.strftime("%Y%m%d")
+
+        if (
+            window_start is None
+            or msg_day != window_day
+            or msg["create_time"] - window_start >= window_duration
+        ):
+            if window_entries and window_day and window_start is not None:
+                start_dt = dt.datetime.fromtimestamp(window_start)
+                seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
+                windows.append((window_day, seg_key, window_model, window_entries))
+
+            window_start = msg["create_time"]
+            window_day = msg_day
+            window_entries = []
+            window_model = None
+
+        offset = int(msg["create_time"] - window_start)
+        h, remainder = divmod(offset, 3600)
+        m, s = divmod(remainder, 60)
+        window_entries.append(
+            {
+                "start": f"{h:02d}:{m:02d}:{s:02d}",
+                "speaker": msg["speaker"],
+                "text": msg["text"],
+            }
+        )
+
+        if msg["model_slug"] and window_model is None:
+            window_model = msg["model_slug"]
+
+    if window_entries and window_day and window_start is not None:
+        start_dt = dt.datetime.fromtimestamp(window_start)
+        seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
+        windows.append((window_day, seg_key, window_model, window_entries))
+
+    return windows
 
 
 # MIME type mapping for import metadata
