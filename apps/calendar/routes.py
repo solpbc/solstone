@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
@@ -24,11 +24,9 @@ calendar_bp = Blueprint(
 
 @calendar_bp.route("/")
 def index():
-    """Redirect to yesterday's calendar view."""
-    from datetime import timedelta
-
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
-    return redirect(url_for("app:calendar.calendar_day", day=yesterday))
+    """Redirect to today's calendar view."""
+    today = date.today().strftime("%Y%m%d")
+    return redirect(url_for("app:calendar.calendar_day", day=today))
 
 
 @calendar_bp.route("/<day>")
