@@ -242,7 +242,7 @@
     {% endif %}
   {% endwith %}
 
-  {% if todos_by_facet %}
+  {% if todos_by_facet.values() | map('length') | sum > 0 %}
     {% for facet_name, facet_todos in todos_by_facet.items() %}
       {% set facet_info = facet_map.get(facet_name, {}) %}
       {% set facet_title = facet_info.get('title', facet_name.title()) %}
