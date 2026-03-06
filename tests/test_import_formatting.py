@@ -280,9 +280,7 @@ def test_format_file_integration():
                 "title": "Lunch with Alice",
                 "content": "",
             }
-            jsonl_path.write_text(
-                json.dumps(header) + "\n" + json.dumps(entry) + "\n"
-            )
+            jsonl_path.write_text(json.dumps(header) + "\n" + json.dumps(entry) + "\n")
 
             chunks, meta = format_file(str(jsonl_path))
             assert len(chunks) == 1

@@ -344,9 +344,7 @@ def write_manifest(
     return manifest_path
 
 
-def find_manifest_by_hash(
-    journal_root: Path, source_hash: str
-) -> dict | None:
+def find_manifest_by_hash(journal_root: Path, source_hash: str) -> dict | None:
     """Search existing import manifests for a matching source hash.
 
     Returns the manifest dict if found, None otherwise.

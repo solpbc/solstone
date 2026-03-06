@@ -660,7 +660,9 @@ def main() -> None:
                     {
                         os.path.basename(os.path.dirname(os.path.dirname(f)))
                         for f in result.files_created
-                        if os.path.basename(os.path.dirname(os.path.dirname(f))).isdigit()
+                        if os.path.basename(
+                            os.path.dirname(os.path.dirname(f))
+                        ).isdigit()
                     }
                 )
                 if days_affected:

@@ -17,7 +17,6 @@ from think.importers.shared import (
     write_structured_import,
 )
 
-
 # --- hash_source tests ---
 
 

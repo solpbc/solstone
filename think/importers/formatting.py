@@ -107,7 +107,11 @@ def _format_calendar_event(entry: dict) -> str:
 
     attendees = entry.get("attendees", [])
     if attendees:
-        names = [a.get("name") or a.get("email", "") for a in attendees if isinstance(a, dict)]
+        names = [
+            a.get("name") or a.get("email", "")
+            for a in attendees
+            if isinstance(a, dict)
+        ]
         if not names:
             names = [str(a) for a in attendees]
         if names:

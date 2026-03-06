@@ -141,7 +141,11 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos", True),
     "facets/*/logs/*.jsonl": ("think.facets", "format_logs", True),
     # Structured file imports (indexed)
-    "*/import.*/imported.jsonl": ("think.importers.formatting", "format_imported", True),
+    "*/import.*/imported.jsonl": (
+        "think.importers.formatting",
+        "format_imported",
+        True,
+    ),
     # Raw transcripts — formattable but not indexed (agent outputs are more useful)
     # Layout: day/stream/segment/audio.jsonl
     "*/*/*/audio.jsonl": ("observe.hear", "format_audio", False),

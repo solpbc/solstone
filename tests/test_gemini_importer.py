@@ -138,9 +138,7 @@ def test_detect_directory():
     with tempfile.TemporaryDirectory() as tmpdir:
         activity_dir = Path(tmpdir) / "My Activity" / "Gemini Apps"
         activity_dir.mkdir(parents=True)
-        (activity_dir / "MyActivity.json").write_text(
-            json.dumps([_sample_activity()])
-        )
+        (activity_dir / "MyActivity.json").write_text(json.dumps([_sample_activity()]))
         assert importer.detect(Path(tmpdir)) is True
 
 
