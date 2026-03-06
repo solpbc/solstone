@@ -279,6 +279,70 @@ class TestAwarenessLogReadCLI:
         assert data[1]["message"] == "finding 4"
 
 
+class TestChatBarPlaceholder:
+    def _get_placeholder(self):
+        """Extract chat bar placeholder from the context processor."""
+
+        from flask import Flask
+
+        app = Flask(__name__)
+        app.config["TESTING"] = True
+
+        from apps import AppRegistry
+        from convey.apps import register_app_context
+
+        registry = AppRegistry()
+        register_app_context(app, registry)
+
+        with app.test_request_context("/"):
+            # Get context from context processors
+            ctx = {}
+            for func in app.template_context_processors[None]:
+                ctx.update(func())
+            return ctx.get("chat_bar_placeholder", "")
+
+    def test_default_placeholder(self):
+        assert self._get_placeholder() == "Send a message..."
+
+    def test_observing_placeholder(self):
+        from think.awareness import start_onboarding
+
+        start_onboarding("a")
+        placeholder = self._get_placeholder()
+        assert "learning" in placeholder.lower()
+        assert "noticed" in placeholder.lower()
+
+    def test_ready_placeholder(self):
+        from think.awareness import start_onboarding, update_state
+
+        start_onboarding("a")
+        update_state("onboarding", {"status": "ready"})
+        placeholder = self._get_placeholder()
+        assert "suggestions" in placeholder.lower()
+
+    def test_interviewing_placeholder(self):
+        from think.awareness import start_onboarding
+
+        start_onboarding("b")
+        placeholder = self._get_placeholder()
+        assert "work" in placeholder.lower()
+
+    def test_complete_placeholder(self):
+        from think.awareness import start_onboarding, update_state
+
+        start_onboarding("a")
+        update_state("onboarding", {"status": "complete"})
+        placeholder = self._get_placeholder()
+        assert placeholder == "Send a message..."
+
+    def test_skipped_placeholder(self):
+        from think.awareness import skip_onboarding
+
+        skip_onboarding()
+        placeholder = self._get_placeholder()
+        assert placeholder == "Send a message..."
+
+
 class TestChatRedirectMuse:
     def test_redirect_uses_custom_muse(self):
         from unittest.mock import MagicMock, patch

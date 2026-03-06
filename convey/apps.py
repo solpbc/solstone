@@ -126,6 +126,26 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
         # Get starred apps list
         starred_apps = config.get("apps", {}).get("starred", [])
 
+        # Chat bar placeholder based on onboarding state
+        chat_bar_placeholder = "Send a message..."
+        try:
+            from think.awareness import get_onboarding
+
+            onboarding = get_onboarding()
+            onboarding_status = onboarding.get("status", "")
+            if onboarding_status == "observing":
+                chat_bar_placeholder = (
+                    "I'm learning how you work — ask me what I've noticed..."
+                )
+            elif onboarding_status == "ready":
+                chat_bar_placeholder = (
+                    "I have suggestions for organizing your journal — let's review"
+                )
+            elif onboarding_status == "interviewing":
+                chat_bar_placeholder = "Tell me about your work..."
+        except Exception:
+            pass  # Default placeholder on any error
+
         return {
             "app_registry": registry,
             "app": current_app_name,
@@ -134,6 +154,7 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
             "selected_facet": selected_facet,
             "starred_apps": starred_apps,
             "day": day,
+            "chat_bar_placeholder": chat_bar_placeholder,
         }
 
     @app.context_processor

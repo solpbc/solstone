@@ -69,7 +69,7 @@
 <!-- Chat Bar (universal) -->
 <div class="app-bar">
   <form id="chatInputForm" style="display: contents;">
-    <textarea id="chatMessageInput" class="chat-bar-input" rows="1" placeholder="Send a message..."></textarea>
+    <textarea id="chatMessageInput" class="chat-bar-input" rows="1" placeholder="{{ chat_bar_placeholder|default('Send a message...') }}"></textarea>
     <button type="submit" class="chat-bar-send" title="Send" style="display: none;">↑</button>
   </form>
   <div class="chat-bar-thinking" style="display: none;">
