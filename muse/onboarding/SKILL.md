@@ -1,11 +1,31 @@
 ---
 name: onboarding
-description: Set up a new journal by creating facets and seeding entities through guided conversation.
+description: Set up a new journal — welcome choice, facet creation, and entity seeding.
 ---
 
 # Onboarding CLI Skill
 
 Use these commands to guide first-time setup.
+
+## awareness onboarding
+
+```bash
+sol call awareness onboarding [--path a|b] [--skip] [--complete]
+```
+
+- `--path a`: Start Path A (passive observation).
+- `--path b`: Start Path B (conversational interview).
+- `--skip`: Skip onboarding entirely.
+- `--complete`: Mark onboarding as complete.
+- No flags: Read current onboarding state.
+
+## awareness status
+
+```bash
+sol call awareness status [SECTION]
+```
+
+- `SECTION`: Optional section name (e.g., `onboarding`). Omit for full state.
 
 ## facet create
 
@@ -14,14 +34,14 @@ sol call journal facet create <title> [--emoji EMOJI] [--color COLOR] [--descrip
 ```
 
 - `title`: Display title for the new facet.
-- `--emoji`: Optional facet icon (default: 📦).
+- `--emoji`: Optional facet icon (default: box emoji).
 - `--color`: Optional hex color (default: #667eea).
 - `--description`: Optional description.
 
 Example:
 
 ```bash
-sol call journal facet create "Work" --emoji "💼" --color "#667eea" --description "Client deliverables and meetings"
+sol call journal facet create "Work" --emoji "briefcase emoji" --color "#667eea" --description "Client deliverables and meetings"
 ```
 
 ## facets
@@ -31,12 +51,6 @@ sol call journal facets [--all]
 ```
 
 - `--all`: Include muted facets.
-
-Example:
-
-```bash
-sol call journal facets
-```
 
 ## attach
 

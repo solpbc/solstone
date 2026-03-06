@@ -34,9 +34,20 @@ def triage() -> Any:
     path = payload.get("path", "")
     facet = payload.get("facet", "")
 
+    from think.awareness import get_onboarding
     from think.facets import get_enabled_facets
 
-    if not get_enabled_facets():
+    onboarding = get_onboarding()
+    onboarding_status = onboarding.get("status", "")
+
+    if onboarding_status in ("observing", "ready"):
+        # Path A active — use triage with observation context
+        agent_name = "triage"
+    elif not get_enabled_facets() and onboarding_status not in (
+        "complete",
+        "skipped",
+    ):
+        # No facets and no onboarding state — new user, show welcome
         agent_name = "onboarding"
     else:
         agent_name = "triage"
@@ -49,6 +60,22 @@ def triage() -> Any:
         context_lines.append(f"Current path: {path}")
     if facet:
         context_lines.append(f"Current facet: {facet}")
+
+    # Add observation context for Path A onboarding
+    if onboarding_status == "observing":
+        obs_count = onboarding.get("observation_count", 0)
+        context_lines.append(
+            f"Onboarding: Path A observation in progress ({obs_count} observations so far). "
+            "The user chose to let Solstone observe and learn. Capture is running. "
+            "If they ask what you've noticed or how it's going, check the awareness log "
+            "with `sol call awareness status onboarding` and summarize progress."
+        )
+    elif onboarding_status == "ready":
+        context_lines.append(
+            "Onboarding: Path A observation complete — recommendations are ready. "
+            "Suggest the user review their recommendations. Use `sol call chat redirect` "
+            "to open a chat with the recommendation agent if they want to proceed."
+        )
 
     if context_lines:
         full_prompt = "\n".join(context_lines) + "\n\n" + message

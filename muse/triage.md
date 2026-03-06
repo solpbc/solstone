@@ -40,6 +40,10 @@ You are given context about the user's current app, URL path, and facet. Use thi
 ### Journal
 - `sol call journal events [DAY] [-f FACET]` — List events with participants, times, and summaries.
 
+### Awareness
+- `sol call awareness status [SECTION]` — Read awareness state (e.g., onboarding progress).
+- `sol call awareness onboarding` — Read onboarding state (path, status, observation count).
+
 ### Redirect to Chat
 - `sol call chat redirect MESSAGE --app APP --path PATH --facet FACET` — Create a chat thread with the full assistant and navigate the browser there. Use the user's original message as MESSAGE. Pass the current app, path, and facet from context.
 
