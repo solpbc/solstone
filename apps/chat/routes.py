@@ -216,17 +216,21 @@ def send_message() -> Any:
         else:
             # New chat: create metadata record
             chat_id = agent_id
-            title = generate_chat_title(message)
+            fallback_title = message.split("\n")[0][:30]
             chat_record = {
                 "ts": ts,
                 "facet": facet,
                 "provider": provider,
                 "muse": "default",
-                "title": title,
+                "title": fallback_title,
                 "agent_ids": [agent_id],
             }
             chats_dir = get_app_storage_path("chat", "chats")
             save_json(chats_dir / f"{chat_id}.json", chat_record)
+            title = generate_chat_title(message)
+            if title != fallback_title:
+                chat_record["title"] = title
+                _save_chat(chat_id, chat_record)
 
         return jsonify(chat_id=chat_id, agent_id=agent_id)
     except Exception as e:

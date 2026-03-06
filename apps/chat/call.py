@@ -66,6 +66,13 @@ def redirect(
 
     title = generate_chat_title(message)
 
+    import convey.state
+    from apps.utils import get_app_storage_path
+    from convey.utils import save_json
+    from think.utils import get_journal, now_ms
+
+    convey.state.journal_root = str(get_journal())
+
     from think.cortex_client import cortex_request
 
     config: dict = {}
@@ -80,13 +87,6 @@ def redirect(
     if agent_id is None:
         typer.echo("Error: failed to create chat thread", err=True)
         raise typer.Exit(1)
-
-    import convey.state
-    from apps.utils import get_app_storage_path
-    from convey.utils import save_json
-    from think.utils import get_journal, now_ms
-
-    convey.state.journal_root = str(get_journal())
 
     chat_id = agent_id
     ts = now_ms()
