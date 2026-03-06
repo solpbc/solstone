@@ -30,6 +30,7 @@ class ImportResult:
     files_created: list[str]
     errors: list[str]
     summary: str
+    segments: list[tuple[str, str]] | None = None
 
 
 @runtime_checkable

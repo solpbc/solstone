@@ -209,7 +209,7 @@ def test_reimport_with_new_entries_merges():
             assert header["entry_count"] == 2
 
             # Verify content
-            entries = [json.loads(l) for l in lines[1:]]
+            entries = [json.loads(line) for line in lines[1:]]
             titles = [e["title"] for e in entries]
             assert "Standup" in titles
             assert "New meeting" in titles

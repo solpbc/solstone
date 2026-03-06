@@ -6,7 +6,7 @@ import logging
 import os
 
 from think.detect_transcript import detect_transcript_json, detect_transcript_segment
-from think.importers.shared import _write_import_jsonl
+from think.importers.shared import write_segment
 
 try:
     from pypdf import PdfReader
@@ -68,7 +68,6 @@ def process_transcript(
     """
     created_files = []
     text = _read_transcript(path)
-    stream_dir = os.path.join(day_dir, stream)
 
     # Get start time from base_dt for segmentation
     start_time = base_dt.strftime("%H:%M:%S")
@@ -140,12 +139,10 @@ def process_transcript(
         duration = max(1, duration)
 
         segment_name = f"{time_part}_{duration}"
-        ts_dir = os.path.join(stream_dir, segment_name)
-        os.makedirs(ts_dir, exist_ok=True)
-        json_path = os.path.join(ts_dir, "imported_audio.jsonl")
-
-        _write_import_jsonl(
-            json_path,
+        json_path = write_segment(
+            day_dir,
+            stream,
+            segment_name,
             json_data,
             import_id=import_id,
             raw_filename=os.path.basename(path),

@@ -18,6 +18,7 @@ from think.importers.audio import _get_audio_duration, prepare_audio_segments
 from think.importers.shared import (
     _get_relative_path,
     _is_in_imports,
+    _setup_file_import,
     _setup_import,
 )
 from think.importers.text import _read_transcript, process_transcript
@@ -594,6 +595,7 @@ def main() -> None:
 
                 _source_hash = hash_source(Path(args.media))
 
+            _setup_file_import(_import_id)
             result = _file_importer.process(
                 Path(args.media), journal_root, facet=args.facet
             )
@@ -631,6 +633,41 @@ def main() -> None:
                 errors=len(result.errors),
                 stream=stream,
             )
+
+            if result.segments:
+                for seg_day, seg_key in result.segments:
+                    if seg_key not in created_segments:
+                        created_segments.append(seg_key)
+                    try:
+                        seg_dir = day_path(seg_day) / stream / seg_key
+                        stream_result = update_stream(
+                            stream, seg_day, seg_key, type="import", host=None
+                        )
+                        write_segment_stream(
+                            seg_dir,
+                            stream,
+                            stream_result["prev_day"],
+                            stream_result["prev_segment"],
+                            stream_result["seq"],
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to write stream identity: {e}")
+
+                all_seg_keys = [seg_key for _, seg_key in result.segments]
+                first_day = result.segments[0][0]
+                save_import_segments(journal_root, _import_id, all_seg_keys, first_day)
+
+                for seg_day, seg_key in result.segments:
+                    _callosum.emit(
+                        "observe",
+                        "observed",
+                        segment=seg_key,
+                        day=seg_day,
+                        stream=stream,
+                    )
+                    logger.info(
+                        f"Emitted observe.observed for segment: {seg_day}/{seg_key}"
+                    )
 
             logger.info(
                 "%s import complete: %d entries, %d entities, %d files",

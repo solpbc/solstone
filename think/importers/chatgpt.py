@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import write_structured_import
+from think.importers.shared import write_segment
+from think.utils import day_path
 
 logger = logging.getLogger(__name__)
 
@@ -50,41 +51,116 @@ def _walk_message_tree(conversation: dict[str, Any]) -> list[dict[str, Any]]:
     return chain
 
 
-def _format_messages(messages: list[dict[str, Any]]) -> tuple[str, int, str | None]:
-    """Format ChatGPT messages into readable text.
+def _extract_messages(
+    conversations: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, int], int]:
+    """Extract timestamped user and assistant messages from conversations."""
+    messages: list[dict[str, Any]] = []
+    model_counts: dict[str, int] = {}
+    skipped = 0
 
-    Returns (formatted_content, message_count, model_slug).
-    """
-    lines: list[str] = []
-    count = 0
-    model_slug: str | None = None
+    for conv in conversations:
+        mapping = conv.get("mapping", {})
+        if not mapping:
+            skipped += 1
+            continue
+
+        conv_messages = _walk_message_tree(conv)
+        conv_has_content = False
+
+        for msg in conv_messages:
+            author = msg.get("author", {})
+            role = author.get("role", "")
+            if role not in ("user", "assistant"):
+                continue
+
+            content = msg.get("content", {})
+            parts = content.get("parts", [])
+            text_parts = [p for p in parts if isinstance(p, str)]
+            text = "\n".join(text_parts).strip()
+            if not text:
+                continue
+
+            create_time = msg.get("create_time")
+            if create_time is None or not isinstance(create_time, (int, float)):
+                continue
+
+            model_slug = None
+            if role == "assistant":
+                meta = msg.get("metadata", {})
+                model_slug = meta.get("model_slug")
+                if model_slug:
+                    model_counts[model_slug] = model_counts.get(model_slug, 0) + 1
+
+            messages.append(
+                {
+                    "create_time": float(create_time),
+                    "speaker": "Human" if role == "user" else "Assistant",
+                    "text": text,
+                    "model_slug": model_slug,
+                }
+            )
+            conv_has_content = True
+
+        if not conv_has_content:
+            skipped += 1
+
+    return messages, model_counts, skipped
+
+
+def _window_messages(
+    messages: list[dict[str, Any]],
+    window_duration: int = 300,
+) -> list[tuple[str, str, str | None, list[dict[str, Any]]]]:
+    """Group sorted messages into fixed-duration windows per day."""
+    if not messages:
+        return []
+
+    windows: list[tuple[str, str, str | None, list[dict[str, Any]]]] = []
+    window_start: float | None = None
+    window_day: str | None = None
+    window_entries: list[dict[str, Any]] = []
+    window_model: str | None = None
 
     for msg in messages:
-        author = msg.get("author", {})
-        role = author.get("role", "")
+        msg_dt = dt.datetime.fromtimestamp(msg["create_time"])
+        msg_day = msg_dt.strftime("%Y%m%d")
 
-        # Skip system and tool messages
-        if role in {"system", "tool"}:
-            continue
+        if (
+            window_start is None
+            or msg_day != window_day
+            or msg["create_time"] - window_start >= window_duration
+        ):
+            if window_entries and window_day and window_start is not None:
+                start_dt = dt.datetime.fromtimestamp(window_start)
+                seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
+                windows.append((window_day, seg_key, window_model, window_entries))
 
-        content = msg.get("content", {})
-        parts = content.get("parts", [])
-        # Filter out non-string parts (e.g., image refs)
-        text_parts = [p for p in parts if isinstance(p, str)]
-        text = "\n".join(text_parts).strip()
-        if not text:
-            continue
+            window_start = msg["create_time"]
+            window_day = msg_day
+            window_entries = []
+            window_model = None
 
-        # Extract model info from assistant messages
-        if role == "assistant" and model_slug is None:
-            meta = msg.get("metadata", {})
-            model_slug = meta.get("model_slug")
+        offset = int(msg["create_time"] - window_start)
+        h, remainder = divmod(offset, 3600)
+        m, s = divmod(remainder, 60)
+        window_entries.append(
+            {
+                "start": f"{h:02d}:{m:02d}:{s:02d}",
+                "speaker": msg["speaker"],
+                "text": msg["text"],
+            }
+        )
 
-        label = "Human" if role == "user" else "Assistant"
-        lines.append(f"{label}: {text}")
-        count += 1
+        if msg["model_slug"] and window_model is None:
+            window_model = msg["model_slug"]
 
-    return "\n\n".join(lines), count, model_slug
+    if window_entries and window_day and window_start is not None:
+        start_dt = dt.datetime.fromtimestamp(window_start)
+        seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
+        windows.append((window_day, seg_key, window_model, window_entries))
+
+    return windows
 
 
 class ChatGPTImporter:
@@ -174,80 +250,65 @@ class ChatGPTImporter:
     ) -> ImportResult:
         conversations = _open_conversations(path)
         import_id = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        messages, model_counts, skipped = _extract_messages(conversations)
+        if not messages:
+            return ImportResult(
+                entries_written=0,
+                entities_seeded=0,
+                files_created=[],
+                errors=[],
+                summary="No messages found in ChatGPT export",
+            )
 
-        entries: list[dict[str, Any]] = []
+        messages.sort(key=lambda m: m["create_time"])
+
+        if progress_callback:
+            progress_callback(len(conversations), len(conversations))
+
+        windows = _window_messages(messages)
+        created_files: list[str] = []
+        segments: list[tuple[str, str]] = []
         errors: list[str] = []
-        skipped = 0
-        model_counts: dict[str, int] = {}
+        written_count = 0
 
-        for i, conv in enumerate(conversations):
-            mapping = conv.get("mapping", {})
-            if not mapping:
-                skipped += 1
-                continue
-
-            title = conv.get("title", "Untitled")
-            create_time = conv.get("create_time")
-
-            # Parse timestamp (Unix epoch float)
-            if create_time is None:
-                errors.append(f"Missing create_time for conversation: {title!r}")
-                continue
+        for day, seg_key, model_slug, entries in windows:
+            day_dir = str(day_path(day))
             try:
-                ts = dt.datetime.fromtimestamp(create_time).isoformat()
-            except (ValueError, OSError):
-                errors.append(f"Bad timestamp for conversation: {title!r}")
-                continue
-
-            # Walk message tree
-            messages = _walk_message_tree(conv)
-            content, message_count, model_slug = _format_messages(messages)
-            if not content:
-                skipped += 1
-                continue
-
-            if model_slug:
-                model_counts[model_slug] = model_counts.get(model_slug, 0) + 1
-
-            entry: dict[str, Any] = {
-                "type": "ai_chat",
-                "ts": ts,
-                "title": title,
-                "source": "chatgpt",
-                "message_count": message_count,
-                "content": content,
-            }
-            if model_slug:
-                entry["model"] = model_slug
-
-            entries.append(entry)
-
-            if progress_callback and (i + 1) % 100 == 0:
-                progress_callback(i + 1, len(conversations))
-
-        # Write to journal
-        created_files = write_structured_import(
-            "chatgpt",
-            entries,
-            import_id=import_id,
-            facet=facet,
-        )
+                json_path = write_segment(
+                    day_dir,
+                    "import.chatgpt",
+                    seg_key,
+                    entries,
+                    import_id=import_id,
+                    facet=facet,
+                    model=model_slug,
+                )
+                created_files.append(json_path)
+                segments.append((day, seg_key))
+                written_count += len(entries)
+            except Exception as exc:
+                errors.append(f"Failed to write segment {day}/{seg_key}: {exc}")
+                logger.warning("Failed to write segment %s/%s: %s", day, seg_key, exc)
 
         if skipped:
             logger.info("Skipped %d conversations with no content", skipped)
 
-        # Build summary with model distribution
+        days = sorted({day for day, _ in segments})
         model_info = ""
         if model_counts:
             top_models = sorted(model_counts.items(), key=lambda x: -x[1])[:5]
             model_info = " — models: " + ", ".join(f"{m} ({n})" for m, n in top_models)
 
         return ImportResult(
-            entries_written=len(entries),
+            entries_written=written_count,
             entities_seeded=0,
             files_created=created_files,
             errors=errors,
-            summary=f"Imported {len(entries)} ChatGPT conversations across {len(created_files)} days{model_info}",
+            summary=(
+                f"Imported {len(messages)} messages across {len(days)} days into "
+                f"{len(segments)} segments{model_info}"
+            ),
+            segments=segments,
         )
 
 

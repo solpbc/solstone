@@ -40,6 +40,7 @@ def _write_import_jsonl(
     setting: str | None = None,
     topics: str | None = None,
     detected_setting: str | None = None,
+    model: str | None = None,
 ) -> None:
     """Write imported transcript entries in JSONL format.
 
@@ -74,6 +75,8 @@ def _write_import_jsonl(
         metadata["topics"] = topics
     if detected_setting:
         metadata["setting"] = detected_setting
+    if model:
+        metadata["model"] = model
 
     # Write JSONL: metadata first, then entries with source field
     jsonl_lines = [json.dumps(metadata)]
@@ -85,6 +88,39 @@ def _write_import_jsonl(
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write("\n".join(jsonl_lines) + "\n")
+
+
+def write_segment(
+    day_dir: str,
+    stream: str,
+    segment_key: str,
+    entries: list[dict],
+    *,
+    import_id: str,
+    raw_filename: str | None = None,
+    facet: str | None = None,
+    setting: str | None = None,
+    topics: str | None = None,
+    detected_setting: str | None = None,
+    model: str | None = None,
+) -> str:
+    """Write a single segment's imported_audio.jsonl file."""
+    ts_dir = os.path.join(day_dir, stream, segment_key)
+    os.makedirs(ts_dir, exist_ok=True)
+    json_path = os.path.join(ts_dir, "imported_audio.jsonl")
+
+    _write_import_jsonl(
+        json_path,
+        entries,
+        import_id=import_id,
+        raw_filename=raw_filename,
+        facet=facet,
+        setting=setting,
+        topics=topics,
+        detected_setting=detected_setting,
+        model=model,
+    )
+    return json_path
 
 
 # MIME type mapping for import metadata
@@ -171,6 +207,14 @@ def _setup_import(
 
     logger.info(f"Copied to journal: {new_path}")
     return str(new_path)
+
+
+def _setup_file_import(import_id: str) -> Path:
+    """Create imports/{import_id}/ directory for file importers."""
+    journal_root = Path(get_journal())
+    import_dir = journal_root / "imports" / import_id
+    import_dir.mkdir(parents=True, exist_ok=True)
+    return import_dir
 
 
 def write_structured_import(

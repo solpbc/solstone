@@ -136,3 +136,25 @@ def test_write_import_jsonl_with_topics():
         }
         assert metadata["topics"] == "project updates, sprint planning"
         assert metadata["setting"] == "workplace"
+
+
+def test_write_import_jsonl_with_model():
+    """Test writing imported JSONL with model metadata."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        json_path = Path(tmpdir) / "test_audio.jsonl"
+
+        _write_import_jsonl(
+            str(json_path),
+            [{"start": "00:00:00", "speaker": "Assistant", "text": "Hello"}],
+            import_id="20240101_120000",
+            model="gpt-4",
+        )
+
+        with open(json_path, "r") as f:
+            lines = f.read().strip().split("\n")
+
+        metadata = json.loads(lines[0])
+        assert metadata == {
+            "imported": {"id": "20240101_120000"},
+            "model": "gpt-4",
+        }

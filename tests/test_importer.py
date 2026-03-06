@@ -5,6 +5,7 @@ import datetime as dt
 import importlib
 import json
 import subprocess
+import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -261,6 +262,186 @@ def test_importer_pdf(tmp_path, monkeypatch):
     # Verify segments.json written
     segments_json = tmp_path / "imports" / "20251205_163000" / "segments.json"
     assert segments_json.exists()
+
+
+def test_write_segment(tmp_path):
+    """Test write_segment creates a segment directory and JSONL file."""
+    mod = importlib.import_module("think.importers.shared")
+
+    json_path = mod.write_segment(
+        str(tmp_path / "20240101"),
+        "import.text",
+        "120000_300",
+        [{"start": "00:00:00", "speaker": "Alice", "text": "Hello"}],
+        import_id="20240101_120000",
+        raw_filename="notes.txt",
+        facet="work",
+        setting="standup",
+        model="gpt-4",
+    )
+
+    written = Path(json_path)
+    assert (
+        written
+        == tmp_path / "20240101" / "import.text" / "120000_300" / "imported_audio.jsonl"
+    )
+    assert written.exists()
+
+    lines = written.read_text().strip().split("\n")
+    metadata = json.loads(lines[0])
+    entry = json.loads(lines[1])
+
+    assert metadata["imported"] == {
+        "id": "20240101_120000",
+        "facet": "work",
+        "setting": "standup",
+    }
+    assert metadata["raw"] == "../../../imports/20240101_120000/notes.txt"
+    assert metadata["model"] == "gpt-4"
+    assert entry["source"] == "import"
+
+
+def test_chatgpt_importer_segments(tmp_path, monkeypatch):
+    """ChatGPT importer should write message windows as import segments."""
+    mod = importlib.import_module("think.importers.chatgpt")
+
+    base = dt.datetime(2026, 1, 15, 12, 0, 0).timestamp()
+    conversations = [
+        {
+            "title": "First",
+            "current_node": "a3",
+            "mapping": {
+                "a1": {
+                    "parent": None,
+                    "message": {
+                        "author": {"role": "user"},
+                        "content": {"parts": ["Hello"]},
+                        "create_time": base,
+                    },
+                },
+                "a2": {
+                    "parent": "a1",
+                    "message": {
+                        "author": {"role": "assistant"},
+                        "content": {"parts": ["Hi there"]},
+                        "create_time": base + 60,
+                        "metadata": {"model_slug": "gpt-4"},
+                    },
+                },
+                "a3": {
+                    "parent": "a2",
+                    "message": {
+                        "author": {"role": "user"},
+                        "content": {"parts": ["New topic"]},
+                        "create_time": base + 301,
+                    },
+                },
+            },
+        },
+        {
+            "title": "Second",
+            "current_node": "b2",
+            "mapping": {
+                "b1": {
+                    "parent": None,
+                    "message": {
+                        "author": {"role": "assistant"},
+                        "content": {"parts": ["Missing time"]},
+                    },
+                },
+                "b2": {
+                    "parent": "b1",
+                    "message": {
+                        "author": {"role": "assistant"},
+                        "content": {"parts": ["Next day reply"]},
+                        "create_time": base + 12 * 3600,
+                        "metadata": {"model_slug": "gpt-4o"},
+                    },
+                },
+            },
+        },
+    ]
+
+    archive = tmp_path / "chatgpt.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr("conversations.json", json.dumps(conversations))
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    fixed_dt = dt.datetime(2026, 1, 20, 8, 30, 0)
+
+    class FixedDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_dt
+
+    monkeypatch.setattr(mod.dt, "datetime", FixedDateTime)
+
+    result = mod.ChatGPTImporter().process(archive, tmp_path, facet="work")
+
+    assert result.entries_written == 4
+    assert result.errors == []
+    assert result.segments == [
+        ("20260115", "120000_300"),
+        ("20260115", "120501_300"),
+        ("20260116", "000000_300"),
+    ]
+    assert len(result.files_created) == 3
+
+    first_segment = (
+        day_path("20260115") / "import.chatgpt" / "120000_300" / "imported_audio.jsonl"
+    )
+    second_segment = (
+        day_path("20260115") / "import.chatgpt" / "120501_300" / "imported_audio.jsonl"
+    )
+    third_segment = (
+        day_path("20260116") / "import.chatgpt" / "000000_300" / "imported_audio.jsonl"
+    )
+
+    assert first_segment.exists()
+    assert second_segment.exists()
+    assert third_segment.exists()
+
+    first_lines = first_segment.read_text().strip().split("\n")
+    first_meta = json.loads(first_lines[0])
+    first_entries = [json.loads(line) for line in first_lines[1:]]
+    assert first_meta["imported"] == {"id": "20260120_083000", "facet": "work"}
+    assert first_meta["model"] == "gpt-4"
+    assert first_entries == [
+        {"start": "00:00:00", "speaker": "Human", "text": "Hello", "source": "import"},
+        {
+            "start": "00:01:00",
+            "speaker": "Assistant",
+            "text": "Hi there",
+            "source": "import",
+        },
+    ]
+
+    second_lines = second_segment.read_text().strip().split("\n")
+    second_meta = json.loads(second_lines[0])
+    second_entries = [json.loads(line) for line in second_lines[1:]]
+    assert second_meta == {"imported": {"id": "20260120_083000", "facet": "work"}}
+    assert second_entries == [
+        {
+            "start": "00:00:00",
+            "speaker": "Human",
+            "text": "New topic",
+            "source": "import",
+        }
+    ]
+
+    third_lines = third_segment.read_text().strip().split("\n")
+    third_meta = json.loads(third_lines[0])
+    third_entries = [json.loads(line) for line in third_lines[1:]]
+    assert third_meta["model"] == "gpt-4o"
+    assert third_entries == [
+        {
+            "start": "00:00:00",
+            "speaker": "Assistant",
+            "text": "Next day reply",
+            "source": "import",
+        }
+    ]
 
 
 def test_format_audio_stream_path():
