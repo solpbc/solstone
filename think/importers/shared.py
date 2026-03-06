@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import logging
 import os
@@ -222,6 +223,38 @@ def write_structured_import(
 
         out_path = import_dir / "imported.jsonl"
 
+        # Merge with existing entries if file already exists (entry-level dedup)
+        if out_path.exists():
+            existing_keys: set[str] = set()
+            try:
+                with open(out_path, "r", encoding="utf-8") as f:
+                    for line_num, line in enumerate(f):
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            existing = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        # Skip header (first line)
+                        if line_num == 0 and "import" in existing:
+                            continue
+                        existing_keys.add(_entry_content_key(existing))
+            except OSError:
+                existing_keys = set()
+
+            # Filter to only new entries
+            new_entries = [
+                e for e in day_entries if _entry_content_key(e) not in existing_keys
+            ]
+            if not new_entries:
+                logger.info("No new entries for %s — skipping", out_path)
+                created.append(str(out_path))
+                continue
+            # Combine: keep all existing plus new
+            day_entries = _load_existing_entries(out_path) + new_entries
+            day_entries.sort(key=lambda e: e.get("ts", ""))
+
         # Build header
         header: dict[str, object] = {
             "import": {"id": import_id, "source": source},
@@ -252,6 +285,123 @@ def write_structured_import(
         logger.info("Wrote %d entries to %s", len(day_entries), out_path)
 
     return created
+
+
+def hash_source(path: Path) -> str:
+    """Compute SHA-256 hash of an import source file or directory.
+
+    For files: hash the file contents.
+    For directories: hash a sorted listing of relative paths + sizes.
+    """
+    h = hashlib.sha256()
+    if path.is_file():
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+    elif path.is_dir():
+        # Hash sorted listing of relative paths + sizes (fast, catches changes)
+        entries = []
+        for child in sorted(path.rglob("*")):
+            if child.is_file():
+                rel = str(child.relative_to(path))
+                entries.append(f"{rel}:{child.stat().st_size}")
+        h.update("\n".join(entries).encode())
+    return h.hexdigest()
+
+
+def write_manifest(
+    journal_root: Path,
+    import_id: str,
+    source_type: str,
+    source_hash: str,
+    entry_count: int,
+    files_created: list[str],
+) -> Path:
+    """Write an import manifest for deduplication tracking.
+
+    Returns path to the manifest file.
+    """
+    days_affected = sorted(
+        {
+            os.path.basename(os.path.dirname(os.path.dirname(f)))
+            for f in files_created
+            if os.path.basename(os.path.dirname(os.path.dirname(f))).isdigit()
+        }
+    )
+    manifest = {
+        "source_type": source_type,
+        "source_hash": source_hash,
+        "entry_count": entry_count,
+        "days_affected": days_affected,
+        "files_created": files_created,
+        "imported_at": dt.datetime.now().isoformat(),
+    }
+    manifest_dir = journal_root / "imports" / import_id
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = manifest_dir / "manifest.json"
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
+    return manifest_path
+
+
+def find_manifest_by_hash(
+    journal_root: Path, source_hash: str
+) -> dict | None:
+    """Search existing import manifests for a matching source hash.
+
+    Returns the manifest dict if found, None otherwise.
+    """
+    imports_dir = journal_root / "imports"
+    if not imports_dir.is_dir():
+        return None
+    for entry in imports_dir.iterdir():
+        if not entry.is_dir():
+            continue
+        manifest_path = entry / "manifest.json"
+        if not manifest_path.exists():
+            continue
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest = json.load(f)
+            if manifest.get("source_hash") == source_hash:
+                return manifest
+        except (json.JSONDecodeError, OSError):
+            continue
+    return None
+
+
+def _load_existing_entries(out_path: Path) -> list[dict]:
+    """Load content entries from an existing imported.jsonl, skipping header."""
+    entries: list[dict] = []
+    try:
+        with open(out_path, "r", encoding="utf-8") as f:
+            for line_num, line in enumerate(f):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if line_num == 0 and "import" in entry:
+                    continue
+                entries.append(entry)
+    except OSError:
+        pass
+    return entries
+
+
+def _entry_content_key(entry: dict) -> str:
+    """Compute a content key for dedup within a source type.
+
+    Uses type + ts + title/book_title to identify unique entries.
+    """
+    parts = [
+        entry.get("type", ""),
+        entry.get("ts", ""),
+        entry.get("title", entry.get("book_title", "")),
+    ]
+    return "|".join(parts)
 
 
 def seed_entities(

@@ -572,6 +572,28 @@ def main() -> None:
             # File importer processing — structured file/directory imports
             _set_stage("importing")
 
+            # Source-level dedup: check if this exact file was already imported
+            if not args.force:
+                from think.importers.shared import (
+                    find_manifest_by_hash,
+                    hash_source,
+                )
+
+                _source_hash = hash_source(Path(args.media))
+                existing = find_manifest_by_hash(journal_root, _source_hash)
+                if existing:
+                    imported_at = existing.get("imported_at", "unknown date")
+                    entry_count = existing.get("entry_count", 0)
+                    print(
+                        f"This file was already imported on {imported_at} "
+                        f"({entry_count} entries). Use --force to re-import."
+                    )
+                    return
+            else:
+                from think.importers.shared import hash_source
+
+                _source_hash = hash_source(Path(args.media))
+
             result = _file_importer.process(
                 Path(args.media), journal_root, facet=args.facet
             )
@@ -650,6 +672,18 @@ def main() -> None:
                         days=days_affected,
                         entries_written=result.entries_written,
                     )
+
+            # Write import manifest for dedup tracking
+            from think.importers.shared import write_manifest
+
+            write_manifest(
+                journal_root,
+                import_id=_import_id,
+                source_type=_file_importer.name,
+                source_hash=_source_hash,
+                entry_count=result.entries_written,
+                files_created=result.files_created,
+            )
 
             if args.json:
                 print(

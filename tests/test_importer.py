@@ -577,7 +577,8 @@ def test_file_importer_without_timestamp(tmp_path, monkeypatch, capsys):
     assert mock_call.args[0] == "importer"
     assert mock_call.args[1] == "started"
     assert mock_call.kwargs["import_id"] == "20260303_123456"
-    assert not (tmp_path / "imports").exists()
+    # Manifest written for dedup tracking
+    assert (tmp_path / "imports" / "20260303_123456" / "manifest.json").exists()
 
 
 def test_file_importer_with_timestamp(tmp_path, monkeypatch):
@@ -616,7 +617,8 @@ def test_file_importer_with_timestamp(tmp_path, monkeypatch):
     assert mock_call.args[0] == "importer"
     assert mock_call.args[1] == "started"
     assert mock_call.kwargs["import_id"] == "20260303_120000"
-    assert not (tmp_path / "imports").exists()
+    # File importers write a manifest (but not source files) in imports/
+    assert (tmp_path / "imports" / "20260303_120000" / "manifest.json").exists()
 
 
 def test_list_importers_json(capsys, monkeypatch):
@@ -711,11 +713,12 @@ def test_file_import_json(tmp_path, monkeypatch, capsys):
     assert data["files_created"] == ["/journal/20250101/import.ics/imported.jsonl"]
     assert data["errors"] == []
     assert data["summary"] == "Imported 42 events"
-    assert not (tmp_path / "imports").exists()
+    # Manifest written for dedup tracking
+    assert (tmp_path / "imports").exists()
 
 
-def test_file_importer_no_imports_dir(tmp_path, monkeypatch):
-    """File importers should never create the legacy imports/ folder."""
+def test_file_importer_writes_manifest(tmp_path, monkeypatch):
+    """File importers write a dedup manifest but don't copy source files to imports/."""
     mod = importlib.import_module("think.importers.cli")
 
     ics_file = tmp_path / "calendar.ics"
@@ -737,4 +740,10 @@ def test_file_importer_no_imports_dir(tmp_path, monkeypatch):
 
     mod.main()
 
-    assert not (tmp_path / "imports").exists()
+    # Manifest exists, but source file was not copied into imports/
+    imports_dir = tmp_path / "imports"
+    assert imports_dir.exists()
+    manifests = list(imports_dir.rglob("manifest.json"))
+    assert len(manifests) == 1
+    # No import.json (legacy audio import metadata)
+    assert not list(imports_dir.rglob("import.json"))
