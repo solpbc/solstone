@@ -245,6 +245,21 @@
       "tier": 2,
       "type": "generate"
     },
+    "muse.system.observation": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Observation",
+      "schedule": "segment",
+      "tier": 3,
+      "type": "generate"
+    },
+    "muse.system.observation_review": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Observation Review",
+      "tier": 2,
+      "type": "cogitate"
+    },
     "muse.system.occurrence": {
       "disabled": false,
       "group": "Think",

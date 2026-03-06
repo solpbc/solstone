@@ -325,6 +325,32 @@
       "title": "Messaging Summary",
       "type": "generate"
     },
+    "observation": {
+      "color": "#6c757d",
+      "description": "Extracts patterns from segment data during onboarding observation",
+      "hook": {
+        "post": "observation",
+        "pre": "observation"
+      },
+      "instructions": {
+        "sources": {
+          "agents": false,
+          "audio": true,
+          "screen": true
+        }
+      },
+      "max_output_tokens": 2048,
+      "mtime": 0,
+      "output": "json",
+      "path": "<PROJECT>/muse/observation.md",
+      "priority": 97,
+      "schedule": "segment",
+      "source": "system",
+      "thinking_budget": 2048,
+      "tier": 3,
+      "title": "Observation",
+      "type": "generate"
+    },
     "schedule": {
       "color": "#5e35b1",
       "description": "Identifies all future calendar events and scheduled activities noted in transcripts. Extracts dates, times, participants, and event details for anything scheduled beyond today.",

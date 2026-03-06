@@ -164,6 +164,16 @@
     },
     {
       "app": null,
+      "description": "Extracts patterns from segment data during onboarding observation",
+      "disabled": false,
+      "extract": null,
+      "has_extraction": false,
+      "key": "observation",
+      "source": "system",
+      "title": "Observation"
+    },
+    {
+      "app": null,
       "description": "Extracts people, companies, projects, and tools from segment content",
       "disabled": false,
       "extract": null,

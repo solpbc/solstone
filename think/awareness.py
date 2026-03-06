@@ -207,9 +207,7 @@ def start_onboarding(path: str) -> dict[str, Any]:
             "nudges_sent": 0,
         },
     )
-    append_log(
-        "state", key="onboarding.started", data={"path": path, "status": status}
-    )
+    append_log("state", key="onboarding.started", data={"path": path, "status": status})
     return state
 
 

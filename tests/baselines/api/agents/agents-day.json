@@ -297,6 +297,28 @@
       "title": "Messaging Summary",
       "type": "generate"
     },
+    "observation": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Extracts patterns from segment data during onboarding observation",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Observation",
+      "type": "generate"
+    },
+    "observation_review": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Synthesizes onboarding observations into facet and entity recommendations",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Observation Review",
+      "type": "cogitate"
+    },
     "occurrence": {
       "app": null,
       "color": "#37474f",

@@ -45,8 +45,9 @@ def redirect(
     app_name: str = typer.Option("", "--app", help="Source app name."),
     path: str = typer.Option("", "--path", help="Source URL path."),
     facet: str = typer.Option("", "--facet", "-f", help="Active facet."),
+    muse: str = typer.Option("default", "--muse", "-m", help="Muse agent to use."),
 ) -> None:
-    """Create a chat thread with the default muse and navigate the browser to it."""
+    """Create a chat thread with the specified muse and navigate the browser to it."""
     context_lines = []
     if app_name:
         context_lines.append(f"Current app: {app_name}")
@@ -80,7 +81,7 @@ def redirect(
         config["facet"] = facet
     agent_id = cortex_request(
         prompt=full_prompt,
-        name="default",
+        name=muse,
         provider=provider,
         config=config,
     )
@@ -94,7 +95,7 @@ def redirect(
         "ts": ts,
         "facet": facet or None,
         "provider": provider,
-        "muse": "default",
+        "muse": muse,
         "title": title,
         "agent_ids": [agent_id],
     }

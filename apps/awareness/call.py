@@ -81,6 +81,37 @@ def onboarding_cmd(
     typer.echo(json.dumps(state, indent=2))
 
 
+@app.command("log-read")
+def log_read_cmd(
+    day: str | None = typer.Argument(
+        None, help="Day in YYYYMMDD format (defaults to today)."
+    ),
+    kind: str | None = typer.Option(
+        None, "--kind", "-k", help="Filter by entry kind (e.g., 'observation')."
+    ),
+    limit: int = typer.Option(
+        0, "--limit", "-n", help="Max entries to return (0=all)."
+    ),
+) -> None:
+    """Read entries from the daily awareness log."""
+    from think.awareness import _today, read_log
+
+    target_day = day or _today()
+    entries = read_log(target_day)
+
+    if kind:
+        entries = [e for e in entries if e.get("kind") == kind]
+
+    if limit > 0:
+        entries = entries[-limit:]
+
+    if not entries:
+        typer.echo("No entries found.")
+        return
+
+    typer.echo(json.dumps(entries, indent=2))
+
+
 @app.command("log")
 def log_cmd(
     kind: str = typer.Argument(

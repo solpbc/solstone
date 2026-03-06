@@ -27,6 +27,16 @@ sol call awareness status [SECTION]
 
 - `SECTION`: Optional section name (e.g., `onboarding`). Omit for full state.
 
+## awareness log-read
+
+```bash
+sol call awareness log-read [DAY] [--kind KIND] [--limit N]
+```
+
+- `DAY`: Day in YYYYMMDD format (defaults to today).
+- `--kind`: Filter by entry kind (e.g., `observation`, `nudge`, `state`).
+- `--limit`: Max entries to return (0 = all).
+
 ## facet create
 
 ```bash
