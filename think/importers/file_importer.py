@@ -59,6 +59,7 @@ FILE_IMPORTER_REGISTRY: dict[str, str] = {
     "claude": "think.importers.claude_chat",
     "chatgpt": "think.importers.chatgpt",
     "kindle": "think.importers.kindle",
+    "gemini": "think.importers.gemini",
 }
 
 

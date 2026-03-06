@@ -632,6 +632,25 @@ def main() -> None:
                         )
                     except Exception as exc:
                         logger.warning("Failed to index %s: %s", created_file, exc)
+
+                # Emit enrichment event with affected days
+                days_affected = sorted(
+                    {
+                        os.path.basename(os.path.dirname(os.path.dirname(f)))
+                        for f in result.files_created
+                        if os.path.basename(os.path.dirname(os.path.dirname(f))).isdigit()
+                    }
+                )
+                if days_affected:
+                    _callosum.emit(
+                        "importer",
+                        "enrichment_ready",
+                        import_id=_import_id,
+                        importer=_file_importer.name,
+                        days=days_affected,
+                        entries_written=result.entries_written,
+                    )
+
             if args.json:
                 print(
                     json.dumps(
