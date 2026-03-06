@@ -617,6 +617,21 @@ def main() -> None:
                 result.entities_seeded,
                 len(result.files_created),
             )
+
+            # Index imported files so they're searchable
+            if result.files_created:
+                _set_stage("indexing")
+                import subprocess
+
+                for created_file in result.files_created:
+                    try:
+                        subprocess.run(
+                            ["sol", "indexer", "--rescan-file", created_file],
+                            capture_output=True,
+                            timeout=60,
+                        )
+                    except Exception as exc:
+                        logger.warning("Failed to index %s: %s", created_file, exc)
             if args.json:
                 print(
                     json.dumps(
