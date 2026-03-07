@@ -189,20 +189,18 @@ def test_process_json():
                 os.environ["JOURNAL_PATH"] = journal
                 result = importer.process(Path(f.name), Path(journal))
                 assert result.entries_written == 2
-                assert len(result.files_created) == 1  # same day
                 assert result.errors == []
+                assert result.segments is not None
+                assert len(result.segments) >= 1
+                assert any(Path(p).name == "imported.md" for p in result.files_created)
 
-                # Verify JSONL content
-                jsonl_path = Path(result.files_created[0])
-                assert jsonl_path.exists()
-                lines = jsonl_path.read_text().strip().split("\n")
-                header = json.loads(lines[0])
-                assert header["import"]["source"] == "gemini"
-                assert header["entry_count"] == 2
-
-                entry = json.loads(lines[1])
-                assert entry["type"] == "ai_chat"
-                assert entry["source"] == "gemini"
+                md = ""
+                for file_path in result.files_created:
+                    md_path = Path(file_path)
+                    assert md_path.exists()
+                    md += md_path.read_text()
+                assert "Python" in md
+                assert "sorted" in md
         finally:
             os.unlink(f.name)
             os.environ.pop("JOURNAL_PATH", None)
@@ -221,9 +219,37 @@ def test_process_zip():
                 os.environ["JOURNAL_PATH"] = journal
                 result = importer.process(Path(tmp.name), Path(journal))
                 assert result.entries_written == 1
-                assert len(result.files_created) == 1
+                assert result.segments is not None
+                assert len(result.segments) == 1
+                assert any(Path(p).suffix == ".md" for p in result.files_created)
         finally:
             os.unlink(tmp.name)
+            os.environ.pop("JOURNAL_PATH", None)
+
+
+def test_process_multiple_windows():
+    """Activities more than 5 minutes apart land in different segments."""
+    with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+        activities = [
+            _sample_activity(time="2026-01-15T10:00:00Z"),
+            _sample_activity(
+                prompt="Second question",
+                response="Second answer",
+                time="2026-01-15T10:10:00Z",
+            ),
+        ]
+        json.dump(activities, f)
+        f.flush()
+        try:
+            with tempfile.TemporaryDirectory() as journal:
+                os.environ["JOURNAL_PATH"] = journal
+                result = importer.process(Path(f.name), Path(journal))
+                assert result.entries_written == 2
+                assert result.segments is not None
+                assert len(result.segments) == 2
+                assert len(result.files_created) == 2
+        finally:
+            os.unlink(f.name)
             os.environ.pop("JOURNAL_PATH", None)
 
 

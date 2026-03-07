@@ -178,6 +178,69 @@ def _window_messages(
     return windows
 
 
+def window_items(
+    items: list[dict[str, Any]],
+    ts_key: str,
+    *,
+    window_duration: int = 300,
+    tz: dt.timezone | None = dt.timezone.utc,
+) -> list[tuple[str, str, list[dict[str, Any]]]]:
+    """Group sorted items into fixed-duration windows per day.
+
+    Parameters
+    ----------
+    items : list[dict]
+        Items sorted by ts_key. The ts_key field must be a float epoch.
+    ts_key : str
+        Key name for the float epoch timestamp in each item.
+    window_duration : int
+        Window size in seconds (default 300 = 5 minutes).
+    tz : timezone or None
+        Timezone for day grouping and seg_key formatting.
+        Use dt.timezone.utc for UTC timestamps, None for local time.
+
+    Returns
+    -------
+    list[tuple[str, str, list[dict]]]
+        (day_str, seg_key, items) tuples.
+    """
+    if not items:
+        return []
+
+    windows: list[tuple[str, str, list[dict[str, Any]]]] = []
+    window_start: float | None = None
+    window_day: str | None = None
+    window_items_acc: list[dict[str, Any]] = []
+
+    for item in items:
+        ts = item[ts_key]
+        item_dt = dt.datetime.fromtimestamp(ts, tz=tz)
+        item_day = item_dt.strftime("%Y%m%d")
+
+        if (
+            window_start is None
+            or item_day != window_day
+            or ts - window_start >= window_duration
+        ):
+            if window_items_acc and window_day and window_start is not None:
+                start_dt = dt.datetime.fromtimestamp(window_start, tz=tz)
+                seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
+                windows.append((window_day, seg_key, window_items_acc))
+
+            window_start = ts
+            window_day = item_day
+            window_items_acc = []
+
+        window_items_acc.append(item)
+
+    if window_items_acc and window_day and window_start is not None:
+        start_dt = dt.datetime.fromtimestamp(window_start, tz=tz)
+        seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
+        windows.append((window_day, seg_key, window_items_acc))
+
+    return windows
+
+
 # MIME type mapping for import metadata
 _MIME_TYPES = {
     ".m4a": "audio/mp4",

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import seed_entities
+from think.importers.shared import seed_entities, window_items
 from think.utils import day_path
 
 logger = logging.getLogger(__name__)
@@ -124,48 +124,6 @@ def _creation_timestamp(component: Any) -> float | None:
             logger.debug("Failed to parse %s timestamp: %s", field, exc)
 
     return None
-
-
-def _window_events(
-    events: list[dict[str, Any]],
-    window_duration: int = 300,
-) -> list[tuple[str, str, list[dict[str, Any]]]]:
-    """Group sorted events into fixed-duration windows per creation time."""
-    if not events:
-        return []
-
-    windows: list[tuple[str, str, list[dict[str, Any]]]] = []
-    window_start: float | None = None
-    window_day: str | None = None
-    window_events: list[dict[str, Any]] = []
-
-    for event in events:
-        create_ts = event["create_ts"]
-        event_dt = dt.datetime.fromtimestamp(create_ts, tz=dt.timezone.utc)
-        event_day = event_dt.strftime("%Y%m%d")
-
-        if (
-            window_start is None
-            or event_day != window_day
-            or create_ts - window_start >= window_duration
-        ):
-            if window_events and window_day and window_start is not None:
-                start_dt = dt.datetime.fromtimestamp(window_start, tz=dt.timezone.utc)
-                seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
-                windows.append((window_day, seg_key, window_events))
-
-            window_start = create_ts
-            window_day = event_day
-            window_events = []
-
-        window_events.append(event)
-
-    if window_events and window_day and window_start is not None:
-        start_dt = dt.datetime.fromtimestamp(window_start, tz=dt.timezone.utc)
-        seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
-        windows.append((window_day, seg_key, window_events))
-
-    return windows
 
 
 def _render_event_markdown(event: dict[str, Any]) -> str:
@@ -398,7 +356,7 @@ class ICSImporter:
 
         all_entries.sort(key=lambda entry: entry["create_ts"])
 
-        windows = _window_events(all_entries)
+        windows = window_items(all_entries, "create_ts")
         created_files: list[str] = []
         segments: list[tuple[str, str]] = []
 
