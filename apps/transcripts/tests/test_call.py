@@ -15,7 +15,7 @@ class TestScan:
         result = runner.invoke(call_app, ["transcripts", "scan", "20240101"])
         assert result.exit_code == 0
         assert "Transcripts:" in result.output
-        assert "Screen:" in result.output
+        assert "Percepts:" in result.output
 
     def test_scan_empty_day(self):
         result = runner.invoke(call_app, ["transcripts", "scan", "20990101"])

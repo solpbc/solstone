@@ -11,7 +11,7 @@
   "max_output_tokens": 1024,
   "output": "md",
   "instructions": {
-    "sources": {"transcripts": true, "screen": true, "agents": false},
+    "sources": {"transcripts": true, "percepts": true, "agents": false},
     "facets": false
   }
 

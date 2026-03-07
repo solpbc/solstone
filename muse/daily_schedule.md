@@ -11,7 +11,7 @@
   "thinking_budget": 4096,
   "max_output_tokens": 512,
   "instructions": {
-    "sources": {"transcripts": true, "screen": false, "agents": {"screen": true}},
+    "sources": {"transcripts": true, "percepts": false, "agents": {"screen": true}},
     "facets": true
   }
 

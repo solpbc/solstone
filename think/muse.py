@@ -335,7 +335,7 @@ _DEFAULT_INSTRUCTIONS = {
     "activity": False,
     "sources": {
         "transcripts": False,
-        "screen": False,
+        "percepts": False,
         "agents": False,
     },
 }
@@ -431,7 +431,7 @@ def compose_instructions(
           true = include current date/time in extra_context
         - "day": false | true (default: false)
           true = include analysis day context (requires analysis_day parameter)
-        - "sources": {"transcripts": bool, "screen": bool, "agents": bool|dict}
+        - "sources": {"transcripts": bool, "percepts": bool, "agents": bool|dict}
           The "agents" source can be:
           - bool: True (all agents), False (no agents)
           - "required": all agents, fail if none found
@@ -445,7 +445,7 @@ def compose_instructions(
         - system_prompt_name: str - name of system prompt (for cache keys)
         - user_instruction: str | None - loaded from user_prompt if provided
         - extra_context: str | None - facets + now + day context
-        - sources: dict - {"transcripts": bool, "screen": bool, "agents": bool|dict}
+        - sources: dict - {"transcripts": bool, "percepts": bool, "agents": bool|dict}
     """
     from think.utils import format_day
 

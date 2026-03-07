@@ -25,7 +25,7 @@ def test_cluster(tmp_path, monkeypatch):
         "screen summary"
     )
     result, counts = mod.cluster(
-        "20240101", sources={"transcripts": True, "screen": False, "agents": True}
+        "20240101", sources={"transcripts": True, "percepts": False, "agents": True}
     )
     assert counts["transcripts"] == 1
     assert counts["agents"] == 1
@@ -55,7 +55,7 @@ def test_cluster_range(tmp_path, monkeypatch):
         "20240101",
         "120000",
         "120100",
-        sources={"transcripts": True, "screen": False, "agents": True},
+        sources={"transcripts": True, "percepts": False, "agents": True},
     )
     # Check that the function works and includes expected sections
     assert "### Transcript" in md
@@ -141,13 +141,13 @@ def test_cluster_segments(tmp_path, monkeypatch):
     assert segments[1]["start"] == "10:00"
     assert segments[1]["end"] == "10:10"
     assert "transcripts" in segments[1]["types"]
-    assert "screen" in segments[1]["types"]
+    assert "percepts" in segments[1]["types"]
 
     # Check third segment (screen only)
     assert segments[2]["key"] == "110000_300"
     assert segments[2]["start"] == "11:00"
     assert segments[2]["end"] == "11:05"
-    assert segments[2]["types"] == ["screen"]
+    assert segments[2]["types"] == ["percepts"]
 
 
 def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
@@ -176,12 +176,12 @@ def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
     result, counts = mod.cluster_period(
         "20240101",
         "100000_300",
-        sources={"transcripts": True, "screen": True, "agents": False},
+        sources={"transcripts": True, "percepts": True, "agents": False},
     )
 
     # Should have both transcript and screen entries
     assert counts["transcripts"] == 1
-    assert counts["screen"] == 1
+    assert counts["percepts"] == 1
     assert "### Transcript" in result
     # Should use raw screen format header
     assert "Screen Activity" in result
@@ -218,7 +218,7 @@ def test_cluster_range_with_agents(tmp_path, monkeypatch):
         "20240101",
         "100000",
         "100500",
-        sources={"transcripts": True, "screen": False, "agents": True},
+        sources={"transcripts": True, "percepts": False, "agents": True},
     )
 
     assert "### Transcript" in result
@@ -253,7 +253,7 @@ def test_cluster_range_with_screen(tmp_path, monkeypatch):
         "20240101",
         "100000",
         "100500",
-        sources={"transcripts": False, "screen": True, "agents": False},
+        sources={"transcripts": False, "percepts": True, "agents": False},
     )
 
     assert "Screen Activity" in result
@@ -289,7 +289,7 @@ def test_cluster_range_with_multiple_screen_files(tmp_path, monkeypatch):
         "20240101",
         "100000",
         "100500",
-        sources={"transcripts": False, "screen": True, "agents": False},
+        sources={"transcripts": False, "percepts": True, "agents": False},
     )
 
     # Should include content from both screen files
@@ -333,7 +333,7 @@ def test_cluster_segments_with_split_screen(tmp_path, monkeypatch):
 
     assert len(segments) == 1
     assert segments[0]["key"] == "100000_300"
-    assert "screen" in segments[0]["types"]
+    assert "percepts" in segments[0]["types"]
 
 
 def test_cluster_span(tmp_path, monkeypatch):
@@ -367,12 +367,12 @@ def test_cluster_span(tmp_path, monkeypatch):
     result, counts = mod.cluster_span(
         "20240101",
         ["090000_300", "110000_300"],
-        sources={"transcripts": True, "screen": False, "agents": False},
+        sources={"transcripts": True, "percepts": False, "agents": False},
     )
 
     # Should have 2 transcript entries (one per segment)
     assert counts["transcripts"] == 2
-    assert counts["screen"] == 0
+    assert counts["percepts"] == 0
     assert "morning segment" in result
     assert "late morning segment" in result
     # Should NOT include the skipped segment
@@ -398,7 +398,7 @@ def test_cluster_span_missing_segment(tmp_path, monkeypatch):
         mod.cluster_span(
             "20240101",
             ["090000_300", "100000_300"],
-            sources={"transcripts": True, "screen": False, "agents": False},
+            sources={"transcripts": True, "percepts": False, "agents": False},
         )
 
     assert "100000_300" in str(exc_info.value)
@@ -424,7 +424,7 @@ def test_cluster_with_agent_filter_dict(tmp_path, monkeypatch):
     # Test filtering to only include entities
     result, counts = mod.cluster(
         "20240101",
-        sources={"transcripts": True, "screen": False, "agents": {"entities": True}},
+        sources={"transcripts": True, "percepts": False, "agents": {"entities": True}},
     )
 
     assert counts["transcripts"] == 1
@@ -455,7 +455,7 @@ def test_cluster_with_agent_filter_multiple(tmp_path, monkeypatch):
         "20240101",
         sources={
             "transcripts": True,
-            "screen": False,
+            "percepts": False,
             "agents": {"entities": True, "meetings": "required", "flow": False},
         },
     )
@@ -488,7 +488,7 @@ def test_cluster_with_agent_filter_app_namespaced(tmp_path, monkeypatch):
         "20240101",
         sources={
             "transcripts": True,
-            "screen": False,
+            "percepts": False,
             "agents": {"entities": False, "todos:review": True},
         },
     )
@@ -515,7 +515,7 @@ def test_cluster_with_empty_agent_filter(tmp_path, monkeypatch):
     # Empty dict should mean no agents
     result, counts = mod.cluster(
         "20240101",
-        sources={"transcripts": True, "screen": False, "agents": {}},
+        sources={"transcripts": True, "percepts": False, "agents": {}},
     )
 
     assert counts["transcripts"] == 1

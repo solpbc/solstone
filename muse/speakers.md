@@ -8,7 +8,7 @@
   "output": "json",
   "color": "#e64a19",
   "instructions": {
-    "sources": {"transcripts": "required", "screen": true, "agents": false}
+    "sources": {"transcripts": "required", "percepts": true, "agents": false}
   }
 
 }

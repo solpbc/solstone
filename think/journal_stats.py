@@ -23,7 +23,7 @@ class JournalStats:
         self.days: Dict[str, Dict[str, float | int]] = {}
         self.totals: Counter[str] = Counter()
         self.total_transcript_duration = 0.0
-        self.total_screen_duration = 0.0
+        self.total_percept_duration = 0.0
         self.agent_counts: Counter[str] = Counter()
         self.agent_minutes: Counter[str] = Counter()
         self.facet_counts: Counter[str] = Counter()
@@ -107,7 +107,7 @@ class JournalStats:
         times_seconds = [self._parse_timestamp(t) for t in timestamps]
         return max(times_seconds) - min(times_seconds)
 
-    def _calculate_screen_duration(self, frames: list) -> float:
+    def _calculate_percept_duration(self, frames: list) -> float:
         """Calculate screen duration from min/max frame timestamps."""
         # Skip header (first element if it has no frame_id)
         frame_timestamps = [
@@ -132,13 +132,13 @@ class JournalStats:
         counts_for_totals = {
             k: v
             for k, v in stats.items()
-            if k not in ("transcript_duration", "screen_duration")
+            if k not in ("transcript_duration", "percept_duration")
         }
         self.totals.update(counts_for_totals)
 
         # Accumulate durations
         self.total_transcript_duration += stats.get("transcript_duration", 0.0)
-        self.total_screen_duration += stats.get("screen_duration", 0.0)
+        self.total_percept_duration += stats.get("percept_duration", 0.0)
 
         # Apply agent data
         day_agent_counts: Dict[str, int] = {}
@@ -175,7 +175,7 @@ class JournalStats:
         """Scan a single day and return stats dict for caching."""
         stats: Counter[str] = Counter()
         transcript_duration = 0.0
-        screen_duration = 0.0
+        percept_duration = 0.0
         day_dir = Path(path)
 
         # Track agent data for cache
@@ -225,7 +225,7 @@ class JournalStats:
         screen_files = list(day_dir.glob("*/*/screen.jsonl"))
         screen_files.extend(day_dir.glob("*/*/*_screen.jsonl"))
         for jsonl_file in sorted(screen_files):
-            stats["screen_sessions"] += 1
+            stats["percept_sessions"] += 1
 
             try:
                 frames = load_analysis_frames(jsonl_file)
@@ -235,12 +235,12 @@ class JournalStats:
 
                 # Count frames (excluding header)
                 frame_count = sum(1 for f in frames if "frame_id" in f)
-                stats["screen_frames"] += frame_count
+                stats["percept_frames"] += frame_count
 
                 # Calculate duration from timestamps
                 if frame_count > 0:
-                    duration = self._calculate_screen_duration(frames)
-                    screen_duration += duration
+                    duration = self._calculate_percept_duration(frames)
+                    percept_duration += duration
 
             except (OSError, IOError) as e:
                 logger.warning(f"Error reading screen file {jsonl_file}: {e}")
@@ -328,7 +328,7 @@ class JournalStats:
 
         # --- Build return dict ---
         stats["transcript_duration"] = transcript_duration
-        stats["screen_duration"] = screen_duration
+        stats["percept_duration"] = percept_duration
 
         return {
             "stats": dict(stats),
@@ -460,7 +460,7 @@ class JournalStats:
             logger.info(
                 f"Scanned {len(self.days)} days, "
                 f"{self.totals.get('transcript_sessions', 0)} transcript sessions, "
-                f"{self.totals.get('screen_sessions', 0)} screen sessions"
+                f"{self.totals.get('percept_sessions', 0)} percept sessions"
                 f"{cache_status}"
             )
 
@@ -470,7 +470,7 @@ class JournalStats:
             "days": self.days,
             "totals": dict(self.totals),
             "total_transcript_duration": self.total_transcript_duration,
-            "total_screen_duration": self.total_screen_duration,
+            "total_percept_duration": self.total_percept_duration,
             "agent_counts": dict(self.agent_counts),
             "agent_minutes": {k: round(v, 2) for k, v in self.agent_minutes.items()},
             "agent_counts_by_day": self.agent_counts_by_day,

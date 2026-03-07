@@ -135,7 +135,7 @@ def test_speakers_has_required_audio():
     sources = instructions.get("sources", {})
 
     assert sources.get("transcripts") == "required", "speakers should require transcripts"
-    assert sources.get("screen") is True, "speakers should include screen"
+    assert sources.get("percepts") is True, "speakers should include percepts"
 
 
 def _write_temp_muse_prompt(stem: str, frontmatter: str) -> Path:

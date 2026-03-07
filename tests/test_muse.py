@@ -39,11 +39,11 @@ def test_merge_instructions_config_with_overrides():
 
 def test_merge_instructions_config_sources_merge():
     """Test that sources dict is merged, not replaced."""
-    defaults = {"system": None, "sources": {"transcripts": False, "screen": False}}
+    defaults = {"system": None, "sources": {"transcripts": False, "percepts": False}}
     overrides = {"sources": {"transcripts": True}}
     result = _merge_instructions_config(defaults, overrides)
     assert result["sources"]["transcripts"] is True  # Overridden
-    assert result["sources"]["screen"] is False  # Preserved from defaults
+    assert result["sources"]["percepts"] is False  # Preserved from defaults
 
 
 def test_merge_instructions_config_ignores_unknown_keys():
@@ -236,7 +236,7 @@ class TestComposeInstructions:
 
         assert "sources" in result
         assert result["sources"]["transcripts"] is False
-        assert result["sources"]["screen"] is False
+        assert result["sources"]["percepts"] is False
         assert result["sources"]["agents"] is False
 
     def test_sources_can_be_overridden(self, monkeypatch, tmp_path):
@@ -256,7 +256,7 @@ class TestComposeInstructions:
         )
 
         assert result["sources"]["transcripts"] is True  # Overridden
-        assert result["sources"]["screen"] is False  # Default preserved
+        assert result["sources"]["percepts"] is False  # Default preserved
         assert result["sources"]["agents"] is True  # Overridden
 
 

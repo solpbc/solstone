@@ -172,7 +172,7 @@ def test_token_usage(tmp_path, monkeypatch):
     assert "token_usage_by_day" in data
     assert "token_totals_by_model" in data
     assert "total_transcript_duration" in data
-    assert "total_screen_duration" in data
+    assert "total_percept_duration" in data
     assert (
         data["token_usage_by_day"]["20240101"]["gemini-2.5-flash"]["total_tokens"]
         == 495

@@ -7,7 +7,7 @@
       "stream": "default",
       "types": [
         "transcripts",
-        "screen"
+        "percepts"
       ]
     },
     {
@@ -17,7 +17,7 @@
       "stream": "default",
       "types": [
         "transcripts",
-        "screen"
+        "percepts"
       ]
     },
     {
@@ -27,7 +27,7 @@
       "stream": "default",
       "types": [
         "transcripts",
-        "screen"
+        "percepts"
       ]
     }
   ]

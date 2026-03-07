@@ -11,7 +11,7 @@
   "disabled": true,
   "output": "md",
   "instructions": {
-    "sources": {"transcripts": true, "screen": false, "agents": {"screen": true}},
+    "sources": {"transcripts": true, "percepts": false, "agents": {"screen": true}},
     "facets": true
   }
 

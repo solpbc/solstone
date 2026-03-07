@@ -11,7 +11,7 @@
   "max_output_tokens": 512,
   "output": "json",
   "instructions": {
-    "sources": {"transcripts": false, "screen": false, "agents": true},
+    "sources": {"transcripts": false, "percepts": false, "agents": true},
     "facets": true
   }
 

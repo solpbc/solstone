@@ -79,7 +79,7 @@ def test_generate_output_ndjson(tmp_path, monkeypatch):
 
     test_generator = tmp_path / "test_gen.md"
     test_generator.write_text(
-        '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
+        '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"transcripts": true, "percepts": true}}\n}\n\nTest prompt'
     )
 
     # Mock the underlying generation function in think.models
@@ -146,7 +146,7 @@ def post_process(result, context):
 
     test_generator = tmp_path / "hooked_gen.md"
     test_generator.write_text(
-        '{\n  "type": "generate",\n  "title": "Hooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "test_hook"},\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
+        '{\n  "type": "generate",\n  "title": "Hooked",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"post": "test_hook"},\n  "instructions": {"system": "journal", "sources": {"transcripts": true, "percepts": true}}\n}\n\nTest prompt'
     )
 
     # Mock the underlying generation function in think.models
@@ -198,7 +198,7 @@ def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
 
     test_generator = tmp_path / "nohook_gen.md"
     test_generator.write_text(
-        '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nNo hook prompt'
+        '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"transcripts": true, "percepts": true}}\n}\n\nNo hook prompt'
     )
 
     # Mock the underlying generation function in think.models
@@ -265,7 +265,7 @@ def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
 
     test_generator = tmp_path / "empty_gen.md"
     test_generator.write_text(
-        '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"audio": true, "screen": true}}\n}\n\nTest prompt'
+        '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "instructions": {"system": "journal", "sources": {"transcripts": true, "percepts": true}}\n}\n\nTest prompt'
     )
 
     monkeypatch.setenv("GOOGLE_API_KEY", "x")

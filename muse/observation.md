@@ -10,7 +10,7 @@
   "thinking_budget": 2048,
   "max_output_tokens": 2048,
   "instructions": {
-    "sources": {"transcripts": true, "screen": true, "agents": false}
+    "sources": {"transcripts": true, "percepts": true, "agents": false}
   }
 }
 

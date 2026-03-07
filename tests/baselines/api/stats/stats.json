@@ -12,7 +12,7 @@
         "facets": false,
         "sources": {
           "agents": false,
-          "screen": false,
+          "percepts": false,
           "transcripts": false
         }
       },
@@ -35,7 +35,7 @@
         "facets": true,
         "sources": {
           "agents": false,
-          "screen": true,
+          "percepts": true,
           "transcripts": true
         }
       },
@@ -59,7 +59,7 @@
         "facets": true,
         "sources": {
           "agents": false,
-          "screen": true,
+          "percepts": true,
           "transcripts": true
         }
       },
@@ -89,7 +89,7 @@
           "agents": {
             "screen": true
           },
-          "screen": false,
+          "percepts": false,
           "transcripts": true
         }
       },
@@ -120,7 +120,7 @@
           "agents": {
             "screen": true
           },
-          "screen": false,
+          "percepts": false,
           "transcripts": true
         }
       },
@@ -144,7 +144,7 @@
         "facets": false,
         "sources": {
           "agents": false,
-          "screen": true,
+          "percepts": true,
           "transcripts": true
         }
       },
@@ -166,7 +166,7 @@
         "facets": true,
         "sources": {
           "agents": true,
-          "screen": false,
+          "percepts": false,
           "transcripts": false
         }
       },
@@ -194,7 +194,7 @@
           "agents": {
             "screen": true
           },
-          "screen": false,
+          "percepts": false,
           "transcripts": true
         }
       },
@@ -224,7 +224,7 @@
           "agents": {
             "screen": true
           },
-          "screen": false,
+          "percepts": false,
           "transcripts": true
         }
       },
@@ -250,7 +250,7 @@
           "agents": {
             "screen": true
           },
-          "screen": false,
+          "percepts": false,
           "transcripts": true
         }
       },
@@ -280,7 +280,7 @@
           "agents": {
             "screen": true
           },
-          "screen": false,
+          "percepts": false,
           "transcripts": true
         }
       },
@@ -311,7 +311,7 @@
           "agents": {
             "screen": true
           },
-          "screen": false,
+          "percepts": false,
           "transcripts": true
         }
       },
@@ -335,7 +335,7 @@
       "instructions": {
         "sources": {
           "agents": false,
-          "screen": true,
+          "percepts": true,
           "transcripts": true
         }
       },
@@ -362,7 +362,7 @@
           "agents": {
             "screen": true
           },
-          "screen": false,
+          "percepts": false,
           "transcripts": true
         }
       },
@@ -381,7 +381,7 @@
       "instructions": {
         "sources": {
           "agents": false,
-          "screen": "required",
+          "percepts": "required",
           "transcripts": true
         }
       },
@@ -400,7 +400,7 @@
       "instructions": {
         "sources": {
           "agents": false,
-          "screen": true,
+          "percepts": true,
           "transcripts": "required"
         }
       },
@@ -424,7 +424,7 @@
           "agents": {
             "screen": true
           },
-          "screen": false,
+          "percepts": false,
           "transcripts": true
         }
       },

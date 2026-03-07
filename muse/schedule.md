@@ -9,7 +9,7 @@
   "priority": 10,
   "output": "md",
   "instructions": {
-    "sources": {"transcripts": true, "screen": false, "agents": {"screen": true}}
+    "sources": {"transcripts": true, "percepts": false, "agents": {"screen": true}}
   }
 
 }
