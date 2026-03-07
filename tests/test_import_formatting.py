@@ -8,7 +8,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from think.importers.formatting import format_imported
+from think.importers.formatting import format_ai_chat, format_imported
 
 
 def _make_entries(source: str, content_entries: list[dict]) -> list[dict]:
@@ -136,31 +136,6 @@ def test_highlight_note_type():
     assert "Note: My personal note" in md
 
 
-def test_ai_chat():
-    entries = _make_entries(
-        "claude",
-        [
-            {
-                "type": "ai_chat",
-                "ts": "2026-01-20T14:00:00",
-                "title": "Help with Python parsing",
-                "source": "claude",
-                "message_count": 12,
-                "content": "Human: How do I parse JSON?\n\nAssistant: Use json.loads().",
-            }
-        ],
-    )
-    chunks, meta = format_imported(entries, None)
-    assert len(chunks) == 1
-    assert meta["indexer"]["agent"] == "import.claude"
-
-    md = chunks[0]["markdown"]
-    assert "Help with Python parsing" in md
-    assert "claude conversation" in md
-    assert "12 messages" in md
-    assert "json.loads()" in md
-
-
 def test_generic_entry():
     entries = _make_entries(
         "custom",
@@ -241,9 +216,25 @@ def test_formatter_registration_kindle():
 def test_formatter_registration_gemini_segment():
     from think.formatters import get_formatter
 
-    formatter = get_formatter("20260115/import.gemini/100000_300/imported.md")
+    formatter = get_formatter("20260115/import.gemini/100000_300/imported_audio.jsonl")
     assert formatter is not None
-    assert formatter.__name__ == "format_markdown"
+    assert formatter.__name__ == "format_ai_chat"
+
+
+def test_formatter_registration_chatgpt_segment():
+    from think.formatters import get_formatter
+
+    formatter = get_formatter("20260115/import.chatgpt/100000_300/imported_audio.jsonl")
+    assert formatter is not None
+    assert formatter.__name__ == "format_ai_chat"
+
+
+def test_formatter_registration_claude_segment():
+    from think.formatters import get_formatter
+
+    formatter = get_formatter("20260115/import.claude/100000_300/imported_audio.jsonl")
+    assert formatter is not None
+    assert formatter.__name__ == "format_ai_chat"
 
 
 def test_path_metadata_extraction():
@@ -291,6 +282,41 @@ def test_find_formattable_includes_segment_markdown():
 
         files = find_formattable_files(tmpdir)
         assert "20260115/import.ics/120000_300/imported.md" in files
+
+
+def test_format_ai_chat_empty():
+    chunks, meta = format_ai_chat([], None)
+    assert chunks == []
+    assert meta == {}
+
+
+def test_format_ai_chat_basic():
+    entries = [
+        {"imported": {"id": "20260101_120000", "facet": "work"}, "model": "gpt-4o"},
+        {"start": "00:00:00", "speaker": "Human", "text": "Hello", "source": "import"},
+        {
+            "start": "00:00:05",
+            "speaker": "Assistant",
+            "text": "Hi there",
+            "source": "import",
+        },
+    ]
+
+    chunks, meta = format_ai_chat(
+        entries,
+        {
+            "file_path": Path(
+                "/journal/20260115/import.chatgpt/120000_300/imported_audio.jsonl"
+            )
+        },
+    )
+
+    assert len(chunks) == 2
+    assert meta["indexer"]["agent"] == "import.chatgpt"
+    assert meta["header"] == "# ChatGPT conversation\nModel: gpt-4o\nFacet: work"
+    assert chunks[0]["markdown"] == "**Human:** Hello"
+    assert chunks[1]["markdown"] == "**Assistant:** Hi there"
+    assert chunks[1]["timestamp"] > chunks[0]["timestamp"]
 
 
 def test_format_file_integration():

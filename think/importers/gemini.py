@@ -23,7 +23,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import window_items, write_markdown_segments
+from think.importers.shared import _window_messages, write_segment
+from think.utils import day_path
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +77,8 @@ def _load_activities(path: Path) -> list[dict[str, Any]]:
     raise ValueError(f"Unsupported file type: {path.suffix}")
 
 
-def _parse_activity(activity: dict[str, Any]) -> dict[str, Any] | None:
-    """Parse a single Gemini activity record into an import entry."""
+def _parse_activity(activity: dict[str, Any]) -> list[dict[str, Any]]:
+    """Parse a single Gemini activity record into timestamped messages."""
     # Extract user prompt from subtitles
     subtitles = activity.get("subtitles", [])
     prompt = ""
@@ -89,7 +90,6 @@ def _parse_activity(activity: dict[str, Any]) -> dict[str, Any] | None:
 
     # Extract AI response from safeHtmlItem
     response = ""
-    products = activity.get("products", [])
     # safeHtmlItem can be at activity level or nested
     safe_html_items = activity.get("safeHtmlItem", [])
     for item in safe_html_items:
@@ -100,75 +100,40 @@ def _parse_activity(activity: dict[str, Any]) -> dict[str, Any] | None:
 
     # If no content at all, skip
     if not prompt and not response:
-        return None
+        return []
 
     # Parse timestamp
     time_str = activity.get("time", "")
     if not time_str:
-        return None
+        return []
     try:
-        ts = dt.datetime.fromisoformat(time_str.replace("Z", "+00:00")).isoformat()
+        create_time = dt.datetime.fromisoformat(
+            time_str.replace("Z", "+00:00")
+        ).timestamp()
     except (ValueError, TypeError):
-        return None
+        return []
 
-    # Build title from prompt (truncated)
-    title = activity.get("title", prompt)
-    # Clean up "Asked Gemini" / "Talked to Bard" prefixes
-    for prefix in ("Asked Gemini", "Talked to Bard", "Asked Bard"):
-        if title.startswith(prefix):
-            title = title[len(prefix) :].strip().lstrip(":").strip()
-            break
-    if not title:
-        title = prompt[:80] if prompt else "Gemini activity"
-
-    # Build readable content
-    parts: list[str] = []
+    messages: list[dict[str, Any]] = []
     if prompt:
-        parts.append(f"Human: {prompt}")
+        messages.append(
+            {
+                "create_time": create_time,
+                "speaker": "Human",
+                "text": prompt,
+                "model_slug": None,
+            }
+        )
     if response:
-        parts.append(f"Assistant: {response}")
-    content = "\n\n".join(parts)
+        messages.append(
+            {
+                "create_time": create_time,
+                "speaker": "Assistant",
+                "text": response,
+                "model_slug": None,
+            }
+        )
 
-    # Detect source variant
-    source_products = [p.lower() for p in products] if products else []
-    is_bard = any("bard" in p for p in source_products)
-    header = activity.get("header", "")
-    if "bard" in header.lower():
-        is_bard = True
-
-    entry: dict[str, Any] = {
-        "type": "ai_chat",
-        "ts": ts,
-        "title": title,
-        "source": "gemini",
-        "message_count": (1 if prompt else 0) + (1 if response else 0),
-        "content": content,
-    }
-    if is_bard:
-        entry["variant"] = "bard"
-
-    return entry
-
-
-def _render_activity_markdown(activity: dict) -> str:
-    """Render a Gemini activity as markdown."""
-    title = activity.get("title", "Gemini activity")
-    lines = [f"## {title}"]
-
-    content = activity.get("content", "")
-    if content:
-        # Content already has "Human: ..." and "Assistant: ..." format
-        # Convert to bold labels
-        for part in content.split("\n\n"):
-            part = part.strip()
-            if part.startswith("Human: "):
-                lines.append(f"**Human:** {part[7:]}")
-            elif part.startswith("Assistant: "):
-                lines.append(f"**Assistant:** {part[11:]}")
-            elif part:
-                lines.append(part)
-
-    return "\n\n".join(lines)
+    return messages
 
 
 class GeminiImporter:
@@ -222,14 +187,18 @@ class GeminiImporter:
         bard_count = 0
 
         for act in activities:
-            entry = _parse_activity(act)
-            if entry is None:
+            messages = _parse_activity(act)
+            if not messages:
                 continue
             valid_count += 1
-            if entry.get("variant") == "bard":
+            products = [p.lower() for p in act.get("products", [])]
+            header = str(act.get("header", "")).lower()
+            if any("bard" in product for product in products) or "bard" in header:
                 bard_count += 1
             try:
-                day = dt.datetime.fromisoformat(entry["ts"]).strftime("%Y%m%d")
+                day = dt.datetime.fromtimestamp(messages[0]["create_time"]).strftime(
+                    "%Y%m%d"
+                )
                 dates.append(day)
             except (ValueError, OSError):
                 pass
@@ -254,25 +223,32 @@ class GeminiImporter:
         progress_callback: Callable | None = None,
     ) -> ImportResult:
         activities = _load_activities(path)
+        import_id = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        entries: list[dict[str, Any]] = []
+        messages: list[dict[str, Any]] = []
         errors: list[str] = []
         skipped = 0
+        bard_count = 0
+        valid_count = 0
 
         for i, act in enumerate(activities):
-            entry = _parse_activity(act)
-            if entry is None:
+            activity_messages = _parse_activity(act)
+            if not activity_messages:
                 skipped += 1
                 continue
+            valid_count += 1
 
-            # Add epoch timestamp for windowing
-            entry["create_ts"] = dt.datetime.fromisoformat(entry["ts"]).timestamp()
-            entries.append(entry)
+            products = [p.lower() for p in act.get("products", [])]
+            header = str(act.get("header", "")).lower()
+            if any("bard" in product for product in products) or "bard" in header:
+                bard_count += 1
+
+            messages.extend(activity_messages)
 
             if progress_callback and (i + 1) % 100 == 0:
                 progress_callback(i + 1, len(activities))
 
-        if not entries:
+        if not messages:
             return ImportResult(
                 entries_written=0,
                 entities_seeded=0,
@@ -281,30 +257,46 @@ class GeminiImporter:
                 summary="No activities found to import",
             )
 
-        entries.sort(key=lambda e: e["create_ts"])
+        messages.sort(key=lambda msg: msg["create_time"])
 
-        windows = window_items(entries, "create_ts")
-        created_files, segments = write_markdown_segments(
-            "gemini",
-            windows,
-            lambda items: "\n\n".join(_render_activity_markdown(a) for a in items),
-        )
+        windows = _window_messages(messages)
+        created_files: list[str] = []
+        segments: list[tuple[str, str]] = []
+        written_count = 0
+
+        for day, seg_key, model_slug, entries in windows:
+            day_dir = str(day_path(day))
+            try:
+                json_path = write_segment(
+                    day_dir,
+                    "import.gemini",
+                    seg_key,
+                    entries,
+                    import_id=import_id,
+                    facet=facet,
+                    model=model_slug,
+                )
+                created_files.append(json_path)
+                segments.append((day, seg_key))
+                written_count += len(entries)
+            except Exception as exc:
+                errors.append(f"Failed to write segment {day}/{seg_key}: {exc}")
+                logger.warning("Failed to write segment %s/%s: %s", day, seg_key, exc)
 
         segment_days = {day for day, _ in segments}
 
         if skipped:
             logger.info("Skipped %d activities with no content", skipped)
 
-        bard_count = sum(1 for e in entries if e.get("variant") == "bard")
         bard_info = f" ({bard_count} Bard-era)" if bard_count else ""
 
         return ImportResult(
-            entries_written=len(entries),
+            entries_written=written_count,
             entities_seeded=0,
             files_created=created_files,
             errors=errors,
             summary=(
-                f"Imported {len(entries)} Gemini activities{bard_info} across "
+                f"Imported {len(messages)} messages from {valid_count} Gemini activities{bard_info} across "
                 f"{len(segment_days)} days into {len(segments)} segments"
             ),
             segments=segments,

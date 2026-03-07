@@ -53,30 +53,26 @@ def test_strip_html():
 
 def test_parse_activity_basic():
     act = _sample_activity()
-    entry = _parse_activity(act)
-    assert entry is not None
-    assert entry["type"] == "ai_chat"
-    assert entry["source"] == "gemini"
-    assert "Python" in entry["content"]
-    assert entry["message_count"] == 2
-
-
-def test_parse_activity_bard():
-    entry = _parse_activity(_bard_activity())
-    assert entry is not None
-    assert entry.get("variant") == "bard"
-    assert entry["source"] == "gemini"
+    messages = _parse_activity(act)
+    assert len(messages) == 2
+    assert set(messages[0]) == {"create_time", "speaker", "text", "model_slug"}
+    assert messages[0]["speaker"] == "Human"
+    assert messages[0]["text"] == "What is Python?"
+    assert messages[0]["model_slug"] is None
+    assert messages[1]["speaker"] == "Assistant"
+    assert "programming language" in messages[1]["text"]
+    assert messages[1]["create_time"] == messages[0]["create_time"]
 
 
 def test_parse_activity_no_content():
     act = {"header": "Gemini Apps", "time": "2026-01-15T10:00:00Z"}
-    assert _parse_activity(act) is None
+    assert _parse_activity(act) == []
 
 
 def test_parse_activity_no_time():
     act = _sample_activity()
     del act["time"]
-    assert _parse_activity(act) is None
+    assert _parse_activity(act) == []
 
 
 def test_parse_activity_prompt_only():
@@ -87,17 +83,10 @@ def test_parse_activity_prompt_only():
         "subtitles": [{"value": "What is the meaning of life?"}],
         "products": ["Gemini"],
     }
-    entry = _parse_activity(act)
-    assert entry is not None
-    assert "meaning of life" in entry["content"]
-    assert entry["message_count"] == 1
-
-
-def test_parse_activity_title_cleanup():
-    act = _sample_activity(title="Asked Gemini: What is Python?")
-    entry = _parse_activity(act)
-    assert entry is not None
-    assert entry["title"] == "What is Python?"
+    messages = _parse_activity(act)
+    assert len(messages) == 1
+    assert messages[0]["speaker"] == "Human"
+    assert "meaning of life" in messages[0]["text"]
 
 
 # --- Detection tests ---
@@ -188,19 +177,24 @@ def test_process_json():
             with tempfile.TemporaryDirectory() as journal:
                 os.environ["JOURNAL_PATH"] = journal
                 result = importer.process(Path(f.name), Path(journal))
-                assert result.entries_written == 2
+                assert result.entries_written == 4
                 assert result.errors == []
                 assert result.segments is not None
                 assert len(result.segments) >= 1
-                assert any(Path(p).name == "imported.md" for p in result.files_created)
+                assert any(
+                    Path(p).name == "imported_audio.jsonl" for p in result.files_created
+                )
 
-                md = ""
-                for file_path in result.files_created:
-                    md_path = Path(file_path)
-                    assert md_path.exists()
-                    md += md_path.read_text()
-                assert "Python" in md
-                assert "sorted" in md
+                first_path = Path(result.files_created[0])
+                assert first_path.exists()
+                lines = first_path.read_text().strip().split("\n")
+                metadata = json.loads(lines[0])
+                entries = [json.loads(line) for line in lines[1:]]
+                assert "imported" in metadata
+                assert entries[0]["start"] == "00:00:00"
+                assert entries[0]["speaker"] == "Human"
+                assert entries[0]["source"] == "import"
+                assert entries[1]["speaker"] == "Assistant"
         finally:
             os.unlink(f.name)
             os.environ.pop("JOURNAL_PATH", None)
@@ -218,10 +212,10 @@ def test_process_zip():
             with tempfile.TemporaryDirectory() as journal:
                 os.environ["JOURNAL_PATH"] = journal
                 result = importer.process(Path(tmp.name), Path(journal))
-                assert result.entries_written == 1
+                assert result.entries_written == 2
                 assert result.segments is not None
                 assert len(result.segments) == 1
-                assert any(Path(p).suffix == ".md" for p in result.files_created)
+                assert any(Path(p).suffix == ".jsonl" for p in result.files_created)
         finally:
             os.unlink(tmp.name)
             os.environ.pop("JOURNAL_PATH", None)
@@ -244,7 +238,7 @@ def test_process_multiple_windows():
             with tempfile.TemporaryDirectory() as journal:
                 os.environ["JOURNAL_PATH"] = journal
                 result = importer.process(Path(f.name), Path(journal))
-                assert result.entries_written == 2
+                assert result.entries_written == 4
                 assert result.segments is not None
                 assert len(result.segments) == 2
                 assert len(result.files_created) == 2
