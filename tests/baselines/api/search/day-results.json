@@ -14,7 +14,7 @@
       "id": "20260304/agents/knowledge_graph.md:7",
       "idx": 7,
       "path": "20260304/agents/knowledge_graph.md",
-      "score": -2.4094762694796064,
+      "score": -1.6216623028865695,
       "stream": null,
       "text": "# Part 1: Entity Extraction and Relationship Mapping\n\n## Relationship Mapping\n\n| Source Name | Target Name | Relationship Type | Context |\n| :--- | :--- | :--- | :--- |\n| **Romeo Montague** | **Juliet Capulet** | `met-at-conference` | First <strong>meeting</strong> at Denver Tech Summit keynote. |\n"
     }

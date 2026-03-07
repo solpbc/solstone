@@ -1,3 +1,5 @@
 {"id": "romeo_montague", "type": "Person", "name": "Romeo Montague", "description": "Attended Denver Tech Summit, met Juliet Capulet"}
 {"id": "mercutio_escalus", "type": "Person", "name": "Mercutio Escalus", "description": "Hackathon partner, built API bridge prototype"}
 {"id": "montague_tech", "type": "Company", "name": "Montague Tech", "description": "Represented at Denver Tech Summit"}
+{"id": "balcony_app", "type": "Project", "name": "Balcony App", "description": "Encrypted messaging concept discussed at Summit"}
+{"id": "friar_lawrence", "type": "Person", "name": "Friar Lawrence", "description": "Briefed on cross-company collaboration potential"}

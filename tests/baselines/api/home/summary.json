@@ -101,7 +101,9 @@
       "entities": [
         "Romeo Montague",
         "Mercutio Escalus",
-        "Montague Tech"
+        "Montague Tech",
+        "Balcony App",
+        "Friar Lawrence"
       ],
       "events_by_agent": {
         "flow": 2,
@@ -146,7 +148,7 @@
   },
   "recent_entities": {},
   "totals": {
-    "entities": 6,
+    "entities": 8,
     "events": 6,
     "events_by_agent": {
       "flow": 4,

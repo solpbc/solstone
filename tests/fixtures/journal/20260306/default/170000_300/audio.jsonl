@@ -1,0 +1,13 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 60}
+{"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Alright, wrapping up for the day. Let me review what we accomplished.", "description": "recap"}
+{"start": "00:00:15", "source": "mic", "speaker": 1, "text": "Balthasar's PR is looking solid. Circuit breaker pattern is in, tests at 96 percent.", "description": "status"}
+{"start": "00:00:30", "source": "mic", "speaker": 1, "text": "The Friar Lawrence review went well. He approved the unified gateway architecture.", "description": "status"}
+{"start": "00:00:45", "source": "mic", "speaker": 1, "text": "Juliet confirmed sub-millisecond schema bridge performance. That is our key demo metric.", "description": "status"}
+{"start": "00:01:00", "source": "mic", "speaker": 1, "text": "Rosaline's investor prep was useful. Prince Escalus cares about the unified gateway angle most.", "description": "intel"}
+{"start": "00:01:15", "source": "mic", "speaker": 1, "text": "The board observer call with Escalus went well. He is cautiously optimistic about the Verona Platform.", "description": "update"}
+{"start": "00:01:30", "source": "mic", "speaker": 1, "text": "Main risk is still Tybalt. If Capulet Industries approves his competing proposal, this gets complicated.", "description": "risk"}
+{"start": "00:01:45", "source": "mic", "speaker": 1, "text": "Need to get the staging demo ready before the next board meeting. That gives us about four days.", "description": "timeline"}
+{"start": "00:02:00", "source": "mic", "speaker": 1, "text": "Tomorrow I should focus on the API compatibility matrix. Capulet's schemas are more complex than expected.", "description": "planning"}
+{"start": "00:02:15", "source": "mic", "speaker": 1, "text": "Also need to be smarter about the commit history. Benvolio is getting suspicious.", "description": "caution"}
+{"start": "00:02:30", "source": "mic", "speaker": 1, "text": "Overall a productive day though. The Verona Platform is coming together.", "description": "reflection"}
+{"start": "00:02:45", "source": "mic", "speaker": 1, "text": "Signing off. Time to prep that staging environment.", "description": "closing"}

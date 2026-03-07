@@ -1,3 +1,12 @@
 {"id": "romeo_montague", "type": "Person", "name": "Romeo Montague", "description": "Continued Verona Platform development"}
 {"id": "benvolio_montague", "type": "Person", "name": "Benvolio Montague", "description": "Noticed suspicious late-night commits"}
 {"id": "verona_platform", "type": "Project", "name": "Verona Platform", "description": "Cross-company unified API gateway"}
+{"id": "balthasar_davi", "type": "Person", "name": "Balthasar Davi", "description": "Reviewed mesh routing PR with Romeo"}
+{"id": "mercutio_escalus", "type": "Person", "name": "Mercutio Escalus", "description": "Covered for Romeo during standup"}
+{"id": "friar_lawrence", "type": "Person", "name": "Friar Lawrence", "description": "Architecture review of Verona Platform"}
+{"id": "juliet_capulet", "type": "Person", "name": "Juliet Capulet", "description": "Verona Platform sync, reported Tybalt's competing proposal"}
+{"id": "prince_escalus", "type": "Person", "name": "Prince Escalus", "description": "Board observer call on Verona Platform progress"}
+{"id": "mesh_routing", "type": "Project", "name": "Mesh Routing", "description": "Performance bottleneck identified in staging"}
+{"id": "schema_bridge", "type": "Project", "name": "Schema Bridge", "description": "End-to-end integration with mesh routing completed"}
+{"id": "rosaline_prince", "type": "Person", "name": "Rosaline Prince", "description": "Investor prep call, shared Prince Escalus intelligence"}
+{"id": "verona_ventures", "type": "Company", "name": "Verona Ventures", "description": "Prince Escalus reviewing Verona Platform as synergy opportunity"}

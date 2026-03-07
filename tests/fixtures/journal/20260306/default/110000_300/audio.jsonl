@@ -1,0 +1,13 @@
+{"raw": "raw.flac", "model": "whisper-1", "duration": 60}
+{"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Balthasar, let us go through your PR on the mesh routing fallback.", "description": "review start"}
+{"start": "00:00:15", "source": "mic", "speaker": 6, "text": "Sure. The main change is in the retry handler. When a node drops out mid-route, we now cascade to the next available.", "description": "explanation"}
+{"start": "00:00:30", "source": "mic", "speaker": 1, "text": "I see. What happens if all nodes in a partition are down?", "description": "edge case"}
+{"start": "00:00:45", "source": "mic", "speaker": 6, "text": "That is the edge case I flagged. Right now it returns a timeout. I think we should queue and retry.", "description": "proposal"}
+{"start": "00:01:00", "source": "mic", "speaker": 1, "text": "Queue and retry makes sense. Set a cap at three retries with exponential backoff.", "description": "guidance"}
+{"start": "00:01:15", "source": "mic", "speaker": 6, "text": "Got it. I will update the PR today. Also, the test coverage is at 94 percent for the routing module.", "description": "metrics"}
+{"start": "00:01:30", "source": "mic", "speaker": 1, "text": "Good. Push it up to 97 if you can. This is going into the investor demo.", "description": "quality"}
+{"start": "00:01:45", "source": "mic", "speaker": 6, "text": "The demo? Is that the Prince Escalus review Rosaline mentioned?", "description": "curiosity"}
+{"start": "00:02:00", "source": "mic", "speaker": 1, "text": "Yes. Verona Ventures wants to see our mesh routing in action. Make sure the fallback is bulletproof.", "description": "importance"}
+{"start": "00:02:15", "source": "mic", "speaker": 6, "text": "Understood. I will also add a circuit breaker pattern for cascading failures.", "description": "enhancement"}
+{"start": "00:02:30", "source": "mic", "speaker": 1, "text": "Great thinking. Ship that by end of day and I will merge it before the Friar Lawrence review.", "description": "deadline"}
+{"start": "00:02:45", "source": "mic", "speaker": 6, "text": "On it. Thanks for the guidance, Romeo.", "description": "closing"}

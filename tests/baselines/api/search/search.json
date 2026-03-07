@@ -13,22 +13,22 @@
       "name": "screen"
     },
     {
-      "count": 10,
+      "count": 12,
       "icon": "👤",
       "label": "Entity",
       "name": "entity:detected"
     },
     {
-      "count": 13,
-      "icon": "🗺️",
-      "label": "Knowledge Graph",
-      "name": "knowledge_graph"
-    },
-    {
-      "count": 14,
+      "count": 16,
       "icon": "🎤",
       "label": "Transcript",
       "name": "audio"
+    },
+    {
+      "count": 16,
+      "icon": "🗺️",
+      "label": "Knowledge Graph",
+      "name": "knowledge_graph"
     },
     {
       "count": 2,
@@ -43,7 +43,7 @@
       "name": "meetings"
     },
     {
-      "count": 22,
+      "count": 28,
       "icon": "📅",
       "label": "Event",
       "name": "event"
@@ -55,7 +55,7 @@
       "name": "action"
     },
     {
-      "count": 5,
+      "count": 9,
       "icon": "📄",
       "label": "Observation",
       "name": "observation"
@@ -68,22 +68,6 @@
       "has_more": true,
       "results": [
         {
-          "agent": "action",
-          "agent_icon": "📄",
-          "agent_label": "Action",
-          "day": "20260306",
-          "facet": "verona",
-          "facet_color": "#9370db",
-          "facet_emoji": "🌹",
-          "facet_title": "Verona",
-          "id": "facets/verona/logs/20260306.jsonl:0",
-          "idx": 0,
-          "path": "facets/verona/logs/20260306.jsonl",
-          "score": -2.4070395363466557,
-          "stream": null,
-          "text": "### Push by <strong>romeo</strong>_montague\n\n**Source:** github | **Time:** 14:35:00\n\n**Parameters:**\n- repo: verona-platform\n- branch: main\n- files: ['verona/gateway.py']\n"
-        },
-        {
           "agent": "audio",
           "agent_icon": "🎤",
           "agent_label": "Transcript",
@@ -95,9 +79,9 @@
           "id": "20260306/default/093000_300/agents/audio.md:0",
           "idx": 0,
           "path": "20260306/default/093000_300/agents/audio.md",
-          "score": -3.1945731087420035,
+          "score": -1.3214223919443528,
           "stream": "default",
-          "text": "# Audio Summary\n\nMorning standup. Benvolio noticed <strong>Romeo</strong>'s late-night GitHub activity. <strong>Romeo</strong> deflected, calling it a personal project. Mercutio covered for him.\n"
+          "text": "# Audio Summary Morning standup. Benvolio noticed <strong>Romeo</strong>'s late-night GitHub activity and pressed him about API gateway commits. <strong>Romeo</strong> deflected, calling it a personal mesh routing prototype. Mercutio covered for him. Balthasar reported progress on the mesh routing fallback PR with an edge case for <strong>Romeo</strong> to review. Benvolio scheduled..."
         },
         {
           "agent": "entity:detected",
@@ -111,9 +95,41 @@
           "id": "facets/montague/entities/20260306.jsonl:0",
           "idx": 0,
           "path": "facets/montague/entities/20260306.jsonl",
-          "score": -3.3214643297150364,
+          "score": -1.6654751860740968,
           "stream": null,
           "text": "### Person: <strong>Romeo</strong> Montague\n\n\nContinued Verona Platform development\n\n"
+        },
+        {
+          "agent": "entity:detected",
+          "agent_icon": "👤",
+          "agent_label": "Entity",
+          "day": "20260306",
+          "facet": "montague",
+          "facet_color": "#1e90ff",
+          "facet_emoji": "⚔️",
+          "facet_title": "Montague Tech",
+          "id": "facets/montague/entities/20260306.jsonl:3",
+          "idx": 3,
+          "path": "facets/montague/entities/20260306.jsonl",
+          "score": -1.5707924240246636,
+          "stream": null,
+          "text": "### Person: Balthasar Davi\n\n\nReviewed mesh routing PR with <strong>Romeo</strong>\n\n"
+        },
+        {
+          "agent": "entity:detected",
+          "agent_icon": "👤",
+          "agent_label": "Entity",
+          "day": "20260306",
+          "facet": "montague",
+          "facet_color": "#1e90ff",
+          "facet_emoji": "⚔️",
+          "facet_title": "Montague Tech",
+          "id": "facets/montague/entities/20260306.jsonl:4",
+          "idx": 4,
+          "path": "facets/montague/entities/20260306.jsonl",
+          "score": -1.6167487487886845,
+          "stream": null,
+          "text": "### Person: Mercutio Escalus\n\n\nCovered for <strong>Romeo</strong> during standup\n\n"
         },
         {
           "agent": "screen",
@@ -127,29 +143,13 @@
           "id": "20260306/default/093000_300/agents/screen.md:0",
           "idx": 0,
           "path": "20260306/default/093000_300/agents/screen.md",
-          "score": -2.898022996390654,
+          "score": -1.447367510735984,
           "stream": "default",
           "text": "# Screen Summary\n\nSlack standup channel. Benvolio questioning <strong>Romeo</strong> about late-night commits.\n"
-        },
-        {
-          "agent": "session_review",
-          "agent_icon": "📄",
-          "agent_label": "Session_Review",
-          "day": "20260306",
-          "facet": "verona",
-          "facet_color": "#9370db",
-          "facet_emoji": "🌹",
-          "facet_title": "Verona",
-          "id": "facets/verona/activities/20260306/engineering_143000_300/session_review.md:4",
-          "idx": 4,
-          "path": "facets/verona/activities/20260306/engineering_143000_300/session_review.md",
-          "score": -2.6298110103349908,
-          "stream": null,
-          "text": "# Engineering Session Review\n\n## Engagement\n\nHigh focus session with both <strong>Romeo</strong> and Juliet actively coding and testing.\n"
         }
       ],
       "showing": 5,
-      "total": 13
+      "total": 26
     },
     {
       "date": "Monday March 9th",
@@ -168,7 +168,7 @@
           "id": "facets/verona/logs/20260309.jsonl:1",
           "idx": 1,
           "path": "facets/verona/logs/20260309.jsonl",
-          "score": -2.4591175409208046,
+          "score": -1.2231190160806809,
           "stream": null,
           "text": "### Deploy Complete by <strong>romeo</strong>_montague\n\n**Source:** deploy | **Time:** 13:45:00\n\n**Parameters:**\n- service: verona-gateway\n- version: 0.9.0\n"
         },
@@ -184,7 +184,7 @@
           "id": "20260309/default/090000_300/agents/audio.md:0",
           "idx": 0,
           "path": "20260309/default/090000_300/agents/audio.md",
-          "score": -2.3092319371689234,
+          "score": -1.1469598554637184,
           "stream": "default",
           "text": "# Audio Summary\n\n<strong>Romeo</strong> confessed the project to Benvolio and asked for infrastructure help. Benvolio agreed to spin up a Kubernetes staging cluster.\n"
         },
@@ -200,7 +200,7 @@
           "id": "facets/montague/entities/20260309.jsonl:0",
           "idx": 0,
           "path": "facets/montague/entities/20260309.jsonl",
-          "score": -3.138058774522543,
+          "score": -1.5707924240246636,
           "stream": null,
           "text": "### Person: <strong>Romeo</strong> Montague\n\n\nConfessed project to Benvolio, preparing demo\n\n"
         },
@@ -216,7 +216,7 @@
           "id": "facets/montague/calendar/20260309.jsonl:0",
           "idx": 0,
           "path": "facets/montague/calendar/20260309.jsonl",
-          "score": -2.6298110103349908,
+          "score": -1.3101115984049587,
           "stream": null,
           "text": "### Event: Team Standup\n\n\n**Time Occurred:** 09:00 - 09:30\n**Participants:** <strong>Romeo</strong> Montague, Benvolio Montague\n\nDaily sync\n"
         },
@@ -232,7 +232,7 @@
           "id": "facets/verona/calendar/20260309.jsonl:0",
           "idx": 0,
           "path": "facets/verona/calendar/20260309.jsonl",
-          "score": -2.3571215535719157,
+          "score": -1.1712700945836696,
           "stream": null,
           "text": "### Event: Demo Sprint\n\n\n**Time Occurred:** 09:00 - 21:00\n**Participants:** <strong>Romeo</strong> Montague, Juliet Capulet, Benvolio Montague\n\nFull day board presentation preparation\n"
         }
@@ -257,7 +257,7 @@
           "id": "20260307/default/100000_300/agents/audio.md:0",
           "idx": 0,
           "path": "20260307/default/100000_300/agents/audio.md",
-          "score": -3.150301351601385,
+          "score": -1.5717209066990099,
           "stream": "default",
           "text": "# Audio Summary\n\nHeated confrontation. Tybalt Capulet accused <strong>Romeo</strong> of stealing Capulet IP. Mercutio defended <strong>Romeo</strong> and had his Capulet consulting contract terminated by Tybalt.\n"
         },
@@ -273,7 +273,7 @@
           "id": "20260307/default/150000_300/agents/audio.md:0",
           "idx": 0,
           "path": "20260307/default/150000_300/agents/audio.md",
-          "score": -3.406512108799374,
+          "score": -1.7010744048030266,
           "stream": "default",
           "text": "# Audio Summary\n\nEmergency meeting at Montague Tech. Benvolio questioned <strong>Romeo</strong> about the secret project. <strong>Romeo</strong> clarified no company IP was shared. Team discussed legal exposure. <strong>Romeo</strong> proposed Professor Lawrence as mediator.\n"
         },
@@ -289,7 +289,7 @@
           "id": "facets/montague/entities/20260307.jsonl:0",
           "idx": 0,
           "path": "facets/montague/entities/20260307.jsonl",
-          "score": -3.138058774522543,
+          "score": -1.5707924240246636,
           "stream": null,
           "text": "### Person: <strong>Romeo</strong> Montague\n\n\nConfronted by Tybalt, called emergency meeting\n\n"
         },
@@ -305,7 +305,7 @@
           "id": "facets/montague/calendar/20260307.jsonl:0",
           "idx": 0,
           "path": "facets/montague/calendar/20260307.jsonl",
-          "score": -2.4070395363466557,
+          "score": -1.1966331781841524,
           "stream": null,
           "text": "### Event: Emergency Team Meeting\n\n\n**Time Occurred:** 15:00 - 16:00\n**Participants:** <strong>Romeo</strong> Montague, Benvolio Montague\n\nCrisis response to Capulet situation\n"
         },
@@ -321,7 +321,7 @@
           "id": "facets/montague/events/20260307.jsonl:0",
           "idx": 0,
           "path": "facets/montague/events/20260307.jsonl",
-          "score": -2.984840574799179,
+          "score": -1.4871273020967142,
           "stream": null,
           "text": "### Meeting: Confrontation with Tybalt\n\n\n**Time Occurred:** 10:00 - 10:30\n**Participants:** <strong>Romeo</strong> Montague, Tybalt Capulet, Mercutio Escalus\n\nTybalt accused <strong>Romeo</strong> of IP theft\n\nMercutio fired from Capulet contract\n"
         }
@@ -346,7 +346,7 @@
           "id": "facets/montague/entities/20260308.jsonl:0",
           "idx": 0,
           "path": "facets/montague/entities/20260308.jsonl",
-          "score": -3.138058774522543,
+          "score": -1.5707924240246636,
           "stream": null,
           "text": "### Person: <strong>Romeo</strong> Montague\n\n\nUnder board pressure, planning board presentation\n\n"
         },
@@ -362,7 +362,7 @@
           "id": "facets/verona/events/20260308.jsonl:0",
           "idx": 0,
           "path": "facets/verona/events/20260308.jsonl",
-          "score": -2.0962813000265412,
+          "score": -1.0391225675143847,
           "stream": null,
           "text": "### Meeting: Strategy Call with Professor Lawrence\n\n\n**Time Occurred:** 10:00 - 11:00\n**Participants:** <strong>Romeo</strong> Montague, Juliet Capulet, Friar Lawrence\n\nJoint venture strategy planning\n\nProposed board presentation strategy\n"
         },
@@ -378,7 +378,7 @@
           "id": "20260308/agents/knowledge_graph.md:2",
           "idx": 2,
           "path": "20260308/agents/knowledge_graph.md",
-          "score": -1.9863746901952632,
+          "score": -0.9836337570604592,
           "stream": null,
           "text": "# Part 1: Entity Extraction and Relationship Mapping ## Entity Profiles | Entity Name | Entity Type | First Appearance | Total Engagement | Context | | :--- | :--- | :--- | :--- | :--- | | **<strong>Romeo</strong> Montague** | Person | 10:00 | High | Under board pressure,..."
         },
@@ -394,7 +394,7 @@
           "id": "20260308/agents/meetings.md:0",
           "idx": 0,
           "path": "20260308/agents/meetings.md",
-          "score": -2.9738479961862834,
+          "score": -1.4862960494399087,
           "stream": null,
           "text": "# Meetings\n\n- 10:00 Strategy Call with Professor Lawrence, <strong>Romeo</strong>, and Juliet\n"
         }
@@ -419,7 +419,7 @@
           "id": "facets/verona/logs/20260305.jsonl:0",
           "idx": 0,
           "path": "facets/verona/logs/20260305.jsonl",
-          "score": -2.5703397829768306,
+          "score": -1.2797709745847388,
           "stream": null,
           "text": "### Repo Created by <strong>romeo</strong>_montague\n\n**Source:** github | **Time:** 22:05:00\n\n**Parameters:**\n- repo: balcony-app\n- visibility: private\n"
         },
@@ -435,7 +435,7 @@
           "id": "20260305/default/090000_300/agents/audio.md:0",
           "idx": 0,
           "path": "20260305/default/090000_300/agents/audio.md",
-          "score": -2.984840574799179,
+          "score": -1.4871273020967142,
           "stream": "default",
           "text": "# Audio Summary\n\nMorning standup at Montague Tech. Benvolio reported CI pipeline is green. <strong>Romeo</strong> mentioned wanting to explore ideas from the conference. Mercutio teased about <strong>Romeo</strong> meeting someone.\n"
         },
@@ -451,7 +451,7 @@
           "id": "facets/montague/entities/20260305.jsonl:0",
           "idx": 0,
           "path": "facets/montague/entities/20260305.jsonl",
-          "score": -3.138058774522543,
+          "score": -1.5707924240246636,
           "stream": null,
           "text": "### Person: <strong>Romeo</strong> Montague\n\n\nStarted Balcony App prototype with Juliet\n\n"
         },
@@ -467,7 +467,7 @@
           "id": "facets/verona/entities/20260305.jsonl:0",
           "idx": 0,
           "path": "facets/verona/entities/20260305.jsonl",
-          "score": -3.138058774522543,
+          "score": -1.5707924240246636,
           "stream": null,
           "text": "### Person: <strong>Romeo</strong> Montague\n\n\nSet up private repo for collaboration\n\n"
         },
@@ -483,7 +483,7 @@
           "id": "facets/montague/events/20260305.jsonl:0",
           "idx": 0,
           "path": "facets/montague/events/20260305.jsonl",
-          "score": -3.150301351601385,
+          "score": -1.5717209066990099,
           "stream": null,
           "text": "### Meeting: Montague Tech Daily Standup\n\n\n**Time Occurred:** 09:00 - 09:30\n**Participants:** <strong>Romeo</strong> Montague, Benvolio Montague, Mercutio Escalus\n\nTeam standup\n\n<strong>Romeo</strong> mentioned conference ideas\n"
         }
@@ -508,7 +508,7 @@
           "id": "facets/montague/entities/20260310.jsonl:0",
           "idx": 0,
           "path": "facets/montague/entities/20260310.jsonl",
-          "score": -2.9738479961862834,
+          "score": -1.4862960494399087,
           "stream": null,
           "text": "### Person: <strong>Romeo</strong> Montague\n\n\nNamed co-lead of Verona Platform joint venture\n\n"
         },
@@ -524,7 +524,7 @@
           "id": "facets/verona/entities/20260310.jsonl:0",
           "idx": 0,
           "path": "facets/verona/entities/20260310.jsonl",
-          "score": -3.0537474305899335,
+          "score": -1.5273765182674888,
           "stream": null,
           "text": "### Person: <strong>Romeo</strong> Montague\n\n\nNamed co-lead of approved joint venture\n\n"
         },
@@ -540,7 +540,7 @@
           "id": "facets/montague/calendar/20260310.jsonl:0",
           "idx": 0,
           "path": "facets/montague/calendar/20260310.jsonl",
-          "score": -2.3571215535719157,
+          "score": -1.1712700945836696,
           "stream": null,
           "text": "### Event: Joint Board Meeting\n\n\n**Time Occurred:** 10:00 - 12:00\n**Participants:** <strong>Romeo</strong> Montague, Benvolio Montague\n\nQuarterly review with Verona Platform presentation\n"
         },
@@ -556,7 +556,7 @@
           "id": "facets/verona/calendar/20260310.jsonl:0",
           "idx": 0,
           "path": "facets/verona/calendar/20260310.jsonl",
-          "score": -2.3571215535719157,
+          "score": -1.1712700945836696,
           "stream": null,
           "text": "### Event: Board Presentation\n\n\n**Time Occurred:** 10:00 - 12:00\n**Participants:** <strong>Romeo</strong> Montague, Juliet Capulet, Friar Lawrence\n\nVerona Platform joint venture pitch\n"
         },
@@ -572,7 +572,7 @@
           "id": "20260310/agents/meetings.md:0",
           "idx": 0,
           "path": "20260310/agents/meetings.md",
-          "score": -3.0537474305899335,
+          "score": -1.5273765182674888,
           "stream": null,
           "text": "# Meetings\n\n- 08:30 Pre-Board Meeting Prep (<strong>Romeo</strong>, Juliet, Benvolio)\n"
         }
@@ -597,7 +597,7 @@
           "id": "20260304/default/180000_300/agents/audio.md:0",
           "idx": 0,
           "path": "20260304/default/180000_300/agents/audio.md",
-          "score": -2.946155922670762,
+          "score": -1.4673828292816964,
           "stream": "default",
           "text": "# Audio Summary\n\nEvening mixer at Denver Tech Summit. <strong>Romeo</strong> and Juliet had their first extended conversation about combining their API approaches. Mercutio tried to pull <strong>Romeo</strong> away to karaoke.\n"
         },
@@ -613,7 +613,7 @@
           "id": "facets/capulet/entities/20260304.jsonl:1",
           "idx": 1,
           "path": "facets/capulet/entities/20260304.jsonl",
-          "score": -3.3214643297150364,
+          "score": -1.6654751860740968,
           "stream": null,
           "text": "### Person: Tybalt Capulet\n\n\nConfronted <strong>Romeo</strong> at hackathon\n\n"
         },
@@ -629,7 +629,7 @@
           "id": "facets/montague/entities/20260304.jsonl:0",
           "idx": 0,
           "path": "facets/montague/entities/20260304.jsonl",
-          "score": -3.0537474305899335,
+          "score": -1.5273765182674888,
           "stream": null,
           "text": "### Person: <strong>Romeo</strong> Montague\n\n\nAttended Denver Tech Summit, met Juliet Capulet\n\n"
         },
@@ -645,7 +645,7 @@
           "id": "facets/capulet/events/20260304.jsonl:1",
           "idx": 1,
           "path": "facets/capulet/events/20260304.jsonl",
-          "score": -3.2401069198461854,
+          "score": -1.6177323720388095,
           "stream": null,
           "text": "### Social: Conference Mixer\n\n\n**Time Occurred:** 18:00 - 20:00\n**Participants:** Juliet Capulet, <strong>Romeo</strong> Montague\n\nNetworking event\n\nJuliet and <strong>Romeo</strong> exchanged Signal contacts\n"
         },
@@ -661,7 +661,7 @@
           "id": "facets/montague/events/20260304.jsonl:1",
           "idx": 1,
           "path": "facets/montague/events/20260304.jsonl",
-          "score": -3.1945731087420035,
+          "score": -1.5943947556951734,
           "stream": null,
           "text": "### Hackathon: Hackathon - API Bridge Challenge\n\n\n**Time Occurred:** 14:00 - 18:00\n**Participants:** <strong>Romeo</strong> Montague, Mercutio Escalus\n\nBuilt API bridge prototype\n\nTybalt confronted <strong>Romeo</strong>\n"
         }
@@ -701,7 +701,7 @@
     },
     {
       "color": "#1e90ff",
-      "count": 23,
+      "count": 35,
       "emoji": "⚔️",
       "name": "montague",
       "title": "Montague Tech"
@@ -729,6 +729,6 @@
     }
   ],
   "showing_days": 7,
-  "total": 74,
+  "total": 91,
   "total_days": 7
 }

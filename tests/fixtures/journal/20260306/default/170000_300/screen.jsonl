@@ -1,0 +1,4 @@
+{"raw": "screen.webm", "type": "screencast"}
+{"timestamp": 0, "analysis": {"visible": "terminal", "visual_description": "Terminal with staging deployment scripts"}}
+{"timestamp": 60, "analysis": {"visible": "browser", "visual_description": "Verona Platform staging dashboard showing API metrics"}}
+{"timestamp": 120, "analysis": {"visible": "notes", "visual_description": "End of day notes in markdown editor"}}

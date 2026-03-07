@@ -3,3 +3,11 @@
 {"start": "00:00:15", "source": "mic", "speaker": 5, "text": "Romeo, I saw commits to a private repo at 3 AM. Everything okay?", "description": "concern"}
 {"start": "00:00:30", "source": "mic", "speaker": 1, "text": "Yeah, just exploring some ideas from the conference. Personal project.", "description": "deflection"}
 {"start": "00:00:45", "source": "mic", "speaker": 3, "text": "Leave him alone, Benvolio. A man needs his hobbies.", "description": "humor"}
+{"start": "00:01:00", "source": "mic", "speaker": 5, "text": "Fine, but the commit messages were all about API gateways. That is not a hobby.", "description": "suspicion"}
+{"start": "00:01:15", "source": "mic", "speaker": 1, "text": "I was prototyping a mesh routing extension. Could be useful for our platform.", "description": "cover story"}
+{"start": "00:01:30", "source": "mic", "speaker": 3, "text": "See? He is being productive. Unlike some of us who just watch Netflix.", "description": "deflection"}
+{"start": "00:01:45", "source": "mic", "speaker": 5, "text": "Alright, moving on. Balthasar, how is the fallback PR coming?", "description": "topic change"}
+{"start": "00:02:00", "source": "mic", "speaker": 6, "text": "Almost done. Found an edge case in the retry logic that I want Romeo to look at.", "description": "update"}
+{"start": "00:02:15", "source": "mic", "speaker": 1, "text": "Happy to review it in our one-on-one later. Anything else for standup?", "description": "scheduling"}
+{"start": "00:02:30", "source": "mic", "speaker": 5, "text": "Friar Lawrence wants an architecture review at eleven. I added it to your calendar.", "description": "scheduling"}
+{"start": "00:02:45", "source": "mic", "speaker": 1, "text": "Perfect. Let us wrap up then. Busy day ahead.", "description": "closing"}

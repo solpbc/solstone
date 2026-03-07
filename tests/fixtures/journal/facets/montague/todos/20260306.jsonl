@@ -1,2 +1,7 @@
+{"text": "Ship Verona Platform MVP to staging", "completed": false, "created_at": 1772812800000, "updated_at": 1772812800000, "nudge": "20260306T09:00"}
 {"text": "Integrate end-to-end routing and translation", "completed": true, "created_at": 1772812800000, "updated_at": 1772834400000}
+{"text": "Review Balthasar's PR on mesh routing fallback", "completed": true, "created_at": 1772816400000, "updated_at": 1772838000000}
+{"text": "Update Friar Lawrence on Verona Platform architecture", "completed": true, "created_at": 1772820000000, "updated_at": 1772845200000}
 {"text": "Be more careful about commit timestamps", "completed": false, "created_at": 1772816400000, "updated_at": 1772816400000}
+{"text": "Prep demo environment for Prince Escalus investor review", "completed": false, "created_at": 1772830000000, "updated_at": 1772830000000}
+{"text": "Draft API compatibility matrix for Capulet integration", "completed": false, "created_at": 1772841600000, "updated_at": 1772841600000}

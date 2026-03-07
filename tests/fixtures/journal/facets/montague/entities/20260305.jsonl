@@ -1,3 +1,5 @@
 {"id": "romeo_montague", "type": "Person", "name": "Romeo Montague", "description": "Started Balcony App prototype with Juliet"}
 {"id": "benvolio_montague", "type": "Person", "name": "Benvolio Montague", "description": "Reported CI pipeline all green"}
 {"id": "balcony_app", "type": "Project", "name": "Balcony App", "description": "Encrypted messaging and unified gateway prototype"}
+{"id": "mercutio_escalus", "type": "Person", "name": "Mercutio Escalus", "description": "Assisted with API bridge testing"}
+{"id": "montague_tech", "type": "Company", "name": "Montague Tech", "description": "CI pipeline healthy across all services"}

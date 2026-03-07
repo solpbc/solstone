@@ -921,7 +921,7 @@ def test_scan_entities_identity():
     conn, _ = get_journal_index("tests/fixtures/journal")
     rows = conn.execute("SELECT * FROM entities WHERE source='identity'").fetchall()
     conn.close()
-    assert len(rows) == 27
+    assert len(rows) == 33
 
 
 def test_scan_entities_relationship():
@@ -934,7 +934,7 @@ def test_scan_entities_relationship():
     conn, _ = get_journal_index("tests/fixtures/journal")
     rows = conn.execute("SELECT * FROM entities WHERE source='relationship'").fetchall()
     conn.close()
-    assert len(rows) == 30
+    assert len(rows) == 40
 
 
 def test_scan_entities_detected():
@@ -962,7 +962,7 @@ def test_scan_entities_observations():
         "SELECT entity_id, facet, observation_count, last_observed FROM entities WHERE source='observation'"
     ).fetchall()
     conn.close()
-    assert len(rows) == 12
+    assert len(rows) == 23
 
     by_entity = {(r[0], r[1]): (r[2], r[3]) for r in rows}
     assert by_entity[("alice_johnson", "personal")][0] == 3
@@ -1005,7 +1005,7 @@ def test_scan_entities_deletion(tmp_path):
         "SELECT count(*) FROM entities WHERE source='identity'"
     ).fetchone()[0]
     conn.close()
-    assert initial == 27
+    assert initial == 33
 
     entity_file = dst / "entities" / "alice_johnson" / "entity.json"
     entity_file.unlink()
@@ -1016,7 +1016,7 @@ def test_scan_entities_deletion(tmp_path):
         "SELECT count(*) FROM entities WHERE source='identity'"
     ).fetchone()[0]
     conn.close()
-    assert after == 26
+    assert after == 32
 
 
 def test_scan_entities_preserves_fts():
@@ -1057,7 +1057,7 @@ def test_scan_signals_kg_appearances():
     ).fetchall()
     conn.close()
 
-    assert len(rows) == 30
+    assert len(rows) == 39
     names = {r[0] for r in rows}
     assert "Alice Johnson" in names
     assert "Romeo Montague" in names
@@ -1084,7 +1084,7 @@ def test_scan_signals_kg_edges():
     ).fetchall()
     conn.close()
 
-    assert len(rows) == 19
+    assert len(rows) == 25
     edges = {(r[0], r[1]): r[2] for r in rows}
     assert edges[("Alice Johnson", "Bob Smith")] == "collaborates-with"
     assert edges[("Alice Johnson", "Acme Corp")] == "client-liaison"
@@ -1151,7 +1151,7 @@ def test_scan_signals_deletion(tmp_path):
         "SELECT count(*) FROM entity_signals WHERE signal_type='kg_appearance'"
     ).fetchone()[0]
     conn.close()
-    assert initial == 30
+    assert initial == 39
 
     kg_file = dst / "20240101" / "agents" / "knowledge_graph.md"
     kg_file.unlink()
@@ -1162,4 +1162,4 @@ def test_scan_signals_deletion(tmp_path):
         "SELECT count(*) FROM entity_signals WHERE signal_type='kg_appearance'"
     ).fetchone()[0]
     conn.close()
-    assert after == 26
+    assert after == 35

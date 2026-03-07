@@ -76,11 +76,11 @@
     }
   },
   "system_env": {
-    "ANTHROPIC_API_KEY": true,
-    "GOOGLE_API_KEY": true,
-    "OPENAI_API_KEY": true,
-    "PLAUD_ACCESS_TOKEN": true,
-    "REVAI_ACCESS_TOKEN": true
+    "ANTHROPIC_API_KEY": false,
+    "GOOGLE_API_KEY": false,
+    "OPENAI_API_KEY": false,
+    "PLAUD_ACCESS_TOKEN": false,
+    "REVAI_ACCESS_TOKEN": false
   },
   "transcribe": {
     "backend": "whisper",

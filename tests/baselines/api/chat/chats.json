@@ -50,6 +50,18 @@
     },
     {
       "agent_ids": [
+        "1772830000001"
+      ],
+      "chat_id": "1772830000000",
+      "facet": "montague",
+      "muse": "default",
+      "provider": "anthropic",
+      "title": "Analyzing mesh routing performance bottleneck in staging",
+      "ts": 1772830000000,
+      "unread": false
+    },
+    {
+      "agent_ids": [
         "1773187200001"
       ],
       "chat_id": "1773187200000",

@@ -1,0 +1,4 @@
+{"raw": "screen.webm", "type": "screencast"}
+{"timestamp": 0, "analysis": {"visible": "vscode", "visual_description": "VS Code with mesh routing PR diff open"}}
+{"timestamp": 60, "analysis": {"visible": "vscode", "visual_description": "Code review comments on retry handler"}}
+{"timestamp": 120, "analysis": {"visible": "terminal", "visual_description": "Running mesh routing test suite"}}

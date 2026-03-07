@@ -1,8 +1,8 @@
 {
   "api_keys": {
-    "anthropic": true,
-    "google": true,
-    "openai": true
+    "anthropic": false,
+    "google": false,
+    "openai": false
   },
   "auth": {
     "anthropic": "platform",

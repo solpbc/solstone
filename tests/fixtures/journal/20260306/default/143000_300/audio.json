@@ -1,7 +1,14 @@
 [
-  {"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Juliet, I have got the routing layer fully integrated. Want to test the end-to-end flow?", "description": "coding"},
-  {"start": "00:00:25", "source": "mic", "speaker": 2, "text": "Yes. Let me also tell you, Tybalt presented a competing proposal today at our board meeting.", "description": "update"},
+  {"start": "00:00:05", "source": "mic", "speaker": 1, "text": "Juliet, the integration tests are passing. We have end-to-end routing and translation working.", "description": "progress"},
+  {"start": "00:00:20", "source": "mic", "speaker": 2, "text": "That is incredible. But I have bad news. Tybalt pitched a competing proposal to our board this morning.", "description": "warning"},
   {"start": "00:00:45", "source": "mic", "speaker": 2, "text": "He wants Capulet Industries to build their own mesh routing from scratch. It would take months.", "description": "concern"},
-  {"start": "00:01:05", "source": "mic", "speaker": 1, "text": "Meanwhile we have got a working prototype in two days. The Verona Platform is the better path.", "description": "confidence"},
-  {"start": "00:01:25", "source": "mic", "speaker": 2, "text": "Agreed. Angela is helping me block out calendar time so Tybalt does not notice.", "description": "logistics"}
+  {"start": "00:01:00", "source": "mic", "speaker": 1, "text": "That is exactly what we are trying to prevent. The whole point of Verona Platform is avoiding duplicate effort.", "description": "frustration"},
+  {"start": "00:01:15", "source": "mic", "speaker": 2, "text": "I know. Nurse Angela is helping me block out calendar time so Tybalt cannot schedule over our syncs.", "description": "strategy"},
+  {"start": "00:01:30", "source": "mic", "speaker": 1, "text": "Good. We need to show the board a working demo before Tybalt gets funding for his version.", "description": "urgency"},
+  {"start": "00:01:45", "source": "mic", "speaker": 2, "text": "The schema bridge layer is performing well. Sub-millisecond translations on the test dataset.", "description": "metrics"},
+  {"start": "00:02:00", "source": "mic", "speaker": 1, "text": "That is the number we need for the investor demo. Prince Escalus will want to see real performance data.", "description": "planning"},
+  {"start": "00:02:15", "source": "mic", "speaker": 2, "text": "Rosaline mentioned he is particularly interested in the unified gateway angle.", "description": "intel"},
+  {"start": "00:02:30", "source": "mic", "speaker": 1, "text": "Perfect. I will prep the staging environment tonight. Can you send me the latest schema mappings?", "description": "action item"},
+  {"start": "00:02:45", "source": "mic", "speaker": 2, "text": "Already pushed to the shared repo. Be careful with the commit timestamps this time.", "description": "reminder"},
+  {"start": "00:03:00", "source": "mic", "speaker": 1, "text": "Right. Benvolio almost caught on this morning. I need to be more careful about the digital trail.", "description": "caution"}
 ]
