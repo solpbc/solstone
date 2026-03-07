@@ -233,8 +233,17 @@ def test_formatter_registration_ics_segment_markdown():
 def test_formatter_registration_kindle():
     from think.formatters import get_formatter
 
-    formatter = get_formatter("20260115/import.kindle/imported.jsonl")
+    formatter = get_formatter("20260115/import.kindle/103000_300/imported.md")
     assert formatter is not None
+    assert formatter.__name__ == "format_markdown"
+
+
+def test_formatter_registration_gemini_segment():
+    from think.formatters import get_formatter
+
+    formatter = get_formatter("20260115/import.gemini/100000_300/imported.md")
+    assert formatter is not None
+    assert formatter.__name__ == "format_markdown"
 
 
 def test_path_metadata_extraction():

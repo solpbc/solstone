@@ -1007,8 +1007,8 @@ def test_ics_creation_timestamp_none():
     assert mod._creation_timestamp(EmptyComponent()) is None
 
 
-def test_ics_window_events_single_window():
-    mod = importlib.import_module("think.importers.ics")
+def test_window_items_single_window():
+    mod = importlib.import_module("think.importers.shared")
 
     base = dt.datetime(2026, 3, 1, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
     events = [
@@ -1017,13 +1017,13 @@ def test_ics_window_events_single_window():
         {"title": "C", "create_ts": base + 120},
     ]
 
-    windows = mod._window_events(events)
+    windows = mod.window_items(events, "create_ts")
 
     assert windows == [("20260301", "120000_300", events)]
 
 
-def test_ics_window_events_time_gap_split():
-    mod = importlib.import_module("think.importers.ics")
+def test_window_items_time_gap_split():
+    mod = importlib.import_module("think.importers.shared")
 
     base = dt.datetime(2026, 3, 1, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
     events = [
@@ -1033,7 +1033,7 @@ def test_ics_window_events_time_gap_split():
         {"title": "D", "create_ts": base + 600},
     ]
 
-    windows = mod._window_events(events)
+    windows = mod.window_items(events, "create_ts")
 
     assert len(windows) == 2
     assert windows[0][0] == "20260301"
@@ -1043,8 +1043,8 @@ def test_ics_window_events_time_gap_split():
     assert windows[1][2] == [events[3]]
 
 
-def test_ics_window_events_day_boundary():
-    mod = importlib.import_module("think.importers.ics")
+def test_window_items_day_boundary():
+    mod = importlib.import_module("think.importers.shared")
 
     first_day = dt.datetime(2026, 3, 1, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
     second_day = dt.datetime(2026, 3, 2, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
@@ -1053,7 +1053,7 @@ def test_ics_window_events_day_boundary():
         {"title": "B", "create_ts": second_day},
     ]
 
-    windows = mod._window_events(events)
+    windows = mod.window_items(events, "create_ts")
 
     assert windows == [
         ("20260301", "120000_300", [events[0]]),

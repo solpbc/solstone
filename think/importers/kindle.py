@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import seed_entities, write_structured_import
+from think.importers.shared import seed_entities, window_items
+from think.utils import day_path
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,47 @@ def _parse_block(block: str) -> dict | None:
     return entry
 
 
+def _render_highlight_markdown(highlights: list[dict]) -> str:
+    """Render highlights grouped by book as markdown."""
+    # Group by book
+    by_book: dict[str, list[dict]] = {}
+    for h in highlights:
+        key = h["book_title"]
+        by_book.setdefault(key, []).append(h)
+
+    sections: list[str] = []
+    for book_title, book_highlights in by_book.items():
+        # Use first highlight's author (all from same book share author)
+        author = book_highlights[0].get("author", "")
+        if author:
+            heading = f"## {book_title} by {author}"
+        else:
+            heading = f"## {book_title}"
+
+        lines = [heading]
+        for h in book_highlights:
+            content = h.get("content", "")
+            clip_type = h.get("clip_type", "highlight")
+
+            if clip_type == "note":
+                lines.append(f"Note: {content}")
+            else:
+                lines.append(f"> {content}")
+
+            # Page / location metadata
+            meta_parts: list[str] = []
+            if h.get("page") is not None:
+                meta_parts.append(f"Page {h['page']}")
+            if h.get("location"):
+                meta_parts.append(f"Location {h['location']}")
+            if meta_parts:
+                lines.append(" | ".join(meta_parts))
+
+        sections.append("\n".join(lines))
+
+    return "\n\n".join(sections)
+
+
 class KindleImporter:
     name = "kindle"
     display_name = "Kindle Highlights"
@@ -211,7 +253,6 @@ class KindleImporter:
     ) -> ImportResult:
         text = path.read_text(encoding="utf-8-sig")
         blocks = text.split(DELIMITER)
-        import_id = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
         entries: list[dict] = []
         errors: list[str] = []
@@ -223,12 +264,13 @@ class KindleImporter:
                 continue
             entry = _parse_block(block)
             if entry is None:
-                # Only log as error if block had real content (not just whitespace)
                 stripped = block.strip()
                 if stripped and "\n" in stripped:
                     errors.append(f"Failed to parse clipping block {i + 1}")
                 continue
 
+            # Add epoch timestamp for windowing
+            entry["create_ts"] = dt.datetime.fromisoformat(entry["ts"]).timestamp()
             entries.append(entry)
             books.add(entry["book_title"])
             if entry["author"]:
@@ -237,13 +279,31 @@ class KindleImporter:
             if progress_callback and (i + 1) % 100 == 0:
                 progress_callback(i + 1, len(blocks))
 
-        # Write to journal
-        created_files = write_structured_import(
-            "kindle",
-            entries,
-            import_id=import_id,
-            facet=facet,
-        )
+        if not entries:
+            return ImportResult(
+                entries_written=0,
+                entities_seeded=0,
+                files_created=[],
+                errors=errors,
+                summary="No clippings found to import",
+            )
+
+        entries.sort(key=lambda e: e["create_ts"])
+
+        windows = window_items(entries, "create_ts", tz=None)
+        created_files: list[str] = []
+        segments: list[tuple[str, str]] = []
+
+        for day, seg_key, window_highlights in windows:
+            segment_dir = day_path(day) / "import.kindle" / seg_key
+            segment_dir.mkdir(parents=True, exist_ok=True)
+            md_path = segment_dir / "imported.md"
+            markdown = _render_highlight_markdown(window_highlights)
+            md_path.write_text(markdown + "\n", encoding="utf-8")
+            created_files.append(str(md_path))
+            segments.append((day, seg_key))
+
+        segment_days = {day for day, _ in segments}
 
         # Seed entities (books and authors)
         entities_seeded = 0
@@ -266,7 +326,11 @@ class KindleImporter:
             entities_seeded=entities_seeded,
             files_created=created_files,
             errors=errors,
-            summary=f"Imported {len(entries)} Kindle clippings from {len(books)} books across {len(created_files)} days",
+            summary=(
+                f"Imported {len(entries)} Kindle clippings from {len(books)} books "
+                f"across {len(segment_days)} days into {len(segments)} segments"
+            ),
+            segments=segments,
         )
 
 

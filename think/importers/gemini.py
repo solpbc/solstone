@@ -23,7 +23,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import write_structured_import
+from think.importers.shared import window_items
+from think.utils import day_path
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,27 @@ def _parse_activity(activity: dict[str, Any]) -> dict[str, Any] | None:
     return entry
 
 
+def _render_activity_markdown(activity: dict) -> str:
+    """Render a Gemini activity as markdown."""
+    title = activity.get("title", "Gemini activity")
+    lines = [f"## {title}"]
+
+    content = activity.get("content", "")
+    if content:
+        # Content already has "Human: ..." and "Assistant: ..." format
+        # Convert to bold labels
+        for part in content.split("\n\n"):
+            part = part.strip()
+            if part.startswith("Human: "):
+                lines.append(f"**Human:** {part[7:]}")
+            elif part.startswith("Assistant: "):
+                lines.append(f"**Assistant:** {part[11:]}")
+            elif part:
+                lines.append(part)
+
+    return "\n\n".join(lines)
+
+
 class GeminiImporter:
     name = "gemini"
     display_name = "Gemini Activity History"
@@ -233,7 +255,6 @@ class GeminiImporter:
         progress_callback: Callable | None = None,
     ) -> ImportResult:
         activities = _load_activities(path)
-        import_id = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
         entries: list[dict[str, Any]] = []
         errors: list[str] = []
@@ -244,18 +265,41 @@ class GeminiImporter:
             if entry is None:
                 skipped += 1
                 continue
+
+            # Add epoch timestamp for windowing
+            entry["create_ts"] = dt.datetime.fromisoformat(entry["ts"]).timestamp()
             entries.append(entry)
 
             if progress_callback and (i + 1) % 100 == 0:
                 progress_callback(i + 1, len(activities))
 
-        # Write to journal
-        created_files = write_structured_import(
-            "gemini",
-            entries,
-            import_id=import_id,
-            facet=facet,
-        )
+        if not entries:
+            return ImportResult(
+                entries_written=0,
+                entities_seeded=0,
+                files_created=[],
+                errors=errors,
+                summary="No activities found to import",
+            )
+
+        entries.sort(key=lambda e: e["create_ts"])
+
+        windows = window_items(entries, "create_ts")
+        created_files: list[str] = []
+        segments: list[tuple[str, str]] = []
+
+        for day, seg_key, window_activities in windows:
+            segment_dir = day_path(day) / "import.gemini" / seg_key
+            segment_dir.mkdir(parents=True, exist_ok=True)
+            md_path = segment_dir / "imported.md"
+            markdown = "\n\n".join(
+                _render_activity_markdown(act) for act in window_activities
+            )
+            md_path.write_text(markdown + "\n", encoding="utf-8")
+            created_files.append(str(md_path))
+            segments.append((day, seg_key))
+
+        segment_days = {day for day, _ in segments}
 
         if skipped:
             logger.info("Skipped %d activities with no content", skipped)
@@ -268,7 +312,11 @@ class GeminiImporter:
             entities_seeded=0,
             files_created=created_files,
             errors=errors,
-            summary=f"Imported {len(entries)} Gemini activities{bard_info} across {len(created_files)} days",
+            summary=(
+                f"Imported {len(entries)} Gemini activities{bard_info} across "
+                f"{len(segment_days)} days into {len(segments)} segments"
+            ),
+            segments=segments,
         )
 
 
