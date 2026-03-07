@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import seed_entities, write_structured_import
+from think.importers.shared import seed_entities
+from think.utils import day_path
 
 logger = logging.getLogger(__name__)
 
@@ -109,9 +110,83 @@ def _read_file_safe(path: Path) -> str | None:
         return None
 
 
+def _strip_frontmatter(content: str) -> str:
+    """Remove YAML frontmatter block from content."""
+    return FRONTMATTER_RE.sub("", content)
+
+
 def _is_hidden(name: str) -> bool:
     """Check if a filename/dirname starts with a dot."""
     return name.startswith(".")
+
+
+def _window_notes(
+    notes: list[dict[str, Any]],
+    window_duration: int = 300,
+) -> list[tuple[str, str, list[dict[str, Any]]]]:
+    """Group sorted notes into fixed-duration windows by mtime."""
+    if not notes:
+        return []
+
+    windows: list[tuple[str, str, list[dict[str, Any]]]] = []
+    window_start: float | None = None
+    window_day: str | None = None
+    window_notes: list[dict[str, Any]] = []
+
+    for note in notes:
+        mtime = note["mtime"]
+        note_dt = dt.datetime.fromtimestamp(mtime)
+        note_day = note_dt.strftime("%Y%m%d")
+
+        if (
+            window_start is None
+            or note_day != window_day
+            or mtime - window_start >= window_duration
+        ):
+            if window_notes and window_day and window_start is not None:
+                start_dt = dt.datetime.fromtimestamp(window_start)
+                seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
+                windows.append((window_day, seg_key, window_notes))
+
+            window_start = mtime
+            window_day = note_day
+            window_notes = []
+
+        window_notes.append(note)
+
+    if window_notes and window_day and window_start is not None:
+        start_dt = dt.datetime.fromtimestamp(window_start)
+        seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
+        windows.append((window_day, seg_key, window_notes))
+
+    return windows
+
+
+def _render_note_markdown(note: dict[str, Any]) -> str:
+    """Render a note as markdown for imported.md output."""
+    title = note.get("title", "Untitled")
+    lines = [f"## {title}"]
+
+    source_path = note.get("source_path", "")
+    if source_path:
+        lines.append(f"Source: {source_path}")
+
+    tags = note.get("tags", [])
+    if tags:
+        lines.append(f"Tags: {', '.join(tags)}")
+
+    wikilinks = note.get("wikilinks", [])
+    if wikilinks:
+        lines.append("Links: " + ", ".join(f"[[{link}]]" for link in wikilinks))
+
+    content = note.get("content", "")
+    if content:
+        stripped = _strip_frontmatter(content).strip()
+        if stripped:
+            lines.append("")
+            lines.append(stripped)
+
+    return "\n".join(lines)
 
 
 class ObsidianImporter:
@@ -149,14 +224,14 @@ class ObsidianImporter:
             date = _parse_daily_note_date(md_path.name)
             if date:
                 daily_count += 1
-                dates.append(date.strftime("%Y%m%d"))
             else:
                 knowledge_count += 1
-                try:
-                    mtime = dt.datetime.fromtimestamp(md_path.stat().st_mtime)
-                    dates.append(mtime.strftime("%Y%m%d"))
-                except OSError:
-                    pass
+
+            try:
+                mtime = dt.datetime.fromtimestamp(md_path.stat().st_mtime)
+                dates.append(mtime.strftime("%Y%m%d"))
+            except OSError:
+                pass
 
             content = _read_file_safe(md_path)
             if content:
@@ -189,11 +264,10 @@ class ObsidianImporter:
         facet: str | None = None,
         progress_callback: Callable | None = None,
     ) -> ImportResult:
-        import_id = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
         md_files = list(self._walk_md_files(path))
         total = len(md_files)
 
-        entries: list[dict[str, Any]] = []
+        notes: list[dict[str, Any]] = []
         all_wikilinks: set[str] = set()
         errors: list[str] = []
 
@@ -207,28 +281,21 @@ class ObsidianImporter:
 
             rel_path = str(md_path.relative_to(path))
             title = md_path.stem
+            is_daily = _parse_daily_note_date(md_path.name) is not None
 
-            # Classify as daily note or knowledge note
-            date = _parse_daily_note_date(md_path.name)
-            is_daily = date is not None
-            if date:
-                ts = dt.datetime.combine(date, dt.time()).isoformat()
-            else:
-                try:
-                    mtime = md_path.stat().st_mtime
-                    ts = dt.datetime.fromtimestamp(mtime).isoformat()
-                except OSError:
-                    ts = dt.datetime.now().isoformat()
+            # All notes use file mtime for segment placement (creation-moment principle)
+            try:
+                mtime = md_path.stat().st_mtime
+            except OSError:
+                mtime = dt.datetime.now().timestamp()
 
-            # Extract metadata
             tags = _parse_frontmatter_tags(content)
             wikilinks = WIKILINK_RE.findall(content)
             all_wikilinks.update(wikilinks)
 
-            entries.append(
+            notes.append(
                 {
-                    "type": "note",
-                    "ts": ts,
+                    "mtime": mtime,
                     "title": title,
                     "content": content,
                     "source_path": rel_path,
@@ -241,36 +308,56 @@ class ObsidianImporter:
             if progress_callback:
                 progress_callback(i + 1, total)
 
-        # Write to journal
-        created_files = write_structured_import(
-            "obsidian",
-            entries,
-            import_id=import_id,
-            facet=facet,
-        )
+        if not notes:
+            return ImportResult(
+                entries_written=0,
+                entities_seeded=0,
+                files_created=[],
+                errors=errors,
+                summary="No notes found to import",
+            )
+
+        notes.sort(key=lambda n: n["mtime"])
+
+        windows = _window_notes(notes)
+        created_files: list[str] = []
+        segments: list[tuple[str, str]] = []
+
+        for day, seg_key, window_notes_list in windows:
+            segment_dir = day_path(day) / "import.obsidian" / seg_key
+            segment_dir.mkdir(parents=True, exist_ok=True)
+            md_path = segment_dir / "imported.md"
+            markdown = "\n\n".join(
+                _render_note_markdown(note) for note in window_notes_list
+            )
+            md_path.write_text(markdown + "\n", encoding="utf-8")
+            created_files.append(str(md_path))
+            segments.append((day, seg_key))
 
         # Seed entities from wikilinks
         entities_seeded = 0
         if all_wikilinks and facet:
-            # Use the earliest date for seeding
-            dates = sorted(e["ts"] for e in entries)
-            day = (
-                dt.datetime.fromisoformat(dates[0]).strftime("%Y%m%d")
-                if dates
-                else dt.datetime.now().strftime("%Y%m%d")
-            )
+            day = segments[0][0] if segments else dt.datetime.now().strftime("%Y%m%d")
             entity_dicts = [
                 {"name": link, "type": "Topic"} for link in sorted(all_wikilinks)
             ]
             resolved = seed_entities(facet, day, entity_dicts)
             entities_seeded = len(resolved)
 
+        daily_count = sum(1 for n in notes if n["is_daily"])
+        knowledge_count = len(notes) - daily_count
+
         return ImportResult(
-            entries_written=len(entries),
+            entries_written=len(notes),
             entities_seeded=entities_seeded,
             files_created=created_files,
             errors=errors,
-            summary=f"Imported {len(entries)} notes ({sum(1 for e in entries if e['is_daily'])} daily, {sum(1 for e in entries if not e['is_daily'])} knowledge) across {len(created_files)} days",
+            summary=(
+                f"Imported {len(notes)} notes ({daily_count} daily, "
+                f"{knowledge_count} knowledge) across "
+                f"{len({d for d, _ in segments})} days into {len(segments)} segments"
+            ),
+            segments=segments,
         )
 
     def _walk_md_files(self, root: Path) -> list[Path]:

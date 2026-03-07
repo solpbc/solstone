@@ -1332,3 +1332,94 @@ def test_file_importer_writes_manifest(tmp_path, monkeypatch):
     assert len(manifests) == 1
     # No import.json (legacy audio import metadata)
     assert not list(imports_dir.rglob("import.json"))
+
+
+def test_obsidian_process_segments(tmp_path, monkeypatch):
+    """Obsidian importer writes creation-moment segments with markdown output."""
+    mod = importlib.import_module("think.importers.obsidian")
+
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / ".obsidian").mkdir()
+
+    # Note 1: knowledge note with frontmatter and wikilinks
+    note1 = vault / "Project Ideas.md"
+    note1.write_text(
+        "---\ntags: [work, ideas]\n---\n\nSome thoughts about [[Alpha]] and [[Beta]].\n"
+    )
+
+    # Note 2: another knowledge note, same 5-min window
+    note2 = vault / "Meeting Notes.md"
+    note2.write_text("Notes from meeting with [[Charlie]].\n")
+
+    # Note 3: daily note — still uses mtime for segment placement
+    note3 = vault / "2026-03-01.md"
+    note3.write_text("Daily log entry.\n")
+
+    # Set mtimes: note1 and note2 within 5 min window, note3 in a different window
+    import os
+
+    base_ts = dt.datetime(2026, 3, 15, 10, 0, 0).timestamp()
+    os.utime(note1, (base_ts, base_ts))
+    os.utime(note2, (base_ts + 60, base_ts + 60))  # 1 min later, same window
+    os.utime(note3, (base_ts + 600, base_ts + 600))  # 10 min later, different window
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    result = mod.ObsidianImporter().process(vault, tmp_path)
+
+    assert result.entries_written == 3
+    assert result.errors == []
+    assert len(result.segments) == 2
+    assert len(result.files_created) == 2
+
+    # Both segments on same day (20260315) since all mtimes are on that day
+    first_day, first_key = result.segments[0]
+    second_day, second_key = result.segments[1]
+    assert first_day == "20260315"
+    assert second_day == "20260315"
+    assert first_key == "100000_300"
+    assert second_key == "101000_300"
+
+    first_md = day_path("20260315") / "import.obsidian" / "100000_300" / "imported.md"
+    second_md = day_path("20260315") / "import.obsidian" / "101000_300" / "imported.md"
+    assert first_md.exists()
+    assert second_md.exists()
+
+    first_content = first_md.read_text()
+    assert "## Project Ideas" in first_content
+    assert "Tags: work, ideas" in first_content
+    assert "[[Alpha]]" in first_content
+    assert "[[Beta]]" in first_content
+    assert "Some thoughts about" in first_content
+    # Frontmatter should be stripped from content
+    assert "---" not in first_content
+    assert "## Meeting Notes" in first_content
+    assert "[[Charlie]]" in first_content
+
+    second_content = second_md.read_text()
+    assert "## 2026-03-01" in second_content
+    assert "Daily log entry." in second_content
+
+
+def test_obsidian_render_note_markdown():
+    """Test markdown rendering for a single note."""
+    mod = importlib.import_module("think.importers.obsidian")
+
+    note = {
+        "title": "Test Note",
+        "source_path": "subfolder/Test Note.md",
+        "tags": ["project", "draft"],
+        "wikilinks": ["Alice", "Project X"],
+        "content": "---\ntags: [project, draft]\n---\n\nMain content here.\n",
+    }
+
+    rendered = mod._render_note_markdown(note)
+
+    assert "## Test Note" in rendered
+    assert "Source: subfolder/Test Note.md" in rendered
+    assert "Tags: project, draft" in rendered
+    assert "Links: [[Alice]], [[Project X]]" in rendered
+    assert "Main content here." in rendered
+    # Frontmatter stripped
+    assert "---" not in rendered
