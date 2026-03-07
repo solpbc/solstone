@@ -3,8 +3,8 @@
 
 """Formatter for structured import JSONL files.
 
-Converts entries from file importers (ICS, Obsidian, Kindle, AI chat) into
-markdown chunks for the search index. Each entry type gets a source-appropriate
+Converts entries from file importers (ICS, Obsidian, Kindle) into markdown
+chunks for the search index. Each entry type gets a source-appropriate
 markdown representation.
 
 Import JSONL layout: YYYYMMDD/import.{source}/imported.jsonl
@@ -14,8 +14,12 @@ Import JSONL layout: YYYYMMDD/import.{source}/imported.jsonl
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any
+
+_SOURCE_LABELS = {"chatgpt": "ChatGPT", "claude": "Claude", "gemini": "Gemini"}
 
 
 def format_imported(
@@ -67,6 +71,90 @@ def format_imported(
     return chunks, meta
 
 
+def format_ai_chat(
+    entries: list[dict],
+    context: dict | None = None,
+) -> tuple[list[dict], dict]:
+    """Format AI chat import JSONL entries to markdown chunks."""
+    meta: dict[str, Any] = {}
+    chunks: list[dict[str, Any]] = []
+
+    if not entries:
+        return chunks, meta
+
+    metadata = entries[0] if entries and "start" not in entries[0] else {}
+    transcript_entries = [entry for entry in entries if "start" in entry]
+
+    source_key = "ai_chat"
+    source = "AI chat"
+    imported = metadata.get("imported", {})
+
+    ctx = context or {}
+    file_path = ctx.get("file_path")
+    if file_path:
+        parts = Path(str(file_path)).parts
+        for part in parts:
+            if part.startswith("import."):
+                source_key = part.replace("import.", "").lower()
+                source = _SOURCE_LABELS.get(source_key, source_key.capitalize())
+                break
+
+    meta["indexer"] = {"agent": f"import.{source_key}"}
+
+    model = metadata.get("model")
+    header_parts = [f"# {source} conversation"]
+    if model:
+        header_parts.append(f"Model: {model}")
+    if isinstance(imported, dict) and imported.get("facet"):
+        header_parts.append(f"Facet: {imported['facet']}")
+    meta["header"] = (
+        "\n".join(header_parts) if len(header_parts) > 1 else header_parts[0]
+    )
+
+    base_timestamp = 0
+    if file_path:
+        parts = Path(str(file_path)).parts
+        rev_parts = list(reversed(parts))
+        for i, part in enumerate(rev_parts):
+            if re.match(r"^\d{8}$", part):
+                day_str = part
+                from think.utils import segment_parse
+
+                for j in range(1, i):
+                    parsed_time, _ = segment_parse(rev_parts[j])
+                    if parsed_time is not None:
+                        day_date = datetime.strptime(day_str, "%Y%m%d").date()
+                        dt_obj = datetime.combine(day_date, parsed_time)
+                        base_timestamp = int(dt_obj.timestamp() * 1000)
+                        break
+                break
+
+    for entry in transcript_entries:
+        speaker = entry.get("speaker", "")
+        text = entry.get("text", "")
+        if not text:
+            continue
+
+        start = entry.get("start", "")
+        entry_timestamp = base_timestamp
+        if start:
+            try:
+                h, m, s = map(int, start.split(":"))
+                entry_timestamp = base_timestamp + (h * 3600 + m * 60 + s) * 1000
+            except (ValueError, AttributeError):
+                pass
+
+        chunks.append(
+            {
+                "timestamp": entry_timestamp,
+                "markdown": f"**{speaker}:** {text}",
+                "source": entry,
+            }
+        )
+
+    return chunks, meta
+
+
 def _format_entry(entry_type: str, entry: dict) -> str:
     """Dispatch to type-specific formatter."""
     if entry_type == "calendar_event":
@@ -75,8 +163,6 @@ def _format_entry(entry_type: str, entry: dict) -> str:
         return _format_note(entry)
     elif entry_type == "highlight":
         return _format_highlight(entry)
-    elif entry_type == "ai_chat":
-        return _format_ai_chat(entry)
     else:
         return _format_generic(entry)
 
@@ -175,23 +261,6 @@ def _format_highlight(entry: dict) -> str:
         else:
             lines.append("")
             lines.append(f"> {content}")
-
-    return "\n".join(lines)
-
-
-def _format_ai_chat(entry: dict) -> str:
-    """Format an AI chat conversation entry."""
-    title = entry.get("title", "Untitled conversation")
-    source = entry.get("source", "ai")
-    msg_count = entry.get("message_count", 0)
-
-    lines = [f"## {title}"]
-    lines.append(f"{source} conversation, {msg_count} messages")
-
-    content = entry.get("content", "")
-    if content:
-        lines.append("")
-        lines.append(content)
 
     return "\n".join(lines)
 

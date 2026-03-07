@@ -147,6 +147,22 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
         True,
     ),
     "*/import.*/*/imported.md": ("think.markdown", "format_markdown", True),
+    # AI chat imports — dedicated formatter (must precede generic *_audio.jsonl)
+    "*/import.chatgpt/*/imported_audio.jsonl": (
+        "think.importers.formatting",
+        "format_ai_chat",
+        True,
+    ),
+    "*/import.claude/*/imported_audio.jsonl": (
+        "think.importers.formatting",
+        "format_ai_chat",
+        True,
+    ),
+    "*/import.gemini/*/imported_audio.jsonl": (
+        "think.importers.formatting",
+        "format_ai_chat",
+        True,
+    ),
     # Raw transcripts — formattable but not indexed (agent outputs are more useful)
     # Layout: day/stream/segment/audio.jsonl
     "*/*/*/audio.jsonl": ("observe.hear", "format_audio", False),
