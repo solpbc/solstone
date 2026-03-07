@@ -449,6 +449,7 @@ class ICSImporter:
             "ics",
             windows,
             lambda items: "\n\n".join(_render_event_markdown(e) for e in items),
+            filename="event_transcript.md",
         )
 
         segment_days = {day for day, _ in segments}

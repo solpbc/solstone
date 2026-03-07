@@ -10,7 +10,7 @@
   "priority": 10,
   "output": "md",
   "instructions": {
-    "sources": {"audio": true, "screen": false, "agents": {"screen": true}}
+    "sources": {"transcripts": true, "screen": false, "agents": {"screen": true}}
   }
 
 }

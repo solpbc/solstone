@@ -141,7 +141,7 @@ def test_process_basic():
 
                 md_path = Path(result.files_created[0])
                 assert md_path.exists()
-                assert md_path.name == "imported.md"
+                assert md_path.name == "highlights_transcript.md"
                 md = md_path.read_text()
                 assert "Test Book" in md
                 assert "> This is a highlighted passage." in md

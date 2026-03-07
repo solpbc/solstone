@@ -21,7 +21,7 @@ from think.muse import (
 
 def test_merge_instructions_config_empty_overrides():
     """Test that empty overrides returns defaults copy."""
-    defaults = {"system": "journal", "facets": True, "sources": {"audio": False}}
+    defaults = {"system": "journal", "facets": True, "sources": {"transcripts": False}}
     result = _merge_instructions_config(defaults, None)
     assert result == defaults
     assert result is not defaults  # Should be a copy
@@ -29,20 +29,20 @@ def test_merge_instructions_config_empty_overrides():
 
 def test_merge_instructions_config_with_overrides():
     """Test that overrides are merged correctly."""
-    defaults = {"system": "journal", "facets": True, "sources": {"audio": False}}
+    defaults = {"system": "journal", "facets": True, "sources": {"transcripts": False}}
     overrides = {"system": "custom", "facets": False}
     result = _merge_instructions_config(defaults, overrides)
     assert result["system"] == "custom"
     assert result["facets"] is False
-    assert result["sources"] == {"audio": False}  # Preserved
+    assert result["sources"] == {"transcripts": False}  # Preserved
 
 
 def test_merge_instructions_config_sources_merge():
     """Test that sources dict is merged, not replaced."""
-    defaults = {"system": None, "sources": {"audio": False, "screen": False}}
-    overrides = {"sources": {"audio": True}}
+    defaults = {"system": None, "sources": {"transcripts": False, "screen": False}}
+    overrides = {"sources": {"transcripts": True}}
     result = _merge_instructions_config(defaults, overrides)
-    assert result["sources"]["audio"] is True  # Overridden
+    assert result["sources"]["transcripts"] is True  # Overridden
     assert result["sources"]["screen"] is False  # Preserved from defaults
 
 
@@ -235,7 +235,7 @@ class TestComposeInstructions:
         result = compose_instructions()
 
         assert "sources" in result
-        assert result["sources"]["audio"] is False
+        assert result["sources"]["transcripts"] is False
         assert result["sources"]["screen"] is False
         assert result["sources"]["agents"] is False
 
@@ -251,11 +251,11 @@ class TestComposeInstructions:
 
         result = compose_instructions(
             config_overrides={
-                "sources": {"audio": True, "agents": True},
+                "sources": {"transcripts": True, "agents": True},
             },
         )
 
-        assert result["sources"]["audio"] is True  # Overridden
+        assert result["sources"]["transcripts"] is True  # Overridden
         assert result["sources"]["screen"] is False  # Default preserved
         assert result["sources"]["agents"] is True  # Overridden
 

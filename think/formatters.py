@@ -146,8 +146,26 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
         "format_imported",
         True,
     ),
+    # Markdown transcript imports (new convention + legacy)
+    "*/import.*/*/*_transcript.md": ("think.markdown", "format_markdown", True),
     "*/import.*/*/imported.md": ("think.markdown", "format_markdown", True),
-    # AI chat imports — dedicated formatter (must precede generic *_audio.jsonl)
+    # AI chat imports — dedicated formatter (new + legacy filenames)
+    "*/import.chatgpt/*/conversation_transcript.jsonl": (
+        "think.importers.formatting",
+        "format_ai_chat",
+        True,
+    ),
+    "*/import.claude/*/conversation_transcript.jsonl": (
+        "think.importers.formatting",
+        "format_ai_chat",
+        True,
+    ),
+    "*/import.gemini/*/conversation_transcript.jsonl": (
+        "think.importers.formatting",
+        "format_ai_chat",
+        True,
+    ),
+    # Legacy AI chat import filenames (backward compat)
     "*/import.chatgpt/*/imported_audio.jsonl": (
         "think.importers.formatting",
         "format_ai_chat",
@@ -167,6 +185,7 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     # Layout: day/stream/segment/audio.jsonl
     "*/*/*/audio.jsonl": ("observe.hear", "format_audio", False),
     "*/*/*/*_audio.jsonl": ("observe.hear", "format_audio", False),
+    "*/*/*/*_transcript.jsonl": ("observe.hear", "format_audio", False),
     "*/*/*/screen.jsonl": ("observe.screen", "format_screen", False),
     "*/*/*/*_screen.jsonl": ("observe.screen", "format_screen", False),
     # Markdown — specific journal paths (all indexed)

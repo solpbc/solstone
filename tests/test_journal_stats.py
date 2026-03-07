@@ -53,8 +53,8 @@ def test_scan_day(tmp_path, monkeypatch):
     js = stats_mod.JournalStats()
     day_data = js.scan_day("20240101", str(day))
     js._apply_day_stats("20240101", day_data)
-    assert js.days["20240101"]["audio_sessions"] == 1
-    assert js.days["20240101"]["audio_segments"] == 2
+    assert js.days["20240101"]["transcript_sessions"] == 1
+    assert js.days["20240101"]["transcript_segments"] == 2
     assert (
         js.days["20240101"]["pending_segments"] == 1
     )  # Both files belong to same segment
@@ -171,7 +171,7 @@ def test_token_usage(tmp_path, monkeypatch):
     data = js.to_dict()
     assert "token_usage_by_day" in data
     assert "token_totals_by_model" in data
-    assert "total_audio_duration" in data
+    assert "total_transcript_duration" in data
     assert "total_screen_duration" in data
     assert (
         data["token_usage_by_day"]["20240101"]["gemini-2.5-flash"]["total_tokens"]
@@ -200,25 +200,25 @@ def test_caching(tmp_path, monkeypatch):
     # First scan - should create cache
     js1 = stats_mod.JournalStats()
     js1.scan(str(journal), verbose=False, use_cache=True)
-    assert js1.days["20240101"]["audio_sessions"] == 1
+    assert js1.days["20240101"]["transcript_sessions"] == 1
     assert (day / "stats.json").exists()
 
     # Load cache and verify contents
     with open(day / "stats.json") as f:
         cached = json.load(f)
-    assert cached["stats"]["audio_sessions"] == 1
-    assert cached["stats"]["audio_segments"] == 2
+    assert cached["stats"]["transcript_sessions"] == 1
+    assert cached["stats"]["transcript_segments"] == 2
 
     # Second scan - should use cache
     js2 = stats_mod.JournalStats()
     js2.scan(str(journal), verbose=False, use_cache=True)
-    assert js2.days["20240101"]["audio_sessions"] == 1
-    assert js2.days["20240101"]["audio_segments"] == 2
+    assert js2.days["20240101"]["transcript_sessions"] == 1
+    assert js2.days["20240101"]["transcript_segments"] == 2
 
     # Third scan with --no-cache - should re-scan
     js3 = stats_mod.JournalStats()
     js3.scan(str(journal), verbose=False, use_cache=False)
-    assert js3.days["20240101"]["audio_sessions"] == 1
+    assert js3.days["20240101"]["transcript_sessions"] == 1
 
 
 def test_token_usage_new_format(tmp_path, monkeypatch):

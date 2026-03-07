@@ -29,12 +29,12 @@ def test_cluster_full(tmp_path, monkeypatch):
     copy_day(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     md, counts = mod.cluster(
-        "20240101", sources={"audio": True, "screen": False, "agents": True}
+        "20240101", sources={"transcripts": True, "screen": False, "agents": True}
     )
-    # Audio entries come from 2 segments on 20240101 (default + import.apple)
-    assert counts["audio"] == 2
+    # Transcript entries come from 2 segments on 20240101 (default + import.apple)
+    assert counts["transcripts"] == 2
     assert counts["agents"] == 2  # audio.md + screen.md
-    assert "Audio Transcript" in md
+    assert "### Transcript" in md
     # Now uses insight format: "### {stem} summary"
     assert "### screen summary" in md
     assert "### audio summary" in md
@@ -45,7 +45,7 @@ def test_cluster_default_sources(tmp_path, monkeypatch):
     copy_day(tmp_path)
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     out, _counts = mod.cluster(
-        "20240101", sources={"audio": True, "screen": False, "agents": True}
+        "20240101", sources={"transcripts": True, "screen": False, "agents": True}
     )
     # Now uses insight format: "### {stem} summary"
     assert "### screen summary" in out
@@ -59,7 +59,7 @@ def test_cluster_range_raw_screen(tmp_path, monkeypatch):
         "20240101",
         "123456",
         "123556",
-        sources={"audio": True, "screen": True, "agents": False},
+        sources={"transcripts": True, "screen": True, "agents": False},
     )
     # Range mode with screen=True uses raw screen data.
     assert "### Screen Activity" in out

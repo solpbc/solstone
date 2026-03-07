@@ -281,6 +281,7 @@ class ObsidianImporter:
             "obsidian",
             windows,
             lambda items: "\n\n".join(_render_note_markdown(n) for n in items),
+            filename="note_transcript.md",
         )
 
         # Seed entities from wikilinks

@@ -37,11 +37,11 @@ def scan(
 ) -> None:
     """List transcript coverage ranges for a day."""
     day = resolve_sol_day(day)
-    audio_ranges, screen_ranges = cluster_scan(day)
+    transcript_ranges, screen_ranges = cluster_scan(day)
 
-    typer.echo("Audio:")
-    if audio_ranges:
-        for start, end in audio_ranges:
+    typer.echo("Transcripts:")
+    if transcript_ranges:
+        for start, end in transcript_ranges:
             typer.echo(f"  {start} - {end}")
     else:
         typer.echo("  (none)")
@@ -89,10 +89,11 @@ def read(
         None, "--stream", help="Stream name (default: SOL_STREAM env)."
     ),
     full: bool = typer.Option(
-        False, "--full", help="Include audio, screen, and agents."
+        False, "--full", help="Include transcripts, screen, and agents."
     ),
-    raw: bool = typer.Option(False, "--raw", help="Include audio and screen only."),
-    audio: bool = typer.Option(False, "--audio", help="Include audio transcripts."),
+    raw: bool = typer.Option(False, "--raw", help="Include transcripts and screen only."),
+    transcripts: bool = typer.Option(False, "--transcripts", help="Include transcript content."),
+    audio: bool = typer.Option(False, "--audio", help="Alias for --transcripts.", hidden=True),
     screen: bool = typer.Option(False, "--screen", help="Include screen transcripts."),
     agents: bool = typer.Option(False, "--agents", help="Include agent outputs."),
     max_bytes: int = typer.Option(
@@ -103,24 +104,27 @@ def read(
     day = resolve_sol_day(day)
     segment = resolve_sol_segment(segment)
     stream = stream or get_sol_stream()
+    # --audio is an alias for --transcripts
+    transcripts = transcripts or audio
+
     if full and raw:
         typer.echo("Error: Cannot use --full and --raw together.", err=True)
         raise typer.Exit(1)
 
-    if (full or raw) and (audio or screen or agents):
+    if (full or raw) and (transcripts or screen or agents):
         typer.echo(
             "Error: Cannot mix --full/--raw with individual source flags.", err=True
         )
         raise typer.Exit(1)
 
     if full:
-        sources: dict[str, bool] = {"audio": True, "screen": True, "agents": True}
+        sources: dict[str, bool] = {"transcripts": True, "screen": True, "agents": True}
     elif raw:
-        sources = {"audio": True, "screen": True, "agents": False}
-    elif audio or screen or agents:
-        sources = {"audio": audio, "screen": screen, "agents": agents}
+        sources = {"transcripts": True, "screen": True, "agents": False}
+    elif transcripts or screen or agents:
+        sources = {"transcripts": transcripts, "screen": screen, "agents": agents}
     else:
-        sources = {"audio": True, "screen": False, "agents": True}
+        sources = {"transcripts": True, "screen": False, "agents": True}
 
     if segment and (start or length is not None):
         typer.echo("Error: Cannot mix --segment with --start/--length.", err=True)
@@ -151,10 +155,10 @@ def stats(month: str = typer.Argument(help="Month (YYYYMM).")) -> None:
 
     days_with_data = 0
     for day in days:
-        audio_ranges, screen_ranges = cluster_scan(day)
-        if audio_ranges or screen_ranges:
+        transcript_ranges, screen_ranges = cluster_scan(day)
+        if transcript_ranges or screen_ranges:
             days_with_data += 1
-            typer.echo(f"{day}  audio:{len(audio_ranges)} screen:{len(screen_ranges)}")
+            typer.echo(f"{day}  transcripts:{len(transcript_ranges)} screen:{len(screen_ranges)}")
 
     if not days_with_data:
         typer.echo(f"No data for {month}.")

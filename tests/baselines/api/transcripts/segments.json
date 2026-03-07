@@ -6,7 +6,7 @@
       "start": "09:00",
       "stream": "default",
       "types": [
-        "audio",
+        "transcripts",
         "screen"
       ]
     },
@@ -16,7 +16,7 @@
       "start": "14:00",
       "stream": "default",
       "types": [
-        "audio",
+        "transcripts",
         "screen"
       ]
     },
@@ -26,7 +26,7 @@
       "start": "18:00",
       "stream": "default",
       "types": [
-        "audio",
+        "transcripts",
         "screen"
       ]
     }

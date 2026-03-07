@@ -9,7 +9,7 @@ from think.utils import day_path
 
 
 def test_cluster(tmp_path, monkeypatch):
-    """Test cluster() uses audio and agent output summaries (*.md files)."""
+    """Test cluster() uses transcripts and agent output summaries (*.md files)."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     day_dir = day_path("20240101")
 
@@ -25,17 +25,17 @@ def test_cluster(tmp_path, monkeypatch):
         "screen summary"
     )
     result, counts = mod.cluster(
-        "20240101", sources={"audio": True, "screen": False, "agents": True}
+        "20240101", sources={"transcripts": True, "screen": False, "agents": True}
     )
-    assert counts["audio"] == 1
+    assert counts["transcripts"] == 1
     assert counts["agents"] == 1
-    assert "Audio Transcript" in result
+    assert "### Transcript" in result
     # Now uses insight rendering: "### {stem} summary"
     assert "screen summary" in result
 
 
 def test_cluster_range(tmp_path, monkeypatch):
-    """Test cluster_range with audio and agents sources."""
+    """Test cluster_range with transcripts and agents sources."""
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     day_dir = day_path("20240101")
 
@@ -55,10 +55,10 @@ def test_cluster_range(tmp_path, monkeypatch):
         "20240101",
         "120000",
         "120100",
-        sources={"audio": True, "screen": False, "agents": True},
+        sources={"transcripts": True, "screen": False, "agents": True},
     )
     # Check that the function works and includes expected sections
-    assert "Audio Transcript" in md
+    assert "### Transcript" in md
     # Now uses insight rendering: "### {stem} summary"
     assert "screen summary" in md
     assert "screen summary content" in md
@@ -134,13 +134,13 @@ def test_cluster_segments(tmp_path, monkeypatch):
     assert segments[0]["key"] == "090000_300"
     assert segments[0]["start"] == "09:00"
     assert segments[0]["end"] == "09:05"
-    assert segments[0]["types"] == ["audio"]
+    assert segments[0]["types"] == ["transcripts"]
 
-    # Check second segment (both audio and screen)
+    # Check second segment (both transcripts and screen)
     assert segments[1]["key"] == "100000_600"
     assert segments[1]["start"] == "10:00"
     assert segments[1]["end"] == "10:10"
-    assert "audio" in segments[1]["types"]
+    assert "transcripts" in segments[1]["types"]
     assert "screen" in segments[1]["types"]
 
     # Check third segment (screen only)
@@ -176,13 +176,13 @@ def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
     result, counts = mod.cluster_period(
         "20240101",
         "100000_300",
-        sources={"audio": True, "screen": True, "agents": False},
+        sources={"transcripts": True, "screen": True, "agents": False},
     )
 
-    # Should have both audio and screen entries
-    assert counts["audio"] == 1
+    # Should have both transcript and screen entries
+    assert counts["transcripts"] == 1
     assert counts["screen"] == 1
-    assert "Audio Transcript" in result
+    assert "### Transcript" in result
     # Should use raw screen format header
     assert "Screen Activity" in result
     # Raw screen content should be present
@@ -218,10 +218,10 @@ def test_cluster_range_with_agents(tmp_path, monkeypatch):
         "20240101",
         "100000",
         "100500",
-        sources={"audio": True, "screen": False, "agents": True},
+        sources={"transcripts": True, "screen": False, "agents": True},
     )
 
-    assert "Audio Transcript" in result
+    assert "### Transcript" in result
     # Should include both .md files as agent outputs
     assert "### screen summary" in result
     assert "Screen activity summary" in result
@@ -253,7 +253,7 @@ def test_cluster_range_with_screen(tmp_path, monkeypatch):
         "20240101",
         "100000",
         "100500",
-        sources={"audio": False, "screen": True, "agents": False},
+        sources={"transcripts": False, "screen": True, "agents": False},
     )
 
     assert "Screen Activity" in result
@@ -289,7 +289,7 @@ def test_cluster_range_with_multiple_screen_files(tmp_path, monkeypatch):
         "20240101",
         "100000",
         "100500",
-        sources={"audio": False, "screen": True, "agents": False},
+        sources={"transcripts": False, "screen": True, "agents": False},
     )
 
     # Should include content from both screen files
@@ -367,11 +367,11 @@ def test_cluster_span(tmp_path, monkeypatch):
     result, counts = mod.cluster_span(
         "20240101",
         ["090000_300", "110000_300"],
-        sources={"audio": True, "screen": False, "agents": False},
+        sources={"transcripts": True, "screen": False, "agents": False},
     )
 
-    # Should have 2 audio entries (one per segment)
-    assert counts["audio"] == 2
+    # Should have 2 transcript entries (one per segment)
+    assert counts["transcripts"] == 2
     assert counts["screen"] == 0
     assert "morning segment" in result
     assert "late morning segment" in result
@@ -398,7 +398,7 @@ def test_cluster_span_missing_segment(tmp_path, monkeypatch):
         mod.cluster_span(
             "20240101",
             ["090000_300", "100000_300"],
-            sources={"audio": True, "screen": False, "agents": False},
+            sources={"transcripts": True, "screen": False, "agents": False},
         )
 
     assert "100000_300" in str(exc_info.value)
@@ -424,10 +424,10 @@ def test_cluster_with_agent_filter_dict(tmp_path, monkeypatch):
     # Test filtering to only include entities
     result, counts = mod.cluster(
         "20240101",
-        sources={"audio": True, "screen": False, "agents": {"entities": True}},
+        sources={"transcripts": True, "screen": False, "agents": {"entities": True}},
     )
 
-    assert counts["audio"] == 1
+    assert counts["transcripts"] == 1
     assert counts["agents"] == 1  # Only entities should be counted
     assert "Entity extraction results" in result
     assert "Meeting summary results" not in result
@@ -454,13 +454,13 @@ def test_cluster_with_agent_filter_multiple(tmp_path, monkeypatch):
     result, counts = mod.cluster(
         "20240101",
         sources={
-            "audio": True,
+            "transcripts": True,
             "screen": False,
             "agents": {"entities": True, "meetings": "required", "flow": False},
         },
     )
 
-    assert counts["audio"] == 1
+    assert counts["transcripts"] == 1
     assert counts["agents"] == 2  # entities + meetings
     assert "Entity extraction results" in result
     assert "Meeting summary results" in result
@@ -487,13 +487,13 @@ def test_cluster_with_agent_filter_app_namespaced(tmp_path, monkeypatch):
     result, counts = mod.cluster(
         "20240101",
         sources={
-            "audio": True,
+            "transcripts": True,
             "screen": False,
             "agents": {"entities": False, "todos:review": True},
         },
     )
 
-    assert counts["audio"] == 1
+    assert counts["transcripts"] == 1
     assert counts["agents"] == 1  # Only todos:review
     assert "System entity results" not in result
     assert "Todos review results" in result
@@ -515,10 +515,10 @@ def test_cluster_with_empty_agent_filter(tmp_path, monkeypatch):
     # Empty dict should mean no agents
     result, counts = mod.cluster(
         "20240101",
-        sources={"audio": True, "screen": False, "agents": {}},
+        sources={"transcripts": True, "screen": False, "agents": {}},
     )
 
-    assert counts["audio"] == 1
+    assert counts["transcripts"] == 1
     assert counts["agents"] == 0
     assert "Entity extraction results" not in result
 

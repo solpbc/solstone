@@ -124,8 +124,8 @@ def test_importer_text(tmp_path, monkeypatch):
     # Duration: seg1 starts at 12:00:00, seg2 at 12:05:00 = 300s duration
     # Last segment (seg2) defaults to 5s since no audio duration
     # Segments are under stream directory (import.text for .txt files)
-    f1 = day_dir / "import.text" / "120000_300" / "imported_audio.jsonl"
-    f2 = day_dir / "import.text" / "120500_5" / "imported_audio.jsonl"
+    f1 = day_dir / "import.text" / "120000_300" / "conversation_transcript.jsonl"
+    f2 = day_dir / "import.text" / "120500_5" / "conversation_transcript.jsonl"
 
     # Read JSONL format: first line is metadata, subsequent lines are entries
     lines1 = f1.read_text().strip().split("\n")
@@ -222,7 +222,7 @@ def test_importer_pdf(tmp_path, monkeypatch):
 
     day_dir = day_path("20251205")
     # Single segment, last segment defaults to 5s
-    f1 = day_dir / "import.text" / "163000_5" / "imported_audio.jsonl"
+    f1 = day_dir / "import.text" / "163000_5" / "conversation_transcript.jsonl"
     assert f1.exists()
 
     lines = f1.read_text().strip().split("\n")
@@ -283,7 +283,7 @@ def test_write_segment(tmp_path):
     written = Path(json_path)
     assert (
         written
-        == tmp_path / "20240101" / "import.text" / "120000_300" / "imported_audio.jsonl"
+        == tmp_path / "20240101" / "import.text" / "120000_300" / "conversation_transcript.jsonl"
     )
     assert written.exists()
 
@@ -420,13 +420,13 @@ def test_chatgpt_importer_segments(tmp_path, monkeypatch):
     assert len(result.files_created) == 3
 
     first_segment = (
-        day_path("20260115") / "import.chatgpt" / "120000_300" / "imported_audio.jsonl"
+        day_path("20260115") / "import.chatgpt" / "120000_300" / "conversation_transcript.jsonl"
     )
     second_segment = (
-        day_path("20260115") / "import.chatgpt" / "120501_300" / "imported_audio.jsonl"
+        day_path("20260115") / "import.chatgpt" / "120501_300" / "conversation_transcript.jsonl"
     )
     third_segment = (
-        day_path("20260116") / "import.chatgpt" / "000000_300" / "imported_audio.jsonl"
+        day_path("20260116") / "import.chatgpt" / "000000_300" / "conversation_transcript.jsonl"
     )
 
     assert first_segment.exists()
@@ -551,13 +551,13 @@ def test_claude_chat_importer_segments(tmp_path, monkeypatch):
     assert len(result.files_created) == 3
 
     first_segment = (
-        day_path("20260115") / "import.claude" / "120000_300" / "imported_audio.jsonl"
+        day_path("20260115") / "import.claude" / "120000_300" / "conversation_transcript.jsonl"
     )
     second_segment = (
-        day_path("20260115") / "import.claude" / "120501_300" / "imported_audio.jsonl"
+        day_path("20260115") / "import.claude" / "120501_300" / "conversation_transcript.jsonl"
     )
     third_segment = (
-        day_path("20260116") / "import.claude" / "000000_300" / "imported_audio.jsonl"
+        day_path("20260116") / "import.claude" / "000000_300" / "conversation_transcript.jsonl"
     )
 
     assert first_segment.exists()
@@ -621,10 +621,10 @@ def test_format_audio_stream_path():
         {"start": "12:00:30", "speaker": "Bob", "text": "Hi there"},
     ]
 
-    # Stream-based path: day/stream/segment/imported_audio.jsonl
+    # Stream-based path: day/stream/segment/conversation_transcript.jsonl
     context = {
         "file_path": Path(
-            "/journal/20240101/import.text/120000_300/imported_audio.jsonl"
+            "/journal/20240101/import.text/120000_300/conversation_transcript.jsonl"
         )
     }
     chunks, meta = format_audio(entries, context)
@@ -1251,8 +1251,8 @@ END:VCALENDAR"""
 
     result = mod.ICSImporter().process(ics_path, tmp_path, facet="work")
 
-    first_md = day_path("20260301") / "import.ics" / "120000_300" / "imported.md"
-    second_md = day_path("20260302") / "import.ics" / "090000_300" / "imported.md"
+    first_md = day_path("20260301") / "import.ics" / "120000_300" / "event_transcript.md"
+    second_md = day_path("20260302") / "import.ics" / "090000_300" / "event_transcript.md"
 
     assert result.entries_written == 4
     assert result.errors == []
@@ -1480,8 +1480,8 @@ def test_obsidian_process_segments(tmp_path, monkeypatch):
     assert first_key == "100000_300"
     assert second_key == "101000_300"
 
-    first_md = day_path("20260315") / "import.obsidian" / "100000_300" / "imported.md"
-    second_md = day_path("20260315") / "import.obsidian" / "101000_300" / "imported.md"
+    first_md = day_path("20260315") / "import.obsidian" / "100000_300" / "note_transcript.md"
+    second_md = day_path("20260315") / "import.obsidian" / "101000_300" / "note_transcript.md"
     assert first_md.exists()
     assert second_md.exists()
 

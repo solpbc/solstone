@@ -22,7 +22,7 @@ class JournalStats:
     def __init__(self) -> None:
         self.days: Dict[str, Dict[str, float | int]] = {}
         self.totals: Counter[str] = Counter()
-        self.total_audio_duration = 0.0
+        self.total_transcript_duration = 0.0
         self.total_screen_duration = 0.0
         self.agent_counts: Counter[str] = Counter()
         self.agent_minutes: Counter[str] = Counter()
@@ -43,6 +43,8 @@ class JournalStats:
         files = []
         # Check segment subdirectories for processed files (day/stream/segment/)
         files.extend(day_dir.glob("*/*/*audio.jsonl"))
+        files.extend(day_dir.glob("*/*/*_transcript.jsonl"))
+        files.extend(day_dir.glob("*/*/*_transcript.md"))
         files.extend(day_dir.glob("*/*/*screen.jsonl"))
         # Check day root for unprocessed media files
         files.extend(day_dir.glob("*.flac"))
@@ -130,12 +132,12 @@ class JournalStats:
         counts_for_totals = {
             k: v
             for k, v in stats.items()
-            if k not in ("audio_duration", "screen_duration")
+            if k not in ("transcript_duration", "screen_duration")
         }
         self.totals.update(counts_for_totals)
 
         # Accumulate durations
-        self.total_audio_duration += stats.get("audio_duration", 0.0)
+        self.total_transcript_duration += stats.get("transcript_duration", 0.0)
         self.total_screen_duration += stats.get("screen_duration", 0.0)
 
         # Apply agent data
@@ -172,7 +174,7 @@ class JournalStats:
     def scan_day(self, day: str, path: str) -> dict:
         """Scan a single day and return stats dict for caching."""
         stats: Counter[str] = Counter()
-        audio_duration = 0.0
+        transcript_duration = 0.0
         screen_duration = 0.0
         day_dir = Path(path)
 
@@ -181,19 +183,20 @@ class JournalStats:
         facet_data = {}
         heatmap_hours = {}
 
-        # --- Audio sessions ---
-        # Check segment subdirectories for audio files (day/stream/segment/)
-        audio_files = list(day_dir.glob("*/*/audio.jsonl"))
-        audio_files.extend(day_dir.glob("*/*/*_audio.jsonl"))  # Split audio files
-        for jsonl_file in sorted(audio_files):
-            stats["audio_sessions"] += 1
+        # --- Transcript sessions ---
+        # Check segment subdirectories for transcript JSONL files (day/stream/segment/)
+        transcript_files = list(day_dir.glob("*/*/audio.jsonl"))
+        transcript_files.extend(day_dir.glob("*/*/*_audio.jsonl"))
+        transcript_files.extend(day_dir.glob("*/*/*_transcript.jsonl"))
+        for jsonl_file in sorted(set(transcript_files)):
+            stats["transcript_sessions"] += 1
 
             try:
                 with open(jsonl_file, encoding="utf-8") as f:
                     lines = [line.strip() for line in f if line.strip()]
 
                 if not lines:
-                    logger.debug(f"Empty audio file: {jsonl_file}")
+                    logger.debug(f"Empty transcript file: {jsonl_file}")
                     continue
 
                 # First line is metadata, rest are segments
@@ -205,15 +208,15 @@ class JournalStats:
                         logger.debug(f"Invalid JSON at line {i} in {jsonl_file}: {e}")
                         continue
 
-                stats["audio_segments"] += len(segments)
+                stats["transcript_segments"] += len(segments)
 
                 # Calculate duration from timestamps
                 if segments:
                     duration = self._calculate_audio_duration(segments)
-                    audio_duration += duration
+                    transcript_duration += duration
 
             except (OSError, IOError) as e:
-                logger.warning(f"Error reading audio file {jsonl_file}: {e}")
+                logger.warning(f"Error reading transcript file {jsonl_file}: {e}")
             except Exception as e:
                 logger.warning(f"Unexpected error processing {jsonl_file}: {e}")
 
@@ -324,7 +327,7 @@ class JournalStats:
         )
 
         # --- Build return dict ---
-        stats["audio_duration"] = audio_duration
+        stats["transcript_duration"] = transcript_duration
         stats["screen_duration"] = screen_duration
 
         return {
@@ -456,7 +459,7 @@ class JournalStats:
             )
             logger.info(
                 f"Scanned {len(self.days)} days, "
-                f"{self.totals.get('audio_sessions', 0)} audio sessions, "
+                f"{self.totals.get('transcript_sessions', 0)} transcript sessions, "
                 f"{self.totals.get('screen_sessions', 0)} screen sessions"
                 f"{cache_status}"
             )
@@ -466,7 +469,7 @@ class JournalStats:
         return {
             "days": self.days,
             "totals": dict(self.totals),
-            "total_audio_duration": self.total_audio_duration,
+            "total_transcript_duration": self.total_transcript_duration,
             "total_screen_duration": self.total_screen_duration,
             "agent_counts": dict(self.agent_counts),
             "agent_minutes": {k: round(v, 2) for k, v in self.agent_minutes.items()},

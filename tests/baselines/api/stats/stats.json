@@ -12,8 +12,8 @@
         "facets": false,
         "sources": {
           "agents": false,
-          "audio": false,
-          "screen": false
+          "screen": false,
+          "transcripts": false
         }
       },
       "max_output_tokens": 2048,
@@ -35,8 +35,8 @@
         "facets": true,
         "sources": {
           "agents": false,
-          "audio": true,
-          "screen": true
+          "screen": true,
+          "transcripts": true
         }
       },
       "mtime": 0,
@@ -59,8 +59,8 @@
         "facets": true,
         "sources": {
           "agents": false,
-          "audio": true,
-          "screen": true
+          "screen": true,
+          "transcripts": true
         }
       },
       "max_output_tokens": 3072,
@@ -89,8 +89,8 @@
           "agents": {
             "screen": true
           },
-          "audio": true,
-          "screen": false
+          "screen": false,
+          "transcripts": true
         }
       },
       "max_output_tokens": 512,
@@ -120,8 +120,8 @@
           "agents": {
             "screen": true
           },
-          "audio": true,
-          "screen": false
+          "screen": false,
+          "transcripts": true
         }
       },
       "mtime": 0,
@@ -144,8 +144,8 @@
         "facets": false,
         "sources": {
           "agents": false,
-          "audio": true,
-          "screen": true
+          "screen": true,
+          "transcripts": true
         }
       },
       "max_output_tokens": 1024,
@@ -166,8 +166,8 @@
         "facets": true,
         "sources": {
           "agents": true,
-          "audio": false,
-          "screen": false
+          "screen": false,
+          "transcripts": false
         }
       },
       "max_output_tokens": 512,
@@ -194,8 +194,8 @@
           "agents": {
             "screen": true
           },
-          "audio": true,
-          "screen": false
+          "screen": false,
+          "transcripts": true
         }
       },
       "mtime": 0,
@@ -224,8 +224,8 @@
           "agents": {
             "screen": true
           },
-          "audio": true,
-          "screen": false
+          "screen": false,
+          "transcripts": true
         }
       },
       "mtime": 0,
@@ -250,8 +250,8 @@
           "agents": {
             "screen": true
           },
-          "audio": true,
-          "screen": false
+          "screen": false,
+          "transcripts": true
         }
       },
       "mtime": 0,
@@ -280,8 +280,8 @@
           "agents": {
             "screen": true
           },
-          "audio": true,
-          "screen": false
+          "screen": false,
+          "transcripts": true
         }
       },
       "mtime": 0,
@@ -311,8 +311,8 @@
           "agents": {
             "screen": true
           },
-          "audio": true,
-          "screen": false
+          "screen": false,
+          "transcripts": true
         }
       },
       "mtime": 0,
@@ -335,8 +335,8 @@
       "instructions": {
         "sources": {
           "agents": false,
-          "audio": true,
-          "screen": true
+          "screen": true,
+          "transcripts": true
         }
       },
       "max_output_tokens": 2048,
@@ -362,8 +362,8 @@
           "agents": {
             "screen": true
           },
-          "audio": true,
-          "screen": false
+          "screen": false,
+          "transcripts": true
         }
       },
       "mtime": 0,
@@ -381,8 +381,8 @@
       "instructions": {
         "sources": {
           "agents": false,
-          "audio": true,
-          "screen": "required"
+          "screen": "required",
+          "transcripts": true
         }
       },
       "mtime": 0,
@@ -400,8 +400,8 @@
       "instructions": {
         "sources": {
           "agents": false,
-          "audio": "required",
-          "screen": true
+          "screen": true,
+          "transcripts": "required"
         }
       },
       "mtime": 0,
@@ -424,8 +424,8 @@
           "agents": {
             "screen": true
           },
-          "audio": true,
-          "screen": false
+          "screen": false,
+          "transcripts": true
         }
       },
       "mtime": 0,

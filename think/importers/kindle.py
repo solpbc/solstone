@@ -298,6 +298,7 @@ class KindleImporter:
             "kindle",
             windows,
             _render_highlight_markdown,
+            filename="highlights_transcript.md",
         )
 
         segment_days = {day for day, _ in segments}

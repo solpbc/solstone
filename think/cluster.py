@@ -71,10 +71,29 @@ def _agent_matches_filter(
     return False
 
 
+def _transcript_header(stream: str | None, filename: str) -> str:
+    """Generate contextual header for a transcript entry.
+
+    Uses stream name and filename to produce a descriptive header
+    instead of hardcoded "Audio Transcript".
+    """
+    _IMPORT_LABELS = {
+        "import.chatgpt": "ChatGPT Conversation",
+        "import.claude": "Claude Conversation",
+        "import.gemini": "Gemini Conversation",
+        "import.ics": "Calendar Event",
+        "import.obsidian": "Note",
+        "import.kindle": "Highlights",
+    }
+    if stream and stream in _IMPORT_LABELS:
+        return _IMPORT_LABELS[stream]
+    return "Transcript"
+
+
 def _process_segment(
     segment_path: Path,
     date_str: str,
-    audio: bool,
+    transcripts: bool,
     screen: bool,
     agents: bool | dict[str, bool | str],
 ) -> list[dict[str, Any]]:
@@ -83,7 +102,7 @@ def _process_segment(
     Args:
         segment_path: Path to segment directory
         date_str: Date in YYYYMMDD format
-        audio: Whether to load audio transcripts
+        transcripts: Whether to load transcript content (JSONL and markdown)
         screen: Whether to load raw screen data from *screen.jsonl files
         agents: Whether to load agent output summaries from *.md files.
             Can be bool (all/none) or dict for selective filtering
@@ -110,18 +129,20 @@ def _process_segment(
     segment_start = datetime.combine(day_date, start_time)
     segment_end = datetime.combine(day_date, end_time)
 
-    # Process audio transcripts
-    if audio:
-        audio_files = [f for f in segment_path.glob("*audio.jsonl") if f.is_file()]
-        for audio_file in audio_files:
+    # Process transcript content (JSONL: legacy *audio.jsonl + new *_transcript.jsonl)
+    if transcripts:
+        jsonl_files = set()
+        for pattern in ("*audio.jsonl", "*_transcript.jsonl"):
+            jsonl_files.update(f for f in segment_path.glob(pattern) if f.is_file())
+        for jsonl_file in sorted(jsonl_files):
             from observe.hear import load_transcript
 
             metadata, transcript_entries, formatted_text = load_transcript(
-                str(audio_file)
+                str(jsonl_file)
             )
             if transcript_entries is None:
                 print(
-                    f"Warning: Could not load transcript {audio_file.name}: {metadata.get('error')}",
+                    f"Warning: Could not load transcript {jsonl_file.name}: {metadata.get('error')}",
                     file=sys.stderr,
                 )
                 continue
@@ -132,12 +153,38 @@ def _process_segment(
                     "segment_key": segment_key,
                     "segment_start": segment_start,
                     "segment_end": segment_end,
-                    "prefix": "audio",
+                    "prefix": "transcript",
                     "content": formatted_text,
-                    "name": f"{segment_path.name}/{audio_file.name}",
+                    "name": f"{segment_path.name}/{jsonl_file.name}",
                     "stream": stream,
                 }
             )
+
+        # Process markdown transcript files (*_transcript.md + legacy imported.md)
+        md_files = set()
+        for pattern in ("*_transcript.md", "imported.md"):
+            md_files.update(f for f in segment_path.glob(pattern) if f.is_file())
+        for md_file in sorted(md_files):
+            try:
+                content = md_file.read_text()
+                if content.strip():
+                    entries.append(
+                        {
+                            "timestamp": segment_start,
+                            "segment_key": segment_key,
+                            "segment_start": segment_start,
+                            "segment_end": segment_end,
+                            "prefix": "transcript",
+                            "content": content,
+                            "name": f"{segment_path.name}/{md_file.name}",
+                            "stream": stream,
+                        }
+                    )
+            except Exception as e:  # pragma: no cover - warning only
+                print(
+                    f"Warning: Could not read transcript {md_file.name}: {e}",
+                    file=sys.stderr,
+                )
 
     # Process raw screen data from screen.jsonl and *_screen.jsonl
     if screen:
@@ -207,7 +254,7 @@ def _process_segment(
 
 
 def _load_entries(
-    day_dir: str, audio: bool, screen: bool, agents: bool | dict[str, bool | str]
+    day_dir: str, transcripts: bool, screen: bool, agents: bool | dict[str, bool | str]
 ) -> list[dict[str, Any]]:
     """Load all transcript entries from a day directory."""
     from think.utils import segment_parse
@@ -222,7 +269,7 @@ def _load_entries(
         start_time, _ = segment_parse(seg_path.name)
         if not start_time:
             continue
-        entries.extend(_process_segment(seg_path, date_str, audio, screen, agents))
+        entries.extend(_process_segment(seg_path, date_str, transcripts, screen, agents))
 
     entries.sort(key=lambda e: e["timestamp"])
     return entries
@@ -245,16 +292,16 @@ def _count_by_source(entries: list[dict[str, Any]]) -> dict[str, int]:
     """Count entries by source type (prefix).
 
     Maps the internal prefix names to source config names:
-    - "audio" -> "audio"
+    - "transcript" -> "transcripts"
     - "screen" -> "screen"
     - "agent_output" -> "agents"
 
     Returns:
-        Dict with counts for each source type, e.g., {"audio": 2, "screen": 1, "agents": 0}
+        Dict with counts for each source type, e.g., {"transcripts": 2, "screen": 1, "agents": 0}
     """
     # Map internal prefix to source config name
     prefix_to_source = {
-        "audio": "audio",
+        "transcript": "transcripts",
         "screen": "screen",
         "agent_output": "agents",
     }
@@ -263,7 +310,7 @@ def _count_by_source(entries: list[dict[str, Any]]) -> dict[str, int]:
 
     # Ensure all standard sources are present (even if 0)
     return {
-        "audio": counts.get("audio", 0),
+        "transcripts": counts.get("transcripts", 0),
         "screen": counts.get("screen", 0),
         "agents": counts.get("agents", 0),
     }
@@ -292,8 +339,9 @@ def _groups_to_markdown(groups: dict[str, list[dict[str, Any]]]) -> str:
         lines.append("")
 
         for entry in segment_entries:
-            if entry["prefix"] == "audio":
-                lines.append("### Audio Transcript")
+            if entry["prefix"] == "transcript":
+                header = _transcript_header(entry.get("stream"), entry.get("name", ""))
+                lines.append(f"### {header}")
                 lines.append(entry["content"].strip())
                 lines.append("")
             elif entry["prefix"] == "screen":
@@ -342,14 +390,14 @@ def _slots_to_ranges(slots: list[datetime]) -> list[tuple[str, str]]:
 
 
 def cluster_scan(day: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
-    """Return 15-minute ranges with audio and screen transcripts for ``day``.
+    """Return 15-minute ranges with transcript and screen content for ``day``.
 
     Args:
         day: Day folder in ``YYYYMMDD`` format.
 
     Returns:
-        Two lists containing ``(start, end)`` pairs (``HH:MM``) for audio and
-        screen transcripts respectively.
+        Two lists containing ``(start, end)`` pairs (``HH:MM``) for transcript and
+        screen content respectively.
     """
 
     day_dir = str(day_path(day))
@@ -358,11 +406,11 @@ def cluster_scan(day: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]
         return [], []
 
     date_str = _date_str(day_dir)
-    audio_slots: set[datetime] = set()
+    transcript_slots: set[datetime] = set()
     screen_slots: set[datetime] = set()
     day_path_obj = Path(day_dir)
 
-    # Check timestamp subdirectories for transcript files
+    # Check timestamp subdirectories for content files
     from think.utils import iter_segments, segment_parse
 
     for _stream, _seg_key, seg_path in iter_segments(day_path_obj):
@@ -375,11 +423,15 @@ def cluster_scan(day: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]
                 minute=dt.minute - (dt.minute % 15), second=0, microsecond=0
             )
 
-            # Check for audio transcripts
-            if (seg_path / "audio.jsonl").exists() or any(
-                seg_path.glob("*_audio.jsonl")
+            # Check for transcript content (legacy audio + new transcript convention)
+            if (
+                (seg_path / "audio.jsonl").exists()
+                or any(seg_path.glob("*_audio.jsonl"))
+                or any(seg_path.glob("*_transcript.jsonl"))
+                or any(seg_path.glob("*_transcript.md"))
+                or (seg_path / "imported.md").exists()
             ):
-                audio_slots.add(slot)
+                transcript_slots.add(slot)
 
             # Check for screen content
             if (seg_path / "screen.jsonl").exists() or any(
@@ -387,9 +439,9 @@ def cluster_scan(day: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]
             ):
                 screen_slots.add(slot)
 
-    audio_ranges = _slots_to_ranges(sorted(audio_slots))
+    transcript_ranges = _slots_to_ranges(sorted(transcript_slots))
     screen_ranges = _slots_to_ranges(sorted(screen_slots))
-    return audio_ranges, screen_ranges
+    return transcript_ranges, screen_ranges
 
 
 def cluster_segments(day: str) -> list[dict[str, Any]]:
@@ -406,7 +458,7 @@ def cluster_segments(day: str) -> list[dict[str, Any]]:
         - key: segment directory name (HHMMSS_LEN format)
         - start: start time as HH:MM
         - end: end time as HH:MM
-        - types: list of content types present ("audio", "screen", or both)
+        - types: list of content types present ("transcripts", "screen", or both)
     """
     from think.utils import segment_parse
 
@@ -425,9 +477,15 @@ def cluster_segments(day: str) -> list[dict[str, Any]]:
             continue
 
         types = []
-        # Check for audio transcripts
-        if (seg_path / "audio.jsonl").exists() or any(seg_path.glob("*_audio.jsonl")):
-            types.append("audio")
+        # Check for transcript content (legacy audio + new transcript convention)
+        if (
+            (seg_path / "audio.jsonl").exists()
+            or any(seg_path.glob("*_audio.jsonl"))
+            or any(seg_path.glob("*_transcript.jsonl"))
+            or any(seg_path.glob("*_transcript.md"))
+            or (seg_path / "imported.md").exists()
+        ):
+            types.append("transcripts")
 
         # Check for screen content
         if (seg_path / "screen.jsonl").exists() or any(seg_path.glob("*_screen.jsonl")):
@@ -488,16 +546,16 @@ def cluster(
 
     Args:
         day: Day in YYYYMMDD format
-        sources: Dict with keys "audio", "screen", "agents".
+        sources: Dict with keys "transcripts", "screen", "agents".
             Values can be bool, "required" string, or dict (for agents).
             The "agents" source can be a dict for selective filtering,
             e.g., {"entities": True, "meetings": "required"}.
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
-        with keys "audio", "screen", "agents" mapping to entry counts.
+        with keys "transcripts", "screen", "agents" mapping to entry counts.
     """
-    empty_counts = {"audio": 0, "screen": 0, "agents": 0}
+    empty_counts = {"transcripts": 0, "screen": 0, "agents": 0}
 
     day_dir = str(day_path(day))
     # day_path now ensures dir exists, but check anyway for safety
@@ -506,13 +564,13 @@ def cluster(
 
     entries = _load_entries(
         day_dir,
-        audio=sources.get("audio", False),
+        transcripts=sources.get("transcripts", False),
         screen=sources.get("screen", False),
         agents=sources.get("agents", False),
     )
     if not entries:
         return (
-            f"No audio or screen files found for date {day} in {day_dir}.",
+            f"No transcript or screen files found for date {day} in {day_dir}.",
             empty_counts,
         )
 
@@ -532,15 +590,15 @@ def cluster_period(
     Args:
         day: Day in YYYYMMDD format
         segment: Segment key in HHMMSS_LEN format (e.g., "163045_300")
-        sources: Dict with keys "audio", "screen", "agents".
+        sources: Dict with keys "transcripts", "screen", "agents".
             Values can be bool, "required" string, or dict (for agents).
         stream: Stream name. If None, searches all streams for the segment.
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
-        with keys "audio", "screen", "agents" mapping to entry counts.
+        with keys "transcripts", "screen", "agents" mapping to entry counts.
     """
-    empty_counts = {"audio": 0, "screen": 0, "agents": 0}
+    empty_counts = {"transcripts": 0, "screen": 0, "agents": 0}
 
     segment_dir = _find_segment_dir(day, segment, stream)
 
@@ -549,12 +607,12 @@ def cluster_period(
 
     entries = _load_entries_from_segment(
         str(segment_dir),
-        audio=sources.get("audio", False),
+        transcripts=sources.get("transcripts", False),
         screen=sources.get("screen", False),
         agents=sources.get("agents", False),
     )
     if not entries:
-        return f"No audio or screen files found for segment {segment}", empty_counts
+        return f"No transcript or screen files found for segment {segment}", empty_counts
 
     groups = _group_entries(entries)
     markdown = _groups_to_markdown(groups)
@@ -562,13 +620,16 @@ def cluster_period(
 
 
 def _load_entries_from_segment(
-    segment_dir: str, audio: bool, screen: bool, agents: bool | dict[str, bool | str]
+    segment_dir: str,
+    transcripts: bool,
+    screen: bool,
+    agents: bool | dict[str, bool | str],
 ) -> list[dict[str, Any]]:
     """Load entries from a single segment directory.
 
     Args:
         segment_dir: Path to segment directory (e.g., /path/to/20251109/163045_300)
-        audio: Whether to load audio transcripts
+        transcripts: Whether to load transcript content (JSONL and markdown)
         screen: Whether to load raw screen data from *screen.jsonl files
         agents: Whether to load agent output summaries from *.md files
 
@@ -578,7 +639,7 @@ def _load_entries_from_segment(
     segment_path_obj = Path(segment_dir)
     # Parent is stream dir; grandparent is day dir
     date_str = _date_str(str(segment_path_obj.parent.parent))
-    entries = _process_segment(segment_path_obj, date_str, audio, screen, agents)
+    entries = _process_segment(segment_path_obj, date_str, transcripts, screen, agents)
     entries.sort(key=lambda e: e["timestamp"])
     return entries
 
@@ -599,18 +660,18 @@ def cluster_span(
     Args:
         day: Day in YYYYMMDD format
         span: List of segment keys in HHMMSS_LEN format (e.g., ["163045_300", "170000_600"])
-        sources: Dict with keys "audio", "screen", "agents".
+        sources: Dict with keys "transcripts", "screen", "agents".
             Values can be bool, "required" string, or dict (for agents).
         stream: Stream name. If None, searches all streams for each segment.
 
     Returns:
         Tuple of (markdown, source_counts) where source_counts is a dict
-        with keys "audio", "screen", "agents" mapping to entry counts.
+        with keys "transcripts", "screen", "agents" mapping to entry counts.
 
     Raises:
         ValueError: If any segment directories are missing
     """
-    empty_counts = {"audio": 0, "screen": 0, "agents": 0}
+    empty_counts = {"transcripts": 0, "screen": 0, "agents": 0}
 
     # Validate all segments in span exist upfront (fail fast)
     missing = []
@@ -630,7 +691,7 @@ def cluster_span(
     for seg_dir in found_dirs:
         segment_entries = _load_entries_from_segment(
             str(seg_dir),
-            audio=sources.get("audio", False),
+            transcripts=sources.get("transcripts", False),
             screen=sources.get("screen", False),
             agents=sources.get("agents", False),
         )
@@ -638,7 +699,7 @@ def cluster_span(
 
     if not entries:
         return (
-            f"No audio or screen files found in span: {', '.join(span)}",
+            f"No transcript or screen files found in span: {', '.join(span)}",
             empty_counts,
         )
 
@@ -674,7 +735,7 @@ def cluster_range(
         day: Day in YYYYMMDD format
         start: Start time in HHMMSS format
         end: End time in HHMMSS format
-        sources: Dict with keys "audio", "screen", "agents".
+        sources: Dict with keys "transcripts", "screen", "agents".
             Values can be bool, "required" string, or dict (for agents).
     """
     day_dir = str(day_path(day))
@@ -684,7 +745,7 @@ def cluster_range(
 
     entries = _load_entries(
         day_dir,
-        audio=sources.get("audio", False),
+        transcripts=sources.get("transcripts", False),
         screen=sources.get("screen", False),
         agents=sources.get("agents", False),
     )

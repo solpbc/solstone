@@ -14,7 +14,7 @@ class TestScan:
     def test_scan_day(self):
         result = runner.invoke(call_app, ["transcripts", "scan", "20240101"])
         assert result.exit_code == 0
-        assert "Audio:" in result.output
+        assert "Transcripts:" in result.output
         assert "Screen:" in result.output
 
     def test_scan_empty_day(self):
@@ -113,7 +113,7 @@ class TestSolEnvResolution:
         monkeypatch.setenv("SOL_DAY", "20240101")
         result = runner.invoke(call_app, ["transcripts", "scan"])
         assert result.exit_code == 0
-        assert "Audio:" in result.output
+        assert "Transcripts:" in result.output
 
     def test_read_from_sol_day(self, monkeypatch):
         """read with SOL_DAY env and no arg works."""

@@ -12,7 +12,7 @@
   "thinking_budget": 4096,
   "max_output_tokens": 2048,
   "instructions": {
-    "sources": {"audio": false, "screen": false, "agents": false},
+    "sources": {"transcripts": false, "screen": false, "agents": false},
     "facets": false
   }
 

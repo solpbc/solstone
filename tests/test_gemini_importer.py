@@ -182,7 +182,7 @@ def test_process_json():
                 assert result.segments is not None
                 assert len(result.segments) >= 1
                 assert any(
-                    Path(p).name == "imported_audio.jsonl" for p in result.files_created
+                    Path(p).name == "conversation_transcript.jsonl" for p in result.files_created
                 )
 
                 first_path = Path(result.files_created[0])

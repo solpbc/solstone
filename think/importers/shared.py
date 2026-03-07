@@ -104,10 +104,10 @@ def write_segment(
     detected_setting: str | None = None,
     model: str | None = None,
 ) -> str:
-    """Write a single segment's imported_audio.jsonl file."""
+    """Write a single segment's conversation_transcript.jsonl file."""
     ts_dir = os.path.join(day_dir, stream, segment_key)
     os.makedirs(ts_dir, exist_ok=True)
-    json_path = os.path.join(ts_dir, "imported_audio.jsonl")
+    json_path = os.path.join(ts_dir, "conversation_transcript.jsonl")
 
     _write_import_jsonl(
         json_path,
@@ -245,6 +245,8 @@ def write_markdown_segments(
     source: str,
     windows: list[tuple[str, str, list[dict[str, Any]]]],
     render: Callable[[list[dict[str, Any]]], str],
+    *,
+    filename: str = "imported.md",
 ) -> tuple[list[str], list[tuple[str, str]]]:
     """Write markdown segments from windowed items.
 
@@ -256,6 +258,9 @@ def write_markdown_segments(
         Output of ``window_items`` — (day, seg_key, items) tuples.
     render : callable
         Function taking list of items and returning markdown string.
+    filename : str
+        Output filename (default: ``imported.md`` for backward compat).
+        New importers should use ``*_transcript.md`` convention.
 
     Returns
     -------
@@ -268,7 +273,7 @@ def write_markdown_segments(
     for day, seg_key, items in windows:
         segment_dir = day_path(day) / f"import.{source}" / seg_key
         segment_dir.mkdir(parents=True, exist_ok=True)
-        md_path = segment_dir / "imported.md"
+        md_path = segment_dir / filename
         md_path.write_text(render(items) + "\n", encoding="utf-8")
         created_files.append(str(md_path))
         segments.append((day, seg_key))
