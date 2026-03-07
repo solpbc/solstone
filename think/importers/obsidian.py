@@ -11,8 +11,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import seed_entities
-from think.utils import day_path
+from think.importers.shared import seed_entities, window_items, write_markdown_segments
 
 logger = logging.getLogger(__name__)
 
@@ -118,48 +117,6 @@ def _strip_frontmatter(content: str) -> str:
 def _is_hidden(name: str) -> bool:
     """Check if a filename/dirname starts with a dot."""
     return name.startswith(".")
-
-
-def _window_notes(
-    notes: list[dict[str, Any]],
-    window_duration: int = 300,
-) -> list[tuple[str, str, list[dict[str, Any]]]]:
-    """Group sorted notes into fixed-duration windows by mtime."""
-    if not notes:
-        return []
-
-    windows: list[tuple[str, str, list[dict[str, Any]]]] = []
-    window_start: float | None = None
-    window_day: str | None = None
-    window_notes: list[dict[str, Any]] = []
-
-    for note in notes:
-        mtime = note["mtime"]
-        note_dt = dt.datetime.fromtimestamp(mtime)
-        note_day = note_dt.strftime("%Y%m%d")
-
-        if (
-            window_start is None
-            or note_day != window_day
-            or mtime - window_start >= window_duration
-        ):
-            if window_notes and window_day and window_start is not None:
-                start_dt = dt.datetime.fromtimestamp(window_start)
-                seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
-                windows.append((window_day, seg_key, window_notes))
-
-            window_start = mtime
-            window_day = note_day
-            window_notes = []
-
-        window_notes.append(note)
-
-    if window_notes and window_day and window_start is not None:
-        start_dt = dt.datetime.fromtimestamp(window_start)
-        seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
-        windows.append((window_day, seg_key, window_notes))
-
-    return windows
 
 
 def _render_note_markdown(note: dict[str, Any]) -> str:
@@ -319,20 +276,12 @@ class ObsidianImporter:
 
         notes.sort(key=lambda n: n["mtime"])
 
-        windows = _window_notes(notes)
-        created_files: list[str] = []
-        segments: list[tuple[str, str]] = []
-
-        for day, seg_key, window_notes_list in windows:
-            segment_dir = day_path(day) / "import.obsidian" / seg_key
-            segment_dir.mkdir(parents=True, exist_ok=True)
-            md_path = segment_dir / "imported.md"
-            markdown = "\n\n".join(
-                _render_note_markdown(note) for note in window_notes_list
-            )
-            md_path.write_text(markdown + "\n", encoding="utf-8")
-            created_files.append(str(md_path))
-            segments.append((day, seg_key))
+        windows = window_items(notes, "mtime", tz=None)
+        created_files, segments = write_markdown_segments(
+            "obsidian",
+            windows,
+            lambda items: "\n\n".join(_render_note_markdown(n) for n in items),
+        )
 
         # Seed entities from wikilinks
         entities_seeded = 0

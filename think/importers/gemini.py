@@ -23,8 +23,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import window_items
-from think.utils import day_path
+from think.importers.shared import window_items, write_markdown_segments
 
 logger = logging.getLogger(__name__)
 
@@ -285,19 +284,11 @@ class GeminiImporter:
         entries.sort(key=lambda e: e["create_ts"])
 
         windows = window_items(entries, "create_ts")
-        created_files: list[str] = []
-        segments: list[tuple[str, str]] = []
-
-        for day, seg_key, window_activities in windows:
-            segment_dir = day_path(day) / "import.gemini" / seg_key
-            segment_dir.mkdir(parents=True, exist_ok=True)
-            md_path = segment_dir / "imported.md"
-            markdown = "\n\n".join(
-                _render_activity_markdown(act) for act in window_activities
-            )
-            md_path.write_text(markdown + "\n", encoding="utf-8")
-            created_files.append(str(md_path))
-            segments.append((day, seg_key))
+        created_files, segments = write_markdown_segments(
+            "gemini",
+            windows,
+            lambda items: "\n\n".join(_render_activity_markdown(a) for a in items),
+        )
 
         segment_days = {day for day, _ in segments}
 

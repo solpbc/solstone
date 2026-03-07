@@ -10,8 +10,11 @@ from pathlib import Path
 from typing import Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import seed_entities, window_items
-from think.utils import day_path
+from think.importers.shared import (
+    seed_entities,
+    window_items,
+    write_markdown_segments,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -291,17 +294,11 @@ class KindleImporter:
         entries.sort(key=lambda e: e["create_ts"])
 
         windows = window_items(entries, "create_ts", tz=None)
-        created_files: list[str] = []
-        segments: list[tuple[str, str]] = []
-
-        for day, seg_key, window_highlights in windows:
-            segment_dir = day_path(day) / "import.kindle" / seg_key
-            segment_dir.mkdir(parents=True, exist_ok=True)
-            md_path = segment_dir / "imported.md"
-            markdown = _render_highlight_markdown(window_highlights)
-            md_path.write_text(markdown + "\n", encoding="utf-8")
-            created_files.append(str(md_path))
-            segments.append((day, seg_key))
+        created_files, segments = write_markdown_segments(
+            "kindle",
+            windows,
+            _render_highlight_markdown,
+        )
 
         segment_days = {day for day, _ in segments}
 

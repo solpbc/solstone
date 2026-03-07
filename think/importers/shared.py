@@ -10,7 +10,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from think.importers.utils import save_import_file, write_import_metadata
 from think.utils import day_path, get_journal, now_ms
@@ -239,6 +239,41 @@ def window_items(
         windows.append((window_day, seg_key, window_items_acc))
 
     return windows
+
+
+def write_markdown_segments(
+    source: str,
+    windows: list[tuple[str, str, list[dict[str, Any]]]],
+    render: Callable[[list[dict[str, Any]]], str],
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Write markdown segments from windowed items.
+
+    Parameters
+    ----------
+    source : str
+        Import source name (used in path: ``import.{source}``).
+    windows : list
+        Output of ``window_items`` — (day, seg_key, items) tuples.
+    render : callable
+        Function taking list of items and returning markdown string.
+
+    Returns
+    -------
+    tuple[list[str], list[tuple[str, str]]]
+        (created_file_paths, segment_tuples)
+    """
+    created_files: list[str] = []
+    segments: list[tuple[str, str]] = []
+
+    for day, seg_key, items in windows:
+        segment_dir = day_path(day) / f"import.{source}" / seg_key
+        segment_dir.mkdir(parents=True, exist_ok=True)
+        md_path = segment_dir / "imported.md"
+        md_path.write_text(render(items) + "\n", encoding="utf-8")
+        created_files.append(str(md_path))
+        segments.append((day, seg_key))
+
+    return created_files, segments
 
 
 # MIME type mapping for import metadata

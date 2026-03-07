@@ -10,8 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import seed_entities, window_items
-from think.utils import day_path
+from think.importers.shared import seed_entities, window_items, write_markdown_segments
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +125,83 @@ def _creation_timestamp(component: Any) -> float | None:
     return None
 
 
+def _describe_rrule(rrule: dict[str, Any]) -> str:
+    """Convert an icalendar vRecur dict to a human-readable description."""
+    freq_list = rrule.get("FREQ", [])
+    if not freq_list:
+        return ""
+    freq = str(freq_list[0])
+
+    interval = int(rrule.get("INTERVAL", [1])[0])
+
+    day_names = {
+        "MO": "Mon",
+        "TU": "Tue",
+        "WE": "Wed",
+        "TH": "Thu",
+        "FR": "Fri",
+        "SA": "Sat",
+        "SU": "Sun",
+    }
+
+    freq_map = {
+        "DAILY": ("day", "days", "Daily"),
+        "WEEKLY": ("week", "weeks", "Weekly"),
+        "MONTHLY": ("month", "months", "Monthly"),
+        "YEARLY": ("year", "years", "Yearly"),
+    }
+    if freq not in freq_map:
+        return ""
+
+    _singular, plural, adjective = freq_map[freq]
+
+    if interval == 1:
+        desc = adjective
+    else:
+        desc = f"Every {interval} {plural}"
+
+    by_day = rrule.get("BYDAY", [])
+    if by_day:
+        names = [day_names.get(str(d).lstrip("+-0123456789"), str(d)) for d in by_day]
+        desc += f" on {', '.join(names)}"
+
+    by_monthday = rrule.get("BYMONTHDAY", [])
+    if by_monthday:
+        days_str = ", ".join(str(d) for d in by_monthday)
+        desc += f" on day {days_str}"
+
+    by_month = rrule.get("BYMONTH", [])
+    if by_month:
+        month_names = {
+            1: "Jan",
+            2: "Feb",
+            3: "Mar",
+            4: "Apr",
+            5: "May",
+            6: "Jun",
+            7: "Jul",
+            8: "Aug",
+            9: "Sep",
+            10: "Oct",
+            11: "Nov",
+            12: "Dec",
+        }
+        names = [month_names.get(int(m), str(m)) for m in by_month]
+        desc += f" in {', '.join(names)}"
+
+    count = rrule.get("COUNT", [])
+    if count:
+        desc += f", {int(count[0])} times"
+
+    until = rrule.get("UNTIL", [])
+    if until:
+        until_val = until[0]
+        if hasattr(until_val, "strftime"):
+            desc += f", until {until_val.strftime('%Y-%m-%d')}"
+
+    return desc
+
+
 def _render_event_markdown(event: dict[str, Any]) -> str:
     """Render a calendar event as markdown."""
     title = event.get("title", "Untitled event")
@@ -147,6 +223,10 @@ def _render_event_markdown(event: dict[str, Any]) -> str:
             lines.append(time_line)
         except ValueError:
             pass
+
+    recurrence = event.get("recurrence", "")
+    if recurrence:
+        lines.append(f"🔁 {recurrence}")
 
     location = event.get("location", "")
     if location:
@@ -226,6 +306,12 @@ def _parse_events(ics_bytes: bytes) -> list[dict[str, Any]]:
                         attendees.append(parsed)
                         seen_emails.add(parsed["email"])
 
+            # Recurrence rule
+            rrule = component.get("RRULE")
+            recurrence = ""
+            if rrule:
+                recurrence = _describe_rrule(dict(rrule))
+
             # Build base entry
             entry: dict[str, Any] = {
                 "type": "calendar_event",
@@ -243,6 +329,8 @@ def _parse_events(ics_bytes: bytes) -> list[dict[str, Any]]:
                 entry["location"] = location
             if attendees:
                 entry["attendees"] = attendees
+            if recurrence:
+                entry["recurrence"] = recurrence
 
             entries.append(entry)
 
@@ -357,19 +445,11 @@ class ICSImporter:
         all_entries.sort(key=lambda entry: entry["create_ts"])
 
         windows = window_items(all_entries, "create_ts")
-        created_files: list[str] = []
-        segments: list[tuple[str, str]] = []
-
-        for day, seg_key, window_events in windows:
-            segment_dir = day_path(day) / "import.ics" / seg_key
-            segment_dir.mkdir(parents=True, exist_ok=True)
-            md_path = segment_dir / "imported.md"
-            markdown = "\n\n".join(
-                _render_event_markdown(event) for event in window_events
-            )
-            md_path.write_text(markdown + "\n", encoding="utf-8")
-            created_files.append(str(md_path))
-            segments.append((day, seg_key))
+        created_files, segments = write_markdown_segments(
+            "ics",
+            windows,
+            lambda items: "\n\n".join(_render_event_markdown(e) for e in items),
+        )
 
         segment_days = {day for day, _ in segments}
 

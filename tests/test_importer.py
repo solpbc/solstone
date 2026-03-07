@@ -301,6 +301,37 @@ def test_write_segment(tmp_path):
     assert entry["source"] == "import"
 
 
+def test_write_markdown_segments(tmp_path, monkeypatch):
+    """write_markdown_segments creates segment dirs with imported.md files."""
+    mod = importlib.import_module("think.importers.shared")
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    windows = [
+        ("20260301", "120000_300", [{"text": "hello"}, {"text": "world"}]),
+        ("20260302", "090000_300", [{"text": "morning"}]),
+    ]
+
+    def render(items):
+        return "\n\n".join(item["text"] for item in items)
+
+    files, segments = mod.write_markdown_segments("test", windows, render)
+
+    assert len(files) == 2
+    assert len(segments) == 2
+
+    first_md = day_path("20260301") / "import.test" / "120000_300" / "imported.md"
+    assert first_md.exists()
+    content = first_md.read_text()
+    assert "hello" in content
+    assert "world" in content
+    assert content.endswith("\n")
+
+    second_md = day_path("20260302") / "import.test" / "090000_300" / "imported.md"
+    assert second_md.exists()
+
+    assert segments == [("20260301", "120000_300"), ("20260302", "090000_300")]
+
+
 def test_chatgpt_importer_segments(tmp_path, monkeypatch):
     """ChatGPT importer should write message windows as import segments."""
     mod = importlib.import_module("think.importers.chatgpt")
@@ -1119,6 +1150,66 @@ def test_ics_render_event_markdown_without_scheduled_time():
     assert rendered == "## Created Only Event"
 
 
+def test_ics_render_event_markdown_with_recurrence():
+    mod = importlib.import_module("think.importers.ics")
+    event = {
+        "title": "Weekly Standup",
+        "ts": "2026-03-15T11:00:00+00:00",
+        "end_ts": "2026-03-15T11:30:00+00:00",
+        "duration_minutes": 30,
+        "recurrence": "Weekly on Mon",
+    }
+    rendered = mod._render_event_markdown(event)
+    assert "## Weekly Standup" in rendered
+    assert "🔁 Weekly on Mon" in rendered
+
+
+def test_ics_describe_rrule_weekly_byday():
+    mod = importlib.import_module("think.importers.ics")
+    rrule = {"FREQ": ["WEEKLY"], "BYDAY": ["MO", "WE", "FR"]}
+    assert mod._describe_rrule(rrule) == "Weekly on Mon, Wed, Fri"
+
+
+def test_ics_describe_rrule_daily_interval():
+    mod = importlib.import_module("think.importers.ics")
+    rrule = {"FREQ": ["DAILY"], "INTERVAL": [2]}
+    assert mod._describe_rrule(rrule) == "Every 2 days"
+
+
+def test_ics_describe_rrule_monthly_byday():
+    mod = importlib.import_module("think.importers.ics")
+    rrule = {"FREQ": ["MONTHLY"], "BYDAY": ["TU"]}
+    assert mod._describe_rrule(rrule) == "Monthly on Tue"
+
+
+def test_ics_describe_rrule_with_count():
+    mod = importlib.import_module("think.importers.ics")
+    rrule = {"FREQ": ["WEEKLY"], "BYDAY": ["MO"], "COUNT": [10]}
+    assert mod._describe_rrule(rrule) == "Weekly on Mon, 10 times"
+
+
+def test_ics_describe_rrule_with_until():
+    mod = importlib.import_module("think.importers.ics")
+    until_dt = dt.datetime(2026, 12, 31, tzinfo=dt.timezone.utc)
+    rrule = {
+        "FREQ": ["WEEKLY"],
+        "BYDAY": ["MO", "WE", "FR"],
+        "UNTIL": [until_dt],
+    }
+    assert mod._describe_rrule(rrule) == "Weekly on Mon, Wed, Fri, until 2026-12-31"
+
+
+def test_ics_describe_rrule_yearly():
+    mod = importlib.import_module("think.importers.ics")
+    rrule = {"FREQ": ["YEARLY"], "BYMONTH": [3], "BYMONTHDAY": [15]}
+    assert mod._describe_rrule(rrule) == "Yearly on day 15 in Mar"
+
+
+def test_ics_describe_rrule_empty():
+    mod = importlib.import_module("think.importers.ics")
+    assert mod._describe_rrule({}) == ""
+
+
 def test_ics_process_segments(tmp_path, monkeypatch):
     mod = importlib.import_module("think.importers.ics")
 
@@ -1141,6 +1232,13 @@ SUMMARY:Event Two
 CREATED:20260301T120200Z
 END:VEVENT
 BEGIN:VEVENT
+DTSTART:20260315T110000Z
+DTEND:20260315T113000Z
+SUMMARY:Weekly Standup
+CREATED:20260301T120100Z
+RRULE:FREQ=WEEKLY;BYDAY=MO
+END:VEVENT
+BEGIN:VEVENT
 DTSTART:20260317T090000Z
 DTEND:20260317T093000Z
 SUMMARY:Event Three
@@ -1156,7 +1254,7 @@ END:VCALENDAR"""
     first_md = day_path("20260301") / "import.ics" / "120000_300" / "imported.md"
     second_md = day_path("20260302") / "import.ics" / "090000_300" / "imported.md"
 
-    assert result.entries_written == 3
+    assert result.entries_written == 4
     assert result.errors == []
     assert result.segments == [
         ("20260301", "120000_300"),
@@ -1169,6 +1267,7 @@ END:VCALENDAR"""
     second_content = second_md.read_text()
     assert "## Event One" in first_content
     assert "First description" in first_content
+    assert "🔁 Weekly on Mon" in first_content
     assert "## Event Two" in first_content
     assert "## Event Three" in second_content
     assert "**2026-03-17 09:00 AM – 09:30 AM** (30 min)" in second_content
