@@ -68,6 +68,7 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 
 **Data Organization**:
 * Everything organized under `JOURNAL_PATH/YYYYMMDD/` daily directories
+* Import segments are anchored to creation/modification time, not content "about" time. A calendar event is segmented at the moment it was created, not its scheduled time. See the creation-moment principle in the extro org's `cpo/strategy/journal-memory-structure.md`.
 * Facets provide project-scoped organization and filtering
 * Entities are extracted from transcripts and tracked across time
 * Indexer builds SQLite database for fast search and retrieval
