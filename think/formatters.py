@@ -146,6 +146,7 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
         "format_imported",
         True,
     ),
+    "*/import.*/*/imported.md": ("think.markdown", "format_markdown", True),
     # Raw transcripts — formattable but not indexed (agent outputs are more useful)
     # Layout: day/stream/segment/audio.jsonl
     "*/*/*/audio.jsonl": ("observe.hear", "format_audio", False),

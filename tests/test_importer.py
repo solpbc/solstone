@@ -938,6 +938,274 @@ def test_file_importer_with_timestamp(tmp_path, monkeypatch):
     assert (tmp_path / "imports" / "20260303_120000" / "manifest.json").exists()
 
 
+def test_ics_creation_timestamp_last_modified():
+    mod = importlib.import_module("think.importers.ics")
+    icalendar = importlib.import_module("icalendar")
+
+    ics_bytes = b"""BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20260315T100000Z
+LAST-MODIFIED:20260301T120500Z
+END:VEVENT
+END:VCALENDAR"""
+    cal = icalendar.Calendar.from_ical(ics_bytes)
+    component = list(cal.walk("VEVENT"))[0]
+
+    assert (
+        mod._creation_timestamp(component)
+        == dt.datetime(2026, 3, 1, 12, 5, 0, tzinfo=dt.timezone.utc).timestamp()
+    )
+
+
+def test_ics_creation_timestamp_created_only():
+    mod = importlib.import_module("think.importers.ics")
+    icalendar = importlib.import_module("icalendar")
+
+    ics_bytes = b"""BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20260315T100000Z
+CREATED:20260301T120000Z
+END:VEVENT
+END:VCALENDAR"""
+    cal = icalendar.Calendar.from_ical(ics_bytes)
+    component = list(cal.walk("VEVENT"))[0]
+
+    assert (
+        mod._creation_timestamp(component)
+        == dt.datetime(2026, 3, 1, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
+    )
+
+
+def test_ics_creation_timestamp_dtstart_fallback():
+    mod = importlib.import_module("think.importers.ics")
+    icalendar = importlib.import_module("icalendar")
+
+    ics_bytes = b"""BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20260315T100000Z
+END:VEVENT
+END:VCALENDAR"""
+    cal = icalendar.Calendar.from_ical(ics_bytes)
+    component = list(cal.walk("VEVENT"))[0]
+
+    assert (
+        mod._creation_timestamp(component)
+        == dt.datetime(2026, 3, 15, 10, 0, 0, tzinfo=dt.timezone.utc).timestamp()
+    )
+
+
+def test_ics_creation_timestamp_none():
+    mod = importlib.import_module("think.importers.ics")
+
+    class EmptyComponent:
+        def get(self, key, default=None):
+            return default
+
+    assert mod._creation_timestamp(EmptyComponent()) is None
+
+
+def test_ics_window_events_single_window():
+    mod = importlib.import_module("think.importers.ics")
+
+    base = dt.datetime(2026, 3, 1, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
+    events = [
+        {"title": "A", "create_ts": base},
+        {"title": "B", "create_ts": base + 60},
+        {"title": "C", "create_ts": base + 120},
+    ]
+
+    windows = mod._window_events(events)
+
+    assert windows == [("20260301", "120000_300", events)]
+
+
+def test_ics_window_events_time_gap_split():
+    mod = importlib.import_module("think.importers.ics")
+
+    base = dt.datetime(2026, 3, 1, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
+    events = [
+        {"title": "A", "create_ts": base},
+        {"title": "B", "create_ts": base + 60},
+        {"title": "C", "create_ts": base + 120},
+        {"title": "D", "create_ts": base + 600},
+    ]
+
+    windows = mod._window_events(events)
+
+    assert len(windows) == 2
+    assert windows[0][0] == "20260301"
+    assert windows[0][1] == "120000_300"
+    assert windows[0][2] == events[:3]
+    assert windows[1][1] == "121000_300"
+    assert windows[1][2] == [events[3]]
+
+
+def test_ics_window_events_day_boundary():
+    mod = importlib.import_module("think.importers.ics")
+
+    first_day = dt.datetime(2026, 3, 1, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
+    second_day = dt.datetime(2026, 3, 2, 12, 0, 0, tzinfo=dt.timezone.utc).timestamp()
+    events = [
+        {"title": "A", "create_ts": first_day},
+        {"title": "B", "create_ts": second_day},
+    ]
+
+    windows = mod._window_events(events)
+
+    assert windows == [
+        ("20260301", "120000_300", [events[0]]),
+        ("20260302", "120000_300", [events[1]]),
+    ]
+
+
+def test_ics_render_event_markdown_full():
+    mod = importlib.import_module("think.importers.ics")
+
+    event = {
+        "title": "Team Sync",
+        "ts": "2026-01-15T10:00:00+00:00",
+        "end_ts": "2026-01-15T11:00:00+00:00",
+        "duration_minutes": 60,
+        "location": "Conference Room 3B",
+        "attendees": [
+            {"name": "Alice Smith", "email": "alice@example.com"},
+            {"name": "Bob Jones", "email": "bob@example.com"},
+        ],
+        "content": "Event description text here.",
+    }
+
+    rendered = mod._render_event_markdown(event)
+
+    assert "## Team Sync" in rendered
+    assert "**2026-01-15 10:00 AM – 11:00 AM** (60 min)" in rendered
+    assert "📍 Conference Room 3B" in rendered
+    assert "👥 Alice Smith, Bob Jones" in rendered
+    assert "Event description text here." in rendered
+
+
+def test_ics_render_event_markdown_minimal():
+    mod = importlib.import_module("think.importers.ics")
+
+    event = {
+        "title": "Minimal Event",
+        "ts": "2026-01-15T10:00:00+00:00",
+        "content": "",
+        "attendees": [],
+    }
+
+    rendered = mod._render_event_markdown(event)
+
+    assert "## Minimal Event" in rendered
+    assert "**2026-01-15 10:00 AM**" in rendered
+    assert "📍" not in rendered
+    assert "👥" not in rendered
+    assert "Minimal Event\n\n" not in rendered
+
+
+def test_ics_render_event_markdown_without_scheduled_time():
+    mod = importlib.import_module("think.importers.ics")
+
+    event = {
+        "title": "Created Only Event",
+        "content": "",
+        "attendees": [],
+    }
+
+    rendered = mod._render_event_markdown(event)
+
+    assert rendered == "## Created Only Event"
+
+
+def test_ics_process_segments(tmp_path, monkeypatch):
+    mod = importlib.import_module("think.importers.ics")
+
+    ics_path = tmp_path / "calendar.ics"
+    ics_path.write_bytes(
+        b"""BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20260315T100000Z
+DTEND:20260315T110000Z
+SUMMARY:Event One
+DESCRIPTION:First description
+CREATED:20260301T120000Z
+ATTENDEE;CN=Alice Smith:mailto:alice@example.com
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260316T140000Z
+DTEND:20260316T143000Z
+SUMMARY:Event Two
+CREATED:20260301T120200Z
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260317T090000Z
+DTEND:20260317T093000Z
+SUMMARY:Event Three
+CREATED:20260302T090000Z
+END:VEVENT
+END:VCALENDAR"""
+    )
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    result = mod.ICSImporter().process(ics_path, tmp_path, facet="work")
+
+    first_md = day_path("20260301") / "import.ics" / "120000_300" / "imported.md"
+    second_md = day_path("20260302") / "import.ics" / "090000_300" / "imported.md"
+
+    assert result.entries_written == 3
+    assert result.errors == []
+    assert result.segments == [
+        ("20260301", "120000_300"),
+        ("20260302", "090000_300"),
+    ]
+    assert len(result.files_created) == 2
+    assert first_md.exists()
+    assert second_md.exists()
+    first_content = first_md.read_text()
+    second_content = second_md.read_text()
+    assert "## Event One" in first_content
+    assert "First description" in first_content
+    assert "## Event Two" in first_content
+    assert "## Event Three" in second_content
+    assert "**2026-03-17 09:00 AM – 09:30 AM** (30 min)" in second_content
+
+
+def test_ics_preview_uses_creation_timestamps(tmp_path):
+    mod = importlib.import_module("think.importers.ics")
+
+    ics_path = tmp_path / "calendar.ics"
+    ics_path.write_bytes(
+        b"""BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART:20260315T100000Z
+DTEND:20260315T110000Z
+SUMMARY:Event One
+CREATED:20260301T120000Z
+ATTENDEE;CN=Alice Smith:mailto:alice@example.com
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260316T100000Z
+DTEND:20260316T110000Z
+SUMMARY:Event Two
+CREATED:20260305T090000Z
+ATTENDEE;CN=Bob Jones:mailto:bob@example.com
+END:VEVENT
+END:VCALENDAR"""
+    )
+
+    preview = mod.ICSImporter().preview(ics_path)
+
+    assert preview.date_range == ("20260301", "20260305")
+    assert preview.item_count == 2
+    assert preview.entity_count == 2
+    assert preview.summary == "2 events, 2 unique attendees"
+
+
 def test_list_importers_json(capsys, monkeypatch):
     """--list-importers --json returns machine-readable output."""
     mod = importlib.import_module("think.importers.cli")

@@ -10,12 +10,10 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import seed_entities, write_structured_import
+from think.importers.shared import seed_entities
+from think.utils import day_path
 
 logger = logging.getLogger(__name__)
-
-# How far back to expand recurring events (from now)
-_RECURRENCE_LOOKBACK_YEARS = 2
 
 
 def _extract_ics_data(path: Path) -> list[bytes]:
@@ -101,55 +99,119 @@ def _duration_minutes(dtstart: Any, dtend: Any) -> int | None:
         return None
 
 
-def _expand_rrule(component: Any, dtstart_val: Any) -> list[dt.datetime]:
-    """Expand RRULE into concrete datetimes within the lookback window.
+def _creation_timestamp(component: Any) -> float | None:
+    """Extract a creation timestamp from VEVENT metadata."""
 
-    Returns list of occurrence datetimes (excluding the original DTSTART).
-    """
-    from dateutil import rrule as du_rrule
+    for field in ("LAST-MODIFIED", "CREATED", "DTSTART"):
+        value = component.get(field)
+        if value is None:
+            continue
 
-    rrule_prop = component.get("RRULE")
-    if not rrule_prop:
+        try:
+            parsed = value.dt if hasattr(value, "dt") else value
+            if isinstance(parsed, dt.date) and not isinstance(parsed, dt.datetime):
+                parsed = dt.datetime(parsed.year, parsed.month, parsed.day)
+            if not isinstance(parsed, dt.datetime):
+                continue
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=dt.timezone.utc)
+            if field == "DTSTART":
+                logger.debug(
+                    "VEVENT missing CREATED/LAST-MODIFIED; falling back to DTSTART"
+                )
+            return parsed.timestamp()
+        except Exception as exc:
+            logger.debug("Failed to parse %s timestamp: %s", field, exc)
+
+    return None
+
+
+def _window_events(
+    events: list[dict[str, Any]],
+    window_duration: int = 300,
+) -> list[tuple[str, str, list[dict[str, Any]]]]:
+    """Group sorted events into fixed-duration windows per creation time."""
+    if not events:
         return []
 
-    try:
-        start = dtstart_val.dt if hasattr(dtstart_val, "dt") else dtstart_val
+    windows: list[tuple[str, str, list[dict[str, Any]]]] = []
+    window_start: float | None = None
+    window_day: str | None = None
+    window_events: list[dict[str, Any]] = []
 
-        # Normalize date → datetime
-        if isinstance(start, dt.date) and not isinstance(start, dt.datetime):
-            start = dt.datetime(start.year, start.month, start.day)
+    for event in events:
+        create_ts = event["create_ts"]
+        event_dt = dt.datetime.fromtimestamp(create_ts, tz=dt.timezone.utc)
+        event_day = event_dt.strftime("%Y%m%d")
 
-        # Ensure timezone-aware for bounds comparison
-        now = dt.datetime.now(dt.timezone.utc)
-        if start.tzinfo is None:
-            now = now.replace(tzinfo=None)
+        if (
+            window_start is None
+            or event_day != window_day
+            or create_ts - window_start >= window_duration
+        ):
+            if window_events and window_day and window_start is not None:
+                start_dt = dt.datetime.fromtimestamp(window_start, tz=dt.timezone.utc)
+                seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
+                windows.append((window_day, seg_key, window_events))
 
-        window_start = now - dt.timedelta(days=_RECURRENCE_LOOKBACK_YEARS * 365)
+            window_start = create_ts
+            window_day = event_day
+            window_events = []
 
-        # Convert rrule dict to string for dateutil
-        rrule_dict = dict(rrule_prop)
-        rrule_str = ";".join(f"{k}={v}" for k, v in rrule_dict.items())
+        window_events.append(event)
 
-        rule = du_rrule.rrulestr(
-            f"RRULE:{rrule_str}",
-            dtstart=start,
-            ignoretz=start.tzinfo is None,
-        )
+    if window_events and window_day and window_start is not None:
+        start_dt = dt.datetime.fromtimestamp(window_start, tz=dt.timezone.utc)
+        seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
+        windows.append((window_day, seg_key, window_events))
 
-        # Collect occurrences within bounds (cap at 1000 to avoid runaway)
-        occurrences = []
-        for occ in rule:
-            if occ > now:
-                break
-            if occ >= window_start and occ != start:
-                occurrences.append(occ)
-            if len(occurrences) >= 1000:
-                break
+    return windows
 
-        return occurrences
-    except Exception as exc:
-        logger.debug("Failed to expand RRULE: %s", exc)
-        return []
+
+def _render_event_markdown(event: dict[str, Any]) -> str:
+    """Render a calendar event as markdown."""
+    title = event.get("title", "Untitled event")
+    lines = [f"## {title}"]
+
+    ts = event.get("ts")
+    end_ts = event.get("end_ts")
+    duration = event.get("duration_minutes")
+    if ts:
+        try:
+            start_dt = dt.datetime.fromisoformat(ts)
+            time_line = start_dt.strftime("%Y-%m-%d %I:%M %p")
+            if end_ts:
+                end_dt = dt.datetime.fromisoformat(end_ts)
+                time_line = f"{time_line} – {end_dt.strftime('%I:%M %p')}"
+            time_line = f"**{time_line}**"
+            if duration is not None:
+                time_line += f" ({duration} min)"
+            lines.append(time_line)
+        except ValueError:
+            pass
+
+    location = event.get("location", "")
+    if location:
+        lines.append(f"📍 {location}")
+
+    attendees = event.get("attendees", [])
+    attendee_names = []
+    for attendee in attendees:
+        if not isinstance(attendee, dict):
+            attendee_names.append(str(attendee))
+            continue
+        attendee_name = attendee.get("name") or attendee.get("email", "")
+        if attendee_name:
+            attendee_names.append(attendee_name)
+    if attendee_names:
+        lines.append(f"👥 {', '.join(attendee_names)}")
+
+    description = event.get("content", "")
+    if description:
+        lines.append("")
+        lines.append(description)
+
+    return "\n".join(lines)
 
 
 def _parse_events(ics_bytes: bytes) -> list[dict[str, Any]]:
@@ -170,11 +232,13 @@ def _parse_events(ics_bytes: bytes) -> list[dict[str, Any]]:
 
         try:
             dtstart = component.get("DTSTART")
+            dtend = component.get("DTEND")
             ts = _dt_to_iso(dtstart)
-            if not ts:
+            end_ts = _dt_to_iso(dtend) if dtend else None
+            create_ts = _creation_timestamp(component)
+            if create_ts is None:
                 continue
 
-            dtend = component.get("DTEND")
             duration = _duration_minutes(dtstart, dtend) if dtend else None
 
             title = str(component.get("SUMMARY", "")) or "Untitled event"
@@ -207,10 +271,14 @@ def _parse_events(ics_bytes: bytes) -> list[dict[str, Any]]:
             # Build base entry
             entry: dict[str, Any] = {
                 "type": "calendar_event",
-                "ts": ts,
                 "title": title,
                 "content": description,
+                "create_ts": create_ts,
             }
+            if ts:
+                entry["ts"] = ts
+            if end_ts:
+                entry["end_ts"] = end_ts
             if duration is not None:
                 entry["duration_minutes"] = duration
             if location:
@@ -219,13 +287,6 @@ def _parse_events(ics_bytes: bytes) -> list[dict[str, Any]]:
                 entry["attendees"] = attendees
 
             entries.append(entry)
-
-            # Expand recurring events
-            recurrences = _expand_rrule(component, dtstart)
-            for occ_dt in recurrences:
-                occ_ts = occ_dt.isoformat()
-                occ_entry = {**entry, "ts": occ_ts}
-                entries.append(occ_entry)
 
         except Exception as exc:
             summary = component.get("SUMMARY", "<unknown>")
@@ -282,9 +343,11 @@ class ICSImporter:
 
         # Date range
         dates = sorted(
-            dt.datetime.fromisoformat(e["ts"]).strftime("%Y%m%d")
+            dt.datetime.fromtimestamp(e["create_ts"], tz=dt.timezone.utc).strftime(
+                "%Y%m%d"
+            )
             for e in all_entries
-            if e.get("ts")
+            if e.get("create_ts") is not None
         )
         date_range = (dates[0], dates[-1]) if dates else ("", "")
 
@@ -311,7 +374,6 @@ class ICSImporter:
         progress_callback: Callable | None = None,
     ) -> ImportResult:
         ics_blobs = _extract_ics_data(path)
-        import_id = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
         all_entries: list[dict[str, Any]] = []
         errors: list[str] = []
@@ -334,13 +396,24 @@ class ICSImporter:
                 summary="No events found to import",
             )
 
-        # Write structured entries
-        created_files = write_structured_import(
-            "ics",
-            all_entries,
-            import_id=import_id,
-            facet=facet,
-        )
+        all_entries.sort(key=lambda entry: entry["create_ts"])
+
+        windows = _window_events(all_entries)
+        created_files: list[str] = []
+        segments: list[tuple[str, str]] = []
+
+        for day, seg_key, window_events in windows:
+            segment_dir = day_path(day) / "import.ics" / seg_key
+            segment_dir.mkdir(parents=True, exist_ok=True)
+            md_path = segment_dir / "imported.md"
+            markdown = "\n\n".join(
+                _render_event_markdown(event) for event in window_events
+            )
+            md_path.write_text(markdown + "\n", encoding="utf-8")
+            created_files.append(str(md_path))
+            segments.append((day, seg_key))
+
+        segment_days = {day for day, _ in segments}
 
         # Seed entities from attendees
         entities_seeded = 0
@@ -350,7 +423,9 @@ class ICSImporter:
             seen_emails: set[str] = set()
 
             for entry in all_entries:
-                day = dt.datetime.fromisoformat(entry["ts"]).strftime("%Y%m%d")
+                day = dt.datetime.fromtimestamp(
+                    entry["create_ts"], tz=dt.timezone.utc
+                ).strftime("%Y%m%d")
                 for att in entry.get("attendees", []):
                     email = att.get("email", "")
                     name = att.get("name", "")
@@ -376,8 +451,10 @@ class ICSImporter:
             errors=errors,
             summary=(
                 f"Imported {len(all_entries)} calendar events across "
-                f"{len(created_files)} days, {entities_seeded} entities seeded"
+                f"{len(segment_days)} days into {len(segments)} segments, "
+                f"{entities_seeded} entities seeded"
             ),
+            segments=segments,
         )
 
 

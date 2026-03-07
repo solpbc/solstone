@@ -222,6 +222,14 @@ def test_formatter_registration_obsidian():
     assert formatter is not None
 
 
+def test_formatter_registration_ics_segment_markdown():
+    from think.formatters import get_formatter
+
+    formatter = get_formatter("20260115/import.ics/120000_300/imported.md")
+    assert formatter is not None
+    assert formatter.__name__ == "format_markdown"
+
+
 def test_formatter_registration_kindle():
     from think.formatters import get_formatter
 
@@ -240,6 +248,10 @@ def test_path_metadata_extraction():
     meta = extract_path_metadata("20260301/import.obsidian/imported.jsonl")
     assert meta["day"] == "20260301"
 
+    meta = extract_path_metadata("20260115/import.ics/120000_300/imported.md")
+    assert meta["day"] == "20260115"
+    assert meta["agent"] == "imported"
+
 
 def test_find_formattable_includes_imports():
     """Verify find_formattable_files picks up import JSONL."""
@@ -257,6 +269,19 @@ def test_find_formattable_includes_imports():
 
         files = find_formattable_files(tmpdir)
         assert "20260115/import.ics/imported.jsonl" in files
+
+
+def test_find_formattable_includes_segment_markdown():
+    from think.formatters import find_formattable_files
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        seg_dir = Path(tmpdir) / "20260115" / "import.ics" / "120000_300"
+        seg_dir.mkdir(parents=True)
+        md_path = seg_dir / "imported.md"
+        md_path.write_text("## Test Event\n")
+
+        files = find_formattable_files(tmpdir)
+        assert "20260115/import.ics/120000_300/imported.md" in files
 
 
 def test_format_file_integration():
