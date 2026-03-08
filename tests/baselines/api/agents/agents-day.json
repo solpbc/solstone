@@ -14,7 +14,7 @@
     "activity": {
       "app": null,
       "color": "#00bcd4",
-      "description": "Synthesizes segment activity from screenshots and audio, focusing on observable changes and searchability.",
+      "description": "Synthesizes segment activity from content, focusing on observable changes and searchability.",
       "multi_facet": false,
       "output_format": "md",
       "schedule": "segment",

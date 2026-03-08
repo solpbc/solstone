@@ -55,11 +55,25 @@
       "name": "Email"
     },
     {
+      "description": "Books, PDFs, articles, highlights, and documentation",
+      "icon": "📖",
+      "id": "reading",
+      "instructions": "Levels: high=focused reading, medium=skimming content, low=document open but attention elsewhere. Detect via: PDF viewers, article pages, documentation sites, reading apps, imported book highlights and annotations. Do not use for reading code — that is coding.",
+      "name": "Reading"
+    },
+    {
       "description": "Command line and shell sessions",
       "icon": "⌨️",
       "id": "terminal",
       "instructions": "Levels: high=running commands or scripts, medium=reading output, low=terminal open but idle. Detect via: shell prompts, command output, tmux/screen sessions. If terminal use is clearly coding-related, prefer coding instead.",
       "name": "Terminal"
+    },
+    {
+      "description": "Conversations with AI assistants like ChatGPT, Claude, and Gemini",
+      "icon": "🤖",
+      "id": "ai_conversation",
+      "instructions": "Levels: high=actively prompting and reading responses, medium=reviewing AI output or refining prompts, low=AI chat open but idle. Detect via: AI assistant interfaces (ChatGPT, Claude, Gemini), imported AI conversation transcripts, prompt-response patterns. Do not confuse with messaging — AI conversation involves a human interacting with an AI model, not person-to-person chat.",
+      "name": "AI Conversation"
     },
     {
       "description": "Design tools and image editing",
@@ -90,18 +104,18 @@
       "name": "Music"
     },
     {
-      "description": "PDFs, articles, and documentation",
-      "icon": "📖",
-      "id": "reading",
-      "instructions": "Levels: high=focused reading, medium=skimming content, low=document open but attention elsewhere. Detect via: PDF viewers, article pages, documentation sites. Do not use for reading code — that is coding.",
-      "name": "Reading"
-    },
-    {
       "description": "Programming, code review, and debugging",
       "icon": "💻",
       "id": "coding",
       "instructions": "Levels: high=writing or debugging code, medium=reading/reviewing code, low=IDE or editor open but not focused. Detect via: editors, terminals with dev tools, AI coding assistants, git operations. Includes focused code reading and thinking.",
       "name": "Coding"
+    },
+    {
+      "description": "Scheduling, calendar management, meeting preparation, and agenda setting",
+      "icon": "📋",
+      "id": "planning",
+      "instructions": "Levels: high=actively scheduling or preparing agendas, medium=reviewing calendar or event details, low=calendar visible but not being interacted with. Detect via: calendar apps, scheduling interfaces, event creation, imported calendar events, meeting invitations, agenda drafting. Use for scheduling and preparation work. Do not confuse with meeting — planning is the preparation, meeting is the actual synchronous interaction.",
+      "name": "Planning"
     },
     {
       "description": "Social media browsing and interaction",
@@ -114,7 +128,7 @@
       "description": "Spreadsheets, slides, and task management",
       "icon": "📊",
       "id": "productivity",
-      "instructions": "Levels: high=actively editing or organizing, medium=reviewing data, low=app open but not focused. Detect via: spreadsheet/slide editors, project management tools, calendar apps, task boards.",
+      "instructions": "Levels: high=actively editing or organizing, medium=reviewing data, low=app open but not focused. Detect via: spreadsheet/slide editors, project management tools, task boards.",
       "name": "Productivity"
     },
     {

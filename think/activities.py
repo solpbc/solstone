@@ -88,6 +88,21 @@ DEFAULT_ACTIVITIES: list[dict[str, str]] = [
         ),
     },
     {
+        "id": "ai_conversation",
+        "name": "AI Conversation",
+        "description": "Conversations with AI assistants like ChatGPT, Claude, and Gemini",
+        "icon": "🤖",
+        "instructions": (
+            "Levels: high=actively prompting and reading responses,"
+            " medium=reviewing AI output or refining prompts,"
+            " low=AI chat open but idle."
+            " Detect via: AI assistant interfaces (ChatGPT, Claude, Gemini),"
+            " imported AI conversation transcripts, prompt-response patterns."
+            " Do not confuse with messaging — AI conversation involves"
+            " a human interacting with an AI model, not person-to-person chat."
+        ),
+    },
+    {
         "id": "writing",
         "name": "Writing",
         "description": "Documents, notes, and long-form writing",
@@ -101,12 +116,13 @@ DEFAULT_ACTIVITIES: list[dict[str, str]] = [
     {
         "id": "reading",
         "name": "Reading",
-        "description": "PDFs, articles, and documentation",
+        "description": "Books, PDFs, articles, highlights, and documentation",
         "icon": "📖",
         "instructions": (
             "Levels: high=focused reading, medium=skimming content,"
             " low=document open but attention elsewhere."
-            " Detect via: PDF viewers, article pages, documentation sites."
+            " Detect via: PDF viewers, article pages, documentation sites,"
+            " reading apps, imported book highlights and annotations."
             " Do not use for reading code — that is coding."
         ),
     },
@@ -144,6 +160,22 @@ DEFAULT_ACTIVITIES: list[dict[str, str]] = [
         ),
     },
     {
+        "id": "planning",
+        "name": "Planning",
+        "description": "Scheduling, calendar management, meeting preparation, and agenda setting",
+        "icon": "📋",
+        "instructions": (
+            "Levels: high=actively scheduling or preparing agendas,"
+            " medium=reviewing calendar or event details,"
+            " low=calendar visible but not being interacted with."
+            " Detect via: calendar apps, scheduling interfaces, event creation,"
+            " imported calendar events, meeting invitations, agenda drafting."
+            " Use for scheduling and preparation work."
+            " Do not confuse with meeting — planning is the preparation,"
+            " meeting is the actual synchronous interaction."
+        ),
+    },
+    {
         "id": "productivity",
         "name": "Productivity",
         "description": "Spreadsheets, slides, and task management",
@@ -152,7 +184,7 @@ DEFAULT_ACTIVITIES: list[dict[str, str]] = [
             "Levels: high=actively editing or organizing, medium=reviewing data,"
             " low=app open but not focused."
             " Detect via: spreadsheet/slide editors, project management tools,"
-            " calendar apps, task boards."
+            " task boards."
         ),
     },
     {
