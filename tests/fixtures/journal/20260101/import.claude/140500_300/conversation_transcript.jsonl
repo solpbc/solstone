@@ -1,0 +1,6 @@
+{"imported": {"id": "claude-fixture-001", "source": "claude"}, "topics": "event sourcing, database design", "setting": "ai_conversation"}
+{"start": "14:05:10", "speaker": "Human", "text": "What's the right approach for snapshots? I don't want to replay thousands of events every time we load an aggregate.", "source": "import"}
+{"start": "14:05:48", "speaker": "Assistant", "text": "Store snapshots in a separate table keyed by aggregate ID and version. Rebuild from the snapshot plus only subsequent events. A good rule of thumb is to snapshot every 50-100 events per aggregate.", "source": "import"}
+{"start": "14:06:55", "speaker": "Human", "text": "Should we separate the read side completely with CQRS, or is that overkill at our scale?", "source": "import"}
+{"start": "14:07:32", "speaker": "Assistant", "text": "At your volume a full CQRS split is premature, but you should still maintain separate projection tables updated by event handlers. That gives you the read-model flexibility without a separate data store. Three tables cover it: events for the append-only log, snapshots for aggregate state checkpoints, and projections for denormalized read models.", "source": "import"}
+{"start": "14:08:40", "speaker": "Human", "text": "I like that. Can you sketch out the column definitions for the events table specifically?", "source": "import"}
