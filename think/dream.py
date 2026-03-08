@@ -9,6 +9,7 @@ run in parallel, then dream waits for completion before the next group.
 """
 
 import argparse
+import fnmatch
 import logging
 import sys
 import threading
@@ -410,6 +411,15 @@ def run_prompts_by_priority(
 
         for prompt_name, config in prompts_list:
             is_generate = config["type"] == "generate"
+
+            # Check exclude_streams filter
+            exclude_patterns = config.get("exclude_streams")
+            if exclude_patterns and stream:
+                if any(fnmatch.fnmatch(stream, pat) for pat in exclude_patterns):
+                    logging.info(
+                        f"Skipping {prompt_name}: stream '{stream}' matches exclude_streams"
+                    )
+                    continue
 
             try:
                 if config.get("multi_facet"):

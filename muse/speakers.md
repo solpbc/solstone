@@ -7,6 +7,7 @@
   "priority": 10,
   "output": "json",
   "color": "#e64a19",
+  "exclude_streams": ["import.*"],
   "instructions": {
     "sources": {"transcripts": "required", "percepts": true, "agents": false}
   }

@@ -58,9 +58,9 @@ $daily_preamble
         * A qualitative description of what a visual network diagram of this day would highlight. Include specific examples of the 2-3 most interesting or unexpected connections discovered, explaining why they are noteworthy (e.g., "An interesting connection is Person A using Tool Z, typically associated with Project Q, for an ad-hoc task related to Concept R. This suggests a novel application or workaround.").
 
 **Key Considerations:**
-* Synthesize information from both audio and screen transcript data within each chunk.
+* Synthesize information from all transcript content within each chunk.
 * Disambiguate entities: e.g., "John" referring to "John Doe."
 * Infer implicit relationships where explicit statements are lacking but context strongly suggests a connection.
 * Focus on the most relevant and significant entities and relationships to avoid an overly noisy graph.
-* $Preferred often multi-tasks where joined on a team zoom in the background while working on an unrelated task, so the audio transcripts may not always align with the screen transcripts.
+* For live capture, $preferred often multi-tasks — e.g., joined on a team zoom in the background while working on an unrelated task — so different content streams may not always align.
 * Take time to consider all of the nuance of the interactions from the day, deeply think through how best to prioritize the most important aspects and understandings, formulate the best approach for each step of the analysis.

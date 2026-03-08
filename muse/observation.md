@@ -9,6 +9,7 @@
   "tier": 3,
   "thinking_budget": 2048,
   "max_output_tokens": 2048,
+  "exclude_streams": ["import.*"],
   "instructions": {
     "sources": {"transcripts": true, "percepts": true, "agents": false}
   }

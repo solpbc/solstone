@@ -32,7 +32,7 @@ Use the Activity Context and Activity State Per Segment sections above to unders
 
 1. **Sequential Review**
    - Read the transcript chronologically, one block at a time.
-   - Look for statements or screen cues indicating outstanding tasks, open questions, or commitments to reconnect later.
+   - Look for statements or contextual cues indicating outstanding tasks, open questions, or commitments to reconnect later.
 
 2. **Recognize Follow-up Triggers**
    - Phrases such as "I'll do that tomorrow," "Let's talk later," or "Need to check".

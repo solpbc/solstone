@@ -100,6 +100,101 @@ class JSONEventWriter:
 # =============================================================================
 
 
+def _stream_content_description(stream: str | None) -> str:
+    """Return a human-readable content description for a stream.
+
+    Used in preamble templates so agents know what kind of content they're
+    analyzing (live capture vs imported conversations, notes, etc.).
+    """
+    if not stream:
+        return "audio transcription and screen recording"
+
+    STREAM_DESCRIPTIONS = {
+        "archon": "audio transcription and screen recording",
+        "import.chatgpt": "an imported ChatGPT conversation",
+        "import.claude": "an imported Claude conversation",
+        "import.gemini": "an imported Gemini conversation",
+        "import.ics": "an imported calendar event",
+        "import.obsidian": "an imported note from Obsidian",
+        "import.kindle": "imported Kindle reading highlights",
+    }
+
+    if stream in STREAM_DESCRIPTIONS:
+        return STREAM_DESCRIPTIONS[stream]
+
+    # Fallback for unknown import streams
+    if stream.startswith("import."):
+        source = stream.split(".", 1)[1]
+        return f"imported content from {source}"
+
+    return "captured content"
+
+
+def _stream_import_guidance(stream: str | None) -> str:
+    """Return stream-conditional guidance for the activity agent.
+
+    For live capture, returns guidance about frame comparison and spoken audio.
+    For imports, returns content-type-specific analysis instructions.
+    Returns empty string for unknown streams.
+    """
+    if not stream or stream == "archon":
+        return (
+            "## Live Capture Guidance\n\n"
+            "ONLY report what CHANGED between screenshots or was SPOKEN in audio. "
+            "If content looks the same across frames, skip it entirely.\n\n"
+            "### Your Inputs\n\n"
+            "- **Screenshots**: Sampled across this segment. Compare frames — what's different?\n"
+            "- **Audio**: Transcript of speech. What was said?\n\n"
+            "### SKIP Entirely\n\n"
+            "- Windows that look identical in first and last frame\n"
+            "- Apps open but showing same content throughout\n"
+            "- Background windows never brought to focus\n"
+            "- Anything you'd describe as \"had open\" or \"was visible\""
+        )
+
+    IMPORT_GUIDANCE = {
+        "import.chatgpt": (
+            "This is an AI conversation. Summarize the key topics discussed, "
+            "questions asked, solutions proposed, and decisions reached. "
+            "Focus on what the human was trying to accomplish and what they learned or decided."
+        ),
+        "import.claude": (
+            "This is an AI conversation. Summarize the key topics discussed, "
+            "questions asked, solutions proposed, and decisions reached. "
+            "Focus on what the human was trying to accomplish and what they learned or decided."
+        ),
+        "import.gemini": (
+            "This is an AI conversation. Summarize the key topics discussed, "
+            "questions asked, solutions proposed, and decisions reached. "
+            "Focus on what the human was trying to accomplish and what they learned or decided."
+        ),
+        "import.ics": (
+            "This is a calendar event. Describe the event: its purpose, "
+            "participants, and any context from the description about why it was scheduled."
+        ),
+        "import.obsidian": (
+            "This is a note. Summarize the key ideas, references, and connections. "
+            "What was the author thinking about and working through?"
+        ),
+        "import.kindle": (
+            "These are reading highlights. Describe what was being read and what "
+            "the reader found noteworthy. What themes or ideas do these highlights capture?"
+        ),
+    }
+
+    if stream in IMPORT_GUIDANCE:
+        return f"## Content Guidance\n\n{IMPORT_GUIDANCE[stream]}"
+
+    if stream.startswith("import."):
+        return (
+            "## Content Guidance\n\n"
+            "This is imported content. Summarize the key topics, actions, "
+            "and takeaways present in this segment."
+        )
+
+    return ""
+
+
 def _build_prompt_context(
     day: str | None,
     segment: str | None,
@@ -119,6 +214,7 @@ def _build_prompt_context(
         - day: Friendly format (e.g., "Sunday, February 2, 2025")
         - day_YYYYMMDD: Raw day string (e.g., "20250202")
         - segment_start, segment_end: Time strings if segment/span provided
+        - stream, content_description: Stream name and human-readable description
         - activity_*: Activity fields if activity record provided
     """
     context: dict[str, str] = {}
@@ -127,6 +223,12 @@ def _build_prompt_context(
 
     context["day"] = format_day(day)
     context["day_YYYYMMDD"] = day
+
+    # Stream-aware content description and import guidance
+    stream = os.environ.get("SOL_STREAM")
+    context["stream"] = stream or "archon"
+    context["content_description"] = _stream_content_description(stream)
+    context["import_guidance"] = _stream_import_guidance(stream)
 
     if segment:
         start_str, end_str = format_segment_times(segment)

@@ -68,8 +68,8 @@ A ranked Markdown list of decision-actions found. For each item, provide:
 - **Entities:** people, teams, groups, projects/issues, repos/branches, docs/artifacts, meetings, environments, orgs
 - **Impact Surface:** approx # people affected; external stakeholders? breadth (low/med/high); criticality flags (time_sensitive, high_centrality, irreversible)
 - **Evidence:**
-  - Audio quotes (<= 20 words each, 1–2 max)
-  - Screen phrases (OCR/visual cues of enactment)
+  - Transcript quotes (<= 20 words each, 1–2 max)
+  - Screen phrases (OCR/visual cues of enactment, when available)
   - Metadata notes (audience size, env flags, etc.)
 - **Stakes for Others:** <= 30 words on likely consequences
 - **Confidence:** 0.0–1.0 calibration (0.50 maybe, 0.70 likely, 0.85+ clear)
@@ -79,5 +79,5 @@ If no decision-actions are found in this activity, output only a brief sentence 
 STRICT RULES
 - Do not fabricate entities or counts; estimate only from inputs.
 - Anchor times to actual segment boundaries.
-- Evidence should include both intent (often audio) and enactment (often screen/metadata) when available.
+- Evidence should include both intent (often transcript) and enactment (often screen/metadata) when available.
 - Maintain Markdown only; no JSON or code blocks in the final output.

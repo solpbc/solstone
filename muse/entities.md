@@ -34,5 +34,5 @@ Output as a markdown list. Each line has three parts separated by colon and dash
 * Type: Entity Name - Description
 
 Example:
-* Person: Alice Smith - Mentioned in Slack discussing the project timeline
-* Tool: Grafana - Visible on screen showing metrics dashboards
+* Person: Alice Smith - Mentioned in discussion about the project timeline
+* Tool: Grafana - Referenced for monitoring metrics dashboards
