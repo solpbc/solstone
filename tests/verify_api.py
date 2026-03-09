@@ -455,7 +455,11 @@ def normalize(data: Any, journal_path: str) -> Any:
                 item_key: (
                     0
                     if item_key == "mtime" and isinstance(item_value, (int, float))
-                    else walk(item_value, item_key)
+                    else (
+                        round(item_value, 1)
+                        if item_key == "score" and isinstance(item_value, float)
+                        else walk(item_value, item_key)
+                    )
                 )
                 for item_key, item_value in value.items()
             }
