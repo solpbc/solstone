@@ -149,7 +149,7 @@ def _stream_import_guidance(stream: str | None) -> str:
             "- Windows that look identical in first and last frame\n"
             "- Apps open but showing same content throughout\n"
             "- Background windows never brought to focus\n"
-            "- Anything you'd describe as \"had open\" or \"was visible\""
+            '- Anything you\'d describe as "had open" or "was visible"'
         )
 
     IMPORT_GUIDANCE = {

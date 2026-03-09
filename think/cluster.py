@@ -254,7 +254,10 @@ def _process_segment(
 
 
 def _load_entries(
-    day_dir: str, transcripts: bool, percepts: bool, agents: bool | dict[str, bool | str]
+    day_dir: str,
+    transcripts: bool,
+    percepts: bool,
+    agents: bool | dict[str, bool | str],
 ) -> list[dict[str, Any]]:
     """Load all transcript entries from a day directory."""
     from think.utils import segment_parse
@@ -269,7 +272,9 @@ def _load_entries(
         start_time, _ = segment_parse(seg_path.name)
         if not start_time:
             continue
-        entries.extend(_process_segment(seg_path, date_str, transcripts, percepts, agents))
+        entries.extend(
+            _process_segment(seg_path, date_str, transcripts, percepts, agents)
+        )
 
     entries.sort(key=lambda e: e["timestamp"])
     return entries
@@ -612,7 +617,10 @@ def cluster_period(
         agents=sources.get("agents", False),
     )
     if not entries:
-        return f"No transcript or screen files found for segment {segment}", empty_counts
+        return (
+            f"No transcript or screen files found for segment {segment}",
+            empty_counts,
+        )
 
     groups = _group_entries(entries)
     markdown = _groups_to_markdown(groups)
@@ -639,7 +647,9 @@ def _load_entries_from_segment(
     segment_path_obj = Path(segment_dir)
     # Parent is stream dir; grandparent is day dir
     date_str = _date_str(str(segment_path_obj.parent.parent))
-    entries = _process_segment(segment_path_obj, date_str, transcripts, percepts, agents)
+    entries = _process_segment(
+        segment_path_obj, date_str, transcripts, percepts, agents
+    )
     entries.sort(key=lambda e: e["timestamp"])
     return entries
 

@@ -283,7 +283,11 @@ def test_write_segment(tmp_path):
     written = Path(json_path)
     assert (
         written
-        == tmp_path / "20240101" / "import.text" / "120000_300" / "conversation_transcript.jsonl"
+        == tmp_path
+        / "20240101"
+        / "import.text"
+        / "120000_300"
+        / "conversation_transcript.jsonl"
     )
     assert written.exists()
 
@@ -420,13 +424,22 @@ def test_chatgpt_importer_segments(tmp_path, monkeypatch):
     assert len(result.files_created) == 3
 
     first_segment = (
-        day_path("20260115") / "import.chatgpt" / "120000_300" / "conversation_transcript.jsonl"
+        day_path("20260115")
+        / "import.chatgpt"
+        / "120000_300"
+        / "conversation_transcript.jsonl"
     )
     second_segment = (
-        day_path("20260115") / "import.chatgpt" / "120501_300" / "conversation_transcript.jsonl"
+        day_path("20260115")
+        / "import.chatgpt"
+        / "120501_300"
+        / "conversation_transcript.jsonl"
     )
     third_segment = (
-        day_path("20260116") / "import.chatgpt" / "000000_300" / "conversation_transcript.jsonl"
+        day_path("20260116")
+        / "import.chatgpt"
+        / "000000_300"
+        / "conversation_transcript.jsonl"
     )
 
     assert first_segment.exists()
@@ -551,13 +564,22 @@ def test_claude_chat_importer_segments(tmp_path, monkeypatch):
     assert len(result.files_created) == 3
 
     first_segment = (
-        day_path("20260115") / "import.claude" / "120000_300" / "conversation_transcript.jsonl"
+        day_path("20260115")
+        / "import.claude"
+        / "120000_300"
+        / "conversation_transcript.jsonl"
     )
     second_segment = (
-        day_path("20260115") / "import.claude" / "120501_300" / "conversation_transcript.jsonl"
+        day_path("20260115")
+        / "import.claude"
+        / "120501_300"
+        / "conversation_transcript.jsonl"
     )
     third_segment = (
-        day_path("20260116") / "import.claude" / "000000_300" / "conversation_transcript.jsonl"
+        day_path("20260116")
+        / "import.claude"
+        / "000000_300"
+        / "conversation_transcript.jsonl"
     )
 
     assert first_segment.exists()
@@ -1251,8 +1273,12 @@ END:VCALENDAR"""
 
     result = mod.ICSImporter().process(ics_path, tmp_path, facet="work")
 
-    first_md = day_path("20260301") / "import.ics" / "120000_300" / "event_transcript.md"
-    second_md = day_path("20260302") / "import.ics" / "090000_300" / "event_transcript.md"
+    first_md = (
+        day_path("20260301") / "import.ics" / "120000_300" / "event_transcript.md"
+    )
+    second_md = (
+        day_path("20260302") / "import.ics" / "090000_300" / "event_transcript.md"
+    )
 
     assert result.entries_written == 4
     assert result.errors == []
@@ -1480,8 +1506,12 @@ def test_obsidian_process_segments(tmp_path, monkeypatch):
     assert first_key == "100000_300"
     assert second_key == "101000_300"
 
-    first_md = day_path("20260315") / "import.obsidian" / "100000_300" / "note_transcript.md"
-    second_md = day_path("20260315") / "import.obsidian" / "101000_300" / "note_transcript.md"
+    first_md = (
+        day_path("20260315") / "import.obsidian" / "100000_300" / "note_transcript.md"
+    )
+    second_md = (
+        day_path("20260315") / "import.obsidian" / "101000_300" / "note_transcript.md"
+    )
     assert first_md.exists()
     assert second_md.exists()
 

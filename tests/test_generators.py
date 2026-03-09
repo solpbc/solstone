@@ -134,7 +134,9 @@ def test_speakers_has_required_audio():
     instructions = speakers.get("instructions", {})
     sources = instructions.get("sources", {})
 
-    assert sources.get("transcripts") == "required", "speakers should require transcripts"
+    assert sources.get("transcripts") == "required", (
+        "speakers should require transcripts"
+    )
     assert sources.get("percepts") is True, "speakers should include percepts"
 
 

@@ -91,11 +91,19 @@ def read(
     full: bool = typer.Option(
         False, "--full", help="Include transcripts, screen, and agents."
     ),
-    raw: bool = typer.Option(False, "--raw", help="Include transcripts and screen only."),
-    transcripts: bool = typer.Option(False, "--transcripts", help="Include transcript content."),
-    audio: bool = typer.Option(False, "--audio", help="Alias for --transcripts.", hidden=True),
+    raw: bool = typer.Option(
+        False, "--raw", help="Include transcripts and screen only."
+    ),
+    transcripts: bool = typer.Option(
+        False, "--transcripts", help="Include transcript content."
+    ),
+    audio: bool = typer.Option(
+        False, "--audio", help="Alias for --transcripts.", hidden=True
+    ),
     percepts: bool = typer.Option(False, "--percepts", help="Include screen percepts."),
-    screen: bool = typer.Option(False, "--screen", help="Alias for --percepts.", hidden=True),
+    screen: bool = typer.Option(
+        False, "--screen", help="Alias for --percepts.", hidden=True
+    ),
     agents: bool = typer.Option(False, "--agents", help="Include agent outputs."),
     max_bytes: int = typer.Option(
         16384, "--max", help="Max output bytes (0 = unlimited)."
@@ -120,7 +128,11 @@ def read(
         raise typer.Exit(1)
 
     if full:
-        sources: dict[str, bool] = {"transcripts": True, "percepts": True, "agents": True}
+        sources: dict[str, bool] = {
+            "transcripts": True,
+            "percepts": True,
+            "agents": True,
+        }
     elif raw:
         sources = {"transcripts": True, "percepts": True, "agents": False}
     elif transcripts or percepts or agents:
@@ -160,7 +172,9 @@ def stats(month: str = typer.Argument(help="Month (YYYYMM).")) -> None:
         transcript_ranges, screen_ranges = cluster_scan(day)
         if transcript_ranges or screen_ranges:
             days_with_data += 1
-            typer.echo(f"{day}  transcripts:{len(transcript_ranges)} percepts:{len(screen_ranges)}")
+            typer.echo(
+                f"{day}  transcripts:{len(transcript_ranges)} percepts:{len(screen_ranges)}"
+            )
 
     if not days_with_data:
         typer.echo(f"No data for {month}.")

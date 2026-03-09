@@ -559,6 +559,16 @@
         "pending_segments": 0,
         "screen_duration": 0.0
       },
+      "20260101": {
+        "day_bytes": 24508,
+        "outputs_pending": 11,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "transcript_duration": 1557.0,
+        "transcript_segments": 38,
+        "transcript_sessions": 8
+      },
       "20260130": {
         "audio_duration": 0.0,
         "day_bytes": 275,
@@ -1713,13 +1723,13 @@
       }
     },
     "total_percept_duration": 0.0,
-    "total_transcript_duration": 655.0,
+    "total_transcript_duration": 2212.0,
     "totals": {
       "audio_duration": 1243.0,
       "audio_segments": 86,
       "audio_sessions": 19,
-      "day_bytes": 503294,
-      "outputs_pending": 366,
+      "day_bytes": 527802,
+      "outputs_pending": 377,
       "outputs_processed": 14,
       "pending_segments": 0,
       "percept_frames": 0,
@@ -1727,8 +1737,8 @@
       "screen_duration": 23.1,
       "screen_frames": 3,
       "screen_sessions": 13,
-      "transcript_segments": 48,
-      "transcript_sessions": 4
+      "transcript_segments": 86,
+      "transcript_sessions": 12
     }
   }
 }
