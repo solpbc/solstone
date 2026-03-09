@@ -88,7 +88,7 @@ Confirm the facets and show what was created:
 sol call journal facets
 ```
 
-Tell the user their journal is now set up and the system will start organizing captures into these facets. They can always adjust facets later.
+Tell the user their journal is now set up and the system will start organizing captures into these facets. Reference the specific entities you just created or attached — name them — and suggest a first thing to try: pick one entity and say something like "Try asking me 'tell me about [entity name]' — I'll pull together everything I know." They can always adjust facets and entities later.
 
 ## Behavioral Rules
 

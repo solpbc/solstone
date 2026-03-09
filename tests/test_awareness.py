@@ -301,3 +301,31 @@ class TestAwarenessCLI:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["data"]["meetings"] == 2
+
+
+class TestJournalState:
+    def test_first_daily_ready_via_update_state(self):
+        from think.awareness import get_current, update_state
+
+        update_state(
+            "journal",
+            {"first_daily_ready": True, "first_daily_ready_at": "20260308T14:00:00"},
+        )
+
+        state = get_current()
+        assert state["journal"]["first_daily_ready"] is True
+        assert state["journal"]["first_daily_ready_at"] == "20260308T14:00:00"
+
+    def test_first_daily_ready_preserves_onboarding(self):
+        from think.awareness import get_current, update_state
+
+        update_state("onboarding", {"status": "complete", "path": "b"})
+        update_state(
+            "journal",
+            {"first_daily_ready": True, "first_daily_ready_at": "20260308T14:00:00"},
+        )
+
+        state = get_current()
+        assert state["onboarding"]["status"] == "complete"
+        assert state["onboarding"]["path"] == "b"
+        assert state["journal"]["first_daily_ready"] is True

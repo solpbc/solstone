@@ -170,3 +170,147 @@ def test_chat_cli_skipped_stays_default():
     )
     mock_request = _run_chat_cli_main(args, facets={}, onboarding={"status": "skipped"})
     assert mock_request.call_args.kwargs["name"] == "default"
+
+
+# --- Placeholder resolution ---
+
+
+class TestPlaceholderResolution:
+    def test_observing(self):
+        from convey.apps import _resolve_placeholder
+
+        result = _resolve_placeholder("observing", {}, 0)
+        assert "learning how you work" in result
+
+    def test_ready(self):
+        from convey.apps import _resolve_placeholder
+
+        result = _resolve_placeholder("ready", {}, 0)
+        assert "suggestions" in result
+
+    def test_interviewing(self):
+        from convey.apps import _resolve_placeholder
+
+        result = _resolve_placeholder("interviewing", {}, 0)
+        assert "Tell me about" in result
+
+    def test_complete_no_daily(self):
+        from convey.apps import _resolve_placeholder
+
+        result = _resolve_placeholder("complete", {}, 0)
+        assert "Capture is running" in result
+
+    def test_complete_first_daily_young(self):
+        from convey.apps import _resolve_placeholder
+
+        current = {"journal": {"first_daily_ready": True}}
+        result = _resolve_placeholder("complete", current, 1)
+        assert "first daily analysis is ready" in result
+
+    def test_complete_first_daily_mid(self):
+        from convey.apps import _resolve_placeholder
+
+        current = {"journal": {"first_daily_ready": True}}
+        result = _resolve_placeholder("complete", current, 3)
+        assert "daily analysis is ready" in result
+        assert "first" not in result
+
+    def test_complete_first_daily_mature(self):
+        from convey.apps import _resolve_placeholder
+
+        current = {"journal": {"first_daily_ready": True}}
+        result = _resolve_placeholder("complete", current, 10)
+        assert "Ask me about your day" in result
+
+    def test_skipped_no_daily(self):
+        from convey.apps import _resolve_placeholder
+
+        result = _resolve_placeholder("skipped", {}, 0)
+        assert "Capture is running" in result
+
+    def test_skipped_with_daily_mature(self):
+        from convey.apps import _resolve_placeholder
+
+        current = {"journal": {"first_daily_ready": True}}
+        result = _resolve_placeholder("skipped", current, 10)
+        assert "Ask me about your day" in result
+
+    def test_unknown_status_fallback(self):
+        from convey.apps import _resolve_placeholder
+
+        result = _resolve_placeholder("", {}, 0)
+        assert result == "Send a message..."
+
+    def test_no_status_fallback(self):
+        from convey.apps import _resolve_placeholder
+
+        result = _resolve_placeholder("", {}, 5)
+        assert result == "Send a message..."
+
+
+# --- Triage daily output context ---
+
+
+class TestTriageDailyContext:
+    def test_triage_complete_injects_daily_context(self, tmp_path):
+        """When agent outputs exist, the prompt includes daily analysis context."""
+        from datetime import datetime
+
+        today = datetime.now().strftime("%Y%m%d")
+        agents_dir = tmp_path / today / "agents"
+        agents_dir.mkdir(parents=True)
+        (agents_dir / "flow.md").write_text("# Flow")
+        (agents_dir / "meetings.md").write_text("# Meetings")
+
+        mock = _run_triage(
+            facets={"work": {}},
+            onboarding={"status": "complete"},
+        )
+        prompt = mock.call_args.kwargs["prompt"]
+        assert "Daily analysis available" in prompt
+        assert "flow" in prompt
+        assert "meetings" in prompt
+
+    def test_triage_complete_no_outputs_no_extra_context(self):
+        """When no agent outputs exist, no daily analysis context is added."""
+        mock = _run_triage(
+            facets={"work": {}},
+            onboarding={"status": "complete"},
+        )
+        prompt = mock.call_args.kwargs["prompt"]
+        assert "Daily analysis" not in prompt
+
+    def test_triage_complete_falls_back_to_yesterday(self, tmp_path):
+        """When today has no outputs but yesterday does, use yesterday's."""
+        from datetime import datetime, timedelta
+
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+        agents_dir = tmp_path / yesterday / "agents"
+        agents_dir.mkdir(parents=True)
+        (agents_dir / "flow.md").write_text("# Flow")
+
+        mock = _run_triage(
+            facets={"work": {}},
+            onboarding={"status": "complete"},
+        )
+        prompt = mock.call_args.kwargs["prompt"]
+        assert "Daily analysis available" in prompt
+        assert "flow" in prompt
+        assert yesterday in prompt
+
+    def test_triage_skipped_injects_daily_context(self, tmp_path):
+        """Skipped onboarding also gets daily analysis context."""
+        from datetime import datetime
+
+        today = datetime.now().strftime("%Y%m%d")
+        agents_dir = tmp_path / today / "agents"
+        agents_dir.mkdir(parents=True)
+        (agents_dir / "knowledge_graph.md").write_text("# KG")
+
+        mock = _run_triage(
+            facets={},
+            onboarding={"status": "skipped"},
+        )
+        prompt = mock.call_args.kwargs["prompt"]
+        assert "Daily analysis available" in prompt
+        assert "knowledge_graph" in prompt

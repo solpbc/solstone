@@ -1652,6 +1652,26 @@ def main() -> None:
             except Exception:
                 pass
 
+            # Set first_daily_ready awareness flag after first post-onboarding daily
+            try:
+                from think.awareness import get_current, get_onboarding, update_state
+
+                ob = get_onboarding()
+                if ob.get("status") == "complete":
+                    cur = get_current()
+                    if not cur.get("journal", {}).get("first_daily_ready"):
+                        update_state(
+                            "journal",
+                            {
+                                "first_daily_ready": True,
+                                "first_daily_ready_at": datetime.now().strftime(
+                                    "%Y%m%dT%H:%M:%S"
+                                ),
+                            },
+                        )
+            except Exception:
+                pass
+
         # Build log message
         msg = "dream"
         if args.refresh:

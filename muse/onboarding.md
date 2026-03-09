@@ -81,4 +81,4 @@ Example onboarding flow:
 4. Ask what entities belong in each facet.
 5. Attach each via `sol call entities attach`.
 6. Run `sol call awareness onboarding --complete`.
-7. Confirm setup completion and handoff to normal mode.
+7. Summarize what was created — name the specific facets and entities you just set up. Then suggest a concrete first thing to try: pick one of the entities you just attached and say something like "Try asking me 'tell me about [entity name]' to see how I can help." Keep it warm and grounded in what was just created together.

@@ -333,14 +333,14 @@ class TestChatBarPlaceholder:
         start_onboarding("a")
         update_state("onboarding", {"status": "complete"})
         placeholder = self._get_placeholder()
-        assert placeholder == "Send a message..."
+        assert "Capture is running" in placeholder
 
     def test_skipped_placeholder(self):
         from think.awareness import skip_onboarding
 
         skip_onboarding()
         placeholder = self._get_placeholder()
-        assert placeholder == "Send a message..."
+        assert "Capture is running" in placeholder
 
 
 class TestChatRedirectMuse:

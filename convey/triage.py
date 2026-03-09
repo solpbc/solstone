@@ -76,6 +76,40 @@ def triage() -> Any:
             "Suggest the user review their recommendations. Use `sol call chat redirect` "
             "to open a chat with the recommendation agent if they want to proceed."
         )
+    elif onboarding_status in ("complete", "skipped"):
+        # Add daily agent output context for post-onboarding users
+        try:
+            from datetime import datetime, timedelta
+            from pathlib import Path
+
+            from think.utils import get_journal
+
+            journal = Path(get_journal())
+            today = datetime.now().strftime("%Y%m%d")
+            relevant_day = today
+            agents_dir = journal / today / "agents"
+            outputs = (
+                sorted(p.stem for p in agents_dir.glob("*.md"))
+                if agents_dir.is_dir()
+                else []
+            )
+            if not outputs:
+                yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+                agents_dir = journal / yesterday / "agents"
+                outputs = (
+                    sorted(p.stem for p in agents_dir.glob("*.md"))
+                    if agents_dir.is_dir()
+                    else []
+                )
+                relevant_day = yesterday
+            if outputs:
+                names = ", ".join(outputs)
+                context_lines.append(
+                    f"Daily analysis available: {names} (from {relevant_day}). "
+                    "The user can ask about any of these topics."
+                )
+        except Exception:
+            pass  # Don't let context enrichment break triage
 
     if context_lines:
         full_prompt = "\n".join(context_lines) + "\n\n" + message
