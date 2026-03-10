@@ -173,6 +173,57 @@
   color: #2f3a4c;
 }
 
+.import-path-input {
+  width: 100%;
+  padding: 0.85rem;
+  border: 1px solid #cfd7e3;
+  border-radius: 10px;
+  font-family: monospace;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+  background: #f8fbff;
+}
+
+.import-path-input:focus {
+  outline: none;
+  border-color: #0f4c81;
+  background: #ffffff;
+}
+
+.import-dedup-notice {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  background: #fef9e7;
+  border: 1px solid #f0d858;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.import-dedup-notice .dedup-text {
+  flex: 1;
+  color: #5b4a08;
+}
+
+.import-dedup-notice button {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: white;
+  border: 1px solid #d9a800;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #5b4a08;
+  white-space: nowrap;
+}
+
+.import-dedup-notice button:hover {
+  background: #fef3c7;
+}
+
 .import-paste-text {
   width: 100%;
   min-height: 220px;
@@ -496,6 +547,7 @@ function showGrid() {
   currentGuideSource = null;
   currentGuidedFile = null;
   currentGuidedSaved = null;
+  window._guidedForceImport = false;
   navigateTo('grid');
 }
 
@@ -915,13 +967,20 @@ async function loadGuidedFlow(sourceName) {
     ${guideHtml}
     <div class="import-step">
       <div class="import-step-number">Step 2</div>
-      <h4>Upload your export</h4>
-      <div class="import-upload-area" id="guidedDropArea">
-        <p>${escapeHtml(source.upload_prompt || 'Select a file to import')}</p>
-        <div class="import-upload-help">${escapeHtml(source.accept ? `Accepted: ${source.accept}` : 'Any supported file')}</div>
-        <input id="guidedFileInput" type="file" accept="${escapeHtml(source.accept || '')}" style="display:none" />
-        <div id="guidedFileLabel" class="import-file-label"></div>
-      </div>
+      ${source.input_type === 'path_input' ? `
+        <h4>Point to your vault</h4>
+        <input id="guidedPathInput" class="import-path-input" type="text"
+          placeholder="${escapeHtml(source.upload_prompt || 'Paste the full path to your folder')}" />
+      ` : `
+        <h4>Upload your export</h4>
+        <div class="import-upload-area" id="guidedDropArea">
+          <p>${escapeHtml(source.upload_prompt || 'Select a file to import')}</p>
+          <div class="import-upload-help">${escapeHtml(source.accept ? `Accepted: ${source.accept}` : 'Any supported file')}</div>
+          <input id="guidedFileInput" type="file" accept="${escapeHtml(source.accept || '')}" style="display:none" />
+          <div id="guidedFileLabel" class="import-file-label"></div>
+        </div>
+      `}
+      <div id="guidedDedupNotice"></div>
     </div>
     <div class="import-step">
       <div class="import-step-number">Step 3</div>
@@ -943,7 +1002,9 @@ async function loadGuidedFlow(sourceName) {
   `;
 
   loadFacets(window.selectedFacet || '', document.getElementById('guidedFacetSelect'));
-  setupGuidedUploadArea();
+  if (source.input_type !== 'path_input') {
+    setupGuidedUploadArea();
+  }
   document.getElementById('guidedStartBtn').addEventListener('click', () => startGuidedImport(source));
 }
 
@@ -1148,6 +1209,52 @@ async function uploadGuidedSourceFile() {
   }
 
   currentGuidedSaved = data;
+
+  // Show dedup notice if the file was previously imported
+  if (data.dedup) {
+    showDedupNotice(data.dedup);
+  }
+
+  return data;
+}
+
+function showDedupNotice(dedup) {
+  const container = document.getElementById('guidedDedupNotice');
+  if (!container) return;
+  container.innerHTML = `
+    <div class="import-dedup-notice">
+      <span class="dedup-text">This file was already imported on ${escapeHtml(dedup.imported_at)}${dedup.entry_count ? ` (${dedup.entry_count} entries)` : ''}.</span>
+      <button type="button" id="dedupForceBtn">Re-import anyway</button>
+    </div>
+  `;
+  document.getElementById('dedupForceBtn').addEventListener('click', () => {
+    window._guidedForceImport = true;
+    container.innerHTML = '<div class="import-dedup-notice"><span class="dedup-text">Will re-import. Click Start Import to proceed.</span></div>';
+  });
+}
+
+async function saveGuidedPath(source) {
+  const pathInput = document.getElementById('guidedPathInput');
+  if (!pathInput || !pathInput.value.trim()) {
+    throw new Error('Please enter the path to your vault folder.');
+  }
+
+  const guidedFacetSelect = document.getElementById('guidedFacetSelect');
+  const guidedSettingInput = document.getElementById('guidedSettingInput');
+  const facet = guidedFacetSelect ? guidedFacetSelect.value : '';
+  const setting = guidedSettingInput ? guidedSettingInput.value.trim() : '';
+
+  const response = await fetch('/app/import/api/save-path', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: pathInput.value.trim(), facet, setting }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Path not found');
+  }
+
+  currentGuidedSaved = data;
   return data;
 }
 
@@ -1161,11 +1268,17 @@ async function startGuidedImport(source) {
   startButton.innerHTML = 'Starting<span class="spinner"></span>';
 
   try {
-    const saved = currentGuidedSaved || await uploadGuidedSourceFile();
+    let saved;
+    if (source.input_type === 'path_input') {
+      saved = currentGuidedSaved || await saveGuidedPath(source);
+    } else {
+      saved = currentGuidedSaved || await uploadGuidedSourceFile();
+    }
     const path = saved.path;
     const ts = saved.timestamp;
     const facet = guidedFacetSelect ? guidedFacetSelect.value : '';
     const setting = guidedSettingInput ? guidedSettingInput.value.trim() : '';
+    const force = !!(window._guidedForceImport);
 
     const metaResponse = await fetch('/app/import/api/facet', {
       method: 'POST',
@@ -1181,7 +1294,7 @@ async function startGuidedImport(source) {
     const startResponse = await fetch('/app/import/api/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, timestamp: ts, source: source.name, force: false }),
+      body: JSON.stringify({ path, timestamp: ts, source: source.name, force }),
     });
 
     if (!startResponse.ok) {
@@ -1196,6 +1309,7 @@ async function startGuidedImport(source) {
       source_type: source.name,
       source_display: source.display_name,
     };
+    window._guidedForceImport = false;
     loadImports();
     navigateTo(`progress/${ts}`);
   } catch (err) {

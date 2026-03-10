@@ -82,10 +82,10 @@ SOURCE_METADATA = [
         "emoji": "📝",
         "icon": "file-text",
         "description": "Import notes from Obsidian, Logseq, or any markdown vault",
-        "input_type": "directory",
-        "upload_prompt": "Upload your vault as a .zip file",
+        "input_type": "path_input",
+        "upload_prompt": "Paste the full path to your vault folder",
         "has_guide": True,
-        "accept": ".zip",
+        "accept": "",
     },
     {
         "name": "kindle",
@@ -250,9 +250,81 @@ def import_save() -> Any:
         metadata=metadata,
     )
 
+    # Check for dedup — has this exact file been imported before?
+    dedup = None
+    try:
+        from think.importers.shared import find_manifest_by_hash, hash_source
+
+        source_hash = hash_source(file_path)
+        existing = find_manifest_by_hash(Path(state.journal_root), source_hash)
+        if existing:
+            dedup = {
+                "imported_at": existing.get("imported_at", "unknown"),
+                "entry_count": existing.get("entry_count", 0),
+                "import_id": existing.get("import_id", ""),
+            }
+    except Exception:
+        pass  # dedup check is best-effort
+
+    result: dict[str, Any] = {
+        "path": str(file_path),
+        "timestamp": folder_timestamp,
+        "facet": facet,
+        "setting": setting,
+    }
+    if dedup:
+        result["dedup"] = dedup
+
+    return jsonify(result)
+
+
+@import_bp.route("/api/save-path", methods=["POST"])
+def import_save_path() -> Any:
+    """Register a local filesystem path for import (e.g. Obsidian vault)."""
+    from datetime import datetime
+
+    data = request.get_json(force=True)
+    local_path = data.get("path", "").strip()
+    facet = data.get("facet", "").strip() or None
+    setting = data.get("setting", "").strip() or None
+
+    if not local_path:
+        return jsonify({"error": "Missing path"}), 400
+
+    local = Path(local_path)
+    if not local.exists():
+        return jsonify({"error": f"Path not found: {local_path}"}), 404
+
+    timestamp_ms = now_ms()
+    folder_timestamp = (
+        f"{datetime.fromtimestamp(timestamp_ms / 1000).strftime('%Y%m%d_%H%M%S')}"
+    )
+
+    # Create import directory and metadata
+    journal_root = Path(state.journal_root)
+    import_dir = journal_root / "imports" / folder_timestamp
+    import_dir.mkdir(parents=True, exist_ok=True)
+
+    metadata = {
+        "original_filename": local.name,
+        "upload_timestamp": timestamp_ms,
+        "upload_datetime": datetime.fromtimestamp(timestamp_ms / 1000).isoformat(),
+        "user_timestamp": folder_timestamp,
+        "file_path": local_path,
+        "facet": facet,
+        "setting": setting,
+        "is_local_path": True,
+    }
+
+    write_import_metadata(
+        journal_root=journal_root,
+        timestamp=folder_timestamp,
+        metadata=metadata,
+    )
+
     return jsonify(
         {
-            "path": str(file_path),
+            "path": local_path,
             "timestamp": folder_timestamp,
             "facet": facet,
             "setting": setting,
@@ -409,11 +481,13 @@ def import_start() -> Any:
 
     # Extract original timestamp from path and handle timestamp changes
     file_path = Path(path)
-    original_timestamp = file_path.parent.name
     journal_root = Path(state.journal_root)
+    imports_dir = journal_root / "imports"
+    is_local_path = not str(file_path).startswith(str(imports_dir))
+    original_timestamp = file_path.parent.name if not is_local_path else ts
 
     # If timestamp changed, rename the import directory
-    if original_timestamp != ts:
+    if not is_local_path and original_timestamp != ts:
         old_import_dir = journal_root / "imports" / original_timestamp
         new_import_dir = journal_root / "imports" / ts
 
@@ -454,7 +528,7 @@ def import_start() -> Any:
         return jsonify({"error": f"Failed to read metadata: {str(e)}"}), 500
 
     # Update file_path in metadata if timestamp changed
-    if original_timestamp != ts:
+    if not is_local_path and original_timestamp != ts:
         try:
             update_import_metadata_fields(
                 journal_root=journal_root,
