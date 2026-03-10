@@ -28,14 +28,14 @@ from think.facets import (
     set_facet_muted,
     update_facet,
 )
-from think.indexer.journal import get_events as get_events_impl
-from think.indexer.journal import search_counts as search_counts_impl
-from think.indexer.journal import search_journal as search_journal_impl
 from think.importers.utils import (
     build_import_info,
     get_import_details,
     list_import_timestamps,
 )
+from think.indexer.journal import get_events as get_events_impl
+from think.indexer.journal import search_counts as search_counts_impl
+from think.indexer.journal import search_journal as search_journal_impl
 from think.utils import (
     get_journal,
     iter_segments,
@@ -109,7 +109,9 @@ def search(
     for r in results:
         meta = r["metadata"]
         stream_tag = f" | {meta['stream']}" if meta.get("stream") else ""
-        typer.echo(f"\n--- {meta['day']} | {meta['facet']} | {meta['agent']}{stream_tag} ---")
+        typer.echo(
+            f"\n--- {meta['day']} | {meta['facet']} | {meta['agent']}{stream_tag} ---"
+        )
         typer.echo(r["text"].strip())
 
 
