@@ -393,10 +393,30 @@ class FileSensor:
                     )
                 except ValueError:
                     log_rel = handler_proc.managed.log_writer.path
+
+                error_msg = f"{handler_proc.handler_name} failed with exit {exit_code}"
                 logger.error(
-                    f"{handler_proc.handler_name} failed for {handler_proc.file_path.name} "
-                    f"with exit code {exit_code} ({elapsed:.1f}s) - see log {log_rel}"
+                    f"{error_msg} for {handler_proc.file_path.name} "
+                    f"({elapsed:.1f}s) - see log {log_rel}"
                 )
+
+                # Notify user via Callosum
+                if self.callosum:
+                    icon = "🤖"
+                    if handler_proc.handler_name == "transcribe":
+                        icon = "🎙️"
+                    elif handler_proc.handler_name == "describe":
+                        icon = "👁️"
+
+                    self.callosum.emit(
+                        "notification",
+                        "show",
+                        message=f"{handler_proc.handler_name.capitalize()} failed for {handler_proc.file_path.name}",
+                        title=f"{handler_proc.handler_name.capitalize()} Error",
+                        icon=icon,
+                        app="sense",
+                        action=f"/health/logs?path={log_rel}",
+                    )
 
                 # Mark file as done so segment can still complete
                 self._check_segment_observed(

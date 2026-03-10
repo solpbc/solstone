@@ -451,6 +451,37 @@ def test_file_sensor_spawn_handler_failing_process(tmp_path):
     assert test_file not in sensor.running
 
 
+def test_file_sensor_failing_process_notifies(tmp_path):
+    """Test that a failing handler process emits a notification event."""
+    sensor = FileSensor(tmp_path)
+    # Mock callosum on sensor to capture emitted events
+    sensor.callosum = MagicMock()
+
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("content")
+
+    # Spawn a command that will fail
+    sensor._spawn_handler(test_file, "fail", ["false"])
+
+    # Wait for process to complete and monitor thread to run
+    time.sleep(0.5)
+
+    # Check that a notification event was emitted
+    # sensor.callosum.emit is called with ('notification', 'show', ...)
+    # Search for a call where the first two args are 'notification' and 'show'
+    notif_call = None
+    for call in sensor.callosum.emit.call_args_list:
+        args, kwargs = call
+        if len(args) >= 2 and args[0] == "notification" and args[1] == "show":
+            notif_call = call
+            break
+
+    assert notif_call is not None
+    _, kwargs = notif_call
+    assert "fail failed" in kwargs.get("message").lower()
+    assert kwargs.get("title") == "Fail Error"
+
+
 def test_file_sensor_handle_file(tmp_path):
     """Test file handling dispatches to correct handler."""
     with patch.object(FileSensor, "_spawn_handler") as mock_spawn:

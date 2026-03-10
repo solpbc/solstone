@@ -84,8 +84,9 @@ class AudioRecorder:
                                 block_count += 1
                             except (TypeError, ValueError, AttributeError) as e:
                                 # Audio device returned unexpected format - trigger clean shutdown
+                                error_msg = f"Fatal audio format error: {e}"
                                 logging.error(
-                                    f"Fatal audio format error - triggering clean shutdown: {e}\n"
+                                    f"{error_msg} - triggering clean shutdown\n"
                                     f"  mic_chunk type={type(mic_chunk)}, "
                                     f"shape={getattr(mic_chunk, 'shape', 'N/A')}, "
                                     f"dtype={getattr(mic_chunk, 'dtype', 'N/A')}\n"
@@ -93,6 +94,19 @@ class AudioRecorder:
                                     f"shape={getattr(sys_chunk, 'shape', 'N/A')}, "
                                     f"dtype={getattr(sys_chunk, 'dtype', 'N/A')}"
                                 )
+
+                                # Notify user via Callosum
+                                from think.callosum import callosum_send
+
+                                callosum_send(
+                                    "notification",
+                                    "show",
+                                    message=error_msg,
+                                    title="Audio Capture Error",
+                                    icon="🔇",
+                                    app="hear",
+                                )
+
                                 # Stop recording thread
                                 self._running = False
                                 # Send SIGTERM to trigger graceful shutdown (same as Ctrl-C)
