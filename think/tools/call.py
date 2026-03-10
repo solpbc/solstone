@@ -489,3 +489,179 @@ def read(
     else:
         typer.echo(f"Agent '{agent}' not found and no outputs exist.", err=True)
     raise typer.Exit(1)
+
+
+# ============================================================================
+# Import Commands
+# ============================================================================
+
+
+def _derive_status(info: dict) -> str:
+    """Derive import status from info dict fields."""
+    if info.get("error"):
+        return "failed"
+    if info.get("processed"):
+        return "success"
+    if info.get("task_id"):
+        return "running"
+    return "pending"
+
+
+def _get_source_type(journal_root: Path, timestamp: str, info: dict) -> str:
+    """Get source type from manifest.json or infer from mime_type."""
+    manifest_path = journal_root / "imports" / timestamp / "manifest.json"
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if manifest.get("source_type"):
+                return manifest["source_type"]
+        except Exception:
+            pass
+
+    # Infer from mime_type
+    mime = info.get("mime_type", "")
+    if "calendar" in mime or "ics" in mime:
+        return "ics"
+    if "zip" in mime:
+        return "archive"
+    if "audio" in mime:
+        return "audio"
+    if "text" in mime:
+        return "text"
+    return "unknown"
+
+
+def _get_entry_count(journal_root: Path, timestamp: str, info: dict) -> int | None:
+    """Get entry count from manifest.json or total_files_created."""
+    manifest_path = journal_root / "imports" / timestamp / "manifest.json"
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if manifest.get("entry_count") is not None:
+                return manifest["entry_count"]
+        except Exception:
+            pass
+    count = info.get("total_files_created")
+    if count is not None and count > 0:
+        return count
+    return None
+
+
+def _match_import_id(timestamps: list[str], prefix: str) -> str | None:
+    """Match a partial import ID prefix to a full timestamp."""
+    matches = [t for t in timestamps if t.startswith(prefix)]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        # Check for exact match first
+        if prefix in matches:
+            return prefix
+        typer.echo(
+            f"Ambiguous prefix '{prefix}' matches {len(matches)} imports. "
+            "Be more specific.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    return None
+
+
+@app.command(name="imports")
+def imports_list(
+    limit: int = typer.Option(20, "--limit", "-n", help="Max results."),
+    source: str | None = typer.Option(
+        None, "--source", "-s", help="Filter by source type."
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """List recent imports with metadata."""
+    journal_root = Path(get_journal())
+    timestamps = list_import_timestamps(journal_root)
+
+    if not timestamps:
+        typer.echo("No imports found.")
+        return
+
+    # Reverse chronological
+    timestamps.sort(reverse=True)
+
+    # Build info for each import
+    rows = []
+    for ts in timestamps:
+        info = build_import_info(journal_root, ts)
+        source_type = _get_source_type(journal_root, ts, info)
+
+        if source and source_type != source:
+            continue
+
+        status = _derive_status(info)
+        filename = info.get("original_filename", "unknown")
+        entry_count = _get_entry_count(journal_root, ts, info)
+
+        rows.append(
+            {
+                "timestamp": ts,
+                "status": status,
+                "source_type": source_type,
+                "filename": filename,
+                "entry_count": entry_count,
+                "error": info.get("error"),
+            }
+        )
+
+        if len(rows) >= limit:
+            break
+
+    if not rows:
+        typer.echo("No imports found.")
+        return
+
+    if json_output:
+        typer.echo(json.dumps(rows, indent=2))
+        return
+
+    for row in rows:
+        parts = [f"{row['timestamp']} [{row['status']}]"]
+        parts.append(f"{row['source_type']:8s}")
+        parts.append(row["filename"])
+        if row["status"] == "failed" and row.get("error"):
+            parts.append(f"— error: {row['error']}")
+        elif row.get("entry_count") is not None:
+            parts.append(f"({row['entry_count']} entries)")
+        typer.echo(" ".join(parts))
+
+
+@app.command(name="import")
+def import_detail(
+    id: str = typer.Argument(help="Import ID or prefix (e.g. 20260309_143000)."),
+) -> None:
+    """Show full metadata for a single import."""
+    journal_root = Path(get_journal())
+    timestamps = list_import_timestamps(journal_root)
+
+    if not timestamps:
+        typer.echo("No imports found.", err=True)
+        raise typer.Exit(1)
+
+    # Match partial prefix
+    matched = _match_import_id(timestamps, id)
+    if matched is None:
+        typer.echo(f"Import '{id}' not found.", err=True)
+        raise typer.Exit(1)
+
+    info = build_import_info(journal_root, matched)
+    info["status"] = _derive_status(info)
+    info["source_type"] = _get_source_type(journal_root, matched, info)
+
+    # Merge manifest and detail data
+    try:
+        details = get_import_details(journal_root, matched)
+        if details.get("import_json"):
+            info["import_metadata"] = details["import_json"]
+        if details.get("imported_json"):
+            info["imported_results"] = details["imported_json"]
+        if details.get("segments_json"):
+            info["segments"] = details["segments_json"]
+    except FileNotFoundError:
+        pass
+
+    typer.echo(json.dumps(info, indent=2, default=str))
