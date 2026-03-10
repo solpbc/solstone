@@ -1,18 +1,3 @@
 {
-  "nudges": [
-    {
-      "day": "20260308",
-      "facet": "montague",
-      "index": 2,
-      "nudge": "20260309T09:00",
-      "text": "Recruit Benvolio for infrastructure support"
-    },
-    {
-      "day": "20260308",
-      "facet": "verona",
-      "index": 2,
-      "nudge": "20260309T09:00",
-      "text": "Prepare working demo for board meeting"
-    }
-  ]
+  "nudges": []
 }
