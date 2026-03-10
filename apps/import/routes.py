@@ -35,6 +35,7 @@ SOURCE_METADATA = [
     {
         "name": "ics",
         "display_name": "Calendar",
+        "emoji": "📅",
         "icon": "calendar",
         "description": "Import events from Google Calendar, Apple Calendar, or Outlook",
         "input_type": "file",
@@ -45,6 +46,7 @@ SOURCE_METADATA = [
     {
         "name": "chatgpt",
         "display_name": "ChatGPT",
+        "emoji": "💬",
         "icon": "message-square",
         "description": "Import your conversation history from ChatGPT",
         "input_type": "file",
@@ -55,6 +57,7 @@ SOURCE_METADATA = [
     {
         "name": "claude",
         "display_name": "Claude",
+        "emoji": "🤖",
         "icon": "message-circle",
         "description": "Import your conversation history from Claude",
         "input_type": "file",
@@ -65,6 +68,7 @@ SOURCE_METADATA = [
     {
         "name": "gemini",
         "display_name": "Gemini",
+        "emoji": "✨",
         "icon": "sparkles",
         "description": "Import your activity history from Google Gemini",
         "input_type": "file",
@@ -75,6 +79,7 @@ SOURCE_METADATA = [
     {
         "name": "obsidian",
         "display_name": "Notes",
+        "emoji": "📝",
         "icon": "file-text",
         "description": "Import notes from Obsidian, Logseq, or any markdown vault",
         "input_type": "directory",
@@ -85,6 +90,7 @@ SOURCE_METADATA = [
     {
         "name": "kindle",
         "display_name": "Kindle",
+        "emoji": "📚",
         "icon": "book-open",
         "description": "Import highlights and clippings from your Kindle",
         "input_type": "file",
@@ -95,6 +101,7 @@ SOURCE_METADATA = [
     {
         "name": "recording",
         "display_name": "Meeting Recording",
+        "emoji": "🎙️",
         "icon": "mic",
         "description": "Import audio recordings of meetings or conversations",
         "input_type": "file",
@@ -105,6 +112,7 @@ SOURCE_METADATA = [
     {
         "name": "document",
         "display_name": "Document",
+        "emoji": "📄",
         "icon": "file",
         "description": "Import a document, PDF, or text file",
         "input_type": "file",
@@ -115,6 +123,7 @@ SOURCE_METADATA = [
     {
         "name": "quick",
         "display_name": "Quick Import",
+        "emoji": "⚡",
         "icon": "zap",
         "description": "Paste text or drop any file for quick import",
         "input_type": "text",
@@ -390,6 +399,8 @@ def import_start() -> Any:
     data = request.get_json(force=True)
     path = data.get("path")
     ts = data.get("timestamp")
+    source = data.get("source")
+    force = data.get("force", False)
     if not path or not ts:
         return jsonify({"error": "missing params"}), 400
 
@@ -465,13 +476,17 @@ def import_start() -> Any:
         cmd.extend(["--facet", facet])
     if setting:
         cmd.extend(["--setting", setting])
+    if source:
+        cmd.extend(["--source", source])
+    if force:
+        cmd.append("--force")
 
     # Store task_id in metadata
     try:
         update_import_metadata_fields(
             journal_root=journal_root,
             timestamp=ts,
-            updates={"task_id": task_id},
+            updates={"task_id": task_id, "source": source},
         )
     except Exception as e:
         return jsonify({"error": f"Failed to update metadata: {str(e)}"}), 500

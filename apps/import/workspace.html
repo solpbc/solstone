@@ -4,16 +4,318 @@
 
 {% if view == 'list' %}
 <style>
-.import-inputs { display: flex; gap: 1em; margin-bottom: 1em; }
-.import-section { flex: 1; display: flex; flex-direction: column; }
-#dropArea { border:2px dashed #999; padding:2em; text-align:center; cursor:pointer; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px; }
-#dropArea.dragover { background:#eef; border-color:#333; }
-#dropArea p { margin: 0 0 0.5em 0; }
-#fileLabel { margin-top: 0.5em; font-weight: bold; color: #333; }
-#pasteText { width:100%; flex: 1; min-height: 200px; padding: 0.5em; border: 2px solid #999; border-radius: 4px; font-family: monospace; font-size: 0.9em; resize: vertical; }
-#validateBtn { width: 100%; padding: 10px; font-size: 1em; font-weight: bold; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 1em; }
-#validateBtn:hover { background: #0056b3; }
-#validateBtn:disabled { background:#ccc; color:#666; cursor:not-allowed; opacity:0.6; }
+.import-source-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.import-source-card {
+  border: 1px solid #d9dfeb;
+  border-radius: 14px;
+  padding: 1.25rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.import-source-card:hover {
+  transform: translateY(-2px);
+  border-color: #7ea6d8;
+  box-shadow: 0 10px 28px rgba(30, 64, 175, 0.08);
+}
+
+.import-source-card-emoji {
+  font-size: 2.1em;
+  line-height: 1;
+}
+
+.import-source-card-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.import-source-card-desc {
+  color: #5b6473;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.import-guided-flow {
+  margin-bottom: 2rem;
+  border: 1px solid #d9dfeb;
+  border-radius: 16px;
+  padding: 1.25rem;
+  background: #ffffff;
+}
+
+.import-back-link {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: #0f4c81;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.import-back-link:hover {
+  text-decoration: underline;
+}
+
+.import-step {
+  border-top: 1px solid #edf1f7;
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.import-step:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.import-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 70px;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #e8f1fb;
+  color: #0f4c81;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
+}
+
+.import-guide-title {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.35rem;
+}
+
+.import-guide-subtitle {
+  margin: 0 0 1rem 0;
+  color: #5b6473;
+}
+
+.import-guide-content {
+  line-height: 1.6;
+}
+
+.import-guide-content h1,
+.import-guide-content h2,
+.import-guide-content h3 {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.import-guide-content h1 { font-size: 1.3em; }
+.import-guide-content h2 { font-size: 1.15em; }
+.import-guide-content h3 { font-size: 1.05em; }
+
+.import-guide-content ul,
+.import-guide-content ol {
+  padding-left: 1.5em;
+}
+
+.import-guide-content pre {
+  background: #f4f4f4;
+  padding: 0.75em;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.import-guide-content code {
+  background: #f4f4f4;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.import-guide-content pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.import-upload-area {
+  border: 2px dashed #99abc7;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  background: #f8fbff;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.import-upload-area.dragover {
+  border-color: #0f4c81;
+  background: #edf5ff;
+}
+
+.import-upload-area p {
+  margin: 0 0 0.5rem 0;
+}
+
+.import-upload-help {
+  color: #5b6473;
+  font-size: 0.9rem;
+}
+
+.import-file-label {
+  margin-top: 0.65rem;
+  font-weight: 700;
+  color: #2f3a4c;
+}
+
+.import-paste-text {
+  width: 100%;
+  min-height: 220px;
+  padding: 0.75rem;
+  border: 1px solid #cfd7e3;
+  border-radius: 10px;
+  font-family: monospace;
+  font-size: 0.9rem;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.import-inline-fields {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.import-inline-fields .confirm-field {
+  flex: 1 1 220px;
+}
+
+.import-action-row {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.import-primary-btn {
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  background: #0f4c81;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.import-primary-btn:hover {
+  background: #0a3b65;
+}
+
+.import-primary-btn:disabled {
+  background: #c4ccd7;
+  color: #5b6473;
+  cursor: not-allowed;
+}
+
+.import-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: white;
+  color: #2f3a4c;
+  border: 1px solid #cfd7e3;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.import-secondary-btn:hover {
+  background: #f7f9fc;
+}
+
+.import-progress-panel {
+  border: 1px solid #d9dfeb;
+  border-radius: 12px;
+  padding: 1rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+}
+
+.import-progress-title {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.import-progress-message {
+  margin: 0.35rem 0 0 0;
+  color: #5b6473;
+}
+
+.import-progress-stats {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.import-progress-stat {
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: #eef4fb;
+  color: #2f3a4c;
+  font-size: 0.9rem;
+}
+
+.import-completion-summary {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: #edf8ef;
+  border: 1px solid #bfdcc4;
+}
+
+.import-completion-summary.failed {
+  background: #fff0f0;
+  border-color: #f0c2c2;
+}
+
+.import-history-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.import-history-summary {
+  color: #4b5565;
+}
+
+.import-history-filters {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.import-history-filters select {
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid #cfd7e3;
+  background: white;
+}
+
 .spinner { display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; margin-left:6px; }
 .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
 .modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:800px; max-height:80vh; overflow:auto; position:relative; }
@@ -25,12 +327,11 @@
 .confirm-field select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; background: white; }
 .modal-actions { margin-top: 1em; display: flex; justify-content: flex-end; }
 
-/* Import list styles */
 .import-list { margin-top: 2em; }
-.import-list h2 { margin-bottom: 1em; }
+.import-list h2 { margin: 0; }
 .import-table { width: 100%; border-collapse: collapse; }
 .import-table th { background: #f5f5f5; text-align: left; padding: 8px; border-bottom: 2px solid #ddd; font-size: 0.9em; }
-.import-table td { padding: 8px; border-bottom: 1px solid #eee; }
+.import-table td { padding: 8px; border-bottom: 1px solid #eee; vertical-align: top; }
 .import-table tr:hover { background: #f9f9f9; cursor: pointer; }
 .import-status { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.85em; }
 .import-status.success { background: #d4edda; color: #155724; }
@@ -44,33 +345,55 @@
 .timestamp-link { color: #007bff; text-decoration: none; }
 .timestamp-link:hover { text-decoration: underline; }
 .no-imports { color: #666; font-style: italic; padding: 2em; text-align: center; }
+.import-source-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.import-source-inline-emoji {
+  font-size: 1.1rem;
+}
+
+.import-stats-cell {
+  color: #4b5565;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 980px) {
+  .import-source-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .import-source-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .import-guided-flow,
+  .modal-content {
+    padding: 1rem;
+  }
+}
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 @keyframes spin { to { transform:rotate(360deg); } }
 </style>
 <div class="workspace-content-wide">
-<form id="importForm">
-    <div class="import-inputs">
-      <div class="import-section">
-        <div id="dropArea">
-          <p>Drag file here or click to select</p>
-          <input id="fileInput" type="file" style="display:none" />
-          <div id="fileLabel"></div>
-        </div>
-      </div>
-      <div class="import-section">
-        <textarea id="pasteText" placeholder="Paste text here..."></textarea>
-      </div>
-    </div>
-    <button type="submit" id="validateBtn">Validate</button>
-  </form>
+  <div id="importGrid" class="import-source-grid"></div>
 
-<div class="import-list">
-  <h2>Import History</h2>
-  <div id="importListContent">
-    <div class="no-imports">Loading imports...</div>
+  <div id="importGuide" class="import-guided-flow" style="display:none">
+    <a href="#" class="import-back-link" onclick="showGrid(); return false;">← Back to sources</a>
+    <div id="guideSteps"></div>
   </div>
-</div>
+
+  <div class="import-list">
+    <h2>Import History</h2>
+    <div id="importListContent">
+      <div class="no-imports">Loading imports...</div>
+    </div>
+  </div>
 </div>
 
 <div id="detectModal" class="modal">
@@ -99,84 +422,134 @@
   </div>
 </div>
 
+<script src="{{ vendor_lib('marked') }}"></script>
 <script>
-const dropArea = document.getElementById('dropArea');
-const fileInput = document.getElementById('fileInput');
-const fileLabel = document.getElementById('fileLabel');
-const pasteText = document.getElementById('pasteText');
 const facetSelect = document.getElementById('facetSelect');
 const settingInput = document.getElementById('settingInput');
 const startBtn = document.getElementById('startBtn');
+
+const STAGE_NAMES = {
+  initialization: 'Preparing...',
+  importing: 'Reading your data...',
+  detection: 'Detecting content type...',
+  audio_segmenting: 'Splitting audio...',
+  transcription: 'Transcribing audio...',
+  processing: 'Processing entries...',
+  writing: 'Writing to journal...',
+  indexing: 'Building search index...',
+  cleanup: 'Finishing up...',
+  segmenting: 'Preparing segments...',
+  transcribing: 'Transcribing audio...',
+};
+
+let cachedSources = [];
+let sourceMetadataByName = {};
+let sourceEmojiByName = {};
 let currentFile = null;
+let currentGuideSource = null;
+let currentGuidedFile = null;
+let currentGuidedSaved = null;
+let importEvents = {};
+let importsCache = [];
+let currentSourceFilter = '';
 
-dropArea.onclick = () => fileInput.click();
-['dragenter','dragover'].forEach(ev=>dropArea.addEventListener(ev,e=>{e.preventDefault();dropArea.classList.add('dragover');}));
-['dragleave','drop'].forEach(ev=>dropArea.addEventListener(ev,e=>{e.preventDefault();dropArea.classList.remove('dragover');if(ev==='drop'){}}));
-dropArea.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f){currentFile=f;fileLabel.textContent=f.name;}});
-fileInput.onchange=e=>{currentFile=e.target.files[0];if(currentFile)fileLabel.textContent=currentFile.name;};
+function escapeHtml(str) {
+  if (str === null || str === undefined) {
+    return '';
+  }
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
-document.getElementById('importForm').onsubmit=e=>{
-  e.preventDefault();
-  const validateBtn = document.getElementById('validateBtn');
+function navigateTo(view, options = {}) {
+  const { updateHash = true } = options;
+  const grid = document.getElementById('importGrid');
+  const guide = document.getElementById('importGuide');
+  const nextHash = view === 'grid' ? '' : view;
 
-  // Check that either file or text is provided
-  const hasFile = currentFile != null;
-  const hasText = pasteText.value.trim().length > 0;
+  if (grid) {
+    grid.style.display = view === 'grid' ? '' : 'none';
+  }
+  if (guide) {
+    guide.style.display = view === 'grid' ? 'none' : '';
+  }
 
-  if (!hasFile && !hasText) {
-    if(window.showError) showError('Please provide a file or paste text');
+  if (view.startsWith('guide/')) {
+    const source = view.split('/')[1];
+    loadGuidedFlow(source);
+  } else if (view.startsWith('progress/')) {
+    const importId = view.split('/')[1];
+    showProgressView(importId);
+  } else {
+    currentGuideSource = null;
+  }
+
+  if (updateHash && window.location.hash.slice(1) !== nextHash) {
+    window.location.hash = nextHash;
+  }
+}
+
+function showGrid() {
+  currentGuideSource = null;
+  currentGuidedFile = null;
+  currentGuidedSaved = null;
+  navigateTo('grid');
+}
+
+window.addEventListener('hashchange', handleHashChange);
+
+function handleHashChange() {
+  const hash = window.location.hash.slice(1);
+  if (hash.startsWith('guide/')) {
+    navigateTo(hash, { updateHash: false });
+  } else if (hash.startsWith('progress/')) {
+    navigateTo(hash, { updateHash: false });
+  } else {
+    navigateTo('grid', { updateHash: false });
+  }
+}
+
+async function loadSourceGrid() {
+  if (!cachedSources.length) {
+    const res = await fetch('/app/import/api/sources');
+    cachedSources = await res.json();
+    sourceMetadataByName = Object.fromEntries(cachedSources.map(source => [source.name, source]));
+    sourceEmojiByName = Object.fromEntries(cachedSources.map(source => [source.name, source.emoji || '']));
+  }
+
+  const grid = document.getElementById('importGrid');
+  if (!grid) {
     return;
   }
 
-  // Disable button and show validating state
-  validateBtn.disabled = true;
-  validateBtn.innerHTML = 'Validating<span class="spinner"></span>';
+  grid.innerHTML = cachedSources.map(source => {
+    const clickHandler = source.name === 'quick'
+      ? 'showQuickImport()'
+      : `navigateTo(&quot;guide/${source.name}&quot;)`;
+    return `
+      <div class="import-source-card" onclick="${clickHandler}">
+        <div class="import-source-card-emoji">${source.emoji || ''}</div>
+        <div class="import-source-card-name">${escapeHtml(source.display_name)}</div>
+        <div class="import-source-card-desc">${escapeHtml(source.description || '')}</div>
+      </div>
+    `;
+  }).join('');
+}
 
-  const fd=new FormData();
-  if(hasFile) {
-    fd.append('file', currentFile);
-  } else {
-    fd.append('text', pasteText.value);
-  }
+function showQuickImport() {
+  navigateTo('guide/quick');
+}
 
-  // Add selected facet and setting if available
-  const facet = facetSelect.value;
-  if(facet) fd.append('facet', facet);
-  const settingValue = settingInput.value.trim();
-  if(settingValue) fd.append('setting', settingValue);
-
-  fetch('/app/import/api/save', {method:'POST', body:fd})
-    .then(async r=>{
-      const d=await r.json();
-      // Re-enable button
-      validateBtn.disabled = false;
-      validateBtn.textContent = 'Validate';
-
-      if(!r.ok){
-        if(window.showError)showError(d.error||'Validation failed');
-        return;
-      }
-      showDetect(d);
-    })
-    .catch(err=>{
-      // Re-enable button on error
-      validateBtn.disabled = false;
-      validateBtn.textContent = 'Validate';
-      if(window.showError)showError('Validation failed');
-    });
-};
-
-function showDetect(res){
-  document.getElementById('timestampInput').value=res.timestamp||'';
-  document.getElementById('savedPath').value=res.path;
-
-  // Default to currently selected facet from app framework if not specified
-  // res.facet may be null when server converts empty string to None
+function showDetect(res) {
+  document.getElementById('timestampInput').value = res.timestamp || '';
+  document.getElementById('savedPath').value = res.path;
   const defaultFacet = res.facet || window.selectedFacet || '';
   loadFacets(defaultFacet);
-
   settingInput.value = res.setting || '';
-  document.getElementById('detectModal').style.display='block';
+  document.getElementById('detectModal').style.display = 'block';
 }
 
 function formatFileSize(bytes) {
@@ -213,8 +586,98 @@ function capitalizeStage(stage) {
   return stage.charAt(0).toUpperCase() + stage.slice(1);
 }
 
-function loadImports(){
-  fetch('/app/import/api/list').then(r=>r.json()).then(imports=>{
+function humanStageName(stage, sourceDisplay = '') {
+  const fallback = STAGE_NAMES[stage] || `${capitalizeStage(stage)}...`;
+  if (stage === 'importing' && sourceDisplay) {
+    return `Reading ${sourceDisplay}...`;
+  }
+  return fallback;
+}
+
+function formatDateRange(dateRange) {
+  if (!Array.isArray(dateRange) || !dateRange[0]) {
+    return '';
+  }
+  if (!dateRange[1] || dateRange[0] === dateRange[1]) {
+    return dateRange[0];
+  }
+  return `${dateRange[0]} - ${dateRange[1]}`;
+}
+
+function formatImportStats(entriesWritten, entitiesSeeded) {
+  const parts = [];
+  if (typeof entriesWritten === 'number' && entriesWritten > 0) {
+    parts.push(`${entriesWritten} entries`);
+  }
+  if (typeof entitiesSeeded === 'number' && entitiesSeeded > 0) {
+    parts.push(`${entitiesSeeded} entities`);
+  }
+  return parts.join(' • ') || '-';
+}
+
+function formatProgressStats(eventData) {
+  const stats = [];
+  if (eventData.items_total) {
+    stats.push(`${eventData.items_processed || 0}/${eventData.items_total} items`);
+  }
+  if (eventData.earliest_date) {
+    stats.push(`from ${eventData.earliest_date}`);
+  }
+  if (eventData.latest_date && eventData.latest_date !== eventData.earliest_date) {
+    stats.push(`to ${eventData.latest_date}`);
+  }
+  if (eventData.entities_found) {
+    stats.push(`${eventData.entities_found} entities found`);
+  }
+  return stats;
+}
+
+function renderProgressStats(eventData) {
+  const stats = formatProgressStats(eventData);
+  if (!stats.length) {
+    return '';
+  }
+  return `<div class="import-progress-stats">${stats.map(stat => `<div class="import-progress-stat">${escapeHtml(stat)}</div>`).join('')}</div>`;
+}
+
+function renderSourceDisplay(sourceType, sourceDisplay, fallbackText = '-') {
+  const emoji = sourceEmojiByName[sourceType] || '';
+  const displayText = sourceDisplay || fallbackText || '-';
+  return `<div class="import-source-inline">${emoji ? `<span class="import-source-inline-emoji">${emoji}</span>` : ''}<span>${escapeHtml(displayText)}</span></div>`;
+}
+
+function getImportById(importId) {
+  return importsCache.find(item => item.timestamp === importId) || null;
+}
+
+function buildHistoryHeader(imports) {
+  const entryTotal = imports.reduce((sum, imp) => sum + (imp.entries_written || 0), 0);
+  const entityTotal = imports.reduce((sum, imp) => sum + (imp.entities_seeded || 0), 0);
+  const sourceOptions = [
+    '<option value="">All sources</option>',
+    ...cachedSources.map(source => {
+      const selected = currentSourceFilter === source.name ? ' selected' : '';
+      return `<option value="${escapeHtml(source.name)}"${selected}>${escapeHtml(source.display_name)}</option>`;
+    }),
+  ].join('');
+
+  return `
+    <div class="import-history-header">
+      <div class="import-history-summary">${imports.length} imports total, ${entryTotal} entries imported, ${entityTotal} entities found</div>
+      <div class="import-history-filters">
+        <label for="importSourceFilter">Source</label>
+        <select id="importSourceFilter">
+          ${sourceOptions}
+        </select>
+      </div>
+    </div>
+  `;
+}
+
+async function loadImports() {
+  await loadSourceGrid();
+  fetch('/app/import/api/list').then(r => r.json()).then(imports => {
+    importsCache = imports || [];
     const container = document.getElementById('importListContent');
 
     if (!imports || imports.length === 0) {
@@ -222,34 +685,36 @@ function loadImports(){
       return;
     }
 
-    let html = '<table class="import-table">';
+    let html = buildHistoryHeader(imports);
+    html += '<table class="import-table">';
     html += '<thead><tr>';
     html += '<th>Imported At</th>';
     html += '<th>File</th>';
+    html += '<th>Source</th>';
     html += '<th>Size</th>';
     html += '<th>Imported To</th>';
     html += '<th>Status</th>';
     html += '<th>Files Created</th>';
+    html += '<th>Stats</th>';
     html += '<th>Duration</th>';
     html += '</tr></thead><tbody>';
 
     imports.forEach(imp => {
-      // Use imported_at timestamp for display
       const importedAt = imp.imported_at ? new Date(imp.imported_at * 1000).toLocaleString() : new Date(imp.created_at * 1000).toLocaleString();
       const targetDay = imp.target_day ? imp.target_day.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : '-';
 
-      // Determine status class and text based on new status field
-      let statusClass, statusText, statusDetail = '';
+      let statusClass;
+      let statusText;
+      let statusDetail = '';
       if (imp.status === 'success') {
         statusClass = 'success';
         statusText = 'Completed';
       } else if (imp.status === 'failed') {
         statusClass = 'failed';
         statusText = 'Failed';
-        // Show error message if available
         if (imp.error) {
           const errorStage = imp.error_stage ? ` (${capitalizeStage(imp.error_stage)})` : '';
-          statusDetail = `<div class="progress-detail">${imp.error}${errorStage}</div>`;
+          statusDetail = `<div class="progress-detail">${escapeHtml(imp.error)}${escapeHtml(errorStage)}</div>`;
         }
       } else if (imp.status === 'running') {
         statusClass = 'running';
@@ -259,19 +724,26 @@ function loadImports(){
         statusText = 'Pending';
       }
 
-      html += `<tr data-import-id="${imp.timestamp}" data-facet="${imp.facet || ''}" onclick="window.location.href='/app/import/${imp.timestamp}'">`;
+      const sourceCell = imp.source_type
+        ? renderSourceDisplay(imp.source_type, imp.source_display || sourceMetadataByName[imp.source_type]?.display_name || imp.original_filename || '-')
+        : renderSourceDisplay('', imp.original_filename || '-', imp.original_filename || '-');
+      const statsText = formatImportStats(imp.entries_written, imp.entities_seeded);
+
+      html += `<tr data-import-id="${imp.timestamp}" data-facet="${imp.facet || ''}" data-source-type="${imp.source_type || ''}" onclick="window.location.href='/app/import/${imp.timestamp}'">`;
       html += `<td class="nowrap">${importedAt}</td>`;
-      html += `<td>${imp.original_filename || 'Unknown'}</td>`;
+      html += `<td>${escapeHtml(imp.original_filename || 'Unknown')}</td>`;
+      html += `<td class="source-cell">${sourceCell}</td>`;
       html += `<td class="file-size nowrap">${formatFileSize(imp.file_size || 0)}</td>`;
-      html += `<td class="nowrap">`;
+      html += '<td class="nowrap">';
       if (imp.target_day) {
         html += `<a href="/calendar/${imp.target_day}" class="timestamp-link" onclick="event.stopPropagation();">${targetDay}</a>`;
       } else {
         html += '-';
       }
-      html += `</td>`;
+      html += '</td>';
       html += `<td class="status-cell"><span class="import-status ${statusClass}">${statusText}</span>${statusDetail}</td>`;
       html += `<td class="files-cell">${imp.total_files_created || 0}</td>`;
+      html += `<td class="stats-cell import-stats-cell">${statsText}</td>`;
       html += `<td class="duration-cell">${formatDuration(imp.duration_minutes)}</td>`;
       html += '</tr>';
     });
@@ -279,43 +751,40 @@ function loadImports(){
     html += '</tbody></table>';
     container.innerHTML = html;
 
-    // Apply facet filter after rendering
+    const sourceFilter = document.getElementById('importSourceFilter');
+    if (sourceFilter) {
+      sourceFilter.onchange = event => {
+        currentSourceFilter = event.target.value;
+        filterImportsByFacet(window.selectedFacet);
+      };
+    }
+
     filterImportsByFacet(window.selectedFacet);
-  }).catch(err => {
+  }).catch(() => {
     document.getElementById('importListContent').innerHTML = '<div class="no-imports">Error loading imports</div>';
   });
 }
 
-// Filter imports by facet
 function filterImportsByFacet(facetName) {
   const rows = document.querySelectorAll('.import-table tbody tr');
-  const noImportsEl = document.querySelector('.no-imports');
-
   if (rows.length === 0) return;
 
   let visibleCount = 0;
   rows.forEach(row => {
-    if (facetName === null) {
-      // All-facet mode - show all
+    const facetMatches = facetName === null || row.dataset.facet === facetName;
+    const sourceMatches = !currentSourceFilter || row.dataset.sourceType === currentSourceFilter;
+    if (facetMatches && sourceMatches) {
       row.style.display = '';
       visibleCount++;
     } else {
-      // Specific facet mode - show only matching
-      if (row.dataset.facet === facetName) {
-        row.style.display = '';
-        visibleCount++;
-      } else {
-        row.style.display = 'none';
-      }
+      row.style.display = 'none';
     }
   });
 
-  // Show/hide no-imports message based on visible rows
   const container = document.getElementById('importListContent');
   if (visibleCount === 0 && rows.length > 0) {
-    // Have imports but none match filter
     const facetData = window.facetsData?.find(f => f.name === facetName);
-    const facetTitle = facetData?.title || facetName;
+    const facetTitle = facetData?.title || facetName || 'this view';
     let noMatchEl = container.querySelector('.no-imports-filtered');
     if (!noMatchEl) {
       noMatchEl = document.createElement('div');
@@ -325,7 +794,6 @@ function filterImportsByFacet(facetName) {
     noMatchEl.textContent = `No imports for ${facetTitle}`;
     noMatchEl.style.display = '';
   } else {
-    // Hide filtered message if visible rows exist
     const noMatchEl = container.querySelector('.no-imports-filtered');
     if (noMatchEl) {
       noMatchEl.style.display = 'none';
@@ -333,52 +801,471 @@ function filterImportsByFacet(facetName) {
   }
 }
 
-// Update import row with live progress from importer events
 function updateImportRow(importId, eventData) {
+  if (importId) {
+    importEvents[importId] = { ...(importEvents[importId] || {}), ...eventData };
+  }
+
   const row = document.querySelector(`tr[data-import-id="${importId}"]`);
-  if (!row) return; // Row not in current view
+  if (!row) {
+    refreshInlineProgress(importId, eventData);
+    return;
+  }
 
   const statusCell = row.querySelector('.status-cell');
   const filesCell = row.querySelector('.files-cell');
+  const statsCell = row.querySelector('.stats-cell');
   const durationCell = row.querySelector('.duration-cell');
+  const sourceCell = row.querySelector('.source-cell');
+
+  if (sourceCell && (eventData.source_type || eventData.source_display)) {
+    const displayText = eventData.source_display || sourceMetadataByName[eventData.source_type]?.display_name || row.children[1]?.textContent || '-';
+    sourceCell.innerHTML = renderSourceDisplay(eventData.source_type || '', displayText, displayText);
+    row.dataset.sourceType = eventData.source_type || '';
+  }
 
   if (eventData.event === 'started') {
-    // Mark as running
     if (statusCell) {
-      statusCell.innerHTML = `<span class="import-status running">${capitalizeStage(eventData.stage)}</span>`;
+      statusCell.innerHTML = `<span class="import-status running">${escapeHtml(humanStageName(eventData.stage, eventData.source_display))}</span>`;
     }
   } else if (eventData.event === 'status') {
-    // Update with stage and timing
     if (statusCell) {
       const stageTime = formatElapsed(eventData.stage_elapsed_ms);
       const totalTime = formatElapsed(eventData.elapsed_ms);
-      statusCell.innerHTML = `<span class="import-status running">${capitalizeStage(eventData.stage)}</span><div class="progress-detail">${stageTime} (${totalTime} total)</div>`;
+      const progressStats = formatProgressStats(eventData);
+      const detailParts = [`${stageTime} (${totalTime} total)`];
+      if (progressStats.length) {
+        detailParts.push(progressStats.join(' • '));
+      }
+      statusCell.innerHTML = `<span class="import-status running">${escapeHtml(humanStageName(eventData.stage, eventData.source_display))}</span><div class="progress-detail">${escapeHtml(detailParts.join(' • '))}</div>`;
     }
   } else if (eventData.event === 'completed') {
-    // Mark as completed
     if (statusCell) {
       statusCell.innerHTML = '<span class="import-status success">Completed</span>';
     }
     if (filesCell && eventData.total_files_created !== undefined) {
       filesCell.textContent = eventData.total_files_created;
     }
+    if (statsCell) {
+      statsCell.textContent = formatImportStats(eventData.entries_written, eventData.entities_seeded);
+    }
     if (durationCell && eventData.duration_ms) {
       durationCell.textContent = formatElapsed(eventData.duration_ms);
     }
-    // Reload imports to get full updated data
     setTimeout(() => loadImports(), 1000);
   } else if (eventData.event === 'error') {
-    // Mark as failed
     if (statusCell) {
-      statusCell.innerHTML = `<span class="import-status failed">Failed</span><div class="progress-detail">${eventData.error || 'Unknown error'}</div>`;
+      statusCell.innerHTML = `<span class="import-status failed">Failed</span><div class="progress-detail">${escapeHtml(eventData.error || 'Unknown error')}</div>`;
     }
+  }
+
+  refreshInlineProgress(importId, eventData);
+}
+
+function refreshInlineProgress(importId, eventData = null) {
+  const hash = window.location.hash.slice(1);
+  if (!hash.startsWith('progress/')) {
+    return;
+  }
+  const currentImportId = hash.split('/')[1];
+  if (currentImportId !== importId) {
+    return;
+  }
+  const merged = eventData ? { ...(importEvents[importId] || {}), ...eventData } : importEvents[importId];
+  if (merged) {
+    renderProgressView(importId, merged);
   }
 }
 
-// Listen for importer events
-appEvents.listen('importer', msg => {
-  updateImportRow(msg.import_id, msg);
-});
+async function loadGuidedFlow(sourceName) {
+  await loadSourceGrid();
+  const source = sourceMetadataByName[sourceName];
+  const guideSteps = document.getElementById('guideSteps');
+  currentGuideSource = sourceName;
+  currentGuidedFile = null;
+  currentGuidedSaved = null;
+  if (!guideSteps) {
+    return;
+  }
+
+  if (!source) {
+    guideSteps.innerHTML = '<div class="no-imports">Unknown import source</div>';
+    return;
+  }
+
+  if (sourceName === 'quick') {
+    renderQuickImportFlow();
+    return;
+  }
+
+  let guideHtml = '';
+  if (source.has_guide) {
+    const response = await fetch(`/app/import/api/guide/${sourceName}`);
+    if (response.ok) {
+      const markdown = await response.text();
+      guideHtml = `<div class="import-step"><div class="import-step-number">Step 1</div><div class="import-guide-content">${marked.parse(markdown, { breaks: true, gfm: true })}</div></div>`;
+    }
+  }
+
+  guideSteps.innerHTML = `
+    <div>
+      <h3 class="import-guide-title">${source.emoji || ''} ${escapeHtml(source.display_name)}</h3>
+      <p class="import-guide-subtitle">${escapeHtml(source.description || '')}</p>
+    </div>
+    ${guideHtml}
+    <div class="import-step">
+      <div class="import-step-number">Step 2</div>
+      <h4>Upload your export</h4>
+      <div class="import-upload-area" id="guidedDropArea">
+        <p>${escapeHtml(source.upload_prompt || 'Select a file to import')}</p>
+        <div class="import-upload-help">${escapeHtml(source.accept ? `Accepted: ${source.accept}` : 'Any supported file')}</div>
+        <input id="guidedFileInput" type="file" accept="${escapeHtml(source.accept || '')}" style="display:none" />
+        <div id="guidedFileLabel" class="import-file-label"></div>
+      </div>
+    </div>
+    <div class="import-step">
+      <div class="import-step-number">Step 3</div>
+      <h4>Configure and start</h4>
+      <div class="import-inline-fields">
+        <div class="confirm-field">
+          <label for="guidedFacetSelect">Facet</label>
+          <select id="guidedFacetSelect"><option value="">None</option></select>
+        </div>
+        <div class="confirm-field">
+          <label for="guidedSettingInput">Setting</label>
+          <input id="guidedSettingInput" placeholder="e.g. Weekly planning" />
+        </div>
+      </div>
+      <div class="import-action-row">
+        <button id="guidedStartBtn" class="import-primary-btn" type="button">Start Import</button>
+      </div>
+    </div>
+  `;
+
+  loadFacets(window.selectedFacet || '', document.getElementById('guidedFacetSelect'));
+  setupGuidedUploadArea();
+  document.getElementById('guidedStartBtn').addEventListener('click', () => startGuidedImport(source));
+}
+
+function renderQuickImportFlow() {
+  const guideSteps = document.getElementById('guideSteps');
+  if (!guideSteps) {
+    return;
+  }
+
+  guideSteps.innerHTML = `
+    <div>
+      <h3 class="import-guide-title">⚡ Quick Import</h3>
+      <p class="import-guide-subtitle">Paste text or drop a file, then confirm the detected timestamp in the modal.</p>
+    </div>
+    <form id="importForm">
+      <div class="import-step">
+        <div class="import-step-number">Step 1</div>
+        <div class="import-upload-area" id="dropArea">
+          <p>Drag file here or click to select</p>
+          <input id="fileInput" type="file" style="display:none" />
+          <div id="fileLabel" class="import-file-label"></div>
+        </div>
+      </div>
+      <div class="import-step">
+        <div class="import-step-number">Step 2</div>
+        <textarea id="pasteText" class="import-paste-text" placeholder="Paste text here..."></textarea>
+        <div class="import-inline-fields">
+          <div class="confirm-field">
+            <label for="quickFacetSelect">Facet</label>
+            <select id="quickFacetSelect"><option value="">None</option></select>
+          </div>
+          <div class="confirm-field">
+            <label for="quickSettingInput">Setting</label>
+            <input id="quickSettingInput" placeholder="e.g. Paste from notes app" />
+          </div>
+        </div>
+        <div class="import-action-row">
+          <button type="submit" id="validateBtn" class="import-primary-btn">Validate</button>
+        </div>
+      </div>
+    </form>
+  `;
+
+  loadFacets(window.selectedFacet || '', document.getElementById('quickFacetSelect'));
+  setupQuickImportForm();
+}
+
+function setupGuidedUploadArea() {
+  const dropArea = document.getElementById('guidedDropArea');
+  const fileInput = document.getElementById('guidedFileInput');
+  const fileLabel = document.getElementById('guidedFileLabel');
+
+  if (!dropArea || !fileInput || !fileLabel) {
+    return;
+  }
+
+  const setFile = file => {
+    currentGuidedFile = file || null;
+    fileLabel.textContent = file ? file.name : '';
+    currentGuidedSaved = null;
+  };
+
+  dropArea.onclick = () => fileInput.click();
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropArea.addEventListener(eventName, event => {
+      event.preventDefault();
+      dropArea.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, event => {
+      event.preventDefault();
+      dropArea.classList.remove('dragover');
+    });
+  });
+  dropArea.addEventListener('drop', event => {
+    const file = event.dataTransfer.files[0];
+    if (file) {
+      setFile(file);
+    }
+  });
+  fileInput.onchange = event => {
+    setFile(event.target.files[0]);
+  };
+}
+
+function setupQuickImportForm() {
+  const dropArea = document.getElementById('dropArea');
+  const fileInput = document.getElementById('fileInput');
+  const fileLabel = document.getElementById('fileLabel');
+  const pasteText = document.getElementById('pasteText');
+  const importForm = document.getElementById('importForm');
+  const quickFacetSelect = document.getElementById('quickFacetSelect');
+  const quickSettingInput = document.getElementById('quickSettingInput');
+
+  if (!dropArea || !fileInput || !fileLabel || !pasteText || !importForm) {
+    return;
+  }
+
+  currentFile = null;
+  dropArea.onclick = () => fileInput.click();
+  ['dragenter', 'dragover'].forEach(ev => dropArea.addEventListener(ev, e => {
+    e.preventDefault();
+    dropArea.classList.add('dragover');
+  }));
+  ['dragleave', 'drop'].forEach(ev => dropArea.addEventListener(ev, e => {
+    e.preventDefault();
+    dropArea.classList.remove('dragover');
+  }));
+  dropArea.addEventListener('drop', e => {
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      currentFile = file;
+      fileLabel.textContent = file.name;
+    }
+  });
+  fileInput.onchange = e => {
+    currentFile = e.target.files[0];
+    if (currentFile) {
+      fileLabel.textContent = currentFile.name;
+    }
+  };
+
+  importForm.onsubmit = async e => {
+    e.preventDefault();
+    const validateBtn = document.getElementById('validateBtn');
+    const hasFile = currentFile != null;
+    const hasText = pasteText.value.trim().length > 0;
+
+    if (!hasFile && !hasText) {
+      if (window.showError) {
+        showError('Please provide a file or paste text');
+      }
+      return;
+    }
+
+    validateBtn.disabled = true;
+    validateBtn.innerHTML = 'Validating<span class="spinner"></span>';
+
+    try {
+      const fd = new FormData();
+      if (hasFile) {
+        fd.append('file', currentFile);
+      } else {
+        fd.append('text', pasteText.value);
+      }
+
+      const facet = quickFacetSelect ? quickFacetSelect.value : '';
+      if (facet) {
+        fd.append('facet', facet);
+      }
+      const settingValue = quickSettingInput ? quickSettingInput.value.trim() : '';
+      if (settingValue) {
+        fd.append('setting', settingValue);
+      }
+
+      const response = await fetch('/app/import/api/save', { method: 'POST', body: fd });
+      const data = await response.json();
+      validateBtn.disabled = false;
+      validateBtn.textContent = 'Validate';
+
+      if (!response.ok) {
+        if (window.showError) {
+          showError(data.error || 'Validation failed');
+        }
+        return;
+      }
+      showDetect(data);
+    } catch (_err) {
+      validateBtn.disabled = false;
+      validateBtn.textContent = 'Validate';
+      if (window.showError) {
+        showError('Validation failed');
+      }
+    }
+  };
+}
+
+async function uploadGuidedSourceFile() {
+  if (!currentGuidedFile) {
+    throw new Error('Please select a file to import.');
+  }
+
+  const guidedFacetSelect = document.getElementById('guidedFacetSelect');
+  const guidedSettingInput = document.getElementById('guidedSettingInput');
+  const fd = new FormData();
+  fd.append('file', currentGuidedFile);
+  if (guidedFacetSelect && guidedFacetSelect.value) {
+    fd.append('facet', guidedFacetSelect.value);
+  }
+  if (guidedSettingInput && guidedSettingInput.value.trim()) {
+    fd.append('setting', guidedSettingInput.value.trim());
+  }
+
+  const response = await fetch('/app/import/api/save', {
+    method: 'POST',
+    body: fd,
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to save import');
+  }
+
+  currentGuidedSaved = data;
+  return data;
+}
+
+async function startGuidedImport(source) {
+  const startButton = document.getElementById('guidedStartBtn');
+  const guidedFacetSelect = document.getElementById('guidedFacetSelect');
+  const guidedSettingInput = document.getElementById('guidedSettingInput');
+  const originalText = startButton.textContent;
+
+  startButton.disabled = true;
+  startButton.innerHTML = 'Starting<span class="spinner"></span>';
+
+  try {
+    const saved = currentGuidedSaved || await uploadGuidedSourceFile();
+    const path = saved.path;
+    const ts = saved.timestamp;
+    const facet = guidedFacetSelect ? guidedFacetSelect.value : '';
+    const setting = guidedSettingInput ? guidedSettingInput.value.trim() : '';
+
+    const metaResponse = await fetch('/app/import/api/facet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, facet, setting }),
+    });
+
+    if (!metaResponse.ok) {
+      const errorData = await metaResponse.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to save import settings');
+    }
+
+    const startResponse = await fetch('/app/import/api/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, timestamp: ts, source: source.name, force: false }),
+    });
+
+    if (!startResponse.ok) {
+      const errorData = await startResponse.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to start import');
+    }
+
+    importEvents[ts] = {
+      import_id: ts,
+      event: 'started',
+      stage: 'initialization',
+      source_type: source.name,
+      source_display: source.display_name,
+    };
+    loadImports();
+    navigateTo(`progress/${ts}`);
+  } catch (err) {
+    if (window.showError && err instanceof Error) {
+      showError(err.message);
+    }
+  } finally {
+    startButton.disabled = false;
+    startButton.textContent = originalText;
+  }
+}
+
+function showProgressView(importId, eventData = null) {
+  const guideSteps = document.getElementById('guideSteps');
+  const source = sourceMetadataByName[currentGuideSource] || null;
+  const importInfo = getImportById(importId);
+  const currentEvent = eventData || importEvents[importId] || null;
+
+  if (!guideSteps) {
+    return;
+  }
+
+  const displayName = currentEvent?.source_display || importInfo?.source_display || source?.display_name || 'Import';
+  const stageLabel = currentEvent?.event === 'completed'
+    ? 'Import complete'
+    : currentEvent?.event === 'error'
+      ? 'Import failed'
+      : humanStageName(currentEvent?.stage || 'initialization', displayName);
+  const progressHtml = currentEvent ? renderProgressStats(currentEvent) : '';
+  let completionHtml = '';
+
+  if (currentEvent?.event === 'completed' || importInfo?.status === 'success') {
+    const completedInfo = currentEvent || importInfo || {};
+    const range = completedInfo.date_range || importInfo?.date_range || null;
+    const day = range?.[0] || importInfo?.target_day || null;
+    completionHtml = `
+      <div class="import-completion-summary">
+        <div><strong>Entries written:</strong> ${completedInfo.entries_written || importInfo?.entries_written || 0}</div>
+        <div><strong>Entities seeded:</strong> ${completedInfo.entities_seeded || importInfo?.entities_seeded || 0}</div>
+        <div><strong>Date range:</strong> ${escapeHtml(formatDateRange(range) || '-')}</div>
+        <div><strong>Duration:</strong> ${formatElapsed(completedInfo.duration_ms || 0)}</div>
+        <div class="import-action-row">
+          ${day ? `<a class="import-secondary-btn" href="/app/calendar/${day}">View in calendar</a>` : ''}
+          <a href="#" class="import-secondary-btn" onclick="showGrid(); return false;">Import another source</a>
+        </div>
+      </div>
+    `;
+  } else if (currentEvent?.event === 'error' || importInfo?.status === 'failed') {
+    const errorText = currentEvent?.error || importInfo?.error || 'Unknown error';
+    completionHtml = `
+      <div class="import-completion-summary failed">
+        <div><strong>Error:</strong> ${escapeHtml(errorText)}</div>
+        <div class="import-action-row">
+          <a href="#" class="import-secondary-btn" onclick="showGrid(); return false;">Import another source</a>
+        </div>
+      </div>
+    `;
+  }
+
+  guideSteps.innerHTML = `
+    <div class="import-progress-panel">
+      <div class="import-step-number">Progress</div>
+      <h3 class="import-progress-title">${escapeHtml(displayName)}</h3>
+      <p class="import-progress-message">${escapeHtml(stageLabel)}</p>
+      ${currentEvent?.elapsed_ms ? `<div class="progress-detail">${escapeHtml(formatElapsed(currentEvent.elapsed_ms))} elapsed</div>` : ''}
+      ${progressHtml}
+      ${completionHtml}
+    </div>
+  `;
+}
 
 startBtn.addEventListener('click', async () => {
   const ts = document.getElementById('timestampInput').value.trim();
@@ -400,7 +1287,7 @@ startBtn.addEventListener('click', async () => {
     const response = await fetch('/app/import/api/facet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, facet, setting })
+      body: JSON.stringify({ path, facet, setting }),
     });
 
     if (!response.ok) {
@@ -408,11 +1295,10 @@ startBtn.addEventListener('click', async () => {
       throw new Error(errorData.error || 'Failed to save facet selection');
     }
 
-    // Start the import task
     const startResponse = await fetch('/app/import/api/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, timestamp: ts })
+      body: JSON.stringify({ path, timestamp: ts, source: 'quick', force: false }),
     });
 
     if (!startResponse.ok) {
@@ -420,51 +1306,63 @@ startBtn.addEventListener('click', async () => {
       throw new Error(errorData.error || 'Failed to start import');
     }
 
-    const result = await startResponse.json();
-
     startBtn.disabled = false;
     startBtn.textContent = originalText;
     detectModal.style.display = 'none';
-
-    // Reload imports to show the new import in the list
-    // Live updates will come via importer events
+    importEvents[ts] = {
+      import_id: ts,
+      event: 'started',
+      stage: 'initialization',
+      source_type: 'quick',
+      source_display: 'Quick Import',
+    };
     loadImports();
+    navigateTo(`progress/${ts}`);
   } catch (err) {
     startBtn.disabled = false;
     startBtn.textContent = originalText;
     if (window.showError && err instanceof Error) showError(err.message);
-    return;
   }
 });
 
-document.querySelector('.close').onclick=()=>{document.getElementById('detectModal').style.display='none';};
-window.onclick=e=>{if(e.target==document.getElementById('detectModal'))document.getElementById('detectModal').style.display='none';};
+document.querySelector('.close').onclick = () => {
+  document.getElementById('detectModal').style.display = 'none';
+};
 
-// Load facets for dropdown
-function loadFacets(defaultValue = null){
-  const select=document.getElementById('facetSelect');
-  select.innerHTML='<option value="">None</option>';
+window.onclick = e => {
+  if (e.target === document.getElementById('detectModal')) {
+    document.getElementById('detectModal').style.display = 'none';
+  }
+};
 
-  // Use facets data from app framework
+function loadFacets(defaultValue = null, selectEl = null) {
+  const select = selectEl || document.getElementById('facetSelect');
+  if (!select) {
+    return;
+  }
+
+  select.innerHTML = '<option value="">None</option>';
   const facets = window.facetsData || [];
   facets.forEach(facet => {
-    const opt=document.createElement('option');
-    opt.value=facet.name;
-    opt.textContent=facet.title || facet.name;
+    const opt = document.createElement('option');
+    opt.value = facet.name;
+    opt.textContent = facet.title || facet.name;
     select.appendChild(opt);
   });
 
-  // Set value after options exist
   if (defaultValue !== null) {
     select.value = defaultValue;
   }
 }
 
-loadImports();
-loadFacets();
+appEvents.listen('importer', eventData => updateImportRow(eventData.import_id, eventData));
 
-// Listen for facet selection changes
-window.addEventListener('facet.switch', (e) => {
+loadSourceGrid();
+loadFacets();
+loadImports();
+handleHashChange();
+
+window.addEventListener('facet.switch', e => {
   filterImportsByFacet(e.detail.facet);
 });
 </script>

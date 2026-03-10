@@ -338,6 +338,11 @@ def build_import_info(
                     "total_files_created", 0
                 )
                 import_data["target_day"] = imported_meta.get("target_day")
+                import_data["source_type"] = imported_meta.get("source_type")
+                import_data["source_display"] = imported_meta.get("source_display")
+                import_data["entries_written"] = imported_meta.get("entries_written")
+                import_data["entities_seeded"] = imported_meta.get("entities_seeded")
+                import_data["date_range"] = imported_meta.get("date_range")
 
                 # Check for error state
                 if "error" in imported_meta:
