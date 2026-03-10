@@ -10,6 +10,7 @@ optimized for terminal use.
 Mounted by ``think.call`` as ``sol call journal ...``.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -30,6 +31,11 @@ from think.facets import (
 from think.indexer.journal import get_events as get_events_impl
 from think.indexer.journal import search_counts as search_counts_impl
 from think.indexer.journal import search_journal as search_journal_impl
+from think.importers.utils import (
+    build_import_info,
+    get_import_details,
+    list_import_timestamps,
+)
 from think.utils import (
     get_journal,
     iter_segments,
@@ -58,6 +64,9 @@ def search(
     ),
     facet: str | None = typer.Option(None, "--facet", "-f", help="Filter by facet."),
     agent: str | None = typer.Option(None, "--agent", "-a", help="Filter by agent."),
+    stream: str | None = typer.Option(
+        None, "--stream", help="Filter by stream (e.g. import.ics, archon)."
+    ),
 ) -> None:
     """Search the journal index."""
     kwargs = {}
@@ -71,6 +80,8 @@ def search(
         kwargs["facet"] = facet
     if agent is not None:
         kwargs["agent"] = agent
+    if stream is not None:
+        kwargs["stream"] = stream
 
     total, results = search_journal_impl(query, limit, offset, **kwargs)
 
@@ -97,7 +108,8 @@ def search(
     # Results
     for r in results:
         meta = r["metadata"]
-        typer.echo(f"\n--- {meta['day']} | {meta['facet']} | {meta['agent']} ---")
+        stream_tag = f" | {meta['stream']}" if meta.get("stream") else ""
+        typer.echo(f"\n--- {meta['day']} | {meta['facet']} | {meta['agent']}{stream_tag} ---")
         typer.echo(r["text"].strip())
 
 
