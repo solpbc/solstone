@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,99 @@ import_bp = Blueprint(
     __name__,
     url_prefix="/app/import",
 )
+
+SOURCE_METADATA = [
+    {
+        "name": "ics",
+        "display_name": "Calendar",
+        "icon": "calendar",
+        "description": "Import events from Google Calendar, Apple Calendar, or Outlook",
+        "input_type": "file",
+        "upload_prompt": "Upload your .ics file or .zip export",
+        "has_guide": True,
+        "accept": ".ics,.zip",
+    },
+    {
+        "name": "chatgpt",
+        "display_name": "ChatGPT",
+        "icon": "message-square",
+        "description": "Import your conversation history from ChatGPT",
+        "input_type": "file",
+        "upload_prompt": "Upload your ChatGPT export .zip file",
+        "has_guide": True,
+        "accept": ".zip",
+    },
+    {
+        "name": "claude",
+        "display_name": "Claude",
+        "icon": "message-circle",
+        "description": "Import your conversation history from Claude",
+        "input_type": "file",
+        "upload_prompt": "Upload your Claude export .zip file",
+        "has_guide": True,
+        "accept": ".zip",
+    },
+    {
+        "name": "gemini",
+        "display_name": "Gemini",
+        "icon": "sparkles",
+        "description": "Import your activity history from Google Gemini",
+        "input_type": "file",
+        "upload_prompt": "Upload your Google Takeout .zip file",
+        "has_guide": True,
+        "accept": ".zip,.json",
+    },
+    {
+        "name": "obsidian",
+        "display_name": "Notes",
+        "icon": "file-text",
+        "description": "Import notes from Obsidian, Logseq, or any markdown vault",
+        "input_type": "directory",
+        "upload_prompt": "Upload your vault as a .zip file",
+        "has_guide": True,
+        "accept": ".zip",
+    },
+    {
+        "name": "kindle",
+        "display_name": "Kindle",
+        "icon": "book-open",
+        "description": "Import highlights and clippings from your Kindle",
+        "input_type": "file",
+        "upload_prompt": "Upload your My Clippings.txt file",
+        "has_guide": True,
+        "accept": ".txt",
+    },
+    {
+        "name": "recording",
+        "display_name": "Meeting Recording",
+        "icon": "mic",
+        "description": "Import audio recordings of meetings or conversations",
+        "input_type": "file",
+        "upload_prompt": "Upload an audio file (.m4a, .mp3, .wav)",
+        "has_guide": False,
+        "accept": ".m4a,.mp3,.wav,.ogg,.webm",
+    },
+    {
+        "name": "document",
+        "display_name": "Document",
+        "icon": "file",
+        "description": "Import a document, PDF, or text file",
+        "input_type": "file",
+        "upload_prompt": "Upload a document (.pdf, .txt, .md)",
+        "has_guide": False,
+        "accept": ".pdf,.txt,.md",
+    },
+    {
+        "name": "quick",
+        "display_name": "Quick Import",
+        "icon": "zap",
+        "description": "Paste text or drop any file for quick import",
+        "input_type": "text",
+        "upload_prompt": "Paste text or drag and drop a file",
+        "has_guide": False,
+        "accept": "",
+    },
+]
 
 
 @import_bp.route("/api/save", methods=["POST"])
@@ -240,6 +334,27 @@ def import_list() -> Any:
     imports.sort(key=lambda x: x.get("imported_at", 0), reverse=True)
 
     return jsonify(imports)
+
+
+@import_bp.route("/api/sources")
+def import_sources() -> Any:
+    """Return available import source metadata."""
+    return jsonify(SOURCE_METADATA)
+
+
+@import_bp.route("/api/guide/<source>")
+def import_guide(source: str) -> Any:
+    """Return export guide markdown for a given source."""
+    if not re.fullmatch(r"[a-z_]+", source):
+        return jsonify({"error": "Invalid source name"}), 400
+    guide_path = Path(__file__).parent / "guides" / f"{source}.md"
+    if not guide_path.is_file():
+        return jsonify({"error": f"No guide available for '{source}'"}), 404
+    return (
+        guide_path.read_text(encoding="utf-8"),
+        200,
+        {"Content-Type": "text/markdown; charset=utf-8"},
+    )
 
 
 @import_bp.route("/<timestamp>")

@@ -11,6 +11,7 @@ import re
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 from think.callosum import CallosumConnection
 from think.detect_created import detect_created
@@ -40,6 +41,7 @@ _stage_start_time: float = 0.0
 _stages_run: list[str] = []
 _status_thread: threading.Thread | None = None
 _status_running: bool = False
+_progress_stats: dict[str, Any] = {}
 
 
 def _set_stage(stage: str) -> None:
@@ -50,6 +52,32 @@ def _set_stage(stage: str) -> None:
     if stage not in _stages_run:
         _stages_run.append(stage)
     logger.debug(f"Stage changed to: {stage}")
+
+
+def _reset_progress_stats(
+    source_type: str | None = None,
+    source_display: str | None = None,
+) -> None:
+    """Reset progress stats for a new import."""
+    global _progress_stats
+    _progress_stats = {
+        "items_processed": 0,
+        "items_total": 0,
+        "earliest_date": None,
+        "latest_date": None,
+        "entities_found": 0,
+        "source_type": source_type,
+        "source_display": source_display,
+    }
+
+
+def _progress_callback(current: int, total: int, **kwargs: Any) -> None:
+    """Callback for importers to report progress stats."""
+    _progress_stats["items_processed"] = current
+    _progress_stats["items_total"] = total
+    for key in ("earliest_date", "latest_date", "entities_found"):
+        if key in kwargs:
+            _progress_stats[key] = kwargs[key]
 
 
 def _status_emitter() -> None:
@@ -65,6 +93,7 @@ def _status_emitter() -> None:
                 stage=_current_stage,
                 elapsed_ms=elapsed_ms,
                 stage_elapsed_ms=stage_elapsed_ms,
+                **_progress_stats,
             )
         time.sleep(5)
 
@@ -521,6 +550,16 @@ def main() -> None:
     _stage_start_time = _start_time
     _current_stage = "initialization"
     _stages_run = ["initialization"]
+    if _file_importer is not None:
+        _reset_progress_stats(
+            source_type=_file_importer.name,
+            source_display=_file_importer.display_name,
+        )
+    else:
+        _reset_progress_stats(
+            source_type="generic",
+            source_display=os.path.basename(args.media),
+        )
 
     # Start Callosum connection with message queue for receiving events
     _message_queue = queue.Queue()
@@ -561,6 +600,8 @@ def main() -> None:
         "facet": args.facet,
         "setting": args.setting,
         "outputs": [],
+        "source_type": _progress_stats.get("source_type"),
+        "source_display": _progress_stats.get("source_display"),
     }
 
     # Get parent directory for saving metadata
@@ -595,9 +636,12 @@ def main() -> None:
 
                 _source_hash = hash_source(Path(args.media))
 
-            _setup_file_import(_import_id)
+            import_dir = _setup_file_import(_import_id)
             result = _file_importer.process(
-                Path(args.media), journal_root, facet=args.facet
+                Path(args.media),
+                journal_root,
+                facet=args.facet,
+                progress_callback=_progress_callback,
             )
 
             all_created_files.extend(result.files_created)
@@ -612,6 +656,13 @@ def main() -> None:
                     "count": len(result.files_created),
                 }
             )
+            processing_results["source_type"] = _file_importer.name
+            processing_results["source_display"] = _file_importer.display_name
+            processing_results["date_range"] = (
+                list(result.date_range) if result.date_range else None
+            )
+            processing_results["entries_written"] = result.entries_written
+            processing_results["entities_seeded"] = result.entities_seeded
 
             if result.errors:
                 logger.warning(
@@ -632,6 +683,8 @@ def main() -> None:
                 files_created=len(result.files_created),
                 errors=len(result.errors),
                 stream=stream,
+                source_display=_file_importer.display_name,
+                date_range=list(result.date_range) if result.date_range else None,
             )
 
             if result.segments:
@@ -933,36 +986,43 @@ def main() -> None:
         processing_results["segments"] = created_segments
         if failed_segments:
             processing_results["failed_segments"] = failed_segments
+        processing_results.setdefault("source_type", "generic")
+        processing_results.setdefault("source_display", os.path.basename(args.media))
+        processing_results.setdefault("entries_written", len(all_created_files))
+        processing_results.setdefault("entities_seeded", 0)
+        processing_results.setdefault(
+            "date_range",
+            [processing_results["target_day"], processing_results["target_day"]],
+        )
 
         imported_path = import_dir / "imported.json"
-        if _file_importer is None:
-            # Write imported.json with all processing metadata
-            try:
-                with open(imported_path, "w", encoding="utf-8") as f:
-                    json.dump(processing_results, f, indent=2)
-                logger.info(f"Saved import processing metadata: {imported_path}")
-            except Exception as e:
-                logger.warning(f"Failed to save imported.json: {e}")
+        # Write imported.json with all processing metadata
+        try:
+            with open(imported_path, "w", encoding="utf-8") as f:
+                json.dump(processing_results, f, indent=2)
+            logger.info(f"Saved import processing metadata: {imported_path}")
+        except Exception as e:
+            logger.warning(f"Failed to save imported.json: {e}")
 
-            # Update import.json with processing summary if it exists
-            import_metadata_path = import_dir / "import.json"
-            if import_metadata_path.exists():
-                try:
-                    with open(import_metadata_path, "r", encoding="utf-8") as f:
-                        import_meta = json.load(f)
-                    import_meta["processing_completed"] = processing_results[
-                        "processing_completed"
-                    ]
-                    import_meta["total_files_created"] = processing_results[
-                        "total_files_created"
-                    ]
-                    import_meta["imported_json_path"] = str(imported_path)
-                    import_meta["segments"] = created_segments
-                    with open(import_metadata_path, "w", encoding="utf-8") as f:
-                        json.dump(import_meta, f, indent=2)
-                    logger.info(f"Updated import metadata: {import_metadata_path}")
-                except Exception as e:
-                    logger.warning(f"Failed to update import metadata: {e}")
+        # Update import.json with processing summary if it exists
+        import_metadata_path = import_dir / "import.json"
+        if import_metadata_path.exists():
+            try:
+                with open(import_metadata_path, "r", encoding="utf-8") as f:
+                    import_meta = json.load(f)
+                import_meta["processing_completed"] = processing_results[
+                    "processing_completed"
+                ]
+                import_meta["total_files_created"] = processing_results[
+                    "total_files_created"
+                ]
+                import_meta["imported_json_path"] = str(imported_path)
+                import_meta["segments"] = created_segments
+                with open(import_metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(import_meta, f, indent=2)
+                logger.info(f"Updated import metadata: {import_metadata_path}")
+            except Exception as e:
+                logger.warning(f"Failed to update import metadata: {e}")
 
         # Emit completed event
         duration_ms = int((time.monotonic() - _start_time) * 1000)
@@ -981,12 +1041,24 @@ def main() -> None:
             stages_run=_stages_run,
             segments=created_segments,
             stream=stream,
+            source_type=processing_results.get("source_type"),
+            source_display=processing_results.get("source_display"),
+            entries_written=processing_results.get("entries_written", 0),
+            entities_seeded=processing_results.get("entities_seeded", 0),
+            date_range=processing_results.get("date_range"),
         )
 
     except Exception as e:
         duration_ms = int((time.monotonic() - _start_time) * 1000)
         partial_outputs = [_get_relative_path(f) for f in all_created_files]
         imported_path = import_dir / "imported.json"
+
+        # Ensure source metadata fields have defaults before error write
+        processing_results.setdefault("source_type", "generic")
+        processing_results.setdefault("source_display", os.path.basename(args.media))
+        processing_results.setdefault("entries_written", len(all_created_files))
+        processing_results.setdefault("entities_seeded", 0)
+        processing_results.setdefault("date_range", None)
 
         error_results = {
             **processing_results,  # Include all the metadata we have
@@ -999,14 +1071,13 @@ def main() -> None:
             "stages_run": _stages_run,
         }
 
-        if _file_importer is None:
-            # Write error state to imported.json for persistent failure tracking
-            try:
-                with open(imported_path, "w", encoding="utf-8") as f:
-                    json.dump(error_results, f, indent=2)
-                logger.info(f"Saved error state: {imported_path}")
-            except Exception as write_err:
-                logger.warning(f"Failed to write error state: {write_err}")
+        # Write error state to imported.json for persistent failure tracking
+        try:
+            with open(imported_path, "w", encoding="utf-8") as f:
+                json.dump(error_results, f, indent=2)
+            logger.info(f"Saved error state: {imported_path}")
+        except Exception as write_err:
+            logger.warning(f"Failed to write error state: {write_err}")
 
         # Emit error event
         if _callosum:

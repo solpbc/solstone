@@ -31,6 +31,7 @@ class ImportResult:
     errors: list[str]
     summary: str
     segments: list[tuple[str, str]] | None = None
+    date_range: tuple[str, str] | None = None
 
 
 @runtime_checkable

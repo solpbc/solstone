@@ -230,6 +230,8 @@ class GeminiImporter:
         skipped = 0
         bard_count = 0
         valid_count = 0
+        earliest_so_far: str | None = None
+        latest_so_far: str | None = None
 
         for i, act in enumerate(activities):
             activity_messages = _parse_activity(act)
@@ -244,9 +246,25 @@ class GeminiImporter:
                 bard_count += 1
 
             messages.extend(activity_messages)
+            activity_dates = sorted(
+                dt.datetime.fromtimestamp(
+                    msg["create_time"], tz=dt.timezone.utc
+                ).strftime("%Y%m%d")
+                for msg in activity_messages
+            )
+            if earliest_so_far is None or activity_dates[0] < earliest_so_far:
+                earliest_so_far = activity_dates[0]
+            if latest_so_far is None or activity_dates[-1] > latest_so_far:
+                latest_so_far = activity_dates[-1]
 
             if progress_callback and (i + 1) % 100 == 0:
-                progress_callback(i + 1, len(activities))
+                progress_callback(
+                    i + 1,
+                    len(activities),
+                    earliest_date=earliest_so_far,
+                    latest_date=latest_so_far,
+                    entities_found=0,
+                )
 
         if not messages:
             return ImportResult(
@@ -258,6 +276,12 @@ class GeminiImporter:
             )
 
         messages.sort(key=lambda msg: msg["create_time"])
+        earliest = dt.datetime.fromtimestamp(
+            messages[0]["create_time"], tz=dt.timezone.utc
+        ).strftime("%Y%m%d")
+        latest = dt.datetime.fromtimestamp(
+            messages[-1]["create_time"], tz=dt.timezone.utc
+        ).strftime("%Y%m%d")
 
         windows = _window_messages(messages)
         created_files: list[str] = []
@@ -300,6 +324,7 @@ class GeminiImporter:
                 f"{len(segment_days)} days into {len(segments)} segments"
             ),
             segments=segments,
+            date_range=(earliest, latest),
         )
 
 

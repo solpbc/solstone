@@ -7,7 +7,7 @@ import json
 import subprocess
 import zipfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from think.importers.file_importer import ImportPreview, ImportResult
 from think.utils import day_path
@@ -942,7 +942,12 @@ def test_file_importer_without_timestamp(tmp_path, monkeypatch, capsys):
 
     mod.main()
 
-    mock_imp.process.assert_called_once_with(Path(ics_file), Path(tmp_path), facet=None)
+    mock_imp.process.assert_called_once_with(
+        Path(ics_file),
+        Path(tmp_path),
+        facet=None,
+        progress_callback=ANY,
+    )
     mock_call = callosum.emit.call_args_list[0]
     assert mock_call.args[0] == "importer"
     assert mock_call.args[1] == "started"
@@ -982,7 +987,12 @@ def test_file_importer_with_timestamp(tmp_path, monkeypatch):
 
     mod.main()
 
-    mock_imp.process.assert_called_once_with(Path(ics_file), Path(tmp_path), facet=None)
+    mock_imp.process.assert_called_once_with(
+        Path(ics_file),
+        Path(tmp_path),
+        facet=None,
+        progress_callback=ANY,
+    )
     mock_call = callosum.emit.call_args_list[0]
     assert mock_call.args[0] == "importer"
     assert mock_call.args[1] == "started"

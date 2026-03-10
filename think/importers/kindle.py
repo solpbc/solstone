@@ -261,6 +261,8 @@ class KindleImporter:
         errors: list[str] = []
         books: set[str] = set()
         authors: set[str] = set()
+        earliest_so_far: str | None = None
+        latest_so_far: str | None = None
 
         for i, block in enumerate(blocks):
             if not block.strip():
@@ -274,13 +276,24 @@ class KindleImporter:
 
             # Add epoch timestamp for windowing
             entry["create_ts"] = dt.datetime.fromisoformat(entry["ts"]).timestamp()
+            entry_day = dt.datetime.fromisoformat(entry["ts"]).strftime("%Y%m%d")
+            if earliest_so_far is None or entry_day < earliest_so_far:
+                earliest_so_far = entry_day
+            if latest_so_far is None or entry_day > latest_so_far:
+                latest_so_far = entry_day
             entries.append(entry)
             books.add(entry["book_title"])
             if entry["author"]:
                 authors.add(entry["author"])
 
             if progress_callback and (i + 1) % 100 == 0:
-                progress_callback(i + 1, len(blocks))
+                progress_callback(
+                    i + 1,
+                    len(blocks),
+                    earliest_date=earliest_so_far,
+                    latest_date=latest_so_far,
+                    entities_found=len(books) + len(authors),
+                )
 
         if not entries:
             return ImportResult(
@@ -292,6 +305,11 @@ class KindleImporter:
             )
 
         entries.sort(key=lambda e: e["create_ts"])
+        date_range_val = (
+            (earliest_so_far, latest_so_far)
+            if earliest_so_far and latest_so_far
+            else None
+        )
 
         windows = window_items(entries, "create_ts", tz=None)
         created_files, segments = write_markdown_segments(
@@ -329,6 +347,7 @@ class KindleImporter:
                 f"across {len(segment_days)} days into {len(segments)} segments"
             ),
             segments=segments,
+            date_range=date_range_val,
         )
 
 

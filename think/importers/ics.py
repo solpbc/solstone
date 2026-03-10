@@ -423,15 +423,35 @@ class ICSImporter:
 
         all_entries: list[dict[str, Any]] = []
         errors: list[str] = []
+        earliest_so_far: str | None = None
+        latest_so_far: str | None = None
 
         for i, blob in enumerate(ics_blobs):
             try:
-                all_entries.extend(_parse_events(blob))
+                parsed_entries = _parse_events(blob)
+                all_entries.extend(parsed_entries)
+                if parsed_entries:
+                    parsed_dates = sorted(
+                        dt.datetime.fromtimestamp(
+                            entry["create_ts"], tz=dt.timezone.utc
+                        ).strftime("%Y%m%d")
+                        for entry in parsed_entries
+                    )
+                    if earliest_so_far is None or parsed_dates[0] < earliest_so_far:
+                        earliest_so_far = parsed_dates[0]
+                    if latest_so_far is None or parsed_dates[-1] > latest_so_far:
+                        latest_so_far = parsed_dates[-1]
             except Exception as exc:
                 errors.append(f"Failed to parse ICS file {i}: {exc}")
 
             if progress_callback:
-                progress_callback(i + 1, len(ics_blobs))
+                progress_callback(
+                    i + 1,
+                    len(ics_blobs),
+                    earliest_date=earliest_so_far,
+                    latest_date=latest_so_far,
+                    entities_found=0,
+                )
 
         if not all_entries:
             return ImportResult(
@@ -443,6 +463,12 @@ class ICSImporter:
             )
 
         all_entries.sort(key=lambda entry: entry["create_ts"])
+        earliest = dt.datetime.fromtimestamp(
+            all_entries[0]["create_ts"], tz=dt.timezone.utc
+        ).strftime("%Y%m%d")
+        latest = dt.datetime.fromtimestamp(
+            all_entries[-1]["create_ts"], tz=dt.timezone.utc
+        ).strftime("%Y%m%d")
 
         windows = window_items(all_entries, "create_ts")
         created_files, segments = write_markdown_segments(
@@ -494,6 +520,7 @@ class ICSImporter:
                 f"{entities_seeded} entities seeded"
             ),
             segments=segments,
+            date_range=(earliest, latest),
         )
 
 

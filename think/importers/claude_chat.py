@@ -169,9 +169,21 @@ class ClaudeChatImporter:
             )
 
         messages.sort(key=lambda m: m["create_time"])
+        earliest = dt.datetime.fromtimestamp(
+            messages[0]["create_time"], tz=dt.timezone.utc
+        ).strftime("%Y%m%d")
+        latest = dt.datetime.fromtimestamp(
+            messages[-1]["create_time"], tz=dt.timezone.utc
+        ).strftime("%Y%m%d")
 
         if progress_callback:
-            progress_callback(len(conversations), len(conversations))
+            progress_callback(
+                len(conversations),
+                len(conversations),
+                earliest_date=earliest,
+                latest_date=latest,
+                entities_found=0,
+            )
 
         windows = _window_messages(messages)
         created_files: list[str] = []
@@ -213,6 +225,7 @@ class ClaudeChatImporter:
                 f"{len(segments)} segments"
             ),
             segments=segments,
+            date_range=(earliest, latest),
         )
 
 

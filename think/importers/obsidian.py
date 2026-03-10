@@ -227,6 +227,8 @@ class ObsidianImporter:
         notes: list[dict[str, Any]] = []
         all_wikilinks: set[str] = set()
         errors: list[str] = []
+        earliest_ts: float | None = None
+        latest_ts: float | None = None
 
         for i, md_path in enumerate(md_files):
             content = _read_file_safe(md_path)
@@ -245,6 +247,10 @@ class ObsidianImporter:
                 mtime = md_path.stat().st_mtime
             except OSError:
                 mtime = dt.datetime.now().timestamp()
+            if earliest_ts is None or mtime < earliest_ts:
+                earliest_ts = mtime
+            if latest_ts is None or mtime > latest_ts:
+                latest_ts = mtime
 
             tags = _parse_frontmatter_tags(content)
             wikilinks = WIKILINK_RE.findall(content)
@@ -263,7 +269,21 @@ class ObsidianImporter:
             )
 
             if progress_callback:
-                progress_callback(i + 1, total)
+                progress_callback(
+                    i + 1,
+                    total,
+                    earliest_date=(
+                        dt.datetime.fromtimestamp(earliest_ts).strftime("%Y%m%d")
+                        if earliest_ts
+                        else None
+                    ),
+                    latest_date=(
+                        dt.datetime.fromtimestamp(latest_ts).strftime("%Y%m%d")
+                        if latest_ts
+                        else None
+                    ),
+                    entities_found=len(all_wikilinks),
+                )
 
         if not notes:
             return ImportResult(
@@ -273,6 +293,11 @@ class ObsidianImporter:
                 errors=errors,
                 summary="No notes found to import",
             )
+        if earliest_ts is not None and latest_ts is not None:
+            earliest = dt.datetime.fromtimestamp(earliest_ts).strftime("%Y%m%d")
+            latest = dt.datetime.fromtimestamp(latest_ts).strftime("%Y%m%d")
+        else:
+            earliest = latest = dt.datetime.now().strftime("%Y%m%d")
 
         notes.sort(key=lambda n: n["mtime"])
 
@@ -308,6 +333,7 @@ class ObsidianImporter:
                 f"{len({d for d, _ in segments})} days into {len(segments)} segments"
             ),
             segments=segments,
+            date_range=(earliest, latest),
         )
 
     def _walk_md_files(self, root: Path) -> list[Path]:
