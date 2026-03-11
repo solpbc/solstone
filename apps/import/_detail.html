@@ -75,6 +75,11 @@
 .import-content-pagination button:hover { background: #f5f5f5; }
 .import-content-pagination button.active { background: #007bff; color: #fff; border-color: #007bff; }
 .import-content-pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+.import-content-month-header { font-weight: 600; color: #555; padding: 0.75em 0 0.25em; border-bottom: 1px solid #e5e5e5; margin-bottom: 0.5em; margin-top: 0.75em; font-size: 0.9em; }
+.import-content-month-header:first-child { margin-top: 0; }
+.import-content-item-meta { padding: 0 1em 0.25em; font-size: 0.8em; color: #888; }
+.import-content-cal-link { color: #007bff; text-decoration: none; }
+.import-content-cal-link:hover { text-decoration: underline; }
 
   </style>
 
@@ -220,7 +225,19 @@ function renderContentItems(items) {
     el.innerHTML = '<div class="no-data">No items found</div>';
     return;
   }
-  el.innerHTML = items.map(item => {
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let currentMonth = '';
+  let html = '';
+  items.forEach(item => {
+    const itemMonth = item.date ? item.date.slice(0, 6) : '';
+    if (itemMonth && itemMonth !== currentMonth) {
+      currentMonth = itemMonth;
+      const year = itemMonth.slice(0, 4);
+      const monthIdx = parseInt(itemMonth.slice(4, 6), 10) - 1;
+      const monthLabel = monthNames[monthIdx] || '';
+      const monthCount = items.filter(i => (i.date || '').startsWith(itemMonth)).length;
+      html += `<div class="import-content-month-header">${monthLabel} ${year} — ${monthCount} items</div>`;
+    }
     const typeLabel = {
       conversation: 'Chat',
       event: 'Event',
@@ -228,17 +245,26 @@ function renderContentItems(items) {
       note: 'Note',
     }[item.type] || item.type;
     const date = item.date ? `${item.date.slice(0, 4)}-${item.date.slice(4, 6)}-${item.date.slice(6, 8)}` : '';
-    return `
+    const calLink = item.date ? `/app/calendar/${item.date}` : '';
+    html += `
       <div class="import-content-item" data-item-id="${item.id}">
         <div class="import-content-item-header" onclick="toggleContentItem(this.parentElement)">
           <span class="import-content-item-type">${typeLabel}</span>
           <span class="import-content-item-title">${escapeContentHtml(item.title)}</span>
           <span class="import-content-item-date">${date}</span>
         </div>
+        <div class="import-content-item-meta">
+          ${item.meta?.message_count ? `${item.meta.message_count} messages` : ''}
+          ${item.meta?.highlight_count ? `${item.meta.highlight_count} highlights` : ''}
+          ${item.meta?.duration_minutes ? `${item.meta.duration_minutes} min` : ''}
+          ${item.meta?.author ? `· ${escapeContentHtml(item.meta.author)}` : ''}
+          ${calLink ? ` · <a href="${calLink}" class="import-content-cal-link" onclick="event.stopPropagation();">View in calendar →</a>` : ''}
+        </div>
         ${item.preview ? `<div class="import-content-item-preview">${escapeContentHtml(item.preview)}</div>` : ''}
         <div class="import-content-item-body"><div class="no-data">Loading...</div></div>
       </div>`;
-  }).join('');
+  });
+  el.innerHTML = html;
 }
 
 function toggleContentItem(el) {
