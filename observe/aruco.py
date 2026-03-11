@@ -31,8 +31,9 @@ def _get_detector() -> cv2.aruco.ArucoDetector:
     if _detector is None:
         dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
         params = cv2.aruco.DetectorParameters()
-        # Tuned parameters for small markers
-        params.minMarkerPerimeterRate = 0.002
+        # Tuned for 16px CSS tags (~0.011 rate on 1080p, ~0.005 on 4K).
+        # Values below 0.003 trigger an OpenCV 4.13 perf cliff (ms → seconds).
+        params.minMarkerPerimeterRate = 0.003
         params.maxMarkerPerimeterRate = 8.0
         params.adaptiveThreshWinSizeMin = 3
         params.adaptiveThreshWinSizeMax = 23
