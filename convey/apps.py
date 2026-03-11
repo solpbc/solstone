@@ -79,6 +79,9 @@ def _resolve_placeholder(
     if onboarding_status == "interviewing":
         return "Tell me about your work..."
     if onboarding_status in ("complete", "skipped"):
+        imports = awareness_current.get("imports", {})
+        if not imports.get("has_imported") and day_count < 3:
+            return "Bring in past conversations, calendar, or notes to give me context..."
         if awareness_current.get("journal", {}).get("first_daily_ready"):
             if day_count < 2:
                 return "Your first daily analysis is ready — ask me what I found..."

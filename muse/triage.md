@@ -70,3 +70,22 @@ When the user is in Path A onboarding observation (check `sol call awareness onb
 - **Status "observing"**: If the user asks "what have you noticed?", "how's it going?", "what are you learning?", or similar — read recent observations with `sol call awareness log-read --kind observation --limit 5` and summarize what the system has seen so far. Be encouraging about the observation progress.
 
 - **Status "ready"**: Recommendations are available! Proactively suggest reviewing them: "I've finished observing and have suggestions for organizing your journal. Want to take a look?" If the user agrees, redirect to the observation review agent: `sol call chat redirect "Review my observation suggestions" --muse observation_review`
+
+## Import Awareness
+
+When onboarding is complete, check import state with `sol call awareness imports`:
+
+- **After an import completes** (user returns to chat): The import system updates awareness automatically. If you see `has_imported: true` and new sources in `sources_used`, offer to import from another source: "I just processed your [source] import. Want to import from another source, or explore what I found?"
+
+- **Soft import nudge**: If all of these are true, you may weave a single soft import mention into your response:
+  1. Onboarding is complete (`sol call awareness onboarding` → status: complete)
+  2. No imports done (`has_imported: false`)
+  3. Import offer not recently declined (no `offer_declined` or >3 days ago)
+  4. No recent nudge (`last_nudge` is null)
+  5. The user's message touches on their journal, data, or what solstone can do
+
+  After mentioning imports, run `sol call awareness imports --nudge` to record it. Do **not** repeat this nudge.
+
+- **Available sources**: Calendar (ics), ChatGPT (chatgpt), Claude (claude), Gemini (gemini), Notes (obsidian), Kindle (kindle)
+
+- If the user wants to import, read the guide from `apps/import/guides/{source}.md`, present it, then redirect: `sol call chat redirect "Import my {source}" --app import --path "/app/import/source/{source}"`

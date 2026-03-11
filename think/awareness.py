@@ -234,3 +234,97 @@ def complete_onboarding() -> dict[str, Any]:
     )
     append_log("state", key="onboarding.complete")
     return state
+
+
+# --- Import tracking convenience functions ---
+
+
+def _ensure_imports_section() -> dict[str, Any]:
+    """Ensure the imports section exists in current state, return it."""
+    state = get_current()
+    if "imports" not in state:
+        state["imports"] = {
+            "has_imported": False,
+            "import_count": 0,
+            "sources_used": [],
+            "offer_declined": None,
+            "last_nudge": None,
+        }
+        _write_current(state)
+    return state["imports"]
+
+
+def get_imports() -> dict[str, Any]:
+    """Return the current import tracking state, or defaults if none."""
+    state = get_current()
+    return state.get("imports", {
+        "has_imported": False,
+        "import_count": 0,
+        "sources_used": [],
+        "offer_declined": None,
+        "last_nudge": None,
+    })
+
+
+def record_import(source_type: str) -> dict[str, Any]:
+    """Record a completed import.
+
+    Parameters
+    ----------
+    source_type : str
+        Import source type (e.g., "chatgpt", "ics", "claude")
+
+    Returns
+    -------
+    dict
+        The updated imports state
+    """
+    _ensure_imports_section()
+    imports = get_imports()
+    sources = imports.get("sources_used", [])
+    if source_type not in sources:
+        sources.append(source_type)
+    state = update_state(
+        "imports",
+        {
+            "has_imported": True,
+            "import_count": imports.get("import_count", 0) + 1,
+            "sources_used": sources,
+        },
+    )
+    append_log("state", key="imports.completed", data={"source_type": source_type})
+    return state
+
+
+def record_import_offer_declined() -> dict[str, Any]:
+    """Record that the user declined an import offer.
+
+    Returns
+    -------
+    dict
+        The updated imports state
+    """
+    _ensure_imports_section()
+    state = update_state(
+        "imports",
+        {"offer_declined": _now_iso()},
+    )
+    append_log("state", key="imports.offer_declined")
+    return state
+
+
+def record_import_nudge() -> dict[str, Any]:
+    """Record that triage nudged the user about imports.
+
+    Returns
+    -------
+    dict
+        The updated imports state
+    """
+    _ensure_imports_section()
+    state = update_state(
+        "imports",
+        {"last_nudge": _now_iso()},
+    )
+    append_log("state", key="imports.nudge_sent")
+    return state

@@ -81,6 +81,46 @@ def onboarding_cmd(
     typer.echo(json.dumps(state, indent=2))
 
 
+@app.command("imports")
+def imports_cmd(
+    record: str | None = typer.Option(
+        None, "--record", "-r", help="Record a completed import (source type)."
+    ),
+    declined: bool = typer.Option(
+        False, "--declined", help="Record that user declined import offer."
+    ),
+    nudge: bool = typer.Option(
+        False, "--nudge", help="Record that triage nudged about imports."
+    ),
+) -> None:
+    """Read or update import tracking state."""
+    from think.awareness import (
+        get_imports,
+        record_import,
+        record_import_nudge,
+        record_import_offer_declined,
+    )
+
+    if record:
+        state = record_import(record)
+        typer.echo(json.dumps(state, indent=2))
+        return
+
+    if declined:
+        state = record_import_offer_declined()
+        typer.echo(json.dumps(state, indent=2))
+        return
+
+    if nudge:
+        state = record_import_nudge()
+        typer.echo(json.dumps(state, indent=2))
+        return
+
+    # No flags — read current state
+    state = get_imports()
+    typer.echo(json.dumps(state, indent=2))
+
+
 @app.command("log-read")
 def log_read_cmd(
     day: str | None = typer.Argument(

@@ -74,9 +74,30 @@ sol call entities attach TYPE ENTITY DESCRIPTION --facet FACET
 
 Entity types: Person, Company, Project, Tool
 
-## Step 5: Complete Onboarding
+## Step 5: Offer Imports
 
-After reviewing all suggestions:
+After creating facets and attaching entities, **before** completing onboarding, offer to import existing data:
+
+> Nice — I've set up [facets] based on what I observed. Your journal now has structure, but it's mostly today's data.
+>
+> Want to fill in the backstory? If you have ChatGPT conversations, calendar exports, notes, or Kindle highlights, I can import them so I can see patterns going back months or years.
+>
+> What do you use that we could bring in?
+
+**If user picks a source:**
+1. Read the export guide from `apps/import/guides/{source}.md` (map: Calendar→ics, ChatGPT→chatgpt, Claude→claude, Gemini→gemini, Notes→obsidian, Kindle→kindle)
+2. Present the export instructions conversationally
+3. Run `sol call chat redirect "Import my {source}" --app import --path "/app/import/source/{source}"` to hand off to the import app
+4. After redirecting, tell the user you'll take them to the import page to upload the file
+
+**If user says "skip" or "not now":**
+1. Run `sol call awareness imports --declined` to record the decline
+2. Say: "No problem — you can import anytime from the Import app. I'll remind you once you've settled in."
+3. Proceed to complete onboarding
+
+## Step 6: Complete Onboarding
+
+After the import offer (whether they chose a source or skipped):
 
 ```bash
 sol call awareness onboarding --complete

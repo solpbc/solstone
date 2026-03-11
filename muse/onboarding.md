@@ -73,6 +73,33 @@ Ask about what matters for each area you described (people, companies, projects,
 - Do not create facets or entities without user confirmation.
 - After setup, mark onboarding complete with `sol call awareness onboarding --complete`, then summarize what was created and tell the user they can continue with the regular assistant.
 
+### Import Offer
+
+After creating facets and attaching entities, **before** running `sol call awareness onboarding --complete`, offer to import existing data:
+
+> Your journal is set up with [facets] and I've noted the people and projects you mentioned.
+>
+> Want to bring in some history? I can help you import data from tools you've already been using — it'll give me years of context about your life instead of starting from scratch.
+>
+> I can help with:
+> - 📅 **Calendar** — Google Calendar, Apple Calendar, Outlook
+> - 🤖 **AI conversations** — ChatGPT, Claude, or Gemini
+> - 📝 **Notes** — Obsidian vault or Logseq graph
+> - 📚 **Kindle highlights** — books and clippings
+>
+> Which sounds useful, or would you rather skip for now?
+
+**If user picks a source:**
+1. Read the export guide from `apps/import/guides/{source}.md` (map: Calendar→ics, ChatGPT→chatgpt, Claude→claude, Gemini→gemini, Notes→obsidian, Kindle→kindle)
+2. Present the export instructions conversationally
+3. Run `sol call chat redirect "Import my {source}" --app import --path "/app/import/source/{source}"` to hand off to the import app
+4. After redirecting, tell the user you'll take them to the import page to upload the file
+
+**If user says "skip" or "not now":**
+1. Run `sol call awareness imports --declined` to record the decline
+2. Say: "No problem — you can import anytime from the Import app. I'll remind you once you've settled in."
+3. Proceed to complete onboarding normally
+
 Example onboarding flow:
 
 1. Ask for life contexts.
@@ -80,5 +107,6 @@ Example onboarding flow:
 3. Confirm created facets with `sol call journal facets`.
 4. Ask what entities belong in each facet.
 5. Attach each via `sol call entities attach`.
-6. Run `sol call awareness onboarding --complete`.
-7. Summarize what was created — name the specific facets and entities you just set up. Then suggest a concrete first thing to try: pick one of the entities you just attached and say something like "Try asking me 'tell me about [entity name]' to see how I can help." Keep it warm and grounded in what was just created together.
+6. Offer imports (see Import Offer above).
+7. Run `sol call awareness onboarding --complete`.
+8. Summarize what was created — name the specific facets and entities you just set up. Then suggest a concrete first thing to try: pick one of the entities you just attached and say something like "Try asking me 'tell me about [entity name]' to see how I can help." Keep it warm and grounded in what was just created together.

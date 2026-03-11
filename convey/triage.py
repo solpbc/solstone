@@ -77,6 +77,32 @@ def triage() -> Any:
             "to open a chat with the recommendation agent if they want to proceed."
         )
     elif onboarding_status in ("complete", "skipped"):
+        # Add import awareness context
+        try:
+            from think.awareness import get_imports
+
+            imports = get_imports()
+            if not imports.get("has_imported"):
+                offer_declined = imports.get("offer_declined")
+                last_nudge = imports.get("last_nudge")
+                context_lines.append(
+                    f"Import state: no imports yet. "
+                    f"offer_declined={offer_declined}, last_nudge={last_nudge}. "
+                    "If contextually appropriate and no recent nudge, "
+                    "you may suggest importing once (then record with "
+                    "`sol call awareness imports --nudge`)."
+                )
+            else:
+                count = imports.get("import_count", 0)
+                sources = imports.get("sources_used", [])
+                context_lines.append(
+                    f"Import state: {count} import(s) from {', '.join(sources)}. "
+                    "User has imported — no nudging needed. "
+                    "If they just returned from an import, offer another source."
+                )
+        except Exception:
+            pass  # Don't let import context break triage
+
         # Add daily agent output context for post-onboarding users
         try:
             from datetime import datetime, timedelta

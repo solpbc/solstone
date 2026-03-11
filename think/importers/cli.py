@@ -1025,6 +1025,14 @@ def main() -> None:
             except Exception as e:
                 logger.warning(f"Failed to update import metadata: {e}")
 
+        # Update awareness import tracking
+        try:
+            from think.awareness import record_import
+
+            record_import(processing_results.get("source_type", "generic"))
+        except Exception as e:
+            logger.warning(f"Failed to update import awareness: {e}")
+
         # Emit completed event
         duration_ms = int((time.monotonic() - _start_time) * 1000)
         output_files_relative = [_get_relative_path(f) for f in all_created_files]
