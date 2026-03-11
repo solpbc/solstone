@@ -454,7 +454,8 @@ def normalize(data: Any, journal_path: str) -> Any:
             return {
                 item_key: (
                     0
-                    if item_key == "mtime" and isinstance(item_value, (int, float))
+                    if item_key in {"mtime", "created_at"}
+                    and isinstance(item_value, (int, float))
                     else (
                         round(item_value, 1)
                         if item_key == "score" and isinstance(item_value, float)

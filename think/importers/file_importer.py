@@ -51,6 +51,7 @@ class FileImporter(Protocol):
         journal_root: Path,
         *,
         facet: str | None = None,
+        import_id: str | None = None,
         progress_callback: Callable | None = None,
     ) -> ImportResult: ...
 

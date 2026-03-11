@@ -1352,6 +1352,7 @@ function showProgressView(importId, eventData = null) {
         <div><strong>Date range:</strong> ${escapeHtml(formatDateRange(range) || '-')}</div>
         <div><strong>Duration:</strong> ${formatElapsed(completedInfo.duration_ms || 0)}</div>
         <div class="import-action-row">
+          <a class="import-secondary-btn" href="/app/import/${completedInfo.processed_timestamp || importId}#content">Browse what was imported →</a>
           ${day ? `<a class="import-secondary-btn" href="/app/calendar/${day}">View in calendar</a>` : ''}
           <a href="#" class="import-secondary-btn" onclick="showGrid(); return false;">Import another source</a>
         </div>

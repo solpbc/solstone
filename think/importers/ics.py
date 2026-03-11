@@ -10,7 +10,13 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import seed_entities, window_items, write_markdown_segments
+from think.importers.shared import (
+    map_items_to_segments,
+    seed_entities,
+    window_items,
+    write_content_manifest,
+    write_markdown_segments,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -417,9 +423,11 @@ class ICSImporter:
         journal_root: Path,
         *,
         facet: str | None = None,
+        import_id: str | None = None,
         progress_callback: Callable | None = None,
     ) -> ImportResult:
         ics_blobs = _extract_ics_data(path)
+        import_id = import_id or dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
         all_entries: list[dict[str, Any]] = []
         errors: list[str] = []
@@ -463,6 +471,29 @@ class ICSImporter:
             )
 
         all_entries.sort(key=lambda entry: entry["create_ts"])
+        manifest_entries: list[dict[str, Any]] = []
+        for i, entry in enumerate(all_entries):
+            create_dt = dt.datetime.fromtimestamp(
+                entry["create_ts"], tz=dt.timezone.utc
+            )
+            meta: dict[str, Any] = {}
+            if entry.get("location"):
+                meta["location"] = entry["location"]
+            if entry.get("duration_minutes") is not None:
+                meta["duration_minutes"] = entry["duration_minutes"]
+            if entry.get("attendees"):
+                meta["attendee_count"] = len(entry["attendees"])
+            manifest_entries.append(
+                {
+                    "id": f"event-{i}",
+                    "title": entry.get("title", "Untitled event"),
+                    "date": create_dt.strftime("%Y%m%d"),
+                    "type": "event",
+                    "preview": entry.get("content", "")[:200],
+                    "meta": meta,
+                    "segments": [],
+                }
+            )
         earliest = dt.datetime.fromtimestamp(
             all_entries[0]["create_ts"], tz=dt.timezone.utc
         ).strftime("%Y%m%d")
@@ -477,6 +508,17 @@ class ICSImporter:
             lambda items: "\n\n".join(_render_event_markdown(e) for e in items),
             filename="event_transcript.md",
         )
+        item_segments = map_items_to_segments(
+            [entry["create_ts"] for entry in all_entries],
+            tz=dt.timezone.utc,
+        )
+        for manifest_entry, (day, key) in zip(
+            manifest_entries,
+            item_segments,
+            strict=False,
+        ):
+            manifest_entry["segments"] = [{"day": day, "key": key}]
+        write_content_manifest(import_id, manifest_entries)
 
         segment_days = {day for day, _ in segments}
 

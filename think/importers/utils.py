@@ -10,6 +10,7 @@ extracted from apps/import/routes.py to be usable in CLI tools and other context
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 # ============================================================================
@@ -421,6 +422,119 @@ def get_import_details(
             pass
 
     return result
+
+
+def _backfill_item_type(source_type: str) -> str:
+    """Map source_type to manifest item type for backfill."""
+    return {
+        "ics": "event",
+        "kindle": "highlight_group",
+        "obsidian": "note",
+    }.get(source_type, "conversation")
+
+
+def generate_content_manifest(journal_root: Path, timestamp: str) -> Path | None:
+    """Generate content_manifest.jsonl by backfilling from segment files."""
+    import_dir = journal_root / "imports" / timestamp
+    imported_path = import_dir / "imported.json"
+    if not imported_path.exists():
+        return None
+
+    imported = json.loads(imported_path.read_text(encoding="utf-8"))
+    source_type = imported.get("source_type", "")
+    all_files = imported.get("all_created_files", [])
+
+    entries: list[dict] = []
+    entry_idx = 0
+
+    for file_path_str in all_files:
+        file_path = Path(file_path_str)
+        if not file_path.exists():
+            file_path = journal_root / file_path_str
+            if not file_path.exists():
+                continue
+
+        parts = file_path.parts
+        try:
+            seg_key = parts[-2]
+            day = parts[-4] if len(parts) >= 4 else ""
+            if not (len(day) == 8 and day.isdigit()):
+                day = parts[-3] if len(parts) >= 3 else ""
+                if not (len(day) == 8 and day.isdigit()):
+                    day = ""
+        except (IndexError, ValueError):
+            seg_key = ""
+            day = ""
+
+        segment = {"day": day, "key": seg_key} if day and seg_key else {}
+
+        if file_path.suffix == ".jsonl":
+            try:
+                lines = file_path.read_text(encoding="utf-8").strip().split("\n")
+                if len(lines) < 2:
+                    continue
+                header = json.loads(lines[0])
+                topic = header.get("topics", "")
+                messages = []
+                for line in lines[1:]:
+                    try:
+                        messages.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
+                if not messages:
+                    continue
+                preview = ""
+                for message in messages:
+                    if message.get("speaker") == "Human":
+                        preview = message.get("text", "")[:200]
+                        break
+                entries.append(
+                    {
+                        "id": f"seg-{entry_idx}",
+                        "title": topic or preview[:80] or "Conversation segment",
+                        "date": day,
+                        "type": "conversation",
+                        "preview": preview,
+                        "meta": {"message_count": len(messages)},
+                        "segments": [segment] if segment else [],
+                    }
+                )
+                entry_idx += 1
+            except (OSError, json.JSONDecodeError):
+                continue
+        elif file_path.suffix == ".md":
+            try:
+                content = file_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            sections = re.split(r"(?m)^## ", content)
+            for section in sections:
+                section = section.strip()
+                if not section:
+                    continue
+                title_line = section.split("\n", 1)[0].strip()
+                body = section.split("\n", 1)[1].strip() if "\n" in section else ""
+                entries.append(
+                    {
+                        "id": f"item-{entry_idx}",
+                        "title": title_line,
+                        "date": day,
+                        "type": _backfill_item_type(source_type),
+                        "preview": body[:200],
+                        "meta": {},
+                        "segments": [segment] if segment else [],
+                    }
+                )
+                entry_idx += 1
+
+    if not entries:
+        return None
+
+    manifest_path = import_dir / "content_manifest.jsonl"
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        for entry in entries:
+            f.write(json.dumps(entry) + "\n")
+    return manifest_path
 
 
 # ============================================================================

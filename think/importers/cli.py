@@ -641,6 +641,7 @@ def main() -> None:
                 Path(args.media),
                 journal_root,
                 facet=args.facet,
+                import_id=_import_id,
                 progress_callback=_progress_callback,
             )
 

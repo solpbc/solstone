@@ -11,7 +11,12 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import _window_messages, write_segment
+from think.importers.shared import (
+    _window_messages,
+    map_items_to_segments,
+    write_content_manifest,
+    write_segment,
+)
 from think.utils import day_path
 
 logger = logging.getLogger(__name__)
@@ -59,7 +64,7 @@ def _extract_messages(
     model_counts: dict[str, int] = {}
     skipped = 0
 
-    for conv in conversations:
+    for conv_idx, conv in enumerate(conversations):
         mapping = conv.get("mapping", {})
         if not mapping:
             skipped += 1
@@ -98,6 +103,9 @@ def _extract_messages(
                     "speaker": "Human" if role == "user" else "Assistant",
                     "text": text,
                     "model_slug": model_slug,
+                    "conv_id": conv_idx,
+                    "conv_title": conv.get("title", ""),
+                    "conv_create_time": conv.get("create_time"),
                 }
             )
             conv_has_content = True
@@ -191,10 +199,11 @@ class ChatGPTImporter:
         journal_root: Path,
         *,
         facet: str | None = None,
+        import_id: str | None = None,
         progress_callback: Callable | None = None,
     ) -> ImportResult:
         conversations = _open_conversations(path)
-        import_id = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        import_id = import_id or dt.datetime.now().strftime("%Y%m%d_%H%M%S")
         messages, model_counts, skipped = _extract_messages(conversations)
         if not messages:
             return ImportResult(
@@ -206,6 +215,23 @@ class ChatGPTImporter:
             )
 
         messages.sort(key=lambda m: m["create_time"])
+        conv_meta: dict[int, dict[str, Any]] = {}
+        for msg in messages:
+            conv_id = msg.get("conv_id")
+            if conv_id is None:
+                continue
+            meta = conv_meta.setdefault(
+                conv_id,
+                {
+                    "title": msg.get("conv_title", ""),
+                    "first_ts": msg["create_time"],
+                    "preview": "",
+                    "message_count": 0,
+                },
+            )
+            meta["message_count"] += 1
+            if not meta["preview"] and msg["speaker"] == "Human":
+                meta["preview"] = msg["text"][:200]
         earliest = dt.datetime.fromtimestamp(
             messages[0]["create_time"], tz=dt.timezone.utc
         ).strftime("%Y%m%d")
@@ -249,6 +275,38 @@ class ChatGPTImporter:
 
         if skipped:
             logger.info("Skipped %d conversations with no content", skipped)
+
+        conv_segments: dict[int, set[tuple[str, str]]] = {}
+        msg_segments = map_items_to_segments(
+            [msg["create_time"] for msg in messages],
+            tz=None,
+        )
+        for msg, segment in zip(messages, msg_segments, strict=False):
+            conv_id = msg.get("conv_id")
+            if conv_id is None:
+                continue
+            conv_segments.setdefault(conv_id, set()).add(segment)
+
+        manifest_entries: list[dict[str, Any]] = []
+        for conv_id, meta in sorted(
+            conv_meta.items(), key=lambda item: item[1]["first_ts"]
+        ):
+            first_dt = dt.datetime.fromtimestamp(meta["first_ts"], tz=dt.timezone.utc)
+            manifest_entries.append(
+                {
+                    "id": f"conv-{conv_id}",
+                    "title": meta["title"] or f"Conversation {conv_id + 1}",
+                    "date": first_dt.strftime("%Y%m%d"),
+                    "type": "conversation",
+                    "preview": meta["preview"],
+                    "meta": {"message_count": meta["message_count"]},
+                    "segments": [
+                        {"day": day, "key": key}
+                        for day, key in sorted(conv_segments.get(conv_id, set()))
+                    ],
+                }
+            )
+        write_content_manifest(import_id, manifest_entries)
 
         days = sorted({day for day, _ in segments})
         model_info = ""

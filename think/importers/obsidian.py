@@ -11,7 +11,13 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import seed_entities, window_items, write_markdown_segments
+from think.importers.shared import (
+    map_items_to_segments,
+    seed_entities,
+    window_items,
+    write_content_manifest,
+    write_markdown_segments,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -219,10 +225,12 @@ class ObsidianImporter:
         journal_root: Path,
         *,
         facet: str | None = None,
+        import_id: str | None = None,
         progress_callback: Callable | None = None,
     ) -> ImportResult:
         md_files = list(self._walk_md_files(path))
         total = len(md_files)
+        import_id = import_id or dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
         notes: list[dict[str, Any]] = []
         all_wikilinks: set[str] = set()
@@ -300,6 +308,27 @@ class ObsidianImporter:
             earliest = latest = dt.datetime.now().strftime("%Y%m%d")
 
         notes.sort(key=lambda n: n["mtime"])
+        note_manifest: list[dict[str, Any]] = []
+        for i, note in enumerate(notes):
+            note_dt = dt.datetime.fromtimestamp(note["mtime"])
+            meta: dict[str, Any] = {}
+            if note.get("tags"):
+                meta["tags"] = note["tags"]
+            if note.get("is_daily"):
+                meta["is_daily"] = True
+            note_manifest.append(
+                {
+                    "id": f"note-{i}",
+                    "title": note["title"],
+                    "date": note_dt.strftime("%Y%m%d"),
+                    "type": "note",
+                    "preview": _strip_frontmatter(note.get("content", "")).strip()[
+                        :200
+                    ],
+                    "meta": meta,
+                    "segments": [],
+                }
+            )
 
         windows = window_items(notes, "mtime", tz=None)
         created_files, segments = write_markdown_segments(
@@ -308,6 +337,15 @@ class ObsidianImporter:
             lambda items: "\n\n".join(_render_note_markdown(n) for n in items),
             filename="note_transcript.md",
         )
+        note_segments = map_items_to_segments(
+            [note["mtime"] for note in notes],
+            tz=None,
+        )
+        for manifest_entry, (day, key) in zip(
+            note_manifest, note_segments, strict=False
+        ):
+            manifest_entry["segments"] = [{"day": day, "key": key}]
+        write_content_manifest(import_id, note_manifest)
 
         # Seed entities from wikilinks
         entities_seeded = 0

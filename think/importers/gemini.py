@@ -23,7 +23,12 @@ from pathlib import Path
 from typing import Any, Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
-from think.importers.shared import _window_messages, write_segment
+from think.importers.shared import (
+    _window_messages,
+    map_items_to_segments,
+    write_content_manifest,
+    write_segment,
+)
 from think.utils import day_path
 
 logger = logging.getLogger(__name__)
@@ -220,18 +225,21 @@ class GeminiImporter:
         journal_root: Path,
         *,
         facet: str | None = None,
+        import_id: str | None = None,
         progress_callback: Callable | None = None,
     ) -> ImportResult:
         activities = _load_activities(path)
-        import_id = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        import_id = import_id or dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
         messages: list[dict[str, Any]] = []
         errors: list[str] = []
         skipped = 0
         bard_count = 0
         valid_count = 0
+        valid_idx = 0
         earliest_so_far: str | None = None
         latest_so_far: str | None = None
+        activity_meta: dict[int, dict[str, Any]] = {}
 
         for i, act in enumerate(activities):
             activity_messages = _parse_activity(act)
@@ -239,6 +247,18 @@ class GeminiImporter:
                 skipped += 1
                 continue
             valid_count += 1
+
+            prompt = ""
+            for activity_message in activity_messages:
+                activity_message["activity_idx"] = valid_idx
+                if not prompt and activity_message["speaker"] == "Human":
+                    prompt = activity_message["text"][:200]
+            activity_meta[valid_idx] = {
+                "title": prompt[:80] or f"Activity {valid_idx + 1}",
+                "first_ts": activity_messages[0]["create_time"],
+                "preview": prompt,
+            }
+            valid_idx += 1
 
             products = [p.lower() for p in act.get("products", [])]
             header = str(act.get("header", "")).lower()
@@ -306,6 +326,41 @@ class GeminiImporter:
             except Exception as exc:
                 errors.append(f"Failed to write segment {day}/{seg_key}: {exc}")
                 logger.warning("Failed to write segment %s/%s: %s", day, seg_key, exc)
+
+        activity_segments: dict[int, set[tuple[str, str]]] = {}
+        msg_segments = map_items_to_segments(
+            [msg["create_time"] for msg in messages],
+            tz=None,
+        )
+        for msg, segment in zip(messages, msg_segments, strict=False):
+            activity_idx = msg.get("activity_idx")
+            if activity_idx is None:
+                continue
+            activity_segments.setdefault(activity_idx, set()).add(segment)
+
+        manifest_entries: list[dict[str, Any]] = []
+        for activity_idx, meta in sorted(
+            activity_meta.items(),
+            key=lambda item: item[1]["first_ts"],
+        ):
+            first_dt = dt.datetime.fromtimestamp(meta["first_ts"], tz=dt.timezone.utc)
+            manifest_entries.append(
+                {
+                    "id": f"activity-{activity_idx}",
+                    "title": meta["title"],
+                    "date": first_dt.strftime("%Y%m%d"),
+                    "type": "conversation",
+                    "preview": meta["preview"],
+                    "meta": {},
+                    "segments": [
+                        {"day": day, "key": key}
+                        for day, key in sorted(
+                            activity_segments.get(activity_idx, set())
+                        )
+                    ],
+                }
+            )
+        write_content_manifest(import_id, manifest_entries)
 
         segment_days = {day for day, _ in segments}
 

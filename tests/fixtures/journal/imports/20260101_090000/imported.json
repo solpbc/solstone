@@ -1,0 +1,22 @@
+{
+  "processed_timestamp": "20260101_090000",
+  "processing_completed": "2026-01-01T09:10:00",
+  "total_files_created": 2,
+  "all_created_files": [
+    "20260101/import.ics/090000_300/event_transcript.md",
+    "20260101/import.ics/093000_300/event_transcript.md"
+  ],
+  "segments": [
+    "090000_300",
+    "093000_300"
+  ],
+  "source_type": "ics",
+  "source_display": "Calendar",
+  "entries_written": 5,
+  "entities_seeded": 0,
+  "date_range": [
+    "20260101",
+    "20260101"
+  ],
+  "target_day": "20260101"
+}

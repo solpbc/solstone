@@ -11,8 +11,10 @@ from typing import Callable
 
 from think.importers.file_importer import ImportPreview, ImportResult
 from think.importers.shared import (
+    map_items_to_segments,
     seed_entities,
     window_items,
+    write_content_manifest,
     write_markdown_segments,
 )
 
@@ -252,10 +254,12 @@ class KindleImporter:
         journal_root: Path,
         *,
         facet: str | None = None,
+        import_id: str | None = None,
         progress_callback: Callable | None = None,
     ) -> ImportResult:
         text = path.read_text(encoding="utf-8-sig")
         blocks = text.split(DELIMITER)
+        import_id = import_id or dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
         entries: list[dict] = []
         errors: list[str] = []
@@ -310,6 +314,9 @@ class KindleImporter:
             if earliest_so_far and latest_so_far
             else None
         )
+        books_map: dict[str, list[int]] = {}
+        for i, entry in enumerate(entries):
+            books_map.setdefault(entry["book_title"], []).append(i)
 
         windows = window_items(entries, "create_ts", tz=None)
         created_files, segments = write_markdown_segments(
@@ -318,6 +325,41 @@ class KindleImporter:
             _render_highlight_markdown,
             filename="highlights_transcript.md",
         )
+        item_segments = map_items_to_segments(
+            [entry["create_ts"] for entry in entries],
+            tz=None,
+        )
+        entry_segment_map = {idx: segment for idx, segment in enumerate(item_segments)}
+        manifest_entries: list[dict] = []
+        for book_idx, (book_title, indices) in enumerate(sorted(books_map.items())):
+            book_entries = [entries[i] for i in indices]
+            author = book_entries[0].get("author", "")
+            first_ts = min(entry["create_ts"] for entry in book_entries)
+            first_dt = dt.datetime.fromtimestamp(first_ts)
+            highlight_count = sum(
+                1 for entry in book_entries if entry.get("clip_type") != "note"
+            )
+            note_count = sum(
+                1 for entry in book_entries if entry.get("clip_type") == "note"
+            )
+            meta = {"author": author, "highlight_count": highlight_count}
+            if note_count:
+                meta["note_count"] = note_count
+            segment_set = {entry_segment_map[i] for i in indices}
+            manifest_entries.append(
+                {
+                    "id": f"book-{book_idx}",
+                    "title": book_title + (f" by {author}" if author else ""),
+                    "date": first_dt.strftime("%Y%m%d"),
+                    "type": "highlight_group",
+                    "preview": book_entries[0].get("content", "")[:200],
+                    "meta": meta,
+                    "segments": [
+                        {"day": day, "key": key} for day, key in sorted(segment_set)
+                    ],
+                }
+            )
+        write_content_manifest(import_id, manifest_entries)
 
         segment_days = {day for day, _ in segments}
 

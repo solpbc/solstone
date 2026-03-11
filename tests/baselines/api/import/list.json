@@ -1,1 +1,54 @@
-[]
+[
+  {
+    "created_at": 0,
+    "date_range": [
+      "20260101",
+      "20260101"
+    ],
+    "entities_seeded": 0,
+    "entries_written": 18,
+    "error": null,
+    "error_stage": null,
+    "facet": "work",
+    "file_size": 123456,
+    "imported_at": 1767261600.0,
+    "mime_type": "application/zip",
+    "original_filename": "chatgpt-export.zip",
+    "processed": true,
+    "setting": "ai_conversation",
+    "source_display": "ChatGPT",
+    "source_type": "chatgpt",
+    "status": "success",
+    "target_day": "20260101",
+    "task_id": null,
+    "timestamp": "20260101_100000",
+    "total_files_created": 3,
+    "user_timestamp": "20260101_100000"
+  },
+  {
+    "created_at": 0,
+    "date_range": [
+      "20260101",
+      "20260101"
+    ],
+    "entities_seeded": 0,
+    "entries_written": 5,
+    "error": null,
+    "error_stage": null,
+    "facet": "work",
+    "file_size": 45678,
+    "imported_at": 1767258000.0,
+    "mime_type": "application/zip",
+    "original_filename": "calendar-export.zip",
+    "processed": true,
+    "setting": "calendar",
+    "source_display": "Calendar",
+    "source_type": "ics",
+    "status": "success",
+    "target_day": "20260101",
+    "task_id": null,
+    "timestamp": "20260101_090000",
+    "total_files_created": 2,
+    "user_timestamp": "20260101_090000"
+  }
+]

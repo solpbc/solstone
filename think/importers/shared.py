@@ -604,6 +604,53 @@ def _entry_content_key(entry: dict) -> str:
     return "|".join(parts)
 
 
+def write_content_manifest(
+    import_id: str,
+    entries: list[dict[str, Any]],
+) -> Path:
+    """Write content_manifest.jsonl for an import."""
+    journal_root = Path(get_journal())
+    manifest_dir = journal_root / "imports" / import_id
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = manifest_dir / "content_manifest.jsonl"
+
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        for entry in entries:
+            f.write(json.dumps(entry) + "\n")
+
+    return manifest_path
+
+
+def map_items_to_segments(
+    timestamps: list[float],
+    *,
+    window_duration: int = 300,
+    tz: dt.timezone | None = dt.timezone.utc,
+) -> list[tuple[str, str]]:
+    """Map sorted timestamps to the segments produced by windowing helpers."""
+    result: list[tuple[str, str]] = []
+    window_start: float | None = None
+    window_day: str | None = None
+
+    for ts in timestamps:
+        ts_dt = dt.datetime.fromtimestamp(ts, tz=tz)
+        ts_day = ts_dt.strftime("%Y%m%d")
+
+        if (
+            window_start is None
+            or ts_day != window_day
+            or ts - window_start >= window_duration
+        ):
+            window_start = ts
+            window_day = ts_day
+
+        start_dt = dt.datetime.fromtimestamp(window_start, tz=tz)
+        seg_key = f"{start_dt.strftime('%H%M%S')}_{window_duration}"
+        result.append((window_day, seg_key))
+
+    return result
+
+
 def seed_entities(
     facet: str,
     day: str,

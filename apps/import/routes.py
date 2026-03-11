@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from pathlib import Path
@@ -15,6 +16,7 @@ from convey import emit, state
 from think.detect_created import detect_created
 from think.importers.utils import (
     build_import_info,
+    generate_content_manifest,
     get_import_details,
     list_import_timestamps,
     read_import_metadata,
@@ -464,6 +466,189 @@ def import_detail_api(timestamp: str) -> Any:
         return jsonify(result)
     except FileNotFoundError:
         return jsonify({"error": "Import not found"}), 404
+
+
+@import_bp.route("/api/<timestamp>/content")
+def import_content_list(timestamp: str) -> Any:
+    """Get paginated content items for an import."""
+    journal_root = Path(state.journal_root)
+    import_dir = journal_root / "imports" / timestamp
+    if not import_dir.exists():
+        return jsonify({"error": "Import not found"}), 404
+
+    manifest_path = import_dir / "content_manifest.jsonl"
+    if (
+        not manifest_path.exists()
+        and generate_content_manifest(journal_root, timestamp) is None
+    ):
+        return jsonify({"error": "No content available"}), 404
+
+    items: list[dict] = []
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    items.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    except OSError:
+        return jsonify({"error": "Failed to read manifest"}), 500
+
+    source_type = ""
+    imported_path = import_dir / "imported.json"
+    if imported_path.exists():
+        try:
+            imported = json.loads(imported_path.read_text(encoding="utf-8"))
+            source_type = imported.get("source_type", "")
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    source_meta = next((s for s in SOURCE_METADATA if s["name"] == source_type), None)
+
+    month_counts: dict[str, int] = {}
+    for item in items:
+        date = item.get("date", "")
+        if len(date) >= 6:
+            month = date[:6]
+            month_counts[month] = month_counts.get(month, 0) + 1
+
+    q = request.args.get("q", "").strip().lower()
+    month = request.args.get("month", "").strip()
+
+    filtered = items
+    if month:
+        filtered = [item for item in filtered if item.get("date", "").startswith(month)]
+    if q:
+        filtered = [
+            item
+            for item in filtered
+            if q in item.get("title", "").lower()
+            or q in item.get("preview", "").lower()
+        ]
+
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except ValueError:
+        page = 1
+    try:
+        per_page = min(100, max(1, int(request.args.get("per_page", 50))))
+    except ValueError:
+        per_page = 50
+    total = len(filtered)
+    start = (page - 1) * per_page
+    page_items = filtered[start : start + per_page]
+
+    return jsonify(
+        {
+            "items": page_items,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "pages": (total + per_page - 1) // per_page if total > 0 else 0,
+            "months": dict(sorted(month_counts.items())),
+            "source_type": source_type,
+            "source_display": source_meta["display_name"]
+            if source_meta
+            else source_type,
+            "source_emoji": source_meta["emoji"] if source_meta else "",
+        }
+    )
+
+
+@import_bp.route("/api/<timestamp>/content/<item_id>")
+def import_content_detail(timestamp: str, item_id: str) -> Any:
+    """Get full content for a specific imported item."""
+    journal_root = Path(state.journal_root)
+    import_dir = journal_root / "imports" / timestamp
+    if not import_dir.exists():
+        return jsonify({"error": "Import not found"}), 404
+
+    manifest_path = import_dir / "content_manifest.jsonl"
+    if not manifest_path.exists():
+        generate_content_manifest(journal_root, timestamp)
+    if not manifest_path.exists():
+        return jsonify({"error": "No content available"}), 404
+
+    item = None
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if entry.get("id") == item_id:
+                    item = entry
+                    break
+    except OSError:
+        return jsonify({"error": "Failed to read manifest"}), 500
+
+    if item is None:
+        return jsonify({"error": "Item not found"}), 404
+
+    source_type = ""
+    imported_path = import_dir / "imported.json"
+    if imported_path.exists():
+        try:
+            imported = json.loads(imported_path.read_text(encoding="utf-8"))
+            source_type = imported.get("source_type", "")
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    content_parts: list[dict] = []
+    for seg in item.get("segments", []):
+        day = seg.get("day", "")
+        key = seg.get("key", "")
+        if not day or not key:
+            continue
+        seg_dir = journal_root / day / f"import.{source_type}" / key
+        if not seg_dir.exists():
+            continue
+
+        jsonl_path = seg_dir / "conversation_transcript.jsonl"
+        if jsonl_path.exists():
+            try:
+                lines = jsonl_path.read_text(encoding="utf-8").strip().split("\n")
+            except OSError:
+                continue
+            for line in lines[1:]:
+                try:
+                    content_parts.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+            continue
+
+        for md_file in seg_dir.glob("*_transcript.md"):
+            try:
+                md_content = md_file.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            title = item.get("title", "")
+            if title:
+                sections = re.split(r"(?m)^## ", md_content)
+                for section in sections:
+                    stripped = section.strip()
+                    if stripped.startswith(title):
+                        content_parts.append(
+                            {"type": "markdown", "content": "## " + stripped}
+                        )
+                        break
+                else:
+                    content_parts.append(
+                        {"type": "markdown", "content": md_content.strip()}
+                    )
+            else:
+                content_parts.append(
+                    {"type": "markdown", "content": md_content.strip()}
+                )
+
+    return jsonify({"item": item, "content": content_parts})
 
 
 @import_bp.route("/api/start", methods=["POST"])

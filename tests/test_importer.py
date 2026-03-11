@@ -946,6 +946,7 @@ def test_file_importer_without_timestamp(tmp_path, monkeypatch, capsys):
         Path(ics_file),
         Path(tmp_path),
         facet=None,
+        import_id="20260303_123456",
         progress_callback=ANY,
     )
     mock_call = callosum.emit.call_args_list[0]
@@ -991,6 +992,7 @@ def test_file_importer_with_timestamp(tmp_path, monkeypatch):
         Path(ics_file),
         Path(tmp_path),
         facet=None,
+        import_id="20260303_120000",
         progress_callback=ANY,
     )
     mock_call = callosum.emit.call_args_list[0]
