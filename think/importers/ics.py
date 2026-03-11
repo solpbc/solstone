@@ -477,19 +477,49 @@ class ICSImporter:
                 entry["create_ts"], tz=dt.timezone.utc
             )
             meta: dict[str, Any] = {}
+            if entry.get("ts") and entry.get("end_ts"):
+                try:
+                    start_dt = dt.datetime.fromisoformat(entry["ts"])
+                    end_dt = dt.datetime.fromisoformat(entry["end_ts"])
+                    meta["time_range"] = (
+                        f"{start_dt.strftime('%I:%M %p').lstrip('0')}"
+                        f"–{end_dt.strftime('%I:%M %p').lstrip('0')}"
+                    )
+                except ValueError:
+                    pass
             if entry.get("location"):
                 meta["location"] = entry["location"]
             if entry.get("duration_minutes") is not None:
                 meta["duration_minutes"] = entry["duration_minutes"]
             if entry.get("attendees"):
                 meta["attendee_count"] = len(entry["attendees"])
+                meta["attendee_names"] = [
+                    a.get("name") or a.get("email", "")
+                    for a in entry["attendees"][:5]
+                ]
+            if entry.get("recurrence"):
+                meta["recurrence"] = entry["recurrence"]
+
+            # Build plain-text preview from structured data if description is empty
+            preview = entry.get("content", "").strip()
+            if not preview:
+                parts: list[str] = []
+                if meta.get("time_range"):
+                    parts.append(meta["time_range"])
+                if entry.get("location"):
+                    parts.append(entry["location"])
+                if meta.get("attendee_names"):
+                    parts.append(", ".join(meta["attendee_names"]))
+                if entry.get("recurrence"):
+                    parts.append(entry["recurrence"])
+                preview = " · ".join(parts)
             manifest_entries.append(
                 {
                     "id": f"event-{i}",
                     "title": entry.get("title", "Untitled event"),
                     "date": create_dt.strftime("%Y%m%d"),
                     "type": "event",
-                    "preview": entry.get("content", "")[:200],
+                    "preview": preview[:200],
                     "meta": meta,
                     "segments": [],
                 }

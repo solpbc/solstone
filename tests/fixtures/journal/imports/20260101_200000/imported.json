@@ -1,0 +1,22 @@
+{
+  "processed_timestamp": "20260101_200000",
+  "processing_completed": "2026-01-01T20:02:00",
+  "total_files_created": 2,
+  "all_created_files": [
+    "20260101/import.kindle/200000_300/highlights_transcript.md",
+    "20260101/import.kindle/200500_300/highlights_transcript.md"
+  ],
+  "segments": [
+    "200000_300",
+    "200500_300"
+  ],
+  "source_type": "kindle",
+  "source_display": "Kindle Highlights",
+  "entries_written": 9,
+  "entities_seeded": 4,
+  "date_range": [
+    "20260101",
+    "20260101"
+  ],
+  "target_day": "20260101"
+}

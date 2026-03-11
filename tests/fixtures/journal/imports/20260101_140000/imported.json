@@ -1,0 +1,24 @@
+{
+  "processed_timestamp": "20260101_140000",
+  "processing_completed": "2026-01-01T14:04:00",
+  "total_files_created": 3,
+  "all_created_files": [
+    "20260101/import.claude/140000_300/conversation_transcript.jsonl",
+    "20260101/import.claude/140500_300/conversation_transcript.jsonl",
+    "20260101/import.claude/141000_300/conversation_transcript.jsonl"
+  ],
+  "segments": [
+    "140000_300",
+    "140500_300",
+    "141000_300"
+  ],
+  "source_type": "claude",
+  "source_display": "Claude Chat",
+  "entries_written": 15,
+  "entities_seeded": 0,
+  "date_range": [
+    "20260101",
+    "20260101"
+  ],
+  "target_day": "20260101"
+}

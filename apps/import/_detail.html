@@ -66,6 +66,16 @@
 .import-content-item-body { display: none; padding: 0.75em 1em; border-top: 1px solid #e5e5e5; background: #fafafa; }
 .import-content-item.expanded .import-content-item-body { display: block; }
 .import-content-item-body pre { white-space: pre-wrap; font-size: 0.9em; margin: 0; }
+.import-content-markdown { font-size: 0.95em; line-height: 1.6; }
+.import-content-markdown h2 { font-size: 1.1em; margin: 0 0 0.5em 0; }
+.import-content-markdown h3 { font-size: 1em; margin: 0.75em 0 0.25em 0; }
+.import-content-markdown ul, .import-content-markdown ol { margin: 0.25em 0; padding-left: 1.5em; }
+.import-content-markdown li { margin: 0.15em 0; }
+.import-content-markdown blockquote { border-left: 3px solid #ddd; margin: 0.5em 0; padding: 0.25em 0.75em; color: #555; }
+.import-content-markdown p { margin: 0.4em 0; }
+.import-content-markdown hr { border: none; border-top: 1px solid #e5e5e5; margin: 1em 0; }
+.import-content-markdown code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
+.import-content-markdown pre code { background: none; padding: 0; }
 .import-content-item-body .import-content-message { margin: 0.5em 0; }
 .import-content-item-body .import-content-speaker { font-weight: 600; margin-right: 0.5em; }
 .import-content-item-body .import-content-speaker.human { color: #007bff; }
@@ -145,7 +155,19 @@
 
 </div>
 
+<script src="{{ vendor_lib('marked') }}"></script>
 <script>
+// Configure marked for safe rendering of imported content
+marked.setOptions({ breaks: true, gfm: true });
+const markedRenderer = new marked.Renderer();
+// Sanitize: strip raw HTML tags from markdown input to prevent XSS from user-imported content
+function sanitizeMarkdown(md) {
+  return md.replace(/<(script|iframe|object|embed|form|input|textarea|button|select|style|link|meta)[^>]*>[\s\S]*?<\/\1>/gi, '')
+    .replace(/<(script|iframe|object|embed|form|input|textarea|button|select|style|link|meta)[^>]*\/?>/gi, '')
+    .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/javascript\s*:/gi, 'blocked:');
+}
+
 // Tab switching
 const tabs = document.querySelectorAll('.tab');
 const contents = document.querySelectorAll('.tab-content');
@@ -256,11 +278,14 @@ function renderContentItems(items) {
         <div class="import-content-item-meta">
           ${item.meta?.message_count ? `${item.meta.message_count} messages` : ''}
           ${item.meta?.highlight_count ? `${item.meta.highlight_count} highlights` : ''}
-          ${item.meta?.duration_minutes ? `${item.meta.duration_minutes} min` : ''}
+          ${item.meta?.time_range ? `${escapeContentHtml(item.meta.time_range)}` : (item.meta?.duration_minutes ? `${item.meta.duration_minutes} min` : '')}
+          ${item.meta?.attendee_names?.length ? ` · ${item.meta.attendee_names.map(n => escapeContentHtml(n)).join(', ')}` : (item.meta?.attendee_count ? ` · ${item.meta.attendee_count} attendees` : '')}
+          ${item.meta?.location ? ` · ${escapeContentHtml(item.meta.location)}` : ''}
           ${item.meta?.author ? `· ${escapeContentHtml(item.meta.author)}` : ''}
+          ${item.meta?.tags?.length ? `· ${item.meta.tags.map(t => escapeContentHtml(t)).join(', ')}` : ''}
           ${calLink ? ` · <a href="${calLink}" class="import-content-cal-link" onclick="event.stopPropagation();">View in calendar →</a>` : ''}
         </div>
-        ${item.preview ? `<div class="import-content-item-preview">${escapeContentHtml(item.preview)}</div>` : ''}
+        ${item.preview ? `<div class="import-content-item-preview">${escapeContentHtml(stripMarkdown(item.preview))}</div>` : ''}
         <div class="import-content-item-body"><div class="no-data">Loading...</div></div>
       </div>`;
   });
@@ -299,7 +324,7 @@ function renderContentDetail(data) {
 
   return data.content.map(part => {
     if (part.type === 'markdown') {
-      return `<pre>${escapeContentHtml(part.content)}</pre>`;
+      return `<div class="import-content-markdown">${marked.parse(sanitizeMarkdown(part.content))}</div>`;
     }
     const speaker = part.speaker || 'Unknown';
     const cls = speaker === 'Human' ? 'human' : 'assistant';
@@ -331,6 +356,20 @@ function escapeContentHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function stripMarkdown(str) {
+  if (!str) return '';
+  return str
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/^[-*+]\s+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^>\s+/gm, '')
+    .trim();
 }
 
 document.getElementById('contentSearch').addEventListener('input', function() {

@@ -257,6 +257,7 @@ class GeminiImporter:
                 "title": prompt[:80] or f"Activity {valid_idx + 1}",
                 "first_ts": activity_messages[0]["create_time"],
                 "preview": prompt,
+                "message_count": len(activity_messages),
             }
             valid_idx += 1
 
@@ -351,7 +352,7 @@ class GeminiImporter:
                     "date": first_dt.strftime("%Y%m%d"),
                     "type": "conversation",
                     "preview": meta["preview"],
-                    "meta": {},
+                    "meta": {"message_count": meta.get("message_count", 0)},
                     "segments": [
                         {"day": day, "key": key}
                         for day, key in sorted(

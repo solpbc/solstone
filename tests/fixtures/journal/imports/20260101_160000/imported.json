@@ -1,0 +1,22 @@
+{
+  "processed_timestamp": "20260101_160000",
+  "processing_completed": "2026-01-01T16:03:00",
+  "total_files_created": 2,
+  "all_created_files": [
+    "20260101/import.obsidian/160000_300/note_transcript.md",
+    "20260101/import.obsidian/160500_300/note_transcript.md"
+  ],
+  "segments": [
+    "160000_300",
+    "160500_300"
+  ],
+  "source_type": "obsidian",
+  "source_display": "Obsidian / Logseq Vault",
+  "entries_written": 4,
+  "entities_seeded": 7,
+  "date_range": [
+    "20260101",
+    "20260101"
+  ],
+  "target_day": "20260101"
+}

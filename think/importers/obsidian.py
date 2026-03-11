@@ -316,15 +316,28 @@ class ObsidianImporter:
                 meta["tags"] = note["tags"]
             if note.get("is_daily"):
                 meta["is_daily"] = True
+            raw_preview = _strip_frontmatter(note.get("content", "")).strip()[:300]
+            # Strip markdown syntax for clean plain-text preview
+            clean_preview = re.sub(r"^#{1,6}\s+", "", raw_preview, flags=re.MULTILINE)
+            clean_preview = re.sub(r"\*\*([^*]+)\*\*", r"\1", clean_preview)
+            clean_preview = re.sub(r"\*([^*]+)\*", r"\1", clean_preview)
+            clean_preview = re.sub(r"^[-*+]\s+", "", clean_preview, flags=re.MULTILINE)
+            clean_preview = re.sub(
+                r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]",
+                lambda m: m.group(2) or m.group(1),
+                clean_preview,
+            )
+            clean_preview = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", clean_preview)
+            clean_preview = re.sub(r"`([^`]+)`", r"\1", clean_preview)
+            clean_preview = re.sub(r"^>\s+", "", clean_preview, flags=re.MULTILINE)
+            clean_preview = " ".join(clean_preview.split())[:200]
             note_manifest.append(
                 {
                     "id": f"note-{i}",
                     "title": note["title"],
                     "date": note_dt.strftime("%Y%m%d"),
                     "type": "note",
-                    "preview": _strip_frontmatter(note.get("content", "")).strip()[
-                        :200
-                    ],
+                    "preview": clean_preview,
                     "meta": meta,
                     "segments": [],
                 }
