@@ -88,4 +88,4 @@ When onboarding is complete, check import state with `sol call awareness imports
 
 - **Available sources**: Calendar (ics), ChatGPT (chatgpt), Claude (claude), Gemini (gemini), Notes (obsidian), Kindle (kindle)
 
-- If the user wants to import, read the guide from `apps/import/guides/{source}.md`, present it, then redirect: `sol call chat redirect "Import my {source}" --app import --path "/app/import/source/{source}"`
+- If the user wants to import, read the guide from `apps/import/guides/{source}.md`, present it, then redirect: `sol call chat redirect "Import my {source}" --app import --path "/app/import#guide/{source}"`
