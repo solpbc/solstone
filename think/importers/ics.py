@@ -494,8 +494,7 @@ class ICSImporter:
             if entry.get("attendees"):
                 meta["attendee_count"] = len(entry["attendees"])
                 meta["attendee_names"] = [
-                    a.get("name") or a.get("email", "")
-                    for a in entry["attendees"][:5]
+                    a.get("name") or a.get("email", "") for a in entry["attendees"][:5]
                 ]
             if entry.get("recurrence"):
                 meta["recurrence"] = entry["recurrence"]

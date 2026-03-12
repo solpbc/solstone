@@ -257,13 +257,16 @@ def _ensure_imports_section() -> dict[str, Any]:
 def get_imports() -> dict[str, Any]:
     """Return the current import tracking state, or defaults if none."""
     state = get_current()
-    return state.get("imports", {
-        "has_imported": False,
-        "import_count": 0,
-        "sources_used": [],
-        "offer_declined": None,
-        "last_nudge": None,
-    })
+    return state.get(
+        "imports",
+        {
+            "has_imported": False,
+            "import_count": 0,
+            "sources_used": [],
+            "offer_declined": None,
+            "last_nudge": None,
+        },
+    )
 
 
 def record_import(source_type: str) -> dict[str, Any]:
