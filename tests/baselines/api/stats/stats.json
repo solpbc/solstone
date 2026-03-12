@@ -730,7 +730,7 @@
         "screen_sessions": 3
       },
       "20260306": {
-        "day_bytes": 62841,
+        "day_bytes": 62860,
         "outputs_pending": 9,
         "outputs_processed": 2,
         "pending_segments": 0,
@@ -784,6 +784,14 @@
         "screen_duration": 0.0,
         "screen_frames": 0,
         "screen_sessions": 2
+      },
+      "20260311": {
+        "day_bytes": 483,
+        "outputs_pending": 11,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20990101": {
         "audio_duration": 0.0,
@@ -1728,8 +1736,8 @@
       "audio_duration": 1243.0,
       "audio_segments": 86,
       "audio_sessions": 19,
-      "day_bytes": 527802,
-      "outputs_pending": 377,
+      "day_bytes": 528304,
+      "outputs_pending": 388,
       "outputs_processed": 14,
       "pending_segments": 0,
       "percept_frames": 0,
