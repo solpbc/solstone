@@ -68,15 +68,20 @@
 
 <!-- Chat Bar (universal) -->
 <div class="app-bar">
-  <form id="chatInputForm" style="display: contents;">
-    <textarea id="chatMessageInput" class="chat-bar-input" rows="1" placeholder="{{ chat_bar_placeholder|default('Send a message...') }}"></textarea>
-    <button type="submit" class="chat-bar-send" title="Send" style="display: none;">↑</button>
-  </form>
-  <div class="chat-bar-thinking" style="display: none;">
-    <span class="chat-bar-thinking-dot"></span>
-    Thinking…
+  <div class="chat-bar-response-panel" style="display: none;">
+    <div class="chat-bar-thinking" style="display: none;">
+      <span class="chat-bar-thinking-dot"></span>
+      Thinking…
+    </div>
+    <div class="chat-bar-response" style="display: none;"></div>
+    <button class="chat-bar-dismiss" style="display: none;" title="Dismiss">✕</button>
   </div>
-  <div class="chat-bar-response" style="display: none;"></div>
+  <div class="chat-bar-input-row">
+    <form id="chatInputForm" style="display: contents;">
+      <textarea id="chatMessageInput" class="chat-bar-input" rows="1" placeholder="{{ chat_bar_placeholder|default('Send a message...') }}"></textarea>
+      <button type="submit" class="chat-bar-send" title="Send" style="display: none;">↑</button>
+    </form>
+  </div>
 </div>
 
 <!-- Main Content -->
@@ -94,10 +99,30 @@
   const chatBarThinking = document.querySelector('.chat-bar-thinking');
   const chatBarResponse = document.querySelector('.chat-bar-response');
   const chatBarSend = document.querySelector('.chat-bar-send');
+  const chatBarPanel = document.querySelector('.chat-bar-response-panel');
+  const chatBarDismiss = document.querySelector('.chat-bar-dismiss');
   const isChatApp = window.location.pathname.startsWith('/app/chat');
   const STORAGE_KEY = 'solstone:chatBarState';
 
   if (!chatBarInput || !chatBarForm) return;
+
+  // --- Panel visibility helpers ---
+  function showPanel() {
+    if (chatBarPanel) chatBarPanel.style.display = '';
+  }
+  function hidePanel() {
+    if (chatBarPanel) chatBarPanel.style.display = 'none';
+    if (chatBarThinking) chatBarThinking.style.display = 'none';
+    if (chatBarResponse) chatBarResponse.style.display = 'none';
+    if (chatBarDismiss) chatBarDismiss.style.display = 'none';
+  }
+
+  // --- Dismiss button ---
+  if (chatBarDismiss) {
+    chatBarDismiss.addEventListener('click', () => {
+      hidePanel();
+    });
+  }
 
   // --- Auto-resize textarea ---
   chatBarInput.addEventListener('input', () => {
@@ -122,6 +147,8 @@
     if (saved && saved.response && !isChatApp && chatBarResponse) {
       chatBarResponse.textContent = saved.response;
       chatBarResponse.style.display = '';
+      if (chatBarDismiss) chatBarDismiss.style.display = '';
+      showPanel();
     }
   } catch {}
 
@@ -147,12 +174,10 @@
         chatBarSend.style.display = 'none';
       }
       chatBarInput.disabled = true;
-      if (chatBarThinking) {
-        chatBarThinking.style.display = '';
-      }
-      if (chatBarResponse) {
-        chatBarResponse.style.display = 'none';
-      }
+      if (chatBarThinking) chatBarThinking.style.display = '';
+      if (chatBarResponse) chatBarResponse.style.display = 'none';
+      if (chatBarDismiss) chatBarDismiss.style.display = 'none';
+      showPanel();
 
       try {
         const r = await fetch('/api/triage', {
@@ -170,7 +195,13 @@
           const data = await r.json();
           if (chatBarResponse) {
             chatBarResponse.textContent = data.response || '';
-            chatBarResponse.style.display = data.response ? '' : 'none';
+            if (data.response) {
+              chatBarResponse.style.display = '';
+              if (chatBarDismiss) chatBarDismiss.style.display = '';
+            } else {
+              chatBarResponse.style.display = 'none';
+              hidePanel();
+            }
           }
 
           // Save to localStorage
@@ -184,11 +215,15 @@
         } else if (chatBarResponse) {
           chatBarResponse.textContent = 'Something went wrong. Try again.';
           chatBarResponse.style.display = '';
+          if (chatBarDismiss) chatBarDismiss.style.display = '';
+          showPanel();
         }
       } catch (err) {
         if (chatBarResponse) {
           chatBarResponse.textContent = 'Connection error. Try again.';
           chatBarResponse.style.display = '';
+          if (chatBarDismiss) chatBarDismiss.style.display = '';
+          showPanel();
         }
       } finally {
         if (chatBarThinking) {
