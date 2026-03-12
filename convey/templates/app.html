@@ -68,13 +68,14 @@
 
 <!-- Chat Bar (universal) -->
 <div class="app-bar">
-  <div class="chat-bar-response-panel" style="display: none;">
+  <div class="chat-bar-response-panel">
     <div class="chat-bar-thinking" style="display: none;">
       <span class="chat-bar-thinking-dot"></span>
       Thinking…
     </div>
     <div class="chat-bar-response" style="display: none;"></div>
     <button class="chat-bar-dismiss" style="display: none;" title="Dismiss">✕</button>
+    <div class="chat-bar-separator"></div>
   </div>
   <div class="chat-bar-input-row">
     <form id="chatInputForm" style="display: contents;">
@@ -104,25 +105,14 @@
   const isChatApp = window.location.pathname.startsWith('/app/chat');
   const STORAGE_KEY = 'solstone:chatBarState';
 
-  if (!chatBarInput || !chatBarForm) return;
-
-  // --- Panel visibility helpers ---
   function showPanel() {
-    if (chatBarPanel) chatBarPanel.style.display = '';
+    if (chatBarPanel) chatBarPanel.classList.add('chat-bar-panel-open');
   }
   function hidePanel() {
-    if (chatBarPanel) chatBarPanel.style.display = 'none';
-    if (chatBarThinking) chatBarThinking.style.display = 'none';
-    if (chatBarResponse) chatBarResponse.style.display = 'none';
-    if (chatBarDismiss) chatBarDismiss.style.display = 'none';
+    if (chatBarPanel) chatBarPanel.classList.remove('chat-bar-panel-open');
   }
 
-  // --- Dismiss button ---
-  if (chatBarDismiss) {
-    chatBarDismiss.addEventListener('click', () => {
-      hidePanel();
-    });
-  }
+  if (!chatBarInput || !chatBarForm) return;
 
   // --- Auto-resize textarea ---
   chatBarInput.addEventListener('input', () => {
@@ -152,6 +142,16 @@
     }
   } catch {}
 
+  // --- Dismiss response panel ---
+  if (chatBarDismiss) {
+    chatBarDismiss.addEventListener('click', () => {
+      hidePanel();
+      if (chatBarThinking) chatBarThinking.style.display = 'none';
+      if (chatBarResponse) chatBarResponse.style.display = 'none';
+      chatBarDismiss.style.display = 'none';
+    });
+  }
+
   // --- Non-chat app: triage submit ---
   if (!isChatApp) {
     // Enter to submit, shift+enter for newline
@@ -174,9 +174,15 @@
         chatBarSend.style.display = 'none';
       }
       chatBarInput.disabled = true;
-      if (chatBarThinking) chatBarThinking.style.display = '';
-      if (chatBarResponse) chatBarResponse.style.display = 'none';
-      if (chatBarDismiss) chatBarDismiss.style.display = 'none';
+      if (chatBarThinking) {
+        chatBarThinking.style.display = '';
+      }
+      if (chatBarResponse) {
+        chatBarResponse.style.display = 'none';
+      }
+      if (chatBarDismiss) {
+        chatBarDismiss.style.display = 'none';
+      }
       showPanel();
 
       try {
@@ -195,13 +201,13 @@
           const data = await r.json();
           if (chatBarResponse) {
             chatBarResponse.textContent = data.response || '';
-            if (data.response) {
-              chatBarResponse.style.display = '';
-              if (chatBarDismiss) chatBarDismiss.style.display = '';
-            } else {
-              chatBarResponse.style.display = 'none';
-              hidePanel();
-            }
+            chatBarResponse.style.display = data.response ? '' : 'none';
+          }
+          if (data.response && chatBarDismiss) {
+            chatBarDismiss.style.display = '';
+          }
+          if (!data.response) {
+            hidePanel();
           }
 
           // Save to localStorage

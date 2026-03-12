@@ -995,10 +995,10 @@ body.menu-all .menu-bar {
   transform: translateX(-50%);
   width: 80%;
   z-index: var(--z-bars);
-  display: flex;
   min-height: var(--app-bar-height);
+  padding: 0;
+  display: flex;
   flex-direction: column;
-  align-items: center;
   border-radius: 12px;
   border: 1px solid var(--facet-border, #e0e0e0);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
@@ -1031,22 +1031,25 @@ body.menu-all .menu-bar {
   border-radius: 12px;
 }
 
-.chat-bar-input-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
+/* Response panel (above input row) */
+.chat-bar-response-panel {
+  max-height: 0;
+  overflow: hidden;
   padding: 0 16px;
-  min-height: var(--app-bar-height);
+  position: relative;
+  z-index: 1;
+  transition: max-height 0.2s ease, padding 0.2s ease;
 }
 
-.chat-bar-response-panel {
-  position: relative;
-  padding: 12px 16px;
-  padding-right: 36px;
-  border-bottom: 1px solid var(--facet-border, #e0e0e0);
-  width: 100%;
+.chat-bar-response-panel.chat-bar-panel-open {
+  max-height: 200px;
+  padding: 12px 16px 0;
+}
+
+.chat-bar-separator {
+  height: 1px;
+  background: var(--facet-border, #e0e0e0);
+  margin: 12px -16px 0;
 }
 
 .chat-bar-dismiss {
@@ -1060,16 +1063,26 @@ body.menu-all .menu-bar {
   color: #999;
   font-size: 14px;
   cursor: pointer;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  z-index: 1;
+  z-index: 2;
 }
 
 .chat-bar-dismiss:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.06);
   color: #666;
+}
+
+/* Input row */
+.chat-bar-input-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  min-height: var(--app-bar-height);
 }
 
 /* Chat Bar Elements */
@@ -1144,10 +1157,11 @@ body.menu-all .menu-bar {
 
 .chat-bar-response {
   font-size: 13px;
+  line-height: 1.5;
   color: #666;
-  overflow: hidden;
   max-height: 5em;
-  line-height: 1.4;
+  overflow: hidden;
+  padding-right: 28px;
   position: relative;
   z-index: 1;
 }
