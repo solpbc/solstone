@@ -194,16 +194,26 @@ class TestPlaceholderResolution:
         result = _resolve_placeholder("interviewing", {}, 0)
         assert "Tell me about" in result
 
-    def test_complete_no_daily(self):
+    def test_complete_no_imports_young(self):
         from convey.apps import _resolve_placeholder
 
         result = _resolve_placeholder("complete", {}, 0)
+        assert "Bring in past conversations" in result
+
+    def test_complete_no_daily(self):
+        from convey.apps import _resolve_placeholder
+
+        current = {"imports": {"has_imported": True}}
+        result = _resolve_placeholder("complete", current, 0)
         assert "Capture is running" in result
 
     def test_complete_first_daily_young(self):
         from convey.apps import _resolve_placeholder
 
-        current = {"journal": {"first_daily_ready": True}}
+        current = {
+            "imports": {"has_imported": True},
+            "journal": {"first_daily_ready": True},
+        }
         result = _resolve_placeholder("complete", current, 1)
         assert "first daily analysis is ready" in result
 
@@ -222,10 +232,17 @@ class TestPlaceholderResolution:
         result = _resolve_placeholder("complete", current, 10)
         assert "Ask me about your day" in result
 
-    def test_skipped_no_daily(self):
+    def test_skipped_no_imports_young(self):
         from convey.apps import _resolve_placeholder
 
         result = _resolve_placeholder("skipped", {}, 0)
+        assert "Bring in past conversations" in result
+
+    def test_skipped_no_daily(self):
+        from convey.apps import _resolve_placeholder
+
+        current = {"imports": {"has_imported": True}}
+        result = _resolve_placeholder("skipped", current, 0)
         assert "Capture is running" in result
 
     def test_skipped_with_daily_mature(self):

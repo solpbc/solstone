@@ -332,13 +332,15 @@ class TestChatBarPlaceholder:
 
         start_onboarding("a")
         update_state("onboarding", {"status": "complete"})
+        update_state("imports", {"has_imported": True})
         placeholder = self._get_placeholder()
         assert "Capture is running" in placeholder
 
     def test_skipped_placeholder(self):
-        from think.awareness import skip_onboarding
+        from think.awareness import skip_onboarding, update_state
 
         skip_onboarding()
+        update_state("imports", {"has_imported": True})
         placeholder = self._get_placeholder()
         assert "Capture is running" in placeholder
 
