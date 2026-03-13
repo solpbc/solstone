@@ -1,836 +1,683 @@
-<div class="workspace-content">
-  <div class="home-loading" id="home-loading">Loading dashboard...</div>
-
-  <!-- Empty journal state (no facets) -->
-  <div class="home-empty-journal" id="home-empty-journal" style="display: none;">
-    <div class="empty-journal-icon">📓</div>
-    <h2>Welcome to your journal</h2>
-    <p>Get started by creating your first facet to organize your content.</p>
-    <a href="/app/settings" class="empty-journal-btn">Go to Settings</a>
-  </div>
-
-  <!-- All-facets view: summary cards for each active facet -->
-  <div class="home-all-facets" id="home-all-facets" style="display: none;">
-    <div class="home-facet-cards" id="home-facet-cards"></div>
-    <div class="home-no-activity" id="home-no-activity" style="display: none;">
-      <div class="no-activity-icon">📅</div>
-      <p>No activity recorded for this day</p>
+<div class="workspace-content" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+  <!-- Filter controls -->
+  <div class="graph-controls" id="graph-controls" style="display:none;">
+    <div class="graph-controls-row">
+      <div class="graph-type-filters">
+        <button class="graph-type-btn active" data-type="person" style="--btn-color:#3b82f6">Person</button>
+        <button class="graph-type-btn active" data-type="company" style="--btn-color:#22c55e">Company</button>
+        <button class="graph-type-btn active" data-type="project" style="--btn-color:#f59e0b">Project</button>
+        <button class="graph-type-btn active" data-type="tool" style="--btn-color:#6b7280">Tool</button>
+      </div>
+      <div class="graph-time-filters">
+        <button class="graph-time-btn" data-days="7">7d</button>
+        <button class="graph-time-btn" data-days="30">30d</button>
+        <button class="graph-time-btn active" data-days="90">90d</button>
+        <button class="graph-time-btn" data-days="">All</button>
+      </div>
+      <div class="graph-strength-filter">
+        <label for="min-strength">Min strength</label>
+        <input type="range" id="min-strength" min="0" max="500" value="0" step="5">
+        <span id="min-strength-val">0</span>
+      </div>
+      <div class="graph-stats" id="graph-stats"></div>
     </div>
   </div>
 
-  <div class="home-dashboard" id="home-dashboard" style="display: none;">
-    <!-- Top row: Goal and Upcoming -->
-    <div class="home-grid">
-      <div class="home-card" id="goal-card">
-        <h2 class="home-card-title">Daily Goal</h2>
-        <div class="home-card-content" id="goal-content">
-          <div class="home-empty">No goal set</div>
-        </div>
-      </div>
-
-      <div class="home-card" id="upcoming-card">
-        <h2 class="home-card-title">Upcoming</h2>
-        <div class="home-card-content" id="upcoming-content">
-          <div class="home-empty">Nothing upcoming</div>
-        </div>
-      </div>
+  <!-- Graph container -->
+  <div id="graph-container" style="flex:1;position:relative;min-height:0;">
+    <div class="graph-loading" id="graph-loading">Loading knowledge graph...</div>
+    <div class="graph-empty" id="graph-empty" style="display:none;">
+      <div class="graph-empty-icon">🕸️</div>
+      <h2>Your knowledge graph builds itself from daily use</h2>
+      <p>As solstone captures your meetings, conversations, and work, entities and relationships appear here automatically.</p>
     </div>
+    <div id="graph-canvas" style="width:100%;height:100%;display:none;"></div>
+  </div>
 
-    <!-- Middle row: Todos and Events -->
-    <div class="home-grid">
-      <div class="home-card" id="todos-card">
-        <h2 class="home-card-title">Todos</h2>
-        <div class="home-card-content" id="todos-content">
-          <div class="home-empty">No todos</div>
-        </div>
-      </div>
-
-      <div class="home-card" id="events-card">
-        <h2 class="home-card-title">Events</h2>
-        <div class="home-card-content" id="events-content">
-          <div class="home-empty">No events</div>
-        </div>
-      </div>
+  <!-- Entity detail panel (slide-in from right) -->
+  <div class="graph-detail-panel" id="graph-detail-panel">
+    <div class="graph-detail-header">
+      <h2 id="detail-name"></h2>
+      <button class="graph-detail-close" id="detail-close">&times;</button>
     </div>
-
-    <!-- Entities row -->
-    <div class="home-card" id="entities-card">
-      <h2 class="home-card-title" id="entities-title">Detected Entities</h2>
-      <div class="home-card-content" id="entities-content">
-        <div class="home-empty">No entities detected</div>
-      </div>
-    </div>
-
-    <!-- News row -->
-    <div class="home-card" id="news-card" style="display: none;">
-      <h2 class="home-card-title">News</h2>
-      <div class="home-card-content" id="news-content"></div>
-    </div>
+    <div class="graph-detail-body" id="detail-body"></div>
   </div>
 </div>
 
 <style>
-.home-loading {
+/* Controls bar */
+.graph-controls {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+.graph-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.graph-type-filters, .graph-time-filters {
+  display: flex;
+  gap: 0.25rem;
+}
+.graph-type-btn, .graph-time-btn {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: white;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #374151;
+}
+.graph-type-btn.active {
+  background: var(--btn-color, #3b82f6);
+  color: white;
+  border-color: var(--btn-color, #3b82f6);
+}
+.graph-time-btn.active {
+  background: #374151;
+  color: white;
+  border-color: #374151;
+}
+.graph-type-btn:hover, .graph-time-btn:hover {
+  opacity: 0.85;
+}
+.graph-strength-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+.graph-strength-filter input[type=range] {
+  width: 80px;
+  height: 4px;
+}
+.graph-stats {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* Loading / empty states */
+.graph-loading {
   text-align: center;
   padding: 4em;
   color: #666;
 }
-
-/* Empty journal state */
-.home-empty-journal {
+.graph-empty {
   text-align: center;
   padding: 4em 2em;
-  max-width: 400px;
+  max-width: 450px;
   margin: 2em auto;
 }
-.home-empty-journal .empty-journal-icon {
+.graph-empty-icon {
   font-size: 4em;
   margin-bottom: 0.25em;
 }
-.home-empty-journal h2 {
+.graph-empty h2 {
   margin: 0 0 0.5em 0;
-  font-size: 1.5em;
+  font-size: 1.3em;
   font-weight: 600;
   color: #333;
 }
-.home-empty-journal p {
-  margin: 0 0 1.5em 0;
+.graph-empty p {
+  margin: 0;
   color: #666;
   line-height: 1.5;
 }
-.home-empty-journal .empty-journal-btn {
-  display: inline-block;
-  padding: 0.75em 1.5em;
-  background: #007bff;
-  color: white;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-.home-empty-journal .empty-journal-btn:hover {
-  background: #0056b3;
-}
 
-.home-dashboard {
+/* Detail panel */
+.graph-detail-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 340px;
+  max-width: 90vw;
+  height: 100%;
+  background: white;
+  box-shadow: -2px 0 12px rgba(0,0,0,0.12);
+  z-index: 20;
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-}
-
-.home-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-@media (max-width: 640px) {
-  .home-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.home-card {
-  background: white;
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  min-width: 0;
   overflow: hidden;
 }
-
-.home-card-title {
-  font-size: 0.75rem;
+.graph-detail-panel.open {
+  transform: translateX(0);
+}
+.graph-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+.graph-detail-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.graph-detail-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  line-height: 1;
+}
+.graph-detail-close:hover {
+  color: #111827;
+}
+.graph-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  color: #374151;
+}
+.detail-section {
+  margin-bottom: 1rem;
+}
+.detail-section-title {
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #6b7280;
-  margin: 0 0 0.75rem 0;
+  margin: 0 0 0.4rem 0;
 }
-
-.home-card-content {
-  font-size: 0.95rem;
-  color: #374151;
-}
-
-.home-empty {
-  color: #9ca3af;
-  font-style: italic;
-}
-
-/* All-facets view styles */
-.home-all-facets {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.home-facet-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
-}
-
-.home-facet-card {
-  background: white;
-  border-radius: 8px;
-  padding: 0.875rem 1rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
-  border-left: var(--card-border-width, 3px) solid var(--card-color, #6b7280);
-}
-
-.home-facet-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
-}
-
-.home-facet-card-title {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #6b7280;
-  margin: 0 0 0.25rem 0;
-}
-
-.home-facet-card-stats {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.home-facet-card-stat {
-  font-size: 0.95rem;
-  color: #374151;
-}
-
-.home-facet-card-sep {
-  color: #d1d5db;
-  margin: 0 0.125rem;
-}
-
-.home-no-activity {
-  text-align: center;
-  padding: 3em;
-  color: #6b7280;
-}
-
-.home-no-activity .no-activity-icon {
-  font-size: 3em;
-  margin-bottom: 0.5em;
-  opacity: 0.5;
-}
-
-.home-no-activity p {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-/* Todo list styles - matches todos app */
-.home-todo-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.home-todo-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.1rem 0;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.home-todo-item:last-child {
-  border-bottom: none;
-}
-
-.home-todo-item.completed {
-  opacity: 0.6;
-}
-
-.home-todo-checkbox {
-  flex-shrink: 0;
-  width: 1.25rem;
-  height: 1.25rem;
-  accent-color: #2563eb;
-  pointer-events: none;
-}
-
-.home-todo-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #111827;
-  font-size: 0.95rem;
-}
-
-.home-todo-item.completed .home-todo-text {
-  text-decoration: line-through;
-  color: #6b7280;
-}
-
-.home-todo-nudge {
-  flex-shrink: 0;
+.detail-type-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
   font-size: 0.75rem;
-  color: #6b7280;
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-}
-
-.home-todo-item.has-nudge {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* Event bar chart styles */
-.home-event-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.home-event-row {
-  position: relative;
-  padding: 0.35rem 0.5rem;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.home-event-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  background: var(--facet-color, #6b7280);
-  opacity: 0.15;
-  border-radius: 4px;
-}
-
-.home-event-label {
-  position: relative;
-  z-index: 1;
-  text-transform: capitalize;
-}
-
-/* Entity tag styles */
-.home-entity-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.home-entity-tag {
-  background: var(--facet-bg, #f3f4f6);
-  border: 1px solid var(--facet-color, #e5e7eb);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-}
-
-/* Goal and Upcoming styles */
-.home-goal-text {
-  font-size: 1.1rem;
   font-weight: 500;
+  color: white;
+  margin-bottom: 0.5rem;
+}
+.detail-principal-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: #f59e0b;
+  color: white;
+  margin-left: 0.4rem;
+}
+.detail-description {
+  color: #4b5563;
+  line-height: 1.5;
+  margin-bottom: 0.75rem;
+}
+.detail-score-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem;
+}
+.detail-score-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+}
+.detail-score-label {
+  color: #6b7280;
+}
+.detail-score-value {
+  font-weight: 600;
   color: #111827;
 }
-
-.home-upcoming-list {
+.detail-connected-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
-
-.home-upcoming-item {
-  display: flex;
-  gap: 0.75rem;
+.detail-connected-item {
   padding: 0.2rem 0;
-  font-size: 0.9rem;
   border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
 }
-
-.home-upcoming-item:last-child {
-  border-bottom: none;
+.detail-connected-item:last-child { border-bottom: none; }
+.detail-connected-name {
+  cursor: pointer;
+  color: #2563eb;
 }
-
-.home-upcoming-day {
+.detail-connected-name:hover { text-decoration: underline; }
+.detail-connected-rel {
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
+.detail-activity-item {
+  padding: 0.2rem 0;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.82rem;
+}
+.detail-activity-item:last-child { border-bottom: none; }
+.detail-activity-day {
   color: #6b7280;
   font-weight: 600;
-  min-width: 3.5rem;
-  flex-shrink: 0;
+  margin-right: 0.4rem;
 }
-
-.home-upcoming-title {
-  color: #374151;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.detail-entity-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 0.85rem;
 }
-
-/* News content - markdown typography */
-.home-news-content {
-  color: #374151;
-  line-height: 1.6;
-}
-.home-news-content h1, .home-news-content h2, .home-news-content h3,
-.home-news-content h4, .home-news-content h5, .home-news-content h6 {
-  margin: 0.75em 0 0.4em 0;
-  color: #111827;
-}
-.home-news-content h1 { font-size: 1.5em; }
-.home-news-content h2 { font-size: 1.25em; }
-.home-news-content h3 { font-size: 1.1em; }
-.home-news-content p { margin: 0.5em 0; }
-.home-news-content ul, .home-news-content ol { margin: 0.5em 0; padding-left: 1.5em; }
-.home-news-content li { margin: 0.25em 0; }
-.home-news-content code {
-  background: #f3f4f6;
-  padding: 0.1em 0.3em;
-  border-radius: 3px;
-  font-size: 0.9em;
-}
-.home-news-content pre {
-  background: #f3f4f6;
-  padding: 0.75em;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin: 0.75em 0;
-}
-.home-news-content pre code { background: none; padding: 0; }
-.home-news-content blockquote {
-  margin: 0.75em 0;
-  padding-left: 1em;
-  border-left: 3px solid #d1d5db;
-  color: #6b7280;
-}
-.home-news-content strong { color: #111827; }
-.home-news-content hr {
-  border: none;
-  border-top: 1px solid #e5e7eb;
-  margin: 1em 0;
-}
+.detail-entity-link:hover { text-decoration: underline; }
 </style>
 
-<script src="{{ vendor_lib('marked') }}"></script>
+<script src="{{ vendor_lib('vis-network') }}"></script>
 
 <script>
 (function() {
-  const currentDay = '{{ day }}';
-  let summaryData = null;
+  // --- State ---
+  let network = null;
+  let graphData = null;
+  let activeTypes = new Set(['person', 'company', 'project', 'tool']);
+  let timeDays = 90;
+  let minStrength = 0;
+  let detailOpen = false;
 
-  // Check if viewing a recent day (today or yesterday) for recent entities fallback
-  function isRecentDay() {
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10).replace(/-/g, '');
-    return currentDay === today || currentDay === yesterday;
-  }
+  // --- Color maps ---
+  const TYPE_COLORS = {
+    person: '#3b82f6',
+    company: '#22c55e',
+    project: '#f59e0b',
+    tool: '#6b7280',
+    unknown: '#a1a1aa',
+  };
 
-  function renderGoal(data, facet) {
-    const container = document.getElementById('goal-content');
-    let goal = null;
+  const EDGE_REL_COLORS = {
+    'works-on': '#8b5cf6',
+    'works-at': '#06b6d4',
+    'discusses-with': '#ec4899',
+    'collaborates-with': '#10b981',
+    'manages': '#f97316',
+    'reports-to': '#f97316',
+    'member-of': '#6366f1',
+    'uses': '#64748b',
+  };
 
-    if (facet) {
-      goal = data.facets[facet]?.goal;
-    } else {
-      // Find first goal across facets
-      for (const facetName of Object.keys(data.facets)) {
-        if (data.facets[facetName].goal) {
-          goal = data.facets[facetName].goal;
-          break;
-        }
-      }
-    }
-
-    if (!goal) {
-      container.innerHTML = '<div class="home-empty">No goal set</div>';
-      return;
-    }
-
-    container.innerHTML = `
-      <div class="home-goal-text">${escapeHtml(goal)}</div>
-    `;
-  }
-
-  function renderUpcoming(data) {
-    const container = document.getElementById('upcoming-content');
-    const upcoming = data.upcoming || [];
-
-    if (upcoming.length === 0) {
-      container.innerHTML = '<div class="home-empty">Nothing upcoming</div>';
-      return;
-    }
-
-    container.innerHTML = `
-      <ul class="home-upcoming-list">
-        ${upcoming.map(item => `
-          <li class="home-upcoming-item">
-            <span class="home-upcoming-day">${formatDay(item.day)}</span>
-            <span class="home-upcoming-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</span>
-          </li>
-        `).join('')}
-      </ul>
-    `;
-  }
-
-  function formatDay(dayStr) {
-    if (!dayStr) return '';
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    if (dayStr === today) return 'Today';
-    
-    const tomorrowDate = new Date();
-    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-    const tomorrow = tomorrowDate.toISOString().slice(0, 10).replace(/-/g, '');
-    if (dayStr === tomorrow) return 'Tomorrow';
-
-    // Return e.g. "Wed"
-    const year = parseInt(dayStr.substring(0, 4));
-    const month = parseInt(dayStr.substring(4, 6)) - 1;
-    const day = parseInt(dayStr.substring(6, 8));
-    return new Date(year, month, day).toLocaleDateString(undefined, { weekday: 'short' });
-  }
-
-  function formatHomeNudge(nudge) {
-    // Parse YYYYMMDDTHH:MM
-    const year = parseInt(nudge.slice(0, 4));
-    const month = parseInt(nudge.slice(4, 6)) - 1;
-    const day = parseInt(nudge.slice(6, 8));
-    const hour = parseInt(nudge.slice(9, 11));
-    const minute = parseInt(nudge.slice(12, 14));
-    const nudgeDate = new Date(year, month, day, hour, minute);
-    const now = new Date();
-    const diffMs = now - nudgeDate;
-
-    if (diffMs > 0) {
-      const mins = Math.floor(diffMs / 60000);
-      const hours = Math.floor(diffMs / 3600000);
-      const days = Math.floor(diffMs / 86400000);
-      if (mins < 1) return 'just now';
-      if (mins < 60) return `${mins}m ago`;
-      if (hours < 24) return `${hours}h ago`;
-      if (days === 1) return 'yesterday';
-      return `${days}d ago`;
-    } else {
-      const timeStr = nudge.slice(9);
-      const today = now.toISOString().slice(0, 10).replace(/-/g, '');
-      const tomorrow = new Date(now.getTime() + 86400000).toISOString().slice(0, 10).replace(/-/g, '');
-      const nudgeDay = nudge.slice(0, 8);
-      if (nudgeDay === today) return timeStr;
-      if (nudgeDay === tomorrow) return `tomorrow ${timeStr}`;
-      return `${nudgeDate.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})} ${timeStr}`;
-    }
-  }
-
-  function renderTodos(data, facet) {
-    const container = document.getElementById('todos-content');
-    let todos = [];
-
-    if (facet) {
-      const facetData = data.facets[facet];
-      todos = facetData ? facetData.todos : [];
-    } else {
-      // Aggregate todos across all facets
-      for (const facetName of Object.keys(data.facets)) {
-        const facetTodos = data.facets[facetName].todos || [];
-        todos = todos.concat(facetTodos);
-      }
-    }
-
-    if (todos.length === 0) {
-      container.innerHTML = '<div class="home-empty">No todos</div>';
-      return;
-    }
-
-    // Sort: pending first, then completed
-    todos.sort((a, b) => {
-      if (a.completed === b.completed) return 0;
-      return a.completed ? 1 : -1;
-    });
-
-    container.innerHTML = `
-      <ul class="home-todo-list">
-        ${todos.map(todo => `
-          <li class="home-todo-item ${todo.completed ? 'completed' : ''}${todo.nudge ? ' has-nudge' : ''}">
-            <input type="checkbox" class="home-todo-checkbox" ${todo.completed ? 'checked' : ''} disabled>
-            <span class="home-todo-text" title="${escapeHtml(todo.text)}">${escapeHtml(todo.text)}</span>
-            ${todo.nudge ? `<span class="home-todo-nudge">${escapeHtml(formatHomeNudge(todo.nudge))}</span>` : ''}
-          </li>
-        `).join('')}
-      </ul>
-    `;
-  }
-
-  function renderEvents(data, facet) {
-    const container = document.getElementById('events-content');
-    let eventsByAgent;
-
-    if (facet) {
-      const facetData = data.facets[facet];
-      eventsByAgent = facetData ? facetData.events_by_agent : {};
-    } else {
-      eventsByAgent = data.totals.events_by_agent || {};
-    }
-
-    const agents = Object.keys(eventsByAgent);
-    if (agents.length === 0) {
-      container.innerHTML = '<div class="home-empty">No events</div>';
-      return;
-    }
-
-    // Sort by count descending
-    agents.sort((a, b) => eventsByAgent[b] - eventsByAgent[a]);
-
-    // Find max count for scaling
-    const maxCount = Math.max(...agents.map(t => eventsByAgent[t]));
-
-    container.innerHTML = `
-      <div class="home-event-list">
-        ${agents.map(agent => {
-          const count = eventsByAgent[agent];
-          const percent = maxCount > 0 ? (count / maxCount) * 100 : 0;
-          return `
-            <div class="home-event-row">
-              <div class="home-event-bar" style="width: ${percent}%"></div>
-              <span class="home-event-label">${agent}</span>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
-  }
-
-  function renderEntities(data, facet) {
-    const container = document.getElementById('entities-content');
-    const titleEl = document.getElementById('entities-title');
-    let entities = [];
-    let showingRecent = false;
-
-    // Get detected entities for this day
-    if (facet) {
-      const facetData = data.facets[facet];
-      entities = facetData ? facetData.entities : [];
-    } else {
-      // Aggregate entities across all facets, dedupe
-      const seen = new Set();
-      for (const facetName of Object.keys(data.facets)) {
-        const facetEntities = data.facets[facetName].entities || [];
-        for (const e of facetEntities) {
-          if (!seen.has(e)) {
-            seen.add(e);
-            entities.push(e);
-          }
-        }
-      }
-    }
-
-    // If no detected entities and viewing recent day, fall back to recent entities
-    if (entities.length === 0 && data.recent_entities && isRecentDay()) {
-      if (facet) {
-        entities = data.recent_entities[facet] || [];
-      } else {
-        // Aggregate recent entities across all facets, dedupe
-        const seen = new Set();
-        for (const facetName of Object.keys(data.recent_entities)) {
-          for (const e of data.recent_entities[facetName]) {
-            if (!seen.has(e)) {
-              seen.add(e);
-              entities.push(e);
-            }
-          }
-        }
-      }
-      showingRecent = entities.length > 0;
-    }
-
-    // Update title based on entity source
-    titleEl.textContent = showingRecent ? 'Recent Entities' : 'Detected Entities';
-
-    if (entities.length === 0) {
-      const emptyMsg = isRecentDay() ? 'No recent entities' : 'No entities detected';
-      container.innerHTML = `<div class="home-empty">${emptyMsg}</div>`;
-      return;
-    }
-
-    container.innerHTML = `
-      <div class="home-entity-list">
-        ${entities.map(e => `<span class="home-entity-tag">${escapeHtml(e)}</span>`).join('')}
-      </div>
-    `;
-  }
-
-  function renderNews(data, facet) {
-    const card = document.getElementById('news-card');
-    const container = document.getElementById('news-content');
-    let newsContent = null;
-
-    if (facet) {
-      const facetData = data.facets[facet];
-      newsContent = facetData ? facetData.news_content : null;
-    } else {
-      // Show first news found across facets
-      for (const facetName of Object.keys(data.facets)) {
-        const content = data.facets[facetName].news_content;
-        if (content) {
-          newsContent = content;
-          break;
-        }
-      }
-    }
-
-    if (!newsContent) {
-      card.style.display = 'none';
-      return;
-    }
-
-    card.style.display = 'block';
-    const html = marked.parse(newsContent, { breaks: true, gfm: true });
-    container.innerHTML = `<div class="home-news-content">${html}</div>`;
+  // --- Helpers ---
+  function sinceFromDays(days) {
+    if (!days) return '';
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toISOString().slice(0,10).replace(/-/g,'');
   }
 
   function escapeHtml(text) {
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = text || '';
     return div.innerHTML;
   }
 
-  function renderAllFacetsView(data) {
-    const cardsContainer = document.getElementById('home-facet-cards');
-    const noActivityEl = document.getElementById('home-no-activity');
+  function formatDay(d) {
+    if (!d || d.length < 8) return d || '';
+    return d.slice(0,4) + '-' + d.slice(4,6) + '-' + d.slice(6,8);
+  }
 
-    // Check if viewing recent day (for recent entities fallback)
-    const recentDay = isRecentDay();
+  // --- Data fetch ---
+  async function fetchGraph() {
+    const params = new URLSearchParams();
+    const facet = window.selectedFacet;
+    if (facet) params.set('facet', facet);
+    const since = sinceFromDays(timeDays);
+    if (since) params.set('since', since);
+    const types = Array.from(activeTypes).join(',');
+    if (types) params.set('types', types);
+    if (minStrength > 0) params.set('min_strength', minStrength);
+    params.set('limit', '100');
 
-    // Get active facets with computed stats
-    const activeFacets = Object.entries(data.facet_meta || {})
-      .map(([name, meta]) => {
-        const facetData = data.facets[name] || {};
-        const todos = facetData.todos || [];
-        const pendingTodos = todos.filter(t => !t.completed).length;
-        const eventCount = Object.values(facetData.events_by_agent || {}).reduce((a, b) => a + b, 0);
-        // For recent days, use recent entities count if no detected entities
-        const detectedCount = (facetData.entities || []).length;
-        const recentCount = recentDay ? (data.recent_entities?.[name] || []).length : 0;
-        const entityCount = detectedCount > 0 ? detectedCount : recentCount;
-        const totalActivity = eventCount + pendingTodos + entityCount;
-        // Consider facet active if it has any activity (including recent entities)
-        const hasActivity = meta.has_activity || (recentDay && recentCount > 0);
-        return { name, ...meta, pendingTodos, eventCount, entityCount, totalActivity, hasActivity };
-      })
-      .filter(f => f.hasActivity)
-      // Sort by event count descending
-      .sort((a, b) => b.eventCount - a.eventCount);
+    const resp = await fetch('/app/home/api/graph?' + params.toString());
+    if (!resp.ok) throw new Error('Failed to fetch graph');
+    return resp.json();
+  }
 
-    if (activeFacets.length === 0) {
-      cardsContainer.innerHTML = '';
-      noActivityEl.style.display = 'block';
+  async function fetchEntity(name) {
+    const params = new URLSearchParams();
+    const facet = window.selectedFacet;
+    if (facet) params.set('facet', facet);
+    const resp = await fetch('/app/home/api/entity/' + encodeURIComponent(name) + '?' + params.toString());
+    if (!resp.ok) return null;
+    return resp.json();
+  }
+
+  // --- Graph rendering ---
+  function buildVisData(data) {
+    const maxScore = Math.max(...data.nodes.map(n => n.score), 1);
+    const scaleFactor = 30 / maxScore;
+
+    const nodes = data.nodes.map(n => {
+      const size = n.is_principal
+        ? Math.max(30, 10 + n.score * scaleFactor)
+        : Math.max(10, Math.min(40, 10 + n.score * scaleFactor));
+      const color = TYPE_COLORS[n.type] || TYPE_COLORS.unknown;
+      return {
+        id: n.id,
+        label: n.name,
+        size: size,
+        color: {
+          background: color,
+          border: n.is_principal ? '#f59e0b' : color,
+          highlight: { background: color, border: n.is_principal ? '#f59e0b' : '#111827' },
+          hover: { background: color, border: n.is_principal ? '#f59e0b' : '#374151' },
+        },
+        borderWidth: n.is_principal ? 3 : 1.5,
+        font: { size: Math.max(10, Math.min(16, 8 + size * 0.2)), color: '#374151' },
+        title: n.name + ' (' + n.type + ') — score: ' + n.score.toFixed(1),
+        _data: n,
+      };
+    });
+
+    const edges = data.edges.map((e, i) => {
+      if (e.edge_type === 'explicit') {
+        const relColor = EDGE_REL_COLORS[e.relationship_type] || '#9ca3af';
+        return {
+          id: 'e' + i,
+          from: e.from,
+          to: e.to,
+          width: 1 + Math.min(4, e.frequency * 0.5),
+          color: { color: relColor, opacity: 0.7, highlight: relColor, hover: relColor },
+          arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+          smooth: { type: 'curvedCW', roundness: 0.15 },
+          title: (e.relationship_type || 'related') + ' (' + e.frequency + ')',
+        };
+      } else {
+        return {
+          id: 'e' + i,
+          from: e.from,
+          to: e.to,
+          width: 1 + Math.min(3, e.frequency * 0.3),
+          color: { color: '#d1d5db', opacity: 0.5, highlight: '#9ca3af', hover: '#9ca3af' },
+          dashes: [4, 4],
+          smooth: { type: 'curvedCW', roundness: 0.1 },
+          title: 'co-occurrence (' + e.frequency + ')',
+        };
+      }
+    });
+
+    return {
+      nodes: new vis.DataSet(nodes),
+      edges: new vis.DataSet(edges),
+    };
+  }
+
+  function renderGraph(data) {
+    graphData = data;
+    const container = document.getElementById('graph-canvas');
+    const loading = document.getElementById('graph-loading');
+    const empty = document.getElementById('graph-empty');
+    const controls = document.getElementById('graph-controls');
+
+    loading.style.display = 'none';
+
+    if (!data.nodes || data.nodes.length === 0) {
+      container.style.display = 'none';
+      empty.style.display = 'block';
+      controls.style.display = 'none';
       return;
     }
 
-    noActivityEl.style.display = 'none';
+    empty.style.display = 'none';
+    container.style.display = 'block';
+    controls.style.display = 'block';
 
-    // Find max activity for border scaling
-    const maxActivity = Math.max(...activeFacets.map(f => f.totalActivity), 1);
+    const visData = buildVisData(data);
 
-    // Build cards HTML
-    const cardsHtml = activeFacets.map(facet => {
-      // Build compact stats (just numbers with labels, no icons)
-      const stats = [];
-      if (facet.eventCount > 0) {
-        stats.push(`<span class="home-facet-card-stat">${facet.eventCount} ${facet.eventCount === 1 ? 'event' : 'events'}</span>`);
-      }
-      if (facet.pendingTodos > 0) {
-        stats.push(`<span class="home-facet-card-stat">${facet.pendingTodos} ${facet.pendingTodos === 1 ? 'todo' : 'todos'}</span>`);
-      }
-      if (facet.entityCount > 0) {
-        stats.push(`<span class="home-facet-card-stat">${facet.entityCount} ${facet.entityCount === 1 ? 'entity' : 'entities'}</span>`);
-      }
+    const options = {
+      physics: {
+        solver: 'barnesHut',
+        barnesHut: {
+          gravitationalConstant: -3000,
+          springLength: 150,
+          springConstant: 0.02,
+          damping: 0.09,
+        },
+        stabilization: { iterations: 100 },
+      },
+      nodes: {
+        shape: 'dot',
+        scaling: { min: 10, max: 40 },
+        borderWidth: 1.5,
+        shadow: { enabled: true, size: 4, x: 1, y: 1, color: 'rgba(0,0,0,0.1)' },
+      },
+      edges: {
+        smooth: { enabled: true, type: 'curvedCW', roundness: 0.15 },
+      },
+      interaction: {
+        hover: true,
+        tooltipDelay: 100,
+        hideEdgesOnDrag: true,
+        hideEdgesOnZoom: true,
+      },
+      layout: {
+        improvedLayout: true,
+      },
+    };
 
-      // Scale border width based on activity (2px to 12px)
-      const borderWidth = 2 + Math.round((facet.totalActivity / maxActivity) * 10);
+    if (network) {
+      network.setData(visData);
+    } else {
+      network = new vis.Network(container, visData, options);
 
-      return `
-        <div class="home-facet-card" data-facet="${escapeHtml(facet.name)}" style="--card-color: ${facet.color}; --card-border-width: ${borderWidth}px">
-          <div class="home-facet-card-title">${escapeHtml(facet.title)}</div>
-          <div class="home-facet-card-stats">
-            ${stats.join('<span class="home-facet-card-sep">·</span>')}
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    cardsContainer.innerHTML = cardsHtml;
-
-    // Add click handlers for facet navigation
-    cardsContainer.querySelectorAll('.home-facet-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const facetName = card.dataset.facet;
-        if (window.selectFacet) {
-          window.selectFacet(facetName);
+      // Click node → inspect
+      network.on('click', function(params) {
+        if (params.nodes.length > 0) {
+          const nodeId = params.nodes[0];
+          const nodeData = visData.nodes.get(nodeId);
+          if (nodeData && nodeData._data) {
+            showDetail(nodeData._data);
+          }
+        } else {
+          // Click canvas → dismiss
+          closeDetail();
         }
+      });
+    }
+
+    // Update stats
+    updateStats(data);
+  }
+
+  function updateStats(data) {
+    const el = document.getElementById('graph-stats');
+    el.textContent = data.nodes.length + ' nodes, ' + data.edges.length + ' edges';
+  }
+
+  // --- Detail panel ---
+  function showDetail(nodeData) {
+    const panel = document.getElementById('graph-detail-panel');
+    const nameEl = document.getElementById('detail-name');
+    const bodyEl = document.getElementById('detail-body');
+
+    nameEl.textContent = nodeData.name;
+    bodyEl.innerHTML = '<div style="text-align:center;padding:2em;color:#999;">Loading...</div>';
+    panel.classList.add('open');
+    detailOpen = true;
+
+    fetchEntity(nodeData.id).then(intel => {
+      if (!intel || intel.error) {
+        bodyEl.innerHTML = '<div style="padding:1em;color:#999;">Could not load entity details.</div>';
+        return;
+      }
+      renderDetail(intel, nodeData);
+    });
+  }
+
+  function renderDetail(intel, nodeData) {
+    const bodyEl = document.getElementById('detail-body');
+    const identity = intel.identity || {};
+    const strength = intel.strength || {};
+    const typeColor = TYPE_COLORS[identity.type?.toLowerCase()] || TYPE_COLORS.unknown;
+
+    let html = '';
+
+    // Type badge
+    html += '<div>';
+    html += '<span class="detail-type-badge" style="background:' + typeColor + '">' + escapeHtml(identity.type || nodeData.type) + '</span>';
+    if (identity.is_principal) {
+      html += '<span class="detail-principal-badge">You</span>';
+    }
+    html += '</div>';
+
+    // Description
+    if (identity.description) {
+      html += '<div class="detail-description">' + escapeHtml(identity.description) + '</div>';
+    }
+
+    // Strength score
+    html += '<div class="detail-section">';
+    html += '<div class="detail-section-title">Strength Score</div>';
+    html += '<div style="font-size:1.3em;font-weight:700;color:#111827;margin-bottom:0.3rem;">' + (strength.score || 0).toFixed(1) + '</div>';
+    html += '<div class="detail-score-grid">';
+    html += scoreItem('Co-occurrence', strength.co_occurrence);
+    html += scoreItem('Appearances', strength.appearance);
+    html += scoreItem('Recency', strength.recency?.toFixed(2));
+    html += scoreItem('Facet breadth', strength.facet_breadth);
+    html += scoreItem('Observation depth', strength.observation_depth);
+    html += '</div></div>';
+
+    // Connected entities (from network field)
+    const networkEntities = intel.network || {};
+    const connectedNames = Object.keys(networkEntities).sort((a, b) => networkEntities[b] - networkEntities[a]).slice(0, 15);
+    if (connectedNames.length > 0) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Connected Entities</div>';
+      html += '<ul class="detail-connected-list">';
+      for (const name of connectedNames) {
+        html += '<li class="detail-connected-item">';
+        html += '<span class="detail-connected-name" data-entity="' + escapeHtml(name) + '">' + escapeHtml(name) + '</span>';
+        html += '<span class="detail-connected-rel">' + networkEntities[name] + ' shared</span>';
+        html += '</li>';
+      }
+      html += '</ul></div>';
+    }
+
+    // Recent activity
+    const activity = (intel.activity || []).slice(0, 10);
+    if (activity.length > 0) {
+      html += '<div class="detail-section">';
+      html += '<div class="detail-section-title">Recent Activity</div>';
+      for (const a of activity) {
+        html += '<div class="detail-activity-item">';
+        html += '<span class="detail-activity-day">' + formatDay(a.day) + '</span>';
+        const label = a.event_title || a.signal_type || '';
+        html += escapeHtml(label);
+        if (a.target_name) html += ' → ' + escapeHtml(a.target_name);
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+
+    // Link to entities app
+    html += '<a class="detail-entity-link" href="/app/entities#' + encodeURIComponent(identity.entity_id || nodeData.id) + '">View full intelligence →</a>';
+
+    bodyEl.innerHTML = html;
+
+    // Click connected entity names
+    bodyEl.querySelectorAll('.detail-connected-name').forEach(el => {
+      el.addEventListener('click', () => {
+        const eName = el.dataset.entity;
+        // Try to find this entity in the current graph
+        if (graphData) {
+          const matchNode = graphData.nodes.find(n => n.name === eName || n.id === eName);
+          if (matchNode) {
+            showDetail(matchNode);
+            if (network) network.selectNodes([matchNode.id]);
+            return;
+          }
+        }
+        // Fallback: just fetch directly
+        showDetail({ id: eName, name: eName, type: 'unknown' });
       });
     });
   }
 
-  function renderSingleFacetView(data, facet) {
-    renderGoal(data, facet);
-    renderUpcoming(data);
-    renderTodos(data, facet);
-    renderEvents(data, facet);
-    renderEntities(data, facet);
-    renderNews(data, facet);
+  function scoreItem(label, value) {
+    return '<div class="detail-score-item"><span class="detail-score-label">' + label + '</span><span class="detail-score-value">' + (value ?? 0) + '</span></div>';
   }
 
-  function renderDashboard(data, facet) {
-    const allFacetsView = document.getElementById('home-all-facets');
-    const singleFacetView = document.getElementById('home-dashboard');
-
-    if (facet === null) {
-      // All-facets mode: show summary cards
-      singleFacetView.style.display = 'none';
-      allFacetsView.style.display = 'flex';
-      renderAllFacetsView(data);
-    } else {
-      // Single-facet mode: show detailed view
-      allFacetsView.style.display = 'none';
-      singleFacetView.style.display = 'flex';
-      renderSingleFacetView(data, facet);
-    }
+  function closeDetail() {
+    document.getElementById('graph-detail-panel').classList.remove('open');
+    detailOpen = false;
+    if (network) network.unselectAll();
   }
 
-  async function loadSummary() {
-    // Check if journal has no facets
-    const hasFacets = window.facetsData && window.facetsData.length > 0;
-    if (!hasFacets) {
-      document.getElementById('home-loading').style.display = 'none';
-      document.getElementById('home-empty-journal').style.display = 'block';
-      return;
-    }
-
-    try {
-      const response = await fetch(`/app/home/api/summary/${currentDay}`);
-      if (!response.ok) throw new Error('Failed to load');
-      summaryData = await response.json();
-
-      document.getElementById('home-loading').style.display = 'none';
-      // renderDashboard handles showing the appropriate view (all-facets or single-facet)
-      renderDashboard(summaryData, window.selectedFacet);
-    } catch (error) {
-      console.error('Failed to load home summary:', error);
-      document.getElementById('home-loading').textContent = 'Failed to load dashboard';
-    }
-  }
-
-  // Listen for facet changes
-  window.addEventListener('facet.switch', (e) => {
-    if (summaryData) {
-      renderDashboard(summaryData, e.detail.facet);
-    }
+  // --- Filter handlers ---
+  document.querySelectorAll('.graph-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = btn.dataset.type;
+      if (btn.classList.contains('active')) {
+        btn.classList.remove('active');
+        activeTypes.delete(t);
+      } else {
+        btn.classList.add('active');
+        activeTypes.add(t);
+      }
+      reload();
+    });
   });
 
-  // Load on init
-  loadSummary();
+  document.querySelectorAll('.graph-time-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.graph-time-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      timeDays = btn.dataset.days ? parseInt(btn.dataset.days) : 0;
+      reload();
+    });
+  });
+
+  const strengthSlider = document.getElementById('min-strength');
+  const strengthVal = document.getElementById('min-strength-val');
+  let strengthTimeout = null;
+  strengthSlider.addEventListener('input', () => {
+    strengthVal.textContent = strengthSlider.value;
+  });
+  strengthSlider.addEventListener('change', () => {
+    minStrength = parseInt(strengthSlider.value);
+    reload();
+  });
+
+  document.getElementById('detail-close').addEventListener('click', closeDetail);
+
+  // --- Facet awareness ---
+  window.addEventListener('facet.switch', () => {
+    reload();
+  });
+
+  // --- Load / reload ---
+  let loadCount = 0;
+  async function reload() {
+    const thisLoad = ++loadCount;
+    try {
+      const data = await fetchGraph();
+      if (thisLoad !== loadCount) return; // stale
+      renderGraph(data);
+    } catch (err) {
+      console.error('Graph load failed:', err);
+      if (thisLoad === loadCount) {
+        document.getElementById('graph-loading').textContent = 'Failed to load graph';
+      }
+    }
+  }
+
+  // Initial load
+  reload();
 })();
 </script>

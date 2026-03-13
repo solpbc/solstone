@@ -1,27 +1,21 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Home app - daily dashboard with facet-aware summary."""
+"""Home app - knowledge graph visualization."""
 
 from __future__ import annotations
 
-import re
-from collections import defaultdict
-from datetime import date, datetime, timedelta
-from pathlib import Path
+import sqlite3
+from datetime import date, timedelta
 from typing import Any
 
-from flask import Blueprint, jsonify, redirect, render_template, url_for
+from flask import Blueprint, jsonify, render_template, request
 
-from apps.todos.todo import get_todos
-from convey import state
-from convey.utils import DATE_RE
-from think.entities import load_entities
-from think.facets import get_facet_news, get_facets
-from think.indexer.journal import get_events
-
-# Lookback window for recent entities (days)
-RECENT_ENTITIES_LOOKBACK = 1
+from think.indexer.journal import (
+    get_entity_intelligence,
+    get_entity_strength,
+    get_journal_index,
+)
 
 home_bp = Blueprint(
     "app:home",
@@ -30,269 +24,278 @@ home_bp = Blueprint(
 )
 
 
-def _get_recent_entities(day: str, facet_names: list[str]) -> dict[str, list[str]]:
-    """Load attached entities with last_seen within lookback window.
-
-    Args:
-        day: Reference day in YYYYMMDD format
-        facet_names: List of facet names to check
-
-    Returns:
-        Dict mapping facet name to list of entity names seen recently
-    """
-    # Calculate threshold date
-    try:
-        ref_date = datetime.strptime(day, "%Y%m%d")
-        threshold = (ref_date - timedelta(days=RECENT_ENTITIES_LOOKBACK)).strftime(
-            "%Y%m%d"
-        )
-    except ValueError:
-        return {}
-
-    recent: dict[str, list[str]] = {}
-
-    for facet_name in facet_names:
-        try:
-            # Load attached entities (no day param = attached, not detected)
-            entities = load_entities(facet_name)
-            # Filter by last_seen >= threshold
-            facet_recent = [
-                e.get("name", "")
-                for e in entities
-                if e.get("name") and e.get("last_seen", "") >= threshold
-            ]
-            if facet_recent:
-                recent[facet_name] = facet_recent[:10]  # Limit to 10
-        except Exception:
-            pass
-
-    return recent
-
-
-def _get_day_summary(day: str) -> dict[str, Any]:
-    """Aggregate dashboard data for a day, organized by facet.
-
-    Returns dict with facet-keyed data for todos, events, entities, and news.
-    Also includes facet_meta with title, color, emoji, and has_activity flag.
-    """
-    try:
-        facet_map = get_facets()
-    except Exception:
-        facet_map = {}
-
-    facet_names = list(facet_map.keys())
-
-    # Aggregate data per facet
-    result: dict[str, Any] = {
-        "day": day,
-        "facets": {},
-        "facet_meta": {},
-        "totals": {
-            "todos_pending": 0,
-            "todos_completed": 0,
-            "events": 0,
-            "entities": 0,
-        },
-    }
-
-    # Events by agent (aggregated across facets for totals)
-    events_by_agent: dict[str, int] = defaultdict(int)
-
-    for facet_name in facet_names:
-        facet_config = facet_map.get(facet_name, {})
-        facet_data: dict[str, Any] = {
-            "todos": [],
-            "events_by_agent": {},
-            "entities": [],
-            "news_content": None,
-        }
-
-        # Todos - return actual items
-        todos = get_todos(day, facet_name)
-        if todos:
-            for todo in todos:
-                facet_data["todos"].append(
-                    {
-                        "text": todo.get("text", ""),
-                        "completed": todo.get("completed", False),
-                        "nudge": todo.get("nudge"),
-                    }
-                )
-                if todo.get("completed"):
-                    result["totals"]["todos_completed"] += 1
-                else:
-                    result["totals"]["todos_pending"] += 1
-
-        # Events (load directly from source files)
-        try:
-            events = get_events(day, facet=facet_name)
-            facet_events: dict[str, int] = defaultdict(int)
-            for event in events:
-                agent = event.get("agent", "other")
-                facet_events[agent] += 1
-                events_by_agent[agent] += 1
-                result["totals"]["events"] += 1
-            facet_data["events_by_agent"] = dict(facet_events)
-        except Exception:
-            pass
-
-        # Detected entities for this day
-        try:
-            entities = load_entities(facet_name, day)
-            entity_names = [e.get("name", "") for e in entities if e.get("name")]
-            facet_data["entities"] = entity_names[:10]  # Limit to 10
-            result["totals"]["entities"] += len(entities)
-        except Exception:
-            pass
-
-        # News content
-        try:
-            news = get_facet_news(facet_name, day=day)
-            days = news.get("days", [])
-            if days:
-                content = days[0].get("raw_content", "")
-                if content:
-                    facet_data["news_content"] = content
-        except Exception:
-            pass
-
-        result["facets"][facet_name] = facet_data
-
-        # Determine if facet has any activity for this day
-        has_activity = bool(
-            facet_data["todos"]
-            or facet_data["events_by_agent"]
-            or facet_data["entities"]
-        )
-
-        # Extract daily goal (first pending todo)
-        facet_data["goal"] = next(
-            (t["text"] for t in facet_data["todos"] if not t["completed"]), None
-        )
-
-        # Add facet metadata
-        result["facet_meta"][facet_name] = {
-            "title": facet_config.get("title", facet_name.title()),
-            "color": facet_config.get("color", "#6b7280"),
-            "emoji": facet_config.get("emoji", "📁"),
-            "has_activity": has_activity,
-        }
-
-    # Add aggregated events by agent to totals
-    result["totals"]["events_by_agent"] = dict(events_by_agent)
-
-    # Load upcoming items (next 3 days)
-    upcoming_data = []
-    try:
-        ref_date = datetime.strptime(day, "%Y%m%d")
-        for i in range(1, 4):
-            next_day = (ref_date + timedelta(days=i)).strftime("%Y%m%d")
-            day_events = get_events(next_day)
-            for e in day_events:
-                upcoming_data.append(
-                    {
-                        "type": "event",
-                        "day": next_day,
-                        "title": e.get("title") or e.get("summary", "Untitled Event"),
-                        "facet": e.get("facet"),
-                    }
-                )
-            for f_name in facet_names:
-                f_todos = get_todos(next_day, f_name)
-                if f_todos:
-                    for t in f_todos:
-                        if not t.get("completed") and not t.get("cancelled"):
-                            upcoming_data.append(
-                                {
-                                    "type": "todo",
-                                    "day": next_day,
-                                    "title": t.get("text"),
-                                    "facet": f_name,
-                                }
-                            )
-    except Exception:
-        pass
-    result["upcoming"] = upcoming_data[:5]  # Limit to 5 items
-
-    # Load recent entities (attached entities with last_seen in lookback window)
-    recent_entities = _get_recent_entities(day, facet_names)
-    result["recent_entities"] = recent_entities
-    result["totals"]["recent_entities"] = sum(
-        len(names) for names in recent_entities.values()
-    )
-
-    return result
-
-
 @home_bp.route("/")
 def index():
-    """Redirect to today's dashboard."""
-    today = date.today().strftime("%Y%m%d")
-    return redirect(url_for("app:home.home_day", day=today))
-
-
-@home_bp.route("/<day>")
-def home_day(day: str) -> str:
-    """Dashboard view for a specific day."""
-    if not DATE_RE.fullmatch(day):
-        return "", 404
-
     return render_template("app.html")
 
 
-@home_bp.route("/api/summary/<day>")
-def api_summary(day: str):
-    """Return aggregated summary data for a day."""
-    if not DATE_RE.fullmatch(day):
-        return jsonify({"error": "Invalid day format"}), 400
+@home_bp.route("/api/graph")
+def api_graph():
+    """Return nodes + edges for the knowledge graph visualization.
 
-    data = _get_day_summary(day)
-    return jsonify(data)
-
-
-@home_bp.route("/api/stats/<month>")
-def api_stats(month: str):
-    """Return activity indicator for each day in a month.
-
-    Returns simple count (todos + events) for month picker heatmap.
+    Query params:
+        facet: filter by facet name
+        since: YYYYMMDD start date
+        types: comma-separated entity types to include
+        min_strength: minimum score threshold
+        limit: max nodes (default 100)
     """
-    if not re.fullmatch(r"\d{6}", month):
-        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+    facet = request.args.get("facet") or None
+    since = request.args.get("since") or None
+    types_param = request.args.get("types") or None
+    min_strength = request.args.get("min_strength", type=float, default=0.0)
+    limit = request.args.get("limit", type=int, default=100)
 
-    from think.utils import day_dirs
+    # Default to 90 days if no since provided
+    if not since:
+        since = (date.today() - timedelta(days=90)).strftime("%Y%m%d")
 
-    stats: dict[str, int] = {}
+    # Get ranked entities
+    ranked = get_entity_strength(facet=facet, since=since, limit=limit * 3)
 
-    # Get all facets
+    # Look up entity type and is_principal from the identity table
+    conn, _ = get_journal_index()
     try:
-        facet_map = get_facets()
-    except Exception:
-        facet_map = {}
+        entity_meta = _load_entity_metadata(conn)
 
-    journal_root = Path(state.journal_root)
+        # Build nodes, applying filters
+        type_filter = None
+        if types_param:
+            type_filter = {t.strip().lower() for t in types_param.split(",")}
 
-    for day_name in day_dirs().keys():
-        if not day_name.startswith(month):
+        nodes = []
+        node_names: set[str] = set()
+        for r in ranked:
+            if r["score"] < min_strength:
+                continue
+
+            entity_name = r["entity_name"]
+            entity_id = r.get("entity_id") or ""
+            meta = entity_meta.get(entity_id, {})
+            entity_type = (meta.get("type") or "unknown").lower()
+
+            if type_filter and entity_type not in type_filter:
+                continue
+
+            is_principal = meta.get("is_principal", False)
+            nodes.append({
+                "id": entity_id or entity_name,
+                "name": meta.get("name") or entity_name,
+                "type": entity_type,
+                "score": r["score"],
+                "co_occurrence": r["co_occurrence"],
+                "appearance": r["appearance"],
+                "recency": r["recency"],
+                "facet_breadth": r["facet_breadth"],
+                "observation_depth": r["observation_depth"],
+                "is_principal": is_principal,
+            })
+            node_names.add(entity_name)
+            if entity_id:
+                node_names.add(entity_id)
+
+            if len(nodes) >= limit:
+                break
+
+        # Build edges
+        explicit_edges = _get_explicit_edges(conn, node_names, facet, since)
+        co_occurrence_edges = _get_co_occurrence_edges(
+            conn, node_names, explicit_edges, facet, since
+        )
+
+        # Map edge entity names to node IDs
+        name_to_id = _build_name_to_node_id(conn, {n["id"] for n in nodes})
+        edges = []
+        for e in explicit_edges + co_occurrence_edges:
+            from_id = name_to_id.get(e["from_name"], e["from_name"])
+            to_id = name_to_id.get(e["to_name"], e["to_name"])
+            # Only include edges where both endpoints are visible nodes
+            node_ids = {n["id"] for n in nodes}
+            if from_id in node_ids and to_id in node_ids:
+                e["from"] = from_id
+                e["to"] = to_id
+                edges.append(e)
+
+        # Stats
+        total_entities = conn.execute(
+            "SELECT COUNT(DISTINCT entity_id) FROM entities WHERE source='identity'"
+        ).fetchone()[0]
+        total_signals = conn.execute(
+            "SELECT COUNT(*) FROM entity_signals"
+        ).fetchone()[0]
+
+    finally:
+        conn.close()
+
+    return jsonify({
+        "nodes": nodes,
+        "edges": edges,
+        "stats": {
+            "total_entities": total_entities,
+            "total_signals": total_signals,
+        },
+    })
+
+
+@home_bp.route("/api/entity/<path:name>")
+def api_entity(name: str):
+    """Return full entity intelligence for the inspect panel."""
+    facet = request.args.get("facet") or None
+    result = get_entity_intelligence(name, facet=facet)
+    if result is None:
+        return jsonify({"error": "Entity not found"}), 404
+    return jsonify(result)
+
+
+def _load_entity_metadata(conn: sqlite3.Connection) -> dict[str, dict[str, Any]]:
+    """Load identity metadata (type, name, is_principal) for all entities."""
+    rows = conn.execute(
+        "SELECT entity_id, name, type, is_principal FROM entities WHERE source='identity'"
+    ).fetchall()
+    return {
+        r[0]: {"name": r[1], "type": r[2] or "unknown", "is_principal": bool(r[3])}
+        for r in rows
+    }
+
+
+def _get_explicit_edges(
+    conn: sqlite3.Connection,
+    node_names: set[str],
+    facet: str | None,
+    since: str | None,
+) -> list[dict[str, Any]]:
+    """Query kg_edge signals for explicit relationship edges."""
+    if not node_names:
+        return []
+
+    placeholders = ",".join("?" for _ in node_names)
+    where_parts = [
+        "signal_type='kg_edge'",
+        f"entity_name IN ({placeholders})",
+    ]
+    params: list[Any] = list(node_names)
+
+    if facet:
+        where_parts.append("facet=?")
+        params.append(facet.lower())
+    if since:
+        where_parts.append("day>=?")
+        params.append(since)
+
+    where = " AND ".join(where_parts)
+    rows = conn.execute(
+        f"""
+        SELECT entity_name, target_name, relationship_type, COUNT(*) as freq
+        FROM entity_signals
+        WHERE {where}
+          AND target_name IS NOT NULL AND target_name != ''
+        GROUP BY entity_name, target_name, relationship_type
+        """,
+        params,
+    ).fetchall()
+
+    return [
+        {
+            "from_name": r[0],
+            "to_name": r[1],
+            "relationship_type": r[2] or "",
+            "frequency": r[3],
+            "edge_type": "explicit",
+        }
+        for r in rows
+    ]
+
+
+def _get_co_occurrence_edges(
+    conn: sqlite3.Connection,
+    node_names: set[str],
+    explicit_edges: list[dict[str, Any]],
+    facet: str | None,
+    since: str | None,
+) -> list[dict[str, Any]]:
+    """Find co-occurrence edges: entity pairs sharing paths, minus explicit edges."""
+    if not node_names:
+        return []
+
+    # Build set of already-explicit pairs
+    explicit_pairs: set[tuple[str, str]] = set()
+    for e in explicit_edges:
+        explicit_pairs.add((e["from_name"], e["to_name"]))
+        explicit_pairs.add((e["to_name"], e["from_name"]))
+
+    placeholders = ",".join("?" for _ in node_names)
+    where_parts = [
+        f"s1.entity_name IN ({placeholders})",
+        f"s2.entity_name IN ({placeholders})",
+        "s1.entity_name < s2.entity_name",
+    ]
+    params: list[Any] = list(node_names) + list(node_names)
+
+    if facet:
+        where_parts.append("s1.facet=?")
+        params.append(facet.lower())
+    if since:
+        where_parts.append("s1.day>=?")
+        params.append(since)
+
+    where = " AND ".join(where_parts)
+    rows = conn.execute(
+        f"""
+        SELECT s1.entity_name, s2.entity_name, COUNT(DISTINCT s1.path) as freq
+        FROM entity_signals s1
+        JOIN entity_signals s2
+          ON s1.path = s2.path
+         AND s1.entity_name != s2.entity_name
+        WHERE {where}
+        GROUP BY s1.entity_name, s2.entity_name
+        HAVING freq >= 2
+        """,
+        params,
+    ).fetchall()
+
+    edges = []
+    for r in rows:
+        if (r[0], r[1]) in explicit_pairs:
             continue
+        edges.append({
+            "from_name": r[0],
+            "to_name": r[1],
+            "frequency": r[2],
+            "edge_type": "co_occurrence",
+        })
 
-        count = 0
+    return edges
 
-        # Count todos across facets
-        for facet_name in facet_map.keys():
-            todos = get_todos(day_name, facet_name)
-            if todos:
-                count += len(todos)
 
-        # Count if day directory exists (has journal data)
-        day_dir = journal_root / day_name
-        if day_dir.is_dir():
-            # Check for agent outputs
-            agents_dir = day_dir / "agents"
-            if agents_dir.is_dir():
-                count += len(list(agents_dir.glob("*.md")))
-                count += len(list(agents_dir.glob("*/*.md")))
+def _build_name_to_node_id(
+    conn: sqlite3.Connection,
+    node_ids: set[str],
+) -> dict[str, str]:
+    """Map signal entity_names to node IDs (entity_ids) for edge matching."""
+    from think.entities.core import entity_slug
 
-        if count > 0:
-            stats[day_name] = count
+    rows = conn.execute(
+        "SELECT entity_id, name FROM entities WHERE source='identity'"
+    ).fetchall()
 
-    return jsonify(stats)
+    result: dict[str, str] = {}
+    for entity_id, name in rows:
+        if entity_id in node_ids:
+            result[name] = entity_id
+            result[entity_id] = entity_id
+            # Also map the slug form
+            slug = entity_slug(name)
+            if slug != entity_id:
+                result[slug] = entity_id
+
+    # Map signal names via slug
+    signal_names = conn.execute(
+        "SELECT DISTINCT entity_name FROM entity_signals"
+    ).fetchall()
+    for (sname,) in signal_names:
+        if sname not in result:
+            slug = entity_slug(sname)
+            if slug in node_ids:
+                result[sname] = slug
+
+    return result
