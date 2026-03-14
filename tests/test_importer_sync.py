@@ -426,5 +426,5 @@ def test_plaud_sync_cli_flag(capsys, monkeypatch, tmp_path):
         main()
 
     captured = capsys.readouterr()
-    assert "Total recordings:" in captured.out
+    assert "Total:" in captured.out
     assert "Available to import:" in captured.out

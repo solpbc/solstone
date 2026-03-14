@@ -107,8 +107,10 @@ def _format_timestamp_display(timestamp: str) -> str:
         return timestamp
 
 
-def _run_sync(backend_name: str, *, dry_run: bool = True) -> None:
+def _run_sync(backend_name: str, *, dry_run: bool = True, **extra: Any) -> None:
     """Run sync for a named backend and print results."""
+    import inspect
+
     from think.importers.plaud import format_size
     from think.importers.sync import get_syncable_backends, load_sync_state
 
@@ -132,8 +134,15 @@ def _run_sync(backend_name: str, *, dry_run: bool = True) -> None:
     print(f"Syncing {backend_name} ({mode} mode)...")
     print()
 
+    # Pass extra kwargs only if the backend accepts them
+    sync_kwargs: dict[str, Any] = {"dry_run": dry_run}
+    sig = inspect.signature(backend.sync)
+    for key, value in extra.items():
+        if key in sig.parameters and value is not None:
+            sync_kwargs[key] = value
+
     try:
-        result = backend.sync(journal_root, dry_run=dry_run)
+        result = backend.sync(journal_root, **sync_kwargs)
     except ValueError as e:
         raise SystemExit(str(e))
     except RuntimeError as e:
@@ -148,14 +157,14 @@ def _run_sync(backend_name: str, *, dry_run: bool = True) -> None:
 
     # Print summary
     print()
-    print(f"  Total recordings:    {total}")
+    print(f"  Total:               {total}")
     print(f"  Already imported:    {imported}")
     print(f"  Available to import: {available}")
     if skipped:
-        print(f"  Skipped:             {skipped} (trashed/short)")
+        print(f"  Skipped:             {skipped}")
 
     if downloaded > 0:
-        print(f"  Downloaded + imported: {downloaded}")
+        print(f"  Imported this run:   {downloaded}")
     if errors:
         print(f"  Errors: {len(errors)}")
         for err in errors:
@@ -173,13 +182,19 @@ def _run_sync(backend_name: str, *, dry_run: bool = True) -> None:
             ]
             if avail_files:
                 print()
-                print("Available recordings:")
+                print("Available:")
                 for _fid, info in avail_files:
                     name = info.get("filename", "unnamed")
+                    title = info.get("title", "")
                     size = info.get("filesize", 0)
-                    print(f"  - {name} ({format_size(size)})")
+                    if title:
+                        print(f"  - {title} ({name})")
+                    elif size:
+                        print(f"  - {name} ({format_size(size)})")
+                    else:
+                        print(f"  - {name}")
                 print()
-                print("Run with --save to download and import these files:")
+                print(f"Run with --save to import:")
                 print(f"  sol import --sync {backend_name} --save")
 
     if not dry_run and available == 0 and downloaded == 0:
@@ -248,6 +263,12 @@ def main() -> None:
         help="With --sync: download and import new files (default is dry-run)",
     )
     parser.add_argument(
+        "--path",
+        type=str,
+        default=None,
+        help="With --sync: override the default source directory path",
+    )
+    parser.add_argument(
         "--list-importers",
         action="store_true",
         help="List available file importers",
@@ -302,7 +323,12 @@ def main() -> None:
         return
 
     if args.sync:
-        _run_sync(args.sync, dry_run=not args.save)
+        extra: dict[str, Any] = {}
+        if args.path:
+            extra["source_path"] = Path(os.path.expanduser(args.path))
+        if args.force:
+            extra["force"] = True
+        _run_sync(args.sync, dry_run=not args.save, **extra)
         return
 
     if not args.media:
