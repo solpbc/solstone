@@ -107,6 +107,40 @@ def _format_timestamp_display(timestamp: str) -> str:
         return timestamp
 
 
+def _run_muesli_sync() -> bool:
+    """Run `muesli sync` if muesli is on PATH. Returns True if it ran successfully."""
+    import shutil
+    import subprocess
+
+    muesli_path = shutil.which("muesli")
+    if not muesli_path:
+        logger.info("muesli not found on PATH — skipping muesli sync")
+        return False
+
+    print("Running muesli sync...")
+    try:
+        result = subprocess.run(
+            [muesli_path, "sync"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode == 0:
+            print("  muesli sync complete.")
+        else:
+            logger.warning("muesli sync exited with code %d: %s", result.returncode, result.stderr.strip())
+            print(f"  muesli sync failed (exit {result.returncode}), continuing with existing files.")
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        logger.warning("muesli sync timed out after 60s")
+        print("  muesli sync timed out, continuing with existing files.")
+        return False
+    except Exception as exc:
+        logger.warning("muesli sync error: %s", exc)
+        print(f"  muesli sync error: {exc}, continuing with existing files.")
+        return False
+
+
 def _run_sync(backend_name: str, *, dry_run: bool = True, **extra: Any) -> None:
     """Run sync for a named backend and print results."""
     import inspect
@@ -129,6 +163,10 @@ def _run_sync(backend_name: str, *, dry_run: bool = True, **extra: Any) -> None:
         raise SystemExit(
             f"Unknown sync backend: {backend_name}\nAvailable backends: {available}"
         )
+
+    # Auto-run muesli sync before granola import (hands-off sync chain)
+    if backend_name == "granola" and not dry_run:
+        _run_muesli_sync()
 
     mode = "save" if not dry_run else "catalog"
     print(f"Syncing {backend_name} ({mode} mode)...")

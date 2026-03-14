@@ -968,9 +968,10 @@ async function loadGuidedFlow(sourceName) {
     <div class="import-step">
       <div class="import-step-number">Step 2</div>
       ${source.input_type === 'path_input' ? `
-        <h4>Point to your vault</h4>
+        <h4>${escapeHtml(source.upload_prompt || 'Paste the full path to your folder')}</h4>
         <input id="guidedPathInput" class="import-path-input" type="text"
           placeholder="${escapeHtml(source.upload_prompt || 'Paste the full path to your folder')}" />
+        <div id="guidedPathStatus" style="margin-top: 0.5em; font-size: 0.9em; color: #666;"></div>
       ` : `
         <h4>Upload your export</h4>
         <div class="import-upload-area" id="guidedDropArea">
@@ -1004,8 +1005,34 @@ async function loadGuidedFlow(sourceName) {
   loadFacets(window.selectedFacet || '', document.getElementById('guidedFacetSelect'));
   if (source.input_type !== 'path_input') {
     setupGuidedUploadArea();
+  } else {
+    // Auto-detect default path for path_input sources
+    checkDefaultPath(sourceName);
   }
   document.getElementById('guidedStartBtn').addEventListener('click', () => startGuidedImport(source));
+}
+
+async function checkDefaultPath(sourceName) {
+  const pathInput = document.getElementById('guidedPathInput');
+  const statusDiv = document.getElementById('guidedPathStatus');
+  if (!pathInput || !statusDiv) return;
+
+  try {
+    const response = await fetch(`/app/import/api/check-path/${sourceName}`);
+    if (!response.ok) return;
+    const data = await response.json();
+
+    if (data.found && data.path) {
+      pathInput.value = data.path;
+      statusDiv.textContent = data.message;
+      statusDiv.style.color = '#059669';
+    } else if (data.message) {
+      statusDiv.textContent = data.message;
+      statusDiv.style.color = '#d97706';
+    }
+  } catch (err) {
+    // Silent fail — auto-detection is best-effort
+  }
 }
 
 function renderQuickImportFlow() {

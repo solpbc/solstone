@@ -1536,6 +1536,7 @@ def get_sync() -> Any:
                 schedules = json.load(f)
 
         plaud_entry = schedules.get("sync:plaud", {})
+        granola_entry = schedules.get("sync:granola", {})
 
         # Check token availability from env/system_env
         config = get_journal_config()
@@ -1552,7 +1553,15 @@ def get_sync() -> Any:
                         plaud_entry.get("enabled", True) if plaud_entry else False
                     ),
                     "configured": bool(plaud_entry),
-                }
+                },
+                "granola": {
+                    "enabled": (
+                        granola_entry.get("enabled", True)
+                        if granola_entry
+                        else False
+                    ),
+                    "configured": bool(granola_entry),
+                },
             }
         )
 
@@ -1603,6 +1612,35 @@ def update_sync() -> Any:
                         }
                     schedules["sync:plaud"]["enabled"] = enabled
                     changed_fields["plaud.enabled"] = enabled
+
+        # Handle granola sync toggle
+        if "granola" in request_data:
+            granola_data = request_data["granola"]
+            if not isinstance(granola_data, dict):
+                return jsonify({"error": "granola must be an object"}), 400
+
+            if "enabled" in granola_data:
+                enabled = granola_data["enabled"]
+                if not isinstance(enabled, bool):
+                    return jsonify({"error": "granola.enabled must be a boolean"}), 400
+
+                old_entry = schedules.get("sync:granola", {})
+                old_enabled = old_entry.get("enabled", True) if old_entry else False
+
+                if enabled != old_enabled:
+                    if "sync:granola" not in schedules:
+                        schedules["sync:granola"] = {
+                            "cmd": [
+                                "sol",
+                                "import",
+                                "--sync",
+                                "granola",
+                                "--save",
+                            ],
+                            "every": "hourly",
+                        }
+                    schedules["sync:granola"]["enabled"] = enabled
+                    changed_fields["granola.enabled"] = enabled
 
         if changed_fields:
             with open(schedules_path, "w", encoding="utf-8") as f:

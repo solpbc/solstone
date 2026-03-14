@@ -101,6 +101,17 @@ SOURCE_METADATA = [
         "accept": ".txt",
     },
     {
+        "name": "granola",
+        "display_name": "Granola",
+        "emoji": "🎙️",
+        "icon": "mic",
+        "description": "Import meeting transcripts from Granola via muesli",
+        "input_type": "path_input",
+        "upload_prompt": "Path to muesli transcripts folder",
+        "has_guide": True,
+        "accept": "",
+    },
+    {
         "name": "recording",
         "display_name": "Meeting Recording",
         "emoji": "🎙️",
@@ -423,6 +434,41 @@ def import_list() -> Any:
 def import_sources() -> Any:
     """Return available import source metadata."""
     return jsonify(SOURCE_METADATA)
+
+
+@import_bp.route("/api/check-path/<source>")
+def import_check_path(source: str) -> Any:
+    """Check default path for a path_input source and return info."""
+    if source == "granola":
+        default_path = Path.home() / ".local" / "share" / "muesli" / "transcripts"
+        if default_path.is_dir():
+            count = sum(1 for f in default_path.glob("*.md"))
+            return jsonify(
+                {
+                    "found": True,
+                    "path": str(default_path),
+                    "count": count,
+                    "message": f"Found {count} Granola transcript{'s' if count != 1 else ''}.",
+                }
+            )
+        # Check if muesli is installed but no transcripts yet
+        muesli_dir = default_path.parent
+        if muesli_dir.is_dir():
+            return jsonify(
+                {
+                    "found": False,
+                    "path": str(default_path),
+                    "message": "Muesli is installed but no transcripts found. Run `muesli sync` first.",
+                }
+            )
+        return jsonify(
+            {
+                "found": False,
+                "path": "",
+                "message": "No muesli installation found. Follow the guide above to install.",
+            }
+        )
+    return jsonify({"found": False, "path": "", "message": ""}), 404
 
 
 @import_bp.route("/api/guide/<source>")
