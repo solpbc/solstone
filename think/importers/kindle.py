@@ -331,6 +331,8 @@ class KindleImporter:
         )
         entry_segment_map = {idx: segment for idx, segment in enumerate(item_segments)}
         manifest_entries: list[dict] = []
+        book_obs: dict[str, list[str]] = {}
+        author_obs: dict[str, list[str]] = {}
         for book_idx, (book_title, indices) in enumerate(sorted(books_map.items())):
             book_entries = [entries[i] for i in indices]
             author = book_entries[0].get("author", "")
@@ -359,6 +361,30 @@ class KindleImporter:
                     ],
                 }
             )
+            obs_date = first_dt.strftime("%Y-%m-%d")
+            highlight_only = sum(
+                1 for entry in book_entries if entry.get("clip_type") == "highlight"
+            )
+            observations: list[str] = []
+            if author:
+                observations.append(f"By {author} (via Kindle, {obs_date})")
+            if highlight_only > 0 and note_count > 0:
+                observations.append(
+                    f"{highlight_only} highlights, {note_count} notes "
+                    f"(via Kindle, {obs_date})"
+                )
+            elif highlight_only > 0:
+                observations.append(
+                    f"{highlight_only} highlights (via Kindle, {obs_date})"
+                )
+            elif note_count > 0:
+                observations.append(f"{note_count} notes (via Kindle, {obs_date})")
+            if observations:
+                book_obs[book_title] = observations
+            if author:
+                author_obs.setdefault(author, []).append(
+                    f"Author of {book_title} (via Kindle, {obs_date})"
+                )
         write_content_manifest(import_id, manifest_entries)
 
         segment_days = {day for day, _ in segments}
@@ -371,10 +397,16 @@ class KindleImporter:
             )
             entity_defs: list[dict] = []
             for book in sorted(books):
-                entity_defs.append({"name": book, "type": "Book"})
+                d: dict = {"name": book, "type": "Book"}
+                if book in book_obs:
+                    d["observations"] = book_obs[book]
+                entity_defs.append(d)
             for author in sorted(authors):
                 if author:
-                    entity_defs.append({"name": author, "type": "Person"})
+                    d = {"name": author, "type": "Person"}
+                    if author in author_obs:
+                        d["observations"] = author_obs[author]
+                    entity_defs.append(d)
 
             resolved = seed_entities(facet, earliest_day, entity_defs)
             entities_seeded = len(resolved)

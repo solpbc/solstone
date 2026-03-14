@@ -7,6 +7,7 @@ import os
 import tempfile
 from pathlib import Path
 
+from think.entities.observations import load_observations
 from think.importers.kindle import KindleImporter, _parse_block, _parse_date
 
 importer = KindleImporter()
@@ -203,6 +204,217 @@ def test_process_note_markdown():
         finally:
             os.unlink(f.name)
             os.environ.pop("JOURNAL_PATH", None)
+
+
+def test_observations_author_of(tmp_path, monkeypatch):
+    content = _make_clippings_file([_make_clipping()])
+    with tempfile.NamedTemporaryFile(suffix=".txt", mode="w", delete=False) as f:
+        f.write(content)
+        f.flush()
+        try:
+            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            importer.process(Path(f.name), tmp_path, facet="test.kindle")
+            author_obs = load_observations("test.kindle", "Author Name")
+            author_contents = [o["content"] for o in author_obs]
+            assert "Author of Test Book (via Kindle, 2025-03-15)" in author_contents
+        finally:
+            os.unlink(f.name)
+
+
+def test_observations_by_author(tmp_path, monkeypatch):
+    content = _make_clippings_file([_make_clipping()])
+    with tempfile.NamedTemporaryFile(suffix=".txt", mode="w", delete=False) as f:
+        f.write(content)
+        f.flush()
+        try:
+            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            importer.process(Path(f.name), tmp_path, facet="test.kindle")
+            book_obs = load_observations("test.kindle", "Test Book")
+            book_contents = [o["content"] for o in book_obs]
+            assert "By Author Name (via Kindle, 2025-03-15)" in book_contents
+        finally:
+            os.unlink(f.name)
+
+
+def test_observations_engagement(tmp_path, monkeypatch):
+    content = _make_clippings_file(
+        [
+            _make_clipping(
+                meta="- Your Highlight on page 42 | location 100-101 | Added on Saturday, March 15, 2025 10:30:00 AM",
+            ),
+            _make_clipping(
+                meta="- Your Highlight on page 43 | location 102-103 | Added on Saturday, March 15, 2025 10:31:00 AM",
+                content="Second highlight.",
+            ),
+            _make_clipping(
+                meta="- Your Note on page 44 | location 104 | Added on Saturday, March 15, 2025 10:32:00 AM",
+                content="A note.",
+            ),
+        ]
+    )
+    highlights_only = _make_clippings_file(
+        [
+            _make_clipping(
+                meta="- Your Highlight on page 42 | location 100-101 | Added on Saturday, March 15, 2025 10:30:00 AM",
+            ),
+            _make_clipping(
+                meta="- Your Highlight on page 43 | location 102-103 | Added on Saturday, March 15, 2025 10:31:00 AM",
+                content="Second highlight.",
+            ),
+        ]
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".txt", mode="w", delete=False) as f:
+        f.write(content)
+        f.flush()
+        try:
+            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            importer.process(Path(f.name), tmp_path, facet="test.kindle")
+            book_obs = load_observations("test.kindle", "Test Book")
+            book_contents = [o["content"] for o in book_obs]
+            assert "2 highlights, 1 notes (via Kindle, 2025-03-15)" in book_contents
+        finally:
+            os.unlink(f.name)
+
+    second_tmp_path = tmp_path / "highlights_only"
+    second_tmp_path.mkdir()
+    with tempfile.NamedTemporaryFile(suffix=".txt", mode="w", delete=False) as f:
+        f.write(highlights_only)
+        f.flush()
+        try:
+            monkeypatch.setenv("JOURNAL_PATH", str(second_tmp_path))
+            importer.process(Path(f.name), second_tmp_path, facet="test.kindle")
+            book_obs = load_observations("test.kindle", "Test Book")
+            book_contents = [o["content"] for o in book_obs]
+            assert "2 highlights (via Kindle, 2025-03-15)" in book_contents
+        finally:
+            os.unlink(f.name)
+
+
+def test_observations_multi_book_author(tmp_path, monkeypatch):
+    content = _make_clippings_file(
+        [
+            _make_clipping(title="Test Book (Author Name)"),
+            _make_clipping(title="Second Book (Author Name)"),
+        ]
+    )
+    with tempfile.NamedTemporaryFile(suffix=".txt", mode="w", delete=False) as f:
+        f.write(content)
+        f.flush()
+        try:
+            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            importer.process(Path(f.name), tmp_path, facet="test.kindle")
+            author_obs = load_observations("test.kindle", "Author Name")
+            author_contents = [o["content"] for o in author_obs]
+            assert "Author of Test Book (via Kindle, 2025-03-15)" in author_contents
+            assert "Author of Second Book (via Kindle, 2025-03-15)" in author_contents
+        finally:
+            os.unlink(f.name)
+
+
+def test_observations_no_author(tmp_path, monkeypatch):
+    content = _make_clippings_file([_make_clipping(title="Title Without Author")])
+    with tempfile.NamedTemporaryFile(suffix=".txt", mode="w", delete=False) as f:
+        f.write(content)
+        f.flush()
+        try:
+            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            importer.process(Path(f.name), tmp_path, facet="test.kindle")
+            book_obs = load_observations("test.kindle", "Title Without Author")
+            book_contents = [o["content"] for o in book_obs]
+            assert not any(c.startswith("By ") for c in book_contents)
+            author_entities_dir = tmp_path / "facets" / "test.kindle" / "entities"
+            if author_entities_dir.exists():
+                entity_names = {
+                    entity_dir.name
+                    for entity_dir in author_entities_dir.iterdir()
+                    if entity_dir.is_dir()
+                }
+                assert "author_name" not in entity_names
+        finally:
+            os.unlink(f.name)
+
+
+def test_observations_dedup_on_reimport(tmp_path, monkeypatch):
+    content = _make_clippings_file([_make_clipping()])
+    with tempfile.NamedTemporaryFile(suffix=".txt", mode="w", delete=False) as f:
+        f.write(content)
+        f.flush()
+        try:
+            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            importer.process(Path(f.name), tmp_path, facet="test.kindle")
+            first = load_observations("test.kindle", "Test Book")
+            first_by_author = [
+                o
+                for o in first
+                if o["content"] == "By Author Name (via Kindle, 2025-03-15)"
+            ]
+            assert len(first_by_author) == 1
+
+            importer.process(Path(f.name), tmp_path, facet="test.kindle")
+            second = load_observations("test.kindle", "Test Book")
+            second_by_author = [
+                o
+                for o in second
+                if o["content"] == "By Author Name (via Kindle, 2025-03-15)"
+            ]
+            assert len(second_by_author) == 1
+        finally:
+            os.unlink(f.name)
+
+
+def test_observations_engagement_notes_only(tmp_path, monkeypatch):
+    """Notes-only book gets notes count without highlights."""
+    content = _make_clippings_file(
+        [
+            _make_clipping(
+                meta="- Your Note on page 10 | Added on Saturday, March 15, 2025 10:30:00 AM",
+                content="A note.",
+            ),
+            _make_clipping(
+                meta="- Your Note on page 11 | Added on Saturday, March 15, 2025 10:31:00 AM",
+                content="Another note.",
+            ),
+        ]
+    )
+    with tempfile.NamedTemporaryFile(suffix=".txt", mode="w", delete=False) as f:
+        f.write(content)
+        f.flush()
+        try:
+            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            importer.process(Path(f.name), tmp_path, facet="test.kindle")
+            book_obs = load_observations("test.kindle", "Test Book")
+            book_contents = [o["content"] for o in book_obs]
+            assert "2 notes (via Kindle, 2025-03-15)" in book_contents
+            # No highlights count should appear
+            assert not any("highlights" in c for c in book_contents)
+        finally:
+            os.unlink(f.name)
+
+
+def test_observations_engagement_excludes_bookmarks(tmp_path, monkeypatch):
+    content = _make_clippings_file(
+        [
+            _make_clipping(
+                meta="- Your Highlight on page 42 | location 100-101 | Added on Saturday, March 15, 2025 10:30:00 AM",
+            ),
+            _make_clipping(
+                meta="- Your Bookmark on page 43 | location 102-103 | Added on Saturday, March 15, 2025 10:31:00 AM",
+                content="Saved bookmark.",
+            ),
+        ]
+    )
+    with tempfile.NamedTemporaryFile(suffix=".txt", mode="w", delete=False) as f:
+        f.write(content)
+        f.flush()
+        try:
+            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            importer.process(Path(f.name), tmp_path, facet="test.kindle")
+            book_obs = load_observations("test.kindle", "Test Book")
+            book_contents = [o["content"] for o in book_obs]
+            assert "1 highlights (via Kindle, 2025-03-15)" in book_contents
+        finally:
+            os.unlink(f.name)
 
 
 # --- Registry test ---
