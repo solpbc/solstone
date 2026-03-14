@@ -154,11 +154,45 @@ def _render_note_markdown(note: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _walk_md_files(root: Path) -> list[Path]:
+    """Walk vault directory, collecting markdown files. Skips hidden dirs and logseq recycle."""
+    md_files: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            d
+            for d in dirnames
+            if not _is_hidden(d)
+            and not (d == ".recycle" and Path(dirpath).name == "logseq")
+        ]
+        rel = Path(dirpath).relative_to(root)
+        if (
+            len(rel.parts) >= 2
+            and rel.parts[0] == "logseq"
+            and rel.parts[1] == ".recycle"
+        ):
+            continue
+
+        for fname in filenames:
+            if _is_hidden(fname):
+                continue
+            fpath = Path(dirpath) / fname
+            ext = fpath.suffix.lower()
+            if ext != ".md":
+                continue
+            if ext in SKIP_EXTENSIONS:
+                continue
+            md_files.append(fpath)
+    return md_files
+
+
 class ObsidianImporter:
     name = "obsidian"
     display_name = "Obsidian / Logseq Vault"
     file_patterns = ["*.md"]
     description = "Import notes from an Obsidian or Logseq vault"
+
+    def _walk_md_files(self, root: Path) -> list[Path]:
+        return _walk_md_files(root)
 
     def detect(self, path: Path) -> bool:
         if not path.is_dir():
@@ -389,38 +423,6 @@ class ObsidianImporter:
             date_range=(earliest, latest),
         )
 
-    def _walk_md_files(self, root: Path) -> list[Path]:
-        """Walk vault directory, yielding markdown files. Skips hidden dirs and logseq recycle."""
-        md_files: list[Path] = []
-        for dirpath, dirnames, filenames in os.walk(root):
-            # Filter out hidden directories and logseq recycle in-place
-            dirnames[:] = [
-                d
-                for d in dirnames
-                if not _is_hidden(d)
-                and not (d == ".recycle" and Path(dirpath).name == "logseq")
-            ]
-            # Also skip the logseq/.recycle path explicitly
-            rel = Path(dirpath).relative_to(root)
-            if (
-                len(rel.parts) >= 2
-                and rel.parts[0] == "logseq"
-                and rel.parts[1] == ".recycle"
-            ):
-                continue
-
-            for fname in filenames:
-                if _is_hidden(fname):
-                    continue
-                fpath = Path(dirpath) / fname
-                ext = fpath.suffix.lower()
-                if ext != ".md":
-                    continue
-                if ext in SKIP_EXTENSIONS:
-                    continue
-                md_files.append(fpath)
-        return md_files
-
 
 # Common Obsidian vault locations for auto-detection
 DEFAULT_VAULT_PATHS = [
@@ -504,7 +506,7 @@ class ObsidianSyncBackend:
         known_files: dict[str, dict[str, Any]] = state.get("files", {})
 
         # Walk vault using existing importer logic
-        md_files = importer._walk_md_files(vault_path)
+        md_files = _walk_md_files(vault_path)
 
         current_rel_paths: set[str] = set()
         to_import: list[tuple[Path, str, str]] = []  # (path, rel_path, change_type)
@@ -683,6 +685,4 @@ class ObsidianSyncBackend:
 
 
 importer = ObsidianImporter()
-
-# Module-level backend instance for registry discovery
 backend = ObsidianSyncBackend()
