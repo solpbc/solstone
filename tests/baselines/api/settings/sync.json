@@ -3,5 +3,14 @@
     "available": true,
     "configured": false,
     "enabled": false
+  },
+  "granola": {
+    "configured": false,
+    "enabled": false
+  },
+  "obsidian": {
+    "available": true,
+    "configured": false,
+    "enabled": false
   }
 }
