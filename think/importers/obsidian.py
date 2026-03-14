@@ -4,6 +4,7 @@
 """Obsidian and Logseq vault importer."""
 
 import datetime as dt
+import hashlib
 import logging
 import os
 import re
@@ -18,6 +19,7 @@ from think.importers.shared import (
     write_content_manifest,
     write_markdown_segments,
 )
+from think.importers.sync import load_sync_state, save_sync_state
 
 logger = logging.getLogger(__name__)
 
@@ -152,11 +154,45 @@ def _render_note_markdown(note: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _walk_md_files(root: Path) -> list[Path]:
+    """Walk vault directory, collecting markdown files. Skips hidden dirs and logseq recycle."""
+    md_files: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            d
+            for d in dirnames
+            if not _is_hidden(d)
+            and not (d == ".recycle" and Path(dirpath).name == "logseq")
+        ]
+        rel = Path(dirpath).relative_to(root)
+        if (
+            len(rel.parts) >= 2
+            and rel.parts[0] == "logseq"
+            and rel.parts[1] == ".recycle"
+        ):
+            continue
+
+        for fname in filenames:
+            if _is_hidden(fname):
+                continue
+            fpath = Path(dirpath) / fname
+            ext = fpath.suffix.lower()
+            if ext != ".md":
+                continue
+            if ext in SKIP_EXTENSIONS:
+                continue
+            md_files.append(fpath)
+    return md_files
+
+
 class ObsidianImporter:
     name = "obsidian"
     display_name = "Obsidian / Logseq Vault"
     file_patterns = ["*.md"]
     description = "Import notes from an Obsidian or Logseq vault"
+
+    def _walk_md_files(self, root: Path) -> list[Path]:
+        return _walk_md_files(root)
 
     def detect(self, path: Path) -> bool:
         if not path.is_dir():
@@ -387,37 +423,200 @@ class ObsidianImporter:
             date_range=(earliest, latest),
         )
 
-    def _walk_md_files(self, root: Path) -> list[Path]:
-        """Walk vault directory, yielding markdown files. Skips hidden dirs and logseq recycle."""
-        md_files: list[Path] = []
-        for dirpath, dirnames, filenames in os.walk(root):
-            # Filter out hidden directories and logseq recycle in-place
-            dirnames[:] = [
-                d
-                for d in dirnames
-                if not _is_hidden(d)
-                and not (d == ".recycle" and Path(dirpath).name == "logseq")
-            ]
-            # Also skip the logseq/.recycle path explicitly
-            rel = Path(dirpath).relative_to(root)
-            if (
-                len(rel.parts) >= 2
-                and rel.parts[0] == "logseq"
-                and rel.parts[1] == ".recycle"
+
+class ObsidianSyncBackend:
+    """Syncable backend for Obsidian vault incremental sync.
+
+    Edits are activities -- when a note's content changes, a new journal segment
+    is created at the edit timestamp. Old segments are preserved.
+    """
+
+    name: str = "obsidian"
+
+    def sync(
+        self,
+        journal_root: Path,
+        *,
+        dry_run: bool = True,
+        source_path: Path | None = None,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        state = load_sync_state(journal_root, "obsidian")
+
+        vault_path: Path | None = None
+        if source_path is not None:
+            vault_path = source_path
+        elif state and state.get("source_path"):
+            vault_path = Path(str(state["source_path"]))
+        else:
+            for candidate in (
+                Path.home() / "Documents" / "Obsidian",
+                Path.home() / "Obsidian",
             ):
+                if candidate.exists() and candidate.is_dir():
+                    vault_path = candidate
+                    break
+
+        if vault_path is None:
+            raise ValueError(
+                "No Obsidian vault found. Use --path to specify your vault location."
+            )
+        if not vault_path.exists() or not vault_path.is_dir():
+            raise ValueError(
+                f"Obsidian vault not found at {vault_path}. "
+                "Use --path to specify your vault location."
+            )
+
+        state = state or {
+            "backend": "obsidian",
+            "source_path": str(vault_path),
+            "files": {},
+        }
+        if force:
+            state["files"] = {}
+
+        known_files: dict[str, dict[str, Any]] = state.get("files", {})
+        to_import: list[dict[str, Any]] = []
+        current_paths: set[str] = set()
+
+        for md_path in _walk_md_files(vault_path):
+            rel_path = str(md_path.relative_to(vault_path))
+            current_paths.add(rel_path)
+
+            content = _read_file_safe(md_path)
+            if content is None or not content.strip():
                 continue
 
-            for fname in filenames:
-                if _is_hidden(fname):
+            try:
+                mtime = md_path.stat().st_mtime
+            except OSError:
+                continue
+
+            existing = known_files.get(rel_path)
+            if existing and existing.get("status") == "imported" and not force:
+                if existing.get("mtime") == mtime:
                     continue
-                fpath = Path(dirpath) / fname
-                ext = fpath.suffix.lower()
-                if ext != ".md":
+                content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+                if existing.get("content_hash") == content_hash:
+                    existing["mtime"] = mtime
                     continue
-                if ext in SKIP_EXTENSIONS:
+            else:
+                content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+                if (
+                    existing
+                    and existing.get("content_hash") == content_hash
+                    and not force
+                ):
                     continue
-                md_files.append(fpath)
-        return md_files
+
+            title = md_path.stem
+            tags = _parse_frontmatter_tags(content)
+            wikilinks = WIKILINK_RE.findall(content)
+            is_daily = _parse_daily_note_date(md_path.name) is not None
+
+            known_files[rel_path] = {
+                **(known_files.get(rel_path) or {}),
+                "filename": md_path.name,
+                "title": title,
+                "mtime": mtime,
+                "content_hash": content_hash,
+                "status": "available",
+                "edit_count": known_files.get(rel_path, {}).get("edit_count", 0),
+            }
+            to_import.append(
+                {
+                    "mtime": mtime,
+                    "title": title,
+                    "content": content,
+                    "source_path": rel_path,
+                    "is_daily": is_daily,
+                    "tags": tags,
+                    "wikilinks": wikilinks,
+                    "rel_path": rel_path,
+                    "content_hash": content_hash,
+                }
+            )
+
+        for rel_path, info in known_files.items():
+            if rel_path not in current_paths and info.get("status") not in ("removed",):
+                info["status"] = "removed"
+
+        result: dict[str, Any] = {
+            "total": len(known_files),
+            "imported": sum(
+                1 for f in known_files.values() if f.get("status") == "imported"
+            ),
+            "available": len(to_import),
+            "skipped": 0,
+            "downloaded": 0,
+            "errors": [],
+        }
+
+        if not dry_run and to_import:
+            downloaded = 0
+            errors: list[str] = []
+
+            def render_fn(items: list[dict[str, Any]]) -> str:
+                return "\n\n".join(_render_note_markdown(n) for n in items)
+
+            for note in to_import:
+                try:
+                    windows = window_items([note], "mtime", tz=None)
+                    _created_files, segs = write_markdown_segments(
+                        "obsidian",
+                        windows,
+                        render_fn,
+                        filename="note_transcript.md",
+                    )
+
+                    if note["wikilinks"] and segs:
+                        day = segs[0][0]
+                        entity_dicts = [
+                            {"name": link, "type": "Topic"}
+                            for link in sorted(set(note["wikilinks"]))
+                        ]
+                        try:
+                            seed_entities("import.obsidian", day, entity_dicts)
+                        except Exception as exc:
+                            logger.warning(
+                                "Entity seeding failed for %s: %s",
+                                note["rel_path"],
+                                exc,
+                            )
+
+                    known_files[note["rel_path"]].update(
+                        {
+                            "status": "imported",
+                            "imported_at": dt.datetime.now().isoformat(),
+                            "segments": len(segs),
+                            "edit_count": known_files[note["rel_path"]].get(
+                                "edit_count", 0
+                            )
+                            + 1,
+                        }
+                    )
+                    downloaded += 1
+                except Exception as exc:
+                    msg = f"{note['rel_path']}: {exc}"
+                    logger.warning("Import failed: %s", msg)
+                    errors.append(msg)
+
+            result["downloaded"] = downloaded
+            result["errors"] = errors
+            result["imported"] = sum(
+                1 for f in known_files.values() if f.get("status") == "imported"
+            )
+            result["available"] = sum(
+                1 for f in known_files.values() if f.get("status") == "available"
+            )
+
+        state["files"] = known_files
+        state["source_path"] = str(vault_path)
+        state["last_sync"] = dt.datetime.now().isoformat()
+        save_sync_state(journal_root, "obsidian", state)
+
+        return result
 
 
 importer = ObsidianImporter()
+backend = ObsidianSyncBackend()

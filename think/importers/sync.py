@@ -24,6 +24,7 @@ class SyncableBackend(Protocol):
 SYNCABLE_REGISTRY: dict[str, str] = {
     "plaud": "think.importers.plaud",
     "granola": "think.importers.granola",
+    "obsidian": "think.importers.obsidian",
 }
 
 
