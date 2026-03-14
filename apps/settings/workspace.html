@@ -2091,6 +2091,24 @@ input:checked + .slider:before {
           </div>
         </div>
       </div>
+
+      <div id="obsidianSyncCard">
+        <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Obsidian Vault</h3>
+        <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
+          Automatically sync new and updated notes from your vault.
+        </p>
+
+        <div class="settings-field" id="obsidianSyncField">
+          <label>Hourly Sync</label>
+          <div style="display: flex; align-items: center; gap: 1em;">
+            <label class="toggle-switch toggle-positive">
+              <input type="checkbox" id="field-obsidian-sync-enabled">
+              <span class="slider"></span>
+            </label>
+            <span style="color: #666; font-size: 0.9em;">Check for changes every hour</span>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Facet Appearance Section -->
@@ -3514,6 +3532,11 @@ function populateSync(data) {
   const granola = data.granola || {};
   const granolaToggle = document.getElementById('field-granola-sync-enabled');
   granolaToggle.checked = granola.enabled || false;
+
+  // Obsidian sync card
+  const obsidian = data.obsidian || {};
+  const obsidianToggle = document.getElementById('field-obsidian-sync-enabled');
+  obsidianToggle.checked = obsidian.enabled || false;
 }
 
 document.getElementById('field-plaud-sync-enabled').addEventListener('change', async function() {
@@ -3540,6 +3563,23 @@ document.getElementById('field-granola-sync-enabled').addEventListener('change',
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ granola: { enabled } })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    showFieldStatus(this, 'saved');
+  } catch (err) {
+    console.error('Error saving sync setting:', err);
+    showFieldStatus(this, 'error', err.message);
+  }
+});
+
+document.getElementById('field-obsidian-sync-enabled').addEventListener('change', async function() {
+  const enabled = this.checked;
+  try {
+    const response = await fetch('api/sync', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ obsidian: { enabled } })
     });
     const result = await response.json();
     if (result.error) throw new Error(result.error);

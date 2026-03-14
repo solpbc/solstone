@@ -1537,6 +1537,7 @@ def get_sync() -> Any:
 
         plaud_entry = schedules.get("sync:plaud", {})
         granola_entry = schedules.get("sync:granola", {})
+        obsidian_entry = schedules.get("sync:obsidian", {})
 
         # Check token availability from env/system_env
         config = get_journal_config()
@@ -1559,6 +1560,15 @@ def get_sync() -> Any:
                         granola_entry.get("enabled", True) if granola_entry else False
                     ),
                     "configured": bool(granola_entry),
+                },
+                "obsidian": {
+                    "available": True,
+                    "enabled": (
+                        obsidian_entry.get("enabled", True)
+                        if obsidian_entry
+                        else False
+                    ),
+                    "configured": bool(obsidian_entry),
                 },
             }
         )
@@ -1639,6 +1649,35 @@ def update_sync() -> Any:
                         }
                     schedules["sync:granola"]["enabled"] = enabled
                     changed_fields["granola.enabled"] = enabled
+
+        # Handle obsidian sync toggle
+        if "obsidian" in request_data:
+            obsidian_data = request_data["obsidian"]
+            if not isinstance(obsidian_data, dict):
+                return jsonify({"error": "obsidian must be an object"}), 400
+
+            if "enabled" in obsidian_data:
+                enabled = obsidian_data["enabled"]
+                if not isinstance(enabled, bool):
+                    return jsonify({"error": "obsidian.enabled must be a boolean"}), 400
+
+                old_entry = schedules.get("sync:obsidian", {})
+                old_enabled = old_entry.get("enabled", True) if old_entry else False
+
+                if enabled != old_enabled:
+                    if "sync:obsidian" not in schedules:
+                        schedules["sync:obsidian"] = {
+                            "cmd": [
+                                "sol",
+                                "import",
+                                "--sync",
+                                "obsidian",
+                                "--save",
+                            ],
+                            "every": "hourly",
+                        }
+                    schedules["sync:obsidian"]["enabled"] = enabled
+                    changed_fields["obsidian.enabled"] = enabled
 
         if changed_fields:
             with open(schedules_path, "w", encoding="utf-8") as f:
