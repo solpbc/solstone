@@ -9,7 +9,6 @@ from textwrap import dedent
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -225,7 +224,9 @@ def test_parse_transcript_entries_empty_body():
     from think.importers.granola import _parse_transcript_entries
 
     base_dt = dt.datetime(2025, 10, 28, 0, 0, 0, tzinfo=dt.timezone.utc)
-    messages = _parse_transcript_entries("No transcript here.", base_dt, dt.timezone.utc)
+    messages = _parse_transcript_entries(
+        "No transcript here.", base_dt, dt.timezone.utc
+    )
     assert messages == []
 
 
@@ -236,9 +237,9 @@ def test_parse_transcript_entries_empty_body():
 
 def test_date_from_filename():
     """Extract date from muesli filename."""
-    from think.importers.granola import _date_from_filename
-
     import datetime as dt
+
+    from think.importers.granola import _date_from_filename
 
     assert _date_from_filename("2025-10-28_q1-planning.md") == dt.date(2025, 10, 28)
     assert _date_from_filename("random-file.md") is None
@@ -374,7 +375,7 @@ def test_granola_sync_skips_no_docid(tmp_path):
 def test_granola_sync_incremental(tmp_path):
     """Second sync skips already-imported transcripts."""
     from think.importers.granola import GranolaBackend
-    from think.importers.sync import load_sync_state, save_sync_state
+    from think.importers.sync import save_sync_state
 
     muesli_dir = tmp_path / "muesli"
     _write_transcript(muesli_dir, "2025-10-28_q1.md", SAMPLE_TRANSCRIPT)
@@ -502,9 +503,7 @@ def test_granola_sync_import(tmp_path, monkeypatch):
     muesli_dir = tmp_path / "muesli"
     _write_transcript(muesli_dir, "2025-10-28_q1.md", SAMPLE_TRANSCRIPT)
 
-    result = GranolaBackend().sync(
-        tmp_path, source_path=muesli_dir, dry_run=False
-    )
+    result = GranolaBackend().sync(tmp_path, source_path=muesli_dir, dry_run=False)
 
     assert result["downloaded"] == 1
     assert result["imported"] == 1
@@ -523,7 +522,9 @@ def test_granola_sync_import(tmp_path, monkeypatch):
     # so we check for import.granola directories
     import glob
 
-    segments = glob.glob(str(tmp_path / "*/import.granola/*/conversation_transcript.jsonl"))
+    segments = glob.glob(
+        str(tmp_path / "*/import.granola/*/conversation_transcript.jsonl")
+    )
     assert len(segments) >= 1
 
     # Check JSONL content of first segment
@@ -639,7 +640,9 @@ def test_observations_created_on_import(tmp_path, monkeypatch):
     # Alice: title + company
     alice_obs = load_observations("import.granola", "Alice Smith")
     alice_contents = [o["content"] for o in alice_obs]
-    assert "Engineering Manager at Acme Corp (via Granola, 2025-10-28)" in alice_contents
+    assert (
+        "Engineering Manager at Acme Corp (via Granola, 2025-10-28)" in alice_contents
+    )
 
     # Bob: no title, no company, no linkedin — no observations
     bob_obs = load_observations("import.granola", "Bob Jones")
@@ -649,7 +652,9 @@ def test_observations_created_on_import(tmp_path, monkeypatch):
     jane_obs = load_observations("import.granola", "Jane Doe")
     jane_contents = [o["content"] for o in jane_obs]
     assert "CTO at StartupCo (via Granola, 2025-10-28)" in jane_contents
-    assert "LinkedIn: linkedin.com/in/janedoe (via Granola, 2025-10-28)" in jane_contents
+    assert (
+        "LinkedIn: linkedin.com/in/janedoe (via Granola, 2025-10-28)" in jane_contents
+    )
 
     # Carlos: title only (Designer, no company)
     carlos_obs = load_observations("import.granola", "Carlos Garcia")
@@ -748,7 +753,9 @@ def test_seed_entities_observation_formatting(tmp_path, monkeypatch):
         {
             "name": "Person D",
             "type": "Person",
-            "observations": ["LinkedIn: linkedin.com/in/persond (via Granola, 2025-10-28)"],
+            "observations": [
+                "LinkedIn: linkedin.com/in/persond (via Granola, 2025-10-28)"
+            ],
         },
     ]
     seed_entities("test.facet", "20251028", entities)
@@ -768,7 +775,10 @@ def test_seed_entities_observation_formatting(tmp_path, monkeypatch):
 
     d_obs = load_observations("test.facet", "Person D")
     assert len(d_obs) == 1
-    assert d_obs[0]["content"] == "LinkedIn: linkedin.com/in/persond (via Granola, 2025-10-28)"
+    assert (
+        d_obs[0]["content"]
+        == "LinkedIn: linkedin.com/in/persond (via Granola, 2025-10-28)"
+    )
 
 
 def test_seed_entities_observation_dedup(tmp_path, monkeypatch):

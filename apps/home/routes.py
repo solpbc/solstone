@@ -78,18 +78,20 @@ def api_graph():
                 continue
 
             is_principal = meta.get("is_principal", False)
-            nodes.append({
-                "id": entity_id or entity_name,
-                "name": meta.get("name") or entity_name,
-                "type": entity_type,
-                "score": r["score"],
-                "co_occurrence": r["co_occurrence"],
-                "appearance": r["appearance"],
-                "recency": r["recency"],
-                "facet_breadth": r["facet_breadth"],
-                "observation_depth": r["observation_depth"],
-                "is_principal": is_principal,
-            })
+            nodes.append(
+                {
+                    "id": entity_id or entity_name,
+                    "name": meta.get("name") or entity_name,
+                    "type": entity_type,
+                    "score": r["score"],
+                    "co_occurrence": r["co_occurrence"],
+                    "appearance": r["appearance"],
+                    "recency": r["recency"],
+                    "facet_breadth": r["facet_breadth"],
+                    "observation_depth": r["observation_depth"],
+                    "is_principal": is_principal,
+                }
+            )
             node_names.add(entity_name)
             if entity_id:
                 node_names.add(entity_id)
@@ -120,21 +122,23 @@ def api_graph():
         total_entities = conn.execute(
             "SELECT COUNT(DISTINCT entity_id) FROM entities WHERE source='identity'"
         ).fetchone()[0]
-        total_signals = conn.execute(
-            "SELECT COUNT(*) FROM entity_signals"
-        ).fetchone()[0]
+        total_signals = conn.execute("SELECT COUNT(*) FROM entity_signals").fetchone()[
+            0
+        ]
 
     finally:
         conn.close()
 
-    return jsonify({
-        "nodes": nodes,
-        "edges": edges,
-        "stats": {
-            "total_entities": total_entities,
-            "total_signals": total_signals,
-        },
-    })
+    return jsonify(
+        {
+            "nodes": nodes,
+            "edges": edges,
+            "stats": {
+                "total_entities": total_entities,
+                "total_signals": total_signals,
+            },
+        }
+    )
 
 
 @home_bp.route("/api/entity/<path:name>")
@@ -257,12 +261,14 @@ def _get_co_occurrence_edges(
     for r in rows:
         if (r[0], r[1]) in explicit_pairs:
             continue
-        edges.append({
-            "from_name": r[0],
-            "to_name": r[1],
-            "frequency": r[2],
-            "edge_type": "co_occurrence",
-        })
+        edges.append(
+            {
+                "from_name": r[0],
+                "to_name": r[1],
+                "frequency": r[2],
+                "edge_type": "co_occurrence",
+            }
+        )
 
     return edges
 

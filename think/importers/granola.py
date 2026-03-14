@@ -277,15 +277,11 @@ def _import_transcript(
             company = p.get("company", "")
             linkedin = p.get("linkedin", "")
             if title and company:
-                observations.append(
-                    f"{title} at {company} (via Granola, {obs_date})"
-                )
+                observations.append(f"{title} at {company} (via Granola, {obs_date})")
             elif title:
                 observations.append(f"{title} (via Granola, {obs_date})")
             elif company:
-                observations.append(
-                    f"Works at {company} (via Granola, {obs_date})"
-                )
+                observations.append(f"Works at {company} (via Granola, {obs_date})")
             if linkedin:
                 observations.append(
                     f"LinkedIn: linkedin.com/in/{linkedin} (via Granola, {obs_date})"
@@ -298,9 +294,7 @@ def _import_transcript(
                 seeded = seed_entities("import.granola", first_day, entity_dicts)
                 entities_seeded = len(seeded)
             except Exception as exc:
-                logger.warning(
-                    "Entity seeding failed for %s: %s", md_file.name, exc
-                )
+                logger.warning("Entity seeding failed for %s: %s", md_file.name, exc)
 
     return created_files, segments, entities_seeded
 
@@ -435,9 +429,7 @@ class GranolaBackend:
 
         # Compute summary
         total = len(known_files)
-        imported = sum(
-            1 for f in known_files.values() if f.get("status") == "imported"
-        )
+        imported = sum(1 for f in known_files.values() if f.get("status") == "imported")
         available = len(to_import)
         skipped_total = sum(
             1 for f in known_files.values() if f.get("status") == "skipped"
@@ -466,9 +458,9 @@ class GranolaBackend:
 
                     if files:
                         known_files[doc_id]["status"] = "imported"
-                        known_files[doc_id][
-                            "imported_at"
-                        ] = dt.datetime.now().isoformat()
+                        known_files[doc_id]["imported_at"] = (
+                            dt.datetime.now().isoformat()
+                        )
                         known_files[doc_id]["segments"] = len(segs)
                         known_files[doc_id]["entities_seeded"] = entities
                         downloaded += 1

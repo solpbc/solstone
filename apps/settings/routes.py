@@ -1556,9 +1556,7 @@ def get_sync() -> Any:
                 },
                 "granola": {
                     "enabled": (
-                        granola_entry.get("enabled", True)
-                        if granola_entry
-                        else False
+                        granola_entry.get("enabled", True) if granola_entry else False
                     ),
                     "configured": bool(granola_entry),
                 },

@@ -128,8 +128,14 @@ def _run_muesli_sync() -> bool:
         if result.returncode == 0:
             print("  muesli sync complete.")
         else:
-            logger.warning("muesli sync exited with code %d: %s", result.returncode, result.stderr.strip())
-            print(f"  muesli sync failed (exit {result.returncode}), continuing with existing files.")
+            logger.warning(
+                "muesli sync exited with code %d: %s",
+                result.returncode,
+                result.stderr.strip(),
+            )
+            print(
+                f"  muesli sync failed (exit {result.returncode}), continuing with existing files."
+            )
         return result.returncode == 0
     except subprocess.TimeoutExpired:
         logger.warning("muesli sync timed out after 60s")
@@ -232,7 +238,7 @@ def _run_sync(backend_name: str, *, dry_run: bool = True, **extra: Any) -> None:
                     else:
                         print(f"  - {name}")
                 print()
-                print(f"Run with --save to import:")
+                print("Run with --save to import:")
                 print(f"  sol import --sync {backend_name} --save")
 
     if not dry_run and available == 0 and downloaded == 0:
