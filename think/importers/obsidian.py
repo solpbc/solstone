@@ -424,46 +424,12 @@ class ObsidianImporter:
         )
 
 
-# Common Obsidian vault locations for auto-detection
-DEFAULT_VAULT_PATHS = [
-    Path.home() / "Documents" / "Obsidian",
-    Path.home() / "Obsidian",
-]
-
-
-def _content_hash(content: str) -> str:
-    """SHA-256 hash of file content for change detection."""
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()
-
-
-def _find_vault_path(
-    source_path: Path | None, state: dict[str, Any] | None
-) -> Path:
-    """Resolve vault path from explicit arg, sync state, or auto-detection."""
-    if source_path:
-        if not source_path.is_dir():
-            raise ValueError(f"Vault path does not exist: {source_path}")
-        return source_path
-
-    # Check existing sync state
-    if state and state.get("source_path"):
-        saved = Path(state["source_path"])
-        if saved.is_dir():
-            return saved
-
-    # Auto-detect common locations
-    for p in DEFAULT_VAULT_PATHS:
-        if p.is_dir():
-            return p
-
-    raise ValueError(
-        "No Obsidian vault found.\n"
-        "Specify a vault path: sol import --sync obsidian --path /path/to/vault"
-    )
-
-
 class ObsidianSyncBackend:
-    """Syncable backend for Obsidian vault notes with edit-as-activity model."""
+    """Syncable backend for Obsidian vault incremental sync.
+
+    Edits are activities -- when a note's content changes, a new journal segment
+    is created at the edit timestamp. Old segments are preserved.
+    """
 
     name: str = "obsidian"
 
@@ -475,45 +441,47 @@ class ObsidianSyncBackend:
         source_path: Path | None = None,
         force: bool = False,
     ) -> dict[str, Any]:
-        """Sync Obsidian vault notes incrementally.
-
-        Scans the vault for markdown files, compares against sync state,
-        and imports new notes and captures edits as new journal segments.
-
-        Args:
-            journal_root: Path to the journal root directory.
-            dry_run: If True, catalog only (no import). If False, import.
-            source_path: Override vault directory path.
-            force: If True, clear sync state and re-import everything.
-
-        Returns:
-            Summary dict with total, imported, available, skipped, downloaded, errors.
-        """
         state = load_sync_state(journal_root, "obsidian")
 
-        vault_path = _find_vault_path(source_path, state)
+        vault_path: Path | None = None
+        if source_path is not None:
+            vault_path = source_path
+        elif state and state.get("source_path"):
+            vault_path = Path(str(state["source_path"]))
+        else:
+            for candidate in (
+                Path.home() / "Documents" / "Obsidian",
+                Path.home() / "Obsidian",
+            ):
+                if candidate.exists() and candidate.is_dir():
+                    vault_path = candidate
+                    break
 
-        if state is None:
-            state = {
-                "backend": "obsidian",
-                "source_path": str(vault_path),
-                "files": {},
-            }
+        if vault_path is None:
+            raise ValueError(
+                "No Obsidian vault found. Use --path to specify your vault location."
+            )
+        if not vault_path.exists() or not vault_path.is_dir():
+            raise ValueError(
+                f"Obsidian vault not found at {vault_path}. "
+                "Use --path to specify your vault location."
+            )
 
+        state = state or {
+            "backend": "obsidian",
+            "source_path": str(vault_path),
+            "files": {},
+        }
         if force:
             state["files"] = {}
 
         known_files: dict[str, dict[str, Any]] = state.get("files", {})
+        to_import: list[dict[str, Any]] = []
+        current_paths: set[str] = set()
 
-        # Walk vault using existing importer logic
-        md_files = _walk_md_files(vault_path)
-
-        current_rel_paths: set[str] = set()
-        to_import: list[tuple[Path, str, str]] = []  # (path, rel_path, change_type)
-
-        for md_path in md_files:
+        for md_path in _walk_md_files(vault_path):
             rel_path = str(md_path.relative_to(vault_path))
-            current_rel_paths.add(rel_path)
+            current_paths.add(rel_path)
 
             content = _read_file_safe(md_path)
             if content is None or not content.strip():
@@ -524,64 +492,62 @@ class ObsidianSyncBackend:
             except OSError:
                 continue
 
-            hash_val = _content_hash(content)
-
-            if rel_path in known_files and not force:
-                existing = known_files[rel_path]
-                if existing.get("status") == "imported":
-                    # Fast path: mtime unchanged — skip
-                    if mtime == existing.get("mtime"):
-                        continue
-                    # Correctness: hash unchanged — mtime-only change, skip
-                    if hash_val == existing.get("content_hash"):
-                        existing["mtime"] = mtime
-                        continue
-                    # Content actually changed — edit
-                    change_type = "edited"
-                elif existing.get("status") == "removed":
-                    change_type = "new"
-                else:
-                    change_type = "new"
+            existing = known_files.get(rel_path)
+            if existing and existing.get("status") == "imported" and not force:
+                if existing.get("mtime") == mtime:
+                    continue
+                content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+                if existing.get("content_hash") == content_hash:
+                    existing["mtime"] = mtime
+                    continue
             else:
-                change_type = "new"
+                content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+                if (
+                    existing
+                    and existing.get("content_hash") == content_hash
+                    and not force
+                ):
+                    continue
 
-            known_files.setdefault(rel_path, {})
-            known_files[rel_path].update(
+            title = md_path.stem
+            tags = _parse_frontmatter_tags(content)
+            wikilinks = WIKILINK_RE.findall(content)
+            is_daily = _parse_daily_note_date(md_path.name) is not None
+
+            known_files[rel_path] = {
+                **(known_files.get(rel_path) or {}),
+                "filename": md_path.name,
+                "title": title,
+                "mtime": mtime,
+                "content_hash": content_hash,
+                "status": "available",
+                "edit_count": known_files.get(rel_path, {}).get("edit_count", 0),
+            }
+            to_import.append(
                 {
-                    "filename": md_path.name,
-                    "title": md_path.stem,
                     "mtime": mtime,
-                    "content_hash": hash_val,
-                    "status": "available",
-                    "_change_type": change_type,
+                    "title": title,
+                    "content": content,
+                    "source_path": rel_path,
+                    "is_daily": is_daily,
+                    "tags": tags,
+                    "wikilinks": wikilinks,
+                    "rel_path": rel_path,
+                    "content_hash": content_hash,
                 }
             )
-            to_import.append((md_path, rel_path, change_type))
 
-        # Detect deleted files
         for rel_path, info in known_files.items():
-            if rel_path not in current_rel_paths and info.get("status") not in (
-                "removed",
-                "skipped",
-            ):
+            if rel_path not in current_paths and info.get("status") not in ("removed",):
                 info["status"] = "removed"
 
-        total = len(known_files)
-        imported = sum(
-            1 for f in known_files.values() if f.get("status") == "imported"
-        )
-        available = len(to_import)
-        skipped_total = sum(
-            1
-            for f in known_files.values()
-            if f.get("status") in ("skipped", "removed")
-        )
-
         result: dict[str, Any] = {
-            "total": total,
-            "imported": imported,
-            "available": available,
-            "skipped": skipped_total,
+            "total": len(known_files),
+            "imported": sum(
+                1 for f in known_files.values() if f.get("status") == "imported"
+            ),
+            "available": len(to_import),
+            "skipped": 0,
             "downloaded": 0,
             "errors": [],
         }
@@ -590,76 +556,48 @@ class ObsidianSyncBackend:
             downloaded = 0
             errors: list[str] = []
 
-            for md_path, rel_path, change_type in to_import:
+            def render_fn(items: list[dict[str, Any]]) -> str:
+                return "\n\n".join(_render_note_markdown(n) for n in items)
+
+            for note in to_import:
                 try:
-                    content = _read_file_safe(md_path)
-                    if content is None:
-                        errors.append(f"Failed to read: {rel_path}")
-                        continue
-
-                    mtime = md_path.stat().st_mtime
-                    tags = _parse_frontmatter_tags(content)
-                    wikilinks = WIKILINK_RE.findall(content)
-
-                    note = {
-                        "mtime": mtime,
-                        "title": md_path.stem,
-                        "content": content,
-                        "source_path": rel_path,
-                        "is_daily": _parse_daily_note_date(md_path.name) is not None,
-                        "tags": tags,
-                        "wikilinks": wikilinks,
-                    }
-
                     windows = window_items([note], "mtime", tz=None)
-                    created_files, segments = write_markdown_segments(
+                    _created_files, segs = write_markdown_segments(
                         "obsidian",
                         windows,
-                        lambda items: "\n\n".join(
-                            _render_note_markdown(n) for n in items
-                        ),
+                        render_fn,
                         filename="note_transcript.md",
                     )
 
-                    # Seed entities from wikilinks
-                    if wikilinks and segments:
+                    if note["wikilinks"] and segs:
+                        day = segs[0][0]
                         entity_dicts = [
                             {"name": link, "type": "Topic"}
-                            for link in sorted(set(wikilinks))
+                            for link in sorted(set(note["wikilinks"]))
                         ]
                         try:
-                            seed_entities(
-                                "import.obsidian", segments[0][0], entity_dicts
-                            )
+                            seed_entities("import.obsidian", day, entity_dicts)
                         except Exception as exc:
                             logger.warning(
-                                "Entity seeding failed for %s: %s", rel_path, exc
+                                "Entity seeding failed for %s: %s",
+                                note["rel_path"],
+                                exc,
                             )
 
-                    # Update sync state for this file
-                    file_state = known_files[rel_path]
-                    edit_count = file_state.get("edit_count", 0)
-                    if change_type == "edited":
-                        edit_count += 1
-
-                    file_state.update(
+                    known_files[note["rel_path"]].update(
                         {
                             "status": "imported",
-                            "mtime": mtime,
-                            "content_hash": _content_hash(content),
-                            "edit_count": edit_count,
                             "imported_at": dt.datetime.now().isoformat(),
-                            "segments": len(segments),
+                            "segments": len(segs),
+                            "edit_count": known_files[note["rel_path"]].get(
+                                "edit_count", 0
+                            )
+                            + 1,
                         }
                     )
-                    file_state.pop("_change_type", None)
-
                     downloaded += 1
-                    action = "Re-imported (edit)" if change_type == "edited" else "Imported"
-                    logger.info("%s %s: %d segments", action, rel_path, len(segments))
-
                 except Exception as exc:
-                    msg = f"{rel_path}: {exc}"
+                    msg = f"{note['rel_path']}: {exc}"
                     logger.warning("Import failed: %s", msg)
                     errors.append(msg)
 
@@ -671,10 +609,6 @@ class ObsidianSyncBackend:
             result["available"] = sum(
                 1 for f in known_files.values() if f.get("status") == "available"
             )
-
-        # Clean transient fields before persisting
-        for info in known_files.values():
-            info.pop("_change_type", None)
 
         state["files"] = known_files
         state["source_path"] = str(vault_path)

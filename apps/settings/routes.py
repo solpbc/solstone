@@ -1564,9 +1564,7 @@ def get_sync() -> Any:
                 "obsidian": {
                     "available": True,
                     "enabled": (
-                        obsidian_entry.get("enabled", True)
-                        if obsidian_entry
-                        else False
+                        obsidian_entry.get("enabled", True) if obsidian_entry else False
                     ),
                     "configured": bool(obsidian_entry),
                 },
