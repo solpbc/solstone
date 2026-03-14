@@ -261,11 +261,38 @@ def _import_transcript(
     participants = _parse_participants(body)
     if participants and segments:
         first_day = segments[0][0]
-        entity_dicts = [
-            {"name": p["name"], "type": "Person", "email": p["email"]}
-            for p in participants
-            if p["name"]
-        ]
+        # Format day for observation attribution: YYYYMMDD -> YYYY-MM-DD
+        obs_date = f"{first_day[:4]}-{first_day[4:6]}-{first_day[6:8]}"
+        entity_dicts = []
+        for p in participants:
+            if not p["name"]:
+                continue
+            d: dict[str, Any] = {
+                "name": p["name"],
+                "type": "Person",
+                "email": p["email"],
+            }
+            observations: list[str] = []
+            title = p.get("title", "")
+            company = p.get("company", "")
+            linkedin = p.get("linkedin", "")
+            if title and company:
+                observations.append(
+                    f"{title} at {company} (via Granola, {obs_date})"
+                )
+            elif title:
+                observations.append(f"{title} (via Granola, {obs_date})")
+            elif company:
+                observations.append(
+                    f"Works at {company} (via Granola, {obs_date})"
+                )
+            if linkedin:
+                observations.append(
+                    f"LinkedIn: linkedin.com/in/{linkedin} (via Granola, {obs_date})"
+                )
+            if observations:
+                d["observations"] = observations
+            entity_dicts.append(d)
         if entity_dicts:
             try:
                 seeded = seed_entities("import.granola", first_day, entity_dicts)

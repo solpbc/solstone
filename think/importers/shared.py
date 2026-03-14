@@ -659,9 +659,10 @@ def seed_entities(
     """Seed entities from structured imports.
 
     Each dict should have: name (required), type (default "Person"),
-    email (optional), context (optional).
+    email (optional), context (optional), observations (optional list of strings).
 
     Matches by email first, then name. Creates new entities for non-matches.
+    If observations are provided, adds them via add_observation() with dedup.
 
     Args:
         facet: Facet name for entity context
@@ -678,6 +679,7 @@ def seed_entities(
         save_journal_entity,
     )
     from think.entities.matching import find_entity_by_email, find_matching_entity
+    from think.entities.observations import add_observation, load_observations
 
     # Load all journal entities for matching
     all_entities = load_all_journal_entities()
@@ -711,6 +713,7 @@ def seed_entities(
                     matched["emails"] = sorted(existing_emails | {email.lower()})
                     save_journal_entity(matched)
             resolved.append(matched)
+            resolved_name = matched.get("name", name)
         else:
             # Create new entity
             eid = entity_slug(name)
@@ -723,5 +726,16 @@ def seed_entities(
             )
             entity_list.append(new_entity)  # Add to list for future matches
             resolved.append(new_entity)
+            resolved_name = new_entity.get("name", name)
+
+        # Add observations if provided, with dedup
+        observations = ent.get("observations", [])
+        if observations:
+            existing_obs = load_observations(facet, resolved_name)
+            existing_contents = {o["content"] for o in existing_obs}
+            for obs_content in observations:
+                if obs_content not in existing_contents:
+                    add_observation(facet, resolved_name, obs_content, source_day=day)
+                    existing_contents.add(obs_content)
 
     return resolved

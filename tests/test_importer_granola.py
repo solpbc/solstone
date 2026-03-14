@@ -587,3 +587,211 @@ def test_granola_sync_cli(capsys, monkeypatch, tmp_path):
     assert "Total:" in captured.out
     assert "Available to import:" in captured.out
     assert "Q1 Planning" in captured.out  # title shown in available list
+
+
+# ---------------------------------------------------------------------------
+# Entity enrichment observations
+# ---------------------------------------------------------------------------
+
+ENRICHED_TRANSCRIPT = dedent("""\
+    ---
+    doc_id: doc_enriched_001
+    source: granola
+    created_at: "2025-10-28T15:04:05Z"
+    remote_updated_at: "2025-10-29T01:23:45Z"
+    title: Enriched Meeting
+    duration_seconds: 600
+    generator: muesli 1.0
+    ---
+
+    # Enriched Meeting
+
+    ## Participants
+
+    - **Alice Smith**, Engineering Manager, Acme Corp, (alice@acme.com)
+    - **Bob Jones**, (bob@jones.io)
+    - **Jane Doe**, CTO, StartupCo, linkedin.com/in/janedoe, (jane@startup.co)
+    - **Carlos Garcia**, Designer, (carlos@example.com)
+    - **Eve Wong**, (eve@megacorp.com)
+
+    ---
+
+    **Alice Smith (15:04:12):** Welcome everyone.
+    **Bob Jones (15:04:19):** Thanks for setting this up.
+    **Jane Doe (15:04:35):** Happy to be here.
+    **Carlos Garcia (15:05:01):** Same here.
+    **Eve Wong (15:05:10):** Let's get started.
+""")
+
+
+def test_observations_created_on_import(tmp_path, monkeypatch):
+    """Observations are created for participants with enrichment data."""
+    from think.entities.observations import load_observations
+    from think.importers.granola import GranolaBackend
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    muesli_dir = tmp_path / "muesli"
+    _write_transcript(muesli_dir, "2025-10-28_enriched.md", ENRICHED_TRANSCRIPT)
+
+    GranolaBackend().sync(tmp_path, source_path=muesli_dir, dry_run=False)
+
+    # Alice: title + company
+    alice_obs = load_observations("import.granola", "Alice Smith")
+    alice_contents = [o["content"] for o in alice_obs]
+    assert "Engineering Manager at Acme Corp (via Granola, 2025-10-28)" in alice_contents
+
+    # Bob: no title, no company, no linkedin — no observations
+    bob_obs = load_observations("import.granola", "Bob Jones")
+    assert len(bob_obs) == 0
+
+    # Jane: title + company + linkedin
+    jane_obs = load_observations("import.granola", "Jane Doe")
+    jane_contents = [o["content"] for o in jane_obs]
+    assert "CTO at StartupCo (via Granola, 2025-10-28)" in jane_contents
+    assert "LinkedIn: linkedin.com/in/janedoe (via Granola, 2025-10-28)" in jane_contents
+
+    # Carlos: title only (Designer, no company)
+    carlos_obs = load_observations("import.granola", "Carlos Garcia")
+    carlos_contents = [o["content"] for o in carlos_obs]
+    assert "Designer (via Granola, 2025-10-28)" in carlos_contents
+
+    # Eve: no title, no company, no linkedin — no observations
+    eve_obs = load_observations("import.granola", "Eve Wong")
+    assert len(eve_obs) == 0
+
+
+def test_observations_not_duplicated_on_reimport(tmp_path, monkeypatch):
+    """Re-importing the same transcript does not duplicate observations."""
+    from think.entities.observations import load_observations
+    from think.importers.granola import GranolaBackend
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    muesli_dir = tmp_path / "muesli"
+    _write_transcript(muesli_dir, "2025-10-28_enriched.md", ENRICHED_TRANSCRIPT)
+
+    backend = GranolaBackend()
+
+    # First import
+    backend.sync(tmp_path, source_path=muesli_dir, dry_run=False)
+    alice_obs_1 = load_observations("import.granola", "Alice Smith")
+    assert len(alice_obs_1) == 1
+
+    # Second import (force to re-import)
+    backend.sync(tmp_path, source_path=muesli_dir, dry_run=False, force=True)
+    alice_obs_2 = load_observations("import.granola", "Alice Smith")
+    assert len(alice_obs_2) == 1  # still just one, not duplicated
+
+    jane_obs = load_observations("import.granola", "Jane Doe")
+    assert len(jane_obs) == 2  # title+company and linkedin, still two
+
+
+def test_observations_source_day(tmp_path, monkeypatch):
+    """Observation source_day matches the segment day, not today."""
+    from think.entities.observations import load_observations
+    from think.importers.granola import GranolaBackend
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    muesli_dir = tmp_path / "muesli"
+    _write_transcript(muesli_dir, "2025-10-28_enriched.md", ENRICHED_TRANSCRIPT)
+
+    GranolaBackend().sync(tmp_path, source_path=muesli_dir, dry_run=False)
+
+    alice_obs = load_observations("import.granola", "Alice Smith")
+    assert len(alice_obs) == 1
+    assert alice_obs[0]["source_day"] == "20251028"
+
+
+def test_seed_entities_without_observations(tmp_path, monkeypatch):
+    """seed_entities() works unchanged when no observations are provided."""
+    from think.importers.shared import seed_entities
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    entities = [
+        {"name": "Test Person", "type": "Person", "email": "test@example.com"},
+    ]
+    result = seed_entities("test.facet", "20251028", entities)
+    assert len(result) == 1
+    assert result[0]["name"] == "Test Person"
+
+
+def test_seed_entities_observation_formatting(tmp_path, monkeypatch):
+    """seed_entities() creates observations with correct formatting for all field combos."""
+    from think.entities.observations import load_observations
+    from think.importers.shared import seed_entities
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    entities = [
+        # title + company
+        {
+            "name": "Person A",
+            "type": "Person",
+            "observations": ["VP Engineering at BigCo (via Granola, 2025-10-28)"],
+        },
+        # title only
+        {
+            "name": "Person B",
+            "type": "Person",
+            "observations": ["Designer (via Granola, 2025-10-28)"],
+        },
+        # company only
+        {
+            "name": "Person C",
+            "type": "Person",
+            "observations": ["Works at MegaCorp (via Granola, 2025-10-28)"],
+        },
+        # linkedin
+        {
+            "name": "Person D",
+            "type": "Person",
+            "observations": ["LinkedIn: linkedin.com/in/persond (via Granola, 2025-10-28)"],
+        },
+    ]
+    seed_entities("test.facet", "20251028", entities)
+
+    a_obs = load_observations("test.facet", "Person A")
+    assert len(a_obs) == 1
+    assert a_obs[0]["content"] == "VP Engineering at BigCo (via Granola, 2025-10-28)"
+    assert a_obs[0]["source_day"] == "20251028"
+
+    b_obs = load_observations("test.facet", "Person B")
+    assert len(b_obs) == 1
+    assert b_obs[0]["content"] == "Designer (via Granola, 2025-10-28)"
+
+    c_obs = load_observations("test.facet", "Person C")
+    assert len(c_obs) == 1
+    assert c_obs[0]["content"] == "Works at MegaCorp (via Granola, 2025-10-28)"
+
+    d_obs = load_observations("test.facet", "Person D")
+    assert len(d_obs) == 1
+    assert d_obs[0]["content"] == "LinkedIn: linkedin.com/in/persond (via Granola, 2025-10-28)"
+
+
+def test_seed_entities_observation_dedup(tmp_path, monkeypatch):
+    """seed_entities() does not duplicate observations on re-call."""
+    from think.entities.observations import load_observations
+    from think.importers.shared import seed_entities
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    entities = [
+        {
+            "name": "Dedup Person",
+            "type": "Person",
+            "observations": ["CTO at Acme (via Granola, 2025-10-28)"],
+        },
+    ]
+
+    # First call creates the observation
+    seed_entities("test.facet", "20251028", entities)
+    obs = load_observations("test.facet", "Dedup Person")
+    assert len(obs) == 1
+
+    # Second call with same observation does not duplicate
+    seed_entities("test.facet", "20251028", entities)
+    obs = load_observations("test.facet", "Dedup Person")
+    assert len(obs) == 1
