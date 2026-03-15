@@ -184,6 +184,16 @@
     },
     {
       "app": null,
+      "description": "One-shot check-in after onboarding — spawns support agent chat",
+      "disabled": false,
+      "extract": null,
+      "has_extraction": false,
+      "key": "firstday_checkin",
+      "source": "system",
+      "title": "First-Day Check-In"
+    },
+    {
+      "app": null,
       "description": "Synthesizes segment activity from content, focusing on observable changes and searchability.",
       "disabled": false,
       "extract": null,

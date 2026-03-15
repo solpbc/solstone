@@ -264,6 +264,11 @@ def load_prompt(
         # Add $now template variable (current datetime)
         template_vars["now"] = format_current_datetime()
 
+        # Add $agent_name template variable from agent config
+        agent_name = config.get("agent", {}).get("name", "sol")
+        template_vars["agent_name"] = agent_name
+        template_vars["Agent_name"] = agent_name.capitalize()
+
         # Merge caller-provided context (overrides identity vars if collision)
         if context:
             for key, value in context.items():

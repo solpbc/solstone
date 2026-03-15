@@ -1532,6 +1532,7 @@ input:checked + .slider:before {
         <option value="insights">Insights</option>
         <option value="security">Security</option>
         <option value="sync">Sync</option>
+        <option value="agent">Agent Identity</option>
       </optgroup>
       <optgroup label="Facet" id="navSelectFacetGroup" style="display:none">
         <option value="facet-appearance">Appearance</option>
@@ -1546,6 +1547,7 @@ input:checked + .slider:before {
     <div class="settings-nav-group">
       <div class="settings-nav-label">Journal</div>
       <button class="settings-nav-item active" data-section="profile">Profile</button>
+      <button class="settings-nav-item" data-section="agent">Agent Identity</button>
       <button class="settings-nav-item" data-section="providers">Providers</button>
       <button class="settings-nav-item" data-section="apikeys">API Keys</button>
       <button class="settings-nav-item" data-section="transcription">Transcription</button>
@@ -2157,6 +2159,35 @@ input:checked + .slider:before {
       </div>
     </section>
 
+    <!-- Agent Identity Section -->
+    <section class="settings-section" id="section-agent">
+      <h2>Agent Identity</h2>
+      <p class="settings-section-desc">Your assistant's name and identity.</p>
+
+      <div class="settings-field">
+        <label for="field-agent-name">Agent Name</label>
+        <input type="text" id="field-agent-name" placeholder="sol">
+        <small>The name your assistant uses to identify itself</small>
+      </div>
+
+      <div class="settings-field">
+        <label>Status</label>
+        <span id="agent-name-status" class="field-display">default</span>
+        <small>How the name was set: default, chosen, self-named, or deferred</small>
+      </div>
+
+      <div class="settings-field">
+        <label>Named Date</label>
+        <span id="agent-named-date" class="field-display">—</span>
+        <small>When the name was last changed</small>
+      </div>
+
+      <div class="settings-field">
+        <button class="setup-btn" id="resetAgentName" style="background: var(--text-muted); font-size: 0.85em; padding: 0.4em 1em;">Reset to Default</button>
+        <small>Reset the agent name back to "sol"</small>
+      </div>
+    </section>
+
     <!-- Facet Appearance Section -->
     <section class="settings-section" id="section-facet-appearance" data-requires-facet>
       <div class="facet-header">
@@ -2314,7 +2345,7 @@ let logNextCursor = null;
 let insightsData = null;
 
 // ========== NAVIGATION ==========
-const VALID_SECTIONS = ['profile', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'sync', 'facet-appearance', 'facet-activities', 'facet-activity'];
+const VALID_SECTIONS = ['profile', 'agent', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'sync', 'facet-appearance', 'facet-activities', 'facet-activity'];
 
 function switchSection(sectionId, updateHash = true) {
   // Validate section exists
@@ -2500,6 +2531,14 @@ function populateFields(config) {
   document.getElementById('field-support-proactive').checked = support.proactive !== false;
   document.getElementById('field-support-anonymous').checked = support.anonymous_feedback || false;
   setValue('field-support-portal-url', support.portal_url || 'https://support.solpbc.org');
+
+  // Agent identity
+  const agent = config.agent || {};
+  setValue('field-agent-name', agent.name || 'sol');
+  const statusEl = document.getElementById('agent-name-status');
+  if (statusEl) statusEl.textContent = agent.name_status || 'default';
+  const dateEl = document.getElementById('agent-named-date');
+  if (dateEl) dateEl.textContent = agent.named_date || '—';
 
   // Env (API keys) - show status indicators
   // env = journal config status, system_env = shell/.env status
@@ -4527,6 +4566,74 @@ document.getElementById('saveCustomActivityBtn').addEventListener('click', async
     notifyError('Add Failed', err.message);
   }
 });
+
+// Agent name reset
+const agentNameInput = document.getElementById('field-agent-name');
+if (agentNameInput) {
+  agentNameInput.addEventListener('change', async (e) => {
+    const newName = e.target.value.trim() || 'sol';
+    const today = new Date().toISOString().slice(0, 10);
+
+    try {
+      const response = await fetch('api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          section: 'agent',
+          data: {
+            name: newName,
+            name_status: 'chosen',
+            named_date: today,
+          },
+        }),
+      });
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Could not save agent name');
+      }
+
+      configData = result.config;
+      setValue('field-agent-name', newName);
+      showFieldStatus(agentNameInput, 'saved');
+      const statusEl = document.getElementById('agent-name-status');
+      if (statusEl) statusEl.textContent = 'chosen';
+      const dateEl = document.getElementById('agent-named-date');
+      if (dateEl) dateEl.textContent = today;
+    } catch (err) {
+      showFieldStatus(agentNameInput, 'error', err.message);
+    }
+  });
+}
+
+const resetAgentBtn = document.getElementById('resetAgentName');
+if (resetAgentBtn) {
+  resetAgentBtn.addEventListener('click', async () => {
+    try {
+      const response = await fetch('api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          section: 'agent',
+          data: { name: 'sol', name_status: 'default', named_date: null },
+        }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        configData = result.config;
+        setValue('field-agent-name', 'sol');
+        const statusEl = document.getElementById('agent-name-status');
+        if (statusEl) statusEl.textContent = 'default';
+        const dateEl = document.getElementById('agent-named-date');
+        if (dateEl) dateEl.textContent = '—';
+        notifySuccess('Reset', 'Agent name reset to sol');
+      } else {
+        notifyError('Reset Failed', result.error || 'Could not reset agent name');
+      }
+    } catch (err) {
+      notifyError('Reset Failed', err.message);
+    }
+  });
+}
 
 // Close modal on outside click
 window.addEventListener('click', (e) => {

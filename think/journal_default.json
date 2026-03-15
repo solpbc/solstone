@@ -25,5 +25,11 @@
       "completely omit and ignore any NSFW or adult content, do not mention or note it",
       "use *** instead of any visible credit card numbers, bank account numbers, and government ID numbers"
     ]
+  },
+  "agent": {
+    "name": "sol",
+    "name_status": "default",
+    "named_date": null,
+    "proposal_count": 0
   }
 }

@@ -86,10 +86,21 @@ When onboarding is complete, check import state with `sol call awareness imports
   2. No imports done (`has_imported: false`)
   3. Import offer not recently declined (no `offer_declined` or >3 days ago)
   4. No recent nudge (`last_nudge` is null)
-  5. The user's message touches on their journal, data, or what solstone can do
+  5. The user's message touches on their journal, data, or what $agent_name can do
 
   After mentioning imports, run `sol call awareness imports --nudge` to record it. Do **not** repeat this nudge.
 
 - **Available sources**: Calendar (ics), ChatGPT (chatgpt), Claude (claude), Gemini (gemini), Notes (obsidian), Kindle (kindle)
 
 - If the user wants to import, read the guide from `apps/import/guides/{source}.md`, present it, then redirect: `sol call chat redirect "Import my {source}" --app import --path "/app/import#guide/{source}"`
+
+## Naming Awareness
+
+When onboarding is complete and the user has been using the system for a few days, check naming status:
+
+1. Run `sol call agent name` to check status.
+2. If `name_status` is `"deferred"` and the journal has 3+ days of content (check `sol call awareness status`), redirect to the naming agent:
+   `sol call chat redirect "Suggest a name for my assistant" --muse naming`
+   After redirecting, respond: "I have a name idea for you — opening in Chat..."
+3. Only do this once per session. If you've already checked or redirected, don't repeat.
+4. If `name_status` is `"chosen"`, `"self-named"`, or `"default"`, do nothing.

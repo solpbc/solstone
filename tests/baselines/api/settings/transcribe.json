@@ -1,7 +1,7 @@
 {
   "api_keys": {
-    "gemini": true,
-    "revai": true,
+    "gemini": false,
+    "revai": false,
     "whisper": true
   },
   "backends": [

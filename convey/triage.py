@@ -36,9 +36,12 @@ def triage() -> Any:
 
     from think.awareness import get_onboarding
     from think.facets import get_enabled_facets
+    from think.utils import get_config
 
     onboarding = get_onboarding()
     onboarding_status = onboarding.get("status", "")
+    _agent_cfg = get_config().get("agent", {})
+    agent_display_name = _agent_cfg.get("name", "sol").capitalize()
 
     if onboarding_status in ("observing", "ready"):
         # Path A active — use triage with observation context
@@ -66,7 +69,7 @@ def triage() -> Any:
         obs_count = onboarding.get("observation_count", 0)
         context_lines.append(
             f"Onboarding: Path A observation in progress ({obs_count} observations so far). "
-            "The user chose to let Solstone observe and learn. Capture is running. "
+            f"The user chose to let {agent_display_name} observe and learn. Capture is running. "
             "If they ask what you've noticed or how it's going, check the awareness log "
             "with `sol call awareness status onboarding` and summarize progress."
         )

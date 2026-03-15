@@ -103,6 +103,7 @@ def update_config() -> Any:
             "transcribe": ["backend", "enrich", "preserve_all", "noise_upgrade"],
             "convey": ["password"],
             "support": ["enabled", "proactive", "anonymous_feedback", "portal_url"],
+            "agent": ["name", "name_status", "named_date", "proposal_count"],
             "env": API_KEY_ENV_VARS,
         }
 

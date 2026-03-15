@@ -1,8 +1,8 @@
 {
   "api_keys": {
-    "anthropic": true,
-    "google": true,
-    "openai": true
+    "anthropic": false,
+    "google": false,
+    "openai": false
   },
   "auth": {
     "anthropic": "platform",
@@ -60,6 +60,13 @@
       "group": "Entities",
       "label": "Entity Observer",
       "schedule": "daily",
+      "tier": 2,
+      "type": "cogitate"
+    },
+    "muse.support.support": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Support",
       "tier": 2,
       "type": "cogitate"
     },
@@ -176,6 +183,14 @@
       "tier": 2,
       "type": "generate"
     },
+    "muse.system.firstday_checkin": {
+      "disabled": false,
+      "group": "Think",
+      "label": "First-Day Check-In",
+      "schedule": "segment",
+      "tier": 3,
+      "type": "generate"
+    },
     "muse.system.flow": {
       "disabled": false,
       "extract": true,
@@ -244,6 +259,13 @@
       "schedule": "activity",
       "tier": 2,
       "type": "generate"
+    },
+    "muse.system.naming": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Naming",
+      "tier": 2,
+      "type": "cogitate"
     },
     "muse.system.observation": {
       "disabled": false,

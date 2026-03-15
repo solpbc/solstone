@@ -32,7 +32,13 @@ def mock_journal_with_config(tmp_path):
             "aliases": ["test", "tester"],
             "email_addresses": ["test@example.com"],
             "timezone": "America/Los_Angeles",
-        }
+        },
+        "agent": {
+            "name": "sol",
+            "name_status": "default",
+            "named_date": None,
+            "proposal_count": 0,
+        },
     }
 
     with open(config_dir / "journal.json", "w") as f:

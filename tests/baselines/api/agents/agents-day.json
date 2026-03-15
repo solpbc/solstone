@@ -209,6 +209,17 @@
       "title": "File Interactions",
       "type": "generate"
     },
+    "firstday_checkin": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "One-shot check-in after onboarding — spawns support agent chat",
+      "multi_facet": false,
+      "output_format": "text",
+      "schedule": "segment",
+      "source": "system",
+      "title": "First-Day Check-In",
+      "type": "generate"
+    },
     "flow": {
       "app": null,
       "color": "#17a2b8",
@@ -296,6 +307,17 @@
       "source": "system",
       "title": "Messaging Summary",
       "type": "generate"
+    },
+    "naming": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Proposes a personalized name for the user's journal assistant",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Naming",
+      "type": "cogitate"
     },
     "observation": {
       "app": null,
@@ -395,6 +417,17 @@
       "source": "system",
       "title": "Meeting Speakers",
       "type": "generate"
+    },
+    "support:support": {
+      "app": "support",
+      "color": "#0288d1",
+      "description": "Files and monitors support requests with sol pbc — consent-gated, never sends data without explicit user approval",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "app",
+      "title": "Support",
+      "type": "cogitate"
     },
     "timeline": {
       "app": null,
