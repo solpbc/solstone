@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from flask import Flask, request, url_for
 
 from apps import AppRegistry
@@ -68,6 +70,139 @@ def _get_selected_facet() -> str | None:
     return cookie_facet if cookie_facet is not None else config_facet
 
 
+@dataclass
+class AttentionItem:
+    """A system attention item for the chat bar and triage context."""
+
+    placeholder_text: str
+    context_lines: list[str]
+
+
+def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
+    """Check attention sources P0-P3, return highest priority or None."""
+    # P0: Cortex errors
+    try:
+        import json
+        from datetime import datetime
+        from pathlib import Path
+
+        from think.utils import get_journal
+
+        journal = Path(get_journal())
+        today = datetime.now().strftime("%Y%m%d")
+        day_index = journal / "agents" / f"{today}.jsonl"
+        if day_index.exists():
+            errors: dict[str, float] = {}
+            successes: dict[str, float] = {}
+            for line in day_index.read_text().splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    entry = json.loads(line)
+                    name = entry.get("name", "")
+                    ts = entry.get("ts", 0)
+                    if entry.get("status") == "error":
+                        if ts > errors.get(name, 0):
+                            errors[name] = ts
+                    elif entry.get("status") == "completed":
+                        if ts > successes.get(name, 0):
+                            successes[name] = ts
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            unresolved = [
+                name
+                for name, err_ts in errors.items()
+                if successes.get(name, 0) <= err_ts
+            ]
+            if unresolved:
+                count = len(unresolved)
+                names = ", ".join(sorted(unresolved)[:3])
+                suffix = f" (+{count - 3} more)" if count > 3 else ""
+                placeholder = (
+                    f"{count} agent error{'s' if count != 1 else ''} today"
+                    " — ask what happened"
+                )
+                context = [
+                    f"System health: {count} unresolved agent error(s) today: "
+                    f"{names}{suffix}. If user asks what needs attention, "
+                    "summarize which agents failed."
+                ]
+                return AttentionItem(
+                    placeholder_text=placeholder,
+                    context_lines=context,
+                )
+    except Exception:
+        pass
+
+    # P1: Capture stale
+    capture = awareness_current.get("capture", {})
+    if capture.get("status") == "stale":
+        placeholder = "Capture may be offline — ask me to check"
+        context = [
+            "System health: capture appears offline (observer heartbeats stale). "
+            "If user asks what needs attention, mention capture status."
+        ]
+        return AttentionItem(placeholder_text=placeholder, context_lines=context)
+
+    # P2: Recent import completion
+    imports = awareness_current.get("imports", {})
+    last_completed = imports.get("last_completed")
+    last_summary = imports.get("last_result_summary")
+    if last_completed and last_summary:
+        try:
+            from datetime import datetime, timedelta
+
+            completed_dt = datetime.fromisoformat(last_completed)
+            if datetime.now() - completed_dt < timedelta(hours=1):
+                placeholder = f"Import complete: {last_summary} — ask me about it"
+                if len(placeholder) > 90:
+                    placeholder = "New import complete — ask me what arrived"
+                context = [
+                    f"System health: import recently completed — {last_summary}. "
+                    "If user asks what needs attention, mention the new import."
+                ]
+                return AttentionItem(
+                    placeholder_text=placeholder,
+                    context_lines=context,
+                )
+        except Exception:
+            pass
+
+    # P3: Daily analysis highlights
+    journal_state = awareness_current.get("journal", {})
+    if journal_state.get("first_daily_ready"):
+        try:
+            from datetime import datetime
+            from pathlib import Path
+
+            from think.utils import get_journal
+
+            journal = Path(get_journal())
+            today = datetime.now().strftime("%Y%m%d")
+            agents_dir = journal / today / "agents"
+            if agents_dir.is_dir():
+                outputs = sorted(p.stem for p in agents_dir.glob("*.md"))
+                if outputs:
+                    count = len(outputs)
+                    placeholder = (
+                        f"{count} analysis report{'s' if count != 1 else ''} ready"
+                        " — ask about your day"
+                    )
+                    context = [
+                        f"System health: {count} daily analysis report(s) "
+                        f"available today: {', '.join(outputs)}. User can ask "
+                        "about any of these topics."
+                    ]
+                    return AttentionItem(
+                        placeholder_text=placeholder,
+                        context_lines=context,
+                    )
+        except Exception:
+            pass
+
+    return None
+
+
 def _resolve_placeholder(
     onboarding_status: str, awareness_current: dict, day_count: int
 ) -> str:
@@ -79,6 +214,9 @@ def _resolve_placeholder(
     if onboarding_status == "interviewing":
         return "Tell me about your work..."
     if onboarding_status in ("complete", "skipped"):
+        attention = _resolve_attention(awareness_current)
+        if attention:
+            return attention.placeholder_text
         imports = awareness_current.get("imports", {})
         if not imports.get("has_imported") and day_count < 3:
             return (

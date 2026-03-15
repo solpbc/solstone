@@ -1099,7 +1099,11 @@ def main() -> None:
         try:
             from think.awareness import record_import
 
-            record_import(processing_results.get("source_type", "generic"))
+            record_import(
+                processing_results.get("source_type", "generic"),
+                source_display=processing_results.get("source_display"),
+                entries_written=processing_results.get("entries_written", 0),
+            )
         except Exception as e:
             logger.warning(f"Failed to update import awareness: {e}")
 

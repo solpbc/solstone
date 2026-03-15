@@ -140,6 +140,17 @@ def triage() -> Any:
         except Exception:
             pass  # Don't let context enrichment break triage
 
+        # Add system health context when attention items exist
+        try:
+            from convey.apps import _resolve_attention
+            from think.awareness import get_current
+
+            attention = _resolve_attention(get_current())
+            if attention:
+                context_lines.extend(attention.context_lines)
+        except Exception:
+            pass  # Don't let health context break triage
+
     if context_lines:
         full_prompt = "\n".join(context_lines) + "\n\n" + message
     else:

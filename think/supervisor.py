@@ -1041,6 +1041,30 @@ async def handle_health_checks(
         stale_key = ("stale", tuple(sorted(prev_stale)))
         await alert_mgr.clear(stale_key)
 
+    # Write capture status to awareness on transitions
+    if stale_set != prev_stale:
+        try:
+            from think.awareness import update_state
+
+            if stale_set:
+                update_state(
+                    "capture",
+                    {
+                        "status": "stale",
+                        "last_seen": _observe_status_state.get("last_ts", 0),
+                    },
+                )
+            elif prev_stale:
+                update_state(
+                    "capture",
+                    {
+                        "status": "ok",
+                        "last_seen": _observe_status_state.get("last_ts", 0),
+                    },
+                )
+        except Exception:
+            logging.debug("Failed to write capture status to awareness", exc_info=True)
+
     if stale_set:
         msg = f"Journaling offline: {', '.join(sorted(stale_set))}"
         logging.warning(msg)

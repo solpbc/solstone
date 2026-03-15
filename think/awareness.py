@@ -269,13 +269,21 @@ def get_imports() -> dict[str, Any]:
     )
 
 
-def record_import(source_type: str) -> dict[str, Any]:
+def record_import(
+    source_type: str,
+    source_display: str | None = None,
+    entries_written: int = 0,
+) -> dict[str, Any]:
     """Record a completed import.
 
     Parameters
     ----------
     source_type : str
         Import source type (e.g., "chatgpt", "ics", "claude")
+    source_display : str, optional
+        Human-readable source display name
+    entries_written : int
+        Number of entries imported
 
     Returns
     -------
@@ -287,14 +295,18 @@ def record_import(source_type: str) -> dict[str, Any]:
     sources = imports.get("sources_used", [])
     if source_type not in sources:
         sources.append(source_type)
-    state = update_state(
-        "imports",
-        {
-            "has_imported": True,
-            "import_count": imports.get("import_count", 0) + 1,
-            "sources_used": sources,
-        },
-    )
+    update_data: dict[str, Any] = {
+        "has_imported": True,
+        "import_count": imports.get("import_count", 0) + 1,
+        "sources_used": sources,
+    }
+    if source_display is not None:
+        summary = (
+            f"{entries_written} {source_display}" if entries_written else source_display
+        )
+        update_data["last_completed"] = _now_iso()
+        update_data["last_result_summary"] = summary
+    state = update_state("imports", update_data)
     append_log("state", key="imports.completed", data={"source_type": source_type})
     return state
 
