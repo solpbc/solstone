@@ -162,12 +162,12 @@ def _extract_entities(text: str, *, facet: str, day: str) -> None:
             # Word boundary match for entity name
             if re.search(r"\b" + re.escape(name.lower()) + r"\b", text_lower):
                 try:
-                    from think.entities.saving import detect_entity
+                    from think.entities.saving import save_detected_entity
 
-                    detect_entity(
+                    save_detected_entity(
                         facet=facet,
                         day=day,
-                        type=entity.get("type", "Person"),
+                        entity_type=entity.get("type", "Person"),
                         name=name,
                         description="Mentioned in conversation",
                     )

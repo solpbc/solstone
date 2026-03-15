@@ -87,10 +87,10 @@ def test_triage_new_user_gets_onboarding():
     assert mock.call_args.kwargs["name"] == "onboarding"
 
 
-def test_triage_established_user_gets_triage():
-    """Has facets → triage agent."""
+def test_triage_established_user_gets_unified():
+    """Has facets → unified agent (single muse, no two-mode split)."""
     mock = _run_triage(facets={"work": {}})
-    assert mock.call_args.kwargs["name"] == "triage"
+    assert mock.call_args.kwargs["name"] == "unified"
 
 
 def test_triage_path_a_observing_gets_triage():
@@ -105,16 +105,16 @@ def test_triage_path_a_ready_gets_triage():
     assert mock.call_args.kwargs["name"] == "triage"
 
 
-def test_triage_skipped_gets_triage():
-    """Onboarding skipped, no facets → triage (not onboarding again)."""
+def test_triage_skipped_gets_unified():
+    """Onboarding skipped, no facets → unified (single muse, no two-mode split)."""
     mock = _run_triage(facets={}, onboarding={"status": "skipped"})
-    assert mock.call_args.kwargs["name"] == "triage"
+    assert mock.call_args.kwargs["name"] == "unified"
 
 
-def test_triage_complete_gets_triage():
-    """Onboarding complete, no facets → triage."""
+def test_triage_complete_gets_unified():
+    """Onboarding complete, no facets → unified (single muse, no two-mode split)."""
     mock = _run_triage(facets={}, onboarding={"status": "complete"})
-    assert mock.call_args.kwargs["name"] == "triage"
+    assert mock.call_args.kwargs["name"] == "unified"
 
 
 # --- Chat CLI routing ---

@@ -70,7 +70,7 @@ def triage() -> Any:
         # Conversation context present — use unified muse
         agent_name = "unified"
     else:
-        agent_name = "triage"
+        agent_name = "unified"
 
     # Build prompt with location context
     context_lines = []
