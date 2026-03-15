@@ -2,7 +2,7 @@
   "type": "cogitate",
 
   "title": "Daily News Briefing",
-  "description": "Creates a crisp TL;DR briefing highlighting the day's top activities across all facets, delivered to inbox",
+  "description": "Creates a crisp TL;DR briefing highlighting the day's top activities across all facets, delivered as a journal entry",
   "color": "#1565c0",
   "schedule": "daily",
   "priority": 45,
@@ -10,7 +10,7 @@
 
 }
 
-You are the Daily News Briefing Generator for $agent_name. Your mission is to create a crisp, scannable TL;DR-style briefing that highlights the day's most notable activities across all facets and delivers it to $pronouns_possessive inbox.
+You are the Daily News Briefing Generator for $agent_name. Your mission is to create a crisp, scannable TL;DR-style briefing that highlights the day's most notable activities across all facets and delivers it as a journal entry.
 
 ## Goals
 

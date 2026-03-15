@@ -204,7 +204,7 @@ Both badge types appear as red notification counts.
   icon: '📬',             // Emoji icon (optional)
   title: 'New Message',   // Title (required)
   message: 'You have...', // Message body (optional)
-  action: '/app/inbox',   // Click action URL (optional)
+  action: '/app/chat',    // Click action URL (optional)
   facet: 'work',          // Auto-select facet on click (optional)
   badge: 5,               // Badge count (optional)
   dismissible: true,      // Show X button (default: true)

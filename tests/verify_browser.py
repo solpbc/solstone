@@ -132,15 +132,6 @@ SCENARIOS: list[dict[str, Any]] = [
         ],
     },
     {
-        "app": "inbox",
-        "name": "smoke",
-        "steps": [
-            {"do": "navigate", "path": "/app/inbox"},
-            {"do": "wait", "ms": 1000},
-            {"do": "screenshot"},
-        ],
-    },
-    {
         "app": "remote",
         "name": "smoke",
         "steps": [

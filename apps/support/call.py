@@ -248,9 +248,7 @@ def show(
                         size_str = f"{size / 1024:.0f} KB"
                     else:
                         size_str = f"{size} bytes"
-                    typer.echo(
-                        f"  📎 {att.get('filename', '?')} ({size_str})"
-                    )
+                    typer.echo(f"  📎 {att.get('filename', '?')} ({size_str})")
 
 
 @app.command("reply")
