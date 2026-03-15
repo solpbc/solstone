@@ -1,0 +1,54 @@
+<!-- Support background service: polls for ticket updates, manages badges -->
+<script>
+(function() {
+  const POLL_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  let pollTimer = null;
+
+  AppServices.register('support', {
+    start() {
+      updateBadge();
+      pollTimer = setInterval(updateBadge, POLL_INTERVAL);
+
+      // Listen for proactive suggestions from callosum
+      if (window.appEvents) {
+        window.appEvents.listen('support', function(msg) {
+          if (msg.event === 'proactive_suggestion') {
+            AppServices.notifications.show({
+              app: 'support',
+              icon: '🛟',
+              title: 'Support suggestion',
+              message: msg.message || 'Something may need attention.',
+              action: '/app/support',
+              dismissible: true,
+              autoDismiss: 30000
+            });
+          }
+        });
+      }
+    },
+
+    stop() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+  });
+
+  async function updateBadge() {
+    try {
+      const resp = await fetch('/app/support/api/badge-count');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const count = data.count || 0;
+      if (count > 0) {
+        AppServices.badges.app.set('support', count);
+      } else {
+        AppServices.badges.app.clear('support');
+      }
+    } catch (e) {
+      // Silently ignore — support may be disabled or portal unreachable
+    }
+  }
+})();
+</script>

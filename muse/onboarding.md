@@ -110,3 +110,9 @@ Example onboarding flow:
 6. Offer imports (see Import Offer above).
 7. Run `sol call awareness onboarding --complete`.
 8. Summarize what was created — name the specific facets and entities you just set up. Then suggest a concrete first thing to try: pick one of the entities you just attached and say something like "Try asking me 'tell me about [entity name]' to see how I can help." Keep it warm and grounded in what was just created together.
+
+### Support Agent Introduction
+
+After completing onboarding (step 8), introduce the support agent:
+
+> One more thing — if you ever need help, run into an issue, or want to share feedback, just tell me in the chat bar. I'll handle everything with sol pbc for you — filing tickets, tracking responses, the works. You can also open the Support app anytime. Nothing ever gets sent without your review first.

@@ -1,0 +1,448 @@
+<style>
+  .support-nav {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border, #e0e0e0);
+    padding-bottom: 0.5rem;
+  }
+  .support-nav button {
+    background: none;
+    border: none;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--muted, #888);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .support-nav button.active {
+    color: var(--text, #222);
+    border-bottom-color: var(--facet-color, #3b82f6);
+    font-weight: 600;
+  }
+  .support-section { display: none; }
+  .support-section.active { display: block; }
+
+  /* Tickets */
+  .support-ticket {
+    border: 1px solid var(--border, #e0e0e0);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .support-ticket:hover { background: var(--card-bg, #fafafa); }
+  .support-ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+  }
+  .support-ticket-id { font-size: 0.8rem; color: var(--muted, #888); }
+  .support-ticket-subject { font-weight: 600; }
+  .support-ticket-meta { font-size: 0.8rem; color: var(--muted, #888); margin-top: 0.25rem; }
+  .support-status {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .support-status-open { background: #e3f2fd; color: #1565c0; }
+  .support-status-in-progress { background: #fff3e0; color: #e65100; }
+  .support-status-waiting { background: #f3e5f5; color: #7b1fa2; }
+  .support-status-resolved { background: #e8f5e9; color: #2e7d32; }
+
+  /* Ticket detail */
+  .support-detail { display: none; }
+  .support-detail.active { display: block; }
+  .support-detail-back {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--muted, #888);
+    padding: 0;
+    margin-bottom: 1rem;
+  }
+  .support-detail-back:hover { color: var(--text, #222); }
+  .support-message {
+    border-left: 3px solid var(--border, #e0e0e0);
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .support-message-meta { font-size: 0.8rem; color: var(--muted, #888); margin-bottom: 0.25rem; }
+  .support-reply-form { margin-top: 1rem; }
+  .support-reply-form textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 0.75rem;
+    border: 1px solid var(--border, #e0e0e0);
+    border-radius: 6px;
+    font: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  .support-reply-form textarea:focus {
+    outline: none;
+    border-color: var(--facet-color, #3b82f6);
+  }
+
+  /* Feedback */
+  .support-feedback-form textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 0.75rem;
+    border: 1px solid var(--border, #e0e0e0);
+    border-radius: 6px;
+    font: inherit;
+    resize: vertical;
+    margin-bottom: 0.5rem;
+    box-sizing: border-box;
+  }
+  .support-feedback-form textarea:focus {
+    outline: none;
+    border-color: var(--facet-color, #3b82f6);
+  }
+  .support-feedback-options {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  /* Help */
+  .support-help-card {
+    border: 1px solid var(--border, #e0e0e0);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .support-help-card h3 { margin: 0 0 0.5rem 0; font-size: 1rem; }
+  .support-help-card p { margin: 0; font-size: 0.9rem; color: var(--muted, #888); }
+
+  /* Buttons */
+  .support-btn {
+    background: var(--facet-color, #3b82f6);
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1.25rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .support-btn:hover { opacity: 0.9; }
+  .support-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .support-btn-secondary {
+    background: transparent;
+    color: var(--text, #222);
+    border: 1px solid var(--border, #e0e0e0);
+  }
+
+  .support-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--muted, #888);
+  }
+  .support-disabled {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--muted, #888);
+  }
+
+  .support-status-msg {
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    min-height: 1.2em;
+  }
+  .support-status-msg.success { color: #2e7d32; }
+  .support-status-msg.error { color: #c62828; }
+
+  /* Announcements banner */
+  .support-announcements {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+  }
+  .support-announcements h4 { margin: 0 0 0.25rem 0; font-size: 0.9rem; }
+</style>
+
+<div class="workspace-content" id="support-root">
+  <div id="support-disabled" class="support-disabled" style="display:none;">
+    <p>Support agent is disabled. Enable it in Settings to file tickets and give feedback.</p>
+    <p style="font-size:0.85rem;">Local help and diagnostics are still available via <code>sol call support diagnose</code>.</p>
+  </div>
+
+  <div id="support-main">
+    <!-- Announcements banner (hidden if none) -->
+    <div id="support-announcements-banner" class="support-announcements" style="display:none;"></div>
+
+    <!-- Navigation tabs -->
+    <nav class="support-nav">
+      <button class="active" data-section="tickets">Active Tickets</button>
+      <button data-section="feedback">Feedback</button>
+      <button data-section="help">Help &amp; Guidance</button>
+    </nav>
+
+    <!-- Section: Active Tickets -->
+    <div id="section-tickets" class="support-section active">
+      <div id="tickets-list"></div>
+      <div id="ticket-detail" class="support-detail"></div>
+    </div>
+
+    <!-- Section: Feedback -->
+    <div id="section-feedback" class="support-section">
+      <p style="margin-bottom:1rem;">Share your impressions, ideas, or anything on your mind. Your feedback shapes the product.</p>
+      <div class="support-feedback-form">
+        <textarea id="feedback-text" placeholder="What's on your mind?"></textarea>
+        <div class="support-feedback-options">
+          <label><input type="checkbox" id="feedback-anonymous"> Submit anonymously</label>
+        </div>
+        <button class="support-btn" id="feedback-submit">Send Feedback</button>
+        <div id="feedback-status" class="support-status-msg"></div>
+      </div>
+    </div>
+
+    <!-- Section: Help & Guidance -->
+    <div id="section-help" class="support-section">
+      <div class="support-help-card">
+        <h3>🛟 Getting Help</h3>
+        <p>Just say "I need help" or "something's not working" in the chat bar. Your sol will handle everything — searching for answers, running diagnostics, and filing a ticket if needed.</p>
+      </div>
+      <div class="support-help-card">
+        <h3>🔍 Search the Knowledge Base</h3>
+        <p>Run <code>sol call support search "your question"</code> to find answers in our knowledge base before filing a ticket.</p>
+      </div>
+      <div class="support-help-card">
+        <h3>🩺 Run Diagnostics</h3>
+        <p>Run <code>sol call support diagnose</code> to check your system health locally — no data is sent anywhere.</p>
+      </div>
+      <div class="support-help-card">
+        <h3>📢 Announcements</h3>
+        <p>Run <code>sol call support announcements</code> to check for product updates and known issues.</p>
+      </div>
+      <div class="support-help-card">
+        <h3>🔒 Privacy</h3>
+        <p>Nothing leaves your device without your explicit approval. You review every ticket before it's sent and can edit or redact anything. Journal content is never included unless you attach it yourself.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // Tab navigation
+  document.querySelectorAll('.support-nav button').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.support-nav button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.support-section').forEach(s => s.classList.remove('active'));
+      this.classList.add('active');
+      document.getElementById('section-' + this.dataset.section).classList.add('active');
+      // Reset ticket detail when switching to tickets
+      if (this.dataset.section === 'tickets') {
+        document.getElementById('ticket-detail').classList.remove('active');
+        document.getElementById('tickets-list').style.display = '';
+      }
+    });
+  });
+
+  // Load tickets
+  async function loadTickets() {
+    const list = document.getElementById('tickets-list');
+    try {
+      const resp = await fetch('/app/support/api/tickets');
+      if (!resp.ok) {
+        if (resp.status === 403) {
+          document.getElementById('support-main').style.display = 'none';
+          document.getElementById('support-disabled').style.display = '';
+          return;
+        }
+        throw new Error('Failed to load tickets');
+      }
+      const tickets = await resp.json();
+
+      if (!tickets.length) {
+        list.innerHTML = '<div class="support-empty"><p>No tickets yet.</p><p style="font-size:0.85rem;">File one by saying "I need help" in the chat bar, or use <code>sol call support create</code>.</p></div>';
+        return;
+      }
+
+      list.innerHTML = tickets.map(t => {
+        const statusClass = 'support-status-' + (t.status || 'open').replace(/[^a-z-]/g, '');
+        return `<div class="support-ticket" data-id="${t.id}">
+          <div class="support-ticket-header">
+            <span class="support-ticket-subject">${esc(t.subject || 'Untitled')}</span>
+            <span class="support-status ${statusClass}">${esc(t.status || 'open')}</span>
+          </div>
+          <div class="support-ticket-meta">
+            <span class="support-ticket-id">#${t.id}</span> &middot;
+            ${esc(t.product || '')} &middot;
+            ${timeAgo(t.created_at)}
+          </div>
+        </div>`;
+      }).join('');
+
+      // Click to open detail
+      list.querySelectorAll('.support-ticket').forEach(el => {
+        el.addEventListener('click', () => openTicket(parseInt(el.dataset.id)));
+      });
+    } catch (e) {
+      list.innerHTML = '<div class="support-empty"><p>Unable to load tickets.</p></div>';
+    }
+  }
+
+  // Open ticket detail
+  async function openTicket(id) {
+    const detail = document.getElementById('ticket-detail');
+    const list = document.getElementById('tickets-list');
+    list.style.display = 'none';
+    detail.classList.add('active');
+    detail.innerHTML = '<p>Loading...</p>';
+
+    try {
+      const resp = await fetch('/app/support/api/tickets/' + id);
+      const t = await resp.json();
+      const statusClass = 'support-status-' + (t.status || 'open').replace(/[^a-z-]/g, '');
+
+      let html = `
+        <button class="support-detail-back" id="back-to-list">&larr; Back to tickets</button>
+        <h2>${esc(t.subject || 'Untitled')} <span class="support-status ${statusClass}">${esc(t.status || 'open')}</span></h2>
+        <div class="support-ticket-meta">#${t.id} &middot; ${esc(t.product || '')} &middot; ${esc(t.severity || '')} &middot; ${timeAgo(t.created_at)}</div>
+        <div class="support-message" style="margin-top:1rem;">
+          <p>${esc(t.description || '')}</p>
+        </div>`;
+
+      const msgs = t.messages || [];
+      if (msgs.length) {
+        html += '<h3 style="margin-top:1.5rem;">Thread</h3>';
+        msgs.forEach(m => {
+          html += `<div class="support-message">
+            <div class="support-message-meta">${esc(m.handle || 'unknown')} &middot; ${timeAgo(m.created_at)}</div>
+            <p>${esc(m.content || '')}</p>
+          </div>`;
+        });
+      }
+
+      if (t.status !== 'resolved') {
+        html += `<div class="support-reply-form">
+          <textarea id="reply-text" placeholder="Write a reply..."></textarea>
+          <button class="support-btn" id="reply-submit" style="margin-top:0.5rem;">Send Reply</button>
+          <div id="reply-status" class="support-status-msg"></div>
+        </div>`;
+      }
+
+      detail.innerHTML = html;
+
+      document.getElementById('back-to-list').addEventListener('click', () => {
+        detail.classList.remove('active');
+        detail.innerHTML = '';
+        list.style.display = '';
+      });
+
+      const replyBtn = document.getElementById('reply-submit');
+      if (replyBtn) {
+        replyBtn.addEventListener('click', async () => {
+          const text = document.getElementById('reply-text').value.trim();
+          if (!text) return;
+          replyBtn.disabled = true;
+          const status = document.getElementById('reply-status');
+          try {
+            const r = await fetch('/app/support/api/tickets/' + id + '/reply', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({content: text})
+            });
+            if (r.ok) {
+              status.textContent = 'Reply sent.';
+              status.className = 'support-status-msg success';
+              document.getElementById('reply-text').value = '';
+              // Refresh to show new message
+              setTimeout(() => openTicket(id), 500);
+            } else {
+              throw new Error('Failed');
+            }
+          } catch (e) {
+            status.textContent = 'Failed to send reply.';
+            status.className = 'support-status-msg error';
+          }
+          replyBtn.disabled = false;
+        });
+      }
+    } catch (e) {
+      detail.innerHTML = '<p>Failed to load ticket.</p>';
+    }
+  }
+
+  // Feedback submission
+  document.getElementById('feedback-submit').addEventListener('click', async function() {
+    const text = document.getElementById('feedback-text').value.trim();
+    if (!text) return;
+    const anon = document.getElementById('feedback-anonymous').checked;
+    const status = document.getElementById('feedback-status');
+    this.disabled = true;
+
+    try {
+      const resp = await fetch('/app/support/api/feedback', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({body: text, anonymous: anon})
+      });
+      if (resp.ok) {
+        status.textContent = 'Thanks for your feedback!';
+        status.className = 'support-status-msg success';
+        document.getElementById('feedback-text').value = '';
+      } else {
+        throw new Error('Failed');
+      }
+    } catch (e) {
+      status.textContent = 'Failed to submit feedback.';
+      status.className = 'support-status-msg error';
+    }
+    this.disabled = false;
+  });
+
+  // Load announcements
+  async function loadAnnouncements() {
+    try {
+      const resp = await fetch('/app/support/api/announcements');
+      if (!resp.ok) return;
+      const items = await resp.json();
+      if (!items.length) return;
+      const banner = document.getElementById('support-announcements-banner');
+      banner.style.display = '';
+      const icons = {'known-issue': '⚠️', 'maintenance': '🔧', 'info': '📢'};
+      banner.innerHTML = items.map(a =>
+        `<div><h4>${icons[a.type] || '📢'} ${esc(a.title || '')}</h4><p style="margin:0;font-size:0.85rem;">${esc((a.content || '').slice(0, 200))}</p></div>`
+      ).join('');
+    } catch (e) { /* ignore */ }
+  }
+
+  // Helpers
+  function esc(s) {
+    const el = document.createElement('span');
+    el.textContent = s;
+    return el.innerHTML;
+  }
+
+  function timeAgo(dateStr) {
+    if (!dateStr) return '';
+    const now = Date.now();
+    const then = new Date(dateStr + (dateStr.includes('Z') ? '' : 'Z')).getTime();
+    const s = Math.floor((now - then) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    return Math.floor(s / 86400) + 'd ago';
+  }
+
+  // Init
+  loadTickets();
+  loadAnnouncements();
+})();
+</script>
