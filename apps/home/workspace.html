@@ -442,16 +442,16 @@
 
     const options = {
       physics: {
-        solver: 'barnesHut',
-        barnesHut: {
-          gravitationalConstant: -30000,
-          centralGravity: 0.05,
-          springLength: 250,
-          springConstant: 0.01,
-          damping: 0.09,
-          avoidOverlap: 0.5,
+        solver: 'forceAtlas2Based',
+        forceAtlas2Based: {
+          gravitationalConstant: -100,
+          centralGravity: 0.005,
+          springLength: 200,
+          springConstant: 0.02,
+          damping: 0.4,
+          avoidOverlap: 0.8,
         },
-        stabilization: { iterations: 500 },
+        stabilization: { iterations: 1000 },
       },
       nodes: {
         shape: 'dot',
