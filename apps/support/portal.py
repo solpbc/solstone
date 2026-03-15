@@ -293,6 +293,19 @@ class PortalClient:
     def _http(self) -> httpx.Client:
         return httpx.Client(timeout=30.0)
 
+    @staticmethod
+    def _raise_for_status(resp: httpx.Response) -> None:
+        """Like resp.raise_for_status() but includes the response body."""
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            detail = resp.text[:500] if resp.text else ""
+            raise httpx.HTTPStatusError(
+                f"{exc.request.method} {exc.request.url} — {resp.status_code}: {detail}",
+                request=exc.request,
+                response=exc.response,
+            ) from None
+
     def _authed_headers(self, method: str, url: str) -> dict[str, str]:
         """Return Authorization + DPoP headers for an authenticated request."""
         assert self._access_token is not None
@@ -349,7 +362,7 @@ class PortalClient:
         url = f"{self.portal_url}/tos"
         with self._http() as client:
             resp = client.get(url, headers={"Accept": "text/plain"})
-            resp.raise_for_status()
+            self._raise_for_status(resp)
         tos_text = resp.text
         self._save_tos(tos_text)
         return tos_text
@@ -396,7 +409,7 @@ class PortalClient:
             self._handle = f"{self.handle}-{suffix}"
             return self.register()
 
-        resp.raise_for_status()
+        self._raise_for_status(resp)
         data = resp.json()
 
         self._access_token = data["access_token"]
@@ -437,14 +450,10 @@ class PortalClient:
         if user_email:
             body["user_email"] = user_email
         if user_context:
-            body["user_context"] = (
-                json.dumps(user_context)
-                if isinstance(user_context, dict)
-                else user_context
-            )
+            body["user_context"] = user_context
 
         resp = self._authed_request("POST", "/api/tickets", json_body=body)
-        resp.raise_for_status()
+        self._raise_for_status(resp)
         return resp.json()
 
     def list_tickets(
@@ -465,14 +474,14 @@ class PortalClient:
             params["severity"] = severity
 
         resp = self._authed_request("GET", "/api/tickets", params=params)
-        resp.raise_for_status()
+        self._raise_for_status(resp)
         return resp.json()
 
     def get_ticket(self, ticket_id: int) -> dict[str, Any]:
         """Get a single ticket with message thread."""
         self.ensure_registered()
         resp = self._authed_request("GET", f"/api/tickets/{ticket_id}")
-        resp.raise_for_status()
+        self._raise_for_status(resp)
         return resp.json()
 
     def reply_to_ticket(self, ticket_id: int, content: str) -> dict[str, Any]:
@@ -481,7 +490,7 @@ class PortalClient:
         resp = self._authed_request(
             "POST", f"/api/tickets/{ticket_id}/messages", json_body={"content": content}
         )
-        resp.raise_for_status()
+        self._raise_for_status(resp)
         return resp.json()
 
     # -- Knowledge Base ------------------------------------------------------
@@ -494,14 +503,14 @@ class PortalClient:
             params["q"] = query
 
         resp = self._authed_request("GET", "/api/articles", params=params)
-        resp.raise_for_status()
+        self._raise_for_status(resp)
         return resp.json()
 
     def get_article(self, slug: str) -> dict[str, Any]:
         """Read a single KB article."""
         self.ensure_registered()
         resp = self._authed_request("GET", f"/api/articles/{slug}")
-        resp.raise_for_status()
+        self._raise_for_status(resp)
         return resp.json()
 
     # -- Announcements -------------------------------------------------------
@@ -510,7 +519,7 @@ class PortalClient:
         """List active announcements."""
         self.ensure_registered()
         resp = self._authed_request("GET", "/api/announcements")
-        resp.raise_for_status()
+        self._raise_for_status(resp)
         return resp.json()
 
     # -- Health --------------------------------------------------------------
@@ -519,7 +528,7 @@ class PortalClient:
         """Check portal health (no auth needed)."""
         with self._http() as client:
             resp = client.get(f"{self.portal_url}/api/health")
-            resp.raise_for_status()
+            self._raise_for_status(resp)
         return resp.json()
 
 
