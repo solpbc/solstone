@@ -66,24 +66,8 @@
 <!-- Notification Center -->
 <div class="notification-center" id="notification-center"></div>
 
-<!-- Chat Bar (universal) -->
-<div class="app-bar">
-  <div class="chat-bar-response-panel">
-    <div class="chat-bar-thinking" style="display: none;">
-      <span class="chat-bar-thinking-dot"></span>
-      Thinking…
-    </div>
-    <div class="chat-bar-response" style="display: none;"></div>
-    <button class="chat-bar-dismiss" style="display: none;" title="Dismiss">✕</button>
-    <div class="chat-bar-separator"></div>
-  </div>
-  <div class="chat-bar-input-row">
-    <form id="chatInputForm" style="display: contents;">
-      <textarea id="chatMessageInput" class="chat-bar-input" rows="1" placeholder="{{ chat_bar_placeholder|default('Send a message...') }}"></textarea>
-      <button type="submit" class="chat-bar-send" title="Send" style="display: none;">↑</button>
-    </form>
-  </div>
-</div>
+<!-- Conversation Panel (universal chrome) -->
+{% include "conversation_panel.html" %}
 
 <!-- Main Content -->
 <div class="workspace">
@@ -95,153 +79,269 @@
 
 <script>
 (function() {
-  const chatBarInput = document.getElementById('chatMessageInput');
-  const chatBarForm = document.getElementById('chatInputForm');
-  const chatBarThinking = document.querySelector('.chat-bar-thinking');
-  const chatBarResponse = document.querySelector('.chat-bar-response');
-  const chatBarSend = document.querySelector('.chat-bar-send');
-  const chatBarPanel = document.querySelector('.chat-bar-response-panel');
-  const chatBarDismiss = document.querySelector('.chat-bar-dismiss');
+  // --- Conversation Panel ---
+  // The chat bar expands into a focus-mode conversation panel.
+  // Multi-turn messages displayed in scrollable area, localStorage persistence,
+  // inline-vs-panel decision, backdrop blur with aruco marker exclusion.
+
+  const appBar = document.getElementById('appBar');
+  const backdrop = document.getElementById('conversationBackdrop');
+  const msgArea = document.getElementById('conversationMessages');
+  const responsePanel = document.getElementById('chatBarResponsePanel');
+  const thinking = document.getElementById('chatBarThinking');
+  const inlineResp = document.getElementById('chatBarResponse');
+  const dismissBtn = document.getElementById('chatBarDismiss');
+  const input = document.getElementById('chatMessageInput');
+  const form = document.getElementById('chatInputForm');
+  const sendBtn = document.getElementById('chatBarSend');
   const isChatApp = window.location.pathname.startsWith('/app/chat');
-  const STORAGE_KEY = 'solstone:chatBarState';
+  const STORE_KEY = 'solstone:conversationState';
 
-  function showPanel() {
-    if (chatBarPanel) chatBarPanel.classList.add('chat-bar-panel-open');
+  if (!input || !form || isChatApp) return;
+
+  // Clean up old storage key
+  try { localStorage.removeItem('solstone:chatBarState'); } catch {}
+
+  let panelOpen = false;
+  let messages = [];
+  let savedScrollTop = 0;
+
+  // --- State persistence ---
+  function save() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        messages: messages,
+        scrollTop: msgArea ? msgArea.scrollTop : 0
+      }));
+    } catch {}
   }
-  function hidePanel() {
-    if (chatBarPanel) chatBarPanel.classList.remove('chat-bar-panel-open');
+
+  function load() {
+    try {
+      const s = JSON.parse(localStorage.getItem(STORE_KEY));
+      if (s && Array.isArray(s.messages)) {
+        messages = s.messages;
+        savedScrollTop = s.scrollTop || 0;
+        return s;
+      }
+    } catch {}
+    return null;
   }
 
-  if (!chatBarInput || !chatBarForm) return;
+  function clearConversation() {
+    messages = [];
+    savedScrollTop = 0;
+    try { localStorage.removeItem(STORE_KEY); } catch {}
+    if (msgArea) msgArea.innerHTML = '';
+  }
 
-  // --- Auto-resize textarea ---
-  chatBarInput.addEventListener('input', () => {
-    chatBarInput.style.height = 'auto';
-    chatBarInput.style.height = Math.min(chatBarInput.scrollHeight, 120) + 'px';
-    // Show/hide send button
-    if (chatBarSend) {
-      chatBarSend.style.display = chatBarInput.value.trim() ? '' : 'none';
+  // --- Render messages in panel ---
+  function renderMessages() {
+    if (!msgArea) return;
+    msgArea.innerHTML = '';
+    for (const m of messages) {
+      const d = document.createElement('div');
+      d.className = 'conversation-message ' + m.role;
+      d.textContent = m.content;
+      msgArea.appendChild(d);
+    }
+  }
+
+  // --- Panel open/close ---
+  function openPanel() {
+    if (panelOpen) return;
+    panelOpen = true;
+    appBar.classList.remove('panel-closing');
+    appBar.classList.add('panel-open');
+    backdrop.classList.add('visible');
+    renderMessages();
+    responsePanel.style.display = 'none';
+    input.focus();
+    requestAnimationFrame(() => {
+      if (!msgArea) return;
+      if (savedScrollTop > 0) {
+        msgArea.scrollTop = savedScrollTop;
+        savedScrollTop = 0;
+      } else {
+        msgArea.scrollTop = msgArea.scrollHeight;
+      }
+    });
+  }
+
+  function closePanel() {
+    if (!panelOpen) return;
+    panelOpen = false;
+    save();
+    appBar.classList.add('panel-closing');
+    backdrop.classList.remove('visible');
+
+    function onDone() {
+      appBar.classList.remove('panel-open', 'panel-closing');
+      responsePanel.style.display = '';
+    }
+    appBar.addEventListener('animationend', onDone, { once: true });
+    setTimeout(onDone, 300); // fallback
+  }
+
+  // --- Inline vs panel heuristic ---
+  function isOneLiner(text) {
+    if (!text) return true;
+    return text.length < 120 && !text.includes('\n') &&
+      (text.match(/[.!?]/g) || []).length <= 1;
+  }
+
+  // --- Backdrop click = dismiss ---
+  backdrop.addEventListener('click', closePanel);
+
+  // --- Click bar to expand (not on textarea/buttons) ---
+  appBar.addEventListener('click', function(e) {
+    if (panelOpen) return;
+    if (e.target.closest('textarea, button')) return;
+    openPanel();
+  });
+
+  // --- Textarea auto-resize ---
+  input.addEventListener('input', function() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    sendBtn.style.display = input.value.trim() ? '' : 'none';
+  });
+
+  // --- Focus on load ---
+  setTimeout(function() {
+    if (document.activeElement === document.body) input.focus();
+  }, 100);
+
+  // --- Restore from localStorage ---
+  var saved = load();
+  if (saved && messages.length > 0) {
+    var last = null;
+    for (var i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'agent') { last = messages[i]; break; }
+    }
+    if (last && inlineResp) {
+      inlineResp.textContent = last.content;
+      inlineResp.style.display = '';
+      dismissBtn.style.display = '';
+      responsePanel.classList.add('chat-bar-panel-open');
+    }
+  }
+
+  // --- Dismiss inline response ---
+  dismissBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    responsePanel.classList.remove('chat-bar-panel-open');
+    thinking.style.display = 'none';
+    inlineResp.style.display = 'none';
+    dismissBtn.style.display = 'none';
+    clearConversation();
+  });
+
+  // --- Enter to submit, shift+enter for newline ---
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      form.requestSubmit();
     }
   });
 
-  // --- Focus on load (only if nothing else focused) ---
-  setTimeout(() => {
-    if (document.activeElement === document.body) {
-      chatBarInput.focus();
+  // --- Form submit ---
+  form.onsubmit = async function(e) {
+    e.preventDefault();
+    var text = input.value.trim();
+    if (!text) return;
+
+    messages.push({ role: 'user', content: text, ts: Date.now() });
+
+    // Clear input
+    input.value = '';
+    input.style.height = '';
+    sendBtn.style.display = 'none';
+    input.disabled = true;
+
+    if (panelOpen) {
+      // Show user message + thinking indicator in panel
+      renderMessages();
+      var td = document.createElement('div');
+      td.className = 'conversation-message agent thinking';
+      td.id = 'panelThinking';
+      td.innerHTML = '<span class="chat-bar-thinking-dot"></span> Thinking\u2026';
+      msgArea.appendChild(td);
+      msgArea.scrollTop = msgArea.scrollHeight;
+    } else {
+      // Show thinking in inline response area
+      thinking.style.display = '';
+      inlineResp.style.display = 'none';
+      dismissBtn.style.display = 'none';
+      responsePanel.classList.add('chat-bar-panel-open');
     }
-  }, 100);
 
-  // --- Restore state from localStorage ---
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-    if (saved && saved.response && !isChatApp && chatBarResponse) {
-      chatBarResponse.textContent = saved.response;
-      chatBarResponse.style.display = '';
-      if (chatBarDismiss) chatBarDismiss.style.display = '';
-      showPanel();
+    try {
+      var r = await fetch('/api/triage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          app: '{{ app }}',
+          path: window.location.pathname,
+          facet: window.selectedFacet || null
+        })
+      });
+
+      var resp = '';
+      var errMsg = null;
+      if (r.ok) {
+        resp = (await r.json()).response || '';
+      } else {
+        errMsg = 'Something went wrong. Try again.';
+      }
+      var content = errMsg || resp;
+
+      if (content) {
+        messages.push({ role: 'agent', content: content, ts: Date.now() });
+      }
+
+      var userCount = messages.filter(function(m) { return m.role === 'user'; }).length;
+      var shouldInline = userCount === 1 && isOneLiner(resp) && !errMsg;
+
+      if (panelOpen) {
+        renderMessages();
+        msgArea.scrollTop = msgArea.scrollHeight;
+      } else if (shouldInline) {
+        // Inline in bar
+        thinking.style.display = 'none';
+        inlineResp.textContent = content;
+        inlineResp.style.display = content ? '' : 'none';
+        dismissBtn.style.display = content ? '' : 'none';
+        if (!content) responsePanel.classList.remove('chat-bar-panel-open');
+      } else {
+        // Expand to panel
+        thinking.style.display = 'none';
+        responsePanel.classList.remove('chat-bar-panel-open');
+        openPanel();
+      }
+
+      save();
+    } catch (err) {
+      var errContent = 'Connection error. Try again.';
+      messages.push({ role: 'agent', content: errContent, ts: Date.now() });
+      if (panelOpen) {
+        renderMessages();
+        msgArea.scrollTop = msgArea.scrollHeight;
+      } else {
+        thinking.style.display = 'none';
+        inlineResp.textContent = errContent;
+        inlineResp.style.display = '';
+        dismissBtn.style.display = '';
+      }
+    } finally {
+      var pt = document.getElementById('panelThinking');
+      if (pt) pt.remove();
+      thinking.style.display = 'none';
+      input.disabled = false;
+      input.focus();
     }
-  } catch {}
-
-  // --- Dismiss response panel ---
-  if (chatBarDismiss) {
-    chatBarDismiss.addEventListener('click', () => {
-      hidePanel();
-      if (chatBarThinking) chatBarThinking.style.display = 'none';
-      if (chatBarResponse) chatBarResponse.style.display = 'none';
-      chatBarDismiss.style.display = 'none';
-    });
-  }
-
-  // --- Non-chat app: triage submit ---
-  if (!isChatApp) {
-    // Enter to submit, shift+enter for newline
-    chatBarInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        chatBarForm.requestSubmit();
-      }
-    });
-
-    chatBarForm.onsubmit = async (e) => {
-      e.preventDefault();
-      const text = chatBarInput.value.trim();
-      if (!text) return;
-
-      // Show thinking state
-      chatBarInput.value = '';
-      chatBarInput.style.height = '';
-      if (chatBarSend) {
-        chatBarSend.style.display = 'none';
-      }
-      chatBarInput.disabled = true;
-      if (chatBarThinking) {
-        chatBarThinking.style.display = '';
-      }
-      if (chatBarResponse) {
-        chatBarResponse.style.display = 'none';
-      }
-      if (chatBarDismiss) {
-        chatBarDismiss.style.display = 'none';
-      }
-      showPanel();
-
-      try {
-        const r = await fetch('/api/triage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: text,
-            app: '{{ app }}',
-            path: window.location.pathname,
-            facet: window.selectedFacet || null
-          })
-        });
-
-        if (r.ok) {
-          const data = await r.json();
-          if (chatBarResponse) {
-            chatBarResponse.textContent = data.response || '';
-            chatBarResponse.style.display = data.response ? '' : 'none';
-          }
-          if (data.response && chatBarDismiss) {
-            chatBarDismiss.style.display = '';
-          }
-          if (!data.response) {
-            hidePanel();
-          }
-
-          // Save to localStorage
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            message: text,
-            response: data.response || '',
-            timestamp: Date.now(),
-            app: '{{ app }}',
-            path: window.location.pathname
-          }));
-        } else if (chatBarResponse) {
-          chatBarResponse.textContent = 'Something went wrong. Try again.';
-          chatBarResponse.style.display = '';
-          if (chatBarDismiss) chatBarDismiss.style.display = '';
-          showPanel();
-        }
-      } catch (err) {
-        if (chatBarResponse) {
-          chatBarResponse.textContent = 'Connection error. Try again.';
-          chatBarResponse.style.display = '';
-          if (chatBarDismiss) chatBarDismiss.style.display = '';
-          showPanel();
-        }
-      } finally {
-        if (chatBarThinking) {
-          chatBarThinking.style.display = 'none';
-        }
-        chatBarInput.disabled = false;
-        chatBarInput.focus();
-      }
-    };
-  }
-  // In chat app: workspace's setupFormHandlers() takes over form submission.
-  // The bar just provides the DOM elements (chatInputForm, chatMessageInput).
+  };
 })();
 </script>
 

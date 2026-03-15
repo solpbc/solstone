@@ -1166,6 +1166,144 @@ body.menu-all .menu-bar {
   z-index: 1;
 }
 
+/* ========================================
+ * Conversation Panel
+ * Expandable focus-mode conversation surface.
+ * The chat bar expands upward to 80% viewport.
+ * Backdrop blur excludes aruco corner-tags via z-index layering:
+ *   backdrop at z-bars+49 < corner-tags at z-tags (400).
+ * ======================================== */
+
+/* Backdrop — blurs convey content when panel is open */
+.conversation-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-bars) + 49);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.conversation-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Panel expanded state */
+.app-bar.panel-open {
+  height: 80vh;
+  bottom: 0;
+  border-radius: 12px 12px 0 0;
+  z-index: calc(var(--z-bars) + 50);
+  animation: panel-expand 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Panel closing animation */
+.app-bar.panel-closing {
+  z-index: calc(var(--z-bars) + 50);
+  animation: panel-collapse 0.25s ease forwards;
+}
+
+@keyframes panel-expand {
+  from {
+    height: var(--app-bar-height);
+    bottom: 12px;
+    border-radius: 12px;
+  }
+}
+
+@keyframes panel-collapse {
+  from {
+    height: 80vh;
+    bottom: 0;
+    border-radius: 12px 12px 0 0;
+  }
+  to {
+    height: var(--app-bar-height);
+    bottom: 12px;
+    border-radius: 12px;
+  }
+}
+
+/* Conversation messages area */
+.conversation-messages {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding: 16px;
+  flex: 1;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.conversation-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conversation-messages::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+.app-bar.panel-open .conversation-messages {
+  display: flex;
+}
+
+/* Hide inline response panel in panel mode */
+.app-bar.panel-open .chat-bar-response-panel {
+  display: none;
+}
+
+/* Separator between messages and input (panel mode only) */
+.conversation-separator {
+  display: none;
+}
+
+.app-bar.panel-open .conversation-separator {
+  display: block;
+  height: 1px;
+  background: var(--facet-border, #e0e0e0);
+  flex-shrink: 0;
+}
+
+/* Message bubbles */
+.conversation-message {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.conversation-message.user {
+  align-self: flex-end;
+  background: var(--facet-color, #667eea);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.conversation-message.agent {
+  align-self: flex-start;
+  background: #f3f4f6;
+  color: #1f2937;
+  border-bottom-left-radius: 4px;
+}
+
+.conversation-message.agent.thinking {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  color: #999;
+  font-size: 13px;
+}
+
 /* Error log display */
 #error-log {
   display: none;
