@@ -304,7 +304,7 @@ def _resolve_agent_path(name: str) -> tuple[Path, str]:
     ----------
     name:
         Agent name - either system agent (e.g., "default") or
-        app-namespaced agent (e.g., "chat:helper").
+        app-namespaced agent (e.g., "support:support").
 
     Returns
     -------
@@ -312,7 +312,7 @@ def _resolve_agent_path(name: str) -> tuple[Path, str]:
         (agent_directory, agent_name) tuple.
     """
     if ":" in name:
-        # App agent: "chat:helper" -> apps/chat/muse/helper
+        # App agent: "support:support" -> apps/support/muse/support
         app, agent_name = name.split(":", 1)
         agent_dir = Path(__file__).parent.parent / "apps" / app / "muse"
     else:
@@ -613,7 +613,7 @@ def get_agent(
     ----------
     name:
         Agent name to load. Can be a system agent (e.g., "default")
-        or an app-namespaced agent (e.g., "chat:helper" for apps/chat/muse/helper).
+        or an app-namespaced agent (e.g., "support:support" for apps/support/muse/support).
     facet:
         Optional facet name to focus on. When provided, includes detailed
         information for just this facet (with full entity details) instead

@@ -261,10 +261,6 @@ def test_prompt_contexts_in_registry():
     assert registry["observe.describe.frame"]["tier"] == TIER_LITE
     assert registry["observe.describe.frame"]["group"] == "Observe"
 
-    assert "app.chat.title" in registry
-    assert registry["app.chat.title"]["tier"] == TIER_LITE
-    assert registry["app.chat.title"]["group"] == "Apps"
-
     assert "observe.enrich" in registry
     assert registry["observe.enrich"]["tier"] == TIER_FLASH
 

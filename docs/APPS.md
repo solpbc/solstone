@@ -204,7 +204,7 @@ Both badge types appear as red notification counts.
   icon: '📬',             // Emoji icon (optional)
   title: 'New Message',   // Title (required)
   message: 'You have...', // Message body (optional)
-  action: '/app/chat',    // Click action URL (optional)
+  action: '/app/todos',   // Click action URL (optional)
   facet: 'work',          // Auto-select facet on click (optional)
   badge: 5,               // Badge count (optional)
   dismissible: true,      // Show X button (default: true)
@@ -248,7 +248,6 @@ Define plain callable tool functions for your app in `tools.py`.
 **Reference implementations:**
 - `apps/todos/tools.py`
 - `apps/entities/tools.py`
-- `apps/chat/tools.py`
 
 ---
 
@@ -711,7 +710,7 @@ def handle_action():
 **See:** `convey/static/app.css` for implementation details
 
 **Examples:**
-- Standard: `apps/home/workspace.html`, `apps/todos/workspace.html`, `apps/chat/workspace.html`
+- Standard: `apps/home/workspace.html`, `apps/todos/workspace.html`, `apps/entities/workspace.html`
 - Wide: `apps/search/workspace.html`, `apps/calendar/_day.html`, `apps/import/workspace.html`
 
 ### CSS Variables
@@ -817,7 +816,7 @@ Browse `apps/*/` directories for reference implementations. Apps range in comple
 
 - **Minimal** - Just `workspace.html` (e.g., `apps/home/`, `apps/health/`)
 - **Styled** - Custom CSS, background services (e.g., `apps/dev/`)
-- **Full-featured** - Routes, forms, AJAX, badges, tools (e.g., `apps/todos/`, `apps/chat/`)
+- **Full-featured** - Routes, forms, AJAX, badges, tools (e.g., `apps/todos/`, `apps/entities/`)
 
 ---
 

@@ -78,7 +78,7 @@ For detailed responses, structure your answer for clarity — lead with the key 
 - `sol call todos upcoming [-l limit] [-f facet]` — Show upcoming todos.
 
 ### Navigation
-- `sol call chat navigate [PATH] --facet FACET` — Navigate the browser to a path and/or switch facet.
+- `sol call navigate [PATH] --facet FACET` — Navigate the browser to a path and/or switch facet.
 
 ### Journal
 - `sol call journal events [DAY] [-f FACET]` — List events with participants, times, and summaries.

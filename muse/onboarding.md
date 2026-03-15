@@ -92,8 +92,8 @@ After creating facets and attaching entities, **before** running `sol call aware
 **If user picks a source:**
 1. Read the export guide from `apps/import/guides/{source}.md` (map: Calendar→ics, ChatGPT→chatgpt, Claude→claude, Gemini→gemini, Notes→obsidian, Kindle→kindle)
 2. Present the export instructions conversationally
-3. Run `sol call chat redirect "Import my {source}" --app import --path "/app/import#guide/{source}"` to hand off to the import app
-4. After redirecting, tell the user you'll take them to the import page to upload the file
+3. Navigate to the import app: `sol call navigate "/app/import#guide/{source}"`
+4. Tell the user you'll take them to the import page to upload the file
 
 **If user says "skip" or "not now":**
 1. Run `sol call awareness imports --declined` to record the decline

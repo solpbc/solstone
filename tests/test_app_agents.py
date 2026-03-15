@@ -78,11 +78,11 @@ def test_resolve_agent_path_system_agent():
 
 def test_resolve_agent_path_app_agent():
     """Test _resolve_agent_path returns correct path for app agents."""
-    agent_dir, agent_name = _resolve_agent_path("chat:helper")
+    agent_dir, agent_name = _resolve_agent_path("support:support")
 
-    assert agent_name == "helper"
+    assert agent_name == "support"
     assert agent_dir.name == "muse"
-    assert agent_dir.parent.name == "chat"
+    assert agent_dir.parent.name == "support"
     assert "apps" in str(agent_dir)
 
 

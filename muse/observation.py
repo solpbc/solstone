@@ -210,7 +210,7 @@ def _elapsed_hours(started_iso: str) -> float:
 
 
 def _transition_to_ready(day: str) -> None:
-    """Transition onboarding to 'ready' state and send chat redirect."""
+    """Transition onboarding to 'ready' state and notify via conversation panel."""
     from think.awareness import append_log, update_state
 
     update_state("onboarding", {"status": "ready"})
@@ -221,13 +221,10 @@ def _transition_to_ready(day: str) -> None:
         day=day,
     )
 
-    # Send chat redirect to open the recommendation review
+    # Spawn observation review agent and surface through conversation panel
     try:
-        from apps.utils import get_app_storage_path
-        from convey.utils import save_json
         from think.callosum import callosum_send
         from think.cortex_client import cortex_request
-        from think.utils import now_ms
 
         prompt = (
             "The user chose Path A onboarding — passive observation. "
@@ -237,16 +234,15 @@ def _transition_to_ready(day: str) -> None:
         )
         agent_id = cortex_request(prompt=prompt, name="observation_review")
         if agent_id:
-            chat_record = {
-                "ts": now_ms(),
-                "muse": "observation_review",
-                "title": "Your journal suggestions are ready",
-                "agent_ids": [agent_id],
-            }
-            chats_dir = get_app_storage_path("chat", "chats")
-            save_json(chats_dir / f"{agent_id}.json", chat_record)
-            callosum_send("navigate", "request", path=f"/app/chat#{agent_id}")
-            logger.info("Sent observation review redirect: %s", agent_id)
+            callosum_send(
+                "notification",
+                "show",
+                title="Your journal suggestions are ready",
+                message="I've finished observing — let's set up your journal.",
+                icon="✨",
+                app="conversation",
+            )
+            logger.info("Spawned observation review agent: %s", agent_id)
     except Exception:
-        logger.exception("Failed to send observation review redirect")
-        # Non-fatal — user can still trigger review via triage
+        logger.exception("Failed to spawn observation review agent")
+        # Non-fatal — user can still trigger review via conversation panel

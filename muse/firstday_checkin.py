@@ -69,13 +69,10 @@ def post_process(result: str, context: dict) -> str | None:
         message="First-day check-in sent to user",
     )
 
-    # Spawn support agent chat with check-in prompt
+    # Spawn support agent check-in and surface through conversation panel
     try:
-        from apps.utils import get_app_storage_path
-        from convey.utils import save_json
         from think.callosum import callosum_send
         from think.cortex_client import cortex_request
-        from think.utils import now_ms
 
         prompt = (
             "The user recently completed onboarding. This is your first-day "
@@ -86,18 +83,17 @@ def post_process(result: str, context: dict) -> str | None:
         )
         agent_id = cortex_request(prompt=prompt, name="support")
         if agent_id:
-            chat_record = {
-                "ts": now_ms(),
-                "muse": "support:support",
-                "title": "Check-in",
-                "agent_ids": [agent_id],
-            }
-            chats_dir = get_app_storage_path("chat", "chats")
-            save_json(chats_dir / f"{agent_id}.json", chat_record)
-            callosum_send("navigate", "request", path=f"/app/chat#{agent_id}")
-            logger.info("Sent first-day check-in redirect: %s", agent_id)
+            callosum_send(
+                "notification",
+                "show",
+                title="Check-in",
+                message="How's everything going? I'm here if you need anything.",
+                icon="👋",
+                app="conversation",
+            )
+            logger.info("Spawned first-day check-in agent: %s", agent_id)
     except Exception:
-        logger.exception("Failed to send first-day check-in")
+        logger.exception("Failed to spawn first-day check-in agent")
 
     return result
 

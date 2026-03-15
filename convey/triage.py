@@ -93,8 +93,8 @@ def triage() -> Any:
     elif onboarding_status == "ready":
         context_lines.append(
             "Onboarding: Path A observation complete — recommendations are ready. "
-            "Suggest the user review their recommendations. Use `sol call chat redirect` "
-            "to open a chat with the recommendation agent if they want to proceed."
+            "Suggest the user review their recommendations. Handle the observation "
+            "review in-place — read observations, synthesize, and walk through setup."
         )
     elif onboarding_status in ("complete", "skipped"):
         # Add import awareness context

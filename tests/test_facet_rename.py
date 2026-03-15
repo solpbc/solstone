@@ -74,34 +74,6 @@ def test_rename_updates_convey_config_order(journal):
     assert config["facets"]["order"] == ["work", "new-name", "personal"]
 
 
-def test_rename_updates_chat_metadata(journal):
-    """Rename updates facet field in matching chat metadata files."""
-    chats_dir = journal / "apps" / "chat" / "chats"
-    chats_dir.mkdir(parents=True)
-
-    # Chat with matching facet
-    (chats_dir / "111.json").write_text(
-        json.dumps({"ts": 111, "title": "Chat 1", "facet": "old-name"})
-    )
-    # Chat with different facet
-    (chats_dir / "222.json").write_text(
-        json.dumps({"ts": 222, "title": "Chat 2", "facet": "work"})
-    )
-    # Chat with no facet
-    (chats_dir / "333.json").write_text(json.dumps({"ts": 333, "title": "Chat 3"}))
-
-    rename_facet("old-name", "new-name")
-
-    chat1 = json.loads((chats_dir / "111.json").read_text())
-    assert chat1["facet"] == "new-name"
-
-    chat2 = json.loads((chats_dir / "222.json").read_text())
-    assert chat2["facet"] == "work"  # unchanged
-
-    chat3 = json.loads((chats_dir / "333.json").read_text())
-    assert "facet" not in chat3  # unchanged
-
-
 def test_rename_old_not_found(journal):
     """Rename fails if old facet doesn't exist."""
     with pytest.raises(ValueError, match="does not exist"):
@@ -130,13 +102,6 @@ def test_rename_invalid_new_name(journal):
 
 def test_rename_no_convey_config(journal):
     """Rename succeeds when convey config doesn't exist."""
-    rename_facet("old-name", "new-name")
-
-    assert (journal / "facets" / "new-name").is_dir()
-
-
-def test_rename_no_chat_dir(journal):
-    """Rename succeeds when chat directory doesn't exist."""
     rename_facet("old-name", "new-name")
 
     assert (journal / "facets" / "new-name").is_dir()

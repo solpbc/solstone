@@ -94,10 +94,9 @@
   const input = document.getElementById('chatMessageInput');
   const form = document.getElementById('chatInputForm');
   const sendBtn = document.getElementById('chatBarSend');
-  const isChatApp = window.location.pathname.startsWith('/app/chat');
   const STORE_KEY = 'solstone:conversationState';
 
-  if (!input || !form || isChatApp) return;
+  if (!input || !form) return;
 
   // Clean up old storage key
   try { localStorage.removeItem('solstone:chatBarState'); } catch {}

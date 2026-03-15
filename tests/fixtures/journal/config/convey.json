@@ -4,7 +4,7 @@
     "order": ["work", "personal", "full-featured", "montague", "capulet", "verona"]
   },
   "apps": {
-    "order": ["home", "calendar", "chat", "todos", "entities", "search"],
-    "starred": ["home", "chat", "todos"]
+    "order": ["home", "calendar", "todos", "entities", "search"],
+    "starred": ["home", "todos"]
   }
 }

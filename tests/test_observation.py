@@ -345,30 +345,3 @@ class TestChatBarPlaceholder:
         assert "Capture is running" in placeholder
 
 
-class TestChatRedirectMuse:
-    def test_redirect_uses_custom_muse(self):
-        from unittest.mock import MagicMock, patch
-
-        from typer.testing import CliRunner
-
-        from apps.chat.call import app
-
-        with (
-            patch(
-                "think.cortex_client.cortex_request", return_value="agent-1"
-            ) as mock_cr,
-            patch("think.callosum.callosum_send", return_value=True),
-            patch("apps.chat.routes.generate_chat_title", return_value="test"),
-            patch(
-                "think.models.resolve_provider",
-                return_value=("test-provider", "test-model"),
-            ),
-            patch("convey.utils.save_json"),
-            patch("apps.utils.get_app_storage_path", return_value=MagicMock()),
-            patch("think.utils.get_journal", return_value=str(MagicMock())),
-        ):
-            result = CliRunner().invoke(
-                app, ["redirect", "hello", "--muse", "observation_review"]
-            )
-            assert result.exit_code == 0
-            assert mock_cr.call_args.kwargs["name"] == "observation_review"

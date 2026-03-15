@@ -143,7 +143,6 @@ PROMPT_PATHS: List[str] = [
     "think/detect_transcript_segment.md",
     "think/detect_transcript_json.md",
     "think/planner.md",
-    "apps/chat/title.md",
 ]
 
 

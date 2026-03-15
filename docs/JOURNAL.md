@@ -318,11 +318,10 @@ Contexts are matched in order of specificity:
 
 Muse configs (agents and generators) use the pattern `muse.{source}.{name}`:
 - System configs: `muse.system.{name}` (e.g., `muse.system.meetings`, `muse.system.default`)
-- App configs: `muse.{app}.{name}` (e.g., `muse.entities.observer`, `muse.chat.helper`)
+- App configs: `muse.{app}.{name}` (e.g., `muse.entities.observer`, `muse.support.support`)
 
 Other contexts follow the pattern `{module}.{feature}[.{operation}]`:
 - Observe pipeline: `observe.describe.frame`, `observe.enrich`, `observe.transcribe.gemini`
-- Apps: `app.chat.title`
 
 #### Configuration options
 
@@ -786,25 +785,6 @@ The `apps/` directory provides storage space for Convey apps to persist configur
 
 Apps typically use `config.json` for journal-specific settings and create subdirectories for data storage (e.g., `cache/`, `data/`, `logs/`). This is distinct from the app metadata file (`apps/<app>/app.json` in the codebase) which defines icon, label, and facet support across all journals. See [APPS.md](APPS.md) for storage utilities (`get_app_storage_path`, `load_app_config`, `save_app_config`).
 
-### Chat App Storage
-
-The chat app uses `apps/chat/chats/` to store metadata for all conversations, including both interactive agent chats and synthetic agent messages (alerts/notifications from background processes).
-
-**Chat metadata** (`apps/chat/chats/<agent_id>.json`):
-```json
-{
-  "agent_id": "1755450767962",
-  "ts": 1755450767962,
-  "facet": "work",
-  "title": "Quick Math Question",
-  "unread": true
-}
-```
-
-Optional fields:
-- `unread` – Boolean flag for unread status (used for badge counts)
-- `archived` – Boolean flag for archived status
-
 ## Search Index
 
 The `indexer/` directory contains the full-text search index built from journal content.
@@ -1048,7 +1028,7 @@ Each template is a `.md` file with JSON frontmatter containing metadata (title, 
 
 **Output naming:**
 - System outputs: `agents/{agent}.md` (e.g., `agents/flow.md`, `agents/meetings.md`)
-- App outputs: `agents/_{app}_{agent}.md` (e.g., `agents/_chat_sentiment.md`)
+- App outputs: `agents/_{app}_{agent}.md` (e.g., `agents/_entities_observer.md`)
 - JSON output: `agents/{agent}.json` when metadata specifies `"output": "json"`
 
 Each generator type has a corresponding template file (`{name}.md`) that defines how the AI synthesizes extracts into narrative form.

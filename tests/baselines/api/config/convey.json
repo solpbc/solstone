@@ -4,14 +4,12 @@
       "order": [
         "home",
         "calendar",
-        "chat",
         "todos",
         "entities",
         "search"
       ],
       "starred": [
         "home",
-        "chat",
         "todos"
       ]
     },

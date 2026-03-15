@@ -776,21 +776,6 @@ def delete_facet(name: str) -> None:
         except (json.JSONDecodeError, OSError):
             pass
 
-    chats_dir = Path(get_journal()) / "apps" / "chat" / "chats"
-    if chats_dir.is_dir():
-        for chat_file in chats_dir.glob("*.json"):
-            try:
-                with open(chat_file, "r", encoding="utf-8") as f:
-                    chat_data = json.load(f)
-
-                if chat_data.get("facet") == name:
-                    chat_data["facet"] = ""
-                    with open(chat_file, "w", encoding="utf-8") as f:
-                        json.dump(chat_data, f, indent=2, ensure_ascii=False)
-                        f.write("\n")
-            except (json.JSONDecodeError, OSError):
-                continue
-
     log_call_action(
         facet=None,
         action="facet_delete",
@@ -1048,13 +1033,12 @@ def format_logs(
 
 
 def rename_facet(old_name: str, new_name: str) -> None:
-    """Rename a facet by updating its directory, config references, and chat metadata.
+    """Rename a facet by updating its directory and config references.
 
     Performs the following steps:
     1. Rename facets/{old}/ directory to facets/{new}/
     2. Update config/convey.json (facets.selected, facets.order)
-    3. Update apps/chat/chats/*.json metadata files
-    4. Print instruction to rebuild the search index
+    3. Print instruction to rebuild the search index
 
     Args:
         old_name: Current facet name (must exist)
@@ -1117,30 +1101,7 @@ def rename_facet(old_name: str, new_name: str) -> None:
         except (json.JSONDecodeError, OSError) as exc:
             logging.warning("Failed to update convey config: %s", exc)
 
-    # Step 3: Update chat metadata
-    chats_dir = Path(journal) / "apps" / "chat" / "chats"
-    updated_chats = 0
-    if chats_dir.is_dir():
-        for chat_file in chats_dir.glob("*.json"):
-            try:
-                with open(chat_file, "r", encoding="utf-8") as f:
-                    chat_data = json.load(f)
-
-                if chat_data.get("facet") == old_name:
-                    chat_data["facet"] = new_name
-                    with open(chat_file, "w", encoding="utf-8") as f:
-                        json.dump(chat_data, f, indent=2, ensure_ascii=False)
-                        f.write("\n")
-                    updated_chats += 1
-            except (json.JSONDecodeError, OSError):
-                continue
-
-    if updated_chats:
-        print(f"Updated {updated_chats} chat metadata file(s)")
-    else:
-        print("No chat metadata needed updating")
-
-    # Step 4: Advise index rebuild
+    # Step 3: Advise index rebuild
     print(
         "Facet renamed. Rebuild the search index with: sol indexer --reset --rescan-full"
     )

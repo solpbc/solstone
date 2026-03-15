@@ -24,11 +24,11 @@ def main() -> None:
     parser.add_argument("--facet", help="Facet context")
     parser.add_argument("--provider", help="AI provider override")
     parser.add_argument(
-        "--muse", default="default", help="Muse agent name (default: default)"
+        "--muse", default="unified", help="Muse agent name (default: unified)"
     )
     args = setup_cli(parser)
 
-    if args.muse == "default":
+    if args.muse == "unified":
         from think.awareness import get_onboarding
         from think.facets import get_enabled_facets
 
@@ -36,7 +36,7 @@ def main() -> None:
         onboarding_status = onboarding.get("status", "")
 
         if onboarding_status in ("observing", "ready", "complete", "skipped"):
-            pass  # Stay with default muse — onboarding path already chosen
+            pass  # Stay with unified muse — onboarding path already chosen
         elif not get_enabled_facets():
             args.muse = "onboarding"
 

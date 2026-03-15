@@ -97,35 +97,6 @@ ENDPOINTS = [
         "params": {},
         "status": 200,
     },
-    # apps/chat/routes.py
-    {
-        "app": "chat",
-        "name": "chats",
-        "path": "/app/chat/api/chats",
-        "params": {},
-        "status": 200,
-    },
-    {
-        "app": "chat",
-        "name": "chat-events",
-        "path": "/app/chat/api/chat/1764019444672/events",
-        "params": {},
-        "status": 200,
-    },
-    {
-        "app": "chat",
-        "name": "chat-detail",
-        "path": "/app/chat/api/chat/1764019444672",
-        "params": {},
-        "status": 200,
-    },
-    {
-        "app": "chat",
-        "name": "agent-chat",
-        "path": "/app/chat/api/agent/1700000000001/chat",
-        "params": {},
-        "status": 404,
-    },
     # apps/entities/routes.py
     {
         "app": "entities",

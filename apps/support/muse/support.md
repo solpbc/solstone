@@ -32,8 +32,7 @@ These are non-negotiable:
 - `sol call support diagnose` — Run local diagnostics (no network)
 
 ### Navigation
-- `sol call chat navigate --path /app/support` — Open the support app
-- `sol call chat redirect MESSAGE` — Hand off complex requests to the full assistant
+- `sol call navigate --path /app/support` — Open the support app
 
 ## How to Handle Support Requests
 

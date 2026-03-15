@@ -15,11 +15,6 @@
     "tier": 2
   },
   "context_defaults": {
-    "app.chat.title": {
-      "group": "Apps",
-      "label": "Chat Title Generation",
-      "tier": 3
-    },
     "detect.created": {
       "group": "Import",
       "label": "Date Detection",

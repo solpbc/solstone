@@ -120,10 +120,10 @@ def test_triage_complete_gets_triage():
 # --- Chat CLI routing ---
 
 
-def test_chat_cli_routes_to_onboarding_when_default_and_no_facets():
+def test_chat_cli_routes_to_onboarding_when_unified_and_no_facets():
     args = argparse.Namespace(
         message=["Hi there"],
-        muse="default",
+        muse="unified",
         facet=None,
         provider=None,
         verbose=False,
@@ -144,11 +144,11 @@ def test_chat_cli_keeps_explicit_muse_when_no_facets():
     assert mock_request.call_args.kwargs["name"] == "entities"
 
 
-def test_chat_cli_path_a_observing_stays_default():
-    """During Path A observation, chat CLI uses default muse, not onboarding."""
+def test_chat_cli_path_a_observing_stays_unified():
+    """During Path A observation, chat CLI uses unified muse, not onboarding."""
     args = argparse.Namespace(
         message=["What have you noticed?"],
-        muse="default",
+        muse="unified",
         facet=None,
         provider=None,
         verbose=False,
@@ -156,20 +156,20 @@ def test_chat_cli_path_a_observing_stays_default():
     mock_request = _run_chat_cli_main(
         args, facets={}, onboarding={"status": "observing"}
     )
-    assert mock_request.call_args.kwargs["name"] == "default"
+    assert mock_request.call_args.kwargs["name"] == "unified"
 
 
-def test_chat_cli_skipped_stays_default():
-    """After skipping onboarding, chat CLI uses default muse."""
+def test_chat_cli_skipped_stays_unified():
+    """After skipping onboarding, chat CLI uses unified muse."""
     args = argparse.Namespace(
         message=["Hello"],
-        muse="default",
+        muse="unified",
         facet=None,
         provider=None,
         verbose=False,
     )
     mock_request = _run_chat_cli_main(args, facets={}, onboarding={"status": "skipped"})
-    assert mock_request.call_args.kwargs["name"] == "default"
+    assert mock_request.call_args.kwargs["name"] == "unified"
 
 
 # --- Placeholder resolution ---
