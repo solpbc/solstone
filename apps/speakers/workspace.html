@@ -475,9 +475,98 @@
   opacity: 0.8;
 }
 
+.spk-owner-banner {
+  display: none;
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);
+}
+
+.spk-owner-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.spk-owner-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e3a8a;
+}
+
+.spk-owner-copy {
+  font-size: 14px;
+  color: #1f2937;
+  line-height: 1.5;
+}
+
+.spk-owner-samples {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.spk-owner-sample {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #dbeafe;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.spk-owner-sample-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d4ed8;
+  margin-bottom: 8px;
+}
+
+.spk-owner-sample-meta {
+  font-size: 12px;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.spk-owner-sample audio {
+  width: 100%;
+}
+
+.spk-owner-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.spk-owner-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.spk-owner-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.spk-owner-btn-confirm {
+  background: #16a34a;
+  color: #fff;
+}
+
+.spk-owner-btn-reject {
+  background: #fff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
 </style>
 
 <div class="spk-wrap">
+  <div id="spkOwnerBanner" class="spk-owner-banner"></div>
   <div class="spk-layout">
     <!-- Segment list -->
     <div class="spk-segments">
@@ -503,6 +592,7 @@
   const day = '{{ day }}';
   const segmentList = document.getElementById('spkSegmentList');
   const detailPanel = document.getElementById('spkDetail');
+  const ownerBanner = document.getElementById('spkOwnerBanner');
 
   let segments = [];
   let selectedSegment = null;
@@ -511,8 +601,10 @@
   let currentSentences = [];  // Sentence data with offsets for time tracking
   let playingSentenceId = null;  // Currently playing/highlighted sentence
   let filterMatched = false;  // Toggle: hide high-confidence matches
+  let ownerDetectionInFlight = false;
 
   // Load segments on page load
+  checkOwnerStatus();
   loadSegments();
 
   // Listen for hash changes
@@ -520,6 +612,103 @@
     const hash = window.location.hash.slice(1);
     if (hash) selectSegmentByKey(hash);
   });
+
+  function checkOwnerStatus() {
+    fetch('/app/speakers/api/owner/status')
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'needs_detection') {
+          renderOwnerBanner('Analyzing voice patterns...');
+          if (!ownerDetectionInFlight) {
+            ownerDetectionInFlight = true;
+            fetch('/app/speakers/api/owner/detect', { method: 'POST' })
+              .then(r => r.json())
+              .then(() => {
+                ownerDetectionInFlight = false;
+                checkOwnerStatus();
+              })
+              .catch(() => {
+                ownerDetectionInFlight = false;
+                hideOwnerBanner();
+              });
+          }
+          return;
+        }
+
+        ownerDetectionInFlight = false;
+        if (data.status === 'candidate') {
+          renderOwnerCandidate(data);
+          return;
+        }
+
+        hideOwnerBanner();
+      })
+      .catch(() => {
+        hideOwnerBanner();
+      });
+  }
+
+  function renderOwnerBanner(message) {
+    ownerBanner.style.display = 'block';
+    ownerBanner.innerHTML = `
+      <div class="spk-owner-panel">
+        <div class="spk-owner-title">Owner voiceprint</div>
+        <div class="spk-owner-copy">${escapeHtml(message)}</div>
+      </div>
+    `;
+  }
+
+  function hideOwnerBanner() {
+    ownerBanner.style.display = 'none';
+    ownerBanner.innerHTML = '';
+  }
+
+  function renderOwnerCandidate(data) {
+    const samples = data.samples || [];
+    ownerBanner.style.display = 'block';
+    ownerBanner.innerHTML = `
+      <div class="spk-owner-panel">
+        <div class="spk-owner-title">Is this your voice?</div>
+        <div class="spk-owner-copy">
+          We found a likely owner voice pattern from ${escapeHtml(data.cluster_size || 0)} voice samples. Review a few examples before confirming.
+        </div>
+        <div class="spk-owner-samples">
+          ${samples.map((sample, index) => `
+            <div class="spk-owner-sample">
+              <div class="spk-owner-sample-title">Sample ${index + 1}</div>
+              <div class="spk-owner-sample-meta">
+                ${escapeHtml(sample.day)} · ${escapeHtml(sample.stream)} · ${escapeHtml(sample.segment_key)}
+              </div>
+              <audio controls preload="metadata" src="${sample.audio_url}"></audio>
+            </div>
+          `).join('')}
+        </div>
+        <div class="spk-owner-actions">
+          <button class="spk-owner-btn spk-owner-btn-confirm" id="spkOwnerConfirm">Yes, that's me</button>
+          <button class="spk-owner-btn spk-owner-btn-reject" id="spkOwnerReject">No, try again</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('spkOwnerConfirm')?.addEventListener('click', () => {
+      submitOwnerChoice('/app/speakers/api/owner/confirm');
+    });
+    document.getElementById('spkOwnerReject')?.addEventListener('click', () => {
+      submitOwnerChoice('/app/speakers/api/owner/reject');
+    });
+  }
+
+  function submitOwnerChoice(path) {
+    ownerBanner.querySelectorAll('button').forEach(btn => { btn.disabled = true; });
+    fetch(path, { method: 'POST' })
+      .then(r => r.json())
+      .then(() => {
+        checkOwnerStatus();
+      })
+      .catch(() => {
+        ownerBanner.querySelectorAll('button').forEach(btn => { btn.disabled = false; });
+      });
+  }
 
   function loadSegments() {
     fetch(`/app/speakers/api/segments/${day}`)

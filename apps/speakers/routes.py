@@ -13,7 +13,7 @@ import json
 import logging
 import os
 import re
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,21 +28,36 @@ from flask import (
     url_for,
 )
 
+from apps.speakers.owner import (
+    classify_sentences,
+    count_segments_with_embeddings,
+    detect_owner_candidate,
+)
 from apps.utils import log_app_action
 from convey import state
 from convey.utils import DATE_RE, error_response, format_date, success_response
+from think.awareness import get_current, update_state
 from think.entities import (
     entity_slug,
     find_matching_entity,
 )
+from think.entities.core import get_identity_names
 from think.entities.journal import (
     ensure_journal_entity_memory,
+    get_journal_principal,
     get_or_create_journal_entity,
     journal_entity_memory_path,
     load_all_journal_entities,
     load_journal_entity,
 )
-from think.utils import day_dirs, day_path, iter_segments, now_ms, segment_parse
+from think.utils import (
+    day_dirs,
+    day_path,
+    get_journal,
+    iter_segments,
+    now_ms,
+    segment_parse,
+)
 from think.utils import segment_key as validate_segment_key
 from think.utils import segment_path as get_segment_path
 
@@ -623,6 +638,153 @@ def api_sentences(day: str, stream: str, segment_key: str, source: str) -> Any:
             "sentences": sentences,
             "all_entities": all_entity_names,
             "audio_file": audio_file,
+        }
+    )
+
+
+@speakers_bp.route("/api/owner/status")
+def api_owner_status() -> Any:
+    """Return the current owner voiceprint confirmation state."""
+    voiceprint = get_current().get("voiceprint", {})
+    status = voiceprint.get("status", "none")
+
+    if status == "confirmed":
+        return jsonify({"status": "confirmed"})
+
+    if status == "candidate":
+        return jsonify(
+            {
+                "status": "candidate",
+                "cluster_size": voiceprint.get("cluster_size"),
+                "samples": voiceprint.get("samples", []),
+            }
+        )
+
+    if status in {"none", "rejected"}:
+        seg_count = count_segments_with_embeddings()
+        if seg_count >= 50:
+            return jsonify(
+                {
+                    "status": "needs_detection",
+                    "segments_with_embeddings": seg_count,
+                }
+            )
+        return jsonify({"status": "none", "segments_with_embeddings": seg_count})
+
+    return jsonify({"status": "none"})
+
+
+@speakers_bp.route("/api/owner/detect", methods=["POST"])
+def api_owner_detect() -> Any:
+    """Run owner voice candidate detection."""
+    result = detect_owner_candidate()
+    if result is None:
+        return jsonify({"status": "none", "reason": "No valid cluster found"})
+    return jsonify(result)
+
+
+@speakers_bp.route("/api/owner/confirm", methods=["POST"])
+def api_owner_confirm() -> Any:
+    """Confirm the current owner voice candidate and persist the centroid."""
+    candidate_path = Path(get_journal()) / "awareness" / "owner_candidate.npz"
+    if not candidate_path.exists():
+        return error_response("No candidate available", 404)
+
+    try:
+        data = np.load(candidate_path, allow_pickle=False)
+        centroid = data["centroid"]
+        cluster_size = int(np.asarray(data["cluster_size"]).item())
+        threshold = float(np.asarray(data["threshold"]).item())
+        version = str(np.asarray(data["version"]).item())
+    except Exception as e:
+        logger.warning("Failed to load owner candidate %s: %s", candidate_path, e)
+        return error_response("No candidate available", 404)
+
+    principal = get_journal_principal()
+    if principal is None:
+        identity_names = get_identity_names()
+        if not identity_names:
+            return error_response(
+                "No principal entity found. Set up your identity first.",
+                400,
+            )
+        principal_name = identity_names[0]
+        principal = get_or_create_journal_entity(
+            entity_id=entity_slug(principal_name),
+            name=principal_name,
+            entity_type="Person",
+        )
+
+    owner_path = ensure_journal_entity_memory(principal["id"]) / "owner_centroid.npz"
+    np.savez_compressed(
+        owner_path,
+        centroid=np.asarray(centroid, dtype=np.float32).reshape(-1),
+        cluster_size=np.array(cluster_size, dtype=np.int32),
+        threshold=np.array(threshold, dtype=np.float32),
+        version=np.array(version),
+    )
+    candidate_path.unlink(missing_ok=True)
+
+    update_state(
+        "voiceprint",
+        {
+            "status": "confirmed",
+            "cluster_size": cluster_size,
+            "confirmed_at": datetime.now().isoformat(),
+        },
+    )
+
+    log_app_action(
+        app="speakers",
+        facet=None,
+        action="owner_voiceprint_confirm",
+        params={
+            "principal_id": principal["id"],
+            "cluster_size": cluster_size,
+            "version": version,
+        },
+    )
+
+    return jsonify({"status": "confirmed", "principal_id": principal["id"]})
+
+
+@speakers_bp.route("/api/owner/reject", methods=["POST"])
+def api_owner_reject() -> Any:
+    """Reject the current owner voice candidate."""
+    candidate_path = Path(get_journal()) / "awareness" / "owner_candidate.npz"
+    candidate_path.unlink(missing_ok=True)
+    update_state(
+        "voiceprint",
+        {
+            "status": "rejected",
+            "rejected_at": datetime.now().isoformat(),
+        },
+    )
+    return jsonify({"status": "needs_detection"})
+
+
+@speakers_bp.route("/api/owner/classify", methods=["POST"])
+def api_owner_classify() -> Any:
+    """Classify segment sentences against the confirmed owner centroid."""
+    data = request.get_json()
+    if not data:
+        return error_response("No data provided", 400)
+
+    day = data.get("day")
+    stream = data.get("stream")
+    segment_key = data.get("segment_key")
+    source = data.get("source")
+
+    if not all([day, stream, segment_key, source]):
+        return error_response("Missing required fields", 400)
+    if not DATE_RE.fullmatch(day):
+        return error_response("Invalid day format", 400)
+    if not validate_segment_key(segment_key):
+        return error_response("Invalid segment key", 400)
+
+    return jsonify(
+        {
+            "sentences": classify_sentences(day, stream, segment_key, source),
         }
     )
 
