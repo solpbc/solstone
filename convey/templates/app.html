@@ -277,6 +277,11 @@
     }
 
     try {
+      // Build conversation history from prior turns (exclude current message)
+      var history = messages.slice(0, -1).map(function(m) {
+        return { role: m.role, content: m.content };
+      });
+
       var r = await fetch('/api/triage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -284,14 +289,18 @@
           message: text,
           app: '{{ app }}',
           path: window.location.pathname,
-          facet: window.selectedFacet || null
+          facet: window.selectedFacet || null,
+          conversation_history: history.length > 0 ? history : undefined
         })
       });
 
       var resp = '';
+      var panelHint = false;
       var errMsg = null;
       if (r.ok) {
-        resp = (await r.json()).response || '';
+        var data = await r.json();
+        resp = data.response || '';
+        panelHint = !!data.panel;
       } else {
         errMsg = 'Something went wrong. Try again.';
       }
@@ -302,7 +311,7 @@
       }
 
       var userCount = messages.filter(function(m) { return m.role === 'user'; }).length;
-      var shouldInline = userCount === 1 && isOneLiner(resp) && !errMsg;
+      var shouldInline = userCount === 1 && !panelHint && isOneLiner(resp) && !errMsg;
 
       if (panelOpen) {
         renderMessages();

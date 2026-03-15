@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Triage endpoint for universal chat bar queries from non-chat apps."""
+"""Triage endpoint for universal chat bar / conversation panel queries."""
 
 from __future__ import annotations
 
@@ -16,13 +16,20 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint("triage", __name__, url_prefix="/api/triage")
 
+# Maximum recent turns to include in conversation context
+MAX_CONVERSATION_TURNS = 20
+
 
 @bp.route("", methods=["POST"])
 def triage() -> Any:
-    """Accept a message from the universal chat bar and return a response.
+    """Accept a message from the conversation panel and return a response.
 
-    Expects JSON: {message, app, path, facet}
-    Returns JSON: {response}
+    Expects JSON: {message, app, path, facet, conversation_history?}
+    Returns JSON: {response, panel}
+
+    When conversation_history is provided (array of {role, content} pairs),
+    routes to the unified muse with full journal context. Otherwise falls
+    back to triage muse for backward compatibility.
     """
     payload = request.get_json(force=True)
     message = payload.get("message", "").strip()
@@ -33,6 +40,7 @@ def triage() -> Any:
     app_name = payload.get("app", "")
     path = payload.get("path", "")
     facet = payload.get("facet", "")
+    conversation_history = payload.get("conversation_history")
 
     from think.awareness import get_onboarding
     from think.facets import get_enabled_facets
@@ -43,6 +51,12 @@ def triage() -> Any:
     _agent_cfg = get_config().get("agent", {})
     agent_display_name = _agent_cfg.get("name", "sol").capitalize()
 
+    # Route to unified muse when conversation context is present,
+    # fall back to triage for backward compatibility (no context)
+    has_conversation = (
+        isinstance(conversation_history, list) and len(conversation_history) > 0
+    )
+
     if onboarding_status in ("observing", "ready"):
         # Path A active — use triage with observation context
         agent_name = "triage"
@@ -52,6 +66,9 @@ def triage() -> Any:
     ):
         # No facets and no onboarding state — new user, show welcome
         agent_name = "onboarding"
+    elif has_conversation:
+        # Conversation context present — use unified muse
+        agent_name = "unified"
     else:
         agent_name = "triage"
 
@@ -151,10 +168,32 @@ def triage() -> Any:
         except Exception:
             pass  # Don't let health context break triage
 
+    # Build conversation context block for multi-turn
+    conversation_block = ""
+    if has_conversation and agent_name == "unified":
+        # Include recent turns (capped at MAX_CONVERSATION_TURNS messages)
+        recent = conversation_history[-MAX_CONVERSATION_TURNS:]
+        turns = []
+        for turn in recent:
+            role = turn.get("role", "")
+            content = turn.get("content", "")
+            if role == "user":
+                turns.append(f"User: {content}")
+            elif role == "agent":
+                turns.append(f"Agent: {content}")
+        if turns:
+            conversation_block = (
+                "## Conversation History\n\n" + "\n\n".join(turns) + "\n\n"
+            )
+
+    # Assemble the full prompt
+    prompt_parts = []
     if context_lines:
-        full_prompt = "\n".join(context_lines) + "\n\n" + message
-    else:
-        full_prompt = message
+        prompt_parts.append("\n".join(context_lines))
+    if conversation_block:
+        prompt_parts.append(conversation_block)
+    prompt_parts.append(message)
+    full_prompt = "\n\n".join(prompt_parts)
 
     try:
         from convey.utils import spawn_agent
@@ -187,7 +226,15 @@ def triage() -> Any:
             events = read_agent_events(agent_id)
             for event in reversed(events):
                 if event.get("event") == "finish":
-                    return jsonify(response=event.get("result", ""))
+                    result = event.get("result", "")
+                    # Provide panel hint based on response characteristics
+                    panel = (
+                        len(result) >= 120
+                        or "\n" in result
+                        or len((result or "").split(". ")) > 2
+                        or has_conversation
+                    )
+                    return jsonify(response=result, panel=panel)
         except FileNotFoundError:
             pass
 
