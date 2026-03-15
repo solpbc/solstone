@@ -1,4 +1,4 @@
-<div class="workspace-content" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+<div class="workspace-content" style="display:flex;flex-direction:column;height:calc(100vh - var(--facet-bar-height) - var(--app-bar-height) - 24px);overflow:hidden;">
   <!-- Filter controls -->
   <div class="graph-controls" id="graph-controls" style="display:none;">
     <div class="graph-controls-row">
@@ -444,12 +444,12 @@
       physics: {
         solver: 'barnesHut',
         barnesHut: {
-          gravitationalConstant: -3000,
-          springLength: 150,
-          springConstant: 0.02,
+          gravitationalConstant: -8000,
+          springLength: 200,
+          springConstant: 0.04,
           damping: 0.09,
         },
-        stabilization: { iterations: 100 },
+        stabilization: { iterations: 300 },
       },
       nodes: {
         shape: 'dot',
@@ -475,6 +475,11 @@
       network.setData(visData);
     } else {
       network = new vis.Network(container, visData, options);
+
+      // Fit graph to container after stabilization
+      network.on('stabilizationIterationsDone', function() {
+        network.fit({ animation: { duration: 300 } });
+      });
 
       // Click node → inspect
       network.on('click', function(params) {
