@@ -379,7 +379,7 @@
           hover: { background: color, border: n.is_principal ? '#f59e0b' : '#374151' },
         },
         borderWidth: n.is_principal ? 3 : 1.5,
-        font: { size: Math.max(10, Math.min(16, 8 + size * 0.2)), color: '#374151' },
+        font: { size: Math.max(14, Math.min(22, 10 + size * 0.3)), color: '#374151' },
         title: n.name + ' (' + n.type + ') — score: ' + n.score.toFixed(1),
         _data: n,
       };
@@ -445,6 +445,7 @@
         solver: 'barnesHut',
         barnesHut: {
           gravitationalConstant: -30000,
+          centralGravity: 0.05,
           springLength: 250,
           springConstant: 0.01,
           damping: 0.09,
