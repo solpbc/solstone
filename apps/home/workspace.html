@@ -444,12 +444,13 @@
       physics: {
         solver: 'barnesHut',
         barnesHut: {
-          gravitationalConstant: -8000,
-          springLength: 200,
-          springConstant: 0.04,
+          gravitationalConstant: -30000,
+          springLength: 250,
+          springConstant: 0.01,
           damping: 0.09,
+          avoidOverlap: 0.5,
         },
-        stabilization: { iterations: 300 },
+        stabilization: { iterations: 500 },
       },
       nodes: {
         shape: 'dot',
