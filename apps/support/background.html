@@ -1,11 +1,10 @@
-<!-- Support background service: polls for ticket updates, manages badges -->
-<script>
-(function() {
-  const POLL_INTERVAL = 5 * 60 * 1000; // 5 minutes
-  let pollTimer = null;
+{# Support background service: polls for ticket updates, manages badges #}
 
-  AppServices.register('support', {
-    start() {
+const POLL_INTERVAL = 5 * 60 * 1000; // 5 minutes
+let pollTimer = null;
+
+AppServices.register('support', {
+    initialize() {
       updateBadge();
       pollTimer = setInterval(updateBadge, POLL_INTERVAL);
 
@@ -50,5 +49,3 @@
       // Silently ignore — support may be disabled or portal unreachable
     }
   }
-})();
-</script>
