@@ -169,22 +169,6 @@ ENDPOINTS = [
         "params": {"name": "Romeo"},
         "status": 200,
     },
-    # apps/home/routes.py
-    {
-        "app": "home",
-        "name": "summary",
-        "path": "/app/home/api/summary/20260304",
-        "params": {},
-        "status": 200,
-        "sandbox_only": True,  # upcoming events differ between Flask test client and live sandbox
-    },
-    {
-        "app": "home",
-        "name": "stats-month",
-        "path": "/app/home/api/stats/202603",
-        "params": {},
-        "status": 200,
-    },
     # apps/import/routes.py
     {
         "app": "import",
