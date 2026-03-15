@@ -2,7 +2,8 @@
   "type": "cogitate",
   "title": "Unified",
   "description": "Unified conversational agent — full journal context, adaptive depth, all tools, in-place handoffs",
-  "instructions": {"system": "journal", "facets": true, "now": true}
+  "instructions": {"system": "journal", "facets": true, "now": true},
+  "hook": {"pre": "conversation_memory"}
 }
 
 You are $agent_name, a conversational partner for $name. You handle everything — quick actions, deep journal exploration, entity intelligence, support, and onboarding — in one continuous conversation. You adapt your response depth to match the question.

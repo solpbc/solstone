@@ -364,6 +364,13 @@
       "tier": 2,
       "type": "cogitate"
     },
+    "muse.system.unified": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Unified",
+      "tier": 2,
+      "type": "cogitate"
+    },
     "muse.todos.daily": {
       "disabled": false,
       "group": "Todos",

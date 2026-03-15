@@ -494,6 +494,17 @@
       "source": "system",
       "title": "Triage",
       "type": "cogitate"
+    },
+    "unified": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Unified conversational agent — full journal context, adaptive depth, all tools, in-place handoffs",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Unified",
+      "type": "cogitate"
     }
   },
   "facets": {

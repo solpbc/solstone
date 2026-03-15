@@ -227,6 +227,26 @@ def triage() -> Any:
             for event in reversed(events):
                 if event.get("event") == "finish":
                     result = event.get("result", "")
+
+                    # Record conversation exchange for memory service
+                    try:
+                        from think.conversation import record_exchange
+
+                        record_exchange(
+                            facet=facet,
+                            app=app_name,
+                            path=path,
+                            user_message=message,
+                            agent_response=result,
+                            muse=agent_name,
+                            agent_id=agent_id or "",
+                        )
+                    except Exception:
+                        logger.debug(
+                            "Failed to record conversation exchange",
+                            exc_info=True,
+                        )
+
                     # Provide panel hint based on response characteristics
                     panel = (
                         len(result) >= 120
