@@ -79,7 +79,7 @@ class AttentionItem:
 
 
 def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
-    """Check attention sources P0-P3, return highest priority or None."""
+    """Check attention sources P0-P4, return highest priority or None."""
     # P0: Cortex errors
     try:
         import json
@@ -199,6 +199,17 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
                     )
         except Exception:
             pass
+
+    # P4: Owner voiceprint candidate ready for confirmation
+    voiceprint = awareness_current.get("voiceprint", {})
+    if voiceprint.get("status") == "candidate":
+        cluster_size = voiceprint.get("cluster_size", 0)
+        placeholder = "Voice pattern detected — confirm in Speakers"
+        context = [
+            f"System detected owner voice pattern from {cluster_size} voice samples. "
+            "Direct user to the Speakers app (/app/speakers) to confirm their voiceprint."
+        ]
+        return AttentionItem(placeholder_text=placeholder, context_lines=context)
 
     return None
 
