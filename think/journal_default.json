@@ -13,6 +13,12 @@
     "email_addresses": [],
     "timezone": ""
   },
+  "support": {
+    "enabled": true,
+    "proactive": true,
+    "anonymous_feedback": false,
+    "portal_url": "https://support.solpbc.org"
+  },
   "describe": {
     "redact": [
       "use *** instead of any visible passwords, credentials, keys, tokens, and secrets",

@@ -1554,6 +1554,7 @@ input:checked + .slider:before {
       <button class="settings-nav-item" data-section="insights">Insights</button>
       <button class="settings-nav-item" data-section="security">Security</button>
       <button class="settings-nav-item" data-section="sync">Sync</button>
+      <button class="settings-nav-item" data-section="support">Support</button>
     </div>
     <div class="settings-nav-group" id="facetNavGroup" style="display:none">
       <div class="settings-nav-label" id="facetNavLabel">Facet</div>
@@ -2111,6 +2112,51 @@ input:checked + .slider:before {
       </div>
     </section>
 
+    <!-- Support Section -->
+    <section class="settings-section" id="section-support">
+      <h2>Support</h2>
+      <p class="settings-section-desc">Configure how your sol communicates with sol pbc support.</p>
+
+      <div class="settings-field">
+        <div class="toggle-container" style="justify-content: flex-start; gap: 1em;">
+          <label class="toggle-switch toggle-positive">
+            <input type="checkbox" id="field-support-enabled" data-section="support" data-key="enabled">
+            <span class="slider"></span>
+          </label>
+          <label for="field-support-enabled" class="toggle-label" style="cursor: pointer;">Support Agent</label>
+        </div>
+        <small>When enabled, your sol can file and track support tickets on your behalf. You always review and approve before anything is sent.</small>
+      </div>
+
+      <div class="settings-field">
+        <div class="toggle-container" style="justify-content: flex-start; gap: 1em;">
+          <label class="toggle-switch toggle-positive">
+            <input type="checkbox" id="field-support-proactive" data-section="support" data-key="proactive">
+            <span class="slider"></span>
+          </label>
+          <label for="field-support-proactive" class="toggle-label" style="cursor: pointer;">Proactive Detection</label>
+        </div>
+        <small>Detect repeated errors and suggest filing a support ticket. No data is sent — only a local notification.</small>
+      </div>
+
+      <div class="settings-field">
+        <div class="toggle-container" style="justify-content: flex-start; gap: 1em;">
+          <label class="toggle-switch toggle-positive">
+            <input type="checkbox" id="field-support-anonymous" data-section="support" data-key="anonymous_feedback">
+            <span class="slider"></span>
+          </label>
+          <label for="field-support-anonymous" class="toggle-label" style="cursor: pointer;">Anonymous Feedback</label>
+        </div>
+        <small>Strip installation identifiers when submitting feedback.</small>
+      </div>
+
+      <div class="settings-field">
+        <label for="field-support-portal-url">Portal URL</label>
+        <input type="text" id="field-support-portal-url" data-section="support" data-key="portal_url" placeholder="https://support.solpbc.org">
+        <small>Support portal endpoint. Change this if you run your own portal.</small>
+      </div>
+    </section>
+
     <!-- Facet Appearance Section -->
     <section class="settings-section" id="section-facet-appearance" data-requires-facet>
       <div class="facet-header">
@@ -2447,6 +2493,13 @@ function populateFields(config) {
   // Convey (password)
   const convey = config.convey || {};
   setValue('field-password', convey.password || '');
+
+  // Support settings
+  const support = config.support || {};
+  document.getElementById('field-support-enabled').checked = support.enabled !== false;
+  document.getElementById('field-support-proactive').checked = support.proactive !== false;
+  document.getElementById('field-support-anonymous').checked = support.anonymous_feedback || false;
+  setValue('field-support-portal-url', support.portal_url || 'https://support.solpbc.org');
 
   // Env (API keys) - show status indicators
   // env = journal config status, system_env = shell/.env status
