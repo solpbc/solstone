@@ -140,6 +140,25 @@ def support_reply(
     return client.reply_to_ticket(ticket_id, content)
 
 
+def support_attach(
+    ticket_id: int,
+    file_path: str,
+    *,
+    filename: str | None = None,
+    portal_url: str | None = None,
+) -> dict[str, Any]:
+    """Attach a file to an existing ticket.
+
+    Returns the attachment metadata from the portal.
+    """
+    from pathlib import Path
+
+    from apps.support.portal import get_client
+
+    client = get_client(portal_url=portal_url)
+    return client.attach_file(ticket_id, Path(file_path), filename=filename)
+
+
 def support_announcements(
     portal_url: str | None = None,
 ) -> list[dict[str, Any]]:

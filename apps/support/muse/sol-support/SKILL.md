@@ -80,7 +80,7 @@ sol call support list
 # List all tickets (including resolved)
 sol call support list --status resolved
 
-# View a ticket with thread
+# View a ticket with thread (includes attachment metadata)
 sol call support show 42
 
 # Reply to a ticket
@@ -90,6 +90,27 @@ sol call support reply 42 --body "Here's the additional info you requested..."
 sol call support list --json
 sol call support show 42 --json
 ```
+
+### Attachments
+
+```bash
+# Attach a screenshot to ticket #42
+sol call support attach 42 ~/screenshot.png
+
+# Attach multiple files
+sol call support attach 42 screenshot.png error-log.txt
+
+# Skip confirmation (only after explicit user consent)
+sol call support attach 42 screenshot.png --yes
+```
+
+Upload files to an existing ticket. The consent gate shows each file (name and size) before upload. Attachments are a follow-up action — create the ticket first, then attach files.
+
+**Limits:** max 10 MB per file, max 5 files per upload.
+
+**Supported formats:** `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.pdf`, `.txt`, `.csv`, `.html`, `.md`, `.xml`, `.json`
+
+When a user reports a visual bug (UI glitch, rendering issue), proactively suggest attaching a screenshot.
 
 ### Feedback
 
@@ -141,6 +162,9 @@ sol call support create \
   --description "Google Calendar events imported yesterday aren't showing up in the calendar app. Tried re-importing but same result." \
   --category bug \
   --severity medium
+
+# Attach a screenshot to the ticket
+sol call support attach 15 ~/screenshot.png
 
 # User wants to give feedback
 sol call support feedback \

@@ -493,6 +493,104 @@ class PortalClient:
         self._raise_for_status(resp)
         return resp.json()
 
+    # -- Attachments ---------------------------------------------------------
+
+    MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10 MB
+    MAX_ATTACHMENTS_PER_MESSAGE = 5
+
+    ALLOWED_CONTENT_TYPES = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".svg": "image/svg+xml",
+        ".pdf": "application/pdf",
+        ".txt": "text/plain",
+        ".csv": "text/csv",
+        ".html": "text/html",
+        ".md": "text/markdown",
+        ".xml": "text/xml",
+        ".json": "application/json",
+    }
+
+    def attach_file(
+        self,
+        ticket_id: int,
+        file_path: Path,
+        *,
+        filename: str | None = None,
+        content_type: str | None = None,
+    ) -> dict[str, Any]:
+        """Upload a file attachment to a ticket.
+
+        Parameters
+        ----------
+        ticket_id:
+            The ticket to attach the file to.
+        file_path:
+            Path to the local file.
+        filename:
+            Override filename sent to the portal (defaults to file_path.name).
+        content_type:
+            Override MIME type (auto-detected from extension if omitted).
+
+        Raises
+        ------
+        ValueError
+            If the file is too large or has an unsupported type.
+        FileNotFoundError
+            If the file does not exist.
+        """
+        self.ensure_registered()
+        file_path = Path(file_path)
+
+        if not file_path.is_file():
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        size = file_path.stat().st_size
+        if size > self.MAX_ATTACHMENT_SIZE:
+            raise ValueError(
+                f"File too large: {size / 1024 / 1024:.1f} MB "
+                f"(max {self.MAX_ATTACHMENT_SIZE / 1024 / 1024:.0f} MB)"
+            )
+
+        if content_type is None:
+            suffix = file_path.suffix.lower()
+            content_type = self.ALLOWED_CONTENT_TYPES.get(suffix)
+            if content_type is None:
+                raise ValueError(
+                    f"Unsupported file type: {suffix}. "
+                    f"Allowed: {', '.join(sorted(self.ALLOWED_CONTENT_TYPES))}"
+                )
+
+        fname = filename or file_path.name
+        url = f"{self.portal_url}/api/tickets/{ticket_id}/attachments"
+        headers = self._authed_headers("POST", url)
+
+        with self._http() as client:
+            with open(file_path, "rb") as f:
+                resp = client.post(
+                    url,
+                    headers=headers,
+                    files={"file": (fname, f, content_type)},
+                )
+
+        if resp.status_code == 401:
+            try:
+                body = resp.json()
+            except Exception:
+                body = {}
+            if body.get("error") == "tos_changed":
+                logger.info("TOS changed — re-registering")
+                self.register()
+                return self.attach_file(
+                    ticket_id, file_path, filename=fname, content_type=content_type
+                )
+
+        self._raise_for_status(resp)
+        return resp.json()
+
     # -- Knowledge Base ------------------------------------------------------
 
     def search_articles(self, query: str | None = None) -> list[dict[str, Any]]:

@@ -26,6 +26,7 @@ These are non-negotiable:
 - `sol call support list [--status open]` — List your tickets
 - `sol call support show <id>` — View a ticket with thread
 - `sol call support reply <id> --body "..." --yes` — Reply to a ticket (only after user approves the reply text)
+- `sol call support attach <id> <file> [<file>...]` — Attach files to a ticket (consent gate shows files before upload)
 - `sol call support feedback --body "..." --yes` — Submit feedback (only after user approves)
 - `sol call support announcements` — Check for product updates / known issues
 - `sol call support diagnose` — Run local diagnostics (no network)
@@ -50,6 +51,8 @@ These are non-negotiable:
 4. **Wait for approval.** Only submit after the user says yes. Use `--yes` flag only after explicit consent.
 
 5. **Confirm submission.** Tell the user the ticket number and that you'll monitor for responses.
+
+6. **For visual bugs, offer to attach a screenshot.** If the user describes a UI glitch, rendering issue, or anything visual, proactively ask: "Would you like to attach a screenshot? That would help the support team see exactly what you're seeing." If they provide a file path, use `sol call support attach <ticket_id> <file>` — the consent gate will show them the file before upload.
 
 ### When the user wants to give feedback:
 

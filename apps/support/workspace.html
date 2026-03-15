@@ -162,6 +162,55 @@
   .support-status-msg.success { color: #2e7d32; }
   .support-status-msg.error { color: #c62828; }
 
+  /* Attachments */
+  .support-attachments {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+  }
+  .support-attachment-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--muted, #888);
+    margin-top: 0.15rem;
+  }
+  .support-drop-zone {
+    border: 2px dashed var(--border, #e0e0e0);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    color: var(--muted, #888);
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+  .support-drop-zone.dragover {
+    border-color: var(--facet-color, #3b82f6);
+    background: rgba(59, 130, 246, 0.04);
+    color: var(--text, #222);
+  }
+  .support-drop-zone input[type="file"] { display: none; }
+  .support-file-list {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+  }
+  .support-file-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+  }
+  .support-file-entry .remove-file {
+    background: none;
+    border: none;
+    color: var(--muted, #888);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0 0.25rem;
+  }
+  .support-file-entry .remove-file:hover { color: #c62828; }
+
   /* Announcements banner */
   .support-announcements {
     background: #fff8e1;
@@ -322,9 +371,19 @@
       if (msgs.length) {
         html += '<h3 style="margin-top:1.5rem;">Thread</h3>';
         msgs.forEach(m => {
+          let attachHtml = '';
+          const atts = m.attachments || [];
+          if (atts.length) {
+            attachHtml = '<div class="support-attachments">';
+            atts.forEach(a => {
+              attachHtml += `<div class="support-attachment-item">\u{1F4CE} ${esc(a.filename || '?')} (${formatSize(a.size_bytes || 0)})</div>`;
+            });
+            attachHtml += '</div>';
+          }
           html += `<div class="support-message">
             <div class="support-message-meta">${esc(m.handle || 'unknown')} &middot; ${timeAgo(m.created_at)}</div>
             <p>${esc(m.content || '')}</p>
+            ${attachHtml}
           </div>`;
         });
       }
@@ -332,7 +391,15 @@
       if (t.status !== 'resolved') {
         html += `<div class="support-reply-form">
           <textarea id="reply-text" placeholder="Write a reply..."></textarea>
-          <button class="support-btn" id="reply-submit" style="margin-top:0.5rem;">Send Reply</button>
+          <div class="support-drop-zone" id="attach-zone">
+            <input type="file" id="attach-input" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.pdf,.txt,.csv,.html,.md,.xml,.json">
+            Drop files here or click to attach (max 10 MB each, up to 5 files)
+          </div>
+          <div class="support-file-list" id="attach-file-list"></div>
+          <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+            <button class="support-btn" id="reply-submit">Send Reply</button>
+            <button class="support-btn support-btn-secondary" id="attach-only-submit" style="display:none;">Upload Files Only</button>
+          </div>
           <div id="reply-status" class="support-status-msg"></div>
         </div>`;
       }
@@ -345,33 +412,144 @@
         list.style.display = '';
       });
 
+      // -- Attachment handling --
+      let pendingFiles = [];
+      const zone = document.getElementById('attach-zone');
+      const fileInput = document.getElementById('attach-input');
+      const fileList = document.getElementById('attach-file-list');
+      const attachOnlyBtn = document.getElementById('attach-only-submit');
+
+      function addFiles(newFiles) {
+        for (const f of newFiles) {
+          if (f.size > 10 * 1024 * 1024) {
+            showStatus('reply-status', f.name + ' exceeds 10 MB limit.', 'error');
+            continue;
+          }
+          if (pendingFiles.length >= 5) {
+            showStatus('reply-status', 'Max 5 files per upload.', 'error');
+            break;
+          }
+          if (!pendingFiles.some(p => p.name === f.name && p.size === f.size)) {
+            pendingFiles.push(f);
+          }
+        }
+        renderFileList();
+      }
+
+      function renderFileList() {
+        if (!fileList) return;
+        if (!pendingFiles.length) {
+          fileList.innerHTML = '';
+          if (attachOnlyBtn) attachOnlyBtn.style.display = 'none';
+          return;
+        }
+        if (attachOnlyBtn) attachOnlyBtn.style.display = '';
+        fileList.innerHTML = pendingFiles.map((f, i) =>
+          `<div class="support-file-entry">
+            <span>\u{1F4CE} ${esc(f.name)} (${formatSize(f.size)})</span>
+            <button class="remove-file" data-idx="${i}">\u00D7</button>
+          </div>`
+        ).join('');
+        fileList.querySelectorAll('.remove-file').forEach(btn => {
+          btn.addEventListener('click', () => {
+            pendingFiles.splice(parseInt(btn.dataset.idx), 1);
+            renderFileList();
+          });
+        });
+      }
+
+      if (zone) {
+        zone.addEventListener('click', () => fileInput && fileInput.click());
+        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+        zone.addEventListener('drop', e => {
+          e.preventDefault();
+          zone.classList.remove('dragover');
+          if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+        });
+      }
+      if (fileInput) {
+        fileInput.addEventListener('change', () => {
+          if (fileInput.files.length) addFiles(fileInput.files);
+          fileInput.value = '';
+        });
+      }
+
+      async function uploadPendingFiles(ticketId) {
+        let uploaded = 0;
+        for (const f of pendingFiles) {
+          const form = new FormData();
+          form.append('file', f);
+          const r = await fetch('/app/support/api/tickets/' + ticketId + '/attachments', {
+            method: 'POST',
+            body: form
+          });
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            throw new Error(err.error || 'Upload failed for ' + f.name);
+          }
+          uploaded++;
+        }
+        return uploaded;
+      }
+
       const replyBtn = document.getElementById('reply-submit');
       if (replyBtn) {
         replyBtn.addEventListener('click', async () => {
           const text = document.getElementById('reply-text').value.trim();
-          if (!text) return;
+          if (!text && !pendingFiles.length) return;
           replyBtn.disabled = true;
+          if (attachOnlyBtn) attachOnlyBtn.disabled = true;
           const status = document.getElementById('reply-status');
           try {
-            const r = await fetch('/app/support/api/tickets/' + id + '/reply', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({content: text})
-            });
-            if (r.ok) {
-              status.textContent = 'Reply sent.';
-              status.className = 'support-status-msg success';
-              document.getElementById('reply-text').value = '';
-              // Refresh to show new message
-              setTimeout(() => openTicket(id), 500);
-            } else {
-              throw new Error('Failed');
+            // Send reply text if present
+            if (text) {
+              const r = await fetch('/app/support/api/tickets/' + id + '/reply', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({content: text})
+              });
+              if (!r.ok) throw new Error('Failed to send reply');
             }
+            // Upload attachments if any
+            if (pendingFiles.length) {
+              await uploadPendingFiles(id);
+              pendingFiles = [];
+              renderFileList();
+            }
+            status.textContent = text ? 'Reply sent.' : 'Files uploaded.';
+            status.className = 'support-status-msg success';
+            document.getElementById('reply-text').value = '';
+            setTimeout(() => openTicket(id), 500);
           } catch (e) {
-            status.textContent = 'Failed to send reply.';
+            status.textContent = e.message || 'Failed to send.';
             status.className = 'support-status-msg error';
           }
           replyBtn.disabled = false;
+          if (attachOnlyBtn) attachOnlyBtn.disabled = false;
+        });
+      }
+
+      // Upload files only (no reply text)
+      if (attachOnlyBtn) {
+        attachOnlyBtn.addEventListener('click', async () => {
+          if (!pendingFiles.length) return;
+          replyBtn.disabled = true;
+          attachOnlyBtn.disabled = true;
+          const status = document.getElementById('reply-status');
+          try {
+            await uploadPendingFiles(id);
+            pendingFiles = [];
+            renderFileList();
+            status.textContent = 'Files uploaded.';
+            status.className = 'support-status-msg success';
+            setTimeout(() => openTicket(id), 500);
+          } catch (e) {
+            status.textContent = e.message || 'Failed to upload.';
+            status.className = 'support-status-msg error';
+          }
+          replyBtn.disabled = false;
+          attachOnlyBtn.disabled = false;
         });
       }
     } catch (e) {
@@ -428,6 +606,20 @@
     const el = document.createElement('span');
     el.textContent = s;
     return el.innerHTML;
+  }
+
+  function formatSize(bytes) {
+    if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    if (bytes >= 1024) return Math.round(bytes / 1024) + ' KB';
+    return bytes + ' bytes';
+  }
+
+  function showStatus(elId, msg, type) {
+    const el = document.getElementById(elId);
+    if (el) {
+      el.textContent = msg;
+      el.className = 'support-status-msg ' + type;
+    }
   }
 
   function timeAgo(dateStr) {

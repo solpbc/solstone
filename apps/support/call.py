@@ -12,6 +12,7 @@ ticket management, feedback, announcements, and local diagnostics.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import typer
 
@@ -237,6 +238,19 @@ def show(
             handle = msg.get("handle", "?")
             typer.echo(f"\n[{handle}] {msg.get('created_at', '')}")
             typer.echo(msg.get("content", ""))
+            attachments = msg.get("attachments", [])
+            if attachments:
+                for att in attachments:
+                    size = att.get("size_bytes", 0)
+                    if size >= 1024 * 1024:
+                        size_str = f"{size / 1024 / 1024:.1f} MB"
+                    elif size >= 1024:
+                        size_str = f"{size / 1024:.0f} KB"
+                    else:
+                        size_str = f"{size} bytes"
+                    typer.echo(
+                        f"  📎 {att.get('filename', '?')} ({size_str})"
+                    )
 
 
 @app.command("reply")
@@ -261,6 +275,60 @@ def reply(
     except Exception as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1) from None
+
+
+@app.command("attach")
+def attach(
+    ticket_id: int = typer.Argument(..., help="Ticket ID to attach files to."),
+    files: list[Path] = typer.Argument(..., help="File(s) to attach."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation."),
+) -> None:
+    """Attach file(s) to a ticket."""
+    _check_enabled()
+    from apps.support.portal import PortalClient
+    from apps.support.tools import support_attach
+
+    # Validate files up front
+    for f in files:
+        if not f.is_file():
+            typer.echo(f"Error: file not found: {f}", err=True)
+            raise typer.Exit(1)
+
+    if len(files) > PortalClient.MAX_ATTACHMENTS_PER_MESSAGE:
+        typer.echo(
+            f"Error: max {PortalClient.MAX_ATTACHMENTS_PER_MESSAGE} files per upload.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    # Consent gate — show what will be uploaded
+    typer.echo(f"\n--- Attachment Review (ticket #{ticket_id}) ---")
+    for f in files:
+        size = f.stat().st_size
+        if size >= 1024 * 1024:
+            size_str = f"{size / 1024 / 1024:.1f} MB"
+        elif size >= 1024:
+            size_str = f"{size / 1024:.0f} KB"
+        else:
+            size_str = f"{size} bytes"
+        typer.echo(f"  {f.name}  ({size_str})")
+    typer.echo("--- End Review ---\n")
+
+    if not yes:
+        approved = typer.confirm("Upload these files?")
+        if not approved:
+            typer.echo("Cancelled — nothing was sent.")
+            return
+
+    for f in files:
+        try:
+            result = support_attach(ticket_id, str(f))
+            typer.echo(f"Attached: {f.name} (id: {result.get('id', '?')})")
+        except ValueError as exc:
+            typer.echo(f"Skipped {f.name}: {exc}", err=True)
+        except Exception as exc:
+            typer.echo(f"Error uploading {f.name}: {exc}", err=True)
+            raise typer.Exit(1) from None
 
 
 @app.command("feedback")

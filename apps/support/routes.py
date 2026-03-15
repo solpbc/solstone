@@ -123,6 +123,60 @@ def reply_to_ticket(ticket_id: int) -> Any:
         return error_response(str(exc))
 
 
+# -- Attachments -------------------------------------------------------------
+
+
+@support_bp.route("/api/tickets/<int:ticket_id>/attachments", methods=["POST"])
+def upload_attachment(ticket_id: int) -> Any:
+    """Upload a file attachment to a ticket."""
+    if not _enabled():
+        return error_response("Support is disabled", 403)
+
+    if "file" not in request.files:
+        return error_response("No file provided")
+
+    uploaded = request.files["file"]
+    if not uploaded.filename:
+        return error_response("No filename")
+
+    try:
+        import tempfile
+        from pathlib import Path
+
+        from apps.support.portal import PortalClient
+
+        # Validate content type by extension
+        suffix = Path(uploaded.filename).suffix.lower()
+        if suffix not in PortalClient.ALLOWED_CONTENT_TYPES:
+            return error_response(
+                f"Unsupported file type: {suffix}. "
+                f"Allowed: {', '.join(sorted(PortalClient.ALLOWED_CONTENT_TYPES))}"
+            )
+
+        # Save to temp file, then upload via portal client
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            uploaded.save(tmp)
+            tmp_path = Path(tmp.name)
+
+        try:
+            from apps.support.tools import support_attach
+
+            result = support_attach(
+                ticket_id,
+                str(tmp_path),
+                filename=uploaded.filename,
+            )
+            return jsonify(result), 201
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+    except ValueError as exc:
+        return error_response(str(exc))
+    except Exception as exc:
+        logger.exception("Failed to upload attachment to ticket %d", ticket_id)
+        return error_response(str(exc))
+
+
 # -- Feedback ----------------------------------------------------------------
 
 
