@@ -463,6 +463,35 @@ def _is_historical_signal_file(rel_path: str, source_type: str) -> bool:
     return False
 
 
+def _load_facet_entities_for_day(journal: str, day: str) -> dict[str, set[str]]:
+    """Load entity names detected in each facet for a given day.
+
+    Returns a mapping of lowercase entity name → set of facets where detected.
+    """
+    journal_path = Path(journal)
+    result: dict[str, set[str]] = {}
+
+    for detection_file in journal_path.glob(f"facets/*/entities/{day}.jsonl"):
+        facet = detection_file.relative_to(journal_path).parts[1]
+        try:
+            with open(detection_file, encoding="utf-8") as f:
+                for raw in f:
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    try:
+                        data = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+                    name = data.get("name", "").strip()
+                    if name:
+                        result.setdefault(name.lower(), set()).add(facet)
+        except OSError:
+            continue
+
+    return result
+
+
 def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
     """Extract KG appearance and edge signals from a knowledge graph markdown file."""
     abs_path = os.path.join(journal, rel_path)
@@ -658,7 +687,35 @@ def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
                 }
             )
 
-    return rows
+    # Assign facets by cross-referencing entity names against facet detection data
+    facet_entities = _load_facet_entities_for_day(journal, day)
+    if not facet_entities:
+        return rows  # no detection data for this day — all stay facet=None
+
+    expanded: list[dict[str, Any]] = []
+    for row in rows:
+        if row["signal_type"] == "kg_appearance":
+            facets = facet_entities.get(row["entity_name"].lower(), set())
+            if facets:
+                for facet in sorted(facets):
+                    expanded.append({**row, "facet": facet})
+            else:
+                expanded.append(row)
+        elif row["signal_type"] == "kg_edge":
+            source_facets = facet_entities.get(row["entity_name"].lower(), set())
+            target_facets = facet_entities.get(
+                (row["target_name"] or "").lower(), set()
+            )
+            shared = source_facets & target_facets
+            if shared:
+                for facet in sorted(shared):
+                    expanded.append({**row, "facet": facet})
+            else:
+                expanded.append(row)
+        else:
+            expanded.append(row)
+
+    return expanded
 
 
 def _extract_signal_event_participants(
@@ -1602,7 +1659,35 @@ def _compute_strength_scores(
             "last_day": last_day or "",
             "facet_breadth": facet_breadth,
             "co_occurrence": 0,
+            "kg_edge_count": 0,
         }
+
+    # Count distinct KG relationship edges per entity (both source and target roles).
+    kg_where_parts: list[str] = ["signal_type='kg_edge'"]
+    kg_params: list[Any] = []
+    if facet:
+        kg_where_parts.append("facet=?")
+        kg_params.append(facet.lower())
+    if since:
+        kg_where_parts.append("day>=?")
+        kg_params.append(since)
+    kg_where = " AND ".join(kg_where_parts)
+
+    kg_rows = conn.execute(
+        f"""
+        SELECT entity, COUNT(*) as edge_count FROM (
+            SELECT DISTINCT entity_name as entity, target_name, relationship_type
+            FROM entity_signals WHERE {kg_where}
+            UNION
+            SELECT DISTINCT target_name as entity, entity_name, relationship_type
+            FROM entity_signals WHERE {kg_where}
+        ) GROUP BY entity
+        """,
+        kg_params + kg_params,
+    ).fetchall()
+    for entity_name, edge_count in kg_rows:
+        if entity_name in scores:
+            scores[entity_name]["kg_edge_count"] = edge_count
 
     # Exclude principal entities from co-occurrence calculations — they
     # co-occur with essentially everyone and inflate scores meaninglessly.
@@ -1673,6 +1758,7 @@ def get_entity_strength(
                 results[key] = {
                     "entity_id": entity_id,
                     "entity_name": entity_name,
+                    "kg_edge_count": 0,
                     "co_occurrence": 0,
                     "appearance": 0,
                     "recency": 0.0,
@@ -1682,6 +1768,9 @@ def get_entity_strength(
 
             r = results[key]
             r["appearance"] += components["appearance"]
+            r["kg_edge_count"] = max(
+                r["kg_edge_count"], components.get("kg_edge_count", 0)
+            )
             r["co_occurrence"] = max(
                 r["co_occurrence"], components.get("co_occurrence", 0)
             )
@@ -1708,11 +1797,11 @@ def get_entity_strength(
                 r["observation_depth"] = obs_map[r["entity_id"]]
 
             r["score"] = round(
-                5 * r["co_occurrence"]
-                + 3 * r["appearance"]
-                + 2 * r["recency"]
-                + 1 * r["facet_breadth"]
-                + 1 * r["observation_depth"],
+                5 * r["kg_edge_count"]
+                + 4 * r["co_occurrence"]
+                + 3 * r["recency"]
+                + 2 * r["observation_depth"]
+                + 1 * r["facet_breadth"],
                 4,
             )
 
@@ -2018,6 +2107,7 @@ def get_entity_intelligence(
 
         scores, obs_map_data = _compute_strength_scores(conn, facet, None)
         total_appearance = 0
+        max_kg_edges = 0
         max_co = 0
         max_breadth = 0
         best_last_day = ""
@@ -2025,6 +2115,7 @@ def get_entity_intelligence(
             if sname in scores:
                 c = scores[sname]
                 total_appearance += c["appearance"]
+                max_kg_edges = max(max_kg_edges, c.get("kg_edge_count", 0))
                 max_co = max(max_co, c.get("co_occurrence", 0))
                 max_breadth = max(max_breadth, c.get("facet_breadth", 0))
                 if c.get("last_day", "") > best_last_day:
@@ -2047,13 +2138,14 @@ def get_entity_intelligence(
 
         strength = {
             "score": round(
-                5 * max_co
-                + 3 * total_appearance
-                + 2 * recency
-                + 1 * max_breadth
-                + 1 * obs_depth,
+                5 * max_kg_edges
+                + 4 * max_co
+                + 3 * recency
+                + 2 * obs_depth
+                + 1 * max_breadth,
                 4,
             ),
+            "kg_edge_count": max_kg_edges,
             "co_occurrence": max_co,
             "appearance": total_appearance,
             "recency": recency,

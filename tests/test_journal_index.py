@@ -1057,7 +1057,7 @@ def test_scan_signals_kg_appearances():
     ).fetchall()
     conn.close()
 
-    assert len(rows) == 39
+    assert len(rows) == 43
     names = {r[0] for r in rows}
     assert "Alice Johnson" in names
     assert "Romeo Montague" in names
@@ -1151,7 +1151,7 @@ def test_scan_signals_deletion(tmp_path):
         "SELECT count(*) FROM entity_signals WHERE signal_type='kg_appearance'"
     ).fetchone()[0]
     conn.close()
-    assert initial == 39
+    assert initial == 43
 
     kg_file = dst / "20240101" / "agents" / "knowledge_graph.md"
     kg_file.unlink()
@@ -1162,4 +1162,65 @@ def test_scan_signals_deletion(tmp_path):
         "SELECT count(*) FROM entity_signals WHERE signal_type='kg_appearance'"
     ).fetchone()[0]
     conn.close()
-    assert after == 35
+    assert after == 39
+
+
+def test_scan_signals_kg_facet_assignment():
+    """Verify KG signals get facet assigned from detection data."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+
+    conn, _ = get_journal_index("tests/fixtures/journal")
+
+    # Appearances: entities in detection data get facet assigned
+    rows = conn.execute(
+        """
+        SELECT entity_name, facet FROM entity_signals
+        WHERE signal_type='kg_appearance' AND day='20260310'
+        ORDER BY entity_name, facet
+        """
+    ).fetchall()
+    by_name: dict[str, list[str | None]] = {}
+    for name, facet in rows:
+        by_name.setdefault(name, []).append(facet)
+
+    # Romeo is in montague + verona detection data → two rows
+    assert by_name["Romeo Montague"] == ["montague", "verona"]
+    # Juliet is in capulet + verona → two rows
+    assert by_name["Juliet Capulet"] == ["capulet", "verona"]
+    # Mercutio is only in montague → one row
+    assert by_name["Mercutio Escalus"] == ["montague"]
+    # Verona Platform is only in verona → one row
+    assert by_name["Verona Platform"] == ["verona"]
+
+    # Edges: facet assigned only when BOTH entities share a facet
+    edges = conn.execute(
+        """
+        SELECT entity_name, target_name, facet FROM entity_signals
+        WHERE signal_type='kg_edge' AND day='20260310'
+        ORDER BY entity_name, target_name
+        """
+    ).fetchall()
+    edge_facets = {(r[0], r[1]): r[2] for r in edges}
+
+    # Romeo + Verona Platform share verona → facet=verona
+    assert edge_facets[("Romeo Montague", "Verona Platform")] == "verona"
+    # Juliet + Verona Platform share verona → facet=verona
+    assert edge_facets[("Juliet Capulet", "Verona Platform")] == "verona"
+    # Tybalt (capulet) + Romeo (montague, verona) → no shared facet → NULL
+    assert edge_facets[("Tybalt Capulet", "Romeo Montague")] is None
+    # Mercutio (montague) + Verona Platform (verona) → no shared facet → NULL
+    assert edge_facets[("Mercutio Escalus", "Verona Platform")] is None
+
+    # Entities with no detection data on their day stay NULL
+    null_rows = conn.execute(
+        """
+        SELECT entity_name FROM entity_signals
+        WHERE signal_type='kg_appearance' AND day='20240101' AND facet IS NULL
+        """
+    ).fetchall()
+    assert len(null_rows) == 4  # Alice Johnson, Bob Smith, Acme Corp, Project Alpha
+
+    conn.close()
