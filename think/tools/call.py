@@ -48,6 +48,8 @@ from think.utils import (
 app = typer.Typer(help="Journal search and browsing.")
 facet_app = typer.Typer(help="Facet management.")
 app.add_typer(facet_app, name="facet")
+retention_app = typer.Typer(help="Media retention management.")
+app.add_typer(retention_app, name="retention")
 
 
 @app.command()
@@ -667,3 +669,102 @@ def import_detail(
         pass
 
     typer.echo(json.dumps(info, indent=2, default=str))
+
+
+# ============================================================================
+# Retention Commands
+# ============================================================================
+
+
+def _parse_age(value: str) -> int:
+    """Parse age string like '30d' or '30' to number of days."""
+    value = value.strip().lower()
+    if value.endswith("d"):
+        return int(value[:-1])
+    return int(value)
+
+
+@retention_app.command()
+def purge(
+    older_than: str | None = typer.Option(
+        None, "--older-than", help="Age threshold (e.g. 30d, 7d)."
+    ),
+    stream: str | None = typer.Option(
+        None, "--stream", help="Only purge from this stream."
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be deleted."),
+) -> None:
+    """Purge raw media from completed segments."""
+    from think.retention import _human_bytes, load_retention_config, purge as run_purge
+
+    older_than_days = _parse_age(older_than) if older_than else None
+    config = load_retention_config()
+
+    if dry_run:
+        typer.echo("DRY RUN — no files will be deleted.\n")
+
+    result = run_purge(
+        older_than_days=older_than_days,
+        stream_filter=stream,
+        dry_run=dry_run,
+        config=config,
+    )
+
+    if result.details:
+        for detail in result.details:
+            typer.echo(
+                f"  {detail['day']}/{detail['stream']}/{detail['segment']}: "
+                f"{len(detail['files'])} files, {_human_bytes(detail['bytes_freed'])}"
+            )
+        typer.echo("")
+
+    action = "Would delete" if dry_run else "Deleted"
+    typer.echo(
+        f"{action} {result.files_deleted} files, "
+        f"freeing {_human_bytes(result.bytes_freed)}"
+    )
+
+    if result.segments_skipped_incomplete:
+        typer.echo(
+            f"Skipped {result.segments_skipped_incomplete} incomplete segments "
+            "(processing not finished)."
+        )
+
+    if result.segments_skipped_policy:
+        typer.echo(
+            f"Skipped {result.segments_skipped_policy} segments "
+            "(not yet eligible under retention policy)."
+        )
+
+
+@app.command(name="storage-summary")
+def storage_summary(
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """Show journal storage summary."""
+    from think.retention import compute_storage_summary
+
+    summary = compute_storage_summary()
+
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "raw_media_bytes": summary.raw_media_bytes,
+                    "derived_bytes": summary.derived_bytes,
+                    "total_segments": summary.total_segments,
+                    "segments_with_raw": summary.segments_with_raw,
+                    "segments_purged": summary.segments_purged,
+                },
+                indent=2,
+            )
+        )
+        return
+
+    typer.echo(f"Raw media:          {summary.raw_media_human}")
+    typer.echo(f"AI-processed content: {summary.derived_human}")
+    typer.echo(
+        f"Segments: {summary.total_segments} total, "
+        f"{summary.segments_with_raw} with raw media, "
+        f"{summary.segments_purged} purged"
+    )

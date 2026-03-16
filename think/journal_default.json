@@ -31,5 +31,10 @@
     "name_status": "default",
     "named_date": null,
     "proposal_count": 0
+  },
+  "retention": {
+    "raw_media": "keep",
+    "raw_media_days": null,
+    "per_stream": {}
   }
 }
