@@ -37,6 +37,31 @@ from think.utils import DATE_RE, get_journal
 
 logger = logging.getLogger(__name__)
 
+# Noise entity patterns — transcript artifacts that should not be indexed
+_NOISE_ENTITY_RE = re.compile(
+    r"^Speaker \d+(?:\s*\(.*\))?$"
+    r"|^(?:Unknown|Unidentified) Speaker(?:\s*\d+)?(?:\s*\(.*\))?$",
+    re.IGNORECASE,
+)
+
+
+def is_noise_entity(name: str) -> bool:
+    """Return True if the entity name is a transcript artifact (noise)."""
+    return bool(_NOISE_ENTITY_RE.match(name))
+
+
+def _strip_md_formatting(text: str) -> str:
+    """Strip bold markers and backticks from a markdown table cell value."""
+    text = text.strip()
+    # Remove bold markers
+    if text.startswith("**") and text.endswith("**"):
+        text = text[2:-2]
+    # Remove backticks
+    if text.startswith("`") and text.endswith("`"):
+        text = text[1:-1]
+    return text.strip()
+
+
 # Database constants
 INDEX_DIR = "indexer"
 DB_NAME = "journal.sqlite"
@@ -429,9 +454,12 @@ def _extract_entity_observations(journal: str, rel_path: str) -> list[dict[str, 
 
 
 def _is_historical_signal_file(rel_path: str, source_type: str) -> bool:
-    """Check if a signal source file is historical and should be skipped in light mode."""
-    if source_type == "kg":
-        return _is_historical_day(rel_path)
+    """Check if a signal source file is historical and should be skipped in light mode.
+
+    KG files are never historical — they are accumulated (indexed once, kept forever)
+    like events. Only today's KG file changes; historical KG files are stable and should
+    be indexed incrementally then left alone.
+    """
     return False
 
 
@@ -447,11 +475,18 @@ def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
         logger.warning("Skipping %s: %s", rel_path, e)
         return []
 
-    parts = re.split(
-        r"^##\s+Relationship\b", content, maxsplit=1, flags=re.MULTILINE | re.IGNORECASE
+    # Split entity vs relationship sections by finding the relationship table
+    # header row (contains "Source Name"). Heading formats vary wildly across
+    # LLM-generated KG files, but the table header is consistent.
+    source_hdr = re.search(
+        r"^\|[^|]*Source\s*Name[^|]*\|", content, re.MULTILINE | re.IGNORECASE
     )
-    entity_section = parts[0]
-    relationship_section = parts[1] if len(parts) > 1 else ""
+    if source_hdr:
+        entity_section = content[: source_hdr.start()]
+        relationship_section = content[source_hdr.start() :]
+    else:
+        entity_section = content
+        relationship_section = ""
 
     rows: list[dict[str, Any]] = []
 
@@ -463,6 +498,8 @@ def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
         entity_name = m.group(1).strip()
         entity_type = m.group(2).strip()
         if entity_type.startswith(":") or entity_type.startswith("-"):
+            continue
+        if is_noise_entity(entity_name):
             continue
         rows.append(
             {
@@ -479,30 +516,109 @@ def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
             }
         )
 
-    edge_re = re.compile(
-        r"^\|\s*\*\*(.+?)\*\*\s*\|\s*\*\*(.+?)\*\*\s*\|\s*`?([^|`]+?)`?\s*\|",
+    # --- Edge extraction (table format) ---
+    # KG files use varied table formats (LLM-generated). Parse the relationship
+    # table header to detect column positions, then extract by index. Handles
+    # bold/non-bold entity names and any column order.
+    if relationship_section:
+        rel_lines = relationship_section.split("\n")
+        source_col = target_col = rel_col = -1
+        data_start = 0
+        for li, line in enumerate(rel_lines):
+            cells = [c.strip().lower() for c in line.split("|")]
+            for ci, cell in enumerate(cells):
+                if "source" in cell:
+                    source_col = ci
+                elif "target" in cell:
+                    target_col = ci
+                elif "relationship" in cell:
+                    rel_col = ci
+            if source_col >= 0 and (target_col >= 0 or rel_col >= 0):
+                data_start = li + 1
+                break
+
+        # Skip separator row (| :--- | :--- | ... |)
+        if data_start < len(rel_lines) and re.match(
+            r"^\s*\|[\s:\-|]+\|\s*$", rel_lines[data_start]
+        ):
+            data_start += 1
+
+        if source_col >= 0 and target_col >= 0 and rel_col >= 0:
+            for line in rel_lines[data_start:]:
+                if not line.strip().startswith("|"):
+                    if line.strip().startswith("#") or (line.strip() == "---"):
+                        break  # next section
+                    continue
+                cells = [c.strip() for c in line.split("|")]
+                if max(source_col, target_col, rel_col) >= len(cells):
+                    continue
+                source = _strip_md_formatting(cells[source_col])
+                target = _strip_md_formatting(cells[target_col])
+                rel_type = _strip_md_formatting(cells[rel_col])
+                if not source or not target or not rel_type:
+                    continue
+                if rel_type.startswith(":") or rel_type.startswith("-"):
+                    continue
+                if is_noise_entity(source) or is_noise_entity(target):
+                    continue
+                rows.append(
+                    {
+                        "signal_type": "kg_edge",
+                        "entity_name": source,
+                        "entity_type": None,
+                        "target_name": target,
+                        "relationship_type": rel_type,
+                        "day": day,
+                        "facet": None,
+                        "event_title": None,
+                        "event_type": None,
+                        "path": rel_path,
+                    }
+                )
+
+    # --- Edge extraction (bullet-list formats, early KG files) ---
+    # Format C: * **Source** `rel-type` **Target**
+    edge_re_bullet = re.compile(
+        r"^\s*[\*\-]\s+\*\*(.+?)\*\*\s+`([^`]+)`\s+\*\*(.+?)\*\*",
         re.MULTILINE,
     )
-    for m in edge_re.finditer(relationship_section):
-        source = m.group(1).strip()
-        target = m.group(2).strip()
-        rel_type = m.group(3).strip()
-        if rel_type.startswith(":") or rel_type.startswith("-"):
-            continue
-        rows.append(
-            {
-                "signal_type": "kg_edge",
-                "entity_name": source,
-                "entity_type": None,
-                "target_name": target,
-                "relationship_type": rel_type,
-                "day": day,
-                "facet": None,
-                "event_title": None,
-                "event_type": None,
-                "path": rel_path,
-            }
-        )
+    # Format D: `Source` -> `rel-type` -> `Target`
+    edge_re_arrow = re.compile(
+        r"^\s*[\*\-]\s+`([^`]+)`\s*->\s*`([^`]+)`\s*->\s*`([^`]+)`",
+        re.MULTILINE,
+    )
+    # Format E: (Source) -> `rel-type` -> (Target)
+    edge_re_paren = re.compile(
+        r"^\s*[\*\-]\s+\(([^)]+)\)\s*->\s*`([^`]+)`\s*->\s*\(([^)]+)\)",
+        re.MULTILINE,
+    )
+    # Format F: `Source` **rel-type** `Target`
+    edge_re_bold_rel = re.compile(
+        r"^\s*[\*\-]\s+`([^`]+)`\s+\*\*([^*]+)\*\*\s+`([^`]+)`",
+        re.MULTILINE,
+    )
+
+    for regex in (edge_re_bullet, edge_re_arrow, edge_re_paren, edge_re_bold_rel):
+        for m in regex.finditer(content):
+            source = m.group(1).strip()
+            rel_type = m.group(2).strip()
+            target = m.group(3).strip()
+            if is_noise_entity(source) or is_noise_entity(target):
+                continue
+            rows.append(
+                {
+                    "signal_type": "kg_edge",
+                    "entity_name": source,
+                    "entity_type": None,
+                    "target_name": target,
+                    "relationship_type": rel_type,
+                    "day": day,
+                    "facet": None,
+                    "event_title": None,
+                    "event_type": None,
+                    "path": rel_path,
+                }
+            )
 
     return rows
 
@@ -521,7 +637,7 @@ def _extract_signal_event_participants(
     rows: list[dict[str, Any]] = []
     try:
         with open(abs_path, encoding="utf-8") as f:
-            for raw in f:
+            for event_index, raw in enumerate(f):
                 raw = raw.strip()
                 if not raw:
                     continue
@@ -535,10 +651,11 @@ def _extract_signal_event_participants(
                 if not participants:
                     continue
 
+                event_path = f"{rel_path}#{event_index}"
                 title = event.get("title", "")
                 event_type = event.get("type", "")
                 for name in participants:
-                    if not name:
+                    if not name or is_noise_entity(name):
                         continue
                     rows.append(
                         {
@@ -551,7 +668,7 @@ def _extract_signal_event_participants(
                             "facet": facet,
                             "event_title": title,
                             "event_type": event_type,
-                            "path": rel_path,
+                            "path": event_path,
                         }
                     )
     except OSError as e:
@@ -933,7 +1050,10 @@ def scan_signals(
         if verbose:
             logger.info("[%s/%s] %s", i, len(to_index), rel)
 
-        conn.execute("DELETE FROM entity_signals WHERE path=?", (rel,))
+        conn.execute(
+            "DELETE FROM entity_signals WHERE path=? OR path LIKE ?",
+            (rel, rel + "#%"),
+        )
 
         if source_type == "kg":
             rows = _extract_signal_kg(journal, rel)
@@ -957,16 +1077,17 @@ def scan_signals(
     }
 
     if full:
-        removed = db_signal_paths - set(signal_files)
+        removed = {p for p in db_signal_paths if p.split("#")[0] not in signal_files}
     else:
         in_scope_db = {
             path
             for path in db_signal_paths
             if not _is_historical_signal_file(
-                path, "kg" if "/agents/knowledge_graph.md" in path else "event"
+                path.split("#")[0],
+                "kg" if "/agents/knowledge_graph.md" in path else "event",
             )
         }
-        removed = in_scope_db - set(in_scope)
+        removed = {p for p in in_scope_db if p.split("#")[0] not in in_scope}
 
     for rel in removed:
         conn.execute("DELETE FROM entity_signals WHERE path=?", (rel,))
@@ -1335,6 +1456,45 @@ def get_events(
     return events
 
 
+def get_principal_entity_names(conn: sqlite3.Connection) -> set[str]:
+    """Return signal entity_names that correspond to principal entities.
+
+    Matches via entity_id (slug) and canonical name so that principal entities
+    are recognised regardless of which name form appears in entity_signals.
+    """
+    rows = conn.execute(
+        "SELECT entity_id, name FROM entities "
+        "WHERE source='identity' AND is_principal=1"
+    ).fetchall()
+    if not rows:
+        return set()
+
+    # Collect all name forms for principal entities
+    principal_ids = {r[0] for r in rows}
+    principal_names_canonical = {r[1] for r in rows if r[1]}
+
+    # Scan signal names and resolve to see if they map to a principal entity
+    signal_names = conn.execute(
+        "SELECT DISTINCT entity_name FROM entity_signals"
+    ).fetchall()
+
+    result: set[str] = set()
+    for (sname,) in signal_names:
+        slug = entity_slug(sname)
+        if slug in principal_ids:
+            result.add(sname)
+        elif sname in principal_names_canonical:
+            result.add(sname)
+        else:
+            # Prefix fallback — matches _build_entity_name_map logic
+            # e.g. "Jeremie" (slug "jeremie") matches "jeremie_miller"
+            for pid in principal_ids:
+                if pid.startswith(slug + "_"):
+                    result.add(sname)
+                    break
+    return result
+
+
 def _build_entity_name_map(conn: sqlite3.Connection) -> dict[str, str]:
     """Map signal entity_names to entity_ids via slug matching.
 
@@ -1406,6 +1566,10 @@ def _compute_strength_scores(
             "co_occurrence": 0,
         }
 
+    # Exclude principal entities from co-occurrence calculations — they
+    # co-occur with essentially everyone and inflate scores meaninglessly.
+    principal_names = get_principal_entity_names(conn)
+
     co_where_parts: list[str] = []
     co_params: list[Any] = []
     if facet:
@@ -1414,6 +1578,12 @@ def _compute_strength_scores(
     if since:
         co_where_parts.append("s1.day>=?")
         co_params.append(since)
+    if principal_names:
+        ph = ",".join("?" for _ in principal_names)
+        co_where_parts.append(f"s1.entity_name NOT IN ({ph})")
+        co_params.extend(principal_names)
+        co_where_parts.append(f"s2.entity_name NOT IN ({ph})")
+        co_params.extend(principal_names)
     co_where = " AND ".join(co_where_parts) if co_where_parts else "1=1"
 
     co_rows = conn.execute(

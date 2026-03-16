@@ -15,6 +15,8 @@ from think.indexer.journal import (
     get_entity_intelligence,
     get_entity_strength,
     get_journal_index,
+    get_principal_entity_names,
+    is_noise_entity,
 )
 
 home_bp = Blueprint(
@@ -207,6 +209,7 @@ def _get_explicit_edges(
             "edge_type": "explicit",
         }
         for r in rows
+        if not is_noise_entity(r[0]) and not is_noise_entity(r[1] or "")
     ]
 
 
@@ -227,6 +230,9 @@ def _get_co_occurrence_edges(
         explicit_pairs.add((e["from_name"], e["to_name"]))
         explicit_pairs.add((e["to_name"], e["from_name"]))
 
+    # Exclude principal entities — they co-occur with everyone by definition
+    principal_names = get_principal_entity_names(conn)
+
     placeholders = ",".join("?" for _ in node_names)
     where_parts = [
         f"s1.entity_name IN ({placeholders})",
@@ -235,6 +241,12 @@ def _get_co_occurrence_edges(
     ]
     params: list[Any] = list(node_names) + list(node_names)
 
+    if principal_names:
+        ph = ",".join("?" for _ in principal_names)
+        where_parts.append(f"s1.entity_name NOT IN ({ph})")
+        params.extend(principal_names)
+        where_parts.append(f"s2.entity_name NOT IN ({ph})")
+        params.extend(principal_names)
     if facet:
         where_parts.append("s1.facet=?")
         params.append(facet.lower())
@@ -260,6 +272,8 @@ def _get_co_occurrence_edges(
     edges = []
     for r in rows:
         if (r[0], r[1]) in explicit_pairs:
+            continue
+        if is_noise_entity(r[0]) or is_noise_entity(r[1]):
             continue
         edges.append(
             {
