@@ -20,3 +20,4 @@ tests/fixtures/journal/tokens/*.json
 .claude/
 .sandbox.pid
 .sandbox.journal
+apps/support/portal/
