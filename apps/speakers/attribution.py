@@ -462,11 +462,54 @@ def save_speaker_labels(
     labels: list[dict],
     metadata: dict[str, Any],
 ) -> Path:
-    """Write speaker_labels.json to the segment's agents/ directory."""
+    """Write speaker_labels.json to the segment's agents/ directory.
+
+    Preserves user corrections: if speaker_corrections.json exists, any
+    sentence that was corrected by the user keeps the corrected attribution
+    rather than being overwritten by a fresh pipeline run.
+    """
     agents_dir = seg_dir / "agents"
     agents_dir.mkdir(parents=True, exist_ok=True)
-    out_path = agents_dir / "speaker_labels.json"
 
+    # Load existing corrections to preserve user overrides
+    corr_path = agents_dir / "speaker_corrections.json"
+    corrected: dict[int, dict] = {}
+    if corr_path.is_file():
+        try:
+            with open(corr_path, encoding="utf-8") as f:
+                corr_data = json.load(f)
+            for entry in corr_data.get("corrections", []):
+                sid = entry.get("sentence_id")
+                if sid is not None:
+                    # Keep the latest correction per sentence
+                    corrected[int(sid)] = entry
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Apply corrections on top of pipeline labels
+    if corrected:
+        for label in labels:
+            sid = label.get("sentence_id")
+            if sid is not None and int(sid) in corrected:
+                corr = corrected[int(sid)]
+                speaker = corr.get("corrected_speaker")
+                if speaker is not None:
+                    label["speaker"] = speaker
+                    label["confidence"] = "high"
+                    # Determine method from correction type
+                    if corr.get("original_speaker") == speaker:
+                        label["method"] = "user_confirmed"
+                    elif corr.get("original_speaker") is None:
+                        label["method"] = "user_assigned"
+                    else:
+                        label["method"] = "user_corrected"
+        logger.info(
+            "Preserved %d user corrections in %s",
+            len(corrected),
+            seg_dir,
+        )
+
+    out_path = agents_dir / "speaker_labels.json"
     data = {
         "labels": labels,
         "owner_centroid_version": metadata.get("owner_centroid_version"),
