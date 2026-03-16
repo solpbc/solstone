@@ -505,10 +505,109 @@
   border-color: #93c5fd;
   color: #1d4ed8;
 }
+
+.spk-discovery-banner {
+  display: none;
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid #bbf7d0;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.spk-discovery-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.spk-discovery-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #14532d;
+}
+
+.spk-discovery-copy {
+  font-size: 14px;
+  color: #1f2937;
+  line-height: 1.5;
+}
+
+.spk-discovery-clusters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.spk-discovery-cluster {
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #bbf7d0;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.spk-discovery-cluster-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #166534;
+  margin-bottom: 10px;
+}
+
+.spk-discovery-sample {
+  margin-bottom: 8px;
+}
+
+.spk-discovery-sample-text {
+  font-size: 12px;
+  color: #475569;
+  margin-bottom: 4px;
+  font-style: italic;
+}
+
+.spk-discovery-sample audio {
+  width: 100%;
+}
+
+.spk-discovery-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.spk-discovery-input {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 13px;
+}
+
+.spk-discovery-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #16a34a;
+  color: #fff;
+}
+
+.spk-discovery-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.spk-discovery-status {
+  font-size: 12px;
+  color: #166534;
+  margin-top: 6px;
+}
 </style>
 
 <div class="spk-wrap">
   <div id="spkOwnerBanner" class="spk-owner-banner"></div>
+  <div id="spkDiscoveryBanner" class="spk-discovery-banner"></div>
   <div class="spk-layout">
     <div class="spk-segments">
       <div class="spk-segments-header">
@@ -533,6 +632,7 @@
   const segmentList = document.getElementById('spkSegmentList');
   const detailPanel = document.getElementById('spkDetail');
   const ownerBanner = document.getElementById('spkOwnerBanner');
+  const discoveryBanner = document.getElementById('spkDiscoveryBanner');
 
   let segments = [];
   let selectedSegment = null;
@@ -554,11 +654,67 @@
     if (hash) selectSegmentByKey(hash);
   });
 
+  discoveryBanner.addEventListener('click', e => {
+    const btn = e.target.closest('.spk-discovery-btn');
+    if (!btn) return;
+
+    const card = btn.closest('.spk-discovery-cluster');
+    if (!card) return;
+
+    const clusterId = parseInt(card.dataset.clusterId, 10);
+    const input = card.querySelector('.spk-discovery-input');
+    const status = card.querySelector('.spk-discovery-status');
+    const name = input.value.trim();
+
+    if (!name) {
+      status.textContent = 'Please enter a name.';
+      return;
+    }
+
+    btn.disabled = true;
+    input.disabled = true;
+    status.textContent = 'Identifying...';
+
+    fetch('/app/speakers/api/discovery/identify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cluster_id: clusterId, name: name }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          status.textContent = data.error;
+          btn.disabled = false;
+          input.disabled = false;
+          return;
+        }
+
+        status.textContent = `Identified as ${data.entity_name} (${data.voiceprints_saved} voiceprints, ${data.segments_updated} segments updated)`;
+        card.style.opacity = '0.5';
+        loadSegments();
+        if (selectedSegment && selectedSource) {
+          loadReview(selectedSegment, selectedSource);
+        }
+        setTimeout(() => {
+          card.remove();
+          if (!discoveryBanner.querySelector('.spk-discovery-cluster')) {
+            hideDiscovery();
+          }
+        }, 3000);
+      })
+      .catch(() => {
+        status.textContent = 'Failed to identify. Try again.';
+        btn.disabled = false;
+        input.disabled = false;
+      });
+  });
+
   function checkOwnerStatus() {
     fetch('/app/speakers/api/owner/status')
       .then(r => r.json())
       .then(data => {
         if (data.status === 'needs_detection') {
+          hideDiscovery();
           renderOwnerBanner('Analyzing voice patterns...');
           if (!ownerDetectionInFlight) {
             ownerDetectionInFlight = true;
@@ -578,17 +734,21 @@
 
         ownerDetectionInFlight = false;
         if (data.status === 'no_cluster') {
+          hideDiscovery();
           hideOwnerBanner();
           return;
         }
         if (data.status === 'candidate') {
+          hideDiscovery();
           renderOwnerCandidate(data);
           return;
         }
 
         hideOwnerBanner();
+        checkDiscovery();
       })
       .catch(() => {
+        hideDiscovery();
         hideOwnerBanner();
       });
   }
@@ -653,6 +813,58 @@
       .catch(() => {
         ownerBanner.querySelectorAll('button').forEach(btn => { btn.disabled = false; });
       });
+  }
+
+  function checkDiscovery() {
+    fetch('/app/speakers/api/discovery/scan', { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.clusters && data.clusters.length > 0) {
+          renderDiscovery(data.clusters);
+        } else {
+          hideDiscovery();
+        }
+      })
+      .catch(() => {
+        hideDiscovery();
+      });
+  }
+
+  function renderDiscovery(clusters) {
+    discoveryBanner.style.display = 'block';
+    discoveryBanner.innerHTML = `
+      <div class="spk-discovery-panel">
+        <div class="spk-discovery-title">New speakers found</div>
+        <div class="spk-discovery-copy">
+          We found ${clusters.length} recurring voice pattern${clusters.length > 1 ? 's' : ''} that ${clusters.length > 1 ? "don't" : "doesn't"} match any known speaker. Listen to samples and name them.
+        </div>
+        <div class="spk-discovery-clusters">
+          ${clusters.map(cluster => `
+            <div class="spk-discovery-cluster" data-cluster-id="${cluster.cluster_id}">
+              <div class="spk-discovery-cluster-title">
+                Unknown speaker &middot; ${cluster.size} samples &middot; ${cluster.segment_count} segments
+              </div>
+              ${cluster.samples.map(sample => `
+                <div class="spk-discovery-sample">
+                  <div class="spk-discovery-sample-text">${escapeHtml(sample.text || '(no transcript)')}</div>
+                  <audio controls preload="metadata" src="${sample.audio_url}"></audio>
+                </div>
+              `).join('')}
+              <div class="spk-discovery-form">
+                <input type="text" class="spk-discovery-input" placeholder="Enter speaker name..." />
+                <button class="spk-discovery-btn">Name</button>
+              </div>
+              <div class="spk-discovery-status"></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function hideDiscovery() {
+    discoveryBanner.style.display = 'none';
+    discoveryBanner.innerHTML = '';
   }
 
   function loadSegments() {

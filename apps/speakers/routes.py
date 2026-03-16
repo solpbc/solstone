@@ -28,6 +28,7 @@ from flask import (
     url_for,
 )
 
+from apps.speakers.discovery import discover_unknown_speakers, identify_cluster
 from apps.speakers.owner import (
     classify_sentences,
     count_segments_with_embeddings,
@@ -1247,6 +1248,50 @@ def api_owner_classify() -> Any:
             "sentences": classify_sentences(day, stream, segment_key, source),
         }
     )
+
+
+@speakers_bp.route("/api/discovery/scan", methods=["POST"])
+def api_discovery_scan() -> Any:
+    """Scan for recurring unknown speaker clusters."""
+    result = discover_unknown_speakers()
+    return jsonify(result)
+
+
+@speakers_bp.route("/api/discovery/identify", methods=["POST"])
+def api_discovery_identify() -> Any:
+    """Identify a discovered unknown speaker cluster by naming it."""
+    data = request.get_json(silent=True) or {}
+    cluster_id = data.get("cluster_id")
+    name = data.get("name", "").strip()
+
+    if cluster_id is None:
+        return error_response("cluster_id is required", 400)
+    if not name:
+        return error_response("name is required", 400)
+
+    try:
+        cluster_id = int(cluster_id)
+    except (TypeError, ValueError):
+        return error_response("cluster_id must be an integer", 400)
+
+    result = identify_cluster(cluster_id, name)
+    if "error" in result:
+        return error_response(result["error"], 400)
+
+    log_app_action(
+        app="speakers",
+        facet=None,
+        action="speaker_identified",
+        params={
+            "entity_id": result.get("entity_id"),
+            "entity_name": result.get("entity_name"),
+            "cluster_id": cluster_id,
+            "voiceprints_saved": result.get("voiceprints_saved"),
+            "segments_updated": result.get("segments_updated"),
+        },
+    )
+
+    return jsonify(result)
 
 
 @speakers_bp.route("/api/serve_audio/<day>/<path:encoded_path>")

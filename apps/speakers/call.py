@@ -7,6 +7,7 @@ Provides:
     sol call speakers bootstrap [--dry-run]
     sol call speakers resolve-names [--dry-run]
     sol call speakers attribute-segment <day> <stream> <segment>
+    sol call speakers discover
 """
 
 from __future__ import annotations
@@ -254,3 +255,30 @@ def backfill(
             typer.echo(f"  {err}", err=True)
         if len(stats["errors"]) > 10:
             typer.echo(f"  ... and {len(stats['errors']) - 10} more", err=True)
+
+
+@app.command()
+def discover() -> None:
+    """Discover recurring unknown speakers across segments."""
+    from apps.speakers.discovery import discover_unknown_speakers
+
+    result = discover_unknown_speakers()
+    clusters = result.get("clusters", [])
+
+    if not clusters:
+        typer.echo("No recurring unknown speakers found.")
+        raise typer.Exit()
+
+    typer.echo(f"Found {len(clusters)} unknown speaker cluster(s):\n")
+    for cluster in clusters:
+        typer.echo(
+            f"  Cluster {cluster['cluster_id']}: "
+            f"{cluster['size']} samples across {cluster['segment_count']} segments"
+        )
+        for sample in cluster.get("samples", []):
+            text_preview = (sample.get("text") or "")[:60]
+            typer.echo(
+                f"    - {sample['day']}/{sample['stream']}/{sample['segment_key']} "
+                f"sid={sample['sentence_id']}: {text_preview}"
+            )
+        typer.echo()

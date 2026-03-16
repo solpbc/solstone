@@ -39,7 +39,13 @@ def speakers_env(tmp_path, monkeypatch):
             monkeypatch.setenv("JOURNAL_PATH", str(journal_path))
 
         def create_segment(
-            self, day: str, segment_key: str, sources: list[str], num_sentences: int = 5
+            self,
+            day: str,
+            segment_key: str,
+            sources: list[str],
+            num_sentences: int = 5,
+            *,
+            embeddings: np.ndarray | None = None,
         ) -> Path:
             """Create a segment with sentence embeddings.
 
@@ -54,6 +60,10 @@ def speakers_env(tmp_path, monkeypatch):
             segment_dir = self.journal / day / STREAM / segment_key
             segment_dir.mkdir(parents=True, exist_ok=True)
 
+            sentence_count = (
+                embeddings.shape[0] if embeddings is not None else num_sentences
+            )
+
             for source in sources:
                 # Create JSONL transcript
                 jsonl_path = segment_dir / f"{source}.jsonl"
@@ -67,7 +77,7 @@ def speakers_env(tmp_path, monkeypatch):
                 base_s = int(time_part[4:6])
                 base_seconds = base_h * 3600 + base_m * 60 + base_s
 
-                for i in range(num_sentences):
+                for i in range(sentence_count):
                     offset = i * 5  # 5 seconds per sentence
                     abs_seconds = base_seconds + offset
                     h = (abs_seconds // 3600) % 24
@@ -85,13 +95,19 @@ def speakers_env(tmp_path, monkeypatch):
 
                 # Create NPZ embeddings
                 npz_path = segment_dir / f"{source}.npz"
-                embeddings = np.random.randn(num_sentences, 256).astype(np.float32)
-                # Normalize each embedding
-                norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-                embeddings = embeddings / norms
-                statement_ids = np.arange(1, num_sentences + 1, dtype=np.int32)
+                if embeddings is None:
+                    source_embeddings = np.random.randn(sentence_count, 256).astype(
+                        np.float32
+                    )
+                    norms = np.linalg.norm(source_embeddings, axis=1, keepdims=True)
+                    source_embeddings = source_embeddings / norms
+                else:
+                    source_embeddings = embeddings.astype(np.float32)
+                statement_ids = np.arange(1, sentence_count + 1, dtype=np.int32)
                 np.savez_compressed(
-                    npz_path, embeddings=embeddings, statement_ids=statement_ids
+                    npz_path,
+                    embeddings=source_embeddings,
+                    statement_ids=statement_ids,
                 )
 
                 # Create dummy audio file
