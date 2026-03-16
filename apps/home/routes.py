@@ -132,6 +132,12 @@ def api_graph():
     finally:
         conn.close()
 
+    # Count edges by type
+    explicit_edge_count = sum(1 for e in edges if e.get("edge_type") == "explicit")
+    co_occurrence_edge_count = sum(
+        1 for e in edges if e.get("edge_type") == "co_occurrence"
+    )
+
     return jsonify(
         {
             "nodes": nodes,
@@ -139,6 +145,8 @@ def api_graph():
             "stats": {
                 "total_entities": total_entities,
                 "total_signals": total_signals,
+                "explicit_edge_count": explicit_edge_count,
+                "co_occurrence_edge_count": co_occurrence_edge_count,
             },
         }
     )
@@ -292,15 +300,23 @@ def _build_name_to_node_id(
     conn: sqlite3.Connection,
     node_ids: set[str],
 ) -> dict[str, str]:
-    """Map signal entity_names to node IDs (entity_ids) for edge matching."""
+    """Map signal entity_names to node IDs (entity_ids) for edge matching.
+
+    Uses slug matching first, then falls back to fuzzy matching via
+    find_matching_entity() for KG entity names that differ from canonical
+    names (e.g., "Jer Miller" -> "jeremie_miller").
+    """
+    import json as _json
+
     from think.entities.core import entity_slug
+    from think.entities.matching import find_matching_entity
 
     rows = conn.execute(
-        "SELECT entity_id, name FROM entities WHERE source='identity'"
+        "SELECT entity_id, name, aka FROM entities WHERE source='identity'"
     ).fetchall()
 
     result: dict[str, str] = {}
-    for entity_id, name in rows:
+    for entity_id, name, _aka in rows:
         if entity_id in node_ids:
             result[name] = entity_id
             result[entity_id] = entity_id
@@ -318,5 +334,30 @@ def _build_name_to_node_id(
             slug = entity_slug(sname)
             if slug in node_ids:
                 result[sname] = slug
+
+    # Fuzzy matching for remaining unmapped signal names using the 5-tier
+    # matching from think.entities.matching (handles "Jer Miller" vs
+    # "Jeremie Miller" and similar KG name variants).
+    unmapped = [sname for (sname,) in signal_names if sname not in result]
+    if unmapped:
+        entity_dicts = []
+        for entity_id, name, aka_str in rows:
+            if entity_id not in node_ids:
+                continue
+            d: dict[str, Any] = {"id": entity_id, "name": name, "aka": []}
+            if aka_str:
+                try:
+                    aka_list = _json.loads(aka_str)
+                    if isinstance(aka_list, list):
+                        d["aka"] = aka_list
+                except (ValueError, TypeError):
+                    pass
+            entity_dicts.append(d)
+
+        if entity_dicts:
+            for sname in unmapped:
+                match = find_matching_entity(sname, entity_dicts)
+                if match:
+                    result[sname] = match["id"]
 
     return result
