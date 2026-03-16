@@ -42,55 +42,85 @@
       "type": "screen"
     },
     {
-      "markdown": "[00:00:05] (mic) Speaker 1: Welcome everyone to the Denver Tech Summit. We have an incredible lineup today.",
+      "markdown": "[00:00:05] (mic) Welcome everyone to the Denver Tech Summit. We have an incredible lineup today.",
       "source_ref": {
         "source": "mic",
         "speaker": 1,
         "start": "00:00:05"
+      },
+      "speaker_label": {
+        "confidence": "high",
+        "entity_id": "romeo_montague",
+        "is_owner": true,
+        "name": "Romeo Montague"
       },
       "time": "00:00:05",
       "timestamp": 1772640005000,
       "type": "audio"
     },
     {
-      "markdown": "[00:00:20] (mic) Speaker 1: Our first presenter is Juliet Capulet from Capulet Industries, talking about enterprise API architecture.",
+      "markdown": "[00:00:20] (mic) Our first presenter is Juliet Capulet from Capulet Industries, talking about enterprise API architecture.",
       "source_ref": {
         "source": "mic",
         "speaker": 1,
         "start": "00:00:20"
+      },
+      "speaker_label": {
+        "confidence": "high",
+        "entity_id": "romeo_montague",
+        "is_owner": true,
+        "name": "Romeo Montague"
       },
       "time": "00:00:20",
       "timestamp": 1772640020000,
       "type": "audio"
     },
     {
-      "markdown": "[00:00:45] (mic) Speaker 2: Thank you. Today I want to share our vision for unified API gateways that can serve both enterprise and startup clients.",
+      "markdown": "[00:00:45] (mic) Thank you. Today I want to share our vision for unified API gateways that can serve both enterprise and startup clients.",
       "source_ref": {
         "source": "mic",
         "speaker": 2,
         "start": "00:00:45"
+      },
+      "speaker_label": {
+        "confidence": "high",
+        "entity_id": "juliet_capulet",
+        "is_owner": false,
+        "name": "Juliet Capulet"
       },
       "time": "00:00:45",
       "timestamp": 1772640045000,
       "type": "audio"
     },
     {
-      "markdown": "[00:01:10] (mic) Speaker 2: The key insight is that API compatibility does not have to mean lowest common denominator. We can build bridges.",
+      "markdown": "[00:01:10] (mic) The key insight is that API compatibility does not have to mean lowest common denominator. We can build bridges.",
       "source_ref": {
         "source": "mic",
         "speaker": 2,
         "start": "00:01:10"
+      },
+      "speaker_label": {
+        "confidence": "medium",
+        "entity_id": "juliet_capulet",
+        "is_owner": false,
+        "name": "Juliet Capulet"
       },
       "time": "00:01:10",
       "timestamp": 1772640070000,
       "type": "audio"
     },
     {
-      "markdown": "[00:01:30] (mic) Speaker 3: Romeo, are you seeing this? Her architecture is almost identical to what we have been building.",
+      "markdown": "[00:01:30] (mic) Romeo, are you seeing this? Her architecture is almost identical to what we have been building.",
       "source_ref": {
         "source": "mic",
         "speaker": 3,
         "start": "00:01:30"
+      },
+      "speaker_label": {
+        "confidence": "medium",
+        "entity_id": "mercutio_escalus",
+        "is_owner": false,
+        "name": "Mercutio Escalus"
       },
       "time": "00:01:30",
       "timestamp": 1772640090000,

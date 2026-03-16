@@ -694,6 +694,49 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   color: #7c3aed;
 }
 
+.tr-speaker-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 2px;
+}
+
+.tr-speaker-label a {
+  color: #6b7280;
+  text-decoration: none;
+}
+
+.tr-speaker-label a:hover {
+  color: #374151;
+  text-decoration: underline;
+}
+
+.tr-speaker-label-owner {
+  color: #4f46e5;
+}
+
+.tr-speaker-label-owner a {
+  color: #4f46e5;
+}
+
+.tr-speaker-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.tr-speaker-dot-high {
+  background: #22c55e;
+}
+
+.tr-speaker-dot-medium {
+  background: #eab308;
+}
+
 .tr-unified-empty {
   text-align: center;
   color: #9ca3af;
@@ -1761,6 +1804,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         html += `<div class="tr-entry tr-entry-audio" data-idx="${idx}" data-type="audio" data-timestamp="${item.timestamp}">`;
         html += `<div class="tr-entry-time">${timeStr}</div>`;
         html += '<div class="tr-entry-content">';
+        if (item.speaker_label) {
+          const sl = item.speaker_label;
+          const dotClass = sl.confidence === 'high' ? 'tr-speaker-dot-high' : 'tr-speaker-dot-medium';
+          const labelClass = sl.is_owner ? 'tr-speaker-label tr-speaker-label-owner' : 'tr-speaker-label';
+          const displayName = sl.is_owner ? 'You' : escapeHtml(sl.name);
+          const entityHref = '/app/entities#' + encodeURIComponent(sl.entity_id);
+          html += `<div class="${labelClass}"><span class="tr-speaker-dot ${dotClass}"></span><a href="${entityHref}">${displayName}</a></div>`;
+        }
         html += `<div class="tr-entry-text">${escapeHtml(item.markdown)}</div>`;
         html += '</div></div>';
       } else if (item.type === 'screen') {

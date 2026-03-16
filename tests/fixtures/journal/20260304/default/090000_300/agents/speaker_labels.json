@@ -1,0 +1,11 @@
+{
+  "labels": [
+    {"sentence_id": 1, "speaker": "romeo_montague", "confidence": "high", "method": "owner_centroid"},
+    {"sentence_id": 2, "speaker": "romeo_montague", "confidence": "high", "method": "owner_centroid"},
+    {"sentence_id": 3, "speaker": "juliet_capulet", "confidence": "high", "method": "acoustic"},
+    {"sentence_id": 4, "speaker": "juliet_capulet", "confidence": "medium", "method": "acoustic"},
+    {"sentence_id": 5, "speaker": "mercutio_escalus", "confidence": "medium", "method": "context"}
+  ],
+  "owner_centroid_version": "fixture-v1",
+  "voiceprint_versions": {}
+}
