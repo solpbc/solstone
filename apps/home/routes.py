@@ -86,6 +86,7 @@ def api_graph():
                     "name": meta.get("name") or entity_name,
                     "type": entity_type,
                     "score": r["score"],
+                    "kg_edge_count": r["kg_edge_count"],
                     "co_occurrence": r["co_occurrence"],
                     "appearance": r["appearance"],
                     "recency": r["recency"],

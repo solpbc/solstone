@@ -30,6 +30,7 @@ class TestEntityStrength:
         results = get_entity_strength()
         r = results[0]
         for key in (
+            "kg_edge_count",
             "co_occurrence",
             "appearance",
             "recency",
