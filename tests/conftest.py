@@ -92,9 +92,26 @@ def add_module_stubs(request, monkeypatch):
         pairwise.cosine_similarity = cosine_similarity
         metrics = types.ModuleType("metrics")
         metrics.pairwise = pairwise
-        sys.modules["sklearn"] = types.ModuleType("sklearn")
+
+        cluster = types.ModuleType("sklearn.cluster")
+
+        class DummyHDBSCAN:
+            def __init__(self, **k):
+                pass
+
+            def fit(self, X):
+                self.labels_ = np.full(len(X), -1, dtype=int)
+                return self
+
+        cluster.HDBSCAN = DummyHDBSCAN
+
+        sklearn = types.ModuleType("sklearn")
+        sklearn.metrics = metrics
+        sklearn.cluster = cluster
+        sys.modules["sklearn"] = sklearn
         sys.modules["sklearn.metrics"] = metrics
         sys.modules["sklearn.metrics.pairwise"] = pairwise
+        sys.modules["sklearn.cluster"] = cluster
     if "dotenv" not in sys.modules:
         dotenv_mod = types.ModuleType("dotenv")
 
