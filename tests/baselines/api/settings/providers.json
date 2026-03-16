@@ -326,6 +326,14 @@
       "tier": 2,
       "type": "generate"
     },
+    "muse.system.speaker_attribution": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Speaker Attribution",
+      "schedule": "segment",
+      "tier": 2,
+      "type": "generate"
+    },
     "muse.system.speakers": {
       "disabled": false,
       "group": "Think",

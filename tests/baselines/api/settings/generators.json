@@ -184,6 +184,16 @@
     },
     {
       "app": null,
+      "description": "Identifies who said what in each transcript segment. Layers 1-3 (owner, structural, acoustic) run computationally via hook; Layer 4 uses contextual LLM analysis for remaining unmatched sentences.",
+      "disabled": false,
+      "extract": null,
+      "has_extraction": false,
+      "key": "speaker_attribution",
+      "source": "system",
+      "title": "Speaker Attribution"
+    },
+    {
+      "app": null,
       "description": "One-shot check-in after onboarding — spawns support agent chat",
       "disabled": false,
       "extract": null,
