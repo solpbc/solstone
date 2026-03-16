@@ -73,7 +73,6 @@ def _noise_embeddings(count: int, rng: np.random.Generator) -> np.ndarray:
     return embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
 
 
-
 def _other_cluster_embeddings(count: int) -> np.ndarray:
     base = np.zeros(256, dtype=np.float32)
     base[1] = 1.0

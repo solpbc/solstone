@@ -51,7 +51,9 @@ def bootstrap(
     typer.echo(f"Entities created: {stats['entities_created']}")
     typer.echo(f"Embeddings saved: {stats['embeddings_saved']}")
     typer.echo(f"Embeddings skipped (owner): {stats['embeddings_skipped_owner']}")
-    typer.echo(f"Embeddings skipped (duplicate): {stats['embeddings_skipped_duplicate']}")
+    typer.echo(
+        f"Embeddings skipped (duplicate): {stats['embeddings_skipped_duplicate']}"
+    )
 
     if stats["speakers_found"]:
         typer.echo("\nTop speakers by embedding count:")

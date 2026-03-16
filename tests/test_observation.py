@@ -343,5 +343,3 @@ class TestChatBarPlaceholder:
         update_state("imports", {"has_imported": True})
         placeholder = self._get_placeholder()
         assert "Capture is running" in placeholder
-
-

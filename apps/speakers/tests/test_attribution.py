@@ -56,14 +56,25 @@ def _write_controlled_segment(
 
     # JSONL transcript
     time_part = segment_key.split("_")[0]
-    base_h, base_m, base_s = int(time_part[:2]), int(time_part[2:4]), int(time_part[4:6])
+    base_h, base_m, base_s = (
+        int(time_part[:2]),
+        int(time_part[2:4]),
+        int(time_part[4:6]),
+    )
     base_seconds = base_h * 3600 + base_m * 60 + base_s
 
     lines = [json.dumps({"raw": f"{source}.flac", "model": "medium.en"})]
     for idx in range(len(embeddings)):
         t = base_seconds + idx * 5
         h, m, s = t // 3600, (t % 3600) // 60, t % 60
-        lines.append(json.dumps({"start": f"{h:02d}:{m:02d}:{s:02d}", "text": f"Sentence {idx + 1} text."}))
+        lines.append(
+            json.dumps(
+                {
+                    "start": f"{h:02d}:{m:02d}:{s:02d}",
+                    "text": f"Sentence {idx + 1} text.",
+                }
+            )
+        )
     (seg_dir / f"{source}.jsonl").write_text("\n".join(lines) + "\n")
     (seg_dir / f"{source}.flac").write_bytes(b"")
 
@@ -168,10 +179,10 @@ def test_layer2_single_speaker(speakers_env):
     labels = result["labels"]
 
     assert labels[0]["method"] == "owner_centroid"  # sentence 1: owner
-    assert labels[1]["speaker"] == "ryan_bennett"   # sentence 2: Ryan
+    assert labels[1]["speaker"] == "ryan_bennett"  # sentence 2: Ryan
     assert labels[1]["method"] == "structural_single_speaker"
     assert labels[1]["confidence"] == "high"
-    assert labels[2]["speaker"] == "ryan_bennett"   # sentence 3: Ryan
+    assert labels[2]["speaker"] == "ryan_bennett"  # sentence 3: Ryan
     assert result["unmatched"] == []
 
 
@@ -197,7 +208,11 @@ def test_layer2_setting_field(speakers_env):
 
     # Write imported_audio.jsonl with setting field
     jsonl_path = seg_dir / "imported_audio.jsonl"
-    header = {"raw": "imported_audio.flac", "model": "medium.en", "setting": "Jer and Jack at coffee"}
+    header = {
+        "raw": "imported_audio.flac",
+        "model": "medium.en",
+        "setting": "Jer and Jack at coffee",
+    }
     lines = [json.dumps(header)]
     lines.append(json.dumps({"start": "09:00:00", "text": "Owner talking"}))
     lines.append(json.dumps({"start": "09:00:05", "text": "Jack talking"}))
@@ -229,10 +244,19 @@ def test_layer3_acoustic_matching(speakers_env):
         entity_dir / "voiceprints.npz",
         embeddings=np.vstack([vp_emb] * 10).astype(np.float32),
         metadata=np.array(
-            [json.dumps({"day": "20240101", "segment_key": f"09{i:02d}00_300",
-                         "source": "mic_audio", "sentence_id": 1,
-                         "stream": STREAM, "added_at": 1700000000000})
-             for i in range(10)],
+            [
+                json.dumps(
+                    {
+                        "day": "20240101",
+                        "segment_key": f"09{i:02d}00_300",
+                        "source": "mic_audio",
+                        "sentence_id": 1,
+                        "stream": STREAM,
+                        "added_at": 1700000000000,
+                    }
+                )
+                for i in range(10)
+            ],
             dtype=str,
         ),
     )
@@ -288,8 +312,18 @@ def test_save_speaker_labels(tmp_path):
     from apps.speakers.attribution import save_speaker_labels
 
     labels = [
-        {"sentence_id": 1, "speaker": "owner", "confidence": "high", "method": "owner_centroid"},
-        {"sentence_id": 2, "speaker": "alice", "confidence": "high", "method": "acoustic"},
+        {
+            "sentence_id": 1,
+            "speaker": "owner",
+            "confidence": "high",
+            "method": "owner_centroid",
+        },
+        {
+            "sentence_id": 2,
+            "speaker": "alice",
+            "confidence": "high",
+            "method": "acoustic",
+        },
     ]
     metadata = {
         "owner_centroid_version": "2026-03-15T12:00:00",
@@ -330,7 +364,9 @@ def test_accumulate_voiceprints_saves(speakers_env):
         }
     ]
 
-    saved = accumulate_voiceprints("20240101", STREAM, "090000_300", labels, "mic_audio")
+    saved = accumulate_voiceprints(
+        "20240101", STREAM, "090000_300", labels, "mic_audio"
+    )
 
     assert "bob_smith" in saved
     assert saved["bob_smith"] == 1
@@ -363,7 +399,9 @@ def test_accumulate_idempotent(speakers_env):
 
     # Run twice
     accumulate_voiceprints("20240101", STREAM, "090000_300", labels, "mic_audio")
-    saved = accumulate_voiceprints("20240101", STREAM, "090000_300", labels, "mic_audio")
+    saved = accumulate_voiceprints(
+        "20240101", STREAM, "090000_300", labels, "mic_audio"
+    )
 
     # Second run should save nothing (idempotent)
     assert saved == {}
@@ -394,7 +432,9 @@ def test_accumulate_contamination_guard(speakers_env):
         }
     ]
 
-    saved = accumulate_voiceprints("20240101", STREAM, "090000_300", labels, "mic_audio")
+    saved = accumulate_voiceprints(
+        "20240101", STREAM, "090000_300", labels, "mic_audio"
+    )
 
     # Should not save — embedding is too similar to owner
     assert saved == {}
@@ -419,7 +459,9 @@ def test_accumulate_skips_medium_confidence(speakers_env):
         }
     ]
 
-    saved = accumulate_voiceprints("20240101", STREAM, "090000_300", labels, "mic_audio")
+    saved = accumulate_voiceprints(
+        "20240101", STREAM, "090000_300", labels, "mic_audio"
+    )
 
     assert saved == {}
 
@@ -443,6 +485,8 @@ def test_accumulate_skips_contextual_method(speakers_env):
         }
     ]
 
-    saved = accumulate_voiceprints("20240101", STREAM, "090000_300", labels, "mic_audio")
+    saved = accumulate_voiceprints(
+        "20240101", STREAM, "090000_300", labels, "mic_audio"
+    )
 
     assert saved == {}

@@ -24,7 +24,7 @@ from typing import Any
 
 import numpy as np
 
-from apps.speakers.owner import OWNER_THRESHOLD, load_owner_centroid
+from apps.speakers.owner import load_owner_centroid
 from think.entities import entity_slug, find_matching_entity
 from think.entities.journal import (
     ensure_journal_entity_memory,
@@ -109,9 +109,7 @@ def _save_voiceprints_batch(
         existing_meta = []
 
     # Build new arrays
-    new_emb = np.vstack(
-        [emb.reshape(1, -1).astype(np.float32) for emb, _ in new_items]
-    )
+    new_emb = np.vstack([emb.reshape(1, -1).astype(np.float32) for emb, _ in new_items])
     new_meta = [json.dumps(m) for _, m in new_items]
 
     combined_emb = (

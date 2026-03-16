@@ -4,10 +4,7 @@
 """Tests for think.conversation module — conversation memory service."""
 
 import json
-import os
-import tempfile
 from datetime import datetime
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -80,7 +77,14 @@ def test_record_exchange_writes_journal_segment(journal_dir):
     # Check journal segment directory: YYYYMMDD/conversation/HHMMSS_1/agents/
     day = datetime.fromtimestamp(ts / 1000).strftime("%Y%m%d")
     time_key = datetime.fromtimestamp(ts / 1000).strftime("%H%M%S")
-    md_path = journal_dir / day / "conversation" / f"{time_key}_1" / "agents" / "conversation.md"
+    md_path = (
+        journal_dir
+        / day
+        / "conversation"
+        / f"{time_key}_1"
+        / "agents"
+        / "conversation.md"
+    )
 
     assert md_path.exists()
     content = md_path.read_text()
@@ -252,7 +256,6 @@ def test_build_memory_context_includes_recent(journal_dir):
 def test_build_memory_context_truncates_long_responses(journal_dir):
     """Long agent responses are truncated in context output."""
     from think.conversation import (
-        MAX_RESPONSE_CHARS,
         build_memory_context,
         record_exchange,
     )

@@ -130,9 +130,7 @@ def record_exchange(
         logger.exception("Failed to write conversation journal entry")
 
     # 3. Entity extraction
-    _extract_entities(
-        user_message + " " + agent_response, facet=facet, day=day
-    )
+    _extract_entities(user_message + " " + agent_response, facet=facet, day=day)
 
 
 def _extract_entities(text: str, *, facet: str, day: str) -> None:
@@ -351,9 +349,7 @@ def build_memory_context(
 
     # Layer 1: Recent exchanges (full detail)
     parts.append("### Recent Conversations\n")
-    parts.append(
-        "The following are your most recent exchanges with the user:\n"
-    )
+    parts.append("The following are your most recent exchanges with the user:\n")
     for ex in recent:
         parts.append(_format_exchange(ex, compact=False))
         parts.append("")

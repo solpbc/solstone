@@ -36,7 +36,6 @@ def _mark_no_cluster(segment_count: int) -> None:
     )
 
 
-
 def _routes_helpers():
     """Load speakers route helpers lazily to avoid import cycles."""
     from apps.speakers.routes import (

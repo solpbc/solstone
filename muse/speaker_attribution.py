@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +61,7 @@ def pre_process(context: dict) -> dict | None:
         # Voiceprint accumulation
         if source:
             try:
-                saved = accumulate_voiceprints(
-                    day, stream, segment, labels, source
-                )
+                saved = accumulate_voiceprints(day, stream, segment, labels, source)
                 if saved:
                     logger.info("Accumulated voiceprints: %s", saved)
             except Exception as exc:

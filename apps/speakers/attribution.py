@@ -28,7 +28,7 @@ from typing import Any
 
 import numpy as np
 
-from apps.speakers.owner import OWNER_THRESHOLD, load_owner_centroid
+from apps.speakers.owner import load_owner_centroid
 from think.entities import find_matching_entity
 from think.entities.journal import (
     get_journal_principal,
