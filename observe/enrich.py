@@ -143,4 +143,11 @@ def enrich_transcript(
 
     except Exception as e:
         logger.warning(f"Enrichment failed: {e}")
+        from think.models import IncompleteJSONError
+
+        if isinstance(e, IncompleteJSONError) and e.partial_text:
+            logger.warning(
+                f"Partial response ({len(e.partial_text)} chars): "
+                f"{e.partial_text[:2000]}"
+            )
         return None

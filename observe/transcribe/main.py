@@ -608,6 +608,13 @@ def process_audio(
 
     except Exception as e:
         logging.error(f"Failed to transcribe {raw_path}: {e}", exc_info=True)
+        from think.models import IncompleteJSONError
+
+        if isinstance(e, IncompleteJSONError) and e.partial_text:
+            logging.error(
+                f"Partial response ({len(e.partial_text)} chars): "
+                f"{e.partial_text[:2000]}"
+            )
         raise SystemExit(1) from e
 
 
