@@ -147,11 +147,6 @@ def enrich_transcript(
 
         if isinstance(e, IncompleteJSONError) and e.partial_text:
             text = e.partial_text
-            logger.warning(
-                f"Partial response ({len(text)} chars) HEAD: "
-                f"{text[:1000]}"
-            )
-            logger.warning(
-                f"Partial response TAIL: {text[-1000:]}"
-            )
+            logger.warning(f"Partial response ({len(text)} chars) HEAD: {text[:1000]}")
+            logger.warning(f"Partial response TAIL: {text[-1000:]}")
         return None

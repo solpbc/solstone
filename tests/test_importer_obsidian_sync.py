@@ -360,9 +360,7 @@ def test_obsidian_sync_folder_path_entity_typing(tmp_path, monkeypatch):
         captured.append((facet, day, entities))
         return entities
 
-    with patch(
-        "think.importers.obsidian.seed_entities", side_effect=_fake_seed
-    ):
+    with patch("think.importers.obsidian.seed_entities", side_effect=_fake_seed):
         ObsidianSyncBackend().sync(tmp_path, source_path=vault, dry_run=False)
 
     all_entities = {}
@@ -394,9 +392,7 @@ def test_obsidian_sync_at_prefix_entity_typing(tmp_path, monkeypatch):
         captured.append((facet, day, entities))
         return entities
 
-    with patch(
-        "think.importers.obsidian.seed_entities", side_effect=_fake_seed
-    ):
+    with patch("think.importers.obsidian.seed_entities", side_effect=_fake_seed):
         ObsidianSyncBackend().sync(tmp_path, source_path=vault, dry_run=False)
 
     all_entities = {}
@@ -415,9 +411,7 @@ def test_obsidian_sync_numeric_prefix_folder(tmp_path, monkeypatch):
     monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
     vault = tmp_path / "vault"
 
-    _write_note(
-        vault, "00 People/Jane.md", "# Jane\nA person.", mtime=1_700_000_000
-    )
+    _write_note(vault, "00 People/Jane.md", "# Jane\nA person.", mtime=1_700_000_000)
     _write_note(
         vault,
         "Notes/ref.md",
@@ -431,9 +425,7 @@ def test_obsidian_sync_numeric_prefix_folder(tmp_path, monkeypatch):
         captured.append((facet, day, entities))
         return entities
 
-    with patch(
-        "think.importers.obsidian.seed_entities", side_effect=_fake_seed
-    ):
+    with patch("think.importers.obsidian.seed_entities", side_effect=_fake_seed):
         ObsidianSyncBackend().sync(tmp_path, source_path=vault, dry_run=False)
 
     all_entities = {}

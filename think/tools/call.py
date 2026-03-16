@@ -692,10 +692,13 @@ def purge(
     stream: str | None = typer.Option(
         None, "--stream", help="Only purge from this stream."
     ),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be deleted."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be deleted."
+    ),
 ) -> None:
     """Purge raw media from completed segments."""
-    from think.retention import _human_bytes, load_retention_config, purge as run_purge
+    from think.retention import _human_bytes, load_retention_config
+    from think.retention import purge as run_purge
 
     older_than_days = _parse_age(older_than) if older_than else None
     config = load_retention_config()

@@ -3,15 +3,9 @@
 
 """Tests for think.retention — media retention service."""
 
-import json
-from pathlib import Path
-
-import pytest
-
 from think.retention import (
     RetentionConfig,
     RetentionPolicy,
-    StorageSummary,
     _human_bytes,
     get_raw_media_files,
     is_raw_media,
@@ -19,7 +13,6 @@ from think.retention import (
     load_retention_config,
     purge,
 )
-
 
 # ---------------------------------------------------------------------------
 # is_raw_media
@@ -91,9 +84,17 @@ class TestGetRawMediaFiles:
 # ---------------------------------------------------------------------------
 
 
-def _make_segment(tmp_path, *, audio=False, video=False, embeddings=False,
-                  audio_extract=True, screen_extract=True, speaker_labels=True,
-                  active_agents=False):
+def _make_segment(
+    tmp_path,
+    *,
+    audio=False,
+    video=False,
+    embeddings=False,
+    audio_extract=True,
+    screen_extract=True,
+    speaker_labels=True,
+    active_agents=False,
+):
     """Create a segment directory with specified contents."""
     seg = tmp_path / "segment"
     seg.mkdir(exist_ok=True)
@@ -141,8 +142,7 @@ class TestIsSegmentComplete:
         assert not is_segment_complete(seg)
 
     def test_incomplete_missing_speaker_labels(self, tmp_path):
-        seg = _make_segment(tmp_path, audio=True, embeddings=True,
-                           speaker_labels=False)
+        seg = _make_segment(tmp_path, audio=True, embeddings=True, speaker_labels=False)
         assert not is_segment_complete(seg)
 
     def test_incomplete_active_agents(self, tmp_path):
@@ -282,6 +282,7 @@ class TestPurge:
         monkeypatch.setenv("JOURNAL_PATH", str(journal))
         # Clear cached journal path
         import think.utils
+
         think.utils._journal_path_cache = None
 
         return journal
@@ -306,10 +307,16 @@ class TestPurge:
 
         assert result.files_deleted == 2
         # Files should be gone
-        assert not (journal / "20260115" / "default" / "100000_300" / "audio.flac").exists()
-        assert not (journal / "20260115" / "plaud" / "103000_300" / "audio.m4a").exists()
+        assert not (
+            journal / "20260115" / "default" / "100000_300" / "audio.flac"
+        ).exists()
+        assert not (
+            journal / "20260115" / "plaud" / "103000_300" / "audio.m4a"
+        ).exists()
         # Derived content preserved
-        assert (journal / "20260115" / "default" / "100000_300" / "audio.jsonl").exists()
+        assert (
+            journal / "20260115" / "default" / "100000_300" / "audio.jsonl"
+        ).exists()
         # Retention log written
         assert (journal / "health" / "retention.log").exists()
 
@@ -363,7 +370,7 @@ class TestHumanBytes:
         assert _human_bytes(1024 * 1024) == "1.0 MB"
 
     def test_gigabytes(self):
-        assert _human_bytes(1024 ** 3) == "1.0 GB"
+        assert _human_bytes(1024**3) == "1.0 GB"
 
     def test_large(self):
         result = _human_bytes(12_400_000_000)

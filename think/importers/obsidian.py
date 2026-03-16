@@ -89,10 +89,12 @@ NUMERIC_PREFIX_RE = re.compile(r"^\d+\s+")
 # Default excluded folders — system/template artifacts, not user content.
 # Matched case-insensitively. Hidden dirs (.obsidian, .trash) are already
 # excluded by _is_hidden(); these cover non-hidden system folders.
-DEFAULT_EXCLUDED_FOLDERS = frozenset({
-    "templates",
-    "_templates",
-})
+DEFAULT_EXCLUDED_FOLDERS = frozenset(
+    {
+        "templates",
+        "_templates",
+    }
+)
 
 
 def infer_entity_type_from_path(rel_path: str) -> str | None:

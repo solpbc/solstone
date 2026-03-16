@@ -535,11 +535,22 @@ def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
         re.MULTILINE,
     )
     # Column header values that should not be treated as entity types
-    _HEADER_VALUES = frozenset({
-        "entity type", "type", "category", "classification", "role",
-        "entity name", "name", "first appearance", "total engagement",
-        "context", "description", "notes",
-    })
+    _HEADER_VALUES = frozenset(
+        {
+            "entity type",
+            "type",
+            "category",
+            "classification",
+            "role",
+            "entity name",
+            "name",
+            "first appearance",
+            "total engagement",
+            "context",
+            "description",
+            "notes",
+        }
+    )
     for m in appearance_re.finditer(entity_section):
         entity_name = (m.group(1) or m.group(2) or m.group(3) or "").strip()
         entity_type = m.group(4).strip()
