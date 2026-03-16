@@ -36,6 +36,14 @@ Extract participant names from:
 2. Names spoken in conversation - direct address ("Thanks, Sarah"), mentions ("John was saying...")
 3. Self-introductions ("Hi, I'm Alex from...")
 
+## Name Preferences
+
+When naming speakers, prefer complete canonical forms:
+- Use full names when identifiable: "Mitch Baumgartner" rather than just "Mitch"
+- If you can determine both first and last name from context, include both
+- Use consistent naming: the same person should have the same name form across outputs
+- If only a first name is confidently known, use that rather than guessing the surname
+
 ## What to Ignore
 
 - Podcasts, videos, or streaming content being watched
