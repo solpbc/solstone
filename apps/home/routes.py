@@ -302,62 +302,42 @@ def _build_name_to_node_id(
 ) -> dict[str, str]:
     """Map signal entity_names to node IDs (entity_ids) for edge matching.
 
-    Uses slug matching first, then falls back to fuzzy matching via
-    find_matching_entity() for KG entity names that differ from canonical
-    names (e.g., "Jer Miller" -> "jeremie_miller").
+    Uses shared name resolution (build_name_resolution_map) for consistent
+    matching — the same name resolves the same way everywhere.
     """
     import json as _json
 
-    from think.entities.core import entity_slug
-    from think.entities.matching import find_matching_entity
+    from think.entities.matching import build_name_resolution_map
 
     rows = conn.execute(
         "SELECT entity_id, name, aka FROM entities WHERE source='identity'"
     ).fetchall()
 
-    result: dict[str, str] = {}
-    for entity_id, name, _aka in rows:
-        if entity_id in node_ids:
-            result[name] = entity_id
-            result[entity_id] = entity_id
-            # Also map the slug form
-            slug = entity_slug(name)
-            if slug != entity_id:
-                result[slug] = entity_id
+    # Build entity dicts filtered to entities in node_ids
+    entity_dicts: list[dict[str, Any]] = []
+    for entity_id, name, aka_str in rows:
+        if entity_id not in node_ids:
+            continue
+        d: dict[str, Any] = {"id": entity_id, "name": name, "aka": []}
+        if aka_str:
+            try:
+                aka_list = _json.loads(aka_str)
+                if isinstance(aka_list, list):
+                    d["aka"] = aka_list
+            except (ValueError, TypeError):
+                pass
+        entity_dicts.append(d)
 
-    # Map signal names via slug
-    signal_names = conn.execute(
+    # Collect all names that may appear as edge endpoints
+    entity_name_rows = conn.execute(
         "SELECT DISTINCT entity_name FROM entity_signals"
     ).fetchall()
-    for (sname,) in signal_names:
-        if sname not in result:
-            slug = entity_slug(sname)
-            if slug in node_ids:
-                result[sname] = slug
+    target_name_rows = conn.execute(
+        "SELECT DISTINCT target_name FROM entity_signals "
+        "WHERE target_name IS NOT NULL AND target_name != ''"
+    ).fetchall()
+    all_names = list(
+        {r[0] for r in entity_name_rows} | {r[0] for r in target_name_rows}
+    )
 
-    # Fuzzy matching for remaining unmapped signal names using the 5-tier
-    # matching from think.entities.matching (handles "Jer Miller" vs
-    # "Jeremie Miller" and similar KG name variants).
-    unmapped = [sname for (sname,) in signal_names if sname not in result]
-    if unmapped:
-        entity_dicts = []
-        for entity_id, name, aka_str in rows:
-            if entity_id not in node_ids:
-                continue
-            d: dict[str, Any] = {"id": entity_id, "name": name, "aka": []}
-            if aka_str:
-                try:
-                    aka_list = _json.loads(aka_str)
-                    if isinstance(aka_list, list):
-                        d["aka"] = aka_list
-                except (ValueError, TypeError):
-                    pass
-            entity_dicts.append(d)
-
-        if entity_dicts:
-            for sname in unmapped:
-                match = find_matching_entity(sname, entity_dicts)
-                if match:
-                    result[sname] = match["id"]
-
-    return result
+    return build_name_resolution_map(all_names, entity_dicts)

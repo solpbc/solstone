@@ -38,10 +38,12 @@ from think.utils import DATE_RE, get_journal
 
 logger = logging.getLogger(__name__)
 
-# Noise entity patterns — transcript artifacts that should not be indexed
+# Noise entity patterns — transcript artifacts that should not be indexed.
+# Matches "Speaker N", "Unknown/Unidentified <word>" (single-word role).
+# Multi-word patterns ("Speaker Diarization") and bare "Unknown" are kept.
 _NOISE_ENTITY_RE = re.compile(
     r"^Speaker \d+(?:\s*\(.*\))?$"
-    r"|^(?:Unknown|Unidentified) Speaker(?:\s*\d+)?(?:\s*\(.*\))?$",
+    r"|^(?:Unknown|Unidentified) \w+(?:\s*\d+)?(?:\s*\(.*\))?$",
     re.IGNORECASE,
 )
 
@@ -525,14 +527,27 @@ def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
 
     rows: list[dict[str, Any]] = []
 
+    # Match entity rows in pipe-delimited tables. Handles bold (**Name**),
+    # backtick (`Name`), or plain text entity names. The second column must
+    # look like an entity type (not a separator row or header underline).
     appearance_re = re.compile(
-        r"^\|\s*\*\*(.+?)\*\*\s*\|\s*([^|]+?)\s*\|",
+        r"^\|\s*(?:\*\*(.+?)\*\*|`([^`]+)`|([^|*`\n][^|\n]*?))\s*\|\s*([^|]+?)\s*\|",
         re.MULTILINE,
     )
+    # Column header values that should not be treated as entity types
+    _HEADER_VALUES = frozenset({
+        "entity type", "type", "category", "classification", "role",
+        "entity name", "name", "first appearance", "total engagement",
+        "context", "description", "notes",
+    })
     for m in appearance_re.finditer(entity_section):
-        entity_name = m.group(1).strip()
-        entity_type = m.group(2).strip()
+        entity_name = (m.group(1) or m.group(2) or m.group(3) or "").strip()
+        entity_type = m.group(4).strip()
+        if not entity_name:
+            continue
         if entity_type.startswith(":") or entity_type.startswith("-"):
+            continue
+        if entity_type.lower() in _HEADER_VALUES:
             continue
         if is_noise_entity(entity_name):
             continue
@@ -658,6 +673,10 @@ def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
         re.MULTILINE,
     )
 
+    # Scope bullet-list edge matching to the relationship section only (or full
+    # content when no section split was found) to avoid false matches from
+    # bullet-formatted engagement notes in entity appearance tables.
+    bullet_search_text = relationship_section or content
     for regex in (
         edge_re_bullet,
         edge_re_arrow,
@@ -669,7 +688,7 @@ def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
         edge_re_labeled,
         edge_re_backtick_arrow,
     ):
-        for m in regex.finditer(content):
+        for m in regex.finditer(bullet_search_text):
             source = m.group(1).strip()
             rel_type = m.group(2).strip()
             target = m.group(3).strip()
@@ -1554,78 +1573,75 @@ def get_events(
     return events
 
 
+def _load_index_entity_dicts(
+    conn: sqlite3.Connection,
+    principal_only: bool = False,
+) -> list[dict[str, Any]]:
+    """Load identity entities from the journal index as entity dicts.
+
+    Returns dicts with "id", "name", and "aka" suitable for
+    build_name_resolution_map().
+    """
+    where = "source='identity'"
+    if principal_only:
+        where += " AND is_principal=1"
+    rows = conn.execute(
+        f"SELECT entity_id, name, aka FROM entities WHERE {where}"
+    ).fetchall()
+    entity_dicts: list[dict[str, Any]] = []
+    for entity_id, name, aka_str in rows:
+        d: dict[str, Any] = {"id": entity_id, "name": name, "aka": []}
+        if aka_str:
+            try:
+                aka_list = json.loads(aka_str)
+                if isinstance(aka_list, list):
+                    d["aka"] = aka_list
+            except (ValueError, TypeError):
+                pass
+        entity_dicts.append(d)
+    return entity_dicts
+
+
 def get_principal_entity_names(conn: sqlite3.Connection) -> set[str]:
     """Return signal entity_names that correspond to principal entities.
 
-    Matches via entity_id (slug) and canonical name so that principal entities
-    are recognised regardless of which name form appears in entity_signals.
+    Uses shared name resolution (build_name_resolution_map) to ensure
+    consistent matching — the same name resolves the same way everywhere.
     """
-    rows = conn.execute(
-        "SELECT entity_id, name FROM entities "
-        "WHERE source='identity' AND is_principal=1"
-    ).fetchall()
-    if not rows:
+    from think.entities.matching import build_name_resolution_map
+
+    entity_dicts = _load_index_entity_dicts(conn, principal_only=True)
+    if not entity_dicts:
         return set()
 
-    # Collect all name forms for principal entities
-    principal_ids = {r[0] for r in rows}
-    principal_names_canonical = {r[1] for r in rows if r[1]}
+    signal_names = [
+        r[0]
+        for r in conn.execute(
+            "SELECT DISTINCT entity_name FROM entity_signals"
+        ).fetchall()
+    ]
 
-    # Scan signal names and resolve to see if they map to a principal entity
-    signal_names = conn.execute(
-        "SELECT DISTINCT entity_name FROM entity_signals"
-    ).fetchall()
-
-    result: set[str] = set()
-    for (sname,) in signal_names:
-        slug = entity_slug(sname)
-        if slug in principal_ids:
-            result.add(sname)
-        elif sname in principal_names_canonical:
-            result.add(sname)
-        else:
-            # Prefix fallback — matches _build_entity_name_map logic
-            # e.g. "Jeremie" (slug "jeremie") matches "jeremie_miller"
-            for pid in principal_ids:
-                if pid.startswith(slug + "_"):
-                    result.add(sname)
-                    break
-    return result
+    name_map = build_name_resolution_map(signal_names, entity_dicts)
+    return set(name_map.keys())
 
 
 def _build_entity_name_map(conn: sqlite3.Connection) -> dict[str, str]:
-    """Map signal entity_names to entity_ids via slug matching.
+    """Map signal entity_names to entity_ids via shared name resolution.
 
-    Returns dict mapping entity_name -> entity_id. Uses exact slug match first,
-    then prefix fallback for first-name-only signals.
+    Returns dict mapping entity_name -> entity_id. Uses the same tiered
+    matching as all other name resolution call sites.
     """
-    rows = conn.execute(
-        "SELECT entity_id, name FROM entities WHERE source='identity'"
-    ).fetchall()
-    id_set = {r[0] for r in rows}
-    name_to_id: dict[str, str] = {name: eid for eid, name in rows}
+    from think.entities.matching import build_name_resolution_map
 
-    signal_names = conn.execute(
-        "SELECT DISTINCT entity_name FROM entity_signals"
-    ).fetchall()
+    entity_dicts = _load_index_entity_dicts(conn)
+    signal_names = [
+        r[0]
+        for r in conn.execute(
+            "SELECT DISTINCT entity_name FROM entity_signals"
+        ).fetchall()
+    ]
 
-    result: dict[str, str] = {}
-    for (sname,) in signal_names:
-        slug = entity_slug(sname)
-        if slug in id_set:
-            result[sname] = slug
-            continue
-        if sname in name_to_id:
-            result[sname] = name_to_id[sname]
-            continue
-
-        candidates = sorted(eid for eid in id_set if eid.startswith(slug + "_"))
-        if len(candidates) == 1:
-            result[sname] = candidates[0]
-        elif len(candidates) > 1:
-            result[sname] = candidates[0]
-
-    return result
+    return build_name_resolution_map(signal_names, entity_dicts)
 
 
 # Half-life of 30 days: decay reaches ~0.5 at 30 days, ~0.1 at ~100 days.

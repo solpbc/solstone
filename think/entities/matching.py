@@ -4,13 +4,18 @@
 """Entity matching and resolution.
 
 This module provides entity lookup functions:
-- find_matching_entity: Low-level fuzzy matching
+- find_matching_entity: Low-level fuzzy matching per name
+- build_name_resolution_map: Batch name-to-entity-id resolution
 - resolve_entity: High-level resolution with candidates
 - validate_aka_uniqueness: Check for aka collisions
 """
 
+import logging
+
 from think.entities.core import EntityDict, entity_slug
 from think.entities.loading import load_entities
+
+logger = logging.getLogger(__name__)
 
 
 def validate_aka_uniqueness(
@@ -204,6 +209,141 @@ def find_matching_entity(
             pass
 
     return None
+
+
+def build_name_resolution_map(
+    signal_names: list[str],
+    entities: list[EntityDict],
+    fuzzy_threshold: int = 90,
+) -> dict[str, str]:
+    """Map names to entity IDs using consistent tiered matching.
+
+    Batch version of find_matching_entity() — builds lookup structures once
+    and resolves all names, ensuring every call site gets the same resolution
+    for the same name.
+
+    Uses tiered matching (in precedence order):
+    1. Exact name, id, or aka match
+    2. Case-insensitive name, id, or aka match
+    3. Slugified query match against id
+    4. First-word match (unambiguous only, min 3 chars)
+    5. Fuzzy match via rapidfuzz (score >= threshold)
+
+    Logs when ambiguous first-word matches prevent tier-4 resolution.
+
+    Args:
+        signal_names: Names to resolve (e.g., signal entity_name values)
+        entities: Entity dicts with at least "id" and "name" (optionally "aka")
+        fuzzy_threshold: Minimum fuzzy score (default: 90)
+
+    Returns:
+        Dict mapping resolved name → entity_id. Unresolved names are omitted.
+    """
+    if not entities or not signal_names:
+        return {}
+
+    # Pre-build lookup structures once (mirrors find_matching_entity tiers)
+    exact_map: dict[str, str] = {}  # name/id/aka/lowered → entity_id
+    id_set: set[str] = set()  # all entity IDs for slug matching
+    first_word_map: dict[str, list[str]] = {}  # lowercase first word → [entity_ids]
+    fuzzy_candidates: dict[str, str] = {}  # candidate string → entity_id
+
+    for entity in entities:
+        name = entity.get("name", "")
+        entity_id = entity.get("id", "")
+        if not name or not entity_id:
+            continue
+
+        name_lower = name.lower()
+        id_set.add(entity_id)
+
+        # Tiers 1 & 2: exact and case-insensitive for name, id, akas
+        exact_map[name] = entity_id
+        exact_map[name_lower] = entity_id
+        exact_map[entity_id] = entity_id
+
+        aka_list = entity.get("aka", [])
+        if isinstance(aka_list, list):
+            for aka in aka_list:
+                if aka:
+                    exact_map[aka] = entity_id
+                    exact_map[aka.lower()] = entity_id
+
+        # Tier 4: first-word lookup
+        first_word = name.split()[0].lower() if name else ""
+        if first_word and len(first_word) >= 3:
+            first_word_map.setdefault(first_word, []).append(entity_id)
+
+        # Tier 5: fuzzy candidates
+        fuzzy_candidates[name] = entity_id
+        if isinstance(aka_list, list):
+            for aka in aka_list:
+                if aka:
+                    fuzzy_candidates[aka] = entity_id
+
+    result: dict[str, str] = {}
+    unresolved: list[str] = []
+
+    for sname in signal_names:
+        if not sname:
+            continue
+
+        sname_lower = sname.lower()
+        sname_slug = entity_slug(sname)
+
+        # Tier 1: exact match
+        if sname in exact_map:
+            result[sname] = exact_map[sname]
+            continue
+
+        # Tier 2: case-insensitive match
+        if sname_lower in exact_map:
+            result[sname] = exact_map[sname_lower]
+            continue
+
+        # Tier 3: slugified match against entity IDs
+        if sname_slug and sname_slug in id_set:
+            result[sname] = sname_slug
+            continue
+
+        # Tier 4: first-word match (unambiguous only)
+        if len(sname) >= 3:
+            matches = first_word_map.get(sname_lower, [])
+            if len(matches) == 1:
+                result[sname] = matches[0]
+                continue
+            if len(matches) > 1:
+                logger.info(
+                    "Ambiguous first-word match for %r: %d candidates %s — skipped",
+                    sname,
+                    len(matches),
+                    matches,
+                )
+
+        # Defer to fuzzy matching
+        unresolved.append(sname)
+
+    # Tier 5: fuzzy matching for remaining names
+    if unresolved and fuzzy_candidates:
+        try:
+            from rapidfuzz import fuzz, process
+
+            for sname in unresolved:
+                if len(sname) < 4:
+                    continue
+                match_result = process.extractOne(
+                    sname,
+                    fuzzy_candidates.keys(),
+                    scorer=fuzz.token_sort_ratio,
+                    score_cutoff=fuzzy_threshold,
+                )
+                if match_result:
+                    matched_str, _score, _index = match_result
+                    result[sname] = fuzzy_candidates[matched_str]
+        except ImportError:
+            pass
+
+    return result
 
 
 def find_entity_by_email(

@@ -75,6 +75,7 @@ from think.entities.loading import (
 
 # Entity matching and resolution
 from think.entities.matching import (
+    build_name_resolution_map,
     find_entity_by_email,
     find_matching_entity,
     resolve_entity,
@@ -152,6 +153,7 @@ __all__ = [
     "save_entities",
     "update_detected_entity",
     # Matching
+    "build_name_resolution_map",
     "find_entity_by_email",
     "find_matching_entity",
     "resolve_entity",
