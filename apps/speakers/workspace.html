@@ -636,6 +636,10 @@
         }
 
         ownerDetectionInFlight = false;
+        if (data.status === 'no_cluster') {
+          hideOwnerBanner();
+          return;
+        }
         if (data.status === 'candidate') {
           renderOwnerCandidate(data);
           return;

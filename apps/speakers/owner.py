@@ -24,6 +24,19 @@ MAX_EMBEDDINGS = 30000
 OWNER_THRESHOLD = 0.82
 
 
+def _mark_no_cluster(segment_count: int) -> None:
+    """Record that detection ran but did not produce a usable cluster."""
+    update_state(
+        "voiceprint",
+        {
+            "status": "no_cluster",
+            "segments_checked": segment_count,
+            "attempted_at": _iso_now(),
+        },
+    )
+
+
+
 def _routes_helpers():
     """Load speakers route helpers lazily to avoid import cycles."""
     from apps.speakers.routes import (
@@ -116,7 +129,9 @@ def _subsample_embeddings(
 
 def detect_owner_candidate() -> dict[str, Any] | None:
     """Detect a likely owner voice centroid from journal embeddings."""
-    load_embeddings_file, normalize_embedding, scan_segment_embeddings = _routes_helpers()
+    load_embeddings_file, normalize_embedding, scan_segment_embeddings = (
+        _routes_helpers()
+    )
 
     segment_count = count_segments_with_embeddings()
     if segment_count < MIN_SEGMENTS:
@@ -153,12 +168,14 @@ def detect_owner_candidate() -> dict[str, Any] | None:
                 )
 
     if not embedding_chunks:
+        _mark_no_cluster(segment_count)
         return None
 
     embeddings_matrix = np.vstack(embedding_chunks)
     embeddings_matrix, provenance = _subsample_embeddings(embeddings_matrix, provenance)
 
     if len(embeddings_matrix) < 50:
+        _mark_no_cluster(segment_count)
         return None
 
     clusterer = HDBSCAN(
@@ -171,16 +188,19 @@ def detect_owner_candidate() -> dict[str, Any] | None:
 
     valid_labels = labels[labels != -1]
     if len(valid_labels) == 0:
+        _mark_no_cluster(segment_count)
         return None
 
     largest_label = int(np.bincount(valid_labels).argmax())
     cluster_indices = np.flatnonzero(labels == largest_label)
     if len(cluster_indices) == 0:
+        _mark_no_cluster(segment_count)
         return None
 
     cluster_embeddings = embeddings_matrix[cluster_indices]
     centroid = normalize_embedding(np.mean(cluster_embeddings, axis=0))
     if centroid is None:
+        _mark_no_cluster(segment_count)
         return None
 
     cluster_size = int(len(cluster_indices))
@@ -272,7 +292,10 @@ def load_owner_centroid() -> tuple[np.ndarray, float] | None:
             return None
 
         normalized = centroid.astype(np.float32).reshape(-1)
-        normalized = normalized / np.linalg.norm(normalized)
+        norm = np.linalg.norm(normalized)
+        if norm == 0:
+            return None
+        normalized = normalized / norm
         return normalized, float(np.asarray(threshold).item())
     except Exception as exc:
         logger.warning("Failed to load owner centroid %s: %s", centroid_path, exc)
@@ -290,7 +313,9 @@ def classify_sentences(
         return []
 
     centroid, threshold = centroid_data
-    emb_data = load_embeddings_file(segment_path(day, segment_key, stream) / f"{source}.npz")
+    emb_data = load_embeddings_file(
+        segment_path(day, segment_key, stream) / f"{source}.npz"
+    )
     if emb_data is None:
         return []
 

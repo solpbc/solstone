@@ -73,6 +73,7 @@ def _noise_embeddings(count: int, rng: np.random.Generator) -> np.ndarray:
     return embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
 
 
+
 def _other_cluster_embeddings(count: int) -> np.ndarray:
     base = np.zeros(256, dtype=np.float32)
     base[1] = 1.0
@@ -110,6 +111,26 @@ def test_detect_owner_insufficient_segments(speakers_env):
         )
 
     assert detect_owner_candidate() is None
+
+
+def test_detect_owner_no_cluster(speakers_env):
+    from apps.speakers.owner import detect_owner_candidate
+
+    env = speakers_env()
+    for idx in range(50):
+        embedding = np.zeros((1, 256), dtype=np.float32)
+        embedding[0, idx] = 1.0
+        _write_segment(
+            env.journal,
+            "20240101",
+            "mic",
+            f"{9 + idx // 12:02d}{(idx % 12) * 5:02d}00_300",
+            "audio",
+            embedding,
+        )
+
+    assert detect_owner_candidate() is None
+    assert get_current()["voiceprint"]["status"] == "no_cluster"
 
 
 def test_detect_owner_basic(speakers_env):
@@ -254,7 +275,9 @@ def test_api_owner_status_needs_detection(speakers_env):
 
     env = speakers_env()
     for idx in range(50):
-        env.create_segment("20240101", f"{idx // 12 + 9:02d}{(idx % 12) * 5:02d}00_300", ["audio"])
+        env.create_segment(
+            "20240101", f"{idx // 12 + 9:02d}{(idx % 12) * 5:02d}00_300", ["audio"]
+        )
 
     app = Flask(__name__)
     app.register_blueprint(speakers_bp)
@@ -288,6 +311,21 @@ def test_api_owner_status_candidate(speakers_env):
 
     assert response.status_code == 200
     assert response.get_json()["status"] == "candidate"
+
+
+def test_api_owner_status_no_cluster(speakers_env):
+    from apps.speakers.routes import speakers_bp
+
+    speakers_env()
+    update_state("voiceprint", {"status": "no_cluster"})
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        response = client.get("/app/speakers/api/owner/status")
+
+    assert response.status_code == 200
+    assert response.get_json()["status"] == "no_cluster"
 
 
 def test_api_owner_status_confirmed(speakers_env):

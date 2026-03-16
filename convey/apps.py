@@ -79,7 +79,7 @@ class AttentionItem:
 
 
 def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
-    """Check attention sources P0-P3, return highest priority or None."""
+    """Check attention sources P0-P4, return highest priority or None."""
     # P0: Cortex errors
     try:
         import json

@@ -660,6 +660,10 @@ def api_owner_status() -> Any:
             }
         )
 
+    if status == "no_cluster":
+        return jsonify({"status": "no_cluster"})
+
+
     if status in {"none", "rejected"}:
         seg_count = count_segments_with_embeddings()
         if seg_count >= 50:
