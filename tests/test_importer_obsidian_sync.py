@@ -444,6 +444,104 @@ def test_obsidian_sync_numeric_prefix_folder(tmp_path, monkeypatch):
     assert all_entities["Jane"] == "Person"
 
 
+def test_obsidian_walk_excludes_templates(tmp_path):
+    """templates/ and _templates/ folders are excluded from file walking."""
+    from think.importers.obsidian import _walk_md_files
+
+    vault = tmp_path / "vault"
+    _write_note(vault, "Notes/real.md", "# Real note", mtime=1_700_000_000)
+    _write_note(vault, "templates/daily.md", "# Template", mtime=1_700_000_000)
+    _write_note(vault, "_templates/weekly.md", "# Template", mtime=1_700_000_000)
+
+    files = _walk_md_files(vault)
+    rel_paths = [str(f.relative_to(vault)) for f in files]
+
+    assert "Notes/real.md" in rel_paths
+    assert "templates/daily.md" not in rel_paths
+    assert "_templates/weekly.md" not in rel_paths
+
+
+def test_obsidian_walk_excludes_templates_case_insensitive(tmp_path):
+    """Template folder exclusion is case-insensitive."""
+    from think.importers.obsidian import _walk_md_files
+
+    vault = tmp_path / "vault"
+    _write_note(vault, "Notes/real.md", "# Real note", mtime=1_700_000_000)
+    _write_note(vault, "Templates/daily.md", "# Template", mtime=1_700_000_000)
+    _write_note(vault, "TEMPLATES/weekly.md", "# Template", mtime=1_700_000_000)
+    _write_note(vault, "_Templates/meeting.md", "# Template", mtime=1_700_000_000)
+
+    files = _walk_md_files(vault)
+    rel_paths = [str(f.relative_to(vault)) for f in files]
+
+    assert "Notes/real.md" in rel_paths
+    assert "Templates/daily.md" not in rel_paths
+    assert "TEMPLATES/weekly.md" not in rel_paths
+    assert "_Templates/meeting.md" not in rel_paths
+
+
+def test_obsidian_walk_excludes_hidden_dirs(tmp_path):
+    """Hidden dirs (.obsidian, .trash) are excluded by _is_hidden."""
+    from think.importers.obsidian import _walk_md_files
+
+    vault = tmp_path / "vault"
+    _write_note(vault, "Notes/real.md", "# Real note", mtime=1_700_000_000)
+    _write_note(vault, ".obsidian/plugins/list.md", "# Plugin", mtime=1_700_000_000)
+    _write_note(vault, ".trash/deleted.md", "# Deleted", mtime=1_700_000_000)
+
+    files = _walk_md_files(vault)
+    rel_paths = [str(f.relative_to(vault)) for f in files]
+
+    assert "Notes/real.md" in rel_paths
+    assert ".obsidian/plugins/list.md" not in rel_paths
+    assert ".trash/deleted.md" not in rel_paths
+
+
+def test_obsidian_walk_excludes_nested_templates(tmp_path):
+    """Templates folders nested inside other folders are also excluded."""
+    from think.importers.obsidian import _walk_md_files
+
+    vault = tmp_path / "vault"
+    _write_note(vault, "Notes/real.md", "# Real note", mtime=1_700_000_000)
+    _write_note(
+        vault, "Areas/Work/templates/standup.md", "# Template", mtime=1_700_000_000
+    )
+
+    files = _walk_md_files(vault)
+    rel_paths = [str(f.relative_to(vault)) for f in files]
+
+    assert "Notes/real.md" in rel_paths
+    assert "Areas/Work/templates/standup.md" not in rel_paths
+
+
+def test_obsidian_sync_excludes_templates(tmp_path, monkeypatch):
+    """Incremental sync skips template folders."""
+    from think.importers.obsidian import ObsidianSyncBackend
+    from think.importers.sync import load_sync_state
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    vault = tmp_path / "vault"
+    _write_note(vault, "Notes/real.md", SAMPLE_NOTE, mtime=1_700_000_000)
+    _write_note(
+        vault, "templates/daily.md", "# Daily Template\n{{date}}", mtime=1_700_000_000
+    )
+    _write_note(
+        vault,
+        "Templates/weekly.md",
+        "# Weekly Template\n{{date}}",
+        mtime=1_700_000_000,
+    )
+
+    result = ObsidianSyncBackend().sync(tmp_path, source_path=vault, dry_run=True)
+
+    assert result["available"] == 1
+
+    state = load_sync_state(tmp_path, "obsidian")
+    assert "Notes/real.md" in state["files"]
+    assert "templates/daily.md" not in state["files"]
+    assert "Templates/weekly.md" not in state["files"]
+
+
 def test_obsidian_backends_cli_flag(capsys, monkeypatch):
     """sol import --backends lists obsidian."""
     import sys

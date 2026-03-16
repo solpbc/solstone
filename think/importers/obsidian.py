@@ -86,6 +86,14 @@ FOLDER_TYPE_MAP: dict[str, str] = {
 # Numeric prefix pattern (e.g., "00 knowledge" → "knowledge")
 NUMERIC_PREFIX_RE = re.compile(r"^\d+\s+")
 
+# Default excluded folders — system/template artifacts, not user content.
+# Matched case-insensitively. Hidden dirs (.obsidian, .trash) are already
+# excluded by _is_hidden(); these cover non-hidden system folders.
+DEFAULT_EXCLUDED_FOLDERS = frozenset({
+    "templates",
+    "_templates",
+})
+
 
 def infer_entity_type_from_path(rel_path: str) -> str | None:
     """Infer entity type from a note's relative folder path.
@@ -228,13 +236,17 @@ def _render_note_markdown(note: dict[str, Any]) -> str:
 
 
 def _walk_md_files(root: Path) -> list[Path]:
-    """Walk vault directory, collecting markdown files. Skips hidden dirs and logseq recycle."""
+    """Walk vault directory, collecting markdown files.
+
+    Skips hidden dirs, default excluded folders (case-insensitive), and logseq recycle.
+    """
     md_files: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [
             d
             for d in dirnames
             if not _is_hidden(d)
+            and d.lower() not in DEFAULT_EXCLUDED_FOLDERS
             and not (d == ".recycle" and Path(dirpath).name == "logseq")
         ]
         rel = Path(dirpath).relative_to(root)
