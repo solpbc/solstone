@@ -1057,10 +1057,13 @@ def test_scan_signals_kg_appearances():
     ).fetchall()
     conn.close()
 
-    assert len(rows) == 43
+    assert len(rows) == 45
     names = {r[0] for r in rows}
     assert "Alice Johnson" in names
     assert "Romeo Montague" in names
+    # Non-bold entity names (plain text and backtick-wrapped) are also extracted
+    assert "Rosaline Capulet" in names
+    assert "Prince Escalus" in names
     day_20240101 = [r for r in rows if r[2] == "20240101"]
     assert len(day_20240101) == 4
     by_name_d1 = {r[0]: r[1] for r in day_20240101}
@@ -1151,7 +1154,7 @@ def test_scan_signals_deletion(tmp_path):
         "SELECT count(*) FROM entity_signals WHERE signal_type='kg_appearance'"
     ).fetchone()[0]
     conn.close()
-    assert initial == 43
+    assert initial == 45
 
     kg_file = dst / "20240101" / "agents" / "knowledge_graph.md"
     kg_file.unlink()
@@ -1162,7 +1165,7 @@ def test_scan_signals_deletion(tmp_path):
         "SELECT count(*) FROM entity_signals WHERE signal_type='kg_appearance'"
     ).fetchone()[0]
     conn.close()
-    assert after == 39
+    assert after == 41
 
 
 def test_scan_signals_kg_facet_assignment():

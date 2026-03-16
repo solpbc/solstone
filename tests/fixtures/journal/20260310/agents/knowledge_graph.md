@@ -16,6 +16,8 @@ Daily knowledge graph analysis for March 10, 2026.
 | **Mercutio Escalus** | Person | 17:00 | Medium | Rehired as security lead. |
 | **Benvolio Montague** | Person | 08:30 | Medium | Infrastructure support during demo. |
 | **Verona Platform** | Project | 10:00 | High | Approved as joint venture. |
+| Rosaline Capulet | Person | 14:00 | Low | Observed from gallery during board vote. |
+| `Prince Escalus` | Person | 10:00 | Medium | Board chair presiding over vote. |
 
 ## Relationship Mapping
 
