@@ -304,7 +304,7 @@
         }
       ],
       "id": "romeo_montague",
-      "is_principal": false,
+      "is_principal": true,
       "last_active_ts": 1767225600000,
       "name": "Romeo Montague",
       "total_observation_count": 6,

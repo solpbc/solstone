@@ -1,5 +1,6 @@
 {
   "all_entities": [
+    "Romeo Montague",
     "Acme Corp",
     "Alice Johnson",
     "API Optimization",
@@ -23,7 +24,6 @@
     "Paris Duke",
     "PostgreSQL",
     "Prince Escalus",
-    "Romeo Montague",
     "Rosaline Prince",
     "Schema Bridge",
     "Second test entity",
