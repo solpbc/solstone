@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -29,6 +30,7 @@ from observe.hear import format_audio
 from observe.screen import format_screen
 from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 from think.cluster import cluster_scan, cluster_segments
+from think.entities.journal import get_journal_principal, load_journal_entity
 from think.models import get_usage_cost
 from think.utils import day_dirs, day_path, segment_path
 from think.utils import segment_key as validate_segment_key
@@ -200,12 +202,50 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
     video_files: dict[str, str] = {}  # jsonl filename -> video URL
     media_sizes: dict[str, int] = {"audio": 0, "screen": 0}
 
+    # Load speaker labels if available.
+    speaker_labels_path = Path(segment_dir) / "agents" / "speaker_labels.json"
+    speaker_map: dict[int, dict] = {}
+    if speaker_labels_path.is_file():
+        try:
+            with open(speaker_labels_path) as f:
+                labels_data = json.load(f)
+            principal = get_journal_principal()
+            principal_id = principal["id"] if principal else None
+            entity_cache: dict[str, dict | None] = {}
+            for label in labels_data.get("labels", []):
+                sid = label.get("sentence_id")
+                entity_id = label.get("speaker")
+                confidence = label.get("confidence")
+                if sid is None or not entity_id or not confidence:
+                    continue
+                if entity_id not in entity_cache:
+                    entity_cache[entity_id] = load_journal_entity(entity_id)
+                entity = entity_cache[entity_id]
+                name = entity["name"] if entity else entity_id
+                is_owner = entity_id == principal_id
+                speaker_map[sid] = {
+                    "name": name,
+                    "entity_id": entity_id,
+                    "confidence": confidence,
+                    "is_owner": is_owner,
+                }
+        except (json.JSONDecodeError, OSError, KeyError):
+            pass
+
     # Process audio files
     audio_files = glob(os.path.join(segment_dir, "*audio.jsonl"))
     for audio_path in sorted(audio_files):
         try:
             entries = _load_jsonl(audio_path)
             formatted_chunks, meta = format_audio(entries, {"file_path": audio_path})
+
+            # Build sentence_id mapping (1-based over transcript entries only).
+            entry_to_sid: dict[int, int] = {}
+            sid = 0
+            for entry in entries:
+                if "start" in entry:
+                    sid += 1
+                    entry_to_sid[id(entry)] = sid
 
             # Find the raw audio file from metadata (first entry without "start")
             raw_audio = None
@@ -226,19 +266,27 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
                 source = chunk.get("source", {})
                 # Audio has start time in HH:MM:SS format
                 time_str = source.get("start", "")
-                chunks.append(
-                    {
-                        "type": "audio",
-                        "time": time_str,
-                        "timestamp": chunk.get("timestamp", 0),
-                        "markdown": chunk.get("markdown", ""),
-                        "source_ref": {
-                            "start": time_str,
-                            "source": source.get("source"),
-                            "speaker": source.get("speaker"),
-                        },
-                    }
-                )
+                markdown = chunk.get("markdown", "")
+
+                chunk_sid = entry_to_sid.get(id(source))
+                speaker_label = speaker_map.get(chunk_sid) if chunk_sid else None
+                if speaker_label:
+                    markdown = re.sub(r"Speaker \d+:\s*", "", markdown)
+
+                chunk_data: dict[str, Any] = {
+                    "type": "audio",
+                    "time": time_str,
+                    "timestamp": chunk.get("timestamp", 0),
+                    "markdown": markdown,
+                    "source_ref": {
+                        "start": time_str,
+                        "source": source.get("source"),
+                        "speaker": source.get("speaker"),
+                    },
+                }
+                if speaker_label:
+                    chunk_data["speaker_label"] = speaker_label
+                chunks.append(chunk_data)
         except Exception:
             continue
 
