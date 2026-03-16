@@ -476,10 +476,13 @@ def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
         return []
 
     # Split entity vs relationship sections by finding the relationship table
-    # header row (contains "Source Name"). Heading formats vary wildly across
-    # LLM-generated KG files, but the table header is consistent.
+    # header row. Requires both "Source" and either "Target" or "Relationship"
+    # in the same pipe-delimited row to avoid false positives on entity rows
+    # that happen to contain "Source" as part of an entity name.
     source_hdr = re.search(
-        r"^\|[^|]*Source\s*Name[^|]*\|", content, re.MULTILINE | re.IGNORECASE
+        r"^\|[^|]*Source\s*\w*[^|]*\|[^|]*(?:Target|Relationship)\s*\w*[^|]*\|",
+        content,
+        re.MULTILINE | re.IGNORECASE,
     )
     if source_hdr:
         entity_section = content[: source_hdr.start()]
@@ -597,8 +600,43 @@ def _extract_signal_kg(journal: str, rel_path: str) -> list[dict[str, Any]]:
         r"^\s*[\*\-]\s+`([^`]+)`\s+\*\*([^*]+)\*\*\s+`([^`]+)`",
         re.MULTILINE,
     )
+    # Format G: Source `rel-type` Target (no bold, no parens — plain text with backtick rel)
+    edge_re_plain = re.compile(
+        r"^\s*[\*\-]\s+([A-Z][^`\n]+?)\s+`([^`]+)`\s+([A-Z][^`\n]+?)$",
+        re.MULTILINE,
+    )
+    # Format H: **Source** ---[rel]---> **Target** or **Source** --- `rel` ---> **Target**
+    edge_re_graph = re.compile(
+        r"^\s*[\*\-]\s+\*\*(.+?)\*\*\s*(?:\([^)]*\)\s*)?-+\s*[\[`]([^\]`]+)[\]`]\s*-+>?\s*\*\*(.+?)\*\*",
+        re.MULTILINE,
+    )
+    # Format I: (Source) `rel-type` (Target) (parens without arrows)
+    edge_re_paren_backtick = re.compile(
+        r"^\s*[\*\-]\s+\(([^)]+)\)\s+`([^`]+)`\s+\(([^)]+)\)",
+        re.MULTILINE,
+    )
+    # Format J: **Source:** X -> **Relationship:** `rel` -> **Target:** Y (labeled arrow)
+    edge_re_labeled = re.compile(
+        r"^\s*[\*\-]\s+\*\*Source:\*\*\s*(.+?)\s*->\s*\*\*Relationship:\*\*\s*`([^`]+)`\s*->\s*\*\*Target:\*\*\s*(.+?)$",
+        re.MULTILINE,
+    )
+    # Format K: `(Source) -> [rel] -> (Target)` (backtick-wrapped arrow with bracket rel)
+    edge_re_backtick_arrow = re.compile(
+        r"^\s*[\*\-]\s+`\(([^)]+)\)\s*->\s*\[([^\]]+)\]\s*->\s*\(([^)]+)\)`",
+        re.MULTILINE,
+    )
 
-    for regex in (edge_re_bullet, edge_re_arrow, edge_re_paren, edge_re_bold_rel):
+    for regex in (
+        edge_re_bullet,
+        edge_re_arrow,
+        edge_re_paren,
+        edge_re_bold_rel,
+        edge_re_plain,
+        edge_re_graph,
+        edge_re_paren_backtick,
+        edge_re_labeled,
+        edge_re_backtick_arrow,
+    ):
         for m in regex.finditer(content):
             source = m.group(1).strip()
             rel_type = m.group(2).strip()
