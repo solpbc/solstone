@@ -157,76 +157,6 @@ def test_get_sentence_embedding_not_found(speakers_env):
     assert emb is None
 
 
-def test_compute_best_match():
-    """Test best match algorithm."""
-    from apps.speakers.routes import _compute_best_match
-
-    # Create segment embedding
-    seg_emb = np.array([1.0, 0.0, 0.0] + [0.0] * 253, dtype=np.float32)
-
-    # Create known voiceprints with varying similarity
-    known = {
-        "Alice": np.array(
-            [1.0, 0.0, 0.0] + [0.0] * 253, dtype=np.float32
-        ),  # Perfect match
-        "Bob": np.array(
-            [0.7, 0.7, 0.0] + [0.0] * 253, dtype=np.float32
-        ),  # Partial match
-        "Charlie": np.array(
-            [0.0, 1.0, 0.0] + [0.0] * 253, dtype=np.float32
-        ),  # No match
-    }
-    # Normalize
-    for name in known:
-        known[name] = known[name] / np.linalg.norm(known[name])
-
-    match = _compute_best_match(seg_emb, known)
-
-    # Alice should be best match (perfect 1.0)
-    assert match is not None
-    assert match["entity"] == "Alice"
-    assert match["score"] >= 0.99
-
-
-def test_compute_best_match_below_threshold():
-    """Test that no match is returned when all below threshold."""
-    from apps.speakers.routes import _compute_best_match
-
-    seg_emb = np.array([1.0, 0.0, 0.0] + [0.0] * 253, dtype=np.float32)
-
-    # All orthogonal to segment embedding
-    known = {
-        "Alice": np.array([0.0, 1.0, 0.0] + [0.0] * 253, dtype=np.float32),
-        "Bob": np.array([0.0, 0.0, 1.0] + [0.0] * 253, dtype=np.float32),
-    }
-    for name in known:
-        known[name] = known[name] / np.linalg.norm(known[name])
-
-    match = _compute_best_match(seg_emb, known)
-    assert match is None
-
-
-def test_scan_entity_voiceprints(speakers_env):
-    """Test scanning voiceprints averages multiple embeddings."""
-    from apps.speakers.routes import _scan_entity_voiceprints
-
-    env = speakers_env()
-    env.create_entity(
-        "Alice Test",
-        voiceprints=[
-            ("20240101", "120000_300", "mic_audio", 1),
-            ("20240102", "130000_300", "mic_audio", 2),
-        ],
-    )
-
-    voiceprints = _scan_entity_voiceprints()
-
-    assert "Alice Test" in voiceprints
-    avg_emb = voiceprints["Alice Test"]
-    assert avg_emb.shape == (256,)
-    assert np.isclose(np.linalg.norm(avg_emb), 1.0)
-
-
 def test_load_entity_voiceprints_file(speakers_env):
     """Test loading voiceprints from consolidated file."""
     from apps.speakers.routes import _load_entity_voiceprints_file
@@ -534,32 +464,586 @@ def test_get_journal_principal_none(speakers_env):
     assert principal is None
 
 
-def test_api_sentences_principal_first(speakers_env):
-    """Test that principal entity appears first in all_entities dropdown."""
+def test_api_review_with_labels(speakers_env):
+    """Review endpoint returns sentences with speaker label data."""
     from flask import Flask
 
     from apps.speakers.routes import speakers_bp
 
     env = speakers_env()
-    env.create_segment("20240101", "143022_300", ["mic_audio"], num_sentences=2)
-
-    # Create entities - principal created last but should appear first
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
     env.create_entity("Alice Test")
-    env.create_entity("Bob Test")
-    env.create_entity("Self Person", is_principal=True)
+    env.create_speaker_labels(
+        "20240101",
+        "143022_300",
+        [
+            {
+                "sentence_id": 1,
+                "speaker": "alice_test",
+                "confidence": "high",
+                "method": "acoustic",
+            },
+            {
+                "sentence_id": 2,
+                "speaker": "alice_test",
+                "confidence": "medium",
+                "method": "acoustic",
+            },
+            {"sentence_id": 3, "speaker": None, "confidence": None, "method": None},
+        ],
+    )
 
     app = Flask(__name__)
     app.register_blueprint(speakers_bp)
 
     with app.test_client() as client:
-        response = client.get(
-            "/app/speakers/api/sentences/20240101/test/143022_300/mic_audio"
-        )
-        assert response.status_code == 200
-        data = response.get_json()
+        resp = client.get("/app/speakers/api/review/20240101/test/143022_300/mic_audio")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["has_labels"] is True
+        assert data["summary"]["total"] > 0
+        assert data["all_entities"][0]["name"] == "Alice Test"
+        sentences = data["sentences"]
+        s1 = next(s for s in sentences if s["id"] == 1)
+        assert s1["speaker_name"] == "Alice Test"
+        assert s1["confidence"] == "high"
+        assert s1["needs_review"] is False
 
-        all_entities = data["all_entities"]
-        assert len(all_entities) == 3
-        assert all_entities[0] == "Self Person"  # Principal first
-        assert "Alice Test" in all_entities
-        assert "Bob Test" in all_entities
+
+def test_api_review_no_labels(speakers_env):
+    """Review endpoint works for segments without speaker_labels.json."""
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.get("/app/speakers/api/review/20240101/test/143022_300/mic_audio")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["has_labels"] is False
+        assert data["summary"]["needs_review"] == 0
+
+
+def test_api_review_corrections_excludes_confirmed(speakers_env):
+    """Corrections summary/filter state excludes user_confirmed labels."""
+    import json
+
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_entity("Alice Test")
+    env.create_speaker_labels(
+        "20240101",
+        "143022_300",
+        [
+            {
+                "sentence_id": 1,
+                "speaker": "alice_test",
+                "confidence": "high",
+                "method": "user_confirmed",
+            },
+            {
+                "sentence_id": 2,
+                "speaker": "alice_test",
+                "confidence": "high",
+                "method": "user_corrected",
+            },
+        ],
+    )
+    corr_path = (
+        env.journal
+        / "20240101"
+        / "test"
+        / "143022_300"
+        / "agents"
+        / "speaker_corrections.json"
+    )
+    corr_path.write_text(
+        json.dumps(
+            {
+                "corrections": [
+                    {
+                        "sentence_id": 1,
+                        "original_speaker": "alice_test",
+                        "corrected_speaker": "alice_test",
+                        "original_method": "acoustic",
+                        "timestamp": 1,
+                    },
+                    {
+                        "sentence_id": 2,
+                        "original_speaker": "alice_test",
+                        "corrected_speaker": "alice_test",
+                        "original_method": "acoustic",
+                        "timestamp": 2,
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.get("/app/speakers/api/review/20240101/test/143022_300/mic_audio")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["summary"]["corrections"] == 1
+        sentences = {s["id"]: s for s in data["sentences"]}
+        assert sentences[1]["is_correction"] is False
+        assert sentences[2]["is_correction"] is True
+
+
+def test_api_confirm_attribution(speakers_env):
+    """Confirm promotes medium-confidence to high/user_confirmed."""
+    import json
+
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_entity("Alice Test")
+    env.create_speaker_labels(
+        "20240101",
+        "143022_300",
+        [
+            {
+                "sentence_id": 1,
+                "speaker": "alice_test",
+                "confidence": "medium",
+                "method": "acoustic",
+            },
+        ],
+    )
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.post(
+            "/app/speakers/api/confirm-attribution",
+            json={
+                "day": "20240101",
+                "stream": "test",
+                "segment_key": "143022_300",
+                "source": "mic_audio",
+                "sentence_id": 1,
+            },
+        )
+        assert resp.status_code == 200
+
+    labels_path = (
+        env.journal
+        / "20240101"
+        / "test"
+        / "143022_300"
+        / "agents"
+        / "speaker_labels.json"
+    )
+    with open(labels_path) as f:
+        labels = json.load(f)
+    updated = labels["labels"][0]
+    assert updated["confidence"] == "high"
+    assert updated["method"] == "user_confirmed"
+
+    corr_path = (
+        env.journal
+        / "20240101"
+        / "test"
+        / "143022_300"
+        / "agents"
+        / "speaker_corrections.json"
+    )
+    assert corr_path.exists()
+    with open(corr_path) as f:
+        corrections = json.load(f)
+    assert len(corrections["corrections"]) == 1
+
+    vp_path = env.journal / "entities" / "alice_test" / "voiceprints.npz"
+    assert vp_path.exists()
+    vp_data = np.load(vp_path, allow_pickle=False)
+    metadata = json.loads(vp_data["metadata"][0])
+    assert metadata["stream"] == "test"
+
+
+def test_api_confirm_idempotent(speakers_env):
+    """Confirming an already-confirmed attribution is a no-op success."""
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_entity("Alice Test")
+    env.create_speaker_labels(
+        "20240101",
+        "143022_300",
+        [
+            {
+                "sentence_id": 1,
+                "speaker": "alice_test",
+                "confidence": "high",
+                "method": "user_confirmed",
+            },
+        ],
+    )
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.post(
+            "/app/speakers/api/confirm-attribution",
+            json={
+                "day": "20240101",
+                "stream": "test",
+                "segment_key": "143022_300",
+                "source": "mic_audio",
+                "sentence_id": 1,
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.get_json()["status"] == "already_confirmed"
+
+
+def test_api_confirm_wrong_confidence(speakers_env):
+    """Cannot confirm a high-confidence attribution."""
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_entity("Alice Test")
+    env.create_speaker_labels(
+        "20240101",
+        "143022_300",
+        [
+            {
+                "sentence_id": 1,
+                "speaker": "alice_test",
+                "confidence": "high",
+                "method": "acoustic",
+            },
+        ],
+    )
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.post(
+            "/app/speakers/api/confirm-attribution",
+            json={
+                "day": "20240101",
+                "stream": "test",
+                "segment_key": "143022_300",
+                "source": "mic_audio",
+                "sentence_id": 1,
+            },
+        )
+        assert resp.status_code == 400
+
+
+def test_api_correct_attribution(speakers_env):
+    """Correct changes speaker attribution and manages voiceprints."""
+    import json
+
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_entity(
+        "Alice Test",
+        voiceprints=[("20240101", "143022_300", "mic_audio", 1)],
+    )
+    env.create_entity("Bob Test")
+    env.create_speaker_labels(
+        "20240101",
+        "143022_300",
+        [
+            {
+                "sentence_id": 1,
+                "speaker": "alice_test",
+                "confidence": "high",
+                "method": "acoustic",
+            },
+        ],
+    )
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.post(
+            "/app/speakers/api/correct-attribution",
+            json={
+                "day": "20240101",
+                "stream": "test",
+                "segment_key": "143022_300",
+                "source": "mic_audio",
+                "sentence_id": 1,
+                "new_speaker": "bob_test",
+            },
+        )
+        assert resp.status_code == 200
+
+    labels_path = (
+        env.journal
+        / "20240101"
+        / "test"
+        / "143022_300"
+        / "agents"
+        / "speaker_labels.json"
+    )
+    with open(labels_path) as f:
+        labels = json.load(f)
+    assert labels["labels"][0]["speaker"] == "bob_test"
+    assert labels["labels"][0]["method"] == "user_corrected"
+
+    bob_vp = env.journal / "entities" / "bob_test" / "voiceprints.npz"
+    assert bob_vp.exists()
+    alice_vp = env.journal / "entities" / "alice_test" / "voiceprints.npz"
+    assert not alice_vp.exists()
+
+
+def test_api_correct_same_speaker(speakers_env):
+    """Correcting to the same speaker is a no-op."""
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_entity("Alice Test")
+    env.create_speaker_labels(
+        "20240101",
+        "143022_300",
+        [
+            {
+                "sentence_id": 1,
+                "speaker": "alice_test",
+                "confidence": "high",
+                "method": "acoustic",
+            },
+        ],
+    )
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.post(
+            "/app/speakers/api/correct-attribution",
+            json={
+                "day": "20240101",
+                "stream": "test",
+                "segment_key": "143022_300",
+                "source": "mic_audio",
+                "sentence_id": 1,
+                "new_speaker": "alice_test",
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.get_json()["status"] == "already_correct"
+
+
+def test_api_correct_contextual_removes_old_voiceprint(speakers_env):
+    """Correcting a contextual label removes the old auto-saved voiceprint."""
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_entity(
+        "Alice Test",
+        voiceprints=[("20240101", "143022_300", "mic_audio", 1)],
+    )
+    env.create_entity("Bob Test")
+    env.create_speaker_labels(
+        "20240101",
+        "143022_300",
+        [
+            {
+                "sentence_id": 1,
+                "speaker": "alice_test",
+                "confidence": "medium",
+                "method": "contextual",
+            },
+        ],
+    )
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.post(
+            "/app/speakers/api/correct-attribution",
+            json={
+                "day": "20240101",
+                "stream": "test",
+                "segment_key": "143022_300",
+                "source": "mic_audio",
+                "sentence_id": 1,
+                "new_speaker": "bob_test",
+            },
+        )
+        assert resp.status_code == 200
+
+    alice_vp = env.journal / "entities" / "alice_test" / "voiceprints.npz"
+    assert not alice_vp.exists()
+
+
+def test_api_assign_attribution(speakers_env):
+    """Assign a speaker to an unattributed sentence."""
+    import json
+
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_entity("Alice Test")
+    env.create_speaker_labels(
+        "20240101",
+        "143022_300",
+        [
+            {"sentence_id": 1, "speaker": None, "confidence": None, "method": None},
+        ],
+    )
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.post(
+            "/app/speakers/api/assign-attribution",
+            json={
+                "day": "20240101",
+                "stream": "test",
+                "segment_key": "143022_300",
+                "source": "mic_audio",
+                "sentence_id": 1,
+                "speaker": "alice_test",
+            },
+        )
+        assert resp.status_code == 200
+
+    labels_path = (
+        env.journal
+        / "20240101"
+        / "test"
+        / "143022_300"
+        / "agents"
+        / "speaker_labels.json"
+    )
+    with open(labels_path) as f:
+        labels = json.load(f)
+    assert labels["labels"][0]["speaker"] == "alice_test"
+    assert labels["labels"][0]["method"] == "user_assigned"
+
+
+def test_api_assign_already_has_speaker(speakers_env):
+    """Cannot assign to a sentence that already has a speaker."""
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    env.create_entity("Alice Test")
+    env.create_entity("Bob Test")
+    env.create_speaker_labels(
+        "20240101",
+        "143022_300",
+        [
+            {
+                "sentence_id": 1,
+                "speaker": "alice_test",
+                "confidence": "high",
+                "method": "acoustic",
+            },
+        ],
+    )
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.post(
+            "/app/speakers/api/assign-attribution",
+            json={
+                "day": "20240101",
+                "stream": "test",
+                "segment_key": "143022_300",
+                "source": "mic_audio",
+                "sentence_id": 1,
+                "speaker": "bob_test",
+            },
+        )
+        assert resp.status_code == 400
+
+
+def test_remove_voiceprint(speakers_env):
+    """_remove_voiceprint removes matching entry and rewrites NPZ."""
+    env = speakers_env()
+    env.create_entity(
+        "Alice Test",
+        voiceprints=[
+            ("20240101", "143022_300", "mic_audio", 1),
+            ("20240101", "143022_300", "mic_audio", 2),
+        ],
+    )
+
+    from apps.speakers.routes import _remove_voiceprint
+
+    removed = _remove_voiceprint("alice_test", "20240101", "143022_300", "mic_audio", 1)
+    assert removed is True
+
+    vp_path = env.journal / "entities" / "alice_test" / "voiceprints.npz"
+    data = np.load(vp_path, allow_pickle=False)
+    assert data["embeddings"].shape[0] == 1
+    assert data["metadata"].shape[0] == 1
+
+
+def test_remove_voiceprint_not_found(speakers_env):
+    """_remove_voiceprint returns False when no matching entry."""
+    env = speakers_env()
+    env.create_entity(
+        "Alice Test",
+        voiceprints=[("20240101", "143022_300", "mic_audio", 1)],
+    )
+
+    from apps.speakers.routes import _remove_voiceprint
+
+    removed = _remove_voiceprint(
+        "alice_test", "20240101", "143022_300", "mic_audio", 999
+    )
+    assert removed is False
+
+
+def test_remove_voiceprint_no_file(speakers_env):
+    """_remove_voiceprint returns False when entity has no voiceprints."""
+    env = speakers_env()
+    env.create_entity("Alice Test")
+
+    from apps.speakers.routes import _remove_voiceprint
+
+    removed = _remove_voiceprint("alice_test", "20240101", "143022_300", "mic_audio", 1)
+    assert removed is False

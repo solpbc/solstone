@@ -1,4 +1,4 @@
-{# Speaker voiceprint management - sentence-based view #}
+{# Speaker attribution review workspace #}
 
 <style>
 /* Speakers app styles - all classes prefixed with .spk- */
@@ -16,7 +16,6 @@
   min-height: 400px;
 }
 
-/* Segment list panel */
 .spk-segments {
   background: #fff;
   border-radius: 12px;
@@ -88,7 +87,6 @@
   font-size: 14px;
 }
 
-/* Detail panel */
 .spk-detail {
   background: #fff;
   border-radius: 12px;
@@ -109,7 +107,6 @@
   color: #1f2937;
 }
 
-/* Source tabs */
 .spk-source-tabs {
   display: flex;
   gap: 8px;
@@ -139,7 +136,6 @@
   color: #fff;
 }
 
-/* Audio player */
 .spk-audio-player {
   margin-bottom: 20px;
   padding: 12px;
@@ -180,37 +176,6 @@
   background: #d1d5db;
 }
 
-.spk-filter-toggle {
-  padding: 4px 8px;
-  background: #e5e7eb;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  color: #374151;
-  transition: background 0.15s;
-  margin-left: auto;
-}
-
-.spk-filter-toggle:hover {
-  background: #d1d5db;
-}
-
-.spk-filter-toggle.spk-filter-active {
-  background: #3b82f6;
-  color: #fff;
-}
-
-.spk-filter-toggle.spk-filter-active:hover {
-  background: #2563eb;
-}
-
-.spk-filter-unmatched .spk-sentence[data-match="high"] {
-  display: none;
-}
-
-/* Sentence list */
 .spk-sentences {
   margin-top: 16px;
 }
@@ -218,11 +183,34 @@
 .spk-sentences-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   font-size: 14px;
   font-weight: 600;
   color: #374151;
   margin-bottom: 12px;
+}
+
+.spk-filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.spk-filter-btn {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
+  color: #4b5563;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.spk-filter-btn.active {
+  background: #1f2937;
+  border-color: #1f2937;
+  color: #fff;
 }
 
 .spk-sentence {
@@ -257,44 +245,47 @@
   line-height: 1.5;
 }
 
-.spk-sentence-match {
+.spk-sentence-speaker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
   font-size: 12px;
-  margin-top: 4px;
+  color: #4b5563;
+  flex-wrap: wrap;
 }
 
-.spk-match-label {
+.spk-confidence-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
   display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
+  background: #d1d5db;
 }
 
-.spk-match-high {
-  background: #dcfce7;
-  color: #166534;
+.spk-confidence-high {
+  background: #16a34a;
 }
 
-.spk-match-med {
-  background: #fef9c3;
-  color: #854d0e;
+.spk-confidence-medium {
+  background: #eab308;
 }
 
-.spk-match-low {
-  background: #f3f4f6;
-  color: #6b7280;
+.spk-correction-original {
+  text-decoration: line-through;
+  color: #9ca3af;
 }
 
-.spk-no-match {
+.spk-review-state {
   color: #9ca3af;
   font-style: italic;
-  font-size: 11px;
 }
 
-/* Sentence actions */
 .spk-sentence-actions {
   display: flex;
   gap: 6px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .spk-btn {
@@ -325,27 +316,13 @@
   background: #2563eb;
 }
 
-.spk-btn-primary:disabled {
-  background: #93c5fd;
-  cursor: not-allowed;
+.spk-btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
 }
 
-.spk-btn-confirm {
-  background: #16a34a;
-  color: #fff;
-  font-size: 11px;
-  padding: 2px 8px;
-  margin-left: 6px;
-  vertical-align: middle;
-}
-
-.spk-btn-confirm:hover {
-  background: #15803d;
-}
-
-.spk-btn-confirm:disabled {
-  background: #86efac;
-  cursor: not-allowed;
+.spk-btn-secondary:hover {
+  background: #e5e7eb;
 }
 
 .spk-select-small {
@@ -354,51 +331,9 @@
   border-radius: 4px;
   font-size: 12px;
   background: #fff;
-  min-width: 120px;
+  min-width: 150px;
 }
 
-/* Create entity inline form */
-.spk-inline-form {
-  display: none;
-  margin-top: 8px;
-  padding: 12px;
-  background: #f9fafb;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
-}
-
-.spk-inline-form.visible {
-  display: block;
-}
-
-.spk-form-row {
-  margin-bottom: 8px;
-}
-
-.spk-form-row label {
-  display: block;
-  font-size: 11px;
-  font-weight: 500;
-  color: #6b7280;
-  margin-bottom: 2px;
-}
-
-.spk-form-row input,
-.spk-form-row select {
-  width: 100%;
-  padding: 6px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.spk-form-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-/* Status messages */
 .spk-status {
   padding: 6px 10px;
   border-radius: 4px;
@@ -416,7 +351,6 @@
   color: #991b1b;
 }
 
-/* Speaker count badge in segment list */
 .spk-speaker-count {
   display: inline-block;
   padding: 2px 8px;
@@ -427,7 +361,16 @@
   margin-left: 6px;
 }
 
-/* Speaker cards section */
+.spk-review-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+}
+
 .spk-speakers {
   margin-bottom: 20px;
 }
@@ -562,13 +505,11 @@
   border-color: #93c5fd;
   color: #1d4ed8;
 }
-
 </style>
 
 <div class="spk-wrap">
   <div id="spkOwnerBanner" class="spk-owner-banner"></div>
   <div class="spk-layout">
-    <!-- Segment list -->
     <div class="spk-segments">
       <div class="spk-segments-header">
         Segments
@@ -578,10 +519,9 @@
       </div>
     </div>
 
-    <!-- Detail panel -->
     <div class="spk-detail" id="spkDetail">
       <div class="spk-empty">
-        Select a segment to view sentences
+        Select a segment to review
       </div>
     </div>
   </div>
@@ -598,16 +538,17 @@
   let selectedSegment = null;
   let selectedSource = null;
   let audioPlayer = null;
-  let currentSentences = [];  // Sentence data with offsets for time tracking
-  let playingSentenceId = null;  // Currently playing/highlighted sentence
-  let filterMatched = false;  // Toggle: hide high-confidence matches
+  let currentSentences = [];
+  let reviewEntities = [];
+  let hasLabels = false;
+  let reviewSummary = null;
+  let currentFilter = 'all';
+  let playingSentenceId = null;
   let ownerDetectionInFlight = false;
 
-  // Load segments on page load
   checkOwnerStatus();
   loadSegments();
 
-  // Listen for hash changes
   window.addEventListener('hashchange', () => {
     const hash = window.location.hash.slice(1);
     if (hash) selectSegmentByKey(hash);
@@ -720,8 +661,6 @@
       .then(data => {
         segments = data.segments || [];
         renderSegmentList();
-
-        // Auto-select from hash after loading
         if (window.location.hash) {
           selectSegmentByKey(window.location.hash.slice(1));
         }
@@ -747,10 +686,10 @@
         <div class="spk-segment-sources">
           ${seg.sources.map(s => `<span class="spk-source-badge">${formatSource(s)}</span>`).join('')}
         </div>
+        ${seg.attribution_needs_review > 0 ? `<div class="spk-review-badge">${seg.attribution_needs_review} to review</div>` : ''}
       </div>
     `).join('');
 
-    // Add click handlers
     segmentList.querySelectorAll('.spk-segment').forEach(el => {
       el.addEventListener('click', () => {
         const seg = segments.find(s => s.key === el.dataset.key);
@@ -770,6 +709,7 @@
   function selectSegment(seg) {
     selectedSegment = seg;
     selectedSource = seg.sources[0] || null;
+    currentFilter = 'all';
     renderSegmentList();
     renderDetail(seg);
   }
@@ -786,10 +726,8 @@
       </div>
     `;
 
-    // Speaker cards placeholder
     html += '<div class="spk-speakers" id="spkSpeakers"><div class="spk-empty">Loading speakers...</div></div>';
 
-    // Source tabs (if multiple sources)
     if (seg.sources.length > 1) {
       html += `
         <div class="spk-source-tabs">
@@ -802,27 +740,21 @@
       `;
     }
 
-    // Audio player placeholder
     html += '<div class="spk-audio-player" id="spkAudioContainer"></div>';
-
-    // Sentences placeholder
     html += '<div class="spk-sentences" id="spkSentences"><div class="spk-empty">Loading...</div></div>';
-
     detailPanel.innerHTML = html;
 
-    // Setup tab handlers
     detailPanel.querySelectorAll('.spk-source-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         selectedSource = tab.dataset.source;
         detailPanel.querySelectorAll('.spk-source-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-        loadSentences(seg, selectedSource);
+        loadReview(seg, selectedSource);
       });
     });
 
-    // Load speaker matching and sentences
     loadSpeakers(seg);
-    loadSentences(seg, selectedSource);
+    loadReview(seg, selectedSource);
   }
 
   function loadSpeakers(seg) {
@@ -858,15 +790,12 @@
       return;
     }
 
-    // Build title with counts
     let titleParts = [];
     if (matchedCount > 0) titleParts.push(`${matchedCount} matched`);
     if (unmatchedCount > 0) titleParts.push(`${unmatchedCount} unmatched`);
     const title = `Speakers (${titleParts.join(', ')})`;
 
     let html = `<div class="spk-speakers-title">${title}</div><div class="spk-speaker-cards">`;
-
-    // Render matched speakers
     if (hasMatched) {
       matched.forEach(m => {
         html += `
@@ -878,7 +807,6 @@
       });
     }
 
-    // Render unmatched speakers
     if (hasUnmatched) {
       unmatched.forEach(name => {
         html += `<div class="spk-speaker-card spk-speaker-unmatched">${escapeHtml(name)}</div>`;
@@ -889,32 +817,38 @@
     container.innerHTML = html;
   }
 
-  function loadSentences(seg, source) {
+  function loadReview(seg, source) {
     const container = document.getElementById('spkSentences');
-    container.innerHTML = '<div class="spk-empty">Loading...</div>';
+    if (container) {
+      container.innerHTML = '<div class="spk-empty">Loading...</div>';
+    }
 
-    fetch(`/app/speakers/api/sentences/${day}/${seg.stream}/${seg.key}/${source}`)
+    fetch(`/app/speakers/api/review/${day}/${seg.stream}/${seg.key}/${source}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) {
-          container.innerHTML = `<div class="spk-empty">${escapeHtml(data.error)}</div>`;
+          if (container) {
+            container.innerHTML = `<div class="spk-empty">${escapeHtml(data.error)}</div>`;
+          }
           return;
         }
-        renderSentences(data);
+
+        currentSentences = data.sentences || [];
+        reviewEntities = data.all_entities || [];
+        hasLabels = Boolean(data.has_labels);
+        reviewSummary = data.summary || null;
+        playingSentenceId = null;
+        renderReview(data);
       })
       .catch(() => {
-        container.innerHTML = '<div class="spk-empty">Failed to load sentences</div>';
+        if (container) {
+          container.innerHTML = '<div class="spk-empty">Failed to load review data</div>';
+        }
       });
   }
 
-  function renderSentences(data) {
-    const { sentences, all_entities, audio_file, source } = data;
-
-    // Store sentences for time-based tracking
-    currentSentences = sentences;
-    playingSentenceId = null;
-
-    // Setup audio player
+  function renderReview(data) {
+    const { audio_file } = data;
     const audioContainer = document.getElementById('spkAudioContainer');
     if (audio_file) {
       audioContainer.innerHTML = `
@@ -933,53 +867,289 @@
       audioPlayer = null;
     }
 
-    // Render sentences
-    const container = document.getElementById('spkSentences');
+    renderReviewList();
+  }
 
-    if (sentences.length === 0) {
+  function renderReviewList() {
+    const container = document.getElementById('spkSentences');
+    if (!container) return;
+
+    const sentences = filteredSentences();
+    const total = currentSentences.length;
+    const countLabel = countLabelForFilter(sentences.length, total);
+
+    if (total === 0) {
       container.innerHTML = '<div class="spk-empty">No sentences with embeddings found</div>';
       return;
     }
 
     container.innerHTML = `
       <div class="spk-sentences-title">
-        <span id="spkSentenceCount">Sentences (${sentences.length})</span>
-        <button class="spk-filter-toggle${filterMatched ? ' spk-filter-active' : ''}" id="spkFilterToggle">Hide matched</button>
+        <span id="spkSentenceCount">${escapeHtml(countLabel)}</span>
       </div>
-      ${sentences.map(s => renderSentence(s, all_entities)).join('')}
+      <div class="spk-filter-bar">
+        <button class="spk-filter-btn${currentFilter === 'all' ? ' active' : ''}" data-filter="all">All</button>
+        <button class="spk-filter-btn${currentFilter === 'needs_review' ? ' active' : ''}" data-filter="needs_review">Needs Review</button>
+        <button class="spk-filter-btn${currentFilter === 'corrections' ? ' active' : ''}" data-filter="corrections">Corrections</button>
+      </div>
+      ${!hasLabels ? '<div class="spk-status spk-status-error">Not yet attributed</div>' : ''}
+      ${sentences.length === 0 ? '<div class="spk-empty">No sentences match this filter</div>' : sentences.map(renderSentence).join('')}
     `;
 
-    // Setup event handlers
-    setupSentenceHandlers(source);
-
-    // Setup filter toggle
-    const filterBtn = document.getElementById('spkFilterToggle');
-    if (filterBtn) {
-      filterBtn.addEventListener('click', () => {
-        filterMatched = !filterMatched;
-        filterBtn.classList.toggle('spk-filter-active', filterMatched);
-        container.classList.toggle('spk-filter-unmatched', filterMatched);
-        updateSentenceCount();
+    container.querySelectorAll('.spk-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentFilter = btn.dataset.filter;
+        renderReviewList();
       });
-    }
+    });
 
-    // Apply persisted filter state
-    if (filterMatched) {
-      container.classList.add('spk-filter-unmatched');
-    }
-    updateSentenceCount();
+    setupSentenceHandlers();
   }
 
-  function updateSentenceCount() {
-    const countEl = document.getElementById('spkSentenceCount');
-    if (!countEl) return;
-    const total = currentSentences.length;
-    if (filterMatched) {
-      const visible = currentSentences.filter(s => !s.match || s.match.score < 0.7).length;
-      countEl.textContent = `Sentences (${visible} of ${total})`;
-    } else {
-      countEl.textContent = `Sentences (${total})`;
+  function filteredSentences() {
+    if (currentFilter === 'needs_review') {
+      return currentSentences.filter(s => s.needs_review);
     }
+    if (currentFilter === 'corrections') {
+      return currentSentences.filter(s => s.is_correction);
+    }
+    return currentSentences;
+  }
+
+  function countLabelForFilter(visible, total) {
+    if (currentFilter === 'all') {
+      return `Sentences (${total})`;
+    }
+    return `Sentences (${visible} of ${total})`;
+  }
+
+  function renderSentence(sentence) {
+    const timeStr = formatOffset(sentence.offset);
+    const speakerHtml = renderSpeakerDisplay(sentence);
+    const actionsHtml = renderActions(sentence);
+
+    return `
+      <div class="spk-sentence" data-id="${sentence.id}" data-offset="${sentence.offset}">
+        <div class="spk-sentence-time">${timeStr}</div>
+        <div class="spk-sentence-content">
+          <div class="spk-sentence-text">${escapeHtml(sentence.text)}</div>
+          <div class="spk-sentence-speaker">${speakerHtml}</div>
+          <div class="spk-status-container" id="status-${sentence.id}"></div>
+        </div>
+        <div class="spk-sentence-actions">
+          <button class="spk-btn spk-btn-icon spk-play-btn" title="Play from here">&#9654;</button>
+          ${actionsHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderSpeakerDisplay(sentence) {
+    if (!sentence.speaker_name) {
+      return '<span class="spk-review-state">Unassigned</span>';
+    }
+
+    let dotClass = '';
+    if (sentence.confidence === 'high') {
+      dotClass = ' spk-confidence-high';
+    } else if (sentence.confidence === 'medium') {
+      dotClass = ' spk-confidence-medium';
+    }
+
+    let html = '';
+    if (dotClass) {
+      html += `<span class="spk-confidence-dot${dotClass}"></span>`;
+    }
+
+    if (sentence.is_correction && sentence.original_speaker_name) {
+      html += `<span class="spk-correction-original">${escapeHtml(sentence.original_speaker_name)}</span>`;
+    }
+
+    html += `<span>${escapeHtml(sentence.speaker_name)}</span>`;
+
+    if (sentence.needs_review) {
+      html += '<span class="spk-review-state">Needs review</span>';
+    } else if (sentence.method) {
+      html += `<span class="spk-review-state">${escapeHtml(sentence.method)}</span>`;
+    }
+
+    return html;
+  }
+
+  function renderActions(sentence) {
+    if (!hasLabels) {
+      return '<span class="spk-review-state">Not yet attributed</span>';
+    }
+
+    const options = reviewEntities.map(entity => (
+      `<option value="${escapeHtml(entity.entity_id)}">${escapeHtml(entity.name)}</option>`
+    )).join('');
+
+    if (sentence.speaker_entity_id) {
+      const correctSelect = `
+        <select class="spk-select-small spk-correct-select" data-sentence-id="${sentence.id}">
+          <option value="">Correct...</option>
+          ${options}
+        </select>
+      `;
+
+      if (sentence.confidence === 'medium') {
+        return `
+          <button class="spk-btn spk-btn-primary spk-confirm-btn" data-sentence-id="${sentence.id}">Confirm &#10003;</button>
+          ${correctSelect}
+        `;
+      }
+
+      return correctSelect;
+    }
+
+    return `
+      <select class="spk-select-small spk-assign-select" data-sentence-id="${sentence.id}">
+        <option value="">Assign...</option>
+        ${options}
+      </select>
+    `;
+  }
+
+  function setupSentenceHandlers() {
+    detailPanel.querySelectorAll('.spk-play-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const row = btn.closest('.spk-sentence');
+        const sentenceId = parseInt(row.dataset.id, 10);
+        const offset = parseFloat(row.dataset.offset);
+
+        if (!audioPlayer) return;
+
+        if (sentenceId === playingSentenceId && !audioPlayer.paused) {
+          audioPlayer.pause();
+        } else {
+          audioPlayer.currentTime = offset;
+          audioPlayer.play();
+        }
+      });
+    });
+
+    detailPanel.querySelectorAll('.spk-confirm-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sentenceId = parseInt(btn.dataset.sentenceId, 10);
+        confirmAttribution(sentenceId);
+      });
+    });
+
+    detailPanel.querySelectorAll('.spk-correct-select').forEach(select => {
+      select.addEventListener('change', () => {
+        if (!select.value) return;
+        const sentenceId = parseInt(select.dataset.sentenceId, 10);
+        correctAttribution(sentenceId, select.value);
+      });
+    });
+
+    detailPanel.querySelectorAll('.spk-assign-select').forEach(select => {
+      select.addEventListener('change', () => {
+        if (!select.value) return;
+        const sentenceId = parseInt(select.dataset.sentenceId, 10);
+        assignAttribution(sentenceId, select.value);
+      });
+    });
+  }
+
+  function confirmAttribution(sentenceId) {
+    fetch('/app/speakers/api/confirm-attribution', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        day,
+        stream: selectedSegment.stream,
+        segment_key: selectedSegment.key,
+        source: selectedSource,
+        sentence_id: sentenceId,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          showStatusBySentence(sentenceId, data.error, 'error');
+          return;
+        }
+
+        const sentence = currentSentences.find(s => s.id === sentenceId);
+        if (sentence) {
+          sentence.confidence = 'high';
+          sentence.method = 'user_confirmed';
+          sentence.needs_review = false;
+          sentence.is_correction = true;
+        }
+        renderReviewList();
+        showStatusBySentence(sentenceId, 'Attribution confirmed', 'success');
+        loadSegments();
+      })
+      .catch(() => {
+        showStatusBySentence(sentenceId, 'Failed to confirm attribution', 'error');
+      });
+  }
+
+  function correctAttribution(sentenceId, newSpeaker) {
+    fetch('/app/speakers/api/correct-attribution', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        day,
+        stream: selectedSegment.stream,
+        segment_key: selectedSegment.key,
+        source: selectedSource,
+        sentence_id: sentenceId,
+        new_speaker: newSpeaker,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          showStatusBySentence(sentenceId, data.error, 'error');
+          return;
+        }
+        loadReview(selectedSegment, selectedSource);
+        loadSegments();
+      })
+      .catch(() => {
+        showStatusBySentence(sentenceId, 'Failed to correct attribution', 'error');
+      });
+  }
+
+  function assignAttribution(sentenceId, speaker) {
+    fetch('/app/speakers/api/assign-attribution', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        day,
+        stream: selectedSegment.stream,
+        segment_key: selectedSegment.key,
+        source: selectedSource,
+        sentence_id: sentenceId,
+        speaker,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          showStatusBySentence(sentenceId, data.error, 'error');
+          return;
+        }
+        loadReview(selectedSegment, selectedSource);
+        loadSegments();
+      })
+      .catch(() => {
+        showStatusBySentence(sentenceId, 'Failed to assign attribution', 'error');
+      });
+  }
+
+  function showStatusBySentence(sentenceId, message, type) {
+    const container = document.getElementById(`status-${sentenceId}`);
+    if (!container) return;
+    container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}</div>`;
+    setTimeout(() => {
+      const current = document.getElementById(`status-${sentenceId}`);
+      if (current) current.innerHTML = '';
+    }, 3000);
   }
 
   function setupAudioListeners() {
@@ -990,23 +1160,20 @@
     });
 
     audioPlayer.addEventListener('play', () => {
-      // Update button to pause icon for currently playing sentence
       if (playingSentenceId !== null) {
         const btn = detailPanel.querySelector(`.spk-sentence[data-id="${playingSentenceId}"] .spk-play-btn`);
-        if (btn) btn.innerHTML = '&#9208;';  // Pause icon
+        if (btn) btn.innerHTML = '&#9208;';
       }
     });
 
     audioPlayer.addEventListener('pause', () => {
-      // Update button back to play icon
       if (playingSentenceId !== null) {
         const btn = detailPanel.querySelector(`.spk-sentence[data-id="${playingSentenceId}"] .spk-play-btn`);
-        if (btn) btn.innerHTML = '&#9654;';  // Play icon
+        if (btn) btn.innerHTML = '&#9654;';
       }
     });
 
     audioPlayer.addEventListener('ended', () => {
-      // Clear playing state
       if (playingSentenceId !== null) {
         const row = detailPanel.querySelector(`.spk-sentence[data-id="${playingSentenceId}"]`);
         if (row) {
@@ -1017,7 +1184,6 @@
       }
     });
 
-    // Skip back 5 seconds
     const skipBackBtn = document.getElementById('spkSkipBack');
     if (skipBackBtn) {
       skipBackBtn.addEventListener('click', () => {
@@ -1025,7 +1191,6 @@
       });
     }
 
-    // Playback speed toggle: 1x -> 1.5x -> 2x -> 1x
     const speedToggleBtn = document.getElementById('spkSpeedToggle');
     if (speedToggleBtn) {
       const speeds = [1, 1.5, 2];
@@ -1039,21 +1204,19 @@
   }
 
   function updateActiveSentence(currentTime) {
-    // Find the sentence that contains the current playback time
     let activeSentence = null;
     for (let i = 0; i < currentSentences.length; i++) {
-      const s = currentSentences[i];
+      const sentence = currentSentences[i];
       const nextOffset = currentSentences[i + 1]?.offset ?? Infinity;
-      if (currentTime >= s.offset && currentTime < nextOffset) {
-        activeSentence = s;
+      if (currentTime >= sentence.offset && currentTime < nextOffset) {
+        activeSentence = sentence;
         break;
       }
     }
 
     const newId = activeSentence?.id ?? null;
-    if (newId === playingSentenceId) return;  // No change
+    if (newId === playingSentenceId) return;
 
-    // Remove highlight from previous sentence
     if (playingSentenceId !== null) {
       const prevRow = detailPanel.querySelector(`.spk-sentence[data-id="${playingSentenceId}"]`);
       if (prevRow) {
@@ -1062,7 +1225,6 @@
       }
     }
 
-    // Add highlight to new sentence
     playingSentenceId = newId;
     if (playingSentenceId !== null) {
       const newRow = detailPanel.querySelector(`.spk-sentence[data-id="${playingSentenceId}"]`);
@@ -1071,244 +1233,9 @@
         if (!audioPlayer.paused) {
           newRow.querySelector('.spk-play-btn').innerHTML = '&#9208;';
         }
-        // Scroll into view if needed
         newRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     }
-  }
-
-  function renderSentence(sentence, allEntities) {
-    const timeStr = formatOffset(sentence.offset);
-    const match = sentence.match;
-    let matchHtml = '<span class="spk-no-match">No match</span>';
-    let matchTier = 'none';
-
-    if (match) {
-      const scorePct = Math.round(match.score * 100);
-      const scoreClass = match.score >= 0.7 ? 'high' : match.score >= 0.5 ? 'med' : 'low';
-      matchTier = scoreClass;
-      const confirmBtn = match.score >= 0.5
-        ? `<button class="spk-btn spk-btn-confirm spk-confirm-match-btn" data-entity="${escapeHtml(match.entity)}" title="Confirm ${escapeHtml(match.entity)}">&#10003;</button>`
-        : '';
-      matchHtml = `<span class="spk-match-label spk-match-${scoreClass}">${escapeHtml(match.entity)} ${scorePct}%</span>${confirmBtn}`;
-    }
-
-    return `
-      <div class="spk-sentence" data-id="${sentence.id}" data-offset="${sentence.offset}" data-match="${matchTier}">
-        <div class="spk-sentence-time">${timeStr}</div>
-        <div class="spk-sentence-content">
-          <div class="spk-sentence-text">${escapeHtml(sentence.text)}</div>
-          <div class="spk-sentence-match">${matchHtml}</div>
-          <div class="spk-inline-form" id="form-${sentence.id}">
-            <div class="spk-form-row">
-              <label>Name</label>
-              <input type="text" class="spk-new-name" placeholder="e.g., John Smith">
-            </div>
-            <div class="spk-form-row">
-              <label>Type</label>
-              <select class="spk-new-type">
-                <option value="Person">Person</option>
-                <option value="Contact">Contact</option>
-              </select>
-            </div>
-            <div class="spk-form-actions">
-              <button class="spk-btn spk-btn-icon spk-cancel-create">Cancel</button>
-              <button class="spk-btn spk-btn-primary spk-confirm-create">Create</button>
-            </div>
-          </div>
-          <div class="spk-status-container" id="status-${sentence.id}"></div>
-        </div>
-        <div class="spk-sentence-actions">
-          <button class="spk-btn spk-btn-icon spk-play-btn" title="Play from here">&#9654;</button>
-          <select class="spk-select-small spk-entity-select">
-            <option value="">Save to...</option>
-            ${allEntities.map(e => `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('')}
-            <option value="__new__">+ New entity</option>
-          </select>
-          <button class="spk-btn spk-btn-primary spk-save-btn" disabled>Save</button>
-        </div>
-      </div>
-    `;
-  }
-
-  function setupSentenceHandlers(source) {
-    // Play/Pause button
-    detailPanel.querySelectorAll('.spk-play-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const row = btn.closest('.spk-sentence');
-        const sentenceId = parseInt(row.dataset.id);
-        const offset = parseFloat(row.dataset.offset);
-
-        if (!audioPlayer) return;
-
-        // If clicking the currently playing sentence, toggle play/pause
-        if (sentenceId === playingSentenceId && !audioPlayer.paused) {
-          audioPlayer.pause();
-        } else {
-          // Seek to this sentence and play
-          audioPlayer.currentTime = offset;
-          audioPlayer.play();
-        }
-      });
-    });
-
-    // Entity select
-    detailPanel.querySelectorAll('.spk-entity-select').forEach(select => {
-      select.addEventListener('change', () => {
-        const row = select.closest('.spk-sentence');
-        const saveBtn = row.querySelector('.spk-save-btn');
-        const form = row.querySelector('.spk-inline-form');
-
-        if (select.value === '__new__') {
-          form.classList.add('visible');
-          saveBtn.disabled = true;
-        } else {
-          form.classList.remove('visible');
-          saveBtn.disabled = !select.value;
-        }
-      });
-    });
-
-    // Save button
-    detailPanel.querySelectorAll('.spk-save-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const row = btn.closest('.spk-sentence');
-        const sentenceId = parseInt(row.dataset.id);
-        const entityName = row.querySelector('.spk-entity-select').value;
-
-        if (!entityName || entityName === '__new__') return;
-
-        saveVoiceprint(entityName, source, sentenceId, row);
-      });
-    });
-
-    // Confirm match button
-    detailPanel.querySelectorAll('.spk-confirm-match-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const row = btn.closest('.spk-sentence');
-        const sentenceId = parseInt(row.dataset.id);
-        const entityName = btn.dataset.entity;
-
-        btn.disabled = true;
-        saveVoiceprint(entityName, source, sentenceId, row);
-      });
-    });
-
-    // Create form handlers
-    detailPanel.querySelectorAll('.spk-cancel-create').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const row = btn.closest('.spk-sentence');
-        const form = row.querySelector('.spk-inline-form');
-        const select = row.querySelector('.spk-entity-select');
-        form.classList.remove('visible');
-        select.value = '';
-      });
-    });
-
-    detailPanel.querySelectorAll('.spk-confirm-create').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const row = btn.closest('.spk-sentence');
-        const sentenceId = parseInt(row.dataset.id);
-        const form = row.querySelector('.spk-inline-form');
-        const name = form.querySelector('.spk-new-name').value.trim();
-        const type = form.querySelector('.spk-new-type').value;
-
-        if (!name) {
-          showStatus(row, 'Please enter a name', 'error');
-          return;
-        }
-
-        createEntityWithVoiceprint(type, name, source, sentenceId, row);
-      });
-    });
-  }
-
-  function saveVoiceprint(entityName, source, sentenceId, row) {
-    fetch('/app/speakers/api/save-voiceprint', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        entity_name: entityName,
-        day,
-        stream: selectedSegment.stream,
-        segment_key: selectedSegment.key,
-        source,
-        sentence_id: sentenceId,
-      }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          showStatus(row, data.error, 'error');
-        } else {
-          showStatus(row, `Saved to ${entityName}`, 'success');
-          // Update match display to show confirmed state
-          const matchEl = row.querySelector('.spk-sentence-match');
-          matchEl.innerHTML = `<span class="spk-match-label spk-match-high">${escapeHtml(entityName)} &#10003;</span>`;
-          // Disable save controls to prevent double-save
-          const select = row.querySelector('.spk-entity-select');
-          if (select) select.disabled = true;
-          const saveBtn = row.querySelector('.spk-save-btn');
-          if (saveBtn) saveBtn.disabled = true;
-        }
-      })
-      .catch(() => {
-        showStatus(row, 'Failed to save', 'error');
-      });
-  }
-
-  function createEntityWithVoiceprint(type, name, source, sentenceId, row) {
-    fetch('/app/speakers/api/create-entity-voiceprint', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type,
-        name,
-        day,
-        stream: selectedSegment.stream,
-        segment_key: selectedSegment.key,
-        source,
-        sentence_id: sentenceId,
-      }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          showStatus(row, data.error, 'error');
-        } else {
-          showStatus(row, `Created ${name}`, 'success');
-          const form = row.querySelector('.spk-inline-form');
-          form.classList.remove('visible');
-          // Update match display to show confirmed state
-          const matchEl = row.querySelector('.spk-sentence-match');
-          matchEl.innerHTML = `<span class="spk-match-label spk-match-high">${escapeHtml(name)} &#10003;</span>`;
-          // Disable save controls to prevent double-save
-          const select = row.querySelector('.spk-entity-select');
-          if (select) select.disabled = true;
-          const saveBtn = row.querySelector('.spk-save-btn');
-          if (saveBtn) saveBtn.disabled = true;
-          // Add new entity to all dropdowns so other rows can use it
-          document.querySelectorAll('.spk-entity-select').forEach(sel => {
-            const newOption = sel.querySelector('option[value="__new__"]');
-            const exists = Array.from(sel.options).some(o => o.value === name);
-            if (!exists && newOption) {
-              const opt = document.createElement('option');
-              opt.value = name;
-              opt.textContent = name;
-              sel.insertBefore(opt, newOption);
-            }
-          });
-        }
-      })
-      .catch(() => {
-        showStatus(row, 'Failed to create', 'error');
-      });
-  }
-
-  function showStatus(row, message, type) {
-    const container = row.querySelector('.spk-status-container');
-    container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}</div>`;
-    setTimeout(() => { container.innerHTML = ''; }, 3000);
   }
 
   function formatDuration(seconds) {
@@ -1325,19 +1252,20 @@
   }
 
   function formatSource(source) {
-    // mic_audio -> Mic, sys_audio -> System
-    if (source === 'mic_audio') return 'Mic';
-    if (source === 'sys_audio') return 'System';
-    return source.replace('_audio', '');
+    return source
+      .replace(/_audio$/, '')
+      .replace(/^sys$/, 'system')
+      .replace(/^mic$/, 'microphone')
+      .replace(/_/g, ' ');
   }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
+  function escapeHtml(value) {
+    return String(value ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 })();
 </script>

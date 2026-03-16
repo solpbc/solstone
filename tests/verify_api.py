@@ -287,8 +287,8 @@ ENDPOINTS = [
     },
     {
         "app": "speakers",
-        "name": "sentences",
-        "path": "/app/speakers/api/sentences/20260304/default/090000_300/audio",
+        "name": "review",
+        "path": "/app/speakers/api/review/20260304/default/090000_300/audio",
         "params": {},
         "status": 200,
     },

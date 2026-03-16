@@ -180,6 +180,39 @@ def speakers_env(tmp_path, monkeypatch):
 
             return speakers_path
 
+        def create_speaker_labels(
+            self,
+            day: str,
+            segment_key: str,
+            labels: list[dict],
+            metadata: dict | None = None,
+        ) -> Path:
+            """Create a speaker_labels.json file in a segment directory.
+
+            Args:
+                day: Day string (YYYYMMDD)
+                segment_key: Segment key (HHMMSS_LEN)
+                labels: List of label dicts with sentence_id, speaker, confidence,
+                    method
+                metadata: Optional extra metadata (owner_centroid_version,
+                    voiceprint_versions)
+            """
+            agents_dir = self.journal / day / STREAM / segment_key / "agents"
+            agents_dir.mkdir(parents=True, exist_ok=True)
+
+            data = {"labels": labels}
+            if metadata:
+                data.update(metadata)
+            else:
+                data["owner_centroid_version"] = None
+                data["voiceprint_versions"] = {}
+
+            labels_path = agents_dir / "speaker_labels.json"
+            with open(labels_path, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+
+            return labels_path
+
     def _create():
         return SpeakersEnv(tmp_path)
 

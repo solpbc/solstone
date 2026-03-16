@@ -188,6 +188,7 @@ def _save_voiceprint(
     segment_key: str,
     source: str,
     sentence_id: int,
+    stream: str | None = None,
 ) -> Path:
     """Save a voiceprint to the entity's journal-level voiceprints.npz.
 
@@ -216,6 +217,8 @@ def _save_voiceprint(
         "sentence_id": sentence_id,
         "added_at": now_ms(),
     }
+    if stream:
+        metadata["stream"] = stream
     metadata_json = json.dumps(metadata)
 
     # Load existing or initialize empty
@@ -238,6 +241,152 @@ def _save_voiceprint(
     # Write back
     np.savez_compressed(npz_path, embeddings=new_embeddings, metadata=new_metadata)
     return npz_path
+
+
+def _remove_voiceprint(
+    entity_id: str,
+    day: str,
+    segment_key: str,
+    source: str,
+    sentence_id: int,
+) -> bool:
+    """Remove a specific voiceprint entry from an entity's voiceprints.npz.
+
+    Matches by (day, segment_key, source, sentence_id) metadata key.
+    Returns True if an entry was removed, False if not found.
+    """
+    try:
+        folder = journal_entity_memory_path(entity_id)
+    except (RuntimeError, ValueError):
+        return False
+
+    npz_path = folder / "voiceprints.npz"
+    if not npz_path.exists():
+        return False
+
+    try:
+        data = np.load(npz_path, allow_pickle=False)
+        embeddings = data.get("embeddings")
+        metadata_arr = data.get("metadata")
+        if embeddings is None or metadata_arr is None:
+            return False
+    except Exception:
+        return False
+
+    keep = []
+    for i, m_str in enumerate(metadata_arr):
+        try:
+            m = json.loads(m_str)
+            if (
+                m.get("day") == day
+                and m.get("segment_key") == segment_key
+                and m.get("source") == source
+                and m.get("sentence_id") == sentence_id
+            ):
+                continue
+        except (json.JSONDecodeError, TypeError):
+            pass
+        keep.append(i)
+
+    if len(keep) == len(metadata_arr):
+        return False
+
+    if not keep:
+        npz_path.unlink()
+        return True
+
+    new_embeddings = embeddings[keep]
+    new_metadata = metadata_arr[keep]
+    np.savez_compressed(npz_path, embeddings=new_embeddings, metadata=new_metadata)
+    return True
+
+
+def _load_speaker_labels(segment_dir: Path) -> dict | None:
+    """Load speaker_labels.json from a segment's agents/ directory.
+
+    Returns the parsed JSON dict, or None if not found/invalid.
+    """
+    labels_path = segment_dir / "agents" / "speaker_labels.json"
+    if not labels_path.is_file():
+        return None
+    try:
+        with open(labels_path) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _save_speaker_labels(segment_dir: Path, labels_data: dict) -> None:
+    """Atomically write speaker_labels.json to a segment's agents/ directory."""
+    agents_dir = segment_dir / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    out_path = agents_dir / "speaker_labels.json"
+    tmp_path = out_path.with_suffix(".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(labels_data, f, indent=2)
+    tmp_path.rename(out_path)
+
+
+def _load_speaker_corrections(segment_dir: Path) -> list[dict]:
+    """Load speaker_corrections.json from a segment's agents/ directory.
+
+    Returns list of correction entries, or empty list if not found.
+    """
+    corr_path = segment_dir / "agents" / "speaker_corrections.json"
+    if not corr_path.is_file():
+        return []
+    try:
+        with open(corr_path) as f:
+            data = json.load(f)
+        return data.get("corrections", [])
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def _append_speaker_correction(segment_dir: Path, correction: dict) -> None:
+    """Append a correction entry to speaker_corrections.json (atomic write)."""
+    corrections = _load_speaker_corrections(segment_dir)
+    corrections.append(correction)
+    agents_dir = segment_dir / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    out_path = agents_dir / "speaker_corrections.json"
+    tmp_path = out_path.with_suffix(".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump({"corrections": corrections}, f, indent=2)
+    tmp_path.rename(out_path)
+
+
+def _check_owner_contamination(embedding: np.ndarray) -> bool:
+    """Check if an embedding is too close to the owner centroid.
+
+    Returns True if the embedding is contaminated (should NOT be saved
+    to a non-owner entity's voiceprints).
+    """
+    from apps.speakers.owner import load_owner_centroid
+
+    centroid_data = load_owner_centroid()
+    if centroid_data is None:
+        return False
+    owner_centroid, owner_threshold = centroid_data
+    score = float(np.dot(embedding, owner_centroid))
+    return score >= owner_threshold
+
+
+def _resolve_entity_display(
+    entity_id: str,
+    entity_cache: dict,
+    principal_id: str | None,
+) -> dict:
+    """Resolve an entity ID to display info."""
+    if entity_id not in entity_cache:
+        entity_cache[entity_id] = load_journal_entity(entity_id)
+    entity = entity_cache[entity_id]
+    name = entity["name"] if entity else entity_id
+    return {
+        "name": name,
+        "entity_id": entity_id,
+        "is_owner": entity_id == principal_id,
+    }
 
 
 def _scan_segment_embeddings(day: str) -> list[dict]:
@@ -396,71 +545,6 @@ def _get_sentence_embedding(
     return None
 
 
-def _scan_entity_voiceprints() -> dict[str, np.ndarray]:
-    """Scan all journal entities for voiceprints.
-
-    Returns dict mapping entity name to averaged embedding.
-    """
-    entities = load_all_journal_entities()
-
-    voiceprints = {}
-    for entity_id, entity in entities.items():
-        name = entity.get("name", "")
-        if not name:
-            continue
-
-        # Skip blocked entities
-        if entity.get("blocked"):
-            continue
-
-        # Load voiceprints from journal-level file
-        result = _load_entity_voiceprints_file(entity_id)
-        if result is None:
-            continue
-
-        embeddings, _ = result
-        if len(embeddings) == 0:
-            continue
-
-        # Normalize and average all embeddings
-        all_normalized = []
-        for emb in embeddings:
-            normalized = _normalize_embedding(emb)
-            if normalized is not None:
-                all_normalized.append(normalized)
-
-        if all_normalized:
-            avg_emb = _normalize_embedding(np.mean(all_normalized, axis=0))
-            if avg_emb is not None:
-                voiceprints[name] = avg_emb
-
-    return voiceprints
-
-
-def _compute_best_match(
-    emb: np.ndarray, known_embs: dict[str, np.ndarray], threshold: float = 0.4
-) -> dict | None:
-    """Find the best matching voiceprint for an embedding.
-
-    Returns dict with 'entity' and 'score', or None if no match above threshold.
-    """
-    if not known_embs:
-        return None
-
-    best_entity = None
-    best_score = threshold
-
-    for name, known_emb in known_embs.items():
-        score = float(np.dot(emb, known_emb))
-        if score > best_score:
-            best_score = score
-            best_entity = name
-
-    if best_entity:
-        return {"entity": best_entity, "score": round(best_score, 4)}
-    return None
-
-
 @speakers_bp.route("/")
 def index() -> Any:
     """Redirect to today's view."""
@@ -507,6 +591,21 @@ def api_segments(day: str) -> Any:
         return error_response("Invalid day format", 400)
 
     segments = _scan_segment_embeddings(day)
+    for seg in segments:
+        seg_dir = get_segment_path(day, seg["key"], seg["stream"])
+        labels_data = _load_speaker_labels(seg_dir)
+        if labels_data:
+            labels = labels_data.get("labels", [])
+            seg["attribution_total"] = len(labels)
+            seg["attribution_needs_review"] = sum(
+                1
+                for label in labels
+                if label.get("confidence") == "medium" or not label.get("speaker")
+            )
+        else:
+            seg["attribution_total"] = 0
+            seg["attribution_needs_review"] = 0
+
     return jsonify({"segments": segments})
 
 
@@ -557,58 +656,110 @@ def api_segment_speakers(day: str, stream: str, segment_key: str) -> Any:
     )
 
 
-@speakers_bp.route("/api/sentences/<day>/<stream>/<segment_key>/<source>")
-def api_sentences(day: str, stream: str, segment_key: str, source: str) -> Any:
-    """Return sentences with embeddings and matches for an audio source."""
+@speakers_bp.route("/api/review/<day>/<stream>/<segment_key>/<source>")
+def api_review(day: str, stream: str, segment_key: str, source: str) -> Any:
+    """Return sentences with pre-computed speaker labels for review."""
     if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 400)
-
     if not validate_segment_key(segment_key):
         return error_response("Invalid segment key", 400)
 
-    # Load sentences and embeddings
-    sentences, emb_data = _load_sentences(day, segment_key, source, stream=stream)
+    sentences, _ = _load_sentences(day, segment_key, source, stream=stream)
     if not sentences:
         return error_response("No transcript found", 404)
 
-    # Load known voiceprints for matching (journal-level)
-    known_voiceprints = _scan_entity_voiceprints()
-
-    # Compute best match for each sentence with embedding
-    if emb_data is not None:
-        embeddings, statement_ids = emb_data
-        emb_map = {int(sid): emb for sid, emb in zip(statement_ids, embeddings)}
-
-        for sentence in sentences:
-            if sentence.get("has_embedding"):
-                emb = emb_map.get(sentence["id"])
-                if emb is not None:
-                    normalized = _normalize_embedding(emb)
-                    if normalized is not None:
-                        match = _compute_best_match(normalized, known_voiceprints)
-                        if match:
-                            sentence["match"] = match
-
-    # Filter to only sentences with embeddings
-    sentences = [s for s in sentences if s.get("has_embedding")]
-
-    # Load ALL journal entities for dropdown, principal (self) first
-    journal_entities = load_all_journal_entities()
-    principal = next(
-        (e for e in journal_entities.values() if e.get("is_principal")), None
-    )
-    principal_name = principal.get("name") if principal else None
-
-    all_entity_names = []
-    if principal_name:
-        all_entity_names.append(principal_name)
-    for e in journal_entities.values():
-        name = e.get("name")
-        if name and not e.get("blocked") and name != principal_name:
-            all_entity_names.append(name)
-
-    # Get audio file URL
     segment_dir = get_segment_path(day, segment_key, stream)
+    labels_data = _load_speaker_labels(segment_dir)
+    label_map: dict[int, dict] = {}
+    if labels_data:
+        for label in labels_data.get("labels", []):
+            sid = label.get("sentence_id")
+            if sid is not None:
+                label_map[int(sid)] = label
+
+    corrections = _load_speaker_corrections(segment_dir)
+    correction_map: dict[int, dict] = {}
+    for correction in corrections:
+        sid = correction.get("sentence_id")
+        if sid is not None:
+            correction_map[int(sid)] = correction
+
+    principal = get_journal_principal()
+    principal_id = principal["id"] if principal else None
+    entity_cache: dict[str, dict | None] = {}
+
+    review_sentences = [s for s in sentences if s.get("has_embedding")]
+    needs_review_count = 0
+    corrections_count = 0
+
+    for sentence in review_sentences:
+        sid = sentence["id"]
+        label = label_map.get(sid)
+        if label:
+            entity_id = label.get("speaker")
+            confidence = label.get("confidence")
+            method = label.get("method")
+            if entity_id:
+                info = _resolve_entity_display(entity_id, entity_cache, principal_id)
+                sentence["speaker_entity_id"] = entity_id
+                sentence["speaker_name"] = info["name"]
+                sentence["is_owner"] = info["is_owner"]
+            else:
+                sentence["speaker_entity_id"] = None
+                sentence["speaker_name"] = None
+                sentence["is_owner"] = False
+
+            sentence["confidence"] = confidence
+            sentence["method"] = method
+            sentence["needs_review"] = confidence == "medium" or not entity_id
+        else:
+            sentence["speaker_entity_id"] = None
+            sentence["speaker_name"] = None
+            sentence["confidence"] = None
+            sentence["method"] = None
+            sentence["is_owner"] = False
+            sentence["needs_review"] = True if labels_data else False
+
+        correction = correction_map.get(sid)
+        sentence["is_correction"] = sentence.get("method") in {
+            "user_corrected",
+            "user_assigned",
+        }
+        if correction and sentence["is_correction"]:
+            orig_speaker = correction.get("original_speaker")
+            if orig_speaker:
+                orig_info = _resolve_entity_display(
+                    orig_speaker,
+                    entity_cache,
+                    principal_id,
+                )
+                sentence["original_speaker_entity_id"] = orig_speaker
+                sentence["original_speaker_name"] = orig_info["name"]
+            else:
+                sentence["original_speaker_entity_id"] = None
+                sentence["original_speaker_name"] = None
+            corrections_count += 1
+        else:
+            sentence["original_speaker_entity_id"] = None
+            sentence["original_speaker_name"] = None
+
+        if sentence.get("needs_review"):
+            needs_review_count += 1
+
+    journal_entities = load_all_journal_entities()
+    all_entities = []
+    for eid, entity in journal_entities.items():
+        if entity.get("blocked"):
+            continue
+        all_entities.append(
+            {
+                "entity_id": eid,
+                "name": entity.get("name", eid),
+                "is_principal": bool(entity.get("is_principal")),
+            }
+        )
+    all_entities.sort(key=lambda x: (not x["is_principal"], x["name"].lower()))
+
     audio_file = None
     audio_path = segment_dir / f"{source}.flac"
     if audio_path.exists():
@@ -617,7 +768,6 @@ def api_sentences(day: str, stream: str, segment_key: str, source: str) -> Any:
             f"/app/speakers/api/serve_audio/{day}/{rel_path.replace('/', '__')}"
         )
 
-    # Get segment times
     parsed = segment_parse(segment_key)
     start_time, end_time = parsed if parsed[0] else (None, None)
 
@@ -635,11 +785,318 @@ def api_sentences(day: str, stream: str, segment_key: str, source: str) -> Any:
                 ),
             },
             "source": source,
-            "sentences": sentences,
-            "all_entities": all_entity_names,
+            "sentences": review_sentences,
+            "all_entities": all_entities,
             "audio_file": audio_file,
+            "has_labels": labels_data is not None,
+            "summary": {
+                "total": len(review_sentences),
+                "needs_review": needs_review_count,
+                "corrections": corrections_count,
+            },
         }
     )
+
+
+@speakers_bp.route("/api/confirm-attribution", methods=["POST"])
+def api_confirm_attribution() -> Any:
+    """Confirm a medium-confidence speaker attribution."""
+    data = request.get_json()
+    if not data:
+        return error_response("No data provided", 400)
+
+    day = data.get("day")
+    stream = data.get("stream")
+    segment_key = data.get("segment_key")
+    source = data.get("source")
+    sentence_id = data.get("sentence_id")
+
+    if not all([day, stream, segment_key, source, sentence_id is not None]):
+        return error_response("Missing required fields", 400)
+    if not DATE_RE.fullmatch(day):
+        return error_response("Invalid day format", 400)
+    if not validate_segment_key(segment_key):
+        return error_response("Invalid segment key", 400)
+
+    segment_dir = get_segment_path(day, segment_key, stream)
+    labels_data = _load_speaker_labels(segment_dir)
+    if not labels_data:
+        return error_response("No speaker labels found", 404)
+
+    label = None
+    label_idx = None
+    for i, item in enumerate(labels_data.get("labels", [])):
+        if item.get("sentence_id") == sentence_id:
+            label = item
+            label_idx = i
+            break
+
+    if label is None or label_idx is None:
+        return error_response("Sentence not found in labels", 404)
+
+    speaker = label.get("speaker")
+    if not speaker:
+        return error_response(
+            "Cannot confirm unattributed sentence — use assign instead",
+            400,
+        )
+
+    confidence = label.get("confidence")
+    if confidence == "high" and label.get("method") == "user_confirmed":
+        return success_response({"status": "already_confirmed"})
+    if confidence != "medium":
+        return error_response("Can only confirm medium-confidence attributions", 400)
+
+    emb = _get_sentence_embedding(day, segment_key, source, sentence_id, stream=stream)
+    if emb is None:
+        return error_response("Sentence embedding not found", 404)
+
+    principal = get_journal_principal()
+    principal_id = principal["id"] if principal else None
+    if speaker != principal_id and _check_owner_contamination(emb):
+        return error_response("Embedding too similar to owner voice — cannot save", 400)
+
+    _save_voiceprint(speaker, emb, day, segment_key, source, sentence_id, stream=stream)
+
+    old_method = label.get("method")
+    labels_data["labels"][label_idx]["confidence"] = "high"
+    labels_data["labels"][label_idx]["method"] = "user_confirmed"
+    _save_speaker_labels(segment_dir, labels_data)
+
+    _append_speaker_correction(
+        segment_dir,
+        {
+            "sentence_id": sentence_id,
+            "original_speaker": speaker,
+            "corrected_speaker": speaker,
+            "original_method": old_method,
+            "timestamp": now_ms(),
+        },
+    )
+
+    log_app_action(
+        app="speakers",
+        facet=None,
+        action="attribution_confirm",
+        params={
+            "day": day,
+            "stream": stream,
+            "segment_key": segment_key,
+            "source": source,
+            "sentence_id": sentence_id,
+            "speaker": speaker,
+        },
+    )
+
+    return success_response({"status": "confirmed", "speaker": speaker})
+
+
+@speakers_bp.route("/api/correct-attribution", methods=["POST"])
+def api_correct_attribution() -> Any:
+    """Correct a speaker attribution to a different entity."""
+    data = request.get_json()
+    if not data:
+        return error_response("No data provided", 400)
+
+    day = data.get("day")
+    stream = data.get("stream")
+    segment_key = data.get("segment_key")
+    source = data.get("source")
+    sentence_id = data.get("sentence_id")
+    new_speaker = data.get("new_speaker")
+
+    if not all(
+        [day, stream, segment_key, source, sentence_id is not None, new_speaker]
+    ):
+        return error_response("Missing required fields", 400)
+    if not DATE_RE.fullmatch(day):
+        return error_response("Invalid day format", 400)
+    if not validate_segment_key(segment_key):
+        return error_response("Invalid segment key", 400)
+
+    target_entity = load_journal_entity(new_speaker)
+    if not target_entity:
+        return error_response(f"Entity '{new_speaker}' not found", 404)
+    if target_entity.get("blocked"):
+        return error_response(f"Entity '{new_speaker}' is blocked", 400)
+
+    segment_dir = get_segment_path(day, segment_key, stream)
+    labels_data = _load_speaker_labels(segment_dir)
+    if not labels_data:
+        return error_response("No speaker labels found", 404)
+
+    label = None
+    label_idx = None
+    for i, item in enumerate(labels_data.get("labels", [])):
+        if item.get("sentence_id") == sentence_id:
+            label = item
+            label_idx = i
+            break
+
+    if label is None or label_idx is None:
+        return error_response("Sentence not found in labels", 404)
+
+    old_speaker = label.get("speaker")
+    old_method = label.get("method")
+    if old_speaker == new_speaker:
+        return success_response({"status": "already_correct"})
+
+    emb = _get_sentence_embedding(day, segment_key, source, sentence_id, stream=stream)
+    if emb is None:
+        return error_response("Sentence embedding not found", 404)
+
+    principal = get_journal_principal()
+    principal_id = principal["id"] if principal else None
+    if new_speaker != principal_id and _check_owner_contamination(emb):
+        return error_response("Embedding too similar to owner voice — cannot save", 400)
+
+    auto_accumulated_methods = {"acoustic", "context", "contextual"}
+    if old_speaker and old_method in auto_accumulated_methods:
+        _remove_voiceprint(old_speaker, day, segment_key, source, sentence_id)
+
+    _save_voiceprint(
+        new_speaker,
+        emb,
+        day,
+        segment_key,
+        source,
+        sentence_id,
+        stream=stream,
+    )
+
+    labels_data["labels"][label_idx]["speaker"] = new_speaker
+    labels_data["labels"][label_idx]["confidence"] = "high"
+    labels_data["labels"][label_idx]["method"] = "user_corrected"
+    _save_speaker_labels(segment_dir, labels_data)
+
+    _append_speaker_correction(
+        segment_dir,
+        {
+            "sentence_id": sentence_id,
+            "original_speaker": old_speaker,
+            "corrected_speaker": new_speaker,
+            "original_method": old_method,
+            "timestamp": now_ms(),
+        },
+    )
+
+    log_app_action(
+        app="speakers",
+        facet=None,
+        action="attribution_correct",
+        params={
+            "day": day,
+            "stream": stream,
+            "segment_key": segment_key,
+            "source": source,
+            "sentence_id": sentence_id,
+            "old_speaker": old_speaker,
+            "new_speaker": new_speaker,
+        },
+    )
+
+    return success_response(
+        {
+            "status": "corrected",
+            "old_speaker": old_speaker,
+            "new_speaker": new_speaker,
+        }
+    )
+
+
+@speakers_bp.route("/api/assign-attribution", methods=["POST"])
+def api_assign_attribution() -> Any:
+    """Assign a speaker to an unattributed sentence."""
+    data = request.get_json()
+    if not data:
+        return error_response("No data provided", 400)
+
+    day = data.get("day")
+    stream = data.get("stream")
+    segment_key = data.get("segment_key")
+    source = data.get("source")
+    sentence_id = data.get("sentence_id")
+    speaker = data.get("speaker")
+
+    if not all([day, stream, segment_key, source, sentence_id is not None, speaker]):
+        return error_response("Missing required fields", 400)
+    if not DATE_RE.fullmatch(day):
+        return error_response("Invalid day format", 400)
+    if not validate_segment_key(segment_key):
+        return error_response("Invalid segment key", 400)
+
+    target_entity = load_journal_entity(speaker)
+    if not target_entity:
+        return error_response(f"Entity '{speaker}' not found", 404)
+    if target_entity.get("blocked"):
+        return error_response(f"Entity '{speaker}' is blocked", 400)
+
+    segment_dir = get_segment_path(day, segment_key, stream)
+    labels_data = _load_speaker_labels(segment_dir)
+    if not labels_data:
+        return error_response("No speaker labels found", 404)
+
+    label = None
+    label_idx = None
+    for i, item in enumerate(labels_data.get("labels", [])):
+        if item.get("sentence_id") == sentence_id:
+            label = item
+            label_idx = i
+            break
+
+    if label is None or label_idx is None:
+        return error_response("Sentence not found in labels", 404)
+
+    existing_speaker = label.get("speaker")
+    if existing_speaker == speaker and label.get("method") == "user_assigned":
+        return success_response({"status": "already_assigned"})
+    if existing_speaker:
+        return error_response(
+            "Sentence already has a speaker — use correct instead", 400
+        )
+
+    emb = _get_sentence_embedding(day, segment_key, source, sentence_id, stream=stream)
+    if emb is None:
+        return error_response("Sentence embedding not found", 404)
+
+    principal = get_journal_principal()
+    principal_id = principal["id"] if principal else None
+    if speaker != principal_id and _check_owner_contamination(emb):
+        return error_response("Embedding too similar to owner voice — cannot save", 400)
+
+    _save_voiceprint(speaker, emb, day, segment_key, source, sentence_id, stream=stream)
+
+    labels_data["labels"][label_idx]["speaker"] = speaker
+    labels_data["labels"][label_idx]["confidence"] = "high"
+    labels_data["labels"][label_idx]["method"] = "user_assigned"
+    _save_speaker_labels(segment_dir, labels_data)
+
+    _append_speaker_correction(
+        segment_dir,
+        {
+            "sentence_id": sentence_id,
+            "original_speaker": None,
+            "corrected_speaker": speaker,
+            "original_method": label.get("method"),
+            "timestamp": now_ms(),
+        },
+    )
+
+    log_app_action(
+        app="speakers",
+        facet=None,
+        action="attribution_assign",
+        params={
+            "day": day,
+            "stream": stream,
+            "segment_key": segment_key,
+            "source": source,
+            "sentence_id": sentence_id,
+            "speaker": speaker,
+        },
+    )
+
+    return success_response({"status": "assigned", "speaker": speaker})
 
 
 @speakers_bp.route("/api/owner/status")
@@ -814,137 +1271,3 @@ def serve_audio(day: str, encoded_path: str) -> Any:
     except Exception as e:
         logger.warning("Error serving audio %s/%s: %s", day, encoded_path, e)
         return "", 404
-
-
-@speakers_bp.route("/api/save-voiceprint", methods=["POST"])
-def api_save_voiceprint() -> Any:
-    """Save a sentence voiceprint to an existing journal entity."""
-    data = request.get_json()
-    if not data:
-        return error_response("No data provided", 400)
-
-    entity_name = data.get("entity_name")
-    day = data.get("day")
-    stream = data.get("stream")
-    segment_key = data.get("segment_key")
-    source = data.get("source")
-    sentence_id = data.get("sentence_id")
-
-    if not all([entity_name, day, segment_key, source, sentence_id]):
-        return error_response("Missing required fields", 400)
-
-    # Validate formats
-    if not DATE_RE.fullmatch(day):
-        return error_response("Invalid day format", 400)
-    if not validate_segment_key(segment_key):
-        return error_response("Invalid segment key", 400)
-
-    # Validate entity exists in journal
-    entity_id = entity_slug(entity_name)
-    journal_entity = load_journal_entity(entity_id)
-    if not journal_entity:
-        return error_response(f"Entity '{entity_name}' not found", 404)
-
-    if journal_entity.get("blocked"):
-        return error_response(f"Entity '{entity_name}' is blocked", 400)
-
-    # Load sentence embedding
-    emb = _get_sentence_embedding(day, segment_key, source, sentence_id, stream=stream)
-    if emb is None:
-        return error_response("Sentence embedding not found", 404)
-
-    # Save voiceprint to journal-level storage
-    try:
-        emb_path = _save_voiceprint(
-            entity_id, emb, day, segment_key, source, sentence_id
-        )
-
-        log_app_action(
-            app="speakers",
-            facet=None,  # Journal-level action
-            action="voiceprint_save",
-            params={
-                "entity_id": entity_id,
-                "entity_name": entity_name,
-                "day": day,
-                "segment_key": segment_key,
-                "source": source,
-                "sentence_id": sentence_id,
-            },
-        )
-
-        return success_response({"path": str(emb_path)})
-    except Exception as e:
-        logger.exception("Failed to save voiceprint for %s", entity_name)
-        return error_response(f"Failed to save voiceprint: {e}", 500)
-
-
-@speakers_bp.route("/api/create-entity-voiceprint", methods=["POST"])
-def api_create_entity_voiceprint() -> Any:
-    """Create a new journal entity with a voiceprint."""
-    data = request.get_json()
-    if not data:
-        return error_response("No data provided", 400)
-
-    entity_type = data.get("type", "Person")
-    entity_name = data.get("name")
-    day = data.get("day")
-    stream = data.get("stream")
-    segment_key = data.get("segment_key")
-    source = data.get("source")
-    sentence_id = data.get("sentence_id")
-
-    if not all([entity_name, day, segment_key, source, sentence_id]):
-        return error_response("Missing required fields", 400)
-
-    # Validate formats
-    if not DATE_RE.fullmatch(day):
-        return error_response("Invalid day format", 400)
-    if not validate_segment_key(segment_key):
-        return error_response("Invalid segment key", 400)
-
-    # Check entity doesn't already exist in journal
-    entity_id = entity_slug(entity_name)
-    existing = load_journal_entity(entity_id)
-    if existing:
-        return error_response(f"Entity '{entity_name}' already exists", 409)
-
-    # Load sentence embedding
-    emb = _get_sentence_embedding(day, segment_key, source, sentence_id, stream=stream)
-    if emb is None:
-        return error_response("Sentence embedding not found", 404)
-
-    # Create new journal entity
-    new_entity = get_or_create_journal_entity(
-        entity_id=entity_id,
-        name=entity_name,
-        entity_type=entity_type,
-    )
-
-    # Save voiceprint to journal-level storage
-    try:
-        emb_path = _save_voiceprint(
-            entity_id, emb, day, segment_key, source, sentence_id
-        )
-
-        log_app_action(
-            app="speakers",
-            facet=None,  # Journal-level action
-            action="entity_voiceprint_create",
-            params={
-                "entity_id": entity_id,
-                "entity_name": entity_name,
-                "entity_type": entity_type,
-                "day": day,
-                "segment_key": segment_key,
-                "source": source,
-                "sentence_id": sentence_id,
-            },
-        )
-
-        return success_response(
-            {"entity": new_entity, "voiceprint_path": str(emb_path)}
-        )
-    except Exception as e:
-        logger.exception("Failed to save voiceprint for new entity %s", entity_name)
-        return error_response(f"Failed to save voiceprint: {e}", 500)
