@@ -593,3 +593,141 @@ def accumulate_voiceprints(
             logger.warning("Failed to accumulate voiceprints for %s: %s", eid, exc)
 
     return saved_counts
+
+
+# ---------------------------------------------------------------------------
+# Backfill
+# ---------------------------------------------------------------------------
+
+
+def _has_audio_embeddings(seg_dir: Path) -> bool:
+    """Return True if the segment has audio embedding NPZ files."""
+    for p in seg_dir.glob("*.npz"):
+        if p.stem.endswith("_audio") or p.stem == "audio":
+            return True
+    return False
+
+
+def _has_speaker_labels(seg_dir: Path) -> bool:
+    """Check if the segment already has speaker_labels.json."""
+    return (seg_dir / "agents" / "speaker_labels.json").exists()
+
+
+def backfill_segments(
+    *,
+    dry_run: bool = False,
+    progress_callback: Any | None = None,
+) -> dict[str, Any]:
+    """Run attribution across all segments with embeddings.
+
+    Processes chronologically (oldest first) so voiceprint accumulation
+    builds progressively.  Skips segments that already have
+    speaker_labels.json (resumable, respects user corrections).
+
+    Parameters
+    ----------
+    dry_run : bool
+        If True, enumerate and report but don't write labels or accumulate.
+    progress_callback : callable, optional
+        Called with (processed, total, day, stream, segment_key) after
+        each segment.
+
+    Returns
+    -------
+    dict with keys:
+        total_segments   - all segments scanned
+        total_eligible   - segments with embeddings
+        already_labeled  - skipped (speaker_labels.json exists)
+        processed        - segments attributed this run
+        skipped_no_embed - segments without embeddings (pre-Jan)
+        errors           - list of error strings
+        speakers_seen    - dict of entity_id -> attribution count
+    """
+    from think.utils import day_dirs, iter_segments
+
+    days = day_dirs()
+    sorted_days = sorted(days.keys())
+
+    # Phase 1: enumerate all eligible segments
+    eligible: list[tuple[str, str, str, Path]] = []  # (day, stream, key, path)
+    total_segments = 0
+    no_embed_count = 0
+
+    for day_name in sorted_days:
+        segments = iter_segments(day_name)
+        for stream_name, seg_key, seg_path in segments:
+            total_segments += 1
+            if not _has_audio_embeddings(seg_path):
+                no_embed_count += 1
+                continue
+            eligible.append((day_name, stream_name, seg_key, seg_path))
+
+    # Phase 2: filter already-labeled
+    to_process: list[tuple[str, str, str, Path]] = []
+    already_labeled = 0
+    for day_name, stream_name, seg_key, seg_path in eligible:
+        if _has_speaker_labels(seg_path):
+            already_labeled += 1
+        else:
+            to_process.append((day_name, stream_name, seg_key, seg_path))
+
+    stats: dict[str, Any] = {
+        "total_segments": total_segments,
+        "total_eligible": len(eligible),
+        "already_labeled": already_labeled,
+        "processed": 0,
+        "skipped_no_embed": no_embed_count,
+        "errors": [],
+        "speakers_seen": {},
+    }
+
+    if dry_run:
+        return stats
+
+    # Phase 3: attribute each segment chronologically
+    total_to_do = len(to_process)
+    speakers_seen: dict[str, int] = {}
+
+    for i, (day_name, stream_name, seg_key, seg_path) in enumerate(to_process, 1):
+        try:
+            result = attribute_segment(day_name, stream_name, seg_key)
+
+            if result.get("error"):
+                stats["errors"].append(
+                    f"{day_name}/{stream_name}/{seg_key}: {result['error']}"
+                )
+                if progress_callback:
+                    progress_callback(i, total_to_do, day_name, stream_name, seg_key)
+                continue
+
+            labels = result.get("labels", [])
+            metadata = result.get("metadata", {})
+            source = result.get("source")
+
+            # Save labels
+            save_speaker_labels(seg_path, labels, metadata)
+
+            # Accumulate voiceprints
+            if source:
+                accumulate_voiceprints(
+                    day_name, stream_name, seg_key, labels, source
+                )
+
+            # Track speakers
+            for lab in labels:
+                speaker = lab.get("speaker")
+                if speaker:
+                    speakers_seen[speaker] = speakers_seen.get(speaker, 0) + 1
+
+            stats["processed"] += 1
+
+        except Exception as exc:
+            stats["errors"].append(
+                f"{day_name}/{stream_name}/{seg_key}: {exc}"
+            )
+
+        if progress_callback:
+            progress_callback(i, total_to_do, day_name, stream_name, seg_key)
+
+    stats["speakers_seen"] = speakers_seen
+    return stats

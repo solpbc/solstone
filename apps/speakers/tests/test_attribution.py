@@ -490,3 +490,121 @@ def test_accumulate_skips_contextual_method(speakers_env):
     )
 
     assert saved == {}
+
+
+# ---------------------------------------------------------------------------
+# Backfill
+# ---------------------------------------------------------------------------
+
+
+def test_backfill_dry_run_enumerates(speakers_env):
+    """Dry run counts segments without writing anything."""
+    from apps.speakers.attribution import backfill_segments
+
+    env = speakers_env()
+    _setup_owner(env)
+
+    # Two segments with embeddings, one without
+    _write_controlled_segment(
+        env, "20260201", "090000_300", np.vstack([_normalized([1.0, 0.0])])
+    )
+    _write_controlled_segment(
+        env, "20260202", "100000_300", np.vstack([_normalized([0.1, 0.99])])
+    )
+    # Segment without embeddings (no npz)
+    no_emb = env.journal / "20260201" / STREAM / "110000_300"
+    no_emb.mkdir(parents=True, exist_ok=True)
+    (no_emb / "mic_audio.flac").write_bytes(b"")
+
+    stats = backfill_segments(dry_run=True)
+
+    assert stats["total_eligible"] == 2
+    assert stats["skipped_no_embed"] == 1
+    assert stats["already_labeled"] == 0
+    assert stats["processed"] == 0
+
+
+def test_backfill_skips_already_labeled(speakers_env):
+    """Segments with existing speaker_labels.json are skipped."""
+    from apps.speakers.attribution import backfill_segments
+
+    env = speakers_env()
+    _setup_owner(env)
+
+    seg_dir = _write_controlled_segment(
+        env, "20260201", "090000_300", np.vstack([_normalized([1.0, 0.0])])
+    )
+    # Pre-create speaker_labels.json
+    agents_dir = seg_dir / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    (agents_dir / "speaker_labels.json").write_text('{"labels": []}')
+
+    stats = backfill_segments(dry_run=True)
+
+    assert stats["total_eligible"] == 1
+    assert stats["already_labeled"] == 1
+
+
+def test_backfill_processes_chronologically(speakers_env):
+    """Segments are processed oldest-first across days."""
+    from apps.speakers.attribution import backfill_segments
+
+    env = speakers_env()
+    _setup_owner(env)
+    env.create_entity("Bob Smith")
+
+    # Create segments across two days — later day first to test ordering
+    env.create_speakers_json("20260210", "090000_300", ["Bob Smith"])
+    _write_controlled_segment(
+        env,
+        "20260210",
+        "090000_300",
+        np.vstack([_normalized([1.0, 0.0]), _normalized([0.1, 0.99])]),
+    )
+
+    env.create_speakers_json("20260201", "080000_300", ["Bob Smith"])
+    _write_controlled_segment(
+        env,
+        "20260201",
+        "080000_300",
+        np.vstack([_normalized([1.0, 0.0]), _normalized([0.1, 0.99])]),
+    )
+
+    order: list[str] = []
+
+    def track_order(processed, total, day, stream, seg_key):
+        order.append(f"{day}/{seg_key}")
+
+    stats = backfill_segments(progress_callback=track_order)
+
+    assert stats["processed"] == 2
+    # Oldest day processed first
+    assert order[0].startswith("20260201")
+    assert order[1].startswith("20260210")
+    # Labels written
+    for day, seg_key in [("20260201", "080000_300"), ("20260210", "090000_300")]:
+        labels_path = (
+            env.journal / day / STREAM / seg_key / "agents" / "speaker_labels.json"
+        )
+        assert labels_path.exists()
+
+
+def test_backfill_resumable(speakers_env):
+    """Re-running backfill skips already-processed segments."""
+    from apps.speakers.attribution import backfill_segments
+
+    env = speakers_env()
+    _setup_owner(env)
+
+    _write_controlled_segment(
+        env, "20260201", "090000_300", np.vstack([_normalized([1.0, 0.0])])
+    )
+
+    # First run
+    stats1 = backfill_segments()
+    assert stats1["processed"] == 1
+
+    # Second run — should skip the already-labeled segment
+    stats2 = backfill_segments()
+    assert stats2["processed"] == 0
+    assert stats2["already_labeled"] == 1

@@ -188,3 +188,73 @@ def attribute_segment_cmd(
             typer.echo("\nAccumulated voiceprints:")
             for eid, count in saved.items():
                 typer.echo(f"  {eid}: {count} embeddings")
+
+
+@app.command("backfill")
+def backfill(
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Enumerate segments without processing."
+    ),
+) -> None:
+    """Run speaker attribution across all segments with embeddings.
+
+    Processes segments oldest-first for progressive voiceprint building.
+    Skips segments that already have speaker_labels.json (safe to re-run).
+    """
+    import time
+
+    from apps.speakers.attribution import backfill_segments
+
+    if dry_run:
+        typer.echo("DRY RUN — no labels will be written\n")
+
+    typer.echo("Scanning journal for segments with embeddings...")
+
+    start = time.monotonic()
+    last_day = ""
+
+    def on_progress(
+        processed: int, total: int, day: str, stream: str, seg_key: str
+    ) -> None:
+        nonlocal last_day
+        if day != last_day:
+            typer.echo(f"\n  {day} ", nl=False)
+            last_day = day
+        typer.echo(".", nl=False)
+        if processed % 100 == 0 or processed == total:
+            typer.echo(f" [{processed}/{total}]", nl=False)
+
+    stats = backfill_segments(
+        dry_run=dry_run,
+        progress_callback=None if dry_run else on_progress,
+    )
+
+    elapsed = time.monotonic() - start
+
+    typer.echo("\n")
+    typer.echo(f"Total segments scanned:    {stats['total_segments']}")
+    typer.echo(f"With embeddings:           {stats['total_eligible']}")
+    typer.echo(f"Without embeddings:        {stats['skipped_no_embed']}")
+    typer.echo(f"Already labeled (skipped): {stats['already_labeled']}")
+    typer.echo(f"Processed this run:        {stats['processed']}")
+    typer.echo(f"Elapsed:                   {elapsed:.1f}s")
+
+    speakers = stats.get("speakers_seen", {})
+    if speakers:
+        typer.echo(f"\nSpeakers identified ({len(speakers)}):")
+        sorted_speakers = sorted(
+            speakers.items(), key=lambda x: x[1], reverse=True
+        )
+        for eid, count in sorted_speakers[:20]:
+            typer.echo(f"  {eid}: {count} attributions")
+        if len(sorted_speakers) > 20:
+            typer.echo(f"  ... and {len(sorted_speakers) - 20} more")
+
+    if stats["errors"]:
+        typer.echo(f"\nErrors ({len(stats['errors'])}):", err=True)
+        for err in stats["errors"][:10]:
+            typer.echo(f"  {err}", err=True)
+        if len(stats["errors"]) > 10:
+            typer.echo(
+                f"  ... and {len(stats['errors']) - 10} more", err=True
+            )
