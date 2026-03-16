@@ -1,0 +1,595 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 sol pbc
+
+"""Speaker attribution engine — 4-layer per-segment pipeline.
+
+Runs per-segment after transcription and embedding.  Operates in layers
+from cheapest to most expensive:
+
+Layer 1: Owner separation (cosine similarity to owner centroid >= 0.82)
+Layer 2: Structural heuristics (speaker count, setting field, screen.md,
+         meetings.md) — no LLM
+Layer 3: Acoustic matching (voiceprint cosine similarity, same-stream
+         preference) — no LLM
+Layer 4: Contextual identification (LLM) — handled externally via muse hook
+
+High-confidence attributions from Layers 2-3 automatically accumulate
+into entity voiceprints, creating a learning flywheel.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+from collections import defaultdict
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from apps.speakers.owner import OWNER_THRESHOLD, load_owner_centroid
+from think.entities import find_matching_entity
+from think.entities.journal import (
+    get_journal_principal,
+    journal_entity_memory_path,
+    load_all_journal_entities,
+)
+from think.utils import day_path, now_ms, segment_path
+
+logger = logging.getLogger(__name__)
+
+# Acoustic matching thresholds (from spec)
+ACOUSTIC_HIGH = 0.70
+ACOUSTIC_MEDIUM = 0.50
+
+
+def _routes_helpers():
+    """Load speakers route helpers lazily to avoid import cycles."""
+    from apps.speakers.routes import (
+        _load_embeddings_file,
+        _load_entity_voiceprints_file,
+        _load_segment_speakers,
+        _normalize_embedding,
+    )
+
+    return (
+        _load_embeddings_file,
+        _normalize_embedding,
+        _load_segment_speakers,
+        _load_entity_voiceprints_file,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Layer 2 helpers: structural signal parsing
+# ---------------------------------------------------------------------------
+
+
+def _parse_setting_names(setting: str) -> list[str]:
+    """Parse participant names from an import setting field.
+
+    Examples:
+        "Jer and Jack at coffee" -> ["Jack"]
+        "Meeting with Perry and Thomas" -> ["Perry", "Thomas"]
+        "Lunch with John Borthwick" -> ["John Borthwick"]
+    """
+    if not setting:
+        return []
+    # Strip leading context words
+    text = re.sub(
+        r"^(meeting|call|lunch|coffee|dinner|chat|conversation|zoom|hangout)"
+        r"\s+(with\s+)?",
+        "",
+        setting,
+        flags=re.IGNORECASE,
+    )
+    # Strip trailing location/topic clauses
+    text = re.sub(
+        r"\s+(at|in|about|re|regarding|on|over)\s+.*$",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # Split by connectors (comma, ampersand, and/or the word "and")
+    parts = re.split(r",\s*(?:and\s+)?|\s+and\s+|&\s*", text)
+    # Filter owner name variants and noise
+    owner_names = {"jer", "jeremie", "jeremy", "jeremie miller"}
+    names: list[str] = []
+    for part in parts:
+        part = part.strip()
+        if part and len(part) > 1 and part.lower() not in owner_names:
+            names.append(part)
+    return names
+
+
+def _load_setting_field(seg_dir: Path) -> str | None:
+    """Read the setting field from the first line of imported_audio.jsonl."""
+    jsonl_path = seg_dir / "imported_audio.jsonl"
+    if not jsonl_path.exists():
+        return None
+    try:
+        with open(jsonl_path, encoding="utf-8") as f:
+            first_line = f.readline().strip()
+        if first_line:
+            return json.loads(first_line).get("setting")
+    except Exception:
+        pass
+    return None
+
+
+def _extract_screen_participants(seg_dir: Path) -> list[str]:
+    """Extract participant names from screen.md agent output.
+
+    screen.md captures video-call participant panels.  The content is
+    free-form markdown so extraction is best-effort.
+    """
+    screen_path = seg_dir / "agents" / "screen.md"
+    if not screen_path.exists():
+        return []
+    try:
+        content = screen_path.read_text(encoding="utf-8")
+    except Exception:
+        return []
+
+    names: list[str] = []
+    kw_re = re.compile(
+        r"participant|attendee|joined|present|member|panelist",
+        re.IGNORECASE,
+    )
+    for line in content.splitlines():
+        if not kw_re.search(line):
+            continue
+        # Strip markdown formatting
+        clean = re.sub(r"[*_#\-\[\]>]", "", line)
+        # Take text after the label
+        after_label = re.split(r"[:–—\-]\s*", clean, maxsplit=1)
+        name_text = after_label[-1] if len(after_label) > 1 else clean
+        for part in re.split(r"[,;]", name_text):
+            part = part.strip()
+            if (
+                part
+                and len(part) > 2
+                and not kw_re.search(part)
+                and not part.lower().startswith(("the ", "a "))
+            ):
+                names.append(part)
+    return names
+
+
+def _extract_meeting_participants(day: str, segment_key: str) -> list[str]:
+    """Extract participant names from daily meetings.md."""
+    meetings_path = day_path(day) / "agents" / "meetings.md"
+    if not meetings_path.exists():
+        return []
+    try:
+        content = meetings_path.read_text(encoding="utf-8")
+    except Exception:
+        return []
+
+    names: list[str] = []
+    part_re = re.compile(r"\*\*Participants?\*\*\s*[:–—\-]\s*(.*)", re.IGNORECASE)
+    for line in content.splitlines():
+        m = part_re.search(line)
+        if m:
+            for name in re.split(r"[,;]", m.group(1)):
+                name = name.strip().strip("*").strip()
+                if name and len(name) > 1:
+                    names.append(name)
+    return names
+
+
+# ---------------------------------------------------------------------------
+# Core attribution pipeline
+# ---------------------------------------------------------------------------
+
+
+def attribute_segment(
+    day: str,
+    stream: str,
+    segment_key: str,
+) -> dict[str, Any]:
+    """Run Layers 1-3 of speaker attribution for a segment.
+
+    Returns a result dict containing:
+        labels           - list of per-sentence label dicts
+        unmatched        - sentence IDs still needing Layer 4
+        unmatched_texts  - {sentence_id: text} for LLM context
+        source           - audio source stem processed
+        candidates       - list of candidate speaker names
+        candidate_entity_ids - resolved entity IDs
+        metadata         - owner centroid version + voiceprint counts
+    """
+    (
+        load_embeddings_file,
+        normalize_embedding,
+        load_segment_speakers,
+        load_entity_voiceprints_file,
+    ) = _routes_helpers()
+
+    seg_dir = segment_path(day, segment_key, stream)
+
+    # --- prerequisite: owner centroid ---
+    centroid_data = load_owner_centroid()
+    if centroid_data is None:
+        return {"error": "no_owner_centroid", "labels": [], "unmatched": []}
+
+    owner_centroid, owner_threshold = centroid_data
+
+    # --- prerequisite: embeddings ---
+    npz_files = sorted(
+        [
+            p
+            for p in seg_dir.glob("*.npz")
+            if p.stem.endswith("_audio") or p.stem == "audio"
+        ],
+        key=lambda p: p.name,
+    )
+    if not npz_files:
+        return {"labels": [], "unmatched": [], "source": None, "metadata": {}}
+
+    source_path = npz_files[0]
+    source = source_path.stem
+
+    emb_data = load_embeddings_file(source_path)
+    if emb_data is None:
+        return {"labels": [], "unmatched": [], "source": source, "metadata": {}}
+
+    embeddings, statement_ids = emb_data
+    if len(embeddings) == 0:
+        return {"labels": [], "unmatched": [], "source": source, "metadata": {}}
+
+    # --- entity setup ---
+    journal_entities = load_all_journal_entities()
+    entities_list = [e for e in journal_entities.values() if not e.get("blocked")]
+
+    principal = get_journal_principal()
+    owner_entity_id = principal["id"] if principal else None
+
+    # --- initialise labels ---
+    labels: dict[int, dict] = {}
+    for sid in statement_ids:
+        sid_int = int(sid)
+        labels[sid_int] = {
+            "sentence_id": sid_int,
+            "speaker": None,
+            "confidence": None,
+            "method": None,
+        }
+
+    # ==========================
+    # LAYER 1: Owner separation
+    # ==========================
+    non_owner_sids: list[int] = []
+
+    for emb, sid in zip(embeddings, statement_ids):
+        sid_int = int(sid)
+        normalized = normalize_embedding(emb)
+        if normalized is None:
+            continue
+        score = float(np.dot(normalized, owner_centroid))
+        if score >= owner_threshold:
+            labels[sid_int] = {
+                "sentence_id": sid_int,
+                "speaker": owner_entity_id,
+                "confidence": "high",
+                "method": "owner_centroid",
+            }
+        else:
+            non_owner_sids.append(sid_int)
+
+    # ================================
+    # LAYER 2: Structural heuristics
+    # ================================
+    speakers = load_segment_speakers(seg_dir)
+    setting = _load_setting_field(seg_dir)
+    setting_names = _parse_setting_names(setting) if setting else []
+    screen_names = _extract_screen_participants(seg_dir)
+    meeting_names = _extract_meeting_participants(day, segment_key)
+
+    # Deduplicate, preserve order
+    candidate_names: list[str] = list(
+        dict.fromkeys(speakers + setting_names + screen_names + meeting_names)
+    )
+
+    # Resolve candidates to entities
+    candidate_entities: dict[str, dict] = {}
+    for name in candidate_names:
+        entity = find_matching_entity(name, entities_list)
+        if entity:
+            candidate_entities[entity["id"]] = entity
+
+    # 2a: single-listed-speaker — all non-owner sentences belong to them
+    if len(speakers) == 1:
+        entity = find_matching_entity(speakers[0], entities_list)
+        if entity:
+            for sid in non_owner_sids:
+                if labels[sid]["speaker"] is None:
+                    labels[sid] = {
+                        "sentence_id": sid,
+                        "speaker": entity["id"],
+                        "confidence": "high",
+                        "method": "structural_single_speaker",
+                    }
+
+    # 2b: single setting-field participant (import segments without speakers.json)
+    elif not speakers and len(setting_names) == 1:
+        entity = find_matching_entity(setting_names[0], entities_list)
+        if entity:
+            for sid in non_owner_sids:
+                if labels[sid]["speaker"] is None:
+                    labels[sid] = {
+                        "sentence_id": sid,
+                        "speaker": entity["id"],
+                        "confidence": "high",
+                        "method": "structural_setting",
+                    }
+
+    # ============================
+    # LAYER 3: Acoustic matching
+    # ============================
+    unresolved = [sid for sid in non_owner_sids if labels[sid]["speaker"] is None]
+    voiceprint_versions: dict[str, int] = {}
+
+    if unresolved:
+        # Determine which entities to match against
+        if candidate_entities:
+            vp_entity_ids = set(candidate_entities.keys())
+        else:
+            vp_entity_ids = {
+                e["id"] for e in entities_list if not e.get("is_principal")
+            }
+
+        # Load centroids with same-stream preference
+        voiceprint_centroids: dict[str, np.ndarray] = {}
+        for eid in vp_entity_ids:
+            result = load_entity_voiceprints_file(eid)
+            if result is None:
+                continue
+            vp_embs, vp_meta = result
+            if len(vp_embs) == 0:
+                continue
+            voiceprint_versions[eid] = len(vp_embs)
+
+            same_stream: list[np.ndarray] = []
+            all_embs: list[np.ndarray] = []
+            for ve, vm in zip(vp_embs, vp_meta):
+                n = normalize_embedding(ve)
+                if n is not None:
+                    all_embs.append(n)
+                    if vm.get("stream") == stream:
+                        same_stream.append(n)
+
+            basis = same_stream if len(same_stream) >= 5 else all_embs
+            if not basis:
+                continue
+            centroid = normalize_embedding(np.mean(basis, axis=0))
+            if centroid is not None:
+                voiceprint_centroids[eid] = centroid
+
+        # Build sentence-to-embedding index
+        sid_to_idx = {int(s): i for i, s in enumerate(statement_ids)}
+
+        for sid in unresolved:
+            idx = sid_to_idx.get(sid)
+            if idx is None:
+                continue
+            normalized = normalize_embedding(embeddings[idx])
+            if normalized is None:
+                continue
+
+            best_eid: str | None = None
+            best_score = 0.0
+            for eid, centroid in voiceprint_centroids.items():
+                score = float(np.dot(normalized, centroid))
+                if score > best_score:
+                    best_score = score
+                    best_eid = eid
+
+            if best_eid is not None:
+                if best_score >= ACOUSTIC_HIGH:
+                    labels[sid] = {
+                        "sentence_id": sid,
+                        "speaker": best_eid,
+                        "confidence": "high",
+                        "method": "acoustic",
+                    }
+                elif best_score >= ACOUSTIC_MEDIUM:
+                    labels[sid] = {
+                        "sentence_id": sid,
+                        "speaker": best_eid,
+                        "confidence": "medium",
+                        "method": "acoustic",
+                    }
+
+    # --- collect final unmatched for Layer 4 ---
+    final_unmatched = [
+        int(sid) for sid in statement_ids if labels[int(sid)]["speaker"] is None
+    ]
+
+    # --- load transcript text for LLM context ---
+    unmatched_texts: dict[int, str] = {}
+    if final_unmatched:
+        jsonl_path = seg_dir / f"{source}.jsonl"
+        if jsonl_path.exists():
+            try:
+                with open(jsonl_path, encoding="utf-8") as f:
+                    lines = f.readlines()
+                for i, line in enumerate(lines[1:], start=1):
+                    if i in final_unmatched:
+                        try:
+                            entry = json.loads(line)
+                            unmatched_texts[i] = entry.get("text", "")
+                        except json.JSONDecodeError:
+                            pass
+            except Exception:
+                pass
+
+    # --- owner centroid version ---
+    owner_version = None
+    if owner_entity_id:
+        try:
+            cp = journal_entity_memory_path(owner_entity_id) / "owner_centroid.npz"
+            if cp.exists():
+                d = np.load(cp, allow_pickle=False)
+                v = d.get("version")
+                if v is not None:
+                    owner_version = str(np.asarray(v).item())
+        except Exception:
+            pass
+
+    return {
+        "labels": [labels[int(sid)] for sid in statement_ids],
+        "unmatched": final_unmatched,
+        "unmatched_texts": unmatched_texts,
+        "source": source,
+        "candidates": candidate_names,
+        "candidate_entity_ids": list(candidate_entities.keys()),
+        "metadata": {
+            "owner_centroid_version": owner_version,
+            "voiceprint_versions": voiceprint_versions,
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
+
+
+def save_speaker_labels(
+    seg_dir: Path,
+    labels: list[dict],
+    metadata: dict[str, Any],
+) -> Path:
+    """Write speaker_labels.json to the segment's agents/ directory."""
+    agents_dir = seg_dir / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    out_path = agents_dir / "speaker_labels.json"
+
+    data = {
+        "labels": labels,
+        "owner_centroid_version": metadata.get("owner_centroid_version"),
+        "voiceprint_versions": metadata.get("voiceprint_versions", {}),
+    }
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+    logger.info("Wrote %d labels to %s", len(labels), out_path)
+    return out_path
+
+
+# ---------------------------------------------------------------------------
+# Voiceprint accumulation
+# ---------------------------------------------------------------------------
+
+
+def accumulate_voiceprints(
+    day: str,
+    stream: str,
+    segment_key: str,
+    labels: list[dict],
+    source: str,
+) -> dict[str, int]:
+    """Save high-confidence embeddings to entity voiceprints.
+
+    Eligibility:
+    - Layer 2 structural attributions (high confidence)
+    - Layer 3 acoustic attributions with confidence "high" (>= 0.7)
+
+    Guards:
+    - Owner contamination: never save embeddings with owner similarity
+      >= OWNER_THRESHOLD to non-owner voiceprints
+    - Idempotent: checks existing voiceprint keys before saving
+
+    Returns dict mapping entity_id -> number of new embeddings saved.
+    """
+    from apps.speakers.bootstrap import (
+        _load_existing_voiceprint_keys,
+        _save_voiceprints_batch,
+    )
+
+    (
+        load_embeddings_file,
+        normalize_embedding,
+        _,
+        _,
+    ) = _routes_helpers()
+
+    centroid_data = load_owner_centroid()
+    if centroid_data is None:
+        return {}
+    owner_centroid, owner_threshold = centroid_data
+
+    seg_dir = segment_path(day, segment_key, stream)
+    emb_data = load_embeddings_file(seg_dir / f"{source}.npz")
+    if emb_data is None:
+        return {}
+
+    embeddings, statement_ids = emb_data
+    sid_to_idx = {int(s): i for i, s in enumerate(statement_ids)}
+
+    # Eligible methods for accumulation
+    eligible_methods = {
+        "structural_single_speaker",
+        "structural_setting",
+        "acoustic",
+    }
+
+    principal = get_journal_principal()
+    owner_entity_id = principal["id"] if principal else None
+
+    # Collect per-entity
+    entity_new: dict[str, list[tuple[np.ndarray, dict]]] = defaultdict(list)
+    entity_existing: dict[str, set] = {}
+    saved_counts: dict[str, int] = {}
+
+    for label in labels:
+        if label.get("confidence") != "high":
+            continue
+        if label.get("method") not in eligible_methods:
+            continue
+        speaker = label.get("speaker")
+        if not speaker or speaker == owner_entity_id:
+            continue
+
+        sid = label["sentence_id"]
+        idx = sid_to_idx.get(sid)
+        if idx is None:
+            continue
+
+        normalized = normalize_embedding(embeddings[idx])
+        if normalized is None:
+            continue
+
+        # Contamination guard — owner voice must never leak into non-owner voiceprints
+        owner_score = float(np.dot(normalized, owner_centroid))
+        if owner_score >= owner_threshold:
+            continue
+
+        # Idempotency check
+        if speaker not in entity_existing:
+            entity_existing[speaker] = _load_existing_voiceprint_keys(speaker)
+        vp_key = (day, segment_key, source, sid)
+        if vp_key in entity_existing[speaker]:
+            continue
+
+        metadata = {
+            "day": day,
+            "segment_key": segment_key,
+            "source": source,
+            "stream": stream,
+            "sentence_id": sid,
+            "added_at": now_ms(),
+        }
+        entity_new[speaker].append((normalized, metadata))
+        entity_existing[speaker].add(vp_key)
+
+    for eid, items in entity_new.items():
+        try:
+            count = _save_voiceprints_batch(eid, items)
+            saved_counts[eid] = count
+        except Exception as exc:
+            logger.warning("Failed to accumulate voiceprints for %s: %s", eid, exc)
+
+    return saved_counts
