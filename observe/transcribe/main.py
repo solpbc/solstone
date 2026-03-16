@@ -611,9 +611,13 @@ def process_audio(
         from think.models import IncompleteJSONError
 
         if isinstance(e, IncompleteJSONError) and e.partial_text:
+            text = e.partial_text
             logging.error(
-                f"Partial response ({len(e.partial_text)} chars): "
-                f"{e.partial_text[:2000]}"
+                f"Partial response ({len(text)} chars) HEAD: "
+                f"{text[:1000]}"
+            )
+            logging.error(
+                f"Partial response TAIL: {text[-1000:]}"
             )
         raise SystemExit(1) from e
 
