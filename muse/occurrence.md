@@ -20,6 +20,8 @@ Extract events from a Markdown summary generated from daily transcripts and conv
 5. **Assign facets** - for every occurrence, always choose the best matching facet from the Available Facets context. Use the facet name/ID (e.g., `facet_name`) based on entities mentioned, subject matter, or context. This field is required.
 6. **Return only valid JSON** - no commentary, explanations, or wrapper objects
 7. **Handle empty sources** - if the source indicates no events occurred (e.g., "No meetings detected"), return an empty array: `[]`
+8. **Separate concurrent activities** - if the user is engaged in two unrelated activities simultaneously (e.g., a meeting on one screen and a text conversation on another), these must be separate events with separate participant lists. A person texting during a meeting is NOT a participant in that meeting. Signals of concurrent-but-unrelated activity include: different communication channels (Signal vs Webex), different subject matter, different facets.
+9. **Respect facet boundaries for participants** - participants should only be listed for events within their relevant facet. A personal contact who appears in a concurrent personal activity should not be listed in a work event's participants. When the source shows interleaved activities across facets, separate them into distinct occurrences and assign participants only to the occurrence they actually belong to.
 
 ## Occurrence Fields
 - **type** – the kind of occurrence such as `meeting`, `message`, `file`, `followup`, `documentation`, `research`, `media`, etc.
