@@ -263,6 +263,187 @@ def test_obsidian_sync_incremental(tmp_path, monkeypatch):
     assert second["imported"] >= 1
 
 
+def test_infer_entity_type_from_path():
+    """Folder path entity type inference."""
+    from think.importers.obsidian import infer_entity_type_from_path
+
+    # Direct folder match
+    assert infer_entity_type_from_path("People/Jane Smith.md") == "Person"
+    assert infer_entity_type_from_path("Contacts/John.md") == "Person"
+    assert infer_entity_type_from_path("Projects/Alpha.md") == "Project"
+    assert infer_entity_type_from_path("Companies/Acme.md") == "Organization"
+    assert infer_entity_type_from_path("Organizations/UN.md") == "Organization"
+    assert infer_entity_type_from_path("Places/Paris.md") == "Place"
+    assert infer_entity_type_from_path("Locations/HQ.md") == "Place"
+
+    # Case insensitive
+    assert infer_entity_type_from_path("people/jane.md") == "Person"
+    assert infer_entity_type_from_path("PEOPLE/Jane.md") == "Person"
+
+    # Any depth in path
+    assert infer_entity_type_from_path("00 knowledge/People/Jane Smith.md") == "Person"
+    assert infer_entity_type_from_path("Atlas/References/People/Jane.md") == "Person"
+
+    # Numeric prefix stripping
+    assert infer_entity_type_from_path("00 People/Jane.md") == "Person"
+    assert infer_entity_type_from_path("01 Projects/Alpha.md") == "Project"
+
+    # No match → None
+    assert infer_entity_type_from_path("Notes/random.md") is None
+    assert infer_entity_type_from_path("Daily/2026-03-14.md") is None
+    assert infer_entity_type_from_path("random.md") is None
+
+
+def test_clean_at_prefix():
+    """@ prefix stripping from entity names."""
+    from think.importers.obsidian import _clean_at_prefix
+
+    assert _clean_at_prefix("@JaneSmith") == ("JaneSmith", True)
+    assert _clean_at_prefix("@ Jane Smith") == ("Jane Smith", True)
+    assert _clean_at_prefix("@") == ("", True)
+    assert _clean_at_prefix("Jane Smith") == ("Jane Smith", False)
+    assert _clean_at_prefix("") == ("", False)
+
+
+def test_build_entity_dicts_precedence():
+    """Entity type inference precedence: @ > folder-path > Topic."""
+    from think.importers.obsidian import _build_entity_dicts
+
+    # Basic Topic fallback
+    result = _build_entity_dicts({"Design Doc"}, {})
+    assert result == [{"name": "Design Doc", "type": "Topic"}]
+
+    # Folder-path type
+    result = _build_entity_dicts({"Jane Smith"}, {"Jane Smith": "Person"})
+    assert result == [{"name": "Jane Smith", "type": "Person"}]
+
+    # @ prefix → Person
+    result = _build_entity_dicts({"@Jane Smith"}, {})
+    assert result == [{"name": "Jane Smith", "type": "Person"}]
+
+    # @ wins over folder-path
+    result = _build_entity_dicts(
+        {"@Jane Smith"},
+        {"Jane Smith": "Organization"},
+    )
+    assert result == [{"name": "Jane Smith", "type": "Person"}]
+
+    # @ filename added even without wikilink
+    result = _build_entity_dicts(set(), {}, at_filenames={"Jane Smith"})
+    assert result == [{"name": "Jane Smith", "type": "Person"}]
+
+    # Dedup: both @Jane and Jane as wikilinks — @ wins
+    result = _build_entity_dicts({"@Jane Smith", "Jane Smith"}, {})
+    assert result == [{"name": "Jane Smith", "type": "Person"}]
+
+
+def test_obsidian_sync_folder_path_entity_typing(tmp_path, monkeypatch):
+    """Notes in typed folders produce typed entities."""
+    from think.importers.obsidian import ObsidianSyncBackend
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    vault = tmp_path / "vault"
+
+    _write_note(
+        vault, "People/Jane Smith.md", "# Jane Smith\nA person.", mtime=1_700_000_000
+    )
+    _write_note(
+        vault,
+        "Notes/meeting.md",
+        "# Meeting\nMet with [[Jane Smith]] about [[Design Doc]].",
+        mtime=1_700_000_100,
+    )
+
+    captured: list[tuple[str, str, list[dict[str, str]]]] = []
+
+    def _fake_seed(facet, day, entities):
+        captured.append((facet, day, entities))
+        return entities
+
+    with patch(
+        "think.importers.obsidian.seed_entities", side_effect=_fake_seed
+    ):
+        ObsidianSyncBackend().sync(tmp_path, source_path=vault, dry_run=False)
+
+    all_entities = {}
+    for _, _, entities in captured:
+        for e in entities:
+            all_entities[e["name"]] = e["type"]
+
+    assert all_entities["Jane Smith"] == "Person"
+    assert all_entities["Design Doc"] == "Topic"
+
+
+def test_obsidian_sync_at_prefix_entity_typing(tmp_path, monkeypatch):
+    """Wikilinks with @ prefix produce Person entities."""
+    from think.importers.obsidian import ObsidianSyncBackend
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    vault = tmp_path / "vault"
+
+    _write_note(
+        vault,
+        "Notes/meeting.md",
+        "# Meeting\nMet with [[@Bob Jones]] and [[Design Doc]].",
+        mtime=1_700_000_000,
+    )
+
+    captured: list[tuple[str, str, list[dict[str, str]]]] = []
+
+    def _fake_seed(facet, day, entities):
+        captured.append((facet, day, entities))
+        return entities
+
+    with patch(
+        "think.importers.obsidian.seed_entities", side_effect=_fake_seed
+    ):
+        ObsidianSyncBackend().sync(tmp_path, source_path=vault, dry_run=False)
+
+    all_entities = {}
+    for _, _, entities in captured:
+        for e in entities:
+            all_entities[e["name"]] = e["type"]
+
+    assert all_entities["Bob Jones"] == "Person"
+    assert all_entities["Design Doc"] == "Topic"
+
+
+def test_obsidian_sync_numeric_prefix_folder(tmp_path, monkeypatch):
+    """Numeric-prefixed folder names are matched after stripping."""
+    from think.importers.obsidian import ObsidianSyncBackend
+
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    vault = tmp_path / "vault"
+
+    _write_note(
+        vault, "00 People/Jane.md", "# Jane\nA person.", mtime=1_700_000_000
+    )
+    _write_note(
+        vault,
+        "Notes/ref.md",
+        "# Ref\nSee [[Jane]].",
+        mtime=1_700_000_100,
+    )
+
+    captured: list[tuple[str, str, list[dict[str, str]]]] = []
+
+    def _fake_seed(facet, day, entities):
+        captured.append((facet, day, entities))
+        return entities
+
+    with patch(
+        "think.importers.obsidian.seed_entities", side_effect=_fake_seed
+    ):
+        ObsidianSyncBackend().sync(tmp_path, source_path=vault, dry_run=False)
+
+    all_entities = {}
+    for _, _, entities in captured:
+        for e in entities:
+            all_entities[e["name"]] = e["type"]
+
+    assert all_entities["Jane"] == "Person"
+
+
 def test_obsidian_backends_cli_flag(capsys, monkeypatch):
     """sol import --backends lists obsidian."""
     import sys

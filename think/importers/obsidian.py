@@ -72,6 +72,79 @@ SKIP_EXTENSIONS = {
     ".eot",
 }
 
+# Folder name to entity type mapping (case-insensitive, after stripping numeric prefixes)
+FOLDER_TYPE_MAP: dict[str, str] = {
+    "people": "Person",
+    "contacts": "Person",
+    "projects": "Project",
+    "companies": "Organization",
+    "organizations": "Organization",
+    "places": "Place",
+    "locations": "Place",
+}
+
+# Numeric prefix pattern (e.g., "00 knowledge" → "knowledge")
+NUMERIC_PREFIX_RE = re.compile(r"^\d+\s+")
+
+
+def infer_entity_type_from_path(rel_path: str) -> str | None:
+    """Infer entity type from a note's relative folder path.
+
+    Checks each folder component (after stripping numeric prefixes) against
+    known entity-typed folder names. Returns the entity type or None.
+    """
+    parts = Path(rel_path).parent.parts
+    for part in parts:
+        cleaned = NUMERIC_PREFIX_RE.sub("", part).lower()
+        entity_type = FOLDER_TYPE_MAP.get(cleaned)
+        if entity_type:
+            return entity_type
+    return None
+
+
+def _clean_at_prefix(name: str) -> tuple[str, bool]:
+    """Strip @ prefix from an entity name.
+
+    Returns (cleaned_name, had_at_prefix). Handles both '@Name' and '@ Name'.
+    """
+    if name.startswith("@"):
+        return name[1:].lstrip(), True
+    return name, False
+
+
+def _build_entity_dicts(
+    wikilinks: set[str],
+    title_type_map: dict[str, str],
+    at_filenames: set[str] | None = None,
+) -> list[dict[str, str]]:
+    """Build entity dicts from wikilinks with type inference.
+
+    Precedence: @ prefix > folder-path type > "Topic" default.
+    Also includes @-prefixed filenames as Person entities.
+    """
+    entities: dict[str, dict[str, str]] = {}
+
+    for link in wikilinks:
+        name, is_at = _clean_at_prefix(link)
+        if not name:
+            continue
+        if is_at:
+            entity_type = "Person"
+        elif name in title_type_map:
+            entity_type = title_type_map[name]
+        else:
+            entity_type = "Topic"
+        # @ prefix wins if we've already seen this name without @
+        if name not in entities or (is_at and entities[name]["type"] != "Person"):
+            entities[name] = {"name": name, "type": entity_type}
+
+    if at_filenames:
+        for name in at_filenames:
+            if name not in entities:
+                entities[name] = {"name": name, "type": "Person"}
+
+    return [entities[k] for k in sorted(entities)]
+
 
 def _parse_daily_note_date(filename: str) -> dt.date | None:
     """Try to parse a daily note date from filename. Returns None if not a daily note."""
@@ -396,13 +469,24 @@ class ObsidianImporter:
             manifest_entry["segments"] = [{"day": day, "key": key}]
         write_content_manifest(import_id, note_manifest)
 
-        # Seed entities from wikilinks
+        # Build title → entity type mapping from folder paths and @ filenames
+        title_type_map: dict[str, str] = {}
+        at_filenames: set[str] = set()
+        for note in notes:
+            folder_type = infer_entity_type_from_path(note["source_path"])
+            if folder_type:
+                title_type_map[note["title"]] = folder_type
+            name, is_at = _clean_at_prefix(note["title"])
+            if is_at and name:
+                at_filenames.add(name)
+
+        # Seed entities from wikilinks with type inference
         entities_seeded = 0
-        if all_wikilinks and facet:
+        if (all_wikilinks or at_filenames) and facet:
             day = segments[0][0] if segments else dt.datetime.now().strftime("%Y%m%d")
-            entity_dicts = [
-                {"name": link, "type": "Topic"} for link in sorted(all_wikilinks)
-            ]
+            entity_dicts = _build_entity_dicts(
+                all_wikilinks, title_type_map, at_filenames
+            )
             resolved = seed_entities(facet, day, entity_dicts)
             entities_seeded = len(resolved)
 
@@ -478,10 +562,16 @@ class ObsidianSyncBackend:
         known_files: dict[str, dict[str, Any]] = state.get("files", {})
         to_import: list[dict[str, Any]] = []
         current_paths: set[str] = set()
+        title_type_map: dict[str, str] = {}
 
         for md_path in _walk_md_files(vault_path):
             rel_path = str(md_path.relative_to(vault_path))
             current_paths.add(rel_path)
+
+            # Track folder-path types for entity type inference
+            folder_type = infer_entity_type_from_path(rel_path)
+            if folder_type:
+                title_type_map[md_path.stem] = folder_type
 
             content = _read_file_safe(md_path)
             if content is None or not content.strip():
@@ -569,20 +659,30 @@ class ObsidianSyncBackend:
                         filename="note_transcript.md",
                     )
 
-                    if note["wikilinks"] and segs:
+                    if segs:
                         day = segs[0][0]
-                        entity_dicts = [
-                            {"name": link, "type": "Topic"}
-                            for link in sorted(set(note["wikilinks"]))
-                        ]
-                        try:
-                            seed_entities("import.obsidian", day, entity_dicts)
-                        except Exception as exc:
-                            logger.warning(
-                                "Entity seeding failed for %s: %s",
-                                note["rel_path"],
-                                exc,
+                        note_at_filenames: set[str] = set()
+                        name, is_at = _clean_at_prefix(note["title"])
+                        if is_at and name:
+                            note_at_filenames.add(name)
+                        wikilink_set = (
+                            set(note["wikilinks"]) if note["wikilinks"] else set()
+                        )
+                        if wikilink_set or note_at_filenames:
+                            entity_dicts = _build_entity_dicts(
+                                wikilink_set,
+                                title_type_map,
+                                note_at_filenames or None,
                             )
+                            if entity_dicts:
+                                try:
+                                    seed_entities("import.obsidian", day, entity_dicts)
+                                except Exception as exc:
+                                    logger.warning(
+                                        "Entity seeding failed for %s: %s",
+                                        note["rel_path"],
+                                        exc,
+                                    )
 
                     known_files[note["rel_path"]].update(
                         {
