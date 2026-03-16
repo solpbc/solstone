@@ -14,6 +14,13 @@ from flask import Blueprint, jsonify, request
 
 from apps.utils import log_app_action
 from convey import state
+from think.retention import (
+    _human_bytes,
+    compute_storage_summary,
+    load_retention_config,
+    purge,
+)
+from think.streams import list_streams
 from think.utils import get_config as get_journal_config
 
 settings_bp = Blueprint(
@@ -1693,5 +1700,188 @@ def update_sync() -> Any:
 
         return get_sync()
 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/storage")
+def get_storage() -> Any:
+    """Return storage summary, retention config, and active streams."""
+    try:
+        summary = compute_storage_summary()
+        config = load_retention_config()
+        try:
+            streams = list_streams()
+        except Exception:
+            streams = []
+
+        return jsonify(
+            {
+                "summary": {
+                    "raw_media_bytes": summary.raw_media_bytes,
+                    "raw_media_human": summary.raw_media_human,
+                    "derived_bytes": summary.derived_bytes,
+                    "derived_human": summary.derived_human,
+                    "total_segments": summary.total_segments,
+                    "segments_with_raw": summary.segments_with_raw,
+                    "segments_purged": summary.segments_purged,
+                },
+                "retention": {
+                    "raw_media": config.default.mode,
+                    "raw_media_days": config.default.days,
+                    "per_stream": {
+                        name: {"raw_media": p.mode, "raw_media_days": p.days}
+                        for name, p in config.per_stream.items()
+                    },
+                },
+                "streams": [{"name": s.get("name", "")} for s in streams],
+            }
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/storage", methods=["PUT"])
+def update_storage() -> Any:
+    """Update retention configuration."""
+    try:
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({"error": "No data provided"}), 400
+
+        config = get_journal_config()
+        old_retention = config.get("retention", {})
+
+        retention = config.setdefault("retention", {})
+
+        changed = {}
+
+        # Update global mode
+        if "raw_media" in request_data:
+            mode = request_data["raw_media"]
+            if mode not in ("keep", "days", "processed"):
+                return jsonify({"error": f"Invalid mode: {mode}"}), 400
+            if retention.get("raw_media") != mode:
+                changed["raw_media"] = {"old": retention.get("raw_media"), "new": mode}
+            retention["raw_media"] = mode
+
+        # Update global days
+        if "raw_media_days" in request_data:
+            days = request_data["raw_media_days"]
+            if days is not None:
+                if not isinstance(days, int) or days < 1:
+                    return jsonify({"error": "days must be a positive integer"}), 400
+            if retention.get("raw_media_days") != days:
+                changed["raw_media_days"] = {
+                    "old": retention.get("raw_media_days"),
+                    "new": days,
+                }
+            retention["raw_media_days"] = days
+
+        # Update per-stream overrides
+        if "per_stream" in request_data:
+            ps = request_data["per_stream"]
+            if not isinstance(ps, dict):
+                return jsonify({"error": "per_stream must be an object"}), 400
+            new_per_stream = {}
+            for stream_name, stream_cfg in ps.items():
+                if not isinstance(stream_cfg, dict):
+                    continue
+                mode = stream_cfg.get("raw_media")
+                if mode is not None and mode not in ("keep", "days", "processed"):
+                    return jsonify(
+                        {"error": f"Invalid mode for {stream_name}: {mode}"}
+                    ), 400
+                days = stream_cfg.get("raw_media_days")
+                if days is not None and (not isinstance(days, int) or days < 1):
+                    return jsonify({"error": f"Invalid days for {stream_name}"}), 400
+                new_per_stream[stream_name] = stream_cfg
+            if old_retention.get("per_stream") != new_per_stream:
+                changed["per_stream"] = {
+                    "old": old_retention.get("per_stream"),
+                    "new": new_per_stream,
+                }
+            retention["per_stream"] = new_per_stream
+
+        config_dir = Path(state.journal_root) / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = config_dir / "journal.json"
+
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+
+        if changed:
+            log_app_action(
+                app="settings",
+                facet=None,
+                action="retention_update",
+                params={"changed_fields": changed},
+            )
+
+        return jsonify({"success": True, "retention": retention})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/storage/purge", methods=["POST"])
+def run_purge() -> Any:
+    """Run retention purge (dry-run or execute)."""
+    try:
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({"error": "No data provided"}), 400
+
+        older_than_days = request_data.get("older_than_days")
+        if older_than_days is None:
+            return jsonify({"error": "older_than_days is required"}), 400
+        if not isinstance(older_than_days, int) or older_than_days < 1:
+            return jsonify({"error": "older_than_days must be a positive integer"}), 400
+
+        stream_filter = request_data.get("stream_filter") or None
+        dry_run = request_data.get("dry_run", True)
+
+        result = purge(
+            older_than_days=older_than_days,
+            stream_filter=stream_filter,
+            dry_run=dry_run,
+        )
+
+        response = {
+            "files_deleted": result.files_deleted,
+            "bytes_freed": result.bytes_freed,
+            "bytes_freed_human": _human_bytes(result.bytes_freed),
+            "segments_processed": result.segments_processed,
+            "segments_skipped_incomplete": result.segments_skipped_incomplete,
+            "segments_skipped_policy": result.segments_skipped_policy,
+            "dry_run": dry_run,
+        }
+
+        # On actual purge, also refresh the storage summary
+        if not dry_run:
+            summary = compute_storage_summary()
+            response["summary"] = {
+                "raw_media_bytes": summary.raw_media_bytes,
+                "raw_media_human": summary.raw_media_human,
+                "derived_bytes": summary.derived_bytes,
+                "derived_human": summary.derived_human,
+                "total_segments": summary.total_segments,
+                "segments_with_raw": summary.segments_with_raw,
+                "segments_purged": summary.segments_purged,
+            }
+
+            log_app_action(
+                app="settings",
+                facet=None,
+                action="retention_purge",
+                params={
+                    "older_than_days": older_than_days,
+                    "stream_filter": stream_filter,
+                    "files_deleted": result.files_deleted,
+                    "bytes_freed": result.bytes_freed,
+                },
+            )
+
+        return jsonify(response)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

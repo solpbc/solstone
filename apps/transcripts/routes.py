@@ -201,6 +201,8 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
     audio_file_url = None
     video_files: dict[str, str] = {}  # jsonl filename -> video URL
     media_sizes: dict[str, int] = {"audio": 0, "screen": 0}
+    has_raw_reference = False
+    has_raw_file = False
 
     # Load speaker labels if available.
     speaker_labels_path = Path(segment_dir) / "agents" / "speaker_labels.json"
@@ -256,10 +258,12 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
 
             # Validate raw points to an audio file (skip if not)
             if raw_audio and raw_audio.endswith(AUDIO_EXTENSIONS):
-                rel_path = f"{stream}/{segment_key}/{raw_audio}"
-                audio_file_url = f"/app/transcripts/api/serve_file/{day}/{rel_path.replace('/', '__')}"
+                has_raw_reference = True
                 audio_full = os.path.join(segment_dir, raw_audio)
                 if os.path.isfile(audio_full):
+                    has_raw_file = True
+                    rel_path = f"{stream}/{segment_key}/{raw_audio}"
+                    audio_file_url = f"/app/transcripts/api/serve_file/{day}/{rel_path.replace('/', '__')}"
                     media_sizes["audio"] += os.path.getsize(audio_full)
 
             for chunk in formatted_chunks:
@@ -313,8 +317,10 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
 
             # Validate raw points to a video file (skip if not, e.g. tmux)
             if raw_video and raw_video.endswith(VIDEO_EXTENSIONS):
+                has_raw_reference = True
                 video_full = os.path.join(segment_dir, raw_video)
                 if os.path.isfile(video_full):
+                    has_raw_file = True
                     rel_path = f"{stream}/{segment_key}/{raw_video}"
                     video_files[filename] = (
                         f"/app/transcripts/api/serve_file/{day}/{rel_path.replace('/', '__')}"
@@ -380,6 +386,7 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
 
     # Sort all chunks by timestamp
     chunks.sort(key=lambda c: c["timestamp"])
+    media_purged = has_raw_reference and not has_raw_file
 
     # Get cost data for this segment
     cost_data = get_usage_cost(day, segment=segment_key)
@@ -404,6 +411,7 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
             "segment_key": segment_key,
             "cost": cost_data["cost"],
             "media_sizes": media_sizes,
+            "media_purged": media_purged,
         }
     )
 

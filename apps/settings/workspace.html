@@ -1497,6 +1497,78 @@ input:checked + .slider:before {
   background: var(--facet-bg, rgba(102, 126, 234, 0.05));
 }
 
+/* Storage section */
+.settings-mode-btn {
+  padding: 0.5em 1em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.settings-mode-btn:hover {
+  background: #f0f0f0;
+}
+
+.settings-mode-btn.active {
+  background: var(--accent, #667eea);
+  color: white;
+  border-color: var(--accent, #667eea);
+}
+
+.settings-preset-btn {
+  padding: 0.35em 0.75em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.85em;
+}
+
+.settings-preset-btn:hover {
+  background: #f0f0f0;
+}
+
+.settings-preset-btn.active {
+  border-color: var(--accent, #667eea);
+  color: var(--accent, #667eea);
+}
+
+.stream-override-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  padding: 0.5em 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.stream-override-row:last-child {
+  border-bottom: none;
+}
+
+.stream-override-name {
+  font-size: 0.9em;
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.stream-override-select {
+  padding: 0.35em 0.5em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.stream-override-days {
+  width: 4em;
+  padding: 0.35em 0.5em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .settings-wrap {
@@ -1532,6 +1604,8 @@ input:checked + .slider:before {
         <option value="insights">Insights</option>
         <option value="security">Security</option>
         <option value="sync">Sync</option>
+        <option value="storage">Storage</option>
+        <option value="support">Support</option>
         <option value="agent">Agent Identity</option>
       </optgroup>
       <optgroup label="Facet" id="navSelectFacetGroup" style="display:none">
@@ -1556,6 +1630,7 @@ input:checked + .slider:before {
       <button class="settings-nav-item" data-section="insights">Insights</button>
       <button class="settings-nav-item" data-section="security">Security</button>
       <button class="settings-nav-item" data-section="sync">Sync</button>
+      <button class="settings-nav-item" data-section="storage">Storage</button>
       <button class="settings-nav-item" data-section="support">Support</button>
     </div>
     <div class="settings-nav-group" id="facetNavGroup" style="display:none">
@@ -2114,6 +2189,68 @@ input:checked + .slider:before {
       </div>
     </section>
 
+    <!-- Storage Section -->
+    <section class="settings-section" id="section-storage">
+      <h2>Storage</h2>
+      <p class="settings-section-desc">Manage raw media retention and view storage usage.</p>
+
+      <div id="storageSummaryCard" style="background: #f8f8f8; border-radius: 8px; padding: 1em 1.25em; margin-bottom: 1.5em;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1em; text-align: center;">
+          <div>
+            <div style="font-size: 1.5em; font-weight: 600;" id="storageSummaryRaw">—</div>
+            <div style="font-size: 0.85em; color: #666;">Raw Media</div>
+          </div>
+          <div>
+            <div style="font-size: 1.5em; font-weight: 600;" id="storageSummaryDerived">—</div>
+            <div style="font-size: 0.85em; color: #666;">Derived Content</div>
+          </div>
+          <div>
+            <div style="font-size: 1.5em; font-weight: 600;" id="storageSummarySegments">—</div>
+            <div style="font-size: 0.85em; color: #666;">Segments</div>
+          </div>
+        </div>
+        <div style="margin-top: 0.75em; font-size: 0.8em; color: #888; text-align: center;" id="storageSummaryDetail"></div>
+      </div>
+
+      <div class="settings-field" id="retentionModeField">
+        <label>Retention Mode</label>
+        <small>Controls how long raw media files (audio, video, screen diffs) are kept after processing.</small>
+        <div id="retentionModeSelector" style="display: flex; gap: 0.5em; margin-top: 0.5em;">
+          <button type="button" class="settings-mode-btn" data-mode="keep">Keep Forever</button>
+          <button type="button" class="settings-mode-btn" data-mode="days">Keep N Days</button>
+          <button type="button" class="settings-mode-btn" data-mode="processed">Delete After Processing</button>
+        </div>
+      </div>
+
+      <div class="settings-field" id="retentionDaysField" style="display: none;">
+        <label>Days to Keep</label>
+        <small>Raw media older than this will be eligible for cleanup.</small>
+        <div style="display: flex; gap: 0.5em; align-items: center; margin-top: 0.5em;">
+          <button type="button" class="settings-preset-btn" data-days="7">7</button>
+          <button type="button" class="settings-preset-btn" data-days="30">30</button>
+          <button type="button" class="settings-preset-btn" data-days="90">90</button>
+          <input type="number" id="retentionDaysInput" min="1" style="width: 5em; padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px;" placeholder="Custom">
+          <span style="color: #666; font-size: 0.9em;">days</span>
+        </div>
+      </div>
+
+      <div class="context-overrides" id="streamOverridesContainer" style="display: none;">
+        <div class="context-overrides-header" id="streamOverridesToggle" style="cursor: pointer;">
+          <span class="context-overrides-title">Per-Stream Overrides</span>
+          <span class="context-overrides-toggle">&#9660;</span>
+        </div>
+        <div class="context-overrides-body" id="streamOverridesBody">
+          <p style="color: #666; font-size: 0.85em; margin: 0 0 1em 0;">Override the global retention mode for individual streams.</p>
+          <div id="streamOverridesList"></div>
+        </div>
+      </div>
+
+      <div style="margin-top: 2em; padding-top: 1.5em; border-top: 1px solid #e0e0e0;">
+        <button type="button" id="cleanupNowBtn" class="action-button" style="background: #dc3545; color: white; border: none; padding: 0.6em 1.2em; border-radius: 6px; cursor: pointer; font-size: 0.9em;">Clean Up Now</button>
+        <small style="display: block; margin-top: 0.5em; color: #666;">Manually purge raw media older than a specified number of days.</small>
+      </div>
+    </section>
+
     <!-- Support Section -->
     <section class="settings-section" id="section-support">
       <h2>Support</h2>
@@ -2336,6 +2473,40 @@ input:checked + .slider:before {
   </div>
 </div>
 
+<!-- Cleanup Confirmation Modal -->
+<div id="cleanupModal" class="color-modal">
+  <div class="color-modal-content" style="max-width: 480px;">
+    <span class="color-close" id="cleanupModalClose">&times;</span>
+    <h3>Clean Up Raw Media</h3>
+    <p style="color: #666; font-size: 0.9em; margin-bottom: 1em;">Delete raw media files (audio, video, screen captures) from segments older than the specified number of days.</p>
+
+    <div class="settings-field" style="margin-bottom: 1em;">
+      <label>Older Than</label>
+      <div style="display: flex; gap: 0.5em; align-items: center;">
+        <input type="number" id="cleanupDaysInput" min="1" value="30" style="width: 5em; padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px;">
+        <span style="color: #666;">days</span>
+      </div>
+    </div>
+
+    <div class="settings-field" style="margin-bottom: 1em;">
+      <label>Stream Filter (optional)</label>
+      <select id="cleanupStreamFilter" style="padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        <option value="">All streams</option>
+      </select>
+    </div>
+
+    <div id="cleanupPreview" style="background: #f8f8f8; border-radius: 6px; padding: 1em; margin-bottom: 1em; display: none;">
+      <div style="font-weight: 600; margin-bottom: 0.5em;">Preview</div>
+      <div id="cleanupPreviewText" style="font-size: 0.9em; color: #666;"></div>
+    </div>
+
+    <div style="display: flex; gap: 0.75em; justify-content: flex-end;">
+      <button type="button" id="cleanupPreviewBtn" style="padding: 0.5em 1em; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer;">Preview</button>
+      <button type="button" id="cleanupConfirmBtn" style="padding: 0.5em 1em; border: none; border-radius: 4px; background: #dc3545; color: white; cursor: pointer;" disabled>Delete Files</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ========== STATE ==========
 let configData = null;
@@ -2345,7 +2516,7 @@ let logNextCursor = null;
 let insightsData = null;
 
 // ========== NAVIGATION ==========
-const VALID_SECTIONS = ['profile', 'agent', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'sync', 'facet-appearance', 'facet-activities', 'facet-activity'];
+const VALID_SECTIONS = ['profile', 'agent', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'sync', 'storage', 'support', 'facet-appearance', 'facet-activities', 'facet-activity'];
 
 function switchSection(sectionId, updateHash = true) {
   // Validate section exists
@@ -2817,7 +2988,7 @@ function setupEmojiPicker() {
 function setupColorPicker() {
   const modal = document.getElementById('colorPickerModal');
   const trigger = document.getElementById('colorTrigger');
-  const closeBtn = document.querySelector('.color-close');
+  const closeBtn = modal.querySelector('.color-close');
   const saveBtn = document.getElementById('saveColorBtn');
   const swatches = document.getElementById('colorSwatches');
   const picker = document.getElementById('customColorPicker');
@@ -2843,7 +3014,7 @@ function setupColorPicker() {
   };
 
   closeBtn.onclick = () => modal.style.display = 'none';
-  window.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+  modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
 
   picker.oninput = () => { selectedColor = picker.value; updateColorUI(selectedColor); };
   hexInput.oninput = () => {
@@ -4646,6 +4817,308 @@ function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// ========== STORAGE ==========
+let storageData = null;
+
+async function loadStorage() {
+  try {
+    const response = await fetch('api/storage');
+    storageData = await response.json();
+    if (storageData.error) throw new Error(storageData.error);
+    populateStorage(storageData);
+  } catch (err) {
+    console.error('Error loading storage:', err);
+  }
+}
+
+function populateStorage(data) {
+  const s = data.summary;
+  document.getElementById('storageSummaryRaw').textContent = s.raw_media_human;
+  document.getElementById('storageSummaryDerived').textContent = s.derived_human;
+  document.getElementById('storageSummarySegments').textContent = s.total_segments;
+  document.getElementById('storageSummaryDetail').textContent =
+    s.segments_with_raw + ' with raw media · ' + s.segments_purged + ' purged';
+
+  // Set retention mode
+  const mode = data.retention.raw_media || 'keep';
+  setRetentionMode(mode, false);
+
+  // Set days
+  const days = data.retention.raw_media_days;
+  document.getElementById('retentionDaysInput').value = days || '';
+  document.querySelectorAll('.settings-preset-btn').forEach(btn => {
+    btn.classList.toggle('active', !!days && parseInt(btn.dataset.days) === days);
+  });
+
+  // Populate per-stream overrides
+  populateStreamOverrides(data.streams, data.retention.per_stream || {});
+}
+
+function setRetentionMode(mode, save = true) {
+  document.querySelectorAll('#retentionModeSelector .settings-mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+
+  const daysField = document.getElementById('retentionDaysField');
+  daysField.style.display = mode === 'days' ? '' : 'none';
+
+  if (save) {
+    const payload = { raw_media: mode };
+    if (mode !== 'days') {
+      payload.raw_media_days = null;
+    }
+    saveRetentionConfig(payload);
+  }
+}
+
+function populateStreamOverrides(streams, perStream) {
+  const container = document.getElementById('streamOverridesContainer');
+  const list = document.getElementById('streamOverridesList');
+
+  if (!streams || streams.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = '';
+  list.innerHTML = '';
+
+  streams.forEach(stream => {
+    const name = stream.name;
+    const override = perStream[name] || {};
+    const mode = override.raw_media || '';
+    const days = override.raw_media_days || '';
+
+    const row = document.createElement('div');
+    row.className = 'stream-override-row';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'stream-override-name';
+    nameSpan.textContent = name;
+
+    const select = document.createElement('select');
+    select.className = 'stream-override-select';
+    select.innerHTML = '<option value="">Use global default</option>'
+      + '<option value="keep">Keep forever</option>'
+      + '<option value="days">Keep N days</option>'
+      + '<option value="processed">Delete after processing</option>';
+    select.value = mode;
+
+    const daysInput = document.createElement('input');
+    daysInput.type = 'number';
+    daysInput.className = 'stream-override-days';
+    daysInput.min = '1';
+    daysInput.placeholder = 'days';
+    daysInput.value = days;
+    daysInput.style.display = mode === 'days' ? '' : 'none';
+
+    select.addEventListener('change', () => {
+      daysInput.style.display = select.value === 'days' ? '' : 'none';
+      saveStreamOverrides();
+    });
+    daysInput.addEventListener('change', () => saveStreamOverrides());
+
+    row.appendChild(nameSpan);
+    row.appendChild(select);
+    row.appendChild(daysInput);
+    list.appendChild(row);
+  });
+}
+
+function saveStreamOverrides() {
+  const rows = document.querySelectorAll('#streamOverridesList .stream-override-row');
+  const perStream = {};
+  rows.forEach(row => {
+    const name = row.querySelector('.stream-override-name').textContent;
+    const mode = row.querySelector('.stream-override-select').value;
+    const days = row.querySelector('.stream-override-days').value;
+    if (mode) {
+      const entry = { raw_media: mode };
+      if (mode === 'days' && days) {
+        entry.raw_media_days = parseInt(days);
+      } else {
+        entry.raw_media_days = null;
+      }
+      perStream[name] = entry;
+    }
+  });
+  saveRetentionConfig({ per_stream: perStream });
+}
+
+async function saveRetentionConfig(data) {
+  try {
+    const response = await fetch('api/storage', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    const el = document.getElementById('retentionModeField');
+    if (el) showFieldStatus(el, 'saved');
+  } catch (err) {
+    console.error('Save retention error:', err);
+    const el = document.getElementById('retentionModeField');
+    if (el) showFieldStatus(el, 'error', err.message);
+  }
+}
+
+function setupStorageListeners() {
+  // Mode selector
+  document.querySelectorAll('#retentionModeSelector .settings-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => setRetentionMode(btn.dataset.mode));
+  });
+
+  // Day presets
+  document.querySelectorAll('.settings-preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const days = parseInt(btn.dataset.days);
+      document.getElementById('retentionDaysInput').value = days;
+      document.querySelectorAll('.settings-preset-btn').forEach(b =>
+        b.classList.toggle('active', b === btn));
+      saveRetentionConfig({ raw_media_days: days });
+    });
+  });
+
+  // Custom days input
+  document.getElementById('retentionDaysInput').addEventListener('change', (e) => {
+    const days = parseInt(e.target.value);
+    if (days > 0) {
+      document.querySelectorAll('.settings-preset-btn').forEach(b => b.classList.remove('active'));
+      saveRetentionConfig({ raw_media_days: days });
+    }
+  });
+
+  // Stream overrides toggle
+  document.getElementById('streamOverridesToggle').addEventListener('click', () => {
+    document.getElementById('streamOverridesContainer').classList.toggle('expanded');
+  });
+
+  // Cleanup button
+  document.getElementById('cleanupNowBtn').addEventListener('click', openCleanupModal);
+}
+
+function openCleanupModal() {
+  const modal = document.getElementById('cleanupModal');
+  modal.style.display = 'flex';
+  resetCleanupPreview();
+
+  // Populate stream filter
+  const select = document.getElementById('cleanupStreamFilter');
+  select.innerHTML = '<option value="">All streams</option>';
+  if (storageData && storageData.streams) {
+    storageData.streams.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.name;
+      opt.textContent = s.name;
+      select.appendChild(opt);
+    });
+  }
+}
+
+function closeCleanupModal() {
+  document.getElementById('cleanupModal').style.display = 'none';
+}
+
+function resetCleanupPreview() {
+  document.getElementById('cleanupPreview').style.display = 'none';
+  document.getElementById('cleanupPreviewText').textContent = '';
+  document.getElementById('cleanupConfirmBtn').disabled = true;
+}
+
+async function runCleanupPreview() {
+  const days = parseInt(document.getElementById('cleanupDaysInput').value);
+  if (!days || days < 1) {
+    notifyError('Invalid Input', 'Enter a positive number of days.');
+    resetCleanupPreview();
+    return;
+  }
+
+  const streamFilter = document.getElementById('cleanupStreamFilter').value;
+  const previewDiv = document.getElementById('cleanupPreview');
+  const previewText = document.getElementById('cleanupPreviewText');
+
+  previewText.textContent = 'Scanning...';
+  previewDiv.style.display = '';
+
+  try {
+    const response = await fetch('api/storage/purge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        older_than_days: days,
+        stream_filter: streamFilter || null,
+        dry_run: true,
+      }),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    if (result.files_deleted === 0) {
+      previewText.textContent = 'No files to clean up.';
+      document.getElementById('cleanupConfirmBtn').disabled = true;
+    } else {
+      previewText.textContent = result.files_deleted + ' files (' + result.bytes_freed_human
+        + ') across ' + result.segments_processed + ' segments would be deleted.';
+      document.getElementById('cleanupConfirmBtn').disabled = false;
+    }
+  } catch (err) {
+    previewText.textContent = 'Error: ' + err.message;
+    document.getElementById('cleanupConfirmBtn').disabled = true;
+  }
+}
+
+async function runCleanupExecute() {
+  const days = parseInt(document.getElementById('cleanupDaysInput').value);
+  if (!days || days < 1) {
+    notifyError('Invalid Input', 'Enter a positive number of days.');
+    resetCleanupPreview();
+    return;
+  }
+  const streamFilter = document.getElementById('cleanupStreamFilter').value;
+  const btn = document.getElementById('cleanupConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = 'Deleting...';
+
+  try {
+    const response = await fetch('api/storage/purge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        older_than_days: days,
+        stream_filter: streamFilter || null,
+        dry_run: false,
+      }),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+
+    closeCleanupModal();
+
+    // Refresh storage summary
+    if (result.summary) {
+      storageData.summary = result.summary;
+      populateStorage(storageData);
+    } else {
+      loadStorage();
+    }
+  } catch (err) {
+    notifyError('Cleanup Failed', err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Delete Files';
+  }
+}
+
+// Cleanup modal event handlers
+document.getElementById('cleanupModalClose').addEventListener('click', closeCleanupModal);
+document.getElementById('cleanupModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('cleanupModal')) closeCleanupModal();
+});
+document.getElementById('cleanupDaysInput').addEventListener('input', resetCleanupPreview);
+document.getElementById('cleanupStreamFilter').addEventListener('change', resetCleanupPreview);
+document.getElementById('cleanupPreviewBtn').addEventListener('click', runCleanupPreview);
+document.getElementById('cleanupConfirmBtn').addEventListener('click', runCleanupExecute);
+
 // ========== INIT ==========
 updateFacetNav();
 initFromHash();
@@ -4655,7 +5128,9 @@ loadObserve();
 loadVision();
 loadInsights();
 loadSync();
+loadStorage();
 setupAutoSave();
+setupStorageListeners();
 
 // If facet is selected on load, load its config
 if (window.selectedFacet) {

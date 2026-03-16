@@ -601,6 +601,16 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   margin-bottom: 4px;
 }
 
+.tr-purge-notice {
+  padding: 0.5em 0.75em;
+  margin-bottom: 0.5em;
+  font-size: 0.8em;
+  color: #888;
+  background: #f8f8f8;
+  border-radius: 4px;
+  border-left: 3px solid #ccc;
+}
+
 .tr-entry {
   display: flex;
   gap: 12px;
@@ -1791,6 +1801,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       html += '<div class="tr-audio-player-label">Segment Audio</div>';
       html += `<audio data-role="segment-audio" controls preload="metadata"><source src="${data.audio_file}" type="audio/flac">Your browser does not support audio.</audio>`;
       html += '</div></div>';
+    }
+
+    if (data.media_purged && !data.audio_file && showAudio) {
+      html += '<div class="tr-purge-notice">Raw recording removed per retention policy</div>';
     }
 
     // Render items (chunks or groups)
