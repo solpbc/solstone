@@ -17,6 +17,7 @@ Raw audio/screen transcripts are formattable but not indexed by default.
 
 import json
 import logging
+import math
 import os
 import re
 import sqlite3
@@ -125,6 +126,8 @@ SCHEMA = [
     "CREATE INDEX IF NOT EXISTS idx_signals_type ON entity_signals(signal_type)",
     "CREATE INDEX IF NOT EXISTS idx_signals_entity ON entity_signals(entity_name)",
     "CREATE INDEX IF NOT EXISTS idx_signals_day ON entity_signals(day)",
+    "CREATE INDEX IF NOT EXISTS idx_signals_path ON entity_signals(path)",
+    "CREATE INDEX IF NOT EXISTS idx_signals_facet ON entity_signals(facet)",
 ]
 
 ENTITY_COLUMNS = [
@@ -1625,6 +1628,39 @@ def _build_entity_name_map(conn: sqlite3.Connection) -> dict[str, str]:
     return result
 
 
+# Half-life of 30 days: decay reaches ~0.5 at 30 days, ~0.1 at ~100 days.
+_RECENCY_DECAY_LAMBDA = math.log(2) / 30
+
+
+def _recency_decay(days_since: int) -> float:
+    """Exponential recency decay.
+
+    Returns ~1.0 at day 0, ~0.5 at 30 days, ~0.1 at ~100 days.
+    """
+    return round(math.exp(-_RECENCY_DECAY_LAMBDA * max(0, days_since)), 4)
+
+
+def _strength_score(
+    kg_edge_count: int,
+    co_occurrence: int,
+    recency: float,
+    observation_depth: int,
+    facet_breadth: int,
+) -> float:
+    """Compute composite strength score from components.
+
+    Weights: kg_edge=5, co_occurrence=4, recency=3, observation_depth=2, facet_breadth=1
+    """
+    return round(
+        5 * kg_edge_count
+        + 4 * co_occurrence
+        + 3 * recency
+        + 2 * observation_depth
+        + 1 * facet_breadth,
+        4,
+    )
+
+
 def _compute_strength_scores(
     conn: sqlite3.Connection,
     facet: str | None = None,
@@ -1790,19 +1826,18 @@ def get_entity_strength(
                     )
                     ref = date(int(today[:4]), int(today[4:6]), int(today[6:8]))
                     days_since = max(0, (ref - last).days)
-                    r["recency"] = round(1.0 / (1 + days_since), 4)
+                    r["recency"] = _recency_decay(days_since)
                 except (ValueError, IndexError):
                     r["recency"] = 0.0
             if r["entity_id"] and r["entity_id"] in obs_map:
                 r["observation_depth"] = obs_map[r["entity_id"]]
 
-            r["score"] = round(
-                5 * r["kg_edge_count"]
-                + 4 * r["co_occurrence"]
-                + 3 * r["recency"]
-                + 2 * r["observation_depth"]
-                + 1 * r["facet_breadth"],
-                4,
+            r["score"] = _strength_score(
+                r["kg_edge_count"],
+                r["co_occurrence"],
+                r["recency"],
+                r["observation_depth"],
+                r["facet_breadth"],
             )
 
         ranked = sorted(results.values(), key=lambda x: x["score"], reverse=True)
@@ -2082,16 +2117,26 @@ def get_entity_intelligence(
                     }
                 )
 
+            # Exclude principal entities from co-occurrence — they co-occur
+            # with everyone and would dominate the network section.
+            principal_names = get_principal_entity_names(conn)
+            co_extra_where = ""
+            co_params: list[Any] = signal_names + signal_names
+            if principal_names:
+                ph = ",".join("?" for _ in principal_names)
+                co_extra_where = f" AND s2.entity_name NOT IN ({ph})"
+                co_params.extend(list(principal_names))
+
             co_rows = conn.execute(
                 f"""
                 SELECT s2.entity_name, COUNT(DISTINCT s2.path) as co_count
                 FROM entity_signals s1
                 JOIN entity_signals s2 ON s1.path = s2.path
-                WHERE s1.entity_name IN ({placeholders}) AND s2.entity_name NOT IN ({placeholders})
+                WHERE s1.entity_name IN ({placeholders}) AND s2.entity_name NOT IN ({placeholders}){co_extra_where}
                 GROUP BY s2.entity_name
                 ORDER BY COUNT(DISTINCT s2.path) DESC
                 """,
-                signal_names + signal_names,
+                co_params,
             ).fetchall()
             network = {r[0]: r[1] for r in co_rows}
 
@@ -2105,23 +2150,61 @@ def get_entity_intelligence(
             set(signal_facets + [r["facet"] for r in relationships if r["facet"]])
         )
 
-        scores, obs_map_data = _compute_strength_scores(conn, facet, None)
+        # Compute strength components for this entity only (single-entity fast
+        # path — avoids the full co-occurrence self-join across all entities).
         total_appearance = 0
         max_kg_edges = 0
         max_co = 0
         max_breadth = 0
         best_last_day = ""
-        for sname in signal_names:
-            if sname in scores:
-                c = scores[sname]
-                total_appearance += c["appearance"]
-                max_kg_edges = max(max_kg_edges, c.get("kg_edge_count", 0))
-                max_co = max(max_co, c.get("co_occurrence", 0))
-                max_breadth = max(max_breadth, c.get("facet_breadth", 0))
-                if c.get("last_day", "") > best_last_day:
-                    best_last_day = c["last_day"]
 
-        obs_depth = obs_map_data.get(entity_id, 0)
+        if signal_names:
+            placeholders_s = ",".join("?" for _ in signal_names)
+            facet_filter = " AND facet=?" if facet else ""
+            facet_params = [facet.lower()] if facet else []
+
+            # Basic signal stats for this entity's signal names
+            stat_row = conn.execute(
+                f"""
+                SELECT COUNT(*) as appearance, MAX(day) as last_day,
+                       COUNT(DISTINCT facet) as facet_breadth
+                FROM entity_signals
+                WHERE entity_name IN ({placeholders_s}){facet_filter}
+                """,
+                signal_names + facet_params,
+            ).fetchone()
+            if stat_row:
+                total_appearance = stat_row[0]
+                best_last_day = stat_row[1] or ""
+                max_breadth = stat_row[2]
+
+            # KG edge count for this entity
+            kg_facet_filter = " AND facet=?" if facet else ""
+            kg_facet_params = [facet.lower()] if facet else []
+            kg_row = conn.execute(
+                f"""
+                SELECT COUNT(*) FROM (
+                    SELECT DISTINCT entity_name as entity, target_name, relationship_type
+                    FROM entity_signals WHERE signal_type='kg_edge' AND entity_name IN ({placeholders_s}){kg_facet_filter}
+                    UNION
+                    SELECT DISTINCT target_name as entity, entity_name, relationship_type
+                    FROM entity_signals WHERE signal_type='kg_edge' AND target_name IN ({placeholders_s}){kg_facet_filter}
+                )
+                """,
+                signal_names + kg_facet_params + signal_names + kg_facet_params,
+            ).fetchone()
+            if kg_row:
+                max_kg_edges = kg_row[0]
+
+            # Co-occurrence count for this entity (excluding principals)
+            max_co = len(network)
+
+        obs_row = conn.execute(
+            "SELECT observation_count FROM entities WHERE entity_id=? AND source='observation'",
+            [entity_id],
+        ).fetchone()
+        obs_depth = int(obs_row[0] or 0) if obs_row else 0
+
         recency = 0.0
         if best_last_day:
             try:
@@ -2132,18 +2215,13 @@ def get_entity_intelligence(
                 )
                 ref = date.today()
                 days_since = max(0, (ref - last).days)
-                recency = round(1.0 / (1 + days_since), 4)
+                recency = _recency_decay(days_since)
             except (ValueError, IndexError):
                 pass
 
         strength = {
-            "score": round(
-                5 * max_kg_edges
-                + 4 * max_co
-                + 3 * recency
-                + 2 * obs_depth
-                + 1 * max_breadth,
-                4,
+            "score": _strength_score(
+                max_kg_edges, max_co, recency, obs_depth, max_breadth
             ),
             "kg_edge_count": max_kg_edges,
             "co_occurrence": max_co,
