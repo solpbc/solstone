@@ -709,9 +709,7 @@ def backfill_segments(
 
             # Accumulate voiceprints
             if source:
-                accumulate_voiceprints(
-                    day_name, stream_name, seg_key, labels, source
-                )
+                accumulate_voiceprints(day_name, stream_name, seg_key, labels, source)
 
             # Track speakers
             for lab in labels:
@@ -722,9 +720,7 @@ def backfill_segments(
             stats["processed"] += 1
 
         except Exception as exc:
-            stats["errors"].append(
-                f"{day_name}/{stream_name}/{seg_key}: {exc}"
-            )
+            stats["errors"].append(f"{day_name}/{stream_name}/{seg_key}: {exc}")
 
         if progress_callback:
             progress_callback(i, total_to_do, day_name, stream_name, seg_key)

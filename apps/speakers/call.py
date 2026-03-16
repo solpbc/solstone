@@ -242,9 +242,7 @@ def backfill(
     speakers = stats.get("speakers_seen", {})
     if speakers:
         typer.echo(f"\nSpeakers identified ({len(speakers)}):")
-        sorted_speakers = sorted(
-            speakers.items(), key=lambda x: x[1], reverse=True
-        )
+        sorted_speakers = sorted(speakers.items(), key=lambda x: x[1], reverse=True)
         for eid, count in sorted_speakers[:20]:
             typer.echo(f"  {eid}: {count} attributions")
         if len(sorted_speakers) > 20:
@@ -255,6 +253,4 @@ def backfill(
         for err in stats["errors"][:10]:
             typer.echo(f"  {err}", err=True)
         if len(stats["errors"]) > 10:
-            typer.echo(
-                f"  ... and {len(stats['errors']) - 10} more", err=True
-            )
+            typer.echo(f"  ... and {len(stats['errors']) - 10} more", err=True)
