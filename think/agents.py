@@ -116,6 +116,7 @@ def _stream_content_description(stream: str | None) -> str:
         "import.gemini": "an imported Gemini conversation",
         "import.ics": "an imported calendar event",
         "import.obsidian": "an imported note from Obsidian",
+        "import.document": "an imported document (PDF)",
         "import.kindle": "imported Kindle reading highlights",
     }
 
@@ -175,6 +176,11 @@ def _stream_import_guidance(stream: str | None) -> str:
         "import.obsidian": (
             "This is a note. Summarize the key ideas, references, and connections. "
             "What was the author thinking about and working through?"
+        ),
+        "import.document": (
+            "This is an imported PDF document. The content has been extracted from the original file. "
+            "Focus on the document's purpose, key information, named parties, dates, and any "
+            "actionable items. Preserve the document's structure in your analysis."
         ),
         "import.kindle": (
             "These are reading highlights. Describe what was being read and what "
