@@ -1,5 +1,5 @@
 ---
-name: sol-support
+name: support
 description: >
   File support tickets, search the knowledge base, and give feedback via
   the sol support CLI. Use this skill when the user needs help with solstone,
