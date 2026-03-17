@@ -821,16 +821,16 @@
         "screen_sessions": 3
       },
       "20260310": {
-        "audio_duration": 275.0,
-        "audio_segments": 18,
-        "audio_sessions": 3,
-        "day_bytes": 52509,
+        "day_bytes": 53726,
         "outputs_pending": 9,
         "outputs_processed": 2,
         "pending_segments": 0,
-        "screen_duration": 0.0,
-        "screen_frames": 0,
-        "screen_sessions": 2
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 2,
+        "transcript_duration": 275.0,
+        "transcript_segments": 18,
+        "transcript_sessions": 3
       },
       "20260311": {
         "day_bytes": 483,
@@ -858,6 +858,14 @@
       },
       "20260315": {
         "day_bytes": 483,
+        "outputs_pending": 11,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
+      },
+      "20260316": {
+        "day_bytes": 160,
         "outputs_pending": 11,
         "outputs_processed": 0,
         "pending_segments": 0,
@@ -1133,16 +1141,16 @@
       },
       "gemini-2.5-flash-lite": {
         "cached_tokens": 0,
-        "input_tokens": 1986,
-        "output_tokens": 238,
+        "input_tokens": 2039,
+        "output_tokens": 243,
         "reasoning_tokens": 0,
-        "total_tokens": 2224
+        "total_tokens": 2282
       },
       "gemini-3-flash-preview": {
-        "input_tokens": 1656,
-        "output_tokens": 414,
-        "reasoning_tokens": 3420,
-        "total_tokens": 11518
+        "input_tokens": 1728,
+        "output_tokens": 432,
+        "reasoning_tokens": 3835,
+        "total_tokens": 12023
       },
       "gpt-5": {
         "cached_tokens": 200,
@@ -1816,35 +1824,35 @@
       },
       "20260316": {
         "gemini-2.5-flash-lite": {
-          "input_tokens": 106,
-          "output_tokens": 10,
-          "total_tokens": 116
+          "input_tokens": 159,
+          "output_tokens": 15,
+          "total_tokens": 174
         },
         "gemini-3-flash-preview": {
-          "input_tokens": 144,
-          "output_tokens": 36,
-          "reasoning_tokens": 852,
-          "total_tokens": 1032
+          "input_tokens": 216,
+          "output_tokens": 54,
+          "reasoning_tokens": 1267,
+          "total_tokens": 1537
         }
       }
     },
     "total_percept_duration": 0.0,
-    "total_transcript_duration": 2212.0,
+    "total_transcript_duration": 2487.0,
     "totals": {
-      "audio_duration": 1243.0,
-      "audio_segments": 86,
-      "audio_sessions": 19,
-      "day_bytes": 529467,
-      "outputs_pending": 421,
+      "audio_duration": 968.0,
+      "audio_segments": 68,
+      "audio_sessions": 16,
+      "day_bytes": 530844,
+      "outputs_pending": 432,
       "outputs_processed": 14,
       "pending_segments": 0,
       "percept_frames": 0,
-      "percept_sessions": 4,
+      "percept_sessions": 6,
       "screen_duration": 23.1,
       "screen_frames": 3,
-      "screen_sessions": 13,
-      "transcript_segments": 86,
-      "transcript_sessions": 12
+      "screen_sessions": 11,
+      "transcript_segments": 104,
+      "transcript_sessions": 15
     }
   }
 }
