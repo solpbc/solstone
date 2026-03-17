@@ -15,6 +15,7 @@ processing. All completion checks must pass before any deletion.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
@@ -107,6 +108,29 @@ def is_segment_complete(segment_path: Path) -> bool:
             return False
 
     return True
+
+
+def _get_completion_files(segment_path: Path) -> list[Path]:
+    """Return existing completion-indicating files for a segment."""
+    completion_files: list[Path] = []
+
+    for name in ("audio.jsonl", "screen.jsonl"):
+        path = segment_path / name
+        if path.exists():
+            completion_files.append(path)
+
+    completion_files.extend(
+        path
+        for pattern in ("*_audio.jsonl", "*_screen.jsonl")
+        for path in segment_path.glob(pattern)
+        if path.is_file()
+    )
+
+    speaker_labels = segment_path / "agents" / "speaker_labels.json"
+    if speaker_labels.exists():
+        completion_files.append(speaker_labels)
+
+    return completion_files
 
 
 # ---------------------------------------------------------------------------
@@ -312,11 +336,24 @@ def purge(
             segment_files = []
             for f in raw_files:
                 size = f.stat().st_size
+                digest = hashlib.sha256()
+                with open(f, "rb") as handle:
+                    while chunk := handle.read(64 * 1024):
+                        digest.update(chunk)
+                hex_digest = digest.hexdigest()
                 segment_bytes += size
-                segment_files.append({"name": f.name, "bytes": size})
+                segment_files.append(
+                    {"name": f.name, "bytes": size, "hash": hex_digest}
+                )
                 if not dry_run:
                     f.unlink()
                     logger.info("Deleted: %s (%s)", f, _human_bytes(size))
+
+            completion_files = _get_completion_files(seg_path)
+            processed_at = None
+            if completion_files:
+                latest_mtime = max(f.stat().st_mtime for f in completion_files)
+                processed_at = datetime.fromtimestamp(latest_mtime).isoformat()
 
             result.files_deleted += len(raw_files)
             result.bytes_freed += segment_bytes
@@ -327,6 +364,7 @@ def purge(
                     "segment": seg_key,
                     "files": segment_files,
                     "bytes_freed": segment_bytes,
+                    "processed_at": processed_at,
                 }
             )
 

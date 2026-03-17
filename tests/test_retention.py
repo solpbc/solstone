@@ -3,6 +3,10 @@
 
 """Tests for think.retention — media retention service."""
 
+import hashlib
+import os
+from datetime import datetime
+
 from think.retention import (
     RetentionConfig,
     RetentionPolicy,
@@ -351,6 +355,89 @@ class TestPurge:
         # Only plaud segment (60 days old) should be eligible
         assert result.files_deleted == 1
         assert result.details[0]["stream"] == "plaud"
+
+
+class TestPurgeProvenance:
+    def _setup_journal(self, tmp_path, monkeypatch):
+        return TestPurge()._setup_journal(tmp_path, monkeypatch)
+
+    def test_hash_field_in_dry_run(self, tmp_path, monkeypatch):
+        self._setup_journal(tmp_path, monkeypatch)
+
+        result = purge(older_than_days=30, dry_run=True)
+        expected_hash = hashlib.sha256(b"x" * 1000).hexdigest()
+
+        for detail in result.details:
+            for file_info in detail["files"]:
+                file_hash = file_info["hash"]
+                assert len(file_hash) == 64
+                assert all(c in "0123456789abcdef" for c in file_hash)
+
+        default_detail = next(
+            detail
+            for detail in result.details
+            if detail["stream"] == "default" and detail["segment"] == "100000_300"
+        )
+        assert default_detail["files"][0]["hash"] == expected_hash
+
+    def test_hash_field_in_actual_purge(self, tmp_path, monkeypatch):
+        self._setup_journal(tmp_path, monkeypatch)
+
+        result = purge(older_than_days=30, dry_run=False)
+        expected_hash = hashlib.sha256(b"x" * 1000).hexdigest()
+
+        for detail in result.details:
+            for file_info in detail["files"]:
+                file_hash = file_info["hash"]
+                assert len(file_hash) == 64
+                assert all(c in "0123456789abcdef" for c in file_hash)
+
+        default_detail = next(
+            detail
+            for detail in result.details
+            if detail["stream"] == "default" and detail["segment"] == "100000_300"
+        )
+        assert default_detail["files"][0]["hash"] == expected_hash
+
+    def test_processed_at_field(self, tmp_path, monkeypatch):
+        self._setup_journal(tmp_path, monkeypatch)
+
+        result = purge(older_than_days=30, dry_run=True)
+
+        for detail in result.details:
+            assert "processed_at" in detail
+            assert isinstance(detail["processed_at"], str)
+            datetime.fromisoformat(detail["processed_at"])
+
+    def test_processed_at_reflects_latest_mtime(self, tmp_path, monkeypatch):
+        journal = self._setup_journal(tmp_path, monkeypatch)
+        segment = journal / "20260115" / "default" / "100000_300"
+        audio_jsonl = segment / "audio.jsonl"
+        alternate_audio_jsonl = segment / "meeting_audio.jsonl"
+        speaker_labels = segment / "agents" / "speaker_labels.json"
+
+        alternate_audio_jsonl.write_text('{"raw":"audio.flac"}\n')
+        speaker_labels.write_text("{}")
+
+        older_ts = datetime(2026, 1, 15, 10, 0, 0).timestamp()
+        middle_ts = datetime(2026, 1, 15, 11, 0, 0).timestamp()
+        latest_ts = datetime(2026, 1, 15, 12, 0, 0).timestamp()
+
+        os.utime(audio_jsonl, (older_ts, older_ts))
+        os.utime(speaker_labels, (middle_ts, middle_ts))
+        os.utime(alternate_audio_jsonl, (latest_ts, latest_ts))
+
+        result = purge(older_than_days=30, dry_run=True)
+
+        default_detail = next(
+            detail
+            for detail in result.details
+            if detail["stream"] == "default" and detail["segment"] == "100000_300"
+        )
+        assert (
+            default_detail["processed_at"]
+            == datetime.fromtimestamp(latest_ts).isoformat()
+        )
 
 
 # ---------------------------------------------------------------------------
