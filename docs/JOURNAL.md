@@ -149,6 +149,50 @@ Fields:
 - `apps.order` – Custom app ordering in menu bar.
 - `apps.starred` – Apps to show in the quick-access starred section.
 
+### Retention configuration
+
+The `retention` block controls automatic cleanup of layer 1 raw media (audio recordings, video captures, screen diffs) while preserving all layer 2 extracts and layer 3 agent outputs. Three modes control when raw media is deleted:
+
+- `"keep"` – retain raw media indefinitely (default)
+- `"days"` – delete raw media after `raw_media_days` days, once the segment has finished processing
+- `"processed"` – delete raw media as soon as the segment has finished processing
+
+```json
+{
+  "retention": {
+    "raw_media": "days",
+    "raw_media_days": 30,
+    "per_stream": {
+      "plaud": {
+        "raw_media": "days",
+        "raw_media_days": 7
+      },
+      "archon": {
+        "raw_media": "processed"
+      }
+    }
+  }
+}
+```
+
+Fields:
+- `raw_media` (string) – Retention mode: `"keep"`, `"days"`, or `"processed"`. Default: `"keep"`.
+- `raw_media_days` (integer or null) – Number of days to retain raw media when mode is `"days"`. Required when `raw_media` is `"days"`, ignored otherwise.
+- `per_stream` (object) – Per-stream overrides keyed by stream name. Each entry supports `raw_media` and `raw_media_days`. Omitted fields inherit from the global retention settings.
+
+"Raw media" means layer 1 capture files only: audio files (`.flac`, `.opus`, `.ogg`, `.m4a`), video files (`.webm`, `.mov`), and screen diffs (`monitor_*_diff.png`).
+
+All layer 2 and layer 3 content is always preserved regardless of retention policy: transcripts (`audio.jsonl`, `screen.jsonl`), agent outputs (`agents/*.md`), speaker labels (`agents/speaker_labels.json`), facet events (`events/*.jsonl`), entity data, segment metadata (`stream.json`), and search index entries.
+
+Raw media is never deleted from segments that haven't finished processing. A segment is considered complete only when all four checks pass:
+
+- No `_active.jsonl` files in `agents/` (no running agents)
+- `audio.jsonl` (or `*_audio.jsonl`) exists if audio raw media was captured
+- `screen.jsonl` (or `*_screen.jsonl`) exists if video raw media was captured
+- `agents/speaker_labels.json` exists if voice embeddings (`.npz`) are present
+
+Purged segments remain fully navigable in convey. Transcripts, entities, speaker labels, and summaries are all intact. The only difference is that audio/video playback is unavailable.
+
 ### Environment variables
 
 The `env` block provides fallback values for environment variables. These are loaded at CLI startup and used when the corresponding variable is not set in the shell or `.env` file:
@@ -804,6 +848,7 @@ The `health/` directory contains log files for long-running services.
 
 **Files:**
 - `health/<service>.log` – log output for each service (e.g., `observe.log`, `cortex.log`, `convey.log`)
+- `health/retention.log` – JSONL log of retention purge operations with timestamps, files deleted, bytes freed, and per-segment details
 
 These logs are useful for debugging service issues. See [DOCTOR.md](DOCTOR.md) for diagnostics and troubleshooting guidance.
 
