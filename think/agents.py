@@ -178,9 +178,12 @@ def _stream_import_guidance(stream: str | None) -> str:
             "What was the author thinking about and working through?"
         ),
         "import.document": (
-            "This is an imported PDF document. The content has been extracted from the original file. "
-            "Focus on the document's purpose, key information, named parties, dates, and any "
-            "actionable items. Preserve the document's structure in your analysis."
+            "This is an imported document (legal, financial, medical, or personal). "
+            "Extract all named parties and their roles (grantor, trustee, beneficiary, "
+            "attorney, witness, agent, etc.). Produce a plain-language summary that a "
+            "non-expert could understand. Identify key provisions, dates, conditions, "
+            "obligations, and deadlines. Note any time-sensitive requirements (renewal "
+            "dates, filing deadlines, review periods)."
         ),
         "import.kindle": (
             "These are reading highlights. Describe what was being read and what "
