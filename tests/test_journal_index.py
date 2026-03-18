@@ -1227,3 +1227,58 @@ def test_scan_signals_kg_facet_assignment():
     assert len(null_rows) == 4  # Alice Johnson, Bob Smith, Acme Corp, Project Alpha
 
     conn.close()
+
+
+def test_entity_identity_fts_chunks_indexed():
+    """Entity identity files produce FTS chunks with agent='entity'."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    count = conn.execute("SELECT count(*) FROM chunks WHERE agent='entity'").fetchone()[
+        0
+    ]
+    conn.close()
+    assert count == 33
+
+
+def test_entity_identity_search_by_name():
+    """Entity identity name is searchable via FTS."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+    total, results = search_journal("Alice Johnson", agent="entity")
+    assert total >= 1
+    assert any(r["metadata"]["agent"] == "entity" for r in results)
+
+
+def test_entity_identity_search_by_type():
+    """Entity type is searchable via FTS."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+    total, results = search_journal("Person", agent="entity")
+    assert total >= 1
+
+
+def test_entity_identity_fts_idempotent():
+    """Two full scans produce identical entity chunk count (no duplicates)."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    count1 = conn.execute(
+        "SELECT count(*) FROM chunks WHERE agent='entity'"
+    ).fetchone()[0]
+    conn.close()
+    scan_journal("tests/fixtures/journal", full=True)
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    count2 = conn.execute(
+        "SELECT count(*) FROM chunks WHERE agent='entity'"
+    ).fetchone()[0]
+    conn.close()
+    assert count1 == count2 == 33

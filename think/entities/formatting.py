@@ -3,7 +3,7 @@
 
 """Entity formatting for indexer.
 
-Formatters for entity-related JSONL files, registered in the formatters
+Formatters for entity-related files (JSONL and JSON), registered in the formatters
 registry to convert structured data into markdown chunks for indexing.
 """
 
@@ -157,6 +157,83 @@ def format_entities(
     # Indexer metadata - agent depends on attached vs detected
     agent = "entity:detected" if is_detected else "entity:attached"
     meta["indexer"] = {"agent": agent}
+
+    return chunks, meta
+
+
+def format_entity_identity(
+    entries: list[EntityDict],
+    context: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Format a standalone entity identity JSON file to markdown chunks."""
+    _ = context
+    meta: dict[str, Any] = {"indexer": {"agent": "entity"}}
+    chunks: list[dict[str, Any]] = []
+
+    if not entries:
+        return chunks, meta
+
+    entity = entries[0]
+    day = entity.get("last_seen")
+    if isinstance(day, str) and re.fullmatch(r"\d{8}", day):
+        meta["indexer"]["day"] = day
+
+    etype = entity.get("type", "Unknown")
+    name = entity.get("name", "Unnamed")
+    description = entity.get("description", "")
+
+    lines = [
+        f"### {etype}: {name}\n",
+        "",
+    ]
+
+    if description:
+        lines.append(description)
+    else:
+        lines.append("*(No description available)*")
+    lines.append("")
+
+    skip_fields = {
+        "id",
+        "type",
+        "name",
+        "description",
+        "is_principal",
+        "blocked",
+        "updated_at",
+        "attached_at",
+        "last_seen",
+        "created_at",
+        "detached",
+    }
+
+    tags = entity.get("tags")
+    if tags and isinstance(tags, list):
+        lines.append(f"**Tags:** {', '.join(tags)}")
+
+    aka = entity.get("aka")
+    if aka and isinstance(aka, list):
+        lines.append(f"**Also known as:** {', '.join(aka)}")
+
+    for key, value in entity.items():
+        if key in skip_fields or key in ("tags", "aka"):
+            continue
+        if isinstance(value, list):
+            value_str = ", ".join(str(v) for v in value)
+        else:
+            value_str = str(value)
+        display_key = key.replace("_", " ").title()
+        lines.append(f"**{display_key}:** {value_str}")
+
+    lines.append("")
+
+    chunks.append(
+        {
+            "timestamp": entity_last_active_ts(entity),
+            "markdown": "\n".join(lines),
+            "source": entity,
+        }
+    )
 
     return chunks, meta
 

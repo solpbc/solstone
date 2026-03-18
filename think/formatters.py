@@ -136,6 +136,11 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
         True,
     ),
     "facets/*/entities/*.jsonl": ("think.entities.formatting", "format_entities", True),
+    "entities/*/entity.json": (
+        "think.entities.formatting",
+        "format_entity_identity",
+        True,
+    ),
     "facets/*/events/*.jsonl": ("think.events", "format_events", True),
     "facets/*/calendar/*.jsonl": ("think.events", "format_events", True),
     "facets/*/todos/*.jsonl": ("apps.todos.todo", "format_todos", True),
@@ -286,7 +291,7 @@ def format_file(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Load file, detect formatter, return formatted chunks and metadata.
 
-    File must be under JOURNAL_PATH. Supports JSONL and Markdown files.
+    File must be under JOURNAL_PATH. Supports JSONL, JSON, and Markdown files.
 
     Args:
         file_path: Absolute or journal-relative path to file
@@ -320,6 +325,9 @@ def format_file(
     # Load file based on extension
     if file_path.suffix == ".md":
         content = load_markdown(file_path)
+    elif file_path.suffix == ".json":
+        with open(file_path, encoding="utf-8") as f:
+            content = [json.load(f)]
     else:
         content = load_jsonl(file_path)
 
