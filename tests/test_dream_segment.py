@@ -3,7 +3,9 @@
 
 """Tests for segment facet functionality in dream module."""
 
+import importlib
 import json
+from pathlib import Path
 
 import pytest
 
@@ -417,3 +419,189 @@ class TestCortexRequestRetry:
         assert success == 0
         assert failed == 1
         assert any("send" in n for n in failed_names)
+
+
+class TestStreamAutoResolution:
+    """Tests for stream resolution in segment mode."""
+
+    def test_auto_resolves_stream_from_filesystem(self, segment_dir, monkeypatch):
+        """main() resolves stream from iter_segments when omitted."""
+        mod = importlib.import_module("think.dream")
+        calls: list[dict] = []
+
+        class MockCallosumConnection:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self, callback=None):
+                return None
+
+            def stop(self):
+                return None
+
+        def mock_run_prompts_by_priority(day, segment, refresh, verbose, **kwargs):
+            calls.append(
+                {
+                    "day": day,
+                    "segment": segment,
+                    "refresh": refresh,
+                    "verbose": verbose,
+                    **kwargs,
+                }
+            )
+            return (1, 0, [])
+
+        monkeypatch.setattr(
+            mod,
+            "iter_segments",
+            lambda day: [("mystream", "120000_300", Path("/tmp/segment"))],
+        )
+        monkeypatch.setattr(
+            mod, "run_prompts_by_priority", mock_run_prompts_by_priority
+        )
+        monkeypatch.setattr(mod, "check_callosum_available", lambda: True)
+        monkeypatch.setattr(mod, "run_command", lambda cmd, day: True)
+        monkeypatch.setattr(
+            mod, "run_queued_command", lambda cmd, day, timeout=600: True
+        )
+        monkeypatch.setattr(mod, "CallosumConnection", MockCallosumConnection)
+        monkeypatch.setattr("think.utils.load_dotenv", lambda: True)
+        monkeypatch.setattr(
+            "sys.argv",
+            ["sol dream", "--day", "20240115", "--segment", "120000_300"],
+        )
+
+        mod.main()
+
+        assert len(calls) == 1
+        assert calls[0]["stream"] == "mystream"
+
+    def test_segment_not_found_exits(self, segment_dir, monkeypatch):
+        """main() errors when segment cannot be resolved to a stream."""
+        mod = importlib.import_module("think.dream")
+
+        class MockCallosumConnection:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self, callback=None):
+                return None
+
+            def stop(self):
+                return None
+
+        monkeypatch.setattr(mod, "iter_segments", lambda day: [])
+        monkeypatch.setattr(
+            mod, "run_prompts_by_priority", lambda *args, **kwargs: (1, 0, [])
+        )
+        monkeypatch.setattr(mod, "check_callosum_available", lambda: True)
+        monkeypatch.setattr(mod, "run_command", lambda cmd, day: True)
+        monkeypatch.setattr(mod, "CallosumConnection", MockCallosumConnection)
+        monkeypatch.setattr("think.utils.load_dotenv", lambda: True)
+        monkeypatch.setattr(
+            "sys.argv",
+            ["sol dream", "--day", "20240115", "--segment", "999999_300"],
+        )
+
+        with pytest.raises(SystemExit) as excinfo:
+            mod.main()
+
+        assert excinfo.value.code != 0
+
+    def test_explicit_stream_skips_filesystem_lookup(self, segment_dir, monkeypatch):
+        """Explicit --stream bypasses iter_segments lookup."""
+        mod = importlib.import_module("think.dream")
+        iter_calls = 0
+        calls: list[dict] = []
+
+        class MockCallosumConnection:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def start(self, callback=None):
+                return None
+
+            def stop(self):
+                return None
+
+        def mock_iter_segments(day):
+            nonlocal iter_calls
+            iter_calls += 1
+            return [("mystream", "120000_300", Path("/tmp/segment"))]
+
+        def mock_run_prompts_by_priority(day, segment, refresh, verbose, **kwargs):
+            calls.append(kwargs)
+            return (1, 0, [])
+
+        monkeypatch.setattr(mod, "iter_segments", mock_iter_segments)
+        monkeypatch.setattr(
+            mod, "run_prompts_by_priority", mock_run_prompts_by_priority
+        )
+        monkeypatch.setattr(mod, "check_callosum_available", lambda: True)
+        monkeypatch.setattr(mod, "run_command", lambda cmd, day: True)
+        monkeypatch.setattr(
+            mod, "run_queued_command", lambda cmd, day, timeout=600: True
+        )
+        monkeypatch.setattr(mod, "CallosumConnection", MockCallosumConnection)
+        monkeypatch.setattr("think.utils.load_dotenv", lambda: True)
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "sol dream",
+                "--day",
+                "20240115",
+                "--segment",
+                "120000_300",
+                "--stream",
+                "explicit_stream",
+            ],
+        )
+
+        mod.main()
+
+        assert iter_calls == 0
+        assert len(calls) == 1
+        assert calls[0]["stream"] == "explicit_stream"
+
+    def test_no_timeout_passes_none_to_wait(self, segment_dir, monkeypatch):
+        """run_prompts_by_priority forwards timeout=None to wait_for_agents."""
+        from think import dream
+
+        wait_calls = []
+
+        def mock_cortex_request(prompt, name, config=None):
+            return f"agent-{name}"
+
+        def mock_wait_for_agents(agent_ids, timeout=600):
+            wait_calls.append(timeout)
+            return ({aid: "finish" for aid in agent_ids}, [])
+
+        def mock_get_muse_configs(schedule=None, **kwargs):
+            return {
+                "test_generator": {
+                    "priority": 10,
+                    "type": "generate",
+                    "output": "md",
+                    "schedule": "segment",
+                },
+            }
+
+        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
+        monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
+        monkeypatch.setattr(dream, "get_enabled_facets", lambda: {})
+        monkeypatch.setattr(dream, "get_active_facets", lambda day: set())
+        monkeypatch.setattr(dream, "_callosum", None)
+        monkeypatch.setattr(
+            dream, "run_queued_command", lambda cmd, day, timeout=60: True
+        )
+
+        dream.run_prompts_by_priority(
+            "20240115",
+            "120000_300",
+            refresh=False,
+            verbose=False,
+            timeout=None,
+        )
+
+        assert wait_calls == [None]

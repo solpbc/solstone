@@ -120,7 +120,7 @@ def get_agent_log_status(agent_id: str) -> str:
 
 def wait_for_agents(
     agent_ids: list[str],
-    timeout: int = 600,
+    timeout: int | None = 600,
 ) -> tuple[dict[str, str], list[str]]:
     """Wait for agents to complete via Callosum events.
 

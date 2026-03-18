@@ -68,7 +68,7 @@ def test_segment_mode_skips_pre_post_phases(tmp_path, monkeypatch):
     journal = copy_journal(tmp_path)
 
     # Create segment directory
-    segment_dir = journal / "20240101" / "120000_300"
+    segment_dir = journal / "20240101" / "default" / "120000_300"
     segment_dir.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setenv("JOURNAL_PATH", str(journal))
