@@ -1157,16 +1157,16 @@
       },
       "gemini-2.5-flash-lite": {
         "cached_tokens": 0,
-        "input_tokens": 2092,
-        "output_tokens": 248,
+        "input_tokens": 2145,
+        "output_tokens": 253,
         "reasoning_tokens": 0,
-        "total_tokens": 2340
+        "total_tokens": 2398
       },
       "gemini-3-flash-preview": {
-        "input_tokens": 1800,
-        "output_tokens": 450,
-        "reasoning_tokens": 4241,
-        "total_tokens": 12519
+        "input_tokens": 1872,
+        "output_tokens": 468,
+        "reasoning_tokens": 4661,
+        "total_tokens": 13029
       },
       "gpt-5": {
         "cached_tokens": 200,
@@ -1853,15 +1853,15 @@
       },
       "20260318": {
         "gemini-2.5-flash-lite": {
-          "input_tokens": 53,
-          "output_tokens": 5,
-          "total_tokens": 58
+          "input_tokens": 106,
+          "output_tokens": 10,
+          "total_tokens": 116
         },
         "gemini-3-flash-preview": {
-          "input_tokens": 72,
-          "output_tokens": 18,
-          "reasoning_tokens": 406,
-          "total_tokens": 496
+          "input_tokens": 144,
+          "output_tokens": 36,
+          "reasoning_tokens": 826,
+          "total_tokens": 1006
         }
       }
     },
