@@ -36,14 +36,39 @@ def pre_process(context: dict) -> dict | None:
         return {"skip_reason": "no_segment_context"}
 
     result = attribute_segment(day, stream, segment)
+    seg_dir = segment_path(day, segment, stream)
 
     if result.get("error"):
         logger.info("Attribution skipped: %s", result["error"])
-        return {"skip_reason": result["error"]}
+        reason = result["error"]
+        if any(seg_dir.glob("*.npz")):
+            agents_dir = seg_dir / "agents"
+            agents_dir.mkdir(parents=True, exist_ok=True)
+            out_path = agents_dir / "speaker_labels.json"
+            with open(out_path, "w", encoding="utf-8") as fh:
+                json.dump(
+                    {"labels": [], "skipped": True, "reason": reason},
+                    fh,
+                    indent=2,
+                )
+            logger.info("Wrote attribution stub: %s (%s)", out_path, reason)
+        return {"skip_reason": reason}
 
     labels = result.get("labels", [])
     if not labels:
-        return {"skip_reason": "no_embeddings"}
+        reason = "no_embeddings"
+        if any(seg_dir.glob("*.npz")):
+            agents_dir = seg_dir / "agents"
+            agents_dir.mkdir(parents=True, exist_ok=True)
+            out_path = agents_dir / "speaker_labels.json"
+            with open(out_path, "w", encoding="utf-8") as fh:
+                json.dump(
+                    {"labels": [], "skipped": True, "reason": reason},
+                    fh,
+                    indent=2,
+                )
+            logger.info("Wrote attribution stub: %s (%s)", out_path, reason)
+        return {"skip_reason": reason}
 
     unmatched = result.get("unmatched", [])
     metadata = result.get("metadata", {})
@@ -55,7 +80,6 @@ def pre_process(context: dict) -> dict | None:
 
     if not unmatched:
         # All sentences resolved — write output and skip the LLM
-        seg_dir = segment_path(day, segment, stream)
         save_speaker_labels(seg_dir, labels, metadata)
 
         # Voiceprint accumulation

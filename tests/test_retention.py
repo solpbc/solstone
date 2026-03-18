@@ -4,6 +4,7 @@
 """Tests for think.retention — media retention service."""
 
 import hashlib
+import json
 import os
 from datetime import datetime
 
@@ -159,6 +160,15 @@ class TestIsSegmentComplete:
     def test_incomplete_missing_speaker_labels(self, tmp_path):
         seg = _make_segment(tmp_path, audio=True, embeddings=True, speaker_labels=False)
         assert not is_segment_complete(seg)
+
+    def test_complete_with_stub_speaker_labels(self, tmp_path):
+        """Stub speaker_labels.json (skipped=True, labels=[]) unblocks retention."""
+        seg = _make_segment(tmp_path, audio=True, embeddings=True, speaker_labels=False)
+        stub = seg / "agents" / "speaker_labels.json"
+        stub.write_text(
+            json.dumps({"labels": [], "skipped": True, "reason": "no_owner_centroid"})
+        )
+        assert is_segment_complete(seg)
 
     def test_incomplete_active_agents(self, tmp_path):
         seg = _make_segment(tmp_path, audio=True, active_agents=True)
