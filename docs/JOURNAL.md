@@ -25,7 +25,7 @@ solstone transforms raw recordings into actionable understanding through a three
 ┌─────────────────────────────────────┐
 │  LAYER 1: CAPTURES                  │  Raw recordings
 │  (Binary media files)               │  "What was recorded"
-│  - *.flac, *.ogg, *.opus (audio)    │
+│  - *.flac, *.ogg, *.opus, *.wav (audio)    │
 │  - *.webm (video)                   │
 └─────────────────────────────────────┘
 ```
@@ -36,7 +36,7 @@ solstone transforms raw recordings into actionable understanding through a three
 
 | Term | Definition | Examples |
 |------|------------|----------|
-| **Capture** | Raw audio/video recording | `*.flac`, `*.ogg`, `*.opus`, `*.webm` |
+| **Capture** | Raw audio/video recording | `*.flac`, `*.ogg`, `*.opus`, `*.wav`, `*.webm` |
 | **Extract** | Structured data from captures | `*.jsonl` |
 | **Agent Output** | AI-generated narrative summary | `agents/*.md`, `HHMMSS_LEN/*.md` |
 
@@ -180,7 +180,7 @@ Fields:
 - `raw_media_days` (integer or null) – Number of days to retain raw media when mode is `"days"`. Required when `raw_media` is `"days"`, ignored otherwise.
 - `per_stream` (object) – Per-stream overrides keyed by stream name. Each entry supports `raw_media` and `raw_media_days`. Omitted fields inherit from the global retention settings.
 
-"Raw media" means layer 1 capture files only: audio files (`.flac`, `.opus`, `.ogg`, `.m4a`), video files (`.webm`, `.mov`, `.mp4`), and screen diffs (`monitor_*_diff.png`).
+"Raw media" means layer 1 capture files only: audio files (`.flac`, `.opus`, `.ogg`, `.m4a`, `.wav`), video files (`.webm`, `.mov`, `.mp4`), and screen diffs (`monitor_*_diff.png`).
 
 All layer 2 and layer 3 content is always preserved regardless of retention policy: transcripts (`audio.jsonl`, `screen.jsonl`), agent outputs (`agents/*.md`), speaker labels (`agents/speaker_labels.json`), facet events (`events/*.jsonl`), entity data, segment metadata (`stream.json`), and search index entries.
 
@@ -926,7 +926,7 @@ Audio files are initially written to the day root with the segment key prefix (L
 
 After transcription, audio files are moved into their segment folder:
 
-- `HHMMSS_LEN/*.flac`, `*.m4a`, `*.ogg`, or `*.opus` – audio files moved here after processing, preserving descriptive suffix (e.g., `audio.flac`, `audio.m4a`, `imported_audio.opus`)
+- `HHMMSS_LEN/*.flac`, `*.m4a`, `*.ogg`, `*.opus`, or `*.wav` – audio files moved here after processing, preserving descriptive suffix (e.g., `audio.flac`, `audio.m4a`, `imported_audio.opus`)
 
 Note: The descriptive portion after the segment key (e.g., `_audio`, `_recording`) is preserved when files are moved into segment directories. Processing tools match files by extension only, ignoring the descriptive suffix.
 
