@@ -44,14 +44,9 @@ from think.utils import day_path, iter_segments, now_ms, segment_path
 logger = logging.getLogger(__name__)
 
 
-def _list_facets_with_activity_state(
-    day: str, segment: str, stream: str | None = None
-) -> list[str]:
+def _list_facets_with_activity_state(day: str, segment: str, stream: str) -> list[str]:
     """Find all facets that have activity_state.json in a segment."""
-    if stream:
-        agents_dir = segment_path(day, segment, stream) / "agents"
-    else:
-        agents_dir = day_path(day) / segment / "agents"
+    agents_dir = segment_path(day, segment, stream) / "agents"
     if not agents_dir.is_dir():
         return []
 
@@ -63,19 +58,11 @@ def _list_facets_with_activity_state(
     return facets
 
 
-def _load_activity_state(
-    day: str, segment: str, facet: str, stream: str | None = None
-) -> list[dict]:
+def _load_activity_state(day: str, segment: str, facet: str, stream: str) -> list[dict]:
     """Load activity_state.json for a facet in a segment. Returns [] on failure."""
-    if stream:
-        state_path = (
-            segment_path(day, segment, stream)
-            / "agents"
-            / facet
-            / "activity_state.json"
-        )
-    else:
-        state_path = day_path(day) / segment / "agents" / facet / "activity_state.json"
+    state_path = (
+        segment_path(day, segment, stream) / "agents" / facet / "activity_state.json"
+    )
     if not state_path.exists():
         return []
     try:

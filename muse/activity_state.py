@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 
 from think.activities import make_activity_id
 from think.callosum import callosum_send
-from think.utils import day_path, iter_segments, segment_parse, segment_path
+from think.utils import iter_segments, segment_parse, segment_path
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ def _extract_facet_from_output_path(output_path: str) -> str | None:
     """Extract facet name from output path.
 
     Output paths for faceted generators follow the pattern:
-    {day}/{segment}/agents/{facet}/activity_state.json
+    {day}/{stream}/{segment}/agents/{facet}/activity_state.json
 
     Returns None if facet cannot be extracted.
     """
@@ -116,22 +116,16 @@ def find_previous_segment(
 
 
 def load_previous_state(
-    day: str, segment: str, facet: str, stream: str | None = None
+    day: str, segment: str, facet: str, stream: str
 ) -> tuple[list | None, str | None]:
     """Load activity state from a previous segment.
 
     Returns tuple of (state_list, segment_key) where state_list is the
     parsed JSON array or None if not found/invalid.
     """
-    if stream:
-        state_path = (
-            segment_path(day, segment, stream)
-            / "agents"
-            / facet
-            / "activity_state.json"
-        )
-    else:
-        state_path = day_path(day) / segment / "agents" / facet / "activity_state.json"
+    state_path = (
+        segment_path(day, segment, stream) / "agents" / facet / "activity_state.json"
+    )
     if not state_path.exists():
         return None, None
 

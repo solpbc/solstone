@@ -188,9 +188,8 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     "*/*/*/*_transcript.jsonl": ("observe.hear", "format_audio", False),
     "*/*/*/screen.jsonl": ("observe.screen", "format_screen", False),
     "*/*/*/*_screen.jsonl": ("observe.screen", "format_screen", False),
-    # Markdown — specific journal paths (all indexed)
+    # Markdown — day-level agents output and segment-level (day/stream/segment/agents/)
     "*/agents/*.md": ("think.markdown", "format_markdown", True),
-    "*/agents/*/*.md": ("think.markdown", "format_markdown", True),
     # Layout: day/stream/segment/agents/*.md
     "*/*/*/agents/*.md": ("think.markdown", "format_markdown", True),
     "*/*/*/agents/*/*.md": ("think.markdown", "format_markdown", True),

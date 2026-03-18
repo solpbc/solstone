@@ -118,10 +118,10 @@ def post_process(result: str, context: dict) -> str | None:
             len(unique_entities),
         )
 
-    # Determine output path: segment_dir/entities.jsonl
+    # Write entities.jsonl alongside the agent output in the agents/ directory
     output_path = Path(context.get("output_path", ""))
-    segment_dir = output_path.parent
-    jsonl_path = segment_dir / "entities.jsonl"
+    agents_dir = output_path.parent
+    jsonl_path = agents_dir / "entities.jsonl"
 
     # Write JSONL file
     try:
