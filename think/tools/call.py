@@ -11,11 +11,14 @@ Mounted by ``think.call`` as ``sol call journal ...``.
 """
 
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 import typer
 
+from think.entities import scan_facet_relationships
 from think.facets import (
     create_facet,
     delete_facet,
@@ -334,6 +337,193 @@ def delete(
         typer.echo(f"Error: Facet '{name}' not found.", err=True)
         raise typer.Exit(1)
     typer.echo(f"Deleted facet '{name}'.")
+
+
+@facet_app.command("merge")
+def merge(
+    source: str = typer.Argument(help="Source facet to merge from (will be deleted)."),
+    dest: str = typer.Option(..., "--into", help="Destination facet to merge into."),
+    consent: bool = typer.Option(
+        False,
+        "--consent",
+        help="Assert that explicit user approval was obtained before calling this command (agent audit trail).",
+    ),
+) -> None:
+    """Merge all data from SOURCE facet into DEST facet, then delete SOURCE."""
+    from apps.calendar import event as event_module
+    from apps.todos import todo as todo_module
+    from think.entities.observations import load_observations, save_observations
+    from think.entities.relationships import (
+        load_facet_relationship,
+        save_facet_relationship,
+    )
+
+    if source == dest:
+        typer.echo("Error: Source and destination facets must be different.", err=True)
+        raise typer.Exit(1)
+
+    journal = Path(get_journal())
+    src_path = journal / "facets" / source
+    dst_path = journal / "facets" / dest
+
+    if not src_path.is_dir():
+        typer.echo(f"Error: Facet '{source}' not found.", err=True)
+        raise typer.Exit(1)
+    if not dst_path.is_dir():
+        typer.echo(f"Error: Facet '{dest}' not found.", err=True)
+        raise typer.Exit(1)
+
+    entity_slugs = scan_facet_relationships(source)
+
+    open_todos: list[tuple[str, int, todo_module.TodoItem]] = []
+    todos_dir = src_path / "todos"
+    if todos_dir.is_dir():
+        for todo_file in sorted(todos_dir.glob("*.jsonl")):
+            checklist = todo_module.TodoChecklist.load(todo_file.stem, source)
+            for item in checklist.items:
+                if not item.completed and not item.cancelled:
+                    open_todos.append((todo_file.stem, item.index, item))
+
+    open_events: list[tuple[str, int, event_module.CalendarEvent]] = []
+    calendar_dir = src_path / "calendar"
+    if calendar_dir.is_dir():
+        for calendar_file in sorted(calendar_dir.glob("*.jsonl")):
+            event_day = event_module.EventDay.load(calendar_file.stem, source)
+            for item in event_day.items:
+                if not item.cancelled:
+                    open_events.append((calendar_file.stem, item.index, item))
+
+    news_to_copy: list[tuple[Path, Path]] = []
+    src_news_dir = src_path / "news"
+    dst_news_dir = dst_path / "news"
+    if src_news_dir.is_dir():
+        for news_file in sorted(src_news_dir.glob("*.md")):
+            dest_file = dst_news_dir / news_file.name
+            if not dest_file.exists():
+                news_to_copy.append((news_file, dest_file))
+
+    typer.echo(
+        f"Merging '{source}' into '{dest}': "
+        f"{len(entity_slugs)} entities, {len(open_todos)} open todos, "
+        f"{len(open_events)} calendar events, {len(news_to_copy)} news files. "
+        f"This cannot be undone. Proceeding..."
+    )
+
+    for entity_id in entity_slugs:
+        src_dir = src_path / "entities" / entity_id
+        dst_dir = dst_path / "entities" / entity_id
+        if dst_dir.exists():
+            src_rel = load_facet_relationship(source, entity_id)
+            dst_rel = load_facet_relationship(dest, entity_id)
+            if src_rel is not None or dst_rel is not None:
+                merged_rel = {**(src_rel or {}), **(dst_rel or {})}
+                save_facet_relationship(dest, entity_id, merged_rel)
+
+            src_obs = load_observations(source, entity_id)
+            dst_obs = load_observations(dest, entity_id)
+            seen = {(o.get("content", ""), o.get("observed_at")) for o in dst_obs}
+            merged_obs = list(dst_obs)
+            for observation in src_obs:
+                key = (
+                    observation.get("content", ""),
+                    observation.get("observed_at"),
+                )
+                if key not in seen:
+                    merged_obs.append(observation)
+                    seen.add(key)
+            save_observations(dest, entity_id, merged_obs)
+            shutil.rmtree(str(src_dir))
+        else:
+            dst_dir.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(src_dir), str(dst_dir))
+
+    for day, line_number, item in open_todos:
+        captured_item = item
+
+        def _append_todo(
+            checklist: todo_module.TodoChecklist,
+        ) -> tuple[todo_module.TodoChecklist, todo_module.TodoItem]:
+            new_item = checklist.append_entry(
+                captured_item.text,
+                captured_item.nudge,
+                created_at=captured_item.created_at,
+            )
+            return checklist, new_item
+
+        captured_line_number = line_number
+        captured_dest = dest
+
+        def _cancel_todo(
+            checklist: todo_module.TodoChecklist,
+        ) -> tuple[todo_module.TodoChecklist, todo_module.TodoItem]:
+            cancelled_item = checklist.cancel_entry(
+                captured_line_number,
+                cancelled_reason="moved_to_facet",
+                moved_to=captured_dest,
+            )
+            return checklist, cancelled_item
+
+        todo_module.TodoChecklist.locked_modify(day, dest, _append_todo)
+        todo_module.TodoChecklist.locked_modify(day, source, _cancel_todo)
+
+    for day, line_number, item in open_events:
+        captured_item = item
+
+        def _append_event(
+            event_day: event_module.EventDay,
+        ) -> tuple[event_module.EventDay, event_module.CalendarEvent]:
+            new_item = event_day.append_event(
+                captured_item.title,
+                captured_item.start,
+                captured_item.end,
+                captured_item.summary,
+                captured_item.participants,
+                created_at=captured_item.created_at,
+            )
+            return event_day, new_item
+
+        captured_line_number = line_number
+        captured_dest = dest
+
+        def _cancel_event(
+            event_day: event_module.EventDay,
+        ) -> tuple[event_module.EventDay, event_module.CalendarEvent]:
+            cancelled_item = event_day.cancel_event(
+                captured_line_number,
+                cancelled_reason="moved_to_facet",
+                moved_to=captured_dest,
+            )
+            return event_day, cancelled_item
+
+        event_module.EventDay.locked_modify(day, dest, _append_event)
+        event_module.EventDay.locked_modify(day, source, _cancel_event)
+
+    if news_to_copy:
+        dst_news_dir.mkdir(parents=True, exist_ok=True)
+    for src_file, dest_file in news_to_copy:
+        shutil.copy2(src_file, dest_file)
+
+    params: dict[str, object] = {
+        "source": source,
+        "dest": dest,
+        "entity_count": len(entity_slugs),
+        "todo_count": len(open_todos),
+        "calendar_count": len(open_events),
+        "news_count": len(news_to_copy),
+    }
+    if consent:
+        params["consent"] = True
+    log_call_action(facet=None, action="facet_merge", params=params)
+
+    delete_facet(source)
+
+    subprocess.run(
+        ["sol", "indexer", "--rescan-full"],
+        check=False,
+        capture_output=True,
+    )
+
+    typer.echo(f"Merged '{source}' into '{dest}'. Index rebuild started.")
 
 
 @app.command()

@@ -192,6 +192,28 @@ sol call journal facet delete old-facet
 sol call journal facet delete old-facet --yes
 ```
 
+## facet merge
+
+Merge all data from a source facet into a destination facet, then permanently delete the source.
+
+```bash
+sol call journal facet merge SOURCE --into DEST [--consent]
+```
+
+- `SOURCE` — facet to merge from; will be permanently deleted after merge
+- `--into DEST` — destination facet to receive all data
+- `--consent` — required for agent audit trail when called by an agent
+
+Moves all entities, open todos (not completed or cancelled), non-cancelled calendar events, and news files from SOURCE into DEST. For entity conflicts (entity exists in both): DEST relationship wins, observations are appended without duplicates. For news conflicts (same date file in both): DEST file is preserved, SOURCE file is skipped. Completed/cancelled todos and cancelled events are not moved (they are deleted with the source facet). After all data is moved, SOURCE is permanently deleted and the index is rebuilt.
+
+Prints a summary of what will be moved before performing any mutations.
+
+Example:
+
+```bash
+sol call journal facet merge old-project --into archive --consent
+```
+
 ## facets
 
 ```bash

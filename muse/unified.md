@@ -63,12 +63,14 @@ For detailed responses, structure your answer for clarity — lead with the key 
 - `sol call entities intelligence ENTITY [--facet NAME]` — Full intelligence briefing (returns JSON — synthesize into natural language).
 - `sol call entities detect <TYPE> <entity> <description> [-f facet] [-d day]` — Detect/record an entity.
 - `sol call entities attach <TYPE> <entity> <description> [-f facet]` — Attach entity to facet.
+- `sol call entities move ENTITY --from SOURCE --to DEST [--merge] [--consent]` — move an entity from one facet to another; `--merge` appends observations if entity exists in dest
 
 ### Calendar
 - `sol call calendar list [DAY] --facet FACET` — List events for a day.
 - `sol call calendar create TITLE --start HH:MM --day DAY --facet FACET [--end HH:MM] [--summary TEXT] [--participants NAMES]` — Create an event.
 - `sol call calendar update LINE --day DAY --facet FACET [--title TEXT] [--start HH:MM] [--end HH:MM] [--summary TEXT] [--participants NAMES]` — Update an event.
 - `sol call calendar cancel LINE --day DAY --facet FACET` — Cancel an event.
+- `sol call calendar move LINE --day YYYYMMDD --from SOURCE --to DEST [--consent]` — move a non-cancelled calendar event to another facet
 
 ### Todos
 - `sol call todos list [DAY] [-f facet] [--to end_day]` — Show todos for a day.
@@ -76,6 +78,7 @@ For detailed responses, structure your answer for clarity — lead with the key 
 - `sol call todos done LINE [-d DAY] [-f facet]` — Mark a todo as done.
 - `sol call todos cancel LINE [-d DAY] [-f facet]` — Cancel a todo.
 - `sol call todos upcoming [-l limit] [-f facet]` — Show upcoming todos.
+- `sol call todos move LINE --day YYYYMMDD --from SOURCE --to DEST [--consent]` — move an open todo to another facet
 
 ### Navigation
 - `sol call navigate [PATH] --facet FACET` — Navigate the browser to a path and/or switch facet.
@@ -89,6 +92,7 @@ For detailed responses, structure your answer for clarity — lead with the key 
 - `sol call journal facet mute <name>` — Hide a facet from default listings.
 - `sol call journal facet unmute <name>` — Show a previously muted facet in default listings.
 - `sol call journal facet delete <name> --yes [--consent]` — Delete a facet and all its data. Requires `--consent` when called by a proactive agent (must have explicit user approval before calling).
+- `sol call journal facet merge SOURCE --into DEST [--consent]` — merge all entities, open todos, calendar events, and news from SOURCE into DEST, then delete SOURCE
 - `sol call journal facets [--all]` — List facets.
 
 ### Awareness

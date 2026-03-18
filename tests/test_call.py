@@ -48,6 +48,100 @@ def facet_journal(tmp_path, monkeypatch):
     think.utils._journal_path_cache = None
 
 
+@pytest.fixture
+def merge_journal(tmp_path, monkeypatch):
+    """Create a journal with source and destination facets for merge testing."""
+    journal = tmp_path / "journal"
+    src_dir = journal / "facets" / "src-facet"
+    dst_dir = journal / "facets" / "dst-facet"
+    src_dir.mkdir(parents=True)
+    dst_dir.mkdir(parents=True)
+
+    (src_dir / "facet.json").write_text(
+        json.dumps({"title": "Source Facet"}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (dst_dir / "facet.json").write_text(
+        json.dumps({"title": "Destination Facet"}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    config_dir = journal / "config"
+    config_dir.mkdir(parents=True)
+    (config_dir / "facets.json").write_text(
+        json.dumps({"facets": ["src-facet", "dst-facet"]}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    src_entity_dir = src_dir / "entities" / "test_entity"
+    src_entity_dir.mkdir(parents=True)
+    (src_entity_dir / "entity.json").write_text(
+        json.dumps(
+            {
+                "entity_id": "test_entity",
+                "description": "Source relationship",
+                "created_at": 1,
+                "updated_at": 1,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (src_entity_dir / "observations.jsonl").write_text(
+        json.dumps({"content": "Knows the migration plan", "observed_at": 101}) + "\n",
+        encoding="utf-8",
+    )
+
+    src_todos_dir = src_dir / "todos"
+    src_todos_dir.mkdir(parents=True)
+    (src_todos_dir / "20260101.jsonl").write_text(
+        json.dumps({"text": "Move the roadmap", "created_at": 1000}) + "\n",
+        encoding="utf-8",
+    )
+
+    src_calendar_dir = src_dir / "calendar"
+    src_calendar_dir.mkdir(parents=True)
+    (src_calendar_dir / "20260101.jsonl").write_text(
+        json.dumps(
+            {
+                "title": "Merge planning",
+                "start": "09:00",
+                "end": "10:00",
+                "summary": "Review the merge sequence",
+                "participants": ["Alex", "Blair"],
+                "created_at": 2000,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    src_news_dir = src_dir / "news"
+    dst_news_dir = dst_dir / "news"
+    src_news_dir.mkdir(parents=True)
+    dst_news_dir.mkdir(parents=True)
+    (src_news_dir / "20260101.md").write_text(
+        "# Source News\nThis should be skipped.\n",
+        encoding="utf-8",
+    )
+    (src_news_dir / "20260102.md").write_text(
+        "# Unique Source News\nThis should be copied.\n",
+        encoding="utf-8",
+    )
+    (dst_news_dir / "20260101.md").write_text(
+        "# Destination News\nKeep this version.\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    import think.utils
+
+    think.utils._journal_path_cache = None
+    yield journal
+    think.utils._journal_path_cache = None
+
+
 class TestDiscovery:
     """Tests for app CLI discovery."""
 
@@ -515,6 +609,305 @@ class TestFacetCRUD:
         assert result.exit_code == 0
         assert "muted-one" in result.output
         assert "[muted]" in result.output
+
+
+class TestFacetMerge:
+    """Tests for journal facet merge."""
+
+    @staticmethod
+    def _mock_indexer(monkeypatch):
+        import think.tools.call as call_module
+
+        calls = []
+
+        def _run(*args, **kwargs):
+            calls.append((args, kwargs))
+            return None
+
+        monkeypatch.setattr(call_module.subprocess, "run", _run)
+        return calls
+
+    def test_merge_moves_entities(self, merge_journal, monkeypatch):
+        """Merge moves entity directories into the destination facet."""
+        self._mock_indexer(monkeypatch)
+
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "merge", "src-facet", "--into", "dst-facet"],
+        )
+
+        assert result.exit_code == 0
+        assert not (merge_journal / "facets" / "src-facet" / "entities").exists()
+        assert (
+            merge_journal
+            / "facets"
+            / "dst-facet"
+            / "entities"
+            / "test_entity"
+            / "entity.json"
+        ).exists()
+        observations_path = (
+            merge_journal
+            / "facets"
+            / "dst-facet"
+            / "entities"
+            / "test_entity"
+            / "observations.jsonl"
+        )
+        assert observations_path.exists()
+
+    def test_merge_entity_conflict(self, merge_journal, monkeypatch):
+        """Merge preserves destination relationship fields and appends observations."""
+        self._mock_indexer(monkeypatch)
+
+        src_entity_dir = (
+            merge_journal / "facets" / "src-facet" / "entities" / "test_entity"
+        )
+        dst_entity_dir = (
+            merge_journal / "facets" / "dst-facet" / "entities" / "test_entity"
+        )
+        dst_entity_dir.mkdir(parents=True)
+        (src_entity_dir / "entity.json").write_text(
+            json.dumps(
+                {
+                    "entity_id": "test_entity",
+                    "description": "Source desc",
+                    "source_only": "keep-if-missing",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (dst_entity_dir / "entity.json").write_text(
+            json.dumps(
+                {
+                    "entity_id": "test_entity",
+                    "description": "Dest desc",
+                    "dest_only": "wins",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (src_entity_dir / "observations.jsonl").write_text(
+            json.dumps({"content": "Source fact", "observed_at": 101}) + "\n",
+            encoding="utf-8",
+        )
+        (dst_entity_dir / "observations.jsonl").write_text(
+            json.dumps({"content": "Dest fact", "observed_at": 202}) + "\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "merge", "src-facet", "--into", "dst-facet"],
+        )
+
+        assert result.exit_code == 0
+        assert dst_entity_dir.exists()
+        assert not (merge_journal / "facets" / "src-facet" / "entities").exists()
+        merged_relationship = json.loads(
+            (dst_entity_dir / "entity.json").read_text(encoding="utf-8")
+        )
+        assert merged_relationship["description"] == "Dest desc"
+        assert merged_relationship["dest_only"] == "wins"
+        assert merged_relationship["source_only"] == "keep-if-missing"
+        merged_observations = [
+            json.loads(line)
+            for line in (dst_entity_dir / "observations.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        assert len(merged_observations) == 2
+        assert {obs["content"] for obs in merged_observations} == {
+            "Source fact",
+            "Dest fact",
+        }
+
+    def test_merge_moves_open_todos(self, merge_journal, monkeypatch):
+        """Merge appends open todos to destination and cancels them in source."""
+        self._mock_indexer(monkeypatch)
+        import think.tools.call as call_module
+
+        monkeypatch.setattr(call_module, "delete_facet", lambda *args, **kwargs: None)
+
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "merge", "src-facet", "--into", "dst-facet"],
+        )
+
+        assert result.exit_code == 0
+        dst_todos = (
+            (merge_journal / "facets" / "dst-facet" / "todos" / "20260101.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
+        assert any(json.loads(line)["text"] == "Move the roadmap" for line in dst_todos)
+        src_payloads = [
+            json.loads(line)
+            for line in (
+                merge_journal / "facets" / "src-facet" / "todos" / "20260101.jsonl"
+            )
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        assert src_payloads[0]["cancelled"] is True
+        assert src_payloads[0]["cancelled_reason"] == "moved_to_facet"
+        assert src_payloads[0]["moved_to"] == "dst-facet"
+
+    def test_merge_moves_open_calendar_events(self, merge_journal, monkeypatch):
+        """Merge appends open events to destination and cancels them in source."""
+        self._mock_indexer(monkeypatch)
+        import think.tools.call as call_module
+
+        monkeypatch.setattr(call_module, "delete_facet", lambda *args, **kwargs: None)
+
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "merge", "src-facet", "--into", "dst-facet"],
+        )
+
+        assert result.exit_code == 0
+        dst_events = (
+            (merge_journal / "facets" / "dst-facet" / "calendar" / "20260101.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
+        payloads = [json.loads(line) for line in dst_events]
+        assert any(item["title"] == "Merge planning" for item in payloads)
+        src_payloads = [
+            json.loads(line)
+            for line in (
+                merge_journal / "facets" / "src-facet" / "calendar" / "20260101.jsonl"
+            )
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        assert src_payloads[0]["cancelled"] is True
+        assert src_payloads[0]["cancelled_reason"] == "moved_to_facet"
+        assert src_payloads[0]["moved_to"] == "dst-facet"
+
+    def test_merge_copies_news_skips_conflicts(self, merge_journal, monkeypatch):
+        """Merge copies unique news files and preserves destination conflicts."""
+        self._mock_indexer(monkeypatch)
+
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "merge", "src-facet", "--into", "dst-facet"],
+        )
+
+        assert result.exit_code == 0
+        assert (
+            merge_journal / "facets" / "dst-facet" / "news" / "20260102.md"
+        ).read_text(
+            encoding="utf-8"
+        ) == "# Unique Source News\nThis should be copied.\n"
+        assert (
+            merge_journal / "facets" / "dst-facet" / "news" / "20260101.md"
+        ).read_text(encoding="utf-8") == "# Destination News\nKeep this version.\n"
+
+    def test_merge_deletes_source_facet(self, merge_journal, monkeypatch):
+        """Merge deletes the source facet after moving data."""
+        self._mock_indexer(monkeypatch)
+
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "merge", "src-facet", "--into", "dst-facet"],
+        )
+
+        assert result.exit_code == 0
+        assert not (merge_journal / "facets" / "src-facet").exists()
+
+    def test_merge_logs_action(self, merge_journal, monkeypatch):
+        """Merge records a journal-level facet_merge action with counts."""
+        self._mock_indexer(monkeypatch)
+        from datetime import datetime
+
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "merge", "src-facet", "--into", "dst-facet"],
+        )
+
+        assert result.exit_code == 0
+        today = datetime.now().strftime("%Y%m%d")
+        log_path = merge_journal / "config" / "actions" / f"{today}.jsonl"
+        entries = [
+            json.loads(line)
+            for line in log_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        merge_entry = next(
+            entry for entry in entries if entry["action"] == "facet_merge"
+        )
+        assert merge_entry["params"]["source"] == "src-facet"
+        assert merge_entry["params"]["dest"] == "dst-facet"
+        assert merge_entry["params"]["entity_count"] == 1
+        assert merge_entry["params"]["todo_count"] == 1
+        assert merge_entry["params"]["calendar_count"] == 1
+        assert merge_entry["params"]["news_count"] == 1
+
+    def test_merge_same_facet_error(self, merge_journal):
+        """Merge rejects using the same facet as source and destination."""
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "merge", "src-facet", "--into", "src-facet"],
+        )
+
+        assert result.exit_code == 1
+        assert "Source and destination facets must be different" in result.output
+
+    def test_merge_missing_source_error(self, merge_journal):
+        """Merge rejects a missing source facet."""
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "merge", "missing-facet", "--into", "dst-facet"],
+        )
+
+        assert result.exit_code == 1
+        assert "Error: Facet 'missing-facet' not found." in result.output
+
+    def test_merge_missing_dest_error(self, merge_journal):
+        """Merge rejects a missing destination facet."""
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "merge", "src-facet", "--into", "missing-facet"],
+        )
+
+        assert result.exit_code == 1
+        assert "Error: Facet 'missing-facet' not found." in result.output
+
+    def test_merge_consent_flag_logged(self, merge_journal, monkeypatch):
+        """Merge records consent=True when requested."""
+        self._mock_indexer(monkeypatch)
+        from datetime import datetime
+
+        result = runner.invoke(
+            call_app,
+            [
+                "journal",
+                "facet",
+                "merge",
+                "src-facet",
+                "--into",
+                "dst-facet",
+                "--consent",
+            ],
+        )
+
+        assert result.exit_code == 0
+        today = datetime.now().strftime("%Y%m%d")
+        log_path = merge_journal / "config" / "actions" / f"{today}.jsonl"
+        entries = [
+            json.loads(line)
+            for line in log_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        merge_entry = next(
+            entry for entry in entries if entry["action"] == "facet_merge"
+        )
+        assert merge_entry["params"]["consent"] is True
 
 
 class TestResolveHelpers:
