@@ -880,6 +880,14 @@
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
+      "20260318": {
+        "day_bytes": 360,
+        "outputs_pending": 11,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
+      },
       "20990101": {
         "audio_duration": 0.0,
         "day_bytes": 0,
@@ -1149,16 +1157,16 @@
       },
       "gemini-2.5-flash-lite": {
         "cached_tokens": 0,
-        "input_tokens": 2039,
-        "output_tokens": 243,
+        "input_tokens": 2092,
+        "output_tokens": 248,
         "reasoning_tokens": 0,
-        "total_tokens": 2282
+        "total_tokens": 2340
       },
       "gemini-3-flash-preview": {
-        "input_tokens": 1728,
-        "output_tokens": 432,
-        "reasoning_tokens": 3835,
-        "total_tokens": 12023
+        "input_tokens": 1800,
+        "output_tokens": 450,
+        "reasoning_tokens": 4241,
+        "total_tokens": 12519
       },
       "gpt-5": {
         "cached_tokens": 200,
@@ -1842,6 +1850,19 @@
           "reasoning_tokens": 1267,
           "total_tokens": 1537
         }
+      },
+      "20260318": {
+        "gemini-2.5-flash-lite": {
+          "input_tokens": 53,
+          "output_tokens": 5,
+          "total_tokens": 58
+        },
+        "gemini-3-flash-preview": {
+          "input_tokens": 72,
+          "output_tokens": 18,
+          "reasoning_tokens": 406,
+          "total_tokens": 496
+        }
       }
     },
     "total_percept_duration": 0.0,
@@ -1850,8 +1871,8 @@
       "audio_duration": 968.0,
       "audio_segments": 68,
       "audio_sessions": 16,
-      "day_bytes": 531247,
-      "outputs_pending": 443,
+      "day_bytes": 531607,
+      "outputs_pending": 454,
       "outputs_processed": 14,
       "pending_segments": 0,
       "percept_frames": 0,
