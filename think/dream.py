@@ -35,6 +35,7 @@ from think.utils import (
     get_journal,
     get_rev,
     iso_date,
+    iter_segments,
     setup_cli,
     updated_days,
 )
@@ -192,6 +193,7 @@ def _drain_priority_batch(
     day: str,
     segment: str | None,
     stream: str | None = None,
+    timeout: int | None = 610,
 ) -> tuple[int, int, list[str]]:
     """Wait for a batch of spawned agents and process their results.
 
@@ -216,7 +218,7 @@ def _drain_priority_batch(
     agent_ids = [agent_id for agent_id, _, _, _ in spawned]
     logging.info(f"Waiting for {len(agent_ids)} agents...")
 
-    completed, timed_out = wait_for_agents(agent_ids, timeout=610)
+    completed, timed_out = wait_for_agents(agent_ids, timeout=timeout)
 
     success = 0
     failed = 0
@@ -308,6 +310,7 @@ def run_prompts_by_priority(
     verbose: bool,
     max_concurrency: int = 2,
     stream: str | None = None,
+    timeout: int | None = 610,
 ) -> tuple[int, int, list[str]]:
     """Run all scheduled prompts in priority order.
 
@@ -554,7 +557,7 @@ def run_prompts_by_priority(
                             current_agents=[name for _, name, _, _ in spawned]
                         )
                         s, f, fn = _drain_priority_batch(
-                            spawned, target_schedule, day, segment
+                            spawned, target_schedule, day, segment, stream, timeout
                         )
                         group_success += s
                         group_failed += f
@@ -575,7 +578,9 @@ def run_prompts_by_priority(
 
         # Drain any remaining agents in this priority group
         _update_status(current_agents=[name for _, name, _, _ in spawned])
-        s, f, fn = _drain_priority_batch(spawned, target_schedule, day, segment, stream)
+        s, f, fn = _drain_priority_batch(
+            spawned, target_schedule, day, segment, stream, timeout
+        )
         group_success += s
         group_failed += f
         all_failed_names.extend(fn)
@@ -1396,6 +1401,11 @@ def parse_args() -> argparse.ArgumentParser:
         help="Max concurrent agents per priority group (0=unlimited, default: 2)",
     )
     parser.add_argument(
+        "--no-timeout",
+        action="store_true",
+        help="Disable per-batch agent wait timeout in --segments mode",
+    )
+    parser.add_argument(
         "--updated",
         action="store_true",
         help="List days with pending daily processing and exit",
@@ -1556,6 +1566,7 @@ def main() -> None:
                         verbose=args.verbose,
                         max_concurrency=args.jobs,
                         stream=seg_stream,
+                        timeout=None if args.no_timeout else 610,
                     )
                     # Touch stream.updated marker after each segment
                     try:
@@ -1612,13 +1623,22 @@ def main() -> None:
                 logging.warning("Sense repair failed, continuing anyway")
 
         # MAIN PHASE: Run all prompts by priority
+        resolved_stream = args.stream
+        if args.segment and args.stream is None:
+            matches = [(s, k) for s, k, _ in iter_segments(day) if k == args.segment]
+            if not matches:
+                parser.error(
+                    f"Segment {args.segment} not found in any stream under {day_dir}"
+                )
+            resolved_stream = matches[0][0]
+
         success_count, fail_count, failed_names = run_prompts_by_priority(
             day=day,
             segment=args.segment,
             refresh=args.refresh,
             verbose=args.verbose,
             max_concurrency=args.jobs,
-            stream=args.stream,
+            stream=resolved_stream,
         )
 
         # Touch stream.updated marker after segment processing
