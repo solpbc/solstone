@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from think.entities import get_identity_names
-from think.utils import day_path, get_journal, iter_segments
+from think.utils import DATE_RE, day_path, get_journal, iter_segments
 
 
 def _get_principal_display_name() -> str | None:
@@ -529,6 +529,82 @@ def get_active_facets(day: str) -> set[str]:
         active.update(load_segment_facets(day, seg_key, stream=stream_name))
 
     return active
+
+
+def aggregate_speculative_facets(days: list[str] | None = None) -> list[dict]:
+    """Aggregate speculative facet outputs from segment classifiers across days.
+
+    Scans per-segment agents/facets.json files produced by the facets classifier
+    and counts facet name frequency. Useful during onboarding to suggest journal
+    organization to the user.
+
+    Args:
+        days: Optional list of days in YYYYMMDD format. If None, scans all days.
+
+    Returns:
+        List of dicts with keys:
+            - "facet": facet name (str)
+            - "count": number of segments where this facet appeared (int)
+            - "sample_activities": up to 3 activity descriptions for this facet (list[str])
+        Sorted by count descending, capped at 8 entries.
+    """
+    journal_path = Path(get_journal())
+
+    if days is not None:
+        scan_days = days
+    else:
+        scan_days = []
+        if journal_path.exists():
+            for entry in sorted(journal_path.iterdir()):
+                if entry.is_dir() and DATE_RE.fullmatch(entry.name):
+                    scan_days.append(entry.name)
+
+    facet_counts: dict[str, int] = {}
+    facet_activities: dict[str, list[str]] = {}
+
+    for day in scan_days:
+        for _stream, _seg_key, seg_path in iter_segments(day):
+            facets_file = seg_path / "agents" / "facets.json"
+            if not facets_file.exists():
+                continue
+
+            try:
+                content = facets_file.read_text().strip()
+                if not content:
+                    continue
+
+                data = json.loads(content)
+                if not isinstance(data, list):
+                    continue
+
+                for item in data:
+                    if not isinstance(item, dict):
+                        continue
+                    facet_name = item.get("facet")
+                    if not facet_name:
+                        continue
+                    facet_counts[facet_name] = facet_counts.get(facet_name, 0) + 1
+
+                    activity = item.get("activity", "")
+                    if activity:
+                        samples = facet_activities.setdefault(facet_name, [])
+                        if len(samples) < 3:
+                            samples.append(activity)
+
+            except (json.JSONDecodeError, OSError):
+                continue
+
+    result = [
+        {
+            "facet": facet_name,
+            "count": count,
+            "sample_activities": facet_activities.get(facet_name, []),
+        }
+        for facet_name, count in sorted(
+            facet_counts.items(), key=lambda x: x[1], reverse=True
+        )
+    ]
+    return result[:8]
 
 
 def set_facet_muted(facet: str, muted: bool) -> None:

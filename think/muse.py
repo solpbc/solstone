@@ -496,6 +496,15 @@ def compose_instructions(
                 summary = facet_summaries()
                 if summary and summary != "No facets found.":
                     extra_parts.append(summary)
+                else:
+                    extra_parts.append(
+                        "No facets are defined yet. You are in discovery mode. "
+                        "Name the contexts you observe based on what is actually happening "
+                        "in this segment \u2014 use specific, descriptive names that reflect the "
+                        'actual activity (e.g., "engineering-work" not "work", '
+                        '"investor-calls" not "meetings"). These names will be used to '
+                        "suggest journal organization to the user."
+                    )
             except Exception:
                 pass  # Ignore if facets can't be loaded
 
