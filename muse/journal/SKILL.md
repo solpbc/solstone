@@ -99,7 +99,7 @@ Create a new facet directory and initial `facet.json`.
 - `--emoji`: optional icon emoji (default: `📦`).
 - `--color`: optional hex color (default: `#667eea`).
 - `--description`: optional description text.
-- `--consent`: optional flag asserting explicit user approval was obtained; adds `"consent": true` to the audit log entry.
+- `--consent`: asserts that the agent has received a direct user request or explicit user approval before calling this command. Pass when acting proactively (cogitate, suggestion flows) rather than in direct response to a user instruction. Omit for the onboarding muse — onboarding is user-driven by definition. Adds `"consent": true` to the audit log entry.
 
 Examples:
 
@@ -138,7 +138,7 @@ Rename a facet (directory and references in config/chat metadata).
 
 - `name`: current facet identifier.
 - `new-name`: new facet identifier.
-- `--consent`: optional flag asserting explicit user approval was obtained; adds `"consent": true` to the audit log entry.
+- `--consent`: asserts that the agent has received explicit user approval before performing this structural change. Pass when acting proactively rather than in direct response to a user instruction. Adds `"consent": true` to the audit log entry.
 
 Example:
 
@@ -183,7 +183,7 @@ sol call journal facet delete <name> [--yes] [--consent]
 Delete a facet directory and all its data.
 
 - `--yes`: skip confirmation prompt.
-- `--consent`: optional flag asserting explicit user approval was obtained; adds `"consent": true` to the audit log entry.
+- `--consent`: asserts that the agent has received explicit user approval before performing this destructive operation. Agents should always pass both `--consent` and `--yes` when calling delete. Adds `"consent": true` to the audit log entry.
 
 Example:
 
