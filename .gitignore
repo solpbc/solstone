@@ -21,3 +21,4 @@ tests/fixtures/journal/tokens/*.json
 .sandbox.pid
 .sandbox.journal
 apps/support/portal/
+build/
