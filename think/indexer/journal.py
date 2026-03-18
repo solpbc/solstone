@@ -26,7 +26,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from think.entities.core import entity_slug
+from think.entities.core import atomic_write, entity_slug
 from think.formatters import (
     extract_path_metadata,
     find_formattable_files,
@@ -34,7 +34,7 @@ from think.formatters import (
     get_formatter,
     load_jsonl,
 )
-from think.utils import DATE_RE, get_journal
+from think.utils import DATE_RE, get_journal, now_ms
 
 logger = logging.getLogger(__name__)
 
@@ -1235,6 +1235,168 @@ def scan_signals(
     return bool(to_index or removed)
 
 
+def consolidate_segment_entities(journal: str, full: bool = False) -> int:
+    """Consolidate per-segment entity detections into the journal entity store.
+
+    Reads agents/entities.jsonl files from all day/stream/segment directories,
+    deduplicates by (name, type), and writes to entities/<slug>/entity.json for
+    new entities. Skips any entity whose entity.json already exists (preserves
+    user-managed and previously-consolidated records).
+
+    Args:
+        journal: Path to journal root directory
+        full: If True, scan all day directories. If False, scan today only.
+
+    Returns:
+        Number of new journal entities written.
+    """
+    from datetime import datetime
+
+    journal_path = Path(journal)
+    today = datetime.now().strftime("%Y%m%d")
+
+    # Collect all matching segment entity files across day/stream/segment dirs
+    segment_files = []
+    for path in journal_path.glob("**/agents/entities.jsonl"):
+        if not path.is_file():
+            continue
+        try:
+            day = path.relative_to(journal_path).parts[0]
+        except (ValueError, IndexError):
+            continue
+        if not DATE_RE.fullmatch(day):
+            continue  # Not a journal day directory
+        if full or day == today:
+            segment_files.append(path)
+
+    if not segment_files:
+        logger.info(
+            "consolidated 0 entities from 0 segment files → 0 new journal entities written"
+        )
+        return 0
+
+    # Collect and deduplicate entities from all segment files.
+    # Key: (name.lower().strip(), type.lower().strip())
+    # Value: {"name": ..., "type": ..., "description": ...}
+    seen: dict[tuple[str, str], dict] = {}
+
+    for seg_file in segment_files:
+        try:
+            with open(seg_file, encoding="utf-8") as f:
+                for raw in f:
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    try:
+                        data = json.loads(raw)
+                    except json.JSONDecodeError as e:
+                        logger.warning(
+                            "Skipping malformed JSONL in %s: %s", seg_file, e
+                        )
+                        continue
+
+                    name = (data.get("name") or "").strip()
+                    etype = (data.get("type") or "").strip()
+                    description = (data.get("description") or "").strip()
+
+                    if not name or not etype:
+                        continue
+                    if is_noise_entity(name):
+                        continue
+
+                    key = (name.lower(), etype.lower())
+                    if key not in seen:
+                        seen[key] = {
+                            "name": name,
+                            "type": etype,
+                            "description": description,
+                        }
+                    elif len(description) > len(seen[key]["description"]):
+                        # Longest description wins
+                        seen[key]["description"] = description
+        except OSError as e:
+            logger.warning("Skipping %s: %s", seg_file, e)
+            continue
+
+    total_entities = len(seen)
+
+    if not seen:
+        logger.info(
+            "consolidated 0 entities from %d segment files → 0 new journal entities written",
+            len(segment_files),
+        )
+        return 0
+
+    # Write new entities, skipping any entity.json that already exists.
+    ts = now_ms()
+    written = 0
+
+    for (name_lower, _type_lower), data in seen.items():
+        name = data["name"]
+        etype = data["type"]
+        description = data["description"]
+
+        base_slug = entity_slug(name)
+        if not base_slug:
+            continue
+
+        # Resolve slug: skip if entity already exists for this name, handle
+        # collisions (different entity at same slug) by appending _2, _3, etc.
+        final_slug = None
+        for attempt in range(1, 102):
+            candidate = base_slug if attempt == 1 else f"{base_slug}_{attempt}"
+            candidate_path = journal_path / "entities" / candidate / "entity.json"
+
+            if not candidate_path.exists():
+                final_slug = candidate
+                break
+
+            # Path exists — check if it's the same entity
+            try:
+                with open(candidate_path, encoding="utf-8") as f:
+                    existing = json.load(f)
+                if (existing.get("name") or "").lower().strip() == name_lower:
+                    # Entity already exists (prior run or user-created), skip
+                    break
+                # Different entity occupies this slug — try next suffix
+            except (json.JSONDecodeError, OSError):
+                # Unreadable file — treat as occupied, try next suffix
+                continue
+        else:
+            logger.warning("Too many slug collisions for '%s', skipping", name)
+            continue
+
+        if final_slug is None:
+            continue  # Entity already exists
+
+        entity: dict[str, Any] = {
+            "id": final_slug,
+            "name": name,
+            "type": etype,
+            "source": "detected",
+            "created_at": ts,
+            "updated_at": ts,
+        }
+        if description:
+            entity["description"] = description
+
+        entity_path = journal_path / "entities" / final_slug / "entity.json"
+        try:
+            content = json.dumps(entity, ensure_ascii=False, indent=2) + "\n"
+            atomic_write(entity_path, content, prefix=".entity_")
+            written += 1
+        except OSError as e:
+            logger.warning("Failed to write entity %s: %s", final_slug, e)
+
+    logger.info(
+        "consolidated %d entities from %d segment files → %d new journal entities written",
+        total_entities,
+        len(segment_files),
+        written,
+    )
+    return written
+
+
 def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> bool:
     """Scan and index journal content.
 
@@ -1318,6 +1480,7 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
         "%s indexed, %s removed in %.2f seconds", len(to_index), len(removed), elapsed
     )
 
+    consolidate_segment_entities(journal, full=full)
     entity_changed = scan_entities(journal, conn, verbose=verbose, full=full)
     signal_changed = scan_signals(journal, conn, verbose=verbose, full=full)
 
