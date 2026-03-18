@@ -687,6 +687,15 @@ def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
 
     logging.basicConfig(level=log_level)
 
+    journal_path, journal_source = get_journal_info()
+    if journal_source == "default":
+        print(
+            f"Note: JOURNAL_PATH not set; using platform default: {journal_path}\n"
+            "To configure a custom path, set JOURNAL_PATH in your shell or .env file.\n"
+            "See docs/INSTALL.md for setup instructions.",
+            file=sys.stderr,
+        )
+
     # Initialize journal path (may auto-create default)
     get_journal()
 

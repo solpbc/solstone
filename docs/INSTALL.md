@@ -72,15 +72,22 @@ make uninstall
 cp .env.example .env
 ```
 
-3. (Optional) Set a custom journal path in `.env`:
+3. (Optional) Set a custom journal path:
+
+Set `JOURNAL_PATH` in your shell profile (e.g. `~/.bashrc`, `~/.zshrc`) or in `.env`:
 
 ```
 JOURNAL_PATH=~/Documents/journal
 ```
 
+**Important:** `JOURNAL_PATH` must be set in your shell environment or `.env` file —
+not in `journal.json` or any other config file.
+
 If not set, solstone automatically uses the platform-specific default:
 - Linux: `~/.local/share/solstone/journal`
 - macOS: `~/Library/Application Support/solstone/journal`
+
+When using the default, a reminder will be shown pointing back here.
 
 The journal directory is created automatically on first use.
 
