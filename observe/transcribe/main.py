@@ -70,7 +70,14 @@ from observe.vad import (
     run_vad,
 )
 from think.callosum import callosum_send
-from think.utils import day_from_path, get_config, get_journal, setup_cli
+from think.utils import (
+    day_dirs,
+    day_from_path,
+    get_config,
+    get_journal,
+    iter_segments,
+    setup_cli,
+)
 
 # Re-export defaults for backwards compatibility
 __all__ = [
@@ -91,6 +98,9 @@ MIN_STATEMENT_DURATION = 0.3
 
 # Number of recent entity names to load for transcription context
 ENTITY_NAMES_LIMIT = 40
+
+# Supported audio file formats for transcription
+SUPPORTED_AUDIO_FORMATS = {".flac", ".m4a", ".mp3", ".ogg", ".opus", ".wav"}
 
 # Module-level voice encoder cache
 _voice_encoder = None
@@ -617,63 +627,13 @@ def process_audio(
         raise SystemExit(1) from e
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Transcribe audio files using pluggable STT with sentence embeddings"
-    )
-    parser.add_argument(
-        "audio_path",
-        type=str,
-        help="Path to audio file in journal segment directory, e.g. HHMMSS_LEN/audio.flac",
-    )
-    parser.add_argument(
-        "--redo",
-        action="store_true",
-        help="Reprocess file, overwriting existing outputs",
-    )
-    parser.add_argument(
-        "--cpu",
-        action="store_true",
-        help="Force CPU mode (overrides config, uses int8 compute)",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        help=f"Whisper model to use (overrides config, default: {DEFAULT_MODEL})",
-    )
-    parser.add_argument(
-        "--backend",
-        type=str,
-        choices=list(BACKEND_REGISTRY.keys()),
-        help=f"STT backend to use (overrides config, default: {DEFAULT_BACKEND})",
-    )
-    args = setup_cli(parser)
-
-    audio_path = Path(args.audio_path)
-    if not audio_path.exists():
-        parser.error(f"Audio file not found: {audio_path}")
-
-    # Validate supported formats
-    supported_formats = {".flac", ".m4a", ".mp3", ".ogg", ".opus", ".wav"}
-    if audio_path.suffix.lower() not in supported_formats:
-        parser.error(
-            f"Unsupported audio format: {audio_path.suffix}. "
-            f"Supported formats: {', '.join(supported_formats)}"
-        )
-
-    # Files must be in segment directories (YYYYMMDD/HHMMSS_LEN/)
-    segment = get_segment_key(audio_path)
-    if segment is None:
-        parser.error(
-            f"Audio file must be in a segment directory (HHMMSS_LEN/), "
-            f"but parent is: {audio_path.parent.name}"
-        )
-
-    # Load transcription settings from journal config
-    config = get_config()
-    transcribe_config = config.get("transcribe", {})
-
-    # Get min_speech_seconds threshold
+def _process_one(
+    audio_path: Path,
+    args: argparse.Namespace,
+    transcribe_config: dict,
+    entity_names: list[str],
+) -> None:
+    """Run the full transcription pipeline for a single audio file."""
     min_speech_seconds = transcribe_config.get(
         "min_speech_seconds", DEFAULT_MIN_SPEECH_SECONDS
     )
@@ -690,6 +650,7 @@ def main():
     # Early exit if no speech detected (skip loading heavy STT model)
     if not vad_result.has_speech:
         remote = os.getenv("REMOTE_NAME")
+        segment = get_segment_key(audio_path)
         event = _build_base_event(audio_path, vad_result, segment, remote)
 
         if preserve_all:
@@ -750,13 +711,6 @@ def main():
             )
             backend = "revai"
 
-    # Load entity names once for use by both STT backend and enrichment
-    from think.entities import load_recent_entity_names
-
-    entity_names = load_recent_entity_names(limit=ENTITY_NAMES_LIMIT)
-    if entity_names:
-        logging.info(f"Loaded {len(entity_names)} entities for transcription context")
-
     # Get backend-specific config from nested structure
     if backend == "whisper":
         whisper_config = transcribe_config.get("whisper", {})
@@ -803,6 +757,118 @@ def main():
         backend=backend,
         entity_names=entity_names,
     )
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Transcribe audio files using pluggable STT with sentence embeddings"
+    )
+    parser.add_argument(
+        "audio_path",
+        nargs="?",
+        type=str,
+        help="Path to audio file in journal segment directory, e.g. HHMMSS_LEN/audio.flac",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="all",
+        help="Batch-transcribe all unprocessed audio segments in the journal",
+    )
+    parser.add_argument(
+        "--redo",
+        action="store_true",
+        help="Reprocess file, overwriting existing outputs",
+    )
+    parser.add_argument(
+        "--cpu",
+        action="store_true",
+        help="Force CPU mode (overrides config, uses int8 compute)",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        help=f"Whisper model to use (overrides config, default: {DEFAULT_MODEL})",
+    )
+    parser.add_argument(
+        "--backend",
+        type=str,
+        choices=list(BACKEND_REGISTRY.keys()),
+        help=f"STT backend to use (overrides config, default: {DEFAULT_BACKEND})",
+    )
+    args = setup_cli(parser)
+
+    if args.all and args.audio_path:
+        parser.error("--all and audio_path are mutually exclusive")
+    if not args.all and not args.audio_path:
+        parser.error("provide audio_path or --all")
+
+    config = get_config()
+    transcribe_config = config.get("transcribe", {})
+
+    from think.entities import load_recent_entity_names
+
+    entity_names = load_recent_entity_names(limit=ENTITY_NAMES_LIMIT)
+    if entity_names:
+        logging.info(f"Loaded {len(entity_names)} entities for transcription context")
+
+    if args.all:
+        processed = 0
+        skipped = 0
+        failed = 0
+
+        for day_name, _day_path_str in sorted(day_dirs().items()):
+            for _stream_name, _seg_key, seg_path in iter_segments(day_name):
+                for audio_file in sorted(seg_path.iterdir()):
+                    if audio_file.suffix.lower() not in SUPPORTED_AUDIO_FORMATS:
+                        continue
+                    jsonl_path = audio_file.with_suffix(".jsonl")
+                    if jsonl_path.exists() and not args.redo:
+                        logging.info(f"Skipping (already transcribed): {audio_file}")
+                        skipped += 1
+                        continue
+                    try:
+                        logging.info(f"Transcribing: {audio_file}")
+                        _process_one(audio_file, args, transcribe_config, entity_names)
+                        processed += 1
+                    except Exception:
+                        logging.error(
+                            f"Failed to transcribe {audio_file}", exc_info=True
+                        )
+                        failed += 1
+
+        summary = f"{processed} processed, {skipped} skipped (already transcribed)"
+        if failed:
+            summary += f", {failed} failed"
+        print(summary)
+        return
+
+    audio_path = Path(args.audio_path)
+    if not audio_path.exists():
+        journal_relative = Path(get_journal()) / args.audio_path
+        if journal_relative.exists():
+            audio_path = journal_relative
+        else:
+            parser.error(
+                f"Audio file not found.\n"
+                f"  Tried absolute:         {audio_path}\n"
+                f"  Tried journal-relative: {journal_relative}"
+            )
+
+    if audio_path.suffix.lower() not in SUPPORTED_AUDIO_FORMATS:
+        parser.error(
+            f"Unsupported audio format: {audio_path.suffix}. "
+            f"Supported formats: {', '.join(sorted(SUPPORTED_AUDIO_FORMATS))}"
+        )
+
+    segment = get_segment_key(audio_path)
+    if segment is None:
+        parser.error(
+            f"Audio file must be in a segment directory (HHMMSS_LEN/), "
+            f"but parent is: {audio_path.parent.name}"
+        )
+
+    _process_one(audio_path, args, transcribe_config, entity_names)
 
 
 if __name__ == "__main__":
