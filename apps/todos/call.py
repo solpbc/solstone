@@ -6,10 +6,13 @@
 Auto-discovered by ``think.call`` and mounted as ``sol call todos ...``.
 """
 
+from pathlib import Path
+
 import typer
 
 from apps.todos import todo
 from think.facets import log_call_action
+from think.utils import get_journal
 
 app = typer.Typer(help="Todo checklist management.")
 
@@ -21,6 +24,17 @@ def _print_day_facet(day: str, facet: str) -> bool:
         return False
     typer.echo(checklist.display())
     return True
+
+
+def _validate_facet_or_exit(facet: str, label: str) -> None:
+    """Exit if the facet directory does not exist."""
+    facet_path = Path(get_journal()) / "facets" / facet
+    if not facet_path.is_dir():
+        typer.echo(
+            f"Error: Facet '{facet}' ({label}) does not exist.",
+            err=True,
+        )
+        raise typer.Exit(1)
 
 
 @app.command("list")
@@ -222,6 +236,126 @@ def cancel_todo(
     except IndexError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1)
+
+
+@app.command("move")
+def move_todo(
+    line_number: int = typer.Argument(
+        help="Line number of the todo to move (1-indexed)."
+    ),
+    day: str = typer.Option(..., "--day", help="Day in YYYYMMDD format."),
+    from_facet: str = typer.Option(..., "--from", help="Source facet."),
+    to_facet: str = typer.Option(..., "--to", help="Destination facet."),
+    consent: bool = typer.Option(
+        False,
+        "--consent",
+        help="Assert that explicit user approval was obtained before calling this command (agent audit trail).",
+    ),
+) -> None:
+    """Move an open todo from one facet to another."""
+    from datetime import datetime
+
+    _validate_facet_or_exit(from_facet, "--from")
+    _validate_facet_or_exit(to_facet, "--to")
+
+    try:
+        datetime.strptime(day, "%Y%m%d")
+    except ValueError:
+        typer.echo(
+            f"Error: Invalid day format '{day}', expected YYYYMMDD.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    try:
+        source_checklist = todo.TodoChecklist.load(day, from_facet)
+        if not source_checklist.exists:
+            raise FileNotFoundError()
+        todo.validate_line_number(line_number, len(source_checklist.items))
+        item = source_checklist.items[line_number - 1]
+        if item.completed:
+            raise todo.TodoError("Cannot move a completed todo.")
+        if item.cancelled:
+            raise todo.TodoError("Cannot move an already cancelled todo.")
+    except FileNotFoundError:
+        typer.echo(
+            f"Error: No todos found for day {day} in facet '{from_facet}'.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    except IndexError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1)
+    except todo.TodoError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1)
+
+    try:
+
+        def _append_dest(
+            checklist: todo.TodoChecklist,
+        ) -> tuple[todo.TodoChecklist, todo.TodoItem]:
+            new_item = checklist.append_entry(
+                item.text,
+                item.nudge,
+                created_at=item.created_at,
+            )
+            return checklist, new_item
+
+        _, new_item = todo.TodoChecklist.locked_modify(day, to_facet, _append_dest)
+    except Exception as exc:
+        typer.echo(
+            f"Error: Failed to append to destination facet '{to_facet}': {exc}. Source todo is unchanged.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    try:
+
+        def _cancel_source(
+            checklist: todo.TodoChecklist,
+        ) -> tuple[todo.TodoChecklist, todo.TodoItem]:
+            todo.validate_line_number(line_number, len(checklist.items))
+            current_item = checklist.items[line_number - 1]
+            if current_item.completed:
+                raise todo.TodoError("Cannot move a completed todo.")
+            if current_item.cancelled:
+                raise todo.TodoError("Cannot move an already cancelled todo.")
+            cancelled_item = checklist.cancel_entry(
+                line_number,
+                cancelled_reason="moved_to_facet",
+                moved_to=to_facet,
+            )
+            return checklist, cancelled_item
+
+        _, item = todo.TodoChecklist.locked_modify(day, from_facet, _cancel_source)
+    except (FileNotFoundError, IndexError, todo.TodoError):
+        typer.echo(
+            f"Warning: Item was appended to '{to_facet}' but could not cancel source in '{from_facet}'. Cancel it manually with: sol call todos cancel {line_number} --day {day} --facet {from_facet}",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    params_out: dict[str, object] = {
+        "moved_from": from_facet,
+        "moved_to": to_facet,
+        "line_number": line_number,
+        "text": item.text,
+    }
+    params_in: dict[str, object] = {
+        "moved_from": from_facet,
+        "moved_to": to_facet,
+        "line_number": new_item.index,
+        "text": new_item.text,
+    }
+    if consent:
+        params_out["consent"] = True
+        params_in["consent"] = True
+    log_call_action(facet=from_facet, action="todo_move_out", params=params_out)
+    log_call_action(facet=to_facet, action="todo_move_in", params=params_in)
+    typer.echo(
+        f"Moved todo {line_number} ('{item.text}') from '{from_facet}' to '{to_facet}'."
+    )
 
 
 @app.command("upcoming")

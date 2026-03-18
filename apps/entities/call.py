@@ -7,6 +7,8 @@ Auto-discovered by ``think.call`` and mounted as ``sol call entities ...``.
 """
 
 import re
+import shutil
+from pathlib import Path
 
 import typer
 
@@ -18,8 +20,13 @@ from think.entities.journal import (
 )
 from think.entities.loading import load_entities
 from think.entities.matching import resolve_entity, validate_aka_uniqueness
-from think.entities.observations import add_observation, load_observations
+from think.entities.observations import (
+    add_observation,
+    load_observations,
+    save_observations,
+)
 from think.entities.relationships import (
+    entity_memory_path,
     load_facet_relationship,
     save_facet_relationship,
 )
@@ -33,7 +40,7 @@ from think.indexer.journal import (
     get_entity_strength,
     search_entities,
 )
-from think.utils import now_ms, resolve_sol_day, resolve_sol_facet
+from think.utils import get_journal, now_ms, resolve_sol_day, resolve_sol_facet
 
 app = typer.Typer(help="Entity management.")
 
@@ -61,6 +68,17 @@ def _resolve_or_exit(facet: str, entity: str) -> dict:
     raise typer.Exit(1)
 
 
+def _validate_facet_or_exit(facet: str, label: str) -> None:
+    """Exit if the facet directory does not exist."""
+    facet_path = Path(get_journal()) / "facets" / facet
+    if not facet_path.is_dir():
+        typer.echo(
+            f"Error: Facet '{facet}' ({label}) does not exist.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
 @app.command("list")
 def list_entities(
     facet: str | None = typer.Argument(None, help="Facet name (or set SOL_FACET)."),
@@ -79,6 +97,76 @@ def list_entities(
     typer.echo(f"{len(entities)} {label} entities:")
     for e in entities:
         typer.echo(f"  - {e.get('name')} ({e.get('type')}): {e.get('description', '')}")
+
+
+@app.command("move")
+def move_entity(
+    entity: str = typer.Argument(help="Entity name or partial match."),
+    from_facet: str = typer.Option(..., "--from", help="Source facet."),
+    to_facet: str = typer.Option(..., "--to", help="Destination facet."),
+    merge: bool = typer.Option(
+        False,
+        "--merge",
+        help="Merge if entity already exists in destination.",
+    ),
+    consent: bool = typer.Option(
+        False,
+        "--consent",
+        help="Assert that explicit user approval was obtained before calling this command (agent audit trail).",
+    ),
+) -> None:
+    """Move an entity from one facet to another."""
+    _validate_facet_or_exit(from_facet, "--from")
+    _validate_facet_or_exit(to_facet, "--to")
+
+    resolved = _resolve_or_exit(from_facet, entity)
+    entity_name = str(resolved.get("name", entity))
+    entity_id = entity_slug(entity_name)
+    src_dir = entity_memory_path(from_facet, entity_name)
+    dst_dir = entity_memory_path(to_facet, entity_name)
+
+    if not src_dir.exists():
+        typer.echo("Error: Entity data directory not found in source facet.", err=True)
+        raise typer.Exit(1)
+
+    if dst_dir.exists() and not merge:
+        typer.echo(
+            "Error: Entity already exists in destination facet. Use --merge to merge.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    if dst_dir.exists():
+        src_relationship = load_facet_relationship(from_facet, entity_id)
+        dst_relationship = load_facet_relationship(to_facet, entity_id)
+        if src_relationship is not None and dst_relationship is None:
+            save_facet_relationship(to_facet, entity_id, src_relationship)
+
+        src_obs = load_observations(from_facet, entity_name)
+        dst_obs = load_observations(to_facet, entity_name)
+        existing_keys = {(o["content"], o.get("observed_at")) for o in dst_obs}
+        merged = list(dst_obs) + [
+            o
+            for o in src_obs
+            if (o["content"], o.get("observed_at")) not in existing_keys
+        ]
+        save_observations(to_facet, entity_name, merged)
+        shutil.rmtree(str(src_dir))
+    else:
+        dst_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(src_dir), str(dst_dir))
+
+    params: dict[str, object] = {
+        "entity": entity_name,
+        "moved_from": from_facet,
+        "moved_to": to_facet,
+    }
+    if merge:
+        params["merge"] = True
+    if consent:
+        params["consent"] = True
+    log_call_action(facet=from_facet, action="entity_move", params=params)
+    typer.echo(f"Moved entity '{entity_name}' from '{from_facet}' to '{to_facet}'.")
 
 
 @app.command("detect")

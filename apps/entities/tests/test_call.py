@@ -3,9 +3,12 @@
 
 """Tests for entities CLI commands (sol call entities ...)."""
 
+import json
+
 from typer.testing import CliRunner
 
 from think.call import call_app
+from think.entities.core import entity_slug
 
 runner = CliRunner()
 
@@ -269,6 +272,120 @@ class TestEntitiesUpdate:
 
         assert result.exit_code == 1
         assert "not found" in result.output
+
+
+class TestEntitiesMove:
+    def test_move_entity(self, entity_move_env):
+        journal, src_facet, dst_facet, entity_name = entity_move_env()
+        slug = entity_slug(entity_name)
+
+        result = runner.invoke(
+            call_app,
+            [
+                "entities",
+                "move",
+                entity_name,
+                "--from",
+                src_facet,
+                "--to",
+                dst_facet,
+            ],
+        )
+
+        assert result.exit_code == 0
+        src_dir = journal / "facets" / src_facet / "entities" / slug
+        dst_dir = journal / "facets" / dst_facet / "entities" / slug
+        assert not src_dir.exists()
+        assert dst_dir.exists()
+
+    def test_move_entity_already_exists_no_merge(self, entity_move_env):
+        _, src_facet, dst_facet, entity_name = entity_move_env(create_dst_entity=True)
+
+        result = runner.invoke(
+            call_app,
+            [
+                "entities",
+                "move",
+                entity_name,
+                "--from",
+                src_facet,
+                "--to",
+                dst_facet,
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "Use --merge" in result.output
+
+    def test_move_entity_merge(self, entity_move_env):
+        journal, src_facet, dst_facet, entity_name = entity_move_env(
+            src_observations=[
+                {
+                    "content": "Prefers async communication",
+                    "observed_at": 1000,
+                    "source_day": "20240101",
+                },
+                {"content": "Uses Vim", "observed_at": 1001, "source_day": "20240102"},
+            ],
+            dst_observations=[
+                {
+                    "content": "Prefers async communication",
+                    "observed_at": 1000,
+                    "source_day": "20240101",
+                },
+                {"content": "Likes tea", "observed_at": 1002, "source_day": "20240103"},
+            ],
+            create_dst_entity=True,
+        )
+        slug = entity_slug(entity_name)
+
+        result = runner.invoke(
+            call_app,
+            [
+                "entities",
+                "move",
+                entity_name,
+                "--from",
+                src_facet,
+                "--to",
+                dst_facet,
+                "--merge",
+            ],
+        )
+
+        assert result.exit_code == 0
+        src_dir = journal / "facets" / src_facet / "entities" / slug
+        dst_obs_path = (
+            journal / "facets" / dst_facet / "entities" / slug / "observations.jsonl"
+        )
+        observations = [
+            json.loads(line)
+            for line in dst_obs_path.read_text(encoding="utf-8").splitlines()
+        ]
+        assert not src_dir.exists()
+        assert len(observations) == 3
+
+    def test_move_entity_not_found(self, entity_move_env):
+        _, src_facet, dst_facet, _ = entity_move_env()
+
+        result = runner.invoke(
+            call_app,
+            ["entities", "move", "Missing", "--from", src_facet, "--to", dst_facet],
+        )
+
+        assert result.exit_code == 1
+        assert "not found" in result.output
+
+    def test_move_missing_facet(self, entity_move_env):
+        _, src_facet, _, entity_name = entity_move_env()
+
+        result = runner.invoke(
+            call_app,
+            ["entities", "move", entity_name, "--from", src_facet, "--to", "missing"],
+        )
+
+        assert result.exit_code == 1
+        assert "does not exist" in result.output
 
 
 class TestEntitiesAka:

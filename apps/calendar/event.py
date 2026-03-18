@@ -56,12 +56,14 @@ class CalendarEvent:
     summary: str | None
     participants: list[str] | None
     cancelled: bool
+    cancelled_reason: str | None = None
+    moved_to: str | None = None
     created_at: int | None = None
     updated_at: int | None = None
 
     def as_dict(self) -> dict[str, object]:
         """Return the item as a JSON-serializable dictionary."""
-        return {
+        data: dict[str, object] = {
             "index": self.index,
             "title": self.title,
             "start": self.start,
@@ -72,6 +74,11 @@ class CalendarEvent:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
+        if self.cancelled_reason is not None:
+            data["cancelled_reason"] = self.cancelled_reason
+        if self.moved_to is not None:
+            data["moved_to"] = self.moved_to
+        return data
 
     def to_jsonl(self) -> dict[str, Any]:
         """Return the event as a sparse JSONL-compatible dictionary for storage."""
@@ -84,6 +91,10 @@ class CalendarEvent:
             data["participants"] = self.participants
         if self.cancelled:
             data["cancelled"] = True
+        if self.cancelled_reason is not None:
+            data["cancelled_reason"] = self.cancelled_reason
+        if self.moved_to is not None:
+            data["moved_to"] = self.moved_to
         if self.created_at is not None:
             data["created_at"] = self.created_at
         if self.updated_at is not None:
@@ -113,6 +124,8 @@ class CalendarEvent:
             summary=summary,
             participants=participants,
             cancelled=bool(data.get("cancelled", False)),
+            cancelled_reason=data.get("cancelled_reason"),
+            moved_to=data.get("moved_to"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
         )
@@ -244,6 +257,7 @@ class EventDay:
         end: str | None = None,
         summary: str | None = None,
         participants: list[str] | None = None,
+        created_at: int | None = None,
     ) -> CalendarEvent:
         """Append a new event entry."""
         clean_title = self._validated_title(title)
@@ -253,7 +267,7 @@ class EventDay:
             if end < start:
                 raise ValueError("end time must be greater than or equal to start time")
 
-        now = now_ms()
+        ts = created_at if created_at is not None else now_ms()
         item = CalendarEvent(
             index=len(self.items) + 1,
             title=clean_title,
@@ -262,18 +276,27 @@ class EventDay:
             summary=summary,
             participants=participants,
             cancelled=False,
-            created_at=now,
-            updated_at=now,
+            created_at=ts,
+            updated_at=ts,
         )
 
         self.items.append(item)
         self.save()
         return item
 
-    def cancel_event(self, line_number: int) -> CalendarEvent:
+    def cancel_event(
+        self,
+        line_number: int,
+        cancelled_reason: str | None = None,
+        moved_to: str | None = None,
+    ) -> CalendarEvent:
         """Cancel an event entry (soft delete)."""
         _, item = self._get_item(line_number)
         item.cancelled = True
+        if cancelled_reason is not None:
+            item.cancelled_reason = cancelled_reason
+        if moved_to is not None:
+            item.moved_to = moved_to
         item.updated_at = now_ms()
         self.save()
         return item

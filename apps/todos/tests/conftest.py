@@ -78,3 +78,48 @@ def facet_env(tmp_path, monkeypatch):
         return journal, facet
 
     return _create
+
+
+@pytest.fixture
+def move_env(tmp_path, monkeypatch):
+    """Create a two-facet environment for move tests."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    def _create(
+        entries: list[dict] | None = None,
+        day: str = "20240101",
+        src_facet: str = "work",
+        dst_facet: str = "personal",
+    ):
+        for facet in [src_facet, dst_facet]:
+            facet_dir = tmp_path / "facets" / facet
+            facet_dir.mkdir(parents=True, exist_ok=True)
+            (facet_dir / "facet.json").write_text(
+                json.dumps({"title": f"Test {facet}", "description": "Test facet"}),
+                encoding="utf-8",
+            )
+
+        todos_dir = tmp_path / "facets" / src_facet / "todos"
+        todos_dir.mkdir(parents=True, exist_ok=True)
+        todo_path = todos_dir / f"{day}.jsonl"
+        if entries:
+            now_ms = int(datetime.now().timestamp() * 1000)
+            lines = []
+            for entry in entries:
+                data = {
+                    "text": entry["text"],
+                    "created_at": entry.get("created_at", now_ms),
+                    "updated_at": entry.get("updated_at", now_ms),
+                }
+                if entry.get("cancelled"):
+                    data["cancelled"] = True
+                if entry.get("completed"):
+                    data["completed"] = True
+                if entry.get("nudge"):
+                    data["nudge"] = entry["nudge"]
+                lines.append(json.dumps(data, ensure_ascii=False))
+            todo_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        return tmp_path, src_facet, dst_facet
+
+    return _create

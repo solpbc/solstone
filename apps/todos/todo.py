@@ -162,13 +162,15 @@ class TodoItem:
     nudge: str | None
     completed: bool
     cancelled: bool
+    cancelled_reason: str | None = None
+    moved_to: str | None = None
     created_at: int | None = None
     updated_at: int | None = None
     notified: bool = False
 
     def as_dict(self) -> dict[str, object]:
         """Return the item as a JSON-serializable dictionary."""
-        return {
+        data: dict[str, object] = {
             "index": self.index,
             "text": self.text,
             "nudge": self.nudge,
@@ -178,6 +180,11 @@ class TodoItem:
             "updated_at": self.updated_at,
             "notified": self.notified,
         }
+        if self.cancelled_reason is not None:
+            data["cancelled_reason"] = self.cancelled_reason
+        if self.moved_to is not None:
+            data["moved_to"] = self.moved_to
+        return data
 
     def to_jsonl(self) -> dict[str, Any]:
         """Return the item as a JSONL-compatible dictionary for storage."""
@@ -188,6 +195,10 @@ class TodoItem:
             data["completed"] = True
         if self.cancelled:
             data["cancelled"] = True
+        if self.cancelled_reason is not None:
+            data["cancelled_reason"] = self.cancelled_reason
+        if self.moved_to is not None:
+            data["moved_to"] = self.moved_to
         if self.notified:
             data["notified"] = True
         if self.created_at is not None:
@@ -210,6 +221,8 @@ class TodoItem:
             nudge=nudge,
             completed=data.get("completed", False),
             cancelled=data.get("cancelled", False),
+            cancelled_reason=data.get("cancelled_reason"),
+            moved_to=data.get("moved_to"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             notified=data.get("notified", False),
@@ -403,7 +416,12 @@ class TodoChecklist:
         self.save()
         return item
 
-    def cancel_entry(self, line_number: int) -> TodoItem:
+    def cancel_entry(
+        self,
+        line_number: int,
+        cancelled_reason: str | None = None,
+        moved_to: str | None = None,
+    ) -> TodoItem:
         """Cancel a todo entry (soft delete).
 
         Args:
@@ -415,6 +433,10 @@ class TodoChecklist:
         _, item = self._get_item(line_number)
 
         item.cancelled = True
+        if cancelled_reason is not None:
+            item.cancelled_reason = cancelled_reason
+        if moved_to is not None:
+            item.moved_to = moved_to
         item.updated_at = now_ms()
         self.save()
         return item

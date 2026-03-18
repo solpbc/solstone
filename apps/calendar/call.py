@@ -28,6 +28,19 @@ def _print_day_facet(day: str, facet: str) -> bool:
     return True
 
 
+def _validate_facet_or_exit(facet: str, label: str) -> None:
+    """Exit if the facet directory does not exist."""
+    from think.utils import get_journal
+
+    facet_path = Path(get_journal()) / "facets" / facet
+    if not facet_path.is_dir():
+        typer.echo(
+            f"Error: Facet '{facet}' ({label}) does not exist.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
 @app.command("create")
 def create_event(
     title: str = typer.Argument(help="Event title."),
@@ -287,3 +300,122 @@ def cancel_event(
     except IndexError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1)
+
+
+@app.command("move")
+def move_event(
+    line_number: int = typer.Argument(
+        help="Line number of the event to move (1-indexed)."
+    ),
+    day: str = typer.Option(..., "--day", help="Day in YYYYMMDD format."),
+    from_facet: str = typer.Option(..., "--from", help="Source facet."),
+    to_facet: str = typer.Option(..., "--to", help="Destination facet."),
+    consent: bool = typer.Option(
+        False,
+        "--consent",
+        help="Assert that explicit user approval was obtained before calling this command (agent audit trail).",
+    ),
+) -> None:
+    """Move an open calendar event from one facet to another."""
+    _validate_facet_or_exit(from_facet, "--from")
+    _validate_facet_or_exit(to_facet, "--to")
+
+    try:
+        datetime.strptime(day, "%Y%m%d")
+    except ValueError:
+        typer.echo(
+            f"Error: Invalid day format '{day}', expected YYYYMMDD.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    try:
+        source_day = event.EventDay.load(day, from_facet)
+        if not source_day.exists:
+            raise FileNotFoundError()
+        event.validate_line_number(line_number, len(source_day.items))
+        item = source_day.items[line_number - 1]
+        if item.cancelled:
+            raise event.CalendarEventError("Cannot move an already cancelled event.")
+    except FileNotFoundError:
+        typer.echo(
+            f"Error: No events found for day {day} in facet '{from_facet}'.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    except IndexError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1)
+    except event.CalendarEventError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1)
+
+    try:
+
+        def _append_dest(
+            day_events: event.EventDay,
+        ) -> tuple[event.EventDay, event.CalendarEvent]:
+            new_item = day_events.append_event(
+                item.title,
+                item.start,
+                item.end,
+                item.summary,
+                item.participants,
+                created_at=item.created_at,
+            )
+            return day_events, new_item
+
+        _, new_item = event.EventDay.locked_modify(day, to_facet, _append_dest)
+    except Exception as exc:
+        typer.echo(
+            f"Error: Failed to append to destination facet '{to_facet}': {exc}. Source event is unchanged.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    try:
+
+        def _cancel_source(
+            day_events: event.EventDay,
+        ) -> tuple[event.EventDay, event.CalendarEvent]:
+            event.validate_line_number(line_number, len(day_events.items))
+            current_item = day_events.items[line_number - 1]
+            if current_item.cancelled:
+                raise event.CalendarEventError(
+                    "Cannot move an already cancelled event."
+                )
+            cancelled_item = day_events.cancel_event(
+                line_number,
+                cancelled_reason="moved_to_facet",
+                moved_to=to_facet,
+            )
+            return day_events, cancelled_item
+
+        _, item = event.EventDay.locked_modify(day, from_facet, _cancel_source)
+    except (FileNotFoundError, IndexError, event.CalendarEventError):
+        typer.echo(
+            f"Warning: Item was appended to '{to_facet}' but could not cancel source in '{from_facet}'. Cancel it manually with: sol call calendar cancel {line_number} --day {day} --facet {from_facet}",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    params_out: dict[str, object] = {
+        "moved_from": from_facet,
+        "moved_to": to_facet,
+        "line_number": line_number,
+        "title": item.title,
+    }
+    params_in: dict[str, object] = {
+        "moved_from": from_facet,
+        "moved_to": to_facet,
+        "line_number": new_item.index,
+        "title": new_item.title,
+    }
+    if consent:
+        params_out["consent"] = True
+        params_in["consent"] = True
+    log_call_action(facet=from_facet, action="calendar_move_out", params=params_out)
+    log_call_action(facet=to_facet, action="calendar_move_in", params=params_in)
+    typer.echo(
+        f"Moved event {line_number} ('{item.title}') from '{from_facet}' to '{to_facet}'."
+    )

@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import json
+
 from typer.testing import CliRunner
 
 from think.call import call_app
@@ -338,6 +340,125 @@ class TestCalendarCancel:
 
         assert result.exit_code == 1
         assert "out of range" in result.output
+
+
+class TestCalendarMove:
+    """Tests for ``sol call calendar move`` command."""
+
+    def test_move_event(self, move_env):
+        journal, src_facet, dst_facet = move_env(
+            [
+                {
+                    "title": "Standup",
+                    "start": "09:00",
+                    "end": "09:30",
+                    "summary": "Daily sync",
+                    "participants": ["Alice"],
+                    "created_at": 1000,
+                    "updated_at": 1000,
+                }
+            ]
+        )
+
+        result = runner.invoke(
+            call_app,
+            [
+                "calendar",
+                "move",
+                "1",
+                "--day",
+                "20240101",
+                "--from",
+                src_facet,
+                "--to",
+                dst_facet,
+            ],
+        )
+
+        assert result.exit_code == 0
+        source_items = [
+            json.loads(line)
+            for line in (journal / "facets" / src_facet / "calendar" / "20240101.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        dest_items = [
+            json.loads(line)
+            for line in (journal / "facets" / dst_facet / "calendar" / "20240101.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        assert source_items[0]["cancelled"] is True
+        assert source_items[0]["cancelled_reason"] == "moved_to_facet"
+        assert source_items[0]["moved_to"] == dst_facet
+        assert dest_items[0]["title"] == "Standup"
+        assert dest_items[0]["participants"] == ["Alice"]
+        assert dest_items[0]["created_at"] == source_items[0]["created_at"]
+
+    def test_move_already_cancelled(self, move_env):
+        _, src_facet, dst_facet = move_env(
+            [{"title": "Standup", "start": "09:00", "cancelled": True}]
+        )
+
+        result = runner.invoke(
+            call_app,
+            [
+                "calendar",
+                "move",
+                "1",
+                "--day",
+                "20240101",
+                "--from",
+                src_facet,
+                "--to",
+                dst_facet,
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "already cancelled" in result.output
+
+    def test_move_invalid_line_number(self, move_env):
+        _, src_facet, dst_facet = move_env([{"title": "Standup", "start": "09:00"}])
+
+        result = runner.invoke(
+            call_app,
+            [
+                "calendar",
+                "move",
+                "5",
+                "--day",
+                "20240101",
+                "--from",
+                src_facet,
+                "--to",
+                dst_facet,
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "out of range" in result.output
+
+    def test_move_missing_facet(self, move_env):
+        move_env([{"title": "Standup", "start": "09:00"}], dst_facet="personal")
+
+        result = runner.invoke(
+            call_app,
+            [
+                "calendar",
+                "move",
+                "1",
+                "--day",
+                "20240101",
+                "--from",
+                "work",
+                "--to",
+                "missing",
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "does not exist" in result.output
 
 
 class TestCalendarEnvResolution:

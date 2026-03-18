@@ -3,6 +3,8 @@
 
 """Tests for todos CLI commands (sol call todos ...)."""
 
+import json
+
 from typer.testing import CliRunner
 
 from think.call import call_app
@@ -195,6 +197,164 @@ class TestTodosUpcoming:
         result = runner.invoke(call_app, ["todos", "upcoming"])
         assert result.exit_code == 0
         assert "No upcoming todos" in result.output
+
+
+class TestTodosMove:
+    """Tests for 'sol call todos move' command."""
+
+    def test_move_todo(self, move_env):
+        journal, src_facet, dst_facet = move_env([{"text": "Ship feature"}])
+
+        result = runner.invoke(
+            call_app,
+            [
+                "todos",
+                "move",
+                "1",
+                "--day",
+                "20240101",
+                "--from",
+                src_facet,
+                "--to",
+                dst_facet,
+            ],
+        )
+
+        assert result.exit_code == 0
+        source_items = [
+            json.loads(line)
+            for line in (journal / "facets" / src_facet / "todos" / "20240101.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        dest_items = [
+            json.loads(line)
+            for line in (journal / "facets" / dst_facet / "todos" / "20240101.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        assert source_items[0]["cancelled"] is True
+        assert source_items[0]["cancelled_reason"] == "moved_to_facet"
+        assert source_items[0]["moved_to"] == dst_facet
+        assert dest_items[0]["text"] == "Ship feature"
+        assert dest_items[0]["created_at"] == source_items[0]["created_at"]
+
+    def test_move_todo_with_nudge(self, move_env):
+        journal, src_facet, dst_facet = move_env(
+            [{"text": "Call Alice", "nudge": "20240101T09:00"}]
+        )
+
+        result = runner.invoke(
+            call_app,
+            [
+                "todos",
+                "move",
+                "1",
+                "--day",
+                "20240101",
+                "--from",
+                src_facet,
+                "--to",
+                dst_facet,
+            ],
+        )
+
+        assert result.exit_code == 0
+        dest_items = [
+            json.loads(line)
+            for line in (journal / "facets" / dst_facet / "todos" / "20240101.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        assert dest_items[0]["nudge"] == "20240101T09:00"
+
+    def test_move_already_cancelled(self, move_env):
+        _, src_facet, dst_facet = move_env(
+            [{"text": "Ship feature", "cancelled": True}]
+        )
+
+        result = runner.invoke(
+            call_app,
+            [
+                "todos",
+                "move",
+                "1",
+                "--day",
+                "20240101",
+                "--from",
+                src_facet,
+                "--to",
+                dst_facet,
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "already cancelled" in result.output
+
+    def test_move_already_completed(self, move_env):
+        _, src_facet, dst_facet = move_env(
+            [{"text": "Ship feature", "completed": True}]
+        )
+
+        result = runner.invoke(
+            call_app,
+            [
+                "todos",
+                "move",
+                "1",
+                "--day",
+                "20240101",
+                "--from",
+                src_facet,
+                "--to",
+                dst_facet,
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "completed todo" in result.output
+
+    def test_move_invalid_line_number(self, move_env):
+        _, src_facet, dst_facet = move_env([{"text": "Ship feature"}])
+
+        result = runner.invoke(
+            call_app,
+            [
+                "todos",
+                "move",
+                "5",
+                "--day",
+                "20240101",
+                "--from",
+                src_facet,
+                "--to",
+                dst_facet,
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "out of range" in result.output
+
+    def test_move_missing_facet(self, move_env):
+        move_env([{"text": "Ship feature"}], dst_facet="personal")
+
+        result = runner.invoke(
+            call_app,
+            [
+                "todos",
+                "move",
+                "1",
+                "--day",
+                "20240101",
+                "--from",
+                "work",
+                "--to",
+                "missing",
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "does not exist" in result.output
 
 
 class TestSolEnvResolution:

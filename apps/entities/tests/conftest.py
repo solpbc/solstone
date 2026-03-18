@@ -5,9 +5,11 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from think.entities.observations import add_observation
+from think.entities.observations import add_observation, save_observations
 from think.entities.saving import save_entities
 
 
@@ -40,5 +42,49 @@ def entity_env(tmp_path, monkeypatch):
             for i, content in enumerate(observations, 1):
                 add_observation(facet, observation_entity, content, i)
         return tmp_path
+
+    return _create
+
+
+@pytest.fixture
+def entity_move_env(tmp_path, monkeypatch):
+    """Create a two-facet environment for entity move tests."""
+    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+
+    def _create(
+        entity_name: str = "Alice Johnson",
+        src_facet: str = "work",
+        dst_facet: str = "personal",
+        src_observations: list[dict] | None = None,
+        dst_observations: list[dict] | None = None,
+        create_dst_entity: bool = False,
+    ):
+        for facet in [src_facet, dst_facet]:
+            facet_dir = tmp_path / "facets" / facet
+            facet_dir.mkdir(parents=True, exist_ok=True)
+            (facet_dir / "facet.json").write_text(
+                json.dumps({"title": f"Test {facet}", "description": "Test facet"}),
+                encoding="utf-8",
+            )
+
+        entity = {
+            "type": "Person",
+            "name": entity_name,
+            "description": "Friend",
+            "attached_at": 1000,
+            "updated_at": 1000,
+        }
+        save_entities(src_facet, [entity], day=None)
+
+        if src_observations:
+            save_observations(src_facet, entity_name, src_observations)
+
+        if create_dst_entity:
+            save_entities(dst_facet, [entity], day=None)
+
+        if dst_observations:
+            save_observations(dst_facet, entity_name, dst_observations)
+
+        return tmp_path, src_facet, dst_facet, entity_name
 
     return _create
