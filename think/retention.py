@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 RAW_AUDIO_EXTENSIONS = frozenset({".flac", ".opus", ".ogg", ".m4a"})
-RAW_VIDEO_EXTENSIONS = frozenset({".webm", ".mov"})
+RAW_VIDEO_EXTENSIONS = frozenset({".webm", ".mov", ".mp4"})
 RAW_MEDIA_EXTENSIONS = RAW_AUDIO_EXTENSIONS | RAW_VIDEO_EXTENSIONS
 
 
@@ -40,7 +40,7 @@ def is_raw_media(path: Path) -> bool:
     """Check if a file is raw media (layer 1 capture).
 
     Raw media: *.flac, *.opus, *.ogg, *.m4a (audio),
-    *.webm, *.mov (video), monitor_*_diff.png (screen diffs).
+    *.webm, *.mov, *.mp4 (video), monitor_*_diff.png (screen diffs).
     """
     if path.suffix.lower() in RAW_MEDIA_EXTENSIONS:
         return True

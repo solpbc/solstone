@@ -180,7 +180,7 @@ Fields:
 - `raw_media_days` (integer or null) – Number of days to retain raw media when mode is `"days"`. Required when `raw_media` is `"days"`, ignored otherwise.
 - `per_stream` (object) – Per-stream overrides keyed by stream name. Each entry supports `raw_media` and `raw_media_days`. Omitted fields inherit from the global retention settings.
 
-"Raw media" means layer 1 capture files only: audio files (`.flac`, `.opus`, `.ogg`, `.m4a`), video files (`.webm`, `.mov`), and screen diffs (`monitor_*_diff.png`).
+"Raw media" means layer 1 capture files only: audio files (`.flac`, `.opus`, `.ogg`, `.m4a`), video files (`.webm`, `.mov`, `.mp4`), and screen diffs (`monitor_*_diff.png`).
 
 All layer 2 and layer 3 content is always preserved regardless of retention policy: transcripts (`audio.jsonl`, `screen.jsonl`), agent outputs (`agents/*.md`), speaker labels (`agents/speaker_labels.json`), facet events (`events/*.jsonl`), entity data, segment metadata (`stream.json`), and search index entries.
 

@@ -31,7 +31,7 @@ class TestIsRawMedia:
             assert is_raw_media(p), f"{ext} should be raw media"
 
     def test_video_extensions(self, tmp_path):
-        for ext in (".webm", ".mov"):
+        for ext in (".webm", ".mov", ".mp4"):
             p = tmp_path / f"screen{ext}"
             p.touch()
             assert is_raw_media(p), f"{ext} should be raw media"
@@ -93,6 +93,7 @@ def _make_segment(
     *,
     audio=False,
     video=False,
+    video_name="screen.webm",
     embeddings=False,
     audio_extract=True,
     screen_extract=True,
@@ -108,7 +109,7 @@ def _make_segment(
     if audio:
         (seg / "audio.flac").write_bytes(b"audio")
     if video:
-        (seg / "screen.webm").write_bytes(b"video")
+        (seg / video_name).write_bytes(b"video")
     if embeddings:
         (seg / "audio.npz").write_bytes(b"npz")
     if audio and audio_extract:
@@ -144,6 +145,16 @@ class TestIsSegmentComplete:
     def test_incomplete_missing_screen_extract(self, tmp_path):
         seg = _make_segment(tmp_path, video=True, screen_extract=False)
         assert not is_segment_complete(seg)
+
+    def test_incomplete_missing_screen_extract_for_mp4(self, tmp_path):
+        seg = _make_segment(
+            tmp_path, video=True, video_name="screen.mp4", screen_extract=False
+        )
+        assert not is_segment_complete(seg)
+
+    def test_complete_mp4_with_screen_extract(self, tmp_path):
+        seg = _make_segment(tmp_path, video=True, video_name="screen.mp4")
+        assert is_segment_complete(seg)
 
     def test_incomplete_missing_speaker_labels(self, tmp_path):
         seg = _make_segment(tmp_path, audio=True, embeddings=True, speaker_labels=False)
