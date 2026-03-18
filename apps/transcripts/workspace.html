@@ -156,6 +156,13 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   width: 40px;
   border-radius: 12px;
   box-shadow: 0 1px 1px rgba(0,0,0,.04);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.tr-seg:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 1px;
 }
 
 .tr-seg-audio {
@@ -1397,6 +1404,31 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     el.style.top = y(startMin) + 'px';
     el.style.height = Math.max(2, y(endMin) - y(startMin)) + 'px';
     el.style.left = (column === 1 ? 56 : 8) + 'px';
+    // Zero-padded HH:MM label
+    const _h = Math.floor(startMin / 60);
+    const _m = startMin % 60;
+    const _label = `Segment ${String(_h).padStart(2, '0')}:${String(_m).padStart(2, '0')}`;
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', _label);
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const midMin = (startMin + endMin) / 2;
+      const start = snap(midMin - DEFAULT_LEN / 2);
+      range = { start, end: start + DEFAULT_LEN };
+      renderTimeline();
+      updateZoom();
+    });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const midMin = (startMin + endMin) / 2;
+        const start = snap(midMin - DEFAULT_LEN / 2);
+        range = { start, end: start + DEFAULT_LEN };
+        renderTimeline();
+        updateZoom();
+      }
+    });
     segmentsLane.appendChild(el);
   }
 

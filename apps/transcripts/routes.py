@@ -47,8 +47,13 @@ transcripts_bp = Blueprint(
 
 @transcripts_bp.route("/")
 def index() -> Any:
-    """Redirect to today's transcripts."""
+    """Redirect to the most recent day with segments, falling back to today."""
     today = date.today().strftime("%Y%m%d")
+    if cluster_segments(today):
+        return redirect(url_for("app:transcripts.transcripts_day", day=today))
+    for day in sorted(day_dirs().keys(), reverse=True):
+        if cluster_segments(day):
+            return redirect(url_for("app:transcripts.transcripts_day", day=day))
     return redirect(url_for("app:transcripts.transcripts_day", day=today))
 
 
