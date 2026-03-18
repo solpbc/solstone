@@ -677,6 +677,8 @@ def create_facet(
     emoji: str = "📦",
     color: str = "#667eea",
     description: str = "",
+    *,
+    consent: bool = False,
 ) -> str:
     """Create a new facet directory with facet.json.
 
@@ -734,15 +736,18 @@ def create_facet(
             pass
         raise
 
+    log_params: dict = {
+        "title": title,
+        "emoji": emoji,
+        "color": color,
+        "description": description,
+    }
+    if consent:
+        log_params["consent"] = True
     log_call_action(
         facet=slug,
         action="facet_create",
-        params={
-            "title": title,
-            "emoji": emoji,
-            "color": color,
-            "description": description,
-        },
+        params=log_params,
     )
     return slug
 
@@ -811,7 +816,7 @@ def update_facet(name: str, **kwargs: Any) -> dict[str, Any]:
     return changed_fields
 
 
-def delete_facet(name: str) -> None:
+def delete_facet(name: str, *, consent: bool = False) -> None:
     """Delete a facet directory and clean up references.
 
     Removes the facet directory tree and updates convey.json and chat metadata.
@@ -852,10 +857,13 @@ def delete_facet(name: str) -> None:
         except (json.JSONDecodeError, OSError):
             pass
 
+    log_params: dict = {"name": name}
+    if consent:
+        log_params["consent"] = True
     log_call_action(
         facet=None,
         action="facet_delete",
-        params={"name": name},
+        params=log_params,
     )
     shutil.rmtree(facet_path)
 

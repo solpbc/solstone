@@ -397,6 +397,110 @@ class TestFacetCRUD:
         )
         assert result.exit_code == 1
 
+    def test_facet_create_with_consent(self, facet_journal):
+        """Create with --consent records consent=True in log entry."""
+        from datetime import datetime
+
+        result = runner.invoke(
+            call_app, ["journal", "facet", "create", "Consent Facet", "--consent"]
+        )
+        assert result.exit_code == 0
+        today = datetime.now().strftime("%Y%m%d")
+        log_path = (
+            facet_journal / "facets" / "consent-facet" / "logs" / f"{today}.jsonl"
+        )
+        assert log_path.exists()
+        import json as _json
+
+        entries = [
+            _json.loads(line)
+            for line in log_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        assert len(entries) == 1
+        assert entries[0]["action"] == "facet_create"
+        assert entries[0]["params"].get("consent") is True
+
+    def test_facet_create_without_consent(self, facet_journal):
+        """Create without --consent omits consent key from log entry."""
+        from datetime import datetime
+
+        result = runner.invoke(
+            call_app, ["journal", "facet", "create", "No Consent Facet"]
+        )
+        assert result.exit_code == 0
+        today = datetime.now().strftime("%Y%m%d")
+        log_path = (
+            facet_journal / "facets" / "no-consent-facet" / "logs" / f"{today}.jsonl"
+        )
+        assert log_path.exists()
+        import json as _json
+
+        entries = [
+            _json.loads(line)
+            for line in log_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        assert len(entries) == 1
+        assert entries[0]["action"] == "facet_create"
+        assert "consent" not in entries[0]["params"]
+
+    def test_facet_rename_with_consent(self, facet_journal):
+        """Rename with --consent records consent=True in log entry."""
+        from datetime import datetime
+
+        result = runner.invoke(
+            call_app,
+            [
+                "journal",
+                "facet",
+                "rename",
+                "test-facet",
+                "renamed-consent",
+                "--consent",
+            ],
+        )
+        assert result.exit_code == 0
+        today = datetime.now().strftime("%Y%m%d")
+        log_path = (
+            facet_journal / "facets" / "renamed-consent" / "logs" / f"{today}.jsonl"
+        )
+        assert log_path.exists()
+        import json as _json
+
+        entries = [
+            _json.loads(line)
+            for line in log_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        assert len(entries) == 1
+        assert entries[0]["action"] == "facet_rename"
+        assert entries[0]["params"].get("consent") is True
+
+    def test_facet_delete_with_consent(self, facet_journal):
+        """Delete with --consent records consent=True in journal-level log."""
+        from datetime import datetime
+
+        result = runner.invoke(
+            call_app,
+            ["journal", "facet", "delete", "test-facet", "--yes", "--consent"],
+        )
+        assert result.exit_code == 0
+        today = datetime.now().strftime("%Y%m%d")
+        log_path = facet_journal / "config" / "actions" / f"{today}.jsonl"
+        assert log_path.exists()
+        import json as _json
+
+        entries = [
+            _json.loads(line)
+            for line in log_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        assert any(
+            e["action"] == "facet_delete" and e["params"].get("consent") is True
+            for e in entries
+        )
+
     def test_facets_list_shows_metadata(self, facet_journal):
         """facets lists unmuted facets with metadata."""
         result = runner.invoke(call_app, ["journal", "facets"])

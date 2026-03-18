@@ -200,10 +200,21 @@ def create(
     emoji: str = typer.Option("📦", "--emoji", help="Icon emoji."),
     color: str = typer.Option("#667eea", "--color", help="Hex color."),
     description: str = typer.Option("", "--description", help="Facet description."),
+    consent: bool = typer.Option(
+        False,
+        "--consent",
+        help="Assert that explicit user approval was obtained before calling this command (agent audit trail).",
+    ),
 ) -> None:
     """Create a new facet."""
     try:
-        slug = create_facet(title, emoji=emoji, color=color, description=description)
+        slug = create_facet(
+            title,
+            emoji=emoji,
+            color=color,
+            description=description,
+            consent=consent,
+        )
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
@@ -258,6 +269,11 @@ def update(
 def rename(
     name: str = typer.Argument(help="Current facet name."),
     new_name: str = typer.Argument(help="New facet name."),
+    consent: bool = typer.Option(
+        False,
+        "--consent",
+        help="Assert that explicit user approval was obtained before calling this command (agent audit trail).",
+    ),
 ) -> None:
     """Rename a facet."""
     try:
@@ -265,11 +281,10 @@ def rename(
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
-    log_call_action(
-        facet=new_name,
-        action="facet_rename",
-        params={"old_name": name, "new_name": new_name},
-    )
+    params: dict = {"old_name": name, "new_name": new_name}
+    if consent:
+        params["consent"] = True
+    log_call_action(facet=new_name, action="facet_rename", params=params)
 
 
 @facet_app.command()
@@ -298,6 +313,11 @@ def unmute(name: str = typer.Argument(help="Facet name to unmute.")) -> None:
 def delete(
     name: str = typer.Argument(help="Facet name to delete."),
     yes: bool = typer.Option(False, "--yes", help="Skip confirmation."),
+    consent: bool = typer.Option(
+        False,
+        "--consent",
+        help="Assert that explicit user approval was obtained before calling this command (agent audit trail).",
+    ),
 ) -> None:
     """Delete a facet and all its data."""
     if not yes:
@@ -309,7 +329,7 @@ def delete(
         raise typer.Exit(1)
 
     try:
-        delete_facet(name)
+        delete_facet(name, consent=consent)
     except FileNotFoundError:
         typer.echo(f"Error: Facet '{name}' not found.", err=True)
         raise typer.Exit(1)

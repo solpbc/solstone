@@ -83,7 +83,12 @@ For detailed responses, structure your answer for clarity — lead with the key 
 ### Journal
 - `sol call journal events [DAY] [-f FACET]` — List events with participants, times, and summaries.
 - `sol call journal facet show [name]` — Show facet details.
-- `sol call journal facet create <title> [--emoji EMOJI] [--color COLOR] [--description DESC]` — Create a new facet.
+- `sol call journal facet create <title> [--emoji EMOJI] [--color COLOR] [--description DESC] [--consent]` — Create a new facet. Pass `--consent` to record explicit user approval in the audit log.
+- `sol call journal facet update <name> [--title T] [--description D] [--emoji E] [--color C]` — Update facet metadata fields.
+- `sol call journal facet rename <name> <new-name> [--consent]` — Rename a facet. Pass `--consent` to record explicit user approval in the audit log.
+- `sol call journal facet mute <name>` — Hide a facet from default listings.
+- `sol call journal facet unmute <name>` — Show a previously muted facet in default listings.
+- `sol call journal facet delete <name> [--yes] [--consent]` — Delete a facet and all its data. Pass `--consent` to record explicit user approval in the audit log.
 - `sol call journal facets [--all]` — List facets.
 
 ### Awareness

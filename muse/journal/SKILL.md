@@ -90,7 +90,7 @@ sol call journal facet show         # uses SOL_FACET
 ## facet create
 
 ```bash
-sol call journal facet create <title> [--emoji EMOJI] [--color COLOR] [--description DESC]
+sol call journal facet create <title> [--emoji EMOJI] [--color COLOR] [--description DESC] [--consent]
 ```
 
 Create a new facet directory and initial `facet.json`.
@@ -99,6 +99,7 @@ Create a new facet directory and initial `facet.json`.
 - `--emoji`: optional icon emoji (default: `📦`).
 - `--color`: optional hex color (default: `#667eea`).
 - `--description`: optional description text.
+- `--consent`: optional flag asserting explicit user approval was obtained; adds `"consent": true` to the audit log entry.
 
 Examples:
 
@@ -130,10 +131,14 @@ sol call journal facet update work --description "Client work and planning" --em
 ## facet rename
 
 ```bash
-sol call journal facet rename <name> <new-name>
+sol call journal facet rename <name> <new-name> [--consent]
 ```
 
 Rename a facet (directory and references in config/chat metadata).
+
+- `name`: current facet identifier.
+- `new-name`: new facet identifier.
+- `--consent`: optional flag asserting explicit user approval was obtained; adds `"consent": true` to the audit log entry.
 
 Example:
 
@@ -172,12 +177,13 @@ sol call journal facet unmute personal
 ## facet delete
 
 ```bash
-sol call journal facet delete <name> [--yes]
+sol call journal facet delete <name> [--yes] [--consent]
 ```
 
 Delete a facet directory and all its data.
 
 - `--yes`: skip confirmation prompt.
+- `--consent`: optional flag asserting explicit user approval was obtained; adds `"consent": true` to the audit log entry.
 
 Example:
 
