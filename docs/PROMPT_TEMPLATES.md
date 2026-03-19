@@ -149,7 +149,7 @@ You are a helpful assistant...
 Agent prompts are split into two parts:
 
 1. **System instruction** - `think/journal.md` (shared across all agents, cacheable)
-2. **User instruction** - Agent-specific `.md` file (e.g., `muse/default.md`)
+2. **User instruction** - Agent-specific `.md` file (e.g., `muse/unified.md`)
 
 The system instruction establishes the journal partnership context. The user instruction defines the agent's specific role and capabilities.
 

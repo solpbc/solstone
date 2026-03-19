@@ -460,7 +460,7 @@ def prepare_config(request: dict) -> dict:
     from think.models import resolve_model_for_provider, resolve_provider
     from think.muse import get_agent, key_to_context
 
-    name = request.get("name", "default")
+    name = request.get("name", "unified")
     facet = request.get("facet")
     day = request.get("day")
     segment = request.get("segment")
@@ -725,7 +725,7 @@ def _build_dry_run_event(config: dict, before_values: dict) -> dict:
         "event": "dry_run",
         "ts": now_ms(),
         "type": agent_type,
-        "name": config.get("name", "default"),
+        "name": config.get("name", "unified"),
         "provider": config.get("provider", ""),
         "model": config.get("model") or "unknown",
         "system_instruction": config.get("system_instruction", ""),
@@ -844,7 +844,7 @@ async def _execute_with_tools(
         if not context:
             from think.muse import key_to_context
 
-            context = key_to_context(config.get("name", "default"))
+            context = key_to_context(config.get("name", "unified"))
         backup_model = resolve_model_for_provider(context, backup, "cogitate")
 
         emit_event(
@@ -900,7 +900,7 @@ async def _execute_generate(
     from think.models import generate_with_result
     from think.muse import key_to_context
 
-    name = config.get("name", "default")
+    name = config.get("name", "unified")
     transcript = config.get("transcript", "")
     user_instruction = config.get("user_instruction", "")
     prompt = config.get("prompt", "")
@@ -1047,7 +1047,7 @@ async def _run_agent(
         emit_event: Callback to emit JSONL events
         dry_run: If True, emit dry_run event instead of calling LLM
     """
-    name = config.get("name", "default")
+    name = config.get("name", "unified")
     provider = config.get("provider", "google")
     model = config.get("model")
     is_cogitate = config["type"] == "cogitate"

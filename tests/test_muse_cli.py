@@ -27,7 +27,7 @@ def test_collect_configs_returns_prompts():
     configs = _collect_configs(include_disabled=True)
     assert "flow" in configs
     assert "activity" in configs
-    assert "default" in configs
+    assert "unified" in configs
 
 
 def test_collect_configs_excludes_disabled_by_default():
@@ -311,7 +311,7 @@ def test_logs_runs_default(capsys):
     output = capsys.readouterr().out
 
     # Should have runs from all fixture days (original + R&J)
-    assert "default" in output
+    assert "default" in output or "unified" in output
     assert "flow" in output
     assert "activity" in output
     assert "entities" in output

@@ -118,7 +118,7 @@ def migrate(agents_dir: Path, dry_run: bool = False) -> MigrationSummary:
             summary.skipped += 1
             continue
 
-        name = first_line.get("name", "default")
+        name = first_line.get("name", "unified")
         safe_name = name.replace(":", "--")
 
         # Move to subdirectory

@@ -70,7 +70,7 @@ def test_help_ndjson_config(monkeypatch):
 
     written = mock_proc.stdin.write.call_args[0][0]
     payload = json.loads(written.strip())
-    assert payload == {"name": "help", "prompt": "show todo commands"}
+    assert payload == {"name": "unified", "prompt": "show todo commands"}
 
 
 def test_help_parses_finish_event(monkeypatch, capsys):

@@ -7,6 +7,7 @@ Auto-discovered by ``think.call`` and mounted as ``sol call agent ...``.
 """
 
 import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -82,6 +83,10 @@ def set_name(
         }
     )
     typer.echo(json.dumps(agent, indent=2))
+    project_root = Path(__file__).resolve().parent.parent.parent
+    subprocess.run(
+        ["make", "skills"], cwd=project_root, check=False, capture_output=True
+    )
 
 
 @app.command("reset")
@@ -95,6 +100,10 @@ def reset() -> None:
         }
     )
     typer.echo(json.dumps(agent, indent=2))
+    project_root = Path(__file__).resolve().parent.parent.parent
+    subprocess.run(
+        ["make", "skills"], cwd=project_root, check=False, capture_output=True
+    )
 
 
 @app.command("thickness")

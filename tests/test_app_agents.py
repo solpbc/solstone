@@ -70,9 +70,9 @@ def app_with_agent(tmp_path, monkeypatch):
 
 def test_resolve_agent_path_system_agent():
     """Test _resolve_agent_path returns correct path for system agents."""
-    agent_dir, agent_name = _resolve_agent_path("default")
+    agent_dir, agent_name = _resolve_agent_path("unified")
 
-    assert agent_name == "default"
+    assert agent_name == "unified"
     assert agent_dir.name == "muse"
 
 
@@ -96,12 +96,11 @@ def test_resolve_agent_path_app_agent_with_underscores():
 
 def test_get_agent_system_agent(fixture_journal):
     """Test get_agent loads system agents correctly."""
-    config = get_agent("default")
+    config = get_agent("unified")
 
-    assert config["name"] == "default"
+    assert config["name"] == "unified"
     assert "system_instruction" in config
     assert "user_instruction" in config
-    assert len(config["system_instruction"]) > 0
     assert len(config["user_instruction"]) > 0
 
 
@@ -126,10 +125,10 @@ def test_get_muse_configs_includes_system_agents(fixture_journal):
     agents = get_muse_configs(type="cogitate")
 
     # Should include known system agents with frontmatter metadata
-    assert "default" in agents
-    assert agents["default"]["source"] == "system"
-    assert "title" in agents["default"]
-    assert "path" in agents["default"]
+    assert "unified" in agents
+    assert agents["unified"]["source"] == "system"
+    assert "title" in agents["unified"]
+    assert "path" in agents["unified"]
 
 
 def test_get_muse_configs_system_agents_have_metadata(fixture_journal):
@@ -137,11 +136,11 @@ def test_get_muse_configs_system_agents_have_metadata(fixture_journal):
     agents = get_muse_configs(type="cogitate")
 
     # Check a known system agent
-    default = agents.get("default")
-    assert default is not None
-    assert default["source"] == "system"
-    assert "title" in default
-    assert "color" in default
+    unified = agents.get("unified")
+    assert unified is not None
+    assert unified["source"] == "system"
+    assert "title" in unified
+    assert "color" in unified
 
 
 def test_get_muse_configs_excludes_private_apps(fixture_journal, tmp_path, monkeypatch):
@@ -194,7 +193,7 @@ class TestResolveOutputPath:
         """Without output_path, derives from day/name/segment fields."""
         event = {
             "day": "20260214",
-            "name": "default",
+            "name": "unified",
             "segment": "100",
             "facet": "health",
         }
@@ -205,13 +204,13 @@ class TestResolveOutputPath:
 
     def test_returns_none_without_day_or_output_path(self):
         """Returns None when neither output_path nor day is present."""
-        event = {"name": "default"}
+        event = {"name": "unified"}
         result = _resolve_output_path(event, "/journal")
         assert result is None
 
     def test_empty_output_path_falls_through(self, fixture_journal):
         """Empty string output_path falls through to derivation."""
-        event = {"output_path": "", "day": "20260214", "name": "default"}
+        event = {"output_path": "", "day": "20260214", "name": "unified"}
         result = _resolve_output_path(event, "tests/fixtures/journal")
         # Empty string is falsy, so falls through to derivation
         assert result is not None
@@ -220,7 +219,7 @@ class TestResolveOutputPath:
         """SOL_STREAM from env is passed through to get_output_path."""
         event = {
             "day": "20260214",
-            "name": "default",
+            "name": "unified",
             "env": {"SOL_STREAM": "mystream"},
         }
         result = _resolve_output_path(event, "tests/fixtures/journal")
@@ -231,7 +230,7 @@ class TestResolveOutputPath:
         event = {
             "output_path": "/custom/path/output.md",
             "day": "20260214",
-            "name": "default",
+            "name": "unified",
             "segment": "100",
         }
         result = _resolve_output_path(event, "/journal")

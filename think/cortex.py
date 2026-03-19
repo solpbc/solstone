@@ -207,7 +207,7 @@ class CortexService:
                 return
 
         # Create _active.jsonl file (exclusive creation to prevent race conditions)
-        name = request.get("name", "default")
+        name = request.get("name", "unified")
         safe_name = name.replace(":", "--")
         agent_subdir = self.agents_dir / safe_name
         agent_subdir.mkdir(parents=True, exist_ok=True)
@@ -642,7 +642,7 @@ class CortexService:
 
             summary = {
                 "agent_id": agent_id,
-                "name": request.get("name", "default"),
+                "name": request.get("name", "unified"),
                 "day": day,
                 "facet": request.get("facet"),
                 "ts": start_ts,
@@ -716,7 +716,7 @@ class CortexService:
 
             # Determine prompt/provider/name before pruning extra keys.
             prompt = handoff_config.pop("prompt", None) or result
-            name = handoff_config.pop("name", None) or "default"
+            name = handoff_config.pop("name", None) or "unified"
 
             # Provider can be explicitly set in handoff config, otherwise let
             # the handoff agent resolve its own provider from context

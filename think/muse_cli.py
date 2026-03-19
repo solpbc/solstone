@@ -803,7 +803,7 @@ def _get_output_size(request_event: dict[str, Any], journal_root: str) -> int | 
             return None
         req_segment = request_event.get("segment")
         req_facet = request_event.get("facet")
-        req_name = request_event.get("name", "default")
+        req_name = request_event.get("name", "unified")
         req_env = request_event.get("env") or {}
         req_stream = req_env.get("SOL_STREAM") if req_env else None
         day_dir = Path(journal_root) / req_day

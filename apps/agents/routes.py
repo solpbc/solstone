@@ -49,7 +49,7 @@ def _resolve_output_path(
     day_dir = Path(journal_root) / req_day
     req_segment = request_event.get("segment")
     req_facet = request_event.get("facet")
-    req_name = request_event.get("name", "default")
+    req_name = request_event.get("name", "unified")
     req_env = request_event.get("env") or {}
     req_stream = req_env.get("SOL_STREAM") if req_env else None
     return get_output_path(
@@ -176,7 +176,7 @@ def _parse_agent_file(agent_file: Path) -> dict[str, Any] | None:
 
         agent_info: dict[str, Any] = {
             "id": agent_id,
-            "name": request_event.get("name", "default"),
+            "name": request_event.get("name", "unified"),
             "start": request_event.get("ts", 0),
             "status": "running" if is_active else "completed",
             "prompt": request_event.get("prompt", ""),
@@ -284,7 +284,7 @@ def _get_agents_for_day(day: str, facet_filter: str | None = None) -> list[dict]
 
                     # Locate the actual file for full parsing
                     agent_id = entry.get("agent_id", "")
-                    name = entry.get("name", "default")
+                    name = entry.get("name", "unified")
                     safe_name = name.replace(":", "--")
                     agent_file = agents_dir / safe_name / f"{agent_id}.jsonl"
                     if not agent_file.exists():
@@ -468,7 +468,7 @@ def api_agent_run(agent_id: str) -> Any:
 
         run: dict[str, Any] = {
             "id": agent_id,
-            "name": request_event.get("name", "default"),
+            "name": request_event.get("name", "unified"),
             "start": start_ts,
             "status": "completed",
             "prompt": request_event.get("prompt", ""),

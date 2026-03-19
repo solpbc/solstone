@@ -43,7 +43,7 @@ def cortex_request(
 
     Args:
         prompt: The task or question for the agent
-        name: Agent name - system (e.g., "default") or app-qualified (e.g., "entities:entity_assist")
+        name: Agent name - system (e.g., "unified") or app-qualified (e.g., "entities:entity_assist")
         provider: AI provider - openai, google, or anthropic
         handoff_from: Previous agent ID if this is a handoff request
         config: Provider-specific configuration (model, max_output_tokens, thinking_budget, etc.)
@@ -357,7 +357,7 @@ def cortex_agents(
                 # Extract basic info
                 agent_info = {
                     "id": agent_id,
-                    "name": request.get("name", "default"),
+                    "name": request.get("name", "unified"),
                     "start": request.get("ts", 0),
                     "status": status,
                     "prompt": request.get("prompt", ""),

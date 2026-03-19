@@ -25,17 +25,6 @@
     {
       "aka": [],
       "blocked": false,
-      "facets": [],
-      "id": "person_a",
-      "is_principal": false,
-      "last_active_ts": 0,
-      "name": "Person A",
-      "total_observation_count": 0,
-      "type": "Person"
-    },
-    {
-      "aka": [],
-      "blocked": false,
       "facets": [
         {
           "attached_at": null,

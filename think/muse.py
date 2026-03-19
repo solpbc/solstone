@@ -303,7 +303,7 @@ def _resolve_agent_path(name: str) -> tuple[Path, str]:
     Parameters
     ----------
     name:
-        Agent name - either system agent (e.g., "default") or
+        Agent name - either system agent (e.g., "unified") or
         app-namespaced agent (e.g., "support:support").
 
     Returns
@@ -316,7 +316,7 @@ def _resolve_agent_path(name: str) -> tuple[Path, str]:
         app, agent_name = name.split(":", 1)
         agent_dir = Path(__file__).parent.parent / "apps" / app / "muse"
     else:
-        # System agent: "default" -> muse/default
+        # System agent: "unified" -> muse/unified
         agent_dir = MUSE_DIR
         agent_name = name
     return agent_dir, agent_name
@@ -410,7 +410,7 @@ def compose_instructions(
     Parameters
     ----------
     user_prompt:
-        Name of the user instruction prompt to load (e.g., "default" for agents).
+        Name of the user instruction prompt to load (e.g., "unified" for agents).
         If None, no user_instruction is included (typical for generators).
     user_prompt_dir:
         Directory to load user_prompt from. If None, uses think/ directory.
@@ -609,7 +609,7 @@ def get_agent_filter(value: bool | str | dict) -> dict[str, bool | str] | None:
 
 
 def get_agent(
-    name: str = "default",
+    name: str = "unified",
     facet: str | None = None,
     analysis_day: str | None = None,
 ) -> dict:
@@ -621,7 +621,7 @@ def get_agent(
     Parameters
     ----------
     name:
-        Agent name to load. Can be a system agent (e.g., "default")
+        Agent name to load. Can be a system agent (e.g., "unified")
         or an app-namespaced agent (e.g., "support:support" for apps/support/muse/support).
     facet:
         Optional facet name to focus on. When provided, includes detailed

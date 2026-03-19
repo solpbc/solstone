@@ -88,17 +88,6 @@
       "title": "Decision Actions",
       "type": "generate"
     },
-    "default": {
-      "app": null,
-      "color": "#455a64",
-      "description": "Interactive assistant for searching, exploring, and understanding journal entries across all facets",
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "system",
-      "title": "Journal Chat",
-      "type": "cogitate"
-    },
     "documentation": {
       "app": null,
       "color": "#007bff",
@@ -241,17 +230,6 @@
       "source": "system",
       "title": "Follow-Up Items",
       "type": "generate"
-    },
-    "help": {
-      "app": null,
-      "color": "#6c757d",
-      "description": "Answer questions about sol commands and usage",
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "system",
-      "title": "CLI Help",
-      "type": "cogitate"
     },
     "joke_bot": {
       "app": null,

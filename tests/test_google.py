@@ -134,7 +134,7 @@ def test_google_main(monkeypatch, tmp_path, capsys):
     assert events[0]["event"] == "start"
     assert isinstance(events[0]["ts"], int)
     assert "hello" in events[0]["prompt"]
-    assert events[0]["name"] == "default"
+    assert events[0]["name"] == "unified"
     assert events[0]["model"] == GEMINI_FLASH
     assert events[-1]["event"] == "finish"
     assert isinstance(events[-1]["ts"], int)

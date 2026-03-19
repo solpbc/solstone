@@ -1,8 +1,8 @@
 {
   "api_keys": {
-    "anthropic": true,
-    "google": true,
-    "openai": true
+    "anthropic": false,
+    "google": false,
+    "openai": false
   },
   "auth": {
     "anthropic": "platform",
@@ -129,13 +129,6 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.default": {
-      "disabled": false,
-      "group": "Apps",
-      "label": "Chat Messages",
-      "tier": 2,
-      "type": "cogitate"
-    },
     "muse.system.documentation": {
       "disabled": true,
       "extract": true,
@@ -203,13 +196,6 @@
       "schedule": "activity",
       "tier": 2,
       "type": "generate"
-    },
-    "muse.system.help": {
-      "disabled": false,
-      "group": "Think",
-      "label": "CLI Help",
-      "tier": 2,
-      "type": "cogitate"
     },
     "muse.system.joke_bot": {
       "disabled": false,

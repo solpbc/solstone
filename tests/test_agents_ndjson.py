@@ -31,7 +31,7 @@ async def mock_run_cogitate(config, on_event=None):
     prompt = config.get("prompt", "")
     provider = config.get("provider", "")
     model = config.get("model", "")
-    name = config.get("name", "default")
+    name = config.get("name", "unified")
 
     if on_event:
         on_event(
@@ -59,7 +59,7 @@ def mock_prepare_config(request: dict) -> dict:
     config = dict(request)
     # Add required fields if not present
     if "name" not in config:
-        config["name"] = "default"
+        config["name"] = "unified"
     if "provider" not in config:
         config["provider"] = "google"
     if "model" not in config:
@@ -96,7 +96,7 @@ def test_ndjson_single_request(mock_journal, monkeypatch, capsys):
         {
             "prompt": "What is 2+2?",
             "provider": "openai",
-            "name": "default",
+            "name": "unified",
             "model": GPT_5,
             "max_output_tokens": 100,
         }

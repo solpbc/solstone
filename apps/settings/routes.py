@@ -7,6 +7,7 @@ import copy
 import json
 import os
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -191,6 +192,15 @@ def update_config() -> Any:
                 facet=None,
                 action=f"{section}_update",
                 params={"changed_fields": log_fields},
+            )
+
+        if section in ("agent", "identity") and changed_fields:
+            project_root = Path(__file__).resolve().parent.parent.parent
+            subprocess.run(
+                ["make", "skills"],
+                cwd=project_root,
+                check=False,
+                capture_output=True,
             )
 
         # Mask env values in response

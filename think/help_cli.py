@@ -51,7 +51,7 @@ def main() -> None:
     else:
         question = " ".join(args.question).strip()
 
-    config = {"name": "help", "prompt": question}
+    config = {"name": "unified", "prompt": question}
     config_json = json.dumps(config)
 
     print("Thinking...", end="", file=sys.stderr, flush=True)

@@ -42,7 +42,7 @@ ENDPOINTS = [
     {
         "app": "agents",
         "name": "preview",
-        "path": "/app/agents/api/preview/default",
+        "path": "/app/agents/api/preview/unified",
         "params": {},
         "status": 200,
     },

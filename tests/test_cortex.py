@@ -113,7 +113,7 @@ def test_spawn_subprocess(
         "ts": 123456789,
         "prompt": "Test prompt",
         "provider": "openai",
-        "name": "default",
+        "name": "unified",
         "model": GPT_5,
     }
 
@@ -140,7 +140,7 @@ def test_spawn_subprocess(
     assert ndjson["event"] == "request"
     assert ndjson["prompt"] == "Test prompt"
     assert ndjson["provider"] == "openai"
-    assert ndjson["name"] == "default"
+    assert ndjson["name"] == "unified"
     assert ndjson["model"] == GPT_5
 
     # Check stdin was closed
@@ -252,7 +252,7 @@ def test_spawn_subprocess_with_handoff_from(mock_popen, cortex_service, mock_jou
         "ts": 123456789,
         "prompt": "Test",
         "provider": "openai",
-        "name": "default",
+        "name": "unified",
         "handoff_from": "parent123",
     }
 
@@ -457,45 +457,45 @@ def test_has_finish_event(cortex_service, mock_journal):
 def test_complete_agent_file(cortex_service, mock_journal):
     """Test completing an agent file (rename from active to completed)."""
     agent_id = "123456789"
-    default_dir = mock_journal / "agents" / "default"
-    default_dir.mkdir()
-    active_path = default_dir / f"{agent_id}_active.jsonl"
+    unified_dir = mock_journal / "agents" / "unified"
+    unified_dir.mkdir()
+    active_path = unified_dir / f"{agent_id}_active.jsonl"
     active_path.touch()
-    cortex_service.agent_requests[agent_id] = {"name": "default", "agent_id": agent_id}
+    cortex_service.agent_requests[agent_id] = {"name": "unified", "agent_id": agent_id}
 
     cortex_service._complete_agent_file(agent_id, active_path)
 
     # Check file was renamed
     assert not active_path.exists()
-    completed_path = default_dir / f"{agent_id}.jsonl"
+    completed_path = unified_dir / f"{agent_id}.jsonl"
     assert completed_path.exists()
-    symlink_path = mock_journal / "agents" / "default.log"
+    symlink_path = mock_journal / "agents" / "unified.log"
     assert symlink_path.is_symlink()
-    assert os.readlink(symlink_path) == f"default/{agent_id}.jsonl"
+    assert os.readlink(symlink_path) == f"unified/{agent_id}.jsonl"
 
 
 def test_complete_agent_file_replaces_symlink(cortex_service, mock_journal):
     """Test completing agent file replaces convenience symlink for same name."""
-    default_dir = mock_journal / "agents" / "default"
-    default_dir.mkdir()
+    unified_dir = mock_journal / "agents" / "unified"
+    unified_dir.mkdir()
 
     first_agent_id = "111"
-    first_active_path = default_dir / f"{first_agent_id}_active.jsonl"
+    first_active_path = unified_dir / f"{first_agent_id}_active.jsonl"
     first_active_path.touch()
-    cortex_service.agent_requests[first_agent_id] = {"name": "default"}
+    cortex_service.agent_requests[first_agent_id] = {"name": "unified"}
 
     cortex_service._complete_agent_file(first_agent_id, first_active_path)
 
     second_agent_id = "222"
-    second_active_path = default_dir / f"{second_agent_id}_active.jsonl"
+    second_active_path = unified_dir / f"{second_agent_id}_active.jsonl"
     second_active_path.touch()
-    cortex_service.agent_requests[second_agent_id] = {"name": "default"}
+    cortex_service.agent_requests[second_agent_id] = {"name": "unified"}
 
     cortex_service._complete_agent_file(second_agent_id, second_active_path)
 
-    symlink_path = mock_journal / "agents" / "default.log"
+    symlink_path = mock_journal / "agents" / "unified.log"
     assert symlink_path.is_symlink()
-    assert os.readlink(symlink_path) == f"default/{second_agent_id}.jsonl"
+    assert os.readlink(symlink_path) == f"unified/{second_agent_id}.jsonl"
 
 
 def test_complete_agent_file_colon_name(cortex_service, mock_journal):
@@ -791,10 +791,10 @@ def test_recover_orphaned_agents(cortex_service, mock_journal):
     """Test recovery of orphaned active agent files."""
     # Create orphaned active files
     agents_dir = mock_journal / "agents"
-    default_dir = agents_dir / "default"
-    default_dir.mkdir()
-    agent1_active = default_dir / "111_active.jsonl"
-    agent2_active = default_dir / "222_active.jsonl"
+    unified_dir = agents_dir / "unified"
+    unified_dir.mkdir()
+    agent1_active = unified_dir / "111_active.jsonl"
+    agent2_active = unified_dir / "222_active.jsonl"
 
     agent1_active.write_text('{"event": "start", "ts": 1000}\n')
     agent2_active.write_text('{"event": "start", "ts": 2000}\n')
@@ -805,11 +805,11 @@ def test_recover_orphaned_agents(cortex_service, mock_journal):
     # Check active files were renamed to completed
     assert not agent1_active.exists()
     assert not agent2_active.exists()
-    assert (default_dir / "111.jsonl").exists()
-    assert (default_dir / "222.jsonl").exists()
+    assert (unified_dir / "111.jsonl").exists()
+    assert (unified_dir / "222.jsonl").exists()
 
     # Check error events were appended
-    content1 = (default_dir / "111.jsonl").read_text()
+    content1 = (unified_dir / "111.jsonl").read_text()
     lines1 = content1.strip().split("\n")
     assert len(lines1) == 2
     error_event = json.loads(lines1[1])
@@ -817,7 +817,7 @@ def test_recover_orphaned_agents(cortex_service, mock_journal):
     assert "Recovered" in error_event["error"]
     assert error_event["agent_id"] == "111"
 
-    content2 = (default_dir / "222.jsonl").read_text()
+    content2 = (unified_dir / "222.jsonl").read_text()
     lines2 = content2.strip().split("\n")
     assert len(lines2) == 2
     assert json.loads(lines2[1])["event"] == "error"
