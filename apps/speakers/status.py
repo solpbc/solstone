@@ -94,11 +94,10 @@ def _owner_section() -> dict[str, Any]:
 
 def _speakers_section() -> list[dict[str, Any]]:
     from apps.speakers.routes import _load_entity_voiceprints_file
-    from think.entities.journal import scan_journal_entities
+    from think.entities.journal import load_journal_entity, scan_journal_entities
 
     speakers = []
-    for entity in scan_journal_entities():
-        entity_id = entity["id"]
+    for entity_id in scan_journal_entities():
         result = _load_entity_voiceprints_file(entity_id)
         if result is None:
             continue
@@ -111,6 +110,7 @@ def _speakers_section() -> list[dict[str, Any]]:
                 streams.add(metadata["stream"])
             segments.add((metadata.get("day", ""), metadata.get("segment_key", "")))
 
+        entity = load_journal_entity(entity_id) or {}
         speakers.append(
             {
                 "entity_id": entity_id,
