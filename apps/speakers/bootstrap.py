@@ -123,7 +123,9 @@ def _save_voiceprints_batch(
     )
     combined_meta = np.array(existing_meta + new_meta, dtype=str)
 
-    np.savez_compressed(npz_path, embeddings=combined_emb, metadata=combined_meta)
+    tmp_path = npz_path.with_name(npz_path.stem + '.tmp.npz')
+    np.savez_compressed(tmp_path, embeddings=combined_emb, metadata=combined_meta)
+    tmp_path.rename(npz_path)
     return len(new_items)
 
 
