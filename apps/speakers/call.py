@@ -12,6 +12,8 @@ Provides:
     sol call speakers discover [--json]
     sol call speakers identify <cluster-id> <name> [--entity-id ID]
     sol call speakers merge-names <alias> <canonical>
+    sol call speakers link-import <name> --entity-id <ID>
+    sol call speakers seed-from-imports [--dry-run] [--json]
     sol call speakers suggest [--limit N] [--json]
 """
 
@@ -383,6 +385,86 @@ def merge_names_cmd(
         typer.echo(output, err=True)
         raise typer.Exit(1)
     typer.echo(output)
+
+
+@app.command("link-import")
+def link_import_cmd(
+    name: str = typer.Argument(..., help="Import participant name to link."),
+    entity_id: str = typer.Option(..., "--entity-id", help="Entity ID to link to."),
+) -> None:
+    """Link an import participant name as an aka on an existing entity."""
+    import json
+
+    from apps.speakers.bootstrap import link_import
+
+    result = link_import(name, entity_id)
+    output = json.dumps(result, indent=2, default=str)
+    if "error" in result:
+        typer.echo(output, err=True)
+        raise typer.Exit(1)
+    typer.echo(output)
+
+
+@app.command("seed-from-imports")
+def seed_from_imports_cmd(
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be saved without saving."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Output full result as JSON."
+    ),
+) -> None:
+    """Seed voiceprints from import segments with speaker-attributed transcripts.
+
+    Scans import streams for segments with both conversation_transcript.jsonl
+    (with speaker labels) and audio embeddings. Maps each embedding to a speaker
+    via time-based alignment, matches speakers to existing entities, and saves
+    embeddings as voiceprints with owner contamination guard.
+    """
+    from apps.speakers.bootstrap import seed_from_imports
+
+    if dry_run and not json_output:
+        typer.echo("DRY RUN — no voiceprints will be saved\n")
+
+    if not json_output:
+        typer.echo("Seeding voiceprints from import segments...")
+    stats = seed_from_imports(dry_run=dry_run)
+
+    if "error" in stats:
+        typer.echo(f"Error: {stats['error']}", err=True)
+        raise typer.Exit(1)
+    if json_output:
+        import json as json_mod
+
+        typer.echo(json_mod.dumps(stats, indent=2, default=str))
+        return
+
+    typer.echo(f"\nSegments scanned: {stats['segments_scanned']}")
+    typer.echo(f"Segments with speakers: {stats['segments_with_speakers']}")
+    typer.echo(f"Unique speakers: {len(stats['speakers_found'])}")
+    typer.echo(f"Embeddings saved: {stats['embeddings_saved']}")
+    typer.echo(f"Embeddings skipped (owner): {stats['embeddings_skipped_owner']}")
+    typer.echo(
+        f"Embeddings skipped (duplicate): {stats['embeddings_skipped_duplicate']}"
+    )
+
+    if stats["speakers_found"]:
+        typer.echo("\nSpeakers by embedding count:")
+        sorted_speakers = sorted(
+            stats["speakers_found"].items(), key=lambda x: x[1], reverse=True
+        )
+        for name, count in sorted_speakers[:15]:
+            typer.echo(f"  {name}: {count}")
+
+    if stats["speakers_unmatched"]:
+        typer.echo(f"\nUnmatched speakers ({len(stats['speakers_unmatched'])}):")
+        for name in stats["speakers_unmatched"]:
+            typer.echo(f"  {name}")
+
+    if stats["errors"]:
+        typer.echo(f"\nErrors ({len(stats['errors'])}):", err=True)
+        for err in stats["errors"]:
+            typer.echo(f"  {err}", err=True)
 
 
 @app.command()

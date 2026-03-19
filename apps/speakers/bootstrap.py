@@ -17,9 +17,11 @@ canonical entity.
 
 from __future__ import annotations
 
+import bisect
 import json
 import logging
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -548,5 +550,267 @@ def resolve_name_variants(dry_run: bool = False) -> dict[str, Any]:
                 "similarity": round(similarity, 4),
             }
         )
+
+    return stats
+
+
+# Import streams that contain AI chat (no real speakers to seed)
+_AI_CHAT_STREAMS = frozenset({"import.chatgpt", "import.claude", "import.gemini"})
+
+
+def _time_str_to_seconds(time_str: str) -> int:
+    """Parse HH:MM:SS to total seconds."""
+    parts = time_str.split(":")
+    return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+
+
+def _parse_conversation_speakers(seg_dir: Path) -> list[tuple[int, str]]:
+    """Parse speaker assignments from conversation_transcript.jsonl.
+
+    Returns sorted list of (start_seconds, speaker_name) tuples.
+    Skips the metadata header line and entries with empty speaker fields.
+    """
+    ct_path = seg_dir / "conversation_transcript.jsonl"
+    if not ct_path.exists():
+        return []
+
+    entries: list[tuple[int, str]] = []
+    try:
+        with open(ct_path, encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError:
+        return []
+
+    # Skip header (line 0), parse entry lines
+    for line in lines[1:]:
+        try:
+            entry = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        speaker = entry.get("speaker", "")
+        start = entry.get("start", "")
+        if not speaker or not start:
+            continue
+        try:
+            seconds = _time_str_to_seconds(start)
+        except (ValueError, IndexError):
+            continue
+        entries.append((seconds, speaker))
+
+    entries.sort(key=lambda x: x[0])
+    return entries
+
+
+def _find_speaker_at_time(
+    speaker_entries: list[tuple[int, str]], target_seconds: int
+) -> str | None:
+    """Find the speaker at a given time using binary search.
+
+    Returns the speaker whose entry starts at or before target_seconds,
+    or None if no entry precedes the target time.
+    """
+    if not speaker_entries:
+        return None
+    # bisect on just the time values
+    times = [e[0] for e in speaker_entries]
+    idx = bisect.bisect_right(times, target_seconds) - 1
+    if idx < 0:
+        return None
+    return speaker_entries[idx][1]
+
+
+def link_import(name: str, entity_id: str) -> dict[str, Any]:
+    """Link an import participant name as an aka on an existing entity.
+
+    Args:
+        name: The participant name from an import transcript
+        entity_id: The entity ID to link to
+
+    Returns:
+        Dict with link result or error
+    """
+    entity = load_journal_entity(entity_id)
+    if not entity:
+        return {"error": f"Entity not found: {entity_id}"}
+
+    existing_aka = set(entity.get("aka", []))
+    already_present = name in existing_aka
+
+    if not already_present:
+        existing_aka.add(name)
+        entity["aka"] = sorted(existing_aka)
+        entity["updated_at"] = now_ms()
+        save_journal_entity(entity)
+
+    return {
+        "linked": True,
+        "entity_id": entity_id,
+        "name_added": name,
+        "already_present": already_present,
+    }
+
+
+def seed_from_imports(dry_run: bool = False) -> dict[str, Any]:
+    """Seed voiceprints from import segments with speaker-attributed transcripts."""
+    (
+        load_embeddings_file,
+        normalize_embedding,
+        scan_segment_embeddings,
+        _,
+    ) = _routes_helpers()
+
+    centroid_data = load_owner_centroid()
+    if centroid_data is None:
+        return {"error": "No confirmed owner centroid. Run owner detection first."}
+
+    owner_centroid, owner_threshold = centroid_data
+
+    journal_entities = load_all_journal_entities()
+    entities_list = [e for e in journal_entities.values() if not e.get("blocked")]
+
+    stats: dict[str, Any] = {
+        "segments_scanned": 0,
+        "segments_with_speakers": 0,
+        "speakers_found": {},
+        "embeddings_saved": 0,
+        "embeddings_skipped_owner": 0,
+        "embeddings_skipped_duplicate": 0,
+        "speakers_unmatched": [],
+        "errors": [],
+    }
+
+    entity_embeddings: dict[str, list[tuple[np.ndarray, dict]]] = defaultdict(list)
+    entity_existing: dict[str, set] = {}
+    unmatched_set: set[str] = set()
+    speaker_entity_cache: dict[str, Any] = {}
+
+    days = sorted(day_dirs().keys())
+
+    for day_idx, day in enumerate(days):
+        segments = scan_segment_embeddings(day)
+
+        for segment in segments:
+            stream = segment["stream"]
+            if not stream.startswith("import.") or stream in _AI_CHAT_STREAMS:
+                continue
+
+            stats["segments_scanned"] += 1
+            seg_key = segment["key"]
+            seg_dir = segment_path(day, seg_key, stream)
+            speaker_entries = _parse_conversation_speakers(seg_dir)
+            if not speaker_entries:
+                continue
+
+            stats["segments_with_speakers"] += 1
+
+            for source in segment["sources"]:
+                source_jsonl = seg_dir / f"{source}.jsonl"
+                stmt_times: dict[int, int] = {}
+                if source_jsonl.exists():
+                    try:
+                        with open(source_jsonl, encoding="utf-8") as f:
+                            src_lines = f.readlines()
+                    except OSError as exc:
+                        stats["errors"].append(
+                            f"Failed to read source transcript {day}/{seg_key}/{source}: {exc}"
+                        )
+                        continue
+
+                    for i, line in enumerate(src_lines[1:], start=1):
+                        try:
+                            entry = json.loads(line)
+                            start = entry.get("start", "")
+                            if start:
+                                stmt_times[i] = _time_str_to_seconds(start)
+                        except (json.JSONDecodeError, ValueError, IndexError):
+                            continue
+
+                emb_data = load_embeddings_file(seg_dir / f"{source}.npz")
+                if emb_data is None:
+                    continue
+
+                embeddings, statement_ids = emb_data
+
+                for embedding, sid in zip(embeddings, statement_ids):
+                    sentence_id = int(sid)
+
+                    target_time = stmt_times.get(sentence_id)
+                    if target_time is None:
+                        continue
+
+                    speaker_name = _find_speaker_at_time(speaker_entries, target_time)
+                    if not speaker_name:
+                        continue
+
+                    if speaker_name not in speaker_entity_cache:
+                        entity = find_matching_entity(speaker_name, entities_list)
+                        speaker_entity_cache[speaker_name] = entity
+
+                    entity = speaker_entity_cache[speaker_name]
+                    if entity is None:
+                        if speaker_name not in unmatched_set:
+                            unmatched_set.add(speaker_name)
+                            stats["speakers_unmatched"].append(speaker_name)
+                        continue
+
+                    entity_id = entity["id"]
+                    entity_name = entity.get("name", speaker_name)
+                    stats["speakers_found"].setdefault(entity_name, 0)
+
+                    if entity_id not in entity_existing:
+                        entity_existing[entity_id] = _load_existing_voiceprint_keys(
+                            entity_id
+                        )
+
+                    existing_keys = entity_existing[entity_id]
+                    vp_key = (day, seg_key, source, sentence_id)
+
+                    if vp_key in existing_keys:
+                        stats["embeddings_skipped_duplicate"] += 1
+                        continue
+
+                    normalized = normalize_embedding(embedding)
+                    if normalized is None:
+                        continue
+
+                    owner_score = float(np.dot(normalized, owner_centroid))
+                    if owner_score >= owner_threshold:
+                        stats["embeddings_skipped_owner"] += 1
+                        continue
+
+                    metadata = {
+                        "day": day,
+                        "segment_key": seg_key,
+                        "source": source,
+                        "stream": stream,
+                        "sentence_id": sentence_id,
+                        "added_at": now_ms(),
+                    }
+
+                    entity_embeddings[entity_id].append((normalized, metadata))
+                    existing_keys.add(vp_key)
+                    stats["speakers_found"][entity_name] += 1
+
+        if (day_idx + 1) % 10 == 0:
+            logger.info(
+                "Import seeding progress: %d/%d days, %d segments, %d embeddings queued",
+                day_idx + 1,
+                len(days),
+                stats["segments_scanned"],
+                sum(len(v) for v in entity_embeddings.values()),
+            )
+
+    if not dry_run:
+        for entity_id, emb_list in entity_embeddings.items():
+            try:
+                saved = _save_voiceprints_batch(entity_id, emb_list)
+                stats["embeddings_saved"] += saved
+            except Exception as e:
+                stats["errors"].append(f"Failed to save for {entity_id}: {e}")
+                logger.exception(
+                    "Failed to save import-seeded voiceprints for %s", entity_id
+                )
+    else:
+        stats["embeddings_saved"] = sum(len(v) for v in entity_embeddings.values())
 
     return stats

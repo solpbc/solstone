@@ -229,6 +229,100 @@ def speakers_env(tmp_path, monkeypatch):
 
             return labels_path
 
+        def create_import_segment(
+            self,
+            day: str,
+            segment_key: str,
+            speakers: list[tuple[str, str]],
+            *,
+            stream: str = "import.granola",
+            embeddings: np.ndarray | None = None,
+        ) -> Path:
+            """Create an import segment with conversation_transcript and embeddings.
+
+            Creates both a conversation_transcript.jsonl (with speaker labels) and
+            imported_audio.{jsonl,npz,flac} (with aligned embeddings) in the
+            same segment directory.
+
+            Args:
+                day: Day string (YYYYMMDD)
+                segment_key: Segment key (HHMMSS_LEN)
+                speakers: List of (speaker_name, text) tuples for each sentence
+                stream: Import stream name (default: import.granola)
+                embeddings: Optional pre-built embeddings array (num_sentences x 256)
+            """
+            segment_dir = self.journal / day / stream / segment_key
+            segment_dir.mkdir(parents=True, exist_ok=True)
+
+            num_sentences = len(speakers)
+
+            time_part = segment_key.split("_")[0]
+            base_h = int(time_part[0:2])
+            base_m = int(time_part[2:4])
+            base_s = int(time_part[4:6])
+            base_seconds = base_h * 3600 + base_m * 60 + base_s
+
+            ct_lines = [
+                json.dumps({"imported": {"id": "test-import"}, "topics": "test"})
+            ]
+            for i, (speaker, text) in enumerate(speakers):
+                offset = i * 5
+                abs_seconds = base_seconds + offset
+                h = (abs_seconds // 3600) % 24
+                m = (abs_seconds % 3600) // 60
+                s = abs_seconds % 60
+                ct_lines.append(
+                    json.dumps(
+                        {
+                            "start": f"{h:02d}:{m:02d}:{s:02d}",
+                            "speaker": speaker,
+                            "text": text,
+                            "source": "import",
+                        }
+                    )
+                )
+            ct_path = segment_dir / "conversation_transcript.jsonl"
+            ct_path.write_text("\n".join(ct_lines) + "\n")
+
+            audio_lines = [
+                json.dumps({"raw": "imported_audio.flac", "model": "medium.en"})
+            ]
+            for i, (_speaker, text) in enumerate(speakers):
+                offset = i * 5
+                abs_seconds = base_seconds + offset
+                h = (abs_seconds // 3600) % 24
+                m = (abs_seconds % 3600) // 60
+                s = abs_seconds % 60
+                audio_lines.append(
+                    json.dumps(
+                        {
+                            "start": f"{h:02d}:{m:02d}:{s:02d}",
+                            "text": text,
+                        }
+                    )
+                )
+            audio_jsonl_path = segment_dir / "imported_audio.jsonl"
+            audio_jsonl_path.write_text("\n".join(audio_lines) + "\n")
+
+            if embeddings is None:
+                source_embeddings = np.random.randn(num_sentences, 256).astype(
+                    np.float32
+                )
+                norms = np.linalg.norm(source_embeddings, axis=1, keepdims=True)
+                source_embeddings = source_embeddings / norms
+            else:
+                source_embeddings = embeddings.astype(np.float32)
+            statement_ids = np.arange(1, num_sentences + 1, dtype=np.int32)
+            np.savez_compressed(
+                segment_dir / "imported_audio.npz",
+                embeddings=source_embeddings,
+                statement_ids=statement_ids,
+            )
+
+            (segment_dir / "imported_audio.flac").write_bytes(b"")
+
+            return segment_dir
+
     def _create():
         return SpeakersEnv(tmp_path)
 
