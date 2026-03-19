@@ -12,6 +12,7 @@ Provides:
     sol call speakers discover [--json]
     sol call speakers identify <cluster-id> <name> [--entity-id ID]
     sol call speakers merge-names <alias> <canonical>
+    sol call speakers suggest [--limit N] [--json]
 """
 
 from __future__ import annotations
@@ -382,3 +383,25 @@ def merge_names_cmd(
         typer.echo(output, err=True)
         raise typer.Exit(1)
     typer.echo(output)
+
+
+@app.command()
+def suggest(
+    limit: int = typer.Option(
+        5, "--limit", "-n", help="Maximum suggestions to return."
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON array."),
+) -> None:
+    """Suggest speaker curation opportunities."""
+    import json as json_mod
+
+    from apps.speakers.suggest import suggest_opportunities
+
+    results = suggest_opportunities(limit=limit)
+    if json_output:
+        typer.echo(json_mod.dumps(results, indent=2, default=str))
+        return
+
+    from apps.speakers.suggest import format_suggestions
+
+    typer.echo(format_suggestions(results))
