@@ -1,0 +1,61 @@
+# Testing
+
+## Test Structure
+
+- **Framework**: pytest with coverage reporting
+- **Unit Tests**: `tests/` root directory
+  - Fast, no external API calls
+  - Use `tests/fixtures/journal/` mock data
+  - Test individual functions and modules
+- **Integration Tests**: `tests/integration/` subdirectory
+  - Test real backends (Anthropic, OpenAI, Google)
+  - Require API keys in `.env`
+  - Test end-to-end workflows
+- **Naming**: Files `test_*.py`, functions `test_*`
+- **Fixtures**: Shared fixtures in `tests/conftest.py`
+
+## Fixture Journal
+
+```python
+# Use comprehensive mock journal data for testing
+os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
+# Now all journal operations work with test data
+```
+
+The `tests/fixtures/journal/` directory contains a complete mock journal structure with sample facets, agents, transcripts, and indexed data for testing.
+
+## Running Tests
+
+- `make test` for unit tests
+- `make test-apps` to run app tests
+- `make test-integration` for integration tests
+- `make test-all` to run all tests (core + apps + integration)
+- `make test-only TEST=path` to run specific tests
+- `make coverage` to generate a coverage report
+- `make ci` before committing (formats, lints, tests)
+- Always run `sol restart-convey` after editing `convey/` or `apps/` to reload code
+- Use `sol screenshot <route>` to capture UI screenshots for visual testing
+
+## Worktree Development
+
+Run the full stack (supervisor + callosum + sense + cortex + convey) against test fixture data:
+
+```bash
+make dev                    # Start stack (Ctrl+C to stop)
+```
+
+In a second terminal, take screenshots or hit endpoints:
+
+```bash
+export _SOLSTONE_JOURNAL_OVERRIDE=tests/fixtures/journal
+export PATH=$(pwd)/.venv/bin:$PATH
+sol screenshot / -o scratch/home.png
+curl -s http://localhost:$(cat tests/fixtures/journal/health/convey.port)/
+```
+
+Notes:
+
+- Agents won't execute without API keys — this is expected in worktrees
+- Output artifacts go in `scratch/` (git-ignored)
+- Service logs: `tests/fixtures/journal/health/<service>.log`
+- `make dev` writes runtime artifacts (stats cache, health logs, task logs) into the fixtures journal — these are covered by `tests/fixtures/journal/.gitignore` and should never be committed
