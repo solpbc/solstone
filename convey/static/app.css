@@ -1041,7 +1041,7 @@ body.menu-all .menu-bar {
   transition: max-height 0.2s ease, padding 0.2s ease;
 }
 
-.chat-bar-response-panel.chat-bar-panel-open {
+.app-bar--glance .chat-bar-response-panel {
   max-height: 200px;
   padding: 12px 16px 0;
 }
@@ -1193,7 +1193,7 @@ body.menu-all .menu-bar {
 }
 
 /* Panel expanded state */
-.app-bar.panel-open {
+.app-bar.app-bar--focused {
   height: 80vh;
   bottom: 0;
   border-radius: 12px 12px 0 0;
@@ -1202,7 +1202,7 @@ body.menu-all .menu-bar {
 }
 
 /* Panel closing animation */
-.app-bar.panel-closing {
+.app-bar.app-bar--dismissing {
   z-index: calc(var(--z-bars) + 50);
   animation: panel-collapse 0.25s ease forwards;
 }
@@ -1250,12 +1250,12 @@ body.menu-all .menu-bar {
   border-radius: 3px;
 }
 
-.app-bar.panel-open .conversation-messages {
+.app-bar.app-bar--focused .conversation-messages {
   display: flex;
 }
 
 /* Hide inline response panel in panel mode */
-.app-bar.panel-open .chat-bar-response-panel {
+.app-bar.app-bar--focused .chat-bar-response-panel {
   display: none;
 }
 
@@ -1264,7 +1264,7 @@ body.menu-all .menu-bar {
   display: none;
 }
 
-.app-bar.panel-open .conversation-separator {
+.app-bar.app-bar--focused .conversation-separator {
   display: block;
   height: 1px;
   background: var(--facet-border, #e0e0e0);

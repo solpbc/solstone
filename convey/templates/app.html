@@ -104,13 +104,17 @@
   let panelOpen = false;
   let messages = [];
   let savedScrollTop = 0;
+  let pendingMessage = null;
 
   // --- State persistence ---
   function save() {
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({
         messages: messages,
-        scrollTop: msgArea ? msgArea.scrollTop : 0
+        scrollTop: msgArea ? msgArea.scrollTop : 0,
+        inputText: input.value,
+        inputSelection: [input.selectionStart, input.selectionEnd],
+        pendingMessage: pendingMessage
       }));
     } catch {}
   }
@@ -130,6 +134,7 @@
   function clearConversation() {
     messages = [];
     savedScrollTop = 0;
+    pendingMessage = null;
     try { localStorage.removeItem(STORE_KEY); } catch {}
     if (msgArea) msgArea.innerHTML = '';
   }
@@ -150,8 +155,8 @@
   function openPanel() {
     if (panelOpen) return;
     panelOpen = true;
-    appBar.classList.remove('panel-closing');
-    appBar.classList.add('panel-open');
+    appBar.classList.remove('app-bar--dismissing');
+    appBar.classList.add('app-bar--focused');
     backdrop.classList.add('visible');
     renderMessages();
     responsePanel.style.display = 'none';
@@ -171,16 +176,22 @@
     if (!panelOpen) return;
     panelOpen = false;
     save();
-    appBar.classList.add('panel-closing');
+    appBar.classList.add('app-bar--dismissing');
     backdrop.classList.remove('visible');
 
     function onDone() {
-      appBar.classList.remove('panel-open', 'panel-closing');
+      appBar.classList.remove('app-bar--focused', 'app-bar--dismissing');
       responsePanel.style.display = '';
     }
     appBar.addEventListener('animationend', onDone, { once: true });
     setTimeout(onDone, 300); // fallback
   }
+
+  // Expose for websocket navigate handler
+  window._closeConversationPanel = closePanel;
+
+  // Save state before navigation
+  window.addEventListener('pagehide', save);
 
   // --- Inline vs panel heuristic ---
   function isOneLiner(text) {
@@ -199,11 +210,14 @@
     openPanel();
   });
 
-  // --- Textarea auto-resize ---
+  // --- Textarea auto-resize + debounced save ---
+  let inputSaveTimer;
   input.addEventListener('input', function() {
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
     sendBtn.style.display = input.value.trim() ? '' : 'none';
+    clearTimeout(inputSaveTimer);
+    inputSaveTimer = setTimeout(save, 300);
   });
 
   // --- Focus on load ---
@@ -213,23 +227,117 @@
 
   // --- Restore from localStorage ---
   var saved = load();
-  if (saved && messages.length > 0) {
-    var last = null;
-    for (var i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'agent') { last = messages[i]; break; }
+  if (saved) {
+    // Restore input text
+    if (saved.inputText) {
+      input.value = saved.inputText;
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+      sendBtn.style.display = input.value.trim() ? '' : 'none';
     }
-    if (last && inlineResp) {
-      inlineResp.textContent = last.content;
-      inlineResp.style.display = '';
-      dismissBtn.style.display = '';
-      responsePanel.classList.add('chat-bar-panel-open');
+
+    // Restore cursor position
+    if (saved.inputSelection) {
+      try { input.setSelectionRange(saved.inputSelection[0], saved.inputSelection[1]); } catch {}
+    }
+
+    // Restore glance state (last agent response inline)
+    if (messages.length > 0) {
+      var last = null;
+      for (var i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'agent') { last = messages[i]; break; }
+      }
+      if (last && inlineResp) {
+        inlineResp.textContent = last.content;
+        inlineResp.style.display = '';
+        dismissBtn.style.display = '';
+        appBar.classList.add('app-bar--glance');
+      }
+    }
+
+    // Auto-retry pending request if < 30 seconds old
+    if (saved.pendingMessage && saved.pendingMessage.sentAt) {
+      var age = Date.now() - saved.pendingMessage.sentAt;
+      if (age < 30000) {
+        pendingMessage = saved.pendingMessage;
+        thinking.style.display = '';
+        inlineResp.style.display = 'none';
+        dismissBtn.style.display = 'none';
+        appBar.classList.add('app-bar--glance');
+
+        (async function() {
+          try {
+            var history = messages.slice(0, -1).map(function(m) {
+              return { role: m.role, content: m.content };
+            });
+            var r = await fetch('/api/triage', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                message: pendingMessage.text,
+                app: '{{ app }}',
+                path: window.location.pathname,
+                facet: window.selectedFacet || null,
+                conversation_history: history.length > 0 ? history : undefined
+              })
+            });
+
+            var resp = '';
+            var panelHint = false;
+            var errMsg = null;
+            if (r.ok) {
+              var data = await r.json();
+              resp = data.response || '';
+              panelHint = !!data.panel;
+            } else {
+              errMsg = 'Something went wrong. Try again.';
+            }
+            var content = errMsg || resp;
+            if (content) {
+              messages.push({ role: 'agent', content: content, ts: Date.now() });
+            }
+            pendingMessage = null;
+
+            var userCount = messages.filter(function(m) { return m.role === 'user'; }).length;
+            var shouldInline = userCount === 1 && !panelHint && isOneLiner(resp) && !errMsg;
+            if (shouldInline) {
+              thinking.style.display = 'none';
+              inlineResp.textContent = content;
+              inlineResp.style.display = content ? '' : 'none';
+              dismissBtn.style.display = content ? '' : 'none';
+              if (!content) appBar.classList.remove('app-bar--glance');
+            } else {
+              thinking.style.display = 'none';
+              appBar.classList.remove('app-bar--glance');
+              openPanel();
+            }
+            save();
+          } catch (err) {
+            pendingMessage = null;
+            var errContent = 'Connection error. Try again.';
+            messages.push({ role: 'agent', content: errContent, ts: Date.now() });
+            thinking.style.display = 'none';
+            inlineResp.textContent = errContent;
+            inlineResp.style.display = '';
+            dismissBtn.style.display = '';
+            save();
+          } finally {
+            input.disabled = false;
+            input.focus();
+          }
+        })();
+      } else {
+        // Stale pending request — abandon
+        pendingMessage = null;
+        save();
+      }
     }
   }
 
   // --- Dismiss inline response ---
   dismissBtn.addEventListener('click', function(e) {
     e.stopPropagation();
-    responsePanel.classList.remove('chat-bar-panel-open');
+    appBar.classList.remove('app-bar--glance');
     thinking.style.display = 'none';
     inlineResp.style.display = 'none';
     dismissBtn.style.display = 'none';
@@ -251,12 +359,14 @@
     if (!text) return;
 
     messages.push({ role: 'user', content: text, ts: Date.now() });
+    pendingMessage = { text: text, sentAt: Date.now() };
 
     // Clear input
     input.value = '';
     input.style.height = '';
     sendBtn.style.display = 'none';
     input.disabled = true;
+    save();
 
     if (panelOpen) {
       // Show user message + thinking indicator in panel
@@ -272,7 +382,7 @@
       thinking.style.display = '';
       inlineResp.style.display = 'none';
       dismissBtn.style.display = 'none';
-      responsePanel.classList.add('chat-bar-panel-open');
+      appBar.classList.add('app-bar--glance');
     }
 
     try {
@@ -308,6 +418,7 @@
       if (content) {
         messages.push({ role: 'agent', content: content, ts: Date.now() });
       }
+      pendingMessage = null;
 
       var userCount = messages.filter(function(m) { return m.role === 'user'; }).length;
       var shouldInline = userCount === 1 && !panelHint && isOneLiner(resp) && !errMsg;
@@ -321,16 +432,17 @@
         inlineResp.textContent = content;
         inlineResp.style.display = content ? '' : 'none';
         dismissBtn.style.display = content ? '' : 'none';
-        if (!content) responsePanel.classList.remove('chat-bar-panel-open');
+        if (!content) appBar.classList.remove('app-bar--glance');
       } else {
         // Expand to panel
         thinking.style.display = 'none';
-        responsePanel.classList.remove('chat-bar-panel-open');
+        appBar.classList.remove('app-bar--glance');
         openPanel();
       }
 
       save();
     } catch (err) {
+      pendingMessage = null;
       var errContent = 'Connection error. Try again.';
       messages.push({ role: 'agent', content: errContent, ts: Date.now() });
       if (panelOpen) {
@@ -342,6 +454,7 @@
         inlineResp.style.display = '';
         dismissBtn.style.display = '';
       }
+      save();
     } finally {
       var pt = document.getElementById('panelThinking');
       if (pt) pt.remove();
