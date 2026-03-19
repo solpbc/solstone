@@ -921,7 +921,7 @@ def test_scan_entities_identity():
     conn, _ = get_journal_index("tests/fixtures/journal")
     rows = conn.execute("SELECT * FROM entities WHERE source='identity'").fetchall()
     conn.close()
-    assert len(rows) == 33
+    assert len(rows) == 34
 
 
 def test_scan_entities_relationship():
@@ -962,7 +962,7 @@ def test_scan_entities_observations():
         "SELECT entity_id, facet, observation_count, last_observed FROM entities WHERE source='observation'"
     ).fetchall()
     conn.close()
-    assert len(rows) == 23
+    assert len(rows) == 24
 
     by_entity = {(r[0], r[1]): (r[2], r[3]) for r in rows}
     assert by_entity[("alice_johnson", "personal")][0] == 3
@@ -1005,7 +1005,7 @@ def test_scan_entities_deletion(tmp_path):
         "SELECT count(*) FROM entities WHERE source='identity'"
     ).fetchone()[0]
     conn.close()
-    assert initial == 33
+    assert initial == 34
 
     entity_file = dst / "entities" / "alice_johnson" / "entity.json"
     entity_file.unlink()
@@ -1016,7 +1016,7 @@ def test_scan_entities_deletion(tmp_path):
         "SELECT count(*) FROM entities WHERE source='identity'"
     ).fetchone()[0]
     conn.close()
-    assert after == 32
+    assert after == 33
 
 
 def test_scan_entities_preserves_fts():
@@ -1240,8 +1240,8 @@ def test_entity_search_chunks_indexed():
         0
     ]
     conn.close()
-    # One chunk per entity-facet relationship (33 identities × relationships per facet)
-    assert count == 40
+    # One chunk per entity-facet relationship (34 identities × relationships per facet)
+    assert count == 41
 
 
 def test_entity_search_chunks_use_entity_search_path():
@@ -1320,4 +1320,4 @@ def test_entity_search_idempotent():
         "SELECT count(*) FROM chunks WHERE agent='entity'"
     ).fetchone()[0]
     conn.close()
-    assert count1 == count2 == 40
+    assert count1 == count2 == 41
