@@ -109,7 +109,7 @@ def enrich_transcript(
             contents=contents,
             context="observe.enrich",
             temperature=0.3,
-            max_output_tokens=8192,
+            max_output_tokens=16384,
             thinking_budget=4096,
             json_output=True,
         )
