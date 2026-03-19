@@ -17,6 +17,14 @@
       "name": "Email"
     },
     {
+      "always_on": true,
+      "description": "Video calls, in-person meetings, and conferences",
+      "icon": "📅",
+      "id": "meeting",
+      "instructions": "Levels: high=actively speaking/presenting, medium=listening attentively, low=muted or multitasking during call. Detect via: video call UI, multiple speakers, calendar event visible.",
+      "name": "Meetings"
+    },
+    {
       "description": "Books, PDFs, articles, highlights, and documentation",
       "icon": "📖",
       "id": "reading",
@@ -92,13 +100,6 @@
       "id": "productivity",
       "instructions": "Levels: high=actively editing or organizing, medium=reviewing data, low=app open but not focused. Detect via: spreadsheet/slide editors, project management tools, task boards.",
       "name": "Productivity"
-    },
-    {
-      "description": "Video calls, in-person meetings, and conferences",
-      "icon": "📅",
-      "id": "meeting",
-      "instructions": "Levels: high=actively speaking/presenting, medium=listening attentively, low=muted or multitasking during call. Detect via: video call UI, multiple speakers, calendar event visible.",
-      "name": "Meetings"
     },
     {
       "description": "Watching videos and streaming content",

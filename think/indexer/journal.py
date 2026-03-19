@@ -1616,8 +1616,13 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
     entity_changed = scan_entities(journal, conn, verbose=verbose, full=full)
     signal_changed = scan_signals(journal, conn, verbose=verbose, full=full)
 
-    # Regenerate entity search chunks when entity data changes
-    if entity_changed:
+    # Regenerate entity search chunks when entity data changes or chunks are missing
+    if (
+        entity_changed
+        or not conn.execute(
+            "SELECT 1 FROM chunks WHERE agent='entity' LIMIT 1"
+        ).fetchone()
+    ):
         _index_entity_search_chunks(conn)
 
     conn.close()
