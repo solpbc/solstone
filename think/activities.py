@@ -34,6 +34,7 @@ DEFAULT_ACTIVITIES: list[dict[str, str]] = [
         "name": "Meetings",
         "description": "Video calls, in-person meetings, and conferences",
         "icon": "📅",
+        "always_on": True,
         "instructions": (
             "Levels: high=actively speaking/presenting, medium=listening attentively,"
             " low=muted or multitasking during call."
@@ -298,6 +299,16 @@ def get_facet_activities(facet: str) -> list[dict[str, Any]]:
     # Load facet-specific activities
     facet_activities = _load_activities_jsonl(facet)
 
+    # If no explicit activities configured, use all defaults as the vocabulary
+    if not facet_activities:
+        result = []
+        for default in DEFAULT_ACTIVITIES:
+            activity = dict(default)
+            activity["custom"] = False
+            activity.setdefault("priority", "normal")
+            result.append(activity)
+        return result
+
     seen_ids: set[str] = set()
     result = []
     for fa in facet_activities:
@@ -469,12 +480,12 @@ def add_activity_to_facet(
     Returns:
         The added activity dict
     """
-    # Check if already attached
-    existing = get_facet_activities(facet)
-    for activity in existing:
-        if activity.get("id") == activity_id:
-            # Already attached - return existing
-            return activity
+    # Check if already explicitly attached (in JSONL, not just defaults)
+    existing_raw = _load_activities_jsonl(facet)
+    for entry in existing_raw:
+        if entry.get("id") == activity_id:
+            # Already attached - return full activity with defaults merged
+            return get_activity_by_id(facet, activity_id) or entry
 
     # Build new activity entry
     defaults_by_id = {a["id"]: a for a in DEFAULT_ACTIVITIES}

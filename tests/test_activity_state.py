@@ -1392,3 +1392,207 @@ class TestActivityLiveEvents:
             items = json.loads(result)
             assert len(items) == 1
             assert items[0]["id"] == "coding_143000_300"
+
+
+class TestActivityIdValidation:
+    """Tests for post-hook activity ID validation against configured vocabulary."""
+
+    def test_drops_unrecognized_activity_ids(self):
+        """Post-hook drops LLM output entries with activity IDs not in config."""
+        from unittest.mock import patch
+
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                # Create facet with only coding and meeting configured
+                facet_dir = Path(tmpdir) / "facets" / "work" / "activities"
+                facet_dir.mkdir(parents=True)
+                (facet_dir / "activities.jsonl").write_text(
+                    '{"id": "coding"}\n{"id": "meeting"}'
+                )
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "coding",
+                            "state": "new",
+                            "description": "Writing code",
+                            "level": "high",
+                        },
+                        {
+                            "activity": "Technical Work",
+                            "state": "new",
+                            "description": "Hallucinated from facet name",
+                            "level": "medium",
+                        },
+                    ]
+                )
+
+                context = {
+                    "segment": "143000_300",
+                    "output_path": f"{tmpdir}/20260130/143000_300/agents/work/activity_state.json",
+                }
+
+                with patch("muse.activity_state.callosum_send"):
+                    result = post_process(llm_output, context)
+
+                items = json.loads(result)
+                assert len(items) == 1
+                assert items[0]["activity"] == "coding"
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
+    def test_logs_warning_on_dropped_activities(self, caplog):
+        """Post-hook logs a warning when dropping unrecognized activity IDs."""
+        import logging
+        from unittest.mock import patch
+
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                facet_dir = Path(tmpdir) / "facets" / "work" / "activities"
+                facet_dir.mkdir(parents=True)
+                (facet_dir / "activities.jsonl").write_text('{"id": "coding"}')
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "meetings",
+                            "state": "new",
+                            "description": "Hallucinated",
+                            "level": "medium",
+                        },
+                    ]
+                )
+
+                context = {
+                    "segment": "143000_300",
+                    "output_path": f"{tmpdir}/20260130/143000_300/agents/work/activity_state.json",
+                }
+
+                with caplog.at_level(logging.WARNING, logger="muse.activity_state"):
+                    with patch("muse.activity_state.callosum_send"):
+                        post_process(llm_output, context)
+
+                assert "Dropped 1 activity entries" in caplog.text
+                assert "work" in caplog.text
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
+    def test_valid_activity_ids_pass_through(self):
+        """Post-hook preserves entries with valid activity IDs."""
+        from unittest.mock import patch
+
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                facet_dir = Path(tmpdir) / "facets" / "work" / "activities"
+                facet_dir.mkdir(parents=True)
+                (facet_dir / "activities.jsonl").write_text(
+                    '{"id": "coding"}\n{"id": "meeting"}'
+                )
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "coding",
+                            "state": "new",
+                            "description": "Writing code",
+                            "level": "high",
+                        },
+                        {
+                            "activity": "meeting",
+                            "state": "new",
+                            "description": "Standup",
+                            "level": "medium",
+                        },
+                        {
+                            "activity": "email",
+                            "state": "new",
+                            "description": "Checking inbox",
+                            "level": "low",
+                        },
+                    ]
+                )
+
+                context = {
+                    "segment": "143000_300",
+                    "output_path": f"{tmpdir}/20260130/143000_300/agents/work/activity_state.json",
+                }
+
+                with patch("muse.activity_state.callosum_send"):
+                    result = post_process(llm_output, context)
+
+                items = json.loads(result)
+                # All three are valid: coding + meeting explicit, email always_on
+                assert len(items) == 3
+                activity_ids = {item["activity"] for item in items}
+                assert activity_ids == {"coding", "meeting", "email"}
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path
+
+    def test_unconfigured_facet_allows_all_defaults(self):
+        """Post-hook allows all default activity IDs for unconfigured facets."""
+        from unittest.mock import patch
+
+        from muse.activity_state import post_process
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_path = os.environ.get("JOURNAL_PATH")
+            os.environ["JOURNAL_PATH"] = tmpdir
+
+            try:
+                # Create facet dir but no activities.jsonl
+                facet_dir = Path(tmpdir) / "facets" / "new_facet"
+                facet_dir.mkdir(parents=True)
+
+                llm_output = json.dumps(
+                    [
+                        {
+                            "activity": "meeting",
+                            "state": "new",
+                            "description": "Team sync",
+                            "level": "high",
+                        },
+                        {
+                            "activity": "coding",
+                            "state": "new",
+                            "description": "Writing code",
+                            "level": "medium",
+                        },
+                    ]
+                )
+
+                context = {
+                    "segment": "143000_300",
+                    "output_path": f"{tmpdir}/20260130/143000_300/agents/new_facet/activity_state.json",
+                }
+
+                with patch("muse.activity_state.callosum_send"):
+                    result = post_process(llm_output, context)
+
+                items = json.loads(result)
+                # Both are valid defaults
+                assert len(items) == 2
+
+            finally:
+                if original_path:
+                    os.environ["JOURNAL_PATH"] = original_path

@@ -105,16 +105,82 @@ def test_generate_activity_id():
 def test_facet_activities_empty():
     """Test loading activities from a facet with no activities file.
 
-    Even with no activities.jsonl, always-on defaults are included.
+    With no activities.jsonl, all defaults are returned as the vocabulary.
     """
     from think.activities import DEFAULT_ACTIVITIES, get_facet_activities
 
     activities = get_facet_activities("personal")
     assert isinstance(activities, list)
 
-    # Should contain exactly the always-on defaults
+    # Should contain all defaults (full vocabulary for unconfigured facets)
+    all_default_ids = {a["id"] for a in DEFAULT_ACTIVITIES}
+    assert {a["id"] for a in activities} == all_default_ids
+
+
+def test_meeting_is_always_on():
+    """Test that meeting is marked always_on in DEFAULT_ACTIVITIES."""
+    from think.activities import DEFAULT_ACTIVITIES
+
     always_on_ids = {a["id"] for a in DEFAULT_ACTIVITIES if a.get("always_on")}
-    assert {a["id"] for a in activities} == always_on_ids
+    assert "meeting" in always_on_ids
+    assert "email" in always_on_ids
+    assert "messaging" in always_on_ids
+
+
+def test_unconfigured_facet_returns_all_defaults():
+    """Test that a facet with no activities.jsonl gets all 16 defaults."""
+    from think.activities import DEFAULT_ACTIVITIES, get_facet_activities
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_path = os.environ.get("JOURNAL_PATH")
+        os.environ["JOURNAL_PATH"] = tmpdir
+
+        facet_path = Path(tmpdir) / "facets" / "new_facet"
+        facet_path.mkdir(parents=True)
+
+        try:
+            activities = get_facet_activities("new_facet")
+            assert len(activities) == len(DEFAULT_ACTIVITIES)
+
+            activity_ids = {a["id"] for a in activities}
+            default_ids = {a["id"] for a in DEFAULT_ACTIVITIES}
+            assert activity_ids == default_ids
+
+            # All should be marked as not custom
+            for activity in activities:
+                assert activity.get("custom") is False
+
+        finally:
+            if original_path:
+                os.environ["JOURNAL_PATH"] = original_path
+
+
+def test_configured_facet_includes_meeting_always_on():
+    """Test that a facet with explicit activities auto-includes meeting."""
+    from think.activities import get_facet_activities, save_facet_activities
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_path = os.environ.get("JOURNAL_PATH")
+        os.environ["JOURNAL_PATH"] = tmpdir
+
+        facet_path = Path(tmpdir) / "facets" / "work"
+        facet_path.mkdir(parents=True)
+
+        try:
+            # Save only coding — meeting, email, messaging should auto-include
+            save_facet_activities("work", [{"id": "coding"}])
+
+            activities = get_facet_activities("work")
+            activity_ids = {a["id"] for a in activities}
+
+            assert "coding" in activity_ids
+            assert "meeting" in activity_ids
+            assert "email" in activity_ids
+            assert "messaging" in activity_ids
+
+        finally:
+            if original_path:
+                os.environ["JOURNAL_PATH"] = original_path
 
 
 def test_facet_activities_roundtrip():

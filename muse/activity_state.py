@@ -529,24 +529,40 @@ def post_process(result: str, context: dict) -> str | None:
         logger.warning("activity_state output is not an array")
         return None
 
+    # Extract facet from output path
+    facet = _extract_facet_from_output_path(output_path)
+
+    # Validate activity IDs against configured vocabulary
+    if facet:
+        from think.activities import get_facet_activities
+
+        valid_ids = {a["id"] for a in get_facet_activities(facet)}
+        original_count = len(items)
+        items = [item for item in items if item.get("activity", "") in valid_ids]
+        dropped = original_count - len(items)
+        if dropped:
+            logger.warning(
+                "Dropped %d activity entries with unrecognized activity IDs for facet %s",
+                dropped,
+                facet,
+            )
+
     # Load previous state for since resolution
     prev_active: list[dict] = []
     prev_ended: list[dict] = []
-    if day:
-        facet = _extract_facet_from_output_path(output_path)
-        if facet:
-            previous_segment = find_previous_segment(day, segment, stream=stream)
-            if previous_segment:
-                prev_state, _ = load_previous_state(
-                    day, previous_segment, facet, stream=stream
-                )
-                if prev_state:
-                    prev_active = [
-                        item for item in prev_state if item.get("state") == "active"
-                    ]
-                    prev_ended = [
-                        item for item in prev_state if item.get("state") == "ended"
-                    ]
+    if day and facet:
+        previous_segment = find_previous_segment(day, segment, stream=stream)
+        if previous_segment:
+            prev_state, _ = load_previous_state(
+                day, previous_segment, facet, stream=stream
+            )
+            if prev_state:
+                prev_active = [
+                    item for item in prev_state if item.get("state") == "active"
+                ]
+                prev_ended = [
+                    item for item in prev_state if item.get("state") == "ended"
+                ]
 
     # Track which previous items have been claimed to avoid double-matching
     claimed: set[int] = set()
