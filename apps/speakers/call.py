@@ -10,6 +10,8 @@ Provides:
     sol call speakers attribute-segment <day> <stream> <segment> [--json]
     sol call speakers backfill [--dry-run] [--json]
     sol call speakers discover [--json]
+    sol call speakers identify <cluster-id> <name> [--entity-id ID]
+    sol call speakers merge-names <alias> <canonical>
 """
 
 from __future__ import annotations
@@ -341,3 +343,42 @@ def discover(
                 f"sid={sample['sentence_id']}: {text_preview}"
             )
         typer.echo()
+
+
+@app.command()
+def identify(
+    cluster_id: int = typer.Argument(..., help="Cluster ID from discovery output."),
+    name: str = typer.Argument(..., help="Speaker name to assign."),
+    entity_id: str | None = typer.Option(
+        None, "--entity-id", help="Link to existing entity ID instead of name matching."
+    ),
+) -> None:
+    """Identify a discovered unknown speaker cluster."""
+    import json
+
+    from apps.speakers.discovery import identify_cluster
+
+    result = identify_cluster(cluster_id, name, entity_id=entity_id)
+    output = json.dumps(result, indent=2, default=str)
+    if "error" in result:
+        typer.echo(output, err=True)
+        raise typer.Exit(1)
+    typer.echo(output)
+
+
+@app.command("merge-names")
+def merge_names_cmd(
+    alias: str = typer.Argument(..., help="Alias/variant speaker name to merge from."),
+    canonical: str = typer.Argument(..., help="Canonical speaker name to merge into."),
+) -> None:
+    """Merge a speaker name variant into a canonical entity."""
+    import json
+
+    from apps.speakers.bootstrap import merge_names
+
+    result = merge_names(alias, canonical)
+    output = json.dumps(result, indent=2, default=str)
+    if "error" in result:
+        typer.echo(output, err=True)
+        raise typer.Exit(1)
+    typer.echo(output)
