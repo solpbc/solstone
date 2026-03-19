@@ -9,7 +9,7 @@
     "enabled": false
   },
   "plaud": {
-    "available": false,
+    "available": true,
     "configured": false,
     "enabled": false
   }
