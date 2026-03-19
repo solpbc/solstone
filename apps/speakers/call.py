@@ -10,6 +10,7 @@ Provides:
     sol call speakers attribute-segment <day> <stream> <segment> [--json]
     sol call speakers backfill [--dry-run] [--json]
     sol call speakers discover [--json]
+    sol call speakers suggest [--limit N] [--json]
     sol call speakers identify <cluster-id> <name> [--entity-id ID]
     sol call speakers merge-names <alias> <canonical>
 """
@@ -343,6 +344,49 @@ def discover(
                 f"sid={sample['sentence_id']}: {text_preview}"
             )
         typer.echo()
+
+
+@app.command()
+def suggest(
+    limit: int = typer.Option(5, "--limit", help="Maximum suggestions to return."),
+    json_output: bool = typer.Option(
+        False, "--json", help="Output full result as JSON."
+    ),
+) -> None:
+    """Suggest speaker curation actions."""
+    import json as json_mod
+
+    from apps.speakers.suggest import suggest_speakers
+
+    suggestions = suggest_speakers(limit=limit)
+    if json_output:
+        typer.echo(json_mod.dumps(suggestions, indent=2, default=str))
+        return
+    if not suggestions:
+        typer.echo("No suggestions available.")
+        raise typer.Exit()
+    for s in suggestions:
+        stype = s["type"]
+        if stype == "unknown_recurring":
+            typer.echo(
+                f"  [{stype}] Cluster {s['cluster_id']}: "
+                f"{s['size']} samples across {s['segment_count']} segments"
+            )
+        elif stype == "import_linkable":
+            typer.echo(
+                f"  [{stype}] {s['name']}: "
+                f"{s['meetings_count']} meetings, no voiceprint"
+            )
+        elif stype == "name_variant":
+            typer.echo(
+                f"  [{stype}] {s['names'][0]} / {s['names'][1]}: "
+                f"similarity {s['similarity']:.4f}"
+            )
+        elif stype == "low_confidence_review":
+            typer.echo(
+                f"  [{stype}] {s['day']}: "
+                f"{s['medium_count']} medium + {s['null_count']} null"
+            )
 
 
 @app.command()
