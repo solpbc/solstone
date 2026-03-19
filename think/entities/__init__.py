@@ -78,6 +78,7 @@ from think.entities.matching import (
     build_name_resolution_map,
     find_entity_by_email,
     find_matching_entity,
+    is_name_variant_match,
     resolve_entity,
     validate_aka_uniqueness,
 )

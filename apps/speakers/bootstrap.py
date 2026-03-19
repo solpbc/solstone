@@ -31,7 +31,7 @@ from typing import Any
 import numpy as np
 
 from apps.speakers.owner import load_owner_centroid
-from think.entities import entity_slug, find_matching_entity
+from think.entities import entity_slug, find_matching_entity, is_name_variant_match
 from think.entities.journal import (
     ensure_journal_entity_memory,
     get_or_create_journal_entity,
@@ -517,11 +517,8 @@ def resolve_name_variants(dry_run: bool = False) -> dict[str, Any]:
             canonical_name, alias_name = name_b, name_a
             canonical_id = other_id
 
-        # Check name variant pattern: alias is the first word of canonical
-        canonical_first = canonical_name.split()[0].lower()
-        alias_lower = alias_name.strip().lower()
-
-        if canonical_first != alias_lower:
+        # Check name variant pattern: first-word, token-subset, or prefix-token
+        if not is_name_variant_match(alias_name, canonical_name):
             stats["ambiguous"].append(
                 {
                     "name": name_a,

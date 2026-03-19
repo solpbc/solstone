@@ -18,6 +18,53 @@ from think.entities.loading import load_entities
 logger = logging.getLogger(__name__)
 
 
+def _token_subset_match(name_a_lower: str, name_b_lower: str) -> bool:
+    """True if all tokens of the shorter name appear in the longer (min 2 tokens in shorter)."""
+    tokens_a = set(name_a_lower.split())
+    tokens_b = set(name_b_lower.split())
+    shorter, longer = sorted([tokens_a, tokens_b], key=len)
+    return len(shorter) >= 2 and shorter <= longer
+
+
+def _prefix_token_match(name_a_lower: str, name_b_lower: str) -> bool:
+    """True if sorted tokens are pairwise equal or ≥4-char prefixes of each other."""
+    sorted_a = sorted(name_a_lower.split())
+    sorted_b = sorted(name_b_lower.split())
+    if len(sorted_a) != len(sorted_b):
+        return False
+    return all(
+        a == b or (len(a) >= 4 and b.startswith(a)) or (len(b) >= 4 and a.startswith(b))
+        for a, b in zip(sorted_a, sorted_b)
+    )
+
+
+def is_name_variant_match(name_a: str, name_b: str) -> bool:
+    """Check if two names are plausible variants of each other.
+
+    Uses three strategies:
+    - First-word: one name equals the first word of the other
+    - Token-subset: all tokens of the shorter name appear in the longer (min 2 tokens)
+    - Prefix-token: same token count, pairwise equal or ≥4-char prefix match
+    """
+    a_lower = name_a.strip().lower()
+    b_lower = name_b.strip().lower()
+    if not a_lower or not b_lower:
+        return False
+
+    a_words = a_lower.split()
+    b_words = b_lower.split()
+    if a_lower == b_words[0] or b_lower == a_words[0]:
+        return True
+
+    if _token_subset_match(a_lower, b_lower):
+        return True
+
+    if _prefix_token_match(a_lower, b_lower):
+        return True
+
+    return False
+
+
 def validate_aka_uniqueness(
     aka: str,
     entities: list[EntityDict],
@@ -79,7 +126,9 @@ def find_matching_entity(
     1. Exact name, id, or aka match
     2. Case-insensitive name, id, or aka match
     3. Slugified query match against id
-    4. First-word match (unambiguous only, min 3 chars)
+    4. First-word match (bidirectional, unambiguous only, min 3 chars)
+    4b. Token-subset match (unambiguous only, min 2 tokens in shorter)
+    4c. Prefix-token match (unambiguous only, ≥4-char prefix)
     5. Fuzzy match using rapidfuzz (score >= threshold)
 
     Args:
@@ -184,11 +233,35 @@ def find_matching_entity(
     if detected_slug and detected_slug in id_map:
         return id_map[detected_slug]
 
-    # Tier 4: First-word match (only if unambiguous)
+    # Tier 4: First-word match (bidirectional, only if unambiguous)
     if len(detected_name) >= 3:
+        # Short→long: detected name IS a first word of an entity
         matches = first_word_map.get(detected_lower, [])
         if len(matches) == 1:
             return matches[0]
+
+        # Long→short: detected name's first word matches an entity
+        detected_first = detected_name.split()[0].lower()
+        if detected_first != detected_lower and len(detected_first) >= 3:
+            fw_matches = first_word_map.get(detected_first, [])
+            if len(fw_matches) == 1:
+                return fw_matches[0]
+
+    # Tier 4b: Token-subset match (unambiguous only)
+    subset_matches = [
+        e for e in entities
+        if e.get("name") and _token_subset_match(detected_lower, e["name"].lower())
+    ]
+    if len(subset_matches) == 1:
+        return subset_matches[0]
+
+    # Tier 4c: Prefix-token match (unambiguous only)
+    prefix_matches = [
+        e for e in entities
+        if e.get("name") and _prefix_token_match(detected_lower, e["name"].lower())
+    ]
+    if len(prefix_matches) == 1:
+        return prefix_matches[0]
 
     # Tier 5: Fuzzy match
     if len(detected_name) >= 4 and fuzzy_candidates:
@@ -226,7 +299,9 @@ def build_name_resolution_map(
     1. Exact name, id, or aka match
     2. Case-insensitive name, id, or aka match
     3. Slugified query match against id
-    4. First-word match (unambiguous only, min 3 chars)
+    4. First-word match (bidirectional, unambiguous only, min 3 chars)
+    4b. Token-subset match (unambiguous only, min 2 tokens in shorter)
+    4c. Prefix-token match (unambiguous only, ≥4-char prefix)
     5. Fuzzy match via rapidfuzz (score >= threshold)
 
     Logs when ambiguous first-word matches prevent tier-4 resolution.
@@ -247,6 +322,7 @@ def build_name_resolution_map(
     id_set: set[str] = set()  # all entity IDs for slug matching
     first_word_map: dict[str, list[str]] = {}  # lowercase first word → [entity_ids]
     fuzzy_candidates: dict[str, str] = {}  # candidate string → entity_id
+    entity_name_info: list[tuple[str, str]] = []  # (entity_id, name_lower) for new tiers
 
     for entity in entities:
         name = entity.get("name", "")
@@ -256,6 +332,7 @@ def build_name_resolution_map(
 
         name_lower = name.lower()
         id_set.add(entity_id)
+        entity_name_info.append((entity_id, name_lower))
 
         # Tiers 1 & 2: exact and case-insensitive for name, id, akas
         exact_map[name] = entity_id
@@ -306,7 +383,7 @@ def build_name_resolution_map(
             result[sname] = sname_slug
             continue
 
-        # Tier 4: first-word match (unambiguous only)
+        # Tier 4: first-word match (bidirectional, unambiguous only)
         if len(sname) >= 3:
             matches = first_word_map.get(sname_lower, [])
             if len(matches) == 1:
@@ -319,6 +396,32 @@ def build_name_resolution_map(
                     len(matches),
                     matches,
                 )
+
+            # Long→short: first word of sname in first_word_map
+            sname_first = sname.split()[0].lower()
+            if sname_first != sname_lower and len(sname_first) >= 3:
+                fw_matches = first_word_map.get(sname_first, [])
+                if len(fw_matches) == 1:
+                    result[sname] = fw_matches[0]
+                    continue
+
+        # Tier 4b: Token-subset match (unambiguous only)
+        subset_matches = [
+            eid for eid, ename in entity_name_info
+            if _token_subset_match(sname_lower, ename)
+        ]
+        if len(subset_matches) == 1:
+            result[sname] = subset_matches[0]
+            continue
+
+        # Tier 4c: Prefix-token match (unambiguous only)
+        prefix_matches = [
+            eid for eid, ename in entity_name_info
+            if _prefix_token_match(sname_lower, ename)
+        ]
+        if len(prefix_matches) == 1:
+            result[sname] = prefix_matches[0]
+            continue
 
         # Defer to fuzzy matching
         unresolved.append(sname)
