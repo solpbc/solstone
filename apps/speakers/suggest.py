@@ -1,397 +1,393 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Speaker curation suggestions - computed on the fly from existing data."""
+"""Speaker curation suggestion helpers."""
 
 from __future__ import annotations
 
 import json
 import logging
-from collections import defaultdict
+import re
 from datetime import time
 from pathlib import Path
 from typing import Any
 
-from think.utils import day_dirs, get_journal, segment_parse
+from think.utils import day_dirs, get_journal, iter_segments, segment_parse
 
 logger = logging.getLogger(__name__)
 
-
-def suggest_speakers(limit: int = 5) -> list[dict[str, Any]]:
-    """Return prioritized speaker curation suggestions.
-
-    Priority order: unknown_recurring > import_linkable > name_variant >
-    low_confidence_review. Returns at most ``limit`` suggestions total.
-    """
-    suggestions: list[dict[str, Any]] = []
-    suggestions.extend(_suggest_unknown_recurring())
-    suggestions.extend(_suggest_import_linkable())
-    suggestions.extend(_suggest_name_variants())
-    suggestions.extend(_suggest_low_confidence_review())
-    return suggestions[:limit]
+_MEETING_LINE_RE = re.compile(r"^-\s+(\d{2}:\d{2})\s+(.*)")
+_PARTICIPANTS_RE = re.compile(
+    r"\*\*Participants?\*\*\s*[:\u2013\u2014\-]\s*(.*)",
+    re.IGNORECASE,
+)
+_PAREN_RE = re.compile(r"\(([^)]+)\)")
+_WITH_RE = re.compile(r"\bwith\s+(.+?)(?:\s*\(|$)", re.IGNORECASE)
+_SKIP_PARTICIPANT_TERMS = ("presenting", "private", "unscheduled")
 
 
-def _suggest_unknown_recurring() -> list[dict[str, Any]]:
-    """Transform the discovery cache into actionable cluster suggestions."""
-    cache_path = Path(get_journal()) / "awareness" / "discovery_clusters.json"
-    if not cache_path.exists():
+def _bootstrap_helpers():
+    from apps.speakers.bootstrap import resolve_name_variants
+
+    return resolve_name_variants
+
+
+def _discovery_helpers():
+    from apps.speakers.discovery import discover_unknown_speakers
+
+    return discover_unknown_speakers
+
+
+def _split_participants(text: str) -> list[str]:
+    parts = re.split(r",|\band\b", text, flags=re.IGNORECASE)
+    return [part.strip().strip("*").strip() for part in parts if part.strip()]
+
+
+def _name_matches_entity(participant: str, names: set[str]) -> bool:
+    participant_lower = participant.strip().lower()
+    if not participant_lower:
+        return False
+    if participant_lower in names:
+        return True
+    first_word = participant_lower.split()[0]
+    return any(name.split()[0] == first_word for name in names if name)
+
+
+def _parse_meetings(day_path: str) -> list[dict[str, Any]]:
+    meetings_path = Path(day_path) / "agents" / "meetings.md"
+    if not meetings_path.exists():
         return []
 
     try:
-        cache_data = json.loads(cache_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        logger.warning("Failed to read discovery cache", exc_info=True)
+        content = meetings_path.read_text(encoding="utf-8")
+    except OSError:
         return []
 
-    clusters = cache_data.get("clusters")
-    if not isinstance(clusters, dict):
-        return []
-
-    suggestions: list[dict[str, Any]] = []
-    for cluster_id_str, records in clusters.items():
-        if not isinstance(records, list):
-            continue
-        try:
-            cluster_id = int(cluster_id_str)
-        except (TypeError, ValueError):
+    meetings: list[dict[str, Any]] = []
+    for raw_line in content.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
             continue
 
-        segment_keys = {
-            (record.get("day"), record.get("segment_key"))
-            for record in records
-            if isinstance(record, dict)
-        }
-        segments = sorted(
+        participants_match = _PARTICIPANTS_RE.search(line)
+        if participants_match:
+            participants = [
+                name
+                for name in _split_participants(participants_match.group(1))
+                if len(name) >= 2
+            ]
+            meetings.append(
+                {
+                    "time": None,
+                    "line": raw_line,
+                    "participants": participants,
+                }
+            )
+            continue
+
+        match = _MEETING_LINE_RE.match(line)
+        if not match:
+            continue
+
+        meeting_time, description = match.groups()
+        participants: list[str] = []
+
+        for paren_match in _PAREN_RE.findall(description):
+            for name in _split_participants(paren_match):
+                if len(name) < 2:
+                    continue
+                if any(term in name.lower() for term in _SKIP_PARTICIPANT_TERMS):
+                    continue
+                participants.append(name)
+
+        with_match = _WITH_RE.search(description)
+        if with_match:
+            participants.extend(
+                name
+                for name in _split_participants(with_match.group(1))
+                if len(name) >= 2
+            )
+
+        meetings.append(
             {
-                f"{record['day']}/{record['stream']}/{record['segment_key']}"
-                for record in records
-                if isinstance(record, dict)
-                and record.get("day")
-                and record.get("stream")
-                and record.get("segment_key")
+                "time": meeting_time,
+                "line": raw_line,
+                "participants": list(dict.fromkeys(participants)),
             }
         )
+
+    return meetings
+
+
+def _meetings_overlapping_segment(
+    meetings: list[dict[str, Any]], segment_key: str
+) -> list[str]:
+    start_time, end_time = segment_parse(segment_key)
+    if start_time is None or end_time is None:
+        return []
+
+    overlaps: list[str] = []
+    for meeting in meetings:
+        meeting_time = meeting.get("time")
+        if not meeting_time:
+            continue
+        try:
+            hour, minute = meeting_time.split(":", 1)
+            meeting_clock = time(hour=int(hour), minute=int(minute))
+        except (TypeError, ValueError):
+            continue
+        if start_time <= meeting_clock <= end_time:
+            overlaps.append(meeting.get("line", ""))
+    return overlaps
+
+
+def _unknown_recurring() -> list[dict[str, Any]]:
+    discover_unknown_speakers = _discovery_helpers()
+
+    result = discover_unknown_speakers()
+    clusters = result.get("clusters", [])
+
+    suggestions: list[dict[str, Any]] = []
+    meetings_cache: dict[str, list[dict[str, Any]]] = {}
+    all_days = day_dirs()
+
+    for cluster in clusters:
+        samples = cluster.get("samples", [])
+        segments: list[str] = []
+        seen_segments: set[str] = set()
+        overlap_lines: list[str] = []
+        seen_overlap_keys: set[tuple[str, str]] = set()
+
+        for sample in samples:
+            segment_ref = f"{sample['day']}/{sample['stream']}/{sample['segment_key']}"
+            if segment_ref not in seen_segments:
+                seen_segments.add(segment_ref)
+                segments.append(segment_ref)
+
+            day = sample["day"]
+            segment_key = sample["segment_key"]
+            overlap_key = (day, segment_key)
+            if overlap_key in seen_overlap_keys:
+                continue
+            seen_overlap_keys.add(overlap_key)
+
+            if day not in meetings_cache:
+                dp = all_days.get(day)
+                meetings_cache[day] = _parse_meetings(dp) if dp else []
+            for line in _meetings_overlapping_segment(meetings_cache[day], segment_key):
+                if line not in overlap_lines:
+                    overlap_lines.append(line)
+
         suggestions.append(
             {
                 "type": "unknown_recurring",
-                "cluster_id": cluster_id,
-                "size": len(records),
-                "segment_count": len(
-                    {
-                        (day, segment_key)
-                        for day, segment_key in segment_keys
-                        if day and segment_key
-                    }
-                ),
+                "cluster_id": cluster["cluster_id"],
+                "size": cluster["size"],
+                "segment_count": cluster["segment_count"],
                 "segments": segments,
-                "samples": records[:3],
-                "import_hints": {
-                    "calendar_overlap": _calendar_overlap_for_segments(segments)
-                },
+                "samples": samples,
+                "import_hints": {"calendar_overlap": overlap_lines},
             }
         )
 
-    suggestions.sort(key=lambda item: item["size"], reverse=True)
     return suggestions
 
 
-def _suggest_import_linkable() -> list[dict[str, Any]]:
-    """Suggest meeting participants who appear in events but lack voiceprints."""
-    participant_data: dict[str, dict[str, Any]] = {}
-    for events_path in Path(get_journal()).glob("facets/*/events/*.jsonl"):
-        day = events_path.stem
-        try:
-            with open(events_path, encoding="utf-8") as handle:
-                for line in handle:
-                    try:
-                        event = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    if (
-                        event.get("type") != "meeting"
-                        or event.get("occurred") is not True
-                    ):
-                        continue
-                    participants = event.get("participants")
-                    if not isinstance(participants, list) or not participants:
-                        continue
-                    for name in participants:
-                        if not isinstance(name, str) or not name.strip():
-                            continue
-                        entry = participant_data.setdefault(
-                            name,
-                            {"count": 0, "day_events": []},
-                        )
-                        entry["count"] += 1
-                        entry["day_events"].append((day, event))
-        except OSError:
-            logger.warning("Failed reading event file %s", events_path, exc_info=True)
-            continue
+def _import_linkable() -> list[dict[str, Any]]:
+    from think.entities.journal import load_all_journal_entities
 
-    if not participant_data:
-        return []
+    entities = load_all_journal_entities()
+    # Track both the count of meeting lines and which days, per participant name
+    participant_info: dict[str, dict[str, Any]] = {}
 
-    from think.entities.journal import load_journal_entity, scan_journal_entities
-
-    name_to_entity: dict[str, dict[str, Any]] = {}
-    for entity_id in scan_journal_entities():
-        entity = load_journal_entity(entity_id)
-        if not entity:
-            continue
-        entity_names = [entity.get("name", "")]
-        entity_names.extend(entity.get("aka", []))
-        for name in entity_names:
-            if isinstance(name, str) and name.strip():
-                name_to_entity[name.lower()] = entity
+    for day, dp in day_dirs().items():
+        for meeting in _parse_meetings(dp):
+            for participant in meeting.get("participants", []):
+                key = participant.lower()
+                info = participant_info.setdefault(key, {"count": 0, "days": set()})
+                info["count"] += 1
+                info["days"].add(day)
 
     suggestions: list[dict[str, Any]] = []
-    journal = Path(get_journal())
-    for name, entry in participant_data.items():
-        matched_entity = name_to_entity.get(name.lower())
-        has_voiceprint = False
-        if matched_entity is not None:
-            voiceprint_path = (
-                journal / "entities" / matched_entity["id"] / "voiceprints.npz"
-            )
-            has_voiceprint = voiceprint_path.exists()
-        if has_voiceprint:
+    journal_path = Path(get_journal())
+
+    for entity_id, entity in entities.items():
+        if entity.get("is_principal") or entity.get("blocked"):
             continue
 
-        overlapping_segments: set[str] = set()
-        segments_by_day: dict[str, list[tuple[str, str, time, time]]] = {}
-        for day, event in entry["day_events"]:
-            event_start = _parse_event_time(event.get("start"))
-            event_end = _parse_event_time(event.get("end"))
-            if event_start is None or event_end is None:
-                continue
-            day_segments = segments_by_day.setdefault(day, _iter_day_segments(day))
-            for stream, segment_key, seg_start, seg_end in day_segments:
-                if _time_overlaps(seg_start, seg_end, event_start, event_end):
-                    overlapping_segments.add(f"{day}/{stream}/{segment_key}")
+        if (journal_path / "entities" / entity_id / "voiceprints.npz").exists():
+            continue
+
+        names = {
+            str(name).strip().lower()
+            for name in [entity.get("name"), *(entity.get("aka", []))]
+            if str(name).strip()
+        }
+        if not names:
+            continue
+
+        mention_count = 0
+        matched_days: set[str] = set()
+        for participant, info in participant_info.items():
+            if _name_matches_entity(participant, names):
+                mention_count += info["count"]
+                matched_days.update(info["days"])
+
+        if not matched_days:
+            continue
 
         suggestions.append(
             {
                 "type": "import_linkable",
-                "name": name,
-                "source": "meetings",
-                "meetings_count": entry["count"],
-                "has_voiceprint": False,
-                "overlapping_segments": sorted(overlapping_segments),
-            }
-        )
-
-    suggestions.sort(key=lambda item: item["meetings_count"], reverse=True)
-    return suggestions
-
-
-def _suggest_name_variants() -> list[dict[str, Any]]:
-    """Return high-similarity speaker name pairs with resolved entity IDs."""
-    from apps.speakers.bootstrap import resolve_name_variants
-    from think.entities.journal import load_journal_entity, scan_journal_entities
-
-    stats = resolve_name_variants(dry_run=True)
-    matches = stats.get("matches_found", [])
-    if not isinstance(matches, list):
-        return []
-
-    name_to_entity_id: dict[str, str] = {}
-    for entity_id in scan_journal_entities():
-        entity = load_journal_entity(entity_id)
-        if not entity:
-            continue
-        name = entity.get("name")
-        if isinstance(name, str) and name.strip():
-            name_to_entity_id[name.lower()] = entity_id
-
-    suggestions = []
-    for match in matches:
-        if not isinstance(match, dict):
-            continue
-        name_a = match.get("name_a")
-        name_b = match.get("name_b")
-        if not isinstance(name_a, str) or not isinstance(name_b, str):
-            continue
-        suggestions.append(
-            {
-                "type": "name_variant",
-                "names": [name_a, name_b],
-                "entity_ids": [
-                    name_to_entity_id.get(name_a.lower()),
-                    name_to_entity_id.get(name_b.lower()),
-                ],
-                "similarity": match.get("similarity"),
-            }
-        )
-
-    return suggestions
-
-
-def _suggest_low_confidence_review() -> list[dict[str, Any]]:
-    """Suggest days with a large number of medium or null speaker labels."""
-    journal = Path(get_journal())
-    by_day: dict[str, dict[str, Any]] = defaultdict(
-        lambda: {"medium_count": 0, "null_count": 0, "segments": set()}
-    )
-
-    for day in day_dirs().keys():
-        day_dir = journal / day
-        if not day_dir.is_dir():
-            continue
-        for stream_dir in sorted(day_dir.iterdir()):
-            if not stream_dir.is_dir():
-                continue
-            for seg_dir in sorted(stream_dir.iterdir()):
-                if not seg_dir.is_dir():
-                    continue
-                labels_path = seg_dir / "agents" / "speaker_labels.json"
-                if not labels_path.exists():
-                    continue
-                try:
-                    data = json.loads(labels_path.read_text(encoding="utf-8"))
-                except (json.JSONDecodeError, OSError):
-                    continue
-                needs_review = False
-                for label in data.get("labels", []):
-                    if label.get("confidence") == "medium":
-                        by_day[day]["medium_count"] += 1
-                        needs_review = True
-                    if label.get("speaker") is None:
-                        by_day[day]["null_count"] += 1
-                        needs_review = True
-                if needs_review:
-                    by_day[day]["segments"].add(
-                        f"{day}/{stream_dir.name}/{seg_dir.name}"
-                    )
-
-    suggestions = []
-    for day, info in by_day.items():
-        total = info["medium_count"] + info["null_count"]
-        if total <= 10:
-            continue
-        suggestions.append(
-            {
-                "type": "low_confidence_review",
-                "day": day,
-                "medium_count": info["medium_count"],
-                "null_count": info["null_count"],
-                "segments_needing_review": sorted(info["segments"]),
+                "entity_id": entity_id,
+                "name": entity["name"],
+                "meetings_mentioned": mention_count,
+                "meeting_days": sorted(matched_days),
             }
         )
 
     suggestions.sort(
-        key=lambda item: item["medium_count"] + item["null_count"],
+        key=lambda item: item["meetings_mentioned"],
         reverse=True,
     )
     return suggestions
 
 
-def _calendar_overlap_for_segments(segments: list[str]) -> list[dict[str, Any]]:
-    """Find meeting events that overlap with the given segment strings.
+def _name_variant() -> list[dict[str, Any]]:
+    resolve_name_variants = _bootstrap_helpers()
+    from think.entities.journal import load_all_journal_entities
 
-    Args:
-        segments: list of "day/stream/segment_key" strings
-    """
-    segments_by_day: dict[str, list[tuple[str, str, time, time]]] = defaultdict(list)
-    for segment in segments:
-        parts = segment.split("/")
-        if len(parts) != 3:
+    result = resolve_name_variants(dry_run=True)
+    entities = load_all_journal_entities()
+    name_to_id = {
+        entity.get("name", "").strip().lower(): entity_id
+        for entity_id, entity in entities.items()
+        if entity.get("name")
+    }
+
+    suggestions: list[dict[str, Any]] = []
+    for pair in result.get("matches_found", []):
+        name_a = pair["name_a"]
+        name_b = pair["name_b"]
+        lower_a = name_a.lower()
+        lower_b = name_b.lower()
+        first_word_match = (
+            lower_a.split()[0] == lower_b or lower_b.split()[0] == lower_a
+        )
+        substring_match = lower_a in lower_b or lower_b in lower_a
+        if not (first_word_match or substring_match):
             continue
-        day, stream, segment_key = parts
-        seg_start, seg_end = segment_parse(segment_key)
-        if seg_start is None or seg_end is None:
-            continue
-        segments_by_day[day].append((stream, segment_key, seg_start, seg_end))
 
-    overlaps: list[dict[str, Any]] = []
-    for day, segment_entries in segments_by_day.items():
-        for event in _load_day_events(day):
-            if event.get("type") != "meeting":
+        suggestions.append(
+            {
+                "type": "name_variant",
+                "entity_a": {"id": name_to_id.get(lower_a), "name": name_a},
+                "entity_b": {"id": name_to_id.get(lower_b), "name": name_b},
+                "similarity": pair["similarity"],
+            }
+        )
+
+    suggestions.sort(key=lambda item: item["similarity"], reverse=True)
+    return suggestions
+
+
+def _low_confidence_review() -> list[dict[str, Any]]:
+    day_totals: dict[str, dict[str, int]] = {}
+
+    for day in sorted(day_dirs().keys()):
+        for _stream, _segment_key, seg_path in iter_segments(day):
+            labels_path = seg_path / "agents" / "speaker_labels.json"
+            if not labels_path.exists():
                 continue
-            participants = event.get("participants")
-            if not isinstance(participants, list) or not participants:
-                continue
-            event_start = _parse_event_time(event.get("start"))
-            event_end = _parse_event_time(event.get("end"))
-            if event_start is None or event_end is None:
+            try:
+                data = json.loads(labels_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
                 continue
 
-            overlapping_segments = []
-            for stream, segment_key, seg_start, seg_end in segment_entries:
-                segment_label = f"{day}/{stream}/{segment_key}"
-                if _time_overlaps(seg_start, seg_end, event_start, event_end):
-                    overlapping_segments.append(segment_label)
+            labels = data.get("labels", [])
+            if not isinstance(labels, list):
+                continue
 
-            if overlapping_segments:
-                overlaps.append(
-                    {
-                        "day": day,
-                        "title": event.get("title", ""),
-                        "facet": event.get("facet", ""),
-                        "participants": participants,
-                        "start": event.get("start"),
-                        "end": event.get("end"),
-                        "segments": sorted(set(overlapping_segments)),
-                    }
-                )
+            counts = day_totals.setdefault(day, {"medium_or_null": 0, "total": 0})
+            for label in labels:
+                if not isinstance(label, dict):
+                    continue
+                counts["total"] += 1
+                if label.get("confidence") != "high":
+                    counts["medium_or_null"] += 1
 
-    return overlaps
-
-
-def _time_overlaps(
-    seg_start: time, seg_end: time, event_start: time, event_end: time
-) -> bool:
-    """Return True if two time ranges overlap."""
-    return seg_start < event_end and event_start < seg_end
+    suggestions = [
+        {
+            "type": "low_confidence_review",
+            "day": day,
+            "medium_or_null_count": counts["medium_or_null"],
+            "total_labels": counts["total"],
+        }
+        for day, counts in day_totals.items()
+        if counts["medium_or_null"] > 10
+    ]
+    suggestions.sort(key=lambda item: item["medium_or_null_count"], reverse=True)
+    return suggestions
 
 
-def _load_day_events(day: str) -> list[dict[str, Any]]:
-    """Load all events for a day from facets/*/events/{day}.jsonl."""
-    events: list[dict[str, Any]] = []
-    for events_path in Path(get_journal()).glob(f"facets/*/events/{day}.jsonl"):
+def suggest_opportunities(limit: int = 5) -> list[dict[str, Any]]:
+    suggestions: list[dict[str, Any]] = []
+    for generator in [
+        _unknown_recurring,
+        _import_linkable,
+        _name_variant,
+        _low_confidence_review,
+    ]:
+        if len(suggestions) >= limit:
+            break
         try:
-            with open(events_path, encoding="utf-8") as handle:
-                for line in handle:
-                    try:
-                        event = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    if not isinstance(event, dict):
-                        continue
-                    event.setdefault("facet", events_path.parent.parent.name)
-                    events.append(event)
-        except OSError:
-            logger.warning(
-                "Failed reading day events from %s", events_path, exc_info=True
+            suggestions.extend(generator())
+        except Exception:
+            logger.exception("Suggestion generator %s failed", generator.__name__)
+    return suggestions[:limit]
+
+
+def format_suggestions(suggestions: list[dict[str, Any]]) -> str:
+    if not suggestions:
+        return "No speaker curation suggestions found."
+
+    lines: list[str] = []
+    for suggestion in suggestions:
+        suggestion_type = suggestion.get("type")
+        if suggestion_type == "unknown_recurring":
+            lines.append(
+                "Unknown recurring speaker "
+                f"(cluster {suggestion['cluster_id']}): "
+                f"{suggestion['size']} samples across "
+                f"{suggestion['segment_count']} segments"
             )
-            continue
-    return events
+            segments = suggestion.get("segments", [])
+            if segments:
+                lines.append(f"  Segments: {', '.join(segments)}")
+            for meeting_line in suggestion.get("import_hints", {}).get(
+                "calendar_overlap", []
+            ):
+                lines.append(f"  Calendar overlap: {meeting_line.strip()}")
+        elif suggestion_type == "import_linkable":
+            lines.append(
+                "Import linkable: "
+                f"{suggestion['name']} ({suggestion['entity_id']}) "
+                f"\u2014 mentioned in {suggestion['meetings_mentioned']} meetings"
+            )
+            lines.append(f"  Days: {', '.join(suggestion['meeting_days'])}")
+        elif suggestion_type == "name_variant":
+            lines.append(
+                "Name variant: "
+                f'"{suggestion["entity_a"]["name"]}" '
+                f'\u2194 "{suggestion["entity_b"]["name"]}" '
+                f"(similarity: {suggestion['similarity']:.2f})"
+            )
+        elif suggestion_type == "low_confidence_review":
+            lines.append(
+                "Low confidence review: "
+                f"{suggestion['day']} \u2014 "
+                f"{suggestion['medium_or_null_count']} of "
+                f"{suggestion['total_labels']} labels are medium/unresolved"
+            )
 
-
-def _iter_day_segments(day: str) -> list[tuple[str, str, time, time]]:
-    """Return (stream, segment_key, start_time, end_time) for all segments on a day."""
-    day_dir = Path(get_journal()) / day
-    if not day_dir.is_dir():
-        return []
-
-    segments = []
-    for stream_dir in sorted(day_dir.iterdir()):
-        if not stream_dir.is_dir():
-            continue
-        for segment_dir in sorted(stream_dir.iterdir()):
-            if not segment_dir.is_dir():
-                continue
-            start_time, end_time = segment_parse(segment_dir.name)
-            if start_time is None or end_time is None:
-                continue
-            segments.append((stream_dir.name, segment_dir.name, start_time, end_time))
-    return segments
-
-
-def _parse_event_time(value: Any) -> time | None:
-    """Parse an event time string if valid."""
-    if not isinstance(value, str) or not value:
-        return None
-    try:
-        return time.fromisoformat(value)
-    except ValueError:
-        return None
+    return "\n".join(lines)

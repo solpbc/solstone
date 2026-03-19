@@ -10,9 +10,9 @@ Provides:
     sol call speakers attribute-segment <day> <stream> <segment> [--json]
     sol call speakers backfill [--dry-run] [--json]
     sol call speakers discover [--json]
-    sol call speakers suggest [--limit N] [--json]
     sol call speakers identify <cluster-id> <name> [--entity-id ID]
     sol call speakers merge-names <alias> <canonical>
+    sol call speakers suggest [--limit N] [--json]
 """
 
 from __future__ import annotations
@@ -347,49 +347,6 @@ def discover(
 
 
 @app.command()
-def suggest(
-    limit: int = typer.Option(5, "--limit", help="Maximum suggestions to return."),
-    json_output: bool = typer.Option(
-        False, "--json", help="Output full result as JSON."
-    ),
-) -> None:
-    """Suggest speaker curation actions."""
-    import json as json_mod
-
-    from apps.speakers.suggest import suggest_speakers
-
-    suggestions = suggest_speakers(limit=limit)
-    if json_output:
-        typer.echo(json_mod.dumps(suggestions, indent=2, default=str))
-        return
-    if not suggestions:
-        typer.echo("No suggestions available.")
-        raise typer.Exit()
-    for s in suggestions:
-        stype = s["type"]
-        if stype == "unknown_recurring":
-            typer.echo(
-                f"  [{stype}] Cluster {s['cluster_id']}: "
-                f"{s['size']} samples across {s['segment_count']} segments"
-            )
-        elif stype == "import_linkable":
-            typer.echo(
-                f"  [{stype}] {s['name']}: "
-                f"{s['meetings_count']} meetings, no voiceprint"
-            )
-        elif stype == "name_variant":
-            typer.echo(
-                f"  [{stype}] {s['names'][0]} / {s['names'][1]}: "
-                f"similarity {s['similarity']:.4f}"
-            )
-        elif stype == "low_confidence_review":
-            typer.echo(
-                f"  [{stype}] {s['day']}: "
-                f"{s['medium_count']} medium + {s['null_count']} null"
-            )
-
-
-@app.command()
 def identify(
     cluster_id: int = typer.Argument(..., help="Cluster ID from discovery output."),
     name: str = typer.Argument(..., help="Speaker name to assign."),
@@ -426,3 +383,25 @@ def merge_names_cmd(
         typer.echo(output, err=True)
         raise typer.Exit(1)
     typer.echo(output)
+
+
+@app.command()
+def suggest(
+    limit: int = typer.Option(
+        5, "--limit", "-n", help="Maximum suggestions to return."
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON array."),
+) -> None:
+    """Suggest speaker curation opportunities."""
+    import json as json_mod
+
+    from apps.speakers.suggest import suggest_opportunities
+
+    results = suggest_opportunities(limit=limit)
+    if json_output:
+        typer.echo(json_mod.dumps(results, indent=2, default=str))
+        return
+
+    from apps.speakers.suggest import format_suggestions
+
+    typer.echo(format_suggestions(results))
