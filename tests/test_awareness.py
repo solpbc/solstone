@@ -550,6 +550,137 @@ class TestComputeThickness:
         }
 
 
+class TestOwnerDetectionReady:
+    """Tests for owner_detection_ready()."""
+
+    def test_not_ready_when_centroid_exists(self):
+        """Returns not ready when owner centroid already exists."""
+        from think.awareness import owner_detection_ready
+
+        with unittest.mock.patch(
+            "apps.speakers.owner.load_owner_centroid",
+            return_value=("centroid", 0.82),
+        ):
+            result = owner_detection_ready()
+
+        assert result["ready"] is False
+        assert result["reason"] == "centroid_exists"
+
+    def test_not_ready_during_cooldown(self):
+        """Returns not ready when rejection was within 14 days."""
+        from datetime import datetime
+
+        from think.awareness import owner_detection_ready, update_state
+
+        update_state("voiceprint", {"rejected_at": datetime.now().isoformat()})
+
+        with unittest.mock.patch(
+            "apps.speakers.owner.load_owner_centroid", return_value=None
+        ):
+            result = owner_detection_ready()
+
+        assert result["ready"] is False
+        assert result["reason"] == "cooldown"
+        assert result["days_remaining"] == 14
+
+    def test_ready_when_candidate_found(self):
+        """Returns ready when detect_owner_candidate returns positive."""
+        from think.awareness import owner_detection_ready
+
+        mock_detection = {
+            "status": "candidate",
+            "recommendation": "ready",
+            "cluster_size": 88,
+            "streams_represented": 2,
+            "samples": [{"day": "20240101"}],
+        }
+
+        with unittest.mock.patch(
+            "apps.speakers.owner.load_owner_centroid", return_value=None
+        ):
+            with unittest.mock.patch(
+                "apps.speakers.owner.detect_owner_candidate",
+                return_value=mock_detection,
+            ):
+                result = owner_detection_ready()
+
+        assert result["ready"] is True
+        assert result["reason"] == "candidate_found"
+        assert result["cluster_size"] == 88
+        assert result["streams_represented"] == 2
+
+    def test_not_ready_low_data(self):
+        """Returns not ready when detection has insufficient data."""
+        from think.awareness import owner_detection_ready
+
+        mock_detection = {
+            "status": "low_data",
+            "recommendation": "low_data",
+        }
+
+        with unittest.mock.patch(
+            "apps.speakers.owner.load_owner_centroid", return_value=None
+        ):
+            with unittest.mock.patch(
+                "apps.speakers.owner.detect_owner_candidate",
+                return_value=mock_detection,
+            ):
+                result = owner_detection_ready()
+
+        assert result["ready"] is False
+        assert result["reason"] == "low_data"
+
+    def test_not_ready_single_stream(self):
+        """Returns not ready when candidate is single_stream (not 'ready')."""
+        from think.awareness import owner_detection_ready
+
+        mock_detection = {
+            "status": "candidate",
+            "recommendation": "single_stream",
+            "cluster_size": 60,
+        }
+
+        with unittest.mock.patch(
+            "apps.speakers.owner.load_owner_centroid", return_value=None
+        ):
+            with unittest.mock.patch(
+                "apps.speakers.owner.detect_owner_candidate",
+                return_value=mock_detection,
+            ):
+                result = owner_detection_ready()
+
+        assert result["ready"] is False
+        assert result["reason"] == "single_stream"
+
+    def test_cooldown_expires_after_14_days(self):
+        """Cooldown no longer blocks after 14 days."""
+        from datetime import datetime, timedelta
+
+        from think.awareness import owner_detection_ready, update_state
+
+        old_rejection = (datetime.now() - timedelta(days=15)).isoformat()
+        update_state("voiceprint", {"rejected_at": old_rejection})
+
+        mock_detection = {
+            "status": "candidate",
+            "recommendation": "ready",
+            "cluster_size": 100,
+            "streams_represented": 3,
+            "samples": [],
+        }
+
+        with unittest.mock.patch(
+            "apps.speakers.owner.load_owner_centroid", return_value=None
+        ):
+            with unittest.mock.patch(
+                "apps.speakers.owner.detect_owner_candidate",
+                return_value=mock_detection,
+            ):
+                result = owner_detection_ready()
+
+        assert result["ready"] is True
+
+
 class TestThicknessCLI:
     """Tests for the thickness CLI command in apps/agent/call.py."""
 
@@ -573,3 +704,28 @@ class TestThicknessCLI:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data == mock_result
+
+
+class TestOwnerReadyCLI:
+    """Tests for the owner-ready CLI command in apps/speakers/call.py."""
+
+    def test_owner_ready_command_returns_json(self):
+        from typer.testing import CliRunner
+
+        from apps.speakers.call import app
+
+        mock_result = {
+            "ready": True,
+            "reason": "candidate_found",
+            "cluster_size": 88,
+            "streams_represented": 2,
+            "samples": [],
+        }
+        with unittest.mock.patch(
+            "think.awareness.owner_detection_ready", return_value=mock_result
+        ):
+            result = CliRunner().invoke(app, ["owner-ready"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ready"] is True
+        assert data["reason"] == "candidate_found"

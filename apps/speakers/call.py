@@ -17,6 +17,10 @@ Provides:
     sol call speakers suggest [--limit N] [--json]
     sol call speakers link-import <name> --entity-id <ID>
     sol call speakers seed-from-imports [--dry-run] [--json]
+    sol call speakers detect [--json]
+    sol call speakers confirm-owner [--backfill] [--json]
+    sol call speakers reject-owner
+    sol call speakers owner-ready
 """
 
 from __future__ import annotations
@@ -489,3 +493,87 @@ def suggest(
     from apps.speakers.suggest import format_suggestions
 
     typer.echo(format_suggestions(results))
+
+
+@app.command("detect")
+def detect_cmd(
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """Run owner voice candidate detection."""
+    import json as json_mod
+
+    from apps.speakers.owner import detect_owner_candidate
+
+    result = detect_owner_candidate()
+    typer.echo(json_mod.dumps(result, indent=2, default=str))
+
+
+@app.command("confirm-owner")
+def confirm_owner_cmd(
+    backfill_after: bool = typer.Option(
+        True,
+        "--backfill/--no-backfill",
+        help="Run attribution backfill after confirming.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """Confirm the owner voice candidate and save the centroid.
+
+    By default, automatically runs attribution backfill on all segments
+    after saving the centroid.
+    """
+    import json as json_mod
+
+    from apps.speakers.owner import confirm_owner_candidate
+
+    result = confirm_owner_candidate()
+    if "error" in result:
+        typer.echo(json_mod.dumps(result, indent=2), err=True)
+        raise typer.Exit(1)
+
+    if not json_output:
+        typer.echo(
+            f"Owner centroid confirmed (principal: {result['principal_id']}, "
+            f"cluster_size: {result['cluster_size']})"
+        )
+
+    if backfill_after:
+        from apps.speakers.attribution import backfill_segments
+
+        if not json_output:
+            typer.echo("Running attribution backfill...")
+
+        stats = backfill_segments(dry_run=False)
+
+        if json_output:
+            result["backfill"] = stats
+        else:
+            typer.echo(
+                f"Backfill complete: {stats['processed']} segments processed, "
+                f"{stats['already_labeled']} already labeled"
+            )
+
+    if json_output:
+        typer.echo(json_mod.dumps(result, indent=2, default=str))
+
+
+@app.command("reject-owner")
+def reject_owner_cmd() -> None:
+    """Reject the owner voice candidate and enter 14-day cooldown."""
+    import json as json_mod
+
+    from apps.speakers.owner import reject_owner_candidate
+
+    result = reject_owner_candidate()
+    typer.echo(json_mod.dumps(result, indent=2, default=str))
+
+
+@app.command("owner-ready")
+def owner_ready_cmd() -> None:
+    """Check if owner voice detection should be surfaced to the user."""
+    import json as json_mod
+
+    from think.awareness import owner_detection_ready
+
+    result = owner_detection_ready()
+    typer.echo(json_mod.dumps(result, indent=2, default=str))

@@ -465,3 +465,55 @@ def test_api_owner_detect(speakers_env):
     assert data["cluster_size"] >= 50
     assert "streams_represented" in data
     assert "recommendation" in data
+
+
+def test_confirm_owner_candidate_no_candidate(speakers_env):
+    from apps.speakers.owner import confirm_owner_candidate
+
+    speakers_env()
+    result = confirm_owner_candidate()
+    assert "error" in result
+    assert "No candidate" in result["error"]
+
+
+def test_confirm_owner_candidate_success(speakers_env):
+    from apps.speakers.owner import confirm_owner_candidate
+
+    env = speakers_env()
+    principal_dir = env.create_entity("Self Person", is_principal=True)
+    candidate_path = _candidate_path(env.journal)
+    candidate_path.parent.mkdir(parents=True, exist_ok=True)
+    centroid = _normalized(np.array([1.0] + [0.0] * 255, dtype=np.float32))
+    np.savez_compressed(
+        candidate_path,
+        centroid=centroid,
+        cluster_size=np.array(88, dtype=np.int32),
+        threshold=np.array(0.82, dtype=np.float32),
+        version=np.array("2026-03-19T12:00:00"),
+    )
+
+    result = confirm_owner_candidate()
+
+    assert result["status"] == "confirmed"
+    assert result["principal_id"] is not None
+    assert result["cluster_size"] == 88
+    assert not candidate_path.exists()
+    assert (principal_dir / "owner_centroid.npz").exists()
+    assert get_current()["voiceprint"]["status"] == "confirmed"
+
+
+def test_reject_owner_candidate(speakers_env):
+    from apps.speakers.owner import reject_owner_candidate
+
+    env = speakers_env()
+    candidate_path = _candidate_path(env.journal)
+    candidate_path.parent.mkdir(parents=True, exist_ok=True)
+    candidate_path.write_bytes(b"test")
+
+    result = reject_owner_candidate()
+
+    assert result["status"] == "rejected"
+    assert not candidate_path.exists()
+    state = get_current()
+    assert state["voiceprint"]["status"] == "rejected"
+    assert "rejected_at" in state["voiceprint"]

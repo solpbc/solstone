@@ -362,3 +362,91 @@ def classify_sentences(
             }
         )
     return results
+
+
+def confirm_owner_candidate() -> dict[str, Any]:
+    """Confirm the current owner voice candidate and persist the centroid.
+
+    Moves the candidate centroid from awareness/ to the principal entity's
+    memory directory as owner_centroid.npz. Updates awareness state to
+    "confirmed".
+
+    Returns a dict with status and principal_id on success, or an error key.
+    """
+    from think.entities.core import get_identity_names
+    from think.entities.journal import (
+        ensure_journal_entity_memory,
+        get_or_create_journal_entity,
+    )
+    from think.entities import entity_slug
+
+    candidate_path = _owner_candidate_path()
+    if not candidate_path.exists():
+        return {"error": "No candidate available"}
+
+    try:
+        data = np.load(candidate_path, allow_pickle=False)
+        centroid = data["centroid"]
+        cluster_size = int(np.asarray(data["cluster_size"]).item())
+        threshold = float(np.asarray(data["threshold"]).item())
+        version = str(np.asarray(data["version"]).item())
+    except Exception as e:
+        logger.warning("Failed to load owner candidate %s: %s", candidate_path, e)
+        return {"error": "No candidate available"}
+
+    principal = get_journal_principal()
+    if principal is None:
+        identity_names = get_identity_names()
+        if not identity_names:
+            return {"error": "No principal entity found"}
+        principal_name = identity_names[0]
+        principal = get_or_create_journal_entity(
+            entity_id=entity_slug(principal_name),
+            name=principal_name,
+            entity_type="Person",
+        )
+
+    owner_path = ensure_journal_entity_memory(principal["id"]) / "owner_centroid.npz"
+    np.savez_compressed(
+        owner_path,
+        centroid=np.asarray(centroid, dtype=np.float32).reshape(-1),
+        cluster_size=np.array(cluster_size, dtype=np.int32),
+        threshold=np.array(threshold, dtype=np.float32),
+        version=np.array(version),
+    )
+    candidate_path.unlink(missing_ok=True)
+
+    update_state(
+        "voiceprint",
+        {
+            "status": "confirmed",
+            "cluster_size": cluster_size,
+            "confirmed_at": _iso_now(),
+        },
+    )
+
+    return {
+        "status": "confirmed",
+        "principal_id": principal["id"],
+        "cluster_size": cluster_size,
+    }
+
+
+def reject_owner_candidate() -> dict[str, Any]:
+    """Reject the current owner voice candidate and enter cooldown.
+
+    Deletes the candidate file and records rejection with timestamp in
+    awareness state. The timestamp enables 14-day cooldown enforcement.
+
+    Returns a dict with the updated status.
+    """
+    candidate_path = _owner_candidate_path()
+    candidate_path.unlink(missing_ok=True)
+    update_state(
+        "voiceprint",
+        {
+            "status": "rejected",
+            "rejected_at": _iso_now(),
+        },
+    )
+    return {"status": "rejected"}

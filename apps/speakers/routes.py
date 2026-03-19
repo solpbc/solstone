@@ -31,8 +31,10 @@ from flask import (
 from apps.speakers.discovery import discover_unknown_speakers, identify_cluster
 from apps.speakers.owner import (
     classify_sentences,
+    confirm_owner_candidate,
     count_segments_with_embeddings,
     detect_owner_candidate,
+    reject_owner_candidate,
 )
 from apps.utils import log_app_action
 from convey import state
@@ -1145,80 +1147,28 @@ def api_owner_detect() -> Any:
 @speakers_bp.route("/api/owner/confirm", methods=["POST"])
 def api_owner_confirm() -> Any:
     """Confirm the current owner voice candidate and persist the centroid."""
-    candidate_path = Path(get_journal()) / "awareness" / "owner_candidate.npz"
-    if not candidate_path.exists():
-        return error_response("No candidate available", 404)
-
-    try:
-        data = np.load(candidate_path, allow_pickle=False)
-        centroid = data["centroid"]
-        cluster_size = int(np.asarray(data["cluster_size"]).item())
-        threshold = float(np.asarray(data["threshold"]).item())
-        version = str(np.asarray(data["version"]).item())
-    except Exception as e:
-        logger.warning("Failed to load owner candidate %s: %s", candidate_path, e)
-        return error_response("No candidate available", 404)
-
-    principal = get_journal_principal()
-    if principal is None:
-        identity_names = get_identity_names()
-        if not identity_names:
-            return error_response(
-                "No principal entity found. Set up your identity first.",
-                400,
-            )
-        principal_name = identity_names[0]
-        principal = get_or_create_journal_entity(
-            entity_id=entity_slug(principal_name),
-            name=principal_name,
-            entity_type="Person",
-        )
-
-    owner_path = ensure_journal_entity_memory(principal["id"]) / "owner_centroid.npz"
-    np.savez_compressed(
-        owner_path,
-        centroid=np.asarray(centroid, dtype=np.float32).reshape(-1),
-        cluster_size=np.array(cluster_size, dtype=np.int32),
-        threshold=np.array(threshold, dtype=np.float32),
-        version=np.array(version),
-    )
-    candidate_path.unlink(missing_ok=True)
-
-    update_state(
-        "voiceprint",
-        {
-            "status": "confirmed",
-            "cluster_size": cluster_size,
-            "confirmed_at": datetime.now().isoformat(),
-        },
-    )
+    result = confirm_owner_candidate()
+    if "error" in result:
+        code = 404 if "No candidate" in result["error"] else 400
+        return error_response(result["error"], code)
 
     log_app_action(
         app="speakers",
         facet=None,
         action="owner_voiceprint_confirm",
         params={
-            "principal_id": principal["id"],
-            "cluster_size": cluster_size,
-            "version": version,
+            "principal_id": result["principal_id"],
+            "cluster_size": result["cluster_size"],
         },
     )
 
-    return jsonify({"status": "confirmed", "principal_id": principal["id"]})
+    return jsonify({"status": "confirmed", "principal_id": result["principal_id"]})
 
 
 @speakers_bp.route("/api/owner/reject", methods=["POST"])
 def api_owner_reject() -> Any:
     """Reject the current owner voice candidate."""
-    candidate_path = Path(get_journal()) / "awareness" / "owner_candidate.npz"
-    candidate_path.unlink(missing_ok=True)
-    update_state(
-        "voiceprint",
-        {
-            "status": "rejected",
-            "rejected_at": datetime.now().isoformat(),
-        },
-    )
+    reject_owner_candidate()
     return jsonify({"status": "needs_detection"})
 
 

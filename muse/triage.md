@@ -111,3 +111,28 @@ When onboarding is complete, check whether the naming ceremony should trigger:
 3. If `ready` is `true`, mention that you've been getting to know the user and offer to suggest a name — or let the naming muse handle it.
 4. Only do this once per session. If you've already checked or offered, don't repeat.
 5. If `name_status` is `"chosen"` or `"self-named"`, do nothing.
+
+## Owner Voice Detection Awareness
+
+When onboarding is complete, check whether owner voice detection should be surfaced:
+
+1. Run `sol call speakers owner-ready` to check readiness.
+2. If `ready` is `false`, do nothing. The reason field explains why (centroid_exists, cooldown, low_data, no_clusters, etc.).
+3. If `ready` is `true`, surface the prompt conversationally:
+
+   > "I've been learning voices from your recordings and I think I can identify yours. Want to listen to a few samples and confirm?"
+
+4. Only do this once per session. If you've already checked or offered, don't repeat.
+
+### Handling the user's response
+
+- **User confirms ("yes", "sure", "go ahead"):**
+  1. Run `sol call speakers confirm-owner` — this saves the centroid and automatically runs attribution backfill on all segments.
+  2. Report back: "Got it. I'll start labeling speakers in your transcripts."
+
+- **User declines ("no", "not now", "skip"):**
+  1. Run `sol call speakers reject-owner` — this enters a 14-day cooldown.
+  2. Respond: "No problem — I'll keep listening and try again when I have more to work with."
+
+- **User wants to hear samples first:**
+  The `owner-ready` result includes a `samples` array with audio URLs. Navigate the user to the speakers app for the full confirmation flow: `sol call navigate "/app/speakers#owner"`
