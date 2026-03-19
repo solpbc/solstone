@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from datetime import date
 from typing import Any
 
 from flask import (
@@ -18,8 +19,9 @@ from flask import (
     url_for,
 )
 
+from think.cluster import cluster_segments
 from think.facets import get_facets
-from think.utils import get_config
+from think.utils import day_dirs, get_config
 
 
 def _get_password() -> str:
@@ -110,6 +112,18 @@ def favicon() -> Any:
         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     )
     return send_from_directory(project_root, "favicon.ico", mimetype="image/x-icon")
+
+
+@bp.route("/app/today")
+def app_today() -> Any:
+    """Redirect /app/today to the most recent day with journal data."""
+    today = date.today().strftime("%Y%m%d")
+    if cluster_segments(today):
+        return redirect(url_for("app:transcripts.transcripts_day", day=today))
+    for day in sorted(day_dirs().keys(), reverse=True):
+        if cluster_segments(day):
+            return redirect(url_for("app:transcripts.transcripts_day", day=day))
+    return redirect(url_for("app:transcripts.transcripts_day", day=today))
 
 
 @bp.route("/")
