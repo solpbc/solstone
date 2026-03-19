@@ -4,7 +4,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 
 ## Protocol
 
-**Transport:** Unix domain socket at `$JOURNAL_PATH/health/callosum.sock`
+**Transport:** Unix domain socket at `journal/health/callosum.sock`
 
 **Format:** Newline-delimited JSON. Broadcast to all connected clients.
 

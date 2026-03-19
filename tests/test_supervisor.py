@@ -171,7 +171,7 @@ def test_start_observer_and_sense(tmp_path, mock_callosum, monkeypatch):
         return proc
 
     monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     # Test start_observer()
     observer_proc = mod.start_observer()
@@ -221,7 +221,7 @@ def test_start_sync(tmp_path, mock_callosum, monkeypatch):
         return proc
 
     monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     # Test start_sync()
     remote_url = "https://server:5000/app/remote/ingest/abc123"
@@ -391,7 +391,7 @@ async def test_supervise_logs_recovery(mock_callosum, monkeypatch, caplog):
     monkeypatch.setattr(mod.time, "time", fake_time)
     monkeypatch.setattr(mod.asyncio, "sleep", fake_sleep)
 
-    monkeypatch.setenv("JOURNAL_PATH", "/test/journal")
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "/test/journal")
 
     with caplog.at_level(logging.INFO):
         await mod.supervise(threshold=1, interval=1, schedule=False, procs=[])

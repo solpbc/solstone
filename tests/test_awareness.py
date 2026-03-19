@@ -12,7 +12,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def _temp_journal(monkeypatch, tmp_path):
     """Isolate all tests to a temporary journal."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
 
 class TestCurrentState:

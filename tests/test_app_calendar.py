@@ -12,14 +12,14 @@ from apps.calendar.routes import calendar_bp
 
 @pytest.fixture
 def fixture_journal():
-    """Set JOURNAL_PATH to tests/fixtures/journal for testing."""
-    old = os.environ.get("JOURNAL_PATH")
-    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    """Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for testing."""
+    old = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
     yield
     if old is None:
-        os.environ.pop("JOURNAL_PATH", None)
+        os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
     else:
-        os.environ["JOURNAL_PATH"] = old
+        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = old
 
 
 @pytest.fixture

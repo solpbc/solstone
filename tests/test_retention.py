@@ -304,7 +304,7 @@ class TestPurge:
         (day3 / "audio.flac").write_bytes(b"x" * 600)
         (day3 / "stream.json").write_text('{"stream":"default"}')
 
-        monkeypatch.setenv("JOURNAL_PATH", str(journal))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
         # Clear cached journal path
         import think.utils
 

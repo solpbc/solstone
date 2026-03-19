@@ -68,7 +68,7 @@ def test_get_sync_state_path(sync_journal, monkeypatch):
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     path = get_sync_state_path(day)
     assert path == journal / day / "health" / "sync.jsonl"
@@ -80,7 +80,7 @@ def test_append_and_load_sync_state(sync_journal, monkeypatch):
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     # Initially empty
     records = load_sync_state(day)
@@ -116,7 +116,7 @@ def test_get_pending_segments(sync_journal, monkeypatch):
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     # Add pending segment
     append_sync_record(
@@ -176,7 +176,7 @@ def test_get_pending_segments_empty(sync_journal, monkeypatch):
     from observe.sync import get_pending_segments
 
     journal = sync_journal["path"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     pending = get_pending_segments(days_back=7)
     assert pending == []
@@ -207,7 +207,7 @@ class TestSyncService:
         from observe.sync import SyncService
 
         journal = sync_journal["path"]
-        monkeypatch.setenv("JOURNAL_PATH", str(journal))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
         service = SyncService(
             remote_url="https://server/ingest/key",
@@ -225,7 +225,7 @@ class TestSyncService:
 
         journal = sync_journal["path"]
         day = sync_journal["day"]
-        monkeypatch.setenv("JOURNAL_PATH", str(journal))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
         service = SyncService("https://server/ingest/key")
         service._client = mock_remote_client
@@ -262,7 +262,7 @@ class TestSyncService:
 
         journal = sync_journal["path"]
         day = sync_journal["day"]
-        monkeypatch.setenv("JOURNAL_PATH", str(journal))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
         service = SyncService("https://server/ingest/key")
         service._client = mock_remote_client
@@ -296,7 +296,7 @@ class TestSyncService:
 
         journal = sync_journal["path"]
         day = sync_journal["day"]
-        monkeypatch.setenv("JOURNAL_PATH", str(journal))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
         service = SyncService("https://server/ingest/key")
         service._client = mock_remote_client
@@ -321,7 +321,7 @@ class TestSyncService:
 
         journal = sync_journal["path"]
         day = sync_journal["day"]
-        monkeypatch.setenv("JOURNAL_PATH", str(journal))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
         service = SyncService("https://server/ingest/key")
 
@@ -350,7 +350,7 @@ class TestSyncService:
 
         journal = sync_journal["path"]
         day = sync_journal["day"]
-        monkeypatch.setenv("JOURNAL_PATH", str(journal))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
         service = SyncService("https://server/ingest/key")
         service._callosum = mock_callosum
@@ -394,7 +394,7 @@ def test_sync_service_startup_with_pending(sync_journal, monkeypatch):
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     # Add pending segment with metadata
     append_sync_record(
@@ -431,7 +431,7 @@ def test_process_segment_skips_upload_if_already_confirmed(sync_journal, monkeyp
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     # Create SegmentInfo
     seg_info = SegmentInfo(
@@ -484,7 +484,7 @@ def test_process_segment_uploads_if_not_on_server(sync_journal, monkeypatch):
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     seg_info = SegmentInfo(
         day=day,
@@ -537,7 +537,7 @@ def test_process_segment_passes_metadata_to_upload(sync_journal, monkeypatch):
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     # Create SegmentInfo with metadata
     seg_info = SegmentInfo(
@@ -603,7 +603,7 @@ def test_handle_message_skips_zero_byte_files(sync_journal, monkeypatch):
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     # Create segment directory with mixed files
     seg_dir = journal / day / "default" / "120000_300"
@@ -642,7 +642,7 @@ def test_handle_message_skips_all_zero_byte_files(sync_journal, monkeypatch):
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     # Create segment directory with only 0-byte files
     seg_dir = journal / day / "default" / "120000_300"
@@ -677,7 +677,7 @@ def test_process_segment_duplicate_skips_confirmation(sync_journal, monkeypatch)
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     seg_info = SegmentInfo(
         day=day,
@@ -735,7 +735,7 @@ def test_sync_service_stop_drains_queue(sync_journal, monkeypatch):
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     with (
         patch("observe.sync.RemoteClient"),
@@ -784,7 +784,7 @@ def test_sync_service_stop_disconnects_callosum_first(sync_journal, monkeypatch)
     from observe.sync import SyncService
 
     journal = sync_journal["path"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     mock_callosum = MagicMock()
     shutdown_order: list[str] = []
@@ -806,7 +806,7 @@ def test_sync_service_worker_thread_not_daemon(sync_journal, monkeypatch):
     from observe.sync import SyncService
 
     journal = sync_journal["path"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     with (
         patch("observe.sync.get_pending_segments", return_value=[]),
@@ -828,7 +828,7 @@ def test_sync_service_drain_completes_current_segment(sync_journal, monkeypatch)
 
     journal = sync_journal["path"]
     day = sync_journal["day"]
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     service = SyncService("https://server/ingest/key")
     service._client.upload_segment = MagicMock(return_value=UploadResult(True))

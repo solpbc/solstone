@@ -25,11 +25,15 @@ def _entity(name, entity_id=None, aka=None):
 class TestExistingTiers:
     def test_exact_name_match(self):
         entities = [_entity("Robert Johnson")]
-        assert find_matching_entity("Robert Johnson", entities)["id"] == "robert_johnson"
+        assert (
+            find_matching_entity("Robert Johnson", entities)["id"] == "robert_johnson"
+        )
 
     def test_exact_id_match(self):
         entities = [_entity("Robert Johnson")]
-        assert find_matching_entity("robert_johnson", entities)["id"] == "robert_johnson"
+        assert (
+            find_matching_entity("robert_johnson", entities)["id"] == "robert_johnson"
+        )
 
     def test_exact_aka_match(self):
         entities = [_entity("Robert Johnson", aka=["Bob"])]
@@ -37,7 +41,9 @@ class TestExistingTiers:
 
     def test_case_insensitive_match(self):
         entities = [_entity("Robert Johnson")]
-        assert find_matching_entity("robert johnson", entities)["id"] == "robert_johnson"
+        assert (
+            find_matching_entity("robert johnson", entities)["id"] == "robert_johnson"
+        )
 
     def test_no_match_returns_none(self):
         entities = [_entity("Robert Johnson")]
@@ -94,12 +100,18 @@ class TestTokenSubset:
     def test_subset_match_short_in_long(self):
         """Shorter name's tokens are a subset of longer entity's tokens."""
         entities = [_entity("Josh Jones Dilworth")]
-        assert find_matching_entity("Jones Dilworth", entities)["id"] == "josh_jones_dilworth"
+        assert (
+            find_matching_entity("Jones Dilworth", entities)["id"]
+            == "josh_jones_dilworth"
+        )
 
     def test_subset_match_long_detected(self):
         """Detected name has more tokens than entity."""
         entities = [_entity("Jones Dilworth")]
-        assert find_matching_entity("Josh Jones Dilworth", entities)["id"] == "jones_dilworth"
+        assert (
+            find_matching_entity("Josh Jones Dilworth", entities)["id"]
+            == "jones_dilworth"
+        )
 
     def test_single_token_not_subset(self):
         """Single-token names don't trigger subset match (min 2 tokens)."""
@@ -118,10 +130,16 @@ class TestTokenSubset:
     def test_subset_both_directions(self):
         """Token-subset works regardless of which name is in entities."""
         entities = [_entity("Josh Jones Dilworth")]
-        assert find_matching_entity("Jones Dilworth", entities)["id"] == "josh_jones_dilworth"
+        assert (
+            find_matching_entity("Jones Dilworth", entities)["id"]
+            == "josh_jones_dilworth"
+        )
 
         entities = [_entity("Jones Dilworth")]
-        assert find_matching_entity("Josh Jones Dilworth", entities)["id"] == "jones_dilworth"
+        assert (
+            find_matching_entity("Josh Jones Dilworth", entities)["id"]
+            == "jones_dilworth"
+        )
 
 
 # --- Enhancement 3: Prefix-token match ---
@@ -131,12 +149,18 @@ class TestPrefixToken:
     def test_prefix_match_nickname(self):
         """Nickname prefix matching (Chris → Christopher)."""
         entities = [_entity("Christopher DeWolfe")]
-        assert find_matching_entity("Chris DeWolfe", entities)["id"] == "christopher_dewolfe"
+        assert (
+            find_matching_entity("Chris DeWolfe", entities)["id"]
+            == "christopher_dewolfe"
+        )
 
     def test_prefix_match_reverse(self):
         """Reverse direction: full name detected, nickname entity."""
         entities = [_entity("Chris DeWolfe")]
-        assert find_matching_entity("Christopher DeWolfe", entities)["id"] == "chris_dewolfe"
+        assert (
+            find_matching_entity("Christopher DeWolfe", entities)["id"]
+            == "chris_dewolfe"
+        )
 
     def test_prefix_min_length(self):
         """Prefix must be >= 4 chars."""
@@ -172,10 +196,16 @@ class TestProductionDuplicates:
     def test_chris_dewolfe(self):
         """Chris DeWolfe ↔ Christopher DeWolfe (prefix-token match)."""
         entities = [_entity("Christopher DeWolfe")]
-        assert find_matching_entity("Chris DeWolfe", entities)["id"] == "christopher_dewolfe"
+        assert (
+            find_matching_entity("Chris DeWolfe", entities)["id"]
+            == "christopher_dewolfe"
+        )
 
         entities = [_entity("Chris DeWolfe")]
-        assert find_matching_entity("Christopher DeWolfe", entities)["id"] == "chris_dewolfe"
+        assert (
+            find_matching_entity("Christopher DeWolfe", entities)["id"]
+            == "chris_dewolfe"
+        )
 
     def test_javier_garcia(self):
         """Javier ↔ Javier Garcia (bidirectional first-word match)."""
@@ -188,10 +218,16 @@ class TestProductionDuplicates:
     def test_jones_dilworth(self):
         """Jones Dilworth ↔ Josh Jones Dilworth (token-subset match)."""
         entities = [_entity("Josh Jones Dilworth")]
-        assert find_matching_entity("Jones Dilworth", entities)["id"] == "josh_jones_dilworth"
+        assert (
+            find_matching_entity("Jones Dilworth", entities)["id"]
+            == "josh_jones_dilworth"
+        )
 
         entities = [_entity("Jones Dilworth")]
-        assert find_matching_entity("Josh Jones Dilworth", entities)["id"] == "jones_dilworth"
+        assert (
+            find_matching_entity("Josh Jones Dilworth", entities)["id"]
+            == "jones_dilworth"
+        )
 
 
 # --- build_name_resolution_map ---

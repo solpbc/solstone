@@ -25,7 +25,7 @@ def remote_env(tmp_path, monkeypatch):
         journal.mkdir()
 
         # Set environment
-        monkeypatch.setenv("JOURNAL_PATH", str(journal))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
         # Create Flask test client
         from convey import create_app

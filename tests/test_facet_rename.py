@@ -13,7 +13,7 @@ from think.facets import rename_facet
 @pytest.fixture
 def journal(tmp_path, monkeypatch):
     """Create a minimal journal with a facet for rename tests."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     # Create facet directory with facet.json
     facet_dir = tmp_path / "facets" / "old-name"

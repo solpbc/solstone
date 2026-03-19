@@ -816,7 +816,7 @@ def get_journal_index(journal: str | None = None) -> tuple[sqlite3.Connection, s
     """Return SQLite connection for the journal index.
 
     Args:
-        journal: Path to journal root. Uses JOURNAL_PATH env var if not provided.
+        journal: Path to journal root. Uses _SOLSTONE_JOURNAL_OVERRIDE env var if not provided.
 
     Returns:
         Tuple of (connection, db_path)

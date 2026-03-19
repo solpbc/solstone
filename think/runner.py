@@ -5,13 +5,13 @@
 """Unified process spawning and lifecycle management utilities.
 
 All subprocess output is automatically logged to:
-    {JOURNAL_PATH}/{YYYYMMDD}/health/{ref}_{process_name}.log
+    journal/{YYYYMMDD}/health/{ref}_{process_name}.log
 
 Where process_name is derived from cmd[0] basename, and ref is a unique correlation ID.
 
 Symlinks provide stable access paths:
-    {JOURNAL_PATH}/{YYYYMMDD}/health/{process_name}.log (day-level symlink)
-    {JOURNAL_PATH}/health/{process_name}.log (journal-level symlink)
+    journal/{YYYYMMDD}/health/{process_name}.log (day-level symlink)
+    journal/health/{process_name}.log (journal-level symlink)
 
 Logs automatically roll over at midnight for long-running processes.
 """
@@ -46,7 +46,7 @@ def _current_day() -> str:
 def _day_health_log_path(day: str, ref: str, name: str) -> Path:
     """Build path to day health log.
 
-    Returns: {JOURNAL_PATH}/{day}/health/{ref}_{name}.log
+    Returns: journal/{day}/health/{ref}_{name}.log
     """
     return _get_journal_path() / day / "health" / f"{ref}_{name}.log"
 
@@ -91,11 +91,11 @@ class DailyLogWriter:
     When ``day`` is provided, the writer is pinned to that day directory
     and midnight rollover is disabled (batch processing of historical days).
 
-    Writes to: {JOURNAL_PATH}/{YYYYMMDD}/health/{ref}_{name}.log
+    Writes to: journal/{YYYYMMDD}/health/{ref}_{name}.log
 
     Creates and maintains symlinks:
-    - {JOURNAL_PATH}/{YYYYMMDD}/health/{name}.log -> {ref}_{name}.log (day-level)
-    - {JOURNAL_PATH}/health/{name}.log -> {YYYYMMDD}/health/{ref}_{name}.log (journal-level)
+    - journal/{YYYYMMDD}/health/{name}.log -> {ref}_{name}.log (day-level)
+    - journal/health/{name}.log -> {YYYYMMDD}/health/{ref}_{name}.log (journal-level)
 
     When the day changes, automatically closes old file, opens new file, and updates symlinks.
     """
@@ -168,13 +168,13 @@ class ManagedProcess:
     """Subprocess wrapper with automatic output logging and lifecycle management.
 
     All output is automatically logged to:
-        {JOURNAL_PATH}/{YYYYMMDD}/health/{ref}_{name}.log
+        journal/{YYYYMMDD}/health/{ref}_{name}.log
 
     Where name is derived from cmd[0] basename, and ref is a unique correlation ID.
 
     Symlinks are automatically created and maintained:
-        {JOURNAL_PATH}/{YYYYMMDD}/health/{name}.log -> {ref}_{name}.log (day-level)
-        {JOURNAL_PATH}/health/{name}.log -> {YYYYMMDD}/health/{ref}_{name}.log (journal-level)
+        journal/{YYYYMMDD}/health/{name}.log -> {ref}_{name}.log (day-level)
+        journal/health/{name}.log -> {YYYYMMDD}/health/{ref}_{name}.log (journal-level)
 
     Logs roll over automatically at midnight for long-running processes.
 
@@ -442,7 +442,7 @@ def run_task(
     """Run a task to completion with automatic logging (blocking).
 
     Spawns process, waits for completion, cleans up resources.
-    Output is automatically logged to: {JOURNAL_PATH}/{YYYYMMDD}/health/{ref}_{name}.log
+    Output is automatically logged to: journal/{YYYYMMDD}/health/{ref}_{name}.log
     where name is derived from cmd[0] basename.
 
     Args:

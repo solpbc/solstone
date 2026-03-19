@@ -277,7 +277,7 @@ class CortexService:
             env_overrides = config.get("env")
             if env_overrides and isinstance(env_overrides, dict):
                 env.update({k: str(v) for k, v in env_overrides.items()})
-            env["JOURNAL_PATH"] = str(self.journal_path)
+            env["_SOLSTONE_JOURNAL_OVERRIDE"] = str(self.journal_path)
 
             # Spawn the subprocess
             self.logger.info(f"Spawning {process_type} {agent_id}: {cmd}")

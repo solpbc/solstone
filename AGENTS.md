@@ -18,7 +18,7 @@ The project uses a modular architecture where each package can operate independe
 
 Understanding these core concepts is essential for working with solstone:
 
-* **Journal**: Central data structure organized as `JOURNAL_PATH/YYYYMMDD/` directories. All captured data, transcripts, and analysis artifacts are stored here. See [docs/JOURNAL.md](docs/JOURNAL.md).
+* **Journal**: Central data structure organized as `journal/YYYYMMDD/` directories. All captured data, transcripts, and analysis artifacts are stored here. See [docs/JOURNAL.md](docs/JOURNAL.md).
 
 * **Facets**: Project/context organization system (e.g., "work", "personal", "acme"). Facets group related content and provide scoped views of entities, tasks, and activities.
 
@@ -57,7 +57,7 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 * **Modules**: Each top-level folder is a Python package with `__init__.py` unless it is data-only (e.g., `tests/fixtures/`)
 * **Imports**: Prefer absolute imports (e.g., `from think.utils import setup_cli`) whenever feasible
 * **Entry Points**: Commands are registered in `sol.py`'s `COMMANDS` dict (pyproject.toml just defines the `sol` entry point)
-* **Journal**: Data stored under `JOURNAL_PATH` (see Environment Management below)
+* **Journal**: Data stored under `journal/` at the project root
 * **Calling**: When calling other modules as a separate process always use `sol <command>` and never call using `python -m ...` (e.g., use `sol indexer`, NOT `python -m think.indexer`)
 
 ---
@@ -67,7 +67,7 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 **Core Pipeline**: `observe` (capture) → JSON transcripts → `think` (analyze) → SQLite index → `convey` (web UI)
 
 **Data Organization**:
-* Everything organized under `JOURNAL_PATH/YYYYMMDD/` daily directories
+* Everything organized under `journal/YYYYMMDD/` daily directories
 * Import segments are anchored to creation/modification time, not content "about" time. A calendar event is segmented at the moment it was created, not its scheduled time. See the creation-moment principle in the extro org's `cpo/strategy/journal-memory-structure.md`.
 * Facets provide project-scoped organization and filtering
 * Entities are extracted from transcripts and tracked across time
@@ -87,7 +87,7 @@ The unified CLI is `sol`. Run `sol` to see status and available commands. Use `s
 
 ```python
 # Use comprehensive mock journal data for testing
-os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
 # Now all journal operations work with test data
 ```
 
@@ -153,9 +153,7 @@ See **Quick Reference** below for all `make` commands. Key patterns:
 ## Important Development Notes
 
 ### Environment Management
-* **JOURNAL_PATH**: The live journal path is stored in `.env`. To access it:
-  - **Shell/CLI**: Run `grep JOURNAL_PATH .env` to get the path, then use it directly
-  - **Python**: Use `get_journal()` from `think.utils` - it handles `.env` loading and auto-creates a platform-specific default if unset
+* **Journal Path**: The journal lives at `journal/` in the project root. `get_journal()` from `think.utils` returns the path. For tests, set `_SOLSTONE_JOURNAL_OVERRIDE` to override.
 * **API Keys**: Store in `.env` file, never commit to repository
 
 ### Error Handling & Logging
@@ -234,7 +232,7 @@ make dev                    # Start stack (Ctrl+C to stop)
 
 In a second terminal, take screenshots or hit endpoints:
 ```bash
-export JOURNAL_PATH=tests/fixtures/journal
+export _SOLSTONE_JOURNAL_OVERRIDE=tests/fixtures/journal
 export PATH=$(pwd)/.venv/bin:$PATH
 sol screenshot / -o scratch/home.png
 curl -s http://localhost:$(cat tests/fixtures/journal/health/convey.port)/
@@ -249,7 +247,7 @@ Notes:
 ### File Locations
 * **Entry Points**: `sol.py` `COMMANDS` dict
 * **Test Fixtures**: `tests/fixtures/journal/` - complete mock journal
-* **Live Logs**: `$JOURNAL_PATH/health/<service>.log`
+* **Live Logs**: `journal/health/<service>.log`
 * **Agent Personas**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
 * **Generator Templates**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
 * **Agent Skills**: `muse/*/SKILL.md` - symlinked to `.agents/skills/` and `.claude/skills/` via `make skills`, read https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices to create the best skills

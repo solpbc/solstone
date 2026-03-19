@@ -21,7 +21,7 @@ def test_main_runs_with_mocked_prompts(tmp_path, monkeypatch):
     """Test that main() runs pre/post phases and prompts by priority."""
     mod = importlib.import_module("think.dream")
     journal = copy_journal(tmp_path)
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     commands_run = []
     prompts_run = False
@@ -42,7 +42,6 @@ def test_main_runs_with_mocked_prompts(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "run_command", mock_run_command)
     monkeypatch.setattr(mod, "run_queued_command", mock_run_queued_command)
     monkeypatch.setattr(mod, "run_prompts_by_priority", mock_run_prompts_by_priority)
-    monkeypatch.setattr("think.utils.load_dotenv", lambda: True)
     monkeypatch.setattr(
         "sys.argv",
         ["sol dream", "--day", "20240101", "--refresh", "--verbose"],
@@ -71,7 +70,7 @@ def test_segment_mode_skips_pre_post_phases(tmp_path, monkeypatch):
     segment_dir = journal / "20240101" / "default" / "120000_300"
     segment_dir.mkdir(parents=True, exist_ok=True)
 
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     commands_run = []
 
@@ -89,7 +88,6 @@ def test_segment_mode_skips_pre_post_phases(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "run_command", mock_run_command)
     monkeypatch.setattr(mod, "run_queued_command", mock_run_queued_command)
     monkeypatch.setattr(mod, "run_prompts_by_priority", mock_run_prompts_by_priority)
-    monkeypatch.setattr("think.utils.load_dotenv", lambda: True)
     monkeypatch.setattr(
         "sys.argv",
         ["sol dream", "--day", "20240101", "--segment", "120000_300"],

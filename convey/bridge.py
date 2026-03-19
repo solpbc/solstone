@@ -30,8 +30,8 @@ _WEBSOCKET_CLIENTS: List[object] = []
 
 
 def _ensure_journal_env() -> None:
-    if state.journal_root and not os.environ.get("JOURNAL_PATH"):
-        os.environ["JOURNAL_PATH"] = state.journal_root
+    if state.journal_root and not os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE"):
+        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = state.journal_root
 
 
 def _broadcast_to_websockets(event: dict) -> None:
@@ -71,7 +71,7 @@ def start_bridge() -> None:
         if _CALLOSUM_CONNECTION:
             return
 
-        # Ensure JOURNAL_PATH is set
+        # Ensure journal override is set for child processes
         _ensure_journal_env()
 
         # Create Callosum connection with callback

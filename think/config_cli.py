@@ -3,12 +3,11 @@
 
 """CLI for inspecting journal configuration.
 
-Shows the resolved journal configuration as JSON, or prints JOURNAL_PATH with
-its source for shell integration.
+Shows the resolved journal configuration as JSON, or prints the journal path.
 
 Usage:
     sol config                      Show full config JSON
-    sol config env                  Show JOURNAL_PATH and source
+    sol config env                  Show journal path
     sol config facet rename OLD NEW Rename a facet
 """
 
@@ -33,14 +32,11 @@ def main() -> None:
     rename_parser.add_argument("old_name", help="Current facet name")
     rename_parser.add_argument("new_name", help="New facet name")
 
-    # Capture journal info BEFORE setup_cli() loads .env
-    journal_info = get_journal_info()
-
     args = setup_cli(parser)
 
     if args.subcommand == "env":
-        path, source = journal_info
-        print(f"JOURNAL_PATH={path} (from {source})")
+        path, _source = get_journal_info()
+        print(path)
     elif args.subcommand == "facet":
         if args.facet_action == "rename":
             from think.facets import rename_facet

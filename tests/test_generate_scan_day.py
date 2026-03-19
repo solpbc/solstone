@@ -12,7 +12,7 @@ FIXTURES = Path("tests/fixtures")
 
 
 def copy_day(tmp_path: Path) -> Path:
-    os.environ["JOURNAL_PATH"] = str(tmp_path)
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
     dest = day_path("20240101")
     src = FIXTURES / "journal" / "20240101"
     # Copy contents from fixture to the day_path created directory
@@ -30,7 +30,7 @@ def copy_day(tmp_path: Path) -> Path:
 def test_scan_day(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     day_dir = copy_day(tmp_path)
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     info = mod.scan_day("20240101")
     assert "agents/flow.md" in info["processed"]

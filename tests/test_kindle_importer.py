@@ -133,7 +133,7 @@ def test_process_basic():
         f.flush()
         try:
             with tempfile.TemporaryDirectory() as journal:
-                os.environ["JOURNAL_PATH"] = journal
+                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = journal
                 result = importer.process(Path(f.name), Path(journal))
                 assert result.entries_written == 2
                 assert result.errors == []
@@ -149,7 +149,7 @@ def test_process_basic():
                 assert "Page 42" in md
         finally:
             os.unlink(f.name)
-            os.environ.pop("JOURNAL_PATH", None)
+            os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
 
 
 def test_process_multiple_windows():
@@ -171,7 +171,7 @@ def test_process_multiple_windows():
         f.flush()
         try:
             with tempfile.TemporaryDirectory() as journal:
-                os.environ["JOURNAL_PATH"] = journal
+                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = journal
                 result = importer.process(Path(f.name), Path(journal))
                 assert result.entries_written == 2
                 assert result.segments is not None
@@ -179,7 +179,7 @@ def test_process_multiple_windows():
                 assert len(result.files_created) == 2
         finally:
             os.unlink(f.name)
-            os.environ.pop("JOURNAL_PATH", None)
+            os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
 
 
 def test_process_note_markdown():
@@ -197,13 +197,13 @@ def test_process_note_markdown():
         f.flush()
         try:
             with tempfile.TemporaryDirectory() as journal:
-                os.environ["JOURNAL_PATH"] = journal
+                os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = journal
                 result = importer.process(Path(f.name), Path(journal))
                 md = Path(result.files_created[0]).read_text()
                 assert "Note: My personal note" in md
         finally:
             os.unlink(f.name)
-            os.environ.pop("JOURNAL_PATH", None)
+            os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
 
 
 def test_observations_author_of(tmp_path, monkeypatch):
@@ -212,7 +212,7 @@ def test_observations_author_of(tmp_path, monkeypatch):
         f.write(content)
         f.flush()
         try:
-            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
             importer.process(Path(f.name), tmp_path, facet="test.kindle")
             author_obs = load_observations("test.kindle", "Author Name")
             author_contents = [o["content"] for o in author_obs]
@@ -227,7 +227,7 @@ def test_observations_by_author(tmp_path, monkeypatch):
         f.write(content)
         f.flush()
         try:
-            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
             importer.process(Path(f.name), tmp_path, facet="test.kindle")
             book_obs = load_observations("test.kindle", "Test Book")
             book_contents = [o["content"] for o in book_obs]
@@ -268,7 +268,7 @@ def test_observations_engagement(tmp_path, monkeypatch):
         f.write(content)
         f.flush()
         try:
-            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
             importer.process(Path(f.name), tmp_path, facet="test.kindle")
             book_obs = load_observations("test.kindle", "Test Book")
             book_contents = [o["content"] for o in book_obs]
@@ -282,7 +282,7 @@ def test_observations_engagement(tmp_path, monkeypatch):
         f.write(highlights_only)
         f.flush()
         try:
-            monkeypatch.setenv("JOURNAL_PATH", str(second_tmp_path))
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(second_tmp_path))
             importer.process(Path(f.name), second_tmp_path, facet="test.kindle")
             book_obs = load_observations("test.kindle", "Test Book")
             book_contents = [o["content"] for o in book_obs]
@@ -302,7 +302,7 @@ def test_observations_multi_book_author(tmp_path, monkeypatch):
         f.write(content)
         f.flush()
         try:
-            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
             importer.process(Path(f.name), tmp_path, facet="test.kindle")
             author_obs = load_observations("test.kindle", "Author Name")
             author_contents = [o["content"] for o in author_obs]
@@ -318,7 +318,7 @@ def test_observations_no_author(tmp_path, monkeypatch):
         f.write(content)
         f.flush()
         try:
-            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
             importer.process(Path(f.name), tmp_path, facet="test.kindle")
             book_obs = load_observations("test.kindle", "Title Without Author")
             book_contents = [o["content"] for o in book_obs]
@@ -341,7 +341,7 @@ def test_observations_dedup_on_reimport(tmp_path, monkeypatch):
         f.write(content)
         f.flush()
         try:
-            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
             importer.process(Path(f.name), tmp_path, facet="test.kindle")
             first = load_observations("test.kindle", "Test Book")
             first_by_author = [
@@ -381,7 +381,7 @@ def test_observations_engagement_notes_only(tmp_path, monkeypatch):
         f.write(content)
         f.flush()
         try:
-            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
             importer.process(Path(f.name), tmp_path, facet="test.kindle")
             book_obs = load_observations("test.kindle", "Test Book")
             book_contents = [o["content"] for o in book_obs]
@@ -408,7 +408,7 @@ def test_observations_engagement_excludes_bookmarks(tmp_path, monkeypatch):
         f.write(content)
         f.flush()
         try:
-            monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
             importer.process(Path(f.name), tmp_path, facet="test.kindle")
             book_obs = load_observations("test.kindle", "Test Book")
             book_contents = [o["content"] for o in book_obs]

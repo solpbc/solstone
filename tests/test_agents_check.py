@@ -11,7 +11,7 @@ import pytest
 
 
 def test_run_check_writes_health_file(tmp_path, monkeypatch):
-    """_run_check writes agents health results to JOURNAL_PATH/health/agents.json."""
+    """_run_check writes agents health results to _SOLSTONE_JOURNAL_OVERRIDE/health/agents.json."""
     import think.agents as agents
 
     fake_registry = {"fake": object()}

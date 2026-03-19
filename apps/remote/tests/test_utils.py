@@ -30,7 +30,7 @@ def storage_env(tmp_path, monkeypatch):
 
     journal = tmp_path / "journal"
     journal.mkdir()
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     monkeypatch.setattr(state, "journal_root", str(journal))
 
     # Create remotes directory

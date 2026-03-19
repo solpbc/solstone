@@ -93,7 +93,7 @@ def test_importer_text(tmp_path, monkeypatch):
     txt = tmp_path / "sample.txt"
     txt.write_text(transcript)
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(
         mod, "detect_created", lambda p, **kw: {"day": "20240101", "time": "120000"}
     )
@@ -175,7 +175,7 @@ def test_importer_pdf(tmp_path, monkeypatch):
     pdf = tmp_path / "meeting.pdf"
     pdf.write_bytes(b"%PDF-1.4 fake")
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(
         mod, "detect_created", lambda p, **kw: {"day": "20251205", "time": "163000"}
     )
@@ -308,7 +308,7 @@ def test_write_segment(tmp_path):
 def test_write_markdown_segments(tmp_path, monkeypatch):
     """write_markdown_segments creates segment dirs with imported.md files."""
     mod = importlib.import_module("think.importers.shared")
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     windows = [
         ("20260301", "120000_300", [{"text": "hello"}, {"text": "world"}]),
@@ -401,7 +401,7 @@ def test_chatgpt_importer_segments(tmp_path, monkeypatch):
     with zipfile.ZipFile(archive, "w") as zf:
         zf.writestr("conversations.json", json.dumps(conversations))
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     fixed_dt = dt.datetime(2026, 1, 20, 8, 30, 0)
 
@@ -541,7 +541,7 @@ def test_claude_chat_importer_segments(tmp_path, monkeypatch):
     with zipfile.ZipFile(archive, "w") as zf:
         zf.writestr("conversations.json", json.dumps(conversations))
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     fixed_dt = dt.datetime(2026, 1, 20, 8, 30, 0)
 
@@ -715,7 +715,7 @@ def test_prepare_audio_segments(tmp_path, monkeypatch):
     """Test prepare_audio_segments creates segment directories with audio slices."""
     mod = importlib.import_module("think.importers.audio")
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     audio_file = tmp_path / "test.mp3"
     audio_file.write_bytes(b"fake audio content")
@@ -768,7 +768,7 @@ def test_prepare_audio_segments_with_collision(tmp_path, monkeypatch):
     """Test prepare_audio_segments handles segment key collisions."""
     mod = importlib.import_module("think.importers.audio")
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     audio_file = tmp_path / "test.mp3"
     audio_file.write_bytes(b"fake audio content")
@@ -816,7 +816,7 @@ def test_importer_dry_run_text(tmp_path, monkeypatch, capsys):
     txt = tmp_path / "sample.txt"
     txt.write_text("hello\nworld\n")
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(
         "sys.argv",
         ["sol import", str(txt), "--timestamp", "20240101_120000", "--dry-run"],
@@ -850,7 +850,7 @@ def test_importer_dry_run_audio(tmp_path, monkeypatch, capsys):
     mp3 = tmp_path / "sample.mp3"
     mp3.write_bytes(b"fake audio")
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(mod, "_get_audio_duration", lambda p: 420.0)
     callosum_cls = MagicMock()
     monkeypatch.setattr(mod, "CallosumConnection", callosum_cls)
@@ -890,7 +890,7 @@ def test_importer_dry_run_auto(tmp_path, monkeypatch, capsys):
     txt = tmp_path / "notes.txt"
     txt.write_text("meeting notes")
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(
         mod, "detect_created", lambda p, **kw: {"day": "20240315", "time": "140000"}
     )
@@ -931,7 +931,7 @@ def test_file_importer_without_timestamp(tmp_path, monkeypatch, capsys):
     mock_imp = _make_mock_file_importer()
     callosum = MagicMock()
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr("sys.argv", ["sol import", str(ics_file), "--source", "ics"])
     monkeypatch.setattr(
         "think.importers.file_importer.get_file_importer", lambda name: mock_imp
@@ -967,7 +967,7 @@ def test_file_importer_with_timestamp(tmp_path, monkeypatch):
     mock_imp = _make_mock_file_importer()
     callosum = MagicMock()
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(
         "sys.argv",
         [
@@ -1281,7 +1281,7 @@ END:VEVENT
 END:VCALENDAR"""
     )
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     result = mod.ICSImporter().process(ics_path, tmp_path, facet="work")
 
@@ -1373,7 +1373,7 @@ def test_dry_run_file_importer_json(tmp_path, monkeypatch, capsys):
 
     mock_imp = _make_mock_file_importer()
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(
         "sys.argv",
         ["sol import", str(ics_file), "--source", "ics", "--dry-run", "--json"],
@@ -1413,7 +1413,7 @@ def test_file_import_json(tmp_path, monkeypatch, capsys):
     mock_imp = _make_mock_file_importer()
     callosum = MagicMock()
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(
         "sys.argv",
         ["sol import", str(ics_file), "--source", "ics", "--json"],
@@ -1448,7 +1448,7 @@ def test_file_importer_writes_manifest(tmp_path, monkeypatch):
 
     mock_imp = _make_mock_file_importer()
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(
         "sys.argv",
         ["sol import", str(ics_file), "--source", "ics"],
@@ -1501,7 +1501,7 @@ def test_obsidian_process_segments(tmp_path, monkeypatch):
     os.utime(note2, (base_ts + 60, base_ts + 60))  # 1 min later, same window
     os.utime(note3, (base_ts + 600, base_ts + 600))  # 10 min later, different window
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     result = mod.ObsidianImporter().process(vault, tmp_path)
 

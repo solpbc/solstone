@@ -97,7 +97,7 @@ class TestTransferExport:
         (segment_dir / "audio.flac").write_bytes(b"fake audio data")
         (segment_dir / "audio.jsonl").write_text('{"raw": "audio.flac"}\n')
 
-        monkeypatch.setenv("JOURNAL_PATH", str(journal_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
 
         # Clear cache
         import think.utils
@@ -132,7 +132,7 @@ class TestTransferExport:
         day_dir = journal_path / "20250101"
         day_dir.mkdir(parents=True)
 
-        monkeypatch.setenv("JOURNAL_PATH", str(journal_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
 
         import think.utils
 
@@ -148,7 +148,7 @@ class TestTransferExport:
         journal_path = tmp_path / "journal"
         journal_path.mkdir(parents=True)
 
-        monkeypatch.setenv("JOURNAL_PATH", str(journal_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
 
         import think.utils
 
@@ -222,7 +222,7 @@ class TestTransferImport:
         journal_path = tmp_path / "journal"
         journal_path.mkdir()
 
-        monkeypatch.setenv("JOURNAL_PATH", str(journal_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
 
         import think.utils
 
@@ -252,7 +252,7 @@ class TestTransferImport:
         segment_dir.mkdir(parents=True)
         (segment_dir / "audio.flac").write_bytes(content)
 
-        monkeypatch.setenv("JOURNAL_PATH", str(journal_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
 
         import think.utils
 
@@ -279,7 +279,7 @@ class TestTransferImport:
         segment_dir.mkdir(parents=True)
         (segment_dir / "audio.flac").write_bytes(b"existing different data")
 
-        monkeypatch.setenv("JOURNAL_PATH", str(journal_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
 
         import think.utils
 
@@ -312,7 +312,7 @@ class TestTransferImport:
         journal_path = tmp_path / "journal"
         journal_path.mkdir()
 
-        monkeypatch.setenv("JOURNAL_PATH", str(journal_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
 
         import think.utils
 
@@ -343,7 +343,7 @@ class TestTransferImport:
         journal_path = tmp_path / "journal"
         journal_path.mkdir()
 
-        monkeypatch.setenv("JOURNAL_PATH", str(journal_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
 
         import think.utils
 
@@ -371,7 +371,7 @@ class TestTransferImport:
         segment_dir.mkdir(parents=True)
         (segment_dir / "audio.flac").write_bytes(content)
 
-        monkeypatch.setenv("JOURNAL_PATH", str(journal_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
 
         import think.utils
 

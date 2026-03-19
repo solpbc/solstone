@@ -80,7 +80,7 @@ class TestComposeInstructions:
         import think.prompts
 
         monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         result = compose_instructions()
 
@@ -98,7 +98,7 @@ class TestComposeInstructions:
         import think.prompts
 
         monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         result = compose_instructions(
             config_overrides={"system": "custom"},
@@ -123,7 +123,7 @@ class TestComposeInstructions:
         # default user_prompt_dir, and load_prompt uses prompts.__file__ for defaults
         monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
         monkeypatch.setattr(think.muse, "__file__", str(think_dir / "muse.py"))
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         result = compose_instructions(user_prompt="default")
 
@@ -139,7 +139,7 @@ class TestComposeInstructions:
         import think.prompts
 
         monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         result = compose_instructions()
 
@@ -155,7 +155,7 @@ class TestComposeInstructions:
         import think.prompts
 
         monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         result = compose_instructions(
             config_overrides={"facets": False, "now": False, "day": False},
@@ -174,7 +174,7 @@ class TestComposeInstructions:
         import think.prompts
 
         monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         result = compose_instructions(
             config_overrides={"facets": False, "now": False},
@@ -193,7 +193,7 @@ class TestComposeInstructions:
         import think.prompts
 
         monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         result = compose_instructions(
             config_overrides={"facets": False, "now": True},
@@ -211,7 +211,7 @@ class TestComposeInstructions:
         import think.prompts
 
         monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         result = compose_instructions(
             analysis_day="20250115",
@@ -230,7 +230,7 @@ class TestComposeInstructions:
         import think.prompts
 
         monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         result = compose_instructions()
 
@@ -247,7 +247,7 @@ class TestComposeInstructions:
         import think.prompts
 
         monkeypatch.setattr(think.prompts, "__file__", str(think_dir / "prompts.py"))
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         result = compose_instructions(
             config_overrides={

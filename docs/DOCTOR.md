@@ -2,16 +2,6 @@
 
 Quick reference for debugging and diagnosing issues. For detailed specifications, see linked documentation.
 
-## Prerequisites
-
-Always get the journal path first:
-
-```bash
-export JOURNAL_PATH=$(grep JOURNAL_PATH .env | cut -d= -f2)
-```
-
----
-
 ## Quick Health Check
 
 ```bash
@@ -19,10 +9,10 @@ export JOURNAL_PATH=$(grep JOURNAL_PATH .env | cut -d= -f2)
 pgrep -af "sol:observer|sol:sense|sol:supervisor"
 
 # Check Callosum socket exists
-ls -la $JOURNAL_PATH/health/callosum.sock
+ls -la journal/health/callosum.sock
 
 # Check for stuck agents (should be empty or short-lived)
-ls $JOURNAL_PATH/agents/*/*_active.jsonl 2>/dev/null
+ls journal/agents/*/*_active.jsonl 2>/dev/null
 ```
 
 **Healthy state:**
@@ -53,19 +43,19 @@ See [CALLOSUM.md](CALLOSUM.md) for message protocol and [CORTEX.md](CORTEX.md) f
 
 | What | Where |
 |------|-------|
-| Current service logs | `$JOURNAL_PATH/health/{service}.log` (symlinks) |
-| Day's process logs | `$JOURNAL_PATH/{YYYYMMDD}/health/{ref}_{name}.log` |
-| Agent execution | `$JOURNAL_PATH/agents/<name>/*.jsonl` |
-| Journal task log | `$JOURNAL_PATH/task_log.txt` |
+| Current service logs | `journal/health/{service}.log` (symlinks) |
+| Day's process logs | `journal/{YYYYMMDD}/health/{ref}_{name}.log` |
+| Agent execution | `journal/agents/<name>/*.jsonl` |
+| Journal task log | `journal/task_log.txt` |
 
 **Symlink structure:** Journal-level symlinks point to current day's logs. Day-level symlinks point to current process instance (by ref).
 
 ```bash
 # Tail current observer log
-tail -f $JOURNAL_PATH/health/observer.log
+tail -f journal/health/observer.log
 
 # Find today's logs
-ls -la $JOURNAL_PATH/$(date +%Y%m%d)/health/
+ls -la journal/$(date +%Y%m%d)/health/
 ```
 
 ---
@@ -99,7 +89,7 @@ See [CALLOSUM.md](CALLOSUM.md) Tract Registry for event schemas.
 
 ## Reading Agent Files
 
-**Location:** `$JOURNAL_PATH/agents/`
+**Location:** `journal/agents/`
 
 **File states:**
 - `{name}/{timestamp}_active.jsonl` - Agent currently running
@@ -115,11 +105,11 @@ See [CALLOSUM.md](CALLOSUM.md) Tract Registry for event schemas.
 
 ```bash
 # View an agent's final result
-jq -r 'select(.event=="finish") | .result' $JOURNAL_PATH/agents/default/1234567890123.jsonl
+jq -r 'select(.event=="finish") | .result' journal/agents/default/1234567890123.jsonl
 
 # List today's agents with their prompts
-for id in $(jq -r '.agent_id' $JOURNAL_PATH/agents/$(date +%Y%m%d).jsonl 2>/dev/null); do
-  f=$(find $JOURNAL_PATH/agents -maxdepth 2 -path "*/${id}.jsonl" -print -quit)
+for id in $(jq -r '.agent_id' journal/agents/$(date +%Y%m%d).jsonl 2>/dev/null); do
+  f=$(find journal/agents -maxdepth 2 -path "*/${id}.jsonl" -print -quit)
   [ -n "$f" ] || continue
   echo "=== $(basename "$f") ==="
   head -1 "$f" | jq -r '.prompt[:80]'
@@ -136,7 +126,7 @@ See [CORTEX.md](CORTEX.md) for complete event schemas and agent configuration.
 
 ```bash
 # Check observer log for errors
-tail -50 $JOURNAL_PATH/health/observer.log | grep -i error
+tail -50 journal/health/observer.log | grep -i error
 
 # Check if observer is emitting status (supervisor.status will show stale_heartbeats)
 # Health is derived from observe.status Callosum events
@@ -148,10 +138,10 @@ Causes: DBus issues, screencast permissions, audio device unavailable.
 
 ```bash
 # Find active agents
-ls -la $JOURNAL_PATH/agents/*/*_active.jsonl
+ls -la journal/agents/*/*_active.jsonl
 
 # Check last event in active agent
-tail -1 $JOURNAL_PATH/agents/*/*_active.jsonl | jq .
+tail -1 journal/agents/*/*_active.jsonl | jq .
 ```
 
 Causes: Backend timeout, tool hanging, network issues.
@@ -160,7 +150,7 @@ Causes: Backend timeout, tool hanging, network issues.
 
 ```bash
 # Verify socket exists
-ls -la $JOURNAL_PATH/health/callosum.sock
+ls -la journal/health/callosum.sock
 
 # Check supervisor is running
 pgrep -af sol:supervisor
@@ -172,7 +162,7 @@ Causes: Supervisor not started, socket path permissions.
 
 ```bash
 # Check sense log for queue status
-grep -i "queue" $JOURNAL_PATH/health/sense.log | tail -10
+grep -i "queue" journal/health/sense.log | tail -10
 ```
 
 Causes: Slow transcription, describe API rate limits.
@@ -183,23 +173,23 @@ Causes: Slow transcription, describe API rate limits.
 
 ```bash
 # Watch all service logs
-tail -f $JOURNAL_PATH/health/*.log
+tail -f journal/health/*.log
 
 # Count today's agents by status
-echo "Completed: $([ -f $JOURNAL_PATH/agents/$(date +%Y%m%d).jsonl ] && wc -l < $JOURNAL_PATH/agents/$(date +%Y%m%d).jsonl || echo 0)"
-echo "Running: $(ls $JOURNAL_PATH/agents/*/*_active.jsonl 2>/dev/null | wc -l)"
+echo "Completed: $([ -f journal/agents/$(date +%Y%m%d).jsonl ] && wc -l < journal/agents/$(date +%Y%m%d).jsonl || echo 0)"
+echo "Running: $(ls journal/agents/*/*_active.jsonl 2>/dev/null | wc -l)"
 
 # Find agents that errored today
-jq -r 'select(.status=="error") | .agent_id' $JOURNAL_PATH/agents/$(date +%Y%m%d).jsonl 2>/dev/null
+jq -r 'select(.status=="error") | .agent_id' journal/agents/$(date +%Y%m%d).jsonl 2>/dev/null
 
 # Check token usage for today
-wc -l $JOURNAL_PATH/tokens/$(date +%Y%m%d).jsonl
+wc -l journal/tokens/$(date +%Y%m%d).jsonl
 
 # Find errors in today's logs
-grep -i error $JOURNAL_PATH/$(date +%Y%m%d)/health/*.log
+grep -i error journal/$(date +%Y%m%d)/health/*.log
 
 # Watch Callosum events in real-time
-socat - UNIX-CONNECT:$JOURNAL_PATH/health/callosum.sock
+socat - UNIX-CONNECT:journal/health/callosum.sock
 ```
 
 ---
@@ -216,7 +206,7 @@ Known trigger: screen sharing active during sck-cli capture causes AVAssetWriter
 
 ```bash
 # Confirm the issue — should report "moov atom not found"
-ffprobe -v error $JOURNAL_PATH/YYYYMMDD/STREAM/SEGMENT/center_1_screen.mov
+ffprobe -v error journal/YYYYMMDD/STREAM/SEGMENT/center_1_screen.mov
 
 # Inspect atom structure (moov should be present but isn't)
 python3 -c "

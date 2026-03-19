@@ -19,7 +19,7 @@ from think.utils import now_ms
 @pytest.fixture
 def callosum_server(integration_journal_path):
     """Start a Callosum server for integration testing."""
-    os.environ["JOURNAL_PATH"] = str(integration_journal_path)
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(integration_journal_path)
 
     server = CallosumServer()
     server_thread = threading.Thread(target=server.start, daemon=True)
@@ -60,7 +60,7 @@ def test_cortex_service_startup(integration_journal_path, callosum_server):
 @pytest.mark.integration
 def test_cortex_request_creation(integration_journal_path, callosum_server):
     """Test creating a Cortex agent request via Callosum."""
-    os.environ["JOURNAL_PATH"] = str(integration_journal_path)
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(integration_journal_path)
 
     # Listen for broadcasts
     received_messages = []
@@ -93,7 +93,7 @@ def test_cortex_request_creation(integration_journal_path, callosum_server):
 @pytest.mark.integration
 def test_cortex_end_to_end_with_echo_agent(integration_journal_path, callosum_server):
     """Test end-to-end Cortex flow with a simple echo agent."""
-    os.environ["JOURNAL_PATH"] = str(integration_journal_path)
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(integration_journal_path)
 
     # Create a mock agent script that just echoes
     agents_dir = integration_journal_path / "agents"
@@ -143,7 +143,7 @@ def test_cortex_end_to_end_with_echo_agent(integration_journal_path, callosum_se
 @pytest.mark.integration
 def test_cortex_agents_listing(integration_journal_path):
     """Test listing agents from the cortex_agents function."""
-    os.environ["JOURNAL_PATH"] = str(integration_journal_path)
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(integration_journal_path)
 
     # Create some test agent files
     agents_dir = integration_journal_path / "agents"
@@ -189,7 +189,7 @@ def test_cortex_agents_listing(integration_journal_path):
 @pytest.mark.integration
 def test_cortex_error_handling(integration_journal_path, callosum_server):
     """Test that Cortex handles errors gracefully."""
-    os.environ["JOURNAL_PATH"] = str(integration_journal_path)
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(integration_journal_path)
 
     # Listen for events
     received_events = []

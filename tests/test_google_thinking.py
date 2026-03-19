@@ -31,7 +31,7 @@ def test_google_thinking_events(monkeypatch, tmp_path, capsys):
     journal = tmp_path / "journal"
     journal.mkdir()
 
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     monkeypatch.setenv("GOOGLE_API_KEY", "x")
     monkeypatch.setattr(
         "think.providers.cli.shutil.which",

@@ -1269,7 +1269,7 @@ def _handle_segment_event_log(message: dict) -> None:
     """Log observe, dream, and activity events with day+segment to segment/events.jsonl.
 
     Any observe, dream, or activity tract message with both day and segment fields
-    gets logged to JOURNAL_PATH/day/segment/events.jsonl if that directory exists.
+    gets logged to journal/day/segment/events.jsonl if that directory exists.
     """
     if message.get("tract") not in {"observe", "dream", "activity"}:
         return

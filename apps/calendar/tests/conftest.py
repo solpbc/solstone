@@ -26,7 +26,7 @@ def calendar_env(tmp_path, monkeypatch):
             lines = [json.dumps(e, ensure_ascii=False) for e in entries]
             calendar_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
         monkeypatch.setenv("SOL_DAY", day)
         monkeypatch.setenv("SOL_FACET", facet)
         return day, facet, calendar_path
@@ -51,7 +51,7 @@ def facet_env(tmp_path, monkeypatch):
         )
 
         (facet_path / "calendar").mkdir()
-        monkeypatch.setenv("JOURNAL_PATH", str(journal))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
         monkeypatch.setenv("SOL_FACET", facet)
         return journal, facet
 
@@ -61,7 +61,7 @@ def facet_env(tmp_path, monkeypatch):
 @pytest.fixture
 def move_env(tmp_path, monkeypatch):
     """Create a two-facet environment for move tests."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     def _create(
         entries: list[dict] | None = None,

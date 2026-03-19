@@ -16,7 +16,7 @@ from think.help_cli import main
 
 @pytest.fixture(autouse=True)
 def _set_journal_path(monkeypatch):
-    monkeypatch.setenv("JOURNAL_PATH", "tests/fixtures/journal")
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "tests/fixtures/journal")
 
 
 def _make_popen(stdout_lines, *, returncode=0):

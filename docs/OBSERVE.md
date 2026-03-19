@@ -73,4 +73,4 @@ See [JOURNAL.md](JOURNAL.md) for detailed extract schemas:
 
 ## Configuration
 
-Requires `JOURNAL_PATH` environment variable. API keys for transcription/vision services configured in `.env`.
+Requires the journal directory at project root. API keys for transcription/vision services configured in `.env`.

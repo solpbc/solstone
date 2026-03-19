@@ -17,7 +17,7 @@ Naming convention (separator is '.'):
     Import (text):    import.text
 
 Storage:
-    JOURNAL_PATH/streams/{name}.json   - per-stream state (last segment, seq)
+    journal/streams/{name}.json   - per-stream state (last segment, seq)
     {segment_dir}/stream.json          - per-segment marker (stream, prev, seq)
 """
 
@@ -127,7 +127,7 @@ def _streams_dir() -> Path:
 
 
 def get_stream_state(name: str) -> dict | None:
-    """Load stream state from JOURNAL_PATH/streams/{name}.json.
+    """Load stream state from journal/streams/{name}.json.
 
     Returns
     -------
@@ -287,7 +287,7 @@ def read_segment_stream(segment_dir: str | Path) -> dict | None:
 
 
 def list_streams() -> list[dict]:
-    """List all stream state files from JOURNAL_PATH/streams/.
+    """List all stream state files from journal/streams/.
 
     Returns
     -------

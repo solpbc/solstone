@@ -30,13 +30,13 @@ def speakers_env(tmp_path, monkeypatch):
             env = speakers_env()
             env.create_segment("20240101", "143022_300", ["mic_audio"])
             env.create_entity("Alice Test")
-            # Now JOURNAL_PATH is set and data exists
+            # Now _SOLSTONE_JOURNAL_OVERRIDE is set and data exists
     """
 
     class SpeakersEnv:
         def __init__(self, journal_path: Path):
             self.journal = journal_path
-            monkeypatch.setenv("JOURNAL_PATH", str(journal_path))
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_path))
 
         def create_segment(
             self,
@@ -299,14 +299,10 @@ def speakers_env(tmp_path, monkeypatch):
                 json.dump(relationship, f, indent=2)
 
             if observations:
-                with open(
-                    rel_dir / "observations.jsonl", "w", encoding="utf-8"
-                ) as f:
+                with open(rel_dir / "observations.jsonl", "w", encoding="utf-8") as f:
                     for obs in observations:
                         f.write(
-                            json.dumps(
-                                {"content": obs, "observed_at": 1700000000000}
-                            )
+                            json.dumps({"content": obs, "observed_at": 1700000000000})
                             + "\n"
                         )
 

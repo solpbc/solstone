@@ -40,7 +40,7 @@ def facet_journal(tmp_path, monkeypatch):
         json.dumps({"title": "Muted Facet", "muted": True}),
         encoding="utf-8",
     )
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     import think.utils
 
     think.utils._journal_path_cache = None
@@ -134,7 +134,7 @@ def merge_journal(tmp_path, monkeypatch):
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     import think.utils
 
     think.utils._journal_path_cache = None
@@ -286,7 +286,7 @@ class TestJournal:
         shutil.copytree(
             "tests/fixtures/journal/facets/work", journal / "facets" / "work"
         )
-        monkeypatch.setenv("JOURNAL_PATH", str(journal))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
         # Clear cached journal path
         import think.utils
 

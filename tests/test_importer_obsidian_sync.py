@@ -96,7 +96,7 @@ def test_obsidian_sync_import(tmp_path, monkeypatch):
     from think.importers.obsidian import ObsidianSyncBackend
     from think.importers.sync import load_sync_state
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     vault = tmp_path / "vault"
     _write_note(vault, "Projects/Alpha.md", SAMPLE_NOTE, mtime=1_700_000_000)
 
@@ -118,7 +118,7 @@ def test_obsidian_sync_edit_creates_new_segments(tmp_path, monkeypatch):
     from think.importers.obsidian import ObsidianSyncBackend
     from think.importers.sync import load_sync_state
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     vault = tmp_path / "vault"
     _write_note(vault, "Projects/Alpha.md", SAMPLE_NOTE, mtime=1_700_000_000)
 
@@ -149,7 +149,7 @@ def test_obsidian_sync_unchanged_skip(tmp_path, monkeypatch):
     """Mtime-only changes are skipped when content hash matches."""
     from think.importers.obsidian import ObsidianSyncBackend
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     vault = tmp_path / "vault"
     _write_note(vault, "Projects/Alpha.md", SAMPLE_NOTE, mtime=1_700_000_000)
 
@@ -166,7 +166,7 @@ def test_obsidian_sync_deleted_note(tmp_path, monkeypatch):
     from think.importers.obsidian import ObsidianSyncBackend
     from think.importers.sync import load_sync_state
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     vault = tmp_path / "vault"
     note = _write_note(vault, "Projects/Alpha.md", SAMPLE_NOTE, mtime=1_700_000_000)
 
@@ -184,7 +184,7 @@ def test_obsidian_sync_force(tmp_path, monkeypatch):
     """Force re-detects notes by clearing state."""
     from think.importers.obsidian import ObsidianSyncBackend
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     vault = tmp_path / "vault"
     _write_note(vault, "Projects/Alpha.md", SAMPLE_NOTE, mtime=1_700_000_000)
 
@@ -214,7 +214,7 @@ def test_obsidian_sync_entity_seeding(tmp_path, monkeypatch):
     """Wikilinks are converted into Topic entities on import."""
     from think.importers.obsidian import ObsidianSyncBackend
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     vault = tmp_path / "vault"
     _write_note(vault, "Projects/Alpha.md", SAMPLE_NOTE, mtime=1_700_000_000)
 
@@ -247,7 +247,7 @@ def test_obsidian_sync_incremental(tmp_path, monkeypatch):
     """Incremental sync imports only newly added notes."""
     from think.importers.obsidian import ObsidianSyncBackend
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     vault = tmp_path / "vault"
     _write_note(vault, "Projects/Alpha.md", SAMPLE_NOTE, mtime=1_700_000_000)
 
@@ -341,7 +341,7 @@ def test_obsidian_sync_folder_path_entity_typing(tmp_path, monkeypatch):
     """Notes in typed folders produce typed entities."""
     from think.importers.obsidian import ObsidianSyncBackend
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     vault = tmp_path / "vault"
 
     _write_note(
@@ -376,7 +376,7 @@ def test_obsidian_sync_at_prefix_entity_typing(tmp_path, monkeypatch):
     """Wikilinks with @ prefix produce Person entities."""
     from think.importers.obsidian import ObsidianSyncBackend
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     vault = tmp_path / "vault"
 
     _write_note(
@@ -408,7 +408,7 @@ def test_obsidian_sync_numeric_prefix_folder(tmp_path, monkeypatch):
     """Numeric-prefixed folder names are matched after stripping."""
     from think.importers.obsidian import ObsidianSyncBackend
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     vault = tmp_path / "vault"
 
     _write_note(vault, "00 People/Jane.md", "# Jane\nA person.", mtime=1_700_000_000)
@@ -511,7 +511,7 @@ def test_obsidian_sync_excludes_templates(tmp_path, monkeypatch):
     from think.importers.obsidian import ObsidianSyncBackend
     from think.importers.sync import load_sync_state
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     vault = tmp_path / "vault"
     _write_note(vault, "Notes/real.md", SAMPLE_NOTE, mtime=1_700_000_000)
     _write_note(
@@ -541,7 +541,7 @@ def test_obsidian_backends_cli_flag(capsys, monkeypatch):
     from think.importers.cli import main
 
     monkeypatch.setattr(sys, "argv", ["sol import", "--backends"])
-    monkeypatch.setenv("JOURNAL_PATH", "/tmp/test-journal")
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "/tmp/test-journal")
 
     main()
     captured = capsys.readouterr()

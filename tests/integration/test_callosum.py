@@ -20,11 +20,11 @@ def journal_path(tmp_path):
     """Set up a temporary journal path."""
     journal = tmp_path / "journal"
     journal.mkdir()
-    os.environ["JOURNAL_PATH"] = str(journal)
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal)
     yield journal
     # Cleanup
-    if "JOURNAL_PATH" in os.environ:
-        del os.environ["JOURNAL_PATH"]
+    if "_SOLSTONE_JOURNAL_OVERRIDE" in os.environ:
+        del os.environ["_SOLSTONE_JOURNAL_OVERRIDE"]
 
 
 @pytest.fixture

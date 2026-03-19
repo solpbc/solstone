@@ -299,7 +299,7 @@ The JSON frontmatter for an agent can include:
   - Keys are variable names, values are coerced to strings
   - Request-level `env` overrides agent defaults
   - Inherited by handoff agents unless explicitly overridden
-  - Note: `JOURNAL_PATH` cannot be overridden (always set by Cortex)
+  - Note: `_SOLSTONE_JOURNAL_OVERRIDE` is set by Cortex for child processes
 
 ### Model Resolution
 

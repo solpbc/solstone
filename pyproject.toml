@@ -67,7 +67,6 @@ dependencies = [
     "tzlocal",
     "python-slugify",
     "rapidfuzz",
-    "platformdirs",
     "typer",
 
     # Audio processing

@@ -78,7 +78,7 @@ def collect_platform() -> dict[str, str]:
 def collect_services() -> dict[str, str]:
     """Check which solstone services are running.
 
-    Looks at PID files under ``$JOURNAL_PATH/health/``.
+    Looks at PID files under ``journal/health/``.
     """
     from think.utils import get_journal
 
@@ -106,7 +106,7 @@ def collect_services() -> dict[str, str]:
 def collect_recent_errors(limit: int = 10) -> list[dict[str, Any]]:
     """Return the most recent callosum error events from service logs.
 
-    Scans ``$JOURNAL_PATH/health/*.log`` for lines containing ``ERROR``.
+    Scans ``journal/health/*.log`` for lines containing ``ERROR``.
     """
     from think.utils import get_journal
 

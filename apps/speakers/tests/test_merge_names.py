@@ -286,9 +286,7 @@ def test_facet_merge_description_priority(speakers_env):
 
     # Both have descriptions: canonical's wins
     env.create_facet_relationship("work", "alias_d", description="From alias")
-    env.create_facet_relationship(
-        "work", "canonical_d", description="From canonical"
-    )
+    env.create_facet_relationship("work", "canonical_d", description="From canonical")
 
     merge_names("Alias D", "Canonical D")
 
@@ -327,9 +325,7 @@ def test_facet_observations_merged(speakers_env):
     env.create_facet_relationship(
         "work", "alias_obs", observations=["Likes coffee", "Morning person"]
     )
-    env.create_facet_relationship(
-        "work", "canonical_obs", observations=["Senior role"]
-    )
+    env.create_facet_relationship("work", "canonical_obs", observations=["Senior role"])
 
     merge_names("Alias Obs", "Canonical Obs")
 
@@ -353,21 +349,14 @@ def test_facet_no_alias_relationship(speakers_env):
     env = speakers_env()
     env.create_entity("Alias None")
     env.create_entity("Canonical None")
-    env.create_facet_relationship(
-        "work", "canonical_none", description="Only me"
-    )
+    env.create_facet_relationship("work", "canonical_none", description="Only me")
 
     result = merge_names("Alias None", "Canonical None")
 
     assert result["facets_merged"] == []
     assert result["facets_moved"] == []
     rel_path = (
-        env.journal
-        / "facets"
-        / "work"
-        / "entities"
-        / "canonical_none"
-        / "entity.json"
+        env.journal / "facets" / "work" / "entities" / "canonical_none" / "entity.json"
     )
     with open(rel_path) as f:
         rel = json.load(f)
@@ -524,9 +513,7 @@ def test_corrupted_labels_logged_not_aborted(speakers_env):
     # Write corrupted file containing the alias_id string
     agents_dir = env.journal / "20240101" / STREAM / "143022_300" / "agents"
     agents_dir.mkdir(parents=True, exist_ok=True)
-    (agents_dir / "speaker_labels.json").write_text(
-        "corrupt_alias {not valid json"
-    )
+    (agents_dir / "speaker_labels.json").write_text("corrupt_alias {not valid json")
 
     result = merge_names("Corrupt Alias", "Corrupt Canon")
 
@@ -776,18 +763,10 @@ def test_cli_success(speakers_env):
 
     emb_a = np.random.default_rng(42).standard_normal((3, 256)).astype(np.float32)
     emb_b = np.random.default_rng(99).standard_normal((3, 256)).astype(np.float32)
-    meta_a = np.array(
-        [json.dumps({"key": f"a_{i}"}) for i in range(3)], dtype=str
-    )
-    meta_b = np.array(
-        [json.dumps({"key": f"b_{i}"}) for i in range(3)], dtype=str
-    )
-    np.savez_compressed(
-        entity_a / "voiceprints.npz", embeddings=emb_a, metadata=meta_a
-    )
-    np.savez_compressed(
-        entity_b / "voiceprints.npz", embeddings=emb_b, metadata=meta_b
-    )
+    meta_a = np.array([json.dumps({"key": f"a_{i}"}) for i in range(3)], dtype=str)
+    meta_b = np.array([json.dumps({"key": f"b_{i}"}) for i in range(3)], dtype=str)
+    np.savez_compressed(entity_a / "voiceprints.npz", embeddings=emb_a, metadata=meta_a)
+    np.savez_compressed(entity_b / "voiceprints.npz", embeddings=emb_b, metadata=meta_b)
 
     result = _runner.invoke(
         speakers_app, ["merge-names", "Alice Alias", "Alice Canonical"]

@@ -64,7 +64,7 @@ Python 3.10+, Linux + macOS, AGPL-3.0-only, maintained by [sol pbc](https://solp
 - **cortex** — orchestrates agent execution. receives events, dispatches agents, writes results back to the journal.
 - **callosum** — async message bus connecting all services. enables event-driven coordination between observe, think, cortex, and convey.
 - **convey** — Flask-based web interface with 17 pluggable apps for navigating journal data.
-- **journal** — `JOURNAL_PATH/YYYYMMDD/` daily directories. the single source of truth — transcripts, media, entities, agent outputs, and the SQLite index all live here.
+- **journal** — `journal/YYYYMMDD/` daily directories. the single source of truth — transcripts, media, entities, agent outputs, and the SQLite index all live here.
 
 ## quick start
 

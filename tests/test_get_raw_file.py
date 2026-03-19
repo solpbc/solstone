@@ -8,7 +8,7 @@ from think.utils import day_path
 
 def test_get_raw_file(tmp_path, monkeypatch):
     utils = importlib.import_module("think.utils")
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     # Create segments under default stream

@@ -53,13 +53,13 @@ def pytest_collection_modifyitems(config, items):
 def integration_journal_path(tmp_path_factory):
     """Create a temporary journal path for integration tests."""
     journal_dir = tmp_path_factory.mktemp("integration_journal")
-    old_path = os.environ.get("JOURNAL_PATH")
-    os.environ["JOURNAL_PATH"] = str(journal_dir)
+    old_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(journal_dir)
     yield journal_dir
     if old_path:
-        os.environ["JOURNAL_PATH"] = old_path
+        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = old_path
     else:
-        os.environ.pop("JOURNAL_PATH", None)
+        os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
 
 
 @pytest.fixture

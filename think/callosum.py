@@ -238,7 +238,7 @@ class CallosumConnection:
         """Initialize connection (does not connect immediately).
 
         Args:
-            socket_path: Path to Unix socket (defaults to $JOURNAL_PATH/health/callosum.sock)
+            socket_path: Path to Unix socket (defaults to journal/health/callosum.sock)
             defaults: Default fields merged into every emit() call. None values are filtered out.
         """
         if socket_path is None:
@@ -418,7 +418,7 @@ def callosum_send(
     Args:
         tract: Message category/namespace
         event: Event type
-        socket_path: Optional socket path (defaults to $JOURNAL_PATH/health/callosum.sock)
+        socket_path: Optional socket path (defaults to journal/health/callosum.sock)
         timeout: Connection timeout in seconds (default: 2.0)
         **fields: Additional message fields
 

@@ -284,7 +284,7 @@ def test_standalone_dry_run(tmp_path, monkeypatch):
     """Test scan_unprocessed finds only unprocessed media files."""
     from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     day_dir = tmp_path / "20250101"
     segment_dir = day_dir / "default" / "143022_300"
@@ -314,7 +314,7 @@ def test_standalone_dry_run_with_segment_filter(tmp_path, monkeypatch):
     """Test scan_unprocessed honors segment filters."""
     from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     day_dir = tmp_path / "20250101"
     segment_1 = day_dir / "default" / "143022_300"

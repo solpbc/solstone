@@ -124,7 +124,7 @@ def _save_voiceprints_batch(
     )
     combined_meta = np.array(existing_meta + new_meta, dtype=str)
 
-    tmp_path = npz_path.with_name(npz_path.stem + '.tmp.npz')
+    tmp_path = npz_path.with_name(npz_path.stem + ".tmp.npz")
     np.savez_compressed(tmp_path, embeddings=combined_emb, metadata=combined_meta)
     tmp_path.rename(npz_path)
     return len(new_items)
@@ -481,9 +481,7 @@ def merge_names(alias_name: str, canonical_name: str) -> dict[str, Any]:
 
                 # Save merged relationship (atomic write)
                 canonical_rel["entity_id"] = canonical_id
-                content = (
-                    json.dumps(canonical_rel, ensure_ascii=False, indent=2) + "\n"
-                )
+                content = json.dumps(canonical_rel, ensure_ascii=False, indent=2) + "\n"
                 tmp = canonical_rel_path.with_suffix(".tmp")
                 with open(tmp, "w", encoding="utf-8") as f:
                     f.write(content)
@@ -494,17 +492,13 @@ def merge_names(alias_name: str, canonical_name: str) -> dict[str, Any]:
                 if alias_obs_path.exists():
                     alias_obs = alias_obs_path.read_text(encoding="utf-8")
                     if alias_obs.strip():
-                        canonical_obs_path = (
-                            canonical_rel_dir / "observations.jsonl"
-                        )
+                        canonical_obs_path = canonical_rel_dir / "observations.jsonl"
                         existing_obs = ""
                         if canonical_obs_path.exists():
                             existing_obs = canonical_obs_path.read_text(
                                 encoding="utf-8"
                             )
-                        with open(
-                            canonical_obs_path, "a", encoding="utf-8"
-                        ) as f:
+                        with open(canonical_obs_path, "a", encoding="utf-8") as f:
                             if existing_obs and not existing_obs.endswith("\n"):
                                 f.write("\n")
                             f.write(alias_obs)

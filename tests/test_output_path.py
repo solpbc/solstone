@@ -8,7 +8,7 @@ from pathlib import Path
 
 from think.muse import get_output_name, get_output_path
 
-os.environ.setdefault("JOURNAL_PATH", "tests/fixtures/journal")
+os.environ.setdefault("_SOLSTONE_JOURNAL_OVERRIDE", "tests/fixtures/journal")
 
 
 class TestGetOutputName:
@@ -90,7 +90,7 @@ class TestGetActivityOutputPath:
         path = get_activity_output_path(
             "work", "20260209", "coding_100000_300", "session_review"
         )
-        journal = os.environ["JOURNAL_PATH"]
+        journal = os.environ["_SOLSTONE_JOURNAL_OVERRIDE"]
         expected = (
             Path(journal)
             / "facets/work/activities/20260209/coding_100000_300/session_review.md"

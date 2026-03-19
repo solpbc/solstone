@@ -291,7 +291,7 @@ def format_file(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Load file, detect formatter, return formatted chunks and metadata.
 
-    File must be under JOURNAL_PATH. Supports JSONL, JSON, and Markdown files.
+    File must be under the journal root. Supports JSONL, JSON, and Markdown files.
 
     Args:
         file_path: Absolute or journal-relative path to file

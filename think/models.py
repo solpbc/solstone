@@ -990,7 +990,7 @@ def get_backup_provider(agent_type: str) -> Optional[str]:
 
 
 def load_health_status() -> Optional[dict]:
-    """Load health status from $JOURNAL_PATH/health/agents.json.
+    """Load health status from journal/health/agents.json.
 
     Returns parsed dict or None if file is missing/unreadable.
     """

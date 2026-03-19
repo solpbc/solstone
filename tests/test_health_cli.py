@@ -12,7 +12,7 @@ from think.health_cli import health_check, main, print_status
 
 
 def test_health_check_no_socket(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     result = health_check()
 
@@ -51,7 +51,7 @@ def test_health_check_prints_status(capsys):
 
 
 def test_health_check_timeout(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     sock = tmp_path / "health" / "callosum.sock"
     sock.parent.mkdir(parents=True)
     sock.touch()
@@ -71,7 +71,7 @@ def test_health_check_timeout(tmp_path, monkeypatch, capsys):
 
 
 def test_health_check_receives_status(tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     sock = tmp_path / "health" / "callosum.sock"
     sock.parent.mkdir(parents=True)
     sock.touch()

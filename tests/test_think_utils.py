@@ -106,7 +106,7 @@ def test_load_entity_names_with_valid_file(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names()
 
         # Check that names are extracted without duplicates
@@ -123,7 +123,7 @@ def test_load_entity_names_with_valid_file(monkeypatch):
 def test_load_entity_names_missing_file(monkeypatch):
     """Test that missing file returns None."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names()
         assert result is None
 
@@ -135,7 +135,7 @@ def test_load_entity_names_empty_facet(monkeypatch):
         facet_dir = Path(tmpdir) / "facets" / "test"
         facet_dir.mkdir(parents=True, exist_ok=True)
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names()
         assert result is None
 
@@ -147,7 +147,7 @@ def test_load_entity_names_no_valid_entries(monkeypatch):
         entities_dir = Path(tmpdir) / "facets" / "test" / "entities"
         entities_dir.mkdir(parents=True, exist_ok=True)
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names()
         assert result is None
 
@@ -166,7 +166,7 @@ def test_load_entity_names_with_duplicates(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names()
 
         names = result.split("; ")
@@ -189,7 +189,7 @@ def test_load_entity_names_handles_special_characters(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names()
         assert "Jean-Pierre O'Malley" in result
         assert "AT&T" in result
@@ -198,7 +198,7 @@ def test_load_entity_names_handles_special_characters(monkeypatch):
 
 
 def test_load_entity_names_with_env_var(monkeypatch):
-    """Test loading using JOURNAL_PATH environment variable."""
+    """Test loading using _SOLSTONE_JOURNAL_OVERRIDE environment variable."""
     with tempfile.TemporaryDirectory() as tmpdir:
         setup_entities_new_structure(
             Path(tmpdir),
@@ -206,7 +206,7 @@ def test_load_entity_names_with_env_var(monkeypatch):
             [("Person", "Test User", "A test person")],
         )
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
         # Should use env var
         result = load_entity_names()
@@ -215,7 +215,7 @@ def test_load_entity_names_with_env_var(monkeypatch):
 
 def test_load_entity_names_empty_journal(tmp_path, monkeypatch):
     """Test that empty journal directory returns None."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     result = load_entity_names()
     assert result is None
@@ -240,7 +240,7 @@ def test_load_entity_names_spoken_mode(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names(spoken=True)
 
         # Should return a list, not a string
@@ -290,7 +290,7 @@ def test_load_entity_names_spoken_mode_with_tools(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names(spoken=True)
         # Tools are now included (uniform processing)
         assert isinstance(result, list)
@@ -312,7 +312,7 @@ def test_load_entity_names_spoken_mode_duplicates(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names(spoken=True)
 
         # Should have only one "John" and one "Acme" even though there are two of each
@@ -339,7 +339,7 @@ def test_load_entity_names_uniform_processing(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names(spoken=True)
 
         assert isinstance(result, list)
@@ -397,7 +397,7 @@ def test_load_entity_names_with_aka_field(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names(spoken=True)
 
         assert isinstance(result, list)
@@ -438,7 +438,7 @@ def test_load_entity_names_aka_with_parens(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names(spoken=True)
 
         assert isinstance(result, list)
@@ -473,7 +473,7 @@ def test_load_entity_names_aka_deduplication(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names(spoken=True)
 
         # Should have only one "John" even though it appears in aka and as main name
@@ -511,7 +511,7 @@ def test_load_entity_names_non_spoken_with_aka(monkeypatch):
             ],
         )
 
-        monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
         result = load_entity_names(spoken=False)
 
         # Check all entities are present with their aka
@@ -646,7 +646,7 @@ class TestSetupCliConfigEnv:
 
         Returns a helper function to write config and run setup_cli.
         """
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
         monkeypatch.setattr(sys, "argv", ["test"])
 
         def write_config_and_run(config: dict | None = None):
@@ -758,7 +758,7 @@ class TestPortDiscovery:
         """Test writing and reading a service port file."""
         from think.utils import read_service_port, write_service_port
 
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         # Write port
         write_service_port("test_service", 12345)
@@ -776,7 +776,7 @@ class TestPortDiscovery:
         """Test that reading missing port file returns None."""
         from think.utils import read_service_port
 
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         port = read_service_port("nonexistent")
         assert port is None
@@ -785,7 +785,7 @@ class TestPortDiscovery:
         """Test that reading invalid port file content returns None."""
         from think.utils import read_service_port
 
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         # Create port file with invalid content
         health_dir = tmp_path / "health"
@@ -800,7 +800,7 @@ class TestPortDiscovery:
         """Test that write_service_port creates health directory if needed."""
         from think.utils import write_service_port
 
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         # Health dir doesn't exist yet
         health_dir = tmp_path / "health"

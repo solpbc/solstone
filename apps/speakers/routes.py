@@ -236,7 +236,7 @@ def _save_voiceprint(
     new_metadata = np.append(existing_metadata, metadata_json)
 
     # Write back (atomic: temp file + rename)
-    tmp_path = npz_path.with_name(npz_path.stem + '.tmp.npz')
+    tmp_path = npz_path.with_name(npz_path.stem + ".tmp.npz")
     np.savez_compressed(tmp_path, embeddings=new_embeddings, metadata=new_metadata)
     tmp_path.rename(npz_path)
     return npz_path
@@ -296,7 +296,7 @@ def _remove_voiceprint(
 
     new_embeddings = embeddings[keep]
     new_metadata = metadata_arr[keep]
-    tmp_path = npz_path.with_name(npz_path.stem + '.tmp.npz')
+    tmp_path = npz_path.with_name(npz_path.stem + ".tmp.npz")
     np.savez_compressed(tmp_path, embeddings=new_embeddings, metadata=new_metadata)
     tmp_path.rename(npz_path)
     return True

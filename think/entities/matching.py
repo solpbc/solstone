@@ -249,7 +249,8 @@ def find_matching_entity(
 
     # Tier 4b: Token-subset match (unambiguous only)
     subset_matches = [
-        e for e in entities
+        e
+        for e in entities
         if e.get("name") and _token_subset_match(detected_lower, e["name"].lower())
     ]
     if len(subset_matches) == 1:
@@ -257,7 +258,8 @@ def find_matching_entity(
 
     # Tier 4c: Prefix-token match (unambiguous only)
     prefix_matches = [
-        e for e in entities
+        e
+        for e in entities
         if e.get("name") and _prefix_token_match(detected_lower, e["name"].lower())
     ]
     if len(prefix_matches) == 1:
@@ -322,7 +324,9 @@ def build_name_resolution_map(
     id_set: set[str] = set()  # all entity IDs for slug matching
     first_word_map: dict[str, list[str]] = {}  # lowercase first word → [entity_ids]
     fuzzy_candidates: dict[str, str] = {}  # candidate string → entity_id
-    entity_name_info: list[tuple[str, str]] = []  # (entity_id, name_lower) for new tiers
+    entity_name_info: list[
+        tuple[str, str]
+    ] = []  # (entity_id, name_lower) for new tiers
 
     for entity in entities:
         name = entity.get("name", "")
@@ -407,7 +411,8 @@ def build_name_resolution_map(
 
         # Tier 4b: Token-subset match (unambiguous only)
         subset_matches = [
-            eid for eid, ename in entity_name_info
+            eid
+            for eid, ename in entity_name_info
             if _token_subset_match(sname_lower, ename)
         ]
         if len(subset_matches) == 1:
@@ -416,7 +421,8 @@ def build_name_resolution_map(
 
         # Tier 4c: Prefix-token match (unambiguous only)
         prefix_matches = [
-            eid for eid, ename in entity_name_info
+            eid
+            for eid, ename in entity_name_info
             if _prefix_token_match(sname_lower, ename)
         ]
         if len(prefix_matches) == 1:

@@ -22,9 +22,9 @@ def entity_env(tmp_path, monkeypatch):
             entity_env(attached=[
                 {"type": "Person", "name": "Alice", "description": "Friend"}
             ])
-            # JOURNAL_PATH is set, entity files exist
+            # _SOLSTONE_JOURNAL_OVERRIDE is set, entity files exist
     """
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     def _create(
         attached: list[dict] | None = None,
@@ -49,7 +49,7 @@ def entity_env(tmp_path, monkeypatch):
 @pytest.fixture
 def entity_move_env(tmp_path, monkeypatch):
     """Create a two-facet environment for entity move tests."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     def _create(
         entity_name: str = "Alice Johnson",

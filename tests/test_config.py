@@ -44,7 +44,7 @@ def config_journal(tmp_path):
 
 def test_get_config_default_structure(tmp_path, monkeypatch):
     """Test get_config returns default structure when file doesn't exist."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     config = get_config()
 
@@ -70,7 +70,7 @@ def test_get_config_default_structure(tmp_path, monkeypatch):
 
 def test_get_config_default_is_deep_copy(tmp_path, monkeypatch):
     """Test that modifying returned defaults doesn't affect future calls."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     config1 = get_config()
     config1["identity"]["name"] = "Modified"
@@ -83,7 +83,7 @@ def test_get_config_default_is_deep_copy(tmp_path, monkeypatch):
 
 def test_get_config_loads_existing(config_journal, monkeypatch):
     """Test get_config loads existing configuration."""
-    monkeypatch.setenv("JOURNAL_PATH", str(config_journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(config_journal))
 
     config = get_config()
 
@@ -103,7 +103,7 @@ def test_get_config_loads_existing(config_journal, monkeypatch):
 
 def test_get_config_existing_is_master(tmp_path, monkeypatch):
     """Test that existing journal.json is returned as-is without merging defaults."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     # Create config with only a name - no other identity fields, no describe
     config_dir = tmp_path / "config"
@@ -130,7 +130,7 @@ def test_get_config_existing_is_master(tmp_path, monkeypatch):
 
 def test_get_config_empty_journal(tmp_path, monkeypatch):
     """Test get_config returns defaults with an empty journal directory."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     config = get_config()
     assert "identity" in config
@@ -139,7 +139,7 @@ def test_get_config_empty_journal(tmp_path, monkeypatch):
 
 def test_get_config_handles_invalid_json(tmp_path, monkeypatch):
     """Test get_config returns defaults when JSON is invalid."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     # Create config with invalid JSON
     config_dir = tmp_path / "config"
@@ -166,8 +166,8 @@ def test_get_config_handles_invalid_json(tmp_path, monkeypatch):
 
 def test_get_config_with_fixtures():
     """Test get_config with tests/fixtures/journal path."""
-    # Set JOURNAL_PATH to fixtures
-    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    # Set _SOLSTONE_JOURNAL_OVERRIDE to fixtures
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
 
     config = get_config()
 

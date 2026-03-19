@@ -22,14 +22,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-import platformdirs
-from dotenv import load_dotenv
 from timefhuman import timefhuman
 
 from media import MIME_TYPES
 
 DATE_RE = re.compile(r"\d{8}")
-_journal_path_cache: str | None = None
 
 
 def now_ms() -> int:
@@ -83,84 +80,37 @@ def truncated_echo(text: str, max_bytes: int = 16384) -> None:
 def get_journal_info() -> tuple[str, str]:
     """Return the journal path and its source.
 
-    Determines where JOURNAL_PATH came from:
-    - "shell": Set in shell environment before process started
-    - "dotenv": Loaded from .env file
-    - "default": Platform-specific default
-
-    This function does NOT auto-create directories or modify the environment.
-    Use get_journal() for normal operations that need the path created.
-
     Returns
     -------
     tuple[str, str]
-        (path, source) where path is the journal directory and source is
-        one of "shell", "dotenv", or "default".
+        (path, source) where source is "override" when
+        _SOLSTONE_JOURNAL_OVERRIDE is set, otherwise "project".
     """
-    # Check if already set in shell environment (before loading .env)
-    shell_value = os.environ.get("JOURNAL_PATH")
+    override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
+    if override:
+        return override, "override"
 
-    if shell_value:
-        return shell_value, "shell"
-
-    # Load .env and check if it provides JOURNAL_PATH
-    load_dotenv()
-    dotenv_value = os.environ.get("JOURNAL_PATH")
-
-    if dotenv_value:
-        return dotenv_value, "dotenv"
-
-    # Fall back to platform default
-    data_dir = platformdirs.user_data_dir("solstone")
-    default_journal = os.path.join(data_dir, "journal")
-    return default_journal, "default"
+    project_root = Path(__file__).resolve().parent.parent
+    journal = str(project_root / "journal")
+    return journal, "project"
 
 
 def get_journal() -> str:
-    """Return the journal path, auto-creating it if it doesn't exist.
+    """Return the journal path: <project_root>/journal/
 
-    Resolution order:
-    1. JOURNAL_PATH environment variable (from .env or shell) - created if missing
-    2. Cached platform default from previous call
-    3. Platform-specific default: <user_data_dir>/solstone/journal
-
-    When using the platform default, the path is cached and set in os.environ.
-    Environment variable changes are always respected (no caching for explicit config).
-    An INFO log message is emitted when auto-creating the default path.
-
-    Returns
-    -------
-    str
-        Absolute path to the journal directory.
+    The journal always lives at ./journal/ relative to the solstone
+    project root. Auto-creates the directory if it doesn't exist.
     """
-    global _journal_path_cache
+    # Internal override for tests
+    override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
+    if override:
+        os.makedirs(override, exist_ok=True)
+        return override
 
-    # Always check environment first (allows tests to override)
-    load_dotenv()
-    journal = os.getenv("JOURNAL_PATH")
-
-    if journal:
-        # User explicitly configured a path - create it if needed and use it
-        os.makedirs(journal, exist_ok=True)
-        return journal
-
-    # Use cached platform default if available
-    if _journal_path_cache:
-        return _journal_path_cache
-
-    # Create platform-specific default
-    data_dir = platformdirs.user_data_dir("solstone")
-    default_journal = os.path.join(data_dir, "journal")
-
-    # Create directory if needed
-    os.makedirs(default_journal, exist_ok=True)
-
-    # Set environment for this process and children
-    os.environ["JOURNAL_PATH"] = default_journal
-    _journal_path_cache = default_journal
-
-    logging.info("Using default journal path: %s", default_journal)
-    return default_journal
+    project_root = Path(__file__).resolve().parent.parent
+    journal = str(project_root / "journal")
+    os.makedirs(journal, exist_ok=True)
+    return journal
 
 
 def day_path(day: Optional[str] = None) -> Path:
@@ -689,16 +639,7 @@ def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
 
     logging.basicConfig(level=log_level)
 
-    journal_path, journal_source = get_journal_info()
-    if journal_source == "default":
-        print(
-            f"Note: JOURNAL_PATH not set; using platform default: {journal_path}\n"
-            "To configure a custom path, set JOURNAL_PATH in your shell or .env file.\n"
-            "See docs/INSTALL.md for setup instructions.",
-            file=sys.stderr,
-        )
-
-    # Initialize journal path (may auto-create default)
+    # Initialize journal path (auto-creates if needed)
     get_journal()
 
     # Load config env as fallback for missing environment variables
@@ -915,7 +856,7 @@ def find_available_port(host: str = "127.0.0.1") -> int:
 def write_service_port(service: str, port: int) -> None:
     """Write a service's port to the health directory.
 
-    Creates $JOURNAL_PATH/health/{service}.port with the port number.
+    Creates journal/health/{service}.port with the port number.
 
     Args:
         service: Service name (e.g., "convey", "cortex")

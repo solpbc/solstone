@@ -13,7 +13,7 @@ from flask import Flask
 @pytest.fixture(autouse=True)
 def _temp_journal(monkeypatch, tmp_path):
     """Ensure journaling defaults remain isolated from developer data."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
 
 class _ImmediateEvent:
@@ -337,7 +337,7 @@ class TestAttentionResolution:
 
         from convey.apps import _resolve_attention
 
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
         agents_dir = tmp_path / "agents"
@@ -379,7 +379,7 @@ class TestAttentionResolution:
 
         from convey.apps import _resolve_attention
 
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
         agents_dir = tmp_path / "agents"
@@ -418,7 +418,7 @@ class TestAttentionResolution:
 
         from convey.apps import _resolve_attention
 
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
         agents_dir = tmp_path / "agents"
@@ -489,7 +489,7 @@ class TestAttentionResolution:
 
         from convey.apps import _resolve_attention
 
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
         agents_dir = tmp_path / "agents"
@@ -526,7 +526,7 @@ class TestAttentionResolution:
 
         from convey.apps import _resolve_attention
 
-        monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         today = datetime.now().strftime("%Y%m%d")
         agents_dir = tmp_path / today / "agents"

@@ -9,8 +9,10 @@ from pathlib import Path
 
 import pytest
 
-# Set JOURNAL_PATH to fixtures for tests
-os.environ["JOURNAL_PATH"] = str(Path(__file__).parent / "fixtures" / "journal")
+# Set _SOLSTONE_JOURNAL_OVERRIDE to fixtures for tests
+os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(
+    Path(__file__).parent / "fixtures" / "journal"
+)
 
 
 class TestRegistry:
@@ -86,7 +88,8 @@ class TestLoadJsonl:
         from think.formatters import load_jsonl
 
         path = (
-            Path(os.environ["JOURNAL_PATH"]) / "20240101/default/123456_300/audio.jsonl"
+            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            / "20240101/default/123456_300/audio.jsonl"
         )
         entries = load_jsonl(path)
 
@@ -140,7 +143,7 @@ class TestFormatFile:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["JOURNAL_PATH"])
+            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
             / "20240102/default/234567_300/screen.jsonl"
         )
         chunks, meta = format_file(path)
@@ -157,7 +160,8 @@ class TestFormatFile:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["JOURNAL_PATH"]) / "20240101/default/123456_300/audio.jsonl"
+            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            / "20240101/default/123456_300/audio.jsonl"
         )
         chunks, meta = format_file(path)
 
@@ -194,7 +198,7 @@ class TestFormatFile:
         from think.formatters import format_file
 
         # Create a file under journal that won't match any pattern
-        journal_path = Path(os.environ["JOURNAL_PATH"])
+        journal_path = Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
         temp_file = journal_path / "unknown_file.txt"
         temp_file.write_text("test content")
 
@@ -466,7 +470,8 @@ class TestLoadTranscriptBackwardCompat:
         from observe.hear import load_transcript
 
         path = (
-            Path(os.environ["JOURNAL_PATH"]) / "20240101/default/123456_300/audio.jsonl"
+            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            / "20240101/default/123456_300/audio.jsonl"
         )
         metadata, entries, formatted_text = load_transcript(path)
 
@@ -494,7 +499,8 @@ class TestFormatEntities:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["JOURNAL_PATH"]) / "facets/personal/entities/20250101.jsonl"
+            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            / "facets/personal/entities/20250101.jsonl"
         )
         chunks, meta = format_file(path)
 
@@ -787,7 +793,7 @@ class TestFormatObservations:
         from think.formatters import format_file
 
         path = (
-            Path(os.environ["JOURNAL_PATH"])
+            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
             / "facets/personal/entities/alice_johnson/observations.jsonl"
         )
         chunks, meta = format_file(path)
@@ -821,7 +827,10 @@ class TestFormatTodos:
         """Test basic todos formatting with fixture file."""
         from think.formatters import format_file
 
-        path = Path(os.environ["JOURNAL_PATH"]) / "facets/personal/todos/20240101.jsonl"
+        path = (
+            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            / "facets/personal/todos/20240101.jsonl"
+        )
         chunks, meta = format_file(path)
 
         assert len(chunks) == 4  # 4 items in fixture
@@ -955,7 +964,10 @@ class TestFormatEvents:
         """Test basic events formatting with fixture file."""
         from think.formatters import format_file
 
-        path = Path(os.environ["JOURNAL_PATH"]) / "facets/work/events/20240101.jsonl"
+        path = (
+            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"])
+            / "facets/work/events/20240101.jsonl"
+        )
         chunks, meta = format_file(path)
 
         assert len(chunks) == 2  # 2 events in fixture
@@ -1268,7 +1280,9 @@ class TestFormatMarkdown:
         """Test format_file with a markdown file."""
         from think.formatters import format_file
 
-        path = Path(os.environ["JOURNAL_PATH"]) / "20240101/agents/flow.md"
+        path = (
+            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"]) / "20240101/agents/flow.md"
+        )
         chunks, meta = format_file(path)
 
         assert len(chunks) > 0
@@ -1279,7 +1293,9 @@ class TestFormatMarkdown:
         """Test load_markdown utility."""
         from think.formatters import load_markdown
 
-        path = Path(os.environ["JOURNAL_PATH"]) / "20240101/agents/flow.md"
+        path = (
+            Path(os.environ["_SOLSTONE_JOURNAL_OVERRIDE"]) / "20240101/agents/flow.md"
+        )
         text = load_markdown(path)
 
         assert isinstance(text, str)

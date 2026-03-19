@@ -28,7 +28,7 @@ class TestRunActivityPrompts:
         from think.dream import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
             result = run_activity_prompts(
                 day="20260209",
@@ -41,7 +41,7 @@ class TestRunActivityPrompts:
         from think.dream import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
             self._write_record(
                 tmpdir,
@@ -71,7 +71,7 @@ class TestRunActivityPrompts:
         from think.dream import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
             self._write_record(
                 tmpdir,
@@ -133,7 +133,7 @@ class TestRunActivityPrompts:
         from think.dream import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
             self._write_record(
                 tmpdir,
@@ -187,7 +187,7 @@ class TestRunActivityPrompts:
         from think.dream import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
             record = {
                 "id": "coding_100000_300",
@@ -250,7 +250,7 @@ class TestRunActivityPrompts:
         from think.dream import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
             self._write_record(
                 tmpdir,
@@ -298,7 +298,7 @@ class TestRunActivityPrompts:
         from think.dream import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
             self._write_record(
                 tmpdir,
@@ -326,7 +326,7 @@ class TestRunActivityPrompts:
         from think.dream import run_activity_prompts
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.setenv("JOURNAL_PATH", tmpdir)
+            monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
             self._write_record(
                 tmpdir,

@@ -34,7 +34,7 @@ sol muse show <name> [--prompt] [--day YYYYMMDD] [--segment HHMMSS_LEN] [--full]
 Use `--refresh` to overwrite existing files, and `-v` for verbose logs.
 
 Set `GOOGLE_API_KEY` before running any command that contacts Gemini.
-`JOURNAL_PATH` and `GOOGLE_API_KEY` can also be provided in a `.env` file which
+`GOOGLE_API_KEY` can also be provided in a `.env` file which
 is loaded automatically by most commands.
 
 ## Service Discovery
@@ -161,7 +161,7 @@ sol agents [TASK_FILE] [--provider PROVIDER] [--model MODEL] [--max-tokens N] [-
 ```
 
 The provider can be ``openai`` (default), ``google`` or ``anthropic``. Set the corresponding API key environment variable (`OPENAI_API_KEY`,
-`GOOGLE_API_KEY` or `ANTHROPIC_API_KEY`) along with `JOURNAL_PATH`.
+`GOOGLE_API_KEY` or `ANTHROPIC_API_KEY`).
 
 ### Provider modules
 

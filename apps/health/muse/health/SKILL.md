@@ -17,7 +17,7 @@ sol health
 
 Show current supervisor status: running services (names, PIDs, uptimes), crashed services, active tasks, queue depths, heartbeat health, and callosum client count.
 
-Connects to `$JOURNAL_PATH/health/callosum.sock` with a 10-second timeout.
+Connects to `journal/health/callosum.sock` with a 10-second timeout.
 
 Example:
 
@@ -41,8 +41,8 @@ View service health logs from today's log files.
 
 Behavior notes:
 
-- Reads symlinked logs from `$JOURNAL_PATH/YYYYMMDD/health/*.log`.
-- Includes `$JOURNAL_PATH/health/supervisor.log` when no filters are active.
+- Reads symlinked logs from `journal/YYYYMMDD/health/*.log`.
+- Includes `journal/health/supervisor.log` when no filters are active.
 - Log line format: `ISO8601 [service:stream] LEVEL:logger:message`.
 - `-f` mode handles symlink target rotation at midnight.
 
@@ -109,7 +109,7 @@ sol muse log 1700000000001 --full
 
 ## journal layout
 
-Reference map of key paths. `$JOURNAL_PATH` is the journal root.
+Reference map of key paths. `journal/` is the journal root.
 
 ### journal level
 

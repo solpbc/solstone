@@ -12,8 +12,8 @@ from think.muse import get_agent
 
 @pytest.fixture
 def fixture_journal():
-    """Set JOURNAL_PATH to tests/fixtures/journal for testing."""
-    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    """Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for testing."""
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
     yield
     # No cleanup needed - just testing reads
 

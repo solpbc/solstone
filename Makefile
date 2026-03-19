@@ -124,7 +124,7 @@ sandbox: .installed
 	echo "$$SANDBOX_JOURNAL" > .sandbox.journal; \
 	echo "Sandbox journal: $$SANDBOX_JOURNAL"; \
 	# Boot supervisor in background \
-	JOURNAL_PATH="$$SANDBOX_JOURNAL" PATH=$(CURDIR)/$(VENV_BIN):$$PATH \
+	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" PATH=$(CURDIR)/$(VENV_BIN):$$PATH \
 		$(VENV_BIN)/sol supervisor 0 --no-observers --no-daily \
 		> "$$SANDBOX_JOURNAL/health/supervisor.log" 2>&1 & \
 	echo $$! > .sandbox.pid; \
@@ -133,7 +133,7 @@ sandbox: .installed
 	echo "Waiting for services..."; \
 	READY=false; \
 	for i in $$(seq 1 20); do \
-		if JOURNAL_PATH="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol health > /dev/null 2>&1; then \
+		if _SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/sol health > /dev/null 2>&1; then \
 			READY=true; \
 			break; \
 		fi; \
@@ -182,7 +182,7 @@ verify-api: .installed
 	@SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
 	CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port"); \
 	RESULT=0; \
-	JOURNAL_PATH="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py verify --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
+	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py verify --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
 	$(MAKE) sandbox-stop; \
 	exit $$RESULT
 
@@ -193,7 +193,7 @@ update-api-baselines: .installed
 	@SANDBOX_JOURNAL=$$(cat .sandbox.journal); \
 	CONVEY_PORT=$$(cat "$$SANDBOX_JOURNAL/health/convey.port"); \
 	RESULT=0; \
-	JOURNAL_PATH="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py update --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
+	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py update --base-url "http://localhost:$$CONVEY_PORT" || RESULT=$$?; \
 	$(MAKE) sandbox-stop; \
 	exit $$RESULT
 
@@ -245,7 +245,7 @@ review: .installed
 	RESULT_BROWSER=0; \
 	echo ""; \
 	echo "=== API baseline verification ==="; \
-	JOURNAL_PATH="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py verify --base-url "$$BASE_URL" || RESULT_API=$$?; \
+	_SOLSTONE_JOURNAL_OVERRIDE="$$SANDBOX_JOURNAL" $(VENV_BIN)/python tests/verify_api.py verify --base-url "$$BASE_URL" || RESULT_API=$$?; \
 	echo ""; \
 	echo "=== Browser scenario verification ==="; \
 	$(VENV_BIN)/python tests/verify_browser.py verify --base-url "$$BASE_URL" || RESULT_BROWSER=$$?; \
@@ -273,7 +273,7 @@ review: .installed
 	fi
 
 # Test environment - use fixtures journal for all tests
-TEST_ENV = JOURNAL_PATH=tests/fixtures/journal
+TEST_ENV = _SOLSTONE_JOURNAL_OVERRIDE=tests/fixtures/journal
 
 # Venv tool shortcuts
 PYTEST := $(VENV_BIN)/pytest

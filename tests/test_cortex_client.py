@@ -35,7 +35,7 @@ def callosum_server(monkeypatch):
     tmp_dir = tempfile.mkdtemp(dir="/tmp", prefix="callosum_")
     tmp_path = Path(tmp_dir)
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     (tmp_path / "agents").mkdir(parents=True, exist_ok=True)
 
     server = CallosumServer()
@@ -162,7 +162,7 @@ def test_cortex_request_returns_none_on_send_failure(callosum_server, monkeypatc
 def test_cortex_request_empty_journal(tmp_path, monkeypatch):
     """Test cortex_request works with an empty journal directory."""
     monkeypatch.setattr("think.cortex_client.callosum_send", lambda *a, **kw: True)
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     agent_id = cortex_request("test", "default", "openai")
     assert agent_id is not None
@@ -174,7 +174,7 @@ def test_cortex_request_empty_journal(tmp_path, monkeypatch):
 
 def test_cortex_agents_empty(tmp_path, monkeypatch):
     """Test cortex_agents with no agents."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     result = cortex_agents()
 
@@ -187,7 +187,7 @@ def test_cortex_agents_empty(tmp_path, monkeypatch):
 
 def test_cortex_agents_with_active(tmp_path, monkeypatch):
     """Test cortex_agents with active (running) agents."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
 
@@ -237,7 +237,7 @@ def test_cortex_agents_with_active(tmp_path, monkeypatch):
 
 def test_cortex_agents_with_completed(tmp_path, monkeypatch):
     """Test cortex_agents with completed (historical) agents."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
 
@@ -272,7 +272,7 @@ def test_cortex_agents_with_completed(tmp_path, monkeypatch):
 
 def test_cortex_agents_pagination(tmp_path, monkeypatch):
     """Test cortex_agents pagination."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
 
@@ -305,7 +305,7 @@ def test_cortex_agents_pagination(tmp_path, monkeypatch):
 
 def test_cortex_agents_empty_journal(tmp_path, monkeypatch):
     """Test cortex_agents works with an empty journal directory."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     result = cortex_agents()
     assert "agents" in result
@@ -315,7 +315,7 @@ def test_cortex_agents_empty_journal(tmp_path, monkeypatch):
 
 def test_get_agent_log_status_completed(tmp_path, monkeypatch):
     """Test get_agent_log_status returns 'completed' for finished agents."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
     default_dir = agents_dir / "default"
@@ -329,7 +329,7 @@ def test_get_agent_log_status_completed(tmp_path, monkeypatch):
 
 def test_get_agent_log_status_running(tmp_path, monkeypatch):
     """Test get_agent_log_status returns 'running' for active agents."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
     default_dir = agents_dir / "default"
@@ -343,7 +343,7 @@ def test_get_agent_log_status_running(tmp_path, monkeypatch):
 
 def test_get_agent_log_status_not_found(tmp_path, monkeypatch):
     """Test get_agent_log_status returns 'not_found' for missing agents."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     (tmp_path / "agents").mkdir()
 
     assert get_agent_log_status("nonexistent") == "not_found"
@@ -351,7 +351,7 @@ def test_get_agent_log_status_not_found(tmp_path, monkeypatch):
 
 def test_get_agent_log_status_prefers_completed(tmp_path, monkeypatch):
     """Test get_agent_log_status returns 'completed' when both files exist."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
     default_dir = agents_dir / "default"
@@ -367,7 +367,7 @@ def test_get_agent_log_status_prefers_completed(tmp_path, monkeypatch):
 
 def test_get_agent_end_state_finish(tmp_path, monkeypatch):
     """Test get_agent_end_state returns 'finish' for successful agents."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
     default_dir = agents_dir / "default"
@@ -384,7 +384,7 @@ def test_get_agent_end_state_finish(tmp_path, monkeypatch):
 
 def test_get_agent_end_state_error(tmp_path, monkeypatch):
     """Test get_agent_end_state returns 'error' for failed agents."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
     default_dir = agents_dir / "default"
@@ -401,7 +401,7 @@ def test_get_agent_end_state_error(tmp_path, monkeypatch):
 
 def test_get_agent_end_state_running(tmp_path, monkeypatch):
     """Test get_agent_end_state returns 'running' for active agents."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
     default_dir = agents_dir / "default"
@@ -417,7 +417,7 @@ def test_get_agent_end_state_running(tmp_path, monkeypatch):
 
 def test_get_agent_end_state_unknown(tmp_path, monkeypatch):
     """Test get_agent_end_state returns 'unknown' for missing agents."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     (tmp_path / "agents").mkdir()
 
     assert get_agent_end_state("nonexistent") == "unknown"
@@ -428,7 +428,7 @@ def test_get_agent_end_state_unknown(tmp_path, monkeypatch):
 
 def test_wait_for_agents_already_complete(tmp_path, monkeypatch):
     """Test wait_for_agents returns immediately if agents already completed."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
     default_dir = agents_dir / "default"
@@ -525,7 +525,7 @@ def test_wait_for_agents_error_event(callosum_server):
 
 def test_wait_for_agents_initial_file_check(tmp_path, monkeypatch):
     """Test wait_for_agents finds already-completed agents via initial file check."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
     default_dir = agents_dir / "default"
@@ -546,7 +546,7 @@ def test_wait_for_agents_initial_file_check(tmp_path, monkeypatch):
 
 def test_wait_for_agents_timeout_actual(tmp_path, monkeypatch):
     """Test wait_for_agents times out for agents that never complete."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
     default_dir = agents_dir / "default"
@@ -607,7 +607,7 @@ def test_wait_for_agents_missed_event_recovery(tmp_path, monkeypatch, caplog):
     """Test that missed events are recovered via final file check with INFO log."""
     import logging
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
     default_dir = agents_dir / "default"

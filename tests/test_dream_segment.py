@@ -19,7 +19,7 @@ def segment_dir(tmp_path, monkeypatch):
     segment_path.mkdir(parents=True)
     (segment_path / "agents").mkdir(parents=True)
 
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     return segment_path
 
 
@@ -465,7 +465,6 @@ class TestStreamAutoResolution:
             mod, "run_queued_command", lambda cmd, day, timeout=600: True
         )
         monkeypatch.setattr(mod, "CallosumConnection", MockCallosumConnection)
-        monkeypatch.setattr("think.utils.load_dotenv", lambda: True)
         monkeypatch.setattr(
             "sys.argv",
             ["sol dream", "--day", "20240115", "--segment", "120000_300"],
@@ -497,7 +496,6 @@ class TestStreamAutoResolution:
         monkeypatch.setattr(mod, "check_callosum_available", lambda: True)
         monkeypatch.setattr(mod, "run_command", lambda cmd, day: True)
         monkeypatch.setattr(mod, "CallosumConnection", MockCallosumConnection)
-        monkeypatch.setattr("think.utils.load_dotenv", lambda: True)
         monkeypatch.setattr(
             "sys.argv",
             ["sol dream", "--day", "20240115", "--segment", "999999_300"],
@@ -543,7 +541,6 @@ class TestStreamAutoResolution:
             mod, "run_queued_command", lambda cmd, day, timeout=600: True
         )
         monkeypatch.setattr(mod, "CallosumConnection", MockCallosumConnection)
-        monkeypatch.setattr("think.utils.load_dotenv", lambda: True)
         monkeypatch.setattr(
             "sys.argv",
             [

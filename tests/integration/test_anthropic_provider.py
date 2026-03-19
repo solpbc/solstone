@@ -25,7 +25,7 @@ def get_fixtures_env():
     load_dotenv(fixtures_env, override=True)
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
-    journal_path = os.getenv("JOURNAL_PATH")
+    journal_path = os.getenv("_SOLSTONE_JOURNAL_OVERRIDE")
 
     return fixtures_env, api_key, journal_path
 
@@ -44,11 +44,11 @@ def test_anthropic_provider_basic():
         pytest.skip("ANTHROPIC_API_KEY not found in tests/fixtures/.env file")
 
     if not journal_path:
-        pytest.skip("JOURNAL_PATH not found in tests/fixtures/.env file")
+        pytest.skip("_SOLSTONE_JOURNAL_OVERRIDE not found in tests/fixtures/.env file")
 
     # Prepare environment
     env = os.environ.copy()
-    env["JOURNAL_PATH"] = journal_path
+    env["_SOLSTONE_JOURNAL_OVERRIDE"] = journal_path
     env["ANTHROPIC_API_KEY"] = api_key
 
     # Create NDJSON input (no tool config)
@@ -152,11 +152,11 @@ def test_anthropic_provider_with_thinking():
         pytest.skip("ANTHROPIC_API_KEY not found in tests/fixtures/.env file")
 
     if not journal_path:
-        pytest.skip("JOURNAL_PATH not found in tests/fixtures/.env file")
+        pytest.skip("_SOLSTONE_JOURNAL_OVERRIDE not found in tests/fixtures/.env file")
 
     # Prepare environment
     env = os.environ.copy()
-    env["JOURNAL_PATH"] = journal_path
+    env["_SOLSTONE_JOURNAL_OVERRIDE"] = journal_path
     env["ANTHROPIC_API_KEY"] = api_key
 
     # Create NDJSON input with thinking config

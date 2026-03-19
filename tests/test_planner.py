@@ -49,7 +49,7 @@ def test_generate_plan(monkeypatch):
 def test_planner_main(tmp_path, monkeypatch, capsys):
     sys.modules.pop("think.planner", None)
     mod = importlib.import_module("think.planner")
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(mod, "generate_plan", lambda *a, **k: "ok")
     task = tmp_path / "t.txt"
     task.write_text("hi")

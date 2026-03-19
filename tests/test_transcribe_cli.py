@@ -11,13 +11,13 @@ import pytest
 
 
 def test_main_accepts_journal_relative_path(tmp_path, monkeypatch):
-    """main() resolves audio_path relative to JOURNAL_PATH when absolute path fails."""
+    """main() resolves audio_path relative to journal when absolute path fails."""
     seg_dir = tmp_path / "20260201" / "default" / "090000_300"
     seg_dir.mkdir(parents=True)
     audio_file = seg_dir / "audio.wav"
     audio_file.touch()
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr(
         "sys.argv", ["sol transcribe", "20260201/default/090000_300/audio.wav"]
     )
@@ -46,7 +46,7 @@ def test_main_accepts_journal_relative_path(tmp_path, monkeypatch):
 
 def test_main_errors_on_nonexistent_absolute_path(tmp_path, monkeypatch, capsys):
     """main() errors clearly when path doesn't exist as absolute or journal-relative."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr("sys.argv", ["sol transcribe", "/nonexistent/path/audio.wav"])
 
     from observe.transcribe.main import main
@@ -58,31 +58,11 @@ def test_main_errors_on_nonexistent_absolute_path(tmp_path, monkeypatch, capsys)
     assert "Tried absolute" in captured.err or "not found" in captured.err.lower()
 
 
-def test_setup_cli_prints_message_on_default_journal(tmp_path, monkeypatch, capsys):
-    """setup_cli() prints an informational message when JOURNAL_PATH uses the default."""
-    monkeypatch.delenv("JOURNAL_PATH", raising=False)
+def test_setup_cli_no_message_on_project_journal(tmp_path, monkeypatch, capsys):
+    """setup_cli() prints no informational message — journal path is always deterministic."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     with (
-        patch("think.utils.get_journal_info", return_value=(str(tmp_path), "default")),
-        patch("think.utils.get_journal", return_value=str(tmp_path)),
-        patch("think.utils.get_config", return_value={}),
-    ):
-        from think.utils import setup_cli
-
-        parser = argparse.ArgumentParser()
-        monkeypatch.setattr("sys.argv", ["test"])
-        setup_cli(parser)
-
-    captured = capsys.readouterr()
-    assert "docs/INSTALL.md" in captured.err
-
-
-def test_setup_cli_no_message_when_journal_path_set(tmp_path, monkeypatch, capsys):
-    """setup_cli() prints no informational message when JOURNAL_PATH is explicitly set."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
-
-    with (
-        patch("think.utils.get_journal_info", return_value=(str(tmp_path), "shell")),
         patch("think.utils.get_journal", return_value=str(tmp_path)),
         patch("think.utils.get_config", return_value={}),
     ):
@@ -119,7 +99,7 @@ def test_all_batch_processes_unprocessed_skips_transcribed(
 ):
     """--all processes unprocessed audio, skips already-transcribed, ignores non-audio."""
     journal = _make_batch_journal(tmp_path)
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     monkeypatch.setattr("sys.argv", ["sol transcribe", "--all"])
 
     mock_process_one = MagicMock()
@@ -145,7 +125,7 @@ def test_all_batch_processes_unprocessed_skips_transcribed(
 def test_all_redo_reprocesses_transcribed(tmp_path, monkeypatch):
     """--all --redo reprocesses even segments that already have .jsonl."""
     journal = _make_batch_journal(tmp_path)
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     monkeypatch.setattr("sys.argv", ["sol transcribe", "--all", "--redo"])
 
     mock_process_one = MagicMock()
@@ -163,7 +143,7 @@ def test_all_redo_reprocesses_transcribed(tmp_path, monkeypatch):
 
 def test_all_and_audio_path_mutually_exclusive(tmp_path, monkeypatch):
     """Providing both --all and audio_path produces a clear error."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr("sys.argv", ["sol transcribe", "--all", "some/audio.wav"])
 
     with patch("think.entities.load_recent_entity_names", return_value=[]):
@@ -175,7 +155,7 @@ def test_all_and_audio_path_mutually_exclusive(tmp_path, monkeypatch):
 
 def test_neither_all_nor_audio_path_errors(tmp_path, monkeypatch):
     """Providing neither --all nor audio_path produces a clear error."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     monkeypatch.setattr("sys.argv", ["sol transcribe"])
 
     with patch("think.entities.load_recent_entity_names", return_value=[]):

@@ -12,7 +12,7 @@ from think.importers.utils import generate_content_manifest
 
 
 def test_write_content_manifest(tmp_path, monkeypatch):
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     entries = [
         {
             "id": "conv-0",
@@ -88,7 +88,7 @@ def test_generate_content_manifest_from_segments(tmp_path):
 
 
 def test_chatgpt_importer_writes_content_manifest(tmp_path, monkeypatch):
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     archive = tmp_path / "chatgpt.zip"
     conversations = [
         {
@@ -138,7 +138,7 @@ def test_chatgpt_importer_writes_content_manifest(tmp_path, monkeypatch):
 
 
 def test_ics_importer_writes_content_manifest(tmp_path, monkeypatch):
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     ics_path = tmp_path / "calendar.ics"
     ics_path.write_bytes(
         b"""BEGIN:VCALENDAR

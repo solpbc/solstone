@@ -10,7 +10,7 @@ from think.utils import day_path
 
 def test_cluster(tmp_path, monkeypatch):
     """Test cluster() uses transcripts and agent output summaries (*.md files)."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -36,7 +36,7 @@ def test_cluster(tmp_path, monkeypatch):
 
 def test_cluster_range(tmp_path, monkeypatch):
     """Test cluster_range with transcripts and agents sources."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -65,7 +65,7 @@ def test_cluster_range(tmp_path, monkeypatch):
 
 
 def test_cluster_scan(tmp_path, monkeypatch):
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -104,7 +104,7 @@ def test_cluster_scan(tmp_path, monkeypatch):
 
 def test_cluster_segments(tmp_path, monkeypatch):
     """Test cluster_segments returns individual segments with their types."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -152,7 +152,7 @@ def test_cluster_segments(tmp_path, monkeypatch):
 
 def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
     """Test cluster_period uses raw screen.jsonl, not insight *.md files."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -193,7 +193,7 @@ def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
 
 def test_cluster_range_with_agents(tmp_path, monkeypatch):
     """Test cluster_range with agents source loads all *.md files."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -233,7 +233,7 @@ def test_cluster_range_with_agents(tmp_path, monkeypatch):
 
 def test_cluster_range_with_screen(tmp_path, monkeypatch):
     """Test cluster_range with screen source loads raw screen.jsonl data."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -265,7 +265,7 @@ def test_cluster_range_with_screen(tmp_path, monkeypatch):
 
 def test_cluster_range_with_multiple_screen_files(tmp_path, monkeypatch):
     """Test cluster_range loads multiple *_screen.jsonl files per segment."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -299,7 +299,7 @@ def test_cluster_range_with_multiple_screen_files(tmp_path, monkeypatch):
 
 def test_cluster_scan_with_split_screen(tmp_path, monkeypatch):
     """Test cluster_scan detects *_screen.jsonl files."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -318,7 +318,7 @@ def test_cluster_scan_with_split_screen(tmp_path, monkeypatch):
 
 def test_cluster_segments_with_split_screen(tmp_path, monkeypatch):
     """Test cluster_segments detects *_screen.jsonl files."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -338,7 +338,7 @@ def test_cluster_segments_with_split_screen(tmp_path, monkeypatch):
 
 def test_cluster_span(tmp_path, monkeypatch):
     """Test cluster_span processes a span of segments."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -382,7 +382,7 @@ def test_cluster_span(tmp_path, monkeypatch):
 
 def test_cluster_span_missing_segment(tmp_path, monkeypatch):
     """Test cluster_span fails fast when segment is missing."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -407,7 +407,7 @@ def test_cluster_span_missing_segment(tmp_path, monkeypatch):
 
 def test_cluster_with_agent_filter_dict(tmp_path, monkeypatch):
     """Test cluster() with dict-valued agents source for selective filtering."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -436,7 +436,7 @@ def test_cluster_with_agent_filter_dict(tmp_path, monkeypatch):
 
 def test_cluster_with_agent_filter_multiple(tmp_path, monkeypatch):
     """Test cluster() with dict selecting multiple agents."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -469,7 +469,7 @@ def test_cluster_with_agent_filter_multiple(tmp_path, monkeypatch):
 
 def test_cluster_with_agent_filter_app_namespaced(tmp_path, monkeypatch):
     """Test cluster() with dict filtering app-namespaced agent outputs."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")
@@ -501,7 +501,7 @@ def test_cluster_with_agent_filter_app_namespaced(tmp_path, monkeypatch):
 
 def test_cluster_with_empty_agent_filter(tmp_path, monkeypatch):
     """Test cluster() with empty dict means no agents."""
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
     day_dir = day_path("20240101")
 
     mod = importlib.import_module("think.cluster")

@@ -137,7 +137,7 @@ def test_entry_content_key_kindle():
 def test_reimport_same_entries_no_duplicates():
     """Re-importing identical entries should not create duplicates."""
     with tempfile.TemporaryDirectory() as journal:
-        os.environ["JOURNAL_PATH"] = journal
+        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = journal
         try:
             entries = [
                 {
@@ -172,13 +172,13 @@ def test_reimport_same_entries_no_duplicates():
             header2 = json.loads(lines2[0])
             assert header2["entry_count"] == 2
         finally:
-            os.environ.pop("JOURNAL_PATH", None)
+            os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
 
 
 def test_reimport_with_new_entries_merges():
     """Re-importing with new entries should merge (add new, keep old)."""
     with tempfile.TemporaryDirectory() as journal:
-        os.environ["JOURNAL_PATH"] = journal
+        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = journal
         try:
             original = [
                 {
@@ -214,13 +214,13 @@ def test_reimport_with_new_entries_merges():
             assert "Standup" in titles
             assert "New meeting" in titles
         finally:
-            os.environ.pop("JOURNAL_PATH", None)
+            os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
 
 
 def test_first_import_no_merge_needed():
     """First import should work normally with no existing file."""
     with tempfile.TemporaryDirectory() as journal:
-        os.environ["JOURNAL_PATH"] = journal
+        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = journal
         try:
             entries = [
                 {
@@ -234,7 +234,7 @@ def test_first_import_no_merge_needed():
             assert len(files) == 1
             assert Path(files[0]).exists()
         finally:
-            os.environ.pop("JOURNAL_PATH", None)
+            os.environ.pop("_SOLSTONE_JOURNAL_OVERRIDE", None)
 
 
 def test_load_existing_entries():

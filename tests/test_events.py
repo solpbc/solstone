@@ -32,7 +32,7 @@ def test_get_month_event_counts(tmp_path, monkeypatch):
         json.dumps({"title": "Gym session", "start": "18:00:00"}) + "\n"
     )
 
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     result = get_month_event_counts("202401")
 
@@ -66,7 +66,7 @@ def test_get_month_event_counts_future_dates(tmp_path, monkeypatch):
         + "\n"
     )
 
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     result = get_month_event_counts("202512")
 
@@ -97,7 +97,7 @@ def test_get_month_event_counts_skips_entries_without_title(tmp_path, monkeypatc
         + "\n"
     )
 
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     result = get_month_event_counts("202401")
 
@@ -114,7 +114,7 @@ def test_get_month_event_counts_empty_month(tmp_path, monkeypatch):
     work_events = journal / "facets" / "work" / "events"
     work_events.mkdir(parents=True)
 
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     result = get_month_event_counts("202402")
 
@@ -125,7 +125,7 @@ def test_get_month_event_counts_empty_journal(tmp_path, monkeypatch):
     """Test that empty journal directory returns empty dict."""
     from think.events import get_month_event_counts
 
-    monkeypatch.setenv("JOURNAL_PATH", str(tmp_path))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     result = get_month_event_counts("202401")
 
@@ -153,7 +153,7 @@ def test_get_month_event_counts_includes_calendar_entries(tmp_path, monkeypatch)
         + "\n"
     )
 
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     result = get_month_event_counts("202401")
 
@@ -172,7 +172,7 @@ def test_get_month_event_counts_calendar_without_events_dir(tmp_path, monkeypatc
         json.dumps({"title": "Gym", "start": "18:00"}) + "\n"
     )
 
-    monkeypatch.setenv("JOURNAL_PATH", str(journal))
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     result = get_month_event_counts("202401")
 

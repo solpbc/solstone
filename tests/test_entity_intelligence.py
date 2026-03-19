@@ -14,7 +14,7 @@ from think.indexer.journal import (
 
 @pytest.fixture(autouse=True)
 def fixture_journal():
-    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = "tests/fixtures/journal"
     yield
 
 

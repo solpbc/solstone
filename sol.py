@@ -154,7 +154,7 @@ def print_status() -> None:
     """Print current journal status."""
     status = get_status()
 
-    print(f"JOURNAL_PATH={status['journal_path']} ({status['journal_source']})")
+    print(f"Journal: {status['journal_path']}")
     if status["journal_exists"]:
         # Count day directories
         journal = status["journal_path"]

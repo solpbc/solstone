@@ -386,8 +386,8 @@ def normalize(data: Any, journal_path: str) -> Any:
     raw_journal = str(journal_path)
     if raw_journal != resolved_journal:
         path_replacements.append((raw_journal, "<JOURNAL>"))
-    # Match the JOURNAL_PATH env var if set (may be relative)
-    env_journal = os.environ.get("JOURNAL_PATH", "")
+    # Match the _SOLSTONE_JOURNAL_OVERRIDE env var if set (may be relative)
+    env_journal = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE", "")
     if env_journal and env_journal not in (resolved_journal, raw_journal):
         path_replacements.append((env_journal, "<JOURNAL>"))
     path_replacements.append((project_root, "<PROJECT>"))
@@ -554,7 +554,7 @@ def _resolve_journal_path() -> str:
     """Resolve journal path from env or sandbox metadata."""
 
     env_path = Path.cwd() / "tests" / "fixtures" / "journal"
-    journal = Path(os.environ.get("JOURNAL_PATH", str(env_path)))
+    journal = Path(os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE", str(env_path)))
     if journal.is_absolute():
         return str(journal)
     return str(Path(journal).resolve())
@@ -595,7 +595,7 @@ def make_client(base_url: str | None) -> Any:
 
 def resolve_journal_for_mode(base_url: str | None) -> str:
     if base_url:
-        env_path = os.environ.get("JOURNAL_PATH")
+        env_path = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
         if env_path:
             return str(Path(env_path).resolve())
         sandbox_path = _resolve_sandbox_journal()
