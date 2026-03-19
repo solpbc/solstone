@@ -12,6 +12,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
+from media import MIME_TYPES
 from think.importers.utils import save_import_file, write_import_metadata
 from think.utils import day_path, get_journal, now_ms
 
@@ -283,15 +284,7 @@ def write_markdown_segments(
 
 # MIME type mapping for import metadata
 _MIME_TYPES = {
-    ".m4a": "audio/mp4",
-    ".mp3": "audio/mpeg",
-    ".wav": "audio/wav",
-    ".flac": "audio/flac",
-    ".ogg": "audio/ogg",
-    ".opus": "audio/opus",
-    ".mp4": "video/mp4",
-    ".webm": "video/webm",
-    ".mov": "video/quicktime",
+    **MIME_TYPES,
     ".txt": "text/plain",
     ".md": "text/markdown",
     ".pdf": "application/pdf",

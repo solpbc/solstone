@@ -104,7 +104,7 @@ Documentation = "https://github.com/solpbc/solstone/blob/main/README.md"
 include = ["apps*", "think*", "convey*", "observe*", "muse*"]
 
 [tool.setuptools]
-py-modules = ["sol"]
+py-modules = ["media", "sol"]
 
 [tool.setuptools.package-data]
 apps = ["*/templates/*.html", "*/muse/*.md"]

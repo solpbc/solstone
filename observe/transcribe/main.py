@@ -54,6 +54,7 @@ from pathlib import Path
 
 import numpy as np
 
+from media import AUDIO_EXTENSIONS as SUPPORTED_AUDIO_FORMATS
 from observe.transcribe import (
     BACKEND_REGISTRY,
     get_backend,
@@ -98,9 +99,6 @@ MIN_STATEMENT_DURATION = 0.3
 
 # Number of recent entity names to load for transcription context
 ENTITY_NAMES_LIMIT = 40
-
-# Supported audio file formats for transcription
-SUPPORTED_AUDIO_FORMATS = {".flac", ".m4a", ".mp3", ".ogg", ".opus", ".wav"}
 
 # Module-level voice encoder cache
 _voice_encoder = None

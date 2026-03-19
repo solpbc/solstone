@@ -16,6 +16,8 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+from media import AUDIO_EXTENSIONS as _AUDIO_EXTENSIONS
+from media import VIDEO_EXTENSIONS as _VIDEO_EXTENSIONS
 from think.utils import day_path
 
 logger = logging.getLogger(__name__)
@@ -23,8 +25,8 @@ logger = logging.getLogger(__name__)
 # Standard sample rate for audio processing
 SAMPLE_RATE = 16000
 
-VIDEO_EXTENSIONS = (".webm", ".mp4", ".mov")
-AUDIO_EXTENSIONS = (".flac", ".ogg", ".m4a", ".opus", ".mp3")
+VIDEO_EXTENSIONS = tuple(_VIDEO_EXTENSIONS)
+AUDIO_EXTENSIONS = tuple(_AUDIO_EXTENSIONS)
 
 
 def audio_to_flac_bytes(audio: np.ndarray, sample_rate: int) -> bytes:

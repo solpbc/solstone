@@ -23,6 +23,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from media import AUDIO_EXTENSIONS as RAW_AUDIO_EXTENSIONS
+from media import MEDIA_EXTENSIONS as RAW_MEDIA_EXTENSIONS
+from media import VIDEO_EXTENSIONS as RAW_VIDEO_EXTENSIONS
 from think.utils import day_dirs, get_journal, iter_segments
 
 logger = logging.getLogger(__name__)
@@ -31,15 +34,11 @@ logger = logging.getLogger(__name__)
 # Raw media file identification
 # ---------------------------------------------------------------------------
 
-RAW_AUDIO_EXTENSIONS = frozenset({".flac", ".opus", ".ogg", ".m4a"})
-RAW_VIDEO_EXTENSIONS = frozenset({".webm", ".mov", ".mp4"})
-RAW_MEDIA_EXTENSIONS = RAW_AUDIO_EXTENSIONS | RAW_VIDEO_EXTENSIONS
-
 
 def is_raw_media(path: Path) -> bool:
     """Check if a file is raw media (layer 1 capture).
 
-    Raw media: *.flac, *.opus, *.ogg, *.m4a (audio),
+    Raw media: *.flac, *.opus, *.ogg, *.m4a, *.mp3, *.wav (audio),
     *.webm, *.mov, *.mp4 (video), monitor_*_diff.png (screen diffs).
     """
     if path.suffix.lower() in RAW_MEDIA_EXTENSIONS:
