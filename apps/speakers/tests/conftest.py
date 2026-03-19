@@ -230,6 +230,88 @@ def speakers_env(tmp_path, monkeypatch):
 
             return labels_path
 
+        def create_speaker_corrections(
+            self,
+            day: str,
+            segment_key: str,
+            corrections: list[dict],
+            *,
+            stream: str | None = None,
+        ) -> Path:
+            """Create a speaker_corrections.json file in a segment directory.
+
+            Args:
+                day: Day string (YYYYMMDD)
+                segment_key: Segment key (HHMMSS_LEN)
+                corrections: List of correction dicts with sentence_id,
+                    original_speaker, corrected_speaker, timestamp
+                stream: Optional stream name (defaults to STREAM)
+            """
+            agents_dir = (
+                self.journal / day / (stream or STREAM) / segment_key / "agents"
+            )
+            agents_dir.mkdir(parents=True, exist_ok=True)
+
+            data = {"corrections": corrections}
+            corrections_path = agents_dir / "speaker_corrections.json"
+            with open(corrections_path, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+
+            return corrections_path
+
+        def create_facet_relationship(
+            self,
+            facet: str,
+            entity_id: str,
+            *,
+            description: str = "",
+            attached_at: int = 1700000000000,
+            updated_at: int | None = None,
+            last_seen: str | None = None,
+            observations: list[str] | None = None,
+        ) -> Path:
+            """Create a facet relationship for an entity.
+
+            Args:
+                facet: Facet name (e.g., "work", "personal")
+                entity_id: Entity ID (slug)
+                description: Relationship description
+                attached_at: When the relationship was created
+                updated_at: Last update timestamp
+                last_seen: Last seen day string (YYYYMMDD)
+                observations: Optional list of observation strings
+            """
+            rel_dir = self.journal / "facets" / facet / "entities" / entity_id
+            rel_dir.mkdir(parents=True, exist_ok=True)
+
+            relationship: dict = {
+                "entity_id": entity_id,
+                "attached_at": attached_at,
+            }
+            if description:
+                relationship["description"] = description
+            if updated_at is not None:
+                relationship["updated_at"] = updated_at
+            if last_seen is not None:
+                relationship["last_seen"] = last_seen
+
+            with open(rel_dir / "entity.json", "w", encoding="utf-8") as f:
+                json.dump(relationship, f, indent=2)
+
+            if observations:
+                with open(
+                    rel_dir / "observations.jsonl", "w", encoding="utf-8"
+                ) as f:
+                    for obs in observations:
+                        f.write(
+                            json.dumps(
+                                {"content": obs, "observed_at": 1700000000000}
+                            )
+                            + "\n"
+                        )
+
+            return rel_dir
+
         def create_import_segment(
             self,
             day: str,
