@@ -26,6 +26,8 @@ import platformdirs
 from dotenv import load_dotenv
 from timefhuman import timefhuman
 
+from media import MIME_TYPES
+
 DATE_RE = re.compile(r"\d{8}")
 _journal_path_cache: str | None = None
 
@@ -800,24 +802,8 @@ def get_raw_file(day: str, name: str) -> tuple[str, str, Any]:
     if not rel:
         raise ValueError(f"No 'raw' field found in metadata for {name}")
 
-    # Determine MIME type from raw file extension
-    if rel.endswith(".flac"):
-        mime = "audio/flac"
-    elif rel.endswith(".ogg"):
-        mime = "audio/ogg"
-    elif rel.endswith(".m4a"):
-        mime = "audio/mp4"
-    elif rel.endswith(".png"):
-        mime = "image/png"
-    elif rel.endswith(".webm"):
-        mime = "video/webm"
-    elif rel.endswith(".mp4"):
-        mime = "video/mp4"
-    elif rel.endswith(".mov"):
-        mime = "video/quicktime"
-    else:
-        # Default fallback for unknown types
-        mime = "application/octet-stream"
+    suffix = Path(rel).suffix.lower()
+    mime = {**MIME_TYPES, ".png": "image/png"}.get(suffix, "application/octet-stream")
 
     return rel, mime, meta
 

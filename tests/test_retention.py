@@ -26,7 +26,7 @@ from think.retention import (
 
 class TestIsRawMedia:
     def test_audio_extensions(self, tmp_path):
-        for ext in (".flac", ".opus", ".ogg", ".m4a"):
+        for ext in (".flac", ".opus", ".ogg", ".m4a", ".mp3", ".wav"):
             p = tmp_path / f"audio{ext}"
             p.touch()
             assert is_raw_media(p), f"{ext} should be raw media"

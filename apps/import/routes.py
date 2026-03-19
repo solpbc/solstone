@@ -13,6 +13,7 @@ from flask import Blueprint, jsonify, render_template, request
 from werkzeug.utils import secure_filename
 
 from convey import emit, state
+from media import MEDIA_EXTENSIONS
 from think.detect_created import detect_created
 from think.importers.utils import (
     build_import_info,
@@ -120,7 +121,7 @@ SOURCE_METADATA = [
         "input_type": "file",
         "upload_prompt": "Upload an audio file (.m4a, .mp3, .wav)",
         "has_guide": False,
-        "accept": ".m4a,.mp3,.wav,.ogg,.webm",
+        "accept": ",".join(sorted(MEDIA_EXTENSIONS)),
     },
     {
         "name": "document",
