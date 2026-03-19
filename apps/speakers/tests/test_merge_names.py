@@ -132,7 +132,7 @@ def test_deep_merge_full(speakers_env):
     )
     with open(labels_path) as f:
         labels = json.load(f)
-    speakers = [l["speaker"] for l in labels["labels"]]
+    speakers = [label["speaker"] for label in labels["labels"]]
     assert "alice_alias" not in speakers
     assert speakers.count("alice_canonical") == 3
 

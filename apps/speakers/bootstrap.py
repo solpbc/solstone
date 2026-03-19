@@ -726,10 +726,8 @@ def resolve_name_variants(dry_run: bool = False) -> dict[str, Any]:
         # Determine canonical (longer name) vs alias (shorter name)
         if len(name_a) >= len(name_b):
             canonical_name, alias_name = name_a, name_b
-            canonical_id = eid
         else:
             canonical_name, alias_name = name_b, name_a
-            canonical_id = other_id
 
         # Check name variant pattern: first-word, token-subset, or prefix-token
         if not is_name_variant_match(alias_name, canonical_name):
