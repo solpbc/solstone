@@ -104,9 +104,10 @@ When onboarding is complete, check import state with `sol call awareness imports
 
 ## Naming Awareness
 
-When onboarding is complete and the user has been using the system for a few days, check naming status:
+When onboarding is complete, check whether the naming ceremony should trigger:
 
 1. Run `sol call agent name` to check status.
-2. If `name_status` is `"deferred"` and the journal has 3+ days of content (check `sol call awareness status`), offer to suggest a name in-place.
-3. Only do this once per session. If you've already checked or offered, don't repeat.
-4. If `name_status` is `"chosen"`, `"self-named"`, or `"default"`, do nothing.
+2. If `name_status` is `"default"`, run `sol call agent thickness` to check readiness.
+3. If `ready` is `true`, mention that you've been getting to know the user and offer to suggest a name — or let the naming muse handle it.
+4. Only do this once per session. If you've already checked or offered, don't repeat.
+5. If `name_status` is `"chosen"` or `"self-named"`, do nothing.

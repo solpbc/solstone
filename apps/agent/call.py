@@ -95,3 +95,11 @@ def reset() -> None:
         }
     )
     typer.echo(json.dumps(agent, indent=2))
+
+
+@app.command("thickness")
+def thickness() -> None:
+    """Show journal thickness signals for naming readiness."""
+    from think.awareness import compute_thickness
+
+    typer.echo(json.dumps(compute_thickness(), indent=2))

@@ -4,6 +4,7 @@
 """Tests for the awareness system."""
 
 import json
+import unittest.mock
 
 import pytest
 
@@ -329,3 +330,246 @@ class TestJournalState:
         assert state["onboarding"]["status"] == "complete"
         assert state["onboarding"]["path"] == "b"
         assert state["journal"]["first_daily_ready"] is True
+
+
+class TestComputeThickness:
+    """Tests for compute_thickness()."""
+
+    def test_all_zeros_when_empty(self):
+        """Empty journal returns all zero signals and ready=False."""
+        from think.awareness import compute_thickness
+
+        with unittest.mock.patch(
+            "think.indexer.journal.get_entity_strength", return_value=[]
+        ):
+            with unittest.mock.patch(
+                "think.conversation.get_recent_exchanges", return_value=[]
+            ):
+                with unittest.mock.patch(
+                    "think.facets.get_enabled_facets", return_value={}
+                ):
+                    with unittest.mock.patch("think.utils.day_dirs", return_value={}):
+                        result = compute_thickness()
+
+        assert result["entity_depth"] == 0
+        assert result["conversation_count"] == 0
+        assert result["recall_success"] == 0
+        assert result["facet_count"] == 0
+        assert result["journal_days"] == 0
+        assert result["ready"] is False
+
+    def test_ready_when_thresholds_met(self):
+        """ready=True when all primary thresholds met and facet_count >= 2."""
+        from think.awareness import compute_thickness
+
+        entities = [
+            {"entity_name": f"entity_{i}", "observation_depth": 3} for i in range(12)
+        ]
+        exchanges = [
+            {
+                "muse": "triage",
+                "agent_response": f"talked about entity_{i}",
+                "user_message": "hi",
+            }
+            for i in range(6)
+        ]
+        facets = {"work": {}, "personal": {}}
+
+        with unittest.mock.patch(
+            "think.indexer.journal.get_entity_strength", return_value=entities
+        ):
+            with unittest.mock.patch(
+                "think.conversation.get_recent_exchanges", return_value=exchanges
+            ):
+                with unittest.mock.patch(
+                    "think.facets.get_enabled_facets", return_value=facets
+                ):
+                    with unittest.mock.patch("think.utils.day_dirs", return_value={}):
+                        result = compute_thickness()
+
+        assert result["entity_depth"] == 12
+        assert result["conversation_count"] == 6
+        assert result["recall_success"] == 6
+        assert result["facet_count"] == 2
+        assert result["ready"] is True
+
+    def test_ready_via_journal_days(self):
+        """ready=True when facet_count < 2 but journal_days >= 3."""
+        from think.awareness import compute_thickness
+
+        entities = [
+            {"entity_name": f"entity_{i}", "observation_depth": 2} for i in range(10)
+        ]
+        exchanges = [
+            {
+                "muse": "triage",
+                "agent_response": f"entity_{i} is great",
+                "user_message": "yo",
+            }
+            for i in range(5)
+        ]
+        facets = {"solo": {}}
+        days = {
+            "20260304": "/j/20260304",
+            "20260305": "/j/20260305",
+            "20260306": "/j/20260306",
+        }
+
+        with unittest.mock.patch(
+            "think.indexer.journal.get_entity_strength", return_value=entities
+        ):
+            with unittest.mock.patch(
+                "think.conversation.get_recent_exchanges", return_value=exchanges
+            ):
+                with unittest.mock.patch(
+                    "think.facets.get_enabled_facets", return_value=facets
+                ):
+                    with unittest.mock.patch("think.utils.day_dirs", return_value=days):
+                        with unittest.mock.patch(
+                            "think.utils.iter_segments",
+                            return_value=[("default", "090000_300", "/seg")],
+                        ):
+                            result = compute_thickness()
+
+        assert result["facet_count"] == 1
+        assert result["journal_days"] == 3
+        assert result["ready"] is True
+
+    def test_not_ready_missing_recall(self):
+        """Not ready when recall_success is 0 even if other thresholds met."""
+        from think.awareness import compute_thickness
+
+        entities = [
+            {"entity_name": f"entity_{i}", "observation_depth": 3} for i in range(15)
+        ]
+        exchanges = [
+            {"muse": "triage", "agent_response": "hello there", "user_message": "hi"}
+            for _ in range(10)
+        ]
+        facets = {"work": {}, "personal": {}, "hobby": {}}
+
+        with unittest.mock.patch(
+            "think.indexer.journal.get_entity_strength", return_value=entities
+        ):
+            with unittest.mock.patch(
+                "think.conversation.get_recent_exchanges", return_value=exchanges
+            ):
+                with unittest.mock.patch(
+                    "think.facets.get_enabled_facets", return_value=facets
+                ):
+                    with unittest.mock.patch("think.utils.day_dirs", return_value={}):
+                        result = compute_thickness()
+
+        assert result["entity_depth"] == 15
+        assert result["conversation_count"] == 10
+        assert result["recall_success"] == 0
+        assert result["ready"] is False
+
+    def test_onboarding_exchanges_excluded(self):
+        """Exchanges with muse='onboarding' are excluded from conversation_count."""
+        from think.awareness import compute_thickness
+
+        entities = [{"entity_name": "foo", "observation_depth": 3}] * 10
+        exchanges = [
+            {"muse": "onboarding", "agent_response": "foo stuff", "user_message": "hi"},
+            {
+                "muse": "onboarding",
+                "agent_response": "foo bar",
+                "user_message": "hello",
+            },
+            {"muse": "triage", "agent_response": "foo is great", "user_message": "hey"},
+        ]
+
+        with unittest.mock.patch(
+            "think.indexer.journal.get_entity_strength", return_value=entities
+        ):
+            with unittest.mock.patch(
+                "think.conversation.get_recent_exchanges", return_value=exchanges
+            ):
+                with unittest.mock.patch(
+                    "think.facets.get_enabled_facets",
+                    return_value={"a": {}, "b": {}},
+                ):
+                    with unittest.mock.patch("think.utils.day_dirs", return_value={}):
+                        result = compute_thickness()
+
+        assert result["conversation_count"] == 1
+        assert result["recall_success"] == 1
+
+    def test_handles_exceptions_gracefully(self):
+        """Exceptions in dependency calls result in zero values, not crashes."""
+        from think.awareness import compute_thickness
+
+        with unittest.mock.patch(
+            "think.indexer.journal.get_entity_strength",
+            side_effect=Exception("db error"),
+        ):
+            with unittest.mock.patch(
+                "think.conversation.get_recent_exchanges",
+                side_effect=Exception("no file"),
+            ):
+                with unittest.mock.patch(
+                    "think.facets.get_enabled_facets",
+                    side_effect=Exception("no facets"),
+                ):
+                    with unittest.mock.patch(
+                        "think.utils.day_dirs", side_effect=Exception("no journal")
+                    ):
+                        result = compute_thickness()
+
+        assert result["entity_depth"] == 0
+        assert result["conversation_count"] == 0
+        assert result["recall_success"] == 0
+        assert result["facet_count"] == 0
+        assert result["journal_days"] == 0
+        assert result["ready"] is False
+
+    def test_returns_exactly_six_keys(self):
+        """Return dict has exactly the six specified keys."""
+        from think.awareness import compute_thickness
+
+        with unittest.mock.patch(
+            "think.indexer.journal.get_entity_strength", return_value=[]
+        ):
+            with unittest.mock.patch(
+                "think.conversation.get_recent_exchanges", return_value=[]
+            ):
+                with unittest.mock.patch(
+                    "think.facets.get_enabled_facets", return_value={}
+                ):
+                    with unittest.mock.patch("think.utils.day_dirs", return_value={}):
+                        result = compute_thickness()
+
+        assert set(result.keys()) == {
+            "entity_depth",
+            "conversation_count",
+            "recall_success",
+            "facet_count",
+            "journal_days",
+            "ready",
+        }
+
+
+class TestThicknessCLI:
+    """Tests for the thickness CLI command in apps/agent/call.py."""
+
+    def test_thickness_command_returns_json(self):
+        from typer.testing import CliRunner
+
+        from apps.agent.call import app
+
+        mock_result = {
+            "entity_depth": 5,
+            "conversation_count": 3,
+            "recall_success": 1,
+            "facet_count": 2,
+            "journal_days": 4,
+            "ready": False,
+        }
+        with unittest.mock.patch(
+            "think.awareness.compute_thickness", return_value=mock_result
+        ):
+            result = CliRunner().invoke(app, ["thickness"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data == mock_result

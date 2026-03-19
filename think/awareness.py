@@ -269,6 +269,74 @@ def get_imports() -> dict[str, Any]:
     )
 
 
+def compute_thickness() -> dict[str, Any]:
+    """Compute journal thickness signals for naming ceremony readiness.
+
+    Returns a dict with five signals and a composite ``ready`` boolean:
+
+    - ``entity_depth``: count of entities with observation_depth >= 2
+    - ``conversation_count``: non-onboarding conversation exchanges
+    - ``recall_success``: exchanges where an entity name appears in agent_response
+    - ``facet_count``: number of enabled (non-muted) facets
+    - ``journal_days``: number of day directories with at least one segment
+    - ``ready``: True when the naming ceremony should trigger
+    """
+    from think.conversation import get_recent_exchanges
+    from think.facets import get_enabled_facets
+    from think.indexer.journal import get_entity_strength
+    from think.utils import day_dirs, iter_segments
+
+    try:
+        entities = get_entity_strength(limit=10000)
+    except Exception:
+        entities = []
+    entity_depth = sum(1 for e in entities if e.get("observation_depth", 0) >= 2)
+
+    try:
+        exchanges = get_recent_exchanges(limit=10000)
+    except Exception:
+        exchanges = []
+    non_onboarding = [ex for ex in exchanges if ex.get("muse") != "onboarding"]
+    conversation_count = len(non_onboarding)
+
+    entity_names = [e["entity_name"].lower() for e in entities if e.get("entity_name")]
+    recall_success = 0
+    for ex in non_onboarding:
+        resp = (ex.get("agent_response") or "").lower()
+        if resp and any(name in resp for name in entity_names):
+            recall_success += 1
+
+    try:
+        facet_count = len(get_enabled_facets())
+    except Exception:
+        facet_count = 0
+
+    try:
+        days = day_dirs()
+    except Exception:
+        days = {}
+    journal_days = 0
+    for _day_name, day_path in days.items():
+        try:
+            if iter_segments(day_path):
+                journal_days += 1
+        except Exception:
+            pass
+
+    ready = (
+        entity_depth >= 10 and conversation_count >= 5 and recall_success >= 1
+    ) and (facet_count >= 2 or journal_days >= 3)
+
+    return {
+        "entity_depth": entity_depth,
+        "conversation_count": conversation_count,
+        "recall_success": recall_success,
+        "facet_count": facet_count,
+        "journal_days": journal_days,
+        "ready": ready,
+    }
+
+
 def record_import(
     source_type: str,
     source_display: str | None = None,
