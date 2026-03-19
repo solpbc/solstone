@@ -197,6 +197,17 @@
   flex-wrap: wrap;
 }
 
+.spk-seeding-prompt {
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--bg-info, #e8f4fd);
+  border: 1px solid var(--border-info, #b3d9f2);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary, #333);
+}
+
 .spk-filter-btn {
   padding: 6px 10px;
   border: 1px solid #d1d5db;
@@ -888,7 +899,17 @@
       return;
     }
 
-    segmentList.innerHTML = segments.map(seg => `
+    // Sort segments: by null proportion when needs_review, otherwise by key (chronological)
+    const sorted = [...segments].sort((a, b) => {
+      if (currentFilter === 'needs_review') {
+        const aProp = a.attribution_total ? a.attribution_null / a.attribution_total : 0;
+        const bProp = b.attribution_total ? b.attribution_null / b.attribution_total : 0;
+        if (bProp !== aProp) return bProp - aProp;
+      }
+      return a.key.localeCompare(b.key);
+    });
+
+    segmentList.innerHTML = sorted.map(seg => `
       <div class="spk-segment${selectedSegment?.key === seg.key ? ' active' : ''}" data-key="${seg.key}">
         <div class="spk-segment-time">
           ${seg.start} - ${seg.end}
@@ -1104,6 +1125,13 @@
         <button class="spk-filter-btn${currentFilter === 'needs_review' ? ' active' : ''}" data-filter="needs_review">Needs Review</button>
         <button class="spk-filter-btn${currentFilter === 'corrections' ? ' active' : ''}" data-filter="corrections">Corrections</button>
       </div>
+      ${(() => {
+        const seg = selectedSegment;
+        const nonOwnerTotal = seg?.attribution_non_owner_total || 0;
+        const nullCount = seg?.attribution_null || 0;
+        const showPrompt = seg?.speaker_count > 0 && nonOwnerTotal > 0 && (nullCount / nonOwnerTotal) > 0.5;
+        return showPrompt ? `<div class="spk-seeding-prompt">This meeting has ${seg.speaker_count} named speakers but I can't match voices yet. Assigning even a few sentences will help me learn their voices for future meetings.</div>` : '';
+      })()}
       ${!hasLabels ? '<div class="spk-status spk-status-error">Not yet attributed</div>' : ''}
       ${sentences.length === 0 ? '<div class="spk-empty">No sentences match this filter</div>' : sentences.map(renderSentence).join('')}
     `;
@@ -1112,6 +1140,7 @@
       btn.addEventListener('click', () => {
         currentFilter = btn.dataset.filter;
         renderReviewList();
+        renderSegmentList();
       });
     });
 

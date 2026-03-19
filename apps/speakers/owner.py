@@ -373,12 +373,12 @@ def confirm_owner_candidate() -> dict[str, Any]:
 
     Returns a dict with status and principal_id on success, or an error key.
     """
+    from think.entities import entity_slug
     from think.entities.core import get_identity_names
     from think.entities.journal import (
         ensure_journal_entity_memory,
         get_or_create_journal_entity,
     )
-    from think.entities import entity_slug
 
     candidate_path = _owner_candidate_path()
     if not candidate_path.exists():

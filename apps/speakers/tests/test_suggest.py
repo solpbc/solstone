@@ -55,42 +55,31 @@ def test_suggest_empty_journal(speakers_env):
 
 def test_suggest_low_confidence_review(speakers_env):
     env = speakers_env()
-    for idx in range(4):
+    for idx in range(2):
         segment_key = f"1000{idx:02d}_300"
         env.create_segment("20240101", segment_key, ["mic_audio"])
-        env.create_speaker_labels(
-            "20240101",
-            segment_key,
-            [
+        labels = []
+        for sid in range(1, 13):
+            labels.append(
                 {
-                    "sentence_id": 1,
-                    "speaker": "alice_test",
-                    "confidence": "medium",
-                    "method": "voiceprint",
-                },
-                {
-                    "sentence_id": 2,
-                    "speaker": None,
-                    "confidence": None,
-                    "method": None,
-                },
-                {
-                    "sentence_id": 3,
-                    "speaker": "alice_test",
-                    "confidence": "medium",
-                    "method": "voiceprint",
-                },
-            ],
-        )
+                    "sentence_id": sid,
+                    "speaker": "alice_test" if sid % 2 == 0 else None,
+                    "confidence": "medium" if sid % 2 == 0 else None,
+                    "method": "voiceprint" if sid % 2 == 0 else None,
+                }
+            )
+        env.create_speaker_labels("20240101", segment_key, labels)
 
     results = suggest_opportunities()
 
-    suggestion = next(
-        item for item in results if item["type"] == "low_confidence_review"
-    )
-    assert suggestion["day"] == "20240101"
-    assert suggestion["medium_or_null_count"] == 12
-    assert suggestion["total_labels"] == 12
+    low_conf = [item for item in results if item["type"] == "low_confidence_review"]
+    assert len(low_conf) == 2
+    for suggestion in low_conf:
+        assert suggestion["day"] == "20240101"
+        assert suggestion["medium_or_null_count"] == 12
+        assert suggestion["total_labels"] == 12
+        assert "segment_key" in suggestion
+        assert "null_proportion" in suggestion
 
 
 def test_suggest_low_confidence_below_threshold(speakers_env):
@@ -238,7 +227,7 @@ def test_suggest_priority_order(speakers_env):
                     "confidence": None,
                     "method": None,
                 }
-                for sid in range(1, 4)
+                for sid in range(1, 13)
             ],
         )
 

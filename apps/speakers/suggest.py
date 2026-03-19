@@ -292,10 +292,10 @@ def _name_variant() -> list[dict[str, Any]]:
 
 
 def _low_confidence_review() -> list[dict[str, Any]]:
-    day_totals: dict[str, dict[str, int]] = {}
+    results: list[dict[str, Any]] = []
 
     for day in sorted(day_dirs().keys()):
-        for _stream, _segment_key, seg_path in iter_segments(day):
+        for stream, segment_key, seg_path in iter_segments(day):
             labels_path = seg_path / "agents" / "speaker_labels.json"
             if not labels_path.exists():
                 continue
@@ -308,26 +308,39 @@ def _low_confidence_review() -> list[dict[str, Any]]:
             if not isinstance(labels, list):
                 continue
 
-            counts = day_totals.setdefault(day, {"medium_or_null": 0, "total": 0})
+            medium_or_null = 0
+            null_count = 0
+            total = 0
             for label in labels:
                 if not isinstance(label, dict):
                     continue
-                counts["total"] += 1
+                total += 1
                 if label.get("confidence") != "high":
-                    counts["medium_or_null"] += 1
+                    medium_or_null += 1
+                if not label.get("speaker"):
+                    null_count += 1
 
-    suggestions = [
-        {
-            "type": "low_confidence_review",
-            "day": day,
-            "medium_or_null_count": counts["medium_or_null"],
-            "total_labels": counts["total"],
-        }
-        for day, counts in day_totals.items()
-        if counts["medium_or_null"] > 10
-    ]
-    suggestions.sort(key=lambda item: item["medium_or_null_count"], reverse=True)
-    return suggestions
+            if medium_or_null <= 10:
+                continue
+
+            speakers_path = seg_path / "agents" / "speakers.json"
+            has_speakers = speakers_path.is_file()
+            null_proportion = null_count / total if total else 0.0
+            results.append(
+                {
+                    "type": "low_confidence_review",
+                    "day": day,
+                    "segment_key": segment_key,
+                    "stream": stream,
+                    "medium_or_null_count": medium_or_null,
+                    "total_labels": total,
+                    "has_speakers": has_speakers,
+                    "null_proportion": null_proportion,
+                }
+            )
+
+    results.sort(key=lambda item: (not item["has_speakers"], -item["null_proportion"]))
+    return results
 
 
 def suggest_opportunities(limit: int = 5) -> list[dict[str, Any]]:
@@ -383,9 +396,10 @@ def format_suggestions(suggestions: list[dict[str, Any]]) -> str:
                 f"(similarity: {suggestion['similarity']:.2f})"
             )
         elif suggestion_type == "low_confidence_review":
+            seg_info = suggestion.get("segment_key", "")
             lines.append(
                 "Low confidence review: "
-                f"{suggestion['day']} \u2014 "
+                f"{suggestion['day']}/{seg_info} \u2014 "
                 f"{suggestion['medium_or_null_count']} of "
                 f"{suggestion['total_labels']} labels are medium/unresolved"
             )

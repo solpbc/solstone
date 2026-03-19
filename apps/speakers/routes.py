@@ -13,7 +13,7 @@ import json
 import logging
 import os
 import re
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -39,16 +39,11 @@ from apps.speakers.owner import (
 from apps.utils import log_app_action
 from convey import state
 from convey.utils import DATE_RE, error_response, format_date, success_response
-from think.awareness import get_current, update_state
-from think.entities import (
-    entity_slug,
-    find_matching_entity,
-)
-from think.entities.core import get_identity_names
+from think.awareness import get_current
+from think.entities import find_matching_entity
 from think.entities.journal import (
     ensure_journal_entity_memory,
     get_journal_principal,
-    get_or_create_journal_entity,
     journal_entity_memory_path,
     load_all_journal_entities,
     load_journal_entity,
@@ -56,7 +51,6 @@ from think.entities.journal import (
 from think.utils import (
     day_dirs,
     day_path,
-    get_journal,
     iter_segments,
     now_ms,
     segment_parse,
@@ -594,6 +588,8 @@ def api_segments(day: str) -> Any:
         return error_response("Invalid day format", 400)
 
     segments = _scan_segment_embeddings(day)
+    principal = get_journal_principal()
+    principal_id = principal["id"] if principal else None
     for seg in segments:
         seg_dir = get_segment_path(day, seg["key"], seg["stream"])
         labels_data = _load_speaker_labels(seg_dir)
@@ -605,9 +601,20 @@ def api_segments(day: str) -> Any:
                 for label in labels
                 if label.get("confidence") == "medium" or not label.get("speaker")
             )
+            seg["attribution_null"] = sum(
+                1 for label in labels if not label.get("speaker")
+            )
+            owner_count = sum(
+                1
+                for label in labels
+                if label.get("speaker") and label.get("speaker") == principal_id
+            )
+            seg["attribution_non_owner_total"] = len(labels) - owner_count
         else:
             seg["attribution_total"] = 0
             seg["attribution_needs_review"] = 0
+            seg["attribution_null"] = 0
+            seg["attribution_non_owner_total"] = 0
 
     return jsonify({"segments": segments})
 
