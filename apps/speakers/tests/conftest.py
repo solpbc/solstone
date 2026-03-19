@@ -45,6 +45,7 @@ def speakers_env(tmp_path, monkeypatch):
             sources: list[str],
             num_sentences: int = 5,
             *,
+            stream: str | None = None,
             embeddings: np.ndarray | None = None,
         ) -> Path:
             """Create a segment with sentence embeddings.
@@ -57,7 +58,7 @@ def speakers_env(tmp_path, monkeypatch):
                 sources: List of audio sources (e.g., ["mic_audio", "sys_audio"])
                 num_sentences: Number of sentences to create
             """
-            segment_dir = self.journal / day / STREAM / segment_key
+            segment_dir = self.journal / day / (stream or STREAM) / segment_key
             segment_dir.mkdir(parents=True, exist_ok=True)
 
             sentence_count = (
@@ -113,6 +114,86 @@ def speakers_env(tmp_path, monkeypatch):
                 # Create dummy audio file
                 audio_path = segment_dir / f"{source}.flac"
                 audio_path.write_bytes(b"")  # Empty placeholder
+
+            return segment_dir
+
+        def create_import_segment(
+            self,
+            day: str,
+            segment_key: str,
+            speakers_text: list[tuple[str, str]],
+            source: str = "audio",
+            *,
+            stream: str = "import.granola",
+            embeddings: np.ndarray | None = None,
+        ) -> Path:
+            """Create an import segment with conversation_transcript.jsonl and NPZ.
+
+            Args:
+                day: Day string (YYYYMMDD)
+                segment_key: Segment key (HHMMSS_LEN)
+                speakers_text: List of (speaker_name, text) tuples for transcript lines
+                source: Audio source stem for NPZ file (default "audio")
+                stream: Import stream name (default "import.granola")
+                embeddings: Optional custom embeddings array (N×256)
+            """
+            segment_dir = self.journal / day / stream / segment_key
+            segment_dir.mkdir(parents=True, exist_ok=True)
+
+            num_sentences = len(speakers_text)
+
+            # Write conversation_transcript.jsonl
+            jsonl_path = segment_dir / "conversation_transcript.jsonl"
+            lines = [
+                json.dumps(
+                    {
+                        "imported": {"id": "test-import", "source": "test"},
+                        "topics": "test",
+                        "setting": "meeting",
+                    }
+                )
+            ]
+
+            time_part = segment_key.split("_")[0]
+            base_h = int(time_part[0:2])
+            base_m = int(time_part[2:4])
+            base_s = int(time_part[4:6])
+            base_seconds = base_h * 3600 + base_m * 60 + base_s
+
+            for i, (speaker, text) in enumerate(speakers_text):
+                offset = i * 5
+                abs_seconds = base_seconds + offset
+                h = (abs_seconds // 3600) % 24
+                m = (abs_seconds % 3600) // 60
+                s = abs_seconds % 60
+                lines.append(
+                    json.dumps(
+                        {
+                            "start": f"{h:02d}:{m:02d}:{s:02d}",
+                            "speaker": speaker,
+                            "text": text,
+                            "source": "import",
+                        }
+                    )
+                )
+            jsonl_path.write_text("\n".join(lines) + "\n")
+
+            # Create NPZ embeddings
+            npz_path = segment_dir / f"{source}.npz"
+            if embeddings is None:
+                source_embeddings = np.random.randn(num_sentences, 256).astype(
+                    np.float32
+                )
+                norms = np.linalg.norm(source_embeddings, axis=1, keepdims=True)
+                source_embeddings = source_embeddings / norms
+            else:
+                source_embeddings = embeddings.astype(np.float32)
+            statement_ids = np.arange(1, num_sentences + 1, dtype=np.int32)
+            np.savez_compressed(
+                npz_path,
+                embeddings=source_embeddings,
+                statement_ids=statement_ids,
+            )
 
             return segment_dir
 

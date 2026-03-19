@@ -13,6 +13,8 @@ Provides:
     sol call speakers identify <cluster-id> <name> [--entity-id ID]
     sol call speakers merge-names <alias> <canonical>
     sol call speakers suggest [--limit N] [--json]
+    sol call speakers link-import <name> --entity-id <ID>
+    sol call speakers seed-from-imports [--dry-run] [--json]
 """
 
 from __future__ import annotations
@@ -405,3 +407,127 @@ def suggest(
     from apps.speakers.suggest import format_suggestions
 
     typer.echo(format_suggestions(results))
+
+
+@app.command("link-import")
+def link_import(
+    name: str = typer.Argument(..., help="Import participant name to link."),
+    entity_id: str = typer.Option(
+        ..., "--entity-id", help="Journal entity ID to link to."
+    ),
+) -> None:
+    """Link an import participant name to a journal entity as an aka."""
+    import json as json_mod
+
+    from think.entities.journal import (
+        load_all_journal_entities,
+        load_journal_entity,
+        save_journal_entity,
+    )
+    from think.entities.matching import validate_aka_uniqueness
+    from think.utils import now_ms
+
+    entity = load_journal_entity(entity_id)
+    if entity is None:
+        typer.echo(
+            json_mod.dumps({"error": f"Entity not found: {entity_id}"}, indent=2),
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    existing_aka = set(entity.get("aka", []))
+    already_present = name in existing_aka
+    if not already_present:
+        # Check for alias collision with other entities
+        all_entities = load_all_journal_entities()
+        entities_list = [e for e in all_entities.values() if not e.get("blocked")]
+        collision = validate_aka_uniqueness(
+            name, entities_list, exclude_entity_name=entity.get("name")
+        )
+        if collision:
+            typer.echo(
+                json_mod.dumps(
+                    {
+                        "error": f"Name '{name}' conflicts with entity: {collision}",
+                    },
+                    indent=2,
+                ),
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        existing_aka.add(name)
+        entity["aka"] = sorted(existing_aka)
+        entity["updated_at"] = now_ms()
+        save_journal_entity(entity)
+
+    typer.echo(
+        json_mod.dumps(
+            {
+                "linked": True,
+                "entity_id": entity_id,
+                "name_added": name,
+                "already_present": already_present,
+            },
+            indent=2,
+            default=str,
+        )
+    )
+
+
+@app.command("seed-from-imports")
+def seed_from_imports_cmd(
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be saved without saving."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Output full result as JSON."
+    ),
+) -> None:
+    """Seed voiceprints from speaker-attributed import transcripts.
+
+    Scans import-stream segments for conversation_transcript.jsonl files
+    with per-line speaker attribution. Maps speaker names to journal
+    entities and saves corresponding embeddings as voiceprints.
+    """
+    from apps.speakers.bootstrap import seed_from_imports
+
+    if dry_run and not json_output:
+        typer.echo("DRY RUN — no voiceprints will be saved\n")
+
+    if not json_output:
+        typer.echo("Seeding voiceprints from import transcripts...")
+    stats = seed_from_imports(dry_run=dry_run)
+
+    if "error" in stats:
+        typer.echo(f"Error: {stats['error']}", err=True)
+        raise typer.Exit(1)
+    if json_output:
+        import json as json_mod
+
+        typer.echo(json_mod.dumps(stats, indent=2, default=str))
+        return
+
+    typer.echo(f"\nImport segments scanned: {stats['segments_scanned']}")
+    typer.echo(f"Segments with speakers: {stats['segments_with_speakers']}")
+    typer.echo(f"Unique speakers: {len(stats['speakers_found'])}")
+    typer.echo(f"Embeddings saved: {stats['embeddings_saved']}")
+    typer.echo(f"Embeddings skipped (owner): {stats['embeddings_skipped_owner']}")
+    typer.echo(
+        f"Embeddings skipped (duplicate): {stats['embeddings_skipped_duplicate']}"
+    )
+
+    if stats["speakers_found"]:
+        typer.echo("\nTop speakers by embedding count:")
+        sorted_speakers = sorted(
+            stats["speakers_found"].items(), key=lambda x: x[1], reverse=True
+        )
+        for name, count in sorted_speakers[:15]:
+            typer.echo(f"  {name}: {count}")
+        if len(sorted_speakers) > 15:
+            typer.echo(f"  ... and {len(sorted_speakers) - 15} more")
+
+    if stats["errors"]:
+        typer.echo(f"\nErrors ({len(stats['errors'])}):", err=True)
+        for err in stats["errors"]:
+            typer.echo(f"  {err}", err=True)
