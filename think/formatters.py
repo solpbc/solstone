@@ -139,7 +139,7 @@ FORMATTERS: dict[str, tuple[str, str, bool]] = {
     "entities/*/entity.json": (
         "think.entities.formatting",
         "format_entity_identity",
-        True,
+        False,  # Indexed via _index_entity_search_chunks (enriched with relationship data)
     ),
     "facets/*/events/*.jsonl": ("think.events", "format_events", True),
     "facets/*/calendar/*.jsonl": ("think.events", "format_events", True),

@@ -1235,6 +1235,138 @@ def scan_signals(
     return bool(to_index or removed)
 
 
+def _ts_to_day(ts_value: str | int | None) -> str:
+    """Convert a millisecond timestamp to YYYYMMDD string.
+
+    Returns empty string if the value is missing or unparseable.
+    """
+    if ts_value is None:
+        return ""
+    try:
+        ms = int(ts_value)
+        if ms <= 0:
+            return ""
+        return date.fromtimestamp(ms / 1000).strftime("%Y%m%d")
+    except (ValueError, TypeError, OSError):
+        return ""
+
+
+def _index_entity_search_chunks(conn: sqlite3.Connection) -> int:
+    """Generate FTS5 search chunks from the entities table.
+
+    Combines identity records (name, type, aka) with relationship records
+    (description, tags, facet) to create searchable chunks for each entity.
+    One chunk per entity-facet relationship, plus one for identity-only entities.
+
+    Returns the number of entity chunks indexed.
+    """
+    # Clean up: remove previous entity search chunks and legacy formatter chunks
+    conn.execute("DELETE FROM chunks WHERE path LIKE 'entity_search:%'")
+    conn.execute("DELETE FROM chunks WHERE path LIKE 'entities/%/entity.json'")
+
+    # Load all non-blocked identity records
+    identities: dict[str, dict[str, Any]] = {}
+    for row in conn.execute(
+        "SELECT entity_id, name, type, aka, created_at, updated_at "
+        "FROM entities WHERE source='identity' AND (blocked IS NULL OR blocked=0)"
+    ).fetchall():
+        entity_id, name, etype, aka, created_at, updated_at = row
+        identities[entity_id] = {
+            "name": name,
+            "type": etype,
+            "aka": aka,
+            "created_at": created_at,
+            "updated_at": updated_at,
+        }
+
+    # Load all non-detached relationship records, grouped by entity_id
+    relationships: dict[str, list[dict[str, Any]]] = {}
+    for row in conn.execute(
+        "SELECT entity_id, facet, description, tags, last_seen, updated_at, attached_at "
+        "FROM entities "
+        "WHERE source='relationship' AND (detached IS NULL OR detached=0)"
+    ).fetchall():
+        entity_id, facet, description, tags, last_seen, updated_at, attached_at = row
+        relationships.setdefault(entity_id, []).append(
+            {
+                "facet": facet,
+                "description": description,
+                "tags": tags,
+                "last_seen": last_seen,
+                "updated_at": updated_at,
+                "attached_at": attached_at,
+            }
+        )
+
+    count = 0
+    for entity_id, identity in identities.items():
+        name = identity["name"] or entity_id.replace("_", " ").title()
+        etype = identity["type"] or "Unknown"
+        aka_raw = identity["aka"]
+
+        # Build common identity lines (included in every chunk for this entity)
+        identity_lines = [f"{name} ({etype})"]
+        if aka_raw:
+            try:
+                aka_list = json.loads(aka_raw)
+                if aka_list:
+                    identity_lines.append(f"Also known as: {', '.join(aka_list)}")
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        path = f"entity_search:{entity_id}"
+        rels = relationships.get(entity_id, [])
+
+        if rels:
+            # One chunk per facet relationship, enriched with identity data
+            for idx, rel in enumerate(rels):
+                lines = list(identity_lines)
+                if rel["description"]:
+                    lines.append(rel["description"])
+                if rel["tags"]:
+                    try:
+                        tags_list = json.loads(rel["tags"])
+                        if tags_list:
+                            lines.append(f"Tags: {', '.join(tags_list)}")
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                content = "\n".join(lines)
+                facet = (rel["facet"] or "").lower()
+
+                # Best available day: last_seen > updated_at > attached_at
+                day = ""
+                if rel["last_seen"] and len(rel["last_seen"]) == 8:
+                    day = rel["last_seen"]
+                else:
+                    day = _ts_to_day(rel["updated_at"]) or _ts_to_day(
+                        rel["attached_at"]
+                    )
+
+                conn.execute(
+                    "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (content, path, day, facet, "entity", "", idx),
+                )
+                count += 1
+        else:
+            # Identity-only entity — one chunk with no facet
+            content = "\n".join(identity_lines)
+            day = _ts_to_day(identity["updated_at"]) or _ts_to_day(
+                identity["created_at"]
+            )
+            conn.execute(
+                "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (content, path, day, "", "entity", "", 0),
+            )
+            count += 1
+
+    conn.commit()
+    logger.info("%s entity search chunks indexed", count)
+    return count
+
+
 def consolidate_segment_entities(journal: str, full: bool = False) -> int:
     """Consolidate per-segment entity detections into the journal entity store.
 
@@ -1483,6 +1615,10 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
     consolidate_segment_entities(journal, full=full)
     entity_changed = scan_entities(journal, conn, verbose=verbose, full=full)
     signal_changed = scan_signals(journal, conn, verbose=verbose, full=full)
+
+    # Regenerate entity search chunks when entity data changes
+    if entity_changed:
+        _index_entity_search_chunks(conn)
 
     conn.close()
     return bool(to_index or removed or entity_changed or signal_changed)

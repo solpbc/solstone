@@ -1229,8 +1229,8 @@ def test_scan_signals_kg_facet_assignment():
     conn.close()
 
 
-def test_entity_identity_fts_chunks_indexed():
-    """Entity identity files produce FTS chunks with agent='entity'."""
+def test_entity_search_chunks_indexed():
+    """Entity search chunks are generated from identity + relationship data."""
     from think.indexer.journal import scan_journal
 
     os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
@@ -1240,11 +1240,26 @@ def test_entity_identity_fts_chunks_indexed():
         0
     ]
     conn.close()
-    assert count == 33
+    # One chunk per entity-facet relationship (33 identities × relationships per facet)
+    assert count == 40
 
 
-def test_entity_identity_search_by_name():
-    """Entity identity name is searchable via FTS."""
+def test_entity_search_chunks_use_entity_search_path():
+    """Entity search chunks use entity_search: path prefix."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+    conn, _ = get_journal_index("tests/fixtures/journal")
+    rows = conn.execute(
+        "SELECT DISTINCT path FROM chunks WHERE agent='entity'"
+    ).fetchall()
+    conn.close()
+    assert all(r[0].startswith("entity_search:") for r in rows)
+
+
+def test_entity_search_by_name():
+    """Entity name is searchable via FTS."""
     from think.indexer.journal import scan_journal
 
     os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
@@ -1254,7 +1269,7 @@ def test_entity_identity_search_by_name():
     assert any(r["metadata"]["agent"] == "entity" for r in results)
 
 
-def test_entity_identity_search_by_type():
+def test_entity_search_by_type():
     """Entity type is searchable via FTS."""
     from think.indexer.journal import scan_journal
 
@@ -1264,7 +1279,31 @@ def test_entity_identity_search_by_type():
     assert total >= 1
 
 
-def test_entity_identity_fts_idempotent():
+def test_entity_search_includes_description():
+    """Entity search chunks include relationship descriptions."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+    # Alice has description "Close friend from college" in personal facet
+    total, results = search_journal("college", agent="entity")
+    assert total >= 1
+    matched = [r for r in results if "college" in r["text"].lower()]
+    assert len(matched) >= 1
+
+
+def test_entity_search_includes_facet():
+    """Entity search chunks have facet metadata from relationships."""
+    from think.indexer.journal import scan_journal
+
+    os.environ["JOURNAL_PATH"] = "tests/fixtures/journal"
+    scan_journal("tests/fixtures/journal", full=True)
+    total, results = search_journal("Alice Johnson", agent="entity", facet="personal")
+    assert total >= 1
+    assert all(r["metadata"]["facet"] == "personal" for r in results)
+
+
+def test_entity_search_idempotent():
     """Two full scans produce identical entity chunk count (no duplicates)."""
     from think.indexer.journal import scan_journal
 
@@ -1281,4 +1320,4 @@ def test_entity_identity_fts_idempotent():
         "SELECT count(*) FROM chunks WHERE agent='entity'"
     ).fetchone()[0]
     conn.close()
-    assert count1 == count2 == 33
+    assert count1 == count2 == 40
