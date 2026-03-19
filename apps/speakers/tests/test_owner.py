@@ -109,7 +109,11 @@ def test_detect_owner_insufficient_segments(speakers_env):
             _owner_embeddings(1, rng),
         )
 
-    assert detect_owner_candidate() is None
+    result = detect_owner_candidate()
+    assert result["status"] == "low_data"
+    assert result["segments_available"] == 10
+    assert result["embeddings_available"] == 10
+    assert result["recommendation"] == "low_data"
 
 
 def test_detect_owner_no_cluster(speakers_env):
@@ -128,7 +132,10 @@ def test_detect_owner_no_cluster(speakers_env):
             embedding,
         )
 
-    assert detect_owner_candidate() is None
+    result = detect_owner_candidate()
+    assert result["status"] == "no_clusters"
+    assert result["segments_available"] == 50
+    assert result["recommendation"] == "no_clusters"
     assert get_current()["voiceprint"]["status"] == "no_cluster"
 
 
@@ -169,6 +176,8 @@ def test_detect_owner_basic(speakers_env):
     assert result is not None
     assert result["status"] == "candidate"
     assert result["cluster_size"] >= 50
+    assert result["streams_represented"] == 2
+    assert result["recommendation"] == "ready"
     assert len(result["samples"]) == 3
     assert _candidate_path(env.journal).exists()
     assert get_current()["voiceprint"]["status"] == "candidate"
@@ -454,3 +463,5 @@ def test_api_owner_detect(speakers_env):
     assert response.status_code == 200
     assert data["status"] == "candidate"
     assert data["cluster_size"] >= 50
+    assert "streams_represented" in data
+    assert "recommendation" in data

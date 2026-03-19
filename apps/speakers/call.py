@@ -4,10 +4,12 @@
 """CLI interface for speaker voiceprint management.
 
 Provides:
-    sol call speakers bootstrap [--dry-run]
-    sol call speakers resolve-names [--dry-run]
-    sol call speakers attribute-segment <day> <stream> <segment>
-    sol call speakers discover
+    sol call speakers status [section]
+    sol call speakers bootstrap [--dry-run] [--json]
+    sol call speakers resolve-names [--dry-run] [--json]
+    sol call speakers attribute-segment <day> <stream> <segment> [--json]
+    sol call speakers backfill [--dry-run] [--json]
+    sol call speakers discover [--json]
 """
 
 from __future__ import annotations
@@ -21,10 +23,32 @@ app = typer.Typer(
 )
 
 
+@app.command("status")
+def status(
+    section: str | None = typer.Argument(
+        None,
+        help=(
+            "Section to show (embeddings, owner, speakers, clusters, imports, "
+            "attribution). Omit for all."
+        ),
+    ),
+) -> None:
+    """Show speaker subsystem status as JSON."""
+    import json as json_mod
+
+    from apps.speakers.status import get_speakers_status
+
+    result = get_speakers_status(section=section)
+    typer.echo(json_mod.dumps(result, indent=2, default=str))
+
+
 @app.command("bootstrap")
 def bootstrap(
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Show what would be saved without saving."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Output full result as JSON."
     ),
 ) -> None:
     """Bootstrap voiceprints from single-speaker segments.
@@ -36,15 +60,21 @@ def bootstrap(
     """
     from apps.speakers.bootstrap import bootstrap_voiceprints
 
-    if dry_run:
+    if dry_run and not json_output:
         typer.echo("DRY RUN — no voiceprints will be saved\n")
 
-    typer.echo("Bootstrapping voiceprints from single-speaker segments...")
+    if not json_output:
+        typer.echo("Bootstrapping voiceprints from single-speaker segments...")
     stats = bootstrap_voiceprints(dry_run=dry_run)
 
     if "error" in stats:
         typer.echo(f"Error: {stats['error']}", err=True)
         raise typer.Exit(1)
+    if json_output:
+        import json as json_mod
+
+        typer.echo(json_mod.dumps(stats, indent=2, default=str))
+        return
 
     typer.echo(f"\nSegments scanned: {stats['segments_scanned']}")
     typer.echo(f"Single-speaker segments: {stats['single_speaker_segments']}")
@@ -77,6 +107,9 @@ def resolve_names(
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Show merges without applying them."
     ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Output full result as JSON."
+    ),
 ) -> None:
     """Resolve speaker name variants using voiceprint similarity.
 
@@ -87,11 +120,18 @@ def resolve_names(
     """
     from apps.speakers.bootstrap import resolve_name_variants
 
-    if dry_run:
+    if dry_run and not json_output:
         typer.echo("DRY RUN — no merges will be applied\n")
 
-    typer.echo("Resolving speaker name variants...")
+    if not json_output:
+        typer.echo("Resolving speaker name variants...")
     stats = resolve_name_variants(dry_run=dry_run)
+
+    if json_output:
+        import json as json_mod
+
+        typer.echo(json_mod.dumps(stats, indent=2, default=str))
+        return
 
     typer.echo(f"\nEntities with voiceprints: {stats['entities_with_voiceprints']}")
     typer.echo(f"Pairs compared: {stats['pairs_compared']}")
@@ -196,6 +236,9 @@ def backfill(
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Enumerate segments without processing."
     ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Output full result as JSON."
+    ),
 ) -> None:
     """Run speaker attribution across all segments with embeddings.
 
@@ -206,10 +249,11 @@ def backfill(
 
     from apps.speakers.attribution import backfill_segments
 
-    if dry_run:
+    if dry_run and not json_output:
         typer.echo("DRY RUN — no labels will be written\n")
 
-    typer.echo("Scanning journal for segments with embeddings...")
+    if not json_output:
+        typer.echo("Scanning journal for segments with embeddings...")
 
     start = time.monotonic()
     last_day = ""
@@ -227,10 +271,16 @@ def backfill(
 
     stats = backfill_segments(
         dry_run=dry_run,
-        progress_callback=None if dry_run else on_progress,
+        progress_callback=None if dry_run or json_output else on_progress,
     )
 
     elapsed = time.monotonic() - start
+
+    if json_output:
+        import json as json_mod
+
+        typer.echo(json_mod.dumps(stats, indent=2, default=str))
+        return
 
     typer.echo("\n")
     typer.echo(f"Total segments scanned:    {stats['total_segments']}")
@@ -258,11 +308,20 @@ def backfill(
 
 
 @app.command()
-def discover() -> None:
+def discover(
+    json_output: bool = typer.Option(
+        False, "--json", help="Output full result as JSON."
+    ),
+) -> None:
     """Discover recurring unknown speakers across segments."""
+    import json as json_mod
+
     from apps.speakers.discovery import discover_unknown_speakers
 
     result = discover_unknown_speakers()
+    if json_output:
+        typer.echo(json_mod.dumps(result, indent=2, default=str))
+        return
     clusters = result.get("clusters", [])
 
     if not clusters:

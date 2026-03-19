@@ -19,7 +19,6 @@ from think.utils import day_dirs, get_journal, segment_path
 
 logger = logging.getLogger(__name__)
 
-MIN_SEGMENTS = 50
 MAX_EMBEDDINGS = 30000
 OWNER_THRESHOLD = 0.82
 
@@ -126,15 +125,13 @@ def _subsample_embeddings(
     return sampled_embeddings, sampled_provenance
 
 
-def detect_owner_candidate() -> dict[str, Any] | None:
+def detect_owner_candidate() -> dict[str, Any]:
     """Detect a likely owner voice centroid from journal embeddings."""
     load_embeddings_file, normalize_embedding, scan_segment_embeddings = (
         _routes_helpers()
     )
 
     segment_count = count_segments_with_embeddings()
-    if segment_count < MIN_SEGMENTS:
-        return None
 
     embedding_chunks: list[np.ndarray] = []
     provenance: list[dict[str, Any]] = []
@@ -168,14 +165,24 @@ def detect_owner_candidate() -> dict[str, Any] | None:
 
     if not embedding_chunks:
         _mark_no_cluster(segment_count)
-        return None
+        return {
+            "status": "no_embeddings",
+            "segments_available": segment_count,
+            "embeddings_available": 0,
+            "recommendation": "no_embeddings",
+        }
 
     embeddings_matrix = np.vstack(embedding_chunks)
     embeddings_matrix, provenance = _subsample_embeddings(embeddings_matrix, provenance)
 
     if len(embeddings_matrix) < 50:
         _mark_no_cluster(segment_count)
-        return None
+        return {
+            "status": "low_data",
+            "segments_available": segment_count,
+            "embeddings_available": int(len(embeddings_matrix)),
+            "recommendation": "low_data",
+        }
 
     clusterer = HDBSCAN(
         min_cluster_size=50,
@@ -188,21 +195,39 @@ def detect_owner_candidate() -> dict[str, Any] | None:
     valid_labels = labels[labels != -1]
     if len(valid_labels) == 0:
         _mark_no_cluster(segment_count)
-        return None
+        return {
+            "status": "no_clusters",
+            "segments_available": segment_count,
+            "embeddings_available": int(len(embeddings_matrix)),
+            "recommendation": "no_clusters",
+        }
 
     largest_label = int(np.bincount(valid_labels).argmax())
     cluster_indices = np.flatnonzero(labels == largest_label)
     if len(cluster_indices) == 0:
         _mark_no_cluster(segment_count)
-        return None
+        return {
+            "status": "no_clusters",
+            "segments_available": segment_count,
+            "embeddings_available": int(len(embeddings_matrix)),
+            "recommendation": "no_clusters",
+        }
 
     cluster_embeddings = embeddings_matrix[cluster_indices]
     centroid = normalize_embedding(np.mean(cluster_embeddings, axis=0))
     if centroid is None:
         _mark_no_cluster(segment_count)
-        return None
+        return {
+            "status": "no_clusters",
+            "segments_available": segment_count,
+            "embeddings_available": int(len(embeddings_matrix)),
+            "recommendation": "no_clusters",
+        }
 
     cluster_size = int(len(cluster_indices))
+    cluster_streams = {provenance[int(i)]["stream"] for i in cluster_indices}
+    streams_represented = len(cluster_streams)
+    recommendation = "ready" if streams_represented > 1 else "single_stream"
     similarities = np.dot(cluster_embeddings, centroid)
     sorted_cluster_positions = np.argsort(similarities)[::-1]
 
@@ -261,6 +286,8 @@ def detect_owner_candidate() -> dict[str, Any] | None:
         {
             "status": "candidate",
             "cluster_size": cluster_size,
+            "streams_represented": streams_represented,
+            "recommendation": recommendation,
             "samples": samples,
             "detected_at": version,
         },
@@ -269,6 +296,8 @@ def detect_owner_candidate() -> dict[str, Any] | None:
     return {
         "status": "candidate",
         "cluster_size": cluster_size,
+        "streams_represented": streams_represented,
+        "recommendation": recommendation,
         "samples": samples,
     }
 

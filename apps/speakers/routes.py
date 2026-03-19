@@ -1123,7 +1123,7 @@ def api_owner_status() -> Any:
 
     if status in {"none", "rejected"}:
         seg_count = count_segments_with_embeddings()
-        if seg_count >= 50:
+        if seg_count > 0:
             return jsonify(
                 {
                     "status": "needs_detection",
@@ -1139,8 +1139,6 @@ def api_owner_status() -> Any:
 def api_owner_detect() -> Any:
     """Run owner voice candidate detection."""
     result = detect_owner_candidate()
-    if result is None:
-        return jsonify({"status": "none", "reason": "No valid cluster found"})
     return jsonify(result)
 
 
