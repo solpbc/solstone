@@ -509,12 +509,12 @@
     "unified": {
       "app": null,
       "color": "#6c757d",
-      "description": "Unified conversational agent — full journal context, adaptive depth, all tools, in-place handoffs",
+      "description": "Sol — the journal itself, as a conversational partner",
       "multi_facet": false,
       "output_format": null,
       "schedule": null,
       "source": "system",
-      "title": "Unified",
+      "title": "Sol",
       "type": "cogitate"
     }
   },
