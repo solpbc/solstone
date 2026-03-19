@@ -486,6 +486,13 @@ def prepare_config(request: dict) -> dict:
     # Merge request values (request overrides agent defaults)
     config.update({k: v for k, v in request.items() if v is not None})
 
+    # Populate stream from env if not already in config (dream passes it as
+    # SOL_STREAM env var but not as a top-level request key — hooks need it)
+    if "stream" not in config:
+        sol_stream = os.environ.get("SOL_STREAM")
+        if sol_stream:
+            config["stream"] = sol_stream
+
     # Track additional state
     config["span_mode"] = bool(span)
     config["source_counts"] = {}
