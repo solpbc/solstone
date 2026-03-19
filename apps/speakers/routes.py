@@ -1139,8 +1139,16 @@ def api_owner_status() -> Any:
 def api_owner_detect() -> Any:
     """Run owner voice candidate detection."""
     result = detect_owner_candidate()
-    if result is None:
-        return jsonify({"status": "none", "reason": "No valid cluster found"})
+    # Map new structured statuses back to the web UI expectations
+    status = result.get("status")
+    if status == "candidate_found":
+        # Flatten for web UI compatibility
+        candidate = result.get("candidate", {})
+        return jsonify({
+            "status": "candidate",
+            "cluster_size": candidate.get("cluster_size"),
+            "samples": candidate.get("samples", []),
+        })
     return jsonify(result)
 
 

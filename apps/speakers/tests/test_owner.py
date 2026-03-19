@@ -109,7 +109,10 @@ def test_detect_owner_insufficient_segments(speakers_env):
             _owner_embeddings(1, rng),
         )
 
-    assert detect_owner_candidate() is None
+    result = detect_owner_candidate()
+    assert result["status"] == "insufficient_data"
+    assert result["segments_available"] == 10
+    assert "recommendation" in result
 
 
 def test_detect_owner_no_cluster(speakers_env):
@@ -128,7 +131,9 @@ def test_detect_owner_no_cluster(speakers_env):
             embedding,
         )
 
-    assert detect_owner_candidate() is None
+    result = detect_owner_candidate()
+    assert result["status"] == "no_cluster"
+    assert "recommendation" in result
     assert get_current()["voiceprint"]["status"] == "no_cluster"
 
 
@@ -167,9 +172,11 @@ def test_detect_owner_basic(speakers_env):
     result = detect_owner_candidate()
 
     assert result is not None
-    assert result["status"] == "candidate"
-    assert result["cluster_size"] >= 50
-    assert len(result["samples"]) == 3
+    assert result["status"] == "candidate_found"
+    assert result["candidate"]["cluster_size"] >= 50
+    assert len(result["candidate"]["samples"]) == 3
+    assert "recommendation" in result
+    assert result["recommendation"] in ("strong_candidate", "good_candidate", "weak_candidate")
     assert _candidate_path(env.journal).exists()
     assert get_current()["voiceprint"]["status"] == "candidate"
 

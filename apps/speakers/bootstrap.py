@@ -287,6 +287,90 @@ def bootstrap_voiceprints(dry_run: bool = False) -> dict[str, Any]:
     return stats
 
 
+def merge_names(alias_name: str, canonical_name: str) -> dict[str, Any]:
+    """Merge a speaker name variant into a canonical entity.
+
+    Finds both entities by name, adds the alias name as an aka on the
+    canonical entity, and merges voiceprint embeddings with deduplication.
+
+    Args:
+        alias_name: The alias/variant name to merge from
+        canonical_name: The canonical/full name to merge into
+
+    Returns:
+        Dict with merge statistics or error
+    """
+    _, normalize_embedding, _, load_entity_voiceprints_file = _routes_helpers()
+
+    journal_entities = load_all_journal_entities()
+    entities_list = [e for e in journal_entities.values() if not e.get("blocked")]
+
+    alias_entity = find_matching_entity(alias_name, entities_list)
+    if not alias_entity:
+        return {"error": f"No entity found for alias: {alias_name}"}
+
+    canonical_entity = find_matching_entity(canonical_name, entities_list)
+    if not canonical_entity:
+        return {"error": f"No entity found for canonical: {canonical_name}"}
+
+    alias_id = alias_entity["id"]
+    canonical_id = canonical_entity["id"]
+
+    if alias_id == canonical_id:
+        return {"error": "Alias and canonical resolve to the same entity."}
+
+    # Add alias name as aka on canonical entity
+    canonical = load_journal_entity(canonical_id)
+    if not canonical:
+        return {"error": f"Failed to load canonical entity: {canonical_id}"}
+
+    alias_display = alias_entity.get("name", alias_name)
+    existing_aka = set(canonical.get("aka", []))
+    if alias_display not in existing_aka:
+        existing_aka.add(alias_display)
+        canonical["aka"] = sorted(existing_aka)
+        canonical["updated_at"] = now_ms()
+        save_journal_entity(canonical)
+
+    # Merge voiceprint embeddings
+    alias_vp = load_entity_voiceprints_file(alias_id)
+    embeddings_merged = 0
+
+    if alias_vp is not None:
+        alias_embeddings, alias_metadata = alias_vp
+        existing_keys = _load_existing_voiceprint_keys(canonical_id)
+
+        new_items: list[tuple[np.ndarray, dict]] = []
+        for emb, meta in zip(alias_embeddings, alias_metadata):
+            key = (
+                meta.get("day"),
+                meta.get("segment_key"),
+                meta.get("source"),
+                meta.get("sentence_id"),
+            )
+            if key in existing_keys:
+                continue
+            normalized = normalize_embedding(emb)
+            if normalized is not None:
+                new_items.append((normalized, meta))
+                existing_keys.add(key)
+
+        if new_items:
+            embeddings_merged = _save_voiceprints_batch(canonical_id, new_items)
+
+    canonical_vp = load_entity_voiceprints_file(canonical_id)
+    total = len(canonical_vp[0]) if canonical_vp else 0
+
+    return {
+        "merged": True,
+        "alias": alias_display,
+        "canonical_entity_id": canonical_id,
+        "canonical_name": canonical.get("name", canonical_name),
+        "embeddings_merged": embeddings_merged,
+        "total_embeddings": total,
+    }
+
+
 def resolve_name_variants(dry_run: bool = False) -> dict[str, Any]:
     """Find and merge speaker name variants using voiceprint similarity.
 

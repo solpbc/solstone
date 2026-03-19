@@ -311,7 +311,9 @@ def discover_unknown_speakers() -> dict[str, Any]:
     return {"clusters": result_clusters}
 
 
-def identify_cluster(cluster_id: int, name: str) -> dict[str, Any]:
+def identify_cluster(
+    cluster_id: int, name: str, entity_id: str | None = None
+) -> dict[str, Any]:
     """Identify a discovered unknown speaker cluster."""
     (
         load_embeddings_file,
@@ -343,25 +345,37 @@ def identify_cluster(cluster_id: int, name: str) -> dict[str, Any]:
     from think.entities.journal import (
         get_or_create_journal_entity,
         load_all_journal_entities,
+        load_journal_entity,
     )
 
-    journal_entities = load_all_journal_entities()
-    entities_list = [
-        entity for entity in journal_entities.values() if not entity.get("blocked")
-    ]
+    entity_created = False
 
-    entity = find_matching_entity(name, entities_list)
-    if entity:
-        entity_id = entity["id"]
+    if entity_id:
+        # Direct entity ID — load it
+        entity = load_journal_entity(entity_id)
+        if not entity:
+            return {"error": f"Entity '{entity_id}' not found."}
         entity_name = entity.get("name", name)
     else:
-        entity_id = entity_slug(name)
-        entity = get_or_create_journal_entity(
-            entity_id=entity_id,
-            name=name,
-            entity_type="Person",
-        )
-        entity_name = entity.get("name", name)
+        journal_entities = load_all_journal_entities()
+        entities_list = [
+            entity for entity in journal_entities.values() if not entity.get("blocked")
+        ]
+
+        entity = find_matching_entity(name, entities_list)
+        if entity:
+            entity_id = entity["id"]
+            entity_name = entity.get("name", name)
+        else:
+            entity_id = entity_slug(name)
+            existing = load_journal_entity(entity_id)
+            entity_created = existing is None
+            entity = get_or_create_journal_entity(
+                entity_id=entity_id,
+                name=name,
+                entity_type="Person",
+            )
+            entity_name = entity.get("name", name)
 
     existing_keys = load_existing_voiceprint_keys(entity_id)
     vp_batch: list[tuple[np.ndarray, dict[str, Any]]] = []
@@ -489,6 +503,7 @@ def identify_cluster(cluster_id: int, name: str) -> dict[str, Any]:
         "status": "identified",
         "entity_id": entity_id,
         "entity_name": entity_name,
+        "entity_created": entity_created,
         "voiceprints_saved": voiceprints_saved,
         "segments_updated": segments_updated,
         "sentences_attributed": sentences_attributed,
