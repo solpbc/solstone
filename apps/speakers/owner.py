@@ -19,7 +19,6 @@ from think.utils import day_dirs, get_journal, segment_path
 
 logger = logging.getLogger(__name__)
 
-MIN_SEGMENTS = 50
 MAX_EMBEDDINGS = 30000
 OWNER_THRESHOLD = 0.82
 
@@ -127,11 +126,7 @@ def _subsample_embeddings(
 
 
 def detect_owner_candidate() -> dict[str, Any]:
-    """Detect a likely owner voice centroid from journal embeddings.
-
-    Always attempts detection regardless of data volume. Returns quality
-    metrics so the calling agent can decide whether the data is sufficient.
-    """
+    """Detect a likely owner voice centroid from journal embeddings."""
     load_embeddings_file, normalize_embedding, scan_segment_embeddings = (
         _routes_helpers()
     )
@@ -140,14 +135,12 @@ def detect_owner_candidate() -> dict[str, Any]:
 
     embedding_chunks: list[np.ndarray] = []
     provenance: list[dict[str, Any]] = []
-    streams_seen: set[str] = set()
 
     for day in day_dirs().keys():
         for segment in scan_segment_embeddings(day):
             stream = segment["stream"]
             segment_key = segment["key"]
             segment_dir = segment_path(day, segment_key, stream)
-            streams_seen.add(stream)
 
             for source in segment["sources"]:
                 emb_data = load_embeddings_file(segment_dir / f"{source}.npz")
@@ -170,18 +163,13 @@ def detect_owner_candidate() -> dict[str, Any]:
                     for sid in statement_ids
                 )
 
-    total_embeddings = sum(len(c) for c in embedding_chunks) if embedding_chunks else 0
-    stream_diversity = len(streams_seen)
-
     if not embedding_chunks:
         _mark_no_cluster(segment_count)
         return {
-            "status": "insufficient_data",
-            "reason": f"{segment_count} segments with embeddings, 0 embeddings found",
+            "status": "no_embeddings",
             "segments_available": segment_count,
             "embeddings_available": 0,
-            "stream_diversity": stream_diversity,
-            "recommendation": "need_more_data",
+            "recommendation": "no_embeddings",
         }
 
     embeddings_matrix = np.vstack(embedding_chunks)
@@ -190,18 +178,10 @@ def detect_owner_candidate() -> dict[str, Any]:
     if len(embeddings_matrix) < 50:
         _mark_no_cluster(segment_count)
         return {
-            "status": "insufficient_data",
-            "reason": (
-                f"{len(embeddings_matrix)} embeddings available, "
-                f"recommend {MIN_SEGMENTS}+ segments for reliable detection"
-            ),
+            "status": "low_data",
             "segments_available": segment_count,
-            "embeddings_available": total_embeddings,
-            "stream_diversity": stream_diversity,
-            "recommendation": (
-                "ready" if segment_count >= MIN_SEGMENTS and stream_diversity >= 3
-                else "need_more_data"
-            ),
+            "embeddings_available": int(len(embeddings_matrix)),
+            "recommendation": "low_data",
         }
 
     clusterer = HDBSCAN(
@@ -216,12 +196,10 @@ def detect_owner_candidate() -> dict[str, Any]:
     if len(valid_labels) == 0:
         _mark_no_cluster(segment_count)
         return {
-            "status": "no_cluster",
-            "reason": "HDBSCAN found no clusters in the embedding space",
+            "status": "no_clusters",
             "segments_available": segment_count,
-            "embeddings_available": total_embeddings,
-            "stream_diversity": stream_diversity,
-            "recommendation": "need_more_data",
+            "embeddings_available": int(len(embeddings_matrix)),
+            "recommendation": "no_clusters",
         }
 
     largest_label = int(np.bincount(valid_labels).argmax())
@@ -229,12 +207,10 @@ def detect_owner_candidate() -> dict[str, Any]:
     if len(cluster_indices) == 0:
         _mark_no_cluster(segment_count)
         return {
-            "status": "no_cluster",
-            "reason": "Largest cluster was empty after filtering",
+            "status": "no_clusters",
             "segments_available": segment_count,
-            "embeddings_available": total_embeddings,
-            "stream_diversity": stream_diversity,
-            "recommendation": "need_more_data",
+            "embeddings_available": int(len(embeddings_matrix)),
+            "recommendation": "no_clusters",
         }
 
     cluster_embeddings = embeddings_matrix[cluster_indices]
@@ -242,23 +218,18 @@ def detect_owner_candidate() -> dict[str, Any]:
     if centroid is None:
         _mark_no_cluster(segment_count)
         return {
-            "status": "no_cluster",
-            "reason": "Could not compute centroid for largest cluster",
+            "status": "no_clusters",
             "segments_available": segment_count,
-            "embeddings_available": total_embeddings,
-            "stream_diversity": stream_diversity,
-            "recommendation": "need_more_data",
+            "embeddings_available": int(len(embeddings_matrix)),
+            "recommendation": "no_clusters",
         }
 
     cluster_size = int(len(cluster_indices))
+    cluster_streams = {provenance[int(i)]["stream"] for i in cluster_indices}
+    streams_represented = len(cluster_streams)
+    recommendation = "ready" if streams_represented > 1 else "single_stream"
     similarities = np.dot(cluster_embeddings, centroid)
-    mean_similarity = float(np.mean(similarities))
     sorted_cluster_positions = np.argsort(similarities)[::-1]
-
-    # Compute stream diversity within the cluster
-    cluster_streams = {
-        provenance[int(cluster_indices[i])]["stream"] for i in range(len(cluster_indices))
-    }
 
     samples: list[dict[str, Any]] = []
     seen_segments: set[tuple[str, str, str]] = set()
@@ -272,7 +243,6 @@ def detect_owner_candidate() -> dict[str, Any]:
         samples.append(
             {
                 **record,
-                "similarity": round(float(similarities[position]), 4),
                 "audio_url": _audio_url(
                     record["day"],
                     record["stream"],
@@ -289,7 +259,6 @@ def detect_owner_candidate() -> dict[str, Any]:
             record = provenance[int(cluster_indices[position])]
             sample = {
                 **record,
-                "similarity": round(float(similarities[position]), 4),
                 "audio_url": _audio_url(
                     record["day"],
                     record["stream"],
@@ -317,31 +286,19 @@ def detect_owner_candidate() -> dict[str, Any]:
         {
             "status": "candidate",
             "cluster_size": cluster_size,
+            "streams_represented": streams_represented,
+            "recommendation": recommendation,
             "samples": samples,
             "detected_at": version,
         },
     )
 
-    # Determine recommendation based on quality metrics
-    if cluster_size >= 100 and len(cluster_streams) >= 3:
-        recommendation = "strong_candidate"
-    elif cluster_size >= 50 and len(cluster_streams) >= 2:
-        recommendation = "good_candidate"
-    else:
-        recommendation = "weak_candidate"
-
     return {
-        "status": "candidate_found",
-        "candidate": {
-            "cluster_size": cluster_size,
-            "mean_similarity": round(mean_similarity, 4),
-            "threshold": OWNER_THRESHOLD,
-            "streams": sorted(cluster_streams),
-            "stream_diversity": len(cluster_streams),
-            "sample_count": segment_count,
-            "samples": samples,
-        },
+        "status": "candidate",
+        "cluster_size": cluster_size,
+        "streams_represented": streams_represented,
         "recommendation": recommendation,
+        "samples": samples,
     }
 
 

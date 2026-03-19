@@ -1123,7 +1123,7 @@ def api_owner_status() -> Any:
 
     if status in {"none", "rejected"}:
         seg_count = count_segments_with_embeddings()
-        if seg_count >= 50:
+        if seg_count > 0:
             return jsonify(
                 {
                     "status": "needs_detection",
@@ -1139,16 +1139,6 @@ def api_owner_status() -> Any:
 def api_owner_detect() -> Any:
     """Run owner voice candidate detection."""
     result = detect_owner_candidate()
-    # Map new structured statuses back to the web UI expectations
-    status = result.get("status")
-    if status == "candidate_found":
-        # Flatten for web UI compatibility
-        candidate = result.get("candidate", {})
-        return jsonify({
-            "status": "candidate",
-            "cluster_size": candidate.get("cluster_size"),
-            "samples": candidate.get("samples", []),
-        })
     return jsonify(result)
 
 
