@@ -680,6 +680,68 @@ class TestCollectStatus:
         assert "due" in status[0]
 
 
+class TestHeartbeatSchedule:
+    """Tests for heartbeat schedule registration and daily firing."""
+
+    def test_register_defaults_creates_heartbeat(self, journal_path):
+        """register_defaults() creates a heartbeat entry in the config file."""
+        import think.scheduler as mod
+
+        mock_cal = Mock()
+        mod.init(mock_cal)
+        mod.register_defaults()
+
+        assert "heartbeat" in mod._entries
+        assert mod._entries["heartbeat"]["cmd"] == ["sol", "heartbeat"]
+        assert mod._entries["heartbeat"]["every"] == "daily"
+
+        config_path = journal_path / "config" / "schedules.json"
+        assert config_path.exists()
+        with open(config_path) as f:
+            raw = json.load(f)
+        assert "heartbeat" in raw
+        assert raw["heartbeat"]["cmd"] == ["sol", "heartbeat"]
+
+    def test_register_defaults_idempotent(self, journal_path):
+        """register_defaults() does not overwrite existing heartbeat config."""
+        import think.scheduler as mod
+
+        _write_config(
+            journal_path,
+            {
+                "heartbeat": {
+                    "cmd": ["sol", "heartbeat", "--custom"],
+                    "every": "daily",
+                    "enabled": True,
+                }
+            },
+        )
+
+        mock_cal = Mock()
+        mod.init(mock_cal)
+        mod.register_defaults()
+
+        assert mod._entries["heartbeat"]["cmd"] == ["sol", "heartbeat", "--custom"]
+
+    def test_heartbeat_is_due_when_never_run(self, journal_path):
+        """_is_due returns True for heartbeat entry with no prior run."""
+        import think.scheduler as mod
+
+        entry = {"cmd": ["sol", "heartbeat"], "every": "daily", "enabled": True}
+        now = datetime(2026, 3, 19, 10, 0, 0)
+        assert mod._is_due(entry, None, now) is True
+
+    def test_heartbeat_not_due_when_recently_run(self, journal_path):
+        """_is_due returns False for heartbeat entry that ran after the daily mark."""
+        import think.scheduler as mod
+
+        entry = {"cmd": ["sol", "heartbeat"], "every": "daily", "enabled": True}
+        now = datetime(2026, 3, 19, 10, 0, 0)
+        last_run_ts = datetime(2026, 3, 19, 1, 0, 0).timestamp()
+        state_entry = {"last_run": last_run_ts}
+        assert mod._is_due(entry, state_entry, now) is False
+
+
 # ---------------------------------------------------------------------------
 # CLI main()
 # ---------------------------------------------------------------------------

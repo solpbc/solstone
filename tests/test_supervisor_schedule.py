@@ -3,6 +3,7 @@
 
 """Test supervisor daily scheduling functionality."""
 
+import os
 from datetime import date
 from unittest.mock import patch
 
@@ -232,3 +233,114 @@ def test_handle_daily_tasks_excludes_today(mock_callosum):
         handle_daily_tasks()
 
     assert captured_exclude["value"] == {"20250102"}
+
+
+def test_handle_dream_daily_complete_submits_heartbeat(
+    mock_callosum, tmp_path, monkeypatch
+):
+    """_handle_dream_daily_complete submits heartbeat when no PID file exists."""
+    import think.supervisor as mod
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    (tmp_path / "health").mkdir(exist_ok=True)
+
+    submitted = []
+    original_submit = mod._task_queue.submit
+
+    def capture_submit(cmd, *args, **kwargs):
+        submitted.append(cmd)
+        return original_submit(cmd, *args, **kwargs)
+
+    mod._task_queue.submit = capture_submit
+
+    message = {
+        "tract": "dream",
+        "event": "daily_complete",
+        "day": "20260318",
+        "success": 3,
+        "failed": 0,
+        "duration_ms": 5000,
+    }
+    mod._handle_dream_daily_complete(message)
+
+    assert len(submitted) == 1
+    assert submitted[0] == ["sol", "heartbeat"]
+
+
+def test_handle_dream_daily_complete_ignores_wrong_event(
+    mock_callosum, tmp_path, monkeypatch
+):
+    """_handle_dream_daily_complete ignores messages with wrong tract or event."""
+    import think.supervisor as mod
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    (tmp_path / "health").mkdir(exist_ok=True)
+
+    submitted = []
+    original_submit = mod._task_queue.submit
+
+    def capture_submit(cmd, *args, **kwargs):
+        submitted.append(cmd)
+        return original_submit(cmd, *args, **kwargs)
+
+    mod._task_queue.submit = capture_submit
+
+    mod._handle_dream_daily_complete({"tract": "supervisor", "event": "daily_complete"})
+    mod._handle_dream_daily_complete({"tract": "dream", "event": "started"})
+    mod._handle_dream_daily_complete({})
+
+    assert len(submitted) == 0
+
+
+def test_handle_dream_daily_complete_skips_when_pid_alive(
+    mock_callosum, tmp_path, monkeypatch
+):
+    """_handle_dream_daily_complete does not submit when PID file shows running process."""
+    import think.supervisor as mod
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    health = tmp_path / "health"
+    health.mkdir(exist_ok=True)
+
+    (health / "heartbeat.pid").write_text(str(os.getpid()))
+
+    submitted = []
+    original_submit = mod._task_queue.submit
+
+    def capture_submit(cmd, *args, **kwargs):
+        submitted.append(cmd)
+        return original_submit(cmd, *args, **kwargs)
+
+    mod._task_queue.submit = capture_submit
+
+    message = {"tract": "dream", "event": "daily_complete", "day": "20260318"}
+    mod._handle_dream_daily_complete(message)
+
+    assert len(submitted) == 0
+
+
+def test_handle_dream_daily_complete_proceeds_on_dead_pid(
+    mock_callosum, tmp_path, monkeypatch
+):
+    """_handle_dream_daily_complete submits heartbeat when PID file has dead process."""
+    import think.supervisor as mod
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    health = tmp_path / "health"
+    health.mkdir(exist_ok=True)
+    (health / "heartbeat.pid").write_text("99999999")
+
+    submitted = []
+    original_submit = mod._task_queue.submit
+
+    def capture_submit(cmd, *args, **kwargs):
+        submitted.append(cmd)
+        return original_submit(cmd, *args, **kwargs)
+
+    mod._task_queue.submit = capture_submit
+
+    message = {"tract": "dream", "event": "daily_complete", "day": "20260318"}
+    mod._handle_dream_daily_complete(message)
+
+    assert len(submitted) == 1
+    assert submitted[0] == ["sol", "heartbeat"]
