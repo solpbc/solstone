@@ -733,51 +733,51 @@ def test_seed_entities_observation_formatting(tmp_path, monkeypatch):
     entities = [
         # title + company
         {
-            "name": "Person A",
+            "name": "Alice Nakamura",
             "type": "Person",
             "observations": ["VP Engineering at BigCo (via Granola, 2025-10-28)"],
         },
         # title only
         {
-            "name": "Person B",
+            "name": "Ben Okafor",
             "type": "Person",
             "observations": ["Designer (via Granola, 2025-10-28)"],
         },
         # company only
         {
-            "name": "Person C",
+            "name": "Clara Petrov",
             "type": "Person",
             "observations": ["Works at MegaCorp (via Granola, 2025-10-28)"],
         },
         # linkedin
         {
-            "name": "Person D",
+            "name": "David Morales",
             "type": "Person",
             "observations": [
-                "LinkedIn: linkedin.com/in/persond (via Granola, 2025-10-28)"
+                "LinkedIn: linkedin.com/in/dmorales (via Granola, 2025-10-28)"
             ],
         },
     ]
     seed_entities("test.facet", "20251028", entities)
 
-    a_obs = load_observations("test.facet", "Person A")
+    a_obs = load_observations("test.facet", "Alice Nakamura")
     assert len(a_obs) == 1
     assert a_obs[0]["content"] == "VP Engineering at BigCo (via Granola, 2025-10-28)"
     assert a_obs[0]["source_day"] == "20251028"
 
-    b_obs = load_observations("test.facet", "Person B")
+    b_obs = load_observations("test.facet", "Ben Okafor")
     assert len(b_obs) == 1
     assert b_obs[0]["content"] == "Designer (via Granola, 2025-10-28)"
 
-    c_obs = load_observations("test.facet", "Person C")
+    c_obs = load_observations("test.facet", "Clara Petrov")
     assert len(c_obs) == 1
     assert c_obs[0]["content"] == "Works at MegaCorp (via Granola, 2025-10-28)"
 
-    d_obs = load_observations("test.facet", "Person D")
+    d_obs = load_observations("test.facet", "David Morales")
     assert len(d_obs) == 1
     assert (
         d_obs[0]["content"]
-        == "LinkedIn: linkedin.com/in/persond (via Granola, 2025-10-28)"
+        == "LinkedIn: linkedin.com/in/dmorales (via Granola, 2025-10-28)"
     )
 
 
