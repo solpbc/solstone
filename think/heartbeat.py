@@ -13,6 +13,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from think.awareness import ensure_sol_directory
 from think.cortex_client import cortex_request, wait_for_agents
 from think.utils import get_journal, setup_cli
 
@@ -28,6 +29,7 @@ def main() -> None:
     args = setup_cli(parser)
 
     journal = Path(get_journal())
+    ensure_sol_directory(str(journal))
     health_dir = journal / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
     pid_file = health_dir / "heartbeat.pid"
