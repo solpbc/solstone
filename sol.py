@@ -69,6 +69,7 @@ COMMANDS: dict[str, str] = {
     "call": "think.call",
     "help": "think.help_cli",
     "chat": "think.chat_cli",
+    "heartbeat": "think.heartbeat",
     # convey package - web UI
     "convey": "convey.cli",
     "restart-convey": "convey.restart",
@@ -103,6 +104,7 @@ GROUPS: dict[str, list[str]] = {
         "health",
         "callosum",
         "notify",
+        "heartbeat",
     ],
     "Observe (capture)": [
         "transcribe",
