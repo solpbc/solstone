@@ -20,18 +20,59 @@ from think.utils import get_journal, setup_cli
 logger = logging.getLogger(__name__)
 
 
+RECENCY_WINDOW_HOURS = 12
+
+
+def _last_success_time(health_dir: Path) -> datetime | None:
+    """Return the timestamp of the most recent successful heartbeat run."""
+    log_file = health_dir / "heartbeat.log"
+    if not log_file.exists():
+        return None
+    try:
+        lines = log_file.read_text().strip().splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        if "outcome=success" in line:
+            ts_str = line.split()[0]
+            try:
+                return datetime.fromisoformat(ts_str)
+            except ValueError:
+                continue
+    return None
+
+
 def main() -> None:
     """Entry point for ``sol heartbeat``."""
     parser = argparse.ArgumentParser(
         prog="sol heartbeat",
         description="Run periodic self-check agent",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Run full check regardless of recency",
+    )
     args = setup_cli(parser)
 
     journal = Path(get_journal())
-    ensure_sol_directory(str(journal))
+    ensure_sol_directory()
     health_dir = journal / "health"
     health_dir.mkdir(parents=True, exist_ok=True)
+
+    # Recency check: skip if a recent successful run exists
+    if not args.force:
+        last_success = _last_success_time(health_dir)
+        if last_success is not None:
+            hours_since = (datetime.now() - last_success).total_seconds() / 3600
+            if hours_since < RECENCY_WINDOW_HOURS:
+                logger.info(
+                    "Heartbeat succeeded %.1f hours ago (within %d-hour window), skipping",
+                    hours_since,
+                    RECENCY_WINDOW_HOURS,
+                )
+                sys.exit(0)
+
     pid_file = health_dir / "heartbeat.pid"
 
     try:
@@ -62,8 +103,12 @@ def main() -> None:
         pid_file.write_text(str(os.getpid()))
         start_time = time.monotonic()
 
-        # Spawn heartbeat agent
-        agent_id = cortex_request(prompt="Run heartbeat check", name="heartbeat")
+        # Spawn heartbeat agent with explicit journal path so the cogitate
+        # agent never needs to discover it via filesystem search.
+        agent_id = cortex_request(
+            prompt=f"Run heartbeat check.\n\nJournal path: {journal}",
+            name="heartbeat",
+        )
         if agent_id is None:
             logger.error("Failed to send heartbeat request to cortex")
             _log_run(health_dir, start_time, "error")

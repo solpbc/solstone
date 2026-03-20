@@ -16,8 +16,11 @@ def journal_path(tmp_path, monkeypatch):
 
 @pytest.fixture
 def heartbeat_mocks(monkeypatch):
-    monkeypatch.setattr("think.heartbeat.setup_cli", lambda parser: argparse.Namespace())
-    monkeypatch.setattr("think.heartbeat.ensure_sol_directory", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "think.heartbeat.setup_cli",
+        lambda parser: argparse.Namespace(force=False),
+    )
+    monkeypatch.setattr("think.heartbeat.ensure_sol_directory", lambda: None)
     monkeypatch.setattr("think.heartbeat.cortex_request", lambda *args, **kwargs: "agent-123")
     monkeypatch.setattr(
         "think.heartbeat.wait_for_agents",
@@ -162,6 +165,144 @@ def test_log_written_after_successful_run(journal_path, heartbeat_mocks):
     assert log_file.exists()
     content = log_file.read_text()
     assert "outcome=success" in content
+
+
+def test_cortex_prompt_includes_journal_path(journal_path, heartbeat_mocks):
+    """cortex_request receives a prompt containing the journal path."""
+    import think.heartbeat as mod
+
+    captured_kwargs = {}
+
+    def capture_cortex(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        if args:
+            captured_kwargs["_positional"] = args
+        return "agent-123"
+
+    mod.cortex_request = capture_cortex
+
+    with pytest.raises(SystemExit):
+        mod.main()
+
+    prompt = captured_kwargs.get("prompt", "")
+    assert str(journal_path) in prompt, "prompt should contain the journal path"
+
+
+def test_recency_check_skips_recent_heartbeat(journal_path, heartbeat_mocks):
+    """When heartbeat.log has a recent success, main() exits 0 without cortex."""
+    import think.heartbeat as mod
+    from datetime import datetime
+
+    # Write a recent success entry
+    log_file = journal_path / "health" / "heartbeat.log"
+    recent_ts = datetime.now().isoformat(timespec="seconds")
+    log_file.write_text(f"{recent_ts} duration=5s outcome=success\n")
+
+    mod.cortex_request = lambda *a, **kw: pytest.fail(
+        "cortex_request should not be called"
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        mod.main()
+    assert exc_info.value.code == 0
+
+
+def test_recency_check_runs_after_old_heartbeat(journal_path, heartbeat_mocks):
+    """When heartbeat.log success is older than the window, main() runs cortex."""
+    import think.heartbeat as mod
+    from datetime import datetime, timedelta
+
+    # Write an old success entry (24 hours ago)
+    log_file = journal_path / "health" / "heartbeat.log"
+    old_ts = (datetime.now() - timedelta(hours=24)).isoformat(timespec="seconds")
+    log_file.write_text(f"{old_ts} duration=5s outcome=success\n")
+
+    cortex_called = []
+
+    def fake_cortex(*args, **kwargs):
+        cortex_called.append(True)
+        return "agent-123"
+
+    mod.cortex_request = fake_cortex
+
+    with pytest.raises(SystemExit):
+        mod.main()
+    assert len(cortex_called) == 1
+
+
+def test_force_flag_bypasses_recency_check(journal_path, monkeypatch):
+    """--force runs full check even with a recent success."""
+    import think.heartbeat as mod
+
+    monkeypatch.setattr(
+        "think.heartbeat.setup_cli",
+        lambda parser: argparse.Namespace(force=True),
+    )
+    monkeypatch.setattr("think.heartbeat.ensure_sol_directory", lambda: None)
+    monkeypatch.setattr(
+        "think.heartbeat.wait_for_agents",
+        lambda *args, **kwargs: ({"agent-123": "finish"}, []),
+    )
+
+    # Write a recent success entry
+    from datetime import datetime
+
+    log_file = journal_path / "health" / "heartbeat.log"
+    recent_ts = datetime.now().isoformat(timespec="seconds")
+    log_file.write_text(f"{recent_ts} duration=5s outcome=success\n")
+
+    cortex_called = []
+
+    def fake_cortex(*args, **kwargs):
+        cortex_called.append(True)
+        return "agent-123"
+
+    mod.cortex_request = fake_cortex
+
+    with pytest.raises(SystemExit):
+        mod.main()
+    assert len(cortex_called) == 1
+
+
+def test_last_success_time_parses_log(journal_path):
+    """_last_success_time returns the timestamp of the most recent success."""
+    from think.heartbeat import _last_success_time
+
+    health_dir = journal_path / "health"
+    log_file = health_dir / "heartbeat.log"
+    log_file.write_text(
+        "2026-03-19T08:00:00 duration=120s outcome=success\n"
+        "2026-03-19T12:00:00 duration=5s outcome=error\n"
+        "2026-03-19T14:00:00 duration=90s outcome=success\n"
+    )
+
+    result = _last_success_time(health_dir)
+    assert result is not None
+    assert result.hour == 14
+    assert result.day == 19
+
+
+def test_last_success_time_returns_none_for_no_log(journal_path):
+    """_last_success_time returns None when no log file exists."""
+    from think.heartbeat import _last_success_time
+
+    result = _last_success_time(journal_path / "health")
+    assert result is None
+
+
+def test_last_success_time_returns_none_for_no_successes(journal_path):
+    """_last_success_time returns None when log has no success entries."""
+    from think.heartbeat import _last_success_time
+
+    health_dir = journal_path / "health"
+    log_file = health_dir / "heartbeat.log"
+    log_file.write_text(
+        "2026-03-19T08:00:00 duration=5s outcome=error\n"
+        "2026-03-19T12:00:00 duration=5s outcome=timeout\n"
+    )
+
+    result = _last_success_time(health_dir)
+    assert result is None
 
 
 def test_dream_emit_daily_complete_shape(monkeypatch):
