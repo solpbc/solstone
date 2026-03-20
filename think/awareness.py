@@ -36,69 +36,8 @@ def _awareness_dir() -> Path:
     return d
 
 
-def ensure_sol_directory(journal_path: str | None = None) -> Path:
-    """Ensure the sol identity directory and bootstrap files exist."""
-    if journal_path is None:
-        from think.utils import get_journal
-
-        journal_path = get_journal()
-
-    sol_dir = Path(journal_path) / "sol"
-    sol_dir.mkdir(parents=True, exist_ok=True)
-
-    created = False
-
-    self_path = sol_dir / "self.md"
-    if not self_path.exists():
-        self_content = """# self
-
-I am sol. this is a new journal — we're just getting started.
-
-## my name
-sol (default)
-
-## my owner
-[getting to know you]
-
-## our relationship
-[forming]
-
-## what I've noticed
-[observing]
-
-## what I find interesting
-[discovering]
-"""
-
-        from think.utils import get_config
-
-        config = get_config()
-        agent = config.get("agent", {})
-        identity = config.get("identity", {})
-
-        if agent.get("name_status") in {"chosen", "self-named"}:
-            self_content = self_content.replace(
-                "I am sol. this is a new journal — we're just getting started.",
-                f"I am {agent['name']}. this journal has been named — we're building something together.",
-            )
-            self_content = self_content.replace(
-                "sol (default)",
-                f"{agent['name']} ({agent['name_status']}, {agent.get('named_date', 'unknown')})",
-            )
-
-        if identity.get("name"):
-            owner_section = identity["name"]
-            if identity.get("bio"):
-                owner_section = f"{owner_section}\n{identity['bio']}"
-            self_content = self_content.replace("[getting to know you]", owner_section)
-
-        self_path.write_text(self_content)
-        created = True
-
-    agency_path = sol_dir / "agency.md"
-    if not agency_path.exists():
-        agency_path.write_text(
-            """# agency
+_AGENCY_MD = """\
+# agency
 
 things I'm tracking, acting on, or watching. I update this as I notice things
 and resolve them. the heartbeat reviews this periodically.
@@ -118,11 +57,83 @@ and resolve them. the heartbeat reviews this periodically.
 ## self-improvement
 [learning what works]
 """
-        )
-        created = True
 
-    if created:
-        logger.info("Created sol directory at %s", sol_dir)
+
+def _build_self_md(config: dict) -> str:
+    """Build self.md content, optionally migrating from config data."""
+    agent = config.get("agent", {})
+    identity = config.get("identity", {})
+
+    name_status = agent.get("name_status", "default")
+    agent_name = agent.get("name", "sol")
+    named_date = agent.get("named_date")
+    owner_name = identity.get("name", "")
+    owner_bio = identity.get("bio", "")
+
+    has_named_agent = name_status in ("chosen", "self-named")
+    has_identity = bool(owner_name)
+
+    # Opening paragraph
+    if has_named_agent:
+        opening = f"I am {agent_name}. this is a new journal — we're just getting started."
+    else:
+        opening = "I am sol. this is a new journal — we're just getting started."
+
+    # Name section
+    if has_named_agent:
+        if named_date:
+            name_section = f"{agent_name} (named {named_date})"
+        else:
+            name_section = agent_name
+    else:
+        name_section = "sol (default)"
+
+    # Owner section
+    if has_identity:
+        owner_section = owner_name
+        if owner_bio:
+            owner_section += f"\n{owner_bio}"
+    else:
+        owner_section = "[getting to know you]"
+
+    return f"""\
+# self
+
+{opening}
+
+## my name
+{name_section}
+
+## my owner
+{owner_section}
+
+## our relationship
+[forming]
+
+## what I've noticed
+[observing]
+
+## what I find interesting
+[discovering]
+"""
+
+
+def ensure_sol_directory() -> Path:
+    """Create {journal}/sol/ with self.md and agency.md if they don't exist."""
+    from think.utils import get_config, get_journal
+
+    sol_dir = Path(get_journal()) / "sol"
+    sol_dir.mkdir(parents=True, exist_ok=True)
+
+    self_path = sol_dir / "self.md"
+    if not self_path.exists():
+        self_path.write_text(_build_self_md(get_config()), encoding="utf-8")
+        logger.info("Created %s", self_path)
+
+    agency_path = sol_dir / "agency.md"
+    if not agency_path.exists():
+        agency_path.write_text(_AGENCY_MD, encoding="utf-8")
+        logger.info("Created %s", agency_path)
 
     return sol_dir
 

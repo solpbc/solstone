@@ -116,13 +116,8 @@ def thickness() -> None:
 
 @app.command("sol-init")
 def sol_init() -> None:
-    """Initialize the sol identity directory."""
+    """Initialize the sol directory with self.md and agency.md."""
     from think.awareness import ensure_sol_directory
 
     sol_dir = ensure_sol_directory()
-    result = {
-        "path": str(sol_dir),
-        "self_md": (sol_dir / "self.md").exists(),
-        "agency_md": (sol_dir / "agency.md").exists(),
-    }
-    typer.echo(json.dumps(result, indent=2))
+    typer.echo(json.dumps({"sol_dir": str(sol_dir), "status": "ok"}, indent=2))
