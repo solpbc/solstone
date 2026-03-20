@@ -112,3 +112,12 @@ def thickness() -> None:
     from think.awareness import compute_thickness
 
     typer.echo(json.dumps(compute_thickness(), indent=2))
+
+
+@app.command("sol-init")
+def sol_init() -> None:
+    """Initialize the sol directory with self.md and agency.md."""
+    from think.awareness import ensure_sol_directory
+
+    sol_dir = ensure_sol_directory()
+    typer.echo(json.dumps({"sol_dir": str(sol_dir), "status": "ok"}, indent=2))

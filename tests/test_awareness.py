@@ -729,3 +729,135 @@ class TestOwnerReadyCLI:
         data = json.loads(result.output)
         assert data["ready"] is True
         assert data["reason"] == "candidate_found"
+
+
+class TestEnsureSolDirectory:
+    """Tests for ensure_sol_directory()."""
+
+    def test_creates_default_templates(self, tmp_path):
+        from think.awareness import ensure_sol_directory
+
+        sol_dir = ensure_sol_directory()
+        assert sol_dir == tmp_path / "sol"
+        assert (sol_dir / "self.md").exists()
+        assert (sol_dir / "agency.md").exists()
+
+        self_content = (sol_dir / "self.md").read_text()
+        assert self_content.startswith("# self\n")
+        assert "I am sol." in self_content
+        assert "sol (default)" in self_content
+        assert "[getting to know you]" in self_content
+
+        agency_content = (sol_dir / "agency.md").read_text()
+        assert agency_content.startswith("# agency\n")
+        assert "[nothing yet" in agency_content
+
+    def test_idempotent_does_not_overwrite(self, tmp_path):
+        from think.awareness import ensure_sol_directory
+
+        sol_dir = ensure_sol_directory()
+        # Modify self.md
+        self_path = sol_dir / "self.md"
+        self_path.write_text("custom content", encoding="utf-8")
+
+        # Call again — should NOT overwrite
+        ensure_sol_directory()
+        assert self_path.read_text() == "custom content"
+
+    def test_migration_named_agent(self, tmp_path, monkeypatch):
+        """Named agent config populates self.md name and opening."""
+        # Write a config with a named agent
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        config = {
+            "agent": {
+                "name": "aria",
+                "name_status": "chosen",
+                "named_date": "2026-01-15",
+                "proposal_count": 3,
+            },
+            "identity": {"name": "", "bio": ""},
+        }
+        (config_dir / "journal.json").write_text(
+            json.dumps(config), encoding="utf-8"
+        )
+
+        from think.awareness import ensure_sol_directory
+
+        sol_dir = ensure_sol_directory()
+        content = (sol_dir / "self.md").read_text()
+        assert "I am aria." in content
+        assert "aria (named 2026-01-15)" in content
+        # Owner should still be default
+        assert "[getting to know you]" in content
+
+    def test_migration_identity_data(self, tmp_path):
+        """Identity name/bio populates self.md owner section."""
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        config = {
+            "agent": {
+                "name": "sol",
+                "name_status": "default",
+                "named_date": None,
+                "proposal_count": 0,
+            },
+            "identity": {"name": "Jer", "bio": "builder of things"},
+        }
+        (config_dir / "journal.json").write_text(
+            json.dumps(config), encoding="utf-8"
+        )
+
+        from think.awareness import ensure_sol_directory
+
+        sol_dir = ensure_sol_directory()
+        content = (sol_dir / "self.md").read_text()
+        # Agent should be default
+        assert "I am sol." in content
+        assert "sol (default)" in content
+        # Owner should be migrated
+        assert "Jer" in content
+        assert "builder of things" in content
+
+    def test_migration_both_agent_and_identity(self, tmp_path):
+        """Both named agent and identity data are migrated."""
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        config = {
+            "agent": {
+                "name": "iris",
+                "name_status": "self-named",
+                "named_date": None,
+                "proposal_count": 1,
+            },
+            "identity": {"name": "Alex", "bio": ""},
+        }
+        (config_dir / "journal.json").write_text(
+            json.dumps(config), encoding="utf-8"
+        )
+
+        from think.awareness import ensure_sol_directory
+
+        sol_dir = ensure_sol_directory()
+        content = (sol_dir / "self.md").read_text()
+        assert "I am iris." in content
+        assert "iris" in content  # name section (no named_date)
+        assert "Alex" in content
+        # No bio, so no extra line
+        assert "builder" not in content
+
+
+class TestSolInitCLI:
+    """Tests for the sol-init CLI command."""
+
+    def test_sol_init_command(self, tmp_path):
+        from typer.testing import CliRunner
+
+        from apps.agent.call import app
+
+        result = CliRunner().invoke(app, ["sol-init"])
+        assert result.exit_code == 0
+        output = json.loads(result.output)
+        assert output["status"] == "ok"
+        assert (tmp_path / "sol" / "self.md").exists()
+        assert (tmp_path / "sol" / "agency.md").exists()

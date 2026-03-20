@@ -42,10 +42,11 @@ def triage() -> Any:
     facet = payload.get("facet", "")
     conversation_history = payload.get("conversation_history")
 
-    from think.awareness import get_onboarding
+    from think.awareness import ensure_sol_directory, get_onboarding
     from think.facets import get_enabled_facets
     from think.utils import get_config
 
+    ensure_sol_directory()
     onboarding = get_onboarding()
     onboarding_status = onboarding.get("status", "")
     _agent_cfg = get_config().get("agent", {})

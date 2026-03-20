@@ -1428,6 +1428,10 @@ def main() -> None:
     parser = parse_args()
     args = setup_cli(parser)
 
+    from think.awareness import ensure_sol_directory
+
+    ensure_sol_directory()
+
     if args.updated:
         incompatible = []
         if args.day:
