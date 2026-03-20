@@ -197,6 +197,13 @@
       "tier": 2,
       "type": "generate"
     },
+    "muse.system.heartbeat": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Heartbeat",
+      "tier": 2,
+      "type": "cogitate"
+    },
     "muse.system.joke_bot": {
       "disabled": false,
       "group": "Think",
