@@ -234,10 +234,10 @@
     "heartbeat": {
       "app": null,
       "color": "#6c757d",
-      "description": "Periodic self-check — verifies system health, journal quality, and tends agency.md",
+      "description": "Sol's periodic self-awareness — journal health, agency tending, curation scan",
       "multi_facet": false,
       "output_format": null,
-      "schedule": null,
+      "schedule": "none",
       "source": "system",
       "title": "Heartbeat",
       "type": "cogitate"

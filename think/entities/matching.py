@@ -240,12 +240,18 @@ def find_matching_entity(
         if len(matches) == 1:
             return matches[0]
 
-        # Long→short: detected name's first word matches an entity
+        # Long→short: detected name's first word matches a single-token entity
         detected_first = detected_name.split()[0].lower()
         if detected_first != detected_lower and len(detected_first) >= 3:
             fw_matches = first_word_map.get(detected_first, [])
             if len(fw_matches) == 1:
-                return fw_matches[0]
+                matched_name = fw_matches[0].get("name", "")
+                # Only match when the entity is a single-token name (e.g.,
+                # "Javier Garcia" → "Javier"). Reject when both names are
+                # multi-token and merely share a first word (e.g., "Person B"
+                # should NOT match "Person A").
+                if len(matched_name.split()) == 1:
+                    return fw_matches[0]
 
     # Tier 4b: Token-subset match (unambiguous only)
     subset_matches = [

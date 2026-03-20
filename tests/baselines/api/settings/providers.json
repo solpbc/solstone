@@ -201,6 +201,7 @@
       "disabled": false,
       "group": "Think",
       "label": "Heartbeat",
+      "schedule": "none",
       "tier": 2,
       "type": "cogitate"
     },
