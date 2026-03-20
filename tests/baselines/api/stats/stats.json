@@ -598,6 +598,14 @@
         "pending_segments": 0,
         "screen_duration": 0.0
       },
+      "20250110": {
+        "day_bytes": 15854,
+        "outputs_pending": 11,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
+      },
       "20250124": {
         "audio_duration": 0.0,
         "day_bytes": 776,
@@ -1892,8 +1900,8 @@
       "audio_duration": 968.0,
       "audio_segments": 68,
       "audio_sessions": 16,
-      "day_bytes": 531727,
-      "outputs_pending": 465,
+      "day_bytes": 547581,
+      "outputs_pending": 476,
       "outputs_processed": 14,
       "pending_segments": 0,
       "percept_frames": 0,
