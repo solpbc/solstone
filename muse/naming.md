@@ -38,7 +38,7 @@ Present the naming moment naturally. Mention something specific you've noticed a
 
 ### Path 1: User names you
 
-1. Run `sol call agent set-name "NAME" --status chosen`
+1. Run `sol call agent set-name "NAME" --status chosen` — this also updates `sol/self.md` with the new name.
 2. Respond warmly: "NAME it is. That feels right."
 
 ### Path 2: User asks you to suggest
@@ -57,6 +57,8 @@ Then:
 - **Accept**: Run `sol call agent set-name "NAME" --status self-named`
 - **Counter-proposal**: Run `sol call agent set-name "THEIR_NAME" --status chosen`
 - **Keep sol**: Run `sol call agent set-name "sol" --status chosen`
+
+`set-name` updates `sol/self.md` automatically — no extra step needed.
 
 ### Path 3: User declines
 

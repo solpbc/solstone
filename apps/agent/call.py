@@ -83,6 +83,17 @@ def set_name(
         }
     )
     typer.echo(json.dumps(agent, indent=2))
+    # Update sol/self.md with new name
+    from think.awareness import update_self_md_opening, update_self_md_section
+
+    named_date = agent.get("named_date", "")
+    update_self_md_opening(
+        f"I am {name}. this is a new journal — we're just getting started."
+    )
+    if named_date:
+        update_self_md_section("my name", f"{name} (named {named_date})")
+    else:
+        update_self_md_section("my name", name)
     project_root = Path(__file__).resolve().parent.parent.parent
     subprocess.run(
         ["make", "skills"], cwd=project_root, check=False, capture_output=True
@@ -112,6 +123,43 @@ def thickness() -> None:
     from think.awareness import compute_thickness
 
     typer.echo(json.dumps(compute_thickness(), indent=2))
+
+
+@app.command("set-owner")
+def set_owner(
+    name: str = typer.Argument(..., help="Owner name."),
+    bio: str = typer.Option(
+        None, "--bio", "-b", help="Short owner bio."
+    ),
+) -> None:
+    """Set the journal owner's name (and optional bio)."""
+    from think.awareness import update_self_md_section
+    from think.utils import get_config, get_journal
+
+    config = get_config()
+    identity = config.get("identity", {})
+    identity["name"] = name
+    if bio is not None:
+        identity["bio"] = bio
+    config["identity"] = identity
+
+    config_path = Path(get_journal()) / "config" / "journal.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
+        f.write("\n")
+
+    # Update sol/self.md
+    owner_content = name
+    if bio:
+        owner_content += f"\n{bio}"
+    update_self_md_section("my owner", owner_content)
+
+    typer.echo(json.dumps({"name": name, "bio": bio or ""}, indent=2))
+    project_root = Path(__file__).resolve().parent.parent.parent
+    subprocess.run(
+        ["make", "skills"], cwd=project_root, check=False, capture_output=True
+    )
 
 
 @app.command("sol-init")
