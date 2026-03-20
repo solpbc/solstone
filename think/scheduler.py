@@ -224,6 +224,60 @@ def init(callosum: Any) -> None:
         logger.info("Scheduler initialized (no schedules configured)")
 
 
+def register_defaults() -> None:
+    """Ensure built-in default schedules exist in the config file.
+
+    Called by the supervisor after init(). Writes missing defaults to
+    config/schedules.json and reloads entries.
+    """
+    global _entries
+
+    if "heartbeat" in _entries:
+        return
+
+    # Read raw config (preserving daily_time and other entries)
+    config_dir = Path(get_journal()) / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_path = config_dir / "schedules.json"
+
+    raw: dict[str, Any] = {}
+    if config_path.exists():
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    if not isinstance(raw, dict):
+        raw = {}
+
+    if "heartbeat" in raw:
+        return  # Already in config file — don't overwrite user customization
+
+    raw["heartbeat"] = {
+        "cmd": ["sol", "heartbeat"],
+        "every": "daily",
+        "enabled": True,
+    }
+
+    # Atomic write
+    fd, tmp_path = tempfile.mkstemp(
+        dir=config_dir, suffix=".tmp", prefix=".schedules_"
+    )
+    tmp_file = Path(tmp_path)
+    try:
+        with open(fd, "w", encoding="utf-8") as f:
+            json.dump(raw, f, indent=2)
+        tmp_file.replace(config_path)
+        logger.info("Auto-registered heartbeat schedule in config/schedules.json")
+    except BaseException:
+        tmp_file.unlink(missing_ok=True)
+        raise
+
+    # Reload to pick up the new entry
+    _entries = load_config()
+
+
 def check() -> None:
     """Check for clock boundaries and submit due tasks.
 

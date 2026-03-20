@@ -1330,6 +1330,39 @@ def _handle_activity_recorded(message: dict) -> None:
         logging.warning("No task queue available for activity dream: %s", record_id)
 
 
+def _handle_dream_daily_complete(message: dict) -> None:
+    """Submit a heartbeat task after daily dream processing completes.
+
+    Listens for dream.daily_complete events. Skips if a heartbeat process
+    is already running (PID file guard).
+    """
+    if message.get("tract") != "dream" or message.get("event") != "daily_complete":
+        return
+
+    # Check if heartbeat is already running via PID file
+    pid_file = Path(get_journal()) / "health" / "heartbeat.pid"
+    if pid_file.exists():
+        try:
+            existing_pid = int(pid_file.read_text().strip())
+            os.kill(existing_pid, 0)
+            logging.info("Heartbeat already running (pid=%d), skipping", existing_pid)
+            return
+        except ProcessLookupError:
+            pass  # Stale PID file, proceed
+        except PermissionError:
+            logging.info("Heartbeat running under different user (pid file exists), skipping")
+            return
+        except ValueError:
+            pass  # Corrupt PID file, proceed
+
+    cmd = ["sol", "heartbeat"]
+    if _task_queue:
+        _task_queue.submit(cmd)
+        logging.info("Queued heartbeat after daily dream completion")
+    else:
+        logging.warning("No task queue available for heartbeat submission")
+
+
 def _handle_callosum_message(message: dict) -> None:
     """Dispatch incoming Callosum messages to appropriate handlers."""
     _handle_task_request(message)
@@ -1338,6 +1371,7 @@ def _handle_callosum_message(message: dict) -> None:
     _handle_segment_observed(message)
     _handle_observe_status(message)
     _handle_activity_recorded(message)
+    _handle_dream_daily_complete(message)
     _handle_segment_event_log(message)
 
 
@@ -1596,6 +1630,7 @@ def main() -> None:
     schedule_enabled = not args.no_schedule and not _is_remote_mode
     if schedule_enabled and _supervisor_callosum:
         scheduler.init(_supervisor_callosum)
+        scheduler.register_defaults()
 
     # Show Convey URL if running
     if convey_port:

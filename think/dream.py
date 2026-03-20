@@ -1700,6 +1700,15 @@ def main() -> None:
             except Exception:
                 pass
 
+            # Notify supervisor that daily dream processing is complete
+            emit(
+                "daily_complete",
+                day=day,
+                success=success_count,
+                failed=fail_count,
+                duration_ms=int((time.time() - start_time) * 1000),
+            )
+
         # Build log message
         msg = "dream"
         if args.refresh:
