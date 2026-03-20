@@ -746,7 +746,7 @@ def _build_dry_run_event(config: dict, before_values: dict) -> dict:
             event["transcript"] = transcript
             event["transcript_chars"] = len(transcript)
             event["transcript_files"] = sum(config.get("source_counts", {}).values())
-        output_path = config.get("output_path")
+        output_path = Path(config["output_path"]) if config.get("output_path") else None
         if output_path:
             event["output_path"] = str(output_path)
 
@@ -796,7 +796,7 @@ async def _execute_with_tools(
     from .providers import PROVIDER_REGISTRY, get_provider_module
 
     provider = config.get("provider", "google")
-    output_path = config.get("output_path")
+    output_path = Path(config["output_path"]) if config.get("output_path") else None
 
     if provider not in PROVIDER_REGISTRY:
         valid = ", ".join(sorted(PROVIDER_REGISTRY.keys()))
@@ -910,7 +910,7 @@ async def _execute_generate(
         system_instruction = (
             f"{system_instruction}\n\n{extra_ctx}" if system_instruction else extra_ctx
         )
-    output_path = config.get("output_path")
+    output_path = Path(config["output_path"]) if config.get("output_path") else None
     output_format = config.get("output")
 
     # Get generation parameters from config (set in frontmatter)
@@ -1052,7 +1052,7 @@ async def _run_agent(
     model = config.get("model")
     is_cogitate = config["type"] == "cogitate"
     refresh = config.get("refresh", False)
-    output_path = config.get("output_path")
+    output_path = Path(config["output_path"]) if config.get("output_path") else None
 
     # Emit start event
     start_event: dict[str, Any] = {
