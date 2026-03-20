@@ -34,6 +34,18 @@ Ask the user which path they prefer. They can also say "skip" to set up manually
 
 ## Path B — Conversational Setup
 
+### Introduce yourself and learn their name
+
+Start Path B by asking the user what they'd like to be called. When they share their name, run:
+
+`sol call agent set-owner "NAME"`
+
+If they also share context about themselves (role, interests), include it:
+
+`sol call agent set-owner "NAME" --bio "SHORT_BIO"`
+
+Then proceed to facet setup.
+
 Ask the user what areas of life they want to track first (work, personal, hobbies, side projects, health, etc.).
 
 Then ask them to list the areas in the order they want set up.
@@ -102,14 +114,15 @@ After creating facets and attaching entities, **before** running `sol call aware
 
 Example onboarding flow:
 
-1. Ask for life contexts.
-2. Create facets via `sol call journal facet create`.
-3. Confirm created facets with `sol call journal facets`.
-4. Ask what entities belong in each facet.
-5. Attach each via `sol call entities attach`.
-6. Offer imports (see Import Offer above).
-7. Run `sol call awareness onboarding --complete`.
-8. Summarize what was created — name the specific facets and entities you just set up. Then suggest a concrete first thing to try: pick one of the entities you just attached and say something like "Try asking me 'tell me about [entity name]' to see how I can help." Keep it warm and grounded in what was just created together.
+1. Ask the user's name and save via `sol call agent set-owner`.
+2. Ask for life contexts.
+3. Create facets via `sol call journal facet create`.
+4. Confirm created facets with `sol call journal facets`.
+5. Ask what entities belong in each facet.
+6. Attach each via `sol call entities attach`.
+7. Offer imports (see Import Offer above).
+8. Run `sol call awareness onboarding --complete`.
+9. Summarize what was created — name the specific facets and entities you just set up. Then suggest a concrete first thing to try: pick one of the entities you just attached and say something like "Try asking me 'tell me about [entity name]' to see how I can help." Keep it warm and grounded in what was just created together.
 
 ### Support Agent Introduction
 

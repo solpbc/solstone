@@ -847,6 +847,111 @@ class TestEnsureSolDirectory:
         assert "builder" not in content
 
 
+class TestUpdateSelfMd:
+    """Tests for update_self_md_section and update_self_md_opening."""
+
+    def _setup_self_md(self, tmp_path):
+        """Create a minimal journal with self.md for testing."""
+        sol_dir = tmp_path / "sol"
+        sol_dir.mkdir()
+        self_md = sol_dir / "self.md"
+        self_md.write_text(
+            "# self\n"
+            "\n"
+            "I am sol. this is a new journal — we're just getting started.\n"
+            "\n"
+            "## my name\n"
+            "sol (default)\n"
+            "\n"
+            "## my owner\n"
+            "[getting to know you]\n"
+            "\n"
+            "## our relationship\n"
+            "[forming]\n"
+            "\n"
+            "## what I've noticed\n"
+            "[observing]\n"
+            "\n"
+            "## what I find interesting\n"
+            "[discovering]\n",
+            encoding="utf-8",
+        )
+        return self_md
+
+    def test_update_section_name(self, tmp_path):
+        self_md = self._setup_self_md(tmp_path)
+        from think.awareness import update_self_md_section
+
+        result = update_self_md_section("my name", "aria (named 2026-03-19)")
+        assert result is True
+        content = self_md.read_text()
+        assert "aria (named 2026-03-19)" in content
+        assert "sol (default)" not in content
+        # Other sections preserved
+        assert "## my owner" in content
+        assert "[getting to know you]" in content
+        assert "## our relationship" in content
+
+    def test_update_section_owner(self, tmp_path):
+        self_md = self._setup_self_md(tmp_path)
+        from think.awareness import update_self_md_section
+
+        result = update_self_md_section("my owner", "Jer\nSoftware engineer")
+        assert result is True
+        content = self_md.read_text()
+        assert "Jer\nSoftware engineer" in content
+        assert "[getting to know you]" not in content
+        # Other sections preserved
+        assert "## my name" in content
+        assert "sol (default)" in content
+
+    def test_update_section_last_section(self, tmp_path):
+        self_md = self._setup_self_md(tmp_path)
+        from think.awareness import update_self_md_section
+
+        result = update_self_md_section(
+            "what I find interesting", "music and patterns"
+        )
+        assert result is True
+        content = self_md.read_text()
+        assert "music and patterns" in content
+        assert "[discovering]" not in content
+
+    def test_update_section_missing_heading(self, tmp_path):
+        self._setup_self_md(tmp_path)
+        from think.awareness import update_self_md_section
+
+        result = update_self_md_section("nonexistent", "content")
+        assert result is False
+
+    def test_update_section_no_file(self):
+        from think.awareness import update_self_md_section
+
+        result = update_self_md_section("my name", "content")
+        assert result is False
+
+    def test_update_opening(self, tmp_path):
+        self_md = self._setup_self_md(tmp_path)
+        from think.awareness import update_self_md_opening
+
+        result = update_self_md_opening(
+            "I am aria. this is a new journal — we're just getting started."
+        )
+        assert result is True
+        content = self_md.read_text()
+        assert "I am aria." in content
+        assert "I am sol." not in content
+        # Sections preserved
+        assert "## my name" in content
+        assert "sol (default)" in content
+
+    def test_update_opening_no_file(self):
+        from think.awareness import update_self_md_opening
+
+        result = update_self_md_opening("content")
+        assert result is False
+
+
 class TestSolInitCLI:
     """Tests for the sol-init CLI command."""
 
@@ -861,3 +966,106 @@ class TestSolInitCLI:
         assert output["status"] == "ok"
         assert (tmp_path / "sol" / "self.md").exists()
         assert (tmp_path / "sol" / "agency.md").exists()
+
+
+class TestSetOwnerCLI:
+    """Tests for sol call agent set-owner."""
+
+    def test_set_owner_name_only(self, tmp_path):
+        """set-owner saves identity.name to config and updates self.md."""
+        # Create config dir
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "journal.json").write_text("{}", encoding="utf-8")
+        # Create sol/self.md
+        sol_dir = tmp_path / "sol"
+        sol_dir.mkdir()
+        (sol_dir / "self.md").write_text(
+            "# self\n\nI am sol.\n\n## my name\nsol\n\n## my owner\n[getting to know you]\n",
+            encoding="utf-8",
+        )
+
+        from typer.testing import CliRunner
+
+        from apps.agent.call import app as agent_app
+
+        runner = CliRunner()
+        with unittest.mock.patch("subprocess.run"):
+            result = runner.invoke(agent_app, ["set-owner", "Jer"])
+        assert result.exit_code == 0
+        output = json.loads(result.output)
+        assert output["name"] == "Jer"
+
+        # Verify config was updated
+        config = json.loads((config_dir / "journal.json").read_text())
+        assert config["identity"]["name"] == "Jer"
+
+        # Verify self.md was updated
+        self_content = (sol_dir / "self.md").read_text()
+        assert "Jer" in self_content
+        assert "[getting to know you]" not in self_content
+
+    def test_set_owner_with_bio(self, tmp_path):
+        """set-owner with --bio saves both fields."""
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "journal.json").write_text("{}", encoding="utf-8")
+        sol_dir = tmp_path / "sol"
+        sol_dir.mkdir()
+        (sol_dir / "self.md").write_text(
+            "# self\n\nI am sol.\n\n## my name\nsol\n\n## my owner\n[getting to know you]\n",
+            encoding="utf-8",
+        )
+
+        from typer.testing import CliRunner
+
+        from apps.agent.call import app as agent_app
+
+        runner = CliRunner()
+        with unittest.mock.patch("subprocess.run"):
+            result = runner.invoke(
+                agent_app, ["set-owner", "Jer", "--bio", "Building solstone"]
+            )
+        assert result.exit_code == 0
+        output = json.loads(result.output)
+        assert output["name"] == "Jer"
+        assert output["bio"] == "Building solstone"
+
+        # Verify self.md
+        self_content = (sol_dir / "self.md").read_text()
+        assert "Jer" in self_content
+        assert "Building solstone" in self_content
+
+
+class TestSetNameUpdatesSelfMd:
+    """Tests that set-name updates sol/self.md."""
+
+    def test_set_name_updates_self_md(self, tmp_path):
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "journal.json").write_text("{}", encoding="utf-8")
+        sol_dir = tmp_path / "sol"
+        sol_dir.mkdir()
+        (sol_dir / "self.md").write_text(
+            "# self\n\nI am sol. this is a new journal — we're just getting started.\n\n"
+            "## my name\nsol (default)\n\n## my owner\n[getting to know you]\n",
+            encoding="utf-8",
+        )
+
+        from typer.testing import CliRunner
+
+        from apps.agent.call import app as agent_app
+
+        runner = CliRunner()
+        # Mock subprocess.run to avoid `make skills`
+        with unittest.mock.patch("subprocess.run"):
+            result = runner.invoke(agent_app, ["set-name", "aria", "--status", "chosen"])
+        assert result.exit_code == 0
+
+        self_content = (sol_dir / "self.md").read_text()
+        assert "I am aria." in self_content
+        assert "I am sol." not in self_content
+        assert "aria (named" in self_content
+        assert "sol (default)" not in self_content
+        # Owner section preserved
+        assert "[getting to know you]" in self_content

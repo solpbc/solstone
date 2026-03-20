@@ -138,6 +138,92 @@ def ensure_sol_directory() -> Path:
     return sol_dir
 
 
+def update_self_md_section(heading: str, content: str) -> bool:
+    """Update a ## section in sol/self.md, preserving all other sections.
+
+    Parameters
+    ----------
+    heading : str
+        Section heading without ``##`` prefix (e.g., ``"my name"``).
+    content : str
+        New content for the section (may be multi-line).
+
+    Returns
+    -------
+    bool
+        True if the section was found and updated, False otherwise.
+    """
+    from think.utils import get_journal
+
+    self_path = Path(get_journal()) / "sol" / "self.md"
+    if not self_path.exists():
+        return False
+
+    text = self_path.read_text(encoding="utf-8")
+    lines = text.split("\n")
+
+    target = f"## {heading}"
+    start = None
+    end = None
+    for i, line in enumerate(lines):
+        if line == target:
+            start = i
+        elif start is not None and line.startswith("## "):
+            end = i
+            break
+
+    if start is None:
+        return False
+
+    if end is None:
+        # Last section — preserve trailing newline
+        end = len(lines)
+
+    content_lines = content.split("\n") if content else []
+    new_lines = lines[: start + 1] + content_lines + [""] + lines[end:]
+    self_path.write_text("\n".join(new_lines), encoding="utf-8")
+    return True
+
+
+def update_self_md_opening(content: str) -> bool:
+    """Update the opening paragraph in sol/self.md (between ``# self`` and the first ``##``).
+
+    Parameters
+    ----------
+    content : str
+        New opening paragraph text.
+
+    Returns
+    -------
+    bool
+        True if updated, False if self.md is missing or has unexpected structure.
+    """
+    from think.utils import get_journal
+
+    self_path = Path(get_journal()) / "sol" / "self.md"
+    if not self_path.exists():
+        return False
+
+    text = self_path.read_text(encoding="utf-8")
+    lines = text.split("\n")
+
+    start = None
+    end = None
+    for i, line in enumerate(lines):
+        if line == "# self":
+            start = i
+        elif start is not None and line.startswith("## "):
+            end = i
+            break
+
+    if start is None or end is None:
+        return False
+
+    new_lines = lines[: start + 1] + ["", content, ""] + lines[end:]
+    self_path.write_text("\n".join(new_lines), encoding="utf-8")
+    return True
+
+
 def _now_ts() -> int:
     """Return current time in milliseconds."""
     return int(time.time() * 1000)
