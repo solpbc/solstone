@@ -729,3 +729,125 @@ class TestOwnerReadyCLI:
         data = json.loads(result.output)
         assert data["ready"] is True
         assert data["reason"] == "candidate_found"
+
+
+class TestEnsureSolDirectory:
+    def test_creates_default_templates(self, tmp_path):
+        """Default self.md and agency.md are created for a new journal."""
+        from think.awareness import ensure_sol_directory
+
+        sol_dir = ensure_sol_directory(str(tmp_path))
+
+        assert (sol_dir / "self.md").exists()
+        assert (sol_dir / "agency.md").exists()
+
+        self_content = (sol_dir / "self.md").read_text()
+        assert self_content.startswith("# self\n")
+        assert "I am sol. this is a new journal" in self_content
+        assert "sol (default)" in self_content
+        assert "[getting to know you]" in self_content
+
+        agency_content = (sol_dir / "agency.md").read_text()
+        assert agency_content.startswith("# agency\n")
+        assert "[nothing yet" in agency_content
+
+    def test_idempotent_does_not_overwrite(self, tmp_path):
+        """Calling twice does not modify existing files."""
+        from think.awareness import ensure_sol_directory
+
+        sol_dir = ensure_sol_directory(str(tmp_path))
+
+        # Modify files to detect overwrites
+        (sol_dir / "self.md").write_text("custom content")
+        (sol_dir / "agency.md").write_text("custom agency")
+
+        # Second call should NOT overwrite
+        ensure_sol_directory(str(tmp_path))
+
+        assert (sol_dir / "self.md").read_text() == "custom content"
+        assert (sol_dir / "agency.md").read_text() == "custom agency"
+
+    def test_migration_named_agent(self, tmp_path, monkeypatch):
+        """self.md bootstraps from config when agent has been named."""
+        import json as _json
+
+        from think.awareness import ensure_sol_directory
+
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        config = {
+            "agent": {
+                "name": "aria",
+                "name_status": "chosen",
+                "named_date": "2026-03-15",
+                "proposal_count": 2,
+            },
+            "identity": {
+                "name": "Jane Doe",
+                "preferred": "Jane",
+                "bio": "A thoughtful person",
+            },
+        }
+        (config_dir / "journal.json").write_text(_json.dumps(config))
+
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        sol_dir = ensure_sol_directory()
+
+        self_content = (sol_dir / "self.md").read_text()
+        assert "I am aria." in self_content
+        assert "aria (chosen, 2026-03-15)" in self_content
+        assert "Jane Doe" in self_content
+        assert "A thoughtful person" in self_content
+
+    def test_migration_identity_only(self, tmp_path, monkeypatch):
+        """self.md shows owner name when identity exists but agent is default."""
+        import json as _json
+
+        from think.awareness import ensure_sol_directory
+
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        config = {
+            "agent": {
+                "name": "sol",
+                "name_status": "default",
+                "named_date": None,
+            },
+            "identity": {
+                "name": "Bob Smith",
+                "preferred": "Bob",
+                "bio": "",
+            },
+        }
+        (config_dir / "journal.json").write_text(_json.dumps(config))
+
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        sol_dir = ensure_sol_directory()
+
+        self_content = (sol_dir / "self.md").read_text()
+        assert "I am sol. this is a new journal" in self_content
+        assert "sol (default)" in self_content
+        assert "Bob Smith" in self_content
+
+    def test_uses_get_journal_when_no_path(self):
+        """When called without arguments, uses get_journal() for path."""
+        from think.awareness import ensure_sol_directory
+
+        sol_dir = ensure_sol_directory()
+        assert sol_dir.name == "sol"
+        assert (sol_dir / "self.md").exists()
+        assert (sol_dir / "agency.md").exists()
+
+    def test_sol_init_cli(self):
+        """sol call agent sol-init creates the directory and reports status."""
+        from typer.testing import CliRunner
+
+        from apps.agent.call import app
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["sol-init"])
+        assert result.exit_code == 0
+        output = json.loads(result.output)
+        assert output["self_md"] is True
+        assert output["agency_md"] is True
+        assert "sol" in output["path"]

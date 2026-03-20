@@ -36,6 +36,97 @@ def _awareness_dir() -> Path:
     return d
 
 
+def ensure_sol_directory(journal_path: str | None = None) -> Path:
+    """Ensure the sol identity directory and bootstrap files exist."""
+    if journal_path is None:
+        from think.utils import get_journal
+
+        journal_path = get_journal()
+
+    sol_dir = Path(journal_path) / "sol"
+    sol_dir.mkdir(parents=True, exist_ok=True)
+
+    created = False
+
+    self_path = sol_dir / "self.md"
+    if not self_path.exists():
+        self_content = """# self
+
+I am sol. this is a new journal — we're just getting started.
+
+## my name
+sol (default)
+
+## my owner
+[getting to know you]
+
+## our relationship
+[forming]
+
+## what I've noticed
+[observing]
+
+## what I find interesting
+[discovering]
+"""
+
+        from think.utils import get_config
+
+        config = get_config()
+        agent = config.get("agent", {})
+        identity = config.get("identity", {})
+
+        if agent.get("name_status") in {"chosen", "self-named"}:
+            self_content = self_content.replace(
+                "I am sol. this is a new journal — we're just getting started.",
+                f"I am {agent['name']}. this journal has been named — we're building something together.",
+            )
+            self_content = self_content.replace(
+                "sol (default)",
+                f"{agent['name']} ({agent['name_status']}, {agent.get('named_date', 'unknown')})",
+            )
+
+        if identity.get("name"):
+            owner_section = identity["name"]
+            if identity.get("bio"):
+                owner_section = f"{owner_section}\n{identity['bio']}"
+            self_content = self_content.replace("[getting to know you]", owner_section)
+
+        self_path.write_text(self_content)
+        created = True
+
+    agency_path = sol_dir / "agency.md"
+    if not agency_path.exists():
+        agency_path.write_text(
+            """# agency
+
+things I'm tracking, acting on, or watching. I update this as I notice things
+and resolve them. the heartbeat reviews this periodically.
+
+## curation
+[nothing yet — building initial picture of journal health]
+
+## observations
+[watching and learning]
+
+## follow-throughs
+[none yet]
+
+## system
+[monitoring]
+
+## self-improvement
+[learning what works]
+"""
+        )
+        created = True
+
+    if created:
+        logger.info("Created sol directory at %s", sol_dir)
+
+    return sol_dir
+
+
 def _now_ts() -> int:
     """Return current time in milliseconds."""
     return int(time.time() * 1000)
