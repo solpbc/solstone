@@ -321,12 +321,15 @@ def transcribe(
         ]
 
     # Call Gemini via think.models.generate()
+    # thinking_budget=0 disables thinking — transcription is extraction, not
+    # reasoning, and Gemini's default thinking budget consumes output tokens.
     response_text = generate(
         contents=contents,
         context="observe.transcribe.gemini",
         temperature=0.3,
         max_output_tokens=16384,
         json_output=True,
+        thinking_budget=0,
     )
 
     transcribe_time = time.perf_counter() - t0
