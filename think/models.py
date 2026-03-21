@@ -1048,7 +1048,7 @@ def request_health_recheck() -> None:
     """
     try:
         subprocess.Popen(
-            ["sol", "agents", "check"],
+            ["sol", "agents", "check", "--targeted"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )

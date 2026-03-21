@@ -39,6 +39,7 @@ def test_run_check_writes_health_file(tmp_path, monkeypatch):
         tier=None,
         json=False,
         timeout=1,
+        targeted=False,
     )
 
     with pytest.raises(SystemExit) as exc_info:
@@ -86,6 +87,7 @@ def test_run_check_partial_failure_exits_zero(tmp_path, monkeypatch):
         tier=None,
         json=False,
         timeout=1,
+        targeted=False,
     )
 
     with pytest.raises(SystemExit) as exc_info:
@@ -130,6 +132,7 @@ def test_run_check_full_provider_failure_exits_one(tmp_path, monkeypatch):
         tier=None,
         json=False,
         timeout=1,
+        targeted=False,
     )
 
     with pytest.raises(SystemExit) as exc_info:
@@ -176,6 +179,7 @@ def test_run_check_dedup_same_model(tmp_path, monkeypatch):
         tier=None,
         json=False,
         timeout=1,
+        targeted=False,
     )
 
     with pytest.raises(SystemExit) as exc_info:
@@ -200,6 +204,151 @@ def test_run_check_dedup_same_model(tmp_path, monkeypatch):
     assert len(reused) == 4
     assert all(result["reused_from"] == "pro" for result in reused)
     assert all(result["elapsed_s"] == 0.0 for result in reused)
+
+
+def test_run_check_targeted_filters_to_configured_pairs(tmp_path, monkeypatch):
+    """--targeted filters checks to only configured provider+tier pairs."""
+    import think.agents as agents
+
+    fake_registry = {"provA": object(), "provB": object(), "provC": object()}
+    fake_defaults = {
+        "provA": {1: "a-pro", 2: "a-flash", 3: "a-lite"},
+        "provB": {1: "b-pro", 2: "b-flash", 3: "b-lite"},
+        "provC": {1: "c-pro", 2: "c-flash", 3: "c-lite"},
+    }
+    fake_type_defaults = {
+        "generate": {"provider": "provA", "tier": 2, "backup": "provB"},
+        "cogitate": {"provider": "provC", "tier": 2, "backup": "provB"},
+    }
+
+    monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
+    monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
+    monkeypatch.setattr("think.models.TYPE_DEFAULTS", fake_type_defaults)
+    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(agents, "_check_generate", lambda *_args: (True, "ok"))
+
+    async def mock_check_cogitate(*_args):
+        return True, "ok"
+
+    monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
+
+    # Mock get_config to return no overrides (use TYPE_DEFAULTS)
+    monkeypatch.setattr("think.utils.get_config", lambda: {})
+
+    # Mock get_backup_provider to return the backup from fake_type_defaults
+    def fake_get_backup(agent_type):
+        d = fake_type_defaults[agent_type]
+        if d["backup"] == d["provider"]:
+            return None
+        return d["backup"]
+
+    monkeypatch.setattr("think.models.get_backup_provider", fake_get_backup)
+
+    args = argparse.Namespace(
+        provider=None,
+        interface=None,
+        tier=None,
+        json=True,
+        timeout=1,
+        targeted=True,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        asyncio.run(agents._run_check(args))
+
+    assert exc_info.value.code == 0
+
+    health_file = tmp_path / "health" / "agents.json"
+    payload = json.loads(health_file.read_text())
+    # Expected targeted pairs: (provA, 2), (provB, 2), (provC, 2) = 3 pairs × 2 interfaces = 6 checks
+    assert payload["summary"]["total"] == 6
+    checked_pairs = {(r["provider"], r["tier"]) for r in payload["results"]}
+    assert checked_pairs == {("provA", "flash"), ("provB", "flash"), ("provC", "flash")}
+
+
+def test_run_check_targeted_flock_dedup(tmp_path, monkeypatch):
+    """--targeted exits silently when another targeted check holds the lock."""
+    import fcntl
+
+    import think.agents as agents
+
+    fake_registry = {"fake": object()}
+    fake_defaults = {"fake": {1: "m", 2: "m", 3: "m"}}
+    fake_type_defaults = {
+        "generate": {"provider": "fake", "tier": 2, "backup": "fake"},
+        "cogitate": {"provider": "fake", "tier": 2, "backup": "fake"},
+    }
+
+    monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
+    monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
+    monkeypatch.setattr("think.models.TYPE_DEFAULTS", fake_type_defaults)
+    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr("think.utils.get_config", lambda: {})
+    monkeypatch.setattr("think.models.get_backup_provider", lambda _: None)
+
+    # Pre-acquire the lock to simulate a concurrent check
+    lock_dir = tmp_path / "health"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock_file = open(lock_dir / "recheck.lock", "w")
+    fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    gen_mock = MagicMock(return_value=(True, "ok"))
+    monkeypatch.setattr(agents, "_check_generate", gen_mock)
+
+    args = argparse.Namespace(
+        provider=None,
+        interface=None,
+        tier=None,
+        json=False,
+        timeout=1,
+        targeted=True,
+    )
+
+    # Should return silently (no SystemExit, no checks run)
+    asyncio.run(agents._run_check(args))
+    assert gen_mock.call_count == 0
+
+    # No health file written
+    assert not (tmp_path / "health" / "agents.json").exists()
+
+    lock_file.close()
+
+
+def test_check_generate_logs_token_usage(monkeypatch):
+    """_check_generate logs token usage when result includes usage data."""
+    import think.agents as agents
+
+    fake_module = MagicMock()
+    fake_module.run_generate.return_value = {
+        "text": "OK",
+        "usage": {"input_tokens": 5, "output_tokens": 2},
+    }
+
+    monkeypatch.setattr(
+        "think.providers.get_provider_module", lambda _: fake_module
+    )
+    monkeypatch.setattr(
+        "think.providers.PROVIDER_METADATA",
+        {"fake": {"env_key": "FAKE_API_KEY"}},
+    )
+    monkeypatch.setattr(
+        "think.models.PROVIDER_DEFAULTS", {"fake": {2: "fake-flash"}}
+    )
+    monkeypatch.setenv("FAKE_API_KEY", "test-key")
+
+    log_mock = MagicMock()
+    monkeypatch.setattr("think.models.log_token_usage", log_mock)
+
+    ok, msg = agents._check_generate("fake", 2, 30)
+
+    assert ok is True
+    assert msg == "OK"
+    log_mock.assert_called_once_with(
+        model="fake-flash",
+        usage={"input_tokens": 5, "output_tokens": 2},
+        context="health.check.generate",
+        type="generate",
+    )
 
 
 def test_cortex_start_emits_agents_check(tmp_path):

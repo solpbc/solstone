@@ -1205,6 +1205,16 @@ def _check_generate(provider_name: str, tier: int, timeout: int) -> tuple[bool, 
         )
         text = result.get("text", "") if isinstance(result, dict) else ""
         if text:
+            usage = result.get("usage") if isinstance(result, dict) else None
+            if usage:
+                from think.models import log_token_usage
+
+                log_token_usage(
+                    model=PROVIDER_DEFAULTS[provider_name][tier],
+                    usage=usage,
+                    context="health.check.generate",
+                    type="generate",
+                )
             return True, "OK"
         return False, "FAIL: empty response text"
     except Exception as exc:
@@ -1241,6 +1251,36 @@ async def _run_check(args: argparse.Namespace) -> None:
     from think.providers import PROVIDER_REGISTRY
 
     load_dotenv()
+
+    # --targeted: only check configured provider+tier pairs
+    targeted_pairs = None
+    if args.targeted and not args.provider and not args.tier:
+        import fcntl
+
+        from think.models import TYPE_DEFAULTS, get_backup_provider
+        from think.utils import get_config
+
+        targeted_pairs = set()
+        config = get_config()
+        providers_config = config.get("providers", {})
+        for agent_type, defaults in TYPE_DEFAULTS.items():
+            type_config = providers_config.get(agent_type, {})
+            provider = type_config.get("provider", defaults["provider"])
+            tier = type_config.get("tier", defaults["tier"])
+            targeted_pairs.add((provider, tier))
+            backup = get_backup_provider(agent_type)
+            if backup:
+                targeted_pairs.add((backup, tier))
+
+        # flock dedup: only one targeted check runs at a time
+        lock_dir = Path(get_journal()) / "health"
+        lock_dir.mkdir(parents=True, exist_ok=True)
+        lock_fd = open(lock_dir / "recheck.lock", "w")
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            lock_fd.close()
+            return
 
     if args.provider:
         providers = args.provider
@@ -1279,6 +1319,8 @@ async def _run_check(args: argparse.Namespace) -> None:
 
     for provider_name in providers:
         for tier in tiers:
+            if targeted_pairs is not None and (provider_name, tier) not in targeted_pairs:
+                continue
             model = PROVIDER_DEFAULTS[provider_name][tier]
             for interface_name in interfaces:
                 cache_key = (provider_name, model, interface_name)
@@ -1415,6 +1457,11 @@ async def main_async() -> None:
     )
     check_parser.add_argument(
         "--json", action="store_true", help="Output results as JSON"
+    )
+    check_parser.add_argument(
+        "--targeted",
+        action="store_true",
+        help="Only check configured provider+tier pairs (used by automated rechecks)",
     )
 
     args = setup_cli(parser)
