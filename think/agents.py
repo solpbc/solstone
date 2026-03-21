@@ -813,8 +813,6 @@ async def _execute_with_tools(
                 data = {**data, "result": result}
             if output_path and result:
                 _write_output(output_path, result)
-            if config.get("handoff"):
-                data = {**data, "handoff": config["handoff"]}
 
         # Filter out start events from providers (we already emitted ours)
         if data.get("event") == "start":
@@ -1023,8 +1021,6 @@ async def _execute_generate(
     }
     if usage_data:
         finish_event["usage"] = usage_data
-    if config.get("handoff"):
-        finish_event["handoff"] = config["handoff"]
     emit_event(finish_event)
 
 

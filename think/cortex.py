@@ -17,7 +17,6 @@ real-time event distribution to all interested services.
 
 from __future__ import annotations
 
-import copy
 import json
 import logging
 import os
@@ -224,7 +223,7 @@ class CortexService:
 
         self.logger.info(f"Processing agent request: {agent_id}")
 
-        # Store request for later use (handoffs, output writing)
+        # Store request for later use (output writing)
         with self.lock:
             self.agent_requests[agent_id] = request
 
@@ -409,7 +408,7 @@ class CortexService:
 
                         # Handle finish or error event
                         if event.get("event") in ["finish", "error"]:
-                            # Check for output and handoff (only on finish)
+                            # Check for output (only on finish)
                             if event.get("event") == "finish":
                                 result = event.get("result", "")
 
@@ -458,12 +457,6 @@ class CortexService:
                                         original_request,
                                     )
 
-                                # Handle handoff from finish event
-                                handoff_config = event.get("handoff")
-                                if handoff_config:
-                                    self._spawn_handoff(
-                                        agent.agent_id, result, handoff_config
-                                    )
                             # Break to trigger cleanup
                             break
 
@@ -697,63 +690,6 @@ class CortexService:
 
         except Exception as e:
             self.logger.error(f"Failed to write agent {agent_id} output: {e}")
-
-    def _spawn_handoff(
-        self, parent_id: str, result: str, handoff: Dict[str, Any]
-    ) -> None:
-        """Spawn a handoff agent from a completed agent's result."""
-        try:
-            from think.cortex_client import cortex_request
-
-            if not handoff:
-                self.logger.debug(
-                    "No handoff configuration provided for agent %s", parent_id
-                )
-                return
-
-            # Operate on a copy so callers keep their original config untouched.
-            handoff_config = copy.deepcopy(handoff)
-
-            # Determine prompt/provider/name before pruning extra keys.
-            prompt = handoff_config.pop("prompt", None) or result
-            name = handoff_config.pop("name", None) or "unified"
-
-            # Provider can be explicitly set in handoff config, otherwise let
-            # the handoff agent resolve its own provider from context
-            provider = handoff_config.pop("provider", None)
-
-            # Ensure we do not propagate parent handoff metadata.
-            handoff_config.pop("handoff", None)
-            handoff_config.pop("handoff_from", None)
-            handoff_config.pop("model", None)
-
-            # Inherit env from parent if not explicitly set in handoff config
-            if "env" not in handoff_config:
-                with self.lock:
-                    parent_env = self.agent_requests.get(parent_id, {}).get("env")
-                if parent_env:
-                    handoff_config["env"] = parent_env
-
-            # Only pass through additional overrides if any remain.
-            extra_config = handoff_config or None
-
-            # Use cortex_request to create the handoff agent
-            agent_id = cortex_request(
-                prompt=prompt,
-                name=name,
-                provider=provider,
-                handoff_from=parent_id,
-                config=extra_config,
-            )
-
-            if agent_id is None:
-                self.logger.error(f"Failed to send handoff request from {parent_id}")
-                return
-
-            self.logger.info(f"Spawned handoff agent {agent_id} from {parent_id}")
-
-        except Exception as e:
-            self.logger.error(f"Failed to spawn handoff agent: {e}")
 
     def stop(self) -> None:
         """Stop the Cortex service."""

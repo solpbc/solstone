@@ -817,7 +817,6 @@ Each line is a JSON object with an `event` field indicating the event type:
 - `text` – streaming text output from the agent
 - `tool_call` – agent invoked a tool
 - `tool_result` – result returned from tool execution
-- `handoff` – agent delegated to another agent
 - `error` – error occurred during execution
 - `finish` – agent session completed, includes final result
 

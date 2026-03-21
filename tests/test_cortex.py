@@ -234,39 +234,6 @@ def test_spawn_generator_via_subprocess(
     mock_timer_instance.start.assert_called_once()
 
 
-@patch("think.cortex.subprocess.Popen")
-def test_spawn_subprocess_with_handoff_from(mock_popen, cortex_service, mock_journal):
-    """Test spawning an agent with handoff_from parameter."""
-    mock_process = MagicMock()
-    mock_process.pid = 12345
-    mock_process.stdin = MagicMock()
-    mock_process.stdout = MagicMock()
-    mock_process.stderr = MagicMock()
-    mock_popen.return_value = mock_process
-
-    agent_id = "123456789"
-    file_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
-
-    request = {
-        "event": "request",
-        "ts": 123456789,
-        "prompt": "Test",
-        "provider": "openai",
-        "name": "unified",
-        "handoff_from": "parent123",
-    }
-
-    with patch("think.cortex.threading.Thread"):
-        cortex_service._spawn_subprocess(
-            agent_id, file_path, request, ["sol", "agents"], "agent"
-        )
-
-    # Check handoff_from was included in NDJSON
-    written_data = mock_process.stdin.write.call_args[0][0]
-    ndjson = json.loads(written_data.strip())
-    assert ndjson["handoff_from"] == "parent123"
-
-
 def test_monitor_stdout_json_events(cortex_service, mock_journal):
     """Test monitoring stdout with JSON events."""
     from io import StringIO
@@ -332,41 +299,6 @@ def test_monitor_stdout_non_json_output(cortex_service, mock_journal):
         assert info_event["event"] == "info"
         assert info_event["message"] == "Plain text output"
         assert "ts" in info_event
-
-
-def test_monitor_stdout_with_handoff(cortex_service, mock_journal):
-    """Test monitoring stdout with handoff in finish event."""
-    from io import StringIO
-
-    from think.cortex import AgentProcess
-
-    agent_id = "123456789"
-    log_path = mock_journal / "agents" / f"{agent_id}_active.jsonl"
-
-    # Handoff config is now in the finish event itself
-    finish_event = {
-        "event": "finish",
-        "ts": 1234567890,
-        "result": "Create matter",
-        "handoff": {"name": "matter_editor", "facet": "test"},
-    }
-
-    mock_process = MagicMock()
-    mock_process.poll.return_value = 0
-    mock_process.stdout = StringIO(json.dumps(finish_event) + "\n")
-
-    agent = AgentProcess(agent_id, mock_process, log_path)
-    cortex_service.running_agents[agent_id] = agent
-
-    with patch.object(cortex_service, "_spawn_handoff") as mock_handoff:
-        with patch.object(cortex_service, "_complete_agent_file"):
-            cortex_service._monitor_stdout(agent)
-
-            mock_handoff.assert_called_once_with(
-                agent_id,
-                "Create matter",
-                {"name": "matter_editor", "facet": "test"},
-            )
 
 
 def test_monitor_stdout_no_finish_event(cortex_service, mock_journal):
@@ -545,56 +477,6 @@ def test_write_error_and_complete(cortex_service, mock_journal):
     assert error_event["event"] == "error"
     assert error_event["error"] == "Test error message"
     assert "ts" in error_event
-
-
-def test_spawn_handoff(cortex_service, mock_journal):
-    """Test spawning a handoff agent."""
-    parent_id = "parent123"
-    result = "Create a new matter for AI research"
-    handoff = {
-        "name": "matter_editor",
-        "provider": "anthropic",
-        "facet": "test",
-        "max_turns": 5,
-    }
-
-    with patch("think.cortex_client.cortex_request") as mock_request:
-        mock_request.return_value = (
-            mock_journal / "agents" / "987654321000_active.jsonl"
-        )
-        cortex_service._spawn_handoff(parent_id, result, handoff)
-
-        # Check cortex_request was called with correct parameters
-        mock_request.assert_called_once_with(
-            prompt=result,
-            name="matter_editor",
-            provider="anthropic",
-            handoff_from=parent_id,
-            config={"facet": "test", "max_turns": 5},
-        )
-
-
-def test_spawn_handoff_with_explicit_prompt(cortex_service, mock_journal):
-    """Test spawning handoff with explicit prompt in config."""
-    parent_id = "parent123"
-    result = "Parent result"
-    handoff = {
-        "name": "reviewer",
-        "prompt": "Review this analysis",  # Explicit prompt
-    }
-
-    with patch("think.cortex_client.cortex_request") as mock_request:
-        cortex_service._spawn_handoff(parent_id, result, handoff)
-
-        # Check cortex_request was called with explicit prompt
-        # Provider is None when not explicitly set - let the agent resolve its own
-        mock_request.assert_called_once_with(
-            prompt="Review this analysis",  # Uses explicit prompt
-            name="reviewer",
-            provider=None,
-            handoff_from=parent_id,
-            config=None,
-        )
 
 
 def test_get_status(cortex_service):

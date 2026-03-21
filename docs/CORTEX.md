@@ -49,13 +49,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
   "env": {                           // Optional: environment variables for subprocess
     "API_KEY": "secret",
     "DEBUG": "true"
-  },
-  "handoff": {                       // Optional: chain to another agent on completion
-    "name": "reviewer",
-    "prompt": "Review the analysis",
-    "provider": "openai"
-  },
-  "handoff_from": "1234567890122"   // Optional: present when spawned via handoff
+  }
 }
 ```
 
@@ -120,9 +114,7 @@ The initial spawn request (first line of file, written by client).
   "provider": "openai",
   "name": "default",
   "output": "md",
-  "day": "20250109",
-  "handoff": {},
-  "handoff_from": "1234567890122"
+  "day": "20250109"
 }
 ```
 
@@ -197,12 +189,7 @@ Emitted when the agent run completes successfully.
   "event": "finish",
   "ts": 1234567890123,
   "agent_id": "1234567890123",
-  "result": "Final response text to the user",
-  "handoff": {                     // Optional: triggers next agent
-    "prompt": "Continue with next task",
-    "name": "specialist",
-    "provider": "openai"
-  }
+  "result": "Final response text to the user"
 }
 ```
 
@@ -247,18 +234,9 @@ When an agent completes successfully, its result can be automatically written to
 - Output path is derived from agent name + format + schedule:
   - Daily agents: `YYYYMMDD/agents/{name}.{ext}`
   - Segment agents: `YYYYMMDD/{segment}/{name}.{ext}`
-- Writing occurs before any handoff processing
+- Writing occurs before completion
 - Write failures are logged but don't interrupt the agent flow
 - Commonly used for scheduled agents that generate daily reports
-
-## Agent Handoff
-
-Agents can transfer control to other agents for specialized tasks. When an agent completes with a handoff configuration, Cortex automatically spawns the next agent in the chain.
-
-- The `finish` event may include a `handoff` field specifying the next agent
-- The subsequent request includes `handoff_from` with the originating agent ID
-- Handoff agents automatically inherit the parent agent's configuration (provider, model, etc.) unless explicitly overridden
-- This enables multi-step workflows and agent specialization with consistent configuration
 
 ## Agent Configuration
 
@@ -298,7 +276,6 @@ The JSON frontmatter for an agent can include:
 - `env`: Environment variables to set for the agent subprocess (object)
   - Keys are variable names, values are coerced to strings
   - Request-level `env` overrides agent defaults
-  - Inherited by handoff agents unless explicitly overridden
   - Note: `_SOLSTONE_JOURNAL_OVERRIDE` is set by Cortex for child processes
 
 ### Model Resolution

@@ -36,7 +36,6 @@ def cortex_request(
     prompt: str,
     name: str,
     provider: Optional[str] = None,
-    handoff_from: Optional[str] = None,
     config: Optional[Dict[str, Any]] = None,
 ) -> str | None:
     """Create a Cortex agent request via Callosum broadcast.
@@ -45,7 +44,6 @@ def cortex_request(
         prompt: The task or question for the agent
         name: Agent name - system (e.g., "unified") or app-qualified (e.g., "entities:entity_assist")
         provider: AI provider - openai, google, or anthropic
-        handoff_from: Previous agent ID if this is a handoff request
         config: Provider-specific configuration (model, max_output_tokens, thinking_budget, etc.)
 
     Returns:
@@ -85,9 +83,6 @@ def cortex_request(
             raise ValueError("config must be a dictionary")
         # Merge config overrides directly into the request for a flat schema
         request.update(config)
-
-    if handoff_from:
-        request["handoff_from"] = handoff_from
 
     # Broadcast request to Callosum
     # Note: callosum_send() signature is send(tract, event, **fields)

@@ -374,7 +374,7 @@ Define custom agents and generator templates that integrate with solstone's Cort
 - Agents have a `tools` field, generators have `schedule` but no `tools`
 - App agents/generators are automatically discovered alongside system ones
 - Keys are namespaced as `{app}:{name}` (e.g., `my_app:helper`)
-- Agents inherit all system agent capabilities (tools, scheduling, handoffs, multi-facet)
+- Agents inherit all system agent capabilities (tools, scheduling, multi-facet)
 
 **Metadata format:** Same schema as system agents in `muse/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, `max_output_tokens`, and `thinking_budget` fields. The `priority` field is **required** for all scheduled prompts - prompts without explicit priority will fail validation. See the priority bands documentation in [THINK.md](THINK.md#unified-priority-execution). Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted; OpenAI uses fixed reasoning and ignores this field). See [CORTEX.md](CORTEX.md) for agent configuration details.
 

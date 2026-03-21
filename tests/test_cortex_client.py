@@ -118,24 +118,6 @@ def test_cortex_request_returns_agent_id(callosum_server):
     assert len(agent_id) == 13  # Millisecond timestamp
 
 
-def test_cortex_request_with_handoff(callosum_listener):
-    """Test cortex_request with handoff_from parameter."""
-    messages = callosum_listener
-
-    cortex_request(
-        prompt="Continue analysis",
-        name="reviewer",
-        provider="anthropic",
-        handoff_from="1234567890000",
-    )
-
-    time.sleep(0.2)
-
-    msg = messages[0]
-    assert msg["handoff_from"] == "1234567890000"
-    assert msg["name"] == "reviewer"
-
-
 def test_cortex_request_unique_agent_ids(callosum_server):
     """Test that cortex_request generates unique agent IDs."""
     _ = callosum_server  # Needed for side effects only
