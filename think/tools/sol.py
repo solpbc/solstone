@@ -25,7 +25,9 @@ def _sol_dir():
 
 @app.command("self")
 def self_cmd(
-    write: bool = typer.Option(False, "--write", "-w", help="Write self.md from stdin."),
+    write: bool = typer.Option(
+        False, "--write", "-w", help="Write self.md from stdin."
+    ),
     update_section: str | None = typer.Option(
         None,
         "--update-section",

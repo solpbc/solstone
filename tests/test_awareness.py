@@ -778,9 +778,7 @@ class TestEnsureSolDirectory:
             },
             "identity": {"name": "", "bio": ""},
         }
-        (config_dir / "journal.json").write_text(
-            json.dumps(config), encoding="utf-8"
-        )
+        (config_dir / "journal.json").write_text(json.dumps(config), encoding="utf-8")
 
         from think.awareness import ensure_sol_directory
 
@@ -804,9 +802,7 @@ class TestEnsureSolDirectory:
             },
             "identity": {"name": "Jer", "bio": "builder of things"},
         }
-        (config_dir / "journal.json").write_text(
-            json.dumps(config), encoding="utf-8"
-        )
+        (config_dir / "journal.json").write_text(json.dumps(config), encoding="utf-8")
 
         from think.awareness import ensure_sol_directory
 
@@ -832,9 +828,7 @@ class TestEnsureSolDirectory:
             },
             "identity": {"name": "Alex", "bio": ""},
         }
-        (config_dir / "journal.json").write_text(
-            json.dumps(config), encoding="utf-8"
-        )
+        (config_dir / "journal.json").write_text(json.dumps(config), encoding="utf-8")
 
         from think.awareness import ensure_sol_directory
 
@@ -909,9 +903,7 @@ class TestUpdateSelfMd:
         self_md = self._setup_self_md(tmp_path)
         from think.awareness import update_self_md_section
 
-        result = update_self_md_section(
-            "what I find interesting", "music and patterns"
-        )
+        result = update_self_md_section("what I find interesting", "music and patterns")
         assert result is True
         content = self_md.read_text()
         assert "music and patterns" in content
@@ -1059,7 +1051,9 @@ class TestSetNameUpdatesSelfMd:
         runner = CliRunner()
         # Mock subprocess.run to avoid `make skills`
         with unittest.mock.patch("subprocess.run"):
-            result = runner.invoke(agent_app, ["set-name", "aria", "--status", "chosen"])
+            result = runner.invoke(
+                agent_app, ["set-name", "aria", "--status", "chosen"]
+            )
         assert result.exit_code == 0
 
         self_content = (sol_dir / "self.md").read_text()

@@ -21,7 +21,9 @@ def journal_with_sol(tmp_path, monkeypatch):
     # Provide minimal config for ensure_sol_directory
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    (config_dir / "journal.json").write_text(json.dumps({"identity": {"name": "Test User"}}))
+    (config_dir / "journal.json").write_text(
+        json.dumps({"identity": {"name": "Test User"}})
+    )
 
     sol_dir = tmp_path / "sol"
     sol_dir.mkdir()
@@ -211,13 +213,16 @@ class TestHeartbeatEnsureSolDirectory:
         from think.awareness import ensure_sol_directory
 
         sig = inspect.signature(ensure_sol_directory)
-        params = [p for p in sig.parameters.values() if p.default is inspect.Parameter.empty]
-        assert len(params) == 0, "ensure_sol_directory should take no required arguments"
+        params = [
+            p for p in sig.parameters.values() if p.default is inspect.Parameter.empty
+        ]
+        assert len(params) == 0, (
+            "ensure_sol_directory should take no required arguments"
+        )
 
     def test_heartbeat_calls_correctly(self):
         """heartbeat.py calls ensure_sol_directory() without arguments."""
         import ast
-
         from pathlib import Path
 
         heartbeat_path = Path(__file__).parent.parent / "think" / "heartbeat.py"

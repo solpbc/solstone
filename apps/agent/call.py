@@ -128,9 +128,7 @@ def thickness() -> None:
 @app.command("set-owner")
 def set_owner(
     name: str = typer.Argument(..., help="Owner name."),
-    bio: str = typer.Option(
-        None, "--bio", "-b", help="Short owner bio."
-    ),
+    bio: str = typer.Option(None, "--bio", "-b", help="Short owner bio."),
 ) -> None:
     """Set the journal owner's name (and optional bio)."""
     from think.awareness import update_self_md_section

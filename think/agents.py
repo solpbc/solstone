@@ -1204,7 +1204,7 @@ def _check_generate(provider_name: str, tier: int, timeout: int) -> tuple[bool, 
             max_output_tokens=16,
             system_instruction=None,
             json_output=False,
-            thinking_budget=0,
+            thinking_budget=None,
             timeout_s=timeout,
         )
         text = result.get("text", "") if isinstance(result, dict) else ""

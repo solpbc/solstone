@@ -21,7 +21,9 @@ def heartbeat_mocks(monkeypatch):
         lambda parser: argparse.Namespace(force=False),
     )
     monkeypatch.setattr("think.heartbeat.ensure_sol_directory", lambda: None)
-    monkeypatch.setattr("think.heartbeat.cortex_request", lambda *args, **kwargs: "agent-123")
+    monkeypatch.setattr(
+        "think.heartbeat.cortex_request", lambda *args, **kwargs: "agent-123"
+    )
     monkeypatch.setattr(
         "think.heartbeat.wait_for_agents",
         lambda *args, **kwargs: ({"agent-123": "finish"}, []),
@@ -49,7 +51,9 @@ def test_pid_guard_live_process_exits_zero(journal_path, heartbeat_mocks):
     pid_file = journal_path / "health" / "heartbeat.pid"
     pid_file.write_text(str(os.getpid()))
 
-    mod.cortex_request = lambda *a, **kw: pytest.fail("cortex_request should not be called")
+    mod.cortex_request = lambda *a, **kw: pytest.fail(
+        "cortex_request should not be called"
+    )
 
     with pytest.raises(SystemExit) as exc_info:
         mod.main()
@@ -190,8 +194,9 @@ def test_cortex_prompt_includes_journal_path(journal_path, heartbeat_mocks):
 
 def test_recency_check_skips_recent_heartbeat(journal_path, heartbeat_mocks):
     """When heartbeat.log has a recent success, main() exits 0 without cortex."""
-    import think.heartbeat as mod
     from datetime import datetime
+
+    import think.heartbeat as mod
 
     # Write a recent success entry
     log_file = journal_path / "health" / "heartbeat.log"
@@ -209,8 +214,9 @@ def test_recency_check_skips_recent_heartbeat(journal_path, heartbeat_mocks):
 
 def test_recency_check_runs_after_old_heartbeat(journal_path, heartbeat_mocks):
     """When heartbeat.log success is older than the window, main() runs cortex."""
-    import think.heartbeat as mod
     from datetime import datetime, timedelta
+
+    import think.heartbeat as mod
 
     # Write an old success entry (24 hours ago)
     log_file = journal_path / "health" / "heartbeat.log"
@@ -314,7 +320,9 @@ def test_dream_emit_daily_complete_shape(monkeypatch):
     mock_conn = Mock()
     monkeypatch.setattr(dream_mod, "_callosum", mock_conn)
 
-    dream_mod.emit("daily_complete", day="20260318", success=3, failed=0, duration_ms=5000)
+    dream_mod.emit(
+        "daily_complete", day="20260318", success=3, failed=0, duration_ms=5000
+    )
 
     mock_conn.emit.assert_called_once_with(
         "dream",

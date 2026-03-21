@@ -261,9 +261,7 @@ def register_defaults() -> None:
     }
 
     # Atomic write
-    fd, tmp_path = tempfile.mkstemp(
-        dir=config_dir, suffix=".tmp", prefix=".schedules_"
-    )
+    fd, tmp_path = tempfile.mkstemp(dir=config_dir, suffix=".tmp", prefix=".schedules_")
     tmp_file = Path(tmp_path)
     try:
         with open(fd, "w", encoding="utf-8") as f:

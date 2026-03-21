@@ -1350,7 +1350,9 @@ def _handle_dream_daily_complete(message: dict) -> None:
         except ProcessLookupError:
             pass  # Stale PID file, proceed
         except PermissionError:
-            logging.info("Heartbeat running under different user (pid file exists), skipping")
+            logging.info(
+                "Heartbeat running under different user (pid file exists), skipping"
+            )
             return
         except ValueError:
             pass  # Corrupt PID file, proceed

@@ -75,7 +75,9 @@ def _build_self_md(config: dict) -> str:
 
     # Opening paragraph
     if has_named_agent:
-        opening = f"I am {agent_name}. this is a new journal — we're just getting started."
+        opening = (
+            f"I am {agent_name}. this is a new journal — we're just getting started."
+        )
     else:
         opening = "I am sol. this is a new journal — we're just getting started."
 
