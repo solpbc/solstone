@@ -13,6 +13,7 @@ Discovery scans ``apps/*/call.py``, imports modules, and mounts subcommands.
 
 import importlib
 import logging
+import sys
 from pathlib import Path
 
 import typer
@@ -106,6 +107,34 @@ def navigate(
     if facet:
         parts.append(f"[{facet}]")
     typer.echo(f"Navigate: {' '.join(parts)}")
+
+
+@call_app.command("handoff")
+def handoff(
+    agent: str = typer.Argument(help="Agent name to hand off to (e.g. coder)."),
+) -> None:
+    """Spawn a cogitate agent with a request from stdin (fire-and-forget).
+
+    Reads a prompt from stdin, sends it to cortex as an agent request,
+    prints the agent_id to stdout, and exits immediately.
+
+    Example::
+
+        echo 'Fix the matching bug' | sol call handoff coder
+    """
+    prompt = sys.stdin.read()
+    if not prompt.strip():
+        typer.echo("Error: no prompt provided on stdin.", err=True)
+        raise typer.Exit(1)
+
+    from think.cortex_client import cortex_request
+
+    agent_id = cortex_request(prompt=prompt.strip(), name=agent)
+    if agent_id is None:
+        typer.echo("Error: failed to send cortex request.", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(agent_id)
 
 
 def main() -> None:

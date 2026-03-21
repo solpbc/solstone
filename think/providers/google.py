@@ -606,11 +606,13 @@ async def run_cogitate(
             "-o",
             "stream-json",
             "--yolo",
-            "--allowed-tools",
-            "run_shell_command(sol call)",
             "-m",
             model,
         ]
+
+        # Restrict tool access unless write mode is enabled
+        if not config.get("write"):
+            cmd.extend(["--allowed-tools", "run_shell_command(sol call)"])
 
         # Resume from previous session if continuing
         if session_id:

@@ -248,11 +248,13 @@ async def run_cogitate(
             "stream-json",
             "--permission-mode",
             "plan",
-            "--allowedTools",
-            "Bash(sol call *)",
             "--model",
             model,
         ]
+
+        # Restrict tool access unless write mode is enabled
+        if not config.get("write"):
+            cmd.extend(["--allowedTools", "Bash(sol call *)"])
 
         if system_instruction:
             cmd.extend(["--system-prompt", system_instruction])
