@@ -108,6 +108,28 @@ def navigate(
     typer.echo(f"Navigate: {' '.join(parts)}")
 
 
+@call_app.command("handoff")
+def handoff(
+    agent: str = typer.Argument(..., help="Agent name to hand off to."),
+) -> None:
+    """Hand off a prompt to an agent via Cortex. Reads prompt from stdin."""
+    import sys
+
+    from think.cortex_client import cortex_request
+
+    prompt = sys.stdin.read().strip()
+    if not prompt:
+        typer.echo("Error: no prompt provided on stdin", err=True)
+        raise typer.Exit(1)
+
+    agent_id = cortex_request(prompt=prompt, name=agent)
+    if agent_id is None:
+        typer.echo("Error: failed to send cortex request", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(agent_id)
+
+
 def main() -> None:
     """Entry point for ``sol call``."""
     call_app()

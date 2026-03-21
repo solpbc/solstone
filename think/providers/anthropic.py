@@ -239,20 +239,36 @@ async def run_cogitate(
 
         prompt_body, system_instruction = assemble_prompt(config)
 
-        cmd = [
-            "claude",
-            "-p",
-            "-",
-            "--verbose",
-            "--output-format",
-            "stream-json",
-            "--permission-mode",
-            "plan",
-            "--allowedTools",
-            "Bash(sol call *)",
-            "--model",
-            model,
-        ]
+        # Build CLI command
+        if config.get("write"):
+            # Write mode: full tool access for developer agents
+            cmd = [
+                "claude",
+                "-p",
+                "-",
+                "--verbose",
+                "--output-format",
+                "stream-json",
+                "--permission-mode",
+                "bypassPermissions",
+                "--model",
+                model,
+            ]
+        else:
+            cmd = [
+                "claude",
+                "-p",
+                "-",
+                "--verbose",
+                "--output-format",
+                "stream-json",
+                "--permission-mode",
+                "plan",
+                "--allowedTools",
+                "Bash(sol call *)",
+                "--model",
+                model,
+            ]
 
         if system_instruction:
             cmd.extend(["--system-prompt", system_instruction])

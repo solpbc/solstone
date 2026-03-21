@@ -177,6 +177,7 @@ async def run_cogitate(
     # Build command — sandbox is read-only; "sol call" commands bypass
     # the sandbox via exec-policy rules in .codex/rules/solstone.rules
     session_id = config.get("session_id")
+    sandbox = "write" if config.get("write") else "read-only"
     if session_id:
         cmd = [
             "codex",
@@ -185,12 +186,12 @@ async def run_cogitate(
             session_id,
             "--json",
             "-s",
-            "read-only",
+            sandbox,
             "-m",
             model,
         ]
     else:
-        cmd = ["codex", "exec", "--json", "-s", "read-only", "-m", model]
+        cmd = ["codex", "exec", "--json", "-s", sandbox, "-m", model]
 
     if effort:
         cmd.extend(["-c", f'model_reasoning_effort="{effort}"'])

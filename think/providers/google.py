@@ -597,8 +597,7 @@ async def run_cogitate(
             prompt_body = system_instruction + "\n\n" + prompt_body
 
         # Build CLI command — yolo mode auto-approves all tool calls
-        # (required for headless subprocess use). Allowed shell commands
-        # are constrained by --allowed-tools prefix matching.
+        # (required for headless subprocess use).
         cmd = [
             "gemini",
             "-p",
@@ -606,11 +605,11 @@ async def run_cogitate(
             "-o",
             "stream-json",
             "--yolo",
-            "--allowed-tools",
-            "run_shell_command(sol call)",
-            "-m",
-            model,
         ]
+        if not config.get("write"):
+            # Read-only mode: constrain to journal query commands
+            cmd.extend(["--allowed-tools", "run_shell_command(sol call)"])
+        cmd.extend(["-m", model])
 
         # Resume from previous session if continuing
         if session_id:
