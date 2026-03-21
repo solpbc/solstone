@@ -40,7 +40,7 @@ class TestAnthropicWriteFlag:
         mock_runner_cls.return_value = mock_instance
 
         config = {"prompt": "test", "model": "claude-sonnet-4-20250514"}
-        asyncio.get_event_loop().run_until_complete(provider.run_cogitate(config))
+        asyncio.run(provider.run_cogitate(config))
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         assert "--allowedTools" in cmd
@@ -57,7 +57,7 @@ class TestAnthropicWriteFlag:
         mock_runner_cls.return_value = mock_instance
 
         config = {"prompt": "test", "model": "claude-sonnet-4-20250514", "write": True}
-        asyncio.get_event_loop().run_until_complete(provider.run_cogitate(config))
+        asyncio.run(provider.run_cogitate(config))
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         assert "--allowedTools" not in cmd
@@ -73,7 +73,7 @@ class TestAnthropicWriteFlag:
         mock_runner_cls.return_value = mock_instance
 
         config = {"prompt": "test", "model": "claude-sonnet-4-20250514", "write": False}
-        asyncio.get_event_loop().run_until_complete(provider.run_cogitate(config))
+        asyncio.run(provider.run_cogitate(config))
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         assert "--allowedTools" in cmd
@@ -100,7 +100,7 @@ class TestOpenAIWriteFlag:
         mock_runner_cls.return_value = mock_instance
 
         config = {"prompt": "test", "model": "gpt-5.2"}
-        asyncio.get_event_loop().run_until_complete(provider.run_cogitate(config))
+        asyncio.run(provider.run_cogitate(config))
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         # Find the -s flag and its value
@@ -117,7 +117,7 @@ class TestOpenAIWriteFlag:
         mock_runner_cls.return_value = mock_instance
 
         config = {"prompt": "test", "model": "gpt-5.2", "write": True}
-        asyncio.get_event_loop().run_until_complete(provider.run_cogitate(config))
+        asyncio.run(provider.run_cogitate(config))
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         s_idx = cmd.index("-s")
@@ -138,7 +138,7 @@ class TestOpenAIWriteFlag:
             "write": True,
             "session_id": "sess-123",
         }
-        asyncio.get_event_loop().run_until_complete(provider.run_cogitate(config))
+        asyncio.run(provider.run_cogitate(config))
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         s_idx = cmd.index("-s")
@@ -167,7 +167,7 @@ class TestGoogleWriteFlag:
         mock_runner_cls.return_value = mock_instance
 
         config = {"prompt": "test", "model": "gemini-2.5-flash"}
-        asyncio.get_event_loop().run_until_complete(provider.run_cogitate(config))
+        asyncio.run(provider.run_cogitate(config))
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         assert "--allowed-tools" in cmd
@@ -183,7 +183,7 @@ class TestGoogleWriteFlag:
         mock_runner_cls.return_value = mock_instance
 
         config = {"prompt": "test", "model": "gemini-2.5-flash", "write": True}
-        asyncio.get_event_loop().run_until_complete(provider.run_cogitate(config))
+        asyncio.run(provider.run_cogitate(config))
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         assert "--allowed-tools" not in cmd
