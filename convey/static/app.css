@@ -1155,6 +1155,11 @@ body.menu-all .menu-bar {
   50% { opacity: 1; }
 }
 
+.thinking-elapsed {
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
 .chat-bar-response {
   font-size: 13px;
   line-height: 1.5;

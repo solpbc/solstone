@@ -352,6 +352,41 @@
     }
   });
 
+  function getProgressLabel(msg) {
+    if (!msg) return null;
+    if (msg.event === 'thinking') return 'Reasoning\u2026';
+    if (msg.event === 'tool_start') {
+      var cmd = (msg.args && msg.args.command) || '';
+      if (!cmd && msg.args) {
+        Object.values(msg.args).some(function(value) {
+          if (typeof value === 'string') {
+            cmd = value;
+            return true;
+          }
+          return false;
+        });
+      }
+
+      if (cmd.includes('sol call journal search')) return 'Searching your journal\u2026';
+      if (cmd.includes('sol call journal events') || cmd.includes('sol call calendar list')) return 'Looking up events\u2026';
+      if (cmd.includes('sol call navigate')) return 'Navigating\u2026';
+      if (cmd.includes('sol call transcripts')) return 'Reading transcripts\u2026';
+      if (cmd.includes('sol call journal read')) return 'Reading your notes\u2026';
+      if (cmd.includes('sol call journal agents')) return 'Checking daily insights\u2026';
+      return 'Working\u2026';
+    }
+    return null;
+  }
+
+  function updateThinkingLabel(text) {
+    var barEl = document.getElementById('chatBarThinking');
+    var panelEl = document.getElementById('panelThinking');
+    [barEl, panelEl].forEach(function(el) {
+      if (!el) return;
+      el.innerHTML = '<span class="chat-bar-thinking-dot"></span> ' + text;
+    });
+  }
+
   // --- Form submit ---
   form.onsubmit = async function(e) {
     e.preventDefault();
@@ -385,7 +420,37 @@
       appBar.classList.add('app-bar--glance');
     }
 
+    var cleanupCortex = null;
+    var timerInterval = null;
+    var timerTimeout = null;
+    var thinkingStarted = Date.now();
+
     try {
+      if (window.appEvents) {
+        cleanupCortex = window.appEvents.listen('cortex', function(msg) {
+          var label = getProgressLabel(msg);
+          if (label) updateThinkingLabel(label);
+        });
+      }
+
+      timerTimeout = setTimeout(function() {
+        timerInterval = setInterval(function() {
+          var elapsed = Math.round((Date.now() - thinkingStarted) / 1000);
+          var suffix = ' <span class="thinking-elapsed">' + elapsed + 's</span>';
+          var barEl = document.getElementById('chatBarThinking');
+          var panelEl = document.getElementById('panelThinking');
+          [barEl, panelEl].forEach(function(el) {
+            if (!el) return;
+            var existing = el.querySelector('.thinking-elapsed');
+            if (existing) {
+              existing.textContent = elapsed + 's';
+            } else {
+              el.insertAdjacentHTML('beforeend', suffix);
+            }
+          });
+        }, 1000);
+      }, 5000);
+
       // Build conversation history from prior turns (exclude current message)
       var history = messages.slice(0, -1).map(function(m) {
         return { role: m.role, content: m.content };
@@ -456,6 +521,9 @@
       }
       save();
     } finally {
+      if (cleanupCortex) { cleanupCortex(); cleanupCortex = null; }
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+      if (timerTimeout) { clearTimeout(timerTimeout); timerTimeout = null; }
       var pt = document.getElementById('panelThinking');
       if (pt) pt.remove();
       thinking.style.display = 'none';
