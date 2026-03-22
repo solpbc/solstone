@@ -3,7 +3,7 @@ name: todos
 description: >
   Manage todo checklists organized by facet and day. List, add, complete,
   cancel, and move tasks and action items. Review upcoming scheduled items.
-  Use when the user mentions tasks, to-do items, action items, checklists,
+  Use when the owner mentions tasks, to-do items, action items, checklists,
   or reminders, or asks to add, complete, cancel, or review todos.
   TRIGGER: todo, task, action item, checklist, reminder, upcoming items.
 ---

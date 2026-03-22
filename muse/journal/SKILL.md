@@ -3,7 +3,7 @@ name: journal
 description: >
   Search and browse journal content across transcripts, insights, events,
   entities, and todos. Manage facets, get overviews, and read news feeds.
-  Use when the user asks to search, find, or look up journal entries, asks
+  Use when the owner asks to search, find, or look up journal entries, asks
   about a specific day or topic, wants to browse facets, read agent outputs,
   or manage facet organization (create, rename, merge, delete).
   TRIGGER: search, find, look up, browse, journal, facet, news feed, agent output.
@@ -105,7 +105,7 @@ Create a new facet directory and initial `facet.json`.
 - `--emoji`: optional icon emoji (default: `📦`).
 - `--color`: optional hex color (default: `#667eea`).
 - `--description`: optional description text.
-- `--consent`: asserts that the agent has received a direct user request or explicit user approval before calling this command. Pass when acting proactively (cogitate, suggestion flows) rather than in direct response to a user instruction. Omit for the onboarding muse — onboarding is user-driven by definition. Adds `"consent": true` to the audit log entry.
+- `--consent`: asserts that the agent has received a direct owner request or explicit owner approval before calling this command. Pass when acting proactively (cogitate, suggestion flows) rather than in direct response to an owner instruction. Omit for the onboarding muse — onboarding is owner-driven by definition. Adds `"consent": true` to the audit log entry.
 
 Examples:
 
@@ -144,7 +144,7 @@ Rename a facet (directory and references in config/chat metadata).
 
 - `name`: current facet identifier.
 - `new-name`: new facet identifier.
-- `--consent`: asserts that the agent has received explicit user approval before performing this structural change. Pass when acting proactively rather than in direct response to a user instruction. Adds `"consent": true` to the audit log entry.
+- `--consent`: asserts that the agent has received explicit owner approval before performing this structural change. Pass when acting proactively rather than in direct response to an owner instruction. Adds `"consent": true` to the audit log entry.
 
 Example:
 
@@ -189,7 +189,7 @@ sol call journal facet delete <name> [--yes] [--consent]
 Delete a facet directory and all its data.
 
 - `--yes`: skip confirmation prompt.
-- `--consent`: asserts that the agent has received explicit user approval before performing this destructive operation. Agents should always pass both `--consent` and `--yes` when calling delete. Adds `"consent": true` to the audit log entry.
+- `--consent`: asserts that the agent has received explicit owner approval before performing this destructive operation. Agents should always pass both `--consent` and `--yes` when calling delete. Adds `"consent": true` to the audit log entry.
 
 Example:
 

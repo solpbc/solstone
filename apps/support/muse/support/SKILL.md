@@ -3,7 +3,7 @@ name: support
 description: >
   File support tickets, search the knowledge base, and submit feedback to
   sol pbc. Manage open tickets, attach files, check announcements, and run
-  local diagnostics. Use when the user needs help with solstone, wants to
+  local diagnostics. Use when the owner needs help with solstone, wants to
   report a bug, request a feature, check for known issues, or give feedback.
   TRIGGER: support, bug report, feature request, feedback, help, knowledge
   base, file a ticket, known issues, announcements, diagnostics.
@@ -21,7 +21,7 @@ CLI for filing support tickets, searching the knowledge base, and submitting fee
 
 3. **Diagnostics are auto-populated.** When creating a ticket, `sol call support create` automatically collects system info (version, OS, services, recent errors). You don't need to gather this manually.
 
-4. **User consent is required for all outbound operations.** Never use `--yes` without explicit user approval. Always show the user what will be sent and get their OK first.
+4. **Owner consent is required for all outbound operations.** Never use `--yes` without explicit owner approval. Always show the owner what will be sent and get their OK first.
 
 ## Subcommands
 
@@ -43,7 +43,7 @@ sol call support search "transcription errors"
 sol call support article getting-started
 ```
 
-Always search before filing a ticket. Present matching articles to the user.
+Always search before filing a ticket. Present matching articles to the owner.
 
 ### Filing a Ticket
 
@@ -57,10 +57,10 @@ sol call support create \
 
 The `create` command implements a KB-first flow:
 1. Searches KB for related articles
-2. Shows matches (user can read them and cancel if resolved)
+2. Shows matches (owner can read them and cancel if resolved)
 3. Collects diagnostics automatically
 4. Shows the full ticket draft for review
-5. Submits only after user confirms
+5. Submits only after owner confirms
 
 **Flags:**
 - `--subject` / `-s` — Ticket subject (required)
@@ -69,7 +69,7 @@ The `create` command implements a KB-first flow:
 - `--severity` — low, medium, high, critical (default: medium)
 - `--category` — bug, feature, question, account
 - `--skip-kb` — Skip KB search (not recommended)
-- `--yes` / `-y` — Skip confirmation (only use with explicit user consent)
+- `--yes` / `-y` — Skip confirmation (only use with explicit owner consent)
 - `--anonymous` — Strip installation identifiers
 
 ### Ticket Management
@@ -101,7 +101,7 @@ sol call support attach 42 ~/screenshot.png
 # Attach multiple files
 sol call support attach 42 screenshot.png error-log.txt
 
-# Skip confirmation (only after explicit user consent)
+# Skip confirmation (only after explicit owner consent)
 sol call support attach 42 screenshot.png --yes
 ```
 
@@ -111,7 +111,7 @@ Upload files to an existing ticket. The consent gate shows each file (name and s
 
 **Supported formats:** `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.pdf`, `.txt`, `.csv`, `.html`, `.md`, `.xml`, `.json`
 
-When a user reports a visual bug (UI glitch, rendering issue), proactively suggest attaching a screenshot.
+When an owner reports a visual bug (UI glitch, rendering issue), proactively suggest attaching a screenshot.
 
 ### Feedback
 
@@ -156,7 +156,7 @@ The diagnostic collector auto-populates version, OS, and service status. You don
 ## Examples
 
 ```bash
-# User reports a bug — full flow
+# Owner reports a bug — full flow
 sol call support search "calendar sync"          # check KB first
 sol call support create \
   --subject "Calendar events not syncing" \
@@ -167,7 +167,7 @@ sol call support create \
 # Attach a screenshot to the ticket
 sol call support attach 15 ~/screenshot.png
 
-# User wants to give feedback
+# Owner wants to give feedback
 sol call support feedback \
   --body "Love the entity detection but it sometimes misidentifies project names as people"
 

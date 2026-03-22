@@ -49,7 +49,7 @@ def _get_client():
     return _client
 ```
 
-**Settings app integration:** Add your provider to `PROVIDER_METADATA` in `think/providers/__init__.py` with `label` and `env_key` fields. The settings UI dynamically builds provider dropdowns from the registry. Add corresponding API key UI fields in `apps/settings/workspace.html` for user configuration.
+**Settings app integration:** Add your provider to `PROVIDER_METADATA` in `think/providers/__init__.py` with `label` and `env_key` fields. The settings UI dynamically builds provider dropdowns from the registry. Add corresponding API key UI fields in `apps/settings/workspace.html` for owner configuration.
 
 ## run_generate() / run_agenerate()
 

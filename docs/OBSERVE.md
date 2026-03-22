@@ -38,7 +38,7 @@ The Linux observer operates in three modes based on activity:
          (tmux active)
 ```
 
-**Mode priority**: Screen activity always wins over tmux (user is physically present).
+**Mode priority**: Screen activity always wins over tmux (owner is physically present).
 
 | Mode | Trigger | Captures |
 |------|---------|----------|
@@ -47,7 +47,7 @@ The Linux observer operates in three modes based on activity:
 | IDLE | Both screen and tmux inactive | Audio only (if threshold met) |
 
 **Segment boundaries** are triggered by:
-- Transitions to/from SCREENCAST mode (user returns to or leaves desktop)
+- Transitions to/from SCREENCAST mode (owner returns to or leaves desktop)
 - Mute state changes
 - 5-minute window elapsed
 

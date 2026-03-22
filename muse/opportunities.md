@@ -40,7 +40,7 @@ Analyze the full workday transcript to identify embryonic ideas, innovation spar
 - **Adjacent Possibilities**: Ideas that build on existing work but point to new directions
 
 ### 3. Market & Business Signals
-- **Customer Pain Points**: Direct or indirect mentions of user/customer struggles
+- **Customer Pain Points**: Direct or indirect mentions of owner/customer struggles
 - **Industry Trends**: Discussions about emerging technologies or market shifts
 - **Competitive Gaps**: References to things competitors aren't doing well
 - **Partnership Opportunities**: Potential collaborations or integrations mentioned
@@ -53,7 +53,7 @@ Analyze the full workday transcript to identify embryonic ideas, innovation spar
 
 ### 5. Strategic Opportunities
 - **Pivot Potential**: Discussions that suggest alternative business directions
-- **Market Expansion**: Ideas for reaching new user segments or use cases
+- **Market Expansion**: Ideas for reaching new owner segments or use cases
 - **Platform Possibilities**: Concepts that could become foundational for other innovations
 - **Ecosystem Plays**: Opportunities to create or tap into larger systems
 

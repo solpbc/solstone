@@ -15,7 +15,7 @@ Strategic direction and planned capabilities.
 
 ## Onboarding
 
-- New user warmup period: collect a day of data, then suggest facets and customization for approval
+- New owner warmup period: collect a day of data, then suggest facets and customization for approval
 
 ## Platform Support
 

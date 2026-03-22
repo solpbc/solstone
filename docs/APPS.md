@@ -578,13 +578,13 @@ from apps.utils import get_app_storage_path, load_app_config, save_app_config
 
 ### Action Logging
 
-Apps that modify user data should log actions for audit trail purposes:
+Apps that modify owner data should log actions for audit trail purposes:
 
 ```python
 from apps.utils import log_app_action
 ```
 
-- `log_app_action(app, facet, action, params, day=None)` - Log user-initiated action
+- `log_app_action(app, facet, action, params, day=None)` - Log owner-initiated action
 
 **Parameters:**
 - `app` - App name where action originated
@@ -642,7 +642,7 @@ Apps can access and control facet selection through a uniform API:
 - **specific-facet mode**: `window.selectedFacet === "work"`, show only that facet's content
 - Selection persisted via cookie, synchronized across facet pills
 
-**UX Tip:** Apps should provide visual indication when in all-facet mode vs showing a specific facet. For example, group items by facet, show facet badges/colors on items, or display a subtle "All facets" label. This helps users understand the scope of what they're viewing.
+**UX Tip:** Apps should provide visual indication when in all-facet mode vs showing a specific facet. For example, group items by facet, show facet badges/colors on items, or display a subtle "All facets" label. This helps owners understand the scope of what they're viewing.
 
 **See implementation:** `convey/static/app.js` - Facet switching logic and event dispatch
 

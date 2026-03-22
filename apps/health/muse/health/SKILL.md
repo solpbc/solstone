@@ -4,7 +4,7 @@ description: >
   Diagnose solstone service health, inspect agent run logs, and check system
   status. View service uptimes, crashes, queue depths, recent errors, and
   agent run costs. Includes a journal layout reference for navigating data
-  files. Use when the user reports issues, asks about service health, agent
+  files. Use when the owner reports issues, asks about service health, agent
   costs, pipeline status, or when troubleshooting capture gaps and processing
   failures.
   TRIGGER: health, status, is it running, something broke, service down,
@@ -168,7 +168,7 @@ Which services write where:
 ## Troubleshooting
 
 ### `sol health` returns "Connection refused" or times out
-The supervisor is not running. Check if `sol supervisor` is active. The user may need to start solstone with `sol start` or `make dev`.
+The supervisor is not running. Check if `sol supervisor` is active. The owner may need to start solstone with `sol start` or `make dev`.
 
 ### Agent run shows "error" status in `sol muse logs`
 Run `sol muse log <ID> --full` to see the complete event timeline including the error. Common causes:

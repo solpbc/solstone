@@ -4,7 +4,7 @@ description: >
   Manage tracked entities for people, companies, projects, and tools within
   facets. Detect, attach, update, alias, search, and record observations.
   Query relationship strength and get full intelligence briefings.
-  Use when the user asks about people, contacts, companies, or projects
+  Use when the owner asks about people, contacts, companies, or projects
   tracked in the journal, or wants to add, update, or search entities.
   TRIGGER: entity, person, company, project, relationship, observation,
   who is, contact, knowledge graph, intelligence briefing.
@@ -26,8 +26,8 @@ sol call entities <command> [args...]
 
 - **Detected**: day-scoped, ephemeral observations captured for a specific day.
 - **Attached**: persistent entities tracked long-term in a facet.
-- **Blocked**: entities the user has blocked; do not detect, attach, or reuse.
-- **Detached**: entities the user removed; do not re-attach automatically.
+- **Blocked**: entities the owner has blocked; do not detect, attach, or reuse.
+- **Detached**: entities the owner removed; do not re-attach automatically.
 
 Use `detect` for day-specific sightings and `attach` for long-term tracking.
 

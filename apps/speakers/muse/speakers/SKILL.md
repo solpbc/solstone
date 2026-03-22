@@ -3,7 +3,7 @@ name: speakers
 description: >
   Manage the speaker identification subsystem. Check speaker status, detect
   the owner voice, identify unknown speakers, merge name variants, and curate
-  the speaker library over time. Use when the user asks about voices in
+  the speaker library over time. Use when the owner asks about voices in
   recordings, wants to identify speakers, or manage voice recognition.
   TRIGGER: speaker, voice, who was talking, identify speaker, owner voice,
   unknown voice, merge speakers, voice recognition, speaker curation.
@@ -57,7 +57,7 @@ Actionable curation opportunities: unknown recurring voices, name variants, low-
 
 Behavior notes:
 
-- Run after dream processing completes, or when the user is engaging with transcripts or recordings.
+- Run after dream processing completes, or when the owner is engaging with transcripts or recordings.
 - Surface suggestions one at a time conversationally — don't stack them.
 
 Example:
@@ -94,11 +94,11 @@ sol call speakers owner detect --force
 sol call speakers owner confirm
 ```
 
-Save detected owner centroid after user confirms.
+Save detected owner centroid after owner confirms.
 
 Behavior notes:
 
-- Only run after presenting the candidate to the user and receiving explicit confirmation.
+- Only run after presenting the candidate to the owner and receiving explicit confirmation.
 - After confirmation, the system can start identifying other voices.
 
 ## owner reject
@@ -107,7 +107,7 @@ Behavior notes:
 sol call speakers owner reject
 ```
 
-Discard candidate if user says "that's not me."
+Discard candidate if owner says "that's not me."
 
 Behavior notes:
 
@@ -120,7 +120,7 @@ Behavior notes:
 sol call speakers identify <cluster_id> <name> [--entity-id ID]
 ```
 
-Name an unknown speaker cluster after the user provides the name.
+Name an unknown speaker cluster after the owner provides the name.
 
 - `cluster_id`: cluster identifier from `suggest` output (positional argument).
 - `name`: speaker name to assign (positional argument).
@@ -147,7 +147,7 @@ Merge a name variant into the canonical entity.
 Behavior notes:
 
 - Use when `suggest` surfaces a name variant (e.g., "Mitch" and "Mitch Baumgartner" sound identical).
-- Ask the user for confirmation before merging.
+- Ask the owner for confirmation before merging.
 
 Example:
 
@@ -164,21 +164,21 @@ Check `speakers status owner`. If the owner centroid doesn't exist:
 
 When you have a candidate, present it naturally: "I've been listening to your journal across your different devices and I think I can recognize your voice. Here are a few moments — does this sound right?" Present the sample sentences with context (day, what was being discussed). Don't play audio — show text and context.
 
-- If the user confirms: run `speakers owner confirm`.
-- If the user rejects: run `speakers owner reject`. Wait for more data before trying again.
+- If the owner confirms: run `speakers owner confirm`.
+- If the owner rejects: run `speakers owner reject`. Wait for more data before trying again.
 
 ## Speaker Curation
 
-Run `speakers suggest` after dream processing completes, or when the user is engaging with transcripts or recordings. Surface suggestions conversationally based on type:
+Run `speakers suggest` after dream processing completes, or when the owner is engaging with transcripts or recordings. Surface suggestions conversationally based on type:
 
-- **Unknown recurring voice:** "I keep hearing a voice in your [day/context] recordings. They said things like '[sample text]'. Do you know who that is?" If the user names them, run `speakers identify <cluster_id> <name>`.
+- **Unknown recurring voice:** "I keep hearing a voice in your [day/context] recordings. They said things like '[sample text]'. Do you know who that is?" If the owner names them, run `speakers identify <cluster_id> <name>`.
 - **Name variant:** "I noticed 'Mitch' and 'Mitch Baumgartner' sound identical in your recordings. Should I merge them?" If yes, run `speakers merge-names <alias> <canonical>`.
 - **Low confidence review:** "There are a few speakers in this conversation I'm not sure about. Want to take a quick look?"
 
-**Don't stack suggestions.** Surface one at a time. Wait for the user to respond before presenting another. Speaker curation should feel like a natural aside, not a checklist.
+**Don't stack suggestions.** Surface one at a time. Wait for the owner to respond before presenting another. Speaker curation should feel like a natural aside, not a checklist.
 
 ## When NOT to Act
 
-- Don't proactively surface speaker ID during unrelated conversations. If the user is asking about their calendar or a todo, don't pivot to "by the way, I found a new voice."
+- Don't proactively surface speaker ID during unrelated conversations. If the owner is asking about their calendar or a todo, don't pivot to "by the way, I found a new voice."
 - Don't surface low-confidence suggestions. If a cluster has only a few embeddings, wait for it to grow.
 - Don't re-ask about a rejected owner candidate within the same week.

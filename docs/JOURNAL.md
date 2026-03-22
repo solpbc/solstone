@@ -77,17 +77,17 @@ solstone transforms raw recordings into actionable understanding through a three
 
 ### Config directory
 
-- `config/journal.json` – user configuration for the journal (optional, see [User configuration](#user-configuration)).
+- `config/journal.json` – owner configuration for the journal (optional, see [Owner configuration](#owner-configuration)).
 - `config/convey.json` – Convey UI preferences (facet/app ordering, selected facet).
 - `config/actions/` – journal-level action logs (see [Action Logs](#action-logs)).
 
-## User configuration
+## Owner configuration
 
-The optional `config/journal.json` file allows customization of journal processing and presentation based on user preferences. This file should be created at the journal root and contains personal settings that affect how the system processes and interprets journal data.
+The optional `config/journal.json` file allows customization of journal processing and presentation based on owner preferences. This file should be created at the journal root and contains personal settings that affect how the system processes and interprets journal data.
 
 ### Identity configuration
 
-The `identity` block contains information about the journal owner that helps tools correctly identify the user in transcripts, meetings, and other captured content:
+The `identity` block contains information about the journal owner that helps tools correctly identify the owner in transcripts, meetings, and other captured content:
 
 ```json
 {
@@ -109,17 +109,17 @@ The `identity` block contains information about the journal owner that helps too
 
 Fields:
 - `name` (string) – Full legal or formal name of the journal owner
-- `preferred` (string) – Preferred name or nickname to be used when addressing the user
+- `preferred` (string) – Preferred name or nickname to be used when addressing the owner
 - `pronouns` (object) – Structured pronoun set for template usage with fields:
   - `subject` – Subject pronoun (e.g., "he", "she", "they")
   - `object` – Object pronoun (e.g., "him", "her", "them")
   - `possessive` – Possessive adjective (e.g., "his", "her", "their")
   - `reflexive` – Reflexive pronoun (e.g., "himself", "herself", "themselves")
 - `aliases` (array of strings) – Alternative names, nicknames, or usernames that may appear in transcripts
-- `email_addresses` (array of strings) – Email addresses associated with the user for participant detection
+- `email_addresses` (array of strings) – Email addresses associated with the owner for participant detection
 - `timezone` (string) – IANA timezone identifier (e.g., "America/New_York", "Europe/London") for timestamp interpretation
 
-This configuration helps meeting extraction identify the user as a participant, enables personalized agent interactions, and ensures timestamps are interpreted correctly across the journal.
+This configuration helps meeting extraction identify the owner as a participant, enables personalized agent interactions, and ensures timestamps are interpreted correctly across the journal.
 
 ### Convey configuration
 
@@ -134,7 +134,7 @@ The `convey` block contains settings for the web application:
 ```
 
 Fields:
-- `password` (string) – Password for accessing the convey web application. When set, users must authenticate before accessing the journal interface.
+- `password` (string) – Password for accessing the convey web application. When set, owners must authenticate before accessing the journal interface.
 
 **UI Preferences:** The separate `config/convey.json` file stores UI/UX personalization (facet/app ordering, selected facet). All fields optional:
 
@@ -469,7 +469,7 @@ Journal entities represent the canonical identity record:
 **Standard fields:**
 - `id` (string) – Stable slug identifier derived from name via `entity_slug()` in `think/entities/` (lowercase, underscores, e.g., "Alice Johnson" → "alice_johnson"). Used for folder paths, URLs, and tool references.
 - `name` (string) – Display name for the entity.
-- `type` (string) – Entity type (e.g., "Person", "Company", "Project", "Tool"). Types are flexible and user-defined; must be alphanumeric with spaces, minimum 3 characters.
+- `type` (string) – Entity type (e.g., "Person", "Company", "Project", "Tool"). Types are flexible and owner-defined; must be alphanumeric with spaces, minimum 3 characters.
 - `aka` (array of strings) – Alternative names, nicknames, or acronyms. Used in audio transcription and fuzzy matching.
 - `is_principal` (boolean) – When `true`, identifies this entity as the journal owner. Auto-flagged when name/aka matches identity config.
 - `blocked` (boolean) – When `true`, entity is hidden from all facets and excluded from agent context.
@@ -511,7 +511,7 @@ Daily detection files (`facets/<facet>/entities/YYYYMMDD.jsonl`) contain entitie
 
 1. **Detection**: Daily agents scan journal content and record entities in `facets/<facet>/entities/YYYYMMDD.jsonl`
 2. **Aggregation**: Review agent tracks detection frequency across recent days
-3. **Promotion**: Entities with 3+ detections are auto-promoted to attached, or users manually promote via UI
+3. **Promotion**: Entities with 3+ detections are auto-promoted to attached, or owners manually promote via UI
 4. **Persistence**: Creates journal entity + facet relationship; remains active until detached
 5. **Detachment**: Sets `detached: true` on facet relationship, preserving all data
 6. **Re-attachment**: Clears detached flag, restoring the entity with preserved history
@@ -617,7 +617,7 @@ Activity records are created by the `activities` segment agent when it detects t
 5. An LLM synthesizes all per-segment descriptions into a unified narrative
 6. The record description is updated with the synthesized version
 
-**Segment flush:** If no new segments arrive for an extended period (1 hour), the supervisor triggers `sol dream --flush` on the last segment. Agents that declare `hook.flush: true` (like `activities`) run with `flush=True` in their context, treating all remaining active activities as ended. This ensures activities are recorded promptly even when the user stops working, and prevents cross-day data loss.
+**Segment flush:** If no new segments arrive for an extended period (1 hour), the supervisor triggers `sol dream --flush` on the last segment. Agents that declare `hook.flush: true` (like `activities`) run with `flush=True` in their context, treating all remaining active activities as ended. This ensures activities are recorded promptly even when the owner stops working, and prevents cross-day data loss.
 
 Records are written idempotently — duplicate IDs are skipped on re-runs.
 
@@ -691,7 +691,7 @@ This facet-scoped structure provides true separation of concerns while enabling 
 
 ## Action Logs
 
-Action logs record an audit trail of user-initiated actions and agent tool calls. There are two types:
+Action logs record an audit trail of owner-initiated actions and agent tool calls. There are two types:
 
 - **Journal-level logs** (`config/actions/`) – actions not tied to a specific facet (settings changes, remote observer management)
 - **Facet-scoped logs** (`facets/{facet}/logs/`) – actions within a specific facet (todos, entities)
@@ -857,7 +857,7 @@ The `imports/` directory stores audio files imported via the import app, along w
 
 ```
 imports/
-  └── YYYYMMDD_HHMMSS/           # Import directory (detected or user-specified timestamp)
+  └── YYYYMMDD_HHMMSS/           # Import directory (detected or owner-specified timestamp)
       ├── import.json            # Import metadata and processing status
       ├── {original_filename}    # Original uploaded audio file
       ├── imported.json          # Processed transcript in standard format

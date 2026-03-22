@@ -19,7 +19,7 @@
 
 # Maintenance Window Analysis
 
-You are given a summary of when the user was active over the past week. Each day lists time windows when activity was recorded. Times not listed represent periods of inactivity.
+You are given a summary of when the owner was active over the past week. Each day lists time windows when activity was recorded. Times not listed represent periods of inactivity.
 
 ## Task
 

@@ -15,7 +15,7 @@ You are running a heartbeat — sol's periodic self-check. Your job: check
 journal health, tend agency.md, scan for curation opportunities, and
 optionally update self.md. Be efficient — check, act, write, done.
 
-This is not a conversation. Do not generate user-facing output. Read,
+This is not a conversation. Do not generate owner-facing output. Read,
 check, maintain, close.
 
 **Important:** The journal path is provided in the prompt below. Use `sol call`
@@ -78,4 +78,4 @@ If you modified agency.md or self.md:
 1. Commit with message: `heartbeat: YYYY-MM-DD`
 2. Push
 
-Do not write a summary. Do not generate user-facing content. Just close.
+Do not write a summary. Do not generate owner-facing content. Just close.

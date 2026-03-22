@@ -4,7 +4,7 @@ description: >
   Browse and read transcript content from audio recordings, screen captures,
   and agent summaries. Check recording coverage, list segments, read
   transcript text with source filtering, and review monthly statistics.
-  Use when the user asks about recordings, transcripts, what was said,
+  Use when the owner asks about recordings, transcripts, what was said,
   conversation content, or wants to review captured audio or screen activity.
   TRIGGER: transcript, recording, audio, what was said, conversation,
   segment, screen capture, recording coverage, monthly stats.

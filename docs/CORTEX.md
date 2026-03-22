@@ -189,7 +189,7 @@ Emitted when the agent run completes successfully.
   "event": "finish",
   "ts": 1234567890123,
   "agent_id": "1234567890123",
-  "result": "Final response text to the user"
+  "result": "Final response text to the owner"
 }
 ```
 

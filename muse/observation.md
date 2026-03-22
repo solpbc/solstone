@@ -15,7 +15,7 @@
   }
 }
 
-You are analyzing a captured segment of someone's computer activity to learn about their work patterns. This is part of an onboarding observation — the user has asked the system to watch how they work for a day and then suggest how to organize their journal.
+You are analyzing a captured segment of someone's computer activity to learn about their work patterns. This is part of an onboarding observation — the owner has asked the system to watch how they work for a day and then suggest how to organize their journal.
 
 ## Input
 
@@ -26,10 +26,10 @@ You receive a transcript combining audio (microphone/system audio, with speaker 
 Extract structured observations about what happened in this segment. Focus on:
 
 1. **Meetings** — conversations with 2+ speakers. Note participant count, any names mentioned, and the topic/context.
-2. **Apps** — what applications or tools the user is actively using.
+2. **Apps** — what applications or tools the owner is actively using.
 3. **Entities** — specific people, companies, projects, or tools mentioned by name.
 4. **Topics** — what subjects or themes are present in the activity.
-5. **Summary** — a brief 1-line description of what the user was doing.
+5. **Summary** — a brief 1-line description of what the owner was doing.
 
 ## Output Format
 

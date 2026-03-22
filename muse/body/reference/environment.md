@@ -12,7 +12,7 @@ Store API keys in `.env` file, never commit to repository.
 
 - Raise specific exceptions with clear messages
 - Use logging module, not print statements
-- Validate all external inputs (paths, user data)
+- Validate all external inputs (paths, owner data)
 - Fail fast with clear errors - avoid silent failures
 
 ## Documentation

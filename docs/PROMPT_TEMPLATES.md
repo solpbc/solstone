@@ -1,6 +1,6 @@
 # Prompt Template System
 
-This document describes solstone's template variable system for personalizing prompts used in generators and agents. Templates enable dynamic substitution of user identity, contextual information, and reusable prompt fragments.
+This document describes solstone's template variable system for personalizing prompts used in generators and agents. Templates enable dynamic substitution of owner identity, contextual information, and reusable prompt fragments.
 
 ## Overview
 

@@ -3,7 +3,7 @@ name: calendar
 description: >
   Manage calendar events organized by facet and day. List, create, update,
   cancel, and move events including scheduling with participants and times.
-  Use when the user mentions calendar events, scheduling, appointments,
+  Use when the owner mentions calendar events, scheduling, appointments,
   meetings, or wants to create, reschedule, or cancel events.
   TRIGGER: calendar, schedule, appointment, meeting, event, reschedule.
 ---
@@ -116,12 +116,12 @@ Move a non-cancelled calendar event to another facet.
 - `--day`: day in `YYYYMMDD` (required).
 - `--from`: source facet name.
 - `--to`: destination facet name.
-- `--consent`: required when called by a proactive agent. Must have explicit user approval before calling with this flag.
+- `--consent`: required when called by a proactive agent. Must have explicit owner approval before calling with this flag.
 
 Behavior notes:
 
 - Only non-cancelled events can be moved.
-- The `--consent` flag signals that the user has explicitly approved this action. Proactive agents must obtain user approval before including it.
+- The `--consent` flag signals that the owner has explicitly approved this action. Proactive agents must obtain owner approval before including it.
 
 Example:
 

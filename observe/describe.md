@@ -14,7 +14,7 @@ You have one job: identify the primary foreground and (if present) secondary app
 }
 
 Rules:
-- For visual_description summarize the **overall desktop view** in **1–2 sentences** for a visually impaired user, focus on layout, window arrangement, and types of content.
+- For visual_description summarize the **overall desktop view** in **1–2 sentences** for a visually impaired person, focus on layout, window arrangement, and types of content.
 - For the most visible primary foreground app choose the best category from the list below.
 - Set "secondary" to "none" and "overlap" to true if the primary effectively fills the screen or no distinct second category/window is visible.
 - Set overlap to true if the primary app overlaps, covers, clips, or obscures the secondary in any way.
