@@ -1,8 +1,8 @@
 {
   "api_keys": {
-    "anthropic": true,
-    "google": true,
-    "openai": true
+    "anthropic": false,
+    "google": false,
+    "openai": false
   },
   "auth": {
     "anthropic": "platform",
@@ -95,6 +95,13 @@
       "label": "Anticipation Extraction",
       "tier": 2,
       "type": null
+    },
+    "muse.system.coder": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Coder",
+      "tier": 2,
+      "type": "cogitate"
     },
     "muse.system.daily_news": {
       "disabled": false,

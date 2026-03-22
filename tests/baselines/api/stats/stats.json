@@ -904,6 +904,30 @@
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
+      "20260320": {
+        "day_bytes": 350,
+        "outputs_pending": 11,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
+      },
+      "20260321": {
+        "day_bytes": 660,
+        "outputs_pending": 11,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
+      },
+      "20260322": {
+        "day_bytes": 746,
+        "outputs_pending": 11,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
+      },
       "20990101": {
         "audio_duration": 0.0,
         "day_bytes": 0,
@@ -1900,8 +1924,8 @@
       "audio_duration": 968.0,
       "audio_segments": 68,
       "audio_sessions": 16,
-      "day_bytes": 547581,
-      "outputs_pending": 476,
+      "day_bytes": 549337,
+      "outputs_pending": 509,
       "outputs_processed": 14,
       "pending_segments": 0,
       "percept_frames": 0,
