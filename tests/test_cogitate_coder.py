@@ -262,15 +262,23 @@ class TestCoderAgent:
         assert post.metadata.get("title") == "Coder"
         assert "description" in post.metadata
 
-    def test_coder_has_developer_instructions(self):
-        """coder.md body must contain development guidelines."""
+    def test_coder_references_coding_skill(self):
+        """coder.md must reference the coding skill instead of inlining guidelines."""
         from pathlib import Path
 
         coder_path = Path(__file__).parent.parent / "muse" / "coder.md"
         content = coder_path.read_text(encoding="utf-8")
 
-        # Should contain key sections from body skill content
-        assert "Development Guidelines" in content
-        assert "make test" in content
-        assert "Coding Standards" in content
-        assert "Project Structure" in content
+        # Should reference the coding skill, not inline dev guidelines
+        assert "coding" in content.lower()
+        assert "single source of truth" in content
+
+        # The coding skill must exist with reference files
+        coding_skill = Path(__file__).parent.parent / "muse" / "coding" / "SKILL.md"
+        assert coding_skill.exists(), "muse/coding/SKILL.md not found"
+
+        coding_refs = Path(__file__).parent.parent / "muse" / "coding" / "reference"
+        assert (coding_refs / "coding-standards.md").exists()
+        assert (coding_refs / "project-structure.md").exists()
+        assert (coding_refs / "testing.md").exists()
+        assert (coding_refs / "environment.md").exists()

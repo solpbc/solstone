@@ -1,12 +1,12 @@
 ---
-name: body
+name: coding
 description: >
-  Development guidelines, project structure, coding standards, testing, and
-  environment for solstone. Use when contributing code, reviewing PRs,
-  setting up a development environment, or asking about project conventions,
-  architecture, or the CLI command structure.
-  TRIGGER: code contribution, development setup, coding standards, project
-  structure, architecture, testing, make commands, PR review.
+  Solstone development guidelines, project structure, coding standards,
+  testing, and environment. The single source of truth for anyone writing
+  code on solstone — Claude Code sessions, hopper lodes, and coder
+  sub-agents. Use when writing, reviewing, or testing solstone code.
+  TRIGGER: code contribution, coding standards, project structure,
+  testing, make commands, development setup, PR review.
 ---
 
 # Development Guidelines
