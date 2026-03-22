@@ -597,8 +597,7 @@ async def run_cogitate(
             prompt_body = system_instruction + "\n\n" + prompt_body
 
         # Build CLI command — yolo mode auto-approves all tool calls
-        # (required for headless subprocess use). Allowed shell commands
-        # are constrained by --allowed-tools prefix matching.
+        # (required for headless subprocess use).
         cmd = [
             "gemini",
             "-p",

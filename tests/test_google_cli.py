@@ -13,7 +13,22 @@ from think.providers.shared import JSONEventCallback
 
 
 def _google_provider():
-    return importlib.import_module("think.providers.google")
+    return importlib.reload(importlib.import_module("think.providers.google"))
+
+
+def _assert_write_mode_removes_allowed_tools(make_runner):
+    provider = _google_provider()
+    MockCLIRunner = make_runner()
+    with patch("think.providers.google.CLIRunner", MockCLIRunner):
+        asyncio.run(
+            provider.run_cogitate(
+                {"prompt": "hello", "model": "gemini-2.5-flash", "write": True},
+                lambda e: None,
+            )
+        )
+    cmd = MockCLIRunner.last_instance.cmd
+    assert "--yolo" in cmd
+    assert "--allowed-tools" not in cmd
 
 
 class TestTranslateGemini:
@@ -326,3 +341,6 @@ class TestRunCogitateCommand:
         cmd = MockCLIRunner.last_instance.cmd
         assert "--yolo" in cmd
         assert cmd[cmd.index("--allowed-tools") + 1] == "run_shell_command(sol call)"
+
+    def test_write_mode_removes_allowed_tools(self):
+        _assert_write_mode_removes_allowed_tools(self._mock_runner)

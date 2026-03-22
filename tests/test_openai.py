@@ -12,7 +12,35 @@ from think.providers.shared import JSONEventCallback
 
 
 def _openai_provider():
-    return importlib.import_module("think.providers.openai")
+    return importlib.reload(importlib.import_module("think.providers.openai"))
+
+
+def _assert_write_mode_sandbox():
+    provider = _openai_provider()
+
+    class MockCLIRunner:
+        last_instance = None
+
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+            self.cmd = kwargs["cmd"]
+            self.prompt_text = kwargs["prompt_text"]
+            self.cli_session_id = "test-session-id"
+            self.run = AsyncMock(return_value="test result")
+            MockCLIRunner.last_instance = self
+
+    with patch("think.providers.openai.CLIRunner", MockCLIRunner):
+        asyncio.run(
+            provider.run_cogitate(
+                {"prompt": "hello", "model": GPT_5, "write": True},
+                lambda e: None,
+            )
+        )
+
+    cmd = MockCLIRunner.last_instance.cmd
+    assert "-s" in cmd
+    s_idx = cmd.index("-s")
+    assert cmd[s_idx + 1] == "write"
 
 
 def _make_test_harness():
@@ -284,6 +312,9 @@ class TestRunCogitate:
                 == f'model_reasoning_effort="{expected_effort}"'
             )
         assert MockCLIRunner.last_instance.cmd[-1] == "-"
+
+    def test_write_mode_sandbox(self):
+        _assert_write_mode_sandbox()
 
     def test_resume_command(self):
         provider = _openai_provider()

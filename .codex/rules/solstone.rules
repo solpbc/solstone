@@ -5,7 +5,7 @@
 prefix_rule(
     pattern=["sol", "call"],
     decision="allow",
-    justification="sol call invokes read-only journal query commands",
+    justification="sol call invokes journal query and agent handoff commands",
     match=["sol call todos list", "sol call entities list"],
     not_match=["sol restart-convey"],
 )

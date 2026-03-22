@@ -180,6 +180,7 @@ async def run_cogitate(
     sandbox = "write" if config.get("write") else "read-only"
 
     session_id = config.get("session_id")
+    sandbox = "write" if config.get("write") else "read-only"
     if session_id:
         cmd = [
             "codex",

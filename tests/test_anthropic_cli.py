@@ -17,7 +17,25 @@ from think.providers.shared import JSONEventCallback
 
 
 def _anthropic_provider():
-    return importlib.import_module("think.providers.anthropic")
+    return importlib.reload(importlib.import_module("think.providers.anthropic"))
+
+
+def _assert_write_mode_bypasses_restrictions(make_runner):
+    provider = _anthropic_provider()
+    MockCLIRunner = make_runner()
+    with (
+        patch("think.providers.anthropic.CLIRunner", MockCLIRunner),
+        patch("think.providers.anthropic.check_cli_binary"),
+    ):
+        asyncio.run(
+            provider.run_cogitate(
+                {"prompt": "hello", "model": "claude-sonnet-4", "write": True},
+                lambda e: None,
+            )
+        )
+    cmd = MockCLIRunner.last_instance.cmd
+    assert cmd[cmd.index("--permission-mode") + 1] == "bypassPermissions"
+    assert "--allowedTools" not in cmd
 
 
 @pytest.fixture
@@ -391,3 +409,6 @@ class TestRunCogitateCommand:
         cmd = MockCLIRunner.last_instance.cmd
         assert cmd[cmd.index("--permission-mode") + 1] == "plan"
         assert cmd[cmd.index("--allowedTools") + 1] == "Bash(sol call *)"
+
+    def test_write_mode_bypasses_restrictions(self):
+        _assert_write_mode_bypasses_restrictions(self._mock_runner)
