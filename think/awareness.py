@@ -106,7 +106,7 @@ def _build_self_md(config: dict) -> str:
 ## my name
 {name_section}
 
-## my owner
+## who I'm here for
 {owner_section}
 
 ## our relationship

@@ -151,7 +151,7 @@ def set_owner(
     owner_content = name
     if bio:
         owner_content += f"\n{bio}"
-    update_self_md_section("my owner", owner_content)
+    update_self_md_section("who I'm here for", owner_content)
 
     typer.echo(json.dumps({"name": name, "bio": bio or ""}, indent=2))
     project_root = Path(__file__).resolve().parent.parent.parent

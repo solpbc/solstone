@@ -36,7 +36,7 @@ I am sol. this is a new journal — we're just getting started.
 ## my name
 sol (default)
 
-## my owner
+## who I'm here for
 Test User
 
 ## our relationship
@@ -112,11 +112,11 @@ class TestSolSelfUpdateSection:
     def test_update_section_owner(self, journal_with_sol):
         result = runner.invoke(
             app,
-            ["self", "--update-section", "my owner"],
+            ["self", "--update-section", "who I'm here for"],
             input="Jer — goes by Jer, not Jeremie",
         )
         assert result.exit_code == 0
-        assert "Updated ## my owner" in result.output
+        assert "Updated ## who I'm here for" in result.output
 
         # Verify section was updated, other sections preserved
         self_path = journal_with_sol / "sol" / "self.md"
@@ -138,7 +138,7 @@ class TestSolSelfUpdateSection:
     def test_update_section_empty_stdin(self, journal_with_sol):
         result = runner.invoke(
             app,
-            ["self", "--update-section", "my owner"],
+            ["self", "--update-section", "who I'm here for"],
             input="",
         )
         assert result.exit_code == 1

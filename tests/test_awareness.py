@@ -857,7 +857,7 @@ class TestUpdateSelfMd:
             "## my name\n"
             "sol (default)\n"
             "\n"
-            "## my owner\n"
+            "## who I'm here for\n"
             "[getting to know you]\n"
             "\n"
             "## our relationship\n"
@@ -882,7 +882,7 @@ class TestUpdateSelfMd:
         assert "aria (named 2026-03-19)" in content
         assert "sol (default)" not in content
         # Other sections preserved
-        assert "## my owner" in content
+        assert "## who I'm here for" in content
         assert "[getting to know you]" in content
         assert "## our relationship" in content
 
@@ -890,7 +890,7 @@ class TestUpdateSelfMd:
         self_md = self._setup_self_md(tmp_path)
         from think.awareness import update_self_md_section
 
-        result = update_self_md_section("my owner", "Jer\nSoftware engineer")
+        result = update_self_md_section("who I'm here for", "Jer\nSoftware engineer")
         assert result is True
         content = self_md.read_text()
         assert "Jer\nSoftware engineer" in content
@@ -973,7 +973,7 @@ class TestSetOwnerCLI:
         sol_dir = tmp_path / "sol"
         sol_dir.mkdir()
         (sol_dir / "self.md").write_text(
-            "# self\n\nI am sol.\n\n## my name\nsol\n\n## my owner\n[getting to know you]\n",
+            "# self\n\nI am sol.\n\n## my name\nsol\n\n## who I'm here for\n[getting to know you]\n",
             encoding="utf-8",
         )
 
@@ -1005,7 +1005,7 @@ class TestSetOwnerCLI:
         sol_dir = tmp_path / "sol"
         sol_dir.mkdir()
         (sol_dir / "self.md").write_text(
-            "# self\n\nI am sol.\n\n## my name\nsol\n\n## my owner\n[getting to know you]\n",
+            "# self\n\nI am sol.\n\n## my name\nsol\n\n## who I'm here for\n[getting to know you]\n",
             encoding="utf-8",
         )
 
@@ -1040,7 +1040,7 @@ class TestSetNameUpdatesSelfMd:
         sol_dir.mkdir()
         (sol_dir / "self.md").write_text(
             "# self\n\nI am sol. this is a new journal — we're just getting started.\n\n"
-            "## my name\nsol (default)\n\n## my owner\n[getting to know you]\n",
+            "## my name\nsol (default)\n\n## who I'm here for\n[getting to know you]\n",
             encoding="utf-8",
         )
 

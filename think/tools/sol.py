@@ -31,7 +31,7 @@ def self_cmd(
     update_section: str | None = typer.Option(
         None,
         "--update-section",
-        help="Update a specific ## section of self.md from stdin (e.g. 'my owner').",
+        help="Update a specific ## section of self.md from stdin (e.g. 'who I'm here for').",
     ),
 ) -> None:
     """Read or write sol/self.md."""
