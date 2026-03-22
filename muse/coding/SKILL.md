@@ -4,9 +4,13 @@ description: >
   Solstone development guidelines, project structure, coding standards,
   testing, and environment. The single source of truth for anyone writing
   code on solstone — Claude Code sessions, hopper lodes, and coder
-  sub-agents. Use when writing, reviewing, or testing solstone code.
-  TRIGGER: code contribution, coding standards, project structure,
-  testing, make commands, development setup, PR review.
+  sub-agents. Load this skill BEFORE writing, reviewing, exploring, or
+  reasoning about any solstone code. TRIGGER: writing code, reading code,
+  reviewing code, exploring code, understanding how something works,
+  project structure, directory layout, journal layout, segments, streams,
+  pipelines, observe, think, convey, apps, scratch scripts, coding
+  standards, testing, make commands, development setup, PR review, how
+  does X work, where is X, what calls X, tracing code paths.
 ---
 
 # Development Guidelines
