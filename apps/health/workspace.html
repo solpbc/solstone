@@ -1541,6 +1541,49 @@
     renderLogs();
   });
 
+  // Deep-link: display log file content if ?log= param is present
+  const deepLinkLog = new URLSearchParams(window.location.search).get('log');
+  if (deepLinkLog) {
+    const viewport = elements.logsViewport;
+    const logsCard = viewport.closest('.logs-card');
+    const logsTitle = logsCard.querySelector('.logs-title');
+    const logsControls = logsCard.querySelector('.logs-controls');
+
+    // Replace header with log file context
+    logsTitle.textContent = 'LOG FILE';
+    logsControls.innerHTML = '<button id="logBackBtn">← Back to Dashboard</button>';
+    viewport.innerHTML = '<div class="logs-line log">Loading...</div>';
+
+    fetch('/app/health/api/log?path=' + encodeURIComponent(deepLinkLog))
+      .then(r => r.json().then(data => ({ok: r.ok, data})))
+      .then(({ok, data}) => {
+        if (!ok) {
+          viewport.innerHTML = '<div class="logs-line stderr">' +
+            (data.error || 'Failed to load log file').replace(/&/g, '&amp;').replace(/</g, '&lt;') +
+            '</div>';
+          return;
+        }
+        const escaped = data.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const pathHeader = '<div class="logs-service-header">── ' +
+          data.path.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+          ' ──</div>';
+        viewport.innerHTML = pathHeader + '<div class="logs-line">' +
+          escaped.replace(/\n/g, '</div><div class="logs-line">') + '</div>';
+      })
+      .catch(() => {
+        viewport.innerHTML = '<div class="logs-line stderr">Network error loading log file</div>';
+      });
+
+    document.addEventListener('click', function(e) {
+      if (e.target && e.target.id === 'logBackBtn') {
+        window.location.href = '/app/health';
+      }
+    });
+
+    // Scroll logs card into view
+    logsCard.scrollIntoView({behavior: 'smooth'});
+  }
+
   // Listen to all Callosum events
   window.appEvents.listen('*', handleEvent);
 })();
