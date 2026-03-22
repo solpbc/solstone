@@ -1294,6 +1294,7 @@
   }
 
   function renderLogs() {
+    if (state.deepLinkMode) return;
     const serviceFilter = elements.logServiceFilter.value;
     const streamFilter = elements.logStreamFilter.value;
     const viewport = elements.logsViewport;
@@ -1548,6 +1549,11 @@
     const logsCard = viewport.closest('.logs-card');
     const logsTitle = logsCard.querySelector('.logs-title');
     const logsControls = logsCard.querySelector('.logs-controls');
+
+    // Hide dashboard cards and suppress live log rendering
+    const dashboard = document.querySelector('.health-dashboard');
+    dashboard.querySelectorAll('.vitals-bar, .observe-card, .remotes-card, .activity-grids, .dream-card, .sync-card').forEach(el => el.style.display = 'none');
+    state.deepLinkMode = true;
 
     // Replace header with log file context
     logsTitle.textContent = 'LOG FILE';
