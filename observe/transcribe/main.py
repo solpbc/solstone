@@ -504,11 +504,20 @@ def process_audio(
 
         # Sanity check: if VAD detected speech but we got no statements, something is wrong
         if vad_result.has_speech and not statements:
-            raise RuntimeError(
-                f"VAD detected {vad_result.speech_duration:.1f}s of speech "
-                f"(from {vad_result.duration:.1f}s total) but transcription produced "
-                f"0 statements. This indicates a transcription failure, not silence."
-            )
+            if vad_result.speech_duration < 5.0:
+                # Marginal speech detection — treat as silence rather than failure.
+                # VAD occasionally flags brief noise as speech; if the STT backend
+                # can't produce anything from it, that's expected, not an error.
+                logging.info(
+                    f"VAD detected {vad_result.speech_duration:.1f}s of marginal speech "
+                    f"but transcription produced 0 statements — treating as silence"
+                )
+            else:
+                raise RuntimeError(
+                    f"VAD detected {vad_result.speech_duration:.1f}s of speech "
+                    f"(from {vad_result.duration:.1f}s total) but transcription produced "
+                    f"0 statements. This indicates a transcription failure, not silence."
+                )
 
         # Load config for preserve_all setting
         config = get_config()
