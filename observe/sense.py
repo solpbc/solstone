@@ -415,7 +415,7 @@ class FileSensor:
                         title=f"{handler_proc.handler_name.capitalize()} Error",
                         icon=icon,
                         app="sense",
-                        action=f"/health/logs?path={log_rel}",
+                        action=f"/app/health?log={log_rel}",
                     )
 
                 # Mark file as done so segment can still complete
