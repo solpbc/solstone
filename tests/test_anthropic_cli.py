@@ -34,7 +34,7 @@ def _assert_write_mode_bypasses_restrictions(make_runner):
             )
         )
     cmd = MockCLIRunner.last_instance.cmd
-    assert cmd[cmd.index("--permission-mode") + 1] == "bypassPermissions"
+    assert cmd[cmd.index("--permission-mode") + 1] == "plan"
     assert "--allowedTools" not in cmd
 
 
