@@ -329,7 +329,7 @@ class TestRunCogitateCommand:
 
         return MockCLIRunner
 
-    def test_yolo_mode_with_sol_call_allowed(self):
+    def test_yolo_mode_with_sol_allowed(self):
         provider = _google_provider()
         MockCLIRunner = self._mock_runner()
         with patch("think.providers.google.CLIRunner", MockCLIRunner):
@@ -340,7 +340,7 @@ class TestRunCogitateCommand:
             )
         cmd = MockCLIRunner.last_instance.cmd
         assert "--yolo" in cmd
-        assert cmd[cmd.index("--allowed-tools") + 1] == "run_shell_command(sol call)"
+        assert cmd[cmd.index("--allowed-tools") + 1] == "run_shell_command(sol)"
 
     def test_write_mode_removes_allowed_tools(self):
         _assert_write_mode_removes_allowed_tools(self._mock_runner)

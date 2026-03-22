@@ -1,11 +1,12 @@
 ---
 name: support
 description: >
-  File support tickets, search the knowledge base, and give feedback via
-  the sol support CLI. Use this skill when the user needs help with solstone,
-  wants to report a bug, request a feature, or submit feedback to sol pbc.
-  TRIGGER: support tickets, bug reports, feature requests, feedback, help
-  requests, knowledge base search, system diagnostics.
+  File support tickets, search the knowledge base, and submit feedback to
+  sol pbc. Manage open tickets, attach files, check announcements, and run
+  local diagnostics. Use when the user needs help with solstone, wants to
+  report a bug, request a feature, check for known issues, or give feedback.
+  TRIGGER: support, bug report, feature request, feedback, help, knowledge
+  base, file a ticket, known issues, announcements, diagnostics.
 ---
 
 # sol support

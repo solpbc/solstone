@@ -174,7 +174,7 @@ async def run_cogitate(
     else:
         prompt_text = prompt_body
 
-    # Build command — sandbox is read-only; "sol call" commands bypass
+    # Build command — sandbox is read-only; "sol" commands bypass
     # the sandbox via exec-policy rules in .codex/rules/solstone.rules
     # Write-enabled agents get full sandbox access
     sandbox = "write" if config.get("write") else "read-only"

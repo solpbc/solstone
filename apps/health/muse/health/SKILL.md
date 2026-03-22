@@ -1,6 +1,14 @@
 ---
 name: health
-description: Diagnoses service health and inspects agent runs using sol health and sol muse logs commands. Provides a journal layout reference for navigating logs, agent outputs, and data files at the journal, day, and segment levels.
+description: >
+  Diagnose solstone service health, inspect agent run logs, and check system
+  status. View service uptimes, crashes, queue depths, recent errors, and
+  agent run costs. Includes a journal layout reference for navigating data
+  files. Use when the user reports issues, asks about service health, agent
+  costs, pipeline status, or when troubleshooting capture gaps and processing
+  failures.
+  TRIGGER: health, status, is it running, something broke, service down,
+  errors, agent runs, costs, logs, pipeline, diagnostics, system check.
 ---
 
 # Health CLI Skill
@@ -156,3 +164,22 @@ Which services write where:
 | Cortex | Agent JSONL in `agents/<name>/`, outputs in segment/day dirs |
 | Indexer | `indexer/journal.sqlite` |
 | Supervisor | `health/supervisor.log`, service logs in `YYYYMMDD/health/` |
+
+## Troubleshooting
+
+### `sol health` returns "Connection refused" or times out
+The supervisor is not running. Check if `sol supervisor` is active. The user may need to start solstone with `sol start` or `make dev`.
+
+### Agent run shows "error" status in `sol muse logs`
+Run `sol muse log <ID> --full` to see the complete event timeline including the error. Common causes:
+- API key issues (rate limits, expired keys)
+- Prompt too large (context overflow)
+- Network connectivity
+
+### Missing segments or capture gaps
+1. Run `sol health` to check observer service status
+2. Run `sol health logs --service sense --since 2h` to check for transcription errors
+3. Check if the stream is active: `sol streams`
+
+### High agent costs
+Run `sol muse logs --summary` for aggregated cost view. Filter by agent: `sol muse logs <agent-name> --summary`.

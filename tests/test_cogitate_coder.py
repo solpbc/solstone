@@ -32,7 +32,7 @@ class TestAnthropicWriteFlag:
     @patch("think.providers.anthropic.check_cli_binary")
     @patch("think.providers.anthropic.CLIRunner")
     def test_no_write_restricts_tools(self, mock_runner_cls, mock_check):
-        """Without write flag, --allowedTools restricts to sol call."""
+        """Without write flag, --allowedTools restricts to sol."""
         provider = self._provider()
         mock_instance = AsyncMock()
         mock_instance.run = AsyncMock(return_value="result")
@@ -44,7 +44,7 @@ class TestAnthropicWriteFlag:
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         assert "--allowedTools" in cmd
-        assert "Bash(sol call *)" in cmd
+        assert "Bash(sol *)" in cmd
 
     @patch("think.providers.anthropic.check_cli_binary")
     @patch("think.providers.anthropic.CLIRunner")
@@ -159,7 +159,7 @@ class TestGoogleWriteFlag:
 
     @patch("think.providers.google.CLIRunner")
     def test_no_write_restricts_tools(self, mock_runner_cls):
-        """Without write flag, --allowed-tools restricts to sol call."""
+        """Without write flag, --allowed-tools restricts to sol."""
         provider = self._provider()
         mock_instance = AsyncMock()
         mock_instance.run = AsyncMock(return_value="result")
@@ -171,7 +171,7 @@ class TestGoogleWriteFlag:
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         assert "--allowed-tools" in cmd
-        assert "run_shell_command(sol call)" in cmd
+        assert "run_shell_command(sol)" in cmd
 
     @patch("think.providers.google.CLIRunner")
     def test_write_true_grants_full_access(self, mock_runner_cls):

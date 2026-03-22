@@ -254,7 +254,7 @@ async def run_cogitate(
 
         # Restrict tool access unless write mode is enabled
         if not config.get("write"):
-            cmd.extend(["--allowedTools", "Bash(sol call *)"])
+            cmd.extend(["--allowedTools", "Bash(sol *)"])
 
         if system_instruction:
             cmd.extend(["--system-prompt", system_instruction])

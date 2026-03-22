@@ -23,16 +23,16 @@ commands for all journal access — never search the filesystem or guess paths.
 
 ## Step 1: Check system health
 
-Run `sol call health status` and check recent health logs. Note any service
-issues, capture gaps, or pipeline failures.
+Run `sol health` and check recent health logs with `sol health logs --since 1h`.
+Note any service issues, capture gaps, or pipeline failures.
 
 If you find issues: update agency.md's `## system` section via
 `echo '...' | sol call sol agency --write`.
 
 ## Step 2: Check journal quality
 
-Run `sol call health journal-layout` and `sol call health agent-runs` for
-the last 3 days. Look for:
+Run `sol muse logs --daily -c 10` to review recent agent runs and
+`sol muse logs --errors -c 10` for recent errors. Look for:
 - Broken segments (transcription failures, missing agent output)
 - Processing gaps (capture with no dream processing)
 - Orphaned entities (zero observations after 7+ days)

@@ -1,6 +1,13 @@
 ---
 name: entities
-description: Manage tracked entities with sol call entities commands. List, detect, attach, update, alias, and record observations for people, companies, projects, and tools. Track relationships and knowledge within a facet.
+description: >
+  Manage tracked entities for people, companies, projects, and tools within
+  facets. Detect, attach, update, alias, search, and record observations.
+  Query relationship strength and get full intelligence briefings.
+  Use when the user asks about people, contacts, companies, or projects
+  tracked in the journal, or wants to add, update, or search entities.
+  TRIGGER: entity, person, company, project, relationship, observation,
+  who is, contact, knowledge graph, intelligence briefing.
 ---
 
 # Entities CLI Skill
@@ -201,4 +208,61 @@ Example:
 
 ```bash
 sol call entities observe "Alicia Chen" "Prefers design docs before implementation" -f work --source-day 20260115
+```
+
+## strength
+
+```bash
+sol call entities strength [FACET] [-n LIMIT]
+```
+
+Rank entities by relationship strength score within a facet.
+
+- `FACET`: facet name (default: `SOL_FACET` env).
+- `-n, --limit`: max results (default `10`).
+
+Use this to find the most significant relationships in a facet.
+
+Example:
+
+```bash
+sol call entities strength work -n 20
+```
+
+## search
+
+```bash
+sol call entities search [QUERY] [--type TYPE] [--facet FACET] [--active-days N]
+```
+
+Search entities by text, type, facet, or recent activity.
+
+- `QUERY`: optional text query.
+- `--type`: filter by entity type (e.g., `Person`, `Company`).
+- `--facet`: filter by facet.
+- `--active-days`: filter to entities active within N days.
+
+Examples:
+
+```bash
+sol call entities search "Chen"
+sol call entities search --type Person --facet work
+sol call entities search --active-days 7
+```
+
+## intelligence
+
+```bash
+sol call entities intelligence ENTITY [-f FACET]
+```
+
+Get a full intelligence briefing for an entity — relationship history, observations, activity timeline, and cross-facet presence.
+
+- `ENTITY`: entity id, name, or alias.
+- `-f, --facet`: facet name (default: `SOL_FACET` env).
+
+Example:
+
+```bash
+sol call entities intelligence "Alicia Chen" -f work
 ```

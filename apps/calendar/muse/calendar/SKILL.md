@@ -1,10 +1,11 @@
 ---
 name: calendar
 description: >
-  Manage calendar events with sol call calendar commands. List, create, update,
-  cancel, and move events organized by facet and day.
-  TRIGGER: calendar events, scheduling, appointments, meetings, event
-  management, moving events between facets.
+  Manage calendar events organized by facet and day. List, create, update,
+  cancel, and move events including scheduling with participants and times.
+  Use when the user mentions calendar events, scheduling, appointments,
+  meetings, or wants to create, reschedule, or cancel events.
+  TRIGGER: calendar, schedule, appointment, meeting, event, reschedule.
 ---
 
 # Calendar CLI Skill

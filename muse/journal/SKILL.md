@@ -1,6 +1,12 @@
 ---
 name: journal
-description: Search and browse journal content using sol call journal commands. Find, query, and look up information across transcripts, insights, events, entities, and todos. Get facet overviews and news feeds.
+description: >
+  Search and browse journal content across transcripts, insights, events,
+  entities, and todos. Manage facets, get overviews, and read news feeds.
+  Use when the user asks to search, find, or look up journal entries, asks
+  about a specific day or topic, wants to browse facets, read agent outputs,
+  or manage facet organization (create, rename, merge, delete).
+  TRIGGER: search, find, look up, browse, journal, facet, news feed, agent output.
 ---
 
 # Journal CLI Skill

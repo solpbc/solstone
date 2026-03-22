@@ -1,6 +1,12 @@
 ---
 name: body
-description: Development guidelines, project structure, coding standards, testing, and environment for solstone. TRIGGER when contributing code, reviewing PRs, setting up development environment, or asking about project conventions.
+description: >
+  Development guidelines, project structure, coding standards, testing, and
+  environment for solstone. Use when contributing code, reviewing PRs,
+  setting up a development environment, or asking about project conventions,
+  architecture, or the CLI command structure.
+  TRIGGER: code contribution, development setup, coding standards, project
+  structure, architecture, testing, make commands, PR review.
 ---
 
 # Development Guidelines
@@ -42,6 +48,27 @@ make test      # Run unit tests
 make ci        # Full CI check (format check + lint + test)
 make dev       # Start stack (Ctrl+C to stop)
 ```
+
+## Agent CLI Boundaries
+
+Cogitate agents have access to all `sol` commands. The following infrastructure
+commands must **never** be called by agents — they manage services and data
+pipelines that should only be operated by the supervisor or human operators:
+
+- `sol supervisor` / `sol start` — service lifecycle management
+- `sol dream` — full processing pipeline (only heartbeat uses `sol dream --segment` for targeted reprocessing)
+- `sol import` — data injection into journal
+- `sol config` — system configuration changes
+- `sol cortex` — agent process manager (meta-spawning)
+- `sol agents` — direct agent execution
+- `sol callosum` — message bus server
+- `sol observer` / `sol observe-*` — capture services
+- `sol sense` — capture event dispatcher
+- `sol transcribe` / `sol describe` — processing pipelines
+- `sol indexer --reset` — destructive index rebuild (read-only queries via `sol indexer` are fine)
+
+Agents should use `sol call` commands for journal interaction and `sol health` /
+`sol muse logs` for diagnostics.
 
 ## Reference
 

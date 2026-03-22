@@ -1,11 +1,12 @@
 ---
 name: speakers
 description: >
-  Manage the speaker identification subsystem with sol call speakers commands.
-  Check speaker status, detect the owner voice, identify unknown speakers, and
-  merge name variants. Curate the speaker library over time.
-  TRIGGER: speaker identification, voice recognition, owner detection, speaker
-  names, voice matching, unknown voices, speaker merge.
+  Manage the speaker identification subsystem. Check speaker status, detect
+  the owner voice, identify unknown speakers, merge name variants, and curate
+  the speaker library over time. Use when the user asks about voices in
+  recordings, wants to identify speakers, or manage voice recognition.
+  TRIGGER: speaker, voice, who was talking, identify speaker, owner voice,
+  unknown voice, merge speakers, voice recognition, speaker curation.
 ---
 
 # Speakers CLI Skill

@@ -1,6 +1,11 @@
 ---
 name: todos
-description: Manage todo checklists using sol call todos commands. List, add, complete, and cancel tasks and action items organized by facet and day. Review upcoming scheduled items.
+description: >
+  Manage todo checklists organized by facet and day. List, add, complete,
+  cancel, and move tasks and action items. Review upcoming scheduled items.
+  Use when the user mentions tasks, to-do items, action items, checklists,
+  or reminders, or asks to add, complete, cancel, or review todos.
+  TRIGGER: todo, task, action item, checklist, reminder, upcoming items.
 ---
 
 # Todos CLI Skill
@@ -125,4 +130,24 @@ Examples:
 ```bash
 sol call todos upcoming
 sol call todos upcoming -l 50 -f work
+```
+
+## move
+
+```bash
+sol call todos move LINE_NUMBER --day DAY --from SOURCE --to DEST [--consent]
+```
+
+Move an open todo from one facet to another.
+
+- `LINE_NUMBER`: 1-based line number from `list` output (positional argument).
+- `--day`: day in `YYYYMMDD` (required).
+- `--from`: source facet name.
+- `--to`: destination facet name.
+- `--consent`: required when called by a proactive agent.
+
+Example:
+
+```bash
+sol call todos move 3 --day 20260115 --from personal --to work --consent
 ```

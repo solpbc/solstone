@@ -1,6 +1,11 @@
 ---
 name: onboarding
-description: Set up a new journal — welcome choice, facet creation, and entity seeding.
+description: >
+  Guide first-time journal setup including welcome path choice, facet
+  creation, and entity seeding. Use when setting up a new journal, during
+  initial configuration, or when the user is new and needs orientation.
+  TRIGGER: new journal, first time, getting started, setup, onboarding,
+  initial configuration, create first facets.
 ---
 
 # Onboarding CLI Skill

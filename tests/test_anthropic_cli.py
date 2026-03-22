@@ -394,7 +394,7 @@ class TestRunCogitateCommand:
 
         return MockCLIRunner
 
-    def test_plan_mode_with_sol_call_allowed(self):
+    def test_plan_mode_with_sol_allowed(self):
         provider = _anthropic_provider()
         MockCLIRunner = self._mock_runner()
         with (
@@ -408,7 +408,7 @@ class TestRunCogitateCommand:
             )
         cmd = MockCLIRunner.last_instance.cmd
         assert cmd[cmd.index("--permission-mode") + 1] == "plan"
-        assert cmd[cmd.index("--allowedTools") + 1] == "Bash(sol call *)"
+        assert cmd[cmd.index("--allowedTools") + 1] == "Bash(sol *)"
 
     def test_write_mode_bypasses_restrictions(self):
         _assert_write_mode_bypasses_restrictions(self._mock_runner)
