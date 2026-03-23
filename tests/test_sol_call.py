@@ -179,6 +179,41 @@ class TestSolAgencyWrite:
         assert "no content" in result.output
 
 
+class TestSolPulseRead:
+    def test_read_pulse(self, journal_with_sol):
+        pulse_md = "---\nupdated: 2026-03-22T14:00:00\nsource: pulse-cogitate\n---\n\nTest narrative.\n"
+        (journal_with_sol / "sol" / "pulse.md").write_text(pulse_md)
+        result = runner.invoke(app, ["pulse"])
+        assert result.exit_code == 0
+        assert "Test narrative" in result.output
+
+    def test_read_pulse_missing(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "journal.json").write_text(json.dumps({}))
+        result = runner.invoke(app, ["pulse"])
+        assert result.exit_code == 1
+        assert "not found" in result.output
+
+
+class TestSolPulseWrite:
+    def test_write_pulse(self, journal_with_sol):
+        new_content = "---\nupdated: 2026-03-22T14:00:00\nsource: pulse-cogitate\n---\n\nNew narrative.\n"
+        result = runner.invoke(app, ["pulse", "--write"], input=new_content)
+        assert result.exit_code == 0
+        assert "pulse.md updated" in result.output
+
+        # Verify file was written
+        pulse_path = journal_with_sol / "sol" / "pulse.md"
+        assert pulse_path.read_text() == new_content
+
+    def test_write_pulse_empty_stdin(self, journal_with_sol):
+        result = runner.invoke(app, ["pulse", "--write"], input="")
+        assert result.exit_code == 1
+        assert "no content" in result.output
+
+
 class TestSolWriteDoesNotEscapeSolDir:
     """Verify that sol call sol only writes to sol/ directory files."""
 
@@ -201,6 +236,16 @@ class TestSolWriteDoesNotEscapeSolDir:
         # No files created outside sol/
         journal_files = set(f.name for f in journal_with_sol.iterdir() if f.is_file())
         assert "agency.md" not in journal_files
+
+    def test_pulse_write_stays_in_sol_dir(self, journal_with_sol):
+        """Write to pulse.md goes to sol/pulse.md, not anywhere else."""
+        result = runner.invoke(app, ["pulse", "--write"], input="test content\n")
+        assert result.exit_code == 0
+        pulse_path = journal_with_sol / "sol" / "pulse.md"
+        assert pulse_path.read_text() == "test content\n"
+        # No files created outside sol/
+        journal_files = set(f.name for f in journal_with_sol.iterdir() if f.is_file())
+        assert "pulse.md" not in journal_files
 
 
 class TestHeartbeatEnsureSolDirectory:

@@ -3,8 +3,9 @@
 
 """CLI commands for sol/ identity directory.
 
-Provides read and write access to ``{journal}/sol/self.md`` and
-``{journal}/sol/agency.md`` — sol's identity and initiative files.
+Provides read and write access to ``{journal}/sol/self.md``,
+``{journal}/sol/agency.md``, and ``{journal}/sol/pulse.md`` — sol's
+identity and initiative files.
 
 Mounted by ``think.call`` as ``sol call sol ...``.
 """
@@ -15,7 +16,7 @@ import typer
 
 from think.awareness import ensure_sol_directory, update_self_md_section
 
-app = typer.Typer(help="Sol identity directory — self.md and agency.md.")
+app = typer.Typer(help="Sol identity directory — self.md, agency.md, and pulse.md.")
 
 
 def _sol_dir():
@@ -90,3 +91,29 @@ def agency_cmd(
         typer.echo("agency.md not found.", err=True)
         raise typer.Exit(1)
     typer.echo(agency_path.read_text(encoding="utf-8"))
+
+
+@app.command("pulse")
+def pulse_cmd(
+    write: bool = typer.Option(
+        False, "--write", "-w", help="Write pulse.md from stdin."
+    ),
+) -> None:
+    """Read or write sol/pulse.md."""
+    sol_dir = _sol_dir()
+    pulse_path = sol_dir / "pulse.md"
+
+    if write:
+        content = sys.stdin.read()
+        if not content.strip():
+            typer.echo("Error: no content provided on stdin.", err=True)
+            raise typer.Exit(1)
+        pulse_path.write_text(content, encoding="utf-8")
+        typer.echo("pulse.md updated.")
+        return
+
+    # Read mode
+    if not pulse_path.exists():
+        typer.echo("pulse.md not found.", err=True)
+        raise typer.Exit(1)
+    typer.echo(pulse_path.read_text(encoding="utf-8"))

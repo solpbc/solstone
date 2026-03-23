@@ -36,6 +36,7 @@ from think.utils import (
     get_rev,
     iso_date,
     iter_segments,
+    segment_parse,
     setup_cli,
     updated_days,
 )
@@ -423,6 +424,23 @@ def run_prompts_by_priority(
                         f"Skipping {prompt_name}: stream '{stream}' matches exclude_streams"
                     )
                     continue
+
+            # Skip pulse when sol/pulse.md is already current for this segment
+            if prompt_name == "pulse" and segment and not refresh:
+                try:
+                    pulse_path = Path(get_journal()) / "sol" / "pulse.md"
+                    if pulse_path.exists():
+                        start_time, _ = segment_parse(segment)
+                        if start_time:
+                            day_date = datetime.strptime(day, "%Y%m%d").date()
+                            seg_dt = datetime.combine(day_date, start_time)
+                            if pulse_path.stat().st_mtime >= seg_dt.timestamp():
+                                logging.info(
+                                    f"Skipping pulse: sol/pulse.md current for {segment}"
+                                )
+                                continue
+                except Exception:
+                    pass
 
             try:
                 if config.get("multi_facet"):

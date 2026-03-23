@@ -313,17 +313,17 @@
   </div>
 
   <!-- Narrative -->
-  {% if flow_content is not none %}
+  {% if narrative_content is not none %}
   <div class="pulse-narrative" id="pulse-narrative">
-    <div class="pulse-section-header">Today's Flow</div>
+    <div class="pulse-section-header">{{ narrative_header }}</div>
     <div class="pulse-narrative-content" id="pulse-narrative-content"></div>
-    {% if flow_updated_at %}
-    <div class="pulse-narrative-meta">Updated at {{ flow_updated_at }}</div>
+    {% if narrative_updated_at %}
+    <div class="pulse-narrative-meta">Updated at {{ narrative_updated_at }}</div>
     {% endif %}
   </div>
   {% elif segment_count > 0 %}
   <div class="pulse-narrative" id="pulse-narrative">
-    <div class="pulse-section-header">Today's Flow</div>
+    <div class="pulse-section-header">{{ narrative_header or "Today's Flow" }}</div>
     <div class="pulse-narrative-empty">Analysis will be available after the next processing cycle.</div>
   </div>
   {% endif %}
@@ -365,13 +365,16 @@
   {% endif %}
 
   <!-- Needs You -->
-  {% if attention or todos %}
+  {% if attention or pulse_needs or todos %}
   <div class="pulse-needs" id="pulse-needs">
     <div class="pulse-section-header">Needs You</div>
     <div class="pulse-needs-list">
       {% if attention %}
       <div class="pulse-needs-item pulse-needs-attention">{{ attention.placeholder_text }}</div>
       {% endif %}
+      {% for item in pulse_needs %}
+      <div class="pulse-needs-item">{{ item }}</div>
+      {% endfor %}
       {% for todo in todos[:7] %}
       <div class="pulse-needs-item">{{ todo.get('text', '') }}{% if todo.get('facet') %} <span style="color:#94a3b8;font-size:0.75rem">({{ todo['facet'] }})</span>{% endif %}</div>
       {% endfor %}
@@ -403,11 +406,11 @@
 <script src="{{ vendor_lib('marked') }}"></script>
 <script>
 (function() {
-  // Render flow.md content with marked
-  const flowRaw = {{ (flow_content or '')|tojson|safe }};
-  if (flowRaw) {
+  // Render narrative content with marked
+  const narrativeRaw = {{ (narrative_content or '')|tojson|safe }};
+  if (narrativeRaw) {
     const el = document.getElementById('pulse-narrative-content');
-    if (el) el.innerHTML = marked.parse(flowRaw, {breaks: true, gfm: true});
+    if (el) el.innerHTML = marked.parse(narrativeRaw, {breaks: true, gfm: true});
   }
 
   // WebSocket live updates
@@ -420,9 +423,9 @@
       if (msg.event === 'observed' || msg.event === 'status') refreshVitals();
     });
 
-    // Narrative: cortex.finish where name=flow
+    // Narrative: cortex.finish where name=flow or pulse
     window.appEvents.listen('cortex', function(msg) {
-      if (msg.event === 'finish' && msg.name === 'flow') refreshNarrative();
+      if (msg.event === 'finish' && (msg.name === 'flow' || msg.name === 'pulse')) refreshNarrative();
       if (msg.event === 'error') refreshVitals();
     });
   }
@@ -457,8 +460,12 @@
       .then(r => r.json())
       .then(data => {
         const el = document.getElementById('pulse-narrative-content');
-        if (el && data.flow_content) {
-          el.innerHTML = marked.parse(data.flow_content, {breaks: true, gfm: true});
+        if (el && data.narrative_content) {
+          el.innerHTML = marked.parse(data.narrative_content, {breaks: true, gfm: true});
+          const hdr = document.querySelector('.pulse-narrative .pulse-section-header');
+          if (hdr && data.narrative_header) hdr.textContent = data.narrative_header;
+          const meta = document.querySelector('.pulse-narrative .pulse-narrative-meta');
+          if (meta && data.narrative_updated_at) meta.textContent = 'Updated at ' + data.narrative_updated_at;
         }
       })
       .catch(function() {});

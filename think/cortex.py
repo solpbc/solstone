@@ -381,6 +381,12 @@ class CortexService:
                         if "agent_id" not in event:
                             event["agent_id"] = agent.agent_id
 
+                        # Inject agent name for WebSocket consumers
+                        with self.lock:
+                            _req = self.agent_requests.get(agent.agent_id)
+                        if _req and "name" not in event:
+                            event["name"] = _req.get("name", "")
+
                         # Append to JSONL file
                         with open(agent.log_path, "a") as f:
                             f.write(json.dumps(event) + "\n")

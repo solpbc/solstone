@@ -10,15 +10,15 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import frontmatter
 from flask import Blueprint, jsonify, render_template
 
+from convey.apps import _resolve_attention
+from convey.bridge import get_cached_state
 from think.awareness import get_current
 from think.facets import get_facets
 from think.indexer.journal import get_journal_index
 from think.utils import get_journal
-
-from convey.apps import _resolve_attention
-from convey.bridge import get_cached_state
 
 home_bp = Blueprint(
     "app:home",
@@ -41,6 +41,45 @@ def _load_flow_md(today: str) -> tuple[str | None, float | None]:
     except Exception:
         pass
     return None, None
+
+
+def _load_pulse_md() -> tuple[str | None, dict | None, list[str]]:
+    """Load sol/pulse.md if current for today.
+
+    Returns (content, metadata, needs_you) or (None, None, []).
+    """
+    try:
+        journal = Path(get_journal())
+        pulse_path = journal / "sol" / "pulse.md"
+        if not pulse_path.exists():
+            return None, None, []
+        post = frontmatter.load(str(pulse_path))
+        updated = post.metadata.get("updated")
+        if not updated:
+            return None, None, []
+        # Parse ISO datetime and check if from today
+        if isinstance(updated, str):
+            updated_dt = datetime.fromisoformat(updated)
+        else:
+            updated_dt = updated  # frontmatter may parse datetime objects
+        if updated_dt.date() != datetime.now().date():
+            return None, None, []
+        # Extract ## needs you section
+        needs = []
+        in_needs = False
+        for line in post.content.splitlines():
+            if line.strip().lower() == "## needs you":
+                in_needs = True
+                continue
+            if in_needs:
+                if line.startswith("## "):
+                    break
+                stripped = line.strip()
+                if stripped.startswith("- "):
+                    needs.append(stripped[2:].strip())
+        return post.content, post.metadata, needs
+    except Exception:
+        return None, None, []
 
 
 def _load_stats(today: str) -> dict[str, Any]:
@@ -187,6 +226,29 @@ def _build_pulse_context() -> dict[str, Any]:
     if flow_mtime:
         flow_updated_at = datetime.fromtimestamp(flow_mtime).strftime("%H:%M")
 
+    # Try pulse.md as primary narrative, fall back to flow.md
+    pulse_content, pulse_meta, pulse_needs = _load_pulse_md()
+    if pulse_content:
+        narrative_content = pulse_content
+        narrative_source = "pulse"
+        narrative_header = "Pulse"
+        updated = pulse_meta.get("updated", "")
+        if isinstance(updated, str):
+            try:
+                narrative_updated_at = datetime.fromisoformat(updated).strftime("%H:%M")
+            except ValueError:
+                narrative_updated_at = flow_updated_at
+        elif hasattr(updated, "strftime"):
+            narrative_updated_at = updated.strftime("%H:%M")
+        else:
+            narrative_updated_at = flow_updated_at
+    else:
+        narrative_content = flow_content
+        narrative_source = "flow"
+        narrative_header = "Today's Flow"
+        narrative_updated_at = flow_updated_at
+        pulse_needs = []
+
     events = _collect_events(today)
     activities = _collect_activities(today)
     todos = _collect_todos(today)
@@ -216,6 +278,11 @@ def _build_pulse_context() -> dict[str, Any]:
         "segment_count": segment_count,
         "duration_minutes": duration_minutes,
         "facet_data": facet_data,
+        "narrative_content": narrative_content,
+        "narrative_updated_at": narrative_updated_at,
+        "narrative_source": narrative_source,
+        "narrative_header": narrative_header,
+        "pulse_needs": pulse_needs,
         "flow_content": flow_content,
         "flow_updated_at": flow_updated_at,
         "events": events,
