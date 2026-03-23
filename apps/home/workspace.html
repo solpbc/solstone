@@ -278,6 +278,27 @@
 }
 
 .pulse-network-link a:hover { text-decoration: underline; }
+
+/* Click-to-converse interactive elements */
+[data-conversation] {
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-radius: 4px;
+}
+[data-conversation]:hover {
+  background: #f1f5f9;
+}
+.pulse-tell-more {
+  display: inline-block;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #6366f1;
+  text-decoration: none;
+}
+.pulse-tell-more:hover {
+  text-decoration: underline;
+  background: transparent;
+}
 </style>
 
 <div class="pulse-dashboard">
@@ -317,6 +338,7 @@
   <div class="pulse-narrative" id="pulse-narrative">
     <div class="pulse-section-header">{{ narrative_header }}</div>
     <div class="pulse-narrative-content" id="pulse-narrative-content"></div>
+    <a href="#" class="pulse-tell-more" data-conversation="Tell me more about what's happening today">Tell me more →</a>
     {% if narrative_updated_at %}
     <div class="pulse-narrative-meta">Updated at {{ narrative_updated_at }}</div>
     {% endif %}
@@ -336,7 +358,7 @@
     <div class="pulse-events">
       {% for event in events %}
       {% set is_past = event.get('occurred', false) or (event.get('end', '') and event['end'] < now.strftime('%H:%M:%S')) %}
-      <div class="pulse-event{% if is_past %} past{% endif %}">
+      <div class="pulse-event{% if is_past %} past{% endif %}" data-conversation="Tell me about {{ event.get('title', 'Untitled') }} at {{ event.get('start', '')[:5] }}">
         <span class="pulse-event-time">{{ event.get('start', '')[:5] }}</span>
         <span class="pulse-event-title">{{ event.get('title', 'Untitled') }}</span>
       </div>
@@ -347,7 +369,7 @@
     <div class="pulse-activities-label">Recent Activity</div>
     <div class="pulse-activities">
       {% for act in activities[:6] %}
-      <div class="pulse-activity">
+      <div class="pulse-activity" data-conversation="Tell me about {{ act.get('description', act.get('activity', '')) }}">
         <span class="pulse-activity-time">{{ act.get('display_time', '') }}</span>
         <span>{{ act.get('description', act.get('activity', '')) }}</span>
       </div>
@@ -370,13 +392,13 @@
     <div class="pulse-section-header">Needs You</div>
     <div class="pulse-needs-list">
       {% if attention %}
-      <div class="pulse-needs-item pulse-needs-attention">{{ attention.placeholder_text }}</div>
+      <div class="pulse-needs-item pulse-needs-attention" data-conversation="What happened with {{ attention.placeholder_text }}?">{{ attention.placeholder_text }}</div>
       {% endif %}
       {% for item in pulse_needs %}
-      <div class="pulse-needs-item">{{ item }}</div>
+      <div class="pulse-needs-item" data-conversation="What happened with {{ item }}?">{{ item }}</div>
       {% endfor %}
       {% for todo in todos[:7] %}
-      <div class="pulse-needs-item">{{ todo.get('text', '') }}{% if todo.get('facet') %} <span style="color:#94a3b8;font-size:0.75rem">({{ todo['facet'] }})</span>{% endif %}</div>
+      <div class="pulse-needs-item" data-conversation="What's the context on: {{ todo.get('text', '') }}">{{ todo.get('text', '') }}{% if todo.get('facet') %} <span style="color:#94a3b8;font-size:0.75rem">({{ todo['facet'] }})</span>{% endif %}</div>
       {% endfor %}
     </div>
     {% if todos|length > 7 %}
@@ -391,7 +413,7 @@
     <div class="pulse-section-header">Network Pulse</div>
     <div class="pulse-entities">
       {% for ent in entities %}
-      <div class="pulse-entity">
+      <div class="pulse-entity" data-conversation="What do you know about {{ ent.get('name', '') }}?">
         <span class="pulse-entity-type {{ ent.get('entity_type', 'unknown') }}">{{ ent.get('entity_type', '?')[:3] }}</span>
         <span>{{ ent.get('name', '') }}</span>
       </div>
@@ -411,6 +433,18 @@
   if (narrativeRaw) {
     const el = document.getElementById('pulse-narrative-content');
     if (el) el.innerHTML = marked.parse(narrativeRaw, {breaks: true, gfm: true});
+  }
+
+  // Click-to-converse: delegated handler for all [data-conversation] elements
+  var dashboard = document.querySelector('.pulse-dashboard');
+  if (dashboard) {
+    dashboard.addEventListener('click', function(e) {
+      var el = e.target.closest('[data-conversation]');
+      if (el && window.openConversation) {
+        e.preventDefault();
+        window.openConversation({ prompt: el.dataset.conversation });
+      }
+    });
   }
 
   // WebSocket live updates

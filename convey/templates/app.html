@@ -190,6 +190,25 @@
   // Expose for websocket navigate handler
   window._closeConversationPanel = closePanel;
 
+  // --- Public conversation API ---
+  // Generic API for any app to open the conversation panel with a pre-filled prompt.
+  window.openConversation = function(options) {
+    options = options || {};
+    if (options.prompt) {
+      input.value = options.prompt;
+      input.dispatchEvent(new Event('input'));
+    }
+    if (options.autoSend) {
+      form.requestSubmit();
+    } else {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      if (options.prompt && options.prompt.length > 40) {
+        openPanel();
+      }
+    }
+  };
+
   // Save state before navigation
   window.addEventListener('pagehide', save);
 
