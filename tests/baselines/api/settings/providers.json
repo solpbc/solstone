@@ -301,6 +301,14 @@
       "tier": 2,
       "type": "generate"
     },
+    "muse.system.pulse": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Pulse",
+      "schedule": "segment",
+      "tier": 3,
+      "type": "cogitate"
+    },
     "muse.system.research": {
       "disabled": true,
       "extract": true,

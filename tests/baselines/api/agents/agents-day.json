@@ -374,6 +374,17 @@
       "title": "Innovation Opportunities",
       "type": "generate"
     },
+    "pulse": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Living narrative of the owner's day — updated each segment",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": "segment",
+      "source": "system",
+      "title": "Pulse",
+      "type": "cogitate"
+    },
     "research": {
       "app": null,
       "color": "#ff5722",
