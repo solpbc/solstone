@@ -7,6 +7,7 @@ import numpy as np
 
 from observe.transcribe.gemini import (
     _build_chunk_contents,
+    _extract_segments,
     _find_segment_for_timestamp,
     _format_timestamp,
     _normalize_chunked_segments,
@@ -255,6 +256,50 @@ class TestBuildChunkContents:
 
         # Should have: prompt + 2 valid chunks * 2 = 5 items
         assert len(contents) == 5
+
+
+class TestExtractSegments:
+    """Tests for _extract_segments — robust response parsing."""
+
+    def test_expected_dict_wrapper(self):
+        """Standard {"segments": [...]} response."""
+        segs = [{"start": "00:00", "speaker": "Speaker 1", "text": "Hi"}]
+        assert _extract_segments({"segments": segs}) == segs
+
+    def test_bare_list(self):
+        """Gemini returns bare list of segment dicts."""
+        segs = [{"start": "00:00", "speaker": "Speaker 1", "text": "Hi"}]
+        assert _extract_segments(segs) == segs
+
+    def test_alternate_key(self):
+        """Single-key dict with alternate key name."""
+        segs = [{"start": "00:00", "text": "Hi"}]
+        assert _extract_segments({"transcript": segs}) == segs
+
+    def test_array_wrapped_dict(self):
+        """Gemini wraps response in array: [{"segments": [...]}]."""
+        segs = [{"start": "00:00", "speaker": "Speaker 1", "text": "Hi"}]
+        assert _extract_segments([{"segments": segs}]) == segs
+
+    def test_empty_segments(self):
+        """Empty segments list in dict."""
+        assert _extract_segments({"segments": []}) == []
+
+    def test_empty_bare_list(self):
+        """Empty bare list."""
+        assert _extract_segments([]) == []
+
+    def test_non_list_segments_value(self):
+        """segments key has non-list value."""
+        assert _extract_segments({"segments": "not a list"}) == []
+
+    def test_unexpected_type(self):
+        """Completely unexpected type returns empty."""
+        assert _extract_segments("unexpected") == []
+
+    def test_dict_with_no_segments_key(self):
+        """Dict without segments or single-list key returns empty."""
+        assert _extract_segments({"other": "value", "more": "stuff"}) == []
 
 
 class TestGetModelInfo:

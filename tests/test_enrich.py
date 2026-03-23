@@ -133,6 +133,30 @@ class TestEnrichTranscript:
 
         assert result is None
 
+    @patch("observe.enrich.generate")
+    def test_bare_list_response_wrapped(self, mock_generate):
+        """Should wrap bare list response as statements with empty metadata."""
+        from observe.enrich import enrich_transcript
+
+        wav = np.zeros(16000 * 10, dtype=np.float32)
+        # Gemini returns bare list instead of {"statements": [...], "topics": ...}
+        mock_generate.return_value = json.dumps(
+            [
+                {"corrected": "Hello world.", "emotion": "calm"},
+            ]
+        )
+
+        statements = [{"id": 1, "start": 0.0, "end": 2.0, "text": "Hello world."}]
+
+        result = enrich_transcript(wav, 16000, statements)
+
+        assert result is not None
+        assert result["statements"] == [
+            {"corrected": "Hello world.", "emotion": "calm"}
+        ]
+        assert result["topics"] == ""
+        assert result["setting"] == ""
+
     def test_returns_none_for_empty_statements(self):
         """Should return None for empty statement list."""
         from observe.enrich import enrich_transcript

@@ -123,6 +123,56 @@ def _parse_speaker(speaker: str | int | None) -> int | None:
     return None
 
 
+def _extract_segments(result: list | dict) -> list:
+    """Extract a segments list from Gemini's JSON response.
+
+    Gemini may return any of these shapes:
+    - ``{"segments": [...]}`` — expected format per prompt
+    - ``[{"start": ..., "text": ...}, ...]`` — bare list of segment dicts
+    - ``[{"segments": [...]}]`` — array-wrapped dict
+    - ``{"transcript": [...]}`` or other single-key wrapper
+
+    Args:
+        result: Parsed JSON (list or dict).
+
+    Returns:
+        List of segment dicts, empty list on unexpected input.
+    """
+    # Unwrap: [{"segments": [...]}] — array-wrapped dict with a segments key.
+    # Only unwrap if the inner dict has "segments", not if it's a segment itself.
+    if (
+        isinstance(result, list)
+        and len(result) == 1
+        and isinstance(result[0], dict)
+        and "segments" in result[0]
+    ):
+        result = result[0]
+
+    # Bare list of segment dicts
+    if isinstance(result, list):
+        return result
+
+    if isinstance(result, dict):
+        # Preferred key
+        if "segments" in result:
+            val = result["segments"]
+            if isinstance(val, list):
+                return val
+
+        # Fallback: single-key dict whose value is a list (e.g. {"transcript": [...]})
+        if len(result) == 1:
+            val = next(iter(result.values()))
+            if isinstance(val, list):
+                logger.warning(
+                    f"Gemini used unexpected key {next(iter(result.keys()))!r} "
+                    f"instead of 'segments'"
+                )
+                return val
+
+    logger.warning(f"Gemini returned unexpected result shape: {type(result)}")
+    return []
+
+
 def _build_chunk_contents(
     audio: np.ndarray,
     sample_rate: int,
@@ -333,6 +383,7 @@ def transcribe(
     )
 
     transcribe_time = time.perf_counter() - t0
+    logger.debug("Gemini raw response (%d chars):\n%s", len(response_text), response_text[:2000])
 
     # Parse JSON response
     try:
@@ -342,11 +393,11 @@ def transcribe(
         logger.debug(f"Response text: {response_text[:500]}")
         raise RuntimeError(f"Gemini returned invalid JSON: {e}") from e
 
-    # Extract segments
-    segments = result.get("segments", [])
-    if not isinstance(segments, list):
-        logger.warning(f"Gemini 'segments' is not a list: {type(segments)}")
-        segments = []
+    # Extract segments — Gemini may return different shapes:
+    #   [...]                  bare list of segments
+    #   {"segments": [...]}    expected wrapper
+    #   {"transcript": [...]}  alternate key name
+    segments = _extract_segments(result)
 
     # Normalize to standard statement format
     if use_chunks:

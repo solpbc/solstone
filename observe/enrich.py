@@ -117,9 +117,14 @@ def enrich_transcript(
         result = json.loads(response_text)
         logger.info(f"  Enrichment complete in {time.perf_counter() - t0:.2f}s")
 
-        # Validate response structure
+        # Normalize response — Gemini sometimes returns a bare list of
+        # statement dicts instead of the expected wrapper object.
+        if isinstance(result, list):
+            logger.warning("Enrichment returned bare list, wrapping as statements")
+            result = {"statements": result, "topics": "", "setting": "", "warning": ""}
+
         if not isinstance(result, dict):
-            logger.warning(f"Enrichment returned non-dict: {type(result)}")
+            logger.warning(f"Enrichment returned unexpected type: {type(result)}")
             return None
 
         if "statements" not in result or "topics" not in result:
