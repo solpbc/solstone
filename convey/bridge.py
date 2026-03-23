@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import threading
+import time
 from typing import Any, Dict, List, Optional
 
 from flask_sock import Sock
@@ -27,6 +28,10 @@ logger = logging.getLogger(__name__)
 _WATCH_LOCK = threading.Lock()
 _CALLOSUM_CONNECTION: Optional[CallosumConnection] = None
 _WEBSOCKET_CLIENTS: List[object] = []
+_STATE_CACHE: Dict[str, Any] = {
+    "supervisor_status": None,
+    "last_observe_ts": None,
+}
 
 
 def _ensure_journal_env() -> None:
@@ -47,6 +52,14 @@ def _broadcast_to_websockets(event: dict) -> None:
 
 def _broadcast_callosum_event(message: Dict[str, Any]) -> None:
     """Broadcast Callosum event to WebSocket clients and server-side handlers."""
+    # Update state cache
+    tract = message.get("tract")
+    event = message.get("event")
+    if tract == "supervisor" and event == "status":
+        _STATE_CACHE["supervisor_status"] = message
+    if tract == "observe" and event in ("observed", "status"):
+        _STATE_CACHE["last_observe_ts"] = time.time()
+
     # Broadcast to WebSocket clients
     try:
         _broadcast_to_websockets(message)
@@ -133,3 +146,8 @@ def register_websocket(sock: Sock, path: str = "/ws/events") -> None:
         finally:
             if ws in _WEBSOCKET_CLIENTS:
                 _WEBSOCKET_CLIENTS.remove(ws)
+
+
+def get_cached_state() -> Dict[str, Any]:
+    """Return a copy of the bridge state cache."""
+    return dict(_STATE_CACHE)

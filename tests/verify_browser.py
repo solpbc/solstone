@@ -42,10 +42,10 @@ SCENARIOS: list[dict[str, Any]] = [
         ],
     },
     {
-        "app": "home",
+        "app": "graph",
         "name": "smoke",
         "steps": [
-            {"do": "navigate", "path": "/app/home/20260304"},
+            {"do": "navigate", "path": "/app/graph"},
             {"do": "wait", "ms": 1000},
             {"do": "screenshot"},
         ],
@@ -173,10 +173,10 @@ SCENARIOS: list[dict[str, Any]] = [
         ],
     },
     {
-        "app": "home",
-        "name": "date-nav",
+        "app": "graph",
+        "name": "load",
         "steps": [
-            {"do": "navigate", "path": "/app/home/20260305"},
+            {"do": "navigate", "path": "/app/graph"},
             {"do": "wait", "ms": 1000},
             {"do": "screenshot"},
         ],
@@ -201,11 +201,11 @@ SCENARIOS: list[dict[str, Any]] = [
         ],
     },
     {
-        "app": "home",
+        "app": "graph",
         "name": "facet-filter",
         "steps": [
             {"do": "evaluate", "expression": "document.cookie='facet=montague;path=/'"},
-            {"do": "navigate", "path": "/app/home/20260304"},
+            {"do": "navigate", "path": "/app/graph"},
             {"do": "wait", "ms": 1200},
             {"do": "screenshot"},
         ],

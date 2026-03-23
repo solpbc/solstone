@@ -366,6 +366,14 @@ ENDPOINTS = [
         "params": {},
         "status": 200,
     },
+    # apps/graph/routes.py
+    {
+        "app": "graph",
+        "name": "graph",
+        "path": "/app/graph/api/graph",
+        "params": {},
+        "status": 200,
+    },
 ]
 
 
