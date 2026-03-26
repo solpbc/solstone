@@ -15,18 +15,14 @@ This means the clip begins at 1 minute 23 seconds into the original recording an
 
 ## Output Format
 
-Return JSON only:
+Return a single JSON object with one key, "segments", containing an array of statement objects. Do not wrap the object in an array.
 
-```json
-{
-  "segments": [
-    {"start": "01:23", "speaker": "Speaker 1", "text": "First statement in clip"},
-    {"start": "01:28", "speaker": "Speaker 2", "text": "Response from another person"},
-    {"start": "01:35", "speaker": "Speaker 1", "text": "Next statement"},
-    ...
-  ]
-}
-```
+{"segments": [{"start": "01:23", "speaker": "Speaker 1", "text": "First statement in clip"}, {"start": "01:28", "speaker": "Speaker 2", "text": "Response from another person"}]}
+
+Each statement object has exactly three fields:
+- "start": absolute MM:SS timestamp in the original recording
+- "speaker": consistent speaker label like "Speaker 1"
+- "text": verbatim transcription of what was said
 
 ## Guidelines
 
