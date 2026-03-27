@@ -570,3 +570,565 @@ class TestEventState:
         _save_events_state(state)
         loaded = _load_events_state()
         assert loaded == state
+
+
+class TestNameResolution:
+    def test_resolve_by_name(self, journal_path):
+        save_config(
+            {
+                "abc-123-def": {
+                    "id": "abc-123-def",
+                    "name": "Morning Briefing",
+                    "instruction": "Brief me",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                }
+            }
+        )
+        result = runner.invoke(
+            call_app, ["routines", "edit", "Morning Briefing", "--name", "Updated"]
+        )
+        assert result.exit_code == 0
+        config = get_config()
+        assert config["abc-123-def"]["name"] == "Updated"
+
+    def test_resolve_by_name_case_insensitive(self, journal_path):
+        save_config(
+            {
+                "abc-123-def": {
+                    "id": "abc-123-def",
+                    "name": "Morning Briefing",
+                    "instruction": "Brief me",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                }
+            }
+        )
+        result = runner.invoke(
+            call_app, ["routines", "edit", "morning briefing", "--name", "Updated"]
+        )
+        assert result.exit_code == 0
+        config = get_config()
+        assert config["abc-123-def"]["name"] == "Updated"
+
+    def test_resolve_name_ambiguous(self, journal_path):
+        save_config(
+            {
+                "abc-123": {
+                    "id": "abc-123",
+                    "name": "Daily",
+                    "instruction": "a",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                },
+                "def-456": {
+                    "id": "def-456",
+                    "name": "Daily",
+                    "instruction": "b",
+                    "cadence": "0 10 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                },
+            }
+        )
+        result = runner.invoke(call_app, ["routines", "edit", "Daily", "--name", "X"])
+        assert result.exit_code == 1
+        assert "ambiguous" in result.stderr.lower()
+
+    def test_meta_excluded_from_resolve(self, journal_path):
+        save_config(
+            {
+                "_meta": {"suggestions_enabled": True},
+                "abc-123": {
+                    "id": "abc-123",
+                    "name": "Test",
+                    "instruction": "test",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                },
+            }
+        )
+        result = runner.invoke(
+            call_app, ["routines", "edit", "abc", "--name", "Updated"]
+        )
+        assert result.exit_code == 0
+
+
+class TestResumeDate:
+    def test_edit_resume_date(self, journal_path):
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Test",
+                    "instruction": "test",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": False,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                }
+            }
+        )
+        result = runner.invoke(
+            call_app,
+            [
+                "routines",
+                "edit",
+                "routine-1",
+                "--enabled",
+                "false",
+                "--resume-date",
+                "2026-04-01",
+            ],
+        )
+        assert result.exit_code == 0
+        config = get_config()
+        assert config["routine-1"]["resume_date"] == "2026-04-01"
+
+    def test_enable_clears_resume_date(self, journal_path):
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Test",
+                    "instruction": "test",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": False,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                    "resume_date": "2026-04-01",
+                }
+            }
+        )
+        result = runner.invoke(
+            call_app, ["routines", "edit", "routine-1", "--enabled", "true"]
+        )
+        assert result.exit_code == 0
+        config = get_config()
+        assert config["routine-1"]["enabled"] is True
+        assert "resume_date" not in config["routine-1"]
+
+    def test_auto_resume(self, journal_path):
+        import think.routines as mod
+
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Test",
+                    "instruction": "test",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": False,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                    "resume_date": "2026-03-27",
+                }
+            }
+        )
+
+        dt = datetime(2026, 3, 27, 10, 0, tzinfo=timezone.utc)
+        with (
+            patch("think.routines.cortex_request", return_value="fake_agent_id"),
+            patch(
+                "think.routines.wait_for_agents",
+                return_value=({"fake_agent_id": "finish"}, []),
+            ),
+            patch("think.routines.callosum_send", return_value=True),
+            _fake_now(dt),
+        ):
+            mod.check()
+
+        config = get_config()
+        assert config["routine-1"]["enabled"] is True
+        assert "resume_date" not in config["routine-1"]
+        health_log = (journal_path / "health" / "routines.log").read_text()
+        assert "auto-resumed" in health_log
+
+    def test_auto_resume_future_date_not_resumed(self, journal_path):
+        import think.routines as mod
+
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Test",
+                    "instruction": "test",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": False,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                    "resume_date": "2026-04-01",
+                }
+            }
+        )
+
+        dt = datetime(2026, 3, 27, 10, 0, tzinfo=timezone.utc)
+        with (
+            patch("think.routines.cortex_request", return_value="fake_agent_id"),
+            patch(
+                "think.routines.wait_for_agents",
+                return_value=({"fake_agent_id": "finish"}, []),
+            ),
+            patch("think.routines.callosum_send", return_value=True),
+            _fake_now(dt),
+        ):
+            mod.check()
+
+        config = get_config()
+        assert config["routine-1"]["enabled"] is False
+        assert config["routine-1"]["resume_date"] == "2026-04-01"
+
+    def test_resume_date_invalid_format(self, journal_path):
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Test",
+                    "instruction": "test",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": False,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                }
+            }
+        )
+        result = runner.invoke(
+            call_app, ["routines", "edit", "routine-1", "--resume-date", "not-a-date"]
+        )
+        assert result.exit_code == 1
+        assert "YYYY-MM-DD" in result.stderr
+
+
+class TestOutputByDate:
+    def test_output_specific_date(self, journal_path):
+        output_dir = journal_path / "routines" / "routine-1"
+        output_dir.mkdir(parents=True)
+        (output_dir / "20260325.md").write_text("March 25 output", encoding="utf-8")
+        (output_dir / "20260326.md").write_text("March 26 output", encoding="utf-8")
+
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Test",
+                    "instruction": "test",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                }
+            }
+        )
+        result = runner.invoke(
+            call_app, ["routines", "output", "routine-1", "--date", "2026-03-25"]
+        )
+        assert result.exit_code == 0
+        assert "March 25 output" in result.stdout
+
+    def test_output_date_missing(self, journal_path):
+        output_dir = journal_path / "routines" / "routine-1"
+        output_dir.mkdir(parents=True)
+        (output_dir / "20260325.md").write_text("content", encoding="utf-8")
+
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Test",
+                    "instruction": "test",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                }
+            }
+        )
+        result = runner.invoke(
+            call_app, ["routines", "output", "routine-1", "--date", "2026-03-27"]
+        )
+        assert result.exit_code == 0
+        assert "No output for that date" in result.stdout
+
+    def test_output_date_collision_file(self, journal_path):
+        output_dir = journal_path / "routines" / "routine-1"
+        output_dir.mkdir(parents=True)
+        (output_dir / "20260325.md").write_text("first run", encoding="utf-8")
+        (output_dir / "20260325-093000.md").write_text("second run", encoding="utf-8")
+
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Test",
+                    "instruction": "test",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                }
+            }
+        )
+        result = runner.invoke(
+            call_app, ["routines", "output", "routine-1", "--date", "2026-03-25"]
+        )
+        assert result.exit_code == 0
+        assert "second run" in result.stdout
+
+    def test_output_default_no_date(self, journal_path):
+        output_dir = journal_path / "routines" / "routine-1"
+        output_dir.mkdir(parents=True)
+        (output_dir / "20260325.md").write_text("old", encoding="utf-8")
+        (output_dir / "20260326.md").write_text("latest", encoding="utf-8")
+
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Test",
+                    "instruction": "test",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                }
+            }
+        )
+        result = runner.invoke(call_app, ["routines", "output", "routine-1"])
+        assert result.exit_code == 0
+        assert "latest" in result.stdout
+
+
+class TestSuggestions:
+    def test_suggestions_read_default(self, journal_path):
+        save_config({})
+        result = runner.invoke(call_app, ["routines", "suggestions"])
+        assert result.exit_code == 0
+        assert "enabled" in result.stdout
+
+    def test_suggestions_disable(self, journal_path):
+        save_config({})
+        result = runner.invoke(call_app, ["routines", "suggestions", "--disable"])
+        assert result.exit_code == 0
+        assert "disabled" in result.stdout
+        config = get_config()
+        assert config["_meta"]["suggestions_enabled"] is False
+
+    def test_suggestions_enable(self, journal_path):
+        save_config({"_meta": {"suggestions_enabled": False}})
+        result = runner.invoke(call_app, ["routines", "suggestions", "--enable"])
+        assert result.exit_code == 0
+        assert "enabled" in result.stdout
+        config = get_config()
+        assert config["_meta"]["suggestions_enabled"] is True
+
+
+class TestGetRoutineState:
+    def test_basic_structure(self, journal_path):
+        from think.routines import get_routine_state
+
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Morning",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "last_run": None,
+                }
+            }
+        )
+        state = get_routine_state()
+        assert len(state) == 1
+        assert state[0]["name"] == "Morning"
+        assert state[0]["cadence"] == "0 9 * * *"
+        assert state[0]["enabled"] is True
+        assert state[0]["output_summary"] is None
+
+    def test_recent_output_summary(self, journal_path):
+        from think.routines import get_routine_state
+
+        last_run = datetime(2026, 3, 27, 9, 0, tzinfo=timezone.utc).isoformat()
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Morning",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "last_run": last_run,
+                }
+            }
+        )
+        output_dir = journal_path / "routines" / "routine-1"
+        output_dir.mkdir(parents=True)
+        (output_dir / "20260327.md").write_text(
+            "Here is the morning briefing summary for today.", encoding="utf-8"
+        )
+
+        dt = datetime(2026, 3, 27, 10, 0, tzinfo=timezone.utc)
+        with _fake_now(dt):
+            state = get_routine_state()
+
+        assert len(state) == 1
+        assert state[0]["output_summary"] is not None
+        assert "morning briefing" in state[0]["output_summary"]
+
+    def test_meta_excluded(self, journal_path):
+        from think.routines import get_routine_state
+
+        save_config(
+            {
+                "_meta": {"suggestions_enabled": True},
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Morning",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "last_run": None,
+                },
+            }
+        )
+        state = get_routine_state()
+        assert len(state) == 1
+        assert state[0]["name"] == "Morning"
+
+    def test_paused_until(self, journal_path):
+        from think.routines import get_routine_state
+
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Morning",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": False,
+                    "facets": [],
+                    "last_run": None,
+                    "resume_date": "2026-04-01",
+                }
+            }
+        )
+        state = get_routine_state()
+        assert state[0]["paused_until"] == "2026-04-01"
+        assert state[0]["enabled"] is False
+
+
+class TestMetaFiltering:
+    def test_list_excludes_meta(self, journal_path):
+        save_config(
+            {
+                "_meta": {"suggestions_enabled": True},
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Test",
+                    "instruction": "test",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                },
+            }
+        )
+        result = runner.invoke(call_app, ["routines", "list"])
+        assert result.exit_code == 0
+        assert "Test" in result.stdout
+        assert "_meta" not in result.stdout
+        assert "suggestions" not in result.stdout
+
+    def test_check_skips_meta(self, journal_path):
+        import think.routines as mod
+
+        save_config(
+            {
+                "_meta": {"suggestions_enabled": True},
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Morning",
+                    "instruction": "Do the thing",
+                    "cadence": "0 9 * * *",
+                    "timezone": "UTC",
+                    "enabled": True,
+                    "facets": [],
+                    "template": None,
+                    "notify": False,
+                    "last_run": None,
+                },
+            }
+        )
+
+        dt = datetime(2026, 3, 27, 9, 0, tzinfo=timezone.utc)
+        with (
+            patch(
+                "think.routines.cortex_request", return_value="fake_agent_id"
+            ) as mock_req,
+            patch(
+                "think.routines.wait_for_agents",
+                return_value=({"fake_agent_id": "finish"}, []),
+            ),
+            patch("think.routines.callosum_send", return_value=True),
+            _fake_now(dt),
+        ):
+            mod.check()
+
+        mock_req.assert_called_once()

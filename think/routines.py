@@ -17,6 +17,7 @@ import logging
 import tempfile
 import time
 from datetime import datetime, timezone
+from datetime import datetime as real_datetime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -145,6 +146,52 @@ def save_config(config: dict[str, dict[str, Any]]) -> None:
     except BaseException:
         tmp_file.unlink(missing_ok=True)
         raise
+
+
+def _format_cadence_human(cadence: object) -> str:
+    """Format a cadence for human display in routine state."""
+    if isinstance(cadence, dict):
+        offset = cadence.get("offset_minutes", 0)
+        return f"event:calendar:{offset}m"
+    return str(cadence)
+
+
+def get_routine_state() -> list[dict[str, Any]]:
+    """Return routine summaries for pre-hook injection.
+
+    Reads config from disk and output files. Does not use module-level
+    state or supervisor-only imports (cortex/callosum).
+    """
+    config = get_config()
+    now_utc = datetime.now(timezone.utc)
+    result = []
+    for routine in config.values():
+        routine_id = routine.get("id")
+        if not routine_id:
+            continue
+        summary: dict[str, Any] = {
+            "name": routine.get("name", ""),
+            "cadence": _format_cadence_human(routine.get("cadence", "")),
+            "last_run": routine.get("last_run"),
+            "enabled": routine.get("enabled", False),
+            "paused_until": routine.get("resume_date"),
+        }
+        output_summary = None
+        last_run = routine.get("last_run")
+        if last_run:
+            try:
+                last_dt = real_datetime.fromisoformat(last_run)
+                if (now_utc - last_dt).total_seconds() < 43200:
+                    output_dir = Path(get_journal()) / "routines" / routine_id
+                    outputs = sorted(output_dir.glob("*.md"))
+                    if outputs:
+                        text = outputs[-1].read_text(encoding="utf-8").strip()
+                        output_summary = text[:100]
+            except (ValueError, OSError):
+                pass
+        summary["output_summary"] = output_summary
+        result.append(summary)
+    return result
 
 
 def _load_events_state() -> dict[str, set[str]]:
@@ -323,6 +370,31 @@ def check() -> None:
     """Reload config and run any due routines."""
     global _config
     _config = get_config()
+
+    config_changed = False
+    for routine in _config.values():
+        resume_date = routine.get("resume_date")
+        if not resume_date or routine.get("enabled"):
+            continue
+        routine_id = routine.get("id")
+        if not routine_id:
+            continue
+        tz = routine.get("timezone") or "UTC"
+        try:
+            local_today = (
+                datetime.now(timezone.utc).astimezone(ZoneInfo(tz)).strftime("%Y-%m-%d")
+            )
+        except ZoneInfoNotFoundError:
+            continue
+        if resume_date <= local_today:
+            routine["enabled"] = True
+            routine.pop("resume_date", None)
+            config_changed = True
+            name = routine.get("name", routine_id)
+            _log_health(routine_id, name, 0, "auto-resumed")
+            logger.info("Auto-resumed routine %s (%s)", routine_id, name)
+    if config_changed:
+        save_config(_config)
 
     now_utc = datetime.now(timezone.utc)
     for routine in _config.values():

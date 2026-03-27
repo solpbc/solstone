@@ -1,9 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-import json
-from datetime import datetime
-
 from muse.chat_context import pre_process
 
 
@@ -167,35 +164,51 @@ def test_chat_context_awareness_error_graceful(monkeypatch):
     assert "## Location Context" in result["user_instruction"]
 
 
-def test_chat_context_routine_section(monkeypatch, tmp_path):
-    """Routine outputs appear in chat context when recent."""
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+def test_chat_context_routines_injected(monkeypatch):
+    """Active routines section is appended when routines exist."""
     monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-
-    routines_dir = tmp_path / "routines"
-    routines_dir.mkdir()
-    routine_id = "test-routine-123"
-    config = {
-        routine_id: {
-            "id": routine_id,
-            "name": "Morning Briefing",
-            "cadence": "0 8 * * *",
-            "enabled": True,
-            "last_run": datetime.now().isoformat(),
-        }
-    }
-    (routines_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
-
-    output_dir = routines_dir / routine_id
-    output_dir.mkdir()
-    today = datetime.now().strftime("%Y%m%d")
-    (output_dir / f"{today}.md").write_text(
-        "Your day looks clear with one meeting at 2pm.",
-        encoding="utf-8",
+    monkeypatch.setattr(
+        "think.routines.get_routine_state",
+        lambda: [
+            {
+                "name": "Morning Briefing",
+                "cadence": "0 9 * * *",
+                "last_run": None,
+                "enabled": True,
+                "paused_until": None,
+                "output_summary": None,
+            }
+        ],
     )
 
     result = pre_process({"user_instruction": "Base instruction."})
 
     assert result is not None
-    assert "## Recent Routine Outputs" in result["user_instruction"]
+    assert "## Active Routines" in result["user_instruction"]
     assert "Morning Briefing" in result["user_instruction"]
+
+
+def test_chat_context_routines_omitted_when_empty(monkeypatch):
+    """Active routines section is omitted when no routines configured."""
+    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
+    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+
+    result = pre_process({"user_instruction": "Base instruction."})
+
+    assert result is not None
+    assert "## Active Routines" not in result["user_instruction"]
+
+
+def test_chat_context_routines_error_graceful(monkeypatch):
+    """Routine state failures do not prevent other sections from appending."""
+    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
+    monkeypatch.setattr(
+        "think.routines.get_routine_state",
+        lambda: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    result = pre_process({"user_instruction": "Base instruction."})
+
+    assert result is not None
+    assert "## Active Routines" not in result["user_instruction"]
+    assert "## Location Context" in result["user_instruction"]
