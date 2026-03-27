@@ -267,6 +267,8 @@ def reset_supervisor_state():
         # Reset after test
         mod._daily_state["last_day"] = None
         mod._is_remote_mode = False
+        mod._observer_health = {}
+        mod._enabled_observers = set()
         # Create fresh task queue
         mod._task_queue = mod.TaskQueue(on_queue_change=None)
     except ImportError:

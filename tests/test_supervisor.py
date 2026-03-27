@@ -11,78 +11,90 @@ import pytest
 
 
 def test_check_health():
-    """Test health checking based on observe.status event freshness.
-
-    Health model is simple: if observer is running, it sends status events.
-    If it has problems, it exits and supervisor restarts it (fail-fast).
-    """
+    """Test per-observer health checking based on observe.status event freshness."""
     mod = importlib.import_module("think.supervisor")
 
-    # Ensure observer is enabled for this test
-    mod._observer_enabled = True
+    mod._enabled_observers = {"linux-observer", "tmux-observer"}
+    mod._observer_health = {}
 
-    # Reset state for clean test
-    mod._observe_status_state["last_ts"] = 0.0
-    mod._observe_status_state["ever_received"] = False
-
-    # Startup grace period: no status ever received - returns healthy (no alerts)
+    # No status events yet - grace period, returns empty
     stale = mod.check_health(threshold=60)
-    assert stale == []  # Grace period - don't alert until first status received
+    assert stale == []
 
-    # After first status received, stale timestamp triggers alerts
-    mod._observe_status_state["ever_received"] = True
-    mod._observe_status_state["last_ts"] = 0.0  # Very old timestamp
+    # Simulate first status from linux observer
+    mod._observer_health["archon"] = {"last_ts": time.time(), "ever_received": True}
     stale = mod.check_health(threshold=60)
-    assert sorted(stale) == ["hear", "see"]
+    assert stale == []
 
-    # Fresh status event means healthy (observer is running)
-    mod._observe_status_state["last_ts"] = time.time()
+    # Linux observer goes stale
+    mod._observer_health["archon"]["last_ts"] = time.time() - 100
     stale = mod.check_health(threshold=60)
-    assert stale == []  # Healthy - receiving status events
+    assert stale == ["archon"]
 
-    # Status became stale (old timestamp) - observer stopped sending
-    mod._observe_status_state["last_ts"] = time.time() - 100
+    # Add tmux observer - fresh
+    mod._observer_health["archon.tmux"] = {
+        "last_ts": time.time(),
+        "ever_received": True,
+    }
     stale = mod.check_health(threshold=60)
-    assert sorted(stale) == ["hear", "see"]
+    assert stale == ["archon"]
+
+    # Both stale
+    mod._observer_health["archon.tmux"]["last_ts"] = time.time() - 100
+    stale = mod.check_health(threshold=60)
+    assert sorted(stale) == ["archon", "archon.tmux"]
+
+    # Both fresh
+    mod._observer_health["archon"]["last_ts"] = time.time()
+    mod._observer_health["archon.tmux"]["last_ts"] = time.time()
+    stale = mod.check_health(threshold=60)
+    assert stale == []
 
 
 def test_check_health_observer_disabled(monkeypatch):
-    """Test that health checks are skipped when observer is disabled (--no-observers)."""
+    """Test that health checks are skipped when no observers are enabled."""
     mod = importlib.import_module("think.supervisor")
 
-    # Simulate --no-observers mode (monkeypatch auto-restores after test)
-    monkeypatch.setattr(mod, "_observer_enabled", False)
+    monkeypatch.setattr(mod, "_enabled_observers", set())
 
-    # Even with stale status, should return empty (no health alerts)
-    mod._observe_status_state["ever_received"] = True
-    mod._observe_status_state["last_ts"] = 0.0  # Very stale
+    # Even with stale health entries, should return empty
+    mod._observer_health["archon"] = {"last_ts": 0.0, "ever_received": True}
     stale = mod.check_health(threshold=60)
-    assert stale == []  # No alerts when observer disabled
+    assert stale == []
 
 
 def test_handle_observe_status():
-    """Test that observe.status events update health state.
-
-    Handler just tracks event freshness - observer is responsible for
-    exiting if it's unhealthy (fail-fast model).
-    """
+    """Test that observe.status events update per-observer health state."""
     mod = importlib.import_module("think.supervisor")
 
-    # Reset state
-    mod._observe_status_state["last_ts"] = 0.0
-    mod._observe_status_state["ever_received"] = False
+    mod._observer_health = {}
 
-    # Simulate observe.status message (only tract/event are required)
-    message = {"tract": "observe", "event": "status"}
-    mod._handle_observe_status(message)
+    # Status with stream field creates health entry
+    mod._handle_observe_status(
+        {"tract": "observe", "event": "status", "stream": "archon"}
+    )
+    assert "archon" in mod._observer_health
+    assert mod._observer_health["archon"]["last_ts"] > 0
+    assert mod._observer_health["archon"]["ever_received"] is True
 
-    assert mod._observe_status_state["last_ts"] > 0
-    assert mod._observe_status_state["ever_received"] is True  # Grace period ended
+    # Second stream creates separate entry
+    mod._handle_observe_status(
+        {"tract": "observe", "event": "status", "stream": "archon.tmux"}
+    )
+    assert "archon.tmux" in mod._observer_health
+    assert mod._observer_health["archon.tmux"]["ever_received"] is True
 
     # Non-observe messages should be ignored
-    old_ts = mod._observe_status_state["last_ts"]
-    mod._handle_observe_status({"tract": "supervisor", "event": "status"})
-    assert mod._observe_status_state["last_ts"] == old_ts
+    old_ts = mod._observer_health["archon"]["last_ts"]
+    mod._handle_observe_status(
+        {"tract": "supervisor", "event": "status", "stream": "archon"}
+    )
+    assert mod._observer_health["archon"]["last_ts"] == old_ts
+
+    # Events without stream field ignored (sense status)
+    mod._observer_health = {}
+    mod._handle_observe_status({"tract": "observe", "event": "status"})
+    assert mod._observer_health == {}
 
 
 @pytest.mark.asyncio
@@ -139,8 +151,8 @@ async def test_clear_notification(monkeypatch):
     assert len(cleared) == 1  # Still just one clear call
 
 
-def test_start_observer_and_sense(tmp_path, mock_callosum, monkeypatch):
-    """Test that start_observer() and start_sense() launch their respective processes."""
+def test_start_observers_and_sense(tmp_path, mock_callosum, monkeypatch):
+    """Test that linux-observer, tmux-observer, and sense launch correctly."""
     mod = importlib.import_module("think.supervisor")
 
     started = []
@@ -173,10 +185,19 @@ def test_start_observer_and_sense(tmp_path, mock_callosum, monkeypatch):
     monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
-    # Test start_observer()
-    observer_proc = mod.start_observer()
-    assert observer_proc is not None
+    # Test linux-observer
+    linux_proc = mod._launch_process(
+        "linux-observer", ["sol", "observer", "-v"], restart=True
+    )
+    assert linux_proc is not None
     assert any(cmd == ["sol", "observer", "-v"] for cmd, _, _ in started)
+
+    # Test tmux-observer
+    tmux_proc = mod._launch_process(
+        "tmux-observer", ["sol", "tmux-observer", "-v"], restart=True
+    )
+    assert tmux_proc is not None
+    assert any(cmd == ["sol", "tmux-observer", "-v"] for cmd, _, _ in started)
 
     # Test start_sense()
     sense_proc = mod.start_sense()
@@ -255,8 +276,27 @@ def test_parse_args_remote_flag_optional():
     assert args.remote is None
 
 
-def test_remote_mode_shutdown_pauses_after_observer(monkeypatch):
-    """In remote mode, shutdown pauses after observer exits before stopping sync."""
+def test_parse_args_observers_flag():
+    """Test --observers flag parsing."""
+    mod = importlib.import_module("think.supervisor")
+
+    parser = mod.parse_args()
+
+    args = parser.parse_args([])
+    assert args.observers == "linux,tmux"
+
+    args = parser.parse_args(["--observers", "linux"])
+    assert args.observers == "linux"
+
+    args = parser.parse_args(["--observers", "none"])
+    assert args.observers == "none"
+
+    args = parser.parse_args(["--no-observers"])
+    assert args.no_observers is True
+
+
+def test_shutdown_pauses_after_observers(monkeypatch):
+    """Shutdown stops observers first, drains 2s, then remaining services."""
     mod = importlib.import_module("think.supervisor")
 
     operations = []
@@ -274,6 +314,9 @@ def test_remote_mode_shutdown_pauses_after_observer(monkeypatch):
         def kill(self):
             pass
 
+        def poll(self):
+            return None
+
     class MockManaged:
         def __init__(self, name):
             self.name = name
@@ -283,7 +326,13 @@ def test_remote_mode_shutdown_pauses_after_observer(monkeypatch):
         def cleanup(self):
             operations.append(("cleanup", self.name))
 
-    procs = [MockManaged("sync"), MockManaged("observer")]
+    procs = [
+        MockManaged("convey"),
+        MockManaged("sense"),
+        MockManaged("linux-observer"),
+        MockManaged("tmux-observer"),
+        MockManaged("cortex"),
+    ]
 
     sleep_calls = []
 
@@ -293,60 +342,80 @@ def test_remote_mode_shutdown_pauses_after_observer(monkeypatch):
 
     monkeypatch.setattr(mod.time, "sleep", fake_sleep)
 
-    # Remote mode: observer exits first, then a 2s pause occurs before sync cleanup.
-    monkeypatch.setattr(mod, "_is_remote_mode", True)
-    for managed in reversed(procs):
-        name = managed.name
+    observer_procs = [p for p in procs if p.name in ("linux-observer", "tmux-observer")]
+    other_procs = [
+        p for p in procs if p.name not in ("linux-observer", "tmux-observer")
+    ]
+
+    for managed in observer_procs:
         proc = managed.process
         try:
             proc.terminate()
         except Exception:
             pass
         try:
-            timeout = getattr(managed, "shutdown_timeout", 15)
-            proc.wait(timeout=timeout)
+            proc.wait(timeout=managed.shutdown_timeout)
         except Exception:
             pass
         managed.cleanup()
-        if mod._is_remote_mode and name == "observer":
-            mod.logging.info(
-                "Remote mode: pausing for sync to receive observer's final event"
-            )
-            mod.time.sleep(2)
+
+    if observer_procs:
+        mod.time.sleep(2)
+
+    for managed in reversed(other_procs):
+        proc = managed.process
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+        try:
+            proc.wait(timeout=managed.shutdown_timeout)
+        except Exception:
+            pass
+        managed.cleanup()
 
     assert operations == [
-        ("terminate", "observer"),
-        ("wait", "observer"),
-        ("cleanup", "observer"),
+        ("terminate", "linux-observer"),
+        ("wait", "linux-observer"),
+        ("cleanup", "linux-observer"),
+        ("terminate", "tmux-observer"),
+        ("wait", "tmux-observer"),
+        ("cleanup", "tmux-observer"),
         ("sleep", 2),
-        ("terminate", "sync"),
-        ("wait", "sync"),
-        ("cleanup", "sync"),
+        ("terminate", "cortex"),
+        ("wait", "cortex"),
+        ("cleanup", "cortex"),
+        ("terminate", "sense"),
+        ("wait", "sense"),
+        ("cleanup", "sense"),
+        ("terminate", "convey"),
+        ("wait", "convey"),
+        ("cleanup", "convey"),
     ]
     assert sleep_calls == [2]
 
-    # Non-remote mode: no pause after observer cleanup.
     operations.clear()
     sleep_calls.clear()
-    monkeypatch.setattr(mod, "_is_remote_mode", False)
-    for managed in reversed(procs):
-        name = managed.name
-        proc = managed.process
-        try:
-            proc.terminate()
-        except Exception:
-            pass
-        try:
-            timeout = getattr(managed, "shutdown_timeout", 15)
-            proc.wait(timeout=timeout)
-        except Exception:
-            pass
+    procs_no_obs = [MockManaged("sense"), MockManaged("cortex")]
+    observer_procs = [
+        p for p in procs_no_obs if p.name in ("linux-observer", "tmux-observer")
+    ]
+    other_procs = [
+        p for p in procs_no_obs if p.name not in ("linux-observer", "tmux-observer")
+    ]
+
+    for managed in observer_procs:
+        managed.process.terminate()
+        managed.process.wait(timeout=managed.shutdown_timeout)
         managed.cleanup()
-        if mod._is_remote_mode and name == "observer":
-            mod.logging.info(
-                "Remote mode: pausing for sync to receive observer's final event"
-            )
-            mod.time.sleep(2)
+
+    if observer_procs:
+        mod.time.sleep(2)
+
+    for managed in reversed(other_procs):
+        managed.process.terminate()
+        managed.process.wait(timeout=managed.shutdown_timeout)
+        managed.cleanup()
 
     assert sleep_calls == []
 
@@ -356,7 +425,7 @@ async def test_supervise_logs_recovery(mock_callosum, monkeypatch, caplog):
     mod = importlib.reload(importlib.import_module("think.supervisor"))
     mod.shutdown_requested = False
 
-    health_states = [["hear"], []]
+    health_states = [["archon"], []]
     time_counter = {"value": 0.0}  # Use dict to allow mutation in closure
 
     def fake_time():
@@ -397,7 +466,7 @@ async def test_supervise_logs_recovery(mock_callosum, monkeypatch, caplog):
         await mod.supervise(threshold=1, interval=1, schedule=False, procs=[])
 
     messages = [record.getMessage() for record in caplog.records]
-    assert "hear heartbeat recovered" in messages
+    assert "archon heartbeat recovered" in messages
     assert messages.count("Heartbeat OK") == 1
 
     mod.shutdown_requested = False

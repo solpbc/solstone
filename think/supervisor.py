@@ -420,16 +420,14 @@ _callosum_thread: threading.Thread | None = None
 # Restart request tracking for SIGKILL enforcement
 _restart_requests: dict[str, tuple[float, subprocess.Popen]] = {}
 
-# Observe status state for health monitoring (updated from observe.status events)
-# Health is now simple: if observer is running, it sends status events.
-# If it has problems, it exits and gets restarted (fail-fast model).
-_observe_status_state: dict = {
-    "last_ts": 0.0,  # Timestamp of last observe.status event
-    "ever_received": False,  # Whether we've received at least one status event
-}
+# Per-observer health state, keyed by stream name from observe.status events.
+# Each value: {"last_ts": float, "ever_received": bool}
+# Populated when observe.status events arrive with a stream field.
+_observer_health: dict[str, dict] = {}
 
-# Track whether observer was started (for health check conditioning)
-_observer_enabled: bool = True
+# Set of enabled observer process names (e.g. {"linux-observer", "tmux-observer"}).
+# Empty set means no observers. Used to gate health checks.
+_enabled_observers: set[str] = set()
 
 # Track whether running in remote mode (upload-only, no local processing)
 _is_remote_mode: bool = False
@@ -554,35 +552,33 @@ def _launch_process(
 
 
 def check_health(threshold: int = DEFAULT_THRESHOLD) -> list[str]:
-    """Return a list of stale heartbeat names based on observe.status events.
+    """Return a list of stale observer stream names based on observe.status events.
 
-    Health model is simple: if observer is running, it sends status events.
-    If it has problems, it exits and supervisor restarts it (fail-fast).
+    Returns stream names of observers that haven't sent status within threshold.
+    During startup grace period (before first status event per stream),
+    returns empty list for that stream to avoid false alerts.
 
-    Returns ["hear", "see"] if no status received within threshold,
-    empty list otherwise. During startup grace period (before first
-    status event received), returns empty list to avoid false alerts.
-
-    When observer is disabled (--no-observers), always returns empty list
-    since there's no local capture to monitor.
+    When no observers are enabled, always returns empty list.
     """
-    # Skip health checks if observer was not started
-    if not _observer_enabled:
+    if not _enabled_observers:
         return []
 
-    # Grace period: don't alert until we've received at least one status event
-    if not _observe_status_state["ever_received"]:
-        return []
-
+    stale = []
     now = time.time()
-    last_ts = _observe_status_state["last_ts"]
+    for stream, state in _observer_health.items():
+        if not state["ever_received"]:
+            continue
+        if now - state["last_ts"] > threshold:
+            stale.append(stream)
 
-    # If no recent status, observer is not running - both stale
-    if now - last_ts > threshold:
-        return ["hear", "see"]
+    return stale
 
-    # Receiving status means observer is healthy
-    return []
+
+def _latest_observe_ts() -> float:
+    """Return the most recent observe.status timestamp across all observers."""
+    if not _observer_health:
+        return 0.0
+    return max(s["last_ts"] for s in _observer_health.values())
 
 
 def _get_notifier() -> DesktopNotifier:
@@ -817,11 +813,6 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
     }
 
 
-def start_observer() -> ManagedProcess:
-    """Launch platform-detected observer with output logging."""
-    return _launch_process("observer", ["sol", "observer", "-v"], restart=True)
-
-
 def start_sense() -> ManagedProcess:
     """Launch sol sense with output logging."""
     return _launch_process("sense", ["sol", "sense", "-v"], restart=True)
@@ -1051,7 +1042,7 @@ async def handle_health_checks(
                     "capture",
                     {
                         "status": "stale",
-                        "last_seen": _observe_status_state.get("last_ts", 0),
+                        "last_seen": _latest_observe_ts(),
                     },
                 )
             elif prev_stale:
@@ -1059,7 +1050,7 @@ async def handle_health_checks(
                     "capture",
                     {
                         "status": "ok",
-                        "last_seen": _observe_status_state.get("last_ts", 0),
+                        "last_seen": _latest_observe_ts(),
                     },
                 )
         except Exception:
@@ -1252,17 +1243,24 @@ def _check_segment_flush(force: bool = False) -> None:
 
 
 def _handle_observe_status(message: dict) -> None:
-    """Handle observe.status events for health monitoring.
+    """Handle observe.status events for per-observer health monitoring.
 
-    Just tracks that we received a status event. The observer is responsible
-    for exiting if it's unhealthy (fail-fast model), so receiving status
-    means it's working.
+    Tracks status freshness per stream. The stream field identifies the
+    observer (e.g. "archon" for linux, "archon.tmux" for tmux).
+    Events without a stream field (e.g. from sense) are ignored for health.
     """
     if message.get("tract") != "observe" or message.get("event") != "status":
         return
 
-    _observe_status_state["last_ts"] = time.time()
-    _observe_status_state["ever_received"] = True
+    stream = message.get("stream")
+    if not stream:
+        return  # sense status events don't have stream field
+
+    if stream not in _observer_health:
+        _observer_health[stream] = {"last_ts": 0.0, "ever_received": False}
+
+    _observer_health[stream]["last_ts"] = time.time()
+    _observer_health[stream]["ever_received"] = True
 
 
 def _handle_segment_event_log(message: dict) -> None:
@@ -1473,7 +1471,13 @@ def parse_args() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-observers",
         action="store_true",
-        help="Do not start local observer (sense still runs for remote/imports)",
+        help="Do not start observers (sense still runs for remote/imports)",
+    )
+    parser.add_argument(
+        "--observers",
+        type=str,
+        default="linux,tmux",
+        help="Comma-separated observers to start: linux, tmux, none (default: linux,tmux)",
     )
     parser.add_argument(
         "--no-daily",
@@ -1550,13 +1554,27 @@ def main() -> None:
     print(f"Journal: {path} (from {source})")
     logging.info("Supervisor starting...")
 
-    global _managed_procs, _supervisor_callosum, _observer_enabled, _is_remote_mode
+    global _managed_procs, _supervisor_callosum, _enabled_observers, _is_remote_mode
     global _task_queue
     procs: list[ManagedProcess] = []
+    convey_port = None
 
-    # Remote mode: run sync instead of local sense/observer
+    # Remote mode: run sync instead of local processing
     _is_remote_mode = bool(args.remote)
-    _observer_enabled = not args.no_observers
+    if args.no_observers:
+        _enabled_observers = set()
+    else:
+        obs_names = [o.strip() for o in args.observers.split(",")]
+        if "none" in obs_names:
+            _enabled_observers = set()
+        else:
+            valid = {"linux", "tmux"}
+            for name in obs_names:
+                if name not in valid:
+                    parser.error(
+                        f"Invalid observer: {name}. Choose from: linux, tmux, none"
+                    )
+            _enabled_observers = {f"{name}-observer" for name in obs_names}
 
     # Start Callosum in-process first - it's the message bus that other services depend on
     try:
@@ -1603,24 +1621,44 @@ def main() -> None:
             parser.error(f"Remote server not available: {message}")
         logging.info(f"Remote server verified: {message}")
         procs.append(start_sync(args.remote))
-        # Observer runs unless disabled
-        if not args.no_observers:
-            procs.append(start_observer())
+        # Start enabled observers (they upload to remote convey ingest)
+        if "linux-observer" in _enabled_observers:
+            procs.append(
+                _launch_process(
+                    "linux-observer", ["sol", "observer", "-v"], restart=True
+                )
+            )
+        if "tmux-observer" in _enabled_observers:
+            procs.append(
+                _launch_process(
+                    "tmux-observer", ["sol", "tmux-observer", "-v"], restart=True
+                )
+            )
     else:
-        # Local mode: sense handles file processing
+        # Local mode: convey first (observers upload via HTTP to convey ingest)
+        if not args.no_convey:
+            proc, convey_port = start_convey_server(
+                verbose=args.verbose, debug=args.debug, port=args.port
+            )
+            procs.append(proc)
+        # Sense handles file processing
         procs.append(start_sense())
-        # Observer only runs if not disabled (local capture)
-        if not args.no_observers:
-            procs.append(start_observer())
-    # Cortex and Convey only run in local mode (remote has no data to serve)
-    convey_port = None
-    if not _is_remote_mode and not args.no_cortex:
-        procs.append(start_cortex_server())
-    if not _is_remote_mode and not args.no_convey:
-        proc, convey_port = start_convey_server(
-            verbose=args.verbose, debug=args.debug, port=args.port
-        )
-        procs.append(proc)
+        # Start enabled observers
+        if "linux-observer" in _enabled_observers:
+            procs.append(
+                _launch_process(
+                    "linux-observer", ["sol", "observer", "-v"], restart=True
+                )
+            )
+        if "tmux-observer" in _enabled_observers:
+            procs.append(
+                _launch_process(
+                    "tmux-observer", ["sol", "tmux-observer", "-v"], restart=True
+                )
+            )
+        # Cortex after observers
+        if not args.no_cortex:
+            procs.append(start_cortex_server())
 
     # Make procs accessible to restart handler
     _managed_procs = procs
@@ -1658,8 +1696,14 @@ def main() -> None:
     finally:
         logging.info("Stopping all processes...")
         print("\nShutting down gracefully (this may take a moment)...", flush=True)
-        # Shut down managed processes in reverse order to respect dependencies
-        for managed in reversed(procs):
+        observer_procs = [
+            p for p in procs if p.name in ("linux-observer", "tmux-observer")
+        ]
+        other_procs = [
+            p for p in procs if p.name not in ("linux-observer", "tmux-observer")
+        ]
+
+        def _stop_process(managed: ManagedProcess) -> None:
             name = managed.name
             proc = managed.process
             logging.info(f"Stopping {name}...")
@@ -1681,13 +1725,19 @@ def main() -> None:
                 except Exception:
                     pass
             managed.cleanup()
-            # In remote mode, pause after observer exits so sync can receive
-            # the final observe.observing event before entering drain mode
-            if _is_remote_mode and name == "observer":
-                logging.info(
-                    "Remote mode: pausing for sync to receive observer's final event"
-                )
-                time.sleep(2)
+
+        # Stop observers first
+        for managed in observer_procs:
+            _stop_process(managed)
+
+        # Drain pause: let in-flight HTTP uploads complete to convey
+        if observer_procs:
+            logging.info("Pausing for observer uploads to drain")
+            time.sleep(2)
+
+        # Stop remaining services in reverse order
+        for managed in reversed(other_procs):
+            _stop_process(managed)
 
         # Save scheduler state before disconnecting
         if schedule_enabled and scheduler._state:
