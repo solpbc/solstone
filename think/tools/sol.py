@@ -5,8 +5,7 @@
 
 Provides read and write access to ``{journal}/sol/self.md``,
 ``{journal}/sol/agency.md``, ``{journal}/sol/pulse.md``, and
-``{journal}/sol/briefing/{day}.md`` — sol's
-identity and initiative files.
+``{journal}/sol/briefing.md`` — sol's identity and initiative files.
 
 Mounted by ``think.call`` as ``sol call sol ...``.
 """
@@ -127,45 +126,22 @@ def briefing_cmd(
     write: bool = typer.Option(
         False, "--write", "-w", help="Write briefing from stdin."
     ),
-    day: str | None = typer.Option(
-        None, "--day", "-d", help="Specific day YYYYMMDD."
-    ),
 ) -> None:
-    """Read or write sol/briefing/{day}.md."""
-    import os
-
+    """Read or write sol/briefing.md."""
     sol_dir = _sol_dir()
-    briefing_dir = sol_dir / "briefing"
+    briefing_path = sol_dir / "briefing.md"
 
     if write:
-        target_day = day or os.environ.get("SOL_DAY")
-        if not target_day:
-            typer.echo("Error: --day required (or set SOL_DAY).", err=True)
-            raise typer.Exit(1)
         content = sys.stdin.read()
         if not content.strip():
             typer.echo("Error: no content provided on stdin.", err=True)
             raise typer.Exit(1)
-        briefing_dir.mkdir(parents=True, exist_ok=True)
-        (briefing_dir / f"{target_day}.md").write_text(content, encoding="utf-8")
-        typer.echo(f"Briefing for {target_day} saved.")
+        briefing_path.write_text(content, encoding="utf-8")
+        typer.echo("briefing.md updated.")
         return
 
     # Read mode
-    if day:
-        path = briefing_dir / f"{day}.md"
-        if not path.exists():
-            typer.echo("No briefing found.", err=True)
-            raise typer.Exit(1)
-        typer.echo(path.read_text(encoding="utf-8"))
-        return
-
-    # No day specified — find most recent
-    if not briefing_dir.exists():
+    if not briefing_path.exists():
         typer.echo("No briefing found.", err=True)
         raise typer.Exit(1)
-    files = sorted(briefing_dir.glob("*.md"), reverse=True)
-    if not files:
-        typer.echo("No briefing found.", err=True)
-        raise typer.Exit(1)
-    typer.echo(files[0].read_text(encoding="utf-8"))
+    typer.echo(briefing_path.read_text(encoding="utf-8"))

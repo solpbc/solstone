@@ -60,27 +60,22 @@ cat <<'EOF' | sol call sol briefing --write
 ---
 type: morning_briefing
 date: $day_YYYYMMDD
-generated: [ISO 8601 datetime of generation, e.g. 2026-03-27T06:30:00]
+generated: [current ISO 8601 datetime]
 ---
 
 ## Your Day
-
 [content]
 
 ## Yesterday
-
 [content]
 
 ## Needs Attention
-
 [content]
 
 ## Forward Look
-
 [content]
 
 ## Reading
-
 [content]
 EOF
 ```
