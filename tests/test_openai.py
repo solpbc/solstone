@@ -40,7 +40,7 @@ def _assert_write_mode_sandbox():
     cmd = MockCLIRunner.last_instance.cmd
     assert "-s" in cmd
     s_idx = cmd.index("-s")
-    assert cmd[s_idx + 1] == "write"
+    assert cmd[s_idx + 1] == "workspace-write"
 
 
 def _make_test_harness():

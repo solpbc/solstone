@@ -177,10 +177,10 @@ async def run_cogitate(
     # Build command — sandbox is read-only; "sol" commands bypass
     # the sandbox via exec-policy rules in .codex/rules/solstone.rules
     # Write-enabled agents get full sandbox access
-    sandbox = "write" if config.get("write") else "read-only"
+    sandbox = "workspace-write" if config.get("write") else "read-only"
 
     session_id = config.get("session_id")
-    sandbox = "write" if config.get("write") else "read-only"
+    sandbox = "workspace-write" if config.get("write") else "read-only"
     if session_id:
         cmd = [
             "codex",

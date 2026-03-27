@@ -117,7 +117,7 @@ class TestOpenAIWriteFlag:
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         s_idx = cmd.index("-s")
-        assert cmd[s_idx + 1] == "write"
+        assert cmd[s_idx + 1] == "workspace-write"
 
     @patch("think.providers.openai.CLIRunner")
     def test_write_true_with_session_resume(self, mock_runner_cls):
@@ -138,7 +138,7 @@ class TestOpenAIWriteFlag:
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         s_idx = cmd.index("-s")
-        assert cmd[s_idx + 1] == "write"
+        assert cmd[s_idx + 1] == "workspace-write"
         assert "resume" in cmd
 
 
