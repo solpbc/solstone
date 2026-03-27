@@ -396,6 +396,17 @@
       "title": "Research Needs",
       "type": "generate"
     },
+    "routine": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "User-defined routine execution — runs owner instructions on schedule",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": "none",
+      "source": "system",
+      "title": "Routine",
+      "type": "cogitate"
+    },
     "schedule": {
       "app": null,
       "color": "#5e35b1",

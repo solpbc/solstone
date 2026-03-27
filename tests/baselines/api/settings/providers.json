@@ -318,6 +318,14 @@
       "tier": 2,
       "type": "generate"
     },
+    "muse.system.routine": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Routine",
+      "schedule": "none",
+      "tier": 2,
+      "type": "cogitate"
+    },
     "muse.system.schedule": {
       "disabled": false,
       "extract": true,
