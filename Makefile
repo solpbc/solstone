@@ -50,6 +50,10 @@ USER_BIN := $(HOME)/.local/bin
 		echo "Done! (worktree detected, skipping ~/.local/bin/sol symlink)"; \
 	fi
 	@$(MAKE) --no-print-directory skills
+	@if [ -d .git ] && [ -f skills/solstone/SKILL.md ]; then \
+		echo "Installing solstone skill user-wide..."; \
+		npx skills add ./skills/solstone -g -a claude-code -y; \
+	fi
 	@touch .installed
 
 # Generate lock file if missing
