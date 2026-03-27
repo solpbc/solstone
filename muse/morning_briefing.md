@@ -1,19 +1,19 @@
 {
   "type": "cogitate",
-  "write": true,
 
   "title": "Morning Briefing",
   "description": "Synthesizes all daily agent outputs into a structured five-section morning briefing with entity intelligence",
   "color": "#1565c0",
   "schedule": "daily",
   "priority": 50,
+  "output": "md",
   "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
 
 }
 
 You are generating the morning briefing for $agent_name — a structured daily digest that synthesizes all agent outputs, calendar, todos, and entity intelligence into an actionable start-of-day view.
 
-This is not a conversation. Gather data, synthesize, write the briefing, done.
+This is not a conversation. Gather data, synthesize, then return the briefing as your final response. The system saves your response automatically.
 
 ## Phase 1: Gather data
 
@@ -52,12 +52,11 @@ Build five sections from the gathered data. **Omit any section entirely if it ha
 
 **Reading** — Links to full facet newsletters for deep dives. List each active facet that has a newsletter for the analysis day, with a brief one-line description of what it covers. This is the "detailed edition" for owners who want the full picture. Only include if facet newsletters exist.
 
-## Phase 3: Write output
+## Phase 3: Return the briefing
 
-Compose the briefing as markdown with YAML frontmatter and write it via:
+After gathering data and synthesizing, return the complete briefing as your final response in this exact format:
 
-```bash
-cat <<'EOF' | sol call sol briefing --write
+```
 ---
 type: morning_briefing
 date: $day_YYYYMMDD
@@ -78,10 +77,9 @@ generated: [current ISO 8601 datetime]
 
 ## Reading
 [content]
-EOF
 ```
 
-Remember: omit sections with no content entirely. Do not write empty sections.
+Return ONLY the briefing markdown (with YAML frontmatter). No preamble, no explanation, no follow-up commentary. Omit sections with no content entirely.
 
 ## Guidelines
 

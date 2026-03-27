@@ -4,8 +4,9 @@
 """CLI commands for sol/ identity directory.
 
 Provides read and write access to ``{journal}/sol/self.md``,
-``{journal}/sol/agency.md``, ``{journal}/sol/pulse.md``, and
-``{journal}/sol/briefing.md`` — sol's identity and initiative files.
+``{journal}/sol/agency.md``, and ``{journal}/sol/pulse.md`` — sol's
+identity and initiative files. Also provides read access to the morning
+briefing at ``{journal}/YYYYMMDD/agents/morning_briefing.md``.
 
 Mounted by ``think.call`` as ``sol call sol ...``.
 """
@@ -17,7 +18,7 @@ import typer
 from think.awareness import ensure_sol_directory, update_self_md_section
 
 app = typer.Typer(
-    help="Sol identity directory — self.md, agency.md, pulse.md, and briefing."
+    help="Sol identity directory — self.md, agency.md, pulse.md, and morning briefing."
 )
 
 
@@ -123,25 +124,32 @@ def pulse_cmd(
 
 @app.command("briefing")
 def briefing_cmd(
-    write: bool = typer.Option(
-        False, "--write", "-w", help="Write briefing from stdin."
+    day: str | None = typer.Option(
+        None, "--day", "-d", help="Specific day YYYYMMDD."
     ),
 ) -> None:
-    """Read or write sol/briefing.md."""
-    sol_dir = _sol_dir()
-    briefing_path = sol_dir / "briefing.md"
+    """Read the morning briefing from YYYYMMDD/agents/morning_briefing.md."""
+    from pathlib import Path as _Path
 
-    if write:
-        content = sys.stdin.read()
-        if not content.strip():
-            typer.echo("Error: no content provided on stdin.", err=True)
+    from think.utils import get_journal
+
+    journal = _Path(get_journal())
+
+    if day:
+        path = journal / day / "agents" / "morning_briefing.md"
+        if not path.exists():
+            typer.echo("No briefing found.", err=True)
             raise typer.Exit(1)
-        briefing_path.write_text(content, encoding="utf-8")
-        typer.echo("briefing.md updated.")
+        typer.echo(path.read_text(encoding="utf-8"))
         return
 
-    # Read mode
-    if not briefing_path.exists():
-        typer.echo("No briefing found.", err=True)
-        raise typer.Exit(1)
-    typer.echo(briefing_path.read_text(encoding="utf-8"))
+    # No day specified — find most recent
+    agents_dirs = sorted(journal.glob("*/agents"), reverse=True)
+    for agents_dir in agents_dirs:
+        briefing = agents_dir / "morning_briefing.md"
+        if briefing.exists() and briefing.stat().st_size > 0:
+            typer.echo(briefing.read_text(encoding="utf-8"))
+            return
+
+    typer.echo("No briefing found.", err=True)
+    raise typer.Exit(1)
