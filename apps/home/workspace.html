@@ -299,6 +299,89 @@
   text-decoration: underline;
   background: transparent;
 }
+
+/* Briefing Card */
+.pulse-briefing-card {
+  padding: 1.25rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+.pulse-briefing-card[data-phase="eod"] { display: none; }
+
+.pulse-briefing-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+.pulse-briefing-meta {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-left: auto;
+}
+.pulse-briefing-badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  background: #fef3c7;
+  color: #b45309;
+  border-radius: 4px;
+}
+.pulse-briefing-summary {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-top: 0.5rem;
+}
+.pulse-briefing-card[data-collapsed="false"] .pulse-briefing-summary { display: none; }
+.pulse-briefing-card[data-collapsed="true"] .pulse-briefing-body { display: none; }
+.pulse-briefing-card[data-phase="pending"] .pulse-briefing-body { display: none; }
+
+.pulse-briefing-body {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.pulse-briefing-section-toggle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  padding: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.pulse-briefing-section-toggle::before {
+  content: "▾";
+  font-size: 0.7rem;
+  transition: transform 0.15s;
+}
+.pulse-briefing-section[data-collapsed="true"] .pulse-briefing-section-toggle::before {
+  transform: rotate(-90deg);
+}
+.pulse-briefing-section[data-collapsed="true"] .pulse-briefing-section-body { display: none; }
+
+.pulse-briefing-section-body {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #334155;
+  margin-top: 0.4rem;
+}
+.pulse-briefing-section-body p { margin: 0 0 0.4rem; }
+.pulse-briefing-section-body ul { margin: 0; padding-left: 1.25rem; }
+.pulse-briefing-section-body li { margin-bottom: 0.3rem; }
+
+.pulse-briefing-placeholder {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
 </style>
 
 <div class="pulse-dashboard">
@@ -332,6 +415,56 @@
       <a href="/app/health">Health →</a>
     </div>
   </div>
+
+  <!-- Briefing -->
+  {% if briefing_exists or briefing_phase == 'pending' %}
+  <div class="pulse-briefing-card" id="pulse-briefing" data-phase="{{ briefing_phase }}" data-collapsed="{{ 'false' if briefing_phase == 'morning' else 'true' }}">
+    <div class="pulse-briefing-header" onclick="toggleBriefingCard()">
+      <div class="pulse-section-header" style="margin-bottom:0">Morning Briefing</div>
+      {% if briefing_needs_badge %}
+      <span class="pulse-briefing-badge">{{ briefing_needs_badge }}</span>
+      {% endif %}
+      {% if briefing_meta and briefing_meta.generated %}
+      <span class="pulse-briefing-meta">{{ briefing_meta.generated[11:16] if briefing_meta.generated is string else briefing_meta.generated.strftime('%H:%M') }}</span>
+      {% endif %}
+    </div>
+    {% if briefing_summary %}
+    <div class="pulse-briefing-summary">{{ briefing_summary }}</div>
+    {% endif %}
+    {% if briefing_phase == 'pending' and not briefing_exists %}
+    <div class="pulse-briefing-placeholder">Your morning briefing is being prepared...</div>
+    {% endif %}
+    {% if briefing_exists %}
+    <div class="pulse-briefing-body" id="pulse-briefing-body">
+      {% for section_key in ['your_day', 'yesterday', 'needs_attention', 'forward_look', 'reading'] %}
+        {% set section_content = briefing_sections.get(section_key) %}
+        {% if section_key == 'needs_attention' %}
+          {% if briefing_needs_deduped or briefing_needs_badge %}
+          <div class="pulse-briefing-section" data-section="needs_attention" data-collapsed="false">
+            <button class="pulse-briefing-section-toggle" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">Needs Attention</button>
+            {% if briefing_needs_deduped %}
+            <div class="pulse-briefing-section-body" data-section-key="needs_attention">
+              <ul>
+              {% for item in briefing_needs_deduped %}
+                <li data-conversation="What's the status of: {{ item }}">{{ item }}</li>
+              {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+        {% elif section_content %}
+          {% set section_labels = {'your_day': 'Your Day', 'yesterday': 'Yesterday', 'forward_look': 'Forward Look', 'reading': 'Reading'} %}
+          <div class="pulse-briefing-section" data-section="{{ section_key }}" data-collapsed="false">
+            <button class="pulse-briefing-section-toggle" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">{{ section_labels[section_key] }}</button>
+            <div class="pulse-briefing-section-body" data-section-key="{{ section_key }}"></div>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
 
   <!-- Narrative -->
   {% if narrative_content is not none %}
@@ -430,10 +563,72 @@
 (function() {
   // Render narrative content with marked
   const narrativeRaw = {{ (narrative_content or '')|tojson|safe }};
+  var briefingSections = {{ briefing_sections|tojson|safe }};
+  var sectionOrder = ['your_day', 'yesterday', 'forward_look', 'reading'];
   if (narrativeRaw) {
     const el = document.getElementById('pulse-narrative-content');
     if (el) el.innerHTML = marked.parse(narrativeRaw, {breaks: true, gfm: true});
   }
+
+  function renderBriefingSections(sections) {
+    sectionOrder.forEach(function(key) {
+      var raw = sections[key];
+      var el = document.querySelector('[data-section-key="' + key + '"]');
+      if (!el) return;
+      if (!raw) {
+        el.innerHTML = '';
+        return;
+      }
+      el.innerHTML = marked.parse(raw, {breaks: true, gfm: true});
+      if (key === 'reading') {
+        el.querySelectorAll('li').forEach(function(li) {
+          var strong = li.querySelector('strong');
+          if (!strong) return;
+          var facetName = strong.textContent.trim();
+          var link = document.createElement('a');
+          link.href = '/app/search?agent=news&facet=' + encodeURIComponent(facetName);
+          link.textContent = li.textContent;
+          link.style.color = '#6366f1';
+          link.style.textDecoration = 'none';
+          li.textContent = '';
+          li.appendChild(link);
+        });
+        return;
+      }
+      var promptPrefix = {
+        your_day: 'Brief me on my meeting with ',
+        yesterday: 'Tell me more about ',
+        forward_look: 'Tell me more about '
+      };
+      if (!promptPrefix[key]) return;
+      el.querySelectorAll('li').forEach(function(li) {
+        var text = li.textContent.trim();
+        if (!text) return;
+        if (key === 'your_day') {
+          var timeMatch = text.match(/(\d{1,2}:\d{2})/);
+          var title = text.replace(/^\d{1,2}:\d{2}\s*[—–-]\s*/, '').substring(0, 60);
+          if (timeMatch) {
+            li.setAttribute('data-conversation', 'Brief me on my meeting with ' + title + ' at ' + timeMatch[1]);
+          } else {
+            li.setAttribute('data-conversation', "What's the status of: " + text.substring(0, 80));
+          }
+        } else {
+          li.setAttribute('data-conversation', promptPrefix[key] + text.substring(0, 80));
+        }
+      });
+    });
+  }
+
+  function formatBriefingTime(generated) {
+    if (!generated) return '';
+    var text = String(generated);
+    if (text.indexOf('T') !== -1) {
+      return text.split('T', 2)[1].substring(0, 5);
+    }
+    return text.substring(Math.max(0, text.length - 5));
+  }
+
+  renderBriefingSections(briefingSections);
 
   // Click-to-converse: delegated handler for all [data-conversation] elements
   var dashboard = document.querySelector('.pulse-dashboard');
@@ -460,9 +655,20 @@
     // Narrative: cortex.finish where name=flow or pulse
     window.appEvents.listen('cortex', function(msg) {
       if (msg.event === 'finish' && (msg.name === 'flow' || msg.name === 'pulse')) refreshNarrative();
+      if (msg.event === 'finish' && msg.name === 'morning_briefing') refreshBriefing();
       if (msg.event === 'error') refreshVitals();
     });
   }
+
+  window.toggleBriefingCard = function() {
+    var card = document.getElementById('pulse-briefing');
+    if (!card || card.dataset.phase === 'pending') return;
+    card.dataset.collapsed = card.dataset.collapsed === 'true' ? 'false' : 'true';
+  };
+
+  window.toggleBriefingSection = function(sectionEl) {
+    sectionEl.dataset.collapsed = sectionEl.dataset.collapsed === 'true' ? 'false' : 'true';
+  };
 
   function refreshVitals() {
     fetch('/app/home/api/pulse')
@@ -500,6 +706,85 @@
           if (hdr && data.narrative_header) hdr.textContent = data.narrative_header;
           const meta = document.querySelector('.pulse-narrative .pulse-narrative-meta');
           if (meta && data.narrative_updated_at) meta.textContent = 'Updated at ' + data.narrative_updated_at;
+        }
+      })
+      .catch(function() {});
+  }
+
+  function refreshBriefing() {
+    fetch('/app/home/api/briefing')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var card = document.getElementById('pulse-briefing');
+        if (!data.exists && data.phase !== 'pending') {
+          if (card) card.style.display = 'none';
+          return;
+        }
+        if (!card) {
+          window.location.reload();
+          return;
+        }
+        card.style.display = '';
+        card.dataset.phase = data.phase;
+        if (data.phase === 'morning') {
+          card.dataset.collapsed = 'false';
+        }
+
+        var summary = card.querySelector('.pulse-briefing-summary');
+        if (!summary && data.summary) {
+          summary = document.createElement('div');
+          summary.className = 'pulse-briefing-summary';
+          var header = card.querySelector('.pulse-briefing-header');
+          if (header) {
+            header.insertAdjacentElement('afterend', summary);
+          }
+        }
+        if (summary) {
+          summary.textContent = data.summary || '';
+          summary.style.display = data.summary ? '' : 'none';
+        }
+
+        var badge = card.querySelector('.pulse-briefing-badge');
+        if (badge) {
+          badge.textContent = data.needs_badge || '';
+          badge.style.display = data.needs_badge ? '' : 'none';
+        }
+
+        var meta = card.querySelector('.pulse-briefing-meta');
+        if (meta && data.meta && data.meta.generated) {
+          meta.textContent = formatBriefingTime(data.meta.generated);
+        }
+
+        var placeholder = card.querySelector('.pulse-briefing-placeholder');
+        if (placeholder) {
+          placeholder.style.display = data.exists ? 'none' : '';
+        }
+
+        if (data.exists && data.sections) {
+          var body = document.getElementById('pulse-briefing-body');
+          if (!body) {
+            window.location.reload();
+            return;
+          }
+
+          briefingSections = data.sections;
+          renderBriefingSections(briefingSections);
+
+          var needsBody = body.querySelector('[data-section-key="needs_attention"]');
+          if (needsBody && data.needs_deduped && data.needs_deduped.length > 0) {
+            var items = data.needs_deduped.map(function(item) {
+              var escaped = item
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+              return '<li data-conversation="What&#39;s the status of: ' + escaped + '">' + escaped + '</li>';
+            });
+            needsBody.innerHTML = '<ul>' + items.join('') + '</ul>';
+          } else if (needsBody) {
+            needsBody.innerHTML = '';
+          }
         }
       })
       .catch(function() {});
