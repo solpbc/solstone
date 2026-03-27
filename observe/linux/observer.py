@@ -5,15 +5,13 @@
 """
 Unified observer for audio and screencast capture.
 
-Continuously captures audio and manages screencast/tmux recording based on activity.
+Continuously captures audio and manages screencast recording based on activity.
 Creates 5-minute windows, saving audio if voice activity detected and recording
-screencasts during active segments. When screen is idle but tmux sessions are active,
-captures tmux terminal content instead.
+screencasts during active segments.
 
 State machine:
     SCREENCAST: Screen is active, recording video
-    TMUX: Screen is idle but tmux has recent activity
-    IDLE: Both screen and tmux are inactive
+    IDLE: Screen is inactive
 """
 
 import argparse
@@ -41,11 +39,10 @@ from observe.gnome.activity import (
 from observe.hear import AudioRecorder
 from observe.linux.audio import is_sink_muted
 from observe.linux.screencast import Screencaster, StreamInfo
-from observe.tmux.capture import TmuxCapture, write_captures_jsonl
 from observe.utils import create_draft_folder, get_timestamp_parts
 from think.callosum import CallosumConnection
 from think.streams import stream_name, update_stream, write_segment_stream
-from think.utils import day_path, get_config, get_journal, get_rev, setup_cli
+from think.utils import day_path, get_journal, get_rev, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -58,16 +55,12 @@ IDLE_THRESHOLD_MS = 5 * 60 * 1000  # 5 minutes
 RMS_THRESHOLD = 0.01
 MIN_HITS_FOR_SAVE = 3
 CHUNK_DURATION = 5  # seconds
-TMUX_ACTIVITY_THRESHOLD = 5  # seconds - fixed window for activity detection
-
-
 # Exit codes
 EXIT_TEMPFAIL = 75  # EX_TEMPFAIL: session not ready, retry later
 
 # Capture modes
 MODE_IDLE = "idle"
 MODE_SCREENCAST = "screencast"
-MODE_TMUX = "tmux"
 
 # Audio detection retry
 DETECT_RETRIES = 3
@@ -75,13 +68,12 @@ DETECT_RETRY_DELAY = 5  # seconds
 
 
 class Observer:
-    """Unified audio and screencast/tmux observer."""
+    """Unified audio and screencast observer."""
 
     def __init__(self, interval: int = 300):
         self.interval = interval
         self.audio_recorder = AudioRecorder()
         self.screencaster = Screencaster()
-        self.tmux_capture = TmuxCapture()
         self.bus: MessageBus | None = None
         self.running = True
         self.stream = stream_name(host=HOST)
@@ -105,13 +97,6 @@ class Observer:
         # Multi-file screencast tracking
         self.current_streams: list[StreamInfo] = []
 
-        # Tmux capture tracking
-        self.tmux_captures: list[dict] = []
-        self.tmux_capture_id = 0
-        self.tmux_sessions_seen: set[str] = set()
-        self.last_tmux_capture_time: float = 0  # For capture interval timing
-        self.in_tmux_segment: bool = False  # True while tmux segment is open
-
         # Activity status cache (updated each loop)
         self.cached_is_active = False
         self.cached_idle_time_ms = 0
@@ -121,31 +106,6 @@ class Observer:
 
         # Mute state at segment start (determines save format)
         self.segment_is_muted = False
-
-        # Tmux configuration (loaded from journal config)
-        self.tmux_enabled = True
-        self.tmux_capture_interval = (
-            CHUNK_DURATION  # User-configurable capture frequency
-        )
-
-    def _load_tmux_config(self):
-        """Load tmux settings from journal config."""
-        try:
-            config = get_config()
-            observe_config = config.get("observe", {})
-            tmux_config = observe_config.get("tmux", {})
-
-            self.tmux_enabled = tmux_config.get("enabled", True)
-            self.tmux_capture_interval = tmux_config.get(
-                "capture_interval", CHUNK_DURATION
-            )
-
-            if not self.tmux_enabled:
-                logger.info("Tmux capture disabled in config")
-            elif self.tmux_capture_interval != CHUNK_DURATION:
-                logger.info(f"Tmux capture interval: {self.tmux_capture_interval}s")
-        except Exception as e:
-            logger.warning(f"Failed to load tmux config, using defaults: {e}")
 
     async def setup(self):
         """Initialize audio devices and DBus connection."""
@@ -180,16 +140,6 @@ class Observer:
             return False
         logger.info("Screencast portal connected")
 
-        # Load tmux configuration from journal
-        self._load_tmux_config()
-
-        # Check tmux availability (only if enabled)
-        if self.tmux_enabled:
-            if self.tmux_capture.is_available():
-                logger.info("Tmux available for fallback capture")
-            else:
-                logger.info("Tmux not available (will only use screencast)")
-
         # Start Callosum connection for events
         self._callosum = CallosumConnection(defaults={"rev": get_rev()})
         self._callosum.start()
@@ -203,7 +153,7 @@ class Observer:
         Check system activity status and determine capture mode.
 
         Returns:
-            Capture mode: MODE_SCREENCAST, MODE_TMUX, or MODE_IDLE
+            Capture mode: MODE_SCREENCAST or MODE_IDLE
         """
         idle_time = await get_idle_time_ms(self.bus)
         screen_locked = await is_screen_locked(self.bus)
@@ -220,26 +170,15 @@ class Observer:
         screen_idle = (idle_time > IDLE_THRESHOLD_MS) or screen_locked or power_save
         screen_active = not screen_idle
 
-        # Check tmux activity (only if screen is idle and tmux is enabled)
-        # Uses fixed threshold for mode detection, not capture interval
-        if screen_active or not self.tmux_enabled:
-            tmux_active = False
-        else:
-            tmux_active = self.tmux_capture.is_active(
-                poll_interval=TMUX_ACTIVITY_THRESHOLD
-            )
-
-        # Determine mode with priority: screen > tmux > idle
+        # Determine mode from screen activity
         if screen_active:
             mode = MODE_SCREENCAST
-        elif tmux_active:
-            mode = MODE_TMUX
         else:
             mode = MODE_IDLE
 
         # Cache legacy is_active for audio threshold logic
         has_audio_activity = self.threshold_hits >= MIN_HITS_FOR_SAVE
-        self.cached_is_active = screen_active or tmux_active or has_audio_activity
+        self.cached_is_active = screen_active or has_audio_activity
 
         return mode
 
@@ -351,25 +290,8 @@ class Observer:
         self.accumulated_audio_buffer = np.array([], dtype=np.float32).reshape(0, 2)
         self.threshold_hits = 0
 
-        # Handle tmux capture save (to draft dir)
-        # Save if we have captures, regardless of current mode (mode may have
-        # changed to IDLE within the segment without triggering a boundary)
-        tmux_files: list[str] = []
-        if self.tmux_captures and self.draft_dir:
-            # write_captures_jsonl expects a Path and creates it if needed
-            # Draft dir already exists
-            tmux_files = write_captures_jsonl(self.tmux_captures, Path(self.draft_dir))
-
-        # Reset tmux state
-        self.tmux_captures = []
-        self.tmux_capture_id = 0
-        self.tmux_sessions_seen = set()
-        self.tmux_capture.reset_hashes()
-        self.last_tmux_capture_time = 0  # Allow immediate capture in new segment
-        self.in_tmux_segment = new_mode == MODE_TMUX  # Track if new segment is tmux
-
         # Collect all files saved in this segment
-        files = audio_files + screen_files + tmux_files
+        files = audio_files + screen_files
         segment_key = f"{time_part}_{duration}"
 
         # Rename draft folder to final segment name (atomic handoff)
@@ -429,10 +351,8 @@ class Observer:
         # Start new capture based on mode (creates new draft folder)
         if new_mode == MODE_SCREENCAST and not self.cached_screen_locked:
             await self.initialize_screencast()
-        elif new_mode == MODE_TMUX or new_mode == MODE_IDLE:
-            # Create draft folder for audio/tmux even without screencast
+        elif new_mode == MODE_IDLE:
             self._create_draft_folder()
-        # MODE_TMUX doesn't need initialization, captures happen in main loop
 
         logger.info(f"Mode transition: {old_mode} -> {new_mode}")
 
@@ -491,44 +411,6 @@ class Observer:
 
         return True
 
-    def capture_tmux(self):
-        """Poll tmux and accumulate captures based on capture interval.
-
-        Only captures if:
-        1. Enough time has passed since last capture (capture_interval)
-        2. There was activity since the last capture
-        """
-        now = time.time()
-        time_since_capture = now - self.last_tmux_capture_time
-
-        # Check if capture interval has elapsed
-        if time_since_capture < self.tmux_capture_interval:
-            return
-
-        # Get sessions with activity since last capture
-        active_sessions = self.tmux_capture.get_active_sessions(time_since_capture)
-        if not active_sessions:
-            return
-
-        # Update capture time before capturing
-        self.last_tmux_capture_time = now
-
-        for session_info in active_sessions:
-            session = session_info["session"]
-            self.tmux_sessions_seen.add(session)
-
-            result = self.tmux_capture.capture_changed(session)
-            if not result:
-                continue
-
-            self.tmux_capture_id += 1
-            relative_ts = now - self.start_at
-            capture_dict = self.tmux_capture.result_to_dict(
-                result, self.tmux_capture_id, relative_ts
-            )
-            self.tmux_captures.append(capture_dict)
-            logger.debug(f"Captured tmux session {session}: {len(result.panes)} panes")
-
     def emit_status(self):
         """Emit observe.status event with current state."""
         if not self._callosum:
@@ -562,17 +444,6 @@ class Observer:
         else:
             screencast_info = {"recording": False}
 
-        # Calculate tmux info (show capturing=true while tmux segment is open)
-        if self.in_tmux_segment:
-            tmux_info = {
-                "capturing": True,
-                "captures": len(self.tmux_captures),
-                "sessions": sorted(self.tmux_sessions_seen),
-                "window_elapsed_seconds": elapsed,
-            }
-        else:
-            tmux_info = {"capturing": False}
-
         # Audio info
         audio_info = {
             "threshold_hits": self.threshold_hits,
@@ -589,11 +460,8 @@ class Observer:
         }
 
         # Determine reported mode (segment type, not instantaneous state)
-        # Screencast takes priority, then tmux segment, then idle
         if self.current_mode == MODE_SCREENCAST:
             reported_mode = MODE_SCREENCAST
-        elif self.in_tmux_segment:
-            reported_mode = MODE_TMUX
         else:
             reported_mode = MODE_IDLE
 
@@ -603,7 +471,6 @@ class Observer:
             "status",
             mode=reported_mode,
             screencast=screencast_info,
-            tmux=tmux_info,
             audio=audio_info,
             activity=activity_info,
             host=HOST,
@@ -619,7 +486,6 @@ class Observer:
         new_mode = await self.check_activity_status()
         self.segment_is_muted = self.cached_is_muted  # Sync initial mute state
         self.current_mode = new_mode
-        self.in_tmux_segment = new_mode == MODE_TMUX
 
         # Start initial capture based on mode (creates draft folder)
         if new_mode == MODE_SCREENCAST and not self.cached_screen_locked:
@@ -630,7 +496,7 @@ class Observer:
                 self.running = False
                 return
         else:
-            # Create draft folder for audio/tmux even without screencast
+            # Create draft folder for audio even without screencast
             self._create_draft_folder()
 
         logger.info(f"Initial mode: {self.current_mode}")
@@ -660,8 +526,7 @@ class Observer:
             if mode_changed:
                 logger.info(f"Mode changing: {self.current_mode} -> {new_mode}")
 
-            # Only trigger segment boundary on screencast transitions (not tmux<->idle)
-            # This allows tmux segments to run full 5min windows like screencast
+            # Only trigger segment boundary on screencast transitions
             screencast_transition = mode_changed and (
                 self.current_mode == MODE_SCREENCAST or new_mode == MODE_SCREENCAST
             )
@@ -696,10 +561,6 @@ class Observer:
             else:
                 logger.debug("No audio data in chunk")
 
-            # Capture tmux if in tmux mode
-            if self.current_mode == MODE_TMUX:
-                self.capture_tmux()
-
             # Check for window boundary (use monotonic to avoid DST/clock jumps)
             now_mono = time.monotonic()
             elapsed = now_mono - self.start_at_mono
@@ -714,12 +575,6 @@ class Observer:
                     f"hits={self.threshold_hits}/{MIN_HITS_FOR_SAVE}"
                 )
                 await self.handle_boundary(new_mode)
-            elif mode_changed:
-                # Update mode without boundary (tmux<->idle transitions)
-                self.current_mode = new_mode
-                # Mark tmux segment active when entering TMUX mode
-                if new_mode == MODE_TMUX:
-                    self.in_tmux_segment = True
 
             # Emit status event
             self.emit_status()
@@ -752,18 +607,9 @@ class Observer:
             if audio_files:
                 logger.info(f"Saved final audio: {len(audio_files)} file(s)")
 
-        # Save tmux captures (to draft dir)
-        # Save if we have captures, regardless of current mode (mode may have
-        # changed to IDLE within the segment without triggering a boundary)
-        tmux_files: list[str] = []
-        if self.tmux_captures and self.draft_dir:
-            tmux_files = write_captures_jsonl(self.tmux_captures, Path(self.draft_dir))
-            if tmux_files:
-                logger.info(f"Saved final tmux captures: {len(tmux_files)} file(s)")
-
         # Collect all files and finalize segment
         screen_files = [stream.filename for stream in stopped_streams]
-        files = audio_files + screen_files + tmux_files
+        files = audio_files + screen_files
         segment_key = f"{time_part}_{duration}"
 
         if self.draft_dir and files:
@@ -834,7 +680,7 @@ def _recover_session_env() -> None:
 
     On GNOME Wayland, gnome-shell pushes DISPLAY, WAYLAND_DISPLAY, and
     DBUS_SESSION_BUS_ADDRESS into the systemd user environment on startup.
-    When the observer is launched from SSH or tmux, these vars may be missing
+    When the observer is launched from a non-desktop shell, these vars may be missing
     from the inherited environment — but systemctl --user show-environment
     has them.
     """
@@ -943,7 +789,7 @@ async def async_main(args):
 def main():
     """CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="Unified audio, screencast, and tmux observer for journaling."
+        description="Unified audio and screencast observer for journaling."
     )
     parser.add_argument(
         "--interval",
