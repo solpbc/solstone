@@ -60,6 +60,7 @@ COMMANDS: dict[str, str] = {
     "sync": "observe.sync",
     "transfer": "observe.transfer",
     "observer": "observe.observer",
+    "remote": "observe.remote_cli",
     "observe-linux": "observe.linux.observer",
     "observe-macos": "observe.macos.observer",
     # AI agents (formerly muse package)
@@ -113,6 +114,7 @@ GROUPS: dict[str, list[str]] = {
         "sync",
         "transfer",
         "observer",
+        "remote",
     ],
     "Muse (AI agents)": [
         "agents",
