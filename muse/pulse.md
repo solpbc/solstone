@@ -28,12 +28,19 @@ Read current state using these tools:
 4. `sol call todos list` — pending action items
 5. `sol call entities search --recent` — recent entity activity
 6. `sol call awareness status` — system health (brief check)
+7. `sol call routines list` — check for recent routine outputs
+
+If any routines have run recently, read their latest output:
+- `sol call routines output {id_prefix}` for each routine with a recent `last_run`
+
+Note the key findings — you'll weave them into the narrative.
 
 ## Write the pulse
 
 Compose a short, natural narrative (3-8 sentences) describing the shape of the
 owner's day so far. Lead with what matters most right now. Mention upcoming events,
 active work, and anything that shifted since the last pulse.
+If routines produced notable findings, reference them by name (e.g., 'Your Morning Briefing noted...').
 
 After the narrative, include a `## needs you` section — a ranked list of 3-7
 action items the owner should notice. Format as markdown bullet points:

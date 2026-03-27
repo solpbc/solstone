@@ -44,6 +44,17 @@ If you find curation issues: read current agency.md with `sol call sol agency`,
 add entries to the curation section, then write it back with
 `echo '...' | sol call sol agency --write`.
 
+## Step 2.5: Check routine health
+
+Run `sol call routines list` and review recent execution status. Cross-reference
+with `{journal}/health/routines.log` if needed. Look for:
+- Routines that should have run but didn't (missed cron windows)
+- Repeated failures or timeouts
+- Routines with stale `last_run` relative to their cadence
+
+If you find issues: add entries to agency.md's `## system` section noting the
+routine name and failure pattern.
+
 ## Step 3: Tend agency.md
 
 Read agency.md with `sol call sol agency`. For each open item:

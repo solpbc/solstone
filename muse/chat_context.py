@@ -12,6 +12,8 @@ Loaded via hook config: {"hook": {"pre": "chat_context"}}
 """
 
 import logging
+from datetime import datetime
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,45 @@ NAMING_AWARENESS_TEXT = """## Naming Awareness
 
 The journal is still using its default name. When the moment feels right — after enough shared history — you may offer to suggest a name, or let the user choose one. Check naming readiness before offering. Only do this once per session.
 """.strip()
+
+ROUTINES_GUIDANCE = """## Recent Routine Outputs
+
+{routine_summaries}
+
+**How to reference routines in conversation:**
+- When a routine is relevant to the owner's question, cite it by name: "Your Morning Briefing from earlier noted..."
+- Surface routine findings as a natural "by the way" when contextually relevant — not forced
+- Do not reference routines during deep, focused conversations unless the owner asks
+- If the owner asks about a routine, offer to show the full output
+""".strip()
+
+
+def _extract_chat_summary(path: Path) -> str:
+    """Extract a chat-oriented summary from a routine output markdown file."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ""
+
+    if lines and lines[0].strip() == "---":
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                lines = lines[i + 1 :]
+                break
+
+    summary_lines: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        summary_lines.append(stripped)
+        if len(summary_lines) == 2:
+            break
+
+    summary = " ".join(summary_lines)
+    if len(summary) > 150:
+        return summary[:149] + "…"
+    return summary
 
 
 def pre_process(context: dict) -> dict | None:
@@ -76,6 +117,50 @@ When the context includes a `System health:` line, there is an active attention 
 When no `System health:` line is present, everything is fine.
 """.strip()
     )
+
+    try:
+        from think.routines import get_config as get_routines_config
+        from think.utils import get_journal
+
+        routines_config = get_routines_config()
+        journal = Path(get_journal())
+        now = datetime.now()
+        routine_lines = []
+        for value in routines_config.values():
+            if not isinstance(value, dict):
+                continue
+            if not value.get("enabled"):
+                continue
+            last_run = value.get("last_run")
+            if not last_run:
+                continue
+            try:
+                last_run_dt = datetime.fromisoformat(
+                    last_run.replace("Z", "+00:00")
+                ).replace(tzinfo=None)
+            except (ValueError, AttributeError):
+                continue
+            if (now - last_run_dt).total_seconds() > 86400:
+                continue
+            routine_id = value.get("id", "")
+            name = value.get("name", routine_id)
+            output_dir = journal / "routines" / routine_id
+            summary = ""
+            if output_dir.exists():
+                outputs = sorted(
+                    output_dir.glob("*.md"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                if outputs:
+                    summary = _extract_chat_summary(outputs[0])
+            if summary:
+                routine_lines.append(f"- **{name}**: {summary}")
+        if routine_lines:
+            summaries_text = "\n".join(routine_lines)
+            sections.append(ROUTINES_GUIDANCE.format(routine_summaries=summaries_text))
+    except Exception:
+        logger.debug("Routine context enrichment failed", exc_info=True)
 
     try:
         onboarding = get_onboarding()
