@@ -421,7 +421,8 @@ def normalize(data: Any, journal_path: str) -> Any:
                     and isinstance(item_value, (int, float))
                     else (
                         round(item_value, 1)
-                        if item_key == "score" and isinstance(item_value, float)
+                        if item_key in {"score", "recency"}
+                        and isinstance(item_value, float)
                         else walk(item_value, item_key)
                     )
                 )
