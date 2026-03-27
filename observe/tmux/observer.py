@@ -6,7 +6,7 @@
 Standalone tmux terminal capture observer.
 
 Continuously polls all active tmux sessions and captures terminal content,
-creating 5-minute segments with draft-to-final atomic rename.
+creating 5-minute segments uploaded via HTTP to the ingest server.
 
 Always-on: no idle detection, no screen activity checks. Just captures
 whatever tmux sessions exist on the configurable interval.
@@ -23,11 +23,11 @@ import sys
 import time
 from pathlib import Path
 
+from observe.remote_client import ObserverClient, cleanup_draft
 from observe.tmux.capture import TmuxCapture, write_captures_jsonl
 from observe.utils import create_draft_folder, get_timestamp_parts
-from think.callosum import CallosumConnection
-from think.streams import stream_name, update_stream, write_segment_stream
-from think.utils import day_path, get_config, get_rev, setup_cli
+from think.streams import stream_name
+from think.utils import get_config, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class TmuxObserver:
         self.tmux_capture = TmuxCapture()
         self.running = True
         self.stream = stream_name(host=HOST, qualifier="tmux")
-        self._callosum: CallosumConnection | None = None
+        self._client: ObserverClient | None = None
         self.start_at = time.time()
         self.start_at_mono = time.monotonic()
         self.draft_dir: str | None = None
@@ -66,7 +66,7 @@ class TmuxObserver:
         return enabled, capture_interval
 
     def setup(self) -> bool:
-        """Initialize config, tmux availability, and Callosum."""
+        """Initialize config, tmux availability, and remote client."""
         enabled, self.capture_interval = self._load_config()
         if not enabled:
             logger.info("Tmux capture disabled in config")
@@ -76,9 +76,8 @@ class TmuxObserver:
             logger.error("Tmux not available")
             return False
 
-        self._callosum = CallosumConnection(defaults={"rev": get_rev()})
-        self._callosum.start()
-        logger.info("Callosum connection started")
+        self._client = ObserverClient(self.stream)
+        logger.info("Remote client initialized")
         return True
 
     def capture(self):
@@ -128,7 +127,7 @@ class TmuxObserver:
                 pass
 
     def finalize_segment(self) -> list[str]:
-        """Write captures to disk, finalize the segment, and emit observing."""
+        """Write captures to disk, upload the segment, and clean up draft state."""
         if not self.captures or not self.draft_dir:
             self._remove_empty_draft()
             self._reset_capture_state()
@@ -142,48 +141,27 @@ class TmuxObserver:
 
         date_part, time_part = get_timestamp_parts(self.start_at)
         duration = int(time.time() - self.start_at)
-        day_dir = day_path(date_part)
         segment_key = f"{time_part}_{duration}"
-        final_segment_dir = str(day_dir / self.stream / segment_key)
 
-        try:
-            os.rename(self.draft_dir, final_segment_dir)
-            logger.info(f"Segment finalized: {self.draft_dir} -> {final_segment_dir}")
-        except OSError as e:
-            logger.error(f"Failed to rename draft folder: {e}")
-            tmux_files = []
-
-        if tmux_files:
-            try:
-                result = update_stream(
-                    self.stream,
-                    date_part,
-                    segment_key,
-                    type="observer",
-                    host=HOST,
-                    platform=PLATFORM,
+        # Upload from draft directory
+        draft_path = Path(self.draft_dir)
+        draft_files = [
+            draft_path / f
+            for f in os.listdir(self.draft_dir)
+            if (draft_path / f).is_file()
+        ]
+        if draft_files and self._client:
+            meta = {"host": HOST, "platform": PLATFORM, "stream": self.stream}
+            result = self._client.upload_segment(
+                date_part, segment_key, draft_files, meta
+            )
+            if result.success:
+                logger.info(
+                    f"Segment uploaded: {segment_key} ({len(draft_files)} files)"
                 )
-                write_segment_stream(
-                    final_segment_dir,
-                    self.stream,
-                    result["prev_day"],
-                    result["prev_segment"],
-                    result["seq"],
-                )
-            except Exception as e:
-                logger.warning(f"Failed to write stream identity: {e}")
-
-            if self._callosum:
-                self._callosum.emit(
-                    "observe",
-                    "observing",
-                    day=date_part,
-                    segment=segment_key,
-                    files=tmux_files,
-                    host=HOST,
-                    platform=PLATFORM,
-                    stream=self.stream,
-                )
+            else:
+                logger.error(f"Segment upload failed: {segment_key}")
+        cleanup_draft(self.draft_dir)
 
         self._reset_capture_state()
         return tmux_files
@@ -196,7 +174,7 @@ class TmuxObserver:
 
     def emit_status(self):
         """Emit observe.status with current tmux capture state."""
-        if not self._callosum:
+        if not self._client:
             return
 
         elapsed = int(time.monotonic() - self.start_at_mono)
@@ -206,7 +184,7 @@ class TmuxObserver:
             "sessions": sorted(self.sessions_seen),
             "window_elapsed_seconds": elapsed,
         }
-        self._callosum.emit(
+        self._client.relay_event(
             "observe",
             "status",
             mode="tmux",
@@ -234,12 +212,12 @@ class TmuxObserver:
         await self.shutdown()
 
     async def shutdown(self):
-        """Finalize the current segment and stop Callosum."""
+        """Finalize the current segment and stop the remote client."""
         self.finalize_segment()
         self.draft_dir = None
-        if self._callosum:
-            self._callosum.stop()
-            self._callosum = None
+        if self._client:
+            self._client.stop()
+            self._client = None
 
 
 async def async_main(args):

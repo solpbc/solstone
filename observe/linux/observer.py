@@ -39,10 +39,10 @@ from observe.gnome.activity import (
 from observe.hear import AudioRecorder
 from observe.linux.audio import is_sink_muted
 from observe.linux.screencast import Screencaster, StreamInfo
+from observe.remote_client import ObserverClient, cleanup_draft
 from observe.utils import create_draft_folder, get_timestamp_parts
-from think.callosum import CallosumConnection
-from think.streams import stream_name, update_stream, write_segment_stream
-from think.utils import day_path, get_journal, get_rev, setup_cli
+from think.streams import stream_name
+from think.utils import setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +78,7 @@ class Observer:
         self.running = True
         self.stream = stream_name(host=HOST)
 
-        # Callosum connection for events
-        self._callosum: CallosumConnection | None = None
-        self._journal_path: Path | None = None
+        self._client: ObserverClient | None = None
 
         # State tracking
         self.start_at = time.time()  # Wall-clock for filenames
@@ -140,11 +138,8 @@ class Observer:
             return False
         logger.info("Screencast portal connected")
 
-        # Start Callosum connection for events
-        self._callosum = CallosumConnection(defaults={"rev": get_rev()})
-        self._callosum.start()
-        self._journal_path = Path(get_journal())
-        logger.info("Callosum connection started")
+        self._client = ObserverClient(self.stream)
+        logger.info("Remote client initialized")
 
         return True
 
@@ -247,8 +242,8 @@ class Observer:
         """
         Handle window boundary rollover.
 
-        Closes the current draft folder, renames it to final segment name,
-        and emits the observing event.
+        Closes the current draft folder, uploads segment files, and starts
+        the next segment.
 
         Args:
             new_mode: The mode for the new segment
@@ -256,7 +251,6 @@ class Observer:
         # Get timestamp parts for this window and calculate duration
         date_part, time_part = get_timestamp_parts(self.start_at)
         duration = int(time.time() - self.start_at)
-        day_dir = day_path(date_part)
 
         # Stop screencast first (closes file handles)
         stopped_streams: list[StreamInfo] = []
@@ -294,46 +288,28 @@ class Observer:
         files = audio_files + screen_files
         segment_key = f"{time_part}_{duration}"
 
-        # Rename draft folder to final segment name (atomic handoff)
+        # Upload segment files from draft directory
         if self.draft_dir and files:
-            final_segment_dir = str(day_dir / self.stream / segment_key)
-            try:
-                os.rename(self.draft_dir, final_segment_dir)
-                logger.info(
-                    f"Segment finalized: {self.draft_dir} -> {final_segment_dir}"
+            draft_path = Path(self.draft_dir)
+            draft_files = [
+                draft_path / f
+                for f in os.listdir(self.draft_dir)
+                if (draft_path / f).is_file()
+            ]
+            if draft_files and self._client:
+                meta = {"host": HOST, "platform": PLATFORM, "stream": self.stream}
+                result = self._client.upload_segment(
+                    date_part, segment_key, draft_files, meta
                 )
-            except OSError as e:
-                logger.error(f"Failed to rename draft folder: {e}")
-                # Files stay in draft folder, won't be processed
-                files = []
-
-            # Write stream identity for this segment
-            if files:
-                try:
-                    result = update_stream(
-                        self.stream,
-                        date_part,
-                        segment_key,
-                        type="observer",
-                        host=HOST,
-                        platform=PLATFORM,
+                if result.success:
+                    logger.info(
+                        f"Segment uploaded: {segment_key} ({len(draft_files)} files)"
                     )
-                    write_segment_stream(
-                        final_segment_dir,
-                        self.stream,
-                        result["prev_day"],
-                        result["prev_segment"],
-                        result["seq"],
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to write stream identity: {e}")
+                else:
+                    logger.error(f"Segment upload failed: {segment_key}")
+            cleanup_draft(self.draft_dir)
         elif self.draft_dir and not files:
-            # No files to save, remove empty draft folder
-            try:
-                os.rmdir(self.draft_dir)
-                logger.debug(f"Removed empty draft folder: {self.draft_dir}")
-            except OSError:
-                pass  # May have other files, ignore
+            cleanup_draft(self.draft_dir)
 
         self.draft_dir = None
 
@@ -355,20 +331,6 @@ class Observer:
             self._create_draft_folder()
 
         logger.info(f"Mode transition: {old_mode} -> {new_mode}")
-
-        # Emit observing event with what we saved this boundary
-        if files and self._callosum:
-            self._callosum.emit(
-                "observe",
-                "observing",
-                day=date_part,
-                segment=segment_key,
-                files=files,
-                host=HOST,
-                platform=PLATFORM,
-                stream=self.stream,
-            )
-            logger.info(f"Segment observing: {segment_key} ({len(files)} files)")
 
     def _create_draft_folder(self) -> str:
         """Create a draft folder for the current segment."""
@@ -413,26 +375,20 @@ class Observer:
 
     def emit_status(self):
         """Emit observe.status event with current state."""
-        if not self._callosum:
+        if not self._client:
             return
 
-        journal_path = str(self._journal_path) if self._journal_path else ""
         elapsed = int(time.monotonic() - self.start_at_mono)
 
         # Calculate screencast info
         if self.current_mode == MODE_SCREENCAST and self.current_streams:
             streams_info = []
             for stream in self.current_streams:
-                try:
-                    rel_file = os.path.relpath(stream.file_path, journal_path)
-                except ValueError:
-                    rel_file = stream.file_path
-
                 streams_info.append(
                     {
                         "position": stream.position,
                         "connector": stream.connector,
-                        "file": rel_file,
+                        "file": stream.file_path,
                     }
                 )
 
@@ -465,8 +421,7 @@ class Observer:
         else:
             reported_mode = MODE_IDLE
 
-        # Emit status
-        self._callosum.emit(
+        self._client.relay_event(
             "observe",
             "status",
             mode=reported_mode,
@@ -588,7 +543,6 @@ class Observer:
         # Get timestamp parts for final save
         date_part, time_part = get_timestamp_parts(self.start_at)
         duration = int(time.time() - self.start_at)
-        day_dir = day_path(date_part)
 
         # Stop screencast first (closes file handles)
         stopped_streams: list[StreamInfo] = []
@@ -613,54 +567,26 @@ class Observer:
         segment_key = f"{time_part}_{duration}"
 
         if self.draft_dir and files:
-            final_segment_dir = str(day_dir / self.stream / segment_key)
-            try:
-                os.rename(self.draft_dir, final_segment_dir)
-                logger.info(f"Final segment: {self.draft_dir} -> {final_segment_dir}")
-
-                # Write stream identity for this segment
-                try:
-                    result = update_stream(
-                        self.stream,
-                        date_part,
-                        segment_key,
-                        type="observer",
-                        host=HOST,
-                        platform=PLATFORM,
-                    )
-                    write_segment_stream(
-                        final_segment_dir,
-                        self.stream,
-                        result["prev_day"],
-                        result["prev_segment"],
-                        result["seq"],
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to write stream identity: {e}")
-
-                # Emit final observing event
-                if self._callosum:
-                    self._callosum.emit(
-                        "observe",
-                        "observing",
-                        day=date_part,
-                        segment=segment_key,
-                        files=files,
-                        host=HOST,
-                        platform=PLATFORM,
-                        stream=self.stream,
-                    )
+            draft_path = Path(self.draft_dir)
+            draft_files = [
+                draft_path / f
+                for f in os.listdir(self.draft_dir)
+                if (draft_path / f).is_file()
+            ]
+            if draft_files and self._client:
+                meta = {"host": HOST, "platform": PLATFORM, "stream": self.stream}
+                result = self._client.upload_segment(
+                    date_part, segment_key, draft_files, meta
+                )
+                if result.success:
                     logger.info(
-                        f"Segment observing: {segment_key} ({len(files)} files)"
+                        f"Final segment uploaded: {segment_key} ({len(draft_files)} files)"
                     )
-            except OSError as e:
-                logger.error(f"Failed to rename final draft folder: {e}")
+                else:
+                    logger.error(f"Final segment upload failed: {segment_key}")
+            cleanup_draft(self.draft_dir)
         elif self.draft_dir:
-            # No files, remove empty draft folder
-            try:
-                os.rmdir(self.draft_dir)
-            except OSError:
-                pass
+            cleanup_draft(self.draft_dir)
 
         self.draft_dir = None
 
@@ -668,11 +594,10 @@ class Observer:
         self.audio_recorder.stop_recording()
         logger.info("Audio recording stopped")
 
-        # Stop Callosum connection
-        if self._callosum:
-            self._callosum.stop()
-            self._callosum = None
-        logger.info("Callosum connection stopped")
+        if self._client:
+            self._client.stop()
+            self._client = None
+        logger.info("Remote client stopped")
 
 
 def _recover_session_env() -> None:

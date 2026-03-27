@@ -137,7 +137,7 @@ def cmd_create(args: argparse.Namespace) -> int:
         params={"name": name, "key_prefix": key[:8]},
     )
 
-    print(f"Remote observer created:")
+    print("Remote observer created:")
     print(f"  Name:       {name}")
     print(f"  Prefix:     {key[:8]}")
     print(f"  Key:        {key}")
@@ -257,7 +257,7 @@ def _status_single(identifier: str) -> int:
     if hist_dir.exists():
         day_files = sorted(hist_dir.glob("*.jsonl"), reverse=True)[:7]
         if day_files:
-            print(f"\n  Recent days:")
+            print("\n  Recent days:")
             for df in day_files:
                 day = df.stem
                 records = load_history(key_prefix, day)
@@ -278,7 +278,9 @@ def _status_all() -> int:
     connected = sum(1 for r in remotes if _status_label(r) == "connected")
     disconnected = sum(1 for r in remotes if _status_label(r) == "disconnected")
     revoked = sum(1 for r in remotes if _status_label(r) == "revoked")
-    total_segments = sum(r.get("stats", {}).get("segments_received", 0) for r in remotes)
+    total_segments = sum(
+        r.get("stats", {}).get("segments_received", 0) for r in remotes
+    )
     total_bytes = sum(r.get("stats", {}).get("bytes_received", 0) for r in remotes)
 
     print(f"Remote observers: {len(remotes)} total")
@@ -325,7 +327,10 @@ def main() -> None:
     # status
     p_status = sub.add_parser("status", help="Show remote status details")
     p_status.add_argument(
-        "identifier", nargs="?", default=None, help="Remote name or key prefix (omit for overview)"
+        "identifier",
+        nargs="?",
+        default=None,
+        help="Remote name or key prefix (omit for overview)",
     )
 
     args = setup_cli(parser)

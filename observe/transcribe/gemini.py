@@ -383,7 +383,9 @@ def transcribe(
     )
 
     transcribe_time = time.perf_counter() - t0
-    logger.debug("Gemini raw response (%d chars):\n%s", len(response_text), response_text[:2000])
+    logger.debug(
+        "Gemini raw response (%d chars):\n%s", len(response_text), response_text[:2000]
+    )
 
     # Parse JSON response
     try:
