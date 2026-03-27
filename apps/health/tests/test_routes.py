@@ -34,7 +34,9 @@ class TestLogRoute:
 
     def test_missing_file_returns_404(self, health_env):
         env = health_env()
-        resp = env.client.get("/app/health/api/log?path=20260322/health/nonexistent.log")
+        resp = env.client.get(
+            "/app/health/api/log?path=20260322/health/nonexistent.log"
+        )
         assert resp.status_code == 404
 
     def test_missing_path_param_returns_400(self, health_env):

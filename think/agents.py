@@ -1319,7 +1319,10 @@ async def _run_check(args: argparse.Namespace) -> None:
 
     for provider_name in providers:
         for tier in tiers:
-            if targeted_pairs is not None and (provider_name, tier) not in targeted_pairs:
+            if (
+                targeted_pairs is not None
+                and (provider_name, tier) not in targeted_pairs
+            ):
                 continue
             model = PROVIDER_DEFAULTS[provider_name][tier]
             for interface_name in interfaces:

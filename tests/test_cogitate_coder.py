@@ -5,12 +5,8 @@
 
 import asyncio
 import importlib
-import io
-import sys
 from unittest.mock import AsyncMock, patch
 
-import pytest
-import typer
 from typer.testing import CliRunner
 
 from think.call import call_app
@@ -211,9 +207,10 @@ class TestHandoffCommand:
         result = runner.invoke(call_app, ["handoff", "coder"], input="")
 
         assert result.exit_code == 1
-        assert "no prompt" in result.output.lower() or "no prompt" in (
-            result.stderr or ""
-        ).lower()
+        assert (
+            "no prompt" in result.output.lower()
+            or "no prompt" in (result.stderr or "").lower()
+        )
 
     def test_handoff_whitespace_only_stdin(self):
         """Whitespace-only stdin produces error."""
@@ -224,14 +221,13 @@ class TestHandoffCommand:
     @patch("think.cortex_client.cortex_request", return_value=None)
     def test_handoff_cortex_failure(self, mock_cortex):
         """When cortex_request returns None, handoff reports error."""
-        result = runner.invoke(
-            call_app, ["handoff", "coder"], input="Fix the bug\n"
-        )
+        result = runner.invoke(call_app, ["handoff", "coder"], input="Fix the bug\n")
 
         assert result.exit_code == 1
-        assert "failed" in result.output.lower() or "failed" in (
-            result.stderr or ""
-        ).lower()
+        assert (
+            "failed" in result.output.lower()
+            or "failed" in (result.stderr or "").lower()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -251,8 +247,9 @@ class TestCoderAgent:
 
     def test_coder_frontmatter(self):
         """coder.md must have write: true and type: cogitate."""
-        import frontmatter
         from pathlib import Path
+
+        import frontmatter
 
         coder_path = Path(__file__).parent.parent / "muse" / "coder.md"
         post = frontmatter.load(coder_path)

@@ -324,16 +324,12 @@ def test_check_generate_logs_token_usage(monkeypatch):
         "usage": {"input_tokens": 5, "output_tokens": 2},
     }
 
-    monkeypatch.setattr(
-        "think.providers.get_provider_module", lambda _: fake_module
-    )
+    monkeypatch.setattr("think.providers.get_provider_module", lambda _: fake_module)
     monkeypatch.setattr(
         "think.providers.PROVIDER_METADATA",
         {"fake": {"env_key": "FAKE_API_KEY"}},
     )
-    monkeypatch.setattr(
-        "think.models.PROVIDER_DEFAULTS", {"fake": {2: "fake-flash"}}
-    )
+    monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", {"fake": {2: "fake-flash"}})
     monkeypatch.setenv("FAKE_API_KEY", "test-key")
 
     log_mock = MagicMock()
