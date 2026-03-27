@@ -103,14 +103,6 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.daily_news": {
-      "disabled": false,
-      "group": "Think",
-      "label": "Daily News Briefing",
-      "schedule": "daily",
-      "tier": 2,
-      "type": "cogitate"
-    },
     "muse.system.daily_schedule": {
       "disabled": false,
       "group": "Think",
@@ -255,6 +247,14 @@
       "schedule": "activity",
       "tier": 2,
       "type": "generate"
+    },
+    "muse.system.morning_briefing": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Morning Briefing",
+      "schedule": "daily",
+      "tier": 2,
+      "type": "cogitate"
     },
     "muse.system.naming": {
       "disabled": false,
