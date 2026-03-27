@@ -19,7 +19,7 @@ from pathlib import Path
 from desktop_notifier import DesktopNotifier, Urgency
 
 from observe.sync import check_remote_health
-from think import scheduler
+from think import routines, scheduler
 from think.callosum import CallosumConnection, CallosumServer
 from think.runner import DailyLogWriter
 from think.runner import ManagedProcess as RunnerManagedProcess
@@ -1443,6 +1443,7 @@ async def supervise(
             # Check periodic task schedules (non-blocking, submits via callosum)
             if schedule:
                 scheduler.check()
+                routines.check()
 
             # Sleep 1 second before next iteration (responsive to shutdown)
             await asyncio.sleep(1)
@@ -1671,6 +1672,7 @@ def main() -> None:
     if schedule_enabled and _supervisor_callosum:
         scheduler.init(_supervisor_callosum)
         scheduler.register_defaults()
+        routines.init(_supervisor_callosum)
 
     # Show Convey URL if running
     if convey_port:
@@ -1745,6 +1747,12 @@ def main() -> None:
                 scheduler.save_state()
             except Exception as exc:
                 logging.warning("Failed to save scheduler state on shutdown: %s", exc)
+
+        if schedule_enabled:
+            try:
+                routines.save_state()
+            except Exception as exc:
+                logging.warning("Failed to save routines state on shutdown: %s", exc)
 
         # Disconnect supervisor's Callosum connection
         if _supervisor_callosum:
