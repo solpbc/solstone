@@ -22,3 +22,4 @@ tests/fixtures/journal/tokens/*.json
 .sandbox.journal
 apps/support/portal/
 build/
+tmp/
