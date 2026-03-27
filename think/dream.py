@@ -462,6 +462,9 @@ def run_prompts_by_priority(
                             request_config["output"] = config.get("output", "md")
                             if refresh:
                                 request_config["refresh"] = True
+                        elif config.get("output"):
+                            # Cogitate agents with explicit output get auto-persisted
+                            request_config["output"] = config["output"]
                         env: dict[str, str] = {
                             "SOL_DAY": day,
                             "SOL_FACET": facet_name,

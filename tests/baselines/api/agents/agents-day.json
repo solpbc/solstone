@@ -302,7 +302,7 @@
       "color": "#1565c0",
       "description": "Synthesizes all daily agent outputs into a structured five-section morning briefing with entity intelligence",
       "multi_facet": false,
-      "output_format": null,
+      "output_format": "md",
       "schedule": "daily",
       "source": "system",
       "title": "Morning Briefing",
