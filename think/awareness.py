@@ -137,6 +137,11 @@ def ensure_sol_directory() -> Path:
         agency_path.write_text(_AGENCY_MD, encoding="utf-8")
         logger.info("Created %s", agency_path)
 
+    briefing_path = sol_dir / "briefing.md"
+    if not briefing_path.exists():
+        briefing_path.write_text("", encoding="utf-8")
+        logger.info("Created %s", briefing_path)
+
     return sol_dir
 
 
