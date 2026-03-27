@@ -21,6 +21,19 @@ from think.facets import get_facets
 from think.indexer.journal import get_journal_index
 from think.utils import get_journal
 
+# Briefing phase thresholds
+BRIEFING_MORNING_END_HOUR = 10
+BRIEFING_EOD_HOUR = 20
+
+# Section heading -> key mapping
+_BRIEFING_SECTIONS = {
+    "your day": "your_day",
+    "yesterday": "yesterday",
+    "needs attention": "needs_attention",
+    "forward look": "forward_look",
+    "reading": "reading",
+}
+
 home_bp = Blueprint(
     "app:home",
     __name__,
@@ -81,6 +94,108 @@ def _load_pulse_md() -> tuple[str | None, dict | None, list[str]]:
         return post.content, post.metadata, needs
     except Exception:
         return None, None, []
+
+
+def _load_briefing_md(today: str | None = None) -> tuple[dict[str, str], dict | None, list[str]]:
+    """Load today's briefing.md sections and needs_attention bullets."""
+    try:
+        today = today or _today()
+        journal = Path(get_journal())
+        briefing_path = journal / "sol" / "briefing.md"
+        if not briefing_path.exists():
+            return {}, None, []
+
+        post = frontmatter.load(str(briefing_path))
+        metadata = post.metadata
+        if metadata.get("type") != "morning_briefing":
+            return {}, None, []
+        if str(metadata.get("date")) != today:
+            return {}, None, []
+
+        sections = {}
+        current_key = None
+        current_lines: list[str] = []
+
+        def flush_section() -> None:
+            nonlocal current_key, current_lines
+            if not current_key:
+                current_lines = []
+                return
+            body = "\n".join(current_lines).strip()
+            if body:
+                sections[current_key] = body
+            current_lines = []
+
+        for line in post.content.splitlines():
+            if line.startswith("## "):
+                flush_section()
+                heading = line[3:].strip().lower()
+                current_key = _BRIEFING_SECTIONS.get(heading)
+                continue
+            if current_key:
+                current_lines.append(line)
+        flush_section()
+
+        needs_attention_items = []
+        needs_body = sections.get("needs_attention", "")
+        for line in needs_body.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("- "):
+                needs_attention_items.append(stripped[2:].strip())
+
+        return sections, metadata, needs_attention_items
+    except Exception:
+        return {}, None, []
+
+
+def _compute_briefing_phase(segment_count: int, hour: int, briefing_exists: bool) -> str:
+    """Compute briefing display phase from current time and activity."""
+    if hour >= BRIEFING_EOD_HOUR:
+        return "eod"
+    if not briefing_exists and hour < BRIEFING_MORNING_END_HOUR:
+        return "pending"
+    if briefing_exists and (segment_count == 0 or hour < BRIEFING_MORNING_END_HOUR):
+        return "morning"
+    if briefing_exists and segment_count > 0:
+        return "active"
+    return "eod"
+
+
+def _normalize_item(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def _briefing_summary(sections: dict[str, str], needs_count: int) -> str:
+    """Generate a short collapsed summary for the briefing card."""
+    meeting_count = 0
+    your_day = sections.get("your_day", "")
+    for line in your_day.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- ") and "**" in stripped:
+            after_bullet = stripped[2:]
+            if after_bullet.startswith("**") and after_bullet.count("**") >= 2:
+                time_part = after_bullet.split("**", 2)[1]
+                if len(time_part) == 5 and time_part[2] == ":":
+                    meeting_count += 1
+
+    if meeting_count or needs_count:
+        meeting_label = "meeting" if meeting_count == 1 else "meetings"
+        needs_label = "item needs" if needs_count == 1 else "items need"
+        return (
+            f"Morning briefing — {meeting_count} {meeting_label}, "
+            f"{needs_count} {needs_label} attention"
+        )
+
+    for content in sections.values():
+        for line in content.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            stripped = stripped.removeprefix("- ").strip()
+            if len(stripped) > 58:
+                stripped = stripped[:55].rstrip() + "..."
+            return f"Morning briefing — {stripped}"
+    return "Morning briefing"
 
 
 def _load_stats(today: str) -> dict[str, Any]:
@@ -411,6 +526,33 @@ def _build_pulse_context() -> dict[str, Any]:
         except Exception:
             pass
 
+    # Briefing card
+    briefing_sections, briefing_meta, briefing_needs = _load_briefing_md(today)
+    briefing_exists = bool(briefing_sections)
+    briefing_phase = _compute_briefing_phase(segment_count, now.hour, briefing_exists)
+
+    pulse_needs_normalized = {_normalize_item(item) for item in pulse_needs}
+    briefing_needs_deduped = []
+    briefing_needs_shared_count = 0
+    for item in briefing_needs:
+        if _normalize_item(item) in pulse_needs_normalized:
+            briefing_needs_shared_count += 1
+        else:
+            briefing_needs_deduped.append(item)
+
+    briefing_needs_badge = None
+    if briefing_needs_shared_count > 0:
+        s = "" if briefing_needs_shared_count == 1 else "s"
+        briefing_needs_badge = (
+            f"{briefing_needs_shared_count} item{s} also in Pulse needs"
+        )
+
+    briefing_summary = None
+    if briefing_phase == "active":
+        briefing_summary = _briefing_summary(
+            briefing_sections, len(briefing_needs_deduped)
+        )
+
     return {
         "today": today,
         "now": now,
@@ -432,6 +574,14 @@ def _build_pulse_context() -> dict[str, Any]:
         "todos": todos,
         "entities": entities,
         "routines": routines,
+        "briefing_sections": briefing_sections,
+        "briefing_meta": briefing_meta,
+        "briefing_phase": briefing_phase,
+        "briefing_exists": briefing_exists,
+        "briefing_summary": briefing_summary,
+        "briefing_needs_deduped": briefing_needs_deduped,
+        "briefing_needs_shared_count": briefing_needs_shared_count,
+        "briefing_needs_badge": briefing_needs_badge,
     }
 
 
@@ -462,3 +612,29 @@ def api_routines_seen():
     state["routines_last_seen"] = datetime.now().isoformat()
     _save_routines_state(state)
     return jsonify({"ok": True})
+
+
+@home_bp.route("/api/briefing")
+def api_briefing():
+    """Briefing-specific JSON for WebSocket-triggered refresh."""
+    ctx = _build_pulse_context()
+    meta = ctx.get("briefing_meta")
+    if meta:
+        generated = meta.get("generated")
+        if hasattr(generated, "isoformat"):
+            meta = dict(meta)
+            meta["generated"] = generated.isoformat()
+        if "date" in meta:
+            meta["date"] = str(meta["date"])
+    return jsonify(
+        {
+            "exists": ctx["briefing_exists"],
+            "phase": ctx["briefing_phase"],
+            "summary": ctx["briefing_summary"],
+            "meta": meta,
+            "sections": ctx["briefing_sections"],
+            "needs_deduped": ctx["briefing_needs_deduped"],
+            "needs_shared_count": ctx["briefing_needs_shared_count"],
+            "needs_badge": ctx["briefing_needs_badge"],
+        }
+    )
