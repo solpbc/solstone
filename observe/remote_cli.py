@@ -209,6 +209,47 @@ def cmd_revoke(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_rename(args: argparse.Namespace) -> int:
+    """Rename a remote observer (affects future stream names)."""
+    identifier = args.identifier
+    new_name = args.new_name
+
+    remote = _find_remote(identifier)
+    if not remote:
+        print(f"Error: remote '{identifier}' not found", file=sys.stderr)
+        return 1
+
+    # Check new name isn't taken
+    existing = find_remote_by_name(new_name)
+    if existing and existing.get("key") != remote.get("key"):
+        print(f"Error: remote '{new_name}' already exists", file=sys.stderr)
+        return 1
+
+    old_name = remote.get("name", "")
+    if old_name == new_name:
+        print(f"Remote is already named '{new_name}'.", file=sys.stderr)
+        return 1
+
+    key_prefix = remote.get("key", "")[:8]
+    remote["name"] = new_name
+
+    if not save_remote(remote):
+        print("Error: failed to save remote", file=sys.stderr)
+        return 1
+
+    log_app_action(
+        app="remote",
+        facet=None,
+        action="observer_rename",
+        params={"old_name": old_name, "new_name": new_name, "key_prefix": key_prefix},
+    )
+
+    print(f"Renamed remote '{old_name}' -> '{new_name}' ({key_prefix})")
+    print(f"  Future segments will use stream: {new_name}")
+    print(f"  Existing segments remain under stream: {old_name}")
+    return 0
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     """Show remote status details."""
     if args.identifier:
@@ -320,6 +361,11 @@ def main() -> None:
     # list
     sub.add_parser("list", help="List all registered remotes")
 
+    # rename
+    p_rename = sub.add_parser("rename", help="Rename a remote (affects future streams)")
+    p_rename.add_argument("identifier", help="Remote name or key prefix")
+    p_rename.add_argument("new_name", help="New name for the remote")
+
     # revoke
     p_revoke = sub.add_parser("revoke", help="Revoke a remote registration")
     p_revoke.add_argument("identifier", help="Remote name or key prefix")
@@ -349,6 +395,7 @@ def main() -> None:
     handlers = {
         "create": cmd_create,
         "list": cmd_list,
+        "rename": cmd_rename,
         "revoke": cmd_revoke,
         "status": cmd_status,
     }

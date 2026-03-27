@@ -331,6 +331,16 @@ def ingest_upload(key: str) -> Any:
     if platform and "platform" not in meta:
         meta["platform"] = platform
 
+    # Warn if client hostname differs from registered remote name
+    effective_host = meta.get("host", host)
+    remote_name = remote.get("name", "")
+    if effective_host and effective_host != remote_name:
+        logger.warning(
+            f"Remote '{remote_name}' ({key[:8]}) connecting from host "
+            f"'{effective_host}' — hostname differs from registered name. "
+            f"Use `sol remote rename` to update if the host was renamed."
+        )
+
     if not segment:
         return jsonify({"error": "Missing segment"}), 400
     if not day:
