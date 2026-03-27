@@ -23,16 +23,29 @@ app = typer.Typer(help="Manage custom routines.")
 
 
 def _resolve_id(config: dict[str, dict], prefix: str) -> str:
+    """Resolve a routine by UUID prefix or exact name (case-insensitive)."""
     matches = sorted(
-        routine_id for routine_id in config if routine_id.startswith(prefix)
+        rid for rid in config if not rid.startswith("_") and rid.startswith(prefix)
     )
-    if not matches:
-        typer.echo(f"Error: routine '{prefix}' not found.", err=True)
-        raise typer.Exit(1)
+    if len(matches) == 1:
+        return matches[0]
     if len(matches) > 1:
         typer.echo(f"Error: routine id '{prefix}' is ambiguous.", err=True)
         raise typer.Exit(1)
-    return matches[0]
+
+    lower = prefix.lower()
+    name_matches = sorted(
+        rid
+        for rid, routine in config.items()
+        if routine.get("id") and routine.get("name", "").lower() == lower
+    )
+    if not name_matches:
+        typer.echo(f"Error: routine '{prefix}' not found.", err=True)
+        raise typer.Exit(1)
+    if len(name_matches) > 1:
+        typer.echo(f"Error: routine name '{prefix}' is ambiguous.", err=True)
+        raise typer.Exit(1)
+    return name_matches[0]
 
 
 def _format_last_run(value: str | None) -> str:
@@ -50,6 +63,17 @@ def _validate_timezone(name: str) -> None:
     except ZoneInfoNotFoundError:
         typer.echo(f"Error: invalid timezone: {name}", err=True)
         raise typer.Exit(1)
+
+
+def _parse_enabled(value: str) -> bool:
+    """Parse a CLI boolean value for routine enablement."""
+    normalized = value.strip().lower()
+    if normalized in {"true", "1", "yes", "on"}:
+        return True
+    if normalized in {"false", "0", "no", "off"}:
+        return False
+    typer.echo("Error: enabled must be true or false.", err=True)
+    raise typer.Exit(1)
 
 
 def _templates_dir() -> Path:
@@ -116,18 +140,22 @@ def _validate_routine_cadence(cadence: object) -> None:
 def list_routines() -> None:
     """List all routines."""
     config = get_config()
-    if not config:
+    routines = {k: v for k, v in config.items() if v.get("id")}
+    if not routines:
         typer.echo("No routines configured.")
         return
 
-    for routine in config.values():
+    for routine in routines.values():
         routine_id = routine.get("id", "")
         enabled_marker = "on" if routine.get("enabled") else "off"
+        resume_date = routine.get("resume_date")
+        if not routine.get("enabled") and resume_date:
+            enabled_marker = f"off (resumes {resume_date})"
         cadence_display = _format_cadence(routine.get("cadence", ""))
         last_run_display = _format_last_run(routine.get("last_run"))
         name = routine.get("name", "")
         typer.echo(
-            f"{routine_id[:8]}  {enabled_marker}  {cadence_display:<20}  {last_run_display:<20}  {name}"
+            f"{routine_id[:8]}  {enabled_marker:<25}  {cadence_display:<20}  {last_run_display:<20}  {name}"
         )
 
 
@@ -216,7 +244,10 @@ def edit(
     instruction: str | None = typer.Option(None, help="New instruction"),
     cadence: str | None = typer.Option(None, help="New cron expression"),
     tz: str | None = typer.Option(None, "--timezone", help="New timezone"),
-    enabled: bool | None = typer.Option(None, help="Enable or disable"),
+    enabled: str | None = typer.Option(None, help="Enable or disable"),
+    resume_date: str | None = typer.Option(
+        None, "--resume-date", help="ISO date (YYYY-MM-DD) to auto-resume"
+    ),
     facets: str | None = typer.Option(None, help="Comma-separated facet names"),
     template: str | None = typer.Option(None, help="Template name"),
 ) -> None:
@@ -239,8 +270,22 @@ def edit(
     if tz is not None:
         _validate_timezone(tz)
         routine["timezone"] = tz
+    enabled_value: bool | None = None
     if enabled is not None:
-        routine["enabled"] = enabled
+        enabled_value = _parse_enabled(enabled)
+        routine["enabled"] = enabled_value
+    if enabled_value is True:
+        routine.pop("resume_date", None)
+    if resume_date is not None:
+        if resume_date == "":
+            routine.pop("resume_date", None)
+        else:
+            try:
+                datetime.strptime(resume_date, "%Y-%m-%d")
+            except ValueError:
+                typer.echo("Error: resume-date must be YYYY-MM-DD format.", err=True)
+                raise typer.Exit(1)
+            routine["resume_date"] = resume_date
     if facets is not None:
         routine["facets"] = [f.strip() for f in facets.split(",") if f.strip()]
     if template is not None:
@@ -273,16 +318,50 @@ def run(routine_id: str = typer.Argument(help="Routine ID (or prefix)")) -> None
 
 
 @app.command()
-def output(routine_id: str = typer.Argument(help="Routine ID (or prefix)")) -> None:
-    """Print the most recent routine output."""
+def output(
+    routine_id: str = typer.Argument(help="Routine ID (or prefix)"),
+    date: str | None = typer.Option(None, help="Date (YYYY-MM-DD) to show output for"),
+) -> None:
+    """Print routine output (most recent, or for a specific date)."""
     config = get_config()
     full_id = _resolve_id(config, routine_id)
     output_dir = Path(get_journal()) / "routines" / full_id
     if not output_dir.exists():
         typer.echo("No output yet.")
         return
-    outputs = sorted(output_dir.glob("*.md"), reverse=True)
-    if not outputs:
-        typer.echo("No output yet.")
-        return
-    sys.stdout.write(outputs[0].read_text(encoding="utf-8"))
+    if date is not None:
+        date_prefix = date.replace("-", "")
+        matches = sorted(
+            output_dir.glob(f"{date_prefix}*.md"),
+            key=lambda path: (len(path.stem), path.stem),
+        )
+        if not matches:
+            typer.echo("No output for that date.")
+            return
+        sys.stdout.write(matches[-1].read_text(encoding="utf-8"))
+    else:
+        outputs = sorted(output_dir.glob("*.md"), reverse=True)
+        if not outputs:
+            typer.echo("No output yet.")
+            return
+        sys.stdout.write(outputs[0].read_text(encoding="utf-8"))
+
+
+@app.command()
+def suggestions(
+    enable: bool | None = typer.Option(
+        None, "--enable/--disable", help="Toggle suggestions"
+    ),
+) -> None:
+    """Manage routine suggestions."""
+    config = get_config()
+    meta = config.setdefault("_meta", {})
+    if enable is not None:
+        meta["suggestions_enabled"] = enable
+        save_config(config)
+        state = "enabled" if enable else "disabled"
+        typer.echo(f"Routine suggestions {state}.")
+    else:
+        current = meta.get("suggestions_enabled", True)
+        state = "enabled" if current else "disabled"
+        typer.echo(f"Routine suggestions are {state}.")

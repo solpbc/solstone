@@ -162,3 +162,53 @@ def test_chat_context_awareness_error_graceful(monkeypatch):
 
     assert result is not None
     assert "## Location Context" in result["user_instruction"]
+
+
+def test_chat_context_routines_injected(monkeypatch):
+    """Active routines section is appended when routines exist."""
+    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
+    monkeypatch.setattr(
+        "think.routines.get_routine_state",
+        lambda: [
+            {
+                "name": "Morning Briefing",
+                "cadence": "0 9 * * *",
+                "last_run": None,
+                "enabled": True,
+                "paused_until": None,
+                "output_summary": None,
+            }
+        ],
+    )
+
+    result = pre_process({"user_instruction": "Base instruction."})
+
+    assert result is not None
+    assert "## Active Routines" in result["user_instruction"]
+    assert "Morning Briefing" in result["user_instruction"]
+
+
+def test_chat_context_routines_omitted_when_empty(monkeypatch):
+    """Active routines section is omitted when no routines configured."""
+    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
+    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+
+    result = pre_process({"user_instruction": "Base instruction."})
+
+    assert result is not None
+    assert "## Active Routines" not in result["user_instruction"]
+
+
+def test_chat_context_routines_error_graceful(monkeypatch):
+    """Routine state failures do not prevent other sections from appending."""
+    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
+    monkeypatch.setattr(
+        "think.routines.get_routine_state",
+        lambda: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    result = pre_process({"user_instruction": "Base instruction."})
+
+    assert result is not None
+    assert "## Active Routines" not in result["user_instruction"]
+    assert "## Location Context" in result["user_instruction"]

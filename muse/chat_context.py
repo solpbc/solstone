@@ -78,6 +78,24 @@ When no `System health:` line is present, everything is fine.
     )
 
     try:
+        from think.routines import get_routine_state
+
+        routines = get_routine_state()
+        if routines:
+            lines = ["## Active Routines\n"]
+            for routine in routines:
+                status = "on" if routine["enabled"] else "paused"
+                if routine.get("paused_until"):
+                    status = f"paused until {routine['paused_until']}"
+                line = f"- **{routine['name']}** ({routine['cadence']}) — {status}"
+                if routine.get("output_summary"):
+                    line += f" | recent: {routine['output_summary']}"
+                lines.append(line)
+            sections.append("\n".join(lines))
+    except Exception:
+        logger.debug("Routine state enrichment failed", exc_info=True)
+
+    try:
         onboarding = get_onboarding()
         onboarding_status = onboarding.get("status", "")
 
