@@ -6,6 +6,7 @@
 Mounted by ``think.call`` as ``sol call routines ...``.
 """
 
+import json
 import sys
 import uuid
 from datetime import datetime
@@ -302,6 +303,20 @@ def delete(routine_id: str = typer.Argument(help="Routine ID (or prefix)")) -> N
     config = get_config()
     full_id = _resolve_id(config, routine_id)
     routine = config.pop(full_id)
+
+    template_name = routine.get("template")
+    if template_name:
+        meta = config.get("_meta", {})
+        suggestions = meta.get("suggestions", {})
+        entry = suggestions.get(template_name)
+        if entry and entry.get("response") == "accepted":
+            entry["trigger_count"] = 0
+            entry["first_trigger"] = None
+            entry["last_trigger"] = None
+            entry["trigger_data"] = {}
+            entry["response"] = None
+            entry["suggested"] = False
+
     save_config(config)
     typer.echo(f'Deleted routine {full_id[:8]} "{routine.get("name", "")}"')
 
@@ -365,3 +380,54 @@ def suggestions(
         current = meta.get("suggestions_enabled", True)
         state = "enabled" if current else "disabled"
         typer.echo(f"Routine suggestions are {state}.")
+
+
+@app.command("suggest-respond")
+def suggest_respond(
+    template: str = typer.Argument(help="Template name"),
+    accepted: bool = typer.Option(False, "--accepted", help="Accept suggestion"),
+    declined: bool = typer.Option(False, "--declined", help="Decline suggestion"),
+) -> None:
+    """Record response to a routine suggestion."""
+    if accepted == declined:
+        typer.echo(
+            "Error: exactly one of --accepted or --declined is required.", err=True
+        )
+        raise typer.Exit(code=1)
+
+    config = get_config()
+    meta = config.setdefault("_meta", {})
+    suggestions = meta.get("suggestions", {})
+
+    if template not in suggestions:
+        typer.echo(
+            f"Error: no suggestion state for template '{template}'.", err=True
+        )
+        raise typer.Exit(code=1)
+
+    from datetime import date
+
+    today = date.today().isoformat()
+    entry = suggestions[template]
+
+    if accepted:
+        entry["response"] = "accepted"
+    else:
+        entry["response"] = "declined"
+
+    entry["suggested"] = True
+    entry["last_suggestion_date"] = today
+    meta["last_suggestion_date"] = today
+
+    save_config(config)
+    action = "accepted" if accepted else "declined"
+    typer.echo(f"Suggestion for '{template}' {action}.")
+
+
+@app.command("suggest-state")
+def suggest_state() -> None:
+    """Show suggestion state for all templates."""
+    config = get_config()
+    meta = config.get("_meta", {})
+    suggestions = meta.get("suggestions", {})
+    typer.echo(json.dumps(suggestions, indent=2))

@@ -4,7 +4,8 @@
 """Tests for think.routines — user-defined routines engine."""
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+import importlib.util
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,6 +18,28 @@ from think.call import call_app
 from think.routines import cron_matches, get_config, save_config
 
 runner = CliRunner()
+
+
+def _load_chat_context_module():
+    """Load muse.chat_context from this worktree explicitly for tests."""
+    path = Path(__file__).resolve().parents[1] / "muse" / "chat_context.py"
+    spec = importlib.util.spec_from_file_location("test_chat_context", path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_routines_cli_module():
+    """Load think.tools.routines from this worktree explicitly for tests."""
+    path = Path(__file__).resolve().parents[1] / "think" / "tools" / "routines.py"
+    spec = importlib.util.spec_from_file_location("test_routines_cli", path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 @contextmanager
@@ -973,6 +996,436 @@ class TestSuggestions:
         assert config["_meta"]["suggestions_enabled"] is True
 
 
+class TestTriggerCounting:
+    """Test trigger counting for progressive discovery."""
+
+    def test_morning_briefing_triggers(self, journal_path):
+        """Calendar queries increment morning-briefing trigger count."""
+        module = _load_chat_context_module()
+        config = {"_meta": {"suggestions": {}}}
+
+        module._count_triggers("what's on my calendar today", None, config)
+        module._count_triggers("show me my schedule", None, config)
+        module._count_triggers("what's my agenda", None, config)
+
+        entry = config["_meta"]["suggestions"]["morning-briefing"]
+        assert entry["trigger_count"] == 3
+        assert entry["first_trigger"] is not None
+        assert entry["last_trigger"] is not None
+
+    def test_relationship_pulse_triggers(self, journal_path):
+        """Relationship queries increment relationship-pulse trigger count."""
+        module = _load_chat_context_module()
+        config = {"_meta": {"suggestions": {}}}
+
+        module._count_triggers("who haven't i talked to recently", None, config)
+        module._count_triggers("when did i last talk to Sarah", None, config)
+
+        entry = config["_meta"]["suggestions"]["relationship-pulse"]
+        assert entry["trigger_count"] == 2
+
+    def test_commitment_audit_triggers(self, journal_path):
+        """Commitment queries increment commitment-audit trigger count."""
+        module = _load_chat_context_module()
+        config = {"_meta": {"suggestions": {}}}
+
+        module._count_triggers("do I have any overdue follow-ups", None, config)
+        module._count_triggers("what commitments have I dropped", None, config)
+
+        entry = config["_meta"]["suggestions"]["commitment-audit"]
+        assert entry["trigger_count"] == 2
+
+    def test_domain_watch_requires_facet(self, journal_path):
+        """domain-watch triggers only count when facet is present."""
+        module = _load_chat_context_module()
+        config = {"_meta": {"suggestions": {}}}
+
+        module._count_triggers("track this trend over time", None, config)
+        assert "domain-watch" not in config["_meta"]["suggestions"]
+
+        module._count_triggers("track this trend over time", "work", config)
+        entry = config["_meta"]["suggestions"]["domain-watch"]
+        assert entry["trigger_count"] == 1
+        assert entry["trigger_data"]["topics"]["work"] == [date.today().isoformat()]
+
+    def test_domain_watch_dedupes_same_day(self, journal_path):
+        """domain-watch only counts distinct dates per topic."""
+        module = _load_chat_context_module()
+        config = {"_meta": {"suggestions": {}}}
+
+        module._count_triggers("track trends lately", "work", config)
+        changed = module._count_triggers("watch these trends", "work", config)
+        assert not changed
+
+        entry = config["_meta"]["suggestions"]["domain-watch"]
+        assert entry["trigger_count"] == 1
+
+    def test_no_match_no_mutation(self, journal_path):
+        """Messages that don't match any pattern don't mutate config."""
+        module = _load_chat_context_module()
+        config = {"_meta": {"suggestions": {}}}
+
+        changed = module._count_triggers("hello how are you", None, config)
+        assert not changed
+        assert config["_meta"]["suggestions"] == {}
+
+    def test_write_avoidance(self, journal_path):
+        """_count_triggers returns False when no triggers matched."""
+        module = _load_chat_context_module()
+        config = {"_meta": {"suggestions": {}}}
+
+        assert module._count_triggers("just chatting", None, config) is False
+        assert module._count_triggers("what's on my calendar", None, config) is True
+
+
+class TestEligibilityGates:
+    """Test the 5-gate eligibility chain for routine suggestions."""
+
+    def test_suggestions_disabled_blocks(self, journal_path):
+        """Gate 1: suggestions_enabled=False blocks all suggestions."""
+        module = _load_chat_context_module()
+        routines_config = {
+            "_meta": {
+                "suggestions_enabled": False,
+                "suggestions": {
+                    "morning-briefing": {
+                        "trigger_count": 5,
+                        "first_trigger": "2026-03-01",
+                        "last_trigger": "2026-03-27",
+                        "trigger_data": {},
+                        "response": None,
+                        "suggested": False,
+                    }
+                },
+            }
+        }
+        journal_config = {"agent": {"name_status": "chosen"}}
+        assert module._get_eligible_suggestion(routines_config, journal_config) is None
+
+    def test_naming_default_blocks(self, journal_path):
+        """Gate 2: name_status='default' blocks all suggestions."""
+        module = _load_chat_context_module()
+        routines_config = {
+            "_meta": {
+                "suggestions": {
+                    "morning-briefing": {
+                        "trigger_count": 5,
+                        "first_trigger": "2026-03-01",
+                        "last_trigger": "2026-03-27",
+                        "trigger_data": {},
+                        "response": None,
+                        "suggested": False,
+                    }
+                }
+            }
+        }
+        journal_config = {"agent": {"name_status": "default"}}
+        assert module._get_eligible_suggestion(routines_config, journal_config) is None
+
+    def test_active_routine_blocks(self, journal_path):
+        """Gate 3: existing routine with same template blocks suggestion."""
+        module = _load_chat_context_module()
+        routines_config = {
+            "routine-1": {
+                "id": "routine-1",
+                "name": "Morning Briefing",
+                "template": "morning-briefing",
+            },
+            "_meta": {
+                "suggestions": {
+                    "morning-briefing": {
+                        "trigger_count": 5,
+                        "first_trigger": "2026-03-01",
+                        "last_trigger": "2026-03-27",
+                        "trigger_data": {},
+                        "response": None,
+                        "suggested": False,
+                    }
+                }
+            },
+        }
+        journal_config = {"agent": {"name_status": "chosen"}}
+        assert module._get_eligible_suggestion(routines_config, journal_config) is None
+
+    def test_declined_blocks(self, journal_path):
+        """Gate 4: declined response blocks suggestion for that template."""
+        module = _load_chat_context_module()
+        routines_config = {
+            "_meta": {
+                "suggestions": {
+                    "morning-briefing": {
+                        "trigger_count": 5,
+                        "first_trigger": "2026-03-01",
+                        "last_trigger": "2026-03-27",
+                        "trigger_data": {},
+                        "response": "declined",
+                        "suggested": True,
+                    }
+                }
+            }
+        }
+        journal_config = {"agent": {"name_status": "chosen"}}
+        assert module._get_eligible_suggestion(routines_config, journal_config) is None
+
+    def test_cooldown_blocks(self, journal_path):
+        """Gate 5: suggestion within last 7 days blocks all."""
+        module = _load_chat_context_module()
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        routines_config = {
+            "_meta": {
+                "last_suggestion_date": yesterday,
+                "suggestions": {
+                    "morning-briefing": {
+                        "trigger_count": 5,
+                        "first_trigger": "2026-03-01",
+                        "last_trigger": "2026-03-27",
+                        "trigger_data": {},
+                        "response": None,
+                        "suggested": False,
+                    }
+                },
+            }
+        }
+        journal_config = {"agent": {"name_status": "chosen"}}
+        assert module._get_eligible_suggestion(routines_config, journal_config) is None
+
+    def test_all_gates_pass(self, journal_path):
+        """When all gates pass and threshold met, returns suggestion."""
+        module = _load_chat_context_module()
+        routines_config = {
+            "_meta": {
+                "suggestions": {
+                    "morning-briefing": {
+                        "trigger_count": 3,
+                        "first_trigger": "2026-03-01",
+                        "last_trigger": "2026-03-27",
+                        "trigger_data": {},
+                        "response": None,
+                        "suggested": False,
+                    }
+                }
+            }
+        }
+        journal_config = {"agent": {"name_status": "chosen"}}
+        result = module._get_eligible_suggestion(routines_config, journal_config)
+        assert result is not None
+        assert result["template_name"] == "morning-briefing"
+        assert result["trigger_count"] == 3
+
+    def test_below_threshold_no_suggestion(self, journal_path):
+        """Trigger count below threshold does not produce a suggestion."""
+        module = _load_chat_context_module()
+        routines_config = {
+            "_meta": {
+                "suggestions": {
+                    "morning-briefing": {
+                        "trigger_count": 2,
+                        "first_trigger": "2026-03-01",
+                        "last_trigger": "2026-03-27",
+                        "trigger_data": {},
+                        "response": None,
+                        "suggested": False,
+                    }
+                }
+            }
+        }
+        journal_config = {"agent": {"name_status": "chosen"}}
+        assert module._get_eligible_suggestion(routines_config, journal_config) is None
+
+    def test_highest_trigger_count_wins(self, journal_path):
+        """When multiple templates eligible, highest trigger_count wins."""
+        module = _load_chat_context_module()
+        routines_config = {
+            "_meta": {
+                "suggestions": {
+                    "morning-briefing": {
+                        "trigger_count": 3,
+                        "first_trigger": "2026-03-01",
+                        "last_trigger": "2026-03-27",
+                        "trigger_data": {},
+                        "response": None,
+                        "suggested": False,
+                    },
+                    "meeting-prep": {
+                        "trigger_count": 5,
+                        "first_trigger": "2026-03-01",
+                        "last_trigger": "2026-03-27",
+                        "trigger_data": {},
+                        "response": None,
+                        "suggested": False,
+                    },
+                }
+            }
+        }
+        journal_config = {"agent": {"name_status": "chosen"}}
+        result = module._get_eligible_suggestion(routines_config, journal_config)
+        assert result["template_name"] == "meeting-prep"
+        assert result["trigger_count"] == 5
+
+    def test_cooldown_expired_allows(self, journal_path):
+        """Cooldown older than 7 days allows suggestions."""
+        module = _load_chat_context_module()
+        old_date = (date.today() - timedelta(days=8)).isoformat()
+        routines_config = {
+            "_meta": {
+                "last_suggestion_date": old_date,
+                "suggestions": {
+                    "morning-briefing": {
+                        "trigger_count": 3,
+                        "first_trigger": "2026-03-01",
+                        "last_trigger": "2026-03-27",
+                        "trigger_data": {},
+                        "response": None,
+                        "suggested": False,
+                    }
+                },
+            }
+        }
+        journal_config = {"agent": {"name_status": "chosen"}}
+        result = module._get_eligible_suggestion(routines_config, journal_config)
+        assert result is not None
+
+
+class TestSuggestRespond:
+    """Test suggest-respond and suggest-state CLI commands."""
+
+    def test_suggest_respond_accepted(self, journal_path):
+        module = _load_routines_cli_module()
+        save_config(
+            {
+                "_meta": {
+                    "suggestions": {
+                        "morning-briefing": {
+                            "trigger_count": 3,
+                            "first_trigger": "2026-03-01",
+                            "last_trigger": "2026-03-27",
+                            "trigger_data": {},
+                            "response": None,
+                            "suggested": False,
+                        }
+                    }
+                }
+            }
+        )
+        result = runner.invoke(
+            module.app,
+            ["suggest-respond", "morning-briefing", "--accepted"],
+        )
+        assert result.exit_code == 0
+        assert "accepted" in result.output
+
+        config = get_config()
+        entry = config["_meta"]["suggestions"]["morning-briefing"]
+        assert entry["response"] == "accepted"
+        assert entry["suggested"] is True
+        assert config["_meta"]["last_suggestion_date"] is not None
+
+    def test_suggest_respond_declined(self, journal_path):
+        module = _load_routines_cli_module()
+        save_config(
+            {
+                "_meta": {
+                    "suggestions": {
+                        "morning-briefing": {
+                            "trigger_count": 3,
+                            "first_trigger": "2026-03-01",
+                            "last_trigger": "2026-03-27",
+                            "trigger_data": {},
+                            "response": None,
+                            "suggested": False,
+                        }
+                    }
+                }
+            }
+        )
+        result = runner.invoke(
+            module.app,
+            ["suggest-respond", "morning-briefing", "--declined"],
+        )
+        assert result.exit_code == 0
+        assert "declined" in result.output
+
+        config = get_config()
+        entry = config["_meta"]["suggestions"]["morning-briefing"]
+        assert entry["response"] == "declined"
+
+    def test_suggest_respond_no_flags_fails(self, journal_path):
+        module = _load_routines_cli_module()
+        save_config(
+            {
+                "_meta": {
+                    "suggestions": {
+                        "morning-briefing": {
+                            "trigger_count": 3,
+                            "response": None,
+                            "suggested": False,
+                        }
+                    }
+                }
+            }
+        )
+        result = runner.invoke(
+            module.app,
+            ["suggest-respond", "morning-briefing"],
+        )
+        assert result.exit_code == 1
+
+    def test_suggest_respond_both_flags_fails(self, journal_path):
+        module = _load_routines_cli_module()
+        save_config(
+            {
+                "_meta": {
+                    "suggestions": {
+                        "morning-briefing": {
+                            "trigger_count": 3,
+                            "response": None,
+                            "suggested": False,
+                        }
+                    }
+                }
+            }
+        )
+        result = runner.invoke(
+            module.app,
+            [
+                "suggest-respond",
+                "morning-briefing",
+                "--accepted",
+                "--declined",
+            ],
+        )
+        assert result.exit_code == 1
+
+    def test_suggest_respond_unknown_template_fails(self, journal_path):
+        module = _load_routines_cli_module()
+        save_config({"_meta": {"suggestions": {}}})
+        result = runner.invoke(
+            module.app,
+            ["suggest-respond", "nonexistent", "--accepted"],
+        )
+        assert result.exit_code == 1
+
+    def test_suggest_state(self, journal_path):
+        module = _load_routines_cli_module()
+        save_config(
+            {
+                "_meta": {
+                    "suggestions": {
+                        "morning-briefing": {
+                            "trigger_count": 3,
+                            "response": "accepted",
+                        }
+                    }
+                }
+            }
+        )
+        result = runner.invoke(module.app, ["suggest-state"])
+        assert result.exit_code == 0
+        data = __import__("json").loads(result.output)
+        assert "morning-briefing" in data
+        assert data["morning-briefing"]["response"] == "accepted"
+
+
 class TestGetRoutineState:
     def test_basic_structure(self, journal_path):
         from think.routines import get_routine_state
@@ -1132,3 +1585,105 @@ class TestMetaFiltering:
             mod.check()
 
         mock_req.assert_called_once()
+
+
+class TestDeleteSuggestionReset:
+    """Test that delete resets accepted suggestion state but preserves declined."""
+
+    def test_delete_resets_accepted_suggestion(self, journal_path):
+        module = _load_routines_cli_module()
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Morning Briefing",
+                    "template": "morning-briefing",
+                    "cadence": "0 7 * * *",
+                    "enabled": True,
+                },
+                "_meta": {
+                    "suggestions": {
+                        "morning-briefing": {
+                            "trigger_count": 5,
+                            "first_trigger": "2026-03-01",
+                            "last_trigger": "2026-03-27",
+                            "trigger_data": {},
+                            "response": "accepted",
+                            "suggested": True,
+                        }
+                    }
+                },
+            }
+        )
+        result = runner.invoke(module.app, ["delete", "routine-1"])
+        assert result.exit_code == 0
+
+        config = get_config()
+        entry = config["_meta"]["suggestions"]["morning-briefing"]
+        assert entry["trigger_count"] == 0
+        assert entry["response"] is None
+        assert entry["suggested"] is False
+        assert entry["first_trigger"] is None
+
+    def test_delete_preserves_declined_suggestion(self, journal_path):
+        module = _load_routines_cli_module()
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Morning Briefing",
+                    "template": "morning-briefing",
+                    "cadence": "0 7 * * *",
+                    "enabled": True,
+                },
+                "_meta": {
+                    "suggestions": {
+                        "morning-briefing": {
+                            "trigger_count": 5,
+                            "first_trigger": "2026-03-01",
+                            "last_trigger": "2026-03-27",
+                            "trigger_data": {},
+                            "response": "declined",
+                            "suggested": True,
+                        }
+                    }
+                },
+            }
+        )
+        result = runner.invoke(module.app, ["delete", "routine-1"])
+        assert result.exit_code == 0
+
+        config = get_config()
+        entry = config["_meta"]["suggestions"]["morning-briefing"]
+        assert entry["response"] == "declined"
+        assert entry["trigger_count"] == 5
+
+    def test_delete_no_template_no_reset(self, journal_path):
+        """Routines without a template field don't touch suggestion state."""
+        module = _load_routines_cli_module()
+        save_config(
+            {
+                "routine-1": {
+                    "id": "routine-1",
+                    "name": "Custom Routine",
+                    "cadence": "0 7 * * *",
+                    "enabled": True,
+                },
+                "_meta": {
+                    "suggestions": {
+                        "morning-briefing": {
+                            "trigger_count": 5,
+                            "response": "accepted",
+                            "suggested": True,
+                        }
+                    }
+                },
+            }
+        )
+        result = runner.invoke(module.app, ["delete", "routine-1"])
+        assert result.exit_code == 0
+
+        config = get_config()
+        entry = config["_meta"]["suggestions"]["morning-briefing"]
+        assert entry["response"] == "accepted"
+        assert entry["trigger_count"] == 5
