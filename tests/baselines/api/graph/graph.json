@@ -399,8 +399,8 @@
       "kg_edge_count": 1,
       "name": "Balthasar Davi",
       "observation_depth": 2,
-      "recency": 0.691,
-      "score": 64.1,
+      "recency": 0.63,
+      "score": 63.9,
       "type": "person"
     },
     {
@@ -412,8 +412,8 @@
       "kg_edge_count": 1,
       "name": "Mesh Routing",
       "observation_depth": 3,
-      "recency": 0.691,
-      "score": 66.1,
+      "recency": 0.63,
+      "score": 65.9,
       "type": "project"
     },
     {
@@ -425,8 +425,8 @@
       "kg_edge_count": 0,
       "name": "Verona Ventures",
       "observation_depth": 2,
-      "recency": 0.691,
-      "score": 59.1,
+      "recency": 0.63,
+      "score": 58.9,
       "type": "company"
     },
     {
@@ -438,8 +438,8 @@
       "kg_edge_count": 1,
       "name": "Capulet Industries",
       "observation_depth": 0,
-      "recency": 0.6598,
-      "score": 24.0,
+      "recency": 0.6015,
+      "score": 23.8,
       "type": "company"
     },
     {
@@ -451,8 +451,8 @@
       "kg_edge_count": 3,
       "name": "Mercutio Escalus",
       "observation_depth": 3,
-      "recency": 0.7579,
-      "score": 89.3,
+      "recency": 0.691,
+      "score": 89.1,
       "type": "person"
     },
     {
@@ -464,8 +464,8 @@
       "kg_edge_count": 3,
       "name": "Tybalt Capulet",
       "observation_depth": 4,
-      "recency": 0.7579,
-      "score": 92.3,
+      "recency": 0.691,
+      "score": 92.1,
       "type": "person"
     },
     {
@@ -477,8 +477,8 @@
       "kg_edge_count": 4,
       "name": "Juliet Capulet",
       "observation_depth": 2,
-      "recency": 0.7579,
-      "score": 93.3,
+      "recency": 0.691,
+      "score": 93.1,
       "type": "person"
     },
     {
@@ -490,8 +490,8 @@
       "kg_edge_count": 1,
       "name": "Schema Bridge",
       "observation_depth": 2,
-      "recency": 0.691,
-      "score": 64.1,
+      "recency": 0.63,
+      "score": 63.9,
       "type": "project"
     },
     {
@@ -503,8 +503,8 @@
       "kg_edge_count": 9,
       "name": "Romeo Montague",
       "observation_depth": 2,
-      "recency": 0.7579,
-      "score": 54.3,
+      "recency": 0.691,
+      "score": 54.1,
       "type": "person"
     },
     {
@@ -516,8 +516,8 @@
       "kg_edge_count": 1,
       "name": "Rosaline Prince",
       "observation_depth": 2,
-      "recency": 0.7579,
-      "score": 64.3,
+      "recency": 0.691,
+      "score": 64.1,
       "type": "person"
     },
     {
@@ -529,8 +529,8 @@
       "kg_edge_count": 2,
       "name": "Montague Tech",
       "observation_depth": 3,
-      "recency": 0.691,
-      "score": 75.1,
+      "recency": 0.63,
+      "score": 74.9,
       "type": "company"
     },
     {
@@ -542,8 +542,8 @@
       "kg_edge_count": 2,
       "name": "Prince Escalus",
       "observation_depth": 2,
-      "recency": 0.7579,
-      "score": 77.3,
+      "recency": 0.691,
+      "score": 77.1,
       "type": "person"
     },
     {
@@ -555,8 +555,8 @@
       "kg_edge_count": 8,
       "name": "Verona Platform",
       "observation_depth": 3,
-      "recency": 0.7579,
-      "score": 110.3,
+      "recency": 0.691,
+      "score": 110.1,
       "type": "project"
     },
     {
@@ -568,8 +568,8 @@
       "kg_edge_count": 1,
       "name": "Nurse Angela",
       "observation_depth": 2,
-      "recency": 0.7405,
-      "score": 69.2,
+      "recency": 0.6752,
+      "score": 69.0,
       "type": "person"
     },
     {
@@ -581,8 +581,8 @@
       "kg_edge_count": 2,
       "name": "Paris Duke",
       "observation_depth": 2,
-      "recency": 0.7579,
-      "score": 55.3,
+      "recency": 0.691,
+      "score": 55.1,
       "type": "person"
     },
     {
@@ -594,8 +594,8 @@
       "kg_edge_count": 1,
       "name": "Benvolio Montague",
       "observation_depth": 3,
-      "recency": 0.7579,
-      "score": 75.3,
+      "recency": 0.691,
+      "score": 75.1,
       "type": "person"
     },
     {
@@ -607,8 +607,8 @@
       "kg_edge_count": 2,
       "name": "Friar Lawrence",
       "observation_depth": 2,
-      "recency": 0.7579,
-      "score": 79.3,
+      "recency": 0.691,
+      "score": 79.1,
       "type": "person"
     }
   ],
