@@ -1,5 +1,6 @@
 {
   "type": "cogitate",
+  "write": true,
 
   "title": "Morning Briefing",
   "description": "Synthesizes all daily agent outputs into a structured five-section morning briefing with entity intelligence",
