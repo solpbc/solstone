@@ -609,7 +609,7 @@ def api_pulse():
 def api_routines_seen():
     """Mark routines as seen."""
     state = _load_routines_state()
-    state["routines_last_seen"] = datetime.now().isoformat()
+    state["routines_last_seen"] = datetime.utcnow().isoformat()
     _save_routines_state(state)
     return jsonify({"ok": True})
 
