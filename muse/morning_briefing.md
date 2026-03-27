@@ -25,10 +25,11 @@ Call all sources upfront. Some may return empty — that's expected, especially 
 5. `sol call sol pulse` — current pulse narrative and needs-you items
 6. `sol call journal search "" -d $day_YYYYMMDD -a followups -n 10` — follow-up items from today
 7. `sol call journal search "" --day-from $day_YYYYMMDD -a anticipation -n 5` — forward-looking anticipations
-8. For each of the next 7 days after today: `sol call calendar list YYYYMMDD` — upcoming events for forward look
+8. `sol call journal search "" -d $day_YYYYMMDD -a decisions -n 10` — yesterday's consequential decisions
+9. For each of the next 7 days after today: `sol call calendar list YYYYMMDD` — upcoming events for forward look
 
 For each person appearing in today's calendar events, also run:
-9. `sol call entities intelligence PERSON` — relationship context, recent interactions, observations
+10. `sol call entities intelligence PERSON` — relationship context, recent interactions, observations
 
 ## Phase 2: Synthesize
 
@@ -38,7 +39,7 @@ Build five sections from the gathered data. **Omit any section entirely if it ha
 
 **Your Day** — What's ahead today. Lead with calendar events in chronological order. For each meeting, include who's attending and one line of entity-informed context (e.g., "last met 2 weeks ago, discussed product roadmap"). Include relevant todos due today. If no calendar events exist, lead with the highest-priority todos.
 
-**Yesterday** — What happened. Draw from facet newsletters and pulse. Highlight accomplishments, decisions made, and notable interactions. Keep to 3-5 bullets max. Only include if facet newsletters have content for the analysis day.
+**Yesterday** — What happened. Draw from facet newsletters, pulse, and decisions agent output. Highlight accomplishments, consequential decisions, and notable interactions. Keep to 3-5 bullets max. Only include if facet newsletters or decisions have content for the analysis day.
 
 **Needs Attention** — Ranked action list. Synthesize from all sources into a single prioritized list:
   1. Overdue commitments (todos past due, missed follow-ups)
@@ -48,7 +49,7 @@ Build five sections from the gathered data. **Omit any section entirely if it ha
 
 **Forward Look** — What's coming. Draw from anticipation agent output and upcoming calendar events (next 7 days). Note preparation needed for upcoming meetings or deadlines.
 
-**Reading** — Curated links and content. Surface any articles, links, or reading material mentioned in facet newsletters or agent outputs. Only include if there is actual reading material to surface.
+**Reading** — Links to full facet newsletters for deep dives. List each active facet that has a newsletter for the analysis day, with a brief one-line description of what it covers. This is the "detailed edition" for owners who want the full picture. Only include if facet newsletters exist.
 
 ## Phase 3: Write output
 
