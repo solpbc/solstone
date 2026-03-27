@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -203,6 +204,146 @@ def _collect_entities_today(today: str) -> list[dict[str, Any]]:
         return []
 
 
+def _freshness_hours(cadence) -> int:
+    """Return freshness window in hours based on routine cadence type."""
+    if isinstance(cadence, dict):
+        return 24
+    if isinstance(cadence, str):
+        fields = cadence.split()
+        if len(fields) == 5:
+            dom, dow = fields[2], fields[4]
+            if dom == "*" and dow == "*":
+                return 24
+            return 168
+    return 24
+
+
+def _extract_summary(output_path: Path) -> str:
+    """Extract a concise routine summary from a markdown output file."""
+    try:
+        lines = output_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ""
+
+    if lines and lines[0].strip() == "---":
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                lines = lines[i + 1 :]
+                break
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if len(stripped) > 80:
+            return stripped[:79] + "…"
+        return stripped
+    return ""
+
+
+def _load_routines_state() -> dict[str, Any]:
+    """Load routines seen state from routines/state.json."""
+    state_path = Path(get_journal()) / "routines" / "state.json"
+    if not state_path.exists():
+        return {}
+    try:
+        with open(state_path, encoding="utf-8") as f:
+            raw = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _save_routines_state(state: dict[str, Any]) -> None:
+    """Persist routines seen state to routines/state.json."""
+    routines_dir = Path(get_journal()) / "routines"
+    routines_dir.mkdir(parents=True, exist_ok=True)
+    state_path = routines_dir / "state.json"
+
+    fd, tmp_path = tempfile.mkstemp(dir=routines_dir, suffix=".tmp", prefix=".state_")
+    tmp_file = Path(tmp_path)
+    try:
+        with open(fd, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+        tmp_file.replace(state_path)
+    except BaseException:
+        tmp_file.unlink(missing_ok=True)
+        raise
+
+
+def _collect_routines() -> list[dict[str, Any]]:
+    """Collect recent routine outputs for display."""
+    from think.routines import get_config as get_routines_config
+
+    try:
+        config = get_routines_config()
+        state = _load_routines_state()
+        last_seen = state.get("routines_last_seen")
+        last_seen_dt = datetime.fromisoformat(last_seen) if last_seen else None
+
+        now = datetime.now()
+        journal = Path(get_journal())
+        routines = []
+
+        for value in config.values():
+            if not isinstance(value, dict):
+                continue
+            if not value.get("enabled"):
+                continue
+            last_run = value.get("last_run")
+            if not last_run:
+                continue
+
+            try:
+                last_run_dt = datetime.fromisoformat(
+                    last_run.replace("Z", "+00:00")
+                ).replace(tzinfo=None)
+            except (ValueError, AttributeError):
+                continue
+
+            freshness = _freshness_hours(value.get("cadence"))
+            if (now - last_run_dt).total_seconds() > freshness * 3600:
+                continue
+
+            delta = now - last_run_dt
+            if delta.total_seconds() < 60:
+                run_time_display = "just now"
+            elif delta.total_seconds() < 3600:
+                run_time_display = f"{int(delta.total_seconds() / 60)}m ago"
+            else:
+                run_time_display = f"{int(delta.total_seconds() / 3600)}h ago"
+
+            routine_id = value.get("id", "")
+            output_dir = journal / "routines" / routine_id
+            summary = ""
+            if output_dir.exists():
+                outputs = sorted(
+                    output_dir.glob("*.md"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                if outputs:
+                    summary = _extract_summary(outputs[0])
+
+            seen = last_seen_dt is not None and last_run_dt <= last_seen_dt
+
+            routines.append(
+                {
+                    "id": routine_id,
+                    "name": value.get("name", routine_id),
+                    "last_run": last_run,
+                    "run_time_display": run_time_display,
+                    "summary": summary,
+                    "seen": seen,
+                }
+            )
+
+        routines.sort(key=lambda r: r["last_run"], reverse=True)
+        return routines
+    except Exception:
+        return []
+
+
 def _build_pulse_context() -> dict[str, Any]:
     """Build the full Pulse page context."""
     today = _today()
@@ -253,6 +394,7 @@ def _build_pulse_context() -> dict[str, Any]:
     activities = _collect_activities(today)
     todos = _collect_todos(today)
     entities = _collect_entities_today(today)
+    routines = _collect_routines()
 
     last_observe_relative = None
     if last_observe_ts:
@@ -289,6 +431,7 @@ def _build_pulse_context() -> dict[str, Any]:
         "activities": activities,
         "todos": todos,
         "entities": entities,
+        "routines": routines,
     }
 
 
@@ -310,3 +453,12 @@ def api_pulse():
         }
     ctx["now"] = ctx["now"].isoformat()
     return jsonify(ctx)
+
+
+@home_bp.route("/api/routines/seen", methods=["POST"])
+def api_routines_seen():
+    """Mark routines as seen."""
+    state = _load_routines_state()
+    state["routines_last_seen"] = datetime.now().isoformat()
+    _save_routines_state(state)
+    return jsonify({"ok": True})

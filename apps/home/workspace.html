@@ -299,6 +299,63 @@
   text-decoration: underline;
   background: transparent;
 }
+
+/* Routines */
+.pulse-routines {
+  padding: 1.25rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.pulse-routines-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pulse-routine-item {
+  font-size: 0.85rem;
+  color: #334155;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.25rem 0.35rem;
+}
+
+.pulse-routine-item::before {
+  content: "◆";
+  color: #6366f1;
+  flex-shrink: 0;
+  font-size: 0.65rem;
+}
+
+.pulse-routine-name {
+  font-weight: 500;
+}
+
+.pulse-routine-time {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.pulse-routine-summary {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.pulse-routines-more {
+  font-size: 0.8rem;
+  color: #6366f1;
+  margin-top: 0.5rem;
+}
+
+.pulse-routines-more a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.pulse-routines-more a:hover { text-decoration: underline; }
 </style>
 
 <div class="pulse-dashboard">
@@ -347,6 +404,28 @@
   <div class="pulse-narrative" id="pulse-narrative">
     <div class="pulse-section-header">{{ narrative_header or "Today's Flow" }}</div>
     <div class="pulse-narrative-empty">Analysis will be available after the next processing cycle.</div>
+  </div>
+  {% endif %}
+
+  <!-- Routines -->
+  {% set unseen_routines = routines|selectattr('seen', 'equalto', false)|list %}
+  {% if unseen_routines %}
+  <div class="pulse-routines" id="pulse-routines">
+    <div class="pulse-section-header">Your Routines</div>
+    <div class="pulse-routines-list">
+      {% for routine in unseen_routines %}
+      <div class="pulse-routine-item" data-conversation="Show me my {{ routine.name }} from today" data-routine-click="true">
+        <span>
+          <span class="pulse-routine-name">{{ routine.name }}</span>
+          <span class="pulse-routine-time">{{ routine.run_time_display }}</span>
+          {% if routine.summary %}
+          <span class="pulse-routine-summary">— {{ routine.summary }}</span>
+          {% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="pulse-routines-more"><a href="#" data-conversation="Show me all my routine history">all routine history →</a></div>
   </div>
   {% endif %}
 
@@ -442,6 +521,9 @@
       var el = e.target.closest('[data-conversation]');
       if (el && window.openConversation) {
         e.preventDefault();
+        if (el.closest('[data-routine-click]') || el.hasAttribute('data-routine-click')) {
+          fetch('/app/home/api/routines/seen', {method: 'POST'});
+        }
         window.openConversation({ prompt: el.dataset.conversation });
       }
     });
@@ -461,6 +543,11 @@
     window.appEvents.listen('cortex', function(msg) {
       if (msg.event === 'finish' && (msg.name === 'flow' || msg.name === 'pulse')) refreshNarrative();
       if (msg.event === 'error') refreshVitals();
+    });
+
+    // Routines: refresh on completion
+    window.appEvents.listen('routines', function(msg) {
+      if (msg.event === 'complete') refreshRoutines();
     });
   }
 
@@ -500,6 +587,54 @@
           if (hdr && data.narrative_header) hdr.textContent = data.narrative_header;
           const meta = document.querySelector('.pulse-narrative .pulse-narrative-meta');
           if (meta && data.narrative_updated_at) meta.textContent = 'Updated at ' + data.narrative_updated_at;
+        }
+      })
+      .catch(function() {});
+  }
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function refreshRoutines() {
+    fetch('/app/home/api/pulse')
+      .then(r => r.json())
+      .then(data => {
+        var container = document.getElementById('pulse-routines');
+        var routines = (data.routines || []).filter(function(r) { return !r.seen; });
+        if (routines.length === 0) {
+          if (container) container.remove();
+          return;
+        }
+        var html = '<div class="pulse-section-header">Your Routines</div><div class="pulse-routines-list">';
+        routines.forEach(function(r) {
+          var name = esc(r.name);
+          html += '<div class="pulse-routine-item" data-conversation="Show me my ' + name + ' from today" data-routine-click="true"><span>';
+          html += '<span class="pulse-routine-name">' + name + '</span> ';
+          html += '<span class="pulse-routine-time">' + esc(r.run_time_display) + '</span>';
+          if (r.summary) html += ' <span class="pulse-routine-summary">— ' + esc(r.summary) + '</span>';
+          html += '</span></div>';
+        });
+        html += '</div><div class="pulse-routines-more"><a href="#" data-conversation="Show me all my routine history">all routine history →</a></div>';
+        if (container) {
+          container.innerHTML = html;
+        } else {
+          var newDiv = document.createElement('div');
+          newDiv.className = 'pulse-routines';
+          newDiv.id = 'pulse-routines';
+          newDiv.innerHTML = html;
+          var narrative = document.getElementById('pulse-narrative');
+          var today = document.getElementById('pulse-today');
+          if (narrative) {
+            narrative.parentNode.insertBefore(newDiv, narrative.nextSibling);
+          } else if (today) {
+            today.parentNode.insertBefore(newDiv, today);
+          } else {
+            var dash = document.querySelector('.pulse-dashboard');
+            if (dash) dash.appendChild(newDiv);
+          }
         }
       })
       .catch(function() {});
