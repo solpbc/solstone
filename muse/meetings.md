@@ -53,6 +53,7 @@ Prioritize the audio transcript as the primary source of truth:
    - Decisions made during the meeting.
    - Action items or follow-ups assigned to specific people.
    - Open questions left unresolved.
+   - Notable ideas or proposals floated, even if not decided on (speculative ideas from meetings are often the most valuable thing to capture — they don't survive as action items but represent new thinking).
 
 ## Exclusions
 
@@ -69,6 +70,7 @@ Produce a friendly Markdown document with:
 - **Topics Discussed** – concise summary of key subjects and entities mentioned
 - **Slides Presented** – yes/no, with short description if yes
 - **Key Outcomes** – decisions, action items, and open questions
+- **Key Quotes** – 2-3 memorable or significant quotes with speaker attribution. Omit this section entirely if nothing stands out; do not pad with unremarkable quotes.
 
 Conclude with a brief summary (<= 100 words) of the meeting's significance and any immediate next steps.
 

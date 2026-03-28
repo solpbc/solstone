@@ -34,6 +34,7 @@ $daily_preamble
         * `First Appearance`: Time.
         * `Total Engagement`: Approximately how many times was it mentioned throughout the day.
         * `Context`:  Provide a concise (1-2 sentence) summary of its role or context in how it was used, referencing key actions or discussions from both audio and screen data if distinguishable.
+    * **Concept Quality Filter:** Distinguish `Concept` from `Topic`. A Concept must be a genuinely reusable idea — a mental model, framework, strategic insight, or principle — valuable to recall in a different context. "Discussed the migration timeline" is a Topic (use `Topic` type). "Conway's Law applies to their API design" is a Concept (use `Concept` type). When extracting Concepts, capture WHY the concept matters in the `Context` field, not just that it was mentioned.
 
 2.  **Relationship Mapping:**
     * Identify and map all significant connections between entities.
@@ -59,7 +60,9 @@ $daily_preamble
 
 **Key Considerations:**
 * Synthesize information from all transcript content within each chunk.
-* Disambiguate entities: e.g., "John" referring to "John Doe."
+* Disambiguate entities by consolidating name variants to a single canonical entity using the most complete name when the same entity is referenced by different names within the transcript (e.g., "John", "John D.", "John Doe" → use "John Doe" throughout).
+* When first-name-only references are ambiguous, note the ambiguity in the entity's Context field rather than guessing identity.
+* Cross-reference names against attendees and participants mentioned earlier in the transcript for spelling corrections and consistent naming.
 * Infer implicit relationships where explicit statements are lacking but context strongly suggests a connection.
 * Focus on the most relevant and significant entities and relationships to avoid an overly noisy graph.
 * For live capture, $preferred often multi-tasks — e.g., joined on a team zoom in the background while working on an unrelated task — so different content streams may not always align.
