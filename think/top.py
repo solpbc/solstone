@@ -53,6 +53,7 @@ class ServiceManager:
         self.cpu_cache = {}  # Maps pid -> last cpu_percent value
         self.cpu_procs = {}  # Maps pid -> Process object for cpu tracking
         self.running_tasks = {}  # Maps ref -> task info from logs tract
+        self.finished_tasks = {}  # Maps ref -> ghost entry for recently finished tasks
         self.command_queues = {}  # Maps command_name -> queued count
         self.event_queue: queue.Queue = queue.Queue()  # Callosum events for main loop
         self.active_notifications = {}  # Maps service_name -> notification_id
@@ -355,6 +356,18 @@ class ServiceManager:
                 # Process exited - clean up
                 ref = message.get("ref")
                 if ref:
+                    task = self.running_tasks.get(ref)
+                    name = task["name"] if task else message.get("name", "unknown")
+                    last_log_entry = self.last_log_lines.get(ref)
+                    last_log = last_log_entry[2] if last_log_entry else ""
+                    exit_code = message.get("exit_code")
+                    self.finished_tasks[ref] = {
+                        "name": name,
+                        "exit_code": exit_code,
+                        "last_log": last_log,
+                        "finished_at": time.time(),
+                    }
+
                     # Remove from running tasks
                     task = self.running_tasks.pop(ref, None)
                     if task:
@@ -573,6 +586,15 @@ class ServiceManager:
         for ref in refs_to_remove:
             task = self.running_tasks.pop(ref, None)
             if task:
+                # Create ghost entry for dead task (no exit event received)
+                last_log_entry = self.last_log_lines.get(ref)
+                last_log = last_log_entry[2] if last_log_entry else ""
+                self.finished_tasks[ref] = {
+                    "name": task["name"],
+                    "exit_code": None,  # Unknown - no exit event
+                    "last_log": last_log,
+                    "finished_at": time.time(),
+                }
                 pid = task["pid"]
                 self.cpu_procs.pop(pid, None)
                 self.cpu_cache.pop(pid, None)
@@ -602,7 +624,15 @@ class ServiceManager:
         header = f"  {'Task':<15} {'PID':<8} {'Runtime':<12} {'MB':>7}  {'%':>5} {'Last':>5} Log"
         output.append(t.bold + header + t.normal)
 
-        if not tasks_only:
+        # Expire old ghost entries
+        now = time.time()
+        self.finished_tasks = {
+            ref: ghost
+            for ref, ghost in self.finished_tasks.items()
+            if now - ghost["finished_at"] <= self.STATUS_TIMEOUT
+        }
+
+        if not tasks_only and not self.finished_tasks:
             # Show queued commands even when no tasks are running
             queued_only = {
                 cmd: count for cmd, count in self.command_queues.items() if count > 0
@@ -616,7 +646,6 @@ class ServiceManager:
                 output.append(t.dim + "  -" + t.normal)
             return output
 
-        # Task rows (sorted by start time, oldest first)
         tasks_sorted = sorted(tasks_only, key=lambda x: x["start_time"])
 
         for task in tasks_sorted:
@@ -634,6 +663,44 @@ class ServiceManager:
 
             line = f"  {name:<15} {pid:<8} {runtime:<12} {memory:>7}  {cpu:>5} {log_age:>5} "
             output.append(line + log_color + log_display + t.normal)
+
+        # Ghost rows for recently finished tasks
+        for ref, ghost in sorted(
+            self.finished_tasks.items(),
+            key=lambda x: x[1]["finished_at"],
+        ):
+            name = ghost["name"][:14]
+            # Exit code display: ✓ for 0, ✗ N for nonzero, ? for unknown
+            exit_code = ghost["exit_code"]
+            if exit_code is None:
+                exit_indicator = "?"
+                exit_color = t.yellow
+            elif exit_code == 0:
+                exit_indicator = "✓"
+                exit_color = t.green
+            else:
+                exit_indicator = f"✗ {exit_code}"
+                exit_color = t.red
+
+            # Format ghost log line (truncate to available width)
+            last_log = ghost["last_log"]
+            log_width = max(0, t.width - self.LOG_FIXED_WIDTH)
+            if last_log and log_width > 0:
+                last_log = last_log[:log_width]
+            else:
+                last_log = ""
+
+            line = f"  {name:<15} {'':<8} {'':<12} {'':>7}  {'':>5} {'':>5} "
+            output.append(
+                t.dim
+                + line
+                + exit_color
+                + exit_indicator
+                + t.normal
+                + t.dim
+                + (" " + last_log if last_log else "")
+                + t.normal
+            )
 
         # Show queued commands not visible as running tasks
         visible_commands = {task["name"] for task in tasks_only}
