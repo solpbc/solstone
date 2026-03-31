@@ -14,12 +14,11 @@ from typing import Any, NamedTuple
 
 import requests
 
-from think.utils import get_config, get_journal
+from think.utils import get_config, get_journal, read_service_port
 
 logger = logging.getLogger(__name__)
 HOST = socket.gethostname()
 PLATFORM = platform.system().lower()
-DEFAULT_URL = "http://localhost:5173"
 RETRY_BACKOFF = [1, 5, 15]
 MAX_RETRIES = 3
 UPLOAD_TIMEOUT = 300
@@ -43,6 +42,29 @@ def cleanup_draft(draft_dir: str) -> None:
         pass
 
 
+def finalize_draft(draft_dir: str, segment_key: str) -> str | None:
+    """Rename a draft directory to its final segment name.
+
+    Preserves captured data locally when remote upload fails, so the
+    dream pipeline can process it later.
+
+    Args:
+        draft_dir: Path to the draft directory (e.g. .../HHMMSS_draft/)
+        segment_key: Final segment name (e.g. "091551_300")
+
+    Returns:
+        Path to the finalized directory, or None on failure.
+    """
+    final_dir = os.path.join(os.path.dirname(draft_dir), segment_key)
+    try:
+        os.rename(draft_dir, final_dir)
+        logger.info(f"Finalized draft locally: {final_dir}")
+        return final_dir
+    except OSError as e:
+        logger.error(f"Failed to finalize draft {draft_dir} -> {final_dir}: {e}")
+        return None
+
+
 class ObserverClient:
     """HTTP client for uploading observer segments to the remote ingest server."""
 
@@ -54,7 +76,16 @@ class ObserverClient:
     ):
         config = get_config()
         remote_cfg = config.get("observe", {}).get("remote", {})
-        self._url = remote_cfg.get("url", DEFAULT_URL).rstrip("/")
+        self._url = remote_cfg.get("url", "").rstrip("/")
+        if not self._url:
+            # Discover local convey port from health directory
+            port = read_service_port("convey")
+            if port:
+                self._url = f"http://localhost:{port}"
+                logger.info(f"Discovered convey at port {port}")
+            else:
+                logger.warning("No convey port found in health directory")
+                self._url = ""
         self._key = remote_cfg.get("key")
         self._auto_register = remote_cfg.get("auto_register", True)
         self._name = remote_cfg.get("name") or stream
@@ -90,6 +121,8 @@ class ObserverClient:
 
     def _ensure_registered(self) -> None:
         if self._key:
+            return
+        if not self._url:
             return
         if not self._auto_register:
             logger.error(

@@ -23,7 +23,7 @@ import sys
 import time
 from pathlib import Path
 
-from observe.remote_client import ObserverClient, cleanup_draft
+from observe.remote_client import ObserverClient, cleanup_draft, finalize_draft
 from observe.tmux.capture import TmuxCapture, write_captures_jsonl
 from observe.utils import create_draft_folder, get_timestamp_parts
 from think.streams import stream_name
@@ -150,6 +150,7 @@ class TmuxObserver:
             for f in os.listdir(self.draft_dir)
             if (draft_path / f).is_file()
         ]
+        uploaded = False
         if draft_files and self._client:
             meta = {"host": HOST, "platform": PLATFORM, "stream": self.stream}
             result = self._client.upload_segment(
@@ -159,9 +160,13 @@ class TmuxObserver:
                 logger.info(
                     f"Segment uploaded: {segment_key} ({len(draft_files)} files)"
                 )
+                uploaded = True
             else:
                 logger.error(f"Segment upload failed: {segment_key}")
-        cleanup_draft(self.draft_dir)
+        if uploaded:
+            cleanup_draft(self.draft_dir)
+        else:
+            finalize_draft(self.draft_dir, segment_key)
 
         self._reset_capture_state()
         return tmux_files

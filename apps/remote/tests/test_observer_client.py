@@ -22,8 +22,11 @@ def mock_session():
 
 @pytest.fixture
 def mock_config():
-    with patch("observe.remote_client.get_config") as mock:
+    with patch("observe.remote_client.get_config") as mock, patch(
+        "observe.remote_client.read_service_port"
+    ) as mock_port:
         mock.return_value = {}
+        mock_port.return_value = 8000
         yield mock
 
 
@@ -35,15 +38,29 @@ def mock_journal(tmp_path):
 
 
 def test_observer_client_init(mock_session, mock_config):
-    from observe.remote_client import DEFAULT_URL, ObserverClient
+    from observe.remote_client import ObserverClient
 
     client = ObserverClient("main-stream")
 
-    assert client._url == DEFAULT_URL
+    assert client._url == "http://localhost:8000"
     assert client._key is None
     assert client._name == "main-stream"
     assert client._stream == "main-stream"
     assert client._auto_register is True
+
+
+def test_observer_client_init_no_port(mock_session):
+    """When no config URL and no convey.port file, _url is empty."""
+    from observe.remote_client import ObserverClient
+
+    with patch("observe.remote_client.get_config") as cfg, patch(
+        "observe.remote_client.read_service_port"
+    ) as port:
+        cfg.return_value = {}
+        port.return_value = None
+        client = ObserverClient("main-stream")
+
+    assert client._url == ""
 
 
 def test_observer_client_init_with_config(mock_session, mock_config):
@@ -323,6 +340,24 @@ def test_cleanup_draft(tmp_path):
     cleanup_draft(str(draft_dir))
 
     assert not draft_dir.exists()
+
+
+def test_finalize_draft(tmp_path):
+    from observe.remote_client import finalize_draft
+
+    draft_dir = tmp_path / "091551_draft"
+    draft_dir.mkdir()
+    (draft_dir / "screen.webm").write_text("video")
+    (draft_dir / "audio.flac").write_text("audio")
+
+    result = finalize_draft(str(draft_dir), "091551_300")
+
+    assert result == str(tmp_path / "091551_300")
+    assert not draft_dir.exists()
+    final = tmp_path / "091551_300"
+    assert final.exists()
+    assert (final / "screen.webm").read_text() == "video"
+    assert (final / "audio.flac").read_text() == "audio"
 
 
 def test_upload_duplicate_response(mock_session, mock_config, tmp_path):
