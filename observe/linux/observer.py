@@ -297,10 +297,14 @@ class Observer:
                 if (draft_path / f).is_file()
             ]
             uploaded = False
-            if draft_files and self._client:
+            if draft_files and self._client and self.running:
                 meta = {"host": HOST, "platform": PLATFORM, "stream": self.stream}
-                result = self._client.upload_segment(
-                    date_part, segment_key, draft_files, meta
+                result = await asyncio.to_thread(
+                    self._client.upload_segment,
+                    date_part,
+                    segment_key,
+                    draft_files,
+                    meta,
                 )
                 if result.success:
                     logger.info(
@@ -572,29 +576,10 @@ class Observer:
         segment_key = f"{time_part}_{duration}"
 
         if self.draft_dir and files:
-            draft_path = Path(self.draft_dir)
-            draft_files = [
-                draft_path / f
-                for f in os.listdir(self.draft_dir)
-                if (draft_path / f).is_file()
-            ]
-            uploaded = False
-            if draft_files and self._client:
-                meta = {"host": HOST, "platform": PLATFORM, "stream": self.stream}
-                result = self._client.upload_segment(
-                    date_part, segment_key, draft_files, meta
-                )
-                if result.success:
-                    logger.info(
-                        f"Final segment uploaded: {segment_key} ({len(draft_files)} files)"
-                    )
-                    uploaded = True
-                else:
-                    logger.error(f"Final segment upload failed: {segment_key}")
-            if uploaded:
-                cleanup_draft(self.draft_dir)
-            else:
-                finalize_draft(self.draft_dir, segment_key)
+            finalize_draft(self.draft_dir, segment_key)
+            logger.info(
+                f"Finalized segment locally: {segment_key} (shutdown, skipping upload)"
+            )
         elif self.draft_dir:
             cleanup_draft(self.draft_dir)
 
