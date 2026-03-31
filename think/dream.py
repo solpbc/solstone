@@ -430,10 +430,10 @@ def run_prompts_by_priority(
                 try:
                     pulse_path = Path(get_journal()) / "sol" / "pulse.md"
                     if pulse_path.exists():
-                        start_time, _ = segment_parse(segment)
-                        if start_time:
+                        seg_start, _ = segment_parse(segment)
+                        if seg_start:
                             day_date = datetime.strptime(day, "%Y%m%d").date()
-                            seg_dt = datetime.combine(day_date, start_time)
+                            seg_dt = datetime.combine(day_date, seg_start)
                             if pulse_path.stat().st_mtime >= seg_dt.timestamp():
                                 logging.info(
                                     f"Skipping pulse: sol/pulse.md current for {segment}"
