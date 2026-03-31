@@ -236,7 +236,13 @@ def _collect_events(today: str) -> list[dict[str, Any]]:
     from think.indexer.journal import get_events
 
     try:
-        return get_events(today)
+        events = get_events(today)
+        for event in events:
+            if event.get("start") is None:
+                event["start"] = ""
+            if event.get("end") is None:
+                event["end"] = ""
+        return events
     except Exception:
         return []
 
