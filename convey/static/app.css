@@ -1561,14 +1561,6 @@ a.notification-card {
 .corner-tag-br { bottom: 32px; right: 0; mask-image: url('tags/tag-2.png'); -webkit-mask-image: url('tags/tag-2.png'); }
 
 /* ========================================
- * Privacy Blur
- * Blurs page content when window loses focus (desktop only)
- * ======================================== */
-body.privacy-blur > *:not(.corner-tags) {
-  filter: blur(5px);
-}
-
-/* ========================================
  * Facet Add Button
  * Plus button to create new facets
  * ======================================== */
