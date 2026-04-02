@@ -1459,7 +1459,10 @@
       }
 
       // Update local observe state (merge fields, don't overwrite all)
-      if (msg.mode !== undefined) state.observe.mode = msg.mode;
+      // Don't let the tmux sub-observer's mode ("tmux") override the main badge.
+      // The tmux observer sends msg.tmux but not msg.screencast/audio/activity;
+      // the desktop observer is the source of truth for the mode badge.
+      if (msg.mode !== undefined && msg.tmux === undefined) state.observe.mode = msg.mode;
       if (msg.screencast !== undefined) state.observe.screencast = msg.screencast;
       if (msg.tmux !== undefined) state.observe.tmux = msg.tmux;
       if (msg.audio !== undefined) state.observe.audio = msg.audio;
