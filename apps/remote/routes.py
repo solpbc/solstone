@@ -55,6 +55,16 @@ remote_bp = Blueprint(
 KEY_BYTES = 32
 
 
+def _get_key(url_key: str | None = None) -> str | None:
+    """Extract auth key from Authorization: Bearer header (primary) or URL path (legacy)."""
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        bearer = auth[7:].strip()
+        if bearer:
+            return bearer
+    return url_key or None
+
+
 def _generate_key() -> str:
     """Generate a URL-safe key for remote authentication."""
     return base64.urlsafe_b64encode(secrets.token_bytes(KEY_BYTES)).decode().rstrip("=")
@@ -281,8 +291,9 @@ def _save_to_failed(
 # === Ingest API (key-protected) ===
 
 
+@remote_bp.route("/ingest", methods=["POST"])
 @remote_bp.route("/ingest/<key>", methods=["POST"])
-def ingest_upload(key: str) -> Any:
+def ingest_upload(key: str | None = None) -> Any:
     """Receive file uploads from remote observer.
 
     Expects multipart form with:
@@ -301,8 +312,13 @@ def ingest_upload(key: str) -> Any:
     - "duplicate": All files already received (no processing triggered)
     - "collision": New segment saved with adjusted key (directory conflict)
     """
+    # Extract key from Bearer header (primary) or URL path (legacy)
+    auth_key = _get_key(key)
+    if not auth_key:
+        return jsonify({"error": "Authorization required"}), 401
+
     # Validate key
-    remote = load_remote(key)
+    remote = load_remote(auth_key)
     if not remote:
         return jsonify({"error": "Invalid key"}), 401
 
@@ -336,7 +352,7 @@ def ingest_upload(key: str) -> Any:
     remote_name = remote.get("name", "")
     if effective_host and effective_host != remote_name:
         logger.warning(
-            f"Remote '{remote_name}' ({key[:8]}) connecting from host "
+            f"Remote '{remote_name}' ({auth_key[:8]}) connecting from host "
             f"'{effective_host}' — hostname differs from registered name. "
             f"Use `sol remote rename` to update if the host was renamed."
         )
@@ -359,7 +375,7 @@ def ingest_upload(key: str) -> Any:
     if not files:
         return jsonify({"error": "No files uploaded"}), 400
 
-    key_prefix = key[:8]
+    key_prefix = auth_key[:8]
 
     # Read file contents into memory and compute SHA256 before saving
     # This allows duplicate detection without writing to disk
@@ -578,8 +594,9 @@ def ingest_upload(key: str) -> Any:
     )
 
 
+@remote_bp.route("/ingest/event", methods=["POST"])
 @remote_bp.route("/ingest/<key>/event", methods=["POST"])
-def ingest_event(key: str) -> Any:
+def ingest_event(key: str | None = None) -> Any:
     """Receive events from remote observer and relay to local Callosum.
 
     Expects JSON body with:
@@ -587,8 +604,13 @@ def ingest_event(key: str) -> Any:
     - event: Event name
     - ...additional fields
     """
+    # Extract key from Bearer header (primary) or URL path (legacy)
+    auth_key = _get_key(key)
+    if not auth_key:
+        return jsonify({"error": "Authorization required"}), 401
+
     # Validate key
-    remote = load_remote(key)
+    remote = load_remote(auth_key)
     if not remote:
         return jsonify({"error": "Invalid key"}), 401
 
@@ -621,8 +643,9 @@ def ingest_event(key: str) -> Any:
     return jsonify({"status": "ok"})
 
 
+@remote_bp.route("/ingest/segments/<day>")
 @remote_bp.route("/ingest/<key>/segments/<day>")
-def ingest_segments(key: str, day: str) -> Any:
+def ingest_segments(day: str, key: str | None = None) -> Any:
     """List uploaded segments for a day with file verification.
 
     Returns JSON array of segments with file status:
@@ -631,11 +654,16 @@ def ingest_segments(key: str, day: str) -> Any:
     - missing: File not found
 
     Args:
-        key: Remote authentication key
         day: Day string (YYYYMMDD)
+        key: Remote authentication key (from URL path, legacy)
     """
+    # Extract key from Bearer header (primary) or URL path (legacy)
+    auth_key = _get_key(key)
+    if not auth_key:
+        return jsonify({"error": "Authorization required"}), 401
+
     # Validate key
-    remote = load_remote(key)
+    remote = load_remote(auth_key)
     if not remote:
         return jsonify({"error": "Invalid key"}), 401
 
@@ -650,7 +678,7 @@ def ingest_segments(key: str, day: str) -> Any:
         return jsonify({"error": "Invalid day format"}), 400
 
     # Load sync history for this remote/day
-    key_prefix = key[:8]
+    key_prefix = auth_key[:8]
     records = load_history(key_prefix, day)
 
     if not records:

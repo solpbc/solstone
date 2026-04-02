@@ -140,8 +140,8 @@ def cmd_create(args: argparse.Namespace) -> int:
     print("Remote observer created:")
     print(f"  Name:       {name}")
     print(f"  Prefix:     {key[:8]}")
-    print(f"  Key:        {key}")
-    print(f"  Ingest URL: /app/remote/ingest/{key}")
+    print(f"  server url:  (set during server configuration)")
+    print(f"  api key:     {key}")
     return 0
 
 

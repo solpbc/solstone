@@ -124,7 +124,8 @@ def test_ingest_invalid_key(remote_env):
     env = remote_env()
 
     resp = env.client.post(
-        "/app/remote/ingest/invalid-key-12345",
+        "/app/remote/ingest",
+        headers={"Authorization": "Bearer invalid-key-12345"},
         data={"day": "20250103", "segment": "120000_300"},
     )
     assert resp.status_code == 401
@@ -145,7 +146,8 @@ def test_ingest_missing_segment(remote_env):
 
     # Upload without segment
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={"day": "20250103"},
     )
     assert resp.status_code == 400
@@ -166,7 +168,8 @@ def test_ingest_missing_day(remote_env):
 
     # Upload without day
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={"segment": "120000_300"},
     )
     assert resp.status_code == 400
@@ -187,7 +190,8 @@ def test_ingest_invalid_segment_format(remote_env):
 
     # Invalid segment format
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={"day": "20250103", "segment": "invalid"},
     )
     assert resp.status_code == 400
@@ -208,7 +212,8 @@ def test_ingest_invalid_day_format(remote_env):
 
     # Invalid day format
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={"day": "2025-01-03", "segment": "120000_300"},
     )
     assert resp.status_code == 400
@@ -229,7 +234,8 @@ def test_ingest_no_files(remote_env):
 
     # Upload without files
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={"day": "20250103", "segment": "120000_300"},
     )
     assert resp.status_code == 400
@@ -251,7 +257,8 @@ def test_ingest_success(remote_env):
     # Upload a file
     test_data = b"test audio content"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -287,7 +294,8 @@ def test_ingest_updates_stats(remote_env):
     # Upload a file
     test_data = b"test content"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -320,7 +328,8 @@ def test_ingest_event_relay(remote_env):
 
     # Send an event
     resp = env.client.post(
-        f"/app/remote/ingest/{key}/event",
+        "/app/remote/ingest/event",
+        headers={"Authorization": f"Bearer {key}"},
         json={"tract": "observe", "event": "status", "mode": "screencast"},
         content_type="application/json",
     )
@@ -342,7 +351,8 @@ def test_ingest_event_missing_tract(remote_env):
 
     # Missing tract
     resp = env.client.post(
-        f"/app/remote/ingest/{key}/event",
+        "/app/remote/ingest/event",
+        headers={"Authorization": f"Bearer {key}"},
         json={"event": "status"},
         content_type="application/json",
     )
@@ -370,7 +380,8 @@ def test_ingest_revoked_key(remote_env):
     # Try to upload - should fail
     test_data = b"test content"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -400,7 +411,8 @@ def test_ingest_event_revoked_key(remote_env):
 
     # Try to send event - should fail
     resp = env.client.post(
-        f"/app/remote/ingest/{key}/event",
+        "/app/remote/ingest/event",
+        headers={"Authorization": f"Bearer {key}"},
         json={"tract": "observe", "event": "status"},
         content_type="application/json",
     )
@@ -545,7 +557,8 @@ def test_ingest_collision_adjusts_segment(remote_env):
     # Upload with same segment key
     test_data = b"new audio content"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -586,7 +599,8 @@ def test_ingest_no_collision_preserves_segment(remote_env):
     # Upload without any conflicting segment directory
     test_data = b"audio content"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -627,7 +641,8 @@ def test_ingest_stats_use_adjusted_segment(remote_env):
     # Upload with same segment key
     test_data = b"new audio"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -669,7 +684,8 @@ def test_ingest_creates_sync_history(remote_env):
     # Upload a file
     test_data = b"test audio content for history"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -729,7 +745,8 @@ def test_ingest_history_with_collision(remote_env):
     # Upload with same segment key
     test_data = b"new audio content"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -774,7 +791,7 @@ def test_segments_endpoint_empty(remote_env):
     key = resp.get_json()["key"]
 
     # Query segments - should be empty
-    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
     assert resp.status_code == 200
     assert resp.get_json() == []
 
@@ -783,7 +800,7 @@ def test_segments_endpoint_invalid_key(remote_env):
     """Test segments endpoint rejects invalid key."""
     env = remote_env()
 
-    resp = env.client.get("/app/remote/ingest/invalid-key/segments/20250103")
+    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": "Bearer invalid-key"})
     assert resp.status_code == 401
 
 
@@ -799,7 +816,7 @@ def test_segments_endpoint_invalid_day(remote_env):
     )
     key = resp.get_json()["key"]
 
-    resp = env.client.get(f"/app/remote/ingest/{key}/segments/2025-01-03")
+    resp = env.client.get("/app/remote/ingest/segments/2025-01-03", headers={"Authorization": f"Bearer {key}"})
     assert resp.status_code == 400
     assert "Invalid day format" in resp.get_json()["error"]
 
@@ -819,7 +836,8 @@ def test_segments_endpoint_lists_uploads(remote_env):
     # Upload a file
     test_data = b"test audio content"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -829,7 +847,7 @@ def test_segments_endpoint_lists_uploads(remote_env):
     assert resp.status_code == 200
 
     # Query segments
-    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
     assert resp.status_code == 200
     data = resp.get_json()
 
@@ -871,7 +889,8 @@ def test_segments_endpoint_shows_collision(remote_env):
     # Upload with collision
     test_data = b"new audio"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -881,7 +900,7 @@ def test_segments_endpoint_shows_collision(remote_env):
     assert resp.status_code == 200
 
     # Query segments
-    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
     data = resp.get_json()
 
     assert len(data) == 1
@@ -910,7 +929,8 @@ def test_segments_endpoint_missing_file(remote_env):
     # Upload a file
     test_data = b"test audio"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -925,7 +945,7 @@ def test_segments_endpoint_missing_file(remote_env):
     ).unlink()
 
     # Query segments
-    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
     data = resp.get_json()
 
     assert len(data) == 1
@@ -948,7 +968,8 @@ def test_segments_endpoint_relocated_file(remote_env):
     # Upload a file
     test_data = b"test audio for relocation"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -965,7 +986,7 @@ def test_segments_endpoint_relocated_file(remote_env):
     original_path.rename(new_path)
 
     # Query segments - should detect relocation by inode
-    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
     data = resp.get_json()
 
     assert len(data) == 1
@@ -1026,7 +1047,7 @@ def test_segments_endpoint_revoked_key(remote_env):
     env.client.delete(f"/app/remote/api/{key_prefix}")
 
     # Query segments - should be rejected
-    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
     assert resp.status_code == 403
     assert "Remote revoked" in resp.get_json()["error"]
 
@@ -1050,7 +1071,8 @@ def test_segments_endpoint_deduplicates_by_sha256(remote_env):
     # Upload a file
     test_data = b"test audio content"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1063,7 +1085,8 @@ def test_segments_endpoint_deduplicates_by_sha256(remote_env):
     # Upload the same file again (same content = same sha256)
     # With duplicate detection, this should be rejected
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1074,7 +1097,7 @@ def test_segments_endpoint_deduplicates_by_sha256(remote_env):
     assert resp.get_json()["status"] == "duplicate"
 
     # Query segments - should have only one segment (duplicate was rejected)
-    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
     data = resp.get_json()
 
     # Should have 1 segment (duplicate rejected, not 2 segments)
@@ -1101,7 +1124,8 @@ def test_segments_endpoint_shows_observed_status(remote_env):
     # Upload a file
     test_data = b"test audio content"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1111,7 +1135,7 @@ def test_segments_endpoint_shows_observed_status(remote_env):
     assert resp.status_code == 200
 
     # Query segments - should show observed: false
-    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
     data = resp.get_json()
     assert len(data) == 1
     assert data[0]["observed"] is False
@@ -1124,7 +1148,7 @@ def test_segments_endpoint_shows_observed_status(remote_env):
         f.write('{"ts": 1704312345000, "type": "observed", "segment": "120000_300"}\n')
 
     # Query again - should now show observed: true
-    resp = env.client.get(f"/app/remote/ingest/{key}/segments/20250103")
+    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
     data = resp.get_json()
     assert len(data) == 1
     assert data[0]["observed"] is True
@@ -1181,7 +1205,8 @@ def test_ingest_duplicate_segment_returns_duplicate_status(remote_env):
     # First upload
     test_data = b"test audio content for duplicate test"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1195,7 +1220,8 @@ def test_ingest_duplicate_segment_returns_duplicate_status(remote_env):
 
     # Second upload with identical content
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1233,7 +1259,8 @@ def test_ingest_duplicate_does_not_emit_event(remote_env, monkeypatch):
 
     # First upload - should emit
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1245,7 +1272,8 @@ def test_ingest_duplicate_does_not_emit_event(remote_env, monkeypatch):
 
     # Second upload - should NOT emit
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1273,7 +1301,8 @@ def test_ingest_duplicate_increments_duplicates_rejected_stat(remote_env):
 
     # First upload
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1289,7 +1318,8 @@ def test_ingest_duplicate_increments_duplicates_rejected_stat(remote_env):
 
     # Submit duplicate
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1323,7 +1353,8 @@ def test_ingest_partial_duplicate_creates_new_segment(remote_env):
 
     # First upload with audio and screen
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1332,7 +1363,8 @@ def test_ingest_partial_duplicate_creates_new_segment(remote_env):
     )
     # Add files manually for multipart
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1349,7 +1381,8 @@ def test_ingest_partial_duplicate_creates_new_segment(remote_env):
 
     # Second upload with same audio but different screen
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1385,7 +1418,8 @@ def test_ingest_partial_match_logged_in_history(remote_env):
 
     # First upload
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1397,7 +1431,8 @@ def test_ingest_partial_match_logged_in_history(remote_env):
     # Second upload with same audio but new additional file
     new_data = b"brand new file"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1453,7 +1488,8 @@ def test_ingest_returns_collision_status_when_adjusted(remote_env):
     # Upload - will need collision resolution
     test_data = b"new content"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1480,7 +1516,8 @@ def test_ingest_zero_byte_file_rejected(remote_env):
 
     # Upload a 0-byte file
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1506,7 +1543,8 @@ def test_ingest_mixed_zero_byte_files(remote_env):
     # Upload one valid file and one 0-byte file
     valid_data = b"real audio content"
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
@@ -1552,7 +1590,8 @@ def test_ingest_stream_qualifier_preserved(remote_env):
     test_data = b"tmux capture content"
     meta = json.dumps({"host": "fedora", "platform": "linux", "stream": "fedora.tmux"})
     resp = env.client.post(
-        f"/app/remote/ingest/{key}",
+        "/app/remote/ingest",
+        headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
             "segment": "120000_300",
