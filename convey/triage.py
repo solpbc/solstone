@@ -22,10 +22,13 @@ MAX_CONVERSATION_TURNS = 20
 
 @bp.route("", methods=["POST"])
 def triage() -> Any:
-    """Accept a message from the conversation panel and return a response.
+    """Accept a message from the conversation panel and spawn a triage agent.
 
     Expects JSON: {message, app, path, facet, conversation_history?}
-    Returns JSON: {response, panel}
+    Returns JSON: {agent_id}
+
+    The agent runs asynchronously. The browser receives the result via
+    WebSocket (cortex/finish event). For reload recovery, use GET /result/<agent_id>.
 
     When conversation_history is provided (array of {role, content} pairs),
     routes to the unified muse with full journal context. Otherwise falls
@@ -201,11 +204,13 @@ def triage() -> Any:
 
     try:
         from convey.utils import spawn_agent
-        from think.cortex_client import read_agent_events, wait_for_agents
 
         config: dict[str, Any] = {}
         if facet:
             config["facet"] = facet
+        config["app"] = app_name
+        config["path"] = path
+        config["user_message"] = message
 
         agent_id = spawn_agent(
             prompt=full_prompt,
@@ -216,54 +221,35 @@ def triage() -> Any:
         if agent_id is None:
             return error_response("Failed to connect to agent service", 503)
 
-        completed, timed_out = wait_for_agents([agent_id], timeout=60)
-
-        if agent_id in timed_out:
-            return error_response("Triage request timed out", 504)
-
-        end_state = completed.get(agent_id)
-        if end_state == "error":
-            return error_response("Triage agent encountered an error", 500)
-
-        # Extract result text from finish event
-        try:
-            events = read_agent_events(agent_id)
-            for event in reversed(events):
-                if event.get("event") == "finish":
-                    result = event.get("result", "")
-
-                    # Record conversation exchange for memory service
-                    try:
-                        from think.conversation import record_exchange
-
-                        record_exchange(
-                            facet=facet,
-                            app=app_name,
-                            path=path,
-                            user_message=message,
-                            agent_response=result,
-                            muse=agent_name,
-                            agent_id=agent_id or "",
-                        )
-                    except Exception:
-                        logger.debug(
-                            "Failed to record conversation exchange",
-                            exc_info=True,
-                        )
-
-                    # Provide panel hint based on response characteristics
-                    panel = (
-                        len(result) >= 120
-                        or "\n" in result
-                        or len((result or "").split(". ")) > 2
-                        or has_conversation
-                    )
-                    return jsonify(response=result, panel=panel)
-        except FileNotFoundError:
-            pass
-
-        return error_response("No response from triage agent", 500)
+        return jsonify(agent_id=agent_id)
 
     except Exception:
         logger.exception("Triage request failed")
         return error_response("Failed to process triage request", 500)
+
+
+@bp.route("/result/<agent_id>", methods=["GET"])
+def triage_result(agent_id: str) -> Any:
+    """Return the result of a completed triage agent.
+
+    Returns {response, panel} if the agent has finished, 404 otherwise.
+    Used for page-reload recovery when the WebSocket may have missed the finish event.
+    """
+    try:
+        from think.cortex_client import read_agent_events
+
+        events = read_agent_events(agent_id)
+        for event in reversed(events):
+            if event.get("event") == "finish":
+                result = event.get("result", "")
+                panel = (
+                    len(result) >= 120
+                    or "\n" in result
+                    or len((result or "").split(". ")) > 2
+                )
+                return jsonify(response=result, panel=panel)
+    except FileNotFoundError:
+        pass
+    except Exception:
+        logger.debug("Failed to read triage result for %s", agent_id, exc_info=True)
+    return jsonify(error="not found"), 404

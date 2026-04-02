@@ -274,10 +274,10 @@
       }
     }
 
-    // Auto-retry pending request if < 30 seconds old
-    if (saved.pendingMessage && saved.pendingMessage.sentAt) {
+    // Auto-recover pending request if < 5 minutes old
+    if (saved.pendingMessage && saved.pendingMessage.agentId && saved.pendingMessage.sentAt) {
       var age = Date.now() - saved.pendingMessage.sentAt;
-      if (age < 30000) {
+      if (age < 300000) {
         pendingMessage = saved.pendingMessage;
         thinking.style.display = '';
         inlineResp.style.display = 'none';
@@ -285,32 +285,22 @@
         appBar.classList.add('app-bar--glance');
 
         (async function() {
-          try {
-            var history = messages.slice(0, -1).map(function(m) {
-              return { role: m.role, content: m.content };
-            });
-            var r = await fetch('/api/triage', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                message: pendingMessage.text,
-                app: '{{ app }}',
-                path: window.location.pathname,
-                facet: window.selectedFacet || null,
-                conversation_history: history.length > 0 ? history : undefined
-              })
-            });
+          var agentId = pendingMessage.agentId;
+          var recoveryCleanup = null;
+          var recoveryWatchdog = null;
+          var resolved = false;
 
-            var resp = '';
-            var panelHint = false;
-            var errMsg = null;
-            if (r.ok) {
-              var data = await r.json();
-              resp = data.response || '';
-              panelHint = !!data.panel;
-            } else {
-              errMsg = 'Something went wrong. Try again.';
-            }
+          function recoverCleanup() {
+            if (recoveryCleanup) { recoveryCleanup(); recoveryCleanup = null; }
+            if (recoveryWatchdog) { clearTimeout(recoveryWatchdog); recoveryWatchdog = null; }
+            thinking.style.display = 'none';
+            input.disabled = false;
+            input.focus();
+          }
+
+          function recoverDeliver(resp, panelHint, errMsg) {
+            if (resolved) return;
+            resolved = true;
             var content = errMsg || resp;
             if (content) {
               messages.push({ role: 'agent', content: content, ts: Date.now() });
@@ -319,7 +309,11 @@
 
             var userCount = messages.filter(function(m) { return m.role === 'user'; }).length;
             var shouldInline = userCount === 1 && !panelHint && isOneLiner(resp) && !errMsg;
-            if (shouldInline) {
+
+            if (panelOpen) {
+              renderMessages();
+              msgArea.scrollTop = msgArea.scrollHeight;
+            } else if (shouldInline) {
               thinking.style.display = 'none';
               inlineResp.textContent = content;
               inlineResp.style.display = content ? '' : 'none';
@@ -331,18 +325,48 @@
               openPanel();
             }
             save();
+            recoverCleanup();
+          }
+
+          // Subscribe to WS first, then check GET
+          if (window.appEvents) {
+            recoveryCleanup = window.appEvents.listen('cortex', function(msg) {
+              if (msg.agent_id === agentId) {
+                if (recoveryWatchdog) { clearTimeout(recoveryWatchdog); recoveryWatchdog = null; }
+                recoveryWatchdog = setTimeout(function() {
+                  recoverDeliver('', false, 'Request timed out. Try again.');
+                }, 180000);
+              }
+              if (msg.agent_id === agentId && msg.event === 'finish') {
+                var resp = msg.result || '';
+                var panelHint = resp.length >= 120 || resp.includes('\n') || resp.split('. ').length > 2;
+                recoverDeliver(resp, panelHint, null);
+              } else if (msg.agent_id === agentId && msg.event === 'error') {
+                recoverDeliver('', false, 'Something went wrong. Try again.');
+              }
+            });
+          }
+
+          // Start watchdog for recovery
+          recoveryWatchdog = setTimeout(function() {
+            recoverDeliver('', false, 'Request timed out. Try again.');
+          }, 180000);
+
+          // Check GET immediately in case agent already finished
+          try {
+            var r = await fetch('/api/triage/result/' + agentId);
+            if (r.ok) {
+              // Agent already finished — cancel WS subscription and display
+              if (recoveryCleanup) { recoveryCleanup(); recoveryCleanup = null; }
+              if (recoveryWatchdog) { clearTimeout(recoveryWatchdog); recoveryWatchdog = null; }
+              var data = await r.json();
+              var resp = data.response || '';
+              var panelHint = !!data.panel;
+              recoverDeliver(resp, panelHint, null);
+            }
+            // If 404, agent still running — keep WS subscription active
           } catch (err) {
-            pendingMessage = null;
-            var errContent = 'Connection error. Try again.';
-            messages.push({ role: 'agent', content: errContent, ts: Date.now() });
-            thinking.style.display = 'none';
-            inlineResp.textContent = errContent;
-            inlineResp.style.display = '';
-            dismissBtn.style.display = '';
-            save();
-          } finally {
-            input.disabled = false;
-            input.focus();
+            // Network error — keep WS subscription active
           }
         })();
       } else {
@@ -413,7 +437,6 @@
     if (!text) return;
 
     messages.push({ role: 'user', content: text, ts: Date.now() });
-    pendingMessage = { text: text, sentAt: Date.now() };
 
     // Clear input
     input.value = '';
@@ -442,16 +465,88 @@
     var cleanupCortex = null;
     var timerInterval = null;
     var timerTimeout = null;
+    var watchdogTimer = null;
     var thinkingStarted = Date.now();
 
+    function cleanup() {
+      if (cleanupCortex) { cleanupCortex(); cleanupCortex = null; }
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+      if (timerTimeout) { clearTimeout(timerTimeout); timerTimeout = null; }
+      if (watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
+      var pt = document.getElementById('panelThinking');
+      if (pt) pt.remove();
+      thinking.style.display = 'none';
+      input.disabled = false;
+      input.focus();
+    }
+
+    function deliverResult(resp, panelHint, errMsg) {
+      var content = errMsg || resp;
+      if (content) {
+        messages.push({ role: 'agent', content: content, ts: Date.now() });
+      }
+      pendingMessage = null;
+
+      var userCount = messages.filter(function(m) { return m.role === 'user'; }).length;
+      var shouldInline = userCount === 1 && !panelHint && isOneLiner(resp) && !errMsg;
+
+      if (panelOpen) {
+        renderMessages();
+        msgArea.scrollTop = msgArea.scrollHeight;
+      } else if (shouldInline) {
+        inlineResp.textContent = content;
+        inlineResp.style.display = content ? '' : 'none';
+        dismissBtn.style.display = content ? '' : 'none';
+        if (!content) appBar.classList.remove('app-bar--glance');
+      } else {
+        appBar.classList.remove('app-bar--glance');
+        openPanel();
+      }
+      save();
+      cleanup();
+    }
+
+    function startWatchdog(agentId) {
+      if (watchdogTimer) clearTimeout(watchdogTimer);
+      watchdogTimer = setTimeout(function() {
+        deliverResult('', false, 'Request timed out. Try again.');
+      }, 180000);
+    }
+
+    // Build conversation history from prior turns (exclude current message)
+    var history = messages.slice(0, -1).map(function(m) {
+      return { role: m.role, content: m.content };
+    });
+
     try {
-      if (window.appEvents) {
-        cleanupCortex = window.appEvents.listen('cortex', function(msg) {
-          var label = getProgressLabel(msg);
-          if (label) updateThinkingLabel(label);
-        });
+      var r = await fetch('/api/triage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          app: '{{ app }}',
+          path: window.location.pathname,
+          facet: window.selectedFacet || null,
+          conversation_history: history.length > 0 ? history : undefined
+        })
+      });
+
+      if (!r.ok) {
+        deliverResult('', false, 'Something went wrong. Try again.');
+        return;
       }
 
+      var data = await r.json();
+      var agentId = data.agent_id;
+      if (!agentId) {
+        deliverResult('', false, 'Something went wrong. Try again.');
+        return;
+      }
+
+      pendingMessage = { text: text, sentAt: Date.now(), agentId: agentId };
+      save();
+
+      // Start elapsed timer
       timerTimeout = setTimeout(function() {
         timerInterval = setInterval(function() {
           var elapsed = Math.round((Date.now() - thinkingStarted) / 1000);
@@ -470,84 +565,38 @@
         }, 1000);
       }, 5000);
 
-      // Build conversation history from prior turns (exclude current message)
-      var history = messages.slice(0, -1).map(function(m) {
-        return { role: m.role, content: m.content };
-      });
+      // Start inactivity watchdog
+      startWatchdog(agentId);
 
-      var r = await fetch('/api/triage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          app: '{{ app }}',
-          path: window.location.pathname,
-          facet: window.selectedFacet || null,
-          conversation_history: history.length > 0 ? history : undefined
-        })
-      });
+      // Subscribe to cortex events for this agent
+      if (window.appEvents) {
+        cleanupCortex = window.appEvents.listen('cortex', function(msg) {
+          // Update thinking label on any progress event
+          var label = getProgressLabel(msg);
+          if (label) updateThinkingLabel(label);
 
-      var resp = '';
-      var panelHint = false;
-      var errMsg = null;
-      if (r.ok) {
-        var data = await r.json();
-        resp = data.response || '';
-        panelHint = !!data.panel;
-      } else {
-        errMsg = 'Something went wrong. Try again.';
+          // Reset inactivity watchdog on any event for our agent
+          if (msg.agent_id === agentId) {
+            startWatchdog(agentId);
+          }
+
+          // Handle finish/error for our agent
+          if (msg.agent_id === agentId && msg.event === 'finish') {
+            var resp = msg.result || '';
+            var panelHint = (
+              resp.length >= 120 ||
+              resp.includes('\n') ||
+              resp.split('. ').length > 2 ||
+              history.length > 0
+            );
+            deliverResult(resp, panelHint, null);
+          } else if (msg.agent_id === agentId && msg.event === 'error') {
+            deliverResult('', false, 'Something went wrong. Try again.');
+          }
+        });
       }
-      var content = errMsg || resp;
-
-      if (content) {
-        messages.push({ role: 'agent', content: content, ts: Date.now() });
-      }
-      pendingMessage = null;
-
-      var userCount = messages.filter(function(m) { return m.role === 'user'; }).length;
-      var shouldInline = userCount === 1 && !panelHint && isOneLiner(resp) && !errMsg;
-
-      if (panelOpen) {
-        renderMessages();
-        msgArea.scrollTop = msgArea.scrollHeight;
-      } else if (shouldInline) {
-        // Inline in bar
-        thinking.style.display = 'none';
-        inlineResp.textContent = content;
-        inlineResp.style.display = content ? '' : 'none';
-        dismissBtn.style.display = content ? '' : 'none';
-        if (!content) appBar.classList.remove('app-bar--glance');
-      } else {
-        // Expand to panel
-        thinking.style.display = 'none';
-        appBar.classList.remove('app-bar--glance');
-        openPanel();
-      }
-
-      save();
     } catch (err) {
-      pendingMessage = null;
-      var errContent = 'Connection error. Try again.';
-      messages.push({ role: 'agent', content: errContent, ts: Date.now() });
-      if (panelOpen) {
-        renderMessages();
-        msgArea.scrollTop = msgArea.scrollHeight;
-      } else {
-        thinking.style.display = 'none';
-        inlineResp.textContent = errContent;
-        inlineResp.style.display = '';
-        dismissBtn.style.display = '';
-      }
-      save();
-    } finally {
-      if (cleanupCortex) { cleanupCortex(); cleanupCortex = null; }
-      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-      if (timerTimeout) { clearTimeout(timerTimeout); timerTimeout = null; }
-      var pt = document.getElementById('panelThinking');
-      if (pt) pt.remove();
-      thinking.style.display = 'none';
-      input.disabled = false;
-      input.focus();
+      deliverResult('', false, 'Connection error. Try again.');
     }
   };
 })();
