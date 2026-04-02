@@ -2,9 +2,11 @@
 # Copyright (c) 2026 sol pbc
 
 import re
+import socket
 from pathlib import Path
 
 from flask import Blueprint, jsonify, request
+from think.streams import stream_name
 
 from convey import state
 
@@ -39,3 +41,8 @@ def get_log():
         return jsonify(error="Failed to read log file"), 500
 
     return jsonify(content=content, path=path)
+
+
+@health_bp.route("/api/info")
+def api_info():
+    return jsonify({"hostname": stream_name(host=socket.gethostname())})

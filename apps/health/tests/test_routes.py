@@ -55,3 +55,14 @@ class TestLogRoute:
         env = health_env()
         resp = env.client.get("/app/health/api/log?path=20260322/health/foo%00.log")
         assert resp.status_code == 400
+
+
+class TestInfoRoute:
+    def test_returns_hostname(self, health_env):
+        env = health_env()
+        response = env.client.get("/app/health/api/info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert "hostname" in data
+        assert isinstance(data["hostname"], str)
+        assert len(data["hostname"]) > 0

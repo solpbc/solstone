@@ -184,8 +184,8 @@
   padding-left: 1em;
 }
 
-/* Remote Observers Card */
-.remotes-card {
+/* Observers Card */
+.observers-card {
   background: white;
   border-radius: 12px;
   padding: 1.5em;
@@ -193,17 +193,17 @@
   border-left: 4px solid #8b5cf6;
 }
 
-.remotes-card.hidden {
+.observers-card.hidden {
   display: none;
 }
 
-.remotes-grid {
+.observers-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1em;
 }
 
-.remote-card {
+.observer-host-card {
   background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
   border-radius: 8px;
   padding: 1em;
@@ -213,30 +213,47 @@
   border: 2px solid transparent;
 }
 
-.remote-card.active {
+.observer-host-card.active {
   background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
   border-color: #8b5cf6;
 }
 
-.remote-card.stale {
+.observer-host-card.stale {
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   border-color: #f59e0b;
 }
 
-.remote-card-name {
+.observer-host-name {
   font-size: 0.95em;
   font-weight: 600;
   color: #111827;
 }
 
-.remote-card-host {
+.observer-host-platform {
   font-size: 0.8em;
   color: #6b7280;
 }
 
-.remote-card-status {
-  font-size: 0.85em;
-  color: #374151;
+.observer-stream-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 11px;
+}
+
+.observer-stream-qualifier {
+  color: var(--text-muted);
+  min-width: 48px;
+}
+
+.observer-stream-mode {
+  color: var(--text-secondary);
+}
+
+.observer-stream-row.stale .observer-stream-mode::after {
+  content: ' (stale)';
+  color: var(--text-muted);
 }
 
 /* Activity Grids Container */
@@ -671,14 +688,14 @@
     </div>
   </div>
 
-  <!-- Remote Observers Card -->
-  <div class="remotes-card hidden" id="remotesCard">
+  <!-- Observers Card -->
+  <div class="observers-card hidden" id="observersCard">
     <div class="card-header">
       <div class="card-title">
-        REMOTE OBSERVERS
+        OBSERVERS
       </div>
     </div>
-    <div class="remotes-grid" id="remotesGrid"></div>
+    <div class="observers-grid" id="observersGrid"></div>
   </div>
 
   <!-- Activity Grids -->
@@ -742,6 +759,11 @@
 
 <script>
 (function(){
+  fetch('/app/health/api/info')
+    .then(r => r.json())
+    .then(info => { state.localHost = info.hostname; updateObserve(); })
+    .catch(() => {});
+
   // State management
   const state = {
     services: new Map(),        // Running services
@@ -758,16 +780,8 @@
     sync: null,                 // Sync status snapshot (null when idle)
     serviceLogs: new Map(),     // service name -> array of {ts, stream, line}
     logFollow: true,            // Auto-scroll log viewport
-    remotes: new Map(),         // Remote observer status by host
-    observe: {
-      mode: null,               // Current observe mode
-      screencast: null,
-      tmux: null,
-      audio: null,
-      activity: null,
-      describe: null,
-      transcribe: null
-    }
+    observers: new Map(),       // keyed by stream name
+    localHost: null,
   };
 
   // DOM elements
@@ -791,8 +805,8 @@
     describeDetail: document.getElementById('describeDetail'),
     transcribeStatus: document.getElementById('transcribeStatus'),
     transcribeDetail: document.getElementById('transcribeDetail'),
-    remotesCard: document.getElementById('remotesCard'),
-    remotesGrid: document.getElementById('remotesGrid'),
+    observersCard: document.getElementById('observersCard'),
+    observersGrid: document.getElementById('observersGrid'),
     cortexSection: document.getElementById('cortexSection'),
     cortexGrid: document.getElementById('cortexGrid'),
     importerSection: document.getElementById('importerSection'),
@@ -958,7 +972,7 @@
 
   // Update observe mode badge
   function updateObserveMode() {
-    const mode = state.observe.mode;
+    const mode = state.observers.get(state.localHost)?.mode;
     const badge = elements.observeModeBadge;
     const label = elements.observeModeLabel;
 
@@ -979,17 +993,33 @@
 
   // Update observe card
   function updateObserve() {
-    const obs = state.observe;
+    const primary = state.localHost ? state.observers.get(state.localHost) : null;
+    const tmux = state.localHost ? state.observers.get(state.localHost + '.tmux') : null;
 
-    // Update mode badge
     updateObserveMode();
 
+    if (!state.localHost || !primary) {
+      elements.screencastStatus.textContent = 'Waiting...';
+      elements.screencastDetail.textContent = '';
+      elements.tmuxStatus.textContent = 'Waiting...';
+      elements.tmuxDetail.textContent = '';
+      elements.audioStatus.textContent = 'Waiting...';
+      elements.audioDetail.textContent = '';
+      elements.activityStatus.textContent = 'Waiting...';
+      elements.activityDetail.textContent = '';
+      elements.describeStatus.textContent = 'Waiting...';
+      elements.describeDetail.textContent = '';
+      elements.transcribeStatus.textContent = 'Waiting...';
+      elements.transcribeDetail.textContent = '';
+      return;
+    }
+
     // Screencast
-    if (obs.screencast) {
-      const recording = obs.screencast.recording;
+    if (primary.screencast) {
+      const recording = primary.screencast.recording;
       if (recording) {
-        const streams = obs.screencast.streams || [];
-        const elapsed = obs.screencast.window_elapsed_seconds || 0;
+        const streams = primary.screencast.streams || [];
+        const elapsed = primary.screencast.window_elapsed_seconds || 0;
         const streamCount = streams.length;
         const label = streamCount === 1 ? 'monitor' : 'monitors';
         elements.screencastStatus.textContent = `${elapsed}s (${streamCount} ${label})`;
@@ -1004,14 +1034,17 @@
         elements.screencastStatus.textContent = 'Idle';
         elements.screencastDetail.textContent = '';
       }
+    } else {
+      elements.screencastStatus.textContent = 'Idle';
+      elements.screencastDetail.textContent = '';
     }
 
     // Tmux
-    if (obs.tmux) {
-      if (obs.tmux.capturing) {
-        const captures = obs.tmux.captures || 0;
-        const sessions = obs.tmux.sessions || [];
-        const elapsed = obs.tmux.window_elapsed_seconds || 0;
+    if (tmux?.tmux) {
+      if (tmux.tmux.capturing) {
+        const captures = tmux.tmux.captures || 0;
+        const sessions = tmux.tmux.sessions || [];
+        const elapsed = tmux.tmux.window_elapsed_seconds || 0;
         elements.tmuxStatus.textContent = `${elapsed}s (${captures} captures)`;
         if (sessions.length > 0) {
           elements.tmuxDetail.textContent = sessions.join(', ');
@@ -1022,28 +1055,40 @@
         elements.tmuxStatus.textContent = 'Idle';
         elements.tmuxDetail.textContent = '';
       }
+    } else if (tmux) {
+      elements.tmuxStatus.textContent = 'Idle';
+      elements.tmuxDetail.textContent = '';
+    } else {
+      elements.tmuxStatus.textContent = 'Waiting...';
+      elements.tmuxDetail.textContent = '';
     }
 
     // Audio
-    if (obs.audio) {
-      const hits = obs.audio.threshold_hits || 0;
-      const willSave = obs.audio.will_save ? ' (saving)' : '';
+    if (primary.audio) {
+      const hits = primary.audio.threshold_hits || 0;
+      const willSave = primary.audio.will_save ? ' (saving)' : '';
       elements.audioStatus.textContent = `${hits} hits${willSave}`;
+      elements.audioDetail.textContent = '';
+    } else {
+      elements.audioStatus.textContent = 'Idle';
       elements.audioDetail.textContent = '';
     }
 
     // Activity
-    if (obs.activity) {
-      const idleMs = obs.activity.idle_time_ms || 0;
-      if (obs.activity.power_save) {
+    if (primary.activity) {
+      const idleMs = primary.activity.idle_time_ms || 0;
+      if (primary.activity.power_save) {
         elements.activityStatus.textContent = 'Power save';
-      } else if (obs.activity.screen_locked) {
+      } else if (primary.activity.screen_locked) {
         elements.activityStatus.textContent = 'Locked';
-      } else if (obs.activity.sink_muted) {
+      } else if (primary.activity.sink_muted) {
         elements.activityStatus.textContent = 'Muted';
       } else {
         elements.activityStatus.textContent = `Idle: ${Math.floor(idleMs/1000)}s`;
       }
+      elements.activityDetail.textContent = '';
+    } else {
+      elements.activityStatus.textContent = 'Idle';
       elements.activityDetail.textContent = '';
     }
 
@@ -1073,35 +1118,86 @@
       }
     }
 
-    updateProcessorStatus(obs.describe, elements.describeStatus, elements.describeDetail);
-    updateProcessorStatus(obs.transcribe, elements.transcribeStatus, elements.transcribeDetail);
+    if (primary.describe) {
+      updateProcessorStatus(primary.describe, elements.describeStatus, elements.describeDetail);
+    } else {
+      elements.describeStatus.textContent = 'Idle';
+      elements.describeDetail.textContent = '';
+    }
+    if (primary.transcribe) {
+      updateProcessorStatus(primary.transcribe, elements.transcribeStatus, elements.transcribeDetail);
+    } else {
+      elements.transcribeStatus.textContent = 'Idle';
+      elements.transcribeDetail.textContent = '';
+    }
   }
 
-  // Update remote observers
-  function updateRemotes() {
-    if (state.remotes.size === 0) {
-      elements.remotesCard.classList.add('hidden');
+  // Update observers
+  function updateObservers() {
+    if (state.observers.size === 0) {
+      elements.observersCard.classList.add('hidden');
       return;
     }
 
-    elements.remotesCard.classList.remove('hidden');
+    elements.observersCard.classList.remove('hidden');
+
+    const byHost = new Map();
+    for (const [stream, data] of state.observers) {
+      const host = data.host || stream;
+      if (!byHost.has(host)) byHost.set(host, []);
+      byHost.get(host).push({ stream, data });
+    }
+
     const now = Date.now();
+    const STALE_MS = 30000;
 
-    const html = Array.from(state.remotes.values()).map(info => {
-      // Consider stale if no update in 30 seconds
-      const isStale = (now - info.lastSeen) > 30000;
-      const cardClass = isStale ? 'remote-card stale' : 'remote-card active';
+    elements.observersGrid.innerHTML = '';
+    for (const [host, streams] of byHost) {
+      const card = document.createElement('div');
+      card.className = 'observer-host-card';
 
-      return `
-        <div class="${cardClass}">
-          <div class="remote-card-name">${info.name}</div>
-          <div class="remote-card-host">${info.platform}</div>
-          <div class="remote-card-status">${info.mode}${isStale ? ' (stale)' : ''}</div>
-        </div>
-      `;
-    }).join('');
+      const anyActive = streams.some(({ data }) => (now - data.lastSeen) < STALE_MS);
+      if (anyActive) card.classList.add('active');
+      if (!anyActive) card.classList.add('stale');
 
-    elements.remotesGrid.innerHTML = html;
+      const nameEl = document.createElement('div');
+      nameEl.className = 'observer-host-name';
+      nameEl.textContent = host;
+      card.appendChild(nameEl);
+
+      const platform = streams[0]?.data?.platform || '';
+      if (platform) {
+        const platEl = document.createElement('div');
+        platEl.className = 'observer-host-platform';
+        platEl.textContent = platform;
+        card.appendChild(platEl);
+      }
+
+      for (const { stream, data } of streams) {
+        const row = document.createElement('div');
+        row.className = 'observer-stream-row';
+
+        const dotIdx = stream.indexOf('.');
+        const qualifier = dotIdx >= 0 ? stream.slice(dotIdx + 1) : 'desktop';
+
+        const stale = (now - data.lastSeen) >= STALE_MS;
+        if (stale) row.classList.add('stale');
+
+        const qualEl = document.createElement('div');
+        qualEl.className = 'observer-stream-qualifier';
+        qualEl.textContent = qualifier;
+        row.appendChild(qualEl);
+
+        const modeEl = document.createElement('div');
+        modeEl.className = 'observer-stream-mode';
+        modeEl.textContent = data.mode || '—';
+        row.appendChild(modeEl);
+
+        card.appendChild(row);
+      }
+
+      elements.observersGrid.appendChild(card);
+    }
   }
 
   // Update cortex grid
@@ -1444,34 +1540,11 @@
   }
 
   function handleObserveEvent(msg) {
-    if (msg.event === 'status') {
-      // Check if this is from a remote observer (has "remote" field added by relay)
-      const remote = msg.remote;
-      if (remote) {
-        // Track remote observer
-        state.remotes.set(remote, {
-          name: remote,
-          platform: msg.platform || 'unknown',
-          mode: msg.mode || 'unknown',
-          lastSeen: Date.now()
-        });
-        updateRemotes();
-      }
-
-      // Update local observe state (merge fields, don't overwrite all)
-      // Don't let the tmux sub-observer's mode ("tmux") override the main badge.
-      // The tmux observer sends msg.tmux but not msg.screencast/audio/activity;
-      // the desktop observer is the source of truth for the mode badge.
-      if (msg.mode !== undefined && msg.tmux === undefined) state.observe.mode = msg.mode;
-      if (msg.screencast !== undefined) state.observe.screencast = msg.screencast;
-      if (msg.tmux !== undefined) state.observe.tmux = msg.tmux;
-      if (msg.audio !== undefined) state.observe.audio = msg.audio;
-      if (msg.activity !== undefined) state.observe.activity = msg.activity;
-      if (msg.describe !== undefined) state.observe.describe = msg.describe;
-      if (msg.transcribe !== undefined) state.observe.transcribe = msg.transcribe;
-
-      updateObserve();
-    }
+    if (!msg.stream) return;
+    const existing = state.observers.get(msg.stream) || {};
+    state.observers.set(msg.stream, { ...existing, ...msg, lastSeen: Date.now() });
+    updateObserve();
+    updateObservers();
   }
 
   function handleImporterEvent(msg) {
@@ -1563,7 +1636,7 @@
 
     // Hide dashboard cards and suppress live log rendering
     const dashboard = document.querySelector('.health-dashboard');
-    dashboard.querySelectorAll('.vitals-bar, .observe-card, .remotes-card, .activity-grids, .dream-card, .sync-card').forEach(el => el.style.display = 'none');
+    dashboard.querySelectorAll('.vitals-bar, .observe-card, .observers-card, .activity-grids, .dream-card, .sync-card').forEach(el => el.style.display = 'none');
     state.deepLinkMode = true;
 
     // Replace header with log file context
