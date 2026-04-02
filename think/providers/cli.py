@@ -29,6 +29,16 @@ LOG = logging.getLogger("think.providers.cli")
 _PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 
+async def _drain_line(stream: asyncio.StreamReader) -> None:
+    """Drain a single overlong line from the stream by consuming it in chunks."""
+    while True:
+        try:
+            await stream.readline()
+            return
+        except asyncio.LimitOverrunError as exc:
+            await stream.readexactly(exc.consumed)
+
+
 # ---------------------------------------------------------------------------
 # Prompt Assembly
 # ---------------------------------------------------------------------------
@@ -337,7 +347,27 @@ class CLIRunner:
             return
         _process_line(first_line)
 
-        async for raw_line in process.stdout:
+        while True:
+            try:
+                raw_line = await process.stdout.readline()
+            except asyncio.LimitOverrunError as exc:
+                LOG.warning(
+                    "CLI stdout line exceeded buffer limit (%d bytes consumed before limit); "
+                    "draining and emitting truncated tool_end",
+                    exc.consumed,
+                )
+                await _drain_line(process.stdout)
+                self.callback.emit(
+                    {
+                        "event": "tool_end",
+                        "tool": "bash",
+                        "result": "[output truncated: too large to process — try a more targeted query]",
+                        "ts": now_ms(),
+                    }
+                )
+                continue
+            if not raw_line:
+                break
             _process_line(raw_line)
 
 

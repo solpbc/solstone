@@ -366,6 +366,113 @@ class TestCLIRunnerFirstEventTimeout:
         assert "Please authenticate first" in error_events[0]["error"]
 
 
+_OVERSIZE = object()  # sentinel for oversize line in _MockStdoutWithOversize
+
+
+class _MockStdoutWithOversize:
+    """Stdout mock that raises LimitOverrunError on a specific readline() call."""
+
+    def __init__(self, lines: list):
+        # lines entries are either bytes or the sentinel OVERSIZE
+        self._lines = lines
+        self._index = 0
+        self._draining_oversize = False
+
+    async def readline(self):
+        if self._draining_oversize:
+            self._draining_oversize = False
+            return b"x" * 1024 * 1024 + b"\n"
+        if self._index >= len(self._lines):
+            return b""
+        entry = self._lines[self._index]
+        self._index += 1
+        if entry is _OVERSIZE:
+            self._draining_oversize = True
+            raise asyncio.LimitOverrunError(
+                "Separator is not found, and chunk exceed the limit", 1024 * 1024
+            )
+        return entry
+
+    async def readexactly(self, n: int) -> bytes:
+        return b"x" * n
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        val = await self.readline()
+        if val == b"":
+            raise StopAsyncIteration
+        return val
+
+
+class TestCLIRunnerOversizedOutput:
+    """CLIRunner recovers from LimitOverrunError in the stdout loop."""
+
+    def test_oversized_line_emits_tool_end_and_continues(self):
+        """Oversize line → synthetic tool_end emitted + subsequent line processed."""
+        import json
+
+        normal_line_1 = json.dumps({"event": "text", "text": "hello"}).encode() + b"\n"
+        normal_line_2 = json.dumps({"event": "text", "text": "world"}).encode() + b"\n"
+
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+
+        process = AsyncMock()
+        process.stdout = _MockStdoutWithOversize(
+            [
+                normal_line_1,
+                _OVERSIZE,
+                normal_line_2,
+            ]
+        )
+        process.stderr = _MockStderr([])
+        process.stdin = AsyncMock()
+        process.stdin.write = lambda _data: None
+        process.stdin.close = lambda: None
+        process.kill = lambda: None
+        process.wait = AsyncMock(return_value=0)
+
+        # translate just forwards text events as-is
+        def translate(event_data, agg, cb):
+            if event_data.get("event") == "text":
+                cb.emit({"event": "text", "text": event_data["text"]})
+            return None
+
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=translate,
+            callback=callback,
+            aggregator=aggregator,
+        )
+
+        with (
+            patch(
+                "think.providers.cli.asyncio.create_subprocess_exec",
+                AsyncMock(return_value=process),
+            ),
+            patch("think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"),
+        ):
+            asyncio.run(runner.run())
+
+        event_types = [e["event"] for e in events]
+        # tool_end should be emitted
+        assert "tool_end" in event_types, f"Expected tool_end in events: {events}"
+
+        # the tool_end result should indicate truncation
+        tool_end_events = [e for e in events if e["event"] == "tool_end"]
+        assert len(tool_end_events) == 1
+        assert "truncated" in tool_end_events[0]["result"]
+
+        # the normal line after the oversize error should also be processed
+        text_events = [e for e in events if e["event"] == "text"]
+        texts = [e["text"] for e in text_events]
+        assert "world" in texts, f"Expected 'world' in text events: {texts}"
+
+
 # ---------------------------------------------------------------------------
 # safe_raw
 # ---------------------------------------------------------------------------
