@@ -422,9 +422,17 @@ def ingest_upload(key: str) -> Any:
     day_dir = day_path(day)
     day_dir.mkdir(parents=True, exist_ok=True)
 
-    # Determine stream name from remote metadata
+    # Determine stream name: trust client-provided stream in meta if valid,
+    # otherwise derive from remote registration name.
+    # Deriving from remote name via stream_name(remote=...) calls _strip_hostname,
+    # which strips qualifiers like ".tmux" — so "fedora.tmux" becomes "fedora",
+    # colliding both observers into one stream.
+    client_stream = meta.get("stream", "").strip()
     remote_name = remote.get("name", "unknown")
-    stream = stream_name(remote=remote_name)
+    if client_stream and re.match(r"^[a-z0-9][a-z0-9._-]*$", client_stream):
+        stream = client_stream
+    else:
+        stream = stream_name(remote=remote_name)
 
     # Find available segment key within the stream directory
     stream_dir = day_dir / stream

@@ -1528,3 +1528,45 @@ def test_ingest_mixed_zero_byte_files(remote_env):
     )
     assert expected_file.exists()
     assert expected_file.read_bytes() == valid_data
+
+
+def test_ingest_stream_qualifier_preserved(remote_env):
+    """Regression: tmux observer must land in host.tmux, not host stream.
+
+    When a client registers as "fedora.tmux" and uploads with
+    meta={"stream": "fedora.tmux"}, the server was calling
+    stream_name(remote="fedora.tmux") which strips the qualifier via
+    _strip_hostname, collapsing both desktop and tmux observers into
+    the same "fedora" stream.  The fix: trust meta["stream"] when present.
+    """
+    env = remote_env()
+
+    # Register as the tmux observer would (name = stream name with qualifier)
+    resp = env.client.post(
+        "/app/remote/api/create",
+        json={"name": "fedora.tmux"},
+        content_type="application/json",
+    )
+    key = resp.get_json()["key"]
+
+    test_data = b"tmux capture content"
+    meta = json.dumps({"host": "fedora", "platform": "linux", "stream": "fedora.tmux"})
+    resp = env.client.post(
+        f"/app/remote/ingest/{key}",
+        data={
+            "day": "20250103",
+            "segment": "120000_300",
+            "meta": meta,
+            "files": (io.BytesIO(test_data), "tmux.jsonl"),
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "ok"
+
+    # Must land under fedora.tmux/, NOT fedora/
+    assert (
+        env.journal / "20250103" / "fedora.tmux" / "120000_300" / "tmux.jsonl"
+    ).exists()
+    assert not (
+        env.journal / "20250103" / "fedora" / "120000_300" / "tmux.jsonl"
+    ).exists()
