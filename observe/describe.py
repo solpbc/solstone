@@ -236,9 +236,14 @@ class VideoProcessor:
                         if mask_area / frame_area > self.MASK_SKIP_THRESHOLD:
                             # Skip frame entirely - Convey UI dominates
                             pil_img.close()
+                            _extrap = (
+                                " (extrapolated)"
+                                if aruco_result.get("extrapolated") is not None
+                                else ""
+                            )
                             logger.debug(
                                 f"Skipping frame at {timestamp:.2f}s "
-                                f"(Convey UI covers {mask_area / frame_area:.0%})"
+                                f"(Convey UI covers {mask_area / frame_area:.0%}){_extrap}"
                             )
                             continue
                         # Mask the Convey region with black
@@ -259,6 +264,10 @@ class VideoProcessor:
                             "markers": aruco_result["markers"],
                             "masked": aruco_masked,
                         }
+                        if aruco_result.get("extrapolated") is not None:
+                            frame_data["aruco"]["extrapolated"] = aruco_result[
+                                "extrapolated"
+                            ]
 
                     # First frame: always qualify (RMS vs nothing = 100% different)
                     if last_qualified_small is None:

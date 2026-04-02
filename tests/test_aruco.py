@@ -181,3 +181,55 @@ def test_detect_markers_partial():
 
     # Polygon should be None (only 2 of 4 corners)
     assert result["polygon"] is None
+
+
+def test_detect_markers_extrapolated_tl():
+    """Test detect_markers extrapolates missing TL corner from 3 present markers."""
+    img_array = np.ones((480, 640, 3), dtype=np.uint8) * 255
+    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+    marker_size = 50
+    pad = 20
+
+    # Place TR (7), BR (2), BL (4) — omit TL (6)
+    for tag_id, (y, x) in [
+        (7, (pad, 640 - pad - marker_size)),
+        (2, (480 - pad - marker_size, 640 - pad - marker_size)),
+        (4, (480 - pad - marker_size, pad)),
+    ]:
+        marker = cv2.aruco.generateImageMarker(dictionary, tag_id, marker_size)
+        marker_rgb = cv2.cvtColor(marker, cv2.COLOR_GRAY2RGB)
+        img_array[y : y + marker_size, x : x + marker_size] = marker_rgb
+
+    result = detect_markers(Image.fromarray(img_array))
+
+    assert result is not None
+    assert result["polygon"] is not None
+    assert len(result["polygon"]) == 4
+    assert result.get("extrapolated") == 6
+
+    # Extrapolated TL should be within 2px of expected position
+    tl = result["polygon"][0]
+    assert abs(tl[0] - pad) <= 2
+    assert abs(tl[1] - pad) <= 2
+
+
+def test_detect_markers_two_missing_no_extrapolation():
+    """Test detect_markers returns no polygon when only 2 corner tags present."""
+    img_array = np.ones((480, 640, 3), dtype=np.uint8) * 255
+    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+    marker_size = 50
+    pad = 20
+
+    # Place only TL (6) and BR (2)
+    for tag_id, (y, x) in [
+        (6, (pad, pad)),
+        (2, (480 - pad - marker_size, 640 - pad - marker_size)),
+    ]:
+        marker = cv2.aruco.generateImageMarker(dictionary, tag_id, marker_size)
+        marker_rgb = cv2.cvtColor(marker, cv2.COLOR_GRAY2RGB)
+        img_array[y : y + marker_size, x : x + marker_size] = marker_rgb
+
+    result = detect_markers(Image.fromarray(img_array))
+
+    assert result is not None
+    assert result["polygon"] is None

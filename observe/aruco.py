@@ -24,6 +24,10 @@ CORNER_TAG_IDS = {6, 7, 4, 2}
 # Singleton detector instance (created on first use)
 _detector: Optional[cv2.aruco.ArucoDetector] = None
 
+# Per-tag corner extraction index: which corner of each marker gives the outer bounding point
+# ArUco corner order within each marker: [TL(0), TR(1), BR(2), BL(3)]
+_CORNER_IDX = {6: 0, 7: 1, 2: 2, 4: 3}
+
 
 def _get_detector() -> cv2.aruco.ArucoDetector:
     """Get or create the ArUco detector singleton."""
@@ -40,6 +44,24 @@ def _get_detector() -> cv2.aruco.ArucoDetector:
         params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
         _detector = cv2.aruco.ArucoDetector(dictionary, params)
     return _detector
+
+
+def _extrapolate_corner(id_to_corners: dict, missing_id: int) -> list:
+    known = {
+        tag_id: id_to_corners[tag_id].reshape(4, 2)[_CORNER_IDX[tag_id]]
+        for tag_id in CORNER_TAG_IDS
+        if tag_id in id_to_corners
+    }
+    # Parallelogram rule: TL + BR = TR + BL (diagonals share midpoint)
+    if missing_id == 6:  # TL = TR + BL - BR
+        pt = known[7] + known[4] - known[2]
+    elif missing_id == 7:  # TR = TL + BR - BL
+        pt = known[6] + known[2] - known[4]
+    elif missing_id == 2:  # BR = TR + BL - TL
+        pt = known[7] + known[4] - known[6]
+    else:  # BL (4) = TL + BR - TR
+        pt = known[6] + known[2] - known[7]
+    return pt.tolist()
 
 
 def detect_markers(image: Image.Image) -> Optional[dict]:
@@ -95,6 +117,16 @@ def detect_markers(image: Image.Image) -> Optional[dict]:
         br = id_to_corners[2].reshape(4, 2)[2]  # BR tag, BR corner
         bl = id_to_corners[4].reshape(4, 2)[3]  # BL tag, BL corner
         result["polygon"] = [tl.tolist(), tr.tolist(), br.tolist(), bl.tolist()]
+    elif len(CORNER_TAG_IDS & id_to_corners.keys()) == 3:
+        found = CORNER_TAG_IDS & id_to_corners.keys()
+        missing_id = next(iter(CORNER_TAG_IDS - found))
+        corners = {
+            tag_id: id_to_corners[tag_id].reshape(4, 2)[_CORNER_IDX[tag_id]].tolist()
+            for tag_id in found
+        }
+        corners[missing_id] = _extrapolate_corner(id_to_corners, missing_id)
+        result["polygon"] = [corners[6], corners[7], corners[2], corners[4]]
+        result["extrapolated"] = missing_id
 
     return result
 
