@@ -14,6 +14,11 @@
       </div>
     </div>
 
+    <div id="quiet-notifs-section" style="display:none; margin-top: 16px;">
+      <h3>Quiet Notifications</h3>
+      <div id="quiet-notifs-list" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;"></div>
+    </div>
+
     <h3 style="margin-top: 16px;">Recent Activity <span id="notif-bell" style="cursor: pointer; font-size: 14px; margin-left: 6px; opacity: 0.5;" title="Enable browser notifications">🔔</span></h3>
     <div id="notification-history" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
       <span style="color: #9ca3af;">No recent activity</span>
@@ -35,6 +40,8 @@
 
       if (statusPaneOpen) {
         statusPane.classList.add('visible');
+        window.AppServices?.quietNotifs?.markViewed();
+        renderQuietNotifs();
       } else {
         statusPane.classList.remove('visible');
       }
@@ -87,6 +94,32 @@
     // Update notification history
     updateNotificationHistory();
     updateBellState();
+  }
+
+  function renderQuietNotifs() {
+    const section = document.getElementById('quiet-notifs-section');
+    const list = document.getElementById('quiet-notifs-list');
+    if (!section || !list) return;
+
+    const notifs = window.AppServices?.quietNotifs?.getAll() || [];
+    section.style.display = notifs.length > 0 ? '' : 'none';
+
+    if (notifs.length === 0) {
+      list.innerHTML = '<span style="color: #9ca3af;">No quiet notifications</span>';
+      return;
+    }
+
+    const escape = window.AppServices._escapeHtml;
+    list.innerHTML = notifs.map(n => {
+      const timeAgo = window.AppServices.notifications._getRelativeTime(n.ts);
+      const src = escape(n.source || '');
+      const msg = escape((n.message || '').slice(0, 120));
+      return `<div style="display: flex; align-items: center; gap: 8px; padding: 4px 0;">
+        <span style="color: #9ca3af; font-size: 11px; flex-shrink: 0;">${timeAgo}</span>
+        <code style="flex-shrink: 0; font-size: 11px;">${src}</code>
+        <span style="color: #fca5a5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${msg}</span>
+      </div>`;
+    }).join('');
   }
 
   function updateNotificationHistory() {

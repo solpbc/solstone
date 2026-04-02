@@ -942,6 +942,25 @@ body.menu-all .menu-bar {
   pointer-events: none;
 }
 
+.status-icon .quiet-notif-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  padding: 0 3px;
+  font-size: 10px;
+  font-weight: 700;
+  background: #ef4444;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* Drag-and-drop states */
 .facet-pill:active {
   cursor: grabbing;

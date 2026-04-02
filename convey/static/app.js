@@ -1357,6 +1357,52 @@ window.AppServices = {
     }
   },
 
+  quietNotifs: (() => {
+    let stored;
+    try { stored = JSON.parse(localStorage.getItem('solstone:quiet_notifs') || '[]'); }
+    catch(e) { stored = []; }
+    return {
+      _notifs: stored,
+      _unviewed: stored.length,
+      _nextId: stored.length ? Math.max(...stored.map(n => n.id || 0)) + 1 : 1,
+
+      add({ source, message, ts }) {
+        const notif = { id: this._nextId++, source, message: message || '', ts: ts || Date.now() };
+        this._notifs.push(notif);
+        if (this._notifs.length > 20) this._notifs.shift();
+        this._unviewed++;
+        this._persist();
+        this._updateBadge();
+      },
+
+      markViewed() {
+        this._unviewed = 0;
+        this._updateBadge();
+      },
+
+      getAll() {
+        return [...this._notifs].reverse();
+      },
+
+      _persist() {
+        try {
+          localStorage.setItem('solstone:quiet_notifs', JSON.stringify(this._notifs));
+        } catch(e) {}
+      },
+
+      _updateBadge() {
+        const badge = document.getElementById('quiet-notif-badge');
+        if (!badge) return;
+        if (this._unviewed > 0) {
+          badge.textContent = String(this._unviewed);
+          badge.style.display = 'flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    };
+  })(),
+
   /**
    * Request browser notification permission
    * @returns {Promise<string>} Permission state

@@ -1282,6 +1282,14 @@
     buf.push(record);
     if (buf.length > LOG_BUFFER_SIZE) buf.shift();
 
+    if (record.stream === 'stderr' && /\bERROR\b/.test(record.line)) {
+      window.AppServices?.quietNotifs?.add({
+        source: name,
+        message: record.line.replace(/^\S+\s+\[\S+\]\s+/, '').slice(0, 120),
+        ts: record.ts
+      });
+    }
+
     // Update service filter dropdown if new service
     if (isNew) {
       const opt = document.createElement('option');
