@@ -8,7 +8,7 @@
   "priority": 10,
   "tier": 3,
   "thinking_budget": 4096,
-  "max_output_tokens": 3072,
+  "max_output_tokens": 4096,
   "output": "json",
   "instructions": {
     "sources": {"transcripts": true, "percepts": true, "agents": false},
@@ -53,10 +53,10 @@ Read the transcript and screen data. Produce a JSON object with ALL of the follo
 ## Field-by-Field Instructions
 
 ### density
-Classify based on content volume:
-- **active**: Meaningful transcript content (>10 lines or >100 words) OR meaningful screen changes (>5 distinct frames with different visual descriptions)
-- **low_change**: Some content but minimal change — fewer than 10 transcript lines AND fewer than 5 distinct screen states. Something is happening but it's repetitive or minimal.
-- **idle**: Near-zero content — fewer than 3 transcript lines AND fewer than 3 distinct screen frames. Static screen, silence, or system noise only.
+Classify based on whether meaningful human activity occurred:
+- **active**: ANY of these: transcript has >5 lines or >50 words, screen shows the user interacting with content (browsing pages, typing, reading articles, using applications, scrolling), or screen descriptions mention different pages/views/applications. **Default to active if there is any user-directed activity, even if the screen looks similar across frames.** Web browsing and document reading ARE active.
+- **low_change**: Minimal new content AND no user interaction — same static screen unchanged across all frames, fewer than 5 transcript words, no scrolling or navigation evident.
+- **idle**: Near-zero content — fewer than 3 transcript lines AND fewer than 3 distinct screen frames. Static screen with no user activity, silence, or system noise only.
 
 ### content_type
 The dominant activity type observed:
@@ -73,27 +73,34 @@ The dominant activity type observed:
 Describe what $preferred did during this segment using action verbs. Be specific — name the tools, people, projects, and actions. Ban passive words: never use "reviewing", "monitoring", "tracking", "checking", "observing", "maintaining", "managing." Use instead: wrote, sent, discussed, created, switched to, typed, said, decided, asked, proposed.
 
 ### entities
-Extract named entities. Four types only:
-- **Person**: Individual people by name. Prefer full names. Consolidate variants ("JB" + "John Borthwick" → one entity "John Borthwick"). Skip ambiguous first-name-only references.
-- **Company**: Businesses and organizations.
-- **Project**: Named projects, products, or codebases.
-- **Tool**: Software applications and services.
+Extract ALL named entities mentioned in the content. Be thorough — extract every entity you can identify, not just the most prominent ones. Four types only:
+- **Person**: Individual people by name. Prefer full names. Consolidate variants ("JB" + "John Borthwick" → one entity "John Borthwick"). Skip ambiguous first-name-only references. Include historical figures, authors, scientists, politicians — anyone mentioned by name.
+- **Company**: Businesses and organizations. Include companies, government agencies (NASA, NOAA), universities, media outlets.
+- **Project**: Named projects, products, or codebases. Include missions (OSIRIS-REx), initiatives, specific product models.
+- **Tool**: Software applications and services. Include websites (Fox News, Wikipedia, Amazon), browser extensions, developer tools, hardware products mentioned by name.
+
+**For screen content specifically:** Extract entities from visible text in screen descriptions — article headlines, page titles, product names, people mentioned in articles, organizations referenced. If the user is browsing a website about the Renaissance, extract the specific historical figures, art movements, and institutions mentioned.
 
 Skip URLs, domains, filenames, paths. Each entity needs type, name, and context (brief description of the entity's role in this segment).
 
 ### facets
-Classify into the owner's configured facets. Only include facets with clear evidence of activity. For each:
-- `facet`: The facet ID slug
+Classify into the owner's configured facets. Only include facets with clear, direct evidence of activity. Be precise — assign exactly ONE primary facet in most cases. Only add a second facet if there is genuinely distinct secondary activity. For each:
+- `facet`: The facet ID slug — MUST be one of the configured facets listed in the input
 - `activity`: 1-sentence description of what was observed for this facet
 - `level`: "high" (primary focus), "medium" (significant), "low" (brief/peripheral)
 
-### meeting_detected
-`true` if any of these conditions are met:
-- Screen shows a video conferencing app (Zoom, Meet, Teams, Webex) with participant panels
-- Audio shows multiple speakers with conversational turn-taking
-- Meeting-style patterns: greetings, introductions, agenda items, discussion, decisions
+**Facet assignment rules:**
+- "meetings" — ONLY for live synchronous group meetings where $preferred is a participant. NOT for listening to lectures, podcasts, press conferences, or recorded media.
+- "learning" — Educational content: lectures, tutorials, articles, research, Wikipedia, podcasts. Includes listening to press conferences or recorded briefings.
+- "technical-work" — Hands-on technical tasks: coding, using developer tools, configuring software, installing extensions, product research for work purposes, technical document writing, online tool usage, price comparison shopping.
 
-`false` otherwise. Podcasts, streaming content, and recorded media do NOT count.
+### meeting_detected
+`true` ONLY if you can identify distinct, named participants in a live multi-person interaction:
+- Screen shows a video conferencing app with participant panels showing names
+- Audio has multiple distinct speakers who can be identified by name (from introductions, direct address, or context)
+- The interaction is live/synchronous — NOT a recording, podcast, lecture, news conference, or media playback
+
+`false` for: podcasts, press conferences, recorded interviews, solo narration, streaming content, lectures, or any audio where the speakers are media personalities rather than meeting participants. Even if multiple people are speaking, if they are NOT in a meeting with $preferred, set this to `false`.
 
 ### speakers
 If `meeting_detected` is true, extract participant names from:

@@ -38,7 +38,7 @@ DEFAULT_MODEL = "gpt-5.4-mini"
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "results"
 MANIFEST_PATH = Path("/home/jer/projects/field_journal/manifest.json")
 SENSE_MD_PATH = Path("/home/jer/projects/solstone/muse/sense.md")
-CONFIGURED_FACETS = ["meetings", "learning"]
+CONFIGURED_FACETS = ["meetings", "learning", "technical-work"]
 
 
 # ---------------------------------------------------------------------------
@@ -251,8 +251,9 @@ def compose_user_message(day: str, segment_key: str,
 
     parts.append(
         f"\n## Configured Facets\n\n"
-        f"- meetings\n"
-        f"- learning"
+        f"- meetings — live synchronous group meetings\n"
+        f"- learning — educational content, research, lectures, reading\n"
+        f"- technical-work — coding, developer tools, technical tasks, product research"
     )
 
     return "\n".join(parts)
