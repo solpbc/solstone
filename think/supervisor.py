@@ -10,6 +10,7 @@ import logging
 import os
 import signal
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -1545,6 +1546,38 @@ def main() -> None:
             logging.Formatter("%(asctime)s %(levelname)s %(message)s")
         )
         logging.getLogger().addHandler(console_handler)
+
+    # Singleton guard: only one supervisor per journal
+    health_dir = journal_path / "health"
+    lock_path = health_dir / "supervisor.lock"
+    pid_path = health_dir / "supervisor.pid"
+    import fcntl
+
+    lock_fd = open(lock_path, "w")
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        lock_fd.close()
+        pid_str = ""
+        try:
+            pid_str = pid_path.read_text().strip()
+        except OSError:
+            pass
+        pid_msg = f" (PID {pid_str})" if pid_str else ""
+        sock_path = health_dir / "callosum.sock"
+        if sock_path.exists():
+            try:
+                from think.health_cli import health_check
+
+                print(f"Supervisor already running{pid_msg}\n")
+                health_check()
+            except Exception:
+                print(f"Supervisor already running{pid_msg}")
+        else:
+            print(f"Supervisor already running{pid_msg}")
+        sys.exit(1)
+    pid_path.write_text(str(os.getpid()))
+    logging.info("Singleton lock acquired (PID %d)", os.getpid())
 
     # Set up signal handlers
     signal.signal(signal.SIGINT, handle_shutdown)

@@ -4,8 +4,11 @@
 import importlib
 import io
 import logging
+import os
 import subprocess
+import sys
 import time
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -822,3 +825,89 @@ def test_process_queue_spawns_with_multiple_refs(monkeypatch):
     assert len(spawned) == 1
     assert spawned[0][0] == ["ref-A", "ref-B", "ref-C"]  # all refs passed
     assert spawned[0][1] == ["sol", "indexer", "--rescan"]
+
+
+def test_supervisor_singleton_lock_acquired(tmp_path, monkeypatch):
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    (tmp_path / "health").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(sys, "argv", ["supervisor"])
+
+    def stop_after_lock():
+        raise SystemExit(0)
+
+    monkeypatch.setattr(mod, "start_callosum_in_process", stop_after_lock)
+
+    with pytest.raises(SystemExit) as exc:
+        mod.main()
+
+    assert exc.value.code == 0
+    assert (tmp_path / "health" / "supervisor.lock").exists()
+    assert (tmp_path / "health" / "supervisor.pid").read_text().strip() == str(
+        os.getpid()
+    )
+
+
+def test_supervisor_singleton_lock_blocked(tmp_path, monkeypatch, capsys):
+    import fcntl
+
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    health_dir = tmp_path / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    lock_file = open(health_dir / "supervisor.lock", "w")
+    fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    (health_dir / "supervisor.pid").write_text("12345")
+    monkeypatch.setattr(sys, "argv", ["supervisor"])
+
+    start_mock = MagicMock()
+    monkeypatch.setattr(mod, "start_callosum_in_process", start_mock)
+
+    try:
+        with pytest.raises(SystemExit) as exc:
+            mod.main()
+    finally:
+        lock_file.close()
+
+    assert exc.value.code == 1
+    output = capsys.readouterr().out
+    assert "Supervisor already running" in output
+    assert "PID 12345" in output
+    start_mock.assert_not_called()
+
+
+def test_supervisor_singleton_lock_blocked_with_health(
+    tmp_path, monkeypatch, capsys
+):
+    import fcntl
+
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    health_dir = tmp_path / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    lock_file = open(health_dir / "supervisor.lock", "w")
+    fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    (health_dir / "supervisor.pid").write_text("12345")
+    (health_dir / "callosum.sock").touch()
+    monkeypatch.setattr(sys, "argv", ["supervisor"])
+
+    start_mock = MagicMock()
+    health_mock = MagicMock(return_value=0)
+    monkeypatch.setattr(mod, "start_callosum_in_process", start_mock)
+    monkeypatch.setattr("think.health_cli.health_check", health_mock)
+
+    try:
+        with pytest.raises(SystemExit) as exc:
+            mod.main()
+    finally:
+        lock_file.close()
+
+    assert exc.value.code == 1
+    output = capsys.readouterr().out
+    assert "Supervisor already running" in output
+    assert "PID 12345" in output
+    health_mock.assert_called_once_with()
+    start_mock.assert_not_called()
