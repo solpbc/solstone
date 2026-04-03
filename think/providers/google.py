@@ -34,7 +34,6 @@ from __future__ import annotations
 import logging
 import os
 import traceback
-from pathlib import Path
 from typing import Any, Callable
 
 from google import genai
@@ -50,7 +49,6 @@ from .cli import (
     build_cogitate_env,
 )
 from .shared import (
-    CircuitBreaker,
     GenerateResult,
     JSONEventCallback,
     ThinkingEvent,
@@ -61,7 +59,6 @@ _DEFAULT_MAX_TOKENS = 8192
 _DEFAULT_MODEL = GEMINI_FLASH
 
 logger = logging.getLogger(__name__)
-_circuit_breakers: dict[str, CircuitBreaker] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -92,30 +89,6 @@ def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
             http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=8)),
         )
     return client
-
-
-def _get_circuit_breaker() -> CircuitBreaker:
-    """Get or create the Google circuit breaker singleton."""
-    if "google" not in _circuit_breakers:
-        from think.utils import get_journal
-
-        cb = CircuitBreaker("google")
-        try:
-            cb._health_path = Path(get_journal()) / "health" / "agents.json"
-        except Exception:
-            pass
-        _circuit_breakers["google"] = cb
-    return _circuit_breakers["google"]
-
-
-def _is_quota_error(error: Exception) -> bool:
-    """Check if an error is a quota/rate-limit error from Google."""
-    try:
-        from google.genai.errors import ClientError
-
-        return isinstance(error, ClientError) and getattr(error, "code", None) == 429
-    except ImportError:
-        return False
 
 
 def _compute_agent_thinking_params(
@@ -409,25 +382,12 @@ def run_generate(
         timeout_s=timeout_s,
     )
 
-    cb = _get_circuit_breaker()
-    cb.check()
+    response = client.models.generate_content(
+        model=model,
+        contents=contents,
+        config=config,
+    )
 
-    from think.rate_limiter import get_rate_budget
-
-    get_rate_budget().acquire()
-
-    try:
-        response = client.models.generate_content(
-            model=model,
-            contents=contents,
-            config=config,
-        )
-    except Exception as e:
-        if _is_quota_error(e):
-            cb.record_failure(e)
-        raise
-
-    cb.record_success()
     return GenerateResult(
         text=_extract_response_text(response),
         usage=_extract_usage(response),
@@ -466,25 +426,12 @@ async def run_agenerate(
         timeout_s=timeout_s,
     )
 
-    cb = _get_circuit_breaker()
-    cb.check()
+    response = await client.aio.models.generate_content(
+        model=model,
+        contents=contents,
+        config=config,
+    )
 
-    from think.rate_limiter import get_rate_budget
-
-    await get_rate_budget().aacquire()
-
-    try:
-        response = await client.aio.models.generate_content(
-            model=model,
-            contents=contents,
-            config=config,
-        )
-    except Exception as e:
-        if _is_quota_error(e):
-            cb.record_failure(e)
-        raise
-
-    cb.record_success()
     return GenerateResult(
         text=_extract_response_text(response),
         usage=_extract_usage(response),
