@@ -16,7 +16,7 @@ Python 3.10+, Linux + macOS, AGPL-3.0-only, maintained by [sol pbc](https://solp
 
 **a system of intelligence, not just a system of record.**
 
-- **automatic transcription** — continuous audio capture with speaker identification. every conversation, transcribed and searchable.
+- **automatic transcription** — continuous audio capture (via standalone observers) with speaker identification. every conversation, transcribed and searchable.
 - **entity tracking** — people, companies, and projects extracted from your conversations and tracked across time.
 - **knowledge graphs** — relationships between entities mapped automatically. who works with whom, which projects connect to which people.
 - **meeting detection** — meetings identified, summarized, and linked. meeting prep that surfaces what you discussed last time and personal context you'd forget.
@@ -59,7 +59,7 @@ Python 3.10+, Linux + macOS, AGPL-3.0-only, maintained by [sol pbc](https://solp
                      +-------------+
 ```
 
-- **observe** — captures audio (PipeWire on Linux, solstone-macos native app on macOS) and screen activity. produces FLAC audio, WebM screen recordings, and timestamped metadata.
+- **observe** — receives captured audio and screen activity from standalone observers (solstone-linux, solstone-tmux, solstone-macos) via remote ingest. processes FLAC audio, WebM screen recordings, and timestamped metadata.
 - **think** — transcribes audio (faster-whisper), analyzes screen captures, extracts entities, detects meetings, and indexes everything into SQLite. runs 30 configurable agent/generator templates from `muse/`.
 - **cortex** — orchestrates agent execution. receives events, dispatches agents, writes results back to the journal.
 - **callosum** — async message bus connecting all services. enables event-driven coordination between observe, think, cortex, and convey.
