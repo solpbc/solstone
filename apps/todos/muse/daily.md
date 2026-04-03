@@ -29,7 +29,7 @@ You receive:
 SOL_DAY and SOL_FACET are set in your environment. Commands default to the current day and facet — only pass explicit values to override (e.g., checking yesterday's list).
 
 - `sol call todos list` – inspect the current numbered checklist
-- `sol call todos add TEXT` – append a new unchecked line (line number is auto-calculated)
+- `sol call todos add TEXT [--force]` – append a new unchecked line (line number is auto-calculated; --force skips cross-facet duplicate check)
 - `sol call todos cancel LINE_NUMBER` – cancel a todo (soft delete); the entry remains but is hidden from view
 - `sol call todos done LINE_NUMBER` – mark an entry complete
 - `sol call todos upcoming -l LIMIT` – view upcoming todos
@@ -56,6 +56,7 @@ Today's checklist may already contain items added by activity-level todo agents 
 4. Check facet news for announced commitments: `sol call journal search "" -a news -d $day_YYYYMMDD -f FACET -n 5`
 5. Cancel duplicates or stale items via `sol call todos cancel`
 6. Add any high-value items missed by activity detection (e.g., cross-activity themes, carried commitments from follow-ups)
+7. If `sol call todos add` rejects an item as a cross-facet duplicate, review the match — skip if it's genuine, retry with `--force` only if the items are truly distinct
 
 Each candidate must be:
 - **Actionable** – specific action with a clear outcome
@@ -94,6 +95,7 @@ Each candidate must be:
 - Exceed 10 active items without explicit justification
 - Invent work without journal evidence or historical context
 - Re-add items that activity agents already captured
+- Use `--force` to bypass duplicate detection without verifying the match is a false positive
 
 ## Interaction Protocol
 

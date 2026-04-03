@@ -48,7 +48,7 @@ sol call todos list 20260115
 ## add
 
 ```bash
-sol call todos add TEXT [-d DAY] [-f FACET]
+sol call todos add TEXT [-d DAY] [-f FACET] [--force]
 ```
 
 Add a new todo item.
@@ -62,6 +62,7 @@ Behavior notes:
 - Line number is auto-calculated by the CLI; do not provide one.
 - You can include time in the text as `(HH:MM)` suffix.
 - Before adding a future todo, check `upcoming` first to avoid duplicates already scheduled on other days.
+- The command checks for fuzzy duplicates (≥70% similarity) across other facets within ±1 day. If a match is found, the add is rejected with a match report. Use `--force` to override.
 
 Examples:
 

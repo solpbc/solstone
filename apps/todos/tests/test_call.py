@@ -385,3 +385,60 @@ class TestSolEnvResolution:
         result = runner.invoke(call_app, ["todos", "done", "1"])
         assert result.exit_code == 0
         assert "[x]" in result.output
+
+
+class TestTodosAddDedup:
+    """Tests for cross-facet duplicate detection in 'sol call todos add'."""
+
+    def test_add_rejects_duplicate_in_other_facet(self, move_env):
+        """Adding a duplicate todo in another facet is rejected with exit code 1."""
+        _, src_facet, dst_facet = move_env([{"text": "Draft Q1 plan"}], day="20240102")
+        result = runner.invoke(
+            call_app,
+            ["todos", "add", "Draft Q1 plan", "--day", "20240102", "--facet", dst_facet],
+        )
+        assert result.exit_code == 1
+        assert "Duplicate detected" in result.output
+
+    def test_add_force_bypasses_dedup(self, move_env):
+        """--force flag allows adding despite duplicate detection."""
+        _, src_facet, dst_facet = move_env([{"text": "Draft Q1 plan"}], day="20240102")
+        result = runner.invoke(
+            call_app,
+            [
+                "todos",
+                "add",
+                "Draft Q1 plan",
+                "--day",
+                "20240102",
+                "--facet",
+                dst_facet,
+                "--force",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Draft Q1 plan" in result.output
+
+    def test_add_succeeds_when_no_matches(self, move_env):
+        """Adding a unique todo succeeds normally."""
+        _, src_facet, dst_facet = move_env([{"text": "Buy groceries"}], day="20240102")
+        result = runner.invoke(
+            call_app,
+            ["todos", "add", "Draft Q1 plan", "--day", "20240102", "--facet", dst_facet],
+        )
+        assert result.exit_code == 0
+        assert "Draft Q1 plan" in result.output
+
+    def test_add_dedup_stderr_format(self, move_env):
+        """Rejection message includes score, facet, day, line, and text."""
+        _, src_facet, dst_facet = move_env([{"text": "Draft Q1 plan"}], day="20240102")
+        result = runner.invoke(
+            call_app,
+            ["todos", "add", "Draft Q1 plan", "--day", "20240102", "--facet", dst_facet],
+        )
+        assert result.exit_code == 1
+        assert "100%" in result.output
+        assert src_facet in result.output
+        assert "20240102" in result.output
+        assert "line 1" in result.output
+        assert "--force" in result.output

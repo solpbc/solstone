@@ -13,6 +13,7 @@ import pytest
 from apps.todos.todo import (
     TodoChecklist,
     TodoItem,
+    find_cross_facet_matches,
     get_facets_with_todos,
     get_todos,
     upcoming,
@@ -709,3 +710,83 @@ def test_append_entry_preserves_created_at(monkeypatch, journal_root):
     assert item.created_at == original_created
     # updated_at is current time
     assert before <= item.updated_at <= after
+
+
+class TestFindCrossFacetMatches:
+    """Tests for find_cross_facet_matches() cross-facet duplicate detection."""
+
+    def test_detects_duplicate_in_other_facet(self, monkeypatch, journal_root):
+        """Exact duplicate in another facet is detected."""
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        _write_todos(journal_root, "work", "20240102", [{"text": "Draft Q1 plan"}])
+        matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
+        assert len(matches) == 1
+        assert matches[0]["score"] == 100.0
+        assert matches[0]["facet"] == "work"
+        assert matches[0]["day"] == "20240102"
+        assert matches[0]["line"] == 1
+
+    def test_detects_fuzzy_match(self, monkeypatch, journal_root):
+        """Fuzzy match above threshold is detected."""
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        _write_todos(
+            journal_root,
+            "work",
+            "20240102",
+            [{"text": "Draft Q1 plan doc"}],
+        )
+        matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
+        assert len(matches) >= 1
+        assert matches[0]["score"] >= 70.0
+
+    def test_no_false_positives(self, monkeypatch, journal_root):
+        """Unrelated todos in other facets are not flagged."""
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        _write_todos(journal_root, "work", "20240102", [{"text": "Buy groceries"}])
+        matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
+        assert len(matches) == 0
+
+    def test_excludes_own_facet(self, monkeypatch, journal_root):
+        """Todos in the requesting facet are excluded."""
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        _write_todos(journal_root, "personal", "20240102", [{"text": "Draft Q1 plan"}])
+        matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
+        assert len(matches) == 0
+
+    def test_excludes_cancelled(self, monkeypatch, journal_root):
+        """Cancelled todos are not matched."""
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        _write_todos(
+            journal_root,
+            "work",
+            "20240102",
+            [{"text": "Draft Q1 plan", "cancelled": True}],
+        )
+        matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
+        assert len(matches) == 0
+
+    def test_excludes_completed(self, monkeypatch, journal_root):
+        """Completed todos are not matched."""
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        _write_todos(
+            journal_root,
+            "work",
+            "20240102",
+            [{"text": "Draft Q1 plan", "completed": True}],
+        )
+        matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
+        assert len(matches) == 0
+
+    def test_day_range_covers_adjacent_days(self, monkeypatch, journal_root):
+        """Matches within ±1 day window are detected."""
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        _write_todos(journal_root, "work", "20240101", [{"text": "Draft Q1 plan"}])
+        _write_todos(journal_root, "work", "20240103", [{"text": "Draft Q1 plan"}])
+        matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
+        assert len(matches) == 2
+
+    def test_empty_journal_returns_empty(self, monkeypatch, journal_root):
+        """No facets returns empty list."""
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal_root))
+        matches = find_cross_facet_matches("Draft Q1 plan", "20240102", "personal")
+        assert matches == []

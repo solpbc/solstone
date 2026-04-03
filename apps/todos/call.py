@@ -115,6 +115,9 @@ def add_todo(
         "-n",
         help="Nudge time: HH:MM, now, tomorrow HH:MM, or YYYYMMDDTHH:MM.",
     ),
+    force: bool = typer.Option(
+        False, "--force", help="Skip duplicate check and add anyway."
+    ),
 ) -> None:
     """Add a new todo item."""
     from datetime import datetime
@@ -139,6 +142,20 @@ def add_todo(
         except ValueError as exc:
             typer.echo(f"Error: {exc}", err=True)
             raise typer.Exit(1) from None
+
+    # Cross-facet duplicate check
+    if not force:
+        matches = todo.find_cross_facet_matches(text, day, exclude_facet=facet)
+        if matches:
+            typer.echo(f"Duplicate detected for: {text}", err=True)
+            for match in matches:
+                typer.echo(
+                    f"  [{match['score']:.0f}%] {match['facet']}/{match['day']} "
+                    f"line {match['line']}: {match['text']}",
+                    err=True,
+                )
+            typer.echo("Use --force to add anyway.", err=True)
+            raise typer.Exit(1)
 
     try:
 
