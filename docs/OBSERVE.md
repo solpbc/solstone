@@ -2,7 +2,34 @@
 
 Multimodal capture and AI-powered analysis of desktop activity.
 
-On macOS, capture is handled by the `solstone-macos` native companion app rather than a built-in Python observer.
+## Observer Architecture
+
+Observers are independent capture agents that upload segments to solstone via the HTTP ingest API (`/app/remote/ingest/<key>`). Each observer runs as its own process with its own lifecycle — solstone core is the journal + processing engine.
+
+| Observer | What it captures | Repo | Runs as |
+|----------|-----------------|------|---------|
+| **solstone-macos** | Screen + audio on macOS | `solstone-macos` | Native menu bar app |
+| **solstone-tmux** | Tmux terminal sessions | `solstone-tmux` | systemd user service / standalone |
+| **Linux observer** | Screen + audio on Linux | Built-in (`observe/linux/`) | Supervisor-managed process |
+
+### Managing observers
+
+```bash
+# List all registered observers
+sol remote list
+
+# Register a new observer
+sol remote create <name>
+
+# Check observer status
+sol remote status <name>
+
+# Rename an observer
+sol remote rename <old> <new>
+
+# Revoke an observer's key
+sol remote revoke <name>
+```
 
 ## Commands
 
@@ -17,55 +44,54 @@ On macOS, capture is handled by the `solstone-macos` native companion app rather
 ## Architecture
 
 ```
-sol observer (platform-detected capture)
+Observers (standalone or built-in)
+       ↓ HTTP multipart upload
+Remote Ingest API (/app/remote/ingest/<key>)
        ↓
-   Raw media files (*.flac, *.ogg, *.opus, *.wav, *.webm, tmux_*.jsonl)
+   Raw media files (*.flac, *.webm, tmux_*.jsonl)
        ↓
 sol sense (coordination)
    ├── sol transcribe → audio.jsonl
    └── sol describe → screen.jsonl
 ```
 
-## Observer State Machine
+## Linux Observer State Machine
 
-The Linux observer operates in three modes based on activity:
+The Linux observer operates in two modes based on desktop activity:
 
 ```
-          SCREENCAST
-         ↗         ↘
-    (screen)    (screen idle)
-       ↑            ↓
-     IDLE ←----→ TMUX
-         (tmux active)
+SCREENCAST  ←→  IDLE
 ```
-
-**Mode priority**: Screen activity always wins over tmux (owner is physically present).
 
 | Mode | Trigger | Captures |
 |------|---------|----------|
 | SCREENCAST | Screen active (not idle/locked/power-save) | Video + Audio |
-| TMUX | Screen idle but tmux has recent client activity | Terminal content + Audio |
-| IDLE | Both screen and tmux inactive | Audio only (if threshold met) |
+| IDLE | Screen idle, locked, or power-save | Audio only (if threshold met) |
 
 **Segment boundaries** are triggered by:
-- Transitions to/from SCREENCAST mode (owner returns to or leaves desktop)
+- Transitions between SCREENCAST and IDLE modes
 - Mute state changes
 - 5-minute window elapsed
 
-TMUX ↔ IDLE transitions do **not** trigger boundaries, allowing tmux segments to run the full 5-minute window like screencast segments.
-
 ## Key Components
 
-- **observer.py** - Unified entry point with platform detection
-- **linux/observer.py** - Linux capture using native APIs
-- **linux/screencast.py** - XDG Portal screencast with PipeWire + GStreamer
-- **gnome/activity.py** - GNOME-specific activity detection (idle, lock, power save)
-- **sense.py** - File watcher that dispatches transcription and description jobs
-- **transcribe.py** - Audio transcription with faster-whisper and sentence-level embeddings
-- **describe.py** - Vision analysis with Gemini, category-based prompts
-- **categories/** - Category-specific prompts for screen content (see [SCREEN_CATEGORIES.md](SCREEN_CATEGORIES.md))
+- **observer.py** — Unified entry point with platform detection
+- **linux/observer.py** — Linux capture: audio + screencast + activity detection
+- **linux/screencast.py** — XDG Portal screencast with PipeWire + GStreamer
+- **gnome/activity.py** — GNOME-specific activity detection (idle, lock, power save)
+- **remote_client.py** — HTTP upload client for observer → server communication
+- **sense.py** — File watcher that dispatches transcription and description jobs
+- **transcribe.py** — Audio transcription with faster-whisper and sentence-level embeddings
+- **describe.py** — Vision analysis with Gemini, category-based prompts
+- **categories/** — Category-specific prompts for screen content (see [SCREEN_CATEGORIES.md](SCREEN_CATEGORIES.md))
 
-Standalone tmux capture is handled by the external `solstone-tmux` package, which runs as its own systemd user service.
+## Standalone Observers
+
+**Tmux capture** is handled by the `solstone-tmux` package, which runs as its own systemd user service. See `solstone-tmux` repo for setup instructions.
+
+**macOS capture** is handled by the `solstone-macos` native Swift app. See `solstone-macos` repo.
+
+Both upload segments via the same HTTP ingest API used by the built-in Linux observer.
 
 ## Output Formats
 
