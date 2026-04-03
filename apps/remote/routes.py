@@ -687,9 +687,14 @@ def ingest_segments(day: str, key: str | None = None) -> Any:
     # Get day directory for file verification
     day_dir = day_path(day)
 
-    # Derive stream from remote name for file path resolution
+    # Determine stream: trust client-provided query param if valid,
+    # otherwise derive from remote name (same logic as ingest_upload).
+    client_stream = request.args.get("stream", "").strip()
     remote_name = remote.get("name", "unknown")
-    stream = stream_name(remote=remote_name)
+    if client_stream and re.match(r"^[a-z0-9][a-z0-9._-]*$", client_stream):
+        stream = client_stream
+    else:
+        stream = stream_name(remote=remote_name)
 
     # Build response grouped by segment, deduplicating by sha256
     # Later records overwrite earlier ones (most recent upload wins)
