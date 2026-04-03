@@ -150,7 +150,16 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
         monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)
         monkeypatch.setattr(dream, "run_queued_command", mock_run_queued_command)
-        monkeypatch.setattr(dream, "_classify_segment_density", lambda *args: "active")
+        monkeypatch.setattr(
+            dream,
+            "_classify_segment_density",
+            lambda *args: {
+                "classification": "active",
+                "transcript_lines": 0,
+                "screen_frames": 0,
+                "timestamp": "2024-01-15T00:00:00+00:00",
+            },
+        )
 
         success, failed, failed_names = dream.run_prompts_by_priority(
             "20240115", "120000_300", refresh=False, verbose=False
@@ -209,7 +218,16 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
-        monkeypatch.setattr(dream, "_classify_segment_density", lambda *args: "active")
+        monkeypatch.setattr(
+            dream,
+            "_classify_segment_density",
+            lambda *args: {
+                "classification": "active",
+                "transcript_lines": 0,
+                "screen_frames": 0,
+                "timestamp": "2024-01-15T00:00:00+00:00",
+            },
+        )
 
         success, failed, failed_names = dream.run_prompts_by_priority(
             "20240115", "120000_300", refresh=False, verbose=False
@@ -261,7 +279,16 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
-        monkeypatch.setattr(dream, "_classify_segment_density", lambda *args: "active")
+        monkeypatch.setattr(
+            dream,
+            "_classify_segment_density",
+            lambda *args: {
+                "classification": "active",
+                "transcript_lines": 0,
+                "screen_frames": 0,
+                "timestamp": "2024-01-15T00:00:00+00:00",
+            },
+        )
 
         success, failed, failed_names = dream.run_prompts_by_priority(
             "20240115", "120000_300", refresh=False, verbose=False
@@ -314,7 +341,16 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
         monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)
         monkeypatch.setattr(dream, "run_queued_command", mock_run_queued_command)
-        monkeypatch.setattr(dream, "_classify_segment_density", lambda *args: "active")
+        monkeypatch.setattr(
+            dream,
+            "_classify_segment_density",
+            lambda *args: {
+                "classification": "active",
+                "transcript_lines": 0,
+                "screen_frames": 0,
+                "timestamp": "2024-01-15T00:00:00+00:00",
+            },
+        )
 
         dream.run_prompts_by_priority(
             "20240115", "120000_300", refresh=False, verbose=False, stream="default"
@@ -325,6 +361,62 @@ class TestRunPromptsByPriority:
         assert indexer_calls[0][0] == "sol"
         assert indexer_calls[0][1] == "indexer"
         assert "--rescan-file" in indexer_calls[0]
+
+    def test_refresh_bypasses_density_gate(self, segment_dir, monkeypatch):
+        """When refresh=True, priority-10 agents run regardless of density."""
+        from think import dream
+
+        spawned = []
+
+        def mock_cortex_request(prompt, name, config=None):
+            spawned.append(name)
+            return f"agent-{name}"
+
+        def mock_wait_for_agents(agent_ids, timeout=600):
+            return ({aid: "finish" for aid in agent_ids}, [])
+
+        def mock_get_muse_configs(schedule=None, **kwargs):
+            return {
+                "low_priority_agent": {
+                    "priority": 10,
+                    "type": "generate",
+                    "output": "md",
+                    "schedule": "segment",
+                },
+            }
+
+        def mock_get_enabled_facets():
+            return {"work": {"title": "Work"}}
+
+        density_called = []
+
+        def mock_classify(day, segment, stream):
+            density_called.append(True)
+            return {
+                "classification": "idle",
+                "transcript_lines": 0,
+                "screen_frames": 0,
+                "timestamp": "2024-01-15T00:00:00+00:00",
+            }
+
+        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
+        monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
+        monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
+        monkeypatch.setattr(
+            dream, "run_queued_command", lambda cmd, day, timeout=60: True
+        )
+        monkeypatch.setattr(dream, "_classify_segment_density", mock_classify)
+
+        success, failed, failed_names = dream.run_prompts_by_priority(
+            "20240115", "120000_300", refresh=True, verbose=False
+        )
+
+        assert "low_priority_agent" in spawned
+        assert success == 1
+        assert failed == 0
+        assert failed_names == []
+        assert len(density_called) == 0
 
 
 class TestCortexRequestRetry:
@@ -415,7 +507,16 @@ class TestCortexRequestRetry:
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
         monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)
-        monkeypatch.setattr(dream, "_classify_segment_density", lambda *args: "active")
+        monkeypatch.setattr(
+            dream,
+            "_classify_segment_density",
+            lambda *args: {
+                "classification": "active",
+                "transcript_lines": 0,
+                "screen_frames": 0,
+                "timestamp": "2024-01-15T00:00:00+00:00",
+            },
+        )
 
         success, failed, failed_names = dream.run_prompts_by_priority(
             "20240115", "120000_300", refresh=False, verbose=False
@@ -597,7 +698,16 @@ class TestStreamAutoResolution:
         monkeypatch.setattr(
             dream, "run_queued_command", lambda cmd, day, timeout=60: True
         )
-        monkeypatch.setattr(dream, "_classify_segment_density", lambda *args: "active")
+        monkeypatch.setattr(
+            dream,
+            "_classify_segment_density",
+            lambda *args: {
+                "classification": "active",
+                "transcript_lines": 0,
+                "screen_frames": 0,
+                "timestamp": "2024-01-15T00:00:00+00:00",
+            },
+        )
 
         dream.run_prompts_by_priority(
             "20240115",

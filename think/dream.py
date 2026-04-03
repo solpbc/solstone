@@ -15,7 +15,7 @@ import logging
 import sys
 import threading
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from think.activities import get_activity_output_path, load_activity_records
@@ -459,11 +459,16 @@ def _classify_segment_density(
     day: str,
     segment: str,
     stream: str | None,
-) -> str:
-    """Classify segment content density as 'idle', 'low_change', or 'active'."""
+) -> dict:
+    """Classify segment content density. Returns dict with classification, counts, timestamp."""
     seg_dir = _segment_dir(day, segment, stream)
     if not seg_dir.exists():
-        return "active"
+        return {
+            "classification": "active",
+            "transcript_lines": 0,
+            "screen_frames": 0,
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        }
 
     transcript_lines = 0
     transcript_files = sorted(seg_dir.glob("audio.jsonl"))
@@ -492,11 +497,26 @@ def _classify_segment_density(
             subtract_header = False
         screen_frames += max(0, len(lines) - 1 if subtract_header else len(lines))
 
-    if transcript_lines < 3 and screen_frames < 2:
-        return "idle"
+    if transcript_lines == 0 and screen_frames < 2:
+        return {
+            "classification": "idle",
+            "transcript_lines": transcript_lines,
+            "screen_frames": screen_frames,
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        }
     if transcript_lines < 10 and screen_frames < 5:
-        return "low_change"
-    return "active"
+        return {
+            "classification": "low_change",
+            "transcript_lines": transcript_lines,
+            "screen_frames": screen_frames,
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        }
+    return {
+        "classification": "active",
+        "transcript_lines": transcript_lines,
+        "screen_frames": screen_frames,
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+    }
 
 
 def _activity_state_cache_path(day: str) -> Path:
@@ -746,10 +766,14 @@ def run_prompts_by_priority(
         priority_groups.setdefault(priority, []).append((name, config))
 
     segment_density = "active"
-    if segment:
-        segment_density = _classify_segment_density(day, segment, stream)
+    density_result = None
+    if segment and not refresh:
+        density_result = _classify_segment_density(day, segment, stream)
+        segment_density = density_result["classification"]
         if segment_density != "active":
             logging.info("Segment %s classified as %s", segment, segment_density)
+    elif segment and refresh:
+        logging.info("Segment %s: refresh mode, bypassing density gate", segment)
 
     activity_changed = False
     as_cache = _load_activity_state_cache(day) if segment else {}
@@ -806,6 +830,9 @@ def run_prompts_by_priority(
                 segment,
                 segment_density,
             )
+            if density_result is not None:
+                seg_dir = _segment_dir(day, segment, stream)
+                _write_json_atomic(seg_dir / "agents" / "density.json", density_result)
             continue
 
         emit(
