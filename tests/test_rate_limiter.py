@@ -70,6 +70,7 @@ def test_acquire_timeout_raises(tmp_path):
     with pytest.raises(RateBudgetExhausted):
         budget.acquire(timeout_s=0.2)
 
+
 def test_aacquire_success(tmp_path):
     async def run():
         budget = RateBudget(tmp_path / "rate_budget.json", rpm=1)
@@ -78,6 +79,15 @@ def test_aacquire_success(tmp_path):
         assert state["remaining"] == 0
 
     asyncio.run(run())
+
+
+def test_atomic_write_no_tmp_file_persists(tmp_path):
+    budget_path = tmp_path / "rate_budget.json"
+    budget = RateBudget(budget_path, rpm=3)
+    budget.try_acquire()
+    assert not budget_path.with_suffix(".json.tmp").exists()
+    state = json.loads(budget_path.read_text())
+    assert "remaining" in state
 
 
 def test_concurrent_acquire(tmp_path):

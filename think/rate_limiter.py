@@ -73,10 +73,14 @@ class RateBudget:
 
                 if remaining > 0:
                     state["remaining"] = remaining - 1
-                    self.budget_path.write_text(json.dumps(state, indent=2))
+                    tmp = self.budget_path.with_suffix(".json.tmp")
+                    tmp.write_text(json.dumps(state, indent=2))
+                    tmp.replace(self.budget_path)
                     return True
 
-                self.budget_path.write_text(json.dumps(state, indent=2))
+                tmp = self.budget_path.with_suffix(".json.tmp")
+                tmp.write_text(json.dumps(state, indent=2))
+                tmp.replace(self.budget_path)
                 return False
             finally:
                 fcntl.flock(lock_file, fcntl.LOCK_UN)
