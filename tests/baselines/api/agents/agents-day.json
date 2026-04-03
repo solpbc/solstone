@@ -105,7 +105,7 @@
       "description": "Extracts people, companies, projects, and tools from segment content",
       "multi_facet": false,
       "output_format": "md",
-      "schedule": "segment",
+      "schedule": "activity",
       "source": "system",
       "title": "Entity Extraction",
       "type": "generate"

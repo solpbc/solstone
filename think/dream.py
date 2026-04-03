@@ -10,6 +10,7 @@ run in parallel, then dream waits for completion before the next group.
 
 import argparse
 import fnmatch
+import json
 import logging
 import sys
 import threading
@@ -304,6 +305,403 @@ def _drain_priority_batch(
     return (success, failed, failed_names)
 
 
+def _segment_dir(day: str, segment: str, stream: str | None) -> Path:
+    """Return the expected segment directory without creating it."""
+    return day_path(day) / (stream or "default") / segment
+
+
+def _resolve_segment_dir(
+    day: str,
+    segment: str,
+    stream: str | None,
+) -> Path | None:
+    """Resolve a segment directory, searching across streams when needed."""
+    if stream:
+        path = _segment_dir(day, segment, stream)
+        return path if path.is_dir() else None
+
+    for seg_stream, seg_key, seg_path in iter_segments(day):
+        if seg_key == segment:
+            return seg_path
+    return None
+
+
+def _load_json_file(path: Path, default: object) -> object:
+    """Load JSON from a file, returning the provided default on failure."""
+    if not path.exists():
+        return default
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return default
+
+
+def _write_json_atomic(path: Path, data: object) -> None:
+    """Atomically write JSON data to a file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(f"{path.suffix}.tmp")
+    tmp.write_text(json.dumps(data), encoding="utf-8")
+    tmp.replace(path)
+
+
+def _count_nonempty_lines(path: Path) -> list[str]:
+    """Return non-empty lines from a text file."""
+    try:
+        return [line for line in path.read_text(encoding="utf-8").splitlines() if line]
+    except OSError:
+        return []
+
+
+def _load_segment_facet_rows(
+    day: str,
+    segment: str,
+    stream: str | None,
+) -> list[dict]:
+    """Load raw facets.json rows for a segment."""
+    seg_dir = _resolve_segment_dir(day, segment, stream)
+    if not seg_dir:
+        return []
+
+    facets_path = seg_dir / "agents" / "facets.json"
+    data = _load_json_file(facets_path, [])
+    return data if isinstance(data, list) else []
+
+
+def _has_audio_embeddings(seg_dir: Path) -> bool:
+    """Return True when a segment has audio embedding files."""
+    for npz_path in seg_dir.glob("*.npz"):
+        if npz_path.stem == "audio" or npz_path.stem.endswith("_audio"):
+            return True
+    return False
+
+
+def _should_skip_preflight(
+    prompt_name: str,
+    *,
+    day: str,
+    segment: str | None,
+    stream: str | None,
+) -> tuple[bool, str | None]:
+    """Return whether a prompt can be skipped before sending a cortex request."""
+    if not segment:
+        return (False, None)
+
+    if prompt_name == "firstday_checkin":
+        from think.awareness import get_onboarding
+
+        onboarding = get_onboarding()
+        if onboarding.get("status") != "complete":
+            return (True, "preflight:not_complete")
+        if onboarding.get("firstday_checkin_sent"):
+            return (True, "preflight:already_sent")
+        return (False, None)
+
+    if prompt_name == "observation":
+        from think.awareness import get_onboarding
+
+        onboarding = get_onboarding()
+        if onboarding.get("status") != "observing":
+            return (True, "preflight:not_observing")
+        return (False, None)
+
+    seg_dir = _resolve_segment_dir(day, segment, stream)
+    if seg_dir is None:
+        return (False, None)
+
+    if prompt_name == "speaker_attribution":
+        if not _has_audio_embeddings(seg_dir):
+            return (True, "preflight:no_embeddings")
+        return (False, None)
+
+    if prompt_name == "speakers":
+        transcript_files = sorted(seg_dir.glob("audio.jsonl"))
+        transcript_files.extend(sorted(seg_dir.glob("*_audio.jsonl")))
+        transcript_files.extend(sorted(seg_dir.glob("*_transcript.jsonl")))
+        if not transcript_files:
+            return (True, "preflight:no_transcripts")
+
+        speakers: set[str] = set()
+        for transcript_path in transcript_files:
+            lines = _count_nonempty_lines(transcript_path)
+            for line in lines[1:]:
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                speaker = entry.get("speaker")
+                if speaker is not None:
+                    speakers.add(str(speaker))
+        if len(speakers) < 2:
+            return (True, "preflight:single_speaker")
+        return (False, None)
+
+    if prompt_name == "activities":
+        from muse.activity_state import find_previous_segment
+
+        previous_segment = find_previous_segment(day, segment, stream=stream)
+        if not previous_segment:
+            return (True, "preflight:no_previous_segment")
+
+        prev_dir = _resolve_segment_dir(day, previous_segment, stream)
+        if prev_dir is None:
+            return (True, "preflight:no_previous_activity_state")
+
+        agents_dir = prev_dir / "agents"
+        for facet_dir in sorted(agents_dir.iterdir()) if agents_dir.is_dir() else []:
+            if facet_dir.is_dir() and (facet_dir / "activity_state.json").exists():
+                return (False, None)
+        return (True, "preflight:no_previous_activity_state")
+
+    return (False, None)
+
+
+def _classify_segment_density(
+    day: str,
+    segment: str,
+    stream: str | None,
+) -> str:
+    """Classify segment content density as 'idle', 'low_change', or 'active'."""
+    seg_dir = _segment_dir(day, segment, stream)
+    if not seg_dir.exists():
+        return "active"
+
+    transcript_lines = 0
+    transcript_files = sorted(seg_dir.glob("audio.jsonl"))
+    transcript_files.extend(sorted(seg_dir.glob("*_audio.jsonl")))
+    transcript_files.extend(sorted(seg_dir.glob("*_transcript.jsonl")))
+    for transcript_path in transcript_files:
+        lines = _count_nonempty_lines(transcript_path)
+        transcript_lines += max(0, len(lines) - 1)
+
+    imported_md = seg_dir / "imported.md"
+    if imported_md.exists():
+        transcript_lines += len(_count_nonempty_lines(imported_md))
+
+    screen_frames = 0
+    screen_files = sorted(seg_dir.glob("screen.jsonl"))
+    screen_files.extend(sorted(seg_dir.glob("*_screen.jsonl")))
+    for screen_path in screen_files:
+        lines = _count_nonempty_lines(screen_path)
+        if not lines:
+            continue
+        subtract_header = False
+        try:
+            first_entry = json.loads(lines[0])
+            subtract_header = isinstance(first_entry, dict) and "raw" in first_entry
+        except json.JSONDecodeError:
+            subtract_header = False
+        screen_frames += max(0, len(lines) - 1 if subtract_header else len(lines))
+
+    if transcript_lines < 3 and screen_frames < 2:
+        return "idle"
+    if transcript_lines < 10 and screen_frames < 5:
+        return "low_change"
+    return "active"
+
+
+def _activity_state_cache_path(day: str) -> Path:
+    return day_path(day) / "health" / "activity_state_cache.json"
+
+
+def _load_activity_state_cache(day: str) -> dict:
+    data = _load_json_file(_activity_state_cache_path(day), {})
+    return data if isinstance(data, dict) else {}
+
+
+def _save_activity_state_cache(day: str, data: dict) -> None:
+    _write_json_atomic(_activity_state_cache_path(day), data)
+
+
+def _emit_activity_live_entries(
+    *,
+    day: str,
+    segment: str,
+    facet: str,
+    entries: list[dict],
+) -> None:
+    """Emit activity.live events for active entries."""
+    from think.callosum import callosum_send
+
+    for entry in entries:
+        if entry.get("state") != "active":
+            continue
+        try:
+            callosum_send(
+                "activity",
+                "live",
+                facet=facet,
+                day=day,
+                segment=segment,
+                id=entry["id"],
+                activity=entry["activity"],
+                since=entry["since"],
+                description=entry.get("description", ""),
+                level=entry.get("level", "medium"),
+                active_entities=entry.get("active_entities", []),
+            )
+        except Exception as exc:
+            logging.warning(
+                "Failed to emit carried activity.live for %s/%s: %s",
+                facet,
+                entry.get("id", "unknown"),
+                exc,
+            )
+
+
+def _try_carry_forward_activity_state(
+    *,
+    day: str,
+    segment: str,
+    stream: str | None,
+    facet: str,
+    cache: dict,
+) -> bool:
+    """Try to carry forward cached activity_state for a facet."""
+    cache_key = f"{stream or 'default'}:{facet}"
+    entry = cache.get(cache_key)
+    if not isinstance(entry, dict):
+        return False
+
+    if int(entry.get("carry_count", 0)) >= 6:
+        return False
+
+    cached_segment = entry.get("segment", "")
+    if not cached_segment:
+        return False
+
+    current_start, _current_end = segment_parse(segment)
+    _cached_start, cached_end = segment_parse(cached_segment)
+    if current_start is None or cached_end is None:
+        return False
+
+    current_dt = datetime.combine(date.today(), current_start)
+    cached_end_dt = datetime.combine(date.today(), cached_end)
+    gap = current_dt - cached_end_dt
+    if gap < timedelta(0) or gap > timedelta(minutes=10):
+        return False
+
+    facet_rows = _load_segment_facet_rows(day, segment, stream)
+    facet_row = next((row for row in facet_rows if row.get("facet") == facet), None)
+    if not facet_row:
+        return False
+    if facet_row.get("activity", "") != entry.get("facet_classification", ""):
+        return False
+
+    state = entry.get("state")
+    if not isinstance(state, list):
+        return False
+
+    seg_dir = _segment_dir(day, segment, stream)
+    output_path = seg_dir / "agents" / facet / "activity_state.json"
+    _write_json_atomic(output_path, state)
+    _emit_activity_live_entries(day=day, segment=segment, facet=facet, entries=state)
+
+    entry["carry_count"] = int(entry.get("carry_count", 0)) + 1
+    entry["segment"] = segment
+    entry["updated_at"] = int(time.time())
+    cache[cache_key] = entry
+    return True
+
+
+def _refresh_activity_state_cache(
+    *,
+    day: str,
+    segment: str,
+    stream: str | None,
+    facets: list[str],
+    cache: dict,
+) -> None:
+    """Refresh activity_state cache entries from newly-written output files."""
+    if not facets:
+        return
+
+    facet_rows = _load_segment_facet_rows(day, segment, stream)
+    facet_activity = {
+        row.get("facet"): row.get("activity", "")
+        for row in facet_rows
+        if isinstance(row, dict) and row.get("facet")
+    }
+    seg_dir = _segment_dir(day, segment, stream)
+
+    for facet in facets:
+        state_path = seg_dir / "agents" / facet / "activity_state.json"
+        data = _load_json_file(state_path, None)
+        if not isinstance(data, list):
+            continue
+
+        cache[f"{stream or 'default'}:{facet}"] = {
+            "state": data,
+            "facet_classification": facet_activity.get(facet, ""),
+            "segment": segment,
+            "carry_count": 0,
+            "updated_at": int(time.time()),
+        }
+
+
+def _pulse_counter_path(day: str) -> Path:
+    return day_path(day) / "health" / "pulse_counter.json"
+
+
+def _load_pulse_counter(day: str) -> dict:
+    data = _load_json_file(_pulse_counter_path(day), {"count": 0, "last_segment": ""})
+    return data if isinstance(data, dict) else {"count": 0, "last_segment": ""}
+
+
+def _save_pulse_counter(day: str, data: dict) -> None:
+    _write_json_atomic(_pulse_counter_path(day), data)
+
+
+def _active_activity_keys_for_segment(
+    day: str,
+    segment: str,
+    stream: str | None,
+) -> set[tuple[str, str, str]]:
+    """Return active (facet, activity, since) tuples for a segment."""
+    seg_dir = _resolve_segment_dir(day, segment, stream)
+    if not seg_dir:
+        return set()
+
+    keys: set[tuple[str, str, str]] = set()
+    agents_dir = seg_dir / "agents"
+    if not agents_dir.is_dir():
+        return keys
+
+    for facet_dir in sorted(agents_dir.iterdir()):
+        if not facet_dir.is_dir():
+            continue
+        state_path = facet_dir / "activity_state.json"
+        data = _load_json_file(state_path, None)
+        if not isinstance(data, list):
+            continue
+        for item in data:
+            if item.get("state") == "active":
+                keys.add(
+                    (
+                        facet_dir.name,
+                        str(item.get("activity", "")),
+                        str(item.get("since", "")),
+                    )
+                )
+    return keys
+
+
+def _detect_activity_state_change(
+    day: str,
+    segment: str,
+    stream: str | None,
+) -> bool:
+    """Check whether activity_state changed for this segment."""
+    from muse.activity_state import find_previous_segment
+
+    previous_segment = find_previous_segment(day, segment, stream=stream)
+    if not previous_segment:
+        return True
+
+    current_keys = _active_activity_keys_for_segment(day, segment, stream)
+    previous_keys = _active_activity_keys_for_segment(day, previous_segment, stream)
+    return current_keys != previous_keys
+
+
 def run_prompts_by_priority(
     day: str,
     segment: str | None,
@@ -346,6 +744,15 @@ def run_prompts_by_priority(
     for name, config in all_prompts.items():
         priority = config["priority"]  # Required field, validated by get_muse_configs
         priority_groups.setdefault(priority, []).append((name, config))
+
+    segment_density = "active"
+    if segment:
+        segment_density = _classify_segment_density(day, segment, stream)
+        if segment_density != "active":
+            logging.info("Segment %s classified as %s", segment, segment_density)
+
+    activity_changed = False
+    as_cache = _load_activity_state_cache(day) if segment else {}
 
     # Pre-compute shared data for multi-facet prompts
     day_formatted = iso_date(day)
@@ -392,6 +799,15 @@ def run_prompts_by_priority(
         _update_status(current_group_priority=priority)
         logging.info(f"Starting priority {priority} ({len(prompts_list)} prompts)")
 
+        if priority == 10 and segment_density != "active":
+            logging.info(
+                "Skipping priority-10 group (%d agents): segment %s is %s",
+                len(prompts_list),
+                segment,
+                segment_density,
+            )
+            continue
+
         emit(
             "group_started",
             mode=target_schedule,
@@ -406,6 +822,7 @@ def run_prompts_by_priority(
         if segment:
             raw_facets = load_segment_facets(day, segment, stream=stream)
             active_facets = set(f for f in raw_facets if f in enabled_facets)
+        activity_state_llm_facets: set[str] = set()
 
         spawned: list[
             tuple[str, str, dict, str | None]
@@ -425,6 +842,16 @@ def run_prompts_by_priority(
                     )
                     continue
 
+            skip, skip_reason = _should_skip_preflight(
+                prompt_name,
+                day=day,
+                segment=segment,
+                stream=stream,
+            )
+            if skip:
+                logging.info("Skipping %s: %s", prompt_name, skip_reason)
+                continue
+
             # Skip pulse when sol/pulse.md is already current for this segment
             if prompt_name == "pulse" and segment and not refresh:
                 try:
@@ -442,6 +869,22 @@ def run_prompts_by_priority(
                 except Exception:
                     pass
 
+                if not activity_changed:
+                    pulse_counter = _load_pulse_counter(day)
+                    if pulse_counter.get("count", 0) < 5:
+                        pulse_counter["count"] = int(pulse_counter.get("count", 0)) + 1
+                        pulse_counter["last_segment"] = segment
+                        _save_pulse_counter(day, pulse_counter)
+                        logging.info(
+                            "Skipping pulse: counter %d/6 for %s",
+                            pulse_counter["count"],
+                            segment,
+                        )
+                        continue
+                    _save_pulse_counter(day, {"count": 0, "last_segment": segment})
+                else:
+                    _save_pulse_counter(day, {"count": 0, "last_segment": segment})
+
             try:
                 if config.get("multi_facet"):
                     always_run = config.get("always", False)
@@ -455,6 +898,19 @@ def run_prompts_by_priority(
                             continue
 
                         logging.info(f"Spawning {prompt_name} for facet: {facet_name}")
+                        if prompt_name == "activity_state" and segment:
+                            if not refresh and _try_carry_forward_activity_state(
+                                day=day,
+                                segment=segment,
+                                stream=stream,
+                                facet=facet_name,
+                                cache=as_cache,
+                            ):
+                                logging.info(
+                                    "Carry-forward activity_state for %s", facet_name
+                                )
+                                continue
+                            activity_state_llm_facets.add(facet_name)
 
                         # Always pass day for instructions.day context
                         request_config: dict = {"facet": facet_name, "day": day}
@@ -614,6 +1070,17 @@ def run_prompts_by_priority(
             + group_failed,
             current_agents=[],
         )
+
+        if priority == 95 and segment:
+            _refresh_activity_state_cache(
+                day=day,
+                segment=segment,
+                stream=stream,
+                facets=sorted(activity_state_llm_facets),
+                cache=as_cache,
+            )
+            _save_activity_state_cache(day, as_cache)
+            activity_changed = _detect_activity_state_change(day, segment, stream)
 
         total_success += group_success
         total_failed += group_failed
