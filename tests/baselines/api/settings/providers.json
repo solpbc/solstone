@@ -141,7 +141,7 @@
       "disabled": false,
       "group": "Think",
       "label": "Entity Extraction",
-      "schedule": "segment",
+      "schedule": "activity",
       "tier": 2,
       "type": "generate"
     },
