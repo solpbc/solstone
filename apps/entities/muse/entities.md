@@ -1,5 +1,6 @@
 {
   "type": "cogitate",
+  "tier": 3,
 
   "title": "Entity Detector",
   "description": "Mines journal for entity mentions and records facet-scoped detections with day-specific context",

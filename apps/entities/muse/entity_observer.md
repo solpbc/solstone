@@ -1,5 +1,6 @@
 {
   "type": "cogitate",
+  "tier": 3,
 
   "title": "Entity Observer",
   "description": "Extracts durable factoids about attached entities from journal content",
