@@ -426,7 +426,7 @@ _restart_requests: dict[str, tuple[float, subprocess.Popen]] = {}
 # Populated when observe.status events arrive with a stream field.
 _observer_health: dict[str, dict] = {}
 
-# Set of enabled observer process names (e.g. {"linux-observer", "tmux-observer"}).
+# Set of enabled observer process names (e.g. {"linux-observer"}).
 # Empty set means no observers. Used to gate health checks.
 _enabled_observers: set[str] = set()
 
@@ -1478,8 +1478,8 @@ def parse_args() -> argparse.ArgumentParser:
     parser.add_argument(
         "--observers",
         type=str,
-        default="linux,tmux",
-        help="Comma-separated observers to start: linux, tmux, none (default: linux,tmux)",
+        default="linux",
+        help="Comma-separated observers to start: linux, none (default: linux)",
     )
     parser.add_argument(
         "--no-daily",
@@ -1602,11 +1602,11 @@ def main() -> None:
         if "none" in obs_names:
             _enabled_observers = set()
         else:
-            valid = {"linux", "tmux"}
+            valid = {"linux"}
             for name in obs_names:
                 if name not in valid:
                     parser.error(
-                        f"Invalid observer: {name}. Choose from: linux, tmux, none"
+                        f"Invalid observer: {name}. Choose from: linux, none"
                     )
             _enabled_observers = {f"{name}-observer" for name in obs_names}
 
@@ -1662,12 +1662,6 @@ def main() -> None:
                     "linux-observer", ["sol", "observer", "-v"], restart=True
                 )
             )
-        if "tmux-observer" in _enabled_observers:
-            procs.append(
-                _launch_process(
-                    "tmux-observer", ["sol", "tmux-observer", "-v"], restart=True
-                )
-            )
     else:
         # Local mode: convey first (observers upload via HTTP to convey ingest)
         if not args.no_convey:
@@ -1682,12 +1676,6 @@ def main() -> None:
             procs.append(
                 _launch_process(
                     "linux-observer", ["sol", "observer", "-v"], restart=True
-                )
-            )
-        if "tmux-observer" in _enabled_observers:
-            procs.append(
-                _launch_process(
-                    "tmux-observer", ["sol", "tmux-observer", "-v"], restart=True
                 )
             )
         # Cortex after observers
@@ -1731,12 +1719,8 @@ def main() -> None:
     finally:
         logging.info("Stopping all processes...")
         print("\nShutting down gracefully (this may take a moment)...", flush=True)
-        observer_procs = [
-            p for p in procs if p.name in ("linux-observer", "tmux-observer")
-        ]
-        other_procs = [
-            p for p in procs if p.name not in ("linux-observer", "tmux-observer")
-        ]
+        observer_procs = [p for p in procs if p.name == "linux-observer"]
+        other_procs = [p for p in procs if p.name != "linux-observer"]
 
         def _stop_process(managed: ManagedProcess) -> None:
             name = managed.name

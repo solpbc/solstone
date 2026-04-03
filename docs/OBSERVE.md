@@ -60,11 +60,12 @@ TMUX ↔ IDLE transitions do **not** trigger boundaries, allowing tmux segments 
 - **linux/observer.py** - Linux capture using native APIs
 - **linux/screencast.py** - XDG Portal screencast with PipeWire + GStreamer
 - **gnome/activity.py** - GNOME-specific activity detection (idle, lock, power save)
-- **tmux/capture.py** - Tmux capture library (integrated into Linux observer for fallback capture)
 - **sense.py** - File watcher that dispatches transcription and description jobs
 - **transcribe.py** - Audio transcription with faster-whisper and sentence-level embeddings
 - **describe.py** - Vision analysis with Gemini, category-based prompts
 - **categories/** - Category-specific prompts for screen content (see [SCREEN_CATEGORIES.md](SCREEN_CATEGORIES.md))
+
+Standalone tmux capture is handled by the external `solstone-tmux` package, which runs as its own systemd user service.
 
 ## Output Formats
 

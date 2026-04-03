@@ -17,7 +17,7 @@ def test_check_health():
     """Test per-observer health checking based on observe.status event freshness."""
     mod = importlib.import_module("think.supervisor")
 
-    mod._enabled_observers = {"linux-observer", "tmux-observer"}
+    mod._enabled_observers = {"linux-observer"}
     mod._observer_health = {}
 
     # No status events yet - grace period, returns empty
@@ -34,22 +34,8 @@ def test_check_health():
     stale = mod.check_health(threshold=60)
     assert stale == ["archon"]
 
-    # Add tmux observer - fresh
-    mod._observer_health["archon.tmux"] = {
-        "last_ts": time.time(),
-        "ever_received": True,
-    }
-    stale = mod.check_health(threshold=60)
-    assert stale == ["archon"]
-
-    # Both stale
-    mod._observer_health["archon.tmux"]["last_ts"] = time.time() - 100
-    stale = mod.check_health(threshold=60)
-    assert sorted(stale) == ["archon", "archon.tmux"]
-
-    # Both fresh
+    # Fresh linux observer clears stale health
     mod._observer_health["archon"]["last_ts"] = time.time()
-    mod._observer_health["archon.tmux"]["last_ts"] = time.time()
     stale = mod.check_health(threshold=60)
     assert stale == []
 
@@ -155,7 +141,7 @@ async def test_clear_notification(monkeypatch):
 
 
 def test_start_observers_and_sense(tmp_path, mock_callosum, monkeypatch):
-    """Test that linux-observer, tmux-observer, and sense launch correctly."""
+    """Test that linux-observer and sense launch correctly."""
     mod = importlib.import_module("think.supervisor")
 
     started = []
@@ -194,13 +180,6 @@ def test_start_observers_and_sense(tmp_path, mock_callosum, monkeypatch):
     )
     assert linux_proc is not None
     assert any(cmd == ["sol", "observer", "-v"] for cmd, _, _ in started)
-
-    # Test tmux-observer
-    tmux_proc = mod._launch_process(
-        "tmux-observer", ["sol", "tmux-observer", "-v"], restart=True
-    )
-    assert tmux_proc is not None
-    assert any(cmd == ["sol", "tmux-observer", "-v"] for cmd, _, _ in started)
 
     # Test start_sense()
     sense_proc = mod.start_sense()
@@ -261,7 +240,7 @@ def test_start_sync(tmp_path, mock_callosum, monkeypatch):
 
 def test_parse_args_remote_flag():
     """Test that parse_args includes --remote flag."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
 
     parser = mod.parse_args()
     args = parser.parse_args(["--remote", "https://server/ingest/key"])
@@ -271,7 +250,7 @@ def test_parse_args_remote_flag():
 
 def test_parse_args_remote_flag_optional():
     """Test that --remote is optional."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
 
     parser = mod.parse_args()
     args = parser.parse_args([])
@@ -281,12 +260,12 @@ def test_parse_args_remote_flag_optional():
 
 def test_parse_args_observers_flag():
     """Test --observers flag parsing."""
-    mod = importlib.import_module("think.supervisor")
+    mod = importlib.reload(importlib.import_module("think.supervisor"))
 
     parser = mod.parse_args()
 
     args = parser.parse_args([])
-    assert args.observers == "linux,tmux"
+    assert args.observers == "linux"
 
     args = parser.parse_args(["--observers", "linux"])
     assert args.observers == "linux"
@@ -333,7 +312,6 @@ def test_shutdown_pauses_after_observers(monkeypatch):
         MockManaged("convey"),
         MockManaged("sense"),
         MockManaged("linux-observer"),
-        MockManaged("tmux-observer"),
         MockManaged("cortex"),
     ]
 
@@ -345,10 +323,8 @@ def test_shutdown_pauses_after_observers(monkeypatch):
 
     monkeypatch.setattr(mod.time, "sleep", fake_sleep)
 
-    observer_procs = [p for p in procs if p.name in ("linux-observer", "tmux-observer")]
-    other_procs = [
-        p for p in procs if p.name not in ("linux-observer", "tmux-observer")
-    ]
+    observer_procs = [p for p in procs if p.name == "linux-observer"]
+    other_procs = [p for p in procs if p.name != "linux-observer"]
 
     for managed in observer_procs:
         proc = managed.process
@@ -381,9 +357,6 @@ def test_shutdown_pauses_after_observers(monkeypatch):
         ("terminate", "linux-observer"),
         ("wait", "linux-observer"),
         ("cleanup", "linux-observer"),
-        ("terminate", "tmux-observer"),
-        ("wait", "tmux-observer"),
-        ("cleanup", "tmux-observer"),
         ("sleep", 2),
         ("terminate", "cortex"),
         ("wait", "cortex"),
@@ -400,12 +373,8 @@ def test_shutdown_pauses_after_observers(monkeypatch):
     operations.clear()
     sleep_calls.clear()
     procs_no_obs = [MockManaged("sense"), MockManaged("cortex")]
-    observer_procs = [
-        p for p in procs_no_obs if p.name in ("linux-observer", "tmux-observer")
-    ]
-    other_procs = [
-        p for p in procs_no_obs if p.name not in ("linux-observer", "tmux-observer")
-    ]
+    observer_procs = [p for p in procs_no_obs if p.name == "linux-observer"]
+    other_procs = [p for p in procs_no_obs if p.name != "linux-observer"]
 
     for managed in observer_procs:
         managed.process.terminate()
