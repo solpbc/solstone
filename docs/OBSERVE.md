@@ -2,13 +2,14 @@
 
 Multimodal capture and AI-powered analysis of desktop activity.
 
+On macOS, capture is handled by the `solstone-macos` native companion app rather than a built-in Python observer.
+
 ## Commands
 
 | Command | Purpose |
 |---------|---------|
 | `sol observer` | Screen and audio capture (auto-detects platform) |
 | `sol observe-linux` | Screen and audio capture on Linux (direct) |
-| `sol observe-macos` | Screen and audio capture on macOS (direct) |
 | `sol transcribe` | Audio transcription with faster-whisper |
 | `sol describe` | Visual analysis of screen recordings |
 | `sol sense` | Unified observation coordination |
@@ -56,7 +57,7 @@ TMUX ↔ IDLE transitions do **not** trigger boundaries, allowing tmux segments 
 ## Key Components
 
 - **observer.py** - Unified entry point with platform detection
-- **linux/observer.py**, **macos/observer.py** - Platform-specific capture using native APIs
+- **linux/observer.py** - Linux capture using native APIs
 - **linux/screencast.py** - XDG Portal screencast with PipeWire + GStreamer
 - **gnome/activity.py** - GNOME-specific activity detection (idle, lock, power save)
 - **tmux/capture.py** - Tmux capture library (integrated into Linux observer for fallback capture)

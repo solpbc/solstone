@@ -200,9 +200,9 @@ socat - UNIX-CONNECT:journal/health/callosum.sock
 
 **Symptoms:** `sol describe` fails with `av.error.InvalidDataError: Invalid data found when processing input`. Sense logs show `describe failed ... exit code 1` and `Segment observed with errors ... ['describe exit 1']`.
 
-**Diagnosis:** The `.mov` file has `ftyp` + `wide` + `mdat` atoms but is missing the `moov` atom. The `mdat` size is 0 (extends-to-EOF). This means the screen recorder (sck-cli) never finalized the file — it wrote video frames but crashed or was interrupted before writing the metadata index.
+**Diagnosis:** The `.mov` file has `ftyp` + `wide` + `mdat` atoms but is missing the `moov` atom. The `mdat` size is 0 (extends-to-EOF). This means the screen recorder (solstone-macos native app) never finalized the file — it wrote video frames but crashed or was interrupted before writing the metadata index.
 
-Known trigger: screen sharing active during sck-cli capture causes AVAssetWriter finalization to be skipped (missing `endSession()` call in `VideoWriter.swift`).
+Known trigger: screen sharing active during solstone-macos native app capture causes AVAssetWriter finalization to be skipped (missing `endSession()` call in `VideoWriter.swift`).
 
 ```bash
 # Confirm the issue — should report "moov atom not found"

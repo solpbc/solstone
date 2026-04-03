@@ -46,10 +46,6 @@ dependencies = [
     # Linux-only: GNOME/GTK integration
     "PyGObject; sys_platform == 'linux'",
     "dbus-next; sys_platform == 'linux'",
-    # macOS-only: PyObjC for activity detection
-    "pyobjc-core; sys_platform == 'darwin'",
-    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",
-    "pyobjc-framework-Quartz; sys_platform == 'darwin'",
     "desktop-notifier",
     "setproctitle",
     "av",

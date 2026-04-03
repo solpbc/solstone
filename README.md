@@ -59,7 +59,7 @@ Python 3.10+, Linux + macOS, AGPL-3.0-only, maintained by [sol pbc](https://solp
                      +-------------+
 ```
 
-- **observe** — captures audio (PipeWire on Linux, sck-cli on macOS) and screen activity. produces FLAC audio, WebM screen recordings, and timestamped metadata.
+- **observe** — captures audio (PipeWire on Linux, solstone-macos native app on macOS) and screen activity. produces FLAC audio, WebM screen recordings, and timestamped metadata.
 - **think** — transcribes audio (faster-whisper), analyzes screen captures, extracts entities, detects meetings, and indexes everything into SQLite. runs 30 configurable agent/generator templates from `muse/`.
 - **cortex** — orchestrates agent execution. receives events, dispatches agents, writes results back to the journal.
 - **callosum** — async message bus connecting all services. enables event-driven coordination between observe, think, cortex, and convey.
