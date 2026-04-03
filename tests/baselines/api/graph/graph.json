@@ -452,7 +452,7 @@
       "name": "Mercutio Escalus",
       "observation_depth": 3,
       "recency": 0.6,
-      "score": 88.8,
+      "score": 88.7,
       "type": "person"
     },
     {
@@ -465,7 +465,7 @@
       "name": "Tybalt Capulet",
       "observation_depth": 4,
       "recency": 0.6,
-      "score": 91.8,
+      "score": 91.7,
       "type": "person"
     },
     {
@@ -478,7 +478,7 @@
       "name": "Juliet Capulet",
       "observation_depth": 2,
       "recency": 0.6,
-      "score": 92.8,
+      "score": 92.7,
       "type": "person"
     },
     {
@@ -504,7 +504,7 @@
       "name": "Romeo Montague",
       "observation_depth": 2,
       "recency": 0.6,
-      "score": 53.8,
+      "score": 53.7,
       "type": "person"
     },
     {
@@ -517,7 +517,7 @@
       "name": "Rosaline Prince",
       "observation_depth": 2,
       "recency": 0.6,
-      "score": 63.8,
+      "score": 63.7,
       "type": "person"
     },
     {
@@ -543,7 +543,7 @@
       "name": "Prince Escalus",
       "observation_depth": 2,
       "recency": 0.6,
-      "score": 76.8,
+      "score": 76.7,
       "type": "person"
     },
     {
@@ -556,7 +556,7 @@
       "name": "Verona Platform",
       "observation_depth": 3,
       "recency": 0.6,
-      "score": 109.8,
+      "score": 109.7,
       "type": "project"
     },
     {
@@ -582,7 +582,7 @@
       "name": "Paris Duke",
       "observation_depth": 2,
       "recency": 0.6,
-      "score": 54.8,
+      "score": 54.7,
       "type": "person"
     },
     {
@@ -595,7 +595,7 @@
       "name": "Benvolio Montague",
       "observation_depth": 3,
       "recency": 0.6,
-      "score": 74.8,
+      "score": 74.7,
       "type": "person"
     },
     {
@@ -608,7 +608,7 @@
       "name": "Friar Lawrence",
       "observation_depth": 2,
       "recency": 0.6,
-      "score": 78.8,
+      "score": 78.7,
       "type": "person"
     }
   ],
