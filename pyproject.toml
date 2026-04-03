@@ -43,9 +43,6 @@ dependencies = [
     "timefhuman",
     "Pillow",
     "numpy",
-    # Linux-only: GNOME/GTK integration
-    "PyGObject; sys_platform == 'linux'",
-    "dbus-next; sys_platform == 'linux'",
     "desktop-notifier",
     "setproctitle",
     "av",
@@ -66,7 +63,6 @@ dependencies = [
     "typer",
 
     # Audio processing
-    "soundcard",
     "soundfile",
     "faster-whisper>=1.0.0",
     "resemblyzer>=0.1.0",
@@ -119,9 +115,6 @@ exclude = [".venv", "scratch", "logs", "build", "dist"]
 [tool.ruff.lint]
 select = ["F", "E", "W", "I"]
 ignore = ["E501", "E203", "E402"]
-
-[tool.ruff.lint.per-file-ignores]
-"observe/gnome/activity.py" = ["E402"]
 
 [tool.mypy]
 python_version = "3.12"

@@ -8,9 +8,9 @@ Observers are independent capture agents that upload segments to solstone via th
 
 | Observer | What it captures | Repo | Runs as |
 |----------|-----------------|------|---------|
+| **solstone-linux** | Screen + audio on Linux | `solstone-linux` | systemd user service / standalone |
 | **solstone-macos** | Screen + audio on macOS | `solstone-macos` | Native menu bar app |
 | **solstone-tmux** | Tmux terminal sessions | `solstone-tmux` | systemd user service / standalone |
-| **Linux observer** | Screen + audio on Linux | Built-in (`observe/linux/`) | Supervisor-managed process |
 
 ### Managing observers
 

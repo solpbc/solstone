@@ -59,9 +59,7 @@ COMMANDS: dict[str, str] = {
     "sense": "observe.sense",
     "sync": "observe.sync",
     "transfer": "observe.transfer",
-    "observer": "observe.observer",
     "remote": "observe.remote_cli",
-    "observe-linux": "observe.linux.observer",
     # AI agents (formerly muse package)
     "agents": "think.agents",
     "cortex": "think.cortex",
@@ -116,7 +114,6 @@ GROUPS: dict[str, list[str]] = {
         "sense",
         "sync",
         "transfer",
-        "observer",
         "remote",
     ],
     "Muse (AI agents)": [
@@ -137,7 +134,6 @@ GROUPS: dict[str, list[str]] = {
         "journal-stats",
         "formatter",
         "detect-created",
-        "observe-linux",
     ],
     "Help": ["help", "chat"],
 }

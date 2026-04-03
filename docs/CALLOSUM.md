@@ -70,14 +70,14 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 
 ### `observe` - Multimodal capture and processing
 **Sources:**
-- Capture: `observe/observer.py` → `observe/linux/observer.py` (macOS capture comes from remote/native observers)
+- Capture: standalone observer services (solstone-linux, solstone-tmux, solstone-macos) upload via remote ingest
 - Processing: `observe/sense.py`, `observe/describe.py`, `observe/transcribe/`
 
 **Events:**
 | Event | Emitter | Purpose |
 |-------|---------|---------|
-| `status` | observer, sense | Periodic state (every 5s) - see `emit_status()` in each source |
-| `observing` | observer | Recording window boundary crossed, files saved |
+| `status` | sense | Periodic state (every 5s) - see `emit_status()` in source |
+| `observing` | ingest | Recording window boundary crossed, files saved |
 | `detected` | sense | File detected, handler spawned |
 | `described` | describe | Vision analysis complete |
 | `transcribed` | transcribe | Audio transcription complete (includes VAD metadata) |

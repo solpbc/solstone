@@ -167,9 +167,9 @@ sol supervisor 8000    # Use a specific port
 ```
 
 This starts:
-- **Observer** - Screen and audio capture
 - **Sense** - File detection and processing dispatch
 - **Callosum** - Message bus for inter-service communication
+- **Cortex** - Agent execution
 
 ### Verify Services
 
@@ -227,7 +227,7 @@ Verify everything is working:
 
 ```bash
 # Check services are running
-pgrep -af "sol:observer|sol:sense|sol:supervisor"
+pgrep -af "sol:sense|sol:supervisor"
 
 # Check Callosum socket exists
 ls -la journal/health/callosum.sock
@@ -243,7 +243,7 @@ See [DOCTOR.md](DOCTOR.md) for troubleshooting.
 ## Next Steps
 
 - Create your first facet (project/context) in the web interface
-- Start capturing - the observer runs automatically
+- Set up a standalone observer for your platform (solstone-linux, solstone-macos)
 - Review captured content in the Calendar and Transcripts apps
 - Chat with the AI about your journal content
 

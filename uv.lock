@@ -726,15 +726,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dbus-next"
-version = "0.2.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ce/45/6a40fbe886d60a8c26f480e7d12535502b5ba123814b3b9a0b002ebca198/dbus_next-0.2.3.tar.gz", hash = "sha256:f4eae26909332ada528c0a3549dda8d4f088f9b365153952a408e28023a626a5", size = 71112, upload-time = "2021-07-25T22:11:28.398Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d2/fc/c0a3f4c4eaa5a22fbef91713474666e13d0ea2a69c84532579490a9f2cc8/dbus_next-0.2.3-py3-none-any.whl", hash = "sha256:58948f9aff9db08316734c0be2a120f6dc502124d9642f55e90ac82ffb16a18b", size = 57885, upload-time = "2021-07-25T22:11:25.466Z" },
-]
-
-[[package]]
 name = "decorator"
 version = "5.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2398,12 +2389,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pycairo"
-version = "1.29.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/22/d9/1728840a22a4ef8a8f479b9156aa2943cd98c3907accd3849fb0d5f82bfd/pycairo-1.29.0.tar.gz", hash = "sha256:f3f7fde97325cae80224c09f12564ef58d0d0f655da0e3b040f5807bd5bd3142", size = 665871, upload-time = "2025-11-11T19:13:01.584Z" }
-
-[[package]]
 name = "pycparser"
 version = "3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2579,15 +2564,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/b0/77/a5b8c569bf593b014
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl", hash = "sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b", size = 1225217, upload-time = "2025-06-21T13:39:07.939Z" },
 ]
-
-[[package]]
-name = "pygobject"
-version = "3.54.5"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pycairo" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d3/a5/68f883df1d8442e3b267cb92105a4b2f0de819bd64ac9981c2d680d3f49f/pygobject-3.54.5.tar.gz", hash = "sha256:b6656f6348f5245606cf15ea48c384c7f05156c75ead206c1b246c80a22fb585", size = 1274658, upload-time = "2025-10-18T13:45:03.121Z" }
 
 [[package]]
 name = "pyjwt"
@@ -3530,7 +3506,6 @@ dependencies = [
     { name = "anthropic" },
     { name = "av" },
     { name = "blessed" },
-    { name = "dbus-next", marker = "sys_platform == 'linux'" },
     { name = "desktop-notifier" },
     { name = "faster-whisper" },
     { name = "flask", extra = ["async"] },
@@ -3550,7 +3525,6 @@ dependencies = [
     { name = "pillow" },
     { name = "playwright" },
     { name = "psutil" },
-    { name = "pygobject", marker = "sys_platform == 'linux'" },
     { name = "pypdf" },
     { name = "pytesseract" },
     { name = "pytest" },
@@ -3565,7 +3539,6 @@ dependencies = [
     { name = "resemblyzer" },
     { name = "ruff" },
     { name = "setproctitle" },
-    { name = "soundcard" },
     { name = "soundfile" },
     { name = "timefhuman" },
     { name = "typer" },
@@ -3578,7 +3551,6 @@ requires-dist = [
     { name = "anthropic" },
     { name = "av" },
     { name = "blessed", specifier = ">=1.20.0" },
-    { name = "dbus-next", marker = "sys_platform == 'linux'" },
     { name = "desktop-notifier" },
     { name = "faster-whisper", specifier = ">=1.0.0" },
     { name = "flask", extras = ["async"] },
@@ -3597,7 +3569,6 @@ requires-dist = [
     { name = "pillow" },
     { name = "playwright", specifier = ">=1.40.0" },
     { name = "psutil" },
-    { name = "pygobject", marker = "sys_platform == 'linux'" },
     { name = "pypdf" },
     { name = "pytesseract" },
     { name = "pytest" },
@@ -3612,26 +3583,11 @@ requires-dist = [
     { name = "resemblyzer", specifier = ">=0.1.0" },
     { name = "ruff" },
     { name = "setproctitle" },
-    { name = "soundcard" },
     { name = "soundfile" },
     { name = "timefhuman" },
     { name = "typer" },
     { name = "tzlocal" },
     { name = "webrtcvad-wheels", specifier = ">=2.0.12" },
-]
-
-[[package]]
-name = "soundcard"
-version = "0.4.5"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cffi" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b8/b4/2064f857a9e6e6e3b152fae339f32beb65cfbcd11878d2e4a020e88fc36d/soundcard-0.4.5.tar.gz", hash = "sha256:07272ba927e32cafdf634e4a1ca53b9a3218321a60c7d2e08f54b832a56946aa", size = 40831, upload-time = "2025-09-15T19:08:42.95Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fa/d5/700e3018056716c627d8ea783594fc939f74c5878a671c0673281d9e069d/soundcard-0.4.5-py3-none-any.whl", hash = "sha256:8a19c3d5486250bb2990dbd91a75ddf9f15cab39f24ff607e5bce812f43b4917", size = 43923, upload-time = "2025-09-15T19:08:41.339Z" },
 ]
 
 [[package]]

@@ -3,87 +3,12 @@
 
 import importlib
 import io
-import logging
 import os
 import subprocess
 import sys
-import time
 from unittest.mock import MagicMock
 
 import pytest
-
-
-def test_check_health():
-    """Test per-observer health checking based on observe.status event freshness."""
-    mod = importlib.import_module("think.supervisor")
-
-    mod._enabled_observers = {"linux-observer"}
-    mod._observer_health = {}
-
-    # No status events yet - grace period, returns empty
-    stale = mod.check_health(threshold=60)
-    assert stale == []
-
-    # Simulate first status from linux observer
-    mod._observer_health["archon"] = {"last_ts": time.time(), "ever_received": True}
-    stale = mod.check_health(threshold=60)
-    assert stale == []
-
-    # Linux observer goes stale
-    mod._observer_health["archon"]["last_ts"] = time.time() - 100
-    stale = mod.check_health(threshold=60)
-    assert stale == ["archon"]
-
-    # Fresh linux observer clears stale health
-    mod._observer_health["archon"]["last_ts"] = time.time()
-    stale = mod.check_health(threshold=60)
-    assert stale == []
-
-
-def test_check_health_observer_disabled(monkeypatch):
-    """Test that health checks are skipped when no observers are enabled."""
-    mod = importlib.import_module("think.supervisor")
-
-    monkeypatch.setattr(mod, "_enabled_observers", set())
-
-    # Even with stale health entries, should return empty
-    mod._observer_health["archon"] = {"last_ts": 0.0, "ever_received": True}
-    stale = mod.check_health(threshold=60)
-    assert stale == []
-
-
-def test_handle_observe_status():
-    """Test that observe.status events update per-observer health state."""
-    mod = importlib.import_module("think.supervisor")
-
-    mod._observer_health = {}
-
-    # Status with stream field creates health entry
-    mod._handle_observe_status(
-        {"tract": "observe", "event": "status", "stream": "archon"}
-    )
-    assert "archon" in mod._observer_health
-    assert mod._observer_health["archon"]["last_ts"] > 0
-    assert mod._observer_health["archon"]["ever_received"] is True
-
-    # Second stream creates separate entry
-    mod._handle_observe_status(
-        {"tract": "observe", "event": "status", "stream": "archon.tmux"}
-    )
-    assert "archon.tmux" in mod._observer_health
-    assert mod._observer_health["archon.tmux"]["ever_received"] is True
-
-    # Non-observe messages should be ignored
-    old_ts = mod._observer_health["archon"]["last_ts"]
-    mod._handle_observe_status(
-        {"tract": "supervisor", "event": "status", "stream": "archon"}
-    )
-    assert mod._observer_health["archon"]["last_ts"] == old_ts
-
-    # Events without stream field ignored (sense status)
-    mod._observer_health = {}
-    mod._handle_observe_status({"tract": "observe", "event": "status"})
-    assert mod._observer_health == {}
 
 
 @pytest.mark.asyncio
@@ -140,8 +65,8 @@ async def test_clear_notification(monkeypatch):
     assert len(cleared) == 1  # Still just one clear call
 
 
-def test_start_observers_and_sense(tmp_path, mock_callosum, monkeypatch):
-    """Test that linux-observer and sense launch correctly."""
+def test_start_sense(tmp_path, mock_callosum, monkeypatch):
+    """Test that sense launches correctly."""
     mod = importlib.import_module("think.supervisor")
 
     started = []
@@ -173,13 +98,6 @@ def test_start_observers_and_sense(tmp_path, mock_callosum, monkeypatch):
 
     monkeypatch.setattr(mod.subprocess, "Popen", fake_popen)
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-
-    # Test linux-observer
-    linux_proc = mod._launch_process(
-        "linux-observer", ["sol", "observer", "-v"], restart=True
-    )
-    assert linux_proc is not None
-    assert any(cmd == ["sol", "observer", "-v"] for cmd, _, _ in started)
 
     # Test start_sense()
     sense_proc = mod.start_sense()
@@ -258,27 +176,8 @@ def test_parse_args_remote_flag_optional():
     assert args.remote is None
 
 
-def test_parse_args_observers_flag():
-    """Test --observers flag parsing."""
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
-
-    parser = mod.parse_args()
-
-    args = parser.parse_args([])
-    assert args.observers == "linux"
-
-    args = parser.parse_args(["--observers", "linux"])
-    assert args.observers == "linux"
-
-    args = parser.parse_args(["--observers", "none"])
-    assert args.observers == "none"
-
-    args = parser.parse_args(["--no-observers"])
-    assert args.no_observers is True
-
-
-def test_shutdown_pauses_after_observers(monkeypatch):
-    """Shutdown stops observers first, drains 2s, then remaining services."""
+def test_shutdown_stops_in_reverse_order(monkeypatch):
+    """Shutdown stops services in reverse order."""
     mod = importlib.import_module("think.supervisor")
 
     operations = []
@@ -311,37 +210,10 @@ def test_shutdown_pauses_after_observers(monkeypatch):
     procs = [
         MockManaged("convey"),
         MockManaged("sense"),
-        MockManaged("linux-observer"),
         MockManaged("cortex"),
     ]
 
-    sleep_calls = []
-
-    def fake_sleep(seconds):
-        operations.append(("sleep", seconds))
-        sleep_calls.append(seconds)
-
-    monkeypatch.setattr(mod.time, "sleep", fake_sleep)
-
-    observer_procs = [p for p in procs if p.name == "linux-observer"]
-    other_procs = [p for p in procs if p.name != "linux-observer"]
-
-    for managed in observer_procs:
-        proc = managed.process
-        try:
-            proc.terminate()
-        except Exception:
-            pass
-        try:
-            proc.wait(timeout=managed.shutdown_timeout)
-        except Exception:
-            pass
-        managed.cleanup()
-
-    if observer_procs:
-        mod.time.sleep(2)
-
-    for managed in reversed(other_procs):
+    for managed in reversed(procs):
         proc = managed.process
         try:
             proc.terminate()
@@ -354,10 +226,6 @@ def test_shutdown_pauses_after_observers(monkeypatch):
         managed.cleanup()
 
     assert operations == [
-        ("terminate", "linux-observer"),
-        ("wait", "linux-observer"),
-        ("cleanup", "linux-observer"),
-        ("sleep", 2),
         ("terminate", "cortex"),
         ("wait", "cortex"),
         ("cleanup", "cortex"),
@@ -368,80 +236,6 @@ def test_shutdown_pauses_after_observers(monkeypatch):
         ("wait", "convey"),
         ("cleanup", "convey"),
     ]
-    assert sleep_calls == [2]
-
-    operations.clear()
-    sleep_calls.clear()
-    procs_no_obs = [MockManaged("sense"), MockManaged("cortex")]
-    observer_procs = [p for p in procs_no_obs if p.name == "linux-observer"]
-    other_procs = [p for p in procs_no_obs if p.name != "linux-observer"]
-
-    for managed in observer_procs:
-        managed.process.terminate()
-        managed.process.wait(timeout=managed.shutdown_timeout)
-        managed.cleanup()
-
-    if observer_procs:
-        mod.time.sleep(2)
-
-    for managed in reversed(other_procs):
-        managed.process.terminate()
-        managed.process.wait(timeout=managed.shutdown_timeout)
-        managed.cleanup()
-
-    assert sleep_calls == []
-
-
-@pytest.mark.asyncio
-async def test_supervise_logs_recovery(mock_callosum, monkeypatch, caplog):
-    mod = importlib.reload(importlib.import_module("think.supervisor"))
-    mod.shutdown_requested = False
-
-    health_states = [["archon"], []]
-    time_counter = {"value": 0.0}  # Use dict to allow mutation in closure
-
-    def fake_time():
-        """Auto-incrementing time mock that won't run out of values."""
-        current = time_counter["value"]
-        time_counter["value"] += 1.0
-        return current
-
-    def fake_check_health(threshold):
-        state = health_states.pop(0)
-        if not health_states:
-            mod.shutdown_requested = True
-        return state
-
-    async def fake_send_notification(*args, **kwargs):
-        pass
-
-    async def fake_clear_notification(*args, **kwargs):
-        pass
-
-    async def fake_sleep(_):
-        pass
-
-    def fake_handle_daily_tasks():
-        pass
-
-    monkeypatch.setattr(mod, "check_runner_exits", lambda procs: [])
-    monkeypatch.setattr(mod, "check_health", fake_check_health)
-    monkeypatch.setattr(mod, "send_notification", fake_send_notification)
-    monkeypatch.setattr(mod, "clear_notification", fake_clear_notification)
-    monkeypatch.setattr(mod, "handle_daily_tasks", fake_handle_daily_tasks)
-    monkeypatch.setattr(mod.time, "time", fake_time)
-    monkeypatch.setattr(mod.asyncio, "sleep", fake_sleep)
-
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "/test/journal")
-
-    with caplog.at_level(logging.INFO):
-        await mod.supervise(threshold=1, interval=1, schedule=False, procs=[])
-
-    messages = [record.getMessage() for record in caplog.records]
-    assert "archon heartbeat recovered" in messages
-    assert messages.count("Heartbeat OK") == 1
-
-    mod.shutdown_requested = False
 
 
 def test_get_command_name():

@@ -421,15 +421,6 @@ _callosum_thread: threading.Thread | None = None
 # Restart request tracking for SIGKILL enforcement
 _restart_requests: dict[str, tuple[float, subprocess.Popen]] = {}
 
-# Per-observer health state, keyed by stream name from observe.status events.
-# Each value: {"last_ts": float, "ever_received": bool}
-# Populated when observe.status events arrive with a stream field.
-_observer_health: dict[str, dict] = {}
-
-# Set of enabled observer process names (e.g. {"linux-observer"}).
-# Empty set means no observers. Used to gate health checks.
-_enabled_observers: set[str] = set()
-
 # Track whether running in remote mode (upload-only, no local processing)
 _is_remote_mode: bool = False
 
@@ -550,36 +541,6 @@ def _launch_process(
         threads=managed._threads,
         ref=managed.ref,
     )
-
-
-def check_health(threshold: int = DEFAULT_THRESHOLD) -> list[str]:
-    """Return a list of stale observer stream names based on observe.status events.
-
-    Returns stream names of observers that haven't sent status within threshold.
-    During startup grace period (before first status event per stream),
-    returns empty list for that stream to avoid false alerts.
-
-    When no observers are enabled, always returns empty list.
-    """
-    if not _enabled_observers:
-        return []
-
-    stale = []
-    now = time.time()
-    for stream, state in _observer_health.items():
-        if not state["ever_received"]:
-            continue
-        if now - state["last_ts"] > threshold:
-            stale.append(stream)
-
-    return stale
-
-
-def _latest_observe_ts() -> float:
-    """Return the most recent observe.status timestamp across all observers."""
-    if not _observer_health:
-        return 0.0
-    return max(s["last_ts"] for s in _observer_health.values())
 
 
 def _get_notifier() -> DesktopNotifier:
@@ -795,9 +756,6 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
     tasks = _task_queue.collect_task_status() if _task_queue else []
     queues = _task_queue.collect_queue_counts() if _task_queue else {}
 
-    # Stale heartbeats
-    stale = check_health()
-
     # Scheduled tasks
     schedules = scheduler.collect_status()
     # Connected callosum clients
@@ -808,7 +766,7 @@ def collect_status(procs: list[ManagedProcess]) -> dict:
         "crashed": crashed,
         "tasks": tasks,
         "queues": queues,
-        "stale_heartbeats": stale,
+        "stale_heartbeats": [],
         "schedules": schedules,
         "callosum_clients": callosum_clients,
     }
@@ -1011,78 +969,6 @@ async def handle_runner_exits(
             logging.info("Not restarting %s", managed.name)
 
 
-async def handle_health_checks(
-    last_check: float,
-    interval: int,
-    threshold: int,
-    alert_mgr: AlertManager,
-    prev_stale: set[str],
-) -> tuple[float, set[str]]:
-    """Perform periodic health checks. Returns (new_last_check, new_prev_stale)."""
-    now = time.time()
-    if now - last_check < interval:
-        return last_check, prev_stale
-
-    stale = check_health(threshold)
-    stale_set = set(stale)
-
-    recovered = sorted(prev_stale - stale_set)
-    for name in recovered:
-        logging.info("%s heartbeat recovered", name)
-        # Clear notifications for recovered heartbeats
-        stale_key = ("stale", tuple(sorted(prev_stale)))
-        await alert_mgr.clear(stale_key)
-
-    # Write capture status to awareness on transitions
-    if stale_set != prev_stale:
-        try:
-            from think.awareness import update_state
-
-            if stale_set:
-                update_state(
-                    "capture",
-                    {
-                        "status": "stale",
-                        "last_seen": _latest_observe_ts(),
-                    },
-                )
-            elif prev_stale:
-                update_state(
-                    "capture",
-                    {
-                        "status": "ok",
-                        "last_seen": _latest_observe_ts(),
-                    },
-                )
-        except Exception:
-            logging.debug("Failed to write capture status to awareness", exc_info=True)
-
-    if stale_set:
-        msg = f"Journaling offline: {', '.join(sorted(stale_set))}"
-        logging.warning(msg)
-
-        stale_key = ("stale", tuple(sorted(stale_set)))
-
-        # Clear any previous stale notifications with different keys
-        for key in list(_notification_ids.keys()):
-            if key[0] == "stale" and key != stale_key:
-                await clear_notification(key)
-
-        await alert_mgr.alert_if_ready(stale_key, msg)
-
-        # Retain only alert state entries still relevant
-        alert_mgr.clear_matching(
-            lambda k, v: k[0] == "stale" and not set(k[1]).issubset(stale_set)
-        )
-    else:
-        if prev_stale:
-            logging.info("Heartbeat OK")
-        # Clear alert state for stale services when they recover
-        alert_mgr.clear_matching(lambda k, v: k[0] == "stale")
-
-    return now, stale_set
-
-
 def handle_daily_tasks() -> None:
     """Check for day change and submit daily dream for updated days (non-blocking).
 
@@ -1243,27 +1129,6 @@ def _check_segment_flush(force: bool = False) -> None:
         )
 
 
-def _handle_observe_status(message: dict) -> None:
-    """Handle observe.status events for per-observer health monitoring.
-
-    Tracks status freshness per stream. The stream field identifies the
-    observer (e.g. "archon" for linux, "archon.tmux" for tmux).
-    Events without a stream field (e.g. from sense) are ignored for health.
-    """
-    if message.get("tract") != "observe" or message.get("event") != "status":
-        return
-
-    stream = message.get("stream")
-    if not stream:
-        return  # sense status events don't have stream field
-
-    if stream not in _observer_health:
-        _observer_health[stream] = {"last_ts": 0.0, "ever_received": False}
-
-    _observer_health[stream]["last_ts"] = time.time()
-    _observer_health[stream]["ever_received"] = True
-
-
 def _handle_segment_event_log(message: dict) -> None:
     """Log observe, dream, and activity events with day+segment to segment/events.jsonl.
 
@@ -1370,7 +1235,6 @@ def _handle_callosum_message(message: dict) -> None:
     _handle_supervisor_request(message)
     _handle_code_shipped(message)
     _handle_segment_observed(message)
-    _handle_observe_status(message)
     _handle_activity_recorded(message)
     _handle_dream_daily_complete(message)
     _handle_segment_event_log(message)
@@ -1378,23 +1242,17 @@ def _handle_callosum_message(message: dict) -> None:
 
 async def supervise(
     *,
-    threshold: int = DEFAULT_THRESHOLD,
-    interval: int = CHECK_INTERVAL,
     daily: bool = True,
     schedule: bool = True,
     procs: list[ManagedProcess] | None = None,
 ) -> None:
-    """Monitor health via Callosum events and alert when stale.
+    """Main supervision loop. Runs at 1-second intervals for responsiveness.
 
-    Health is derived from observe.status events (see check_health()).
-    Main supervision loop runs at 1-second intervals for responsiveness.
-    Subsystems manage their own timing (health checks every interval seconds,
-    scheduled agents check continuously but only advance when ready).
+    Monitors runner health, emits status, triggers daily processing,
+    and checks scheduled agents.
     """
     alert_mgr = AlertManager()
-    last_health_check = 0.0
     last_status_emit = 0.0
-    prev_stale: set[str] = set()
 
     try:
         while (
@@ -1417,11 +1275,6 @@ async def supervise(
             # Check for runner exits first (immediate alert)
             if procs:
                 await handle_runner_exits(procs, alert_mgr)
-
-            # Check health periodically (interval-based timing)
-            last_health_check, prev_stale = await handle_health_checks(
-                last_health_check, interval, threshold, alert_mgr, prev_stale
-            )
 
             # Emit status every 5 seconds
             now = time.time()
@@ -1469,17 +1322,6 @@ def parse_args() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--interval", type=int, default=CHECK_INTERVAL, help="Polling interval seconds"
-    )
-    parser.add_argument(
-        "--no-observers",
-        action="store_true",
-        help="Do not start observers (sense still runs for remote/imports)",
-    )
-    parser.add_argument(
-        "--observers",
-        type=str,
-        default="linux",
-        help="Comma-separated observers to start: linux, none (default: linux)",
     )
     parser.add_argument(
         "--no-daily",
@@ -1588,27 +1430,13 @@ def main() -> None:
     print(f"Journal: {path} (from {source})")
     logging.info("Supervisor starting...")
 
-    global _managed_procs, _supervisor_callosum, _enabled_observers, _is_remote_mode
+    global _managed_procs, _supervisor_callosum, _is_remote_mode
     global _task_queue
     procs: list[ManagedProcess] = []
     convey_port = None
 
     # Remote mode: run sync instead of local processing
     _is_remote_mode = bool(args.remote)
-    if args.no_observers:
-        _enabled_observers = set()
-    else:
-        obs_names = [o.strip() for o in args.observers.split(",")]
-        if "none" in obs_names:
-            _enabled_observers = set()
-        else:
-            valid = {"linux"}
-            for name in obs_names:
-                if name not in valid:
-                    parser.error(
-                        f"Invalid observer: {name}. Choose from: linux, none"
-                    )
-            _enabled_observers = {f"{name}-observer" for name in obs_names}
 
     # Start Callosum in-process first - it's the message bus that other services depend on
     try:
@@ -1655,15 +1483,8 @@ def main() -> None:
             parser.error(f"Remote server not available: {message}")
         logging.info(f"Remote server verified: {message}")
         procs.append(start_sync(args.remote))
-        # Start enabled observers (they upload to remote convey ingest)
-        if "linux-observer" in _enabled_observers:
-            procs.append(
-                _launch_process(
-                    "linux-observer", ["sol", "observer", "-v"], restart=True
-                )
-            )
     else:
-        # Local mode: convey first (observers upload via HTTP to convey ingest)
+        # Local mode: convey first, then sense for file processing
         if not args.no_convey:
             proc, convey_port = start_convey_server(
                 verbose=args.verbose, debug=args.debug, port=args.port
@@ -1671,14 +1492,7 @@ def main() -> None:
             procs.append(proc)
         # Sense handles file processing
         procs.append(start_sense())
-        # Start enabled observers
-        if "linux-observer" in _enabled_observers:
-            procs.append(
-                _launch_process(
-                    "linux-observer", ["sol", "observer", "-v"], restart=True
-                )
-            )
-        # Cortex after observers
+        # Cortex for agent execution
         if not args.no_cortex:
             procs.append(start_cortex_server())
 
@@ -1707,8 +1521,6 @@ def main() -> None:
     try:
         asyncio.run(
             supervise(
-                threshold=args.threshold,
-                interval=args.interval,
                 daily=daily_enabled,
                 schedule=schedule_enabled,
                 procs=procs if procs else None,
@@ -1719,8 +1531,6 @@ def main() -> None:
     finally:
         logging.info("Stopping all processes...")
         print("\nShutting down gracefully (this may take a moment)...", flush=True)
-        observer_procs = [p for p in procs if p.name == "linux-observer"]
-        other_procs = [p for p in procs if p.name != "linux-observer"]
 
         def _stop_process(managed: ManagedProcess) -> None:
             name = managed.name
@@ -1745,17 +1555,8 @@ def main() -> None:
                     pass
             managed.cleanup()
 
-        # Stop observers first
-        for managed in observer_procs:
-            _stop_process(managed)
-
-        # Drain pause: let in-flight HTTP uploads complete to convey
-        if observer_procs:
-            logging.info("Pausing for observer uploads to drain")
-            time.sleep(2)
-
-        # Stop remaining services in reverse order
-        for managed in reversed(other_procs):
+        # Stop services in reverse order
+        for managed in reversed(procs):
             _stop_process(managed)
 
         # Save scheduler state before disconnecting
