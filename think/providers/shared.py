@@ -13,6 +13,7 @@ This module contains:
 from __future__ import annotations
 
 import json
+import time
 from typing import Any, Callable, Literal, Optional, Union
 
 from typing_extensions import Required, TypedDict
@@ -235,7 +236,145 @@ def safe_raw(
     return trimmed
 
 
+class CircuitOpenError(Exception):
+    """Raised when a circuit breaker is open and rejecting requests."""
+
+    def __init__(self, provider: str, cooldown_remaining: float):
+        self.provider = provider
+        self.cooldown_remaining = cooldown_remaining
+        super().__init__(
+            f"Circuit breaker open for {provider} ({cooldown_remaining:.0f}s remaining)"
+        )
+
+
+class CircuitBreaker:
+    """Per-process circuit breaker for API providers.
+
+    States: closed (normal), open (rejecting), half_open (probing after cooldown).
+    On failure_threshold consecutive quota errors, opens the circuit.
+    Cooldown doubles on each failed probe, capped at max_cooldown_s.
+    """
+
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(
+        self,
+        provider,
+        failure_threshold=5,
+        cooldown_s=60,
+        max_cooldown_s=600,
+    ):
+        self.provider = provider
+        self.failure_threshold = failure_threshold
+        self._initial_cooldown = cooldown_s
+        self.max_cooldown_s = max_cooldown_s
+        self._state = self.CLOSED
+        self._failure_count = 0
+        self._opened_at = None
+        self._current_cooldown = cooldown_s
+        self._health_path = None
+
+    @property
+    def state(self):
+        if self._state == self.OPEN and self._opened_at is not None:
+            if time.time() - self._opened_at >= self._current_cooldown:
+                self._state = self.HALF_OPEN
+        return self._state
+
+    def check(self):
+        """Raise CircuitOpenError if circuit is open. Call before each request."""
+        s = self.state
+        if s == self.OPEN:
+            remaining = self._current_cooldown - (time.time() - self._opened_at)
+            raise CircuitOpenError(self.provider, max(0, remaining))
+
+    def record_success(self):
+        """Record a successful API call. Closes circuit if half-open."""
+        if self._state != self.CLOSED:
+            self._state = self.CLOSED
+            self._failure_count = 0
+            self._current_cooldown = self._initial_cooldown
+            self._opened_at = None
+            self._emit("provider", "healthy", provider=self.provider)
+            self._write_health()
+        else:
+            self._failure_count = 0
+
+    def record_failure(self, error):
+        """Record a quota/429 failure. May open the circuit."""
+        self._failure_count += 1
+        if self._state == self.HALF_OPEN:
+            self._state = self.OPEN
+            self._opened_at = time.time()
+            self._current_cooldown = min(
+                self._current_cooldown * 2, self.max_cooldown_s
+            )
+            self._emit(
+                "provider",
+                "unhealthy",
+                provider=self.provider,
+                cooldown_s=self._current_cooldown,
+            )
+            self._write_health()
+        elif self._failure_count >= self.failure_threshold:
+            self._state = self.OPEN
+            self._opened_at = time.time()
+            self._emit(
+                "provider",
+                "unhealthy",
+                provider=self.provider,
+                cooldown_s=self._current_cooldown,
+            )
+            self._write_health()
+
+    def _emit(self, tract, event, **fields):
+        """Emit callosum event. Best-effort, never raises."""
+        try:
+            from think.callosum import callosum_send
+
+            callosum_send(tract, event, **fields)
+        except Exception:
+            pass
+
+    def _write_health(self):
+        """Write circuit breaker state to agents.json. Best-effort."""
+        if self._health_path is None:
+            return
+        try:
+            import fcntl
+            from datetime import datetime, timezone
+
+            health_dir = self._health_path.parent
+            health_dir.mkdir(parents=True, exist_ok=True)
+            lock_path = health_dir / "agents.json.lock"
+            with open(lock_path, "w") as lock_file:
+                fcntl.flock(lock_file, fcntl.LOCK_EX)
+                try:
+                    data = {}
+                    if self._health_path.exists():
+                        data = json.loads(self._health_path.read_text())
+                    cb_data = data.setdefault("circuit_breakers", {})
+                    cb_data[self.provider] = {
+                        "state": self._state,
+                        "failure_count": self._failure_count,
+                        "cooldown_s": self._current_cooldown,
+                    }
+                    if self._opened_at is not None:
+                        cb_data[self.provider]["opened_at"] = datetime.fromtimestamp(
+                            self._opened_at, tz=timezone.utc
+                        ).isoformat()
+                    self._health_path.write_text(json.dumps(data, indent=2))
+                finally:
+                    fcntl.flock(lock_file, fcntl.LOCK_UN)
+        except Exception:
+            pass
+
+
 __all__ = [
+    "CircuitBreaker",
+    "CircuitOpenError",
     "Event",
     "GenerateResult",
     "JSONEventCallback",
