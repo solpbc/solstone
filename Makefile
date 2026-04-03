@@ -1,7 +1,7 @@
 # solstone Makefile
 # Python-based AI-driven desktop journaling toolkit
 
-.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines
+.PHONY: install uninstall test test-apps test-app test-only test-integration test-integration-only test-all format ci clean clean-install coverage watch versions update update-prices pre-commit skills dev all sail sandbox sandbox-stop install-pinchtab verify-browser update-browser-baselines review verify-api update-api-baselines install-service uninstall-service
 
 # Default target - install package in editable mode
 all: install
@@ -363,8 +363,17 @@ clean:
 	find . -type f -name ".DS_Store" -delete
 	rm -f .installed
 
+# Service management
+install-service: .installed
+	$(VENV_BIN)/sol service install
+	$(VENV_BIN)/sol service start
+	$(VENV_BIN)/sol service status
+
+uninstall-service:
+	-$(VENV_BIN)/sol service uninstall
+
 # Uninstall - remove venv and sol symlink
-uninstall: clean
+uninstall: uninstall-service clean
 	@echo "Removing virtual environment..."
 	rm -rf $(VENV)
 	@if [ -L $(USER_BIN)/sol ]; then \

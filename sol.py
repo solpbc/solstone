@@ -77,6 +77,7 @@ COMMANDS: dict[str, str] = {
     "restart-convey": "convey.restart",
     "screenshot": "convey.screenshot",
     "maint": "convey.maint_cli",
+    "service": "think.service",
 }
 
 # =============================================================================
@@ -91,6 +92,8 @@ COMMANDS: dict[str, str] = {
 
 ALIASES: dict[str, tuple[str, list[str]]] = {
     "start": ("think.supervisor", []),
+    "up": ("think.service", ["up"]),
+    "down": ("think.service", ["down"]),
 }
 
 # Command groupings for help display
@@ -108,6 +111,7 @@ GROUPS: dict[str, list[str]] = {
         "notify",
         "heartbeat",
     ],
+    "Service": ["service"],
     "Observe (capture)": [
         "transcribe",
         "describe",
