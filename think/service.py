@@ -66,17 +66,20 @@ _API_KEYS = [
 def _collect_env() -> dict[str, str]:
     """Collect environment variables for the service file.
 
-    Captures: HOME, PATH (with venv bin), _SOLSTONE_JOURNAL_OVERRIDE,
-    and any API keys present in the current environment.
+    Captures: HOME, PATH (with venv bin), and any API keys present in the
+    current environment.  The journal override is only included if explicitly
+    set — the default project-root resolution works without it.
     """
-    journal_path = str(Path(get_journal()).resolve())
     venv_bin = str(Path(sys.executable).parent)
 
     env = {
         "HOME": str(Path.home()),
         "PATH": f"{venv_bin}:/usr/local/bin:/usr/bin:/bin",
-        "_SOLSTONE_JOURNAL_OVERRIDE": journal_path,
     }
+
+    override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
+    if override:
+        env["_SOLSTONE_JOURNAL_OVERRIDE"] = override
 
     missing_keys = []
     for key in _API_KEYS:
@@ -97,7 +100,7 @@ def _collect_env() -> dict[str, str]:
 
 def _generate_plist(env: dict[str, str]) -> bytes:
     """Generate a launchd plist for the solstone supervisor."""
-    journal_path = env["_SOLSTONE_JOURNAL_OVERRIDE"]
+    journal_path = str(Path(get_journal()).resolve())
     sol = _sol_bin()
 
     plist = {
