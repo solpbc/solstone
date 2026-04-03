@@ -150,6 +150,7 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
         monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)
         monkeypatch.setattr(dream, "run_queued_command", mock_run_queued_command)
+        monkeypatch.setattr(dream, "_classify_segment_density", lambda *args: "active")
 
         success, failed, failed_names = dream.run_prompts_by_priority(
             "20240115", "120000_300", refresh=False, verbose=False
@@ -208,6 +209,7 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
+        monkeypatch.setattr(dream, "_classify_segment_density", lambda *args: "active")
 
         success, failed, failed_names = dream.run_prompts_by_priority(
             "20240115", "120000_300", refresh=False, verbose=False
@@ -259,6 +261,7 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
+        monkeypatch.setattr(dream, "_classify_segment_density", lambda *args: "active")
 
         success, failed, failed_names = dream.run_prompts_by_priority(
             "20240115", "120000_300", refresh=False, verbose=False
@@ -311,6 +314,7 @@ class TestRunPromptsByPriority:
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
         monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)
         monkeypatch.setattr(dream, "run_queued_command", mock_run_queued_command)
+        monkeypatch.setattr(dream, "_classify_segment_density", lambda *args: "active")
 
         dream.run_prompts_by_priority(
             "20240115", "120000_300", refresh=False, verbose=False, stream="default"
@@ -411,6 +415,7 @@ class TestCortexRequestRetry:
         monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
         monkeypatch.setattr(dream, "get_enabled_facets", mock_get_enabled_facets)
         monkeypatch.setattr(dream, "get_active_facets", mock_get_active_facets)
+        monkeypatch.setattr(dream, "_classify_segment_density", lambda *args: "active")
 
         success, failed, failed_names = dream.run_prompts_by_priority(
             "20240115", "120000_300", refresh=False, verbose=False
@@ -592,6 +597,7 @@ class TestStreamAutoResolution:
         monkeypatch.setattr(
             dream, "run_queued_command", lambda cmd, day, timeout=60: True
         )
+        monkeypatch.setattr(dream, "_classify_segment_density", lambda *args: "active")
 
         dream.run_prompts_by_priority(
             "20240115",
@@ -602,3 +608,305 @@ class TestStreamAutoResolution:
         )
 
         assert wait_calls == [None]
+
+    def test_pulse_counter_runs_every_sixth_segment(self, segment_dir, monkeypatch):
+        """Pulse is skipped five times, then runs on the sixth segment."""
+        from think import dream
+
+        spawned = []
+
+        def mock_cortex_request(prompt, name, config=None):
+            spawned.append(name)
+            return f"agent-{name}"
+
+        def mock_wait_for_agents(agent_ids, timeout=600):
+            return ({aid: "finish" for aid in agent_ids}, [])
+
+        def mock_get_muse_configs(schedule=None, **kwargs):
+            return {
+                "pulse": {
+                    "priority": 99,
+                    "type": "cogitate",
+                    "schedule": "segment",
+                },
+            }
+
+        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
+        monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
+        monkeypatch.setattr(dream, "get_enabled_facets", lambda: {})
+        monkeypatch.setattr(dream, "get_active_facets", lambda day: set())
+        monkeypatch.setattr(dream, "_callosum", None)
+
+        for _ in range(5):
+            dream.run_prompts_by_priority(
+                "20240115", "120000_300", refresh=False, verbose=False
+            )
+
+        assert spawned == []
+
+        dream.run_prompts_by_priority(
+            "20240115", "120000_300", refresh=False, verbose=False
+        )
+        assert spawned == ["pulse"]
+
+    def test_pulse_counter_resets_on_activity_change(self, segment_dir, monkeypatch):
+        """Pulse runs immediately when activity_state changes."""
+        from think import dream
+
+        current_dir = segment_dir.parent / "120500_300"
+        (current_dir / "agents").mkdir(parents=True)
+        (current_dir / "agents" / "facets.json").write_text(
+            json.dumps([{"facet": "work", "activity": "Coding", "level": "high"}])
+        )
+
+        spawned = []
+
+        def mock_cortex_request(prompt, name, config=None):
+            spawned.append(name)
+            return f"agent-{name}"
+
+        def mock_wait_for_agents(agent_ids, timeout=600):
+            return ({aid: "finish" for aid in agent_ids}, [])
+
+        def mock_get_muse_configs(schedule=None, **kwargs):
+            return {
+                "activity_state": {
+                    "priority": 95,
+                    "type": "generate",
+                    "multi_facet": True,
+                    "output": "json",
+                    "schedule": "segment",
+                },
+                "pulse": {
+                    "priority": 99,
+                    "type": "cogitate",
+                    "schedule": "segment",
+                },
+            }
+
+        monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)
+        monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
+        monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
+        monkeypatch.setattr(dream, "get_enabled_facets", lambda: {"work": {"title": "Work"}})
+        monkeypatch.setattr(dream, "load_segment_facets", lambda *args, **kwargs: ["work"])
+        monkeypatch.setattr(dream, "_detect_activity_state_change", lambda *args, **kwargs: True)
+        monkeypatch.setattr(dream, "_callosum", None)
+
+        dream.run_prompts_by_priority(
+            "20240115", "120000_300", refresh=False, verbose=False
+        )
+
+        assert spawned == ["activity_state", "pulse"]
+
+    def test_activity_state_carry_forward_writes_output(self, segment_dir, monkeypatch):
+        """Cached activity_state is written directly when classification matches."""
+        from think import callosum, dream
+
+        current_dir = segment_dir.parent / "120500_300"
+        (current_dir / "agents").mkdir(parents=True)
+        (current_dir / "agents" / "facets.json").write_text(
+            json.dumps([{"facet": "work", "activity": "Coding", "level": "high"}])
+        )
+
+        sent = []
+        monkeypatch.setattr(
+            callosum,
+            "callosum_send",
+            lambda tract, event, **kwargs: sent.append((tract, event, kwargs)),
+        )
+
+        cache = {
+            "default:work": {
+                "state": [
+                    {
+                        "id": "coding_120000_300",
+                        "activity": "coding",
+                        "state": "active",
+                        "since": "120000_300",
+                        "description": "Coding",
+                        "level": "high",
+                    }
+                ],
+                "facet_classification": "Coding",
+                "segment": "120000_300",
+                "carry_count": 1,
+                "updated_at": 1,
+            }
+        }
+
+        carried = dream._try_carry_forward_activity_state(
+            day="20240115",
+            segment="120500_300",
+            stream="default",
+            facet="work",
+            cache=cache,
+        )
+
+        assert carried is True
+        output_path = (
+            segment_dir.parent / "120500_300" / "agents" / "work" / "activity_state.json"
+        )
+        assert output_path.exists()
+        assert sent[0][0:2] == ("activity", "live")
+        assert cache["default:work"]["carry_count"] == 2
+
+    def test_activity_state_carry_forward_requires_matching_classification(
+        self, segment_dir
+    ):
+        from think import dream
+
+        current_dir = segment_dir.parent / "120500_300"
+        (current_dir / "agents").mkdir(parents=True)
+        (current_dir / "agents" / "facets.json").write_text(
+            json.dumps([{"facet": "work", "activity": "Email", "level": "high"}])
+        )
+
+        cache = {
+            "default:work": {
+                "state": [],
+                "facet_classification": "Coding",
+                "segment": "120000_300",
+                "carry_count": 1,
+                "updated_at": 1,
+            }
+        }
+
+        assert (
+            dream._try_carry_forward_activity_state(
+                day="20240115",
+                segment="120500_300",
+                stream="default",
+                facet="work",
+                cache=cache,
+            )
+            is False
+        )
+
+    def test_activity_state_carry_forward_respects_gap(self, segment_dir):
+        from think import dream
+
+        current_dir = segment_dir.parent / "120500_300"
+        (current_dir / "agents").mkdir(parents=True)
+        (current_dir / "agents" / "facets.json").write_text(
+            json.dumps([{"facet": "work", "activity": "Coding", "level": "high"}])
+        )
+
+        cache = {
+            "default:work": {
+                "state": [],
+                "facet_classification": "Coding",
+                "segment": "100000_300",
+                "carry_count": 1,
+                "updated_at": 1,
+            }
+        }
+
+        assert (
+            dream._try_carry_forward_activity_state(
+                day="20240115",
+                segment="120500_300",
+                stream="default",
+                facet="work",
+                cache=cache,
+            )
+            is False
+        )
+
+    def test_activity_state_carry_forward_respects_carry_limit(self, segment_dir):
+        from think import dream
+
+        current_dir = segment_dir.parent / "120500_300"
+        (current_dir / "agents").mkdir(parents=True)
+        (current_dir / "agents" / "facets.json").write_text(
+            json.dumps([{"facet": "work", "activity": "Coding", "level": "high"}])
+        )
+
+        cache = {
+            "default:work": {
+                "state": [],
+                "facet_classification": "Coding",
+                "segment": "120000_300",
+                "carry_count": 6,
+                "updated_at": 1,
+            }
+        }
+
+        assert (
+            dream._try_carry_forward_activity_state(
+                day="20240115",
+                segment="120500_300",
+                stream="default",
+                facet="work",
+                cache=cache,
+            )
+            is False
+        )
+
+    def test_activity_state_carry_forward_preserves_incremented_cache(
+        self, segment_dir, monkeypatch
+    ):
+        from think import dream
+
+        current_segment = "120500_300"
+        current_dir = segment_dir.parent / current_segment
+        (current_dir / "agents").mkdir(parents=True)
+        (current_dir / "agents" / "facets.json").write_text(
+            json.dumps([{"facet": "work", "activity": "Coding", "level": "high"}]),
+            encoding="utf-8",
+        )
+
+        cache_path = dream._activity_state_cache_path("20240115")
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(
+            json.dumps(
+                {
+                    "default:work": {
+                        "state": [
+                            {
+                                "id": "coding_120000_300",
+                                "activity": "coding",
+                                "state": "active",
+                                "since": "120000_300",
+                                "description": "Coding",
+                                "level": "high",
+                            }
+                        ],
+                        "facet_classification": "Coding",
+                        "segment": "120000_300",
+                        "carry_count": 1,
+                        "updated_at": 1,
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        def mock_wait_for_agents(agent_ids, timeout=600):
+            return ({aid: "finish" for aid in agent_ids}, [])
+
+        def mock_get_muse_configs(schedule=None, **kwargs):
+            return {
+                "activity_state": {
+                    "priority": 95,
+                    "type": "generate",
+                    "multi_facet": True,
+                    "output": "json",
+                    "schedule": "segment",
+                },
+            }
+
+        monkeypatch.setattr(dream, "cortex_request", lambda *args, **kwargs: None)
+        monkeypatch.setattr(dream, "wait_for_agents", mock_wait_for_agents)
+        monkeypatch.setattr(dream, "get_muse_configs", mock_get_muse_configs)
+        monkeypatch.setattr(dream, "get_enabled_facets", lambda: {"work": {"title": "Work"}})
+        monkeypatch.setattr(dream, "load_segment_facets", lambda *args, **kwargs: ["work"])
+        monkeypatch.setattr(dream, "_callosum", None)
+
+        dream.run_prompts_by_priority(
+            "20240115", current_segment, refresh=False, verbose=False
+        )
+
+        cache = json.loads(cache_path.read_text(encoding="utf-8"))
+        assert cache["default:work"]["carry_count"] == 2
+        assert cache["default:work"]["segment"] == current_segment

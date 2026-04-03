@@ -5,7 +5,7 @@
 
 This hook is invoked via "hook": {"post": "entities"} in generator frontmatter.
 It parses the markdown entity list and writes deduplicated entities
-to a JSONL file in the segment directory.
+to a JSONL file next to the agent output.
 """
 
 import json
@@ -65,7 +65,7 @@ def _parse_entity_line(line: str) -> dict | None:
 
 
 def post_process(result: str, context: dict) -> str | None:
-    """Parse entity list and write to segment JSONL file.
+    """Parse entity list and write to an adjacent JSONL file.
 
     Args:
         result: The generated output content (markdown entity list).
@@ -75,11 +75,6 @@ def post_process(result: str, context: dict) -> str | None:
     Returns:
         None - this hook does not modify the output result.
     """
-    segment = context.get("segment")
-    if not segment:
-        logging.warning("entities hook requires segment mode")
-        return None
-
     # Parse entities from result
     entities = []
     unparsed = []
@@ -94,9 +89,9 @@ def post_process(result: str, context: dict) -> str | None:
             unparsed.append(line)
 
     if unparsed:
-        print(f"Warning: {len(unparsed)} unparsed entity lines:")
+        logging.warning("entities hook: %d unparsed entity lines", len(unparsed))
         for line in unparsed:
-            print(f"  {line}")
+            logging.warning("entities hook: unparsed line: %s", line)
 
     if not entities:
         logging.info("entities hook: no entities extracted")
@@ -119,17 +114,26 @@ def post_process(result: str, context: dict) -> str | None:
         )
 
     # Write entities.jsonl alongside the agent output in the agents/ directory
-    output_path = Path(context.get("output_path", ""))
+    output_path_value = context.get("output_path")
+    if not output_path_value:
+        logging.error("entities hook: missing output_path in context")
+        return None
+
+    output_path = Path(output_path_value)
     agents_dir = output_path.parent
     jsonl_path = agents_dir / "entities.jsonl"
 
     # Write JSONL file
     try:
         jsonl_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(jsonl_path, "w") as f:
+        with open(jsonl_path, "w", encoding="utf-8") as f:
             for entity in unique_entities:
                 f.write(json.dumps(entity) + "\n")
-        print(f"Entities written to: {jsonl_path} ({len(unique_entities)} entities)")
+        logging.info(
+            "entities hook: wrote %d entities to %s",
+            len(unique_entities),
+            jsonl_path,
+        )
     except Exception as e:
         logging.error("entities hook: failed to write JSONL: %s", e)
 

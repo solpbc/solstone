@@ -4,7 +4,8 @@
   "title": "Entity Extraction",
   "description": "Extracts people, companies, projects, and tools from segment content",
   "color": "#2e7d32",
-  "schedule": "segment",
+  "schedule": "activity",
+  "activities": ["*"],
   "priority": 10,
   "hook": {"post": "entities"},
   "thinking_budget": 4096,
@@ -12,12 +13,13 @@
   "output": "md",
   "instructions": {
     "sources": {"transcripts": true, "percepts": true, "agents": false},
-    "facets": false
+    "facets": false,
+    "activity": true
   }
 
 }
 
-$segment_preamble
+$activity_preamble
 
 Extract named entities and descriptions from the given segment transcription document.
 
