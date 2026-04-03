@@ -4,17 +4,19 @@
 """Cross-platform background service management for solstone.
 
 Usage:
-    sol service install      Install solstone as a background service
-    sol service uninstall    Remove the background service
-    sol service start        Start the background service
-    sol service stop         Stop the background service
-    sol service restart      Restart the background service
-    sol service status       Show service installation and runtime status
-    sol service logs         View service logs
-    sol service logs -f      Follow service logs
+    sol service install [--port PORT]  Install solstone as a background service
+    sol service uninstall              Remove the background service
+    sol service start                  Start the background service
+    sol service stop                   Stop the background service
+    sol service restart                Restart the background service
+    sol service status                 Show service installation and runtime status
+    sol service logs                   View service logs
+    sol service logs -f                Follow service logs
 
-    sol up                   Install (if needed), start, and show status
-    sol down                 Stop the background service
+    sol up                             Install (if needed), start, and show status
+    sol down                           Stop the background service
+
+Default convey port for installed services is 5015.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from think.utils import get_journal, get_journal_info
 
 SERVICE_LABEL = "org.solpbc.solstone"
 SYSTEMD_UNIT = "solstone"
+DEFAULT_SERVICE_PORT = 5015
 
 
 def _platform() -> str:
@@ -98,14 +101,14 @@ def _collect_env() -> dict[str, str]:
     return env
 
 
-def _generate_plist(env: dict[str, str]) -> bytes:
+def _generate_plist(env: dict[str, str], port: int = DEFAULT_SERVICE_PORT) -> bytes:
     """Generate a launchd plist for the solstone supervisor."""
     journal_path = str(Path(get_journal()).resolve())
     sol = _sol_bin()
 
     plist = {
         "Label": SERVICE_LABEL,
-        "ProgramArguments": [sol, "supervisor"],
+        "ProgramArguments": [sol, "supervisor", str(port)],
         "EnvironmentVariables": env,
         "RunAtLoad": True,
         "KeepAlive": True,
@@ -115,7 +118,7 @@ def _generate_plist(env: dict[str, str]) -> bytes:
     return plistlib.dumps(plist)
 
 
-def _generate_systemd_unit(env: dict[str, str]) -> str:
+def _generate_systemd_unit(env: dict[str, str], port: int = DEFAULT_SERVICE_PORT) -> str:
     """Generate a systemd user unit for the solstone supervisor."""
     sol = _sol_bin()
     env_lines = "\n".join(f"Environment={k}={v}" for k, v in sorted(env.items()))
@@ -127,7 +130,7 @@ def _generate_systemd_unit(env: dict[str, str]) -> str:
         f"\n"
         f"[Service]\n"
         f"Type=simple\n"
-        f"ExecStart={sol} supervisor\n"
+        f"ExecStart={sol} supervisor {port}\n"
         f"Restart=on-failure\n"
         f"RestartSec=5\n"
         f"{env_lines}\n"
@@ -156,7 +159,7 @@ def _check_linger() -> None:
         pass
 
 
-def _install() -> int:
+def _install(port: int = DEFAULT_SERVICE_PORT) -> int:
     platform = _platform()
     env = _collect_env()
 
@@ -164,7 +167,7 @@ def _install() -> int:
     Path(journal_path, "health").mkdir(parents=True, exist_ok=True)
 
     if platform == "darwin":
-        plist_data = _generate_plist(env)
+        plist_data = _generate_plist(env, port=port)
         path = _plist_path()
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -188,7 +191,7 @@ def _install() -> int:
         print("Service loaded into launchd")
 
     else:
-        unit_content = _generate_systemd_unit(env)
+        unit_content = _generate_systemd_unit(env, port=port)
         path = _unit_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(unit_content)
@@ -414,7 +417,7 @@ def _logs(follow: bool = False) -> int:
             return 0
 
 
-def _up() -> int:
+def _up(port: int = DEFAULT_SERVICE_PORT) -> int:
     """Install if needed, start if not running, show status."""
     platform = _platform()
 
@@ -425,7 +428,7 @@ def _up() -> int:
 
     if not installed:
         print("Installing service...")
-        rc = _install()
+        rc = _install(port=port)
         if rc != 0:
             return rc
 
@@ -460,15 +463,31 @@ def _down() -> int:
 
 
 _SUBCOMMANDS = {
-    "install": _install,
     "uninstall": _uninstall,
     "start": _start,
     "stop": _stop,
     "restart": _restart,
     "status": _status,
-    "up": lambda: _up(),
-    "down": lambda: _down(),
+    "down": lambda **_kw: _down(),
 }
+
+
+def _parse_port(args: list[str]) -> int:
+    """Extract --port PORT from args, return DEFAULT_SERVICE_PORT if absent."""
+    for i, arg in enumerate(args):
+        if arg == "--port" and i + 1 < len(args):
+            try:
+                return int(args[i + 1])
+            except ValueError:
+                print(f"Error: invalid port '{args[i + 1]}'", file=sys.stderr)
+                sys.exit(1)
+        if arg.startswith("--port="):
+            try:
+                return int(arg.split("=", 1)[1])
+            except ValueError:
+                print(f"Error: invalid port '{arg}'", file=sys.stderr)
+                sys.exit(1)
+    return DEFAULT_SERVICE_PORT
 
 
 def main() -> None:
@@ -481,15 +500,21 @@ def main() -> None:
 
     if not args:
         print("Usage: sol service <install|uninstall|start|stop|restart|status|logs>")
-        print("       sol up    (install + start + status)")
-        print("       sol down  (stop)")
+        print("       sol service install [--port PORT]  (default: 5015)")
+        print("       sol up [--port PORT]               (install + start + status)")
+        print("       sol down                           (stop)")
         sys.exit(1)
 
     subcmd = args[0]
+    rest = args[1:]
 
-    if subcmd in _SUBCOMMANDS:
+    if subcmd == "install":
+        sys.exit(_install(port=_parse_port(rest)))
+    elif subcmd == "up":
+        sys.exit(_up(port=_parse_port(rest)))
+    elif subcmd in _SUBCOMMANDS:
         sys.exit(_SUBCOMMANDS[subcmd]())
-
-    print(f"Unknown subcommand: {subcmd}", file=sys.stderr)
-    print("Available: install, uninstall, start, stop, restart, status, logs")
-    sys.exit(1)
+    else:
+        print(f"Unknown subcommand: {subcmd}", file=sys.stderr)
+        print("Available: install, uninstall, start, stop, restart, status, logs")
+        sys.exit(1)

@@ -78,11 +78,11 @@ cp .env.example .env
 # Add at minimum: GOOGLE_API_KEY=your-key
 # See docs/PROVIDERS.md for all supported providers
 
-# Start the full stack
-sol supervisor
+# Install as a background service (starts on login, port 5015)
+make install-service
 
-# Open the web interface
-# (prints URL on startup, default http://localhost:<port>)
+# Or start manually for development
+sol supervisor
 ```
 
 See [docs/INSTALL.md](docs/INSTALL.md) for platform-specific dependencies, detailed configuration, and first-run guidance.

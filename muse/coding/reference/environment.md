@@ -2,7 +2,11 @@
 
 ## Journal Path
 
-The journal lives at `journal/` in the project root. `get_journal()` from `think.utils` returns the path. For tests, set `_SOLSTONE_JOURNAL_OVERRIDE` to override.
+The journal lives at `journal/` in the project root. `get_journal()` from `think.utils` returns the path. For tests, set `_SOLSTONE_JOURNAL_OVERRIDE` to override. Do not set this in production service files — the default project-root resolution is correct.
+
+## Service Installation
+
+`make install-service` installs solstone as a systemd user service (Linux) or launchd agent (macOS) with convey on port 5015. Override with `make install-service PORT=8000`. Managed via `sol service <install|start|stop|restart|status|logs>`.
 
 ## API Keys
 

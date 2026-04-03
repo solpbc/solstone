@@ -363,9 +363,9 @@ clean:
 	find . -type f -name ".DS_Store" -delete
 	rm -f .installed
 
-# Service management
+# Service management (override port: make install-service PORT=8000)
 install-service: .installed
-	$(VENV_BIN)/sol service install
+	$(VENV_BIN)/sol service install --port $(or $(PORT),5015)
 	$(VENV_BIN)/sol service start
 	$(VENV_BIN)/sol service status
 

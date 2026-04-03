@@ -132,12 +132,38 @@ REVAI_ACCESS_TOKEN=your-token-here
 
 ## First Run
 
-### Start the Supervisor
+### Install as a Background Service
 
-The supervisor manages all background services (capture, processing):
+The recommended way to run solstone is as a system service that starts automatically on login:
 
 ```bash
-sol supervisor
+make install-service
+```
+
+This installs, enables, and starts a systemd user service (Linux) or launchd agent (macOS) with convey on port 5015. To use a custom port:
+
+```bash
+make install-service PORT=8000
+```
+
+Manage the service with:
+
+```bash
+sol service status     # Check if running
+sol service restart    # Restart
+sol service stop       # Stop
+sol service logs -f    # Follow logs
+sol up                 # Install + start (if not already)
+sol down               # Stop
+```
+
+### Start Manually (Development)
+
+For development, run the supervisor directly in a terminal:
+
+```bash
+sol supervisor         # Auto-selects an available port
+sol supervisor 8000    # Use a specific port
 ```
 
 This starts:
@@ -147,13 +173,11 @@ This starts:
 
 ### Verify Services
 
-In another terminal, check that services are running:
+Check that services are running:
 
 ```bash
-pgrep -af "sol:observer|sol:sense|sol:supervisor"
+sol health
 ```
-
-You should see three processes.
 
 ---
 

@@ -25,7 +25,6 @@ Tactical work items prioritized for implementation.
 
 ## Infrastructure
 
-- [ ] Create system/user service install for sol supervisor (remove terminal dependency)
 - [ ] Health monitor and diagnostics agent (explore Claude Code SDK)
 
 ## Indexer
