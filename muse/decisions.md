@@ -7,7 +7,7 @@
   "hook": {"post": "occurrence"},
   "color": "#dc3545",
   "schedule": "activity",
-  "activities": ["*"],
+  "activities": ["meeting", "call", "messaging", "email"],
   "priority": 10,
   "output": "md",
   "instructions": {
