@@ -9,6 +9,7 @@
   "activities": ["*"],
   "priority": 10,
   "group": "Todos",
+  "hook": {"pre": "todos:todo_filter"},
   "instructions": {
     "system": "journal",
     "sources": {"audio": true, "screen": false, "agents": {"screen": true}},
