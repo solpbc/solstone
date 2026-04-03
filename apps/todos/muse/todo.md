@@ -33,7 +33,7 @@ Use the Activity Context and Activity State Per Segment sections above to unders
 
 ### Todo Commands (SOL_DAY and SOL_FACET are set in your environment)
 - `sol call todos list` – inspect the current numbered checklist
-- `sol call todos add TEXT` – append a new unchecked line
+- `sol call todos add TEXT [--force]` – append a new unchecked line (--force skips cross-facet duplicate check)
 - `sol call todos done LINE_NUMBER` – mark an entry complete
 - `sol call todos upcoming` – view upcoming todos to avoid duplicates
 
@@ -89,6 +89,14 @@ If you find clear proof, call `sol call todos done LINE_NUMBER`. Leave uncertain
 - Pure speculation or hypothetical scenarios without concrete commitment
 - Items that were both raised and resolved within this activity
 - Duplicates of items already on the checklist or in upcoming todos
+
+### Cross-Facet Dedup
+
+The `sol call todos add` command automatically rejects items that fuzzy-match (≥70% similarity) an open todo in another facet within a ±1 day window. If the CLI rejects an add:
+
+1. Check the reported match — if the existing item covers the same work, skip the add entirely
+2. If the new item is genuinely different despite the similarity, retry with `--force`
+3. Never use `--force` to create true duplicates across facets — one task, one facet
 
 ## Quality Guidelines
 

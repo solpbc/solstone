@@ -28,6 +28,7 @@ __all__ = [
     "TodoItem",
     "TodoError",
     "TodoEmptyTextError",
+    "find_cross_facet_matches",
     "parse_nudge",
     "format_nudge",
     "get_todos",
@@ -718,6 +719,69 @@ def get_todo_days_in_range(facet: str, day_from: str, day_to: str) -> list[str]:
         return []
 
     return sorted(days)
+
+
+def find_cross_facet_matches(
+    text: str,
+    day: str,
+    exclude_facet: str,
+    *,
+    threshold: float = 70.0,
+) -> list[dict]:
+    """Find fuzzy matches for ``text`` across other facets within a ±1 day window.
+
+    Args:
+        text: The candidate todo text to check for duplicates.
+        day: Target day in ``YYYYMMDD`` format. Scanning covers day-1, day, day+1.
+        exclude_facet: Facet to skip (the facet being added to).
+        threshold: Minimum ``token_sort_ratio`` score to consider a match (0–100).
+
+    Returns:
+        List of match dicts sorted by score descending.
+        Each dict: ``{"score": float, "facet": str, "day": str, "text": str, "line": int}``.
+    """
+    from rapidfuzz import fuzz
+
+    target = datetime.strptime(day, "%Y%m%d")
+    days = [(target + timedelta(days=d)).strftime("%Y%m%d") for d in (-1, 0, 1)]
+
+    facets_dir = Path(get_journal()) / "facets"
+    if not facets_dir.is_dir():
+        return []
+
+    matches: list[dict] = []
+    try:
+        for facet_dir in facets_dir.iterdir():
+            if not facet_dir.is_dir():
+                continue
+            facet_name = facet_dir.name
+            if facet_name == exclude_facet:
+                continue
+
+            for candidate_day in days:
+                todo_path = facet_dir / "todos" / f"{candidate_day}.jsonl"
+                if not todo_path.is_file():
+                    continue
+                checklist = TodoChecklist.load(candidate_day, facet_name)
+                for item in checklist.items:
+                    if item.cancelled or item.completed:
+                        continue
+                    score = fuzz.token_sort_ratio(text, item.text)
+                    if score >= threshold:
+                        matches.append(
+                            {
+                                "score": score,
+                                "facet": facet_name,
+                                "day": candidate_day,
+                                "text": item.text,
+                                "line": item.index,
+                            }
+                        )
+    except OSError:  # pragma: no cover - filesystem failure
+        return []
+
+    matches.sort(key=lambda match: match["score"], reverse=True)
+    return matches
 
 
 def format_todos(
