@@ -25,7 +25,7 @@
       "group": "Entities",
       "label": "Entity Detector",
       "schedule": "daily",
-      "tier": 2,
+      "tier": 3,
       "type": "cogitate"
     },
     "muse.entities.entities_review": {
@@ -55,7 +55,7 @@
       "group": "Entities",
       "label": "Entity Observer",
       "schedule": "daily",
-      "tier": 2,
+      "tier": 3,
       "type": "cogitate"
     },
     "muse.support.support": {
@@ -150,7 +150,7 @@
       "group": "Think",
       "label": "Facet Newsletter Generator",
       "schedule": "daily",
-      "tier": 2,
+      "tier": 3,
       "type": "cogitate"
     },
     "muse.system.facets": {
@@ -396,7 +396,7 @@
       "group": "Todos",
       "label": "Daily TODO Curator",
       "schedule": "daily",
-      "tier": 2,
+      "tier": 3,
       "type": "cogitate"
     },
     "muse.todos.todo": {
@@ -404,7 +404,7 @@
       "group": "Todos",
       "label": "TODO Detector",
       "schedule": "activity",
-      "tier": 2,
+      "tier": 3,
       "type": "cogitate"
     },
     "muse.todos.weekly": {
