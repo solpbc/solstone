@@ -45,11 +45,9 @@ def test_entities_post_process_requires_output_path(caplog):
     assert "missing output_path" in caplog.text
 
 
-def test_entities_muse_is_activity_scheduled():
+def test_entities_muse_is_segment_scheduled():
     from think.muse import get_muse_configs
 
     segment_prompts = get_muse_configs(schedule="segment")
-    activity_prompts = get_muse_configs(schedule="activity")
 
-    assert "entities" not in segment_prompts
-    assert activity_prompts["entities"]["activities"] == ["*"]
+    assert "entities" in segment_prompts
