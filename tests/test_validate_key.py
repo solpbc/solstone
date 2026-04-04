@@ -22,7 +22,7 @@ from think.providers import validate_key
 def settings_client(tmp_path, monkeypatch):
     src = Path(__file__).resolve().parent / "fixtures" / "journal"
     journal = tmp_path / "journal"
-    shutil.copytree(src, journal)
+    shutil.copytree(src, journal, symlinks=True)
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     app = create_app(str(journal))
