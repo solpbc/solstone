@@ -72,8 +72,8 @@ def test_resolve_agent_path_system_agent():
     """Test _resolve_agent_path returns correct path for system agents."""
     agent_dir, agent_name = _resolve_agent_path("unified")
 
-    assert agent_name == "unified"
-    assert agent_dir.name == "muse"
+    assert agent_name == "identity"
+    assert agent_dir.name == "sol"
 
 
 def test_resolve_agent_path_app_agent():

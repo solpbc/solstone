@@ -28,7 +28,7 @@ def test_generate_agents_md_uses_fixture_journal(monkeypatch):
 
         generated = agents_path.read_text(encoding="utf-8")
         assert generated.startswith(
-            "<!-- generated from muse/unified.md — do not edit directly -->"
+            "<!-- generated from sol/identity.md — do not edit directly -->"
         )
         assert "Sol" in generated
         assert "Test User" in generated
@@ -57,7 +57,7 @@ def test_generate_agents_md_no_config(monkeypatch, tmp_path):
 
         generated = agents_path.read_text(encoding="utf-8")
         assert generated.startswith(
-            "<!-- generated from muse/unified.md — do not edit directly -->"
+            "<!-- generated from sol/identity.md — do not edit directly -->"
         )
         assert "your journal owner" in generated
         assert "Sol" in generated

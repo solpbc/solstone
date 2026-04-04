@@ -4,7 +4,7 @@
 """Muse agent and generator orchestration utilities.
 
 This module provides functionality for configuring and orchestrating muse agents
-and generators from muse/*.md and apps/*/muse/*.md.
+and generators from muse/*.md, sol/*.md, and apps/*/muse/*.md.
 
 Key functions:
 - get_muse_configs(): Discover all muse configs with filtering
@@ -33,6 +33,7 @@ from think.prompts import _load_prompt_metadata, load_prompt
 # ---------------------------------------------------------------------------
 
 MUSE_DIR = Path(__file__).parent.parent / "muse"
+SOL_DIR = Path(__file__).parent.parent / "sol"
 APPS_DIR = Path(__file__).parent.parent / "apps"
 
 
@@ -161,7 +162,8 @@ def get_muse_configs(
     """Load muse configs from system and app directories.
 
     Unified function for loading both cogitate agents and generate prompts from
-    muse/*.md files. Filters based on explicit type field.
+    muse/*.md, sol/*.md, and apps/*/muse/*.md files. Filters based on explicit
+    type field.
 
     Args:
         type: If provided, only configs with matching type value
@@ -206,6 +208,15 @@ def get_muse_configs(
 
             info["source"] = "system"
             configs[name] = info
+
+    # Sol identity agent — lives outside muse/ but is a system agent
+    sol_identity_path = SOL_DIR / "identity.md"
+    if sol_identity_path.exists() and "unified" not in configs:
+        meta = _load_prompt_metadata(sol_identity_path)
+        meta["path"] = str(sol_identity_path)
+        meta["mtime"] = int(sol_identity_path.stat().st_mtime)
+        meta["source"] = "system"
+        configs["unified"] = meta
 
     # App configs from apps/*/muse/
     apps_dir = APPS_DIR
@@ -315,8 +326,12 @@ def _resolve_agent_path(name: str) -> tuple[Path, str]:
         # App agent: "support:support" -> apps/support/muse/support
         app, agent_name = name.split(":", 1)
         agent_dir = Path(__file__).parent.parent / "apps" / app / "muse"
+    elif name == "unified":
+        # Sol identity agent: "unified" -> sol/identity
+        agent_dir = SOL_DIR
+        agent_name = "identity"
     else:
-        # System agent: "unified" -> muse/unified
+        # System agent: bare name -> muse/{name}
         agent_dir = MUSE_DIR
         agent_name = name
     return agent_dir, agent_name
@@ -698,7 +713,9 @@ def _resolve_hook_path(hook_name: str) -> Path:
     - Explicit path: "path/to/hook.py" -> direct path
     """
     if "/" in hook_name or hook_name.endswith(".py"):
-        return Path(hook_name)
+        # Explicit paths are relative to project root
+        project_root = Path(__file__).parent.parent
+        return project_root / hook_name
     elif ":" in hook_name:
         app, name = hook_name.split(":", 1)
         return Path(__file__).parent.parent / "apps" / app / "muse" / f"{name}.py"
