@@ -59,6 +59,29 @@ and resolve them. the heartbeat reviews this periodically.
 """
 
 
+_PARTNER_MD = """\
+# partner
+
+Behavioral profile of the journal owner — observed patterns that help sol
+adapt its responses, timing, and initiative to how this person actually works.
+
+## work patterns
+[observing]
+
+## communication style
+[observing]
+
+## relationship priorities
+[observing]
+
+## decision style
+[observing]
+
+## expertise domains
+[observing]
+"""
+
+
 def _build_self_md(config: dict) -> str:
     """Build self.md content, optionally migrating from config data."""
     agent = config.get("agent", {})
@@ -121,7 +144,7 @@ def _build_self_md(config: dict) -> str:
 
 
 def ensure_sol_directory() -> Path:
-    """Create {journal}/sol/ with self.md and agency.md if they don't exist."""
+    """Create {journal}/sol/ with identity files if they don't exist."""
     from think.utils import get_config, get_journal
 
     sol_dir = Path(get_journal()) / "sol"
@@ -141,6 +164,11 @@ def ensure_sol_directory() -> Path:
     if not briefing_path.exists():
         briefing_path.write_text("", encoding="utf-8")
         logger.info("Created %s", briefing_path)
+
+    partner_path = sol_dir / "partner.md"
+    if not partner_path.exists():
+        partner_path.write_text(_PARTNER_MD, encoding="utf-8")
+        logger.info("Created %s", partner_path)
 
     return sol_dir
 
@@ -177,11 +205,13 @@ def _log_identity_change(
         f.write(json.dumps(record) + "\n")
 
 
-def update_self_md_section(heading: str, content: str) -> bool:
-    """Update a ## section in sol/self.md, preserving all other sections.
+def update_identity_section(filename: str, heading: str, content: str) -> bool:
+    """Update a ## section in sol/{filename}, preserving all other sections.
 
     Parameters
     ----------
+    filename : str
+        File within sol/ directory (e.g., ``"self.md"``, ``"partner.md"``).
     heading : str
         Section heading without ``##`` prefix (e.g., ``"my name"``).
     content : str
@@ -194,11 +224,11 @@ def update_self_md_section(heading: str, content: str) -> bool:
     """
     from think.utils import get_journal
 
-    self_path = Path(get_journal()) / "sol" / "self.md"
-    if not self_path.exists():
+    file_path = Path(get_journal()) / "sol" / filename
+    if not file_path.exists():
         return False
 
-    text = self_path.read_text(encoding="utf-8")
+    text = file_path.read_text(encoding="utf-8")
     lines = text.split("\n")
 
     target = f"## {heading}"
@@ -215,15 +245,23 @@ def update_self_md_section(heading: str, content: str) -> bool:
         return False
 
     if end is None:
-        # Last section — preserve trailing newline
         end = len(lines)
 
     content_lines = content.split("\n") if content else []
     new_lines = lines[: start + 1] + content_lines + [""] + lines[end:]
     new_text = "\n".join(new_lines)
-    self_path.write_text(new_text, encoding="utf-8")
-    _log_identity_change("self.md", text, new_text, section=heading, source="api")
+    file_path.write_text(new_text, encoding="utf-8")
+    _log_identity_change(filename, text, new_text, section=heading, source="api")
     return True
+
+
+def update_self_md_section(heading: str, content: str) -> bool:
+    """Update a ## section in sol/self.md, preserving all other sections.
+
+    Thin wrapper around :func:`update_identity_section` for backward
+    compatibility.
+    """
+    return update_identity_section("self.md", heading, content)
 
 
 def update_self_md_opening(content: str) -> bool:

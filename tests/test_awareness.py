@@ -764,6 +764,31 @@ class TestEnsureSolDirectory:
         ensure_sol_directory()
         assert self_path.read_text() == "custom content"
 
+    def test_creates_partner_md(self, tmp_path):
+        from think.awareness import ensure_sol_directory
+
+        sol_dir = ensure_sol_directory()
+        partner_path = sol_dir / "partner.md"
+        assert partner_path.exists()
+        content = partner_path.read_text()
+        assert "# partner" in content
+        assert "## work patterns" in content
+        assert "## communication style" in content
+        assert "## relationship priorities" in content
+        assert "## decision style" in content
+        assert "## expertise domains" in content
+
+    def test_does_not_overwrite_existing_partner_md(self, tmp_path):
+        from think.awareness import ensure_sol_directory
+
+        sol_dir = tmp_path / "sol"
+        sol_dir.mkdir()
+        custom = "# partner\n\n## work patterns\nCustom content.\n"
+        (sol_dir / "partner.md").write_text(custom)
+
+        ensure_sol_directory()
+        assert (sol_dir / "partner.md").read_text() == custom
+
     def test_migration_named_agent(self, tmp_path, monkeypatch):
         """Named agent config populates self.md name and opening."""
         # Write a config with a named agent
@@ -969,6 +994,47 @@ class TestUpdateSelfMd:
 
         result = update_self_md_opening("content")
         assert result is False
+
+
+class TestUpdateIdentitySection:
+    """Tests for update_identity_section generic helper."""
+
+    def test_update_partner_section(self, tmp_path):
+        from think.awareness import update_identity_section
+
+        partner_md = "# partner\n\n## work patterns\n[observing]\n\n## communication style\n[observing]\n"
+        (tmp_path / "sol").mkdir(exist_ok=True)
+        (tmp_path / "sol" / "partner.md").write_text(partner_md)
+
+        result = update_identity_section(
+            "partner.md", "work patterns", "Prefers mornings"
+        )
+        assert result is True
+
+        content = (tmp_path / "sol" / "partner.md").read_text()
+        assert "Prefers mornings" in content
+        assert "## communication style" in content
+        assert "[observing]" in content  # other section preserved
+
+    def test_update_nonexistent_file_returns_false(self, tmp_path):
+        from think.awareness import update_identity_section
+
+        (tmp_path / "sol").mkdir(exist_ok=True)
+        result = update_identity_section("nonexistent.md", "heading", "content")
+        assert result is False
+
+    def test_self_md_wrapper_still_works(self, tmp_path):
+        from think.awareness import update_self_md_section
+
+        self_md = "# self\n\n## my name\nsol (default)\n\n## who I'm here for\nTest User\n"
+        (tmp_path / "sol").mkdir(exist_ok=True)
+        (tmp_path / "sol" / "self.md").write_text(self_md)
+
+        result = update_self_md_section("my name", "aria")
+        assert result is True
+        content = (tmp_path / "sol" / "self.md").read_text()
+        assert "aria" in content
+        assert "## who I'm here for" in content
 
 
 class TestSolInitCLI:

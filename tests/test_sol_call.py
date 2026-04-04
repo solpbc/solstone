@@ -15,7 +15,7 @@ runner = CliRunner()
 
 @pytest.fixture
 def journal_with_sol(tmp_path, monkeypatch):
-    """Set up a journal with sol/ directory containing self.md and agency.md."""
+    """Set up a journal with sol/ directory containing self.md, agency.md, and partner.md."""
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     # Provide minimal config for ensure_sol_directory
@@ -58,13 +58,36 @@ things I'm tracking, acting on, or watching.
 ## curation
 [nothing yet]
 
-## observations
-[watching and learning]
+    ## observations
+    [watching and learning]
 
 ## system
 [monitoring]
 """
     (sol_dir / "agency.md").write_text(agency_md)
+
+    partner_md = """\
+# partner
+
+Behavioral profile of the journal owner — observed patterns that help sol
+adapt its responses, timing, and initiative to how this person actually works.
+
+## work patterns
+[observing]
+
+## communication style
+[observing]
+
+## relationship priorities
+[observing]
+
+## decision style
+[observing]
+
+## expertise domains
+[observing]
+"""
+    (sol_dir / "partner.md").write_text(partner_md)
 
     return tmp_path
 
@@ -139,6 +162,74 @@ class TestSolSelfUpdateSection:
         result = runner.invoke(
             app,
             ["self", "--update-section", "who I'm here for"],
+            input="",
+        )
+        assert result.exit_code == 1
+        assert "no content" in result.output
+
+
+class TestSolPartnerRead:
+    def test_read_partner(self, journal_with_sol):
+        result = runner.invoke(app, ["partner"])
+        assert result.exit_code == 0
+        assert "# partner" in result.output
+        assert "## work patterns" in result.output
+
+    def test_read_partner_missing(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "journal.json").write_text(json.dumps({}))
+        # ensure_sol_directory creates partner.md
+        result = runner.invoke(app, ["partner"])
+        assert result.exit_code == 0
+
+
+class TestSolPartnerWrite:
+    def test_write_partner(self, journal_with_sol):
+        new_content = "# partner\n\n## work patterns\nPrefers mornings for deep work.\n"
+        result = runner.invoke(app, ["partner", "--write"], input=new_content)
+        assert result.exit_code == 0
+        assert "partner.md updated" in result.output
+
+        partner_path = journal_with_sol / "sol" / "partner.md"
+        assert partner_path.read_text() == new_content
+
+    def test_write_partner_empty_stdin(self, journal_with_sol):
+        result = runner.invoke(app, ["partner", "--write"], input="")
+        assert result.exit_code == 1
+        assert "no content" in result.output
+
+
+class TestSolPartnerUpdateSection:
+    def test_update_section_work_patterns(self, journal_with_sol):
+        result = runner.invoke(
+            app,
+            ["partner", "--update-section", "work patterns"],
+            input="Prefers async communication and morning deep work.",
+        )
+        assert result.exit_code == 0
+        assert "Updated ## work patterns" in result.output
+
+        partner_path = journal_with_sol / "sol" / "partner.md"
+        content = partner_path.read_text()
+        assert "Prefers async communication" in content
+        assert "## communication style" in content
+        assert "## decision style" in content
+
+    def test_update_section_not_found(self, journal_with_sol):
+        result = runner.invoke(
+            app,
+            ["partner", "--update-section", "nonexistent"],
+            input="content",
+        )
+        assert result.exit_code == 1
+        assert "not found" in result.output
+
+    def test_update_section_empty_stdin(self, journal_with_sol):
+        result = runner.invoke(
+            app,
+            ["partner", "--update-section", "work patterns"],
             input="",
         )
         assert result.exit_code == 1
@@ -247,6 +338,16 @@ class TestSolWriteDoesNotEscapeSolDir:
         journal_files = set(f.name for f in journal_with_sol.iterdir() if f.is_file())
         assert "pulse.md" not in journal_files
 
+    def test_partner_write_stays_in_sol_dir(self, journal_with_sol):
+        """Write to partner.md goes to sol/partner.md, not anywhere else."""
+        result = runner.invoke(app, ["partner", "--write"], input="test content\n")
+        assert result.exit_code == 0
+        partner_path = journal_with_sol / "sol" / "partner.md"
+        assert partner_path.read_text() == "test content\n"
+        # No files created outside sol/
+        journal_files = set(f.name for f in journal_with_sol.iterdir() if f.is_file())
+        assert "partner.md" not in journal_files
+
 
 class TestSolSelfValueOption:
     def test_write_self_with_value(self, journal_with_sol):
@@ -319,6 +420,37 @@ class TestSolPulseValueOption:
         assert "no content" in result.output
 
 
+class TestSolPartnerValueOption:
+    def test_write_partner_with_value(self, journal_with_sol):
+        new_content = "# partner\n\n## work patterns\nMorning person.\n"
+        result = runner.invoke(app, ["partner", "--write", "--value", new_content])
+        assert result.exit_code == 0
+        assert "partner.md updated" in result.output
+        partner_path = journal_with_sol / "sol" / "partner.md"
+        assert partner_path.read_text() == new_content
+
+    def test_update_section_with_value(self, journal_with_sol):
+        result = runner.invoke(
+            app,
+            [
+                "partner",
+                "--update-section",
+                "work patterns",
+                "--value",
+                "Prefers mornings",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Updated ## work patterns" in result.output
+        content = (journal_with_sol / "sol" / "partner.md").read_text()
+        assert "Prefers mornings" in content
+
+    def test_value_empty_string_errors(self, journal_with_sol):
+        result = runner.invoke(app, ["partner", "--write", "--value", "   "])
+        assert result.exit_code == 1
+        assert "no content" in result.output
+
+
 class TestSolHistoryLogging:
     def test_self_write_logs_history(self, journal_with_sol):
         new_content = "# self\n\nUpdated.\n"
@@ -369,6 +501,28 @@ class TestSolHistoryLogging:
         history = journal_with_sol / "sol" / "history.jsonl"
         records = [json.loads(line) for line in history.read_text().strip().split("\n")]
         assert len(records) == 2
+
+    def test_partner_write_logs_history(self, journal_with_sol):
+        runner.invoke(app, ["partner", "--write", "--value", "# partner\n\nNew.\n"])
+        history = journal_with_sol / "sol" / "history.jsonl"
+        assert history.exists()
+        records = [json.loads(line) for line in history.read_text().strip().split("\n")]
+        assert len(records) == 1
+        assert records[0]["file"] == "partner.md"
+        assert records[0]["source"] == "cli"
+
+    def test_partner_update_section_logs_history(self, journal_with_sol):
+        runner.invoke(
+            app,
+            ["partner", "--update-section", "work patterns", "--value", "Morning focus"],
+        )
+        history = journal_with_sol / "sol" / "history.jsonl"
+        assert history.exists()
+        records = [json.loads(line) for line in history.read_text().strip().split("\n")]
+        assert len(records) == 1
+        assert records[0]["file"] == "partner.md"
+        assert records[0]["section"] == "work patterns"
+        assert records[0]["source"] == "api"
 
 
 class TestHeartbeatEnsureSolDirectory:

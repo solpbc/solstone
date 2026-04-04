@@ -135,7 +135,7 @@
     "firstday_checkin": {
       "app": null,
       "color": "#6c757d",
-      "description": "One-shot check-in after onboarding — spawns support agent chat",
+      "description": "One-shot check-in after onboarding \u2014 spawns support agent chat",
       "multi_facet": false,
       "output_format": "text",
       "schedule": "segment",
@@ -168,7 +168,7 @@
     "heartbeat": {
       "app": null,
       "color": "#6c757d",
-      "description": "Sol's periodic self-awareness — journal health, agency tending, curation scan",
+      "description": "Sol's periodic self-awareness \u2014 journal health, agency tending, curation scan",
       "multi_facet": false,
       "output_format": null,
       "schedule": "none",
@@ -278,7 +278,7 @@
     "onboarding": {
       "app": null,
       "color": "#6c757d",
-      "description": "Guided setup for new owners — offers passive observation or conversational interview",
+      "description": "Guided setup for new owners \u2014 offers passive observation or conversational interview",
       "multi_facet": false,
       "output_format": null,
       "schedule": null,
@@ -286,10 +286,21 @@
       "title": "Onboarding",
       "type": "cogitate"
     },
+    "partner": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Weekly observation of the journal owner's behavioral patterns \u2014 work style, communication, priorities, decision-making, expertise",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": "none",
+      "source": "system",
+      "title": "Partner Profile",
+      "type": "cogitate"
+    },
     "pulse": {
       "app": null,
       "color": "#6c757d",
-      "description": "Living narrative of the owner's day — updated each segment",
+      "description": "Living narrative of the owner's day \u2014 updated each segment",
       "multi_facet": false,
       "output_format": null,
       "schedule": "segment",
@@ -300,7 +311,7 @@
     "routine": {
       "app": null,
       "color": "#6c757d",
-      "description": "User-defined routine execution — runs owner instructions on schedule",
+      "description": "User-defined routine execution \u2014 runs owner instructions on schedule",
       "multi_facet": false,
       "output_format": null,
       "schedule": "none",
@@ -333,7 +344,7 @@
     "sense": {
       "app": null,
       "color": "#ff6f00",
-      "description": "Unified segment understanding — density, content type, entities, facets, speakers, and routing recommendations in a single pass",
+      "description": "Unified segment understanding \u2014 density, content type, entities, facets, speakers, and routing recommendations in a single pass",
       "multi_facet": false,
       "output_format": "json",
       "schedule": "segment",
@@ -355,7 +366,7 @@
     "support:support": {
       "app": "support",
       "color": "#0288d1",
-      "description": "Files and monitors support requests with sol pbc — consent-gated, never sends data without explicit owner approval",
+      "description": "Files and monitors support requests with sol pbc \u2014 consent-gated, never sends data without explicit owner approval",
       "multi_facet": false,
       "output_format": null,
       "schedule": null,
@@ -410,7 +421,7 @@
     "triage": {
       "app": null,
       "color": "#6c757d",
-      "description": "Quick-action assistant for the chat bar — handles navigation, todos, calendar, and entity lookups",
+      "description": "Quick-action assistant for the chat bar \u2014 handles navigation, todos, calendar, and entity lookups",
       "multi_facet": false,
       "output_format": null,
       "schedule": null,
@@ -421,7 +432,7 @@
     "unified": {
       "app": null,
       "color": "#6c757d",
-      "description": "Sol — the journal itself, as a conversational partner",
+      "description": "Sol \u2014 the journal itself, as a conversational partner",
       "multi_facet": false,
       "output_format": null,
       "schedule": null,
