@@ -1,81 +1,5 @@
 {
   "generators": {
-    "activities": {
-      "color": "#00695c",
-      "description": "Detects completed activities across all facets and writes records with synthesized descriptions",
-      "hook": {
-        "flush": true,
-        "post": "activities",
-        "pre": "activities"
-      },
-      "instructions": {
-        "facets": false,
-        "sources": {
-          "agents": false,
-          "percepts": false,
-          "transcripts": false
-        }
-      },
-      "max_output_tokens": 2048,
-      "mtime": 0,
-      "output": "json",
-      "path": "<PROJECT>/muse/activities.md",
-      "priority": 96,
-      "schedule": "segment",
-      "source": "system",
-      "thinking_budget": 4096,
-      "tier": 3,
-      "title": "Activity Records",
-      "type": "generate"
-    },
-    "activity": {
-      "color": "#00bcd4",
-      "description": "Synthesizes segment activity from content, focusing on observable changes and searchability.",
-      "instructions": {
-        "facets": true,
-        "sources": {
-          "agents": false,
-          "percepts": true,
-          "transcripts": true
-        }
-      },
-      "mtime": 0,
-      "output": "md",
-      "path": "<PROJECT>/muse/activity.md",
-      "priority": 10,
-      "schedule": "segment",
-      "source": "system",
-      "title": "Activity Synthesis",
-      "type": "generate"
-    },
-    "activity_state": {
-      "color": "#00897b",
-      "description": "Detects configured activities present in segment and tracks state across segments",
-      "hook": {
-        "post": "activity_state",
-        "pre": "activity_state"
-      },
-      "instructions": {
-        "facets": true,
-        "sources": {
-          "agents": false,
-          "percepts": true,
-          "transcripts": true
-        }
-      },
-      "max_output_tokens": 3072,
-      "mtime": 0,
-      "multi_facet": true,
-      "output": "json",
-      "path": "<PROJECT>/muse/activity_state.md",
-      "priority": 95,
-      "schedule": "segment",
-      "source": "system",
-      "thinking_budget": 4096,
-      "tier": 3,
-      "title": "Activity State",
-      "type": "generate"
-    },
     "daily_schedule": {
       "color": "#455a64",
       "description": "Analyzes activity patterns to identify optimal times for scheduled maintenance tasks.",
@@ -160,29 +84,6 @@
       "source": "system",
       "thinking_budget": 4096,
       "title": "Entity Extraction",
-      "type": "generate"
-    },
-    "facets": {
-      "color": "#7c4dff",
-      "description": "Classifies segment activity into relevant facets based on other segment outputs",
-      "instructions": {
-        "facets": true,
-        "sources": {
-          "agents": true,
-          "percepts": false,
-          "transcripts": false
-        }
-      },
-      "max_output_tokens": 512,
-      "mtime": 0,
-      "output": "json",
-      "path": "<PROJECT>/muse/facets.md",
-      "priority": 90,
-      "schedule": "segment",
-      "source": "system",
-      "thinking_budget": 1024,
-      "tier": 3,
-      "title": "Facet Classification",
       "type": "generate"
     },
     "firstday_checkin": {
@@ -425,6 +326,29 @@
       "title": "Screen Record",
       "type": "generate"
     },
+    "sense": {
+      "color": "#ff6f00",
+      "description": "Unified segment understanding — density, content type, entities, facets, speakers, and routing recommendations in a single pass",
+      "instructions": {
+        "facets": true,
+        "sources": {
+          "agents": false,
+          "percepts": true,
+          "transcripts": true
+        }
+      },
+      "max_output_tokens": 4096,
+      "mtime": 0,
+      "output": "json",
+      "path": "<PROJECT>/muse/sense.md",
+      "priority": 5,
+      "schedule": "segment",
+      "source": "system",
+      "thinking_budget": 4096,
+      "tier": 3,
+      "title": "Segment Sense",
+      "type": "generate"
+    },
     "speaker_attribution": {
       "color": "#d84315",
       "description": "Identifies who said what in each transcript segment. Layers 1-3 (owner, structural, acoustic) run computationally via hook; Layer 4 uses contextual LLM analysis for remaining unmatched sentences.",
@@ -448,28 +372,6 @@
       "schedule": "segment",
       "source": "system",
       "title": "Speaker Attribution",
-      "type": "generate"
-    },
-    "speakers": {
-      "color": "#e64a19",
-      "description": "Detects meetings in the segment and extracts participant names from screen and conversation.",
-      "exclude_streams": [
-        "import.*"
-      ],
-      "instructions": {
-        "sources": {
-          "agents": false,
-          "percepts": true,
-          "transcripts": "required"
-        }
-      },
-      "mtime": 0,
-      "output": "json",
-      "path": "<PROJECT>/muse/speakers.md",
-      "priority": 10,
-      "schedule": "segment",
-      "source": "system",
-      "title": "Meeting Speakers",
       "type": "generate"
     },
     "timeline": {

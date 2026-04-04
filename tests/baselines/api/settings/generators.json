@@ -115,7 +115,7 @@
     {
       "app": null,
       "description": "Classifies segment activity into relevant facets based on other segment outputs",
-      "disabled": false,
+      "disabled": true,
       "extract": null,
       "has_extraction": false,
       "key": "facets",
@@ -135,7 +135,7 @@
     {
       "app": null,
       "description": "Detects completed activities across all facets and writes records with synthesized descriptions",
-      "disabled": false,
+      "disabled": true,
       "extract": null,
       "has_extraction": false,
       "key": "activities",
@@ -145,7 +145,7 @@
     {
       "app": null,
       "description": "Detects configured activities present in segment and tracks state across segments",
-      "disabled": false,
+      "disabled": true,
       "extract": null,
       "has_extraction": false,
       "key": "activity_state",
@@ -155,7 +155,7 @@
     {
       "app": null,
       "description": "Detects meetings in the segment and extracts participant names from screen and conversation.",
-      "disabled": false,
+      "disabled": true,
       "extract": null,
       "has_extraction": false,
       "key": "speakers",
@@ -205,12 +205,22 @@
     {
       "app": null,
       "description": "Synthesizes segment activity from content, focusing on observable changes and searchability.",
-      "disabled": false,
+      "disabled": true,
       "extract": null,
       "has_extraction": false,
       "key": "activity",
       "source": "system",
       "title": "Activity Synthesis"
+    },
+    {
+      "app": null,
+      "description": "Unified segment understanding — density, content type, entities, facets, speakers, and routing recommendations in a single pass",
+      "disabled": false,
+      "extract": null,
+      "has_extraction": false,
+      "key": "sense",
+      "source": "system",
+      "title": "Segment Sense"
     }
   ]
 }

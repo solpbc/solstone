@@ -140,7 +140,7 @@ def test_list_prompts_schedule_filter(capsys):
     list_prompts(schedule="segment")
     output = capsys.readouterr().out
 
-    assert "activity" in output
+    assert "sense" in output
     # Should not show daily-only prompts
     # (but don't assert group headers since they're suppressed with filter)
 

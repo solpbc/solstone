@@ -66,7 +66,7 @@
       "type": "cogitate"
     },
     "muse.system.activities": {
-      "disabled": false,
+      "disabled": true,
       "group": "Think",
       "label": "Activity Records",
       "schedule": "segment",
@@ -74,7 +74,7 @@
       "type": "generate"
     },
     "muse.system.activity": {
-      "disabled": false,
+      "disabled": true,
       "group": "Think",
       "label": "Activity Synthesis",
       "schedule": "segment",
@@ -82,7 +82,7 @@
       "type": "generate"
     },
     "muse.system.activity_state": {
-      "disabled": false,
+      "disabled": true,
       "group": "Think",
       "label": "Activity State",
       "schedule": "segment",
@@ -154,7 +154,7 @@
       "type": "cogitate"
     },
     "muse.system.facets": {
-      "disabled": false,
+      "disabled": true,
       "group": "Think",
       "label": "Facet Classification",
       "schedule": "segment",
@@ -343,6 +343,14 @@
       "tier": 2,
       "type": "generate"
     },
+    "muse.system.sense": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Segment Sense",
+      "schedule": "segment",
+      "tier": 3,
+      "type": "generate"
+    },
     "muse.system.speaker_attribution": {
       "disabled": false,
       "group": "Think",
@@ -352,7 +360,7 @@
       "type": "generate"
     },
     "muse.system.speakers": {
-      "disabled": false,
+      "disabled": true,
       "group": "Think",
       "label": "Meeting Speakers",
       "schedule": "segment",

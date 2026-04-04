@@ -123,21 +123,21 @@ def test_scheduled_generators_have_valid_schedule():
             )
 
 
-def test_speakers_has_required_audio():
-    """Test that speakers generator has audio as required source."""
+def test_sense_in_segment_schedule():
+    """Test that sense generator exists in segment schedule at priority 5."""
     muse = importlib.import_module("think.muse")
 
     generators = muse.get_muse_configs(type="generate", schedule="segment")
-    assert "speakers" in generators
+    assert "sense" in generators
 
-    speakers = generators["speakers"]
-    instructions = speakers.get("instructions", {})
+    sense = generators["sense"]
+    assert sense.get("priority") == 5, "sense should be at priority 5"
+
+    instructions = sense.get("instructions", {})
     sources = instructions.get("sources", {})
 
-    assert sources.get("transcripts") == "required", (
-        "speakers should require transcripts"
-    )
-    assert sources.get("percepts") is True, "speakers should include percepts"
+    assert sources.get("transcripts") is True, "sense should include transcripts"
+    assert sources.get("percepts") is True, "sense should include percepts"
 
 
 def _write_temp_muse_prompt(stem: str, frontmatter: str) -> Path:

@@ -429,6 +429,17 @@
       "title": "Screen Record",
       "type": "generate"
     },
+    "sense": {
+      "app": null,
+      "color": "#ff6f00",
+      "description": "Unified segment understanding — density, content type, entities, facets, speakers, and routing recommendations in a single pass",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "segment",
+      "source": "system",
+      "title": "Segment Sense",
+      "type": "generate"
+    },
     "speaker_attribution": {
       "app": null,
       "color": "#d84315",
