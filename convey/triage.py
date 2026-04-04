@@ -30,9 +30,8 @@ def triage() -> Any:
     The agent runs asynchronously. The browser receives the result via
     WebSocket (cortex/finish event). For reload recovery, use GET /result/<agent_id>.
 
-    When conversation_history is provided (array of {role, content} pairs),
-    routes to the unified muse with full journal context. Otherwise falls
-    back to triage muse for backward compatibility.
+    Routes based on onboarding status: new/in-progress journals go to
+    the onboarding muse, completed/skipped journals go to unified.
     """
     payload = request.get_json(force=True)
     message = payload.get("message", "").strip()
@@ -50,7 +49,6 @@ def triage() -> Any:
     conversation_history = payload.get("conversation_history")
 
     from think.awareness import get_onboarding
-    from think.facets import get_enabled_facets
     from think.utils import get_config
 
     onboarding = get_onboarding()
@@ -58,8 +56,7 @@ def triage() -> Any:
     _agent_cfg = get_config().get("agent", {})
     agent_display_name = _agent_cfg.get("name", "sol").capitalize()
 
-    # Route to unified muse when conversation context is present,
-    # fall back to triage for backward compatibility (no context)
+    # Check for conversation context (used in prompt assembly below)
     has_conversation = (
         isinstance(conversation_history, list) and len(conversation_history) > 0
     )
@@ -67,11 +64,8 @@ def triage() -> Any:
     if onboarding_status in ("observing", "ready"):
         # Path A active — use triage with observation context
         agent_name = "triage"
-    elif not get_enabled_facets() and onboarding_status not in (
-        "complete",
-        "skipped",
-    ):
-        # No facets and no onboarding state — new user, show welcome
+    elif onboarding_status not in ("complete", "skipped"):
+        # Onboarding not yet completed — route to onboarding muse
         agent_name = "onboarding"
     elif has_conversation:
         # Conversation context present — use unified muse

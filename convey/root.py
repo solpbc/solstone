@@ -20,7 +20,6 @@ from flask import (
 )
 
 from think.cluster import cluster_segments
-from think.facets import get_facets
 from think.utils import day_dirs, get_config
 
 
@@ -128,14 +127,5 @@ def app_today() -> Any:
 
 @bp.route("/")
 def index() -> Any:
-    """Root redirect - to settings if no facets, otherwise home."""
-    try:
-        facets = get_facets()
-    except Exception:
-        facets = {}
-
-    if not facets:
-        # New journal - direct to settings for initial setup
-        return redirect(url_for("app:settings.index"))
-
+    """Root redirect — always to home, onboarding muse handles new journals."""
     return redirect(url_for("app:home.index"))
