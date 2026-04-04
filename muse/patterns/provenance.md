@@ -20,7 +20,7 @@ A structured preamble summarizing what data sources were consulted and what gaps
 
 ### 2. Source Attribution
 
-Inline parenthetical links connecting claims to their originating data using `segment://` URIs. Allows readers to trace any claim back to the source.
+Inline parenthetical links connecting claims to their originating data using `sol://` URIs. Allows readers to trace any claim back to the source.
 
 **When to attribute:**
 - High-consequence factual claims (commitments, decisions, deadlines)
@@ -33,8 +33,8 @@ Inline parenthetical links connecting claims to their originating data using `se
 - General summaries that synthesize multiple sources
 
 **Example:**
-- `Closed the auth migration PR ([work newsletter](segment://facets/work/news/20260326))`
-- `Last discussed launch timeline (from your [March standup](segment://20260313/archon/091500_300))`
+- `Closed the auth migration PR ([work newsletter](sol://facets/work/news/20260326))`
+- `Last discussed launch timeline (from your [March standup](sol://20260313/archon/091500_300))`
 
 ### 3. Confidence-Graded Language
 
@@ -69,7 +69,7 @@ To add provenance to a new cogitate agent:
 
 1. **Add a pre-pass audit phase** after data gathering. Count sources, identify gaps, catalog tool errors. This becomes the basis for your coverage statement.
 
-2. **Add source attribution rules** to your synthesis instructions. Define which claims need `segment://` links and which are self-evident. Use the URI construction rules from the morning briefing as a template.
+2. **Add source attribution rules** to your synthesis instructions. Define which claims need `sol://` links and which are self-evident. Use the URI construction rules from the morning briefing as a template.
 
 3. **Add confidence-graded language rules** inline within each output section's instructions. Tailor the high/medium/low examples to that section's data sources — entity context grades differently than action items. State both directions (assert strong evidence, hedge weak evidence).
 
