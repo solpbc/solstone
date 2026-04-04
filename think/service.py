@@ -26,7 +26,7 @@ import plistlib
 import subprocess
 import sys
 from pathlib import Path
-from think.utils import get_journal, get_journal_info
+from think.utils import get_config, get_journal, get_journal_info
 
 SERVICE_LABEL = "org.solpbc.solstone"
 SYSTEMD_UNIT = "solstone"
@@ -69,9 +69,11 @@ _API_KEYS = [
 def _collect_env() -> dict[str, str]:
     """Collect environment variables for the service file.
 
-    Captures: HOME, PATH (with venv bin), and any API keys present in the
-    current environment.  The journal override is only included if explicitly
-    set — the default project-root resolution works without it.
+    Reads API keys from journal/config/journal.json ``env`` section (the
+    canonical key store).  Falls back to the shell environment for any keys
+    not in journal.json but warns that they should be migrated.
+
+    Captures: HOME, PATH (with venv bin), and API keys.
     """
     venv_bin = str(Path(sys.executable).parent)
 
@@ -84,18 +86,27 @@ def _collect_env() -> dict[str, str]:
     if override:
         env["_SOLSTONE_JOURNAL_OVERRIDE"] = override
 
+    config = get_config()
+    config_env = config.get("env", {})
+
     missing_keys = []
     for key in _API_KEYS:
-        val = os.environ.get(key)
+        val = config_env.get(key)
         if val:
-            env[key] = val
+            env[key] = str(val)
+        elif os.environ.get(key):
+            env[key] = os.environ[key]
+            print(
+                f"Warning: {key} found in shell environment but not in "
+                "journal/config/journal.json — add it to the \"env\" section"
+            )
         else:
             missing_keys.append(key)
 
     if missing_keys:
         print(
-            "Note: these API keys are not set and won't be in the service: "
-            f"{', '.join(missing_keys)}"
+            "Note: these API keys are not set in journal/config/journal.json "
+            f"and won't be in the service: {', '.join(missing_keys)}"
         )
 
     return env

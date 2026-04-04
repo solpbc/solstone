@@ -12,21 +12,21 @@ Complete setup instructions for solstone on Linux and macOS.
 ### Linux (Fedora/RHEL)
 
 ```bash
-sudo dnf install python3 git ffmpeg pipewire gstreamer1-plugins-base
+sudo dnf install python3 git ffmpeg pipewire gstreamer1-plugins-base gstreamer1-plugin-pipewire pulseaudio-utils
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### Linux (Ubuntu/Debian)
 
 ```bash
-sudo apt install python3 git ffmpeg pipewire gstreamer1.0-tools
+sudo apt install python3 git ffmpeg pipewire gstreamer1.0-tools gstreamer1.0-pipewire pulseaudio-utils
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### Linux (Arch)
 
 ```bash
-sudo pacman -S python git ffmpeg pipewire gstreamer
+sudo pacman -S python git ffmpeg pipewire gstreamer gst-plugin-pipewire libpulse
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
@@ -57,76 +57,70 @@ To uninstall:
 make uninstall
 ```
 
-2. Copy the environment template:
-
-```bash
-cp .env.example .env
-```
-
-3. Your journal lives at `journal/` inside the solstone directory. It's created automatically on first run.
+2. Your journal lives at `journal/` inside the solstone directory. It's created automatically on first run.
 
 ---
 
 ## API Keys
 
-solstone requires API keys for AI services. Configure these in your `.env` file.
+solstone requires API keys for AI services. All keys are configured in `journal/config/journal.json` — this is the only key configuration method.
 
-### Google AI (Gemini) - Recommended
+Create the config file:
+
+```bash
+mkdir -p journal/config
+cat > journal/config/journal.json << 'EOF'
+{
+  "convey": {
+    "password": "your-password-here"
+  },
+  "env": {
+    "GOOGLE_API_KEY": "your-key-here"
+  }
+}
+EOF
+chmod 600 journal/config/journal.json
+```
+
+Replace `your-password-here` with a password for the web interface, and `your-key-here` with your Google AI API key.
+
+### Google AI (Gemini) - Required
 
 Primary backend for transcription, vision analysis, and insights.
 
 1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
 2. Sign in with your Google account
 3. Click "Create API Key"
-4. Copy the key to `.env`:
-
-```
-GOOGLE_API_KEY=your-key-here
-```
+4. Add the key to the `env` section of `journal/config/journal.json`
 
 ### OpenAI (Optional)
 
-Alternative backend for chat and agents.
-
-1. Go to [OpenAI API Keys](https://platform.openai.com/api-keys)
-2. Sign in or create an account
-3. Click "Create new secret key"
-4. Copy the key to `.env`:
-
-```
-OPENAI_API_KEY=your-key-here
-```
+Alternative backend for chat and agents. Add `"OPENAI_API_KEY": "your-key"` to the `env` section.
 
 ### Anthropic (Optional)
 
-Alternative backend for chat and agents.
+Alternative backend for chat and agents. Add `"ANTHROPIC_API_KEY": "your-key"` to the `env` section.
 
-1. Go to [Anthropic Console](https://console.anthropic.com/settings/keys)
-2. Sign in or create an account
-3. Click "Create Key"
-4. Copy the key to `.env`:
+### Rev.ai for Imports (Optional)
 
+For transcribing imported audio files. Sign up at [Rev.ai](https://www.rev.ai/), get a token from [Access Token](https://www.rev.ai/access_token), and add `"REVAI_ACCESS_TOKEN": "your-token"` to the `env` section.
+
+### Example with multiple providers
+
+```json
+{
+  "convey": {
+    "password": "your-password"
+  },
+  "env": {
+    "GOOGLE_API_KEY": "your-gemini-key",
+    "OPENAI_API_KEY": "your-openai-key",
+    "ANTHROPIC_API_KEY": "your-anthropic-key"
+  }
+}
 ```
-ANTHROPIC_API_KEY=your-key-here
-```
 
----
-
-## Rev.ai for Imports (Optional)
-
-For transcribing imported audio files (meetings, voice memos, etc.).
-
-1. Sign up at [Rev.ai](https://www.rev.ai/)
-
-2. After account creation, go to [Access Token](https://www.rev.ai/access_token)
-
-3. Click "Generate New Access Token"
-
-4. Add the token to `.env`:
-
-```
-REVAI_ACCESS_TOKEN=your-token-here
-```
+**Important:** `journal.json` contains your API keys and password. It should always have restricted permissions (`chmod 600`).
 
 ---
 
@@ -182,25 +176,6 @@ sol health
 ---
 
 ## Web Interface
-
-### Set a Password
-
-Before accessing the web interface, you must configure a password.
-
-Create the config file:
-
-```bash
-mkdir -p journal/config
-cat > journal/config/journal.json << 'EOF'
-{
-  "convey": {
-    "password": "your-password-here"
-  }
-}
-EOF
-```
-
-Replace `your-password-here` with a secure password.
 
 ### Access the Interface
 

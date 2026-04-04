@@ -73,10 +73,8 @@ git clone https://github.com/solpbc/solstone.git
 cd solstone
 make install
 
-# Configure environment
-cp .env.example .env
-# Add at minimum: GOOGLE_API_KEY=your-key
-# See docs/PROVIDERS.md for all supported providers
+# Configure API keys and password in journal.json
+# See docs/INSTALL.md for setup instructions
 
 # Install as a background service (starts on login, port 5015)
 make install-service
