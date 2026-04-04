@@ -43,6 +43,7 @@ def test_dry_run_segment(tmp_path, monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert "segment 120000_300" in out
+    assert "Sense orchestrator" in out
     assert "Pre-phase" not in out
     assert "Post-phase" not in out
 

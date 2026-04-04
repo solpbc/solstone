@@ -82,12 +82,12 @@ def test_segment_mode_skips_pre_post_phases(tmp_path, monkeypatch):
         commands_run.append(cmd)
         return True
 
-    def mock_run_prompts_by_priority(day, segment, refresh, verbose, **kwargs):
+    def mock_run_segment_sense(day, segment, refresh, verbose, **kwargs):
         return (1, 0, [])
 
     monkeypatch.setattr(mod, "run_command", mock_run_command)
     monkeypatch.setattr(mod, "run_queued_command", mock_run_queued_command)
-    monkeypatch.setattr(mod, "run_prompts_by_priority", mock_run_prompts_by_priority)
+    monkeypatch.setattr(mod, "run_segment_sense", mock_run_segment_sense)
     monkeypatch.setattr(
         "sys.argv",
         ["sol dream", "--day", "20240101", "--segment", "120000_300"],
