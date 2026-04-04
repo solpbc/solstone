@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import base64
 import datetime
+import json
 import logging
 import secrets
 import sys
@@ -56,8 +57,6 @@ def _find_remote(identifier: str) -> dict | None:
         return remote
 
     # Try key prefix (file is named <prefix>.json)
-    import json
-
     remotes_dir = get_remotes_dir()
     remote_path = remotes_dir / f"{identifier}.json"
     if remote_path.exists():
@@ -137,6 +136,10 @@ def cmd_create(args: argparse.Namespace) -> int:
         params={"name": name, "key_prefix": key[:8]},
     )
 
+    if args.json_output:
+        print(json.dumps({"name": name, "key": key, "prefix": key[:8]}))
+        return 0
+
     print("Remote observer created:")
     print(f"  Name:       {name}")
     print(f"  Prefix:     {key[:8]}")
@@ -145,9 +148,26 @@ def cmd_create(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_list(_args: argparse.Namespace) -> int:
+def cmd_list(args: argparse.Namespace) -> int:
     """List all registered remotes."""
     remotes = list_remotes()
+
+    if args.json_output:
+        result = []
+        for r in remotes:
+            stats = r.get("stats", {})
+            result.append(
+                {
+                    "name": r.get("name", ""),
+                    "prefix": r.get("key", "")[:8],
+                    "status": _status_label(r),
+                    "last_seen": r.get("last_seen"),
+                    "segments": stats.get("segments_received", 0),
+                    "bytes": stats.get("bytes_received", 0),
+                }
+            )
+        print(json.dumps(result))
+        return 0
 
     if not remotes:
         print("No remotes registered.")
@@ -205,6 +225,10 @@ def cmd_revoke(args: argparse.Namespace) -> int:
         params={"name": name, "key_prefix": key_prefix},
     )
 
+    if args.json_output:
+        print(json.dumps({"name": name, "prefix": key_prefix, "revoked": True}))
+        return 0
+
     print(f"Revoked remote '{name}' ({key_prefix})")
     return 0
 
@@ -244,6 +268,14 @@ def cmd_rename(args: argparse.Namespace) -> int:
         params={"old_name": old_name, "new_name": new_name, "key_prefix": key_prefix},
     )
 
+    if args.json_output:
+        print(
+            json.dumps(
+                {"old_name": old_name, "new_name": new_name, "prefix": key_prefix}
+            )
+        )
+        return 0
+
     print(f"Renamed remote '{old_name}' -> '{new_name}' ({key_prefix})")
     print(f"  Future segments will use stream: {new_name}")
     print(f"  Existing segments remain under stream: {old_name}")
@@ -253,11 +285,11 @@ def cmd_rename(args: argparse.Namespace) -> int:
 def cmd_status(args: argparse.Namespace) -> int:
     """Show remote status details."""
     if args.identifier:
-        return _status_single(args.identifier)
-    return _status_all()
+        return _status_single(args.identifier, json_output=args.json_output)
+    return _status_all(json_output=args.json_output)
 
 
-def _status_single(identifier: str) -> int:
+def _status_single(identifier: str, json_output: bool = False) -> int:
     """Detailed status for a single remote."""
     remote = _find_remote(identifier)
     if not remote:
@@ -267,6 +299,23 @@ def _status_single(identifier: str) -> int:
     name = remote.get("name", "")
     key_prefix = remote.get("key", "")[:8]
     stats = remote.get("stats", {})
+
+    if json_output:
+        print(
+            json.dumps(
+                {
+                    "name": name,
+                    "prefix": key_prefix,
+                    "status": _status_label(remote),
+                    "created_at": remote.get("created_at"),
+                    "last_seen": remote.get("last_seen"),
+                    "revoked": remote.get("revoked", False),
+                    "segments": stats.get("segments_received", 0),
+                    "bytes": stats.get("bytes_received", 0),
+                }
+            )
+        )
+        return 0
 
     print(f"Remote: {name}")
     print(f"  Prefix:     {key_prefix}")
@@ -308,11 +357,11 @@ def _status_single(identifier: str) -> int:
     return 0
 
 
-def _status_all() -> int:
+def _status_all(json_output: bool = False) -> int:
     """Health overview for all remotes."""
     remotes = list_remotes()
 
-    if not remotes:
+    if not remotes and not json_output:
         print("No remotes registered.")
         return 0
 
@@ -323,6 +372,29 @@ def _status_all() -> int:
         r.get("stats", {}).get("segments_received", 0) for r in remotes
     )
     total_bytes = sum(r.get("stats", {}).get("bytes_received", 0) for r in remotes)
+
+    if json_output:
+        print(
+            json.dumps(
+                {
+                    "total": len(remotes),
+                    "connected": connected,
+                    "disconnected": disconnected,
+                    "revoked": revoked,
+                    "total_segments": total_segments,
+                    "total_bytes": total_bytes,
+                    "remotes": [
+                        {
+                            "name": r.get("name", ""),
+                            "status": _status_label(r),
+                            "last_seen": r.get("last_seen"),
+                        }
+                        for r in remotes
+                    ],
+                }
+            )
+        )
+        return 0
 
     print(f"Remote observers: {len(remotes)} total")
     print(f"  Connected:    {connected}")
@@ -350,6 +422,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         prog="sol remote",
         description="Manage remote observer registrations",
+    )
+
+    parser.add_argument(
+        "--json", action="store_true", dest="json_output", help="Output as JSON"
     )
 
     sub = parser.add_subparsers(dest="command")
