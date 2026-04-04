@@ -1,5 +1,6 @@
 {
   "type": "generate",
+  "disabled": true,
 
   "title": "Activity Records",
   "description": "Detects completed activities across all facets and writes records with synthesized descriptions",

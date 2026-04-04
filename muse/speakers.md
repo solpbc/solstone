@@ -1,5 +1,6 @@
 {
   "type": "generate",
+  "disabled": true,
 
   "title": "Meeting Speakers",
   "description": "Detects meetings in the segment and extracts participant names from screen and conversation.",
