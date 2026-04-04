@@ -200,7 +200,9 @@ class TestHandoffCommand:
 
         assert result.exit_code == 0
         assert "1710864123456" in result.output
-        mock_cortex.assert_called_once_with(prompt="Fix the bug", name="coder")
+        mock_cortex.assert_called_once_with(
+            prompt="Fix the bug", name="coder", config=None
+        )
 
     def test_handoff_empty_stdin(self):
         """Empty stdin produces error and exit code 1."""
