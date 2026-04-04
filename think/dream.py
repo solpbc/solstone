@@ -27,8 +27,10 @@ from think.facets import (
     get_enabled_facets,
     load_segment_facets,
 )
+from think.activity_state_machine import ActivityStateMachine
 from think.muse import get_muse_configs, get_output_path
 from think.runner import run_task
+from think.sense_splitter import write_idle_stubs, write_sense_outputs
 from think.utils import (
     day_input_summary,
     day_log,
@@ -404,322 +406,353 @@ def _should_skip_preflight(
             return (True, "preflight:not_observing")
         return (False, None)
 
-    seg_dir = _resolve_segment_dir(day, segment, stream)
-    if seg_dir is None:
-        return (False, None)
-
-    if prompt_name == "speaker_attribution":
-        if not _has_audio_embeddings(seg_dir):
-            return (True, "preflight:no_embeddings")
-        return (False, None)
-
-    if prompt_name == "speakers":
-        transcript_files = sorted(seg_dir.glob("audio.jsonl"))
-        transcript_files.extend(sorted(seg_dir.glob("*_audio.jsonl")))
-        transcript_files.extend(sorted(seg_dir.glob("*_transcript.jsonl")))
-        if not transcript_files:
-            return (True, "preflight:no_transcripts")
-
-        speakers: set[str] = set()
-        for transcript_path in transcript_files:
-            lines = _count_nonempty_lines(transcript_path)
-            for line in lines[1:]:
-                try:
-                    entry = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                speaker = entry.get("speaker")
-                if speaker is not None:
-                    speakers.add(str(speaker))
-        if len(speakers) < 2:
-            return (True, "preflight:single_speaker")
-        return (False, None)
-
-    if prompt_name == "activities":
-        from muse.activity_state import find_previous_segment
-
-        previous_segment = find_previous_segment(day, segment, stream=stream)
-        if not previous_segment:
-            return (True, "preflight:no_previous_segment")
-
-        prev_dir = _resolve_segment_dir(day, previous_segment, stream)
-        if prev_dir is None:
-            return (True, "preflight:no_previous_activity_state")
-
-        agents_dir = prev_dir / "agents"
-        for facet_dir in sorted(agents_dir.iterdir()) if agents_dir.is_dir() else []:
-            if facet_dir.is_dir() and (facet_dir / "activity_state.json").exists():
-                return (False, None)
-        return (True, "preflight:no_previous_activity_state")
-
     return (False, None)
 
 
-def _classify_segment_density(
+def run_segment_sense(
     day: str,
     segment: str,
-    stream: str | None,
-) -> dict:
-    """Classify segment content density. Returns dict with classification, counts, timestamp."""
+    refresh: bool,
+    verbose: bool,
+    max_concurrency: int = 2,
+    stream: str | None = None,
+    timeout: int | None = 610,
+    state_machine: ActivityStateMachine | None = None,
+) -> tuple[int, int, list[str]]:
+    """Run Sense-first linear orchestrator for a single segment.
+
+    Dispatches the Sense agent first, parses its output to determine segment
+    density and conditional agent recommendations, then dispatches remaining
+    agents based on Sense output.
+    """
+    target_schedule = "segment"
+    all_prompts = get_muse_configs(schedule="segment")
+    if not all_prompts:
+        logging.info("No prompts found for schedule: segment")
+        return (0, 0, [])
+
+    def _cfg(name: str) -> dict | None:
+        return all_prompts.get(name)
+
+    def _dispatch_agent(name: str, config: dict) -> str | None:
+        is_generate = config["type"] == "generate"
+        request_config: dict = {"day": day, "segment": segment}
+        if is_generate:
+            request_config["output"] = config.get("output", "md")
+            if refresh:
+                request_config["refresh"] = True
+        elif config.get("output"):
+            request_config["output"] = config["output"]
+
+        env: dict[str, str] = {"SOL_DAY": day, "SOL_SEGMENT": segment}
+        if stream:
+            request_config["stream"] = stream
+            env["SOL_STREAM"] = stream
+        request_config["env"] = env
+        request_config["schedule"] = target_schedule
+
+        prompt = (
+            ""
+            if is_generate
+            else f"Running scheduled task for {iso_date(day)}: {day_input_summary(day)}."
+        )
+        return _cortex_request_with_retry(prompt=prompt, name=name, config=request_config)
+
+    sense_config = _cfg("sense")
+    if sense_config is None:
+        logging.error("Sense agent not found in segment configs")
+        return (0, 1, ["sense (not_configured)"])
+
+    day_dir = day_path(day)
     seg_dir = _segment_dir(day, segment, stream)
-    if not seg_dir.exists():
-        return {
-            "classification": "active",
-            "transcript_lines": 0,
-            "screen_frames": 0,
-            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
-        }
+    pulse_config = _cfg("pulse")
 
-    transcript_lines = 0
-    transcript_files = sorted(seg_dir.glob("audio.jsonl"))
-    transcript_files.extend(sorted(seg_dir.glob("*_audio.jsonl")))
-    transcript_files.extend(sorted(seg_dir.glob("*_transcript.jsonl")))
-    for transcript_path in transcript_files:
-        lines = _count_nonempty_lines(transcript_path)
-        transcript_lines += max(0, len(lines) - 1)
+    start_time = time.time()
+    total_success = 0
+    total_failed = 0
+    all_failed_names: list[str] = []
 
-    imported_md = seg_dir / "imported.md"
-    if imported_md.exists():
-        transcript_lines += len(_count_nonempty_lines(imported_md))
+    _update_status(
+        mode=target_schedule,
+        day=day,
+        segment=segment,
+        stream=stream,
+        agents_total=1,
+        agents_completed=0,
+        current_agents=[],
+    )
 
-    screen_frames = 0
-    screen_files = sorted(seg_dir.glob("screen.jsonl"))
-    screen_files.extend(sorted(seg_dir.glob("*_screen.jsonl")))
-    for screen_path in screen_files:
-        lines = _count_nonempty_lines(screen_path)
-        if not lines:
-            continue
-        subtract_header = False
-        try:
-            first_entry = json.loads(lines[0])
-            subtract_header = isinstance(first_entry, dict) and "raw" in first_entry
-        except json.JSONDecodeError:
-            subtract_header = False
-        screen_frames += max(0, len(lines) - 1 if subtract_header else len(lines))
+    emit(
+        "started",
+        mode=target_schedule,
+        day=day,
+        segment=segment,
+        count=1,
+        groups=1,
+    )
 
-    if transcript_lines == 0 and screen_frames < 2:
-        return {
-            "classification": "idle",
-            "transcript_lines": transcript_lines,
-            "screen_frames": screen_frames,
-            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
-        }
-    if transcript_lines < 10 and screen_frames < 5:
-        return {
-            "classification": "low_change",
-            "transcript_lines": transcript_lines,
-            "screen_frames": screen_frames,
-            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
-        }
-    return {
-        "classification": "active",
-        "transcript_lines": transcript_lines,
-        "screen_frames": screen_frames,
-        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
-    }
+    sense_agent_id = _dispatch_agent("sense", sense_config)
+    if sense_agent_id is None:
+        duration_ms = int((time.time() - start_time) * 1000)
+        emit(
+            "completed",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+            success=0,
+            failed=1,
+            failed_names=["sense (send)"],
+            duration_ms=duration_ms,
+        )
+        return (0, 1, ["sense (send)"])
 
+    emit(
+        "agent_started",
+        mode=target_schedule,
+        day=day,
+        segment=segment,
+        name="sense",
+        agent_id=sense_agent_id,
+    )
+    _update_status(current_agents=["sense"])
 
-def _activity_state_cache_path(day: str) -> Path:
-    return day_path(day) / "health" / "activity_state_cache.json"
+    s, f, fn = _drain_priority_batch(
+        [(sense_agent_id, "sense", sense_config, None)],
+        target_schedule,
+        day,
+        segment,
+        stream,
+        timeout,
+    )
+    total_success += s
+    total_failed += f
+    all_failed_names.extend(fn)
+    _update_status(agents_completed=total_success + total_failed, current_agents=[])
 
+    if f > 0:
+        duration_ms = int((time.time() - start_time) * 1000)
+        emit(
+            "completed",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+            success=total_success,
+            failed=total_failed,
+            failed_names=all_failed_names,
+            duration_ms=duration_ms,
+        )
+        return (total_success, total_failed, all_failed_names)
 
-def _load_activity_state_cache(day: str) -> dict:
-    data = _load_json_file(_activity_state_cache_path(day), {})
-    return data if isinstance(data, dict) else {}
+    sense_output_path = get_output_path(
+        day_dir,
+        "sense",
+        segment=segment,
+        output_format="json",
+        stream=stream,
+    )
+    try:
+        sense_json = json.loads(sense_output_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        logging.error("Failed to read Sense output %s: %s", sense_output_path, exc)
+        failed_names = all_failed_names + ["sense (output_parse)"]
+        duration_ms = int((time.time() - start_time) * 1000)
+        emit(
+            "completed",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+            success=total_success,
+            failed=total_failed + 1,
+            failed_names=failed_names,
+            duration_ms=duration_ms,
+        )
+        return (total_success, total_failed + 1, failed_names)
 
+    write_sense_outputs(sense_json, seg_dir, stream=stream)
+    density = sense_json.get("density") or "active"
 
-def _save_activity_state_cache(day: str, data: dict) -> None:
-    _write_json_atomic(_activity_state_cache_path(day), data)
+    if density == "idle" and not refresh:
+        write_idle_stubs(seg_dir)
+        logging.info("Segment %s is idle, skipping remaining agents", segment)
+        if state_machine is not None:
+            state_machine.update(sense_json, segment, day)
 
+        duration_ms = int((time.time() - start_time) * 1000)
+        emit(
+            "completed",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+            success=total_success,
+            failed=total_failed,
+            failed_names=all_failed_names,
+            duration_ms=duration_ms,
+        )
+        return (total_success, total_failed, all_failed_names)
 
-def _emit_activity_live_entries(
-    *,
-    day: str,
-    segment: str,
-    facet: str,
-    entries: list[dict],
-) -> None:
-    """Emit activity.live events for active entries."""
-    from think.callosum import callosum_send
+    recommend = sense_json.get("recommend") or {}
+    agents_to_run: list[tuple[str, dict]] = []
 
-    for entry in entries:
-        if entry.get("state") != "active":
-            continue
-        try:
-            callosum_send(
-                "activity",
-                "live",
-                facet=facet,
+    entities_config = _cfg("entities")
+    if entities_config:
+        agents_to_run.append(("entities", entities_config))
+
+    if recommend.get("screen_record"):
+        screen_config = _cfg("screen")
+        if screen_config:
+            agents_to_run.append(("screen", screen_config))
+
+    if recommend.get("speaker_attribution") and _has_audio_embeddings(seg_dir):
+        speaker_config = _cfg("speaker_attribution")
+        if speaker_config:
+            agents_to_run.append(("speaker_attribution", speaker_config))
+
+    for onboarding_name in ("observation", "firstday_checkin"):
+        onboarding_config = _cfg(onboarding_name)
+        if onboarding_config:
+            skip, _skip_reason = _should_skip_preflight(
+                onboarding_name,
                 day=day,
                 segment=segment,
-                id=entry["id"],
-                activity=entry["activity"],
-                since=entry["since"],
-                description=entry.get("description", ""),
-                level=entry.get("level", "medium"),
-                active_entities=entry.get("active_entities", []),
+                stream=stream,
             )
-        except Exception as exc:
-            logging.warning(
-                "Failed to emit carried activity.live for %s/%s: %s",
+            if not skip:
+                agents_to_run.append((onboarding_name, onboarding_config))
+
+    total_expected = 1 + len(agents_to_run)
+    if recommend.get("pulse_update") and pulse_config:
+        total_expected += 1
+    _update_status(agents_total=total_expected)
+
+    spawned: list[tuple[str, str, dict, str | None]] = []
+    for agent_name, config in agents_to_run:
+        agent_id = _dispatch_agent(agent_name, config)
+        if agent_id is None:
+            total_failed += 1
+            all_failed_names.append(f"{agent_name} (send)")
+            _update_status(agents_completed=total_success + total_failed)
+            continue
+
+        spawned.append((agent_id, agent_name, config, None))
+        emit(
+            "agent_started",
+            mode=target_schedule,
+            day=day,
+            segment=segment,
+            name=agent_name,
+            agent_id=agent_id,
+        )
+
+        if max_concurrency and len(spawned) >= max_concurrency:
+            _update_status(current_agents=[name for _, name, _, _ in spawned])
+            s, f, fn = _drain_priority_batch(
+                spawned,
+                target_schedule,
+                day,
+                segment,
+                stream,
+                timeout,
+            )
+            total_success += s
+            total_failed += f
+            all_failed_names.extend(fn)
+            spawned = []
+            _update_status(
+                agents_completed=total_success + total_failed,
+                current_agents=[],
+            )
+
+    if spawned:
+        _update_status(current_agents=[name for _, name, _, _ in spawned])
+        s, f, fn = _drain_priority_batch(
+            spawned,
+            target_schedule,
+            day,
+            segment,
+            stream,
+            timeout,
+        )
+        total_success += s
+        total_failed += f
+        all_failed_names.extend(fn)
+        _update_status(
+            agents_completed=total_success + total_failed,
+            current_agents=[],
+        )
+
+    if state_machine is not None:
+        changes = state_machine.update(sense_json, segment, day)
+        for change in changes:
+            if change.get("state") != "ended":
+                continue
+            facet = change.get("_facet")
+            activity_id = change.get("id")
+            if not facet or not activity_id:
+                continue
+            logging.info(
+                "Activity completed: %s facet=%s, running activity agents",
+                activity_id,
                 facet,
-                entry.get("id", "unknown"),
-                exc,
+            )
+            run_activity_prompts(
+                day=day,
+                activity_id=str(activity_id),
+                facet=str(facet),
+                refresh=refresh,
+                verbose=verbose,
+                max_concurrency=max_concurrency,
             )
 
+    if recommend.get("pulse_update") and pulse_config:
+        pulse_agent_id = _dispatch_agent("pulse", pulse_config)
+        if pulse_agent_id is None:
+            total_failed += 1
+            all_failed_names.append("pulse (send)")
+            _update_status(agents_completed=total_success + total_failed)
+        else:
+            emit(
+                "agent_started",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+                name="pulse",
+                agent_id=pulse_agent_id,
+            )
+            _update_status(current_agents=["pulse"])
+            s, f, fn = _drain_priority_batch(
+                [(pulse_agent_id, "pulse", pulse_config, None)],
+                target_schedule,
+                day,
+                segment,
+                stream,
+                timeout,
+            )
+            total_success += s
+            total_failed += f
+            all_failed_names.extend(fn)
+            _update_status(
+                agents_completed=total_success + total_failed,
+                current_agents=[],
+            )
 
-def _try_carry_forward_activity_state(
-    *,
-    day: str,
-    segment: str,
-    stream: str | None,
-    facet: str,
-    cache: dict,
-) -> bool:
-    """Try to carry forward cached activity_state for a facet."""
-    cache_key = f"{stream or 'default'}:{facet}"
-    entry = cache.get(cache_key)
-    if not isinstance(entry, dict):
-        return False
+    duration_ms = int((time.time() - start_time) * 1000)
+    emit(
+        "completed",
+        mode=target_schedule,
+        day=day,
+        segment=segment,
+        success=total_success,
+        failed=total_failed,
+        failed_names=all_failed_names,
+        duration_ms=duration_ms,
+    )
 
-    if int(entry.get("carry_count", 0)) >= 6:
-        return False
-
-    cached_segment = entry.get("segment", "")
-    if not cached_segment:
-        return False
-
-    current_start, _current_end = segment_parse(segment)
-    _cached_start, cached_end = segment_parse(cached_segment)
-    if current_start is None or cached_end is None:
-        return False
-
-    current_dt = datetime.combine(date.today(), current_start)
-    cached_end_dt = datetime.combine(date.today(), cached_end)
-    gap = current_dt - cached_end_dt
-    if gap < timedelta(0) or gap > timedelta(minutes=10):
-        return False
-
-    facet_rows = _load_segment_facet_rows(day, segment, stream)
-    facet_row = next((row for row in facet_rows if row.get("facet") == facet), None)
-    if not facet_row:
-        return False
-    if facet_row.get("activity", "") != entry.get("facet_classification", ""):
-        return False
-
-    state = entry.get("state")
-    if not isinstance(state, list):
-        return False
-
-    seg_dir = _segment_dir(day, segment, stream)
-    output_path = seg_dir / "agents" / facet / "activity_state.json"
-    _write_json_atomic(output_path, state)
-    _emit_activity_live_entries(day=day, segment=segment, facet=facet, entries=state)
-
-    entry["carry_count"] = int(entry.get("carry_count", 0)) + 1
-    entry["segment"] = segment
-    entry["updated_at"] = int(time.time())
-    cache[cache_key] = entry
-    return True
-
-
-def _refresh_activity_state_cache(
-    *,
-    day: str,
-    segment: str,
-    stream: str | None,
-    facets: list[str],
-    cache: dict,
-) -> None:
-    """Refresh activity_state cache entries from newly-written output files."""
-    if not facets:
-        return
-
-    facet_rows = _load_segment_facet_rows(day, segment, stream)
-    facet_activity = {
-        row.get("facet"): row.get("activity", "")
-        for row in facet_rows
-        if isinstance(row, dict) and row.get("facet")
-    }
-    seg_dir = _segment_dir(day, segment, stream)
-
-    for facet in facets:
-        state_path = seg_dir / "agents" / facet / "activity_state.json"
-        data = _load_json_file(state_path, None)
-        if not isinstance(data, list):
-            continue
-
-        cache[f"{stream or 'default'}:{facet}"] = {
-            "state": data,
-            "facet_classification": facet_activity.get(facet, ""),
-            "segment": segment,
-            "carry_count": 0,
-            "updated_at": int(time.time()),
-        }
-
-
-def _pulse_counter_path(day: str) -> Path:
-    return day_path(day) / "health" / "pulse_counter.json"
-
-
-def _load_pulse_counter(day: str) -> dict:
-    data = _load_json_file(_pulse_counter_path(day), {"count": 0, "last_segment": ""})
-    return data if isinstance(data, dict) else {"count": 0, "last_segment": ""}
-
-
-def _save_pulse_counter(day: str, data: dict) -> None:
-    _write_json_atomic(_pulse_counter_path(day), data)
-
-
-def _active_activity_keys_for_segment(
-    day: str,
-    segment: str,
-    stream: str | None,
-) -> set[tuple[str, str, str]]:
-    """Return active (facet, activity, since) tuples for a segment."""
-    seg_dir = _resolve_segment_dir(day, segment, stream)
-    if not seg_dir:
-        return set()
-
-    keys: set[tuple[str, str, str]] = set()
-    agents_dir = seg_dir / "agents"
-    if not agents_dir.is_dir():
-        return keys
-
-    for facet_dir in sorted(agents_dir.iterdir()):
-        if not facet_dir.is_dir():
-            continue
-        state_path = facet_dir / "activity_state.json"
-        data = _load_json_file(state_path, None)
-        if not isinstance(data, list):
-            continue
-        for item in data:
-            if item.get("state") == "active":
-                keys.add(
-                    (
-                        facet_dir.name,
-                        str(item.get("activity", "")),
-                        str(item.get("since", "")),
-                    )
-                )
-    return keys
-
-
-def _detect_activity_state_change(
-    day: str,
-    segment: str,
-    stream: str | None,
-) -> bool:
-    """Check whether activity_state changed for this segment."""
-    from muse.activity_state import find_previous_segment
-
-    previous_segment = find_previous_segment(day, segment, stream=stream)
-    if not previous_segment:
-        return True
-
-    current_keys = _active_activity_keys_for_segment(day, segment, stream)
-    previous_keys = _active_activity_keys_for_segment(day, previous_segment, stream)
-    return current_keys != previous_keys
+    logging.info(
+        "Segment sense completed: %s succeeded, %s failed",
+        total_success,
+        total_failed,
+    )
+    return (total_success, total_failed, all_failed_names)
 
 
 def run_prompts_by_priority(
@@ -1645,6 +1678,50 @@ def dry_run(
     """Print what dream would execute without spawning any agents."""
     day_formatted = iso_date(day)
 
+    def _print_segment_orchestrator(
+        prompts: dict[str, dict], target_segment: str | None
+    ) -> None:
+        print("Sense orchestrator (linear):")
+        sense_cfg = prompts.get("sense")
+        step = 1
+        if sense_cfg:
+            status = _output_status(
+                day,
+                "sense",
+                target_segment,
+                sense_cfg.get("output", "json"),
+                stream=stream,
+            )
+            print(f"  {step}. sense (gen/{sense_cfg.get('output', 'json')}){status} — mandatory")
+            step += 1
+
+        for name, label in [
+            ("entities", "always for non-idle"),
+            ("screen", "if recommend.screen_record"),
+            ("speaker_attribution", "if recommend.speaker_attribution + audio embeddings"),
+            ("observation", "if onboarding=observing"),
+            ("firstday_checkin", "if onboarding=complete"),
+            ("pulse", "if recommend.pulse_update"),
+        ]:
+            cfg = prompts.get(name)
+            if not cfg:
+                continue
+            is_gen = cfg["type"] == "generate"
+            type_label = "gen" if is_gen else "cog"
+            fmt = cfg.get("output", "md") if is_gen else cfg.get("output", "")
+            status = _output_status(
+                day,
+                name,
+                target_segment,
+                cfg.get("output") if is_gen else None,
+                stream=stream,
+            )
+            print(f"  {step}. {name} ({type_label}/{fmt}){status} — {label}")
+            step += 1
+        print()
+        print("  idle segments: write stubs + early return (unless --refresh)")
+        print("  activity state machine: updates per segment")
+
     if activity:
         _dry_run_activity(day, day_formatted, activity, facet or "", refresh)
         return
@@ -1667,10 +1744,9 @@ def dry_run(
                 label += f" stream={seg_stream}"
             print(label)
         print()
-        # Show what prompts would run per segment
         all_prompts = get_muse_configs(schedule="segment")
         if all_prompts:
-            _print_prompt_table(all_prompts, day, segment="<each>", stream=stream)
+            _print_segment_orchestrator(all_prompts, "<each>")
         return
 
     # Default: full daily or segment run
@@ -1689,6 +1765,8 @@ def dry_run(
 
     if not all_prompts:
         print(f"No prompts for schedule: {target_schedule}")
+    elif segment:
+        _print_segment_orchestrator(all_prompts, segment)
     else:
         _print_prompt_table(
             all_prompts, day, segment=segment, refresh=refresh, stream=stream
@@ -2074,6 +2152,7 @@ def main() -> None:
             batch_start = time.time()
             batch_success = 0
             batch_failed = 0
+            batch_state_machine = ActivityStateMachine()
 
             for i, seg in enumerate(segments, 1):
                 seg_key = seg["key"]
@@ -2082,7 +2161,7 @@ def main() -> None:
                     f"Processing segment {i}/{total}: {seg_key} ({seg['start']}-{seg['end']})"
                 )
                 try:
-                    success, failed, _fn = run_prompts_by_priority(
+                    success, failed, _fn = run_segment_sense(
                         day=day,
                         segment=seg_key,
                         refresh=args.refresh,
@@ -2090,6 +2169,7 @@ def main() -> None:
                         max_concurrency=args.jobs,
                         stream=seg_stream,
                         timeout=None if args.no_timeout else 610,
+                        state_machine=batch_state_machine,
                     )
                     # Touch stream.updated marker after each segment
                     try:
@@ -2155,14 +2235,25 @@ def main() -> None:
                 )
             resolved_stream = matches[0][0]
 
-        success_count, fail_count, failed_names = run_prompts_by_priority(
-            day=day,
-            segment=args.segment,
-            refresh=args.refresh,
-            verbose=args.verbose,
-            max_concurrency=args.jobs,
-            stream=resolved_stream,
-        )
+        if args.segment:
+            success_count, fail_count, failed_names = run_segment_sense(
+                day=day,
+                segment=args.segment,
+                refresh=args.refresh,
+                verbose=args.verbose,
+                max_concurrency=args.jobs,
+                stream=resolved_stream,
+                state_machine=ActivityStateMachine(),
+            )
+        else:
+            success_count, fail_count, failed_names = run_prompts_by_priority(
+                day=day,
+                segment=None,
+                refresh=args.refresh,
+                verbose=args.verbose,
+                max_concurrency=args.jobs,
+                stream=resolved_stream,
+            )
 
         # Touch stream.updated marker after segment processing
         if args.segment:
