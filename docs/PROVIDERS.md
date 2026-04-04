@@ -20,15 +20,12 @@ Each provider module must also define `__all__` exporting these three functions.
 
 ## API Key Handling
 
-Providers load API keys from environment variables using a consistent pattern:
+API keys are configured in the ``env`` section of ``journal/config/journal.json``. At process startup, ``setup_cli()`` loads these into ``os.environ``. Providers read keys from ``os.environ`` — no ``.env`` files or ``dotenv`` are involved.
 
 **Naming convention:** `{PROVIDER}_API_KEY` (e.g., `GOOGLE_API_KEY`, `OPENAI_API_KEY`)
 
 **Implementation pattern:**
 ```python
-from dotenv import load_dotenv
-
-load_dotenv()
 api_key = os.getenv("MYPROVIDER_API_KEY")
 if not api_key:
     raise ValueError("MYPROVIDER_API_KEY not found in environment")
@@ -41,7 +38,6 @@ _client = None
 def _get_client():
     global _client
     if _client is None:
-        load_dotenv()
         api_key = os.getenv("MYPROVIDER_API_KEY")
         if not api_key:
             raise ValueError("MYPROVIDER_API_KEY not found in environment")

@@ -25,8 +25,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from dotenv import load_dotenv
-
 from think.cluster import cluster, cluster_period, cluster_span
 from think.muse import (
     get_agent_filter,
@@ -1249,8 +1247,6 @@ async def _run_check(args: argparse.Namespace) -> None:
     """Run connectivity checks against AI providers."""
     from think.models import PROVIDER_DEFAULTS, TIER_FLASH, TIER_LITE, TIER_PRO
     from think.providers import PROVIDER_REGISTRY
-
-    load_dotenv()
 
     # --targeted: only check configured provider+tier pairs
     targeted_pairs = None

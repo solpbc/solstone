@@ -160,8 +160,7 @@ The `sol agents` command is primarily used internally by Cortex. For testing pur
 sol agents [TASK_FILE] [--provider PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
 ```
 
-The provider can be ``openai`` (default), ``google`` or ``anthropic``. Set the corresponding API key environment variable (`OPENAI_API_KEY`,
-`GOOGLE_API_KEY` or `ANTHROPIC_API_KEY`).
+The provider can be ``openai`` (default), ``google`` or ``anthropic``. Configure the corresponding API key in the ``env`` section of ``journal/config/journal.json`` (e.g., ``OPENAI_API_KEY``, ``GOOGLE_API_KEY``, or ``ANTHROPIC_API_KEY``). Keys are loaded into ``os.environ`` by ``setup_cli()`` at process startup.
 
 ### Provider modules
 

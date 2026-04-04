@@ -33,8 +33,6 @@ from pathlib import Path
 import numpy as np
 import requests
 import soundfile as sf
-from dotenv import load_dotenv
-
 API_BASE = "https://api.rev.ai/speechtotext/v1"
 
 # Default configuration
@@ -57,7 +55,6 @@ def _get_token() -> str:
     Raises:
         ValueError: If token not found in environment
     """
-    load_dotenv()
     token = os.getenv("REVAI_ACCESS_TOKEN") or os.getenv("REV_ACCESS_TOKEN")
     if not token:
         raise ValueError("Missing REVAI_ACCESS_TOKEN in environment")

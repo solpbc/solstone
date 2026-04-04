@@ -612,9 +612,9 @@ def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
     """Parse command line arguments and configure logging.
 
     The parser will be extended with ``-v``/``--verbose`` and ``-d``/``--debug`` flags.
-    The journal path is resolved via get_journal() which loads .env and auto-creates
-    a default path if needed. Environment variables from the journal config's ``env``
-    section are loaded as fallbacks for any keys not already set in the shell or .env.
+    The journal path is resolved via get_journal() which auto-creates a default path
+    if needed. Environment variables from the journal config's ``env`` section
+    (in ``journal.json``) are loaded as fallbacks for any keys not already set.
     The parsed arguments are returned. If ``parse_known`` is ``True`` a tuple of
     ``(args, extra)`` is returned using :func:`argparse.ArgumentParser.parse_known_args`.
     """
