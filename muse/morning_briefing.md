@@ -71,9 +71,11 @@ Build five sections from the gathered data. **Omit any section entirely if it ha
 
 **Your Day** — What's ahead today. Lead with calendar events in chronological order. For each meeting, include who's attending and one line of entity-informed context (e.g., "last met 2 weeks ago, discussed product roadmap"). Include relevant todos due today. If no calendar events exist, lead with the highest-priority todos.
 Attribute entity context to the source interaction: `(from your [time] [activity](segment://...))`. For entity failures: append "(entity context unavailable)" per Phase 1.5 rules.
+Grade entity context by evidence strength. **High** (multiple interactions or direct quotes): state context assertively — "Last met two weeks ago to discuss roadmap." **Medium** (single prior interaction): attribute the source — "Discussed pipeline issues in your March standup." **Low** (inferred relationship, no direct interaction found): hedge — "May have been involved in the Q2 planning discussions" or "Appears to be on the platform team based on meeting overlap." Never hedge well-sourced entity context; never state inferred relationships assertively.
 
 **Yesterday** — What happened. Draw from facet newsletters, pulse, and decisions agent output. Highlight accomplishments, consequential decisions, and notable interactions. Keep to 3-5 bullets max. Only include if facet newsletters or decisions have content for the analysis day.
 Attribute each highlight to its source: `([facet newsletter](segment://facets/{facet}/news/{day}))`.
+Grade highlights by evidence strength. **High** (corroborated by multiple sources — e.g., newsletter + decision + transcript): state assertively — "Shipped the entity pipeline refactor." **Medium** (single source, clear statement): attribute and present directly — "Closed three PRs on the data pipeline ([work newsletter](segment://...))." **Low** (inferred from ambiguous context, single passing mention): hedge — "Possible progress on the auth migration" or "May have discussed budget reallocation." When upstream decision output includes a `Confidence:` score, use it to inform grading: 0.85+ high, 0.50–0.84 medium, below 0.50 low. Never hedge items corroborated by multiple sources; never state single-mention inferences assertively.
 
 **Needs Attention** — Ranked action list. Synthesize from all sources into a single prioritized list:
   1. Overdue commitments (todos past due, missed follow-ups)
@@ -81,9 +83,11 @@ Attribute each highlight to its source: `([facet newsletter](segment://facets/{f
   3. Relationship maintenance (entities not contacted recently who are relevant)
   4. Unscheduled todos (action items with no calendar time blocked)
 Attribute commitments and follow-ups to the originating segment: `(committed [date](segment://...))`, `(flagged [date](segment://...))`. For relationship items: `(last interaction [date])`. For inferred items: `(inferred from [source](segment://...))`.
+Grade action items by evidence strength. **High** (explicit commitment with date, or overdue todo): state assertively — "Follow up on Series A term sheet — committed March 20, now overdue." **Medium** (flagged by followups agent with moderate confidence, or clear single-source item): present with attribution — "Review CI pipeline logs (flagged yesterday)." **Low** (inferred obligation from ambiguous mention, or low-confidence followup): hedge — "Possible commitment to send deck to investors" or "May need to follow up on the API discussion." When upstream followup output includes a `Confidence:` score, use it: 0.85+ high, 0.50–0.84 medium, below 0.50 low. Never hedge explicit commitments with clear dates; never present inferred obligations as definite action items.
 
 **Forward Look** — What's coming. Draw from anticipation agent output and upcoming calendar events (next 7 days). Note preparation needed for upcoming meetings or deadlines.
 Attribute anticipation items: `(from [anticipation](segment://...))`. Data source: anticipation search result `id` path.
+Grade forward items by evidence strength. **High** (confirmed calendar event or explicit deadline): state assertively — "Board meeting Thursday — slides due Wednesday." **Medium** (anticipation agent item with clear basis): attribute and present — "Anticipation agent flagged quarterly review prep based on last quarter's timing." **Low** (speculative anticipation, inferred deadline, or pattern-based prediction): hedge — "Possible need to prepare for investor update" or "May want to schedule design review based on sprint cadence." Never hedge confirmed calendar events or explicit deadlines; never state pattern-based predictions as confirmed plans.
 
 **Reading** — Links to full facet newsletters for deep dives. List each active facet that has a newsletter for the analysis day, with a brief one-line description of what it covers. This is the "detailed edition" for owners who want the full picture. Only include if facet newsletters exist.
 
@@ -120,11 +124,12 @@ gaps: [list of gap descriptions, or empty list [] if none]
 
 ## Needs Attention
 - Follow up on Series A term sheet — due yesterday (committed [March 20](segment://20260320/archon/101500_600))
-- CI pipeline failing intermittently (flagged [yesterday](segment://20260326/default/143000_300))
+- Possible commitment to update onboarding docs — mentioned once in passing (inferred from [standup](segment://20260325/archon/091500_300))
 [more items...]
 
 ## Forward Look
-- Board meeting Thursday — slides need review (from [anticipation](segment://20260327/agents/anticipation))
+- Board meeting Thursday — slides need review (confirmed on [calendar](segment://20260327/calendar))
+- May want to prepare quarterly metrics based on last quarter's timing (from [anticipation](segment://20260327/agents/anticipation))
 [more items...]
 
 ## Reading
