@@ -1,6 +1,7 @@
 <style>
 /* Settings app - vertical nav layout */
 .settings-wrap {
+  font-family: system-ui, -apple-system, sans-serif;
   display: flex;
   min-height: calc(100vh - var(--facet-bar-height, 60px) - 40px);
   max-width: 1200px;
@@ -53,7 +54,7 @@
 }
 
 .settings-nav-item.active {
-  background: var(--facet-color, #1a73e8);
+  background: var(--facet-color, #E8923A);
   color: white;
   font-weight: 600;
 }
@@ -139,8 +140,8 @@
 .settings-field textarea:focus,
 .settings-field select:focus {
   outline: none;
-  border-color: var(--facet-color, #667eea);
-  box-shadow: 0 0 0 3px var(--facet-bg, rgba(102, 126, 234, 0.1));
+  border-color: var(--facet-color, #E8923A);
+  box-shadow: 0 0 0 3px var(--facet-bg, rgba(232, 146, 58, 0.1));
 }
 
 .settings-field textarea {
@@ -292,7 +293,7 @@ input:checked + .slider:before {
 }
 
 .toggle-switch.toggle-positive input:checked + .slider {
-  background-color: #28a745;
+  background-color: #E8923A;
 }
 
 /* Editable fields (double-tap to edit) */
@@ -1110,7 +1111,7 @@ input:checked + .slider:before {
   align-items: center;
   gap: 0.5em;
   padding: 0.75em 1.5em;
-  background: #007bff;
+  background: #E8923A;
   color: white;
   border: none;
   border-radius: 8px;
@@ -1120,7 +1121,7 @@ input:checked + .slider:before {
 }
 
 .setup-btn:hover {
-  background: #0056b3;
+  background: #d47e2e;
 }
 
 .setup-btn:disabled {
@@ -2446,6 +2447,7 @@ input:checked + .slider:before {
         </div>
       </div>
     </section>
+    <p style="font-size: 0.8rem; color: #aaa; margin-top: 1.5rem; text-align: center;">your data stays on your machine — never sent to sol pbc</p>
   </div>
 </div>
 

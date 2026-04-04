@@ -1,27 +1,27 @@
 <!-- Status Pane Component -->
 <div class="status-pane">
   <div class="status-pane-content">
-    <h3>WebSocket Status</h3>
+    <h3>websocket status</h3>
     <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px;">
       <div>
-        <strong>Status:</strong> <span id="ws-status">Connecting...</span>
+        <strong>status:</strong> <span id="ws-status">connecting...</span>
       </div>
       <div>
-        <strong>Uptime:</strong> <span id="ws-uptime">-</span>
+        <strong>uptime:</strong> <span id="ws-uptime">-</span>
       </div>
       <div>
-        <strong>Last message:</strong> <span id="ws-last-message">-</span>
+        <strong>last message:</strong> <span id="ws-last-message">-</span>
       </div>
     </div>
 
     <div id="quiet-notifs-section" style="display:none; margin-top: 16px;">
-      <h3>Quiet Notifications</h3>
+      <h3>quiet notifications</h3>
       <div id="quiet-notifs-list" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;"></div>
     </div>
 
-    <h3 style="margin-top: 16px;">Recent Activity <span id="notif-bell" style="cursor: pointer; font-size: 14px; margin-left: 6px; opacity: 0.5;" title="Enable browser notifications">🔔</span></h3>
+    <h3 style="margin-top: 16px;">recent activity <span id="notif-bell" style="cursor: pointer; font-size: 14px; margin-left: 6px; opacity: 0.5;" title="enable browser notifications">🔔</span></h3>
     <div id="notification-history" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
-      <span style="color: #9ca3af;">No recent activity</span>
+      <span style="color: #9ca3af;">no recent activity</span>
     </div>
   </div>
 </div>
@@ -67,7 +67,7 @@
     const wsLastMessage = document.getElementById('ws-last-message');
 
     if (wsStatus) {
-      wsStatus.textContent = metrics.connected ? '🟢 Connected' : '🔴 Disconnected';
+      wsStatus.textContent = metrics.connected ? '🟢 connected' : '🔴 disconnected';
       wsStatus.style.color = metrics.connected ? '#10b981' : '#ef4444';
     }
 
@@ -83,9 +83,9 @@
     if (wsLastMessage) {
       if (metrics.lastMessageMs !== null) {
         const seconds = Math.floor(metrics.lastMessageMs / 1000);
-        wsLastMessage.textContent = seconds === 0 ? 'Just now' : `${formatDuration(seconds)} ago`;
+        wsLastMessage.textContent = seconds === 0 ? 'just now' : `${formatDuration(seconds)} ago`;
       } else if (metrics.connected) {
-        wsLastMessage.textContent = 'No messages yet';
+        wsLastMessage.textContent = 'no messages yet';
       } else {
         wsLastMessage.textContent = '-';
       }
@@ -105,7 +105,7 @@
     section.style.display = notifs.length > 0 ? '' : 'none';
 
     if (notifs.length === 0) {
-      list.innerHTML = '<span style="color: #9ca3af;">No quiet notifications</span>';
+      list.innerHTML = '<span style="color: #9ca3af;">no quiet notifications</span>';
       return;
     }
 
@@ -130,7 +130,7 @@
     const escape = window.AppServices._escapeHtml;
 
     if (history.length === 0) {
-      container.innerHTML = '<span style="color: #9ca3af;">No recent activity</span>';
+      container.innerHTML = '<span style="color: #9ca3af;">no recent activity</span>';
       return;
     }
 
@@ -177,17 +177,17 @@
       bell.textContent = '🔔';
       bell.style.opacity = '1';
       bell.style.cursor = 'default';
-      bell.title = 'Browser notifications enabled';
+      bell.title = 'browser notifications enabled';
     } else if (perm === 'denied') {
       bell.textContent = '🔕';
       bell.style.opacity = '0.4';
       bell.style.cursor = 'default';
-      bell.title = 'Notifications blocked — update in browser settings';
+      bell.title = 'notifications blocked — update in browser settings';
     } else {
       bell.textContent = '🔔';
       bell.style.opacity = '0.5';
       bell.style.cursor = 'pointer';
-      bell.title = 'Enable browser notifications';
+      bell.title = 'enable browser notifications';
     }
   }
 

@@ -334,7 +334,7 @@
               if (msg.agent_id === agentId) {
                 if (recoveryWatchdog) { clearTimeout(recoveryWatchdog); recoveryWatchdog = null; }
                 recoveryWatchdog = setTimeout(function() {
-                  recoverDeliver('', false, 'Request timed out. Try again.');
+                  recoverDeliver('', false, 'request timed out. try again.');
                 }, 180000);
               }
               if (msg.agent_id === agentId && msg.event === 'finish') {
@@ -342,14 +342,14 @@
                 var panelHint = resp.length >= 120 || resp.includes('\n') || resp.split('. ').length > 2;
                 recoverDeliver(resp, panelHint, null);
               } else if (msg.agent_id === agentId && msg.event === 'error') {
-                recoverDeliver('', false, 'Something went wrong. Try again.');
+                recoverDeliver('', false, 'something went wrong. try again.');
               }
             });
           }
 
           // Start watchdog for recovery
           recoveryWatchdog = setTimeout(function() {
-            recoverDeliver('', false, 'Request timed out. Try again.');
+            recoverDeliver('', false, 'request timed out. try again.');
           }, 180000);
 
           // Check GET immediately in case agent already finished
@@ -397,7 +397,7 @@
 
   function getProgressLabel(msg) {
     if (!msg) return null;
-    if (msg.event === 'thinking') return 'Reasoning\u2026';
+    if (msg.event === 'thinking') return 'reasoning\u2026';
     if (msg.event === 'tool_start') {
       var cmd = (msg.args && msg.args.command) || '';
       if (!cmd && msg.args) {
@@ -410,13 +410,13 @@
         });
       }
 
-      if (cmd.includes('sol call journal search')) return 'Searching your journal\u2026';
-      if (cmd.includes('sol call journal events') || cmd.includes('sol call calendar list')) return 'Looking up events\u2026';
-      if (cmd.includes('sol call navigate')) return 'Navigating\u2026';
-      if (cmd.includes('sol call transcripts')) return 'Reading transcripts\u2026';
-      if (cmd.includes('sol call journal read')) return 'Reading your notes\u2026';
-      if (cmd.includes('sol call journal agents')) return 'Checking daily insights\u2026';
-      return 'Working\u2026';
+      if (cmd.includes('sol call journal search')) return 'searching your journal\u2026';
+      if (cmd.includes('sol call journal events') || cmd.includes('sol call calendar list')) return 'looking up events\u2026';
+      if (cmd.includes('sol call navigate')) return 'navigating\u2026';
+      if (cmd.includes('sol call transcripts')) return 'reading transcripts\u2026';
+      if (cmd.includes('sol call journal read')) return 'reading your notes\u2026';
+      if (cmd.includes('sol call journal agents')) return 'checking daily insights\u2026';
+      return 'working\u2026';
     }
     return null;
   }
@@ -451,7 +451,7 @@
       var td = document.createElement('div');
       td.className = 'conversation-message agent thinking';
       td.id = 'panelThinking';
-      td.innerHTML = '<span class="chat-bar-thinking-dot"></span> Thinking\u2026';
+      td.innerHTML = '<span class="chat-bar-thinking-dot"></span> thinking\u2026';
       msgArea.appendChild(td);
       msgArea.scrollTop = msgArea.scrollHeight;
     } else {
@@ -509,7 +509,7 @@
     function startWatchdog(agentId) {
       if (watchdogTimer) clearTimeout(watchdogTimer);
       watchdogTimer = setTimeout(function() {
-        deliverResult('', false, 'Request timed out. Try again.');
+        deliverResult('', false, 'request timed out. try again.');
       }, 180000);
     }
 
@@ -532,14 +532,14 @@
       });
 
       if (!r.ok) {
-        deliverResult('', false, 'Something went wrong. Try again.');
+        deliverResult('', false, 'something went wrong. try again.');
         return;
       }
 
       var data = await r.json();
       var agentId = data.agent_id;
       if (!agentId) {
-        deliverResult('', false, 'Something went wrong. Try again.');
+        deliverResult('', false, 'something went wrong. try again.');
         return;
       }
 
@@ -591,12 +591,12 @@
             );
             deliverResult(resp, panelHint, null);
           } else if (msg.agent_id === agentId && msg.event === 'error') {
-            deliverResult('', false, 'Something went wrong. Try again.');
+            deliverResult('', false, 'something went wrong. try again.');
           }
         });
       }
     } catch (err) {
-      deliverResult('', false, 'Connection error. Try again.');
+      deliverResult('', false, 'connection error. try again.');
     }
   };
 })();
