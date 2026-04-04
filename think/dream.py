@@ -39,7 +39,6 @@ from think.utils import (
     get_rev,
     iso_date,
     iter_segments,
-    segment_parse,
     setup_cli,
     updated_days,
 )
@@ -344,29 +343,6 @@ def _write_json_atomic(path: Path, data: object) -> None:
     tmp = path.with_suffix(f"{path.suffix}.tmp")
     tmp.write_text(json.dumps(data), encoding="utf-8")
     tmp.replace(path)
-
-
-def _count_nonempty_lines(path: Path) -> list[str]:
-    """Return non-empty lines from a text file."""
-    try:
-        return [line for line in path.read_text(encoding="utf-8").splitlines() if line]
-    except OSError:
-        return []
-
-
-def _load_segment_facet_rows(
-    day: str,
-    segment: str,
-    stream: str | None,
-) -> list[dict]:
-    """Load raw facets.json rows for a segment."""
-    seg_dir = _resolve_segment_dir(day, segment, stream)
-    if not seg_dir:
-        return []
-
-    facets_path = seg_dir / "agents" / "facets.json"
-    data = _load_json_file(facets_path, [])
-    return data if isinstance(data, list) else []
 
 
 def _has_audio_embeddings(seg_dir: Path) -> bool:
@@ -755,25 +731,23 @@ def run_segment_sense(
     return (total_success, total_failed, all_failed_names)
 
 
-def run_prompts_by_priority(
+def run_daily_prompts(
     day: str,
-    segment: str | None,
     refresh: bool,
     verbose: bool,
     max_concurrency: int = 2,
     stream: str | None = None,
     timeout: int | None = 610,
 ) -> tuple[int, int, list[str]]:
-    """Run all scheduled prompts in priority order.
+    """Run all daily scheduled prompts in priority order.
 
-    Loads all prompts for the target schedule, groups by priority, and executes
-    each group with bounded concurrency. Waits for completion before proceeding
-    to the next priority group. For generators (prompts with output), runs
-    incremental indexing after each completes.
+    Loads all daily prompts, groups by priority, and executes each group with
+    bounded concurrency. Waits for completion before proceeding to the next
+    priority group. For generators (prompts with output), runs incremental
+    indexing after each completes.
 
     Args:
         day: Day in YYYYMMDD format
-        segment: Optional segment key in HHMMSS_LEN format
         refresh: Whether to regenerate existing outputs
         verbose: Verbose logging
         max_concurrency: Max agents to run concurrently per priority group.
@@ -783,7 +757,7 @@ def run_prompts_by_priority(
         Tuple of (success_count, fail_count, failed_names) where
         failed_names contains descriptions like "digest (error)".
     """
-    target_schedule = "segment" if segment else "daily"
+    target_schedule = "daily"
 
     # Load ALL scheduled prompts (both generators and agents)
     all_prompts = get_muse_configs(schedule=target_schedule)
@@ -798,34 +772,17 @@ def run_prompts_by_priority(
         priority = config["priority"]  # Required field, validated by get_muse_configs
         priority_groups.setdefault(priority, []).append((name, config))
 
-    segment_density = "active"
-    density_result = None
-    if segment and not refresh:
-        density_result = _classify_segment_density(day, segment, stream)
-        segment_density = density_result["classification"]
-        if segment_density != "active":
-            logging.info("Segment %s classified as %s", segment, segment_density)
-    elif segment and refresh:
-        logging.info("Segment %s: refresh mode, bypassing density gate", segment)
-
-    activity_changed = False
-    as_cache = _load_activity_state_cache(day) if segment else {}
-
     # Pre-compute shared data for multi-facet prompts
     day_formatted = iso_date(day)
     input_summary = day_input_summary(day)
     enabled_facets = get_enabled_facets()
-
-    if not segment:
-        # Daily mode: use facets with activity on this day (stable for the run)
-        active_facets = get_active_facets(day)
+    active_facets = get_active_facets(day)
 
     total_prompts = sum(len(prompts) for prompts in priority_groups.values())
     num_groups = len(priority_groups)
     _update_status(
         mode=target_schedule,
         day=day,
-        segment=segment,
         stream=stream,
         agents_total=total_prompts,
         agents_completed=0,
@@ -840,7 +797,6 @@ def run_prompts_by_priority(
         "started",
         mode=target_schedule,
         day=day,
-        segment=segment,
         count=total_prompts,
         groups=num_groups,
     )
@@ -856,33 +812,13 @@ def run_prompts_by_priority(
         _update_status(current_group_priority=priority)
         logging.info(f"Starting priority {priority} ({len(prompts_list)} prompts)")
 
-        if priority == 10 and segment_density != "active":
-            logging.info(
-                "Skipping priority-10 group (%d agents): segment %s is %s",
-                len(prompts_list),
-                segment,
-                segment_density,
-            )
-            if density_result is not None:
-                seg_dir = _segment_dir(day, segment, stream)
-                _write_json_atomic(seg_dir / "agents" / "density.json", density_result)
-            continue
-
         emit(
             "group_started",
             mode=target_schedule,
             day=day,
-            segment=segment,
             priority=priority,
             count=len(prompts_list),
         )
-
-        # Segment mode: reload active facets each group since earlier groups
-        # (e.g., facets generator at priority 90) may have written facets.json
-        if segment:
-            raw_facets = load_segment_facets(day, segment, stream=stream)
-            active_facets = set(f for f in raw_facets if f in enabled_facets)
-        activity_state_llm_facets: set[str] = set()
 
         spawned: list[
             tuple[str, str, dict, str | None]
@@ -902,49 +838,6 @@ def run_prompts_by_priority(
                     )
                     continue
 
-            skip, skip_reason = _should_skip_preflight(
-                prompt_name,
-                day=day,
-                segment=segment,
-                stream=stream,
-            )
-            if skip:
-                logging.info("Skipping %s: %s", prompt_name, skip_reason)
-                continue
-
-            # Skip pulse when sol/pulse.md is already current for this segment
-            if prompt_name == "pulse" and segment and not refresh:
-                try:
-                    pulse_path = Path(get_journal()) / "sol" / "pulse.md"
-                    if pulse_path.exists():
-                        seg_start, _ = segment_parse(segment)
-                        if seg_start:
-                            day_date = datetime.strptime(day, "%Y%m%d").date()
-                            seg_dt = datetime.combine(day_date, seg_start)
-                            if pulse_path.stat().st_mtime >= seg_dt.timestamp():
-                                logging.info(
-                                    f"Skipping pulse: sol/pulse.md current for {segment}"
-                                )
-                                continue
-                except Exception:
-                    pass
-
-                if not activity_changed:
-                    pulse_counter = _load_pulse_counter(day)
-                    if pulse_counter.get("count", 0) < 5:
-                        pulse_counter["count"] = int(pulse_counter.get("count", 0)) + 1
-                        pulse_counter["last_segment"] = segment
-                        _save_pulse_counter(day, pulse_counter)
-                        logging.info(
-                            "Skipping pulse: counter %d/6 for %s",
-                            pulse_counter["count"],
-                            segment,
-                        )
-                        continue
-                    _save_pulse_counter(day, {"count": 0, "last_segment": segment})
-                else:
-                    _save_pulse_counter(day, {"count": 0, "last_segment": segment})
-
             try:
                 if config.get("multi_facet"):
                     always_run = config.get("always", False)
@@ -958,19 +851,6 @@ def run_prompts_by_priority(
                             continue
 
                         logging.info(f"Spawning {prompt_name} for facet: {facet_name}")
-                        if prompt_name == "activity_state" and segment:
-                            if not refresh and _try_carry_forward_activity_state(
-                                day=day,
-                                segment=segment,
-                                stream=stream,
-                                facet=facet_name,
-                                cache=as_cache,
-                            ):
-                                logging.info(
-                                    "Carry-forward activity_state for %s", facet_name
-                                )
-                                continue
-                            activity_state_llm_facets.add(facet_name)
 
                         # Always pass day for instructions.day context
                         request_config: dict = {"facet": facet_name, "day": day}
@@ -985,12 +865,6 @@ def run_prompts_by_priority(
                             "SOL_DAY": day,
                             "SOL_FACET": facet_name,
                         }
-                        if segment:
-                            request_config["segment"] = segment
-                            env["SOL_SEGMENT"] = segment
-                            if stream:
-                                request_config["stream"] = stream
-                                env["SOL_STREAM"] = stream
                         request_config["env"] = env
                         request_config["schedule"] = target_schedule
 
@@ -1016,7 +890,6 @@ def run_prompts_by_priority(
                             "agent_started",
                             mode=target_schedule,
                             day=day,
-                            segment=segment,
                             name=prompt_name,
                             agent_id=agent_id,
                             facet=facet_name,
@@ -1031,7 +904,12 @@ def run_prompts_by_priority(
                                 current_agents=[name for _, name, _, _ in spawned]
                             )
                             s, f, fn = _drain_priority_batch(
-                                spawned, target_schedule, day, segment, stream
+                                spawned,
+                                target_schedule,
+                                day,
+                                None,
+                                stream,
+                                timeout,
                             )
                             group_success += s
                             group_failed += f
@@ -1055,12 +933,6 @@ def run_prompts_by_priority(
                         if refresh:
                             request_config["refresh"] = True
                     env: dict[str, str] = {"SOL_DAY": day}
-                    if segment:
-                        request_config["segment"] = segment
-                        env["SOL_SEGMENT"] = segment
-                        if stream:
-                            request_config["stream"] = stream
-                            env["SOL_STREAM"] = stream
                     request_config["env"] = env
                     request_config["schedule"] = target_schedule
 
@@ -1084,7 +956,6 @@ def run_prompts_by_priority(
                         "agent_started",
                         mode=target_schedule,
                         day=day,
-                        segment=segment,
                         name=prompt_name,
                         agent_id=agent_id,
                     )
@@ -1096,7 +967,7 @@ def run_prompts_by_priority(
                             current_agents=[name for _, name, _, _ in spawned]
                         )
                         s, f, fn = _drain_priority_batch(
-                            spawned, target_schedule, day, segment, stream, timeout
+                            spawned, target_schedule, day, None, stream, timeout
                         )
                         group_success += s
                         group_failed += f
@@ -1118,7 +989,7 @@ def run_prompts_by_priority(
         # Drain any remaining agents in this priority group
         _update_status(current_agents=[name for _, name, _, _ in spawned])
         s, f, fn = _drain_priority_batch(
-            spawned, target_schedule, day, segment, stream, timeout
+            spawned, target_schedule, day, None, stream, timeout
         )
         group_success += s
         group_failed += f
@@ -1131,17 +1002,6 @@ def run_prompts_by_priority(
             current_agents=[],
         )
 
-        if priority == 95 and segment:
-            _refresh_activity_state_cache(
-                day=day,
-                segment=segment,
-                stream=stream,
-                facets=sorted(activity_state_llm_facets),
-                cache=as_cache,
-            )
-            _save_activity_state_cache(day, as_cache)
-            activity_changed = _detect_activity_state_change(day, segment, stream)
-
         total_success += group_success
         total_failed += group_failed
 
@@ -1149,7 +1009,6 @@ def run_prompts_by_priority(
             "group_completed",
             mode=target_schedule,
             day=day,
-            segment=segment,
             priority=priority,
             success=group_success,
             failed=group_failed,
@@ -1160,7 +1019,6 @@ def run_prompts_by_priority(
         "completed",
         mode=target_schedule,
         day=day,
-        segment=segment,
         success=total_success,
         failed=total_failed,
         failed_names=all_failed_names,
@@ -2246,9 +2104,8 @@ def main() -> None:
                 state_machine=ActivityStateMachine(),
             )
         else:
-            success_count, fail_count, failed_names = run_prompts_by_priority(
+            success_count, fail_count, failed_names = run_daily_prompts(
                 day=day,
-                segment=None,
                 refresh=args.refresh,
                 verbose=args.verbose,
                 max_concurrency=args.jobs,

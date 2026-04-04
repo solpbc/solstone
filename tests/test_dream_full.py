@@ -34,14 +34,14 @@ def test_main_runs_with_mocked_prompts(tmp_path, monkeypatch):
         commands_run.append(cmd)
         return True
 
-    def mock_run_prompts_by_priority(day, segment, refresh, verbose, **kwargs):
+    def mock_run_daily_prompts(day, refresh, verbose, **kwargs):
         nonlocal prompts_run
         prompts_run = True
         return (5, 0, [])  # 5 success, 0 failures, no failed names
 
     monkeypatch.setattr(mod, "run_command", mock_run_command)
     monkeypatch.setattr(mod, "run_queued_command", mock_run_queued_command)
-    monkeypatch.setattr(mod, "run_prompts_by_priority", mock_run_prompts_by_priority)
+    monkeypatch.setattr(mod, "run_daily_prompts", mock_run_daily_prompts)
     monkeypatch.setattr(
         "sys.argv",
         ["sol dream", "--day", "20240101", "--refresh", "--verbose"],
@@ -53,7 +53,7 @@ def test_main_runs_with_mocked_prompts(tmp_path, monkeypatch):
     assert any(c[0] == "sol" and c[1] == "sense" for c in commands_run)
 
     # Verify main phase: prompts ran
-    assert prompts_run, "run_prompts_by_priority should have been called"
+    assert prompts_run, "run_daily_prompts should have been called"
 
     # Verify post-phase: indexer rescan ran
     indexer_cmds = [c for c in commands_run if c[0] == "sol" and c[1] == "indexer"]
