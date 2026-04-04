@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Generate AGENTS.md from muse/unified.md using journal config values."""
+"""Generate AGENTS.md from sol/identity.md using journal config values."""
 
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "think" / "journal_default.json"
-SOURCE_PATH = PROJECT_ROOT / "muse" / "unified.md"
+SOURCE_PATH = PROJECT_ROOT / "sol" / "identity.md"
 OUTPUT_PATH = PROJECT_ROOT / "AGENTS.md"
-GENERATED_HEADER = "<!-- generated from muse/unified.md — do not edit directly -->\n\n"
+GENERATED_HEADER = "<!-- generated from sol/identity.md — do not edit directly -->\n\n"
 
 
 def _load_config() -> dict[str, Any]:
@@ -104,7 +104,7 @@ def main() -> None:
         f.write(GENERATED_HEADER)
         f.write(rendered)
 
-    print("Generated AGENTS.md from muse/unified.md")
+    print("Generated AGENTS.md from sol/identity.md")
 
 
 if __name__ == "__main__":
