@@ -11,7 +11,7 @@
   "group": "Todos",
   "instructions": {
     "system": "journal",
-    "sources": {"audio": true, "screen": false, "agents": {"screen": true}},
+    "sources": {"transcripts": true, "percepts": false, "agents": {"screen": true}},
     "facets": true,
     "activity": true
   }
