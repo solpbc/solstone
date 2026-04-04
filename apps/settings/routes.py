@@ -49,8 +49,8 @@ def get_config() -> Any:
     The env section is masked for security - returns boolean indicating
     whether each key is configured rather than the actual values.
 
-    Also returns system_env with boolean status for keys available from
-    the system environment (shell env + .env file).
+    Also returns runtime_env with boolean status for keys loaded into
+    the process environment (from journal.json via setup_cli).
     """
     try:
         config = get_journal_config()
@@ -58,8 +58,12 @@ def get_config() -> Any:
         if "env" in config:
             config["env"] = {k: bool(v) for k, v in config["env"].items()}
 
-        # Add system_env - keys available from os.getenv (shell + .env)
-        config["system_env"] = {k: bool(os.getenv(k)) for k in API_KEY_ENV_VARS}
+        # Strip convey secret from API response — never expose signing keys
+        if "convey" in config:
+            config["convey"].pop("secret", None)
+
+        # Add runtime_env - keys available in the running process
+        config["runtime_env"] = {k: bool(os.getenv(k)) for k in API_KEY_ENV_VARS}
 
         return jsonify(config)
     except Exception as e:
@@ -198,6 +202,7 @@ def update_config() -> Any:
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
             f.write("\n")
+        os.chmod(config_path, 0o600)
 
         # Log if something changed (don't log sensitive values)
         if changed_fields:
@@ -360,7 +365,7 @@ def get_providers() -> Any:
         providers_list = get_provider_list()
 
         # Check API key status for each provider using os.getenv()
-        # This reflects the true runtime availability (shell env + .env + journal config)
+        # This reflects runtime availability (loaded from journal.json via setup_cli)
         api_keys = {}
         for p in providers_list:
             env_key = p.get("env_key", "")
@@ -598,6 +603,7 @@ def update_providers() -> Any:
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
             f.write("\n")
+        os.chmod(config_path, 0o600)
 
         # Log if something changed
         if changed_fields:
@@ -749,6 +755,7 @@ def update_generators() -> Any:
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
             f.write("\n")
+        os.chmod(config_path, 0o600)
 
         # Log if something changed
         if changed_fields:
@@ -958,6 +965,7 @@ def update_vision() -> Any:
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
             f.write("\n")
+        os.chmod(config_path, 0o600)
 
         # Log if something changed
         if changed_fields:
@@ -1100,6 +1108,7 @@ def update_observe() -> Any:
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
                 f.write("\n")
+            os.chmod(config_path, 0o600)
 
             log_app_action(
                 app="settings",
@@ -1580,7 +1589,7 @@ def get_sync() -> Any:
         granola_entry = schedules.get("sync:granola", {})
         obsidian_entry = schedules.get("sync:obsidian", {})
 
-        # Check token availability from env/system_env
+        # Check token availability from journal config / runtime env
         config = get_journal_config()
         env_keys = config.get("env", {})
         has_token = bool(env_keys.get("PLAUD_ACCESS_TOKEN")) or bool(
@@ -1842,6 +1851,7 @@ def update_storage() -> Any:
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
             f.write("\n")
+        os.chmod(config_path, 0o600)
 
         if changed:
             log_app_action(

@@ -75,10 +75,9 @@ class TestSystemdUnit:
 
 
 class TestEnvCollection:
-    def test_captures_api_keys(self, monkeypatch, tmp_path):
+    def test_no_api_keys_in_env(self, monkeypatch, tmp_path):
+        """Service env must NOT contain API keys — they load at runtime via setup_cli."""
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-        for key in service._API_KEYS:
-            monkeypatch.delenv(key, raising=False)
 
         config_dir = tmp_path / "config"
         config_dir.mkdir(exist_ok=True)
@@ -86,18 +85,17 @@ class TestEnvCollection:
             "env": {
                 "ANTHROPIC_API_KEY": "sk-test",
                 "OPENAI_API_KEY": "sk-openai",
+                "GOOGLE_API_KEY": "gk-test",
             }
         }))
 
         env = service._collect_env()
-        assert env["ANTHROPIC_API_KEY"] == "sk-test"
-        assert env["OPENAI_API_KEY"] == "sk-openai"
+        assert "ANTHROPIC_API_KEY" not in env
+        assert "OPENAI_API_KEY" not in env
         assert "GOOGLE_API_KEY" not in env
 
     def test_includes_venv_in_path(self, monkeypatch, tmp_path):
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-        for key in service._API_KEYS:
-            monkeypatch.delenv(key, raising=False)
 
         env = service._collect_env()
         venv_bin = str(Path(sys.executable).parent)
@@ -105,8 +103,6 @@ class TestEnvCollection:
 
     def test_journal_path_is_absolute(self, monkeypatch, tmp_path):
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-        for key in service._API_KEYS:
-            monkeypatch.delenv(key, raising=False)
 
         env = service._collect_env()
         assert Path(env["_SOLSTONE_JOURNAL_OVERRIDE"]).is_absolute()
@@ -140,8 +136,6 @@ class TestInstall:
     def test_linux_idempotent(self, monkeypatch, tmp_path, capsys):
         monkeypatch.setattr(sys, "platform", "linux")
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-        for key in service._API_KEYS:
-            monkeypatch.delenv(key, raising=False)
 
         unit_path = tmp_path / "solstone.service"
         monkeypatch.setattr(service, "_unit_path", lambda: unit_path)

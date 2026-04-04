@@ -14,7 +14,8 @@
     "timezone": "America/Denver"
   },
   "convey": {
-    "password": "test123"
+    "password": "test123",
+    "secret": "test-fixture-secret-do-not-use-in-production"
   },
   "transcribe": {
     "backend": "whisper",

@@ -116,6 +116,7 @@ class ObserverClient:
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
             f.write("\n")
+        os.chmod(config_path, 0o600)
 
         logger.info(f"Persisted remote key to {config_path}")
 

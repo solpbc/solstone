@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 
 from apps.utils import get_app_storage_path
@@ -79,6 +80,7 @@ def save_remote(data: dict) -> bool:
     try:
         with open(remote_path, "w") as f:
             json.dump(data, f, indent=2)
+        os.chmod(remote_path, 0o600)
         return True
     except OSError:
         return False
@@ -179,6 +181,7 @@ def increment_stat(key_prefix: str, stat_name: str) -> None:
 
         with open(remote_path, "w") as f:
             json.dump(data, f, indent=2)
+        os.chmod(remote_path, 0o600)
     except (json.JSONDecodeError, OSError, KeyError) as e:
         logger.warning(f"Failed to update {stat_name} for {key_prefix}: {e}")
 

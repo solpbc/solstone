@@ -2714,9 +2714,9 @@ function populateFields(config) {
   if (dateEl) dateEl.textContent = agent.named_date || '—';
 
   // Env (API keys) - show status indicators
-  // env = journal config status, system_env = shell/.env status
+  // env = journal config status, runtime_env = loaded into process
   const env = config.env || {};
-  const sysEnv = config.system_env || {};
+  const sysEnv = config.runtime_env || {};
   updateEnvStatus('field-env-google', env.GOOGLE_API_KEY, sysEnv.GOOGLE_API_KEY);
   updateEnvStatus('field-env-openai', env.OPENAI_API_KEY, sysEnv.OPENAI_API_KEY);
   updateEnvStatus('field-env-anthropic', env.ANTHROPIC_API_KEY, sysEnv.ANTHROPIC_API_KEY);

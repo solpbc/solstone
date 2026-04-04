@@ -7,6 +7,7 @@ Auto-discovered by ``think.call`` and mounted as ``sol call agent ...``.
 """
 
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -53,6 +54,7 @@ def _update_agent_config(updates: dict) -> dict:
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2)
         f.write("\n")
+    os.chmod(config_path, 0o600)
 
     return agent
 
@@ -146,6 +148,7 @@ def set_owner(
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2)
         f.write("\n")
+    os.chmod(config_path, 0o600)
 
     # Update sol/self.md
     owner_content = name

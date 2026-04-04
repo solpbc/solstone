@@ -5,8 +5,11 @@
 
 from __future__ import annotations
 
+import json
 import os
+import secrets
 from datetime import timedelta
+from pathlib import Path
 
 from flask import Flask
 from flask_sock import Sock
@@ -25,6 +28,28 @@ __all__ = [
     "create_app",
     "emit",
 ]
+
+
+def _get_or_create_secret() -> str:
+    """Load convey.secret from journal.json, generating one if absent."""
+    from think.utils import get_config, get_journal
+
+    config = get_config()
+    secret = config.get("convey", {}).get("secret")
+    if secret:
+        return secret
+
+    secret = secrets.token_hex(32)
+
+    config.setdefault("convey", {})["secret"] = secret
+    config_path = Path(get_journal()) / "config" / "journal.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.chmod(config_path, 0o600)
+
+    return secret
 
 
 def create_app(journal: str = "") -> Flask:
@@ -46,7 +71,7 @@ def create_app(journal: str = "") -> Flask:
         ]
     )
 
-    app.secret_key = os.getenv("CONVEY_SECRET", "solstone-secret")
+    app.secret_key = _get_or_create_secret()
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
     # Register root blueprint (login, logout, /, favicon)
