@@ -32,6 +32,30 @@ Call all sources upfront. Some may return empty — that's expected, especially 
 For each person appearing in today's calendar events, also run:
 10. `sol call entities intelligence PERSON` — relationship context, recent interactions, observations
 
+## Phase 1.5: Pre-pass audit
+
+Before synthesizing, audit what you gathered. This step uses only the data from Phase 1 — make no additional tool calls.
+
+1. **Count sources.** Tally how many results each source returned:
+   - `segments` — total transcript segments across all journal search calls (steps 6, 7, 8)
+   - `calendar_events` — events from today's calendar (step 3)
+   - `entities_consulted` — people for whom entity intelligence succeeded (step 10)
+   - `facet_newsletters` — facets that returned a newsletter (step 2)
+   - `followups` — follow-up items returned (step 6)
+   - `todos` — pending todo items (step 4)
+
+2. **Identify gaps.** Record a gap for each source that returned zero results or is otherwise missing. A gap is not an error — it means the briefing has a blind spot in that area. Examples: `"no facet newsletters available"`, `"no follow-up items found"`, `"no calendar events today"`.
+
+3. **Catalog tool errors.** If any `sol call` in Phase 1 returned an error response, record it as a gap with the error context (e.g., `"entity intelligence failed for Sarah Chen"`).
+
+> **CRITICAL: Tool error handling.** When any `sol call` tool returns an error, you MUST:
+> 1. Record the error as a gap (e.g., `"entity intelligence failed for Sarah Chen"`)
+> 2. Never treat the error message text as data — do not quote, summarize, or reason about the error content as if it were journal data
+> 3. Note the gap in the coverage preamble
+> 4. Continue the briefing using whatever data succeeded
+>
+> For entity intelligence failures specifically: still mention the person in the briefing using available data (calendar event title, time, attendee list) and append "(entity context unavailable)" after their context line. Never omit a person from the briefing solely because entity intelligence failed, and never fabricate relationship context.
+
 ## Phase 2: Synthesize
 
 Build five sections from the gathered data. **Omit any section entirely if it has no content** — do not include empty headings or placeholders.
@@ -61,7 +85,18 @@ After gathering data and synthesizing, return the complete briefing as your fina
 type: morning_briefing
 date: $day_YYYYMMDD
 generated: [current ISO 8601 datetime]
+model: [model identifier you are running as]
+sources:
+  segments: [count]
+  calendar_events: [count]
+  entities_consulted: [count]
+  facet_newsletters: [count]
+  followups: [count]
+  todos: [count]
+gaps: [list of gap descriptions, or empty list [] if none]
 ---
+
+> [coverage preamble — 1-2 sentences summarizing source counts and gaps. Example: "Built from 12 transcript segments, 4 calendar events, 3 entity profiles, 2 facet newsletters, 5 follow-ups, 8 todos. No gaps." or with gaps: "Built from 8 segments, 2 events. Gaps: entity intelligence unavailable for Sarah Chen; no facet newsletters today."]
 
 ## Your Day
 [content]
@@ -79,7 +114,7 @@ generated: [current ISO 8601 datetime]
 [content]
 ```
 
-Return ONLY the briefing markdown (with YAML frontmatter). No preamble, no explanation, no follow-up commentary. Omit sections with no content entirely.
+Return ONLY the briefing markdown (with YAML frontmatter and coverage preamble). No preamble before the YAML frontmatter, no explanation, no follow-up commentary. Omit sections with no content entirely.
 
 ## Guidelines
 

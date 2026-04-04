@@ -2,7 +2,18 @@
 type: morning_briefing
 date: "20260327"
 generated: "2026-03-27T06:45:00"
+model: "claude-sonnet-4-20250514"
+sources:
+  segments: 14
+  calendar_events: 3
+  entities_consulted: 3
+  facet_newsletters: 2
+  followups: 5
+  todos: 8
+gaps: []
 ---
+
+> Built from 14 transcript segments, 3 calendar events, 3 entity profiles, 2 facet newsletters, 5 follow-ups, 8 todos. No gaps.
 
 ## Your Day
 
