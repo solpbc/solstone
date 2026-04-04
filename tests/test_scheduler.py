@@ -52,6 +52,9 @@ def reset_scheduler_state():
     mod._last_hour = None
     mod._daily_time = None
     mod._last_daily_mark = None
+    mod._weekly_day = None
+    mod._weekly_time = None
+    mod._last_weekly_mark = None
     yield
     mod._entries = {}
     mod._state = {}
@@ -59,6 +62,9 @@ def reset_scheduler_state():
     mod._last_hour = None
     mod._daily_time = None
     mod._last_daily_mark = None
+    mod._weekly_day = None
+    mod._weekly_time = None
+    mod._last_weekly_mark = None
 
 
 @pytest.fixture
@@ -123,7 +129,7 @@ class TestLoadConfig:
         _write_config(
             journal_path,
             {
-                "bad": {"cmd": ["sol", "noop"], "every": "weekly"},
+                "bad": {"cmd": ["sol", "noop"], "every": "biweekly"},
             },
         )
         from think.scheduler import load_config
@@ -433,6 +439,271 @@ class TestDailyTime:
 
         status = mod.collect_status()
         assert "daily_time" not in status[0]
+
+
+class TestWeeklyTime:
+    """Tests for weekly scheduling — boundary computation and config parsing."""
+
+    def test_load_config_extracts_weekly_day_and_time(self, journal_path):
+        """load_config extracts weekly_day and weekly_time from schedules.json."""
+        import think.scheduler as mod
+
+        _write_config(
+            journal_path,
+            {
+                "weekly_day": "sunday",
+                "weekly_time": "04:00",
+                "w": {"cmd": ["sol", "dream", "--weekly"], "every": "weekly"},
+            },
+        )
+        entries = mod.load_config()
+        assert "w" in entries
+        assert "weekly_day" not in entries
+        assert "weekly_time" not in entries
+        assert mod._weekly_day == "sunday"
+        assert mod._weekly_time == "04:00"
+
+    def test_load_config_no_weekly_config(self, journal_path):
+        """When weekly_day/weekly_time are absent, globals are None."""
+        import think.scheduler as mod
+
+        _write_config(journal_path, {"a": {"cmd": ["sol", "x"], "every": "hourly"}})
+        mod.load_config()
+        assert mod._weekly_day is None
+        assert mod._weekly_time is None
+
+    def test_load_config_invalid_weekly_day(self, journal_path):
+        """Invalid weekly_day string is ignored."""
+        import think.scheduler as mod
+
+        _write_config(
+            journal_path,
+            {
+                "weekly_day": "notaday",
+                "w": {"cmd": ["sol", "x"], "every": "weekly"},
+            },
+        )
+        mod.load_config()
+        assert mod._weekly_day is None
+
+    def test_load_config_non_string_weekly_day(self, journal_path):
+        """Non-string weekly_day is ignored."""
+        import think.scheduler as mod
+
+        _write_config(
+            journal_path,
+            {
+                "weekly_day": 0,
+                "w": {"cmd": ["sol", "x"], "every": "weekly"},
+            },
+        )
+        mod.load_config()
+        assert mod._weekly_day is None
+
+    def test_weekly_day_case_insensitive(self, journal_path):
+        """Day name parsing is case-insensitive and accepts abbreviations."""
+        import think.scheduler as mod
+
+        for name in ["Sunday", "SUNDAY", "sun", "Sun"]:
+            _write_config(
+                journal_path,
+                {
+                    "weekly_day": name,
+                    "w": {"cmd": ["sol", "x"], "every": "weekly"},
+                },
+            )
+            mod.load_config()
+            assert mod._weekly_day == name
+
+    def test_compute_weekly_mark_past_boundary(self):
+        """When now is past this week's target, returns this week's boundary."""
+        import think.scheduler as mod
+
+        now = datetime(2026, 3, 22, 4, 0)
+        mark = mod._compute_weekly_mark(now, 6, "03:00")
+        assert mark == datetime(2026, 3, 22, 3, 0)
+
+    def test_compute_weekly_mark_before_boundary(self):
+        """When now is before this week's target, returns last week's boundary."""
+        import think.scheduler as mod
+
+        now = datetime(2026, 3, 22, 2, 0)
+        mark = mod._compute_weekly_mark(now, 6, "03:00")
+        assert mark == datetime(2026, 3, 15, 3, 0)
+
+    def test_compute_weekly_mark_midweek(self):
+        """Midweek, returns the most recent target day occurrence."""
+        import think.scheduler as mod
+
+        now = datetime(2026, 3, 25, 10, 0)
+        mark = mod._compute_weekly_mark(now, 6, "03:00")
+        assert mark == datetime(2026, 3, 22, 3, 0)
+
+    def test_compute_weekly_mark_no_time_defaults_to_0300(self):
+        """When weekly_time is None, boundary defaults to 03:00."""
+        import think.scheduler as mod
+
+        now = datetime(2026, 3, 22, 4, 0)
+        mark = mod._compute_weekly_mark(now, 6, None)
+        assert mark == datetime(2026, 3, 22, 3, 0)
+
+    def test_is_due_weekly_due(self):
+        """Weekly task is due when last_run is before the weekly boundary."""
+        import think.scheduler as mod
+
+        mod._weekly_day = "sunday"
+        mod._weekly_time = "03:00"
+        entry = {"cmd": ["sol", "x"], "every": "weekly"}
+        state = {"last_run": datetime(2026, 3, 21, 10, 0).timestamp()}
+        assert mod._is_due(entry, state, datetime(2026, 3, 22, 4, 0)) is True
+
+    def test_is_due_weekly_not_due(self):
+        """Weekly task is not due when last_run is after the weekly boundary."""
+        import think.scheduler as mod
+
+        mod._weekly_day = "sunday"
+        mod._weekly_time = "03:00"
+        entry = {"cmd": ["sol", "x"], "every": "weekly"}
+        state = {"last_run": datetime(2026, 3, 22, 4, 0).timestamp()}
+        assert mod._is_due(entry, state, datetime(2026, 3, 25, 10, 0)) is False
+
+    def test_is_due_weekly_no_state(self):
+        """Weekly task with no prior run is always due."""
+        import think.scheduler as mod
+
+        mod._weekly_day = "sunday"
+        entry = {"cmd": ["sol", "x"], "every": "weekly"}
+        assert mod._is_due(entry, None, datetime(2026, 3, 25, 10, 0)) is True
+
+    def test_check_fires_at_weekly_boundary(self, journal_path):
+        """check() fires weekly tasks when the weekly boundary is crossed."""
+        import think.scheduler as mod
+
+        callosum = Mock()
+        callosum.emit = Mock(return_value=True)
+
+        _write_config(
+            journal_path,
+            {
+                "weekly_day": "sunday",
+                "weekly_time": "03:00",
+                "w": {"cmd": ["sol", "dream", "--weekly"], "every": "weekly"},
+            },
+        )
+
+        mod.init(callosum)
+
+        mod._last_hour = datetime(2026, 3, 21, 23, 0)
+        mod._last_daily_mark = datetime(2026, 3, 21, 0, 0)
+        mod._last_weekly_mark = datetime(2026, 3, 15, 3, 0)
+
+        with _fake_now(datetime(2026, 3, 22, 3, 1)):
+            mod.check()
+
+        callosum.emit.assert_called_once()
+        assert callosum.emit.call_args[1]["cmd"] == ["sol", "dream", "--weekly"]
+
+    def test_check_no_fire_before_weekly_boundary(self, journal_path):
+        """check() does not fire weekly tasks before the weekly boundary."""
+        import think.scheduler as mod
+
+        callosum = Mock()
+        callosum.emit = Mock(return_value=True)
+
+        _write_config(
+            journal_path,
+            {
+                "weekly_day": "sunday",
+                "weekly_time": "03:00",
+                "w": {"cmd": ["sol", "dream", "--weekly"], "every": "weekly"},
+            },
+        )
+
+        _write_state(
+            journal_path,
+            {"w": {"last_run": datetime(2026, 3, 15, 4, 0).timestamp()}},
+        )
+
+        mod.init(callosum)
+
+        mod._last_hour = datetime(2026, 3, 21, 22, 0)
+        mod._last_daily_mark = datetime(2026, 3, 21, 0, 0)
+        mod._last_weekly_mark = datetime(2026, 3, 15, 3, 0)
+
+        with _fake_now(datetime(2026, 3, 21, 23, 1)):
+            mod.check()
+
+        callosum.emit.assert_not_called()
+
+    def test_missed_weeks_runs_once(self, journal_path):
+        """If supervisor was down for 3 weeks, weekly agent runs once on restart."""
+        import think.scheduler as mod
+
+        callosum = Mock()
+        callosum.emit = Mock(return_value=True)
+
+        _write_config(
+            journal_path,
+            {
+                "weekly_day": "sunday",
+                "weekly_time": "03:00",
+                "w": {"cmd": ["sol", "dream", "--weekly"], "every": "weekly"},
+            },
+        )
+
+        _write_state(
+            journal_path,
+            {"w": {"last_run": datetime(2026, 3, 1, 4, 0).timestamp()}},
+        )
+
+        mod.init(callosum)
+
+        mod._last_hour = datetime(2026, 3, 22, 2, 0)
+        mod._last_daily_mark = datetime(2026, 3, 22, 0, 0)
+        mod._last_weekly_mark = datetime(2026, 3, 15, 3, 0)
+
+        with _fake_now(datetime(2026, 3, 22, 3, 1)):
+            mod.check()
+
+        callosum.emit.assert_called_once()
+
+    def test_dedup_same_week_not_due(self):
+        """After running this week, weekly agent is not due again."""
+        import think.scheduler as mod
+
+        mod._weekly_day = "sunday"
+        mod._weekly_time = "03:00"
+        entry = {"cmd": ["sol", "x"], "every": "weekly"}
+        state = {"last_run": datetime(2026, 3, 22, 3, 30).timestamp()}
+        assert mod._is_due(entry, state, datetime(2026, 3, 26, 10, 0)) is False
+
+    def test_format_next_due_weekly(self):
+        """_format_next_due shows next weekday and time."""
+        import think.scheduler as mod
+
+        mod._weekly_day = "sunday"
+        mod._weekly_time = "03:00"
+        entry = {"cmd": ["sol", "x"], "every": "weekly"}
+        state = {"last_run": datetime(2026, 3, 22, 4, 0).timestamp()}
+        now = datetime(2026, 3, 25, 10, 0)
+
+        result = mod._format_next_due(entry, state, now)
+        assert "Sunday" in result
+        assert "03:00" in result
+
+    def test_collect_status_includes_weekly_fields(self, journal_path):
+        """collect_status includes weekly_day and weekly_time for weekly entries."""
+        import think.scheduler as mod
+
+        mod._weekly_day = "sunday"
+        mod._weekly_time = "04:00"
+        mod._entries = {"w": {"cmd": ["sol", "x"], "every": "weekly"}}
+        mod._state = {}
+
+        status = mod.collect_status()
+        assert len(status) == 1
+        assert status[0]["weekly_day"] == "sunday"
+        assert status[0]["weekly_time"] == "04:00"
 
 
 # ---------------------------------------------------------------------------

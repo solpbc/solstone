@@ -237,7 +237,7 @@
       "disabled": false,
       "group": "Think",
       "label": "Partner Profile",
-      "schedule": "none",
+      "schedule": "weekly",
       "tier": 2,
       "type": "cogitate"
     },
