@@ -405,20 +405,17 @@ def check_cli_binary(name: str) -> str:
 def build_cogitate_env(env_key: str) -> dict[str, str]:
     """Build environment dict for a cogitate CLI subprocess.
 
-    When the provider's API key is present in the environment and no
-    explicit auth mode is configured, the key is preserved (``"api_key"``
-    mode) so the CLI subprocess uses it automatically. When the key is
-    absent, falls back to ``"platform"`` mode (CLI's own account auth).
-
-    Explicit ``providers.auth`` config in journal always wins::
+    By default, strips the provider's API key so the CLI uses its own
+    platform/account-based auth. Controlled by the ``providers.auth``
+    section in journal config:
 
         "providers": {
             "auth": {
-                "anthropic": "platform"   // explicit — strip key
+                "anthropic": "platform"   // default — strip key
             }
         }
 
-    Values: ``"platform"`` strips the key; ``"api_key"`` preserves it.
+    Values: ``"platform"`` (default) strips the key; ``"api_key"`` preserves it.
 
     Args:
         env_key: Environment variable name to consider stripping
@@ -434,8 +431,8 @@ def build_cogitate_env(env_key: str) -> dict[str, str]:
 
     # Determine provider name from env_key for config lookup
     # e.g., "ANTHROPIC_API_KEY" -> lookup auth_config for matching provider
-    # Default: if the key is present, use it; otherwise fall back to platform auth
-    auth_mode = "api_key" if env_key in os.environ else "platform"
+    # We check all auth entries; default is "platform" for any missing provider
+    auth_mode = "platform"
     for provider, mode in auth_config.items():
         from think.providers import PROVIDER_METADATA
 

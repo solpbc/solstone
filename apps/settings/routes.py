@@ -172,6 +172,28 @@ def update_config() -> Any:
                                 }
                             config[section][backend_key][nested_key] = new_value
 
+        # When a provider API key is saved/cleared, auto-set the matching
+        # providers.auth mode so cogitate uses the key automatically.
+        if section == "env" and changed_fields:
+            from think.providers import PROVIDER_METADATA
+
+            # Build reverse map: env_key -> provider name
+            env_to_provider = {
+                meta["env_key"]: name
+                for name, meta in PROVIDER_METADATA.items()
+                if "env_key" in meta
+            }
+            if "providers" not in config:
+                config["providers"] = {}
+            if "auth" not in config["providers"]:
+                config["providers"]["auth"] = {}
+            for env_var in changed_fields:
+                provider = env_to_provider.get(env_var)
+                if provider:
+                    new_val = data.get(env_var, "")
+                    mode = "api_key" if new_val else "platform"
+                    config["providers"]["auth"][provider] = mode
+
         # Write back to file
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
