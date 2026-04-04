@@ -451,6 +451,7 @@
     "provider": "google",
     "tier": 2
   },
+  "key_validation": {},
   "providers": [
     {
       "env_key": "ANTHROPIC_API_KEY",

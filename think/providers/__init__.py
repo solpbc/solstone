@@ -117,10 +117,35 @@ def get_provider_models(provider: str) -> list[dict]:
     return module.list_models()
 
 
+def validate_key(provider: str, api_key: str) -> dict:
+    """Validate an API key for a provider.
+
+    Parameters
+    ----------
+    provider
+        Provider name (e.g., "google", "openai", "anthropic").
+    api_key
+        The API key string to validate.
+
+    Returns
+    -------
+    dict
+        {"valid": True} or {"valid": False, "error": "..."}.
+
+    Raises
+    ------
+    ValueError
+        If the provider is not registered.
+    """
+    module = get_provider_module(provider)
+    return module.validate_key(api_key)
+
+
 __all__ = [
     "PROVIDER_REGISTRY",
     "PROVIDER_METADATA",
     "get_provider_module",
     "get_provider_list",
     "get_provider_models",
+    "validate_key",
 ]
