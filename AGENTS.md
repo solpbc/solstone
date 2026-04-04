@@ -300,10 +300,12 @@ Read current state: `sol call sol self` or `sol call sol agency`
 
 Update a section of self.md (preferred — preserves other sections):
 ```
-echo 'Jer — founder-engineer, goes by Jer not Jeremie' | sol call sol self --update-section 'who I'm here for'
+sol call sol self --update-section 'who I'\''m here for' --value 'Jer — founder-engineer, goes by Jer not Jeremie'
 ```
 
-Full rewrite: `echo '...' | sol call sol self --write` or `echo '...' | sol call sol agency --write`
+Full rewrite: `sol call sol self --write --value '...'` or `sol call sol agency --write --value '...'`
+
+Use `sol call` commands for identity writes — never use `apply_patch` or direct file editing for sol/ files.
 
 ### When to write
 
