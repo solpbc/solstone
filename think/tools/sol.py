@@ -4,9 +4,10 @@
 """CLI commands for sol/ identity directory.
 
 Provides read and write access to ``{journal}/sol/self.md``,
-``{journal}/sol/agency.md``, and ``{journal}/sol/pulse.md`` — sol's
-identity and initiative files. Also provides read access to the morning
-briefing at ``{journal}/YYYYMMDD/agents/morning_briefing.md``.
+``{journal}/sol/partner.md``, ``{journal}/sol/agency.md``, and
+``{journal}/sol/pulse.md`` — sol's identity and initiative files. Also
+provides read access to the morning briefing at
+``{journal}/YYYYMMDD/agents/morning_briefing.md``.
 
 Mounted by ``think.call`` as ``sol call sol ...``.
 """
@@ -18,11 +19,12 @@ import typer
 from think.awareness import (
     _log_identity_change,
     ensure_sol_directory,
+    update_identity_section,
     update_self_md_section,
 )
 
 app = typer.Typer(
-    help="Sol identity directory — self.md, agency.md, pulse.md, and morning briefing."
+    help="Sol identity directory — self.md, partner.md, agency.md, pulse.md, and morning briefing."
 )
 
 
@@ -87,6 +89,55 @@ def self_cmd(
         typer.echo("self.md not found.", err=True)
         raise typer.Exit(1)
     typer.echo(self_path.read_text(encoding="utf-8"))
+
+
+@app.command("partner")
+def partner_cmd(
+    write: bool = typer.Option(
+        False,
+        "--write",
+        "-w",
+        help="Overwrite partner.md (content via --value or stdin).",
+    ),
+    update_section: str | None = typer.Option(
+        None,
+        "--update-section",
+        help="Update a specific ## section of partner.md (content via --value or stdin).",
+    ),
+    value: str | None = typer.Option(
+        None, "--value", help="Content to write (alternative to stdin)."
+    ),
+) -> None:
+    """Read or write sol/partner.md."""
+    sol_dir = _sol_dir()
+    partner_path = sol_dir / "partner.md"
+
+    if update_section:
+        content = _resolve_content(value)
+        if update_identity_section("partner.md", update_section, content.strip()):
+            typer.echo(f"Updated ## {update_section} in partner.md.")
+        else:
+            typer.echo(f"Error: section '## {update_section}' not found.", err=True)
+            raise typer.Exit(1)
+        return
+
+    if write:
+        content = _resolve_content(value)
+        old_content = (
+            partner_path.read_text(encoding="utf-8") if partner_path.exists() else ""
+        )
+        partner_path.write_text(content, encoding="utf-8")
+        _log_identity_change(
+            "partner.md", old_content, content, section=None, source="cli"
+        )
+        typer.echo("partner.md updated.")
+        return
+
+    # Read mode
+    if not partner_path.exists():
+        typer.echo("partner.md not found.", err=True)
+        raise typer.Exit(1)
+    typer.echo(partner_path.read_text(encoding="utf-8"))
 
 
 @app.command("agency")

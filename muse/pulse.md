@@ -24,11 +24,12 @@ Read current state using these tools:
 
 1. `sol call sol pulse` — previous pulse (may not exist yet; that's fine)
 2. `sol call sol self` — who the owner is
-3. `sol call calendar list` — today's events
-4. `sol call todos list` — pending action items
-5. `sol call entities search --recent` — recent entity activity
-6. `sol call awareness status` — system health (brief check)
-7. `sol call routines list` — check for recent routine outputs
+3. `sol call sol partner` — behavioral profile of the owner
+4. `sol call calendar list` — today's events
+5. `sol call todos list` — pending action items
+6. `sol call entities search --recent` — recent entity activity
+7. `sol call awareness status` — system health (brief check)
+8. `sol call routines list` — check for recent routine outputs
 
 If any routines have run recently, read their latest output:
 - `sol call routines output {id_prefix}` for each routine with a recent `last_run`

@@ -233,6 +233,14 @@
       "tier": 2,
       "type": "cogitate"
     },
+    "muse.system.partner": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Partner Profile",
+      "schedule": "none",
+      "tier": 2,
+      "type": "cogitate"
+    },
     "muse.system.pulse": {
       "disabled": false,
       "group": "Think",

@@ -24,13 +24,14 @@ Call all sources upfront. Some may return empty — that's expected, especially 
 3. `sol call calendar list $day_YYYYMMDD` — today's events with participants
 4. `sol call todos list` — pending action items across all facets
 5. `sol call sol pulse` — current pulse narrative and needs-you items
-6. `sol call journal search "" -d $day_YYYYMMDD -a followups -n 10` — follow-up items from today
-7. `sol call journal search "" --day-from $day_YYYYMMDD -a anticipation -n 5` — forward-looking anticipations
-8. `sol call journal search "" -d $day_YYYYMMDD -a decisions -n 10` — yesterday's consequential decisions
-9. For each of the next 7 days after today: `sol call calendar list YYYYMMDD` — upcoming events for forward look
+6. `sol call sol partner` — owner behavioral profile (informs tone and emphasis)
+7. `sol call journal search "" -d $day_YYYYMMDD -a followups -n 10` — follow-up items from today
+8. `sol call journal search "" --day-from $day_YYYYMMDD -a anticipation -n 5` — forward-looking anticipations
+9. `sol call journal search "" -d $day_YYYYMMDD -a decisions -n 10` — yesterday's consequential decisions
+10. For each of the next 7 days after today: `sol call calendar list YYYYMMDD` — upcoming events for forward look
 
 For each person appearing in today's calendar events, also run:
-10. `sol call entities intelligence PERSON` — relationship context, recent interactions, observations
+11. `sol call entities intelligence PERSON` — relationship context, recent interactions, observations
 
 ## Phase 1.5: Pre-pass audit
 
