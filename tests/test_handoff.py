@@ -27,7 +27,7 @@ def _assert_handoff_success():
         result = _invoke_handoff("coder", input_text="fix the bug\n")
     assert result.exit_code == 0
     assert "agent-123" in result.output
-    mock_cr.assert_called_once_with(prompt="fix the bug", name="coder")
+    mock_cr.assert_called_once_with(prompt="fix the bug", name="coder", config=None)
 
 
 def _assert_handoff_empty_stdin():

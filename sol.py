@@ -65,6 +65,7 @@ COMMANDS: dict[str, str] = {
     "cortex": "think.cortex",
     "muse": "think.muse_cli",
     "call": "think.call",
+    "engage": "think.engage",
     "help": "think.help_cli",
     "chat": "think.chat_cli",
     "heartbeat": "think.heartbeat",
@@ -121,6 +122,7 @@ GROUPS: dict[str, list[str]] = {
         "cortex",
         "muse",
         "call",
+        "engage",
     ],
     "Convey (web UI)": [
         "convey",
