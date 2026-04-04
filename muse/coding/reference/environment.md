@@ -2,7 +2,7 @@
 
 ## Journal Path
 
-The journal lives at `journal/` in the project root. `get_journal()` from `think.utils` returns the path. For tests, set `_SOLSTONE_JOURNAL_OVERRIDE` to override. Do not set this in production service files — the default project-root resolution is correct.
+The journal lives at `journal/` in the project root. `get_journal()` from `think.utils` returns the path — trust it unconditionally. Never set `_SOLSTONE_JOURNAL_OVERRIDE` from application code, service files, agent prompts, or subprocess environments. The env var exists exclusively for external use: test harnesses (`monkeypatch.setenv`) and Makefile sandboxes. If you think you need to override the journal path, you don't — fix the actual problem instead.
 
 ## Service Installation
 

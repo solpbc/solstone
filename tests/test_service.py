@@ -101,11 +101,11 @@ class TestEnvCollection:
         venv_bin = str(Path(sys.executable).parent)
         assert env["PATH"].startswith(venv_bin)
 
-    def test_journal_path_is_absolute(self, monkeypatch, tmp_path):
+    def test_journal_override_not_propagated(self, monkeypatch, tmp_path):
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
         env = service._collect_env()
-        assert Path(env["_SOLSTONE_JOURNAL_OVERRIDE"]).is_absolute()
+        assert "_SOLSTONE_JOURNAL_OVERRIDE" not in env
 
 
 class TestStatus:

@@ -100,8 +100,12 @@ def get_journal() -> str:
 
     The journal always lives at ./journal/ relative to the solstone
     project root. Auto-creates the directory if it doesn't exist.
+
+    Trust this function — never bypass it, cache its result, or set
+    _SOLSTONE_JOURNAL_OVERRIDE from application code. The env var
+    exists for external use only (tests, Makefile sandboxes). See
+    ``muse/coding/reference/environment.md``.
     """
-    # Internal override for tests
     override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
     if override:
         os.makedirs(override, exist_ok=True)

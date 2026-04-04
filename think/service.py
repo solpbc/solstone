@@ -60,22 +60,17 @@ def _sol_bin() -> str:
 def _collect_env() -> dict[str, str]:
     """Collect environment variables for the service file.
 
-    Only captures HOME, PATH (with venv bin), and the journal override.
-    API keys are NOT written into service files — the supervisor reads
-    them from journal.json at process startup via setup_cli().
+    Only captures HOME and PATH (with venv bin). API keys are NOT written
+    into service files — the supervisor reads them from journal.json at
+    process startup via setup_cli(). Never propagate _SOLSTONE_JOURNAL_OVERRIDE
+    into service files — installed services should use default path resolution.
     """
     venv_bin = str(Path(sys.executable).parent)
 
-    env = {
+    return {
         "HOME": str(Path.home()),
         "PATH": f"{venv_bin}:/usr/local/bin:/usr/bin:/bin",
     }
-
-    override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
-    if override:
-        env["_SOLSTONE_JOURNAL_OVERRIDE"] = override
-
-    return env
 
 
 def _generate_plist(env: dict[str, str], port: int = DEFAULT_SERVICE_PORT) -> bytes:

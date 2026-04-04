@@ -171,8 +171,8 @@ def test_log_written_after_successful_run(journal_path, heartbeat_mocks):
     assert "outcome=success" in content
 
 
-def test_cortex_prompt_includes_journal_path(journal_path, heartbeat_mocks):
-    """cortex_request receives a prompt containing the journal path."""
+def test_cortex_prompt_does_not_contain_journal_path(journal_path, heartbeat_mocks):
+    """cortex_request prompt must not leak filesystem paths."""
     import think.heartbeat as mod
 
     captured_kwargs = {}
@@ -189,7 +189,7 @@ def test_cortex_prompt_includes_journal_path(journal_path, heartbeat_mocks):
         mod.main()
 
     prompt = captured_kwargs.get("prompt", "")
-    assert str(journal_path) in prompt, "prompt should contain the journal path"
+    assert str(journal_path) not in prompt, "prompt must not leak filesystem paths"
 
 
 def test_recency_check_skips_recent_heartbeat(journal_path, heartbeat_mocks):

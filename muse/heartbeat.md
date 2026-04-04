@@ -18,9 +18,6 @@ optionally update self.md. Be efficient — check, act, write, done.
 This is not a conversation. Do not generate owner-facing output. Read,
 check, maintain, close.
 
-**Important:** The journal path is provided in the prompt below. Use `sol call`
-commands for all journal access — never search the filesystem or guess paths.
-
 ## Step 1: Check system health
 
 Run `sol health` and check recent health logs with `sol health logs --since 1h`.

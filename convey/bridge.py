@@ -34,11 +34,6 @@ _STATE_CACHE: Dict[str, Any] = {
 }
 
 
-def _ensure_journal_env() -> None:
-    if state.journal_root and not os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE"):
-        os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = state.journal_root
-
-
 def _broadcast_to_websockets(event: dict) -> None:
     """Broadcast event to all connected WebSocket clients."""
     msg = json.dumps(event)
@@ -83,9 +78,6 @@ def start_bridge() -> None:
     with _WATCH_LOCK:
         if _CALLOSUM_CONNECTION:
             return
-
-        # Ensure journal override is set for child processes
-        _ensure_journal_env()
 
         # Create Callosum connection with callback
         try:
