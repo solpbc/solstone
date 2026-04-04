@@ -94,12 +94,6 @@ def _collect_env() -> dict[str, str]:
         val = config_env.get(key)
         if val:
             env[key] = str(val)
-        elif os.environ.get(key):
-            env[key] = os.environ[key]
-            print(
-                f"Warning: {key} found in shell environment but not in "
-                "journal/config/journal.json — add it to the \"env\" section"
-            )
         else:
             missing_keys.append(key)
 

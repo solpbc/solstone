@@ -680,8 +680,8 @@ class TestSetupCliConfigEnv:
         assert os.environ.get("TEST_API_KEY") == "from_config"
         assert os.environ.get("ANOTHER_VAR") == "also_from_config"
 
-    def test_shell_env_takes_precedence_over_config(self, monkeypatch, cli_env):
-        """Test that shell/dotenv values are not overridden by config."""
+    def test_journal_config_overrides_shell_env(self, monkeypatch, cli_env):
+        """Test that journal.json config is the strict source for env vars."""
         monkeypatch.setenv("EXISTING_VAR", "from_shell")
 
         cli_env(
@@ -691,7 +691,7 @@ class TestSetupCliConfigEnv:
             }
         )
 
-        assert os.environ.get("EXISTING_VAR") == "from_shell"
+        assert os.environ.get("EXISTING_VAR") == "from_config"
 
     def test_empty_shell_env_allows_config_override(self, monkeypatch, cli_env):
         """Test that empty shell env values are overridden by config."""

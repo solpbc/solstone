@@ -642,12 +642,10 @@ def setup_cli(parser: argparse.ArgumentParser, *, parse_known: bool = False):
     # Initialize journal path (auto-creates if needed)
     get_journal()
 
-    # Load config env as fallback for missing environment variables
-    # Precedence: shell env > .env file > journal config env
+    # Load config env from journal.json — strict source for API keys
     config = get_config()
     for key, value in config.get("env", {}).items():
-        if not os.environ.get(key):  # Only set if missing or empty
-            os.environ[key] = str(value)
+        os.environ[key] = str(value)
 
     return (args, extra) if parse_known else args
 

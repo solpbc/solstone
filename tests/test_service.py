@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import plistlib
 import sys
 from pathlib import Path
@@ -76,11 +77,17 @@ class TestSystemdUnit:
 class TestEnvCollection:
     def test_captures_api_keys(self, monkeypatch, tmp_path):
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
-        monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
-        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
-        monkeypatch.delenv("REVAI_ACCESS_TOKEN", raising=False)
-        monkeypatch.delenv("PLAUD_ACCESS_TOKEN", raising=False)
+        for key in service._API_KEYS:
+            monkeypatch.delenv(key, raising=False)
+
+        config_dir = tmp_path / "config"
+        config_dir.mkdir(exist_ok=True)
+        (config_dir / "journal.json").write_text(json.dumps({
+            "env": {
+                "ANTHROPIC_API_KEY": "sk-test",
+                "OPENAI_API_KEY": "sk-openai",
+            }
+        }))
 
         env = service._collect_env()
         assert env["ANTHROPIC_API_KEY"] == "sk-test"
