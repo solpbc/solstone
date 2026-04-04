@@ -68,18 +68,19 @@ sol call transcripts segments 20260115
 ## read
 
 ```bash
-sol call transcripts read [DAY] [--start HHMMSS --length MINUTES] [--segment KEY] [--stream NAME] [--full] [--raw] [--audio] [--screen] [--agents]
+sol call transcripts read [DAY] [--start HHMMSS --length MINUTES] [--segment KEY] [--segments KEYS] [--stream NAME] [--full] [--raw] [--audio] [--screen] [--agents]
 ```
 
-Read transcript content for a day, time range, or segment.
+Read transcript content for a day, time range, segment, or span.
 
 - `DAY`: day in `YYYYMMDD` (default: `SOL_DAY` env).
 
 Read modes (mutually exclusive):
 
 1. `--start HHMMSS --length MINUTES`: range mode. Both flags are required together; end time is auto-computed.
-2. `--segment KEY`: segment mode using key from `segments`.
-3. No time flags: whole-day mode.
+2. `--segment KEY`: single segment mode using key from `segments`.
+3. `--segments KEY1,KEY2,...`: span mode — comma-separated segment keys, merged in time order.
+4. No time flags: whole-day mode.
 
 Source flags:
 
@@ -92,7 +93,7 @@ Source flags:
 
 Rules:
 
-- Do not combine `--segment` with `--start/--length`.
+- Do not combine `--segment`, `--segments`, or `--start/--length` with each other.
 - Do not combine `--full` or `--raw` with individual source flags.
 
 Source type meanings:
@@ -107,6 +108,7 @@ Examples:
 sol call transcripts read 20260115
 sol call transcripts read 20260115 --start 090000 --length 30 --raw
 sol call transcripts read 20260115 --segment 091500_300 --full
+sol call transcripts read 20260115 --segments 091500_300,092000_300,092500_300 --transcripts --agents
 sol call transcripts read 20260115 --audio
 ```
 

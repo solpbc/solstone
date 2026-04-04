@@ -38,12 +38,10 @@ Use the Activity Context and Activity State Per Segment sections above to unders
 - `sol call todos upcoming` – view upcoming todos to avoid duplicates
 
 ### Transcript Commands
-- `sol call transcripts read --segment SEGMENT_KEY --transcripts` – read audio transcript for a segment
-- `sol call transcripts read --segment SEGMENT_KEY --agents` – read agent outputs (screen summaries) for a segment
-- `sol call transcripts read --segment SEGMENT_KEY --full` – read everything for a segment
+- `sol call transcripts read --segments $activity_segments --transcripts` – read audio transcripts for this activity
+- `sol call transcripts read --segments $activity_segments --agents` – read agent outputs (screen summaries) for this activity
+- `sol call transcripts read --segment SEGMENT_KEY --full` – read everything for a single segment
 - `sol call journal search QUERY` – cross-reference journal content
-
-Activity segments: $activity_segments
 
 **Query syntax**: Terms are AND'd by default; use `OR` for alternatives, quote phrases for exact matches, append `*` for prefix matching.
 
@@ -53,10 +51,8 @@ Activity segments: $activity_segments
 
 Read the activity's transcript and current todo state before making any changes.
 
-1. For each segment in this activity ($activity_segments), load the transcript:
-   `sol call transcripts read --segment SEGMENT_KEY --transcripts`
-   Also load screen agent output for context:
-   `sol call transcripts read --segment SEGMENT_KEY --agents`
+1. Load the activity's transcript and screen agent context:
+   `sol call transcripts read --segments $activity_segments --transcripts --agents --max 0`
 2. Call `sol call todos list` to see the current checklist
 3. Call `sol call todos upcoming -l 50` to check what's already scheduled
 

@@ -17,6 +17,7 @@ from think.cluster import (
     cluster_range,
     cluster_scan,
     cluster_segments,
+    cluster_span,
 )
 from think.utils import (
     day_dirs,
@@ -85,6 +86,9 @@ def read(
     segment: str | None = typer.Option(
         None, "--segment", help="Segment key (HHMMSS_LEN, default: SOL_SEGMENT env)."
     ),
+    segments: str | None = typer.Option(
+        None, "--segments", help="Comma-separated segment keys for a span."
+    ),
     stream: str | None = typer.Option(
         None, "--stream", help="Stream name (default: SOL_STREAM env)."
     ),
@@ -140,8 +144,17 @@ def read(
     else:
         sources = {"transcripts": True, "percepts": False, "agents": True}
 
-    if segment and (start or length is not None):
-        typer.echo("Error: Cannot mix --segment with --start/--length.", err=True)
+    # Validate mutually exclusive selection modes
+    mode_count = sum([
+        segment is not None,
+        segments is not None,
+        start is not None or length is not None,
+    ])
+    if mode_count > 1:
+        typer.echo(
+            "Error: Cannot mix --segment, --segments, and --start/--length.",
+            err=True,
+        )
         raise typer.Exit(1)
 
     if (start is not None) != (length is not None):
@@ -154,6 +167,9 @@ def read(
         start_dt = datetime.strptime(start, "%H%M%S")
         end_dt = start_dt + timedelta(minutes=length)
         markdown = cluster_range(day, start, end_dt.strftime("%H%M%S"), sources)
+    elif segments is not None:
+        span = [s.strip() for s in segments.split(",") if s.strip()]
+        markdown, _counts = cluster_span(day, span, sources, stream=stream)
     elif segment is not None:
         markdown, _counts = cluster_period(day, segment, sources, stream=stream)
     else:
