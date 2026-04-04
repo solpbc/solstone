@@ -20,11 +20,6 @@ def _invoke_engage(*args, input_text=""):
     return runner.invoke(_engage_app(), [*args], input=input_text)
 
 
-def _call_app():
-    call_mod = importlib.reload(importlib.import_module("think.call"))
-    return call_mod.call_app
-
-
 class TestEngage:
     def test_fire_and_forget(self):
         with patch(
@@ -139,17 +134,3 @@ class TestEngage:
         mock_cr.assert_called_once_with(
             prompt="do stuff", name="coder", config={"day": "20260404"}
         )
-
-
-class TestHandoffDeprecated:
-    def test_handoff_still_works(self):
-        with patch("think.cortex_client.cortex_request", return_value="agent-123"):
-            result = runner.invoke(_call_app(), ["handoff", "coder"], input="fix the bug\n")
-
-        assert result.exit_code == 0
-        assert "agent-123" in result.output
-
-    def test_handoff_hidden(self):
-        result = runner.invoke(_call_app(), ["--help"])
-
-        assert "handoff" not in result.output

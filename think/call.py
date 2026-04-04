@@ -13,7 +13,6 @@ Discovery scans ``apps/*/call.py``, imports modules, and mounts subcommands.
 
 import importlib
 import logging
-import sys
 from pathlib import Path
 
 import typer
@@ -109,21 +108,6 @@ def navigate(
     if facet:
         parts.append(f"[{facet}]")
     typer.echo(f"Navigate: {' '.join(parts)}")
-
-
-@call_app.command("handoff", hidden=True)
-def handoff(
-    agent: str = typer.Argument(help="Agent name to hand off to (e.g. coder)."),
-) -> None:
-    """Spawn a cogitate agent with a request from stdin (fire-and-forget)."""
-    prompt = sys.stdin.read()
-    if not prompt.strip():
-        typer.echo("Error: no prompt provided on stdin.", err=True)
-        raise typer.Exit(1)
-
-    from think.engage import _engage
-
-    _engage(agent, prompt.strip())
 
 
 def main() -> None:

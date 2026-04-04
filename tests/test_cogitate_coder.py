@@ -1,18 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for cogitate coder mode: write flag, handoff command, coder agent."""
+"""Tests for cogitate coder mode: write flag, coder agent."""
 
 import asyncio
 import importlib
 from unittest.mock import AsyncMock, patch
-
-from typer.testing import CliRunner
-
-from think.call import call_app
-
-runner = CliRunner()
-
 
 # ---------------------------------------------------------------------------
 # Write flag — Anthropic provider
@@ -183,54 +176,6 @@ class TestGoogleWriteFlag:
 
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         assert "--allowed-tools" not in cmd
-
-
-# ---------------------------------------------------------------------------
-# sol call handoff command
-# ---------------------------------------------------------------------------
-
-
-class TestHandoffCommand:
-    """Tests for sol call handoff subcommand."""
-
-    @patch("think.cortex_client.cortex_request", return_value="1710864123456")
-    def test_handoff_success(self, mock_cortex):
-        """Handoff reads stdin, calls cortex_request, prints agent_id."""
-        result = runner.invoke(call_app, ["handoff", "coder"], input="Fix the bug\n")
-
-        assert result.exit_code == 0
-        assert "1710864123456" in result.output
-        mock_cortex.assert_called_once_with(
-            prompt="Fix the bug", name="coder", config=None
-        )
-
-    def test_handoff_empty_stdin(self):
-        """Empty stdin produces error and exit code 1."""
-        result = runner.invoke(call_app, ["handoff", "coder"], input="")
-
-        assert result.exit_code == 1
-        assert (
-            "no prompt" in result.output.lower()
-            or "no prompt" in (result.stderr or "").lower()
-        )
-
-    def test_handoff_whitespace_only_stdin(self):
-        """Whitespace-only stdin produces error."""
-        result = runner.invoke(call_app, ["handoff", "coder"], input="   \n  \n")
-
-        assert result.exit_code == 1
-
-    @patch("think.cortex_client.cortex_request", return_value=None)
-    def test_handoff_cortex_failure(self, mock_cortex):
-        """When cortex_request returns None, handoff reports error."""
-        result = runner.invoke(call_app, ["handoff", "coder"], input="Fix the bug\n")
-
-        assert result.exit_code == 1
-        assert (
-            "failed" in result.output.lower()
-            or "failed" in (result.stderr or "").lower()
-        )
-
 
 # ---------------------------------------------------------------------------
 # muse/coder.md existence and frontmatter

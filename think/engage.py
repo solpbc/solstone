@@ -3,8 +3,7 @@
 
 """CLI for delegating work to cogitate agents.
 
-Provides ``sol engage <name>`` as the primary agent delegation command,
-replacing ``sol call handoff`` with richer options.
+Provides ``sol engage <name>`` for delegating work to cogitate agents.
 """
 
 import sys
