@@ -3,9 +3,11 @@
 
 """Unified prompt execution pipeline for solstone.
 
-Runs all scheduled prompts (generators and agents) in priority order.
-Lower priority numbers run first. All prompts at the same priority
-run in parallel, then dream waits for completion before the next group.
+Segment-scheduled agents use the Sense-first linear orchestrator:
+Sense runs first, then remaining agents dispatch based on Sense output.
+
+Daily-scheduled agents use priority-group iteration: grouped by priority,
+each group runs in parallel with bounded concurrency.
 """
 
 import argparse
@@ -2083,7 +2085,7 @@ def main() -> None:
             if not run_command(cmd, day):
                 logging.warning("Sense repair failed, continuing anyway")
 
-        # MAIN PHASE: Run all prompts by priority
+        # MAIN PHASE: Run prompts
         resolved_stream = args.stream
         if args.segment and args.stream is None:
             matches = [(s, k) for s, k, _ in iter_segments(day) if k == args.segment]
@@ -2101,6 +2103,7 @@ def main() -> None:
                 verbose=args.verbose,
                 max_concurrency=args.jobs,
                 stream=resolved_stream,
+                timeout=None if args.no_timeout else 610,
                 state_machine=ActivityStateMachine(),
             )
         else:
