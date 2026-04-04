@@ -1,5 +1,6 @@
 {
   "type": "generate",
+  "disabled": true,
 
   "title": "Activity Synthesis",
   "description": "Synthesizes segment activity from content, focusing on observable changes and searchability.",

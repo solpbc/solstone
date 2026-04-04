@@ -5,7 +5,7 @@
   "description": "Unified segment understanding — density, content type, entities, facets, speakers, and routing recommendations in a single pass",
   "color": "#ff6f00",
   "schedule": "segment",
-  "priority": 10,
+  "priority": 5,
   "tier": 3,
   "thinking_budget": 4096,
   "max_output_tokens": 4096,

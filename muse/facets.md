@@ -1,5 +1,6 @@
 {
   "type": "generate",
+  "disabled": true,
 
   "title": "Facet Classification",
   "description": "Classifies segment activity into relevant facets based on other segment outputs",
