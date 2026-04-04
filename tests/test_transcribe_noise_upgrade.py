@@ -23,9 +23,7 @@ class TestHasToken:
         from observe.transcribe.revai import has_token
 
         with patch.dict("os.environ", {}, clear=True):
-            # Also need to patch dotenv to not load any .env file
-            with patch("observe.transcribe.revai.load_dotenv"):
-                assert has_token() is False
+            assert has_token() is False
 
     def test_has_token_with_alternate_env_var(self):
         """has_token() returns True with REV_ACCESS_TOKEN."""
