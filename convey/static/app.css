@@ -76,7 +76,7 @@ html {
 
 /* Default theme (when no facet is selected) */
 :root {
-  --facet-color: #999;
+  --facet-color: #E8923A;
   --facet-bg: transparent;
   --facet-border: #e0e0e0;
 
@@ -130,6 +130,32 @@ body.has-date-nav .workspace {
   .workspace-content,
   .workspace-content-wide {
     padding: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .menu-bar {
+    width: 0;
+    overflow: hidden;
+  }
+
+  body.menu-full .menu-bar {
+    width: var(--menu-bar-width-full);
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.2);
+    z-index: calc(var(--z-bars) + 2);
+  }
+
+  .workspace {
+    margin-left: 0 !important;
+  }
+
+  .facet-bar .facet-pills-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-bar {
+    width: calc(100% - 16px) !important;
   }
 }
 
@@ -452,18 +478,18 @@ body:has(.status-pane.visible) .facet-bar::after {
 
 /* Today indicator */
 .mp-day.mp-today {
-  box-shadow: inset 0 0 0 2px #007bff;
+  box-shadow: inset 0 0 0 2px #E8923A;
 }
 
 /* Selected day */
 .mp-day.mp-selected {
-  background: var(--facet-color, #3b82f6);
+  background: var(--facet-color, #E8923A);
   color: white;
   font-weight: 600;
 }
 
 .mp-day.mp-selected:hover {
-  background: var(--facet-color, #3b82f6);
+  background: var(--facet-color, #E8923A);
 }
 
 /* Status Pane - slides down from facet bar on right (mirrors menu bar on left) */
@@ -776,7 +802,7 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
 }
 
 .submenu-badge {
-  background: var(--facet-color, #667eea);
+  background: var(--facet-color, #E8923A);
   color: white;
   font-size: 10px;
   font-weight: 600;
@@ -1123,7 +1149,7 @@ body.menu-all .menu-bar {
 
 .chat-bar-input:focus {
   outline: none;
-  border-color: var(--facet-color, #667eea);
+  border-color: var(--facet-color, #E8923A);
 }
 
 .chat-bar-input::placeholder {
@@ -1135,7 +1161,7 @@ body.menu-all .menu-bar {
   height: 36px;
   border-radius: 50%;
   border: none;
-  background: var(--facet-color, #667eea);
+  background: var(--facet-color, #E8923A);
   color: white;
   font-size: 18px;
   cursor: pointer;
@@ -1164,7 +1190,7 @@ body.menu-all .menu-bar {
 .chat-bar-thinking-dot {
   width: 8px;
   height: 8px;
-  background: var(--facet-color, #667eea);
+  background: var(--facet-color, #E8923A);
   border-radius: 50%;
   animation: chat-bar-pulse 1s ease-in-out infinite;
 }
@@ -1308,7 +1334,7 @@ body.menu-all .menu-bar {
 
 .conversation-message.user {
   align-self: flex-end;
-  background: var(--facet-color, #667eea);
+  background: var(--facet-color, #E8923A);
   color: white;
   border-bottom-right-radius: 4px;
 }
@@ -1581,9 +1607,9 @@ a.notification-card {
 }
 
 .facet-add-pill:hover {
-  border-color: var(--facet-color, #667eea);
-  color: var(--facet-color, #667eea);
-  background: var(--facet-bg, rgba(102, 126, 234, 0.1));
+  border-color: var(--facet-color, #E8923A);
+  color: var(--facet-color, #E8923A);
+  background: var(--facet-bg, rgba(232, 146, 58, 0.1));
   transform: scale(1.1);
 }
 
@@ -1647,7 +1673,7 @@ a.notification-card {
 
 .facet-create-field input:focus {
   outline: none;
-  border-color: var(--facet-color, #667eea);
+  border-color: var(--facet-color, #E8923A);
 }
 
 .facet-create-slug {
@@ -1688,7 +1714,7 @@ a.notification-card {
 }
 
 .facet-create-submit {
-  background: var(--facet-color, #667eea);
+  background: var(--facet-color, #E8923A);
   border: none;
   color: white;
 }
@@ -1711,4 +1737,21 @@ a.notification-card {
 
 .facet-create-error.visible {
   display: block;
+}
+
+/* Focus-visible states for keyboard navigation */
+.menu-bar .menu-item:focus-visible,
+.facet-pill:focus-visible,
+.facet-add-pill:focus-visible,
+#hamburger:focus-visible,
+.facet-bar .status-icon:focus-visible,
+.chat-bar-send:focus-visible,
+.chat-bar-dismiss:focus-visible,
+.date-nav-arrow:focus-visible,
+.facet-create-submit:focus-visible,
+.facet-create-cancel:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
 }
