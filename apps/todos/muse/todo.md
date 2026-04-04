@@ -11,8 +11,8 @@
   "group": "Todos",
   "instructions": {
     "system": "journal",
-    "sources": {"transcripts": true, "percepts": false, "agents": {"screen": true}},
     "facets": true,
+    "now": true,
     "activity": true
   }
 
@@ -27,7 +27,7 @@ You have two jobs for this activity:
 1. **Detect** new todo items from the activity transcript — commitments, action items, and reminders that represent open future work
 2. **Validate** existing open todos against what happened in this activity — mark items complete when you find clear evidence
 
-Use the Activity Context and Activity State Per Segment sections above to understand what this activity involves and to focus on relevant content in the transcript.
+Use the Activity Context and Activity State Per Segment sections above to understand what this activity involves and to focus your transcript reads on relevant content.
 
 ## Tooling
 
@@ -37,27 +37,39 @@ Use the Activity Context and Activity State Per Segment sections above to unders
 - `sol call todos done LINE_NUMBER` – mark an entry complete
 - `sol call todos upcoming` – view upcoming todos to avoid duplicates
 
-### Transcript Commands (for deeper investigation)
-- `sol call transcripts read --segment SEGMENT_KEY --full` – read full transcript for a specific segment (segment keys from this activity: $activity_segments)
+### Transcript Commands
+- `sol call transcripts read --segment SEGMENT_KEY --transcripts` – read audio transcript for a segment
+- `sol call transcripts read --segment SEGMENT_KEY --agents` – read agent outputs (screen summaries) for a segment
+- `sol call transcripts read --segment SEGMENT_KEY --full` – read everything for a segment
 - `sol call journal search QUERY` – cross-reference journal content
+
+Activity segments: $activity_segments
 
 **Query syntax**: Terms are AND'd by default; use `OR` for alternatives, quote phrases for exact matches, append `*` for prefix matching.
 
 ## Process
 
-### Step 1: Read the Full Activity Arc First
+### Step 1: Load Transcript and Current State
 
-**CRITICAL**: Read the entire activity transcript before making any changes. You need to understand the complete arc of what happened to distinguish:
+Read the activity's transcript and current todo state before making any changes.
+
+1. For each segment in this activity ($activity_segments), load the transcript:
+   `sol call transcripts read --segment SEGMENT_KEY --transcripts`
+   Also load screen agent output for context:
+   `sol call transcripts read --segment SEGMENT_KEY --agents`
+2. Call `sol call todos list` to see the current checklist
+3. Call `sol call todos upcoming -l 50` to check what's already scheduled
+
+If the transcript is sparse or clearly has no actionable content (e.g., silent coding, background music), skip to Output.
+
+### Step 2: Read the Full Activity Arc
+
+**CRITICAL**: Read through the entire transcript before making any changes. You need to understand the complete arc of what happened to distinguish:
 - Items that were **mentioned and left open** → these are todos
 - Items that were **mentioned and then completed** within this activity → these are NOT todos
 - Items that were **already on the checklist and completed** during this activity → mark done
 
 For example, if someone says "I need to fix the auth flow" at 10:15 and then spends 10:15–10:45 fixing it, that is NOT a todo — it was resolved within the activity.
-
-### Step 2: Load Current State
-
-1. Call `sol call todos list` to see the current checklist
-2. Call `sol call todos upcoming -l 50` to check what's already scheduled
 
 ### Step 3: Detect New Todos
 
