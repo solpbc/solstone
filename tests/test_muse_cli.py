@@ -26,7 +26,7 @@ def test_collect_configs_returns_prompts():
     """All configs include known system prompts."""
     configs = _collect_configs(include_disabled=True)
     assert "flow" in configs
-    assert "activity" in configs
+    assert "sense" in configs
     assert "unified" in configs
 
 
@@ -34,11 +34,11 @@ def test_collect_configs_excludes_disabled_by_default():
     """Disabled prompts are excluded unless include_disabled is set."""
     without = _collect_configs(include_disabled=False)
     with_disabled = _collect_configs(include_disabled=True)
+    # include_disabled should return at least as many configs
     assert len(with_disabled) >= len(without)
-
-    # files.md is disabled by default
-    disabled_keys = set(with_disabled.keys()) - set(without.keys())
-    assert len(disabled_keys) > 0
+    # currently no agents are disabled (segment agents absorbed by sense,
+    # daily agents cleaned up) — both sets should be equal
+    assert len(with_disabled) == len(without)
 
 
 def test_collect_configs_filter_schedule():
@@ -146,12 +146,12 @@ def test_list_prompts_schedule_filter(capsys):
 
 
 def test_list_prompts_disabled_shown(capsys):
-    """--disabled includes disabled prompts."""
+    """--disabled includes disabled prompts (currently none after cleanup)."""
     list_prompts(include_disabled=True)
     output = capsys.readouterr().out
 
-    # files.md is disabled, should appear
-    assert "files" in output
+    # all agents should appear in the listing
+    assert "flow" in output
 
 
 def test_show_prompt_known(capsys):
@@ -202,7 +202,7 @@ def test_json_output_contains_known_prompts(capsys):
     records = [json.loads(x) for x in output.strip().splitlines() if x.strip()]
     files = {r["file"] for r in records}
     assert any("flow.md" in f for f in files)
-    assert any("activity.md" in f for f in files)
+    assert any("sense.md" in f for f in files)
 
     # Check a specific record has expected fields
     flow = next(r for r in records if "flow.md" in r["file"])
@@ -269,7 +269,7 @@ def test_show_prompt_context_segment_validation(capsys):
     from think.muse_cli import show_prompt_context
 
     with pytest.raises(SystemExit):
-        show_prompt_context("activity", day="20260101")
+        show_prompt_context("screen", day="20260101")
 
     output = capsys.readouterr().err
     assert "segment-scheduled" in output.lower()

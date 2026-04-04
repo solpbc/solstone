@@ -1,38 +1,5 @@
 {
   "agents": {
-    "activities": {
-      "app": null,
-      "color": "#00695c",
-      "description": "Detects completed activities across all facets and writes records with synthesized descriptions",
-      "multi_facet": false,
-      "output_format": "json",
-      "schedule": "segment",
-      "source": "system",
-      "title": "Activity Records",
-      "type": "generate"
-    },
-    "activity": {
-      "app": null,
-      "color": "#00bcd4",
-      "description": "Synthesizes segment activity from content, focusing on observable changes and searchability.",
-      "multi_facet": false,
-      "output_format": "md",
-      "schedule": "segment",
-      "source": "system",
-      "title": "Activity Synthesis",
-      "type": "generate"
-    },
-    "activity_state": {
-      "app": null,
-      "color": "#00897b",
-      "description": "Detects configured activities present in segment and tracks state across segments",
-      "multi_facet": true,
-      "output_format": "json",
-      "schedule": "segment",
-      "source": "system",
-      "title": "Activity State",
-      "type": "generate"
-    },
     "anticipation": {
       "app": null,
       "color": "#4527a0",
@@ -86,17 +53,6 @@
       "schedule": "activity",
       "source": "system",
       "title": "Decision Actions",
-      "type": "generate"
-    },
-    "documentation": {
-      "app": null,
-      "color": "#007bff",
-      "description": "Finds when important knowledge is shared in the transcript and suggests what should be written down. Output is a Markdown list of documentation opportunities with time ranges and destinations.",
-      "multi_facet": false,
-      "output_format": "md",
-      "schedule": "daily",
-      "source": "system",
-      "title": "Documentation Moments",
       "type": "generate"
     },
     "entities": {
@@ -176,28 +132,6 @@
       "title": "Facet Newsletter Generator",
       "type": "cogitate"
     },
-    "facets": {
-      "app": null,
-      "color": "#7c4dff",
-      "description": "Classifies segment activity into relevant facets based on other segment outputs",
-      "multi_facet": false,
-      "output_format": "json",
-      "schedule": "segment",
-      "source": "system",
-      "title": "Facet Classification",
-      "type": "generate"
-    },
-    "files": {
-      "app": null,
-      "color": "#28a745",
-      "description": "Reviews the day's transcript to capture each significant file or attachment that was opened, saved or shared. Generates a Markdown timeline with context about how the file was used.",
-      "multi_facet": false,
-      "output_format": "md",
-      "schedule": "daily",
-      "source": "system",
-      "title": "File Interactions",
-      "type": "generate"
-    },
     "firstday_checkin": {
       "app": null,
       "color": "#6c757d",
@@ -262,17 +196,6 @@
       "schedule": "daily",
       "source": "system",
       "title": "Knowledge Graph",
-      "type": "generate"
-    },
-    "media": {
-      "app": null,
-      "color": "#fd7e14",
-      "description": "Identifies when videos, articles, music or social content are consumed. Classifies each instance as work or personal and reports the source in chronological sections.",
-      "multi_facet": false,
-      "output_format": "md",
-      "schedule": "daily",
-      "source": "system",
-      "title": "Media Consumption",
       "type": "generate"
     },
     "meetings": {
@@ -363,17 +286,6 @@
       "title": "Onboarding",
       "type": "cogitate"
     },
-    "opportunities": {
-      "app": null,
-      "color": "#20c997",
-      "description": "Scans conversations and tasks for sparks of new ideas, problem statements and potential ventures. Outputs a list of the most promising opportunities with context and suggested next steps.",
-      "multi_facet": false,
-      "output_format": "md",
-      "schedule": "daily",
-      "source": "system",
-      "title": "Innovation Opportunities",
-      "type": "generate"
-    },
     "pulse": {
       "app": null,
       "color": "#6c757d",
@@ -384,17 +296,6 @@
       "source": "system",
       "title": "Pulse",
       "type": "cogitate"
-    },
-    "research": {
-      "app": null,
-      "color": "#ff5722",
-      "description": "Highlights moments where additional information would help progress work. Produces a list of targeted research tasks with time ranges and context.",
-      "multi_facet": false,
-      "output_format": "md",
-      "schedule": "daily",
-      "source": "system",
-      "title": "Research Needs",
-      "type": "generate"
     },
     "routine": {
       "app": null,
@@ -451,17 +352,6 @@
       "title": "Speaker Attribution",
       "type": "generate"
     },
-    "speakers": {
-      "app": null,
-      "color": "#e64a19",
-      "description": "Detects meetings in the segment and extracts participant names from screen and conversation.",
-      "multi_facet": false,
-      "output_format": "json",
-      "schedule": "segment",
-      "source": "system",
-      "title": "Meeting Speakers",
-      "type": "generate"
-    },
     "support:support": {
       "app": "support",
       "color": "#0288d1",
@@ -516,17 +406,6 @@
       "source": "app",
       "title": "TODO Weekly Scout",
       "type": "cogitate"
-    },
-    "tools": {
-      "app": null,
-      "color": "#795548",
-      "description": "Catalogues every application or service used throughout the day and how long it was active. The report details which tools are critical, supporting or distracting.",
-      "multi_facet": false,
-      "output_format": "md",
-      "schedule": "daily",
-      "source": "system",
-      "title": "Tool Usage",
-      "type": "generate"
     },
     "triage": {
       "app": null,

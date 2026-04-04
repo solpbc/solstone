@@ -34,9 +34,9 @@ def test_scan_day(tmp_path, monkeypatch):
 
     info = mod.scan_day("20240101")
     assert "agents/flow.md" in info["processed"]
-    assert "agents/media.md" in info["repairable"]
+    assert "agents/timeline.md" in info["repairable"]
 
-    (day_dir / "agents" / "media.md").write_text("done")
+    (day_dir / "agents" / "timeline.md").write_text("done")
     info_after = mod.scan_day("20240101")
-    assert "agents/media.md" in info_after["processed"]
-    assert "agents/media.md" not in info_after["repairable"]
+    assert "agents/timeline.md" in info_after["processed"]
+    assert "agents/timeline.md" not in info_after["repairable"]

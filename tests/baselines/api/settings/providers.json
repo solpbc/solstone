@@ -65,30 +65,6 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.activities": {
-      "disabled": true,
-      "group": "Think",
-      "label": "Activity Records",
-      "schedule": "segment",
-      "tier": 3,
-      "type": "generate"
-    },
-    "muse.system.activity": {
-      "disabled": true,
-      "group": "Think",
-      "label": "Activity Synthesis",
-      "schedule": "segment",
-      "tier": 2,
-      "type": "generate"
-    },
-    "muse.system.activity_state": {
-      "disabled": true,
-      "group": "Think",
-      "label": "Activity State",
-      "schedule": "segment",
-      "tier": 3,
-      "type": "generate"
-    },
     "muse.system.anticipation": {
       "disabled": false,
       "group": "Think",
@@ -128,15 +104,6 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.documentation": {
-      "disabled": true,
-      "extract": true,
-      "group": "Think",
-      "label": "Documentation Moments",
-      "schedule": "daily",
-      "tier": 2,
-      "type": "generate"
-    },
     "muse.system.entities": {
       "disabled": false,
       "group": "Think",
@@ -152,23 +119,6 @@
       "schedule": "daily",
       "tier": 3,
       "type": "cogitate"
-    },
-    "muse.system.facets": {
-      "disabled": true,
-      "group": "Think",
-      "label": "Facet Classification",
-      "schedule": "segment",
-      "tier": 3,
-      "type": "generate"
-    },
-    "muse.system.files": {
-      "disabled": true,
-      "extract": true,
-      "group": "Think",
-      "label": "File Interactions",
-      "schedule": "daily",
-      "tier": 2,
-      "type": "generate"
     },
     "muse.system.firstday_checkin": {
       "disabled": false,
@@ -217,15 +167,6 @@
       "extract": true,
       "group": "Think",
       "label": "Knowledge Graph",
-      "schedule": "daily",
-      "tier": 2,
-      "type": "generate"
-    },
-    "muse.system.media": {
-      "disabled": true,
-      "extract": true,
-      "group": "Think",
-      "label": "Media Consumption",
       "schedule": "daily",
       "tier": 2,
       "type": "generate"
@@ -292,15 +233,6 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.opportunities": {
-      "disabled": true,
-      "extract": true,
-      "group": "Think",
-      "label": "Innovation Opportunities",
-      "schedule": "daily",
-      "tier": 2,
-      "type": "generate"
-    },
     "muse.system.pulse": {
       "disabled": false,
       "group": "Think",
@@ -308,15 +240,6 @@
       "schedule": "segment",
       "tier": 3,
       "type": "cogitate"
-    },
-    "muse.system.research": {
-      "disabled": true,
-      "extract": true,
-      "group": "Think",
-      "label": "Research Needs",
-      "schedule": "daily",
-      "tier": 2,
-      "type": "generate"
     },
     "muse.system.routine": {
       "disabled": false,
@@ -359,28 +282,11 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.speakers": {
-      "disabled": true,
-      "group": "Think",
-      "label": "Meeting Speakers",
-      "schedule": "segment",
-      "tier": 2,
-      "type": "generate"
-    },
     "muse.system.timeline": {
       "disabled": false,
       "extract": true,
       "group": "Think",
       "label": "Day Timeline",
-      "schedule": "daily",
-      "tier": 2,
-      "type": "generate"
-    },
-    "muse.system.tools": {
-      "disabled": true,
-      "extract": true,
-      "group": "Think",
-      "label": "Tool Usage",
       "schedule": "daily",
       "tier": 2,
       "type": "generate"

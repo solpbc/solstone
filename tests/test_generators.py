@@ -99,7 +99,6 @@ def test_get_muse_configs_include_disabled(monkeypatch):
     )
 
     # Should have at least as many with disabled included
-    # (files.md, media.md, tools.md are disabled by default)
     assert len(with_disabled) >= len(without_disabled)
 
 
