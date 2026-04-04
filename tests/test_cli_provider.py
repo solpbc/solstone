@@ -556,15 +556,15 @@ class TestSafeRaw:
 class TestBuildCogitateEnv:
     """Tests for build_cogitate_env — API key stripping for CLI subprocesses."""
 
-    def test_default_strips_key(self):
-        """No auth config → default platform mode → key removed."""
+    def test_default_preserves_key_when_present(self):
+        """No auth config + key in env → api_key mode → key preserved."""
         config = {"providers": {}}
         with (
             patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-secret"}, clear=False),
             patch("think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("ANTHROPIC_API_KEY")
-        assert "ANTHROPIC_API_KEY" not in env
+        assert env["ANTHROPIC_API_KEY"] == "sk-secret"
 
     def test_explicit_platform_strips_key(self):
         """auth.anthropic = "platform" → key removed."""
@@ -586,15 +586,15 @@ class TestBuildCogitateEnv:
             env = build_cogitate_env("ANTHROPIC_API_KEY")
         assert env["ANTHROPIC_API_KEY"] == "sk-secret"
 
-    def test_missing_auth_section_strips_key(self):
-        """No providers section at all → safe default, key removed."""
+    def test_missing_auth_section_preserves_key_when_present(self):
+        """No providers section at all + key in env → api_key mode."""
         config = {}
         with (
             patch.dict(os.environ, {"OPENAI_API_KEY": "sk-openai"}, clear=False),
             patch("think.utils.get_config", return_value=config),
         ):
             env = build_cogitate_env("OPENAI_API_KEY")
-        assert "OPENAI_API_KEY" not in env
+        assert env["OPENAI_API_KEY"] == "sk-openai"
 
     def test_other_env_vars_preserved(self):
         """Non-API-key vars are never stripped."""
