@@ -215,10 +215,43 @@ See [DOCTOR.md](DOCTOR.md) for troubleshooting.
 
 ---
 
+## Observers
+
+Observers capture screen and audio and upload to the solstone server. Each platform has its own standalone observer. Packages are not yet on PyPI — install from source.
+
+### Linux Observer
+
+```bash
+git clone https://github.com/solpbc/solstone-linux.git
+cd solstone-linux
+pipx install --system-site-packages .
+solstone-linux setup
+solstone-linux install-service
+```
+
+`--system-site-packages` is required for PyGObject/GStreamer access.
+
+**Note:** Activity detection (idle, lock, power save) requires GNOME desktop. Other desktops: capture works but activity-based segment boundaries won't trigger.
+
+### tmux Observer
+
+```bash
+git clone https://github.com/solpbc/solstone-tmux.git
+cd solstone-tmux
+pipx install .
+solstone-tmux setup
+solstone-tmux install-service
+```
+
+### macOS Observer
+
+See [solstone-macos](https://github.com/solpbc/solstone-macos) — requires Xcode (full IDE, not just CLI tools).
+
+---
+
 ## Next Steps
 
 - Create your first facet (project/context) in the web interface
-- Set up a standalone observer for your platform (solstone-linux, solstone-macos)
 - Review captured content in the Calendar and Transcripts apps
 - Chat with the AI about your journal content
 
