@@ -566,9 +566,28 @@ def list_models() -> list[dict]:
     return [m.model_dump() for m in client.models.list()]
 
 
+def validate_key(api_key: str) -> dict:
+    """Validate an Anthropic API key by listing models.
+
+    Creates a temporary client with the provided key. Never uses
+    the cached client or environment variables.
+
+    Returns {"valid": True} or {"valid": False, "error": "..."}.
+    """
+    try:
+        from anthropic import Anthropic
+
+        client = Anthropic(api_key=api_key, timeout=10)
+        list(client.models.list(limit=1))
+        return {"valid": True}
+    except Exception as e:
+        return {"valid": False, "error": str(e)}
+
+
 __all__ = [
     "run_cogitate",
     "run_generate",
     "run_agenerate",
     "list_models",
+    "validate_key",
 ]

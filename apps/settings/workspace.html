@@ -194,6 +194,25 @@
   font-size: 0.85em;
 }
 
+.key-status-valid {
+  color: #28a745;
+  font-size: 0.85em;
+  margin-left: 0.5em;
+}
+
+.key-status-invalid {
+  color: #dc3545;
+  font-size: 0.85em;
+  margin-left: 0.5em;
+}
+
+.key-status-validating {
+  color: #6c757d;
+  font-size: 0.85em;
+  margin-left: 0.5em;
+  font-style: italic;
+}
+
 /* Password field with toggle */
 .password-wrap {
   position: relative;
@@ -1836,6 +1855,10 @@ input:checked + .slider:before {
     <section class="settings-section" id="section-apikeys">
       <h2>API Keys</h2>
       <p class="settings-section-desc">Configure API keys for AI providers. Keys are stored in your journal config.</p>
+      <div style="margin-bottom: 1em;">
+        <button type="button" id="revalidateAllKeys" class="btn-secondary" onclick="revalidateAllKeys()">Re-validate All Keys</button>
+        <span id="revalidateStatus" style="margin-left: 0.5em; font-size: 0.85em;"></span>
+      </div>
 
       <div class="settings-field">
         <label for="field-env-google">Google AI (Gemini)</label>
@@ -2516,6 +2539,7 @@ let facetConfig = null;
 let saveTimeout = null;
 let logNextCursor = null;
 let insightsData = null;
+let keyValidationData = {};
 
 // ========== NAVIGATION ==========
 const VALID_SECTIONS = ['profile', 'agent', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'sync', 'storage', 'support', 'facet-appearance', 'facet-activities', 'facet-activity'];
@@ -2717,6 +2741,7 @@ function populateFields(config) {
   // env = journal config status, runtime_env = loaded into process
   const env = config.env || {};
   const sysEnv = config.runtime_env || {};
+  keyValidationData = config.providers?.key_validation || {};
   updateEnvStatus('field-env-google', env.GOOGLE_API_KEY, sysEnv.GOOGLE_API_KEY);
   updateEnvStatus('field-env-openai', env.OPENAI_API_KEY, sysEnv.OPENAI_API_KEY);
   updateEnvStatus('field-env-anthropic', env.ANTHROPIC_API_KEY, sysEnv.ANTHROPIC_API_KEY);
@@ -2754,6 +2779,30 @@ function updateEnvStatus(fieldId, isJournalConfigured, isSystemConfigured) {
       status.className = 'key-status key-status-system';
       status.textContent = ' (system)';
       label.appendChild(status);
+    }
+
+    // Add validation status for provider keys
+    const providerName = fieldId.replace('field-env-', '');
+    if (['google', 'openai', 'anthropic'].includes(providerName)) {
+      const validation = keyValidationData[providerName];
+      const oldValidation = label.querySelector('.key-validation-status');
+      if (oldValidation) oldValidation.remove();
+
+      if (validation) {
+        const validationSpan = document.createElement('span');
+        validationSpan.className = 'key-validation-status';
+        if (validation.valid) {
+          validationSpan.className += ' key-status-valid';
+          validationSpan.textContent = ' ✓ Valid';
+        } else {
+          validationSpan.className += ' key-status-invalid';
+          const errMsg = validation.error || 'Invalid';
+          const shortErr = errMsg.length > 60 ? errMsg.slice(0, 60) + '…' : errMsg;
+          validationSpan.textContent = ' ✗ ' + shortErr;
+          validationSpan.title = errMsg;
+        }
+        label.appendChild(validationSpan);
+      }
     }
   }
 }
@@ -2806,6 +2855,7 @@ function saveField(el, section, key, value) {
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(async () => {
     try {
+      const runtimeEnv = configData?.runtime_env || {};
       const response = await fetch('api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -2814,12 +2864,36 @@ function saveField(el, section, key, value) {
       const result = await response.json();
       if (result.success) {
         configData = result.config;
+        configData.runtime_env = runtimeEnv;
         if (el) showFieldStatus(el, 'saved');
 
         // For env fields, clear the input and update status indicator
         if (el && section === 'env') {
           el.value = '';
-          updateEnvStatus(el.id, true, true);
+          if (result.key_validation) {
+            keyValidationData = result.key_validation;
+            configData.providers = configData.providers || {};
+            configData.providers.key_validation = keyValidationData;
+          }
+          updateEnvStatus(
+            el.id,
+            configData?.env?.[key],
+            configData?.runtime_env?.[key]
+          );
+          if (providersData) {
+            providersData.key_validation = keyValidationData;
+            for (const type of ['generate', 'cogitate']) {
+              const providerSelect = document.getElementById(`field-${type}-provider`);
+              if (providerSelect) {
+                updateTypeProviderKeyWarning(
+                  type,
+                  providerSelect.value,
+                  providersData.api_keys || {},
+                  providersData.auth || {}
+                );
+              }
+            }
+          }
         }
       } else {
         throw new Error(result.error);
@@ -3254,6 +3328,11 @@ async function loadProviders() {
 }
 
 function populateProviders(data) {
+  // Cache key validation data
+  if (data.key_validation) {
+    keyValidationData = data.key_validation;
+  }
+
   // Populate all provider/backup dropdowns for both types
   for (const type of ['generate', 'cogitate']) {
     for (const suffix of ['provider', 'backup']) {
@@ -3289,6 +3368,13 @@ function populateProviders(data) {
   // Update status text
   document.getElementById('providerStatus').textContent = '';
 
+  // Refresh env status displays with latest validation data
+  const env = configData?.env || {};
+  const sysEnv = configData?.runtime_env || {};
+  updateEnvStatus('field-env-google', env.GOOGLE_API_KEY, sysEnv.GOOGLE_API_KEY);
+  updateEnvStatus('field-env-openai', env.OPENAI_API_KEY, sysEnv.OPENAI_API_KEY);
+  updateEnvStatus('field-env-anthropic', env.ANTHROPIC_API_KEY, sysEnv.ANTHROPIC_API_KEY);
+
   // Populate context overrides
   renderContextGroups(data);
 }
@@ -3297,17 +3383,85 @@ function updateTypeProviderKeyWarning(type, provider, apiKeys, auth) {
   const warning = document.getElementById(`${type}ProviderKeyWarning`);
   const link = document.getElementById(`${type}ProviderKeyLink`);
   if (!warning || !link) return;
+  const message = warning.querySelectorAll('span')[1];
 
   // For cogitate, hide key warning when using platform auth
   const authMode = (auth && type === 'cogitate') ? (auth[provider] || 'platform') : 'api_key';
-  if (authMode === 'platform' || !provider || apiKeys[provider]) {
+  const validation = provider ? keyValidationData[provider] : null;
+  if (authMode === 'platform' || !provider) {
     warning.style.display = 'none';
+    warning.title = '';
+    return;
+  }
+
+  if (validation) {
+    if (validation.valid) {
+      warning.style.display = 'none';
+      warning.title = '';
+      return;
+    }
+    warning.style.display = 'flex';
+    if (message) {
+      message.textContent = `API key validation failed for ${type} provider.`;
+    }
+    warning.title = validation.error || 'Invalid API key';
+  } else if (apiKeys[provider]) {
+    warning.style.display = 'none';
+    warning.title = '';
+    return;
   } else {
     warning.style.display = 'flex';
-    link.onclick = (e) => {
-      e.preventDefault();
-      switchSection('apikeys');
-    };
+    if (message) {
+      message.textContent = `API key not configured for ${type} provider.`;
+    }
+    warning.title = '';
+  }
+
+  link.onclick = (e) => {
+    e.preventDefault();
+    switchSection('apikeys');
+  };
+}
+
+async function revalidateAllKeys() {
+  const btn = document.getElementById('revalidateAllKeys');
+  const status = document.getElementById('revalidateStatus');
+  btn.disabled = true;
+  status.textContent = 'Validating...';
+  status.className = 'key-status-validating';
+  try {
+    const response = await fetch('api/validate-keys', { method: 'POST' });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    keyValidationData = result.key_validation || {};
+    if (configData) {
+      configData.providers = configData.providers || {};
+      configData.providers.key_validation = keyValidationData;
+    }
+    // Refresh env status displays
+    const env = configData?.env || {};
+    const sysEnv = configData?.runtime_env || {};
+    updateEnvStatus('field-env-google', env.GOOGLE_API_KEY, sysEnv.GOOGLE_API_KEY);
+    updateEnvStatus('field-env-openai', env.OPENAI_API_KEY, sysEnv.OPENAI_API_KEY);
+    updateEnvStatus('field-env-anthropic', env.ANTHROPIC_API_KEY, sysEnv.ANTHROPIC_API_KEY);
+    // Update provider warnings too
+    if (providersData) {
+      providersData.key_validation = keyValidationData;
+      for (const type of ['generate', 'cogitate']) {
+        const providerSelect = document.getElementById(`field-${type}-provider`);
+        if (providerSelect) {
+          updateTypeProviderKeyWarning(type, providerSelect.value, providersData.api_keys, providersData.auth);
+        }
+      }
+    }
+    status.textContent = 'Done';
+    status.className = 'key-status-valid';
+    setTimeout(() => { status.textContent = ''; }, 2000);
+  } catch (err) {
+    status.textContent = 'Error: ' + err.message;
+    status.className = 'key-status-invalid';
+  } finally {
+    btn.disabled = false;
   }
 }
 

@@ -8,6 +8,7 @@ import json
 import os
 import re
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -198,6 +199,22 @@ def update_config() -> Any:
                     mode = "api_key" if new_val else "platform"
                     config["providers"]["auth"][provider] = mode
 
+            # Validate changed provider API keys
+            if "key_validation" not in config["providers"]:
+                config["providers"]["key_validation"] = {}
+            for env_var in changed_fields:
+                provider = env_to_provider.get(env_var)
+                if provider:
+                    new_val = data.get(env_var, "")
+                    if new_val:
+                        from think.providers import validate_key as _validate_key
+
+                        result = _validate_key(provider, new_val)
+                        result["timestamp"] = datetime.now(timezone.utc).isoformat()
+                        config["providers"]["key_validation"][provider] = result
+                    else:
+                        config["providers"]["key_validation"].pop(provider, None)
+
         # Write back to file
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
@@ -234,7 +251,10 @@ def update_config() -> Any:
         if "env" in config:
             config["env"] = {k: bool(v) for k, v in config["env"].items()}
 
-        return jsonify({"success": True, "config": config})
+        key_validation = config.get("providers", {}).get("key_validation", {})
+        return jsonify(
+            {"success": True, "config": config, "key_validation": key_validation}
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -377,6 +397,9 @@ def get_providers() -> Any:
             p["name"]: auth_config.get(p["name"], "platform") for p in providers_list
         }
 
+        # Get cached key validation results
+        key_validation = providers_config.get("key_validation", {})
+
         return jsonify(
             {
                 "providers": providers_list,
@@ -386,8 +409,55 @@ def get_providers() -> Any:
                 "context_defaults": context_defaults,
                 "api_keys": api_keys,
                 "auth": auth,
+                "key_validation": key_validation,
             }
         )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@settings_bp.route("/api/validate-keys", methods=["POST"])
+def validate_all_keys() -> Any:
+    """Re-validate all configured provider API keys.
+
+    Reads keys from journal.json config (not environment), validates each
+    against the provider API, and stores results in providers.key_validation.
+    """
+    try:
+        from think.providers import PROVIDER_METADATA, validate_key as _validate_key
+
+        config = get_journal_config()
+        env_config = config.get("env", {})
+
+        # Build reverse map: env_key -> provider name
+        env_to_provider = {
+            meta["env_key"]: name
+            for name, meta in PROVIDER_METADATA.items()
+            if "env_key" in meta
+        }
+
+        if "providers" not in config:
+            config["providers"] = {}
+        key_validation = {}
+
+        for env_var, provider in env_to_provider.items():
+            api_key = env_config.get(env_var, "")
+            if api_key:
+                result = _validate_key(provider, api_key)
+                result["timestamp"] = datetime.now(timezone.utc).isoformat()
+                key_validation[provider] = result
+
+        config["providers"]["key_validation"] = key_validation
+
+        config_dir = Path(state.journal_root) / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = config_dir / "journal.json"
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        os.chmod(config_path, 0o600)
+
+        return jsonify({"success": True, "key_validation": key_validation})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
