@@ -1031,6 +1031,302 @@ def run_daily_prompts(
     return (total_success, total_failed, all_failed_names)
 
 
+def run_weekly_prompts(
+    day: str,
+    refresh: bool,
+    verbose: bool,
+    max_concurrency: int = 2,
+    stream: str | None = None,
+    timeout: int | None = 610,
+) -> tuple[int, int, list[str]]:
+    """Run all weekly scheduled prompts in priority order.
+
+    Loads all weekly prompts, groups by priority, and executes each group with
+    bounded concurrency. Structurally identical to run_daily_prompts but for
+    weekly-scheduled agents (e.g., partner profile).
+
+    Args:
+        day: Day in YYYYMMDD format (reference day for agent context)
+        refresh: Whether to regenerate existing outputs
+        verbose: Verbose logging
+        max_concurrency: Max agents to run concurrently per priority group.
+            0 means unlimited (all agents in a group run in parallel).
+
+    Returns:
+        Tuple of (success_count, fail_count, failed_names).
+    """
+    target_schedule = "weekly"
+
+    # Load ALL scheduled prompts (both generators and agents)
+    all_prompts = get_muse_configs(schedule=target_schedule)
+
+    if not all_prompts:
+        logging.info(f"No prompts found for schedule: {target_schedule}")
+        return (0, 0, [])
+
+    # Group prompts by priority
+    priority_groups: dict[int, list[tuple[str, dict]]] = {}
+    for name, config in all_prompts.items():
+        priority = config["priority"]  # Required field, validated by get_muse_configs
+        priority_groups.setdefault(priority, []).append((name, config))
+
+    # Pre-compute shared data for multi-facet prompts
+    day_formatted = iso_date(day)
+    input_summary = day_input_summary(day)
+    enabled_facets = get_enabled_facets()
+    active_facets = get_active_facets(day)
+
+    total_prompts = sum(len(prompts) for prompts in priority_groups.values())
+    num_groups = len(priority_groups)
+    _update_status(
+        mode=target_schedule,
+        day=day,
+        stream=stream,
+        agents_total=total_prompts,
+        agents_completed=0,
+        current_agents=[],
+    )
+
+    logging.info(
+        f"Running {total_prompts} prompts for {day} in {num_groups} priority groups"
+    )
+
+    emit(
+        "started",
+        mode=target_schedule,
+        day=day,
+        count=total_prompts,
+        groups=num_groups,
+    )
+
+    start_time = time.time()
+    total_success = 0
+    total_failed = 0
+    all_failed_names: list[str] = []
+
+    # Process each priority group in order
+    for priority in sorted(priority_groups.keys()):
+        prompts_list = priority_groups[priority]
+        _update_status(current_group_priority=priority)
+        logging.info(f"Starting priority {priority} ({len(prompts_list)} prompts)")
+
+        emit(
+            "group_started",
+            mode=target_schedule,
+            day=day,
+            priority=priority,
+            count=len(prompts_list),
+        )
+
+        spawned: list[
+            tuple[str, str, dict, str | None]
+        ] = []  # (agent_id, name, config, facet)
+        group_success = 0
+        group_failed = 0
+
+        for prompt_name, config in prompts_list:
+            is_generate = config["type"] == "generate"
+
+            # Check exclude_streams filter
+            exclude_patterns = config.get("exclude_streams")
+            if exclude_patterns and stream:
+                if any(fnmatch.fnmatch(stream, pat) for pat in exclude_patterns):
+                    logging.info(
+                        f"Skipping {prompt_name}: stream '{stream}' matches exclude_streams"
+                    )
+                    continue
+
+            try:
+                if config.get("multi_facet"):
+                    always_run = config.get("always", False)
+
+                    for facet_name in enabled_facets.keys():
+                        if not always_run and facet_name not in active_facets:
+                            logging.info(
+                                f"Skipping {prompt_name} for {facet_name}: "
+                                f"no activity on {day_formatted}"
+                            )
+                            continue
+
+                        logging.info(f"Spawning {prompt_name} for facet: {facet_name}")
+
+                        # Always pass day for instructions.day context
+                        request_config: dict = {"facet": facet_name, "day": day}
+                        if is_generate:
+                            request_config["output"] = config.get("output", "md")
+                            if refresh:
+                                request_config["refresh"] = True
+                        elif config.get("output"):
+                            # Cogitate agents with explicit output get auto-persisted
+                            request_config["output"] = config["output"]
+                        env: dict[str, str] = {
+                            "SOL_DAY": day,
+                            "SOL_FACET": facet_name,
+                        }
+                        request_config["env"] = env
+                        request_config["schedule"] = target_schedule
+
+                        prompt = (
+                            ""
+                            if is_generate
+                            else f"Processing facet '{facet_name}' for {day_formatted}: {input_summary}. Use get_facet('{facet_name}') to load context."
+                        )
+
+                        agent_id = _cortex_request_with_retry(
+                            prompt=prompt,
+                            name=prompt_name,
+                            config=request_config,
+                        )
+                        if agent_id is None:
+                            group_failed += 1
+                            all_failed_names.append(
+                                f"{prompt_name}/{facet_name} (send)"
+                            )
+                            continue
+                        spawned.append((agent_id, prompt_name, config, facet_name))
+                        emit(
+                            "agent_started",
+                            mode=target_schedule,
+                            day=day,
+                            name=prompt_name,
+                            agent_id=agent_id,
+                            facet=facet_name,
+                        )
+                        logging.info(
+                            f"Started {prompt_name} for {facet_name} (ID: {agent_id})"
+                        )
+
+                        # Drain batch when concurrency limit reached
+                        if max_concurrency and len(spawned) >= max_concurrency:
+                            _update_status(
+                                current_agents=[name for _, name, _, _ in spawned]
+                            )
+                            s, f, fn = _drain_priority_batch(
+                                spawned,
+                                target_schedule,
+                                day,
+                                None,
+                                stream,
+                                timeout,
+                            )
+                            group_success += s
+                            group_failed += f
+                            all_failed_names.extend(fn)
+                            spawned = []
+                            _update_status(
+                                agents_completed=total_success
+                                + total_failed
+                                + group_success
+                                + group_failed,
+                                current_agents=[],
+                            )
+                else:
+                    # Regular single-instance prompt
+                    logging.info(f"Spawning {prompt_name}")
+
+                    # Always pass day for instructions.day context
+                    request_config: dict = {"day": day}
+                    if is_generate:
+                        request_config["output"] = config.get("output", "md")
+                        if refresh:
+                            request_config["refresh"] = True
+                    env: dict[str, str] = {"SOL_DAY": day}
+                    request_config["env"] = env
+                    request_config["schedule"] = target_schedule
+
+                    prompt = (
+                        ""
+                        if is_generate
+                        else f"Running scheduled task for {day_formatted}: {input_summary}."
+                    )
+
+                    agent_id = _cortex_request_with_retry(
+                        prompt=prompt,
+                        name=prompt_name,
+                        config=request_config,
+                    )
+                    if agent_id is None:
+                        group_failed += 1
+                        all_failed_names.append(f"{prompt_name} (send)")
+                        continue
+                    spawned.append((agent_id, prompt_name, config, None))
+                    emit(
+                        "agent_started",
+                        mode=target_schedule,
+                        day=day,
+                        name=prompt_name,
+                        agent_id=agent_id,
+                    )
+                    logging.info(f"Started {prompt_name} (ID: {agent_id})")
+
+                    # Drain batch when concurrency limit reached
+                    if max_concurrency and len(spawned) >= max_concurrency:
+                        _update_status(
+                            current_agents=[name for _, name, _, _ in spawned]
+                        )
+                        s, f, fn = _drain_priority_batch(
+                            spawned, target_schedule, day, None, stream, timeout
+                        )
+                        group_success += s
+                        group_failed += f
+                        all_failed_names.extend(fn)
+                        spawned = []
+                        _update_status(
+                            agents_completed=total_success
+                            + total_failed
+                            + group_success
+                            + group_failed,
+                            current_agents=[],
+                        )
+
+            except Exception as e:
+                logging.error(f"Failed to spawn {prompt_name}: {e}")
+                group_failed += 1
+                all_failed_names.append(f"{prompt_name} (spawn)")
+
+        # Drain any remaining agents in this priority group
+        _update_status(current_agents=[name for _, name, _, _ in spawned])
+        s, f, fn = _drain_priority_batch(
+            spawned, target_schedule, day, None, stream, timeout
+        )
+        group_success += s
+        group_failed += f
+        all_failed_names.extend(fn)
+        _update_status(
+            agents_completed=total_success
+            + total_failed
+            + group_success
+            + group_failed,
+            current_agents=[],
+        )
+
+        total_success += group_success
+        total_failed += group_failed
+
+        emit(
+            "group_completed",
+            mode=target_schedule,
+            day=day,
+            priority=priority,
+            success=group_success,
+            failed=group_failed,
+        )
+
+    duration_ms = int((time.time() - start_time) * 1000)
+    emit(
+        "completed",
+        mode=target_schedule,
+        day=day,
+        success=total_success,
+        failed=total_failed,
+        failed_names=all_failed_names,
+        duration_ms=duration_ms,
+    )
+
+    logging.info(f"Prompts completed: {total_success} succeeded, {total_failed} failed")
+    return (total_success, total_failed, all_failed_names)
+
+
 def run_activity_prompts(
     day: str,
     activity_id: str,
@@ -1534,6 +1830,7 @@ def dry_run(
     flush: bool = False,
     refresh: bool = False,
     stream: str | None = None,
+    weekly: bool = False,
 ) -> None:
     """Print what dream would execute without spawning any agents."""
     day_formatted = iso_date(day)
@@ -1588,6 +1885,15 @@ def dry_run(
 
     if flush:
         _dry_run_flush(day, segment or "")
+        return
+
+    if weekly:
+        all_prompts = get_muse_configs(schedule="weekly")
+        print(f"Day {day_formatted} — weekly agents\n")
+        if not all_prompts:
+            print("No prompts for schedule: weekly")
+        else:
+            _print_prompt_table(all_prompts, day, refresh=refresh, stream=stream)
         return
 
     if segments:
@@ -1868,6 +2174,11 @@ def parse_args() -> argparse.ArgumentParser:
         help="List days with pending daily processing and exit",
     )
     parser.add_argument(
+        "--weekly",
+        action="store_true",
+        help="Run weekly-scheduled agents (incompatible with --segment, --segments, --activity, --flush)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would run without executing anything",
@@ -1949,6 +2260,11 @@ def main() -> None:
     if args.segments and (args.segment or args.facet):
         parser.error("--segments is incompatible with --segment and --facet")
 
+    if args.weekly and (args.segment or args.segments or args.activity or args.flush):
+        parser.error(
+            "--weekly is incompatible with --segment, --segments, --activity, and --flush"
+        )
+
     if args.dry_run:
         dry_run(
             day,
@@ -1959,6 +2275,7 @@ def main() -> None:
             flush=args.flush,
             refresh=args.refresh,
             stream=args.stream,
+            weekly=args.weekly,
         )
         sys.exit(0)
 
@@ -2074,6 +2391,29 @@ def main() -> None:
             logging.warning("Callosum socket not found - prompts may fail to spawn")
 
         start_time = time.time()
+
+        # Handle weekly mode — dispatch weekly agents, no pre/post phases
+        if args.weekly:
+            success_count, fail_count, failed_names = run_weekly_prompts(
+                day=day,
+                refresh=args.refresh,
+                verbose=args.verbose,
+                max_concurrency=args.jobs,
+                stream=args.stream,
+            )
+
+            duration_ms = int((time.time() - start_time) * 1000)
+            logging.info(
+                f"Weekly dream completed in {duration_ms}ms: "
+                f"{success_count} succeeded, {fail_count} failed"
+            )
+            day_log(day, f"dream --weekly failed={fail_count}")
+
+            if fail_count > 0:
+                names = ", ".join(failed_names)
+                logging.error(f"{fail_count} weekly prompt(s) failed: {names}")
+                sys.exit(1)
+            sys.exit(0)
 
         # PRE-PHASE: Run sense repair (daily only)
         if not args.segment:

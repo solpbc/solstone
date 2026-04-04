@@ -207,13 +207,14 @@ def list_prompts(
     groups: dict[str, list[tuple[str, dict[str, Any]]]] = {
         "segment": [],
         "daily": [],
+        "weekly": [],
         "activity": [],
         "unscheduled": [],
     }
 
     for key, info in sorted(configs.items()):
         sched = info.get("schedule")
-        if sched in ("segment", "daily", "activity"):
+        if sched in ("segment", "daily", "weekly", "activity"):
             groups[sched].append((key, info))
         else:
             groups["unscheduled"].append((key, info))

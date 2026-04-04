@@ -292,7 +292,7 @@
       "description": "Weekly observation of the journal owner's behavioral patterns \u2014 work style, communication, priorities, decision-making, expertise",
       "multi_facet": false,
       "output_format": null,
-      "schedule": "none",
+      "schedule": "weekly",
       "source": "system",
       "title": "Partner Profile",
       "type": "cogitate"

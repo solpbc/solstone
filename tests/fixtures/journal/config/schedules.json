@@ -1,5 +1,7 @@
 {
   "daily_time": "03:00",
+  "weekly_day": "sunday",
+  "weekly_time": "03:00",
   "test:echo": {
     "cmd": ["sol", "echo", "-v"],
     "every": "hourly"
@@ -7,6 +9,10 @@
   "test:daily": {
     "cmd": ["sol", "dream", "-v"],
     "every": "daily"
+  },
+  "test:weekly": {
+    "cmd": ["sol", "dream", "--weekly", "-v"],
+    "every": "weekly"
   },
   "test:disabled": {
     "cmd": ["sol", "noop"],

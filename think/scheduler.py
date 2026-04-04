@@ -27,7 +27,7 @@ from think.utils import get_journal, now_ms, setup_cli
 logger = logging.getLogger(__name__)
 
 # Valid schedule intervals
-INTERVALS = {"hourly", "daily"}
+INTERVALS = {"hourly", "daily", "weekly"}
 
 # ---------------------------------------------------------------------------
 # Module state (populated by init(), used by check())
@@ -38,6 +38,9 @@ _callosum: Any = None  # CallosumConnection
 _last_hour: datetime | None = None
 _daily_time: str | None = None
 _last_daily_mark: datetime | None = None
+_weekly_day: str | None = None
+_weekly_time: str | None = None
+_last_weekly_mark: datetime | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -47,11 +50,13 @@ _last_daily_mark: datetime | None = None
 
 def load_config() -> dict[str, dict[str, Any]]:
     """Read config/schedules.json and return validated entries."""
-    global _daily_time
+    global _daily_time, _weekly_day, _weekly_time
 
     config_path = Path(get_journal()) / "config" / "schedules.json"
     if not config_path.exists():
         _daily_time = None
+        _weekly_day = None
+        _weekly_time = None
         return {}
 
     try:
@@ -60,6 +65,8 @@ def load_config() -> dict[str, dict[str, Any]]:
     except (json.JSONDecodeError, OSError) as exc:
         logger.warning("Failed to load schedules config: %s", exc)
         _daily_time = None
+        _weekly_day = None
+        _weekly_time = None
         return {}
 
     if not isinstance(raw, dict):
@@ -67,6 +74,8 @@ def load_config() -> dict[str, dict[str, Any]]:
             "schedules.json must be a JSON object, got %s", type(raw).__name__
         )
         _daily_time = None
+        _weekly_day = None
+        _weekly_time = None
         return {}
 
     # Extract daily_time metadata (not a schedule entry)
@@ -74,6 +83,23 @@ def load_config() -> dict[str, dict[str, Any]]:
     if _daily_time is not None and not isinstance(_daily_time, str):
         logger.warning("schedules.json: daily_time must be a string, ignoring")
         _daily_time = None
+
+    # Extract weekly_day metadata
+    _weekly_day = raw.pop("weekly_day", None)
+    if _weekly_day is not None and not isinstance(_weekly_day, str):
+        logger.warning("schedules.json: weekly_day must be a string, ignoring")
+        _weekly_day = None
+    elif _weekly_day is not None and _parse_weekly_day(_weekly_day) is None:
+        logger.warning(
+            "schedules.json: unrecognized weekly_day '%s', ignoring", _weekly_day
+        )
+        _weekly_day = None
+
+    # Extract weekly_time metadata
+    _weekly_time = raw.pop("weekly_time", None)
+    if _weekly_time is not None and not isinstance(_weekly_time, str):
+        logger.warning("schedules.json: weekly_time must be a string, ignoring")
+        _weekly_time = None
 
     entries: dict[str, dict[str, Any]] = {}
     for name, entry in raw.items():
@@ -161,6 +187,31 @@ def _parse_daily_time(raw: str | None) -> tuple[int, int] | None:
     return None
 
 
+DAY_NAMES: dict[str, int] = {
+    "monday": 0,
+    "mon": 0,
+    "tuesday": 1,
+    "tue": 1,
+    "wednesday": 2,
+    "wed": 2,
+    "thursday": 3,
+    "thu": 3,
+    "friday": 4,
+    "fri": 4,
+    "saturday": 5,
+    "sat": 5,
+    "sunday": 6,
+    "sun": 6,
+}
+
+
+def _parse_weekly_day(raw: str | None) -> int | None:
+    """Parse day-of-week name. Returns weekday int (0=Monday, 6=Sunday) or None."""
+    if not raw or not isinstance(raw, str):
+        return None
+    return DAY_NAMES.get(raw.strip().lower())
+
+
 def _compute_daily_mark(now: datetime, daily_time_str: str | None) -> datetime:
     """Compute the most recent daily boundary datetime.
 
@@ -176,6 +227,27 @@ def _compute_daily_mark(now: datetime, daily_time_str: str | None) -> datetime:
     if now >= today_mark:
         return today_mark
     return today_mark - timedelta(days=1)
+
+
+def _compute_weekly_mark(
+    now: datetime, weekly_day: int, weekly_time_str: str | None
+) -> datetime:
+    """Compute the most recent weekly boundary datetime.
+
+    Returns the most recent occurrence of the target weekday at the target time.
+    If now is past this week's boundary, returns this week's. Otherwise last week's.
+    """
+    parsed = _parse_daily_time(weekly_time_str)
+    if parsed is None:
+        h, m = 3, 0  # default 03:00
+    else:
+        h, m = parsed
+    days_since = (now.weekday() - weekly_day) % 7
+    target_date = now - timedelta(days=days_since)
+    target_mark = target_date.replace(hour=h, minute=m, second=0, microsecond=0)
+    if now >= target_mark:
+        return target_mark
+    return target_mark - timedelta(weeks=1)
 
 
 def _is_due(entry: dict, state_entry: dict | None, now: datetime) -> bool:
@@ -194,6 +266,11 @@ def _is_due(entry: dict, state_entry: dict | None, now: datetime) -> bool:
         return last_dt < _hour_mark(now)
     if every == "daily":
         return last_dt < _compute_daily_mark(now, _daily_time)
+    if every == "weekly":
+        weekly_day_val = _parse_weekly_day(_weekly_day)
+        if weekly_day_val is None:
+            weekly_day_val = 6  # default Sunday
+        return last_dt < _compute_weekly_mark(now, weekly_day_val, _weekly_time)
     return False
 
 
@@ -204,7 +281,7 @@ def _is_due(entry: dict, state_entry: dict | None, now: datetime) -> bool:
 
 def init(callosum: Any) -> None:
     """Initialize scheduler with a Callosum connection. Load config and state."""
-    global _entries, _state, _callosum, _last_hour, _last_daily_mark
+    global _entries, _state, _callosum, _last_hour, _last_daily_mark, _last_weekly_mark
 
     _callosum = callosum
     _entries = load_config()
@@ -213,6 +290,10 @@ def init(callosum: Any) -> None:
     now = datetime.now()
     _last_hour = _hour_mark(now)
     _last_daily_mark = _compute_daily_mark(now, _daily_time)
+    weekly_day_val = _parse_weekly_day(_weekly_day)
+    if weekly_day_val is None:
+        weekly_day_val = 6
+    _last_weekly_mark = _compute_weekly_mark(now, weekly_day_val, _weekly_time)
 
     if _entries:
         logger.info(
@@ -232,7 +313,10 @@ def register_defaults() -> None:
     """
     global _entries
 
-    if "heartbeat" in _entries:
+    need_heartbeat = "heartbeat" not in _entries
+    need_weekly = "weekly-agents" not in _entries
+
+    if not need_heartbeat and not need_weekly:
         return
 
     # Read raw config (preserving daily_time and other entries)
@@ -251,14 +335,26 @@ def register_defaults() -> None:
     if not isinstance(raw, dict):
         raw = {}
 
-    if "heartbeat" in raw:
-        return  # Already in config file — don't overwrite user customization
+    changed = False
 
-    raw["heartbeat"] = {
-        "cmd": ["sol", "heartbeat"],
-        "every": "daily",
-        "enabled": True,
-    }
+    if need_heartbeat and "heartbeat" not in raw:
+        raw["heartbeat"] = {
+            "cmd": ["sol", "heartbeat"],
+            "every": "daily",
+            "enabled": True,
+        }
+        changed = True
+
+    if need_weekly and "weekly-agents" not in raw:
+        raw["weekly-agents"] = {
+            "cmd": ["sol", "dream", "--weekly", "-v"],
+            "every": "weekly",
+            "enabled": True,
+        }
+        changed = True
+
+    if not changed:
+        return
 
     # Atomic write
     fd, tmp_path = tempfile.mkstemp(dir=config_dir, suffix=".tmp", prefix=".schedules_")
@@ -267,7 +363,7 @@ def register_defaults() -> None:
         with open(fd, "w", encoding="utf-8") as f:
             json.dump(raw, f, indent=2)
         tmp_file.replace(config_path)
-        logger.info("Auto-registered heartbeat schedule in config/schedules.json")
+        logger.info("Auto-registered default schedule(s) in config/schedules.json")
     except BaseException:
         tmp_file.unlink(missing_ok=True)
         raise
@@ -282,7 +378,7 @@ def check() -> None:
     Called each supervisor tick (~1s). Does nothing unless an hour or day
     boundary has been crossed since the last check.
     """
-    global _entries, _last_hour, _last_daily_mark
+    global _entries, _last_hour, _last_daily_mark, _last_weekly_mark
 
     if _last_hour is None:
         return
@@ -290,11 +386,16 @@ def check() -> None:
     now = datetime.now()
     current_hour = _hour_mark(now)
     current_daily_mark = _compute_daily_mark(now, _daily_time)
+    weekly_day_val = _parse_weekly_day(_weekly_day)
+    if weekly_day_val is None:
+        weekly_day_val = 6
+    current_weekly_mark = _compute_weekly_mark(now, weekly_day_val, _weekly_time)
 
     hour_changed = current_hour != _last_hour
     daily_mark_changed = current_daily_mark != _last_daily_mark
+    weekly_mark_changed = current_weekly_mark != _last_weekly_mark
 
-    if not hour_changed and not daily_mark_changed:
+    if not hour_changed and not daily_mark_changed and not weekly_mark_changed:
         return
 
     # Boundary crossed — reload config for freshest definitions
@@ -305,6 +406,13 @@ def check() -> None:
     if new_daily_mark != _last_daily_mark:
         daily_mark_changed = True
     _last_daily_mark = new_daily_mark
+    new_weekly_day_val = _parse_weekly_day(_weekly_day)
+    if new_weekly_day_val is None:
+        new_weekly_day_val = 6
+    new_weekly_mark = _compute_weekly_mark(now, new_weekly_day_val, _weekly_time)
+    if new_weekly_mark != _last_weekly_mark:
+        weekly_mark_changed = True
+    _last_weekly_mark = new_weekly_mark
 
     if not _entries:
         return
@@ -317,6 +425,8 @@ def check() -> None:
         if every == "hourly" and not hour_changed:
             continue
         if every == "daily" and not daily_mark_changed:
+            continue
+        if every == "weekly" and not weekly_mark_changed:
             continue
 
         if not _is_due(entry, _state.get(name), now):
@@ -365,6 +475,11 @@ def collect_status() -> list[dict[str, Any]]:
         }
         if entry["every"] == "daily" and _daily_time:
             entry_status["daily_time"] = _daily_time
+        if entry["every"] == "weekly":
+            if _weekly_day:
+                entry_status["weekly_day"] = _weekly_day
+            if _weekly_time:
+                entry_status["weekly_time"] = _weekly_time
         result.append(entry_status)
     return result
 
@@ -396,6 +511,13 @@ def _format_next_due(entry: dict, state_entry: dict | None, now: datetime) -> st
     if every == "daily":
         parsed = _parse_daily_time(_daily_time)
         return f"{parsed[0]:02d}:{parsed[1]:02d}" if parsed else "midnight"
+    if every == "weekly":
+        weekly_day_val = _parse_weekly_day(_weekly_day)
+        if weekly_day_val is None:
+            weekly_day_val = 6
+        weekly_mark = _compute_weekly_mark(now, weekly_day_val, _weekly_time)
+        nxt = weekly_mark + timedelta(weeks=1)
+        return f"{nxt.strftime('%A')} {nxt.strftime('%H:%M')}"
     return "?"
 
 
@@ -419,9 +541,13 @@ def main() -> None:
             return
 
     # Extract daily_time metadata before processing entries
-    global _daily_time
+    global _daily_time, _weekly_day, _weekly_time
     raw_daily_time = config.pop("daily_time", None)
     _daily_time = raw_daily_time if isinstance(raw_daily_time, str) else None
+    raw_weekly_day = config.pop("weekly_day", None)
+    raw_weekly_time = config.pop("weekly_time", None)
+    _weekly_day = raw_weekly_day if isinstance(raw_weekly_day, str) else None
+    _weekly_time = raw_weekly_time if isinstance(raw_weekly_time, str) else None
 
     if not config:
         print("No schedules configured.")
