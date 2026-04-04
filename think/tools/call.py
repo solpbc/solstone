@@ -115,7 +115,7 @@ def search(
         meta = r["metadata"]
         stream_tag = f" | {meta['stream']}" if meta.get("stream") else ""
         typer.echo(
-            f"\n--- {meta['day']} | {meta['facet']} | {meta['agent']}{stream_tag} ---"
+            f"\n--- {meta['day']} | {meta['facet']} | {meta['agent']}{stream_tag} | {r['id']} ---"
         )
         typer.echo(r["text"].strip())
 

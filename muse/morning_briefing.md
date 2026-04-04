@@ -62,17 +62,28 @@ Build five sections from the gathered data. **Omit any section entirely if it ha
 
 ### Section rules
 
+**Source attribution.** Attribute high-consequence factual claims to their source using inline parenthetical links with `segment://` URIs. Not every claim needs attribution — calendar events are self-evident and the Reading section is inherently attributed.
+
+`segment://` URI construction:
+- **Search results:** The header includes an `id` (e.g. `20260304/archon/143022_300/agents/followups.md:2`). Strip `:idx`, then strip `/agents/{agent}.md` → `segment://20260304/archon/143022_300`.
+- **Entity intelligence:** `activity[].path` contains a journal-relative path. Strip `/agents/{agent}.md` to get the segment or day path. If no stream/segment_key: `segment://{day}/agents/{agent}`.
+- **Facet newsletters:** `segment://facets/{facet}/news/{day_YYYYMMDD}`.
+
 **Your Day** — What's ahead today. Lead with calendar events in chronological order. For each meeting, include who's attending and one line of entity-informed context (e.g., "last met 2 weeks ago, discussed product roadmap"). Include relevant todos due today. If no calendar events exist, lead with the highest-priority todos.
+Attribute entity context to the source interaction: `(from your [time] [activity](segment://...))`. For entity failures: append "(entity context unavailable)" per Phase 1.5 rules.
 
 **Yesterday** — What happened. Draw from facet newsletters, pulse, and decisions agent output. Highlight accomplishments, consequential decisions, and notable interactions. Keep to 3-5 bullets max. Only include if facet newsletters or decisions have content for the analysis day.
+Attribute each highlight to its source: `([facet newsletter](segment://facets/{facet}/news/{day}))`.
 
 **Needs Attention** — Ranked action list. Synthesize from all sources into a single prioritized list:
   1. Overdue commitments (todos past due, missed follow-ups)
   2. Pending follow-ups (items flagged by the followups agent)
   3. Relationship maintenance (entities not contacted recently who are relevant)
   4. Unscheduled todos (action items with no calendar time blocked)
+Attribute commitments and follow-ups to the originating segment: `(committed [date](segment://...))`, `(flagged [date](segment://...))`. For relationship items: `(last interaction [date])`. For inferred items: `(inferred from [source](segment://...))`.
 
 **Forward Look** — What's coming. Draw from anticipation agent output and upcoming calendar events (next 7 days). Note preparation needed for upcoming meetings or deadlines.
+Attribute anticipation items: `(from [anticipation](segment://...))`. Data source: anticipation search result `id` path.
 
 **Reading** — Links to full facet newsletters for deep dives. List each active facet that has a newsletter for the analysis day, with a brief one-line description of what it covers. This is the "detailed edition" for owners who want the full picture. Only include if facet newsletters exist.
 
@@ -99,19 +110,25 @@ gaps: [list of gap descriptions, or empty list [] if none]
 > [coverage preamble — 1-2 sentences summarizing source counts and gaps. Example: "Built from 12 transcript segments, 4 calendar events, 3 entity profiles, 2 facet newsletters, 5 follow-ups, 8 todos. No gaps." or with gaps: "Built from 8 segments, 2 events. Gaps: entity intelligence unavailable for Sarah Chen; no facet newsletters today."]
 
 ## Your Day
-[content]
+- **09:00** — Sync with Sarah Chen on Q2 roadmap. Last discussed launch timeline (from your [March standup](segment://20260313/archon/091500_300)).
+- **14:00** — Design review with UX team.
+[more items...]
 
 ## Yesterday
-[content]
+- Shipped the entity pipeline refactor ([work newsletter](segment://facets/work/news/20260326)).
+[more items...]
 
 ## Needs Attention
-[content]
+- Follow up on Series A term sheet — due yesterday (committed [March 20](segment://20260320/archon/101500_600))
+- CI pipeline failing intermittently (flagged [yesterday](segment://20260326/default/143000_300))
+[more items...]
 
 ## Forward Look
-[content]
+- Board meeting Thursday — slides need review (from [anticipation](segment://20260327/agents/anticipation))
+[more items...]
 
 ## Reading
-[content]
+[content — no attribution needed]
 ```
 
 Return ONLY the briefing markdown (with YAML frontmatter and coverage preamble). No preamble before the YAML frontmatter, no explanation, no follow-up commentary. Omit sections with no content entirely.
