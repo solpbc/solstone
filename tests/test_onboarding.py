@@ -54,13 +54,11 @@ def _run_chat_cli_main(
 
 
 def _run_triage(
-    facets: dict,
     onboarding: dict | None = None,
 ) -> "MagicMock":
     """Run the triage endpoint with mocked state."""
     app = Flask(__name__)
     with (
-        patch("think.facets.get_enabled_facets", return_value=facets),
         patch("think.awareness.get_onboarding", return_value=onboarding or {}),
         patch("convey.utils.spawn_agent", return_value="agent-1") as mock_spawn,
         patch("think.cortex_client.wait_for_agents", return_value=({}, [])),
@@ -83,37 +81,37 @@ def _run_triage(
 
 def test_triage_new_user_gets_onboarding():
     """No facets, no awareness state → onboarding agent."""
-    mock = _run_triage(facets={})
+    mock = _run_triage()
     assert mock.call_args.kwargs["name"] == "onboarding"
 
 
 def test_triage_established_user_gets_unified():
-    """Has facets → unified agent (single muse, no two-mode split)."""
-    mock = _run_triage(facets={"work": {}})
+    """Onboarding complete → unified agent."""
+    mock = _run_triage(onboarding={"status": "complete"})
     assert mock.call_args.kwargs["name"] == "unified"
 
 
 def test_triage_path_a_observing_gets_triage():
     """Path A active → triage (not onboarding again)."""
-    mock = _run_triage(facets={}, onboarding={"status": "observing"})
+    mock = _run_triage(onboarding={"status": "observing"})
     assert mock.call_args.kwargs["name"] == "triage"
 
 
 def test_triage_path_a_ready_gets_triage():
     """Path A recommendations ready → triage."""
-    mock = _run_triage(facets={}, onboarding={"status": "ready"})
+    mock = _run_triage(onboarding={"status": "ready"})
     assert mock.call_args.kwargs["name"] == "triage"
 
 
 def test_triage_skipped_gets_unified():
     """Onboarding skipped, no facets → unified (single muse, no two-mode split)."""
-    mock = _run_triage(facets={}, onboarding={"status": "skipped"})
+    mock = _run_triage(onboarding={"status": "skipped"})
     assert mock.call_args.kwargs["name"] == "unified"
 
 
 def test_triage_complete_gets_unified():
     """Onboarding complete, no facets → unified (single muse, no two-mode split)."""
-    mock = _run_triage(facets={}, onboarding={"status": "complete"})
+    mock = _run_triage(onboarding={"status": "complete"})
     assert mock.call_args.kwargs["name"] == "unified"
 
 
@@ -556,10 +554,7 @@ class TestTriageDailyContext:
         (agents_dir / "flow.md").write_text("# Flow")
         (agents_dir / "meetings.md").write_text("# Meetings")
 
-        mock = _run_triage(
-            facets={"work": {}},
-            onboarding={"status": "complete"},
-        )
+        mock = _run_triage(onboarding={"status": "complete"})
         prompt = mock.call_args.kwargs["prompt"]
         assert "Daily analysis available" in prompt
         assert "flow" in prompt
@@ -567,10 +562,7 @@ class TestTriageDailyContext:
 
     def test_triage_complete_no_outputs_no_extra_context(self):
         """When no agent outputs exist, no daily analysis context is added."""
-        mock = _run_triage(
-            facets={"work": {}},
-            onboarding={"status": "complete"},
-        )
+        mock = _run_triage(onboarding={"status": "complete"})
         prompt = mock.call_args.kwargs["prompt"]
         assert "Daily analysis" not in prompt
 
@@ -583,10 +575,7 @@ class TestTriageDailyContext:
         agents_dir.mkdir(parents=True)
         (agents_dir / "flow.md").write_text("# Flow")
 
-        mock = _run_triage(
-            facets={"work": {}},
-            onboarding={"status": "complete"},
-        )
+        mock = _run_triage(onboarding={"status": "complete"})
         prompt = mock.call_args.kwargs["prompt"]
         assert "Daily analysis available" in prompt
         assert "flow" in prompt
@@ -601,10 +590,7 @@ class TestTriageDailyContext:
         agents_dir.mkdir(parents=True)
         (agents_dir / "knowledge_graph.md").write_text("# KG")
 
-        mock = _run_triage(
-            facets={},
-            onboarding={"status": "skipped"},
-        )
+        mock = _run_triage(onboarding={"status": "skipped"})
         prompt = mock.call_args.kwargs["prompt"]
         assert "Daily analysis available" in prompt
         assert "knowledge_graph" in prompt
@@ -621,19 +607,13 @@ class TestTriageSystemHealth:
 
         update_state("capture", {"status": "stale", "last_seen": 1000.0})
 
-        mock = _run_triage(
-            facets={"work": {}},
-            onboarding={"status": "complete"},
-        )
+        mock = _run_triage(onboarding={"status": "complete"})
         prompt = mock.call_args.kwargs["prompt"]
         assert "System health" in prompt
         assert "capture" in prompt.lower()
 
     def test_triage_no_health_context_when_healthy(self):
         """No system health context when nothing needs attention."""
-        mock = _run_triage(
-            facets={"work": {}},
-            onboarding={"status": "complete"},
-        )
+        mock = _run_triage(onboarding={"status": "complete"})
         prompt = mock.call_args.kwargs["prompt"]
         assert "System health" not in prompt
