@@ -106,7 +106,12 @@ def main() -> None:
         # Spawn heartbeat agent with explicit journal path so the cogitate
         # agent never needs to discover it via filesystem search.
         agent_id = cortex_request(
-            prompt=f"Run heartbeat check.\n\nJournal path: {journal}",
+            prompt=(
+                f"Run heartbeat check.\n\n"
+                f"CRITICAL: The journal is at {journal}. "
+                f"Use `sol call` commands for all journal access. "
+                f"Do NOT search the filesystem or guess paths."
+            ),
             name="heartbeat",
         )
         if agent_id is None:
