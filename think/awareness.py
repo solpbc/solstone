@@ -145,6 +145,38 @@ def ensure_sol_directory() -> Path:
     return sol_dir
 
 
+def _log_identity_change(
+    file_name: str,
+    old_content: str,
+    new_content: str,
+    section: str | None = None,
+    source: str = "cli",
+) -> None:
+    """Append a change record to sol/history.jsonl."""
+    import difflib
+
+    from think.utils import get_journal
+
+    diff = "\n".join(
+        difflib.unified_diff(
+            old_content.splitlines(keepends=True),
+            new_content.splitlines(keepends=True),
+            fromfile=file_name,
+            tofile=file_name,
+        )
+    )
+    record = {
+        "ts": _now_ts(),
+        "file": file_name,
+        "section": section,
+        "diff": diff,
+        "source": source,
+    }
+    history_path = Path(get_journal()) / "sol" / "history.jsonl"
+    with open(history_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record) + "\n")
+
+
 def update_self_md_section(heading: str, content: str) -> bool:
     """Update a ## section in sol/self.md, preserving all other sections.
 
@@ -188,7 +220,9 @@ def update_self_md_section(heading: str, content: str) -> bool:
 
     content_lines = content.split("\n") if content else []
     new_lines = lines[: start + 1] + content_lines + [""] + lines[end:]
-    self_path.write_text("\n".join(new_lines), encoding="utf-8")
+    new_text = "\n".join(new_lines)
+    self_path.write_text(new_text, encoding="utf-8")
+    _log_identity_change("self.md", text, new_text, section=heading, source="api")
     return True
 
 
@@ -227,7 +261,9 @@ def update_self_md_opening(content: str) -> bool:
         return False
 
     new_lines = lines[: start + 1] + ["", content, ""] + lines[end:]
-    self_path.write_text("\n".join(new_lines), encoding="utf-8")
+    new_text = "\n".join(new_lines)
+    self_path.write_text(new_text, encoding="utf-8")
+    _log_identity_change("self.md", text, new_text, section=None, source="api")
     return True
 
 

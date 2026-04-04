@@ -899,6 +899,20 @@ class TestUpdateSelfMd:
         assert "## my name" in content
         assert "sol (default)" in content
 
+    def test_update_section_logs_history(self, tmp_path):
+        self._setup_self_md(tmp_path)
+        from think.awareness import update_self_md_section
+
+        update_self_md_section("my name", "aria (named 2026-03-19)")
+        history = tmp_path / "sol" / "history.jsonl"
+        assert history.exists()
+        records = [json.loads(line) for line in history.read_text().strip().split("\n")]
+        assert len(records) == 1
+        assert records[0]["file"] == "self.md"
+        assert records[0]["section"] == "my name"
+        assert records[0]["source"] == "api"
+        assert "diff" in records[0]
+
     def test_update_section_last_section(self, tmp_path):
         self_md = self._setup_self_md(tmp_path)
         from think.awareness import update_self_md_section
@@ -936,6 +950,19 @@ class TestUpdateSelfMd:
         # Sections preserved
         assert "## my name" in content
         assert "sol (default)" in content
+
+    def test_update_opening_logs_history(self, tmp_path):
+        self._setup_self_md(tmp_path)
+        from think.awareness import update_self_md_opening
+
+        update_self_md_opening("I am aria.")
+        history = tmp_path / "sol" / "history.jsonl"
+        assert history.exists()
+        records = [json.loads(line) for line in history.read_text().strip().split("\n")]
+        assert len(records) == 1
+        assert records[0]["file"] == "self.md"
+        assert records[0]["section"] is None
+        assert records[0]["source"] == "api"
 
     def test_update_opening_no_file(self):
         from think.awareness import update_self_md_opening

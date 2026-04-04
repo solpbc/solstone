@@ -60,19 +60,7 @@ entity follow-ups, and anything the narrative highlights as important.
 Write the complete pulse (YAML frontmatter + narrative + needs-you section) via:
 
 ```bash
-cat <<'EOF' | sol call sol pulse --write
----
-updated: 2026-03-22T14:35:00
-segment: 143022_300
-source: pulse-cogitate
----
-
-[Your narrative here]
-
-## needs you
-- Item 1
-- Item 2
-EOF
+sol call sol pulse --write --value $'---\nupdated: 2026-03-22T14:35:00\nsegment: 143022_300\nsource: pulse-cogitate\n---\n\n[Your narrative here]\n\n## needs you\n- Item 1\n- Item 2'
 ```
 
 The `updated` field must be an ISO 8601 datetime (no timezone). The `segment`

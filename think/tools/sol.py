@@ -15,7 +15,11 @@ import sys
 
 import typer
 
-from think.awareness import ensure_sol_directory, update_self_md_section
+from think.awareness import (
+    _log_identity_change,
+    ensure_sol_directory,
+    update_self_md_section,
+)
 
 app = typer.Typer(
     help="Sol identity directory — self.md, agency.md, pulse.md, and morning briefing."
@@ -27,15 +31,30 @@ def _sol_dir():
     return ensure_sol_directory()
 
 
+def _resolve_content(value: str | None) -> str:
+    """Return *value* if provided, else read stdin. Exit 1 if empty."""
+    if value is not None:
+        content = value
+    else:
+        content = sys.stdin.read()
+    if not content.strip():
+        typer.echo("Error: no content provided.", err=True)
+        raise typer.Exit(1)
+    return content
+
+
 @app.command("self")
 def self_cmd(
     write: bool = typer.Option(
-        False, "--write", "-w", help="Write self.md from stdin."
+        False, "--write", "-w", help="Overwrite self.md (content via --value or stdin)."
     ),
     update_section: str | None = typer.Option(
         None,
         "--update-section",
-        help="Update a specific ## section of self.md from stdin (e.g. 'who I'm here for').",
+        help="Update a specific ## section of self.md (content via --value or stdin).",
+    ),
+    value: str | None = typer.Option(
+        None, "--value", help="Content to write (alternative to stdin)."
     ),
 ) -> None:
     """Read or write sol/self.md."""
@@ -43,10 +62,7 @@ def self_cmd(
     self_path = sol_dir / "self.md"
 
     if update_section:
-        content = sys.stdin.read()
-        if not content.strip():
-            typer.echo("Error: no content provided on stdin.", err=True)
-            raise typer.Exit(1)
+        content = _resolve_content(value)
         if update_self_md_section(update_section, content.strip()):
             typer.echo(f"Updated ## {update_section} in self.md.")
         else:
@@ -55,11 +71,14 @@ def self_cmd(
         return
 
     if write:
-        content = sys.stdin.read()
-        if not content.strip():
-            typer.echo("Error: no content provided on stdin.", err=True)
-            raise typer.Exit(1)
+        content = _resolve_content(value)
+        old_content = (
+            self_path.read_text(encoding="utf-8") if self_path.exists() else ""
+        )
         self_path.write_text(content, encoding="utf-8")
+        _log_identity_change(
+            "self.md", old_content, content, section=None, source="cli"
+        )
         typer.echo("self.md updated.")
         return
 
@@ -73,7 +92,13 @@ def self_cmd(
 @app.command("agency")
 def agency_cmd(
     write: bool = typer.Option(
-        False, "--write", "-w", help="Write agency.md from stdin."
+        False,
+        "--write",
+        "-w",
+        help="Overwrite agency.md (content via --value or stdin).",
+    ),
+    value: str | None = typer.Option(
+        None, "--value", help="Content to write (alternative to stdin)."
     ),
 ) -> None:
     """Read or write sol/agency.md."""
@@ -81,11 +106,18 @@ def agency_cmd(
     agency_path = sol_dir / "agency.md"
 
     if write:
-        content = sys.stdin.read()
-        if not content.strip():
-            typer.echo("Error: no content provided on stdin.", err=True)
-            raise typer.Exit(1)
+        content = _resolve_content(value)
+        old_content = (
+            agency_path.read_text(encoding="utf-8") if agency_path.exists() else ""
+        )
         agency_path.write_text(content, encoding="utf-8")
+        _log_identity_change(
+            "agency.md",
+            old_content,
+            content,
+            section=None,
+            source="cli",
+        )
         typer.echo("agency.md updated.")
         return
 
@@ -99,7 +131,13 @@ def agency_cmd(
 @app.command("pulse")
 def pulse_cmd(
     write: bool = typer.Option(
-        False, "--write", "-w", help="Write pulse.md from stdin."
+        False,
+        "--write",
+        "-w",
+        help="Overwrite pulse.md (content via --value or stdin).",
+    ),
+    value: str | None = typer.Option(
+        None, "--value", help="Content to write (alternative to stdin)."
     ),
 ) -> None:
     """Read or write sol/pulse.md."""
@@ -107,11 +145,14 @@ def pulse_cmd(
     pulse_path = sol_dir / "pulse.md"
 
     if write:
-        content = sys.stdin.read()
-        if not content.strip():
-            typer.echo("Error: no content provided on stdin.", err=True)
-            raise typer.Exit(1)
+        content = _resolve_content(value)
+        old_content = (
+            pulse_path.read_text(encoding="utf-8") if pulse_path.exists() else ""
+        )
         pulse_path.write_text(content, encoding="utf-8")
+        _log_identity_change(
+            "pulse.md", old_content, content, section=None, source="cli"
+        )
         typer.echo("pulse.md updated.")
         return
 
@@ -124,9 +165,7 @@ def pulse_cmd(
 
 @app.command("briefing")
 def briefing_cmd(
-    day: str | None = typer.Option(
-        None, "--day", "-d", help="Specific day YYYYMMDD."
-    ),
+    day: str | None = typer.Option(None, "--day", "-d", help="Specific day YYYYMMDD."),
 ) -> None:
     """Read the morning briefing from YYYYMMDD/agents/morning_briefing.md."""
     from pathlib import Path as _Path

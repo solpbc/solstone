@@ -27,7 +27,7 @@ Run `sol health` and check recent health logs with `sol health logs --since 1h`.
 Note any service issues, capture gaps, or pipeline failures.
 
 If you find issues: update agency.md's `## system` section via
-`echo '...' | sol call sol agency --write`.
+`sol call sol agency --write --value '...'`.
 
 ## Step 2: Check journal quality
 
@@ -42,7 +42,7 @@ with `sol dream --segment`. Log the action in agency.md.
 
 If you find curation issues: read current agency.md with `sol call sol agency`,
 add entries to the curation section, then write it back with
-`echo '...' | sol call sol agency --write`.
+`sol call sol agency --write --value '...'`.
 
 ## Step 2.5: Check routine health
 
@@ -70,7 +70,7 @@ Run `sol call speakers suggest` and check for entity duplicates via
 `sol call entities` queries on high-activity facets.
 
 Add new curation suggestions to agency.md's `## curation` section (read with
-`sol call sol agency`, update and write back with `echo '...' | sol call sol agency --write`).
+`sol call sol agency`, update and write back with `sol call sol agency --write --value '...'`).
 Do NOT act on entity merges or facet changes — those are suggest-and-wait.
 
 ## Step 5: Review self.md (brief)
@@ -81,7 +81,7 @@ Read self.md with `sol call sol self`. Consider:
 
 Update self.md ONLY if you have a genuine new observation from background
 analysis. Most heartbeats should not touch self.md. Use
-`echo '...' | sol call sol self --update-section '<heading>'` for targeted updates.
+`sol call sol self --update-section '<heading>' --value '...'` for targeted updates.
 
 ## Step 6: Commit and close
 

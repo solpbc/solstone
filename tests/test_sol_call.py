@@ -248,6 +248,129 @@ class TestSolWriteDoesNotEscapeSolDir:
         assert "pulse.md" not in journal_files
 
 
+class TestSolSelfValueOption:
+    def test_write_self_with_value(self, journal_with_sol):
+        new_content = "# self\n\nI am sol. Jer's journal.\n\n## my name\nsol\n"
+        result = runner.invoke(app, ["self", "--write", "--value", new_content])
+        assert result.exit_code == 0
+        assert "self.md updated" in result.output
+        self_path = journal_with_sol / "sol" / "self.md"
+        assert self_path.read_text() == new_content
+
+    def test_update_section_with_value(self, journal_with_sol):
+        result = runner.invoke(
+            app,
+            [
+                "self",
+                "--update-section",
+                "who I'm here for",
+                "--value",
+                "Jer — founder",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Updated ## who I'm here for" in result.output
+        content = (journal_with_sol / "sol" / "self.md").read_text()
+        assert "Jer — founder" in content
+
+    def test_value_empty_string_errors(self, journal_with_sol):
+        result = runner.invoke(app, ["self", "--write", "--value", "   "])
+        assert result.exit_code == 1
+        assert "no content" in result.output
+
+    def test_value_takes_precedence_over_stdin(self, journal_with_sol):
+        result = runner.invoke(
+            app,
+            ["self", "--write", "--value", "from value\n"],
+            input="from stdin\n",
+        )
+        assert result.exit_code == 0
+        self_path = journal_with_sol / "sol" / "self.md"
+        assert self_path.read_text() == "from value\n"
+
+
+class TestSolAgencyValueOption:
+    def test_write_agency_with_value(self, journal_with_sol):
+        new_content = "# agency\n\n## curation\n- item\n"
+        result = runner.invoke(app, ["agency", "--write", "--value", new_content])
+        assert result.exit_code == 0
+        assert "agency.md updated" in result.output
+        agency_path = journal_with_sol / "sol" / "agency.md"
+        assert agency_path.read_text() == new_content
+
+    def test_value_empty_string_errors(self, journal_with_sol):
+        result = runner.invoke(app, ["agency", "--write", "--value", ""])
+        assert result.exit_code == 1
+        assert "no content" in result.output
+
+
+class TestSolPulseValueOption:
+    def test_write_pulse_with_value(self, journal_with_sol):
+        new_content = "---\nupdated: 2026-03-22\n---\n\nNarrative.\n"
+        result = runner.invoke(app, ["pulse", "--write", "--value", new_content])
+        assert result.exit_code == 0
+        assert "pulse.md updated" in result.output
+        pulse_path = journal_with_sol / "sol" / "pulse.md"
+        assert pulse_path.read_text() == new_content
+
+    def test_value_empty_string_errors(self, journal_with_sol):
+        result = runner.invoke(app, ["pulse", "--write", "--value", ""])
+        assert result.exit_code == 1
+        assert "no content" in result.output
+
+
+class TestSolHistoryLogging:
+    def test_self_write_logs_history(self, journal_with_sol):
+        new_content = "# self\n\nUpdated.\n"
+        runner.invoke(app, ["self", "--write", "--value", new_content])
+        history = journal_with_sol / "sol" / "history.jsonl"
+        assert history.exists()
+        records = [json.loads(line) for line in history.read_text().strip().split("\n")]
+        assert len(records) == 1
+        assert records[0]["file"] == "self.md"
+        assert records[0]["source"] == "cli"
+        assert records[0]["section"] is None
+        assert "ts" in records[0]
+        assert "diff" in records[0]
+
+    def test_agency_write_logs_history(self, journal_with_sol):
+        runner.invoke(app, ["agency", "--write", "--value", "# agency\n\nNew.\n"])
+        history = journal_with_sol / "sol" / "history.jsonl"
+        assert history.exists()
+        records = [json.loads(line) for line in history.read_text().strip().split("\n")]
+        assert len(records) == 1
+        assert records[0]["file"] == "agency.md"
+        assert records[0]["source"] == "cli"
+
+    def test_pulse_write_logs_history(self, journal_with_sol):
+        runner.invoke(app, ["pulse", "--write", "--value", "---\n---\n\nPulse.\n"])
+        history = journal_with_sol / "sol" / "history.jsonl"
+        assert history.exists()
+        records = [json.loads(line) for line in history.read_text().strip().split("\n")]
+        assert len(records) == 1
+        assert records[0]["file"] == "pulse.md"
+
+    def test_update_section_logs_history(self, journal_with_sol):
+        runner.invoke(
+            app,
+            ["self", "--update-section", "who I'm here for", "--value", "Jer"],
+        )
+        history = journal_with_sol / "sol" / "history.jsonl"
+        assert history.exists()
+        records = [json.loads(line) for line in history.read_text().strip().split("\n")]
+        assert len(records) == 1
+        assert records[0]["file"] == "self.md"
+        assert records[0]["section"] == "who I'm here for"
+        assert records[0]["source"] == "api"
+
+    def test_multiple_writes_append(self, journal_with_sol):
+        runner.invoke(app, ["self", "--write", "--value", "# self\n\nFirst.\n"])
+        runner.invoke(app, ["self", "--write", "--value", "# self\n\nSecond.\n"])
+        history = journal_with_sol / "sol" / "history.jsonl"
+        records = [json.loads(line) for line in history.read_text().strip().split("\n")]
+        assert len(records) == 2
+
+
 class TestHeartbeatEnsureSolDirectory:
     """Verify the heartbeat bug fix — ensure_sol_directory() takes no args."""
 
