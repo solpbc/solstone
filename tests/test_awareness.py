@@ -1046,6 +1046,29 @@ class TestUpdateIdentitySection:
         assert "aria" in content
         assert "## who I'm here for" in content
 
+    def test_partner_update_prunes_getting_started(self, tmp_path):
+        from think.awareness import update_identity_section
+
+        partner_md = (
+            "# partner\n\n"
+            "## getting started\n\nOnboarding guidance here.\n\n"
+            "## work patterns\n[not yet observed]\n\n"
+            "## communication style\n[not yet observed]\n"
+        )
+        (tmp_path / "sol").mkdir(exist_ok=True)
+        (tmp_path / "sol" / "partner.md").write_text(partner_md)
+
+        result = update_identity_section(
+            "partner.md", "work patterns", "Prefers mornings"
+        )
+        assert result is True
+
+        content = (tmp_path / "sol" / "partner.md").read_text()
+        assert "Prefers mornings" in content
+        assert "## communication style" in content
+        assert "## getting started" not in content
+        assert "Onboarding guidance" not in content
+
 
 class TestSolInitCLI:
     """Tests for the sol-init CLI command."""

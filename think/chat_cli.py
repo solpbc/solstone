@@ -28,17 +28,9 @@ def main() -> None:
     )
     args = setup_cli(parser)
 
-    if args.talent == "unified":
-        from think.awareness import get_onboarding
-        from think.facets import get_enabled_facets
+    from think.awareness import ensure_sol_directory
 
-        onboarding = get_onboarding()
-        onboarding_status = onboarding.get("status", "")
-
-        if onboarding_status in ("observing", "ready", "complete", "skipped"):
-            pass  # Stay with unified talent — onboarding path already chosen
-        elif not get_enabled_facets():
-            args.talent = "onboarding"
+    ensure_sol_directory()
 
     if not args.message:
         parser.print_help()

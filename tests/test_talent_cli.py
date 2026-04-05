@@ -36,9 +36,9 @@ def test_collect_configs_excludes_disabled_by_default():
     with_disabled = _collect_configs(include_disabled=True)
     # include_disabled should return at least as many configs
     assert len(with_disabled) >= len(without)
-    # currently no agents are disabled (segment agents absorbed by sense,
-    # daily agents cleaned up) — both sets should be equal
-    assert len(with_disabled) == len(without)
+    for name in ("onboarding", "observation", "observation_review", "firstday_checkin"):
+        assert name not in without
+        assert name in with_disabled
 
 
 def test_collect_configs_filter_schedule():

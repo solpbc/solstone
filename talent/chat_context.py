@@ -18,19 +18,9 @@ logger = logging.getLogger(__name__)
 
 # --- Awareness-conditional instruction blocks ---
 
-ONBOARDING_OBSERVATION_TEXT = """## Onboarding Observation Context
-
-The user is in Path A onboarding observation. If they ask "what have you noticed?" or similar, read recent observations from the awareness log and summarize progress encouragingly. You are quietly watching how they work, learning their patterns.
-""".strip()
-
-ONBOARDING_READY_TEXT = """## Onboarding Observation Complete
-
-Path A observation is complete — recommendations are ready. Proactively suggest reviewing: "I've finished observing and have suggestions for organizing your journal. Want to take a look?" If they agree, read observations, synthesize recommendations, and walk through setup in-place.
-""".strip()
-
 IMPORT_AWARENESS_TEXT = """## Import Awareness
 
-Onboarding is complete but no content has been imported yet. If the user's message touches on their journal or what you can do, weave a single soft mention of importing into your response. Available sources: Calendar, ChatGPT, Claude, Gemini, Notes, Kindle. Do not repeat if already nudged.
+No content has been imported yet. If the user's message touches on their journal or what you can do, weave a single soft mention of importing into your response. Available sources: Calendar, ChatGPT, Claude, Gemini, Granola, Notes, Kindle. Do not repeat if already nudged.
 """.strip()
 
 NAMING_AWARENESS_TEXT = """## Naming Awareness
@@ -262,7 +252,7 @@ def _get_eligible_suggestion(
 
 def pre_process(context: dict) -> dict | None:
     """Append chat-context instructions to the unified talent prompt."""
-    from think.awareness import get_imports, get_onboarding
+    from think.awareness import get_imports
     from think.conversation import build_memory_context
     from think.utils import get_config
 
@@ -366,22 +356,14 @@ When no `System health:` line is present, everything is fine.
         logger.debug("Routine suggestion eligibility check failed", exc_info=True)
 
     try:
-        onboarding = get_onboarding()
-        onboarding_status = onboarding.get("status", "")
+        imports = get_imports()
+        if not imports.get("has_imported"):
+            sections.append(IMPORT_AWARENESS_TEXT)
 
-        if onboarding_status == "observing":
-            sections.append(ONBOARDING_OBSERVATION_TEXT)
-        elif onboarding_status == "ready":
-            sections.append(ONBOARDING_READY_TEXT)
-        elif onboarding_status in ("complete", "skipped"):
-            imports = get_imports()
-            if not imports.get("has_imported"):
-                sections.append(IMPORT_AWARENESS_TEXT)
-
-            config = get_config()
-            agent_name = config.get("agent", {}).get("name", "sol")
-            if agent_name == "sol":
-                sections.append(NAMING_AWARENESS_TEXT)
+        config = get_config()
+        agent_name = config.get("agent", {}).get("name", "sol")
+        if agent_name == "sol":
+            sections.append(NAMING_AWARENESS_TEXT)
     except Exception:
         logger.debug("Awareness context enrichment failed", exc_info=True)
 
