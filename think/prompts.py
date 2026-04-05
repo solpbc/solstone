@@ -32,6 +32,11 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 # Cached raw template content loaded from think/templates/*.md
 _templates_cache: dict[str, str] | None = None
 
+# Cached sol/ template vars loaded from repo and journal sol/ dirs
+_sol_vars_cache: dict[str, str] | None = None
+
+SOL_DIR = Path(__file__).parent.parent / "sol"
+
 
 # ---------------------------------------------------------------------------
 # Template Loading
@@ -102,6 +107,47 @@ def _load_templates(template_vars: dict[str, str] | None = None) -> dict[str, st
             substituted[var_name] = content
 
     return substituted
+
+
+def _load_sol_vars() -> dict[str, str]:
+    """Load sol/*.md files as template vars from repo and journal directories.
+
+    Files are loaded with frontmatter stripped. Naming: sol/identity.md -> $sol_identity.
+    Journal sol/ files override repo sol/ files on collision.
+    """
+    global _sol_vars_cache
+    if _sol_vars_cache is not None:
+        return _sol_vars_cache
+
+    from think.utils import get_journal
+
+    _sol_vars_cache = {}
+
+    # Repo sol/ first
+    if SOL_DIR.is_dir():
+        for md_path in sorted(SOL_DIR.glob("*.md")):
+            var_name = f"sol_{md_path.stem}"
+            try:
+                post = frontmatter.load(md_path)
+                _sol_vars_cache[var_name] = post.content.strip()
+            except Exception:
+                pass
+
+    # Journal sol/ second (wins on collision)
+    try:
+        journal_sol = Path(get_journal()) / "sol"
+        if journal_sol.is_dir():
+            for md_path in sorted(journal_sol.glob("*.md")):
+                var_name = f"sol_{md_path.stem}"
+                try:
+                    post = frontmatter.load(md_path)
+                    _sol_vars_cache[var_name] = post.content.strip()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    return _sol_vars_cache
 
 
 def format_current_datetime() -> str:
@@ -276,6 +322,12 @@ def load_prompt(
                 template_vars[key] = str_value
                 # Add uppercase-first version
                 template_vars[key.capitalize()] = str_value.capitalize()
+
+        # Merge sol/ template vars ($sol_identity, $sol_self, etc.)
+        sol_vars = _load_sol_vars()
+        for key, value in sol_vars.items():
+            if key not in template_vars:
+                template_vars[key] = value
 
         # Load templates with identity and context vars so templates can use them
         templates = _load_templates(template_vars)

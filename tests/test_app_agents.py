@@ -72,8 +72,8 @@ def test_resolve_agent_path_system_agent():
     """Test _resolve_agent_path returns correct path for system agents."""
     agent_dir, agent_name = _resolve_agent_path("unified")
 
-    assert agent_name == "identity"
-    assert agent_dir.name == "sol"
+    assert agent_name == "chat"
+    assert agent_dir.name == "muse"
 
 
 def test_resolve_agent_path_app_agent():
@@ -125,10 +125,10 @@ def test_get_muse_configs_includes_system_agents(fixture_journal):
     agents = get_muse_configs(type="cogitate")
 
     # Should include known system agents with frontmatter metadata
-    assert "unified" in agents
-    assert agents["unified"]["source"] == "system"
-    assert "title" in agents["unified"]
-    assert "path" in agents["unified"]
+    assert "chat" in agents
+    assert agents["chat"]["source"] == "system"
+    assert "title" in agents["chat"]
+    assert "path" in agents["chat"]
 
 
 def test_get_muse_configs_system_agents_have_metadata(fixture_journal):
@@ -136,11 +136,11 @@ def test_get_muse_configs_system_agents_have_metadata(fixture_journal):
     agents = get_muse_configs(type="cogitate")
 
     # Check a known system agent
-    unified = agents.get("unified")
-    assert unified is not None
-    assert unified["source"] == "system"
-    assert "title" in unified
-    assert "color" in unified
+    chat = agents.get("chat")
+    assert chat is not None
+    assert chat["source"] == "system"
+    assert "title" in chat
+    assert "color" in chat
 
 
 def test_get_muse_configs_excludes_private_apps(fixture_journal, tmp_path, monkeypatch):

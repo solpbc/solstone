@@ -7,9 +7,11 @@
   "priority": 99,
   "tier": 3,
   "max_output_tokens": 1000,
-  "instructions": {"system": "journal", "facets": true, "now": true}
+  "instructions": {"facets": true, "now": true}
 
 }
+
+$sol_identity
 
 # Pulse
 

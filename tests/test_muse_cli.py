@@ -27,7 +27,7 @@ def test_collect_configs_returns_prompts():
     configs = _collect_configs(include_disabled=True)
     assert "flow" in configs
     assert "sense" in configs
-    assert "unified" in configs
+    assert "chat" in configs
 
 
 def test_collect_configs_excludes_disabled_by_default():

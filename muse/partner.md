@@ -5,9 +5,11 @@
   "description": "Weekly observation of the journal owner's behavioral patterns — work style, communication, priorities, decision-making, expertise",
   "schedule": "weekly",
   "priority": 95,
-  "instructions": {"system": "journal", "facets": true, "now": true}
+  "instructions": {"facets": true, "now": true}
 
 }
+
+$sol_identity
 
 # Partner Profile
 

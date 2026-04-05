@@ -4,7 +4,7 @@
 """Muse agent and generator orchestration utilities.
 
 This module provides functionality for configuring and orchestrating muse agents
-and generators from muse/*.md, sol/*.md, and apps/*/muse/*.md.
+and generators from muse/*.md and apps/*/muse/*.md.
 
 Key functions:
 - get_muse_configs(): Discover all muse configs with filtering
@@ -33,7 +33,6 @@ from think.prompts import _load_prompt_metadata, load_prompt
 # ---------------------------------------------------------------------------
 
 MUSE_DIR = Path(__file__).parent.parent / "muse"
-SOL_DIR = Path(__file__).parent.parent / "sol"
 APPS_DIR = Path(__file__).parent.parent / "apps"
 
 
@@ -162,8 +161,7 @@ def get_muse_configs(
     """Load muse configs from system and app directories.
 
     Unified function for loading both cogitate agents and generate prompts from
-    muse/*.md, sol/*.md, and apps/*/muse/*.md files. Filters based on explicit
-    type field.
+    muse/*.md and apps/*/muse/*.md files. Filters based on explicit type field.
 
     Args:
         type: If provided, only configs with matching type value
@@ -208,15 +206,6 @@ def get_muse_configs(
 
             info["source"] = "system"
             configs[name] = info
-
-    # Sol identity agent — lives outside muse/ but is a system agent
-    sol_identity_path = SOL_DIR / "identity.md"
-    if sol_identity_path.exists() and "unified" not in configs:
-        meta = _load_prompt_metadata(sol_identity_path)
-        meta["path"] = str(sol_identity_path)
-        meta["mtime"] = int(sol_identity_path.stat().st_mtime)
-        meta["source"] = "system"
-        configs["unified"] = meta
 
     # App configs from apps/*/muse/
     apps_dir = APPS_DIR
@@ -327,9 +316,9 @@ def _resolve_agent_path(name: str) -> tuple[Path, str]:
         app, agent_name = name.split(":", 1)
         agent_dir = Path(__file__).parent.parent / "apps" / app / "muse"
     elif name == "unified":
-        # Sol identity agent: "unified" -> sol/identity
-        agent_dir = SOL_DIR
-        agent_name = "identity"
+        # Chat agent: "unified" -> muse/chat
+        agent_dir = MUSE_DIR
+        agent_name = "chat"
     else:
         # System agent: bare name -> muse/{name}
         agent_dir = MUSE_DIR
