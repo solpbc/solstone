@@ -402,13 +402,18 @@ class CortexService:
 
                         # Handle start event
                         if event.get("event") == "start":
-                            # Capture model for token usage logging
-                            model = event.get("model")
-                            if model:
-                                with self.lock:
-                                    if agent.agent_id in self.agent_requests:
+                            # Capture model and provider for status reporting
+                            with self.lock:
+                                if agent.agent_id in self.agent_requests:
+                                    model = event.get("model")
+                                    if model:
                                         self.agent_requests[agent.agent_id]["model"] = (
                                             model
+                                        )
+                                    provider = event.get("provider")
+                                    if provider:
+                                        self.agent_requests[agent.agent_id]["provider"] = (
+                                            provider
                                         )
 
                         # Handle finish or error event
