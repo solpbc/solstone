@@ -4,10 +4,11 @@
 """Integration tests for Ollama provider with a live local Ollama instance."""
 
 import asyncio
+import shutil
 
 import pytest
 
-from think.models import OLLAMA_LITE
+from think.models import OLLAMA_LITE, OLLAMA_PRO
 
 # Use the smallest available model for fast integration tests
 _TEST_MODEL = OLLAMA_LITE
@@ -150,3 +151,60 @@ class TestOllamaValidateKey:
 
         result = validate_key("")
         assert result["valid"] is True
+
+
+def _opencode_available() -> bool:
+    """Check if the OpenCode CLI is installed."""
+    return shutil.which("opencode") is not None
+
+
+@pytest.mark.skipif(
+    not _opencode_available(),
+    reason="OpenCode CLI not installed",
+)
+class TestOllamaCogitate:
+    def test_basic_cogitate(self):
+        """Test cogitate with a simple prompt that doesn't require tool use."""
+        from think.providers.ollama import run_cogitate
+
+        events = []
+        result = asyncio.run(
+            run_cogitate(
+                {
+                    "prompt": "Say the word 'solstone' and nothing else.",
+                    "model": OLLAMA_PRO,
+                },
+                on_event=lambda e: events.append(e),
+            )
+        )
+
+        assert result
+
+        # Should have emitted a finish event
+        finish_events = [e for e in events if e.get("event") == "finish"]
+        assert len(finish_events) == 1
+        assert finish_events[0]["result"] == result
+
+    def test_cogitate_with_tool_use(self):
+        """Test cogitate with a prompt that triggers bash tool use."""
+        from think.providers.ollama import run_cogitate
+
+        events = []
+        result = asyncio.run(
+            run_cogitate(
+                {
+                    "prompt": "Use the bash tool to run 'echo solstone_test_ok' and tell me exactly what it output.",
+                    "model": OLLAMA_PRO,
+                },
+                on_event=lambda e: events.append(e),
+            )
+        )
+
+        assert result
+        assert "solstone_test_ok" in result
+
+        # Should have tool_start and tool_end events
+        tool_starts = [e for e in events if e.get("event") == "tool_start"]
+        tool_ends = [e for e in events if e.get("event") == "tool_end"]
+        assert len(tool_starts) >= 1
+        assert len(tool_ends) >= 1

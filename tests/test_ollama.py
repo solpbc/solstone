@@ -4,6 +4,7 @@
 """Unit tests for the Ollama (Local) provider."""
 
 import asyncio
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -482,16 +483,352 @@ class TestRunAgenerate:
 
 
 # ---------------------------------------------------------------------------
+# _translate_opencode
+# ---------------------------------------------------------------------------
+
+
+def _make_test_harness():
+    """Create a callback/aggregator pair for testing _translate_opencode."""
+    from think.providers.cli import ThinkingAggregator
+    from think.providers.shared import JSONEventCallback
+
+    events = []
+    cb = JSONEventCallback(lambda e: events.append(e))
+    aggregator = ThinkingAggregator(cb, "qwen3.5:9b")
+    return events, cb, aggregator
+
+
+class TestTranslateOpencode:
+    def test_step_start_returns_session_id(self):
+        provider = _ollama_provider()
+        events, cb, aggregator = _make_test_harness()
+        event = {
+            "type": "step_start",
+            "sessionID": "ses_abc123",
+            "part": {"type": "step-start"},
+        }
+        usage = {}
+
+        result = provider._translate_opencode(event, aggregator, cb, usage)
+
+        assert result == "ses_abc123"
+        assert events == []
+
+    def test_text_accumulates(self):
+        provider = _ollama_provider()
+        events, cb, aggregator = _make_test_harness()
+        event = {
+            "type": "text",
+            "part": {"type": "text", "text": "Hello world"},
+        }
+        usage = {}
+
+        result = provider._translate_opencode(event, aggregator, cb, usage)
+
+        assert result is None
+        assert aggregator.has_content
+        assert aggregator.flush_as_result() == "Hello world"
+
+    def test_tool_use_emits_start_and_end(self):
+        provider = _ollama_provider()
+        events, cb, aggregator = _make_test_harness()
+        event = {
+            "type": "tool_use",
+            "part": {
+                "type": "tool",
+                "tool": "bash",
+                "callID": "call_xyz",
+                "state": {
+                    "status": "completed",
+                    "input": {"command": "echo hello"},
+                    "output": "hello\n",
+                },
+            },
+        }
+        usage = {}
+
+        result = provider._translate_opencode(event, aggregator, cb, usage)
+
+        assert result is None
+        assert len(events) == 2
+        assert events[0]["event"] == "tool_start"
+        assert events[0]["tool"] == "bash"
+        assert events[0]["args"] == {"command": "echo hello"}
+        assert events[0]["call_id"] == "call_xyz"
+        assert events[1]["event"] == "tool_end"
+        assert events[1]["tool"] == "bash"
+        assert events[1]["result"] == "hello\n"
+        assert events[1]["call_id"] == "call_xyz"
+
+    def test_tool_use_flushes_thinking(self):
+        provider = _ollama_provider()
+        events, cb, aggregator = _make_test_harness()
+        usage = {}
+
+        # Accumulate some text first
+        aggregator.accumulate("Let me run a command...")
+
+        # Then a tool use event
+        event = {
+            "type": "tool_use",
+            "part": {
+                "type": "tool",
+                "tool": "bash",
+                "callID": "call_1",
+                "state": {
+                    "status": "completed",
+                    "input": {"command": "ls"},
+                    "output": "file.txt\n",
+                },
+            },
+        }
+        provider._translate_opencode(event, aggregator, cb, usage)
+
+        # First event should be thinking (flushed), then tool_start, tool_end
+        assert len(events) == 3
+        assert events[0]["event"] == "thinking"
+        assert events[0]["summary"] == "Let me run a command..."
+        assert events[1]["event"] == "tool_start"
+        assert events[2]["event"] == "tool_end"
+
+    def test_step_finish_captures_usage(self):
+        provider = _ollama_provider()
+        events, cb, aggregator = _make_test_harness()
+        event = {
+            "type": "step_finish",
+            "part": {
+                "type": "step-finish",
+                "reason": "stop",
+                "tokens": {
+                    "total": 14681,
+                    "input": 14649,
+                    "output": 32,
+                    "reasoning": 0,
+                    "cache": {"write": 0, "read": 0},
+                },
+            },
+        }
+        usage = {}
+
+        result = provider._translate_opencode(event, aggregator, cb, usage)
+
+        assert result is None
+        assert usage["input_tokens"] == 14649
+        assert usage["output_tokens"] == 32
+        assert usage["total_tokens"] == 14681
+
+    def test_step_finish_accumulates_usage_across_steps(self):
+        provider = _ollama_provider()
+        events, cb, aggregator = _make_test_harness()
+        usage = {}
+
+        # First step
+        event1 = {
+            "type": "step_finish",
+            "part": {
+                "type": "step-finish",
+                "reason": "tool-calls",
+                "tokens": {"total": 100, "input": 80, "output": 20, "reasoning": 0},
+            },
+        }
+        provider._translate_opencode(event1, aggregator, cb, usage)
+
+        # Second step
+        event2 = {
+            "type": "step_finish",
+            "part": {
+                "type": "step-finish",
+                "reason": "stop",
+                "tokens": {"total": 150, "input": 120, "output": 30, "reasoning": 0},
+            },
+        }
+        provider._translate_opencode(event2, aggregator, cb, usage)
+
+        assert usage["input_tokens"] == 200
+        assert usage["output_tokens"] == 50
+        assert usage["total_tokens"] == 250
+
+    def test_unknown_event_ignored(self):
+        provider = _ollama_provider()
+        events, cb, aggregator = _make_test_harness()
+        event = {"type": "unknown_type", "part": {}}
+        usage = {}
+
+        result = provider._translate_opencode(event, aggregator, cb, usage)
+
+        assert result is None
+        assert events == []
+
+
+# ---------------------------------------------------------------------------
 # run_cogitate
 # ---------------------------------------------------------------------------
 
 
 class TestRunCogitate:
-    def test_raises_not_implemented(self):
+    def test_basic_cogitate(self):
         provider = _ollama_provider()
 
-        with pytest.raises(NotImplementedError, match="not yet implemented"):
-            asyncio.run(provider.run_cogitate({"prompt": "test"}, on_event=None))
+        class MockCLIRunner:
+            last_instance = None
+
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+                self.cmd = kwargs["cmd"]
+                self.prompt_text = kwargs["prompt_text"]
+                self.cli_session_id = "ses_test123"
+                self.run = AsyncMock(return_value="test result")
+                MockCLIRunner.last_instance = self
+
+        with patch("think.providers.ollama.CLIRunner", MockCLIRunner):
+            events = []
+            asyncio.run(
+                provider.run_cogitate(
+                    {"prompt": "hello", "model": OLLAMA_FLASH},
+                    lambda e: events.append(e),
+                )
+            )
+
+        instance = MockCLIRunner.last_instance
+        assert "opencode" in instance.cmd
+        assert "--format" in instance.cmd
+        assert "json" in instance.cmd
+        assert "-m" in instance.cmd
+        m_idx = instance.cmd.index("-m")
+        assert instance.cmd[m_idx + 1] == "ollama/qwen3.5:9b"
+
+        # Should emit finish event
+        finish_events = [e for e in events if e.get("event") == "finish"]
+        assert len(finish_events) == 1
+        assert finish_events[0]["result"] == "test result"
+        assert finish_events[0]["cli_session_id"] == "ses_test123"
+
+    def test_cogitate_strips_model_prefix(self):
+        provider = _ollama_provider()
+
+        class MockCLIRunner:
+            last_instance = None
+
+            def __init__(self, **kwargs):
+                self.cmd = kwargs["cmd"]
+                self.prompt_text = kwargs["prompt_text"]
+                self.cli_session_id = None
+                self.run = AsyncMock(return_value="ok")
+                MockCLIRunner.last_instance = self
+
+        with patch("think.providers.ollama.CLIRunner", MockCLIRunner):
+            asyncio.run(
+                provider.run_cogitate(
+                    {"prompt": "test", "model": "ollama-local/qwen3.5:35b-a3b-bf16"},
+                    lambda e: None,
+                )
+            )
+
+        cmd = MockCLIRunner.last_instance.cmd
+        m_idx = cmd.index("-m")
+        assert cmd[m_idx + 1] == "ollama/qwen3.5:35b-a3b-bf16"
+
+    def test_cogitate_session_resume(self):
+        provider = _ollama_provider()
+
+        class MockCLIRunner:
+            last_instance = None
+
+            def __init__(self, **kwargs):
+                self.cmd = kwargs["cmd"]
+                self.prompt_text = kwargs["prompt_text"]
+                self.cli_session_id = None
+                self.run = AsyncMock(return_value="ok")
+                MockCLIRunner.last_instance = self
+
+        with patch("think.providers.ollama.CLIRunner", MockCLIRunner):
+            asyncio.run(
+                provider.run_cogitate(
+                    {
+                        "prompt": "continue",
+                        "model": OLLAMA_FLASH,
+                        "session_id": "ses_previous",
+                    },
+                    lambda e: None,
+                )
+            )
+
+        cmd = MockCLIRunner.last_instance.cmd
+        assert "--session" in cmd
+        s_idx = cmd.index("--session")
+        assert cmd[s_idx + 1] == "ses_previous"
+
+    def test_cogitate_prepends_system_instruction(self):
+        provider = _ollama_provider()
+
+        class MockCLIRunner:
+            last_instance = None
+
+            def __init__(self, **kwargs):
+                self.prompt_text = kwargs["prompt_text"]
+                self.cmd = kwargs["cmd"]
+                self.cli_session_id = None
+                self.run = AsyncMock(return_value="ok")
+                MockCLIRunner.last_instance = self
+
+        with patch("think.providers.ollama.CLIRunner", MockCLIRunner):
+            asyncio.run(
+                provider.run_cogitate(
+                    {
+                        "prompt": "user prompt",
+                        "system_instruction": "be helpful",
+                        "model": OLLAMA_FLASH,
+                    },
+                    lambda e: None,
+                )
+            )
+
+        prompt = MockCLIRunner.last_instance.prompt_text
+        assert prompt.startswith("be helpful")
+        assert "user prompt" in prompt
+
+    def test_cogitate_emits_error_on_failure(self):
+        provider = _ollama_provider()
+
+        class MockCLIRunner:
+            def __init__(self, **kwargs):
+                self.cmd = kwargs["cmd"]
+                self.prompt_text = kwargs["prompt_text"]
+                self.cli_session_id = None
+                self.run = AsyncMock(side_effect=RuntimeError("CLI not found"))
+
+        events = []
+        with patch("think.providers.ollama.CLIRunner", MockCLIRunner):
+            with pytest.raises(RuntimeError, match="CLI not found"):
+                asyncio.run(
+                    provider.run_cogitate(
+                        {"prompt": "test", "model": OLLAMA_FLASH},
+                        lambda e: events.append(e),
+                    )
+                )
+
+        error_events = [e for e in events if e.get("event") == "error"]
+        assert len(error_events) == 1
+        assert "CLI not found" in error_events[0]["error"]
+
+
+# ---------------------------------------------------------------------------
+# _build_opencode_env
+# ---------------------------------------------------------------------------
+
+
+class TestBuildOpencodeEnv:
+    def test_sets_api_key_placeholder(self):
+        provider = _ollama_provider()
+        with patch.dict(os.environ, {}, clear=True):
+            env = provider._build_opencode_env()
+        assert env.get("OPENAI_API_KEY") == "ollama"
+
+    def test_preserves_existing_api_key(self):
+        provider = _ollama_provider()
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "real-key"}, clear=False):
+            env = provider._build_opencode_env()
+        assert env["OPENAI_API_KEY"] == "real-key"
 
 
 # ---------------------------------------------------------------------------
