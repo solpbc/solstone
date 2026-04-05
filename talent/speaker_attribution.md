@@ -14,6 +14,8 @@
 
 $segment_preamble
 
+$unmatched_context
+
 # Speaker Attribution — Contextual Identification (Layer 4)
 
 ## Context
@@ -23,7 +25,7 @@ Layers 1-3 of speaker attribution have already resolved most sentences:
 - **Layer 2** used structural heuristics (speaker count, meeting metadata) to label non-owner sentences
 - **Layer 3** matched remaining sentences against known voiceprints
 
-The sentences listed above under "Unmatched sentences" could not be resolved by these methods. Your task is to identify the speaker for each unmatched sentence using contextual clues from the transcript.
+The unmatched sentences shown above could not be resolved by these methods. Your task is to identify the speaker for each unmatched sentence using contextual clues from the transcript.
 
 ## Identification Strategies
 
