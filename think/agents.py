@@ -552,9 +552,6 @@ def prepare_config(request: dict) -> dict:
                 day, segment, span, activity=activity
             )
             prompt_context["facets"] = _resolve_facets(facet)
-            prompt_context["journal"] = load_prompt(
-                "journal", context=prompt_context
-            ).text
 
             if activity and span and facet:
                 activity_ctx = _build_activity_context(activity, span, facet, day)

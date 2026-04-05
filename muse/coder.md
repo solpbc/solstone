@@ -5,7 +5,7 @@
   "description": "Developer agent with full repo read/write access"
 }
 
-$journal
+$sol_identity
 
 # Coder
 

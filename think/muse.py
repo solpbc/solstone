@@ -419,7 +419,7 @@ def get_agent(
     """Return complete agent configuration by name.
 
     Loads configuration from .md file with JSON frontmatter and instruction text.
-    Template variables $journal and $facets are resolved during prompt loading.
+    Template variables like $facets are resolved during prompt loading.
     Source data config comes from the frontmatter 'load' key.
 
     Parameters
@@ -439,7 +439,7 @@ def get_agent(
         Complete agent configuration including:
         - name: Agent name
         - path: Path to the .md file
-        - user_instruction: Composed prompt with $journal/$facets resolved
+        - user_instruction: Composed prompt with template vars resolved
         - sources: Source config from 'load' key
         - All frontmatter fields (tools, hook, disabled, thinking_budget, etc.)
     """
@@ -463,12 +463,9 @@ def get_agent(
     # Extract source config from 'load' key (replaces instructions.sources)
     config["sources"] = config.pop("load", _DEFAULT_LOAD.copy())
 
-    # Build template context for $journal and $facets resolution
+    # Build template context for $facets resolution
     prompt_context: dict[str, str] = {}
     prompt_context["facets"] = _resolve_facets(facet)
-
-    journal_prompt = load_prompt("journal")
-    prompt_context["journal"] = journal_prompt.text
 
     agent_prompt = load_prompt(agent_name, base_dir=agent_dir, context=prompt_context)
     config["user_instruction"] = agent_prompt.text

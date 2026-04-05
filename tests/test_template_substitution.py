@@ -168,17 +168,6 @@ def test_load_prompt_missing_config_graceful(tmp_path, mock_prompt_dir):
     assert result.path.exists()
 
 
-def test_load_prompt_include_journal(mock_journal_with_config, mock_prompt_dir):
-    """Test that include_journal prepends journal.md content from think directory."""
-    result = load_prompt("plain", base_dir=mock_prompt_dir, include_journal=True)
-
-    # Journal content from think/journal.md should be prepended
-    # The actual journal.md contains the system journal prompt
-    assert "Journal Guardian" in result.text or "Your Role" in result.text
-    # Original prompt content should follow
-    assert "This is a plain prompt without any variables." in result.text
-
-
 def test_load_prompt_with_custom_context(mock_journal_with_config, mock_prompt_dir):
     """Test that custom context variables are substituted."""
     # Create a prompt with context variables
@@ -234,23 +223,6 @@ def test_load_prompt_context_overrides_identity(
         context={"name": "Custom Name"},
     )
     assert "Name: Custom Name" in result_override.text
-
-
-def test_load_prompt_context_with_include_journal(
-    mock_journal_with_config, mock_prompt_dir
-):
-    """Test that context variables flow through to journal.md."""
-    # The journal.md uses $name which should come from identity,
-    # but if we pass a context with $name it should override
-    result = load_prompt(
-        "plain",
-        base_dir=mock_prompt_dir,
-        include_journal=True,
-        context={"name": "Override Name"},
-    )
-
-    # Journal content should have the overridden name
-    assert "Override Name" in result.text
 
 
 def test_load_prompt_context_stringifies_values(

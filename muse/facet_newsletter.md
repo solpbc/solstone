@@ -10,7 +10,7 @@
   "multi_facet": true
 }
 
-$journal
+$sol_identity
 
 $facets
 

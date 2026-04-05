@@ -146,12 +146,9 @@ Agent prompts are `.md` files with configuration in frontmatter:
 You are a helpful assistant...
 ```
 
-Agent prompts are split into two parts:
-
-1. **System instruction** - `think/journal.md` (shared across all agents, cacheable)
-2. **User instruction** - Agent-specific `.md` file (e.g., `sol/identity.md`)
-
-The system instruction establishes the journal partnership context. The user instruction defines the agent's specific role and capabilities.
+Agent prompts use `$sol_identity` for core identity context, loaded automatically
+from `sol/identity.md` via `_load_sol_vars()`. Each agent's `.md` file includes
+`$sol_identity` as a template variable alongside `$facets` and agent-specific content.
 
 **Optional model configuration:** Add `max_output_tokens` (response length limit) and `thinking_budget` (model thinking token budget) to override provider defaults. Note: OpenAI uses fixed reasoning and ignores `thinking_budget`.
 
@@ -163,7 +160,6 @@ The system instruction establishes the journal partnership context. The user ins
 load_prompt(
     name: str,                      # Prompt filename (without .md)
     base_dir: Path | None = None,   # Directory containing prompt
-    include_journal: bool = False,  # Prepend journal.md content
     context: dict | None = None,    # Runtime context variables
 ) -> PromptContent
 ```

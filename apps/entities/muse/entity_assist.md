@@ -7,7 +7,7 @@
   "group": "Entities"
 }
 
-$journal
+$sol_identity
 
 $facets
 

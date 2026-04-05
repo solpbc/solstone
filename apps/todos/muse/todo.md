@@ -11,7 +11,7 @@
   "group": "Todos"
 }
 
-$journal
+$sol_identity
 
 $facets
 

@@ -9,7 +9,7 @@
   "output": "md"
 }
 
-$journal
+$sol_identity
 
 $facets
 

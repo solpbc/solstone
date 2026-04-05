@@ -6,7 +6,7 @@
   "priority": 10
 }
 
-$journal
+$sol_identity
 
 $facets
 
