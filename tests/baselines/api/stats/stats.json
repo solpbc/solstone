@@ -851,6 +851,14 @@
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
+      "20260405": {
+        "day_bytes": 528,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
+      },
       "20990101": {
         "audio_duration": 0.0,
         "day_bytes": 0,
@@ -1847,8 +1855,8 @@
       "audio_duration": 968.0,
       "audio_segments": 68,
       "audio_sessions": 16,
-      "day_bytes": 557448,
-      "outputs_pending": 580,
+      "day_bytes": 557976,
+      "outputs_pending": 585,
       "outputs_processed": 14,
       "pending_segments": 0,
       "percept_frames": 0,
