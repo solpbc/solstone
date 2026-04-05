@@ -24,9 +24,7 @@ class ActivityStateMachine:
         start_time, _end_time = segment_parse(segment_key)
         if start_time is None:
             return None
-        return (
-            start_time.hour * 3600 + start_time.minute * 60 + start_time.second
-        )
+        return start_time.hour * 3600 + start_time.minute * 60 + start_time.second
 
     def _parse_segment_end_seconds(self, segment_key: str) -> int | None:
         _start_time, end_time = segment_parse(segment_key)

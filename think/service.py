@@ -26,6 +26,7 @@ import plistlib
 import subprocess
 import sys
 from pathlib import Path
+
 from think.utils import get_journal, get_journal_info
 
 SERVICE_LABEL = "org.solpbc.solstone"
@@ -90,7 +91,9 @@ def _generate_plist(env: dict[str, str], port: int = DEFAULT_SERVICE_PORT) -> by
     return plistlib.dumps(plist)
 
 
-def _generate_systemd_unit(env: dict[str, str], port: int = DEFAULT_SERVICE_PORT) -> str:
+def _generate_systemd_unit(
+    env: dict[str, str], port: int = DEFAULT_SERVICE_PORT
+) -> str:
     """Generate a systemd user unit for the solstone supervisor."""
     sol = _sol_bin()
     env_lines = "\n".join(f"Environment={k}={v}" for k, v in sorted(env.items()))

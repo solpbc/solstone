@@ -29,9 +29,7 @@ class TestEngage:
 
         assert result.exit_code == 0
         assert "agent-123" in result.output
-        mock_cr.assert_called_once_with(
-            prompt="fix the bug", name="coder", config=None
-        )
+        mock_cr.assert_called_once_with(prompt="fix the bug", name="coder", config=None)
 
     def test_empty_stdin(self):
         result = _invoke_engage("coder", input_text="")
@@ -49,14 +47,16 @@ class TestEngage:
         assert result.exit_code == 1
 
     def test_wait_success(self):
-        with patch(
-            "think.cortex_client.cortex_request", return_value="agent-123"
-        ), patch(
-            "think.cortex_client.wait_for_agents",
-            return_value=({"agent-123": "finish"}, []),
-        ), patch(
-            "think.cortex_client.read_agent_events",
-            return_value=[{"event": "finish", "result": "All fixed!"}],
+        with (
+            patch("think.cortex_client.cortex_request", return_value="agent-123"),
+            patch(
+                "think.cortex_client.wait_for_agents",
+                return_value=({"agent-123": "finish"}, []),
+            ),
+            patch(
+                "think.cortex_client.read_agent_events",
+                return_value=[{"event": "finish", "result": "All fixed!"}],
+            ),
         ):
             result = _invoke_engage("coder", "--wait", input_text="fix the bug\n")
 
@@ -64,22 +64,24 @@ class TestEngage:
         assert "All fixed!" in result.output
 
     def test_wait_error(self):
-        with patch(
-            "think.cortex_client.cortex_request", return_value="agent-123"
-        ), patch(
-            "think.cortex_client.wait_for_agents",
-            return_value=({"agent-123": "error"}, []),
+        with (
+            patch("think.cortex_client.cortex_request", return_value="agent-123"),
+            patch(
+                "think.cortex_client.wait_for_agents",
+                return_value=({"agent-123": "error"}, []),
+            ),
         ):
             result = _invoke_engage("coder", "--wait", input_text="fix the bug\n")
 
         assert result.exit_code == 1
 
     def test_wait_timeout(self):
-        with patch(
-            "think.cortex_client.cortex_request", return_value="agent-123"
-        ), patch(
-            "think.cortex_client.wait_for_agents",
-            return_value=({}, ["agent-123"]),
+        with (
+            patch("think.cortex_client.cortex_request", return_value="agent-123"),
+            patch(
+                "think.cortex_client.wait_for_agents",
+                return_value=({}, ["agent-123"]),
+            ),
         ):
             result = _invoke_engage("coder", "--wait", input_text="fix the bug\n")
 
@@ -113,9 +115,7 @@ class TestEngage:
         with patch(
             "think.cortex_client.cortex_request", return_value="agent-123"
         ) as mock_cr:
-            result = _invoke_engage(
-                "coder", "--facet", "work", input_text="do stuff\n"
-            )
+            result = _invoke_engage("coder", "--facet", "work", input_text="do stuff\n")
 
         assert result.exit_code == 0
         mock_cr.assert_called_once_with(

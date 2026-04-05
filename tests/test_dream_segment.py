@@ -190,7 +190,9 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "get_muse_configs",
-            lambda schedule=None, **kwargs: _segment_configs("sense", "entities", "screen"),
+            lambda schedule=None, **kwargs: _segment_configs(
+                "sense", "entities", "screen"
+            ),
         )
         monkeypatch.setattr(
             dream,
@@ -238,7 +240,9 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "get_muse_configs",
-            lambda schedule=None, **kwargs: _segment_configs("sense", "entities", "screen"),
+            lambda schedule=None, **kwargs: _segment_configs(
+                "sense", "entities", "screen"
+            ),
         )
         monkeypatch.setattr(
             dream,
@@ -264,7 +268,10 @@ class TestRunSegmentSense:
 
     @pytest.mark.parametrize(
         ("has_embeddings", "expected"),
-        [(False, ["sense", "entities"]), (True, ["sense", "entities", "speaker_attribution"])],
+        [
+            (False, ["sense", "entities"]),
+            (True, ["sense", "entities", "speaker_attribution"]),
+        ],
     )
     def test_conditional_speaker_attribution(
         self,
@@ -370,7 +377,9 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "get_muse_configs",
-            lambda schedule=None, **kwargs: _segment_configs("sense", "entities", "screen"),
+            lambda schedule=None, **kwargs: _segment_configs(
+                "sense", "entities", "screen"
+            ),
         )
         monkeypatch.setattr(
             dream,
@@ -407,7 +416,9 @@ class TestRunSegmentSense:
         monkeypatch.setattr(
             dream,
             "get_muse_configs",
-            lambda schedule=None, **kwargs: _segment_configs("sense", "entities", "pulse"),
+            lambda schedule=None, **kwargs: _segment_configs(
+                "sense", "entities", "pulse"
+            ),
         )
         monkeypatch.setattr(
             dream,
@@ -543,7 +554,9 @@ class TestRunSegmentSense:
             segment_dir,
             {"density": "active", "recommend": {}, "facets": []},
         )
-        (segment_dir / "agents" / "entities.md").write_text("entities", encoding="utf-8")
+        (segment_dir / "agents" / "entities.md").write_text(
+            "entities", encoding="utf-8"
+        )
 
         monkeypatch.setattr(
             dream,

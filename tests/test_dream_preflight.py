@@ -31,7 +31,9 @@ class TestShouldSkipPreflight:
         from think import awareness
         from think.dream import _should_skip_preflight
 
-        monkeypatch.setattr(awareness, "get_onboarding", lambda: {"status": "observing"})
+        monkeypatch.setattr(
+            awareness, "get_onboarding", lambda: {"status": "observing"}
+        )
         assert _should_skip_preflight(
             "firstday_checkin",
             day="20240115",
@@ -46,7 +48,10 @@ class TestShouldSkipPreflight:
         monkeypatch.setattr(
             awareness,
             "get_onboarding",
-            lambda: {"status": "complete", "firstday_checkin_sent": "20260402T10:00:00"},
+            lambda: {
+                "status": "complete",
+                "firstday_checkin_sent": "20260402T10:00:00",
+            },
         )
         assert _should_skip_preflight(
             "firstday_checkin",

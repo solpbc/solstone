@@ -145,11 +145,13 @@ def read(
         sources = {"transcripts": True, "percepts": False, "agents": True}
 
     # Validate mutually exclusive selection modes
-    mode_count = sum([
-        segment is not None,
-        segments is not None,
-        start is not None or length is not None,
-    ])
+    mode_count = sum(
+        [
+            segment is not None,
+            segments is not None,
+            start is not None or length is not None,
+        ]
+    )
     if mode_count > 1:
         typer.echo(
             "Error: Cannot mix --segment, --segments, and --start/--length.",

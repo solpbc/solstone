@@ -124,7 +124,10 @@ def test_validate_key_timeout():
 def test_update_config_saves_key_validation(settings_client):
     client, journal = settings_client
 
-    with patch("think.providers.validate_key", return_value={"valid": False, "error": "bad key"}):
+    with patch(
+        "think.providers.validate_key",
+        return_value={"valid": False, "error": "bad key"},
+    ):
         response = client.put(
             "/app/settings/api/config",
             json={"section": "env", "data": {"GOOGLE_API_KEY": "bad-key"}},
@@ -193,7 +196,10 @@ def test_validate_all_keys_endpoint(settings_client):
     config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
     def fake_validate(provider: str, api_key: str) -> dict:
-        return {"valid": provider == "google", "error": "" if provider == "google" else "bad key"}
+        return {
+            "valid": provider == "google",
+            "error": "" if provider == "google" else "bad key",
+        }
 
     with patch("think.providers.validate_key", side_effect=fake_validate):
         response = client.post("/app/settings/api/validate-keys")

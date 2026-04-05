@@ -3,9 +3,9 @@
 
 """Tests for think.routines — user-defined routines engine."""
 
+import importlib.util
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
-import importlib.util
 from pathlib import Path
 from unittest.mock import patch
 

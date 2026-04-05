@@ -514,7 +514,13 @@ class TestSolHistoryLogging:
     def test_partner_update_section_logs_history(self, journal_with_sol):
         runner.invoke(
             app,
-            ["partner", "--update-section", "work patterns", "--value", "Morning focus"],
+            [
+                "partner",
+                "--update-section",
+                "work patterns",
+                "--value",
+                "Morning focus",
+            ],
         )
         history = journal_with_sol / "sol" / "history.jsonl"
         assert history.exists()

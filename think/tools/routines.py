@@ -400,9 +400,7 @@ def suggest_respond(
     suggestions = meta.get("suggestions", {})
 
     if template not in suggestions:
-        typer.echo(
-            f"Error: no suggestion state for template '{template}'.", err=True
-        )
+        typer.echo(f"Error: no suggestion state for template '{template}'.", err=True)
         raise typer.Exit(code=1)
 
     from datetime import date

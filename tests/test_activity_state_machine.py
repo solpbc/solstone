@@ -63,9 +63,7 @@ class TestContentTypeChange:
 
         sm = ActivityStateMachine()
         sm.update(_sense(content_type="coding"), "090000_300", "20260304")
-        changes = sm.update(
-            _sense(content_type="meeting"), "090500_300", "20260304"
-        )
+        changes = sm.update(_sense(content_type="meeting"), "090500_300", "20260304")
 
         assert len(changes) == 2
         ended = [c for c in changes if c["state"] == "ended"]

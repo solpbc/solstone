@@ -177,6 +177,7 @@ class TestGoogleWriteFlag:
         cmd = mock_runner_cls.call_args.kwargs["cmd"]
         assert "--allowed-tools" not in cmd
 
+
 # ---------------------------------------------------------------------------
 # muse/coder.md existence and frontmatter
 # ---------------------------------------------------------------------------

@@ -395,7 +395,15 @@ class TestTodosAddDedup:
         _, src_facet, dst_facet = move_env([{"text": "Draft Q1 plan"}], day="20240102")
         result = runner.invoke(
             call_app,
-            ["todos", "add", "Draft Q1 plan", "--day", "20240102", "--facet", dst_facet],
+            [
+                "todos",
+                "add",
+                "Draft Q1 plan",
+                "--day",
+                "20240102",
+                "--facet",
+                dst_facet,
+            ],
         )
         assert result.exit_code == 1
         assert "Duplicate detected" in result.output
@@ -424,7 +432,15 @@ class TestTodosAddDedup:
         _, src_facet, dst_facet = move_env([{"text": "Buy groceries"}], day="20240102")
         result = runner.invoke(
             call_app,
-            ["todos", "add", "Draft Q1 plan", "--day", "20240102", "--facet", dst_facet],
+            [
+                "todos",
+                "add",
+                "Draft Q1 plan",
+                "--day",
+                "20240102",
+                "--facet",
+                dst_facet,
+            ],
         )
         assert result.exit_code == 0
         assert "Draft Q1 plan" in result.output
@@ -434,7 +450,15 @@ class TestTodosAddDedup:
         _, src_facet, dst_facet = move_env([{"text": "Draft Q1 plan"}], day="20240102")
         result = runner.invoke(
             call_app,
-            ["todos", "add", "Draft Q1 plan", "--day", "20240102", "--facet", dst_facet],
+            [
+                "todos",
+                "add",
+                "Draft Q1 plan",
+                "--day",
+                "20240102",
+                "--facet",
+                dst_facet,
+            ],
         )
         assert result.exit_code == 1
         assert "100%" in result.output

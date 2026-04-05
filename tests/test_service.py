@@ -81,13 +81,17 @@ class TestEnvCollection:
 
         config_dir = tmp_path / "config"
         config_dir.mkdir(exist_ok=True)
-        (config_dir / "journal.json").write_text(json.dumps({
-            "env": {
-                "ANTHROPIC_API_KEY": "sk-test",
-                "OPENAI_API_KEY": "sk-openai",
-                "GOOGLE_API_KEY": "gk-test",
-            }
-        }))
+        (config_dir / "journal.json").write_text(
+            json.dumps(
+                {
+                    "env": {
+                        "ANTHROPIC_API_KEY": "sk-test",
+                        "OPENAI_API_KEY": "sk-openai",
+                        "GOOGLE_API_KEY": "gk-test",
+                    }
+                }
+            )
+        )
 
         env = service._collect_env()
         assert "ANTHROPIC_API_KEY" not in env

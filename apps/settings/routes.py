@@ -424,7 +424,8 @@ def validate_all_keys() -> Any:
     against the provider API, and stores results in providers.key_validation.
     """
     try:
-        from think.providers import PROVIDER_METADATA, validate_key as _validate_key
+        from think.providers import PROVIDER_METADATA
+        from think.providers import validate_key as _validate_key
 
         config = get_journal_config()
         env_config = config.get("env", {})

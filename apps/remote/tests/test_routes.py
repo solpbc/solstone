@@ -791,7 +791,10 @@ def test_segments_endpoint_empty(remote_env):
     key = resp.get_json()["key"]
 
     # Query segments - should be empty
-    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
+    resp = env.client.get(
+        "/app/remote/ingest/segments/20250103",
+        headers={"Authorization": f"Bearer {key}"},
+    )
     assert resp.status_code == 200
     assert resp.get_json() == []
 
@@ -800,7 +803,10 @@ def test_segments_endpoint_invalid_key(remote_env):
     """Test segments endpoint rejects invalid key."""
     env = remote_env()
 
-    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": "Bearer invalid-key"})
+    resp = env.client.get(
+        "/app/remote/ingest/segments/20250103",
+        headers={"Authorization": "Bearer invalid-key"},
+    )
     assert resp.status_code == 401
 
 
@@ -816,7 +822,10 @@ def test_segments_endpoint_invalid_day(remote_env):
     )
     key = resp.get_json()["key"]
 
-    resp = env.client.get("/app/remote/ingest/segments/2025-01-03", headers={"Authorization": f"Bearer {key}"})
+    resp = env.client.get(
+        "/app/remote/ingest/segments/2025-01-03",
+        headers={"Authorization": f"Bearer {key}"},
+    )
     assert resp.status_code == 400
     assert "Invalid day format" in resp.get_json()["error"]
 
@@ -847,7 +856,10 @@ def test_segments_endpoint_lists_uploads(remote_env):
     assert resp.status_code == 200
 
     # Query segments
-    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
+    resp = env.client.get(
+        "/app/remote/ingest/segments/20250103",
+        headers={"Authorization": f"Bearer {key}"},
+    )
     assert resp.status_code == 200
     data = resp.get_json()
 
@@ -900,7 +912,10 @@ def test_segments_endpoint_shows_collision(remote_env):
     assert resp.status_code == 200
 
     # Query segments
-    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
+    resp = env.client.get(
+        "/app/remote/ingest/segments/20250103",
+        headers={"Authorization": f"Bearer {key}"},
+    )
     data = resp.get_json()
 
     assert len(data) == 1
@@ -945,7 +960,10 @@ def test_segments_endpoint_missing_file(remote_env):
     ).unlink()
 
     # Query segments
-    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
+    resp = env.client.get(
+        "/app/remote/ingest/segments/20250103",
+        headers={"Authorization": f"Bearer {key}"},
+    )
     data = resp.get_json()
 
     assert len(data) == 1
@@ -986,7 +1004,10 @@ def test_segments_endpoint_relocated_file(remote_env):
     original_path.rename(new_path)
 
     # Query segments - should detect relocation by inode
-    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
+    resp = env.client.get(
+        "/app/remote/ingest/segments/20250103",
+        headers={"Authorization": f"Bearer {key}"},
+    )
     data = resp.get_json()
 
     assert len(data) == 1
@@ -1047,7 +1068,10 @@ def test_segments_endpoint_revoked_key(remote_env):
     env.client.delete(f"/app/remote/api/{key_prefix}")
 
     # Query segments - should be rejected
-    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
+    resp = env.client.get(
+        "/app/remote/ingest/segments/20250103",
+        headers={"Authorization": f"Bearer {key}"},
+    )
     assert resp.status_code == 403
     assert "Remote revoked" in resp.get_json()["error"]
 
@@ -1097,7 +1121,10 @@ def test_segments_endpoint_deduplicates_by_sha256(remote_env):
     assert resp.get_json()["status"] == "duplicate"
 
     # Query segments - should have only one segment (duplicate was rejected)
-    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
+    resp = env.client.get(
+        "/app/remote/ingest/segments/20250103",
+        headers={"Authorization": f"Bearer {key}"},
+    )
     data = resp.get_json()
 
     # Should have 1 segment (duplicate rejected, not 2 segments)
@@ -1135,7 +1162,10 @@ def test_segments_endpoint_shows_observed_status(remote_env):
     assert resp.status_code == 200
 
     # Query segments - should show observed: false
-    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
+    resp = env.client.get(
+        "/app/remote/ingest/segments/20250103",
+        headers={"Authorization": f"Bearer {key}"},
+    )
     data = resp.get_json()
     assert len(data) == 1
     assert data[0]["observed"] is False
@@ -1148,7 +1178,10 @@ def test_segments_endpoint_shows_observed_status(remote_env):
         f.write('{"ts": 1704312345000, "type": "observed", "segment": "120000_300"}\n')
 
     # Query again - should now show observed: true
-    resp = env.client.get("/app/remote/ingest/segments/20250103", headers={"Authorization": f"Bearer {key}"})
+    resp = env.client.get(
+        "/app/remote/ingest/segments/20250103",
+        headers={"Authorization": f"Bearer {key}"},
+    )
     data = resp.get_json()
     assert len(data) == 1
     assert data[0]["observed"] is True

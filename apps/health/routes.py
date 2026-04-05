@@ -6,9 +6,9 @@ import socket
 from pathlib import Path
 
 from flask import Blueprint, jsonify, request
-from think.streams import stream_name
 
 from convey import state
+from think.streams import stream_name
 
 health_bp = Blueprint("app:health", __name__, url_prefix="/app/health")
 

@@ -22,9 +22,10 @@ def mock_session():
 
 @pytest.fixture
 def mock_config():
-    with patch("observe.remote_client.get_config") as mock, patch(
-        "observe.remote_client.read_service_port"
-    ) as mock_port:
+    with (
+        patch("observe.remote_client.get_config") as mock,
+        patch("observe.remote_client.read_service_port") as mock_port,
+    ):
         mock.return_value = {}
         mock_port.return_value = 8000
         yield mock
@@ -53,9 +54,10 @@ def test_observer_client_init_no_port(mock_session):
     """When no config URL and no convey.port file, _url is empty."""
     from observe.remote_client import ObserverClient
 
-    with patch("observe.remote_client.get_config") as cfg, patch(
-        "observe.remote_client.read_service_port"
-    ) as port:
+    with (
+        patch("observe.remote_client.get_config") as cfg,
+        patch("observe.remote_client.read_service_port") as port,
+    ):
         cfg.return_value = {}
         port.return_value = None
         client = ObserverClient("main-stream")
