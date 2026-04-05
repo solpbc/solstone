@@ -2,11 +2,12 @@
   "type": "cogitate",
   "title": "Sol",
   "description": "Sol — the journal itself, as a conversational partner",
-  "instructions": {"facets": true, "now": true},
   "hook": {"pre": "muse/chat_context.py"}
 }
 
 $sol_identity
+
+$facets
 
 ## Adaptive Depth
 

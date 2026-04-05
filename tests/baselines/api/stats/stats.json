@@ -7,15 +7,12 @@
         "post": "daily_schedule",
         "pre": "daily_schedule"
       },
-      "instructions": {
-        "facets": true,
-        "sources": {
-          "agents": {
-            "screen": true
-          },
-          "percepts": false,
-          "transcripts": true
-        }
+      "load": {
+        "agents": {
+          "screen": true
+        },
+        "percepts": false,
+        "transcripts": true
       },
       "max_output_tokens": 512,
       "mtime": 0,
@@ -40,16 +37,12 @@
       "hook": {
         "post": "occurrence"
       },
-      "instructions": {
-        "activity": true,
-        "facets": true,
-        "sources": {
-          "agents": {
-            "screen": true
-          },
-          "percepts": false,
-          "transcripts": true
-        }
+      "load": {
+        "agents": {
+          "screen": true
+        },
+        "percepts": false,
+        "transcripts": true
       },
       "mtime": 0,
       "occurrences": "Create an occurrence for every decision-action observed. Include the time span, decision type, actors involved, entities affected, and impact assessment. Each occurrence should capture both the intent and enactment of the decision.",
@@ -67,13 +60,10 @@
       "hook": {
         "post": "entities"
       },
-      "instructions": {
-        "facets": false,
-        "sources": {
-          "agents": false,
-          "percepts": true,
-          "transcripts": true
-        }
+      "load": {
+        "agents": false,
+        "percepts": true,
+        "transcripts": true
       },
       "max_output_tokens": 1024,
       "mtime": 0,
@@ -114,15 +104,12 @@
       "hook": {
         "post": "occurrence"
       },
-      "instructions": {
-        "facets": true,
-        "sources": {
-          "agents": {
-            "screen": true
-          },
-          "percepts": false,
-          "transcripts": true
-        }
+      "load": {
+        "agents": {
+          "screen": true
+        },
+        "percepts": false,
+        "transcripts": true
       },
       "mtime": 0,
       "occurrences": "Create an occurrence for noteworthy shifts in work rhythms or focus. Include timestamps when deep work starts or ends, or when energy levels noticeably change. Classify each as work or personal based on the surrounding context.",
@@ -146,16 +133,12 @@
       "hook": {
         "post": "occurrence"
       },
-      "instructions": {
-        "activity": true,
-        "facets": true,
-        "sources": {
-          "agents": {
-            "screen": true
-          },
-          "percepts": false,
-          "transcripts": true
-        }
+      "load": {
+        "agents": {
+          "screen": true
+        },
+        "percepts": false,
+        "transcripts": true
       },
       "mtime": 0,
       "occurrences": "Whenever a future task or commitment is mentioned, create an occurrence with the expected action and deadline if known. Note who requested it and whether it is work or personal.",
@@ -173,15 +156,12 @@
       "hook": {
         "post": "occurrence"
       },
-      "instructions": {
-        "facets": true,
-        "sources": {
-          "agents": {
-            "screen": true
-          },
-          "percepts": false,
-          "transcripts": true
-        }
+      "load": {
+        "agents": {
+          "screen": true
+        },
+        "percepts": false,
+        "transcripts": true
       },
       "mtime": 0,
       "occurrences": "For each entity interaction or relationship mentioned, create an occurrence describing the connection. Include start and end times when the relationship is visible, and capture the type of link such as works-on or discusses-with.",
@@ -202,16 +182,12 @@
       "hook": {
         "post": "occurrence"
       },
-      "instructions": {
-        "activity": true,
-        "facets": true,
-        "sources": {
-          "agents": {
-            "screen": true
-          },
-          "percepts": false,
-          "transcripts": true
-        }
+      "load": {
+        "agents": {
+          "screen": true
+        },
+        "percepts": false,
+        "transcripts": true
       },
       "mtime": 0,
       "occurrences": "Each meeting should generate an occurrence with start and end times, list of participants and a concise summary. If slides are present, mention them in the details field.",
@@ -233,16 +209,12 @@
       "hook": {
         "post": "occurrence"
       },
-      "instructions": {
-        "activity": true,
-        "facets": true,
-        "sources": {
-          "agents": {
-            "screen": true
-          },
-          "percepts": false,
-          "transcripts": true
-        }
+      "load": {
+        "agents": {
+          "screen": true
+        },
+        "percepts": false,
+        "transcripts": true
       },
       "mtime": 0,
       "occurrences": "Create an occurrence for every distinct message interaction. Include the time block, app name, contacts or channels involved, whether $preferred was reading or replying, and a summary of visible content.",
@@ -264,12 +236,10 @@
         "post": "observation",
         "pre": "observation"
       },
-      "instructions": {
-        "sources": {
-          "agents": false,
-          "percepts": true,
-          "transcripts": true
-        }
+      "load": {
+        "agents": false,
+        "percepts": true,
+        "transcripts": true
       },
       "max_output_tokens": 2048,
       "mtime": 0,
@@ -289,14 +259,12 @@
       "hook": {
         "post": "anticipation"
       },
-      "instructions": {
-        "sources": {
-          "agents": {
-            "screen": true
-          },
-          "percepts": false,
-          "transcripts": true
-        }
+      "load": {
+        "agents": {
+          "screen": true
+        },
+        "percepts": false,
+        "transcripts": true
       },
       "mtime": 0,
       "output": "md",
@@ -310,12 +278,10 @@
     "screen": {
       "color": "#9c27b0",
       "description": "Creates a detailed documentary record of screen activity. Focuses on the 'what' - chronological account with preserved details, excerpts, and entities.",
-      "instructions": {
-        "sources": {
-          "agents": false,
-          "percepts": "required",
-          "transcripts": true
-        }
+      "load": {
+        "agents": false,
+        "percepts": "required",
+        "transcripts": true
       },
       "mtime": 0,
       "output": "md",
@@ -329,13 +295,10 @@
     "sense": {
       "color": "#ff6f00",
       "description": "Unified segment understanding — density, content type, entities, facets, speakers, and routing recommendations in a single pass",
-      "instructions": {
-        "facets": true,
-        "sources": {
-          "agents": false,
-          "percepts": true,
-          "transcripts": true
-        }
+      "load": {
+        "agents": false,
+        "percepts": true,
+        "transcripts": true
       },
       "max_output_tokens": 4096,
       "mtime": 0,
@@ -356,14 +319,12 @@
         "post": "speaker_attribution",
         "pre": "speaker_attribution"
       },
-      "instructions": {
-        "sources": {
-          "agents": {
-            "screen": true,
-            "speakers": true
-          },
-          "transcripts": true
-        }
+      "load": {
+        "agents": {
+          "screen": true,
+          "speakers": true
+        },
+        "transcripts": true
       },
       "mtime": 0,
       "output": "json",
@@ -380,14 +341,12 @@
       "hook": {
         "post": "occurrence"
       },
-      "instructions": {
-        "sources": {
-          "agents": {
-            "screen": true
-          },
-          "percepts": false,
-          "transcripts": true
-        }
+      "load": {
+        "agents": {
+          "screen": true
+        },
+        "percepts": false,
+        "transcripts": true
       },
       "mtime": 0,
       "occurrences": "Create an occurrence for each hour segment, don't break down hours into any smaller segments the goal for timeline occurrences is for them to capture whatever happened within each hour of the day where there was activity.",
