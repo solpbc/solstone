@@ -181,11 +181,11 @@ returns a dictionary keyed by generator name. Each entry contains:
 - `path` – the prompt file path
 - `color` – UI color hex string
 - `mtime` – modification time of the `.md` file
-- Additional keys from JSON frontmatter such as `title`, `description`, `hook`, or `instructions`
+- Additional keys from JSON frontmatter such as `title`, `description`, `hook`, or `load`
 
 The `hook` field enables event extraction by invoking named hooks like `"occurrence"` or `"anticipation"`.
-The `instructions` key allows customizing system prompts and source filtering.
-See [APPS.md](APPS.md#instructions-configuration) for the full schema.
+The `load` key controls transcript/percept/agent source filtering for generators.
+See [APPS.md](APPS.md#prompt-context-configuration) for the full schema.
 
 ## Cortex API
 
@@ -253,11 +253,11 @@ Providers implement `run_generate()`, `run_agenerate()`, and `run_cogitate()` fu
 
 System prompts in `muse/*.md` (markdown with JSON frontmatter). Apps can add custom agents in `apps/{app}/muse/`.
 
-JSON metadata supports `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, and `instructions` keys.
+JSON metadata supports `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, and `load` keys.
 
 **Important:** The `priority` field is **required** for all prompts with a `schedule`. Prompts without explicit priority will fail validation. See the [Unified Priority Execution](#unified-priority-execution) section for priority bands.
 
-See [APPS.md](APPS.md#instructions-configuration) for the `instructions` schema that controls system prompts, facet context, and source filtering.
+See [APPS.md](APPS.md#prompt-context-configuration) for the `load` schema and inline template variables that control source filtering and prompt context.
 
 ## Documentation
 

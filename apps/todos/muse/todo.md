@@ -8,15 +8,14 @@
   "schedule": "activity",
   "activities": ["*"],
   "priority": 10,
-  "group": "Todos",
-  "instructions": {
-    "system": "journal",
-    "facets": true,
-    "now": true,
-    "activity": true
-  }
-
+  "group": "Todos"
 }
+
+$journal
+
+$facets
+
+$activity_context
 
 $activity_preamble
 

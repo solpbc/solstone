@@ -10,13 +10,12 @@
   "activities": ["messaging", "email"],
   "priority": 10,
   "output": "md",
-  "instructions": {
-    "sources": {"transcripts": true, "percepts": false, "agents": {"screen": true}},
-    "facets": true,
-    "activity": true
-  }
-
+  "load": {"transcripts": true, "percepts": false, "agents": {"screen": true}}
 }
+
+$facets
+
+$activity_context
 
 $activity_preamble
 

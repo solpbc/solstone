@@ -99,7 +99,6 @@ def test_get_agent_system_agent(fixture_journal):
     config = get_agent("unified")
 
     assert config["name"] == "unified"
-    assert "system_instruction" in config
     assert "user_instruction" in config
     assert len(config["user_instruction"]) > 0
 

@@ -1,8 +1,7 @@
 {
   "type": "cogitate",
   "title": "Naming",
-  "description": "Proposes a personalized name for the owner's journal assistant",
-  "instructions": {"now": true}
+  "description": "Proposes a personalized name for the owner's journal assistant"
 }
 
 You are $agent_name's naming ceremony agent. Your role is to propose a meaningful name for the owner's journal assistant when the relationship has developed enough depth.

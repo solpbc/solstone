@@ -10,9 +10,7 @@
   "thinking_budget": 2048,
   "max_output_tokens": 2048,
   "exclude_streams": ["import.*"],
-  "instructions": {
-    "sources": {"transcripts": true, "percepts": true, "agents": false}
-  }
+  "load": {"transcripts": true, "percepts": true, "agents": false}
 }
 
 You are analyzing a captured segment of someone's computer activity to learn about their work patterns. This is part of an onboarding observation — the owner has asked the system to watch how they work for a day and then suggest how to organize their journal.

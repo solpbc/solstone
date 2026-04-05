@@ -6,10 +6,12 @@
   "color": "#c62828",
   "schedule": "daily",
   "priority": 60,
-  "output": "md",
-  "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
-
+  "output": "md"
 }
+
+$journal
+
+$facets
 
 ## Mission
 From the day's decision-action outputs (produced per-activity), you will:

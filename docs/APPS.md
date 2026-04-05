@@ -332,7 +332,7 @@ The `occurrences` field (optional string) provides agent-specific extraction gui
 - Resolution: `"name"` → `muse/{name}.py`, `"app:name"` → `apps/{app}/muse/{name}.py`, or explicit path
 
 **Pre-hooks** (`pre_process`): Modify inputs before the LLM call
-- `context` is the full config dict with: `name`, `agent_id`, `provider`, `model`, `prompt`, `system_instruction`, `user_instruction`, `extra_context`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
+- `context` is the full config dict with: `name`, `agent_id`, `provider`, `model`, `prompt`, `system_instruction` (if set), `user_instruction`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
 - Return a dict of modified fields to merge back (e.g., `{"prompt": "modified"}`)
 - Return `None` for no changes
 
@@ -384,36 +384,29 @@ Define custom agents and generator templates that integrate with solstone's Cort
 - System agent examples: `muse/*.md` (files with `tools` field)
 - Discovery logic: `think/muse.py` - `get_muse_configs(has_tools=True)`, `get_agent()`
 
-#### Instructions Configuration
+#### Prompt Context Configuration
 
-Both generators and agents support an optional `instructions` key for customizing prompt composition:
+Both generators and agents support an optional `load` key for configuring source data dependencies:
 
 ```json
 {
-  "instructions": {
-    "system": "journal",
-    "facets": true,
-    "sources": {"audio": true, "screen": true, "agents": false}
-  }
+  "load": {"transcripts": true, "percepts": false, "agents": {"screen": true}}
 }
 ```
 
-- `system` - System prompt file name (loads from `think/{name}.txt`)
-- `facets` - `false` | `true` - whether to include facet context
-- `sources` - Generators only: which content types to cluster. Values can be:
+- `load` controls which source types are clustered before generator execution. Values can be:
   - `false` - don't load this source type
   - `true` - load if available
   - `"required"` - load, and skip generation if no content found (useful for generators that only make sense with specific input types, e.g., `"audio": "required"` for speaker detection)
   - For `agents` only: a dict for selective filtering, e.g., `{"entities": true, "meetings": "required", "flow": false}`. Keys are agent names (system) or `"app:agent"` (app-namespaced). An empty dict `{}` means no agents.
-- `activity` - Activity-scheduled agents only: controls activity context in `extra_context`. Can be:
-  - `false` - no activity context (default)
-  - `true` - enable all activity context (shorthand for `{"context": true, "state": true, "focus": true}`)
-  - Dict with sub-keys:
-    - `context` - Include activity metadata (type, description, entities, duration, engagement level)
-    - `state` - Include per-segment activity state descriptions from `activity_state.json` (roadmap of what this activity was doing in each segment)
-    - `focus` - Include focusing instructions telling the agent to analyze only this activity and ignore concurrent activities
 
-**Authoritative source:** `think/muse.py` - `compose_instructions()`, `_DEFAULT_INSTRUCTIONS`, `source_is_enabled()`, `source_is_required()`, `get_agent_filter()`
+Context is provided inline in the `.md` body via template variables:
+
+- `$journal` - system prompt text from `think/journal.md`
+- `$facets` - focused facet context or all available facets
+- `$activity_context` - activity metadata, segment state, and analysis focus sections
+
+**Authoritative source:** `think/muse.py` - `_DEFAULT_LOAD`, `source_is_enabled()`, `source_is_required()`, `get_agent_filter()`
 
 ---
 

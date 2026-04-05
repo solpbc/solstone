@@ -6,10 +6,12 @@
   "schedule": "segment",
   "priority": 99,
   "tier": 3,
-  "max_output_tokens": 1000,
-  "instructions": {"system": "journal", "facets": true, "now": true}
-
+  "max_output_tokens": 1000
 }
+
+$journal
+
+$facets
 
 # Pulse
 

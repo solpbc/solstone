@@ -4,10 +4,12 @@
   "title": "Entity Description",
   "description": "Research and generate single-sentence descriptions for attached entities",
   "color": "#26a69a",
-  "group": "Entities",
-  "instructions": {"system": "journal", "facets": true, "now": true}
-
+  "group": "Entities"
 }
+
+$journal
+
+$facets
 
 ## Core Mission
 

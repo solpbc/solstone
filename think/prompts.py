@@ -126,6 +126,40 @@ def format_current_datetime() -> str:
         return now.strftime("%A, %B %d, %Y at %I:%M %p")
 
 
+def _resolve_facets(facet: str | None) -> str:
+    """Resolve $facets template variable.
+
+    Args:
+        facet: Focused facet name, or None for all facets.
+
+    Returns:
+        Markdown text for facet context.
+    """
+    if facet:
+        try:
+            from think.facets import facet_summary
+
+            return f"## Facet Focus\n{facet_summary(facet)}"
+        except Exception:
+            return ""
+    try:
+        from think.facets import facet_summaries
+
+        summary = facet_summaries()
+        if summary and summary != "No facets found.":
+            return summary
+        return (
+            "No facets are defined yet. You are in discovery mode. "
+            "Name the contexts you observe based on what is actually happening "
+            "in this segment — use specific, descriptive names that reflect the "
+            'actual activity (e.g., "engineering-work" not "work", '
+            '"investor-calls" not "meetings"). These names will be used to '
+            "suggest journal organization to the user."
+        )
+    except Exception:
+        return ""
+
+
 # ---------------------------------------------------------------------------
 # Prompt Loading
 # ---------------------------------------------------------------------------

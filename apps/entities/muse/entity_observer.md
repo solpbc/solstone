@@ -8,10 +8,12 @@
   "schedule": "daily",
   "priority": 57,
   "multi_facet": true,
-  "group": "Entities",
-  "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
-
+  "group": "Entities"
 }
+
+$journal
+
+$facets
 
 ## Core Mission
 

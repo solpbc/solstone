@@ -4,10 +4,12 @@
   "title": "Heartbeat",
   "description": "Sol's periodic self-awareness — journal health, agency tending, curation scan",
   "schedule": "none",
-  "priority": 10,
-  "instructions": {"system": "journal", "facets": true, "now": true}
-
+  "priority": 10
 }
+
+$journal
+
+$facets
 
 # Heartbeat
 

@@ -6,10 +6,10 @@
   "color": "#f9a825",
   "schedule": "daily",
   "priority": 99,
-  "output": "md",
-  "instructions": {"system": "journal", "now": true, "day": true}
-
+  "output": "md"
 }
+
+$journal
 
 ### Executive Summary
 $Preferred has made a creative and subjective request: to analyze the analysis day's journal data, find the most "poignant" and interesting material, and then leverage it to craft a hilarious joke to be sent as a message. This plan focuses on a comprehensive data-gathering operation for a single day to provide a rich set of raw material for the creative task.

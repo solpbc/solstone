@@ -4,10 +4,12 @@
   "title": "Partner Profile",
   "description": "Weekly observation of the journal owner's behavioral patterns — work style, communication, priorities, decision-making, expertise",
   "schedule": "weekly",
-  "priority": 95,
-  "instructions": {"system": "journal", "facets": true, "now": true}
-
+  "priority": 95
 }
+
+$journal
+
+$facets
 
 # Partner Profile
 
