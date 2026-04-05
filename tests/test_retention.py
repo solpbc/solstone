@@ -290,8 +290,8 @@ class TestPurge:
         (day1b / "stream.json").write_text('{"stream":"plaud"}')
         (day1b / "agents").mkdir()
 
-        # Day 2: 10 days old — one complete segment
-        day2 = journal / "20260306" / "default" / "120000_300"
+        # Day 2: recent — one complete segment (must stay within 30d window)
+        day2 = journal / "20260401" / "default" / "120000_300"
         day2.mkdir(parents=True)
         (day2 / "audio.flac").write_bytes(b"x" * 800)
         (day2 / "audio.jsonl").write_text('{"raw":"audio.flac"}\n')

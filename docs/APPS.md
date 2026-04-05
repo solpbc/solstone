@@ -359,7 +359,7 @@ def post_process(result: str, context: dict) -> str | None:
 **Reference implementations:**
 - System generator templates: `talent/*.md` (files with `schedule` field but no `tools` field)
 - Extraction hooks: `talent/occurrence.py`, `talent/anticipation.py`
-- Discovery logic: `think/talent.py` - `get_muse_configs(has_tools=False)`, `get_output_name()`
+- Discovery logic: `think/talent.py` - `get_talent_configs(has_tools=False)`, `get_output_name()`
 - Hook loading: `think/talent.py` - `load_pre_hook()`, `load_post_hook()`
 
 ---
@@ -382,7 +382,7 @@ Define custom agents and generator templates that integrate with solstone's Cort
 
 **Reference implementations:**
 - System agent examples: `talent/*.md` (files with `tools` field)
-- Discovery logic: `think/talent.py` - `get_muse_configs(has_tools=True)`, `get_agent()`
+- Discovery logic: `think/talent.py` - `get_talent_configs(has_tools=True)`, `get_agent()`
 
 #### Prompt Context Configuration
 
