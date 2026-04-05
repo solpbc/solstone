@@ -8,11 +8,9 @@
         "pre": "daily_schedule"
       },
       "load": {
-        "agents": {
-          "screen": true
-        },
+        "agents": false,
         "percepts": false,
-        "transcripts": true
+        "transcripts": false
       },
       "max_output_tokens": 512,
       "mtime": 0,
