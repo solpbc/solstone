@@ -72,6 +72,13 @@
       "tier": 2,
       "type": null
     },
+    "muse.system.chat": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Sol",
+      "tier": 2,
+      "type": "cogitate"
+    },
     "muse.system.coder": {
       "disabled": false,
       "group": "Think",
@@ -303,13 +310,6 @@
       "disabled": false,
       "group": "Think",
       "label": "Triage",
-      "tier": 2,
-      "type": "cogitate"
-    },
-    "muse.system.unified": {
-      "disabled": false,
-      "group": "Think",
-      "label": "Sol",
       "tier": 2,
       "type": "cogitate"
     },

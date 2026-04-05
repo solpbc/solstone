@@ -11,6 +11,17 @@
       "title": "Anticipation Extraction",
       "type": null
     },
+    "chat": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Sol \u2014 the journal itself, as a conversational partner",
+      "multi_facet": false,
+      "output_format": null,
+      "schedule": null,
+      "source": "system",
+      "title": "Sol",
+      "type": "cogitate"
+    },
     "coder": {
       "app": null,
       "color": "#6c757d",
@@ -427,17 +438,6 @@
       "schedule": null,
       "source": "system",
       "title": "Triage",
-      "type": "cogitate"
-    },
-    "unified": {
-      "app": null,
-      "color": "#6c757d",
-      "description": "Sol \u2014 the journal itself, as a conversational partner",
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "system",
-      "title": "Sol",
       "type": "cogitate"
     }
   },
