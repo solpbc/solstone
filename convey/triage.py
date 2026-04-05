@@ -16,15 +16,12 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint("triage", __name__, url_prefix="/api/triage")
 
-# Maximum recent turns to include in conversation context
-MAX_CONVERSATION_TURNS = 20
-
 
 @bp.route("", methods=["POST"])
 def triage() -> Any:
     """Accept a message from the conversation panel and spawn a triage agent.
 
-    Expects JSON: {message, app, path, facet, conversation_history?}
+    Expects JSON: {message, app, path, facet}
     Returns JSON: {agent_id}
 
     The agent runs asynchronously. The browser receives the result via
@@ -46,8 +43,6 @@ def triage() -> Any:
     app_name = payload.get("app", "")
     path = payload.get("path", "")
     facet = payload.get("facet", "")
-    conversation_history = payload.get("conversation_history")
-
     from think.awareness import get_onboarding
     from think.utils import get_config
 
@@ -56,20 +51,12 @@ def triage() -> Any:
     _agent_cfg = get_config().get("agent", {})
     agent_display_name = _agent_cfg.get("name", "sol").capitalize()
 
-    # Check for conversation context (used in prompt assembly below)
-    has_conversation = (
-        isinstance(conversation_history, list) and len(conversation_history) > 0
-    )
-
     if onboarding_status in ("observing", "ready"):
         # Path A active — use triage with observation context
         agent_name = "triage"
     elif onboarding_status not in ("complete", "skipped"):
         # Onboarding not yet completed — route to onboarding talent
         agent_name = "onboarding"
-    elif has_conversation:
-        # Conversation context present — use unified talent
-        agent_name = "unified"
     else:
         agent_name = "unified"
 
@@ -169,30 +156,10 @@ def triage() -> Any:
         except Exception:
             pass  # Don't let health context break triage
 
-    # Build conversation context block for multi-turn
-    conversation_block = ""
-    if has_conversation and agent_name == "unified":
-        # Include recent turns (capped at MAX_CONVERSATION_TURNS messages)
-        recent = conversation_history[-MAX_CONVERSATION_TURNS:]
-        turns = []
-        for turn in recent:
-            role = turn.get("role", "")
-            content = turn.get("content", "")
-            if role == "user":
-                turns.append(f"User: {content}")
-            elif role == "agent":
-                turns.append(f"Agent: {content}")
-        if turns:
-            conversation_block = (
-                "## Conversation History\n\n" + "\n\n".join(turns) + "\n\n"
-            )
-
     # Assemble the full prompt
     prompt_parts = []
     if context_lines:
         prompt_parts.append("\n".join(context_lines))
-    if conversation_block:
-        prompt_parts.append(conversation_block)
     prompt_parts.append(message)
     full_prompt = "\n\n".join(prompt_parts)
 

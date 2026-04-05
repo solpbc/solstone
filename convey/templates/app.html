@@ -513,11 +513,6 @@
       }, 180000);
     }
 
-    // Build conversation history from prior turns (exclude current message)
-    var history = messages.slice(0, -1).map(function(m) {
-      return { role: m.role, content: m.content };
-    });
-
     try {
       var r = await fetch('/api/triage', {
         method: 'POST',
@@ -526,8 +521,7 @@
           message: text,
           app: '{{ app }}',
           path: window.location.pathname,
-          facet: window.selectedFacet || null,
-          conversation_history: history.length > 0 ? history : undefined
+          facet: window.selectedFacet || null
         })
       });
 
@@ -586,8 +580,7 @@
             var panelHint = (
               resp.length >= 120 ||
               resp.includes('\n') ||
-              resp.split('. ').length > 2 ||
-              history.length > 0
+              resp.split('. ').length > 2
             );
             deliverResult(resp, panelHint, null);
           } else if (msg.agent_id === agentId && msg.event === 'error') {
