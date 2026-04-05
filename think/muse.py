@@ -9,7 +9,6 @@ and generators from muse/*.md and apps/*/muse/*.md.
 Key functions:
 - get_muse_configs(): Discover all muse configs with filtering
 - get_agent(): Load complete agent configuration by name
-- compose_instructions(): Build system/user prompts from instruction config
 - Hook loading: load_pre_hook(), load_post_hook()
 
 For simple prompt loading without orchestration (observe/, think/*.md prompts),
@@ -326,212 +325,12 @@ def _resolve_agent_path(name: str) -> tuple[Path, str]:
     return agent_dir, agent_name
 
 
-# ---------------------------------------------------------------------------
-# Instructions Composition
-# ---------------------------------------------------------------------------
-
-# Default instruction configuration - all false, agents must explicitly opt-in
-_DEFAULT_INSTRUCTIONS = {
-    "system": None,
-    "facets": False,
-    "now": False,
-    "day": False,
-    "activity": False,
-    "sources": {
-        "transcripts": False,
-        "percepts": False,
-        "agents": False,
-    },
+# Default load configuration - prompts must explicitly opt into source loading
+_DEFAULT_LOAD = {
+    "transcripts": False,
+    "percepts": False,
+    "agents": False,
 }
-
-# Sub-keys for activity config when specified as a dict
-_DEFAULT_ACTIVITY_CONFIG = {
-    "context": False,
-    "state": False,
-    "focus": False,
-}
-
-
-def _merge_instructions_config(defaults: dict, overrides: dict | None) -> dict:
-    """Merge instruction config overrides into defaults.
-
-    Handles nested "sources" and "activity" dicts specially.
-
-    Parameters
-    ----------
-    defaults:
-        Default instruction configuration.
-    overrides:
-        Optional overrides from .json "instructions" key.
-
-    Returns
-    -------
-    dict
-        Merged configuration.
-    """
-    if not overrides:
-        return defaults.copy()
-
-    result = defaults.copy()
-
-    # Merge top-level keys
-    for key in ("system", "facets", "now", "day"):
-        if key in overrides:
-            result[key] = overrides[key]
-
-    # Merge activity config: bool shorthand or dict with sub-keys
-    if "activity" in overrides:
-        activity_val = overrides["activity"]
-        if activity_val is True:
-            # Shorthand: true -> all sub-keys enabled
-            result["activity"] = {k: True for k in _DEFAULT_ACTIVITY_CONFIG}
-        elif isinstance(activity_val, dict):
-            result["activity"] = {**_DEFAULT_ACTIVITY_CONFIG, **activity_val}
-        else:
-            result["activity"] = activity_val
-
-    # Merge sources dict if present
-    if "sources" in overrides and isinstance(overrides["sources"], dict):
-        result["sources"] = {**defaults.get("sources", {}), **overrides["sources"]}
-
-    return result
-
-
-def compose_instructions(
-    *,
-    user_prompt: str | None = None,
-    user_prompt_dir: Path | None = None,
-    facet: str | None = None,
-    analysis_day: str | None = None,
-    config_overrides: dict | None = None,
-) -> dict:
-    """Compose instruction components for agents or generators.
-
-    This is the shared function for building system_instruction, user_instruction,
-    extra_context, and sources configuration. Both agents and generators use this
-    to ensure consistent prompt composition.
-
-    Parameters
-    ----------
-    user_prompt:
-        Name of the user instruction prompt to load (e.g., "unified" for agents).
-        If None, no user_instruction is included (typical for generators).
-    user_prompt_dir:
-        Directory to load user_prompt from. If None, uses think/ directory.
-    facet:
-        Optional facet name to focus on. When provided, extra_context includes
-        only this facet's info (detail level controlled by "facets" setting).
-    analysis_day:
-        Optional day in YYYYMMDD format for day-based analysis. Used when
-        instructions.day is true to include analysis day context.
-    config_overrides:
-        Optional dict from .json "instructions" key. Supported keys:
-        - "system": prompt name for system instruction (default: None)
-        - "facets": false | true (default: false)
-          false = skip facet context
-          true = include facet context
-          For faceted generators, shows focused facet; for unfaceted, shows all facets.
-        - "now": false | true (default: false)
-          true = include current date/time in extra_context
-        - "day": false | true (default: false)
-          true = include analysis day context (requires analysis_day parameter)
-        - "sources": {"transcripts": bool, "percepts": bool, "agents": bool|dict}
-          The "agents" source can be:
-          - bool: True (all agents), False (no agents)
-          - "required": all agents, fail if none found
-          - dict: selective filtering, e.g., {"entities": true, "meetings": "required"}
-
-    Returns
-    -------
-    dict
-        Composed instruction configuration:
-        - system_instruction: str - loaded from "system" prompt
-        - system_prompt_name: str - name of system prompt (for cache keys)
-        - user_instruction: str | None - loaded from user_prompt if provided
-        - extra_context: str | None - facets + now + day context
-        - sources: dict - {"transcripts": bool, "percepts": bool, "agents": bool|dict}
-    """
-    from think.utils import format_day
-
-    # Merge defaults with overrides
-    cfg = _merge_instructions_config(_DEFAULT_INSTRUCTIONS, config_overrides)
-
-    result: dict = {}
-
-    # Load system instruction (None means no system prompt)
-    system_name = cfg.get("system")
-    if system_name:
-        system_prompt = load_prompt(system_name)
-        result["system_instruction"] = system_prompt.text
-        result["system_prompt_name"] = system_name
-    else:
-        result["system_instruction"] = ""
-        result["system_prompt_name"] = ""
-
-    # Load user instruction if specified
-    if user_prompt:
-        base_dir = user_prompt_dir if user_prompt_dir else Path(__file__).parent
-        user_prompt_obj = load_prompt(user_prompt, base_dir=base_dir)
-        result["user_instruction"] = user_prompt_obj.text
-    else:
-        result["user_instruction"] = None
-
-    # Build extra_context based on settings
-    extra_parts = []
-
-    # Facets context
-    facets_setting = cfg.get("facets", False)
-
-    if facets_setting:
-        if facet:
-            # Focused facet mode: include only this facet's context
-            try:
-                from think.facets import facet_summary
-
-                summary = facet_summary(facet)
-                extra_parts.append(f"## Facet Focus\n{summary}")
-            except Exception:
-                pass  # Ignore if facet can't be loaded
-        else:
-            # General mode: all facets
-            try:
-                from think.facets import facet_summaries
-
-                summary = facet_summaries()
-                if summary and summary != "No facets found.":
-                    extra_parts.append(summary)
-                else:
-                    extra_parts.append(
-                        "No facets are defined yet. You are in discovery mode. "
-                        "Name the contexts you observe based on what is actually happening "
-                        "in this segment \u2014 use specific, descriptive names that reflect the "
-                        'actual activity (e.g., "engineering-work" not "work", '
-                        '"investor-calls" not "meetings"). These names will be used to '
-                        "suggest journal organization to the user."
-                    )
-            except Exception:
-                pass  # Ignore if facets can't be loaded
-
-    # Current date/time context (instructions.now)
-    if cfg.get("now"):
-        from think.prompts import format_current_datetime
-
-        time_str = format_current_datetime()
-        extra_parts.append(f"## Current Date and Time\nToday is {time_str}")
-
-    # Analysis day context (instructions.day)
-    if cfg.get("day") and analysis_day:
-        day_friendly = format_day(analysis_day)
-        extra_parts.append(
-            f"## Analysis Day\nYou are analyzing data from {day_friendly} ({analysis_day})."
-        )
-
-    result["extra_context"] = "\n\n".join(extra_parts).strip() if extra_parts else None
-
-    # Include sources config
-    result["sources"] = cfg.get("sources", _DEFAULT_INSTRUCTIONS["sources"])
-
-    return result
 
 
 # ---------------------------------------------------------------------------
@@ -619,8 +418,9 @@ def get_agent(
 ) -> dict:
     """Return complete agent configuration by name.
 
-    Loads configuration from .md file with JSON frontmatter and instruction text,
-    merges with runtime context.
+    Loads configuration from .md file with JSON frontmatter and instruction text.
+    Template variables $journal and $facets are resolved during prompt loading.
+    Source data config comes from the frontmatter 'load' key.
 
     Parameters
     ----------
@@ -628,12 +428,10 @@ def get_agent(
         Agent name to load. Can be a system agent (e.g., "unified")
         or an app-namespaced agent (e.g., "support:support" for apps/support/muse/support).
     facet:
-        Optional facet name to focus on. When provided, includes detailed
-        information for just this facet (with full entity details) instead
-        of summaries of all facets.
+        Optional facet name to focus on. Controls $facets template variable.
     analysis_day:
-        Optional day in YYYYMMDD format. When provided and instructions.day is
-        true, includes analysis day context in extra_context.
+        Optional day in YYYYMMDD format. Not used directly — day-based
+        template context is applied in prepare_config().
 
     Returns
     -------
@@ -641,10 +439,12 @@ def get_agent(
         Complete agent configuration including:
         - name: Agent name
         - path: Path to the .md file
-        - system_instruction, user_instruction, extra_context: Composed prompts
-        - sources: Source config from instructions (for transcript loading)
+        - user_instruction: Composed prompt with $journal/$facets resolved
+        - sources: Source config from 'load' key
         - All frontmatter fields (tools, hook, disabled, thinking_budget, etc.)
     """
+    from think.prompts import _resolve_facets
+
     # Resolve agent path based on namespace
     agent_dir, agent_name = _resolve_agent_path(name)
 
@@ -657,30 +457,21 @@ def get_agent(
     post = frontmatter.load(md_path)
     config = dict(post.metadata) if post.metadata else {}
 
-    # Store path for later use (e.g., load_prompt with template context)
+    # Store path for later use
     config["path"] = str(md_path)
 
-    # Extract instructions config (but keep a copy for sources)
-    instructions_config = config.get("instructions")
+    # Extract source config from 'load' key (replaces instructions.sources)
+    config["sources"] = config.pop("load", _DEFAULT_LOAD.copy())
 
-    # Use compose_instructions for consistent prompt composition
-    instructions = compose_instructions(
-        user_prompt=agent_name,
-        user_prompt_dir=agent_dir,
-        facet=facet,
-        analysis_day=analysis_day,
-        config_overrides=instructions_config,
-    )
+    # Build template context for $journal and $facets resolution
+    prompt_context: dict[str, str] = {}
+    prompt_context["facets"] = _resolve_facets(facet)
 
-    # Merge instruction results into config
-    config["system_instruction"] = instructions["system_instruction"]
-    config["user_instruction"] = instructions["user_instruction"]
-    config["system_prompt_name"] = instructions.get("system_prompt_name", "journal")
-    if instructions["extra_context"]:
-        config["extra_context"] = instructions["extra_context"]
+    journal_prompt = load_prompt("journal")
+    prompt_context["journal"] = journal_prompt.text
 
-    # Preserve sources config for transcript loading
-    config["sources"] = instructions.get("sources", {})
+    agent_prompt = load_prompt(agent_name, base_dir=agent_dir, context=prompt_context)
+    config["user_instruction"] = agent_prompt.text
 
     # Set agent name
     config["name"] = name

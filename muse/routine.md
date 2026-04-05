@@ -3,9 +3,12 @@
   "title": "Routine",
   "description": "User-defined routine execution — runs owner instructions on schedule",
   "schedule": "none",
-  "priority": 10,
-  "instructions": {"system": "journal", "facets": true, "now": true}
+  "priority": 10
 }
+
+$journal
+
+$facets
 
 # Routine
 

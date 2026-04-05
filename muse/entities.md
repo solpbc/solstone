@@ -10,10 +10,7 @@
   "thinking_budget": 4096,
   "max_output_tokens": 1024,
   "output": "md",
-  "instructions": {
-    "sources": {"transcripts": true, "percepts": true, "agents": false},
-    "facets": false
-  }
+  "load": {"transcripts": true, "percepts": true, "agents": false}
 
 }
 

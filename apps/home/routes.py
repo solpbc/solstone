@@ -96,7 +96,9 @@ def _load_pulse_md() -> tuple[str | None, dict | None, list[str]]:
         return None, None, []
 
 
-def _load_briefing_md(today: str | None = None) -> tuple[dict[str, str], dict | None, list[str]]:
+def _load_briefing_md(
+    today: str | None = None,
+) -> tuple[dict[str, str], dict | None, list[str]]:
     """Load today's briefing.md sections and needs_attention bullets."""
     try:
         today = today or _today()
@@ -148,7 +150,9 @@ def _load_briefing_md(today: str | None = None) -> tuple[dict[str, str], dict | 
         return {}, None, []
 
 
-def _compute_briefing_phase(segment_count: int, hour: int, briefing_exists: bool) -> str:
+def _compute_briefing_phase(
+    segment_count: int, hour: int, briefing_exists: bool
+) -> str:
     """Compute briefing display phase from current time and activity."""
     if hour >= BRIEFING_EOD_HOUR:
         return "eod"

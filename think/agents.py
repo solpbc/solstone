@@ -286,34 +286,19 @@ def _build_activity_context(
     span: list[str],
     facet: str,
     day: str,
-    instructions_config: dict | None,
 ) -> str | None:
-    """Build activity context sections for extra_context.
-
-    Assembles activity metadata, per-segment activity state descriptions,
-    and focusing instructions based on the agent's instructions.activity config.
+    """Build activity context sections for $activity_context.
 
     Args:
         activity: Activity record dict (from activity records JSONL)
         span: List of segment keys in the activity's span
         facet: Facet name
         day: Day in YYYYMMDD format
-        instructions_config: The agent's instructions config dict (merged)
 
     Returns:
-        Formatted string to append to extra_context, or None if activity
-        instructions are not configured.
+        Formatted string for the $activity_context template variable.
     """
-    if not instructions_config:
-        return None
-
-    activity_cfg = instructions_config.get("activity")
-    if not activity_cfg or activity_cfg is False:
-        return None
-
-    # Normalize: bool True -> all enabled (already handled by _merge, but defensive)
-    if activity_cfg is True:
-        activity_cfg = {"context": True, "state": True, "focus": True}
+    activity_cfg = {"context": True, "state": True, "focus": True}
 
     parts: list[str] = []
     activity_type = activity.get("activity", "unknown")
@@ -392,7 +377,7 @@ def _load_transcript(
         day: Day in YYYYMMDD format
         segment: Optional segment key
         span: Optional list of segment keys
-        sources: Source config dict from instructions
+        sources: Source config dict from frontmatter load
 
     Returns:
         Tuple of (transcript text, source_counts dict)
@@ -436,18 +421,11 @@ def prepare_config(request: dict) -> dict:
     Config fields produced:
     - name: Agent name
     - provider, model: Resolved from context/request
-    - system_instruction: System prompt
     - user_instruction: Agent instruction from .md file
-    - extra_context: Facets and context from instructions.now/day settings
     - prompt: User's runtime query/request
     - transcript: Clustered transcript (if day provided)
     - output_path: Where to write output (if output format set)
     - skip_reason: Why to skip (if applicable)
-
-    Context is controlled by explicit frontmatter settings:
-    - instructions.now: Include current datetime in extra_context
-    - instructions.day: Include analysis day context (requires day parameter)
-    - Day-based calls also load clustered transcript
 
     Args:
         request: Raw request dict from cortex
@@ -468,12 +446,11 @@ def prepare_config(request: dict) -> dict:
     output_path_override = request.get("output_path")
     user_prompt = request.get("prompt", "")
 
-    # Load complete agent config, passing day for instructions.day context
+    # Load complete agent config
     config = get_agent(name, facet=facet, analysis_day=day)
 
     # Config now contains all frontmatter fields plus:
     # - path: Path to the .md file
-    # - system_instruction, user_instruction, extra_context
     # - sources: Source config for transcript loading
     # - All frontmatter: tools, hook, disabled, thinking_budget, max_output_tokens, etc.
 
@@ -569,31 +546,25 @@ def prepare_config(request: dict) -> dict:
 
         # Reload agent instruction with template substitution for day/segment context
         if agent_path and agent_path.exists():
+            from think.prompts import _resolve_facets
+
             prompt_context = _build_prompt_context(
                 day, segment, span, activity=activity
             )
+            prompt_context["facets"] = _resolve_facets(facet)
+            prompt_context["journal"] = load_prompt(
+                "journal", context=prompt_context
+            ).text
+
+            if activity and span and facet:
+                activity_ctx = _build_activity_context(activity, span, facet, day)
+                if activity_ctx:
+                    prompt_context["activity_context"] = activity_ctx
+
             agent_prompt_obj = load_prompt(
                 agent_path.stem, base_dir=agent_path.parent, context=prompt_context
             )
             config["user_instruction"] = agent_prompt_obj.text
-
-        # Build activity context if activity data is present
-        if activity and span and facet:
-            from think.muse import _DEFAULT_INSTRUCTIONS, _merge_instructions_config
-
-            instructions_config = config.get("instructions")
-            merged_cfg = _merge_instructions_config(
-                _DEFAULT_INSTRUCTIONS, instructions_config
-            )
-            activity_context = _build_activity_context(
-                activity, span, facet, day, merged_cfg
-            )
-            if activity_context:
-                existing = config.get("extra_context", "")
-                if existing:
-                    config["extra_context"] = f"{existing}\n\n{activity_context}"
-                else:
-                    config["extra_context"] = activity_context
 
     # Set prompt (user's runtime query)
     # For tool agents: prompt is the user's question
@@ -900,12 +871,7 @@ async def _execute_generate(
     transcript = config.get("transcript", "")
     user_instruction = config.get("user_instruction", "")
     prompt = config.get("prompt", "")
-    system_instruction = config.get("system_instruction", "")
-    extra_ctx = config.get("extra_context")
-    if extra_ctx:
-        system_instruction = (
-            f"{system_instruction}\n\n{extra_ctx}" if system_instruction else extra_ctx
-        )
+    system_instruction = config.get("system_instruction") or None
     output_path = Path(config["output_path"]) if config.get("output_path") else None
     output_format = config.get("output")
 

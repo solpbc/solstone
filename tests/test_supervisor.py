@@ -641,9 +641,7 @@ def test_supervisor_singleton_lock_blocked(tmp_path, monkeypatch, capsys):
     start_mock.assert_not_called()
 
 
-def test_supervisor_singleton_lock_blocked_with_health(
-    tmp_path, monkeypatch, capsys
-):
+def test_supervisor_singleton_lock_blocked_with_health(tmp_path, monkeypatch, capsys):
     import fcntl
 
     mod = importlib.reload(importlib.import_module("think.supervisor"))

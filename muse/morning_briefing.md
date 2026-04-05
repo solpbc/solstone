@@ -6,12 +6,12 @@
   "color": "#1565c0",
   "schedule": "daily",
   "priority": 50,
-  "output": "md",
-  "instructions": {"facets": true, "now": true, "day": true}
-
+  "output": "md"
 }
 
 $sol_identity
+
+$facets
 
 You are generating the morning briefing for $agent_name — a structured daily digest that synthesizes all agent outputs, calendar, todos, and entity intelligence into an actionable start-of-day view.
 

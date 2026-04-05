@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 
 def test_entities_post_process_writes_without_segment(tmp_path):
@@ -27,7 +26,10 @@ def test_entities_post_process_writes_without_segment(tmp_path):
 
     entities_path = output_path.parent / "entities.jsonl"
     assert entities_path.exists()
-    rows = [json.loads(line) for line in entities_path.read_text(encoding="utf-8").splitlines()]
+    rows = [
+        json.loads(line)
+        for line in entities_path.read_text(encoding="utf-8").splitlines()
+    ]
     assert rows == [
         {
             "type": "Person",

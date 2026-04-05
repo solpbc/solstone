@@ -9,12 +9,10 @@
   "schedule": "daily",
   "priority": 10,
   "output": "md",
-  "instructions": {
-    "sources": {"transcripts": true, "percepts": false, "agents": {"screen": true}},
-    "facets": true
-  }
-
+  "load": {"transcripts": true, "percepts": false, "agents": {"screen": true}}
 }
+
+$facets
 
 $daily_preamble
 

@@ -8,9 +8,7 @@
   "output": "json",
   "color": "#d84315",
   "hook": {"pre": "speaker_attribution", "post": "speaker_attribution"},
-  "instructions": {
-    "sources": {"transcripts": true, "agents": {"speakers": true, "screen": true}}
-  }
+  "load": {"transcripts": true, "agents": {"speakers": true, "screen": true}}
 
 }
 

@@ -1026,7 +1026,9 @@ class TestUpdateIdentitySection:
     def test_self_md_wrapper_still_works(self, tmp_path):
         from think.awareness import update_self_md_section
 
-        self_md = "# self\n\n## my name\nsol (default)\n\n## who I'm here for\nTest User\n"
+        self_md = (
+            "# self\n\n## my name\nsol (default)\n\n## who I'm here for\nTest User\n"
+        )
         (tmp_path / "sol").mkdir(exist_ok=True)
         (tmp_path / "sol" / "self.md").write_text(self_md)
 

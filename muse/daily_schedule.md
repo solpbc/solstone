@@ -10,12 +10,10 @@
   "color": "#455a64",
   "thinking_budget": 4096,
   "max_output_tokens": 512,
-  "instructions": {
-    "sources": {"transcripts": true, "percepts": false, "agents": {"screen": true}},
-    "facets": true
-  }
-
+  "load": {"transcripts": true, "percepts": false, "agents": {"screen": true}}
 }
+
+$facets
 
 # Maintenance Window Analysis
 

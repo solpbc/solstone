@@ -175,7 +175,9 @@ def _count_triggers(msg: str, facet: str | None, config: dict) -> bool:
     return changed
 
 
-def _get_eligible_suggestion(routines_config: dict, journal_config: dict) -> dict | None:
+def _get_eligible_suggestion(
+    routines_config: dict, journal_config: dict
+) -> dict | None:
     """Evaluate 5-gate chain and return the best eligible suggestion, or None."""
     meta = routines_config.get("_meta", {})
 
@@ -352,7 +354,7 @@ When no `System health:` line is present, everything is fine.
                 f"First seen: {suggestion['first_trigger']}\n\n"
                 "### Etiquette\n"
                 "- Mention this ONCE, naturally, at the end of your response\n"
-                '- Frame as observation: "I\'ve noticed you often... — would a '
+                "- Frame as observation: \"I've noticed you often... — would a "
                 'routine help?"\n'
                 "- If $name declines or ignores, do not bring it up again this "
                 "conversation\n"

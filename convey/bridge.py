@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 import time
 from typing import Any, Dict, List, Optional
@@ -20,8 +19,6 @@ from flask_sock import Sock
 from simple_websocket import ConnectionClosed
 
 from think.callosum import CallosumConnection
-
-from . import state
 
 logger = logging.getLogger(__name__)
 

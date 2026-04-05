@@ -134,7 +134,9 @@ class TestEdgeCases:
         assert (agents_dir / "density.json").exists()
         assert (agents_dir / "sense.json").exists()
         assert (agents_dir / "activity.md").read_text(encoding="utf-8") == ""
-        assert json.loads((agents_dir / "facets.json").read_text(encoding="utf-8")) == []
+        assert (
+            json.loads((agents_dir / "facets.json").read_text(encoding="utf-8")) == []
+        )
         density = json.loads((agents_dir / "density.json").read_text(encoding="utf-8"))
         assert density["classification"] == "active"
 
@@ -156,7 +158,9 @@ class TestEdgeCases:
 
         agents_dir = seg_dir / "agents"
         assert (agents_dir / "activity.md").read_text(encoding="utf-8") == ""
-        assert json.loads((agents_dir / "facets.json").read_text(encoding="utf-8")) == []
+        assert (
+            json.loads((agents_dir / "facets.json").read_text(encoding="utf-8")) == []
+        )
         density = json.loads((agents_dir / "density.json").read_text(encoding="utf-8"))
         assert density["classification"] == "active"
         assert not (agents_dir / "speakers.json").exists()

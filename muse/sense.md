@@ -10,12 +10,10 @@
   "thinking_budget": 4096,
   "max_output_tokens": 4096,
   "output": "json",
-  "instructions": {
-    "sources": {"transcripts": true, "percepts": true, "agents": false},
-    "facets": true
-  }
-
+  "load": {"transcripts": true, "percepts": true, "agents": false}
 }
+
+$facets
 
 $segment_preamble
 

@@ -17,10 +17,11 @@ import logging
 import sys
 import threading
 import time
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from think.activities import get_activity_output_path, load_activity_records
+from think.activity_state_machine import ActivityStateMachine
 from think.callosum import CallosumConnection
 from think.cluster import cluster_segments
 from think.cortex_client import cortex_request, wait_for_agents
@@ -29,7 +30,6 @@ from think.facets import (
     get_enabled_facets,
     load_segment_facets,
 )
-from think.activity_state_machine import ActivityStateMachine
 from think.muse import get_muse_configs, get_output_path
 from think.runner import run_task
 from think.sense_splitter import write_idle_stubs, write_sense_outputs
@@ -434,7 +434,9 @@ def run_segment_sense(
             if is_generate
             else f"Running scheduled task for {iso_date(day)}: {day_input_summary(day)}."
         )
-        return _cortex_request_with_retry(prompt=prompt, name=name, config=request_config)
+        return _cortex_request_with_retry(
+            prompt=prompt, name=name, config=request_config
+        )
 
     sense_config = _cfg("sense")
     if sense_config is None:
@@ -1849,13 +1851,18 @@ def dry_run(
                 sense_cfg.get("output", "json"),
                 stream=stream,
             )
-            print(f"  {step}. sense (gen/{sense_cfg.get('output', 'json')}){status} — mandatory")
+            print(
+                f"  {step}. sense (gen/{sense_cfg.get('output', 'json')}){status} — mandatory"
+            )
             step += 1
 
         for name, label in [
             ("entities", "always for non-idle"),
             ("screen", "if recommend.screen_record"),
-            ("speaker_attribution", "if recommend.speaker_attribution + audio embeddings"),
+            (
+                "speaker_attribution",
+                "if recommend.speaker_attribution + audio embeddings",
+            ),
             ("observation", "if onboarding=observing"),
             ("firstday_checkin", "if onboarding=complete"),
             ("pulse", "if recommend.pulse_update"),

@@ -6,12 +6,12 @@
   "schedule": "segment",
   "priority": 99,
   "tier": 3,
-  "max_output_tokens": 1000,
-  "instructions": {"facets": true, "now": true}
-
+  "max_output_tokens": 1000
 }
 
 $sol_identity
+
+$facets
 
 # Pulse
 

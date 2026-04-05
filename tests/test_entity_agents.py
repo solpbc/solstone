@@ -25,9 +25,7 @@ def test_entities_agent_config(fixture_journal):
 
     # Verify required fields
     assert config["name"] == "entities:entities"
-    assert "system_instruction" in config
     assert "user_instruction" in config
-    assert len(config["system_instruction"]) > 0
     assert len(config["user_instruction"]) > 0
 
     # Verify JSON metadata fields from entities.json
@@ -44,9 +42,7 @@ def test_entities_review_agent_config(fixture_journal):
 
     # Verify required fields
     assert config["name"] == "entities:entities_review"
-    assert "system_instruction" in config
     assert "user_instruction" in config
-    assert len(config["system_instruction"]) > 0
     assert len(config["user_instruction"]) > 0
 
     # Verify JSON metadata fields from entities_review.json
@@ -86,42 +82,37 @@ def test_agent_context_includes_entities_by_facet(fixture_journal):
     """Test that agent context includes entities grouped by facet."""
     config = get_agent("entities:entities")
 
-    # extra_context should contain facet summaries with entities
-    extra_context = config.get("extra_context", "")
-    assert "Available Facets" in extra_context
+    prompt = config["user_instruction"]
+    assert "Available Facets" in prompt
 
     # Should include facet names in backtick format
-    assert "`test-facet`" in extra_context or "`full-featured`" in extra_context
+    assert "`test-facet`" in prompt or "`full-featured`" in prompt
 
     # Should include entities from fixture facets
     # tests/fixtures/journal/facets/ contains various entities
-    assert "Entities" in extra_context
+    assert "Entities" in prompt
 
     # Check for some known entities from the fixtures
-    assert (
-        "John Smith" in extra_context
-        or "Jane Doe" in extra_context
-        or "Acme Corp" in extra_context
-    )
+    assert "John Smith" in prompt or "Jane Doe" in prompt or "Acme Corp" in prompt
 
 
 def test_agent_context_with_facet_focus(fixture_journal):
     """Test that get_agent with facet parameter uses focused single-facet context."""
     config = get_agent("unified", facet="full-featured")
 
-    extra_context = config.get("extra_context", "")
+    prompt = config["user_instruction"]
 
     # Should have Facet Focus section instead of Available Facets
-    assert "## Facet Focus" in extra_context
-    assert "Available Facets" not in extra_context
+    assert "## Facet Focus" in prompt
+    assert "Available Facets" not in prompt
 
     # Should include the focused facet's details
-    assert "Full Featured Facet" in extra_context
-    assert "A facet for testing all features" in extra_context
+    assert "Full Featured Facet" in prompt
+    assert "A facet for testing all features" in prompt
 
     # Should include entity details from the focused facet (detailed format)
-    assert "## Entities" in extra_context
-    assert "Entity 1" in extra_context or "First test entity" in extra_context
+    assert "## Entities" in prompt
+    assert "Entity 1" in prompt or "First test entity" in prompt
 
 
 def test_agent_priority_ordering(fixture_journal):

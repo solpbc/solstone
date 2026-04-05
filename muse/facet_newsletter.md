@@ -7,10 +7,12 @@
   "color": "#0d47a1",
   "schedule": "daily",
   "priority": 40,
-  "multi_facet": true,
-  "instructions": {"system": "journal", "facets": true, "now": true, "day": true}
-
+  "multi_facet": true
 }
+
+$journal
+
+$facets
 
 ## Core Mission
 

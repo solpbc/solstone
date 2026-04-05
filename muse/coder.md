@@ -2,9 +2,10 @@
   "type": "cogitate",
   "write": true,
   "title": "Coder",
-  "description": "Developer agent with full repo read/write access",
-  "instructions": {"system": "journal", "now": true}
+  "description": "Developer agent with full repo read/write access"
 }
+
+$journal
 
 # Coder
 

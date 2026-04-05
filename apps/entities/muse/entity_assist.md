@@ -4,10 +4,12 @@
   "title": "Entity Assistant",
   "description": "Quick entity addition with intelligent type detection and automatic description generation",
   "color": "#00695c",
-  "group": "Entities",
-  "instructions": {"system": "journal", "facets": true, "now": true}
-
+  "group": "Entities"
 }
+
+$journal
+
+$facets
 
 ## Core Mission
 

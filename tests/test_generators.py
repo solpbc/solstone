@@ -132,8 +132,7 @@ def test_sense_in_segment_schedule():
     sense = generators["sense"]
     assert sense.get("priority") == 5, "sense should be at priority 5"
 
-    instructions = sense.get("instructions", {})
-    sources = instructions.get("sources", {})
+    sources = sense.get("load", {})
 
     assert sources.get("transcripts") is True, "sense should include transcripts"
     assert sources.get("percepts") is True, "sense should include percepts"

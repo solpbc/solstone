@@ -55,5 +55,7 @@ def record_triage_exchange(ctx: EventContext) -> None:
         )
     except Exception:
         logger.debug(
-            "Failed to record conversation exchange for agent %s", agent_id, exc_info=True
+            "Failed to record conversation exchange for agent %s",
+            agent_id,
+            exc_info=True,
         )

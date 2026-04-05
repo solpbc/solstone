@@ -33,6 +33,7 @@ from pathlib import Path
 import numpy as np
 import requests
 import soundfile as sf
+
 API_BASE = "https://api.rev.ai/speechtotext/v1"
 
 # Default configuration
