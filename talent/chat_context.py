@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Pre-hook: inject chat-bar context into sol's user instruction.
+"""Pre-hook: provide template vars for chat prompt context.
 
 Replaces conversation_memory as the unified talent's pre-hook.
-Appends conversation memory, location/health context instructions,
-awareness-conditional guidance, and behavioral defaults to the
-identity-first prompt.
+Builds dynamic chat context as template vars for the identity-first
+prompt while preserving routine trigger side effects and awareness
+guidance.
 
 Loaded via hook config: {"hook": {"pre": "chat_context"}}
 """
@@ -250,44 +250,29 @@ def _get_eligible_suggestion(
     return candidates[0]
 
 
-def pre_process(context: dict) -> dict | None:
-    """Append chat-context instructions to the unified talent prompt."""
+def pre_process(context: dict) -> dict:
+    """Build chat-context template vars for the unified talent prompt."""
     from think.awareness import get_imports
     from think.conversation import build_memory_context
     from think.utils import get_config
 
-    user_instruction = context.get("user_instruction", "")
     facet = context.get("facet")
-
-    sections: list[str] = []
+    template_vars = {
+        "recent_conversation": "",
+        "active_routines": "",
+        "routine_suggestion": "",
+        "import_awareness": "",
+        "naming_awareness": "",
+    }
 
     try:
         memory_context = build_memory_context(facet=facet, recent_limit=10)
         if memory_context:
-            sections.append(f"## Recent Conversation\n\n{memory_context}")
+            template_vars["recent_conversation"] = (
+                f"## Recent Conversation\n\n{memory_context}"
+            )
     except Exception:
         logger.debug("Conversation memory enrichment failed", exc_info=True)
-
-    sections.append(
-        """## Location Context
-
-You receive context about the user's current app, URL path, and active facet. Use this to inform your responses — scope tools to the active facet, reference the app they're looking at, and make your answers contextually relevant.
-""".strip()
-    )
-
-    sections.append(
-        """## System Health
-
-When the context includes a `System health:` line, there is an active attention item:
-
-- **"what needs my attention?"** — Report the system health item. Be concise.
-- **Agent errors:** Explain which agents failed. Suggest checking logs.
-- **Capture offline:** Suggest checking that the observer service is running.
-- **Import complete:** Describe what was imported, offer to explore or import more.
-
-When no `System health:` line is present, everything is fine.
-""".strip()
-    )
 
     try:
         from think.routines import get_routine_state
@@ -303,7 +288,7 @@ When no `System health:` line is present, everything is fine.
                 if routine.get("output_summary"):
                     line += f" | recent: {routine['output_summary']}"
                 lines.append(line)
-            sections.append("\n".join(lines))
+            template_vars["active_routines"] = "\n".join(lines)
     except Exception:
         logger.debug("Routine state enrichment failed", exc_info=True)
 
@@ -351,32 +336,20 @@ When no `System health:` line is present, everything is fine.
                 "- After suggesting, run: `sol call routines suggest-respond "
                 f"{suggestion['template_name']} --accepted` or `--declined`"
             )
-            sections.append(hint)
+            template_vars["routine_suggestion"] = hint
     except Exception:
         logger.debug("Routine suggestion eligibility check failed", exc_info=True)
 
     try:
         imports = get_imports()
         if not imports.get("has_imported"):
-            sections.append(IMPORT_AWARENESS_TEXT)
+            template_vars["import_awareness"] = IMPORT_AWARENESS_TEXT
 
         config = get_config()
         agent_name = config.get("agent", {}).get("name", "sol")
         if agent_name == "sol":
-            sections.append(NAMING_AWARENESS_TEXT)
+            template_vars["naming_awareness"] = NAMING_AWARENESS_TEXT
     except Exception:
         logger.debug("Awareness context enrichment failed", exc_info=True)
 
-    sections.append(
-        """## Behavioral Defaults
-
-- SOL_DAY and SOL_FACET environment variables are already set — tools use them as defaults when --day/--facet are omitted. You can often omit these flags.
-- If searching reveals sensitive or personal content, handle with care and focus on what was specifically asked.
-- When a tool call returns an error, note briefly what was unavailable and move on. Do not retry or debug. Work with whatever data you successfully retrieved.
-""".strip()
-    )
-
-    if sections:
-        modified = user_instruction + "\n\n" + "\n\n".join(sections)
-        return {"user_instruction": modified}
-    return None
+    return {"template_vars": template_vars}
