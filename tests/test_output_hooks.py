@@ -16,6 +16,7 @@ import os
 import shutil
 from pathlib import Path
 
+from think.agents import _apply_template_vars
 from think.talent import load_post_hook, load_pre_hook
 from think.utils import day_path
 
@@ -432,6 +433,217 @@ def pre_process(context):
     assert prompt_found, f"Expected [pre-processed] in contents: {contents}"
 
     # Verify generator still completed successfully
+    finish_events = [e for e in events if e["event"] == "finish"]
+    assert len(finish_events) == 1
+
+
+# ---- Pre-hook Template Vars Tests ----
+
+
+def test_template_vars_basic_substitution():
+    """Test basic template var substitution in user_instruction."""
+    config = {"user_instruction": "Hello $name"}
+
+    _apply_template_vars(config, {"name": "world"})
+
+    assert config["user_instruction"] == "Hello world"
+
+
+def test_template_vars_auto_capitalize():
+    """Test auto-capitalized template key/value expansion."""
+    config = {"prompt": "$greeting and $Greeting"}
+
+    _apply_template_vars(config, {"greeting": "hello"})
+
+    assert config["prompt"] == "hello and Hello"
+
+
+def test_template_vars_all_fields():
+    """Test substitution applies to all supported text fields."""
+    config = {
+        "user_instruction": "$x",
+        "transcript": "$x",
+        "prompt": "$x",
+    }
+
+    _apply_template_vars(config, {"x": "replaced"})
+
+    assert config["user_instruction"] == "replaced"
+    assert config["transcript"] == "replaced"
+    assert config["prompt"] == "replaced"
+
+
+def test_template_vars_no_system_instruction():
+    """Test substitution does not touch system_instruction."""
+    config = {
+        "system_instruction": "$x",
+        "user_instruction": "$x",
+    }
+
+    _apply_template_vars(config, {"x": "val"})
+
+    assert config["system_instruction"] == "$x"
+    assert config["user_instruction"] == "val"
+
+
+def test_template_vars_empty_string_value():
+    """Test empty string values substitute without errors."""
+    config = {"prompt": "before $tag after"}
+
+    _apply_template_vars(config, {"tag": ""})
+
+    assert config["prompt"] == "before  after"
+
+
+def test_template_vars_dollar_in_value_not_reprocessed():
+    """Test substituted dollar signs in values are not reprocessed."""
+    config = {"prompt": "$var"}
+
+    _apply_template_vars(config, {"var": "costs $100"})
+
+    assert config["prompt"] == "costs $100"
+
+
+def test_template_vars_missing_placeholder_left_alone():
+    """Test missing placeholders remain unchanged."""
+    config = {"prompt": "$defined and $undefined"}
+
+    _apply_template_vars(config, {"defined": "yes"})
+
+    assert config["prompt"] == "yes and $undefined"
+
+
+def test_template_vars_empty_field_skipped():
+    """Test empty or missing supported fields are skipped safely."""
+    config = {"prompt": ""}
+
+    _apply_template_vars(config, {"x": "val"})
+    assert config["prompt"] == ""
+
+    config = {}
+    _apply_template_vars(config, {"x": "val"})
+    assert "prompt" not in config
+
+
+def test_template_vars_popped_from_modifications():
+    """Test template_vars are applied and not copied into config."""
+    config = {}
+    modifications = {
+        "user_instruction": "Hello $name",
+        "template_vars": {"name": "world"},
+    }
+
+    template_vars = modifications.pop("template_vars", None)
+    for key, value in modifications.items():
+        config[key] = value
+    if template_vars:
+        _apply_template_vars(config, template_vars)
+
+    assert config["user_instruction"] == "Hello world"
+    assert "template_vars" not in config
+
+
+def test_pre_hook_template_vars_integration(tmp_path, monkeypatch):
+    """Test pre-hook template_vars reach the model as substituted text."""
+    mod = importlib.import_module("think.agents")
+    copy_day(tmp_path)
+
+    import think.talent
+
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+
+    prompt_file = tmp_path / "prehook_template_vars.md"
+    prompt_file.write_text(
+        '{\n  "type": "generate",\n  "title": "Prehook Template Vars",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"pre": "prehook_template_vars"},\n  "load": {"transcripts": true, "percepts": true}\n}\n\nTalk about $topic'
+    )
+
+    hook_file = tmp_path / "prehook_template_vars.py"
+    hook_file.write_text("""
+def pre_process(context):
+    return {"template_vars": {"topic": "weather"}}
+""")
+
+    received_kwargs = {}
+
+    def mock_generate(*args, **kwargs):
+        received_kwargs.update(kwargs)
+        received_kwargs["contents"] = args[0] if args else kwargs.get("contents")
+        return MOCK_RESULT
+
+    import think.models
+
+    monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    config = {
+        "name": "prehook_template_vars",
+        "day": "20240101",
+        "output": "md",
+        "provider": "google",
+        "model": "gemini-2.0-flash",
+    }
+
+    events = run_generator_with_config(mod, config, monkeypatch)
+
+    contents = received_kwargs.get("contents", [])
+    prompt_found = any("weather" in str(c) for c in contents)
+    assert prompt_found, f"Expected weather in contents: {contents}"
+
+    finish_events = [e for e in events if e["event"] == "finish"]
+    assert len(finish_events) == 1
+
+
+def test_pre_hook_template_vars_with_field_mods(tmp_path, monkeypatch):
+    """Test pre-hook can return field mods and template_vars together."""
+    mod = importlib.import_module("think.agents")
+    copy_day(tmp_path)
+
+    import think.talent
+
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
+
+    prompt_file = tmp_path / "prehook_template_with_mods.md"
+    prompt_file.write_text(
+        '{\n  "type": "generate",\n  "title": "Prehook Template With Mods",\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md",\n  "hook": {"pre": "prehook_template_with_mods"},\n  "load": {"transcripts": true, "percepts": true}\n}\n\nOriginal prompt'
+    )
+
+    hook_file = tmp_path / "prehook_template_with_mods.py"
+    hook_file.write_text("""
+def pre_process(context):
+    return {
+        "user_instruction": "Talk about $topic",
+        "template_vars": {"topic": "music"},
+    }
+""")
+
+    received_kwargs = {}
+
+    def mock_generate(*args, **kwargs):
+        received_kwargs.update(kwargs)
+        received_kwargs["contents"] = args[0] if args else kwargs.get("contents")
+        return MOCK_RESULT
+
+    import think.models
+
+    monkeypatch.setattr(think.models, "generate_with_result", mock_generate)
+    monkeypatch.setenv("GOOGLE_API_KEY", "x")
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    config = {
+        "name": "prehook_template_with_mods",
+        "day": "20240101",
+        "output": "md",
+        "provider": "google",
+        "model": "gemini-2.0-flash",
+    }
+
+    events = run_generator_with_config(mod, config, monkeypatch)
+
+    contents = received_kwargs.get("contents", [])
+    prompt_found = any("Talk about music" in str(c) for c in contents)
+    assert prompt_found, f"Expected Talk about music in contents: {contents}"
+
     finish_events = [e for e in events if e["event"] == "finish"]
     assert len(finish_events) == 1
 

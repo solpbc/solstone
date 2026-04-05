@@ -23,6 +23,7 @@ import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
+from string import Template
 from typing import Any, Callable, Optional
 
 from think.cluster import cluster, cluster_period, cluster_span
@@ -645,6 +646,24 @@ def _run_pre_hooks(config: dict) -> dict:
     return {}
 
 
+def _apply_template_vars(config: dict, template_vars: dict) -> None:
+    """Substitute template_vars into text fields of config in-place.
+
+    Expands each key with auto-capitalize convention (matching load_prompt):
+      {"foo": "bar"} -> $foo="bar", $Foo="Bar"
+    """
+    expanded = {}
+    for key, value in template_vars.items():
+        str_value = str(value)
+        expanded[key] = str_value
+        expanded[key.capitalize()] = str_value.capitalize()
+
+    for field in ("user_instruction", "transcript", "prompt"):
+        text = config.get(field)
+        if text:
+            config[field] = Template(text).safe_substitute(expanded)
+
+
 def _run_post_hooks(result: str, config: dict) -> str:
     """Run post-processing hooks, return transformed result.
 
@@ -1080,8 +1099,12 @@ async def _run_agent(
 
     # Run pre-hooks
     modifications = _run_pre_hooks(config)
+    template_vars = modifications.pop("template_vars", None)
     for key, value in modifications.items():
         config[key] = value
+    if template_vars:
+        LOG.info("Pre-hook template_vars: %s", list(template_vars.keys()))
+        _apply_template_vars(config, template_vars)
 
     # Handle skip conditions set by pre-hooks
     skip_reason = config.get("skip_reason")
