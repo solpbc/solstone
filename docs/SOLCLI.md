@@ -92,12 +92,14 @@ Each `call.py` must export `app = typer.Typer()`. The directory name becomes the
 ```python
 # think/call.py
 from think.tools.call import app as journal_app
+from think.tools.navigate import app as navigate_app
 from think.tools.routines import app as routines_app
 from think.tools.sol import app as sol_app
 
 call_app.add_typer(journal_app, name="journal")
+call_app.add_typer(navigate_app, name="navigate")
 call_app.add_typer(routines_app, name="routines")
-call_app.add_typer(sol_app, name="sol")
+call_app.add_typer(sol_app, name="identity")
 ```
 
 These live under `think/tools/` because they import think-internal APIs directly.
@@ -256,7 +258,7 @@ solstone/
 │   ├── tools/
 │   │   ├── call.py                 # sol call journal (built-in)
 │   │   ├── routines.py             # sol call routines (built-in)
-│   │   └── sol.py                  # sol call sol (built-in)
+│   │   └── sol.py                  # sol call identity (built-in)
 │   └── *.py                        # Top-level command modules
 ├── apps/
 │   ├── todos/
@@ -313,8 +315,8 @@ solstone/
 | `awareness` | `apps/awareness/call.py` | status, onboarding, imports, log, log-read |
 | `journal` | `think/tools/call.py` | search, events, facets, facet (show/create/update/rename/mute/unmute/delete/merge), news, agents, read, imports, import, retention purge, storage-summary |
 | `routines` | `think/tools/routines.py` | list, templates, create, edit, delete, run, output, suggestions, suggest-respond, suggest-state |
-| `sol` | `think/tools/sol.py` | self, partner, agency, pulse, briefing |
-| `navigate` | `think/call.py` (inline) | *(single command)* |
+| `identity` | `think/tools/sol.py` | self, partner, agency, pulse, briefing |
+| `navigate` | `think/tools/navigate.py` | *(single command)* |
 
 ## Skill System
 

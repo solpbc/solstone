@@ -140,7 +140,7 @@ callosum_send("notification", "show", title="Import Complete", message="3 segmen
 ```
 
 ### `navigate` - Browser navigation control
-**Source:** `think/call.py` (`sol call navigate`)
+**Source:** `think/tools/navigate.py` (`sol call navigate`)
 **Events:** `request`
 **Key fields:** `path` (string, URL path), `facet` (string, facet name) — at least one required
 **Consumer:** `convey/static/websocket.js` (built-in listener)

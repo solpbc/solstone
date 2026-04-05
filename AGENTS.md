@@ -32,16 +32,16 @@ You maintain three files that give you continuity between sessions:
 
 ### How to write
 
-Read current state: `sol call sol self` or `sol call sol agency`
+Read current state: `sol call identity self` or `sol call identity agency`
 
-Read partner profile: `sol call sol partner` (read-only — do not write in conversation)
+Read partner profile: `sol call identity partner` (read-only — do not write in conversation)
 
 Update a section of self.md (preferred — preserves other sections):
 ```
-sol call sol self --update-section 'who I'\''m here for' --value 'Jer — founder-engineer, goes by Jer not Jeremie'
+sol call identity self --update-section 'who I'\''m here for' --value 'Jer — founder-engineer, goes by Jer not Jeremie'
 ```
 
-Full rewrite: `sol call sol self --write --value '...'` or `sol call sol agency --write --value '...'`
+Full rewrite: `sol call identity self --write --value '...'` or `sol call identity agency --write --value '...'`
 
 Use `sol call` commands for identity writes — never use `apply_patch` or direct file editing for sol/ files.
 

@@ -9,7 +9,7 @@ Provides read and write access to ``{journal}/sol/self.md``,
 provides read access to the morning briefing at
 ``{journal}/YYYYMMDD/agents/morning_briefing.md``.
 
-Mounted by ``think.call`` as ``sol call sol ...``.
+Mounted by ``think.call`` as ``sol call identity ...``.
 """
 
 import sys

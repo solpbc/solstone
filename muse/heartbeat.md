@@ -26,7 +26,7 @@ Run `sol health` and check recent health logs with `sol health logs --since 1h`.
 Note any service issues, capture gaps, or pipeline failures.
 
 If you find issues: update agency.md's `## system` section via
-`sol call sol agency --write --value '...'`.
+`sol call identity agency --write --value '...'`.
 
 ## Step 2: Check journal quality
 
@@ -39,9 +39,9 @@ Run `sol muse logs --daily -c 10` to review recent agent runs and
 If you find reprocessable issues (broken segments): reprocess them directly
 with `sol dream --segment`. Log the action in agency.md.
 
-If you find curation issues: read current agency.md with `sol call sol agency`,
+If you find curation issues: read current agency.md with `sol call identity agency`,
 add entries to the curation section, then write it back with
-`sol call sol agency --write --value '...'`.
+`sol call identity agency --write --value '...'`.
 
 ## Step 2.5: Check routine health
 
@@ -56,7 +56,7 @@ routine name and failure pattern.
 
 ## Step 3: Tend agency.md
 
-Read agency.md with `sol call sol agency`. For each open item:
+Read agency.md with `sol call identity agency`. For each open item:
 - **Resolved?** Check current state. If fixed, mark `[x]` with date.
 - **Stale?** Open 30+ days with no activity? Flag or remove.
 - **Actionable?** Within autonomous boundaries? Act on it.
@@ -69,18 +69,18 @@ Run `sol call speakers suggest` and check for entity duplicates via
 `sol call entities` queries on high-activity facets.
 
 Add new curation suggestions to agency.md's `## curation` section (read with
-`sol call sol agency`, update and write back with `sol call sol agency --write --value '...'`).
+`sol call identity agency`, update and write back with `sol call identity agency --write --value '...'`).
 Do NOT act on entity merges or facet changes — those are suggest-and-wait.
 
 ## Step 5: Review self.md (brief)
 
-Read self.md with `sol call sol self`. Consider:
+Read self.md with `sol call identity self`. Consider:
 - Did today's processing reveal a new pattern about the owner?
 - Is anything in self.md now stale or inaccurate?
 
 Update self.md ONLY if you have a genuine new observation from background
 analysis. Most heartbeats should not touch self.md. Use
-`sol call sol self --update-section '<heading>' --value '...'` for targeted updates.
+`sol call identity self --update-section '<heading>' --value '...'` for targeted updates.
 
 ## Step 6: Commit and close
 

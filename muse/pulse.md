@@ -24,9 +24,9 @@ This is not a conversation. Gather context, write the pulse, done.
 
 Read current state using these tools:
 
-1. `sol call sol pulse` — previous pulse (may not exist yet; that's fine)
-2. `sol call sol self` — who the owner is
-3. `sol call sol partner` — behavioral profile of the owner
+1. `sol call identity pulse` — previous pulse (may not exist yet; that's fine)
+2. `sol call identity self` — who the owner is
+3. `sol call identity partner` — behavioral profile of the owner
 4. `sol call calendar list` — today's events
 5. `sol call todos list` — pending action items
 6. `sol call entities search --recent` — recent entity activity
@@ -63,7 +63,7 @@ entity follow-ups, and anything the narrative highlights as important.
 Write the complete pulse (YAML frontmatter + narrative + needs-you section) via:
 
 ```bash
-sol call sol pulse --write --value $'---\nupdated: 2026-03-22T14:35:00\nsegment: 143022_300\nsource: pulse-cogitate\n---\n\n[Your narrative here]\n\n## needs you\n- Item 1\n- Item 2'
+sol call identity pulse --write --value $'---\nupdated: 2026-03-22T14:35:00\nsegment: 143022_300\nsource: pulse-cogitate\n---\n\n[Your narrative here]\n\n## needs you\n- Item 1\n- Item 2'
 ```
 
 The `updated` field must be an ISO 8601 datetime (no timezone). The `segment`

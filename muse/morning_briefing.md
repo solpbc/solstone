@@ -25,8 +25,8 @@ Call all sources upfront. Some may return empty — that's expected, especially 
 2. For each facet: `sol call journal news FACET --day $day_YYYYMMDD` — facet newsletter
 3. `sol call calendar list $day_YYYYMMDD` — today's events with participants
 4. `sol call todos list` — pending action items across all facets
-5. `sol call sol pulse` — current pulse narrative and needs-you items
-6. `sol call sol partner` — owner behavioral profile (informs tone and emphasis)
+5. `sol call identity pulse` — current pulse narrative and needs-you items
+6. `sol call identity partner` — owner behavioral profile (informs tone and emphasis)
 7. `sol call journal search "" -d $day_YYYYMMDD -a followups -n 10` — follow-up items from today
 8. `sol call journal search "" --day-from $day_YYYYMMDD -a anticipation -n 5` — forward-looking anticipations
 9. `sol call journal search "" -d $day_YYYYMMDD -a decisions -n 10` — yesterday's consequential decisions

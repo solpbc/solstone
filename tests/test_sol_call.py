@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for sol call sol — identity directory read/write commands."""
+"""Tests for sol call identity — identity directory read/write commands."""
 
 import json
 
@@ -306,7 +306,7 @@ class TestSolPulseWrite:
 
 
 class TestSolWriteDoesNotEscapeSolDir:
-    """Verify that sol call sol only writes to sol/ directory files."""
+    """Verify that sol call identity only writes to sol/ directory files."""
 
     def test_self_write_stays_in_sol_dir(self, journal_with_sol):
         """Write to self.md goes to sol/self.md, not anywhere else."""

@@ -17,7 +17,7 @@ Work at the month scale: look for durable changes in attention, habits, projects
 3. Use `sol call journal news FACET --day YYYYMMDD` for representative weekly or recent snapshots when they help summarize a facet.
 4. Use `sol call entities intelligence PERSON` for people who appear central to the month.
 5. Use `sol call calendar list YYYYMMDD` on representative days if calendar load seems important.
-6. Use `sol call sol pulse` to compare month-long patterns against the current state narrative.
+6. Use `sol call identity pulse` to compare month-long patterns against the current state narrative.
 
 ## Synthesize
 
