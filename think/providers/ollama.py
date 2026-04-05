@@ -2,20 +2,19 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Ollama (Local) provider for direct LLM generation.
+"""Ollama (Local) provider for LLM generation and tool-calling agents.
 
 This module provides the Ollama provider for run_generate/run_agenerate
-functions returning GenerateResult. It connects to a local Ollama instance
-via its native ``/api/chat`` endpoint using ``httpx``.
+(text generation) and run_cogitate (tool-calling agents).
 
-The native API is used instead of the OpenAI-compatible endpoint because
-it provides reliable control over the ``think`` parameter, which controls
-model reasoning/thinking behavior. The OpenAI-compatible endpoint silently
-ignores this parameter on models like Qwen3.5.
+**Generation** uses Ollama's native ``/api/chat`` endpoint via ``httpx``
+for reliable control over the ``think`` parameter, which the OpenAI-compatible
+endpoint silently ignores on models like Qwen3.5.
 
-Cogitate (tool-calling agents) is not yet supported; ``run_cogitate()``
-raises ``NotImplementedError``. Configure a cloud provider or backup for
-agent workloads.
+**Cogitate** uses the OpenCode CLI (``opencode run --format json``) as a
+subprocess, following the same CLIRunner + translate pattern as the Google,
+OpenAI, and Anthropic providers. OpenCode connects to local Ollama via its
+OpenAI-compatible endpoint and handles tool execution internally.
 
 Common Parameters
 -----------------
@@ -50,11 +49,16 @@ from __future__ import annotations
 
 import logging
 import os
+import traceback
 from typing import Any, Callable
 
 import httpx
 
-from .shared import GenerateResult
+from think.models import OLLAMA_FLASH
+from think.utils import now_ms
+
+from .cli import CLIRunner, ThinkingAggregator, assemble_prompt
+from .shared import GenerateResult, JSONEventCallback, safe_raw
 
 LOG = logging.getLogger("think.providers.ollama")
 
@@ -343,25 +347,208 @@ async def run_agenerate(
 
 
 # ---------------------------------------------------------------------------
-# run_cogitate (not yet implemented)
+# run_cogitate via OpenCode CLI
 # ---------------------------------------------------------------------------
+
+
+def _translate_opencode(
+    event: dict[str, Any],
+    aggregator: ThinkingAggregator,
+    callback: JSONEventCallback,
+    usage_out: dict[str, Any],
+) -> str | None:
+    """Translate an OpenCode JSONL event into our standard Event types.
+
+    Args:
+        event: Raw JSONL event dict from ``opencode run --format json``.
+        aggregator: ThinkingAggregator for buffering text.
+        callback: JSONEventCallback for emitting events.
+        usage_out: Mutable dict to receive usage stats from step_finish events.
+
+    Returns:
+        The CLI session ID from step_start events, or None.
+    """
+    event_type = event.get("type")
+    part = event.get("part", {})
+
+    # -- step_start: capture session ID ------------------------------------
+    if event_type == "step_start":
+        return event.get("sessionID")
+
+    # -- text: accumulate assistant text -----------------------------------
+    if event_type == "text":
+        text = part.get("text", "")
+        if text:
+            aggregator.accumulate(text)
+        return None
+
+    # -- tool_use: emit tool_start + tool_end ------------------------------
+    # OpenCode reports tools as already completed, so we emit both events
+    # back-to-back from a single JSONL line.
+    if event_type == "tool_use":
+        aggregator.flush_as_thinking(raw_events=[event])
+
+        tool_name = part.get("tool", "")
+        call_id = part.get("callID", "")
+        state = part.get("state", {})
+        tool_input = state.get("input", {})
+        tool_output = state.get("output", "")
+
+        callback.emit(
+            {
+                "event": "tool_start",
+                "tool": tool_name,
+                "args": tool_input,
+                "call_id": call_id,
+                "raw": safe_raw([event]),
+                "ts": now_ms(),
+            }
+        )
+        callback.emit(
+            {
+                "event": "tool_end",
+                "tool": tool_name,
+                "args": tool_input,
+                "result": tool_output,
+                "call_id": call_id,
+                "raw": safe_raw([event]),
+                "ts": now_ms(),
+            }
+        )
+        return None
+
+    # -- step_finish: capture usage ----------------------------------------
+    if event_type == "step_finish":
+        tokens = part.get("tokens")
+        if tokens and usage_out is not None:
+            input_tokens = tokens.get("input", 0)
+            output_tokens = tokens.get("output", 0)
+            total_tokens = tokens.get("total", 0)
+            # Accumulate across steps (OpenCode emits one per turn)
+            usage_out["input_tokens"] = usage_out.get("input_tokens", 0) + input_tokens
+            usage_out["output_tokens"] = (
+                usage_out.get("output_tokens", 0) + output_tokens
+            )
+            usage_out["total_tokens"] = usage_out.get("total_tokens", 0) + total_tokens
+            reasoning = tokens.get("reasoning", 0)
+            if reasoning:
+                usage_out["reasoning_tokens"] = (
+                    usage_out.get("reasoning_tokens", 0) + reasoning
+                )
+            cache = tokens.get("cache", {})
+            cached_read = cache.get("read", 0)
+            if cached_read:
+                usage_out["cached_tokens"] = (
+                    usage_out.get("cached_tokens", 0) + cached_read
+                )
+        return None
+
+    # Unknown event type — log and skip
+    LOG.debug("Unknown OpenCode CLI event type: %s", event_type)
+    return None
+
+
+def _build_opencode_env() -> dict[str, str]:
+    """Build environment dict for the OpenCode subprocess.
+
+    Sets ``OPENAI_API_KEY`` to a placeholder if not already set, since
+    OpenCode's OpenAI-compatible provider requires it even for local Ollama.
+    """
+    env = os.environ.copy()
+    if not env.get("OPENAI_API_KEY"):
+        env["OPENAI_API_KEY"] = "ollama"
+    return env
 
 
 async def run_cogitate(
     config: dict[str, Any],
     on_event: Callable[[dict], None] | None = None,
 ) -> str:
-    """Tool-calling agent execution — not yet implemented for Ollama.
+    """Run a prompt with tool-calling support via OpenCode CLI + local Ollama.
 
-    Raises
-    ------
-    NotImplementedError
-        Always. Configure a cloud provider for cogitate or set a backup provider.
+    Uses the OpenCode CLI as a subprocess agent, which connects to the local
+    Ollama instance and provides built-in tools (bash, read, glob, grep, etc.).
+
+    Args:
+        config: Complete configuration dictionary including prompt, system_instruction,
+            user_instruction, extra_context, model, etc.
+        on_event: Optional event callback
     """
-    raise NotImplementedError(
-        "Ollama cogitate support is not yet implemented. "
-        "Configure a cloud provider for cogitate or set a backup provider."
-    )
+    model = _strip_model_prefix(config.get("model", OLLAMA_FLASH))
+    session_id = config.get("session_id")
+    callback = JSONEventCallback(on_event)
+
+    try:
+        # Assemble prompt from config fields
+        prompt_body, system_instruction = assemble_prompt(config)
+
+        # OpenCode has no --system-prompt flag; prepend to prompt body
+        if system_instruction:
+            prompt_body = system_instruction + "\n\n" + prompt_body
+
+        # Build CLI command.
+        # --title skips OpenCode's title-generation LLM call (avoids delays).
+        agent_name = config.get("name", "sol-agent")
+        cmd = [
+            "opencode",
+            "run",
+            "--format",
+            "json",
+            "--title",
+            agent_name,
+            "-m",
+            f"ollama/{model}",
+        ]
+
+        # Resume from previous session if continuing
+        if session_id:
+            cmd.extend(["--session", session_id])
+
+        # Mutable container for usage accumulation
+        usage: dict[str, Any] = {}
+
+        def translate(
+            event: dict[str, Any], agg: ThinkingAggregator, cb: JSONEventCallback
+        ) -> str | None:
+            return _translate_opencode(event, agg, cb, usage)
+
+        aggregator = ThinkingAggregator(callback, model=model)
+        runner = CLIRunner(
+            cmd=cmd,
+            prompt_text=prompt_body,
+            translate=translate,
+            callback=callback,
+            aggregator=aggregator,
+            env=_build_opencode_env(),
+            # Local models are slower than cloud APIs; allow more time for
+            # the first event (model loading + initial inference).
+            first_event_timeout=120,
+        )
+
+        result = await runner.run()
+
+        # Emit finish event (CLIRunner does not emit one)
+        finish_event: dict[str, Any] = {
+            "event": "finish",
+            "result": result,
+            "ts": now_ms(),
+        }
+        if usage:
+            finish_event["usage"] = usage
+        if runner.cli_session_id:
+            finish_event["cli_session_id"] = runner.cli_session_id
+        callback.emit(finish_event)
+        return result
+    except Exception as exc:
+        callback.emit(
+            {
+                "event": "error",
+                "error": str(exc),
+                "trace": traceback.format_exc(),
+            }
+        )
+        setattr(exc, "_evented", True)
+        raise
 
 
 # ---------------------------------------------------------------------------

@@ -24,8 +24,12 @@ the hard dependency on cloud API keys for the most common workload (`generate`).
   checks Ollama reachability instead of key validity.
 - **Thinking support:** Maps `thinking_budget` to Ollama's `think` parameter
   via `extra_body`. Budget > 0 enables thinking; None/0 disables it.
-- **Cogitate deferred:** `run_cogitate()` raises `NotImplementedError` in this
-  first pass. Users should configure a cloud provider (or backup) for agents.
+- **Cogitate via OpenCode CLI:** `run_cogitate()` uses the OpenCode CLI
+  (`opencode run --format json`) as a subprocess, following the same
+  CLIRunner + translate pattern as the other three providers. OpenCode
+  connects to local Ollama via its OpenAI-compatible endpoint and handles
+  tool execution (bash, read, glob, grep, etc.) internally. Requires
+  OpenCode CLI installed on the system.
 
 **Default tier models:**
 
@@ -38,7 +42,7 @@ the hard dependency on cloud API keys for the most common workload (`generate`).
 Override via `providers.models.ollama` in `journal.json`.
 
 **Files added:** `think/providers/ollama.py`, `tests/test_ollama.py`,
-`tests/integration/test_ollama_backend.py`
+`tests/integration/test_ollama_provider.py`, `.opencode/opencode.json`
 
 **Files modified:** `think/providers/__init__.py`, `think/models.py`,
 `docs/PROVIDERS.md`, `docs/THINK.md`, `apps/settings/workspace.html`,

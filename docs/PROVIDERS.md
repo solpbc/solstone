@@ -334,8 +334,11 @@ from cloud providers:
 - **Thinking support:** Controlled via Ollama's ``think`` parameter,
   mapped from ``thinking_budget``. Budget > 0 enables thinking;
   None or 0 disables it.
-- **Cogitate not yet supported.** ``run_cogitate()`` raises
-  ``NotImplementedError``. Use a cloud provider or backup for agents.
+- **Cogitate via OpenCode CLI.** ``run_cogitate()`` uses the OpenCode CLI
+  (``opencode run --format json``) as a subprocess, following the same
+  CLIRunner pattern as the other providers. Requires OpenCode installed.
+  Project-level config at ``.opencode/opencode.json`` connects OpenCode
+  to the local Ollama instance.
 - **Base URL:** Reads ``OLLAMA_BASE_URL`` env var, defaults to
   ``http://localhost:11434``.
 
