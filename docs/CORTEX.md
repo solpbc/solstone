@@ -38,7 +38,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
   "ts": 1234567890123,              // Required: millisecond timestamp (must match agent_id in filename)
   "prompt": "Analyze this code for security issues",  // Required for agents (not generators)
   "name": "default",              // Optional: agent name from talent/*.md
-  "provider": "openai",              // Optional: override provider (openai, google, anthropic)
+  "provider": "openai",              // Optional: override provider (openai, google, anthropic, ollama)
   "max_output_tokens": 8192,        // Optional: maximum response tokens
   "thinking_budget": 10000,         // Optional: thinking token budget (ignored by OpenAI)
   "session_id": "sess-abc123",       // Optional: CLI session ID for continuation

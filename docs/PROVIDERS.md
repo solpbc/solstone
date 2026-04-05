@@ -315,6 +315,30 @@ client = OpenAI(
 
 This allows reusing much of the OpenAI provider's patterns for request/response handling.
 
+The Ollama provider (`think/providers/ollama.py`) takes a different approach —
+it uses Ollama's native ``/api/chat`` endpoint directly via ``httpx`` for
+reliable thinking control. See the Ollama section below.
+
+## Ollama (Local) Provider
+
+The ``ollama`` provider connects to a local Ollama instance via the native
+``/api/chat`` endpoint (not the OpenAI-compatible endpoint, which silently
+ignores the ``think`` parameter on models like Qwen3.5). Key differences
+from cloud providers:
+
+- **No API key required.** ``validate_key()`` checks Ollama reachability
+  instead of key validity.
+- **Model prefix convention:** Models use the ``ollama-local/`` prefix
+  (e.g., ``ollama-local/qwen3.5:9b``). The prefix is stripped before
+  sending requests to the Ollama API.
+- **Thinking support:** Controlled via Ollama's ``think`` parameter,
+  mapped from ``thinking_budget``. Budget > 0 enables thinking;
+  None or 0 disables it.
+- **Cogitate not yet supported.** ``run_cogitate()`` raises
+  ``NotImplementedError``. Use a cloud provider or backup for agents.
+- **Base URL:** Reads ``OLLAMA_BASE_URL`` env var, defaults to
+  ``http://localhost:11434``.
+
 ## Checklist for New Providers
 
 **Core implementation:**
