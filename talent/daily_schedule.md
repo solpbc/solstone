@@ -10,7 +10,7 @@
   "color": "#455a64",
   "thinking_budget": 4096,
   "max_output_tokens": 512,
-  "load": {"transcripts": true, "percepts": false, "agents": {"screen": true}}
+  "load": {"transcripts": false, "percepts": false, "agents": false}
 }
 
 $facets
@@ -18,6 +18,10 @@ $facets
 # Maintenance Window Analysis
 
 You are given a summary of when the owner was active over the past week. Each day lists time windows when activity was recorded. Times not listed represent periods of inactivity.
+
+## Activity Data
+
+$activity_spans
 
 ## Task
 
