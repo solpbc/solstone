@@ -1,7 +1,31 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
+from pathlib import Path
+
 from talent.chat_context import pre_process
+
+
+TEMPLATE_VAR_KEYS = {
+    "recent_conversation",
+    "active_routines",
+    "routine_suggestion",
+    "import_awareness",
+    "naming_awareness",
+}
+
+
+def _assert_template_vars_result(result):
+    assert isinstance(result, dict)
+    assert "template_vars" in result
+    assert "user_instruction" not in result
+    assert set(result["template_vars"]) == TEMPLATE_VAR_KEYS
+    return result["template_vars"]
+
+
+def _read_chat_md() -> str:
+    chat_md = Path(__file__).resolve().parents[1] / "talent" / "chat.md"
+    return chat_md.read_text(encoding="utf-8")
 
 
 def test_chat_context_appends_conversation_memory(monkeypatch, tmp_path):
@@ -21,50 +45,38 @@ def test_chat_context_appends_conversation_memory(monkeypatch, tmp_path):
 
     result = pre_process({"user_instruction": "Base instruction.", "facet": "work"})
 
-    assert result is not None
-    assert "## Recent Conversation" in result["user_instruction"]
-    assert "hello" in result["user_instruction"]
-    assert "hi there!" in result["user_instruction"]
+    template_vars = _assert_template_vars_result(result)
+    assert "## Recent Conversation" in template_vars["recent_conversation"]
+    assert "hello" in template_vars["recent_conversation"]
+    assert "hi there!" in template_vars["recent_conversation"]
 
 
 def test_chat_context_no_memory(monkeypatch, tmp_path):
-    """Other sections still append when no conversation history exists."""
+    """Recent conversation is empty when no conversation history exists."""
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     result = pre_process({"user_instruction": "Base instruction."})
 
-    assert result is not None
-    assert "## Recent Conversation" not in result["user_instruction"]
+    template_vars = _assert_template_vars_result(result)
+    assert template_vars["recent_conversation"] == ""
 
 
-def test_chat_context_always_appends_location_context(monkeypatch):
-    """Location context is always appended."""
-    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-
-    result = pre_process({"user_instruction": "Base instruction."})
-
-    assert result is not None
-    assert "## Location Context" in result["user_instruction"]
+def test_chat_md_contains_location_context():
+    """Location context lives in the static chat prompt."""
+    chat_md = _read_chat_md()
+    assert "## Location Context" in chat_md
 
 
-def test_chat_context_always_appends_system_health(monkeypatch):
-    """System health guidance is always appended."""
-    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-
-    result = pre_process({"user_instruction": "Base instruction."})
-
-    assert result is not None
-    assert "## System Health" in result["user_instruction"]
+def test_chat_md_contains_system_health():
+    """System health guidance lives in the static chat prompt."""
+    chat_md = _read_chat_md()
+    assert "## System Health" in chat_md
 
 
-def test_chat_context_always_appends_behavioral_defaults(monkeypatch):
-    """Behavioral defaults are always appended."""
-    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-
-    result = pre_process({"user_instruction": "Base instruction."})
-
-    assert result is not None
-    assert "## Behavioral Defaults" in result["user_instruction"]
+def test_chat_md_contains_behavioral_defaults():
+    """Behavioral defaults live in the static chat prompt."""
+    chat_md = _read_chat_md()
+    assert "## Behavioral Defaults" in chat_md
 
 
 def test_chat_context_import_awareness_injected(monkeypatch):
@@ -74,8 +86,8 @@ def test_chat_context_import_awareness_injected(monkeypatch):
 
     result = pre_process({"user_instruction": "Base instruction."})
 
-    assert result is not None
-    assert "## Import Awareness" in result["user_instruction"]
+    template_vars = _assert_template_vars_result(result)
+    assert "## Import Awareness" in template_vars["import_awareness"]
 
 
 def test_chat_context_import_done_no_nudge(monkeypatch):
@@ -85,53 +97,53 @@ def test_chat_context_import_done_no_nudge(monkeypatch):
 
     result = pre_process({"user_instruction": "Base instruction."})
 
-    assert result is not None
-    assert "## Import Awareness" not in result["user_instruction"]
+    template_vars = _assert_template_vars_result(result)
+    assert template_vars["import_awareness"] == ""
 
 
 def test_chat_context_naming_awareness_default(monkeypatch):
     """Naming awareness is appended when the default agent name is still active."""
     monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-    monkeypatch.setattr(
-        "think.awareness.get_onboarding", lambda: {"status": "complete"}
-    )
     monkeypatch.setattr("think.awareness.get_imports", lambda: {"has_imported": True})
     monkeypatch.setattr("think.utils.get_config", lambda: {"agent": {"name": "sol"}})
 
     result = pre_process({"user_instruction": "Base instruction."})
 
-    assert result is not None
-    assert "## Naming Awareness" in result["user_instruction"]
+    template_vars = _assert_template_vars_result(result)
+    assert "## Naming Awareness" in template_vars["naming_awareness"]
 
 
 def test_chat_context_naming_awareness_chosen(monkeypatch):
     """Naming awareness is omitted once a custom agent name is chosen."""
     monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-    monkeypatch.setattr(
-        "think.awareness.get_onboarding", lambda: {"status": "complete"}
-    )
     monkeypatch.setattr("think.awareness.get_imports", lambda: {"has_imported": True})
     monkeypatch.setattr("think.utils.get_config", lambda: {"agent": {"name": "aria"}})
 
     result = pre_process({"user_instruction": "Base instruction."})
 
-    assert result is not None
-    assert "## Naming Awareness" not in result["user_instruction"]
+    template_vars = _assert_template_vars_result(result)
+    assert template_vars["naming_awareness"] == ""
 
 
 def test_chat_context_awareness_error_graceful(monkeypatch):
-    """Awareness failures do not prevent the base sections from appending."""
+    """Awareness failures still return the full template var shape."""
     monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
+    monkeypatch.setattr("think.routines.get_routine_state", lambda: [])
+    monkeypatch.setattr("think.routines.get_config", lambda: {"_meta": {"suggestions": {}}})
+    monkeypatch.setattr(
+        "think.utils.get_config",
+        lambda: {"agent": {"name": "aria", "name_status": "default"}},
+    )
 
     def _raise() -> dict:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("think.awareness.get_onboarding", _raise)
+    monkeypatch.setattr("think.awareness.get_imports", _raise)
 
     result = pre_process({"user_instruction": "Base instruction."})
 
-    assert result is not None
-    assert "## Location Context" in result["user_instruction"]
+    template_vars = _assert_template_vars_result(result)
+    assert all(template_vars[key] == "" for key in TEMPLATE_VAR_KEYS)
 
 
 def test_chat_context_routines_injected(monkeypatch):
@@ -153,9 +165,9 @@ def test_chat_context_routines_injected(monkeypatch):
 
     result = pre_process({"user_instruction": "Base instruction."})
 
-    assert result is not None
-    assert "## Active Routines" in result["user_instruction"]
-    assert "Morning Briefing" in result["user_instruction"]
+    template_vars = _assert_template_vars_result(result)
+    assert "## Active Routines" in template_vars["active_routines"]
+    assert "Morning Briefing" in template_vars["active_routines"]
 
 
 def test_chat_context_routines_omitted_when_empty(monkeypatch):
@@ -165,20 +177,26 @@ def test_chat_context_routines_omitted_when_empty(monkeypatch):
 
     result = pre_process({"user_instruction": "Base instruction."})
 
-    assert result is not None
-    assert "## Active Routines" not in result["user_instruction"]
+    template_vars = _assert_template_vars_result(result)
+    assert template_vars["active_routines"] == ""
 
 
 def test_chat_context_routines_error_graceful(monkeypatch):
-    """Routine state failures do not prevent other sections from appending."""
+    """Routine state failures still return the full template var shape."""
     monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
     monkeypatch.setattr(
         "think.routines.get_routine_state",
         lambda: (_ for _ in ()).throw(RuntimeError("boom")),
     )
+    monkeypatch.setattr("think.routines.get_config", lambda: {"_meta": {"suggestions": {}}})
+    monkeypatch.setattr("think.awareness.get_imports", lambda: {"has_imported": True})
+    monkeypatch.setattr(
+        "think.utils.get_config",
+        lambda: {"agent": {"name": "aria", "name_status": "default"}},
+    )
 
     result = pre_process({"user_instruction": "Base instruction."})
 
-    assert result is not None
-    assert "## Active Routines" not in result["user_instruction"]
-    assert "## Location Context" in result["user_instruction"]
+    template_vars = _assert_template_vars_result(result)
+    assert template_vars["active_routines"] == ""
+    assert set(template_vars) == TEMPLATE_VAR_KEYS
