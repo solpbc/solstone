@@ -3,7 +3,7 @@
 
 """Pre-hook: inject chat-bar context into sol's user instruction.
 
-Replaces conversation_memory as the unified muse's pre-hook.
+Replaces conversation_memory as the unified talent's pre-hook.
 Appends conversation memory, location/health context instructions,
 awareness-conditional guidance, and behavioral defaults to the
 identity-first prompt.
@@ -261,7 +261,7 @@ def _get_eligible_suggestion(
 
 
 def pre_process(context: dict) -> dict | None:
-    """Append chat-context instructions to the unified muse prompt."""
+    """Append chat-context instructions to the unified talent prompt."""
     from think.awareness import get_imports, get_onboarding
     from think.conversation import build_memory_context
     from think.utils import get_config

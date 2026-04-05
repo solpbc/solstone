@@ -117,14 +117,14 @@ class IncompleteJSONError(ValueError):
 # Examples:
 #   - observe.describe.frame    -> observe module, describe feature, frame operation
 #   - observe.enrich            -> observe module, enrich feature (no sub-operation)
-#   - muse.system.meetings      -> muse module, system source, meetings config
-#   - muse.entities.observer    -> muse module, entities app, observer config
+#   - talent.system.meetings      -> talent module, system source, meetings config
+#   - talent.entities.observer    -> talent module, entities app, observer config
 #   - app.chat.title            -> apps module, chat app, title operation
 #
 # DISCOVERY SOURCES:
 #   1. Prompt files listed in PROMPT_PATHS (with context in frontmatter)
 #   2. Categories from observe/categories/*.md (tier/label/group in frontmatter)
-#   3. Muse configs from muse/*.md and apps/*/muse/*.md
+#   3. Talent configs from talent/*.md and apps/*/talent/*.md
 #
 # When adding new contexts:
 #   1. Create a .md prompt file with YAML frontmatter containing:
@@ -153,6 +153,8 @@ PROMPT_PATHS: List[str] = [
 
 # Cached context registry (built lazily on first use)
 _context_registry: Optional[Dict[str, Dict[str, Any]]] = None
+_LEGACY_CONTEXT_PREFIX = "mu" "se."
+_TALENT_CONTEXT_PREFIX = "talent."
 
 
 def _discover_prompt_contexts() -> Dict[str, Dict[str, Any]]:
@@ -198,24 +200,24 @@ def _discover_prompt_contexts() -> Dict[str, Dict[str, Any]]:
     return contexts
 
 
-def _discover_muse_contexts() -> Dict[str, Dict[str, Any]]:
-    """Discover muse context defaults from muse/*.md config files.
+def _discover_talent_contexts() -> Dict[str, Dict[str, Any]]:
+    """Discover talent context defaults from talent/*.md config files.
 
-    Uses get_muse_configs() from think.muse to load all muse configurations
+    Uses get_talent_configs() from think.talent to load all talent configurations
     and converts them to context patterns with tier/label/group metadata.
 
     Returns
     -------
     Dict[str, Dict[str, Any]]
         Mapping of context patterns to {tier, label, group, type} dicts.
-        Context patterns are: muse.system.{name} or muse.{app}.{name}
+        Context patterns are: talent.system.{name} or talent.{app}.{name}
     """
-    from think.muse import get_muse_configs, key_to_context
+    from think.talent import get_talent_configs, key_to_context
 
     contexts = {}
 
-    # Load all muse configs (including disabled for completeness)
-    all_configs = get_muse_configs(include_disabled=True)
+    # Load all talent configs (including disabled for completeness)
+    all_configs = get_talent_configs(include_disabled=True)
 
     for key, config in all_configs.items():
         context = key_to_context(key)
@@ -235,7 +237,7 @@ def _build_context_registry() -> Dict[str, Dict[str, Any]]:
     Merges:
     1. Prompt contexts from _discover_prompt_contexts()
     2. Category contexts from observe/describe.py CATEGORIES
-    3. Muse contexts from _discover_muse_contexts()
+    3. Talent contexts from _discover_talent_contexts()
 
     Returns
     -------
@@ -259,9 +261,9 @@ def _build_context_registry() -> Dict[str, Dict[str, Any]]:
     except ImportError:
         pass  # observe module not available
 
-    # Merge muse contexts (agents + generators)
-    muse_contexts = _discover_muse_contexts()
-    registry.update(muse_contexts)
+    # Merge talent contexts (agents + generators)
+    talent_contexts = _discover_talent_contexts()
+    registry.update(talent_contexts)
 
     return registry
 
@@ -288,7 +290,7 @@ def _resolve_tier(context: str, agent_type: str) -> int:
     Parameters
     ----------
     context
-        Context string (e.g., "muse.system.default", "observe.describe.frame").
+        Context string (e.g., "talent.system.default", "observe.describe.frame").
     agent_type
         Agent type ("generate" or "cogitate").
 
@@ -305,7 +307,7 @@ def _resolve_tier(context: str, agent_type: str) -> int:
     providers_config = journal_config.get("providers", {})
     contexts = providers_config.get("contexts", {})
 
-    # Get dynamic context registry (discovered prompts, categories, muse configs)
+    # Get dynamic context registry (discovered prompts, categories, talent configs)
     registry = get_context_registry()
 
     # Check journal config contexts first (exact match)
@@ -383,7 +385,7 @@ def resolve_model_for_provider(
     Parameters
     ----------
     context
-        Context string (e.g., "muse.system.default").
+        Context string (e.g., "talent.system.default").
     provider
         Provider name ("google", "openai", "anthropic").
     agent_type
@@ -421,7 +423,7 @@ def resolve_provider(context: str, agent_type: str) -> tuple[str, str]:
     Parameters
     ----------
     context
-        Context string (e.g., "observe.describe.frame", "muse.system.meetings").
+        Context string (e.g., "observe.describe.frame", "talent.system.meetings").
     agent_type
         Agent type ("generate" or "cogitate").
 
@@ -470,7 +472,7 @@ def resolve_provider(context: str, agent_type: str) -> tuple[str, str]:
 
     # No context match - check dynamic context registry for this context
     if match_config is None:
-        # Get dynamic context registry (discovered prompts, categories, muse configs)
+        # Get dynamic context registry (discovered prompts, categories, talent configs)
         registry = get_context_registry()
 
         # Check for matching context default (exact match first, then glob)
@@ -538,7 +540,7 @@ def log_token_usage(
     usage : dict
         Normalized usage dict with keys from USAGE_KEYS.
     context : str, optional
-        Context string (e.g., "module.function:123" or "muse.system.default").
+        Context string (e.g., "module.function:123" or "talent.system.default").
         If None, auto-detects from call stack.
     segment : str, optional
         Segment key (e.g., "143022_300") for attribution.
@@ -761,6 +763,13 @@ def calc_agent_cost(
     return None
 
 
+def _normalize_legacy_context(ctx: str) -> str:
+    """Normalize legacy token-log context strings to the talent namespace."""
+    if ctx.startswith(_LEGACY_CONTEXT_PREFIX):
+        return _TALENT_CONTEXT_PREFIX + ctx[len(_LEGACY_CONTEXT_PREFIX) :]
+    return ctx
+
+
 def iter_token_log(day: str) -> Any:
     """Iterate over token log entries for a given day.
 
@@ -790,7 +799,11 @@ def iter_token_log(day: str) -> Any:
             if not line:
                 continue
             try:
-                yield json.loads(line)
+                entry = json.loads(line)
+                ctx = entry.get("context")
+                if isinstance(ctx, str):
+                    entry["context"] = _normalize_legacy_context(ctx)
+                yield entry
             except json.JSONDecodeError:
                 continue
 
@@ -813,7 +826,7 @@ def get_usage_cost(
         Filter to entries with this exact segment key.
     context : str, optional
         Filter to entries where context starts with this prefix.
-        For example, "muse.system" matches "muse.system.default".
+        For example, "talent.system" matches "talent.system.default".
 
     Returns
     -------
@@ -896,7 +909,7 @@ def generate(
     contents : str or List
         The content to send to the model.
     context : str
-        Context string for routing and token logging (e.g., "muse.system.meetings").
+        Context string for routing and token logging (e.g., "talent.system.meetings").
         This is required and determines which provider/model to use.
     temperature : float
         Temperature for generation (default: 0.3).
@@ -1145,7 +1158,7 @@ async def agenerate(
     contents : str or List
         The content to send to the model.
     context : str
-        Context string for routing and token logging (e.g., "muse.system.meetings").
+        Context string for routing and token logging (e.g., "talent.system.meetings").
         This is required and determines which provider/model to use.
     temperature : float
         Temperature for generation (default: 0.3).

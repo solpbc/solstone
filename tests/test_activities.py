@@ -449,7 +449,7 @@ def test_format_activities_context_includes_instructions():
                 ],
             )
 
-            from muse.activity_state import format_activities_context
+            from talent.activity_state import format_activities_context
 
             output = format_activities_context("test_facet")
 
@@ -632,7 +632,7 @@ class TestActivityRecordIO:
 
 
 # ---------------------------------------------------------------------------
-# Activities Agent Hooks (muse/activities.py)
+# Activities Agent Hooks (talent/activities.py)
 # ---------------------------------------------------------------------------
 
 
@@ -661,7 +661,7 @@ class TestMakeActivityId:
 
 class TestListFacetsWithActivityState:
     def test_finds_facets(self, monkeypatch):
-        from muse.activities import _list_facets_with_activity_state
+        from talent.activities import _list_facets_with_activity_state
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -675,7 +675,7 @@ class TestListFacetsWithActivityState:
             assert facets == ["personal", "work"]
 
     def test_returns_empty_for_nonexistent(self, monkeypatch):
-        from muse.activities import _list_facets_with_activity_state
+        from talent.activities import _list_facets_with_activity_state
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -689,7 +689,7 @@ class TestListFacetsWithActivityState:
 
 class TestDetectEndedActivities:
     def test_explicit_ended(self):
-        from muse.activities import _detect_ended_activities
+        from talent.activities import _detect_ended_activities
 
         prev = [
             {"activity": "coding", "state": "active", "since": "100000_300"},
@@ -702,7 +702,7 @@ class TestDetectEndedActivities:
         assert ended[0]["activity"] == "coding"
 
     def test_implicit_ended(self):
-        from muse.activities import _detect_ended_activities
+        from talent.activities import _detect_ended_activities
 
         prev = [
             {"activity": "coding", "state": "active", "since": "100000_300"},
@@ -716,7 +716,7 @@ class TestDetectEndedActivities:
         assert ended[0]["activity"] == "coding"
 
     def test_timeout_ends_all(self):
-        from muse.activities import _detect_ended_activities
+        from talent.activities import _detect_ended_activities
 
         prev = [
             {"activity": "coding", "state": "active", "since": "100000_300"},
@@ -726,7 +726,7 @@ class TestDetectEndedActivities:
         assert len(ended) == 2
 
     def test_continuing_not_ended(self):
-        from muse.activities import _detect_ended_activities
+        from talent.activities import _detect_ended_activities
 
         prev = [
             {"activity": "coding", "state": "active", "since": "100000_300"},
@@ -738,7 +738,7 @@ class TestDetectEndedActivities:
         assert len(ended) == 0
 
     def test_ignores_previously_ended(self):
-        from muse.activities import _detect_ended_activities
+        from talent.activities import _detect_ended_activities
 
         prev = [
             {"activity": "coding", "state": "ended", "since": "090000_300"},
@@ -751,7 +751,7 @@ class TestDetectEndedActivities:
 
     def test_new_activity_same_type(self):
         """A new activity of same type with different since is not the same."""
-        from muse.activities import _detect_ended_activities
+        from talent.activities import _detect_ended_activities
 
         prev = [
             {"activity": "coding", "state": "active", "since": "100000_300"},
@@ -766,7 +766,7 @@ class TestDetectEndedActivities:
 
 class TestWalkActivitySegments:
     def test_walks_segments(self, monkeypatch):
-        from muse.activities import _walk_activity_segments
+        from talent.activities import _walk_activity_segments
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -814,7 +814,7 @@ class TestWalkActivitySegments:
             assert result["active_entities"] == ["VS Code", "Claude Code"]
 
     def test_deduplicates_entities(self, monkeypatch):
-        from muse.activities import _walk_activity_segments
+        from talent.activities import _walk_activity_segments
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -857,7 +857,7 @@ class TestWalkActivitySegments:
             assert result["active_entities"] == ["VS Code", "Git", "Claude Code"]
 
     def test_empty_when_no_match(self, monkeypatch):
-        from muse.activities import _walk_activity_segments
+        from talent.activities import _walk_activity_segments
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -873,7 +873,7 @@ class TestPreProcess:
     """Tests for the activities pre_process hook."""
 
     def test_skips_when_no_previous_segment(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -889,7 +889,7 @@ class TestPreProcess:
             assert "skip_reason" in result
 
     def test_skips_when_no_ended_activities(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -930,7 +930,7 @@ class TestPreProcess:
             assert result.get("skip_reason") == "no_ended_activities"
 
     def test_detects_ended_and_writes_record(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -968,7 +968,7 @@ class TestPreProcess:
             assert records[0]["segments"] == ["100000_300"]
 
     def test_idempotent_on_rerun(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -999,7 +999,7 @@ class TestPreProcess:
             assert len(records) == 1
 
     def test_multi_facet_detection(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1054,7 +1054,7 @@ class TestPreProcess:
 
     def test_multi_segment_span(self, monkeypatch):
         """Activity spanning multiple segments should collect all segments."""
-        from muse.activities import pre_process
+        from talent.activities import pre_process
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1127,7 +1127,7 @@ class TestPostProcess:
     """Tests for the activities post_process hook."""
 
     def test_updates_descriptions(self, monkeypatch):
-        from muse.activities import post_process
+        from talent.activities import post_process
         from think.activities import append_activity_record, load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1162,19 +1162,19 @@ class TestPostProcess:
             )
 
     def test_handles_invalid_json(self):
-        from muse.activities import post_process
+        from talent.activities import post_process
 
         result = post_process("not json", {"day": "20260209"})
         assert result is None
 
     def test_handles_non_object(self):
-        from muse.activities import post_process
+        from talent.activities import post_process
 
         result = post_process("[]", {"day": "20260209"})
         assert result is None
 
     def test_returns_none(self, monkeypatch):
-        from muse.activities import post_process
+        from talent.activities import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -1204,7 +1204,7 @@ class TestPreProcessMeta:
     """Tests for pre-hook stashing record data in meta."""
 
     def test_meta_contains_activity_records(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -1248,7 +1248,7 @@ class TestPreProcessMeta:
             assert rec["description"] == "Writing code"
 
     def test_meta_multiple_facets(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -1299,7 +1299,7 @@ class TestPostProcessEvents:
     def test_emits_events_with_llm_description(self, monkeypatch):
         from unittest.mock import patch
 
-        from muse.activities import post_process
+        from talent.activities import post_process
         from think.activities import append_activity_record
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1339,7 +1339,7 @@ class TestPostProcessEvents:
                 }
             }
 
-            with patch("muse.activities.callosum_send") as mock_send:
+            with patch("talent.activities.callosum_send") as mock_send:
                 mock_send.return_value = True
                 post_process(
                     llm_result,
@@ -1363,7 +1363,7 @@ class TestPostProcessEvents:
     def test_falls_back_to_prehook_description_with_warning(self, monkeypatch, caplog):
         from unittest.mock import patch
 
-        from muse.activities import post_process
+        from talent.activities import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -1383,11 +1383,11 @@ class TestPostProcessEvents:
             }
 
             # LLM returns empty — no descriptions to update
-            with patch("muse.activities.callosum_send") as mock_send:
+            with patch("talent.activities.callosum_send") as mock_send:
                 mock_send.return_value = True
                 import logging
 
-                with caplog.at_level(logging.WARNING, logger="muse.activities"):
+                with caplog.at_level(logging.WARNING, logger="talent.activities"):
                     post_process(
                         "{}",
                         {"day": "20260209", "segment": "100500_300", "meta": meta},
@@ -1401,19 +1401,19 @@ class TestPostProcessEvents:
     def test_no_events_without_meta(self, monkeypatch):
         from unittest.mock import patch
 
-        from muse.activities import post_process
+        from talent.activities import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
 
-            with patch("muse.activities.callosum_send") as mock_send:
+            with patch("talent.activities.callosum_send") as mock_send:
                 post_process("{}", {"day": "20260209", "segment": "100500_300"})
                 mock_send.assert_not_called()
 
     def test_event_emission_failure_does_not_raise(self, monkeypatch):
         from unittest.mock import patch
 
-        from muse.activities import post_process
+        from talent.activities import post_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -1432,7 +1432,7 @@ class TestPostProcessEvents:
                 }
             }
 
-            with patch("muse.activities.callosum_send") as mock_send:
+            with patch("talent.activities.callosum_send") as mock_send:
                 mock_send.side_effect = OSError("socket error")
                 # Should not raise
                 result = post_process(
@@ -1556,7 +1556,7 @@ class TestPreProcessFlush:
     """Tests for the activities pre_process hook in flush mode."""
 
     def test_flush_ends_all_active_activities(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1601,7 +1601,7 @@ class TestPreProcessFlush:
             assert records[0]["segments"] == ["100000_300"]
 
     def test_flush_skips_when_no_active_activities(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -1632,7 +1632,7 @@ class TestPreProcessFlush:
             assert result["skip_reason"] == "no_active_activities"
 
     def test_flush_skips_when_no_activity_state(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)
@@ -1652,7 +1652,7 @@ class TestPreProcessFlush:
             assert result["skip_reason"] == "no_activity_state"
 
     def test_flush_handles_multiple_facets(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1707,7 +1707,7 @@ class TestPreProcessFlush:
             assert len(personal_records) == 1
 
     def test_flush_is_idempotent(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
         from think.activities import load_activity_records
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1742,7 +1742,7 @@ class TestPreProcessFlush:
             assert len(records) == 1
 
     def test_flush_stashes_meta_for_post_hook(self, monkeypatch):
-        from muse.activities import pre_process
+        from talent.activities import pre_process
 
         with tempfile.TemporaryDirectory() as tmpdir:
             monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", tmpdir)

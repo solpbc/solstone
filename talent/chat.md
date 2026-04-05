@@ -2,7 +2,7 @@
   "type": "cogitate",
   "title": "Sol",
   "description": "Sol — the journal itself, as a conversational partner",
-  "hook": {"pre": "muse/chat_context.py"}
+  "hook": {"pre": "talent/chat_context.py"}
 }
 
 $sol_identity

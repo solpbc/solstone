@@ -319,7 +319,7 @@ def get_providers() -> Any:
         - cogitate: Current cogitate provider, tier, and backup
         - contexts: Configured context overrides from journal.json
         - context_defaults: Context registry with labels/groups for UI
-          (includes muse configs with type, schedule, disabled, extract)
+          (includes talent configs with type, schedule, disabled, extract)
         - api_keys: Boolean status for each provider's API key
         - auth: Per-provider auth mode for cogitate ("platform" or "api_key")
     """
@@ -328,7 +328,7 @@ def get_providers() -> Any:
             TYPE_DEFAULTS,
             get_context_registry,
         )
-        from think.muse import get_muse_configs
+        from think.talent import get_talent_configs
         from think.providers import get_provider_list
 
         config = get_journal_config()
@@ -356,19 +356,19 @@ def get_providers() -> Any:
                 "label": ctx_config["label"],
                 "group": ctx_config["group"],
             }
-            # Include type for muse contexts
+            # Include type for talent contexts
             if "type" in ctx_config:
                 context_defaults[pattern]["type"] = ctx_config["type"]
 
-        # Enhance muse contexts with additional metadata from get_muse_configs
-        from think.muse import key_to_context
+        # Enhance talent contexts with additional metadata from get_talent_configs
+        from think.talent import key_to_context
 
-        muse_configs = get_muse_configs(include_disabled=True)
-        for key, info in muse_configs.items():
+        talent_configs = get_talent_configs(include_disabled=True)
+        for key, info in talent_configs.items():
             context_key = key_to_context(key)
 
             if context_key in context_defaults:
-                # Add muse-specific fields
+                # Add talent-specific fields
                 if "schedule" in info:
                     context_defaults[context_key]["schedule"] = info["schedule"]
                 context_defaults[context_key]["disabled"] = info.get("disabled", False)
@@ -475,7 +475,7 @@ def update_providers() -> Any:
           Set or clear context overrides
 
     Setting a context to null removes the override.
-    For muse contexts, disabled and extract can also be set.
+    For talent contexts, disabled and extract can also be set.
     """
     try:
         from think.providers import PROVIDER_REGISTRY
@@ -698,9 +698,9 @@ def update_providers() -> Any:
 
 
 def _build_generator_info(key: str, info: dict) -> dict:
-    """Build generator info dict from muse config for Settings UI.
+    """Build generator info dict from talent config for Settings UI.
 
-    Transforms muse config metadata into the format expected by the
+    Transforms talent config metadata into the format expected by the
     Settings UI Insights section.
     """
     # Determine if extraction is supported (occurrence/anticipation hooks)
@@ -725,7 +725,7 @@ def _build_generator_info(key: str, info: dict) -> dict:
 def get_generators() -> Any:
     """Return generators grouped by schedule for Settings UI.
 
-    This is a compatibility layer that transforms the unified muse config
+    This is a compatibility layer that transforms the unified talent config
     into the format expected by the Settings UI Insights section.
 
     Returns:
@@ -733,10 +733,10 @@ def get_generators() -> Any:
         - daily: List of daily-schedule generators
     """
     try:
-        from think.muse import get_muse_configs
+        from think.talent import get_talent_configs
 
         # Get all generate prompts
-        all_generators = get_muse_configs(type="generate", include_disabled=True)
+        all_generators = get_talent_configs(type="generate", include_disabled=True)
 
         segment = []
         daily = []
@@ -787,7 +787,7 @@ def update_generators() -> Any:
         old_contexts = old_providers.get("contexts", {})
         changed_fields = {}
 
-        from think.muse import key_to_context
+        from think.talent import key_to_context
 
         for key, updates in request_data.items():
             if not isinstance(updates, dict):

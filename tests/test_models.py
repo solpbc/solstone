@@ -440,30 +440,30 @@ def test_context_registry_includes_categories():
         assert registry[context]["tier"] in (TIER_PRO, TIER_FLASH, TIER_LITE)
 
 
-def test_context_registry_includes_muse_configs():
-    """Test that registry includes discovered muse contexts (agents + generators)."""
+def test_context_registry_includes_talent_configs():
+    """Test that registry includes discovered talent contexts (agents + generators)."""
     registry = get_context_registry()
 
-    # Should have muse entries (from muse/*.md and apps/*/muse/*.md)
-    muse_contexts = [k for k in registry if k.startswith("muse.")]
+    # Should have talent entries (from talent/*.md and apps/*/talent/*.md)
+    talent_contexts = [k for k in registry if k.startswith("talent.")]
 
-    # Should have multiple muse contexts (agents + generators)
-    assert len(muse_contexts) > 1, "Should discover muse contexts"
+    # Should have multiple talent contexts (agents + generators)
+    assert len(talent_contexts) > 1, "Should discover talent contexts"
 
-    # Should have system muse configs
-    system_muse = [k for k in muse_contexts if k.startswith("muse.system.")]
-    assert len(system_muse) > 0, "Should discover system muse configs"
+    # Should have system talent configs
+    system_talent = [k for k in talent_contexts if k.startswith("talent.system.")]
+    assert len(system_talent) > 0, "Should discover system talent configs"
 
-    # Should have app muse configs
-    app_muse = [
+    # Should have app talent configs
+    app_talent = [
         k
-        for k in muse_contexts
-        if k.startswith("muse.") and not k.startswith("muse.system.")
+        for k in talent_contexts
+        if k.startswith("talent.") and not k.startswith("talent.system.")
     ]
-    assert len(app_muse) > 0, "Should discover app muse configs"
+    assert len(app_talent) > 0, "Should discover app talent configs"
 
-    # Should include type field for muse contexts
-    for context in muse_contexts:
+    # Should include type field for talent contexts
+    for context in talent_contexts:
         assert "type" in registry[context], f"{context} missing type field"
 
 

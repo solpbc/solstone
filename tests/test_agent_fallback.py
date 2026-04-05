@@ -100,10 +100,10 @@ def _mock_base_agent_config() -> dict:
 
 def _patch_prepare_config_dependencies(monkeypatch):
     monkeypatch.setattr(
-        "think.muse.get_agent", lambda *args, **kwargs: _mock_base_agent_config()
+        "think.talent.get_agent", lambda *args, **kwargs: _mock_base_agent_config()
     )
     monkeypatch.setattr(
-        "think.muse.key_to_context", lambda _name: "muse.system.default"
+        "think.talent.key_to_context", lambda _name: "talent.system.default"
     )
     monkeypatch.setattr(
         "think.models.resolve_provider",
@@ -205,7 +205,7 @@ def test_on_failure_retry_cogitate(monkeypatch):
         "provider": "google",
         "model": "gemini-3-flash-preview",
         "health_stale": False,
-        "context": "muse.system.default",
+        "context": "talent.system.default",
     }
 
     asyncio.run(_execute_with_tools(config, events.append))
@@ -247,8 +247,8 @@ def test_on_failure_retry_cogitate_uses_context_from_name(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        "think.muse.key_to_context",
-        lambda _name: "muse.system.default",
+        "think.talent.key_to_context",
+        lambda _name: "talent.system.default",
     )
     monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
     monkeypatch.setattr("think.models.resolve_model_for_provider", resolve_model)
@@ -263,7 +263,7 @@ def test_on_failure_retry_cogitate_uses_context_from_name(monkeypatch):
 
     asyncio.run(_execute_with_tools(config, events.append))
 
-    assert seen["context"] == "muse.system.default"
+    assert seen["context"] == "talent.system.default"
 
 
 def test_on_failure_retry_generate(monkeypatch):
@@ -281,7 +281,7 @@ def test_on_failure_retry_generate(monkeypatch):
         return {"text": "backup text", "usage": {"input_tokens": 1, "output_tokens": 1}}
 
     monkeypatch.setattr(
-        "think.muse.key_to_context", lambda _name: "muse.system.default"
+        "think.talent.key_to_context", lambda _name: "talent.system.default"
     )
     monkeypatch.setattr("think.models.generate_with_result", mock_generate_with_result)
     monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")
@@ -319,7 +319,7 @@ def test_on_failure_no_retry_value_error(monkeypatch):
         raise ValueError("bad input")
 
     monkeypatch.setattr(
-        "think.muse.key_to_context", lambda _name: "muse.system.default"
+        "think.talent.key_to_context", lambda _name: "talent.system.default"
     )
     monkeypatch.setattr("think.models.generate_with_result", bad_generate)
 
@@ -350,7 +350,7 @@ def test_on_failure_both_fail_raises_original(monkeypatch):
         raise RuntimeError("primary failed")
 
     monkeypatch.setattr(
-        "think.muse.key_to_context", lambda _name: "muse.system.default"
+        "think.talent.key_to_context", lambda _name: "talent.system.default"
     )
     monkeypatch.setattr("think.models.generate_with_result", always_fail)
     monkeypatch.setattr("think.models.get_backup_provider", lambda _type: "anthropic")

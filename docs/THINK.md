@@ -20,15 +20,15 @@ The package exposes several commands:
 - `sol agents` is the unified CLI for tool agents and generators (spawned by Cortex, NDJSON protocol).
 - `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
 - `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
-- `sol muse` lists available agents and generators with their configuration. Use `sol muse show <name>` to see details, and `sol muse show <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
+- `sol talent` lists available agents and generators with their configuration. Use `sol talent show <name>` to see details, and `sol talent show <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
 
 ```bash
 sol call transcripts read YYYYMMDD [--start HHMMSS --length MINUTES]
 sol dream [--day YYYYMMDD] [--segment HHMMSS_LEN] [--stream NAME] [--refresh] [--flush]
 sol supervisor [--no-observers]
 sol cortex [--host HOST] [--port PORT] [--path PATH]
-sol muse list [--schedule daily|segment] [--json]
-sol muse show <name> [--prompt] [--day YYYYMMDD] [--segment HHMMSS_LEN] [--full]
+sol talent list [--schedule daily|segment] [--json]
+sol talent show <name> [--prompt] [--day YYYYMMDD] [--segment HHMMSS_LEN] [--full]
 ```
 
 Use `--refresh` to overwrite existing files, and `-v` for verbose logs.
@@ -175,7 +175,7 @@ which automatically routes to the configured provider based on context.
 
 ## Generator map keys
 
-`think.muse.get_muse_configs(has_tools=False)` reads the `.md` prompt files under `muse/` and
+`think.talent.get_muse_configs(has_tools=False)` reads the `.md` prompt files under `talent/` and
 returns a dictionary keyed by generator name. Each entry contains:
 
 - `path` – the prompt file path
@@ -209,7 +209,7 @@ request_file = cortex_request(
 agents_info = cortex_agents(limit=10, agent_type="live")
 print(f"Found {agents_info['live_count']} running agents")
 ```
-# Muse Module
+# Talent Module
 
 AI agent system and tool-calling support for solstone.
 
@@ -251,7 +251,7 @@ Providers implement `run_generate()`, `run_agenerate()`, and `run_cogitate()` fu
 
 ## Agent Personas
 
-System prompts in `muse/*.md` (markdown with JSON frontmatter). Apps can add custom agents in `apps/{app}/muse/`.
+System prompts in `talent/*.md` (markdown with JSON frontmatter). Apps can add custom agents in `apps/{app}/talent/`.
 
 JSON metadata supports `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, and `load` keys.
 

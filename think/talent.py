@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Muse agent and generator orchestration utilities.
+"""Talent agent and generator orchestration utilities.
 
-This module provides functionality for configuring and orchestrating muse agents
-and generators from muse/*.md and apps/*/muse/*.md.
+This module provides functionality for configuring and orchestrating talent agents
+and generators from talent/*.md and apps/*/talent/*.md.
 
 Key functions:
-- get_muse_configs(): Discover all muse configs with filtering
+- get_talent_configs(): Discover all talent configs with filtering
 - get_agent(): Load complete agent configuration by name
 - Hook loading: load_pre_hook(), load_post_hook()
 
@@ -31,39 +31,39 @@ from think.prompts import _load_prompt_metadata, load_prompt
 # Constants
 # ---------------------------------------------------------------------------
 
-MUSE_DIR = Path(__file__).parent.parent / "muse"
+TALENT_DIR = Path(__file__).parent.parent / "talent"
 APPS_DIR = Path(__file__).parent.parent / "apps"
 
 
 # ---------------------------------------------------------------------------
-# Muse Config Discovery
+# Talent Config Discovery
 # ---------------------------------------------------------------------------
 
 
 def key_to_context(key: str) -> str:
-    """Convert muse config key to context pattern.
+    """Convert talent config key to context pattern.
 
     Parameters
     ----------
     key:
-        Muse config key in format "name" (system) or "app:name" (app).
+        Talent config key in format "name" (system) or "app:name" (app).
 
     Returns
     -------
     str
-        Context pattern: "muse.system.{name}" or "muse.{app}.{name}".
+        Context pattern: "talent.system.{name}" or "talent.{app}.{name}".
 
     Examples
     --------
     >>> key_to_context("meetings")
-    'muse.system.meetings'
+    'talent.system.meetings'
     >>> key_to_context("entities:observer")
-    'muse.entities.observer'
+    'talent.entities.observer'
     """
     if ":" in key:
         app, name = key.split(":", 1)
-        return f"muse.{app}.{name}"
-    return f"muse.system.{key}"
+        return f"talent.{app}.{name}"
+    return f"talent.system.{key}"
 
 
 def get_output_name(key: str) -> str:
@@ -151,16 +151,16 @@ def get_output_path(
     return day / "agents" / filename
 
 
-def get_muse_configs(
+def get_talent_configs(
     *,
     type: str | None = None,
     schedule: str | None = None,
     include_disabled: bool = False,
 ) -> dict[str, dict[str, Any]]:
-    """Load muse configs from system and app directories.
+    """Load talent configs from system and app directories.
 
     Unified function for loading both cogitate agents and generate prompts from
-    muse/*.md and apps/*/muse/*.md files. Filters based on explicit type field.
+    talent/*.md and apps/*/talent/*.md files. Filters based on explicit type field.
 
     Args:
         type: If provided, only configs with matching type value
@@ -197,26 +197,26 @@ def get_muse_configs(
 
         return True
 
-    # System configs from muse/
-    if MUSE_DIR.is_dir():
-        for md_path in sorted(MUSE_DIR.glob("*.md")):
+    # System configs from talent/
+    if TALENT_DIR.is_dir():
+        for md_path in sorted(TALENT_DIR.glob("*.md")):
             name = md_path.stem
             info = _load_prompt_metadata(md_path)
 
             info["source"] = "system"
             configs[name] = info
 
-    # App configs from apps/*/muse/
+    # App configs from apps/*/talent/
     apps_dir = APPS_DIR
     if apps_dir.is_dir():
         for app_path in sorted(apps_dir.iterdir()):
             if not app_path.is_dir() or app_path.name.startswith("_"):
                 continue
-            app_muse_dir = app_path / "muse"
-            if not app_muse_dir.is_dir():
+            app_talent_dir = app_path / "talent"
+            if not app_talent_dir.is_dir():
                 continue
             app_name = app_path.name
-            for md_path in sorted(app_muse_dir.glob("*.md")):
+            for md_path in sorted(app_talent_dir.glob("*.md")):
                 item_name = md_path.stem
                 info = _load_prompt_metadata(md_path)
 
@@ -311,16 +311,16 @@ def _resolve_agent_path(name: str) -> tuple[Path, str]:
         (agent_directory, agent_name) tuple.
     """
     if ":" in name:
-        # App agent: "support:support" -> apps/support/muse/support
+        # App agent: "support:support" -> apps/support/talent/support
         app, agent_name = name.split(":", 1)
-        agent_dir = Path(__file__).parent.parent / "apps" / app / "muse"
+        agent_dir = Path(__file__).parent.parent / "apps" / app / "talent"
     elif name == "unified":
-        # Chat agent: "unified" -> muse/chat
-        agent_dir = MUSE_DIR
+        # Chat agent: "unified" -> talent/chat
+        agent_dir = TALENT_DIR
         agent_name = "chat"
     else:
-        # System agent: bare name -> muse/{name}
-        agent_dir = MUSE_DIR
+        # System agent: bare name -> talent/{name}
+        agent_dir = TALENT_DIR
         agent_name = name
     return agent_dir, agent_name
 
@@ -426,7 +426,7 @@ def get_agent(
     ----------
     name:
         Agent name to load. Can be a system agent (e.g., "unified")
-        or an app-namespaced agent (e.g., "support:support" for apps/support/muse/support).
+        or an app-namespaced agent (e.g., "support:support" for apps/support/talent/support).
     facet:
         Optional facet name to focus on. Controls $facets template variable.
     analysis_day:
@@ -485,8 +485,8 @@ def _resolve_hook_path(hook_name: str) -> Path:
     """Resolve hook name to file path.
 
     Resolution:
-    - Named: "name" -> muse/{name}.py
-    - App-qualified: "app:name" -> apps/{app}/muse/{name}.py
+    - Named: "name" -> talent/{name}.py
+    - App-qualified: "app:name" -> apps/{app}/talent/{name}.py
     - Explicit path: "path/to/hook.py" -> direct path
     """
     if "/" in hook_name or hook_name.endswith(".py"):
@@ -495,9 +495,9 @@ def _resolve_hook_path(hook_name: str) -> Path:
         return project_root / hook_name
     elif ":" in hook_name:
         app, name = hook_name.split(":", 1)
-        return Path(__file__).parent.parent / "apps" / app / "muse" / f"{name}.py"
+        return Path(__file__).parent.parent / "apps" / app / "talent" / f"{name}.py"
     else:
-        return MUSE_DIR / f"{hook_name}.py"
+        return TALENT_DIR / f"{hook_name}.py"
 
 
 def _load_hook_function(config: dict, key: str, func_name: str) -> Callable | None:

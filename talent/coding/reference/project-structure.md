@@ -9,7 +9,7 @@ solstone/
 ├── think/          # Data post-processing, AI agents & orchestration
 ├── convey/         # Web app frontend & backend
 ├── apps/           # Convey app extensions (see docs/APPS.md)
-├── muse/           # Agent/generator configs + Agent Skills (muse/*/SKILL.md)
+├── talent/           # Agent/generator configs + Agent Skills (talent/*/SKILL.md)
 ├── tests/          # Pytest test suites + test fixtures under tests/fixtures/
 ├── docs/           # All documentation (*.md files)
 ├── AGENTS.md       # Development guidelines (this file)
@@ -34,14 +34,14 @@ Each package has a README.md symlink pointing to its documentation in `docs/`.
 
 ## Agent & Skill Organization
 
-`muse/*.md` stores agent personas and generator templates. Apps can add their own in `apps/*/muse/*.md`. Skills live at `muse/*/SKILL.md` and are symlinked to `.agents/skills/` and `.claude/skills/` via `make skills`.
+`talent/*.md` stores agent personas and generator templates. Apps can add their own in `apps/*/talent/*.md`. Skills live at `talent/*/SKILL.md` and are symlinked to `.agents/skills/` and `.claude/skills/` via `make skills`.
 
 ## File Locations
 
 - **Entry Points**: `sol.py` `COMMANDS` dict
 - **Test Fixtures**: `tests/fixtures/journal/` - complete mock journal
 - **Live Logs**: `journal/health/<service>.log`
-- **Agent Personas**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
-- **Generator Templates**: `muse/*.md` (apps can add their own in `muse/`, see [docs/APPS.md](docs/APPS.md))
-- **Agent Skills**: `muse/*/SKILL.md` - symlinked to `.agents/skills/` and `.claude/skills/` via `make skills`, read https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices to create the best skills
+- **Agent Personas**: `talent/*.md` (apps can add their own in `talent/`, see [docs/APPS.md](docs/APPS.md))
+- **Generator Templates**: `talent/*.md` (apps can add their own in `talent/`, see [docs/APPS.md](docs/APPS.md))
+- **Agent Skills**: `talent/*/SKILL.md` - symlinked to `.agents/skills/` and `.claude/skills/` via `make skills`, read https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices to create the best skills
 - **Scratch Space**: `scratch/` - git-ignored local workspace

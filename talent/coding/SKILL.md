@@ -46,7 +46,7 @@ description: >
 
 ```bash
 make install   # Install package (includes all deps)
-make skills    # Discover and symlink Agent Skills from muse/ dirs
+make skills    # Discover and symlink Agent Skills from talent/ dirs
 make format    # Auto-fix formatting, then report remaining issues
 make test      # Run unit tests
 make ci        # Full CI check (format check + lint + test)
@@ -72,7 +72,7 @@ pipelines that should only be operated by the supervisor or human operators:
 - `sol indexer --reset` — destructive index rebuild (read-only queries via `sol indexer` are fine)
 
 Agents should use `sol call` commands for journal interaction and `sol health` /
-`sol muse logs` for diagnostics.
+`sol talent logs` for diagnostics.
 
 ## Reference
 

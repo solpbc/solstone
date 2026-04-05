@@ -127,5 +127,5 @@ def app_today() -> Any:
 
 @bp.route("/")
 def index() -> Any:
-    """Root redirect — always to home, onboarding muse handles new journals."""
+    """Root redirect — always to home, onboarding talent handles new journals."""
     return redirect(url_for("app:home.index"))

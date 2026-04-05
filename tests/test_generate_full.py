@@ -73,9 +73,9 @@ def test_generate_output_ndjson(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    import think.muse
+    import think.talent
 
-    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
 
     test_generator = tmp_path / "test_gen.md"
     test_generator.write_text(
@@ -119,9 +119,9 @@ def test_generate_hook_invoked_with_context(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    import think.muse
+    import think.talent
 
-    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
 
     hook_file = tmp_path / "test_hook.py"
     hook_file.write_text("""
@@ -192,9 +192,9 @@ def test_generate_without_hook_succeeds(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    import think.muse
+    import think.talent
 
-    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
 
     test_generator = tmp_path / "nohook_gen.md"
     test_generator.write_text(
@@ -259,9 +259,9 @@ def test_generate_skipped_on_no_input(tmp_path, monkeypatch):
     day_dir = day_path("20240101")
     day_dir.mkdir(parents=True, exist_ok=True)
 
-    import think.muse
+    import think.talent
 
-    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
 
     test_generator = tmp_path / "empty_gen.md"
     test_generator.write_text(
@@ -296,9 +296,9 @@ def test_cogitate_not_skipped_without_sources(tmp_path, monkeypatch):
     day_dir = day_path("20240101")
     day_dir.mkdir(parents=True, exist_ok=True)
 
-    import think.muse
+    import think.talent
 
-    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
 
     test_agent = tmp_path / "test_cogitate.md"
     test_agent.write_text(
@@ -320,11 +320,11 @@ def test_cogitate_not_skipped_without_sources(tmp_path, monkeypatch):
 
 def test_named_hook_resolution(tmp_path, monkeypatch):
     """Test that named hooks are resolved via load_post_hook."""
-    from think.muse import load_post_hook
+    from think.talent import load_post_hook
 
     # Config with named hook (new format)
     config = {"hook": {"post": "occurrence"}}
     hook_fn = load_post_hook(config)
 
-    # Should resolve to muse/occurrence.py and be callable
+    # Should resolve to talent/occurrence.py and be callable
     assert callable(hook_fn)

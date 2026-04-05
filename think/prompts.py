@@ -4,14 +4,14 @@
 """Core prompt loading utilities.
 
 This module provides the foundational prompt loading functionality used by both
-standalone prompts (observe/, think/*.md) and the full muse agent orchestration.
+standalone prompts (observe/, think/*.md) and the full talent agent orchestration.
 
 Key functions:
 - load_prompt(): Load and parse .md prompt files with template substitution
 - PromptContent: Named tuple for prompt text, path, and metadata
 
 For full agent/generator orchestration (scheduling, hooks, instruction composition),
-use think.muse instead.
+use think.talent instead.
 """
 
 from __future__ import annotations

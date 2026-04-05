@@ -37,7 +37,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
   "event": "request",
   "ts": 1234567890123,              // Required: millisecond timestamp (must match agent_id in filename)
   "prompt": "Analyze this code for security issues",  // Required for agents (not generators)
-  "name": "default",              // Optional: agent name from muse/*.md
+  "name": "default",              // Optional: agent name from talent/*.md
   "provider": "openai",              // Optional: override provider (openai, google, anthropic)
   "max_output_tokens": 8192,        // Optional: maximum response tokens
   "thinking_budget": 10000,         // Optional: thinking token budget (ignored by OpenAI)
@@ -53,7 +53,7 @@ Requests are created via `cortex_request()` from `think.cortex_client`, which br
 }
 ```
 
-The model is automatically resolved based on the muse context (`muse.{source}.{name}`)
+The model is automatically resolved based on the talent context (`talent.{source}.{name}`)
 and the configured tier in `journal.json`. Provider can optionally be overridden at
 request time, which will resolve the appropriate model for that provider at the same tier.
 
@@ -65,7 +65,7 @@ Generators are spawned via Cortex when a request has an `output` field but no `t
 {
   "event": "request",
   "ts": 1234567890123,              // Required: millisecond timestamp
-  "name": "activity",               // Required: generator name from muse/*.md
+  "name": "activity",               // Required: generator name from talent/*.md
   "day": "20250109",                // Required: day in YYYYMMDD format
   "output": "md",                   // Required: output format ("md" or "json")
   "segment": "120000_300",          // Optional: single segment key (HHMMSS_duration)
@@ -240,14 +240,14 @@ When an agent completes successfully, its result can be automatically written to
 
 ## Agent Configuration
 
-Agents use configurations stored in the `muse/` directory. Each agent is a `.md` file containing:
+Agents use configurations stored in the `talent/` directory. Each agent is a `.md` file containing:
 - JSON frontmatter with metadata and configuration
 - The agent-specific prompt and instructions in the content
 
 When spawning an agent:
 1. Cortex passes the raw request to `sol agents` via stdin (NDJSON format)
 2. The agent process (`think/agents.py`) handles all config loading via `prepare_config()`:
-   - Loads agent configuration using `get_agent()` from `think/muse.py`
+   - Loads agent configuration using `get_agent()` from `think/talent.py`
    - Merges request parameters with agent defaults
    - Resolves provider and model based on context
 3. The agent validates the config via `validate_config()` before execution
@@ -256,7 +256,7 @@ When spawning an agent:
    - `extra_context`: Runtime context (facets, generators list, datetime)
    - `user_instruction`: The agent's `.md` file content
 
-Agents define specialized behaviors and facet expertise. Available agents can be discovered using `get_muse_configs(type="cogitate")` or by listing files in the `muse/` directory.
+Agents define specialized behaviors and facet expertise. Available agents can be discovered using `get_muse_configs(type="cogitate")` or by listing files in the `talent/` directory.
 
 ### Agent Configuration Options
 
@@ -281,7 +281,7 @@ The JSON frontmatter for an agent can include:
 ### Model Resolution
 
 Models are resolved automatically based on context and tier:
-1. Each muse config has a context pattern: `muse.{source}.{name}` (e.g., `muse.system.default`)
+1. Each talent config has a context pattern: `talent.{source}.{name}` (e.g., `talent.system.default`)
 2. The context determines the tier (pro/flash/lite) from `journal.json` or system defaults
 3. The tier + provider determines the actual model to use
 
@@ -290,8 +290,8 @@ This allows controlling model selection via tier configuration rather than hardc
 {
   "providers": {
     "contexts": {
-      "muse.system.default": {"tier": 1},
-      "muse.*": {"tier": 2}
+      "talent.system.default": {"tier": 1},
+      "talent.*": {"tier": 2}
     }
   }
 }

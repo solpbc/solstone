@@ -322,9 +322,9 @@ The `providers` block enables fine-grained control over which LLM provider and m
     },
     "contexts": {
       "observe.*": {"provider": "google", "tier": 3},
-      "muse.system.*": {"tier": 1},
-      "muse.system.meetings": {"provider": "anthropic", "disabled": true},
-      "muse.entities.observer": {"tier": 2, "extract": false}
+      "talent.system.*": {"tier": 1},
+      "talent.system.meetings": {"provider": "anthropic", "disabled": true},
+      "talent.entities.observer": {"tier": 2, "extract": false}
     },
     "models": {
       "google": {
@@ -354,15 +354,15 @@ If a requested tier is unavailable for a provider, the system falls back to more
 #### Context matching
 
 Contexts are matched in order of specificity:
-1. **Exact match** – `"muse.system.meetings"` matches only that exact context
+1. **Exact match** – `"talent.system.meetings"` matches only that exact context
 2. **Glob pattern** – `"observe.*"` matches any context starting with `observe.`
 3. **Default** – Falls back to the `default` configuration
 
 #### Context naming convention
 
-Muse configs (agents and generators) use the pattern `muse.{source}.{name}`:
-- System configs: `muse.system.{name}` (e.g., `muse.system.meetings`, `muse.system.default`)
-- App configs: `muse.{app}.{name}` (e.g., `muse.entities.observer`, `muse.support.support`)
+Talent configs (agents and generators) use the pattern `talent.{source}.{name}`:
+- System configs: `talent.system.{name}` (e.g., `talent.system.meetings`, `talent.system.default`)
+- App configs: `talent.{app}.{name}` (e.g., `talent.entities.observer`, `talent.support.support`)
 
 Other contexts follow the pattern `{module}.{feature}[.{operation}]`:
 - Observe pipeline: `observe.describe.frame`, `observe.enrich`, `observe.transcribe.gemini`
@@ -378,7 +378,7 @@ Other contexts follow the pattern `{module}.{feature}[.{operation}]`:
 - `provider` (string) – Override provider (optional, inherits from default).
 - `tier` (integer) – Tier number (optional).
 - `model` (string) – Explicit model name (optional, overrides tier).
-- `disabled` (boolean) – Disable this muse config (optional, muse contexts only).
+- `disabled` (boolean) – Disable this talent config (optional, talent contexts only).
 - `extract` (boolean) – Enable/disable event extraction for generators with occurrence/anticipation hooks (optional).
 
 **models** – Per-provider tier overrides. Maps provider name to tier-model mappings:
@@ -1058,17 +1058,17 @@ Agent outputs are AI-generated markdown files that provide human-readable narrat
 
 #### Segment outputs
 
-After captures are processed, segment-level outputs are generated within each segment folder as `HHMMSS_LEN/*.md` files. Available segment output types are defined by templates in `muse/` with `"schedule": "segment"` in their metadata JSON.
+After captures are processed, segment-level outputs are generated within each segment folder as `HHMMSS_LEN/*.md` files. Available segment output types are defined by templates in `talent/` with `"schedule": "segment"` in their metadata JSON.
 
 #### Daily outputs
 
 Post-processing generates day-level outputs in the `agents/` directory that synthesize all segments.
 
 **Generator discovery:** Available generator types are discovered at runtime from:
-- `muse/*.md` – system generator templates (files with `schedule` field but no `tools` field)
-- `apps/{app}/muse/*.md` – app-specific generator templates
+- `talent/*.md` – system generator templates (files with `schedule` field but no `tools` field)
+- `apps/{app}/talent/*.md` – app-specific generator templates
 
-Each template is a `.md` file with JSON frontmatter containing metadata (title, description, schedule, output format). The `schedule` field is required and must be `"segment"` or `"daily"` - generators with missing or invalid schedule are skipped. Use `get_muse_configs(has_tools=False)` from `think/muse.py` to retrieve all available generators, or `get_muse_configs(has_tools=False, schedule="daily")` to get generators filtered by schedule.
+Each template is a `.md` file with JSON frontmatter containing metadata (title, description, schedule, output format). The `schedule` field is required and must be `"segment"` or `"daily"` - generators with missing or invalid schedule are skipped. Use `get_muse_configs(has_tools=False)` from `think/talent.py` to retrieve all available generators, or `get_muse_configs(has_tools=False, schedule="daily")` to get generators filtered by schedule.
 
 **Output naming:**
 - System outputs: `agents/{agent}.md` (e.g., `agents/flow.md`, `agents/meetings.md`)

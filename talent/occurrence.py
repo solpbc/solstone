@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Hook for extracting anticipation events from generator output results.
+"""Hook for extracting occurrence events from generator output results.
 
-This hook is invoked via "hook": {"post": "anticipation"} in generator frontmatter.
-It extracts structured JSON events for future scheduled items and writes
+This hook is invoked via "hook": {"post": "occurrence"} in generator frontmatter.
+It extracts structured JSON events from markdown summaries and writes
 them to facet-based JSONL files.
 """
 
@@ -20,15 +20,15 @@ from think.hooks import (
     write_events_jsonl,
 )
 from think.models import generate
-from think.muse import get_output_name
+from think.talent import get_output_name
 from think.prompts import load_prompt
 
 
 def post_process(result: str, context: dict) -> str | None:
-    """Extract anticipation events from generator output result.
+    """Extract occurrence events from generator output result.
 
-    This hook extracts structured JSON events for future scheduled items
-    from markdown output summaries and writes them to facet-based JSONL files.
+    This hook extracts structured JSON events from markdown output summaries
+    and writes them to facet-based JSONL files.
 
     Args:
         result: The generated output markdown content.
@@ -41,23 +41,28 @@ def post_process(result: str, context: dict) -> str | None:
     # Check skip conditions
     skip_reason = should_skip_extraction(result, context)
     if skip_reason:
-        logging.info("Skipping anticipation extraction: %s", skip_reason)
+        logging.info("Skipping occurrence extraction: %s", skip_reason)
         return None
 
     # Load extraction prompt
-    prompt_content = load_prompt("anticipation", base_dir=Path(__file__).parent)
+    prompt_content = load_prompt("occurrence", base_dir=Path(__file__).parent)
 
-    # Build context with facets (anticipations don't have agent-specific instructions)
+    # Build context with facets + agent-specific instructions
     facets_context = facet_summaries(detailed=True)
+    agent_instructions = context.get("meta", {}).get("occurrences")
+    if agent_instructions and isinstance(agent_instructions, str):
+        extra_instructions = f"{facets_context}\n\n{agent_instructions}"
+    else:
+        extra_instructions = facets_context
 
     # Extract events
     name = context.get("name", "unknown")
-    contents = [facets_context, result]
+    contents = [extra_instructions, result]
 
     try:
         response_text = generate(
             contents=contents,
-            context=f"muse.system.{name}",
+            context=f"talent.system.{name}",
             temperature=0.3,
             max_output_tokens=24576,
             thinking_budget=0,
@@ -71,14 +76,14 @@ def post_process(result: str, context: dict) -> str | None:
     try:
         events = json.loads(response_text)
     except json.JSONDecodeError as e:
-        logging.error("Invalid JSON from anticipation extraction: %s", e)
+        logging.error("Invalid JSON from occurrence extraction: %s", e)
         return None
 
     if not isinstance(events, list):
         logging.error("Extraction did not return array")
         return None
 
-    # Write to facet JSONL files (occurred=False for anticipations)
+    # Write to facet JSONL files
     source_output = compute_output_source(context)
     output_name = get_output_name(name)
     day = context.get("day", "")
@@ -86,7 +91,7 @@ def post_process(result: str, context: dict) -> str | None:
     written_paths = write_events_jsonl(
         events=events,
         agent=output_name,
-        occurred=False,
+        occurred=True,
         source_output=source_output,
         capture_day=day,
     )

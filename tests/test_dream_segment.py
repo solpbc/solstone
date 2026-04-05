@@ -143,7 +143,7 @@ class TestRunSegmentSense:
 
         monkeypatch.setattr(
             dream,
-            "get_muse_configs",
+            "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs("sense", "entities"),
         )
         monkeypatch.setattr(
@@ -189,7 +189,7 @@ class TestRunSegmentSense:
 
         monkeypatch.setattr(
             dream,
-            "get_muse_configs",
+            "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs(
                 "sense", "entities", "screen"
             ),
@@ -239,7 +239,7 @@ class TestRunSegmentSense:
 
         monkeypatch.setattr(
             dream,
-            "get_muse_configs",
+            "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs(
                 "sense", "entities", "screen"
             ),
@@ -297,7 +297,7 @@ class TestRunSegmentSense:
 
         monkeypatch.setattr(
             dream,
-            "get_muse_configs",
+            "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs(
                 "sense",
                 "entities",
@@ -337,7 +337,7 @@ class TestRunSegmentSense:
 
         monkeypatch.setattr(
             dream,
-            "get_muse_configs",
+            "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs("sense", "entities"),
         )
         monkeypatch.setattr(
@@ -376,7 +376,7 @@ class TestRunSegmentSense:
 
         monkeypatch.setattr(
             dream,
-            "get_muse_configs",
+            "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs(
                 "sense", "entities", "screen"
             ),
@@ -415,7 +415,7 @@ class TestRunSegmentSense:
 
         monkeypatch.setattr(
             dream,
-            "get_muse_configs",
+            "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs(
                 "sense", "entities", "pulse"
             ),
@@ -453,7 +453,7 @@ class TestRunSegmentSense:
 
         monkeypatch.setattr(
             dream,
-            "get_muse_configs",
+            "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs("sense", "entities"),
         )
         monkeypatch.setattr(
@@ -499,7 +499,7 @@ class TestRunSegmentSense:
 
         monkeypatch.setattr(
             dream,
-            "get_muse_configs",
+            "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs("sense", "entities"),
         )
         monkeypatch.setattr(
@@ -560,7 +560,7 @@ class TestRunSegmentSense:
 
         monkeypatch.setattr(
             dream,
-            "get_muse_configs",
+            "get_talent_configs",
             lambda schedule=None, **kwargs: {
                 **_segment_configs("sense"),
                 "entities": {
@@ -617,7 +617,7 @@ class TestRunSegmentSense:
 
         monkeypatch.setattr(
             dream,
-            "get_muse_configs",
+            "get_talent_configs",
             lambda schedule=None, **kwargs: _segment_configs("sense", "entities"),
         )
         monkeypatch.setattr(dream, "cortex_request", mock_cortex_request)

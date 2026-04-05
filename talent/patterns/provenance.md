@@ -2,7 +2,7 @@
 
 How cogitate agents communicate the basis and reliability of their claims. This pattern ensures briefings and reports distinguish between well-sourced facts and inferences.
 
-Canonical implementation: `muse/morning_briefing.md`.
+Canonical implementation: `talent/morning_briefing.md`.
 
 ## Four Mechanisms
 
@@ -50,7 +50,7 @@ Claims read differently based on evidence strength. The agent expresses confiden
 
 **Bidirectional rule:** Strong evidence must NOT get hedging language. Weak evidence must NOT get assertive language. Both directions must be enforced.
 
-**Upstream confidence scores:** Some agents (e.g., `muse/followups.md`, `muse/decisions.md`) emit a `Confidence: 0.0–1.0` field per item. When consuming this output, use the score to inform language grading. The briefing expresses confidence through language, not by forwarding the numeric score.
+**Upstream confidence scores:** Some agents (e.g., `talent/followups.md`, `talent/decisions.md`) emit a `Confidence: 0.0–1.0` field per item. When consuming this output, use the score to inform language grading. The briefing expresses confidence through language, not by forwarding the numeric score.
 
 ### 4. Tool Error Guard
 

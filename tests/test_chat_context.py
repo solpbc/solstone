@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-from muse.chat_context import pre_process
+from talent.chat_context import pre_process
 
 
 def test_chat_context_appends_conversation_memory(monkeypatch, tmp_path):
@@ -16,7 +16,7 @@ def test_chat_context_appends_conversation_memory(monkeypatch, tmp_path):
         facet="work",
         user_message="hello",
         agent_response="hi there!",
-        muse="unified",
+        talent="unified",
     )
 
     result = pre_process({"user_instruction": "Base instruction.", "facet": "work"})

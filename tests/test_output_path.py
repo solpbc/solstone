@@ -6,7 +6,7 @@
 import os
 from pathlib import Path
 
-from think.muse import get_output_name, get_output_path
+from think.talent import get_output_name, get_output_path
 
 os.environ.setdefault("_SOLSTONE_JOURNAL_OVERRIDE", "tests/fixtures/journal")
 

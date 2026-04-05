@@ -21,8 +21,8 @@ runner = CliRunner()
 
 
 def _load_chat_context_module():
-    """Load muse.chat_context from this worktree explicitly for tests."""
-    path = Path(__file__).resolve().parents[1] / "muse" / "chat_context.py"
+    """Load talent.chat_context from this worktree explicitly for tests."""
+    path = Path(__file__).resolve().parents[1] / "talent" / "chat_context.py"
     spec = importlib.util.spec_from_file_location("test_chat_context", path)
     assert spec is not None
     assert spec.loader is not None

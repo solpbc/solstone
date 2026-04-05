@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for think.muse module."""
+"""Tests for think.talent module."""
 
-from think.muse import get_agent_filter, source_is_enabled, source_is_required
+from think.talent import get_agent_filter, source_is_enabled, source_is_required
 
 
 def test_source_is_enabled_bool():

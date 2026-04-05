@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Speaker attribution muse hook — orchestrates the 4-layer pipeline.
+"""Speaker attribution talent hook — orchestrates the 4-layer pipeline.
 
 pre_process:  Runs Layers 1-3 (computational).  If all sentences are
               resolved, writes speaker_labels.json and skips the LLM.

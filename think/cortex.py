@@ -428,7 +428,7 @@ class CortexService:
                                 if usage_data and original_request:
                                     try:
                                         from think.models import log_token_usage
-                                        from think.muse import key_to_context
+                                        from think.talent import key_to_context
 
                                         model = original_request.get("model", "unknown")
                                         name = original_request.get("name", "unknown")

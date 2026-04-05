@@ -24,11 +24,11 @@ def main() -> None:
     parser.add_argument("--facet", help="Facet context")
     parser.add_argument("--provider", help="AI provider override")
     parser.add_argument(
-        "--muse", default="unified", help="Muse agent name (default: unified)"
+        "--talent", default="unified", help="Talent agent name (default: unified)"
     )
     args = setup_cli(parser)
 
-    if args.muse == "unified":
+    if args.talent == "unified":
         from think.awareness import get_onboarding
         from think.facets import get_enabled_facets
 
@@ -36,9 +36,9 @@ def main() -> None:
         onboarding_status = onboarding.get("status", "")
 
         if onboarding_status in ("observing", "ready", "complete", "skipped"):
-            pass  # Stay with unified muse — onboarding path already chosen
+            pass  # Stay with unified talent — onboarding path already chosen
         elif not get_enabled_facets():
-            args.muse = "onboarding"
+            args.talent = "onboarding"
 
     if not args.message:
         parser.print_help()
@@ -52,7 +52,7 @@ def main() -> None:
 
     agent_id = cortex_request(
         prompt=message,
-        name=args.muse,
+        name=args.talent,
         provider=args.provider,
         config=config if config else None,
     )

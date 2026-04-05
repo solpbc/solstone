@@ -179,19 +179,19 @@ class TestGoogleWriteFlag:
 
 
 # ---------------------------------------------------------------------------
-# muse/coder.md existence and frontmatter
+# talent/coder.md existence and frontmatter
 # ---------------------------------------------------------------------------
 
 
 class TestCoderAgent:
-    """Verify muse/coder.md exists with correct frontmatter."""
+    """Verify talent/coder.md exists with correct frontmatter."""
 
     def test_coder_md_exists(self):
-        """muse/coder.md must exist in the repo."""
+        """talent/coder.md must exist in the repo."""
         from pathlib import Path
 
-        coder_path = Path(__file__).parent.parent / "muse" / "coder.md"
-        assert coder_path.exists(), "muse/coder.md not found"
+        coder_path = Path(__file__).parent.parent / "talent" / "coder.md"
+        assert coder_path.exists(), "talent/coder.md not found"
 
     def test_coder_frontmatter(self):
         """coder.md must have write: true and type: cogitate."""
@@ -199,7 +199,7 @@ class TestCoderAgent:
 
         import frontmatter
 
-        coder_path = Path(__file__).parent.parent / "muse" / "coder.md"
+        coder_path = Path(__file__).parent.parent / "talent" / "coder.md"
         post = frontmatter.load(coder_path)
 
         assert post.metadata.get("type") == "cogitate"
@@ -211,7 +211,7 @@ class TestCoderAgent:
         """coder.md must reference the coding skill instead of inlining guidelines."""
         from pathlib import Path
 
-        coder_path = Path(__file__).parent.parent / "muse" / "coder.md"
+        coder_path = Path(__file__).parent.parent / "talent" / "coder.md"
         content = coder_path.read_text(encoding="utf-8")
 
         # Should reference the coding skill, not inline dev guidelines
@@ -219,10 +219,10 @@ class TestCoderAgent:
         assert "single source of truth" in content
 
         # The coding skill must exist with reference files
-        coding_skill = Path(__file__).parent.parent / "muse" / "coding" / "SKILL.md"
-        assert coding_skill.exists(), "muse/coding/SKILL.md not found"
+        coding_skill = Path(__file__).parent.parent / "talent" / "coding" / "SKILL.md"
+        assert coding_skill.exists(), "talent/coding/SKILL.md not found"
 
-        coding_refs = Path(__file__).parent.parent / "muse" / "coding" / "reference"
+        coding_refs = Path(__file__).parent.parent / "talent" / "coding" / "reference"
         assert (coding_refs / "coding-standards.md").exists()
         assert (coding_refs / "project-structure.md").exists()
         assert (coding_refs / "testing.md").exists()

@@ -4,8 +4,8 @@
 """General utilities for solstone.
 
 This module provides core utilities for journal access, date/segment handling,
-configuration loading, and CLI setup. Muse-related utilities (prompt loading,
-agent configs, etc.) have been moved to think/muse.py.
+configuration loading, and CLI setup. Talent-related utilities (prompt loading,
+agent configs, etc.) have been moved to think/talent.py.
 """
 
 from __future__ import annotations
@@ -104,7 +104,7 @@ def get_journal() -> str:
     Trust this function — never bypass it, cache its result, or set
     _SOLSTONE_JOURNAL_OVERRIDE from application code. The env var
     exists for external use only (tests, Makefile sandboxes). See
-    ``muse/coding/reference/environment.md``.
+    ``talent/coding/reference/environment.md``.
     """
     override = os.environ.get("_SOLSTONE_JOURNAL_OVERRIDE")
     if override:

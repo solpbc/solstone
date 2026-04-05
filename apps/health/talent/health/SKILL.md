@@ -15,7 +15,7 @@ description: >
 
 Use these commands to check service health, view logs, and inspect agent runs.
 
-**Typical workflow**: `sol health` to check service status → `sol health logs` to inspect recent log output → `sol muse logs` to review agent runs → `sol muse log <ID>` for run details.
+**Typical workflow**: `sol health` to check service status → `sol health logs` to inspect recent log output → `sol talent logs` to review agent runs → `sol talent log <ID>` for run details.
 
 ## status
 
@@ -66,7 +66,7 @@ sol health logs -f
 ## agent runs
 
 ```bash
-sol muse logs [AGENT] [-c COUNT] [--day YYYYMMDD] [--daily] [--errors] [--summary]
+sol talent logs [AGENT] [-c COUNT] [--day YYYYMMDD] [--daily] [--errors] [--summary]
 ```
 
 List recent agent runs.
@@ -85,23 +85,23 @@ Output columns: agent_id, time, name, status, runtime, cost, events, tools, outp
 Examples:
 
 ```bash
-sol muse logs
-sol muse logs activity -c 10
-sol muse logs --daily
-sol muse logs --daily --summary
-sol muse logs --day 20260228
-sol muse logs --daily --errors
+sol talent logs
+sol talent logs activity -c 10
+sol talent logs --daily
+sol talent logs --daily --summary
+sol talent logs --day 20260228
+sol talent logs --daily --errors
 ```
 
 ## agent run detail
 
 ```bash
-sol muse log <ID> [--json] [--full]
+sol talent log <ID> [--json] [--full]
 ```
 
 Show events for a single agent run.
 
-- `ID`: agent run ID (from `sol muse logs` output).
+- `ID`: agent run ID (from `sol talent logs` output).
 - `--json`: raw JSONL events.
 - `--full`: expanded event detail (no truncation).
 
@@ -110,9 +110,9 @@ Without flags, shows a one-line-per-event timeline: timestamp, event type, detai
 Examples:
 
 ```bash
-sol muse log 1700000000001
-sol muse log 1700000000001 --json
-sol muse log 1700000000001 --full
+sol talent log 1700000000001
+sol talent log 1700000000001 --json
+sol talent log 1700000000001 --full
 ```
 
 ## journal layout
@@ -170,8 +170,8 @@ Which services write where:
 ### `sol health` returns "Connection refused" or times out
 The supervisor is not running. Check if `sol supervisor` is active. The owner may need to start solstone with `sol start` or `make dev`.
 
-### Agent run shows "error" status in `sol muse logs`
-Run `sol muse log <ID> --full` to see the complete event timeline including the error. Common causes:
+### Agent run shows "error" status in `sol talent logs`
+Run `sol talent log <ID> --full` to see the complete event timeline including the error. Common causes:
 - API key issues (rate limits, expired keys)
 - Prompt too large (context overflow)
 - Network connectivity
@@ -182,4 +182,4 @@ Run `sol muse log <ID> --full` to see the complete event timeline including the 
 3. Check if the stream is active: `sol streams`
 
 ### High agent costs
-Run `sol muse logs --summary` for aggregated cost view. Filter by agent: `sol muse logs <agent-name> --summary`.
+Run `sol talent logs --summary` for aggregated cost view. Filter by agent: `sol talent logs <agent-name> --summary`.

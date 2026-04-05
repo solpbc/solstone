@@ -104,13 +104,13 @@ def test_triage_path_a_ready_gets_triage():
 
 
 def test_triage_skipped_gets_unified():
-    """Onboarding skipped, no facets → unified (single muse, no two-mode split)."""
+    """Onboarding skipped, no facets → unified (single talent, no two-mode split)."""
     mock = _run_triage(onboarding={"status": "skipped"})
     assert mock.call_args.kwargs["name"] == "unified"
 
 
 def test_triage_complete_gets_unified():
-    """Onboarding complete, no facets → unified (single muse, no two-mode split)."""
+    """Onboarding complete, no facets → unified (single talent, no two-mode split)."""
     mock = _run_triage(onboarding={"status": "complete"})
     assert mock.call_args.kwargs["name"] == "unified"
 
@@ -121,7 +121,7 @@ def test_triage_complete_gets_unified():
 def test_chat_cli_routes_to_onboarding_when_unified_and_no_facets():
     args = argparse.Namespace(
         message=["Hi there"],
-        muse="unified",
+        talent="unified",
         facet=None,
         provider=None,
         verbose=False,
@@ -130,10 +130,10 @@ def test_chat_cli_routes_to_onboarding_when_unified_and_no_facets():
     assert mock_request.call_args.kwargs["name"] == "onboarding"
 
 
-def test_chat_cli_keeps_explicit_muse_when_no_facets():
+def test_chat_cli_keeps_explicit_talent_when_no_facets():
     args = argparse.Namespace(
         message=["Hi there"],
-        muse="entities",
+        talent="entities",
         facet=None,
         provider=None,
         verbose=False,
@@ -143,10 +143,10 @@ def test_chat_cli_keeps_explicit_muse_when_no_facets():
 
 
 def test_chat_cli_path_a_observing_stays_unified():
-    """During Path A observation, chat CLI uses unified muse, not onboarding."""
+    """During Path A observation, chat CLI uses unified talent, not onboarding."""
     args = argparse.Namespace(
         message=["What have you noticed?"],
-        muse="unified",
+        talent="unified",
         facet=None,
         provider=None,
         verbose=False,
@@ -158,10 +158,10 @@ def test_chat_cli_path_a_observing_stays_unified():
 
 
 def test_chat_cli_skipped_stays_unified():
-    """After skipping onboarding, chat CLI uses unified muse."""
+    """After skipping onboarding, chat CLI uses unified talent."""
     args = argparse.Namespace(
         message=["Hello"],
-        muse="unified",
+        talent="unified",
         facet=None,
         provider=None,
         verbose=False,

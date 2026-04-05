@@ -10,7 +10,7 @@ from typing import Any
 from flask import Blueprint, jsonify
 
 from convey import state
-from think.muse import get_muse_configs
+from think.talent import get_talent_configs
 
 stats_bp = Blueprint(
     "app:stats",
@@ -37,6 +37,6 @@ def stats_data() -> Any:
         except Exception:
             pass
 
-    response["generators"] = get_muse_configs(type="generate")
+    response["generators"] = get_talent_configs(type="generate")
 
     return jsonify(response)

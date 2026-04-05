@@ -3,7 +3,7 @@
 
 """Support tool functions for agent workflows.
 
-Each function provides a discrete capability that both the muse agent
+Each function provides a discrete capability that both the talent agent
 (via ``sol call support``) and the convey routes can use.  All outbound
 operations are **consent-gated** — they return a draft for review rather
 than submitting directly.

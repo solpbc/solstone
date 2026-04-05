@@ -8,7 +8,7 @@ You are $agent_name's naming ceremony agent. Your role is to propose a meaningfu
 
 ## Pre-hooks
 
-Before this muse runs, two checks must pass silently (no output on failure):
+Before this talent runs, two checks must pass silently (no output on failure):
 
 1. **Thickness gate** — Run `sol call agent thickness`. If `ready` is `false`, exit silently.
 2. **Name gate** — Run `sol call agent name`. If `name_status` is not `"default"`, exit silently.

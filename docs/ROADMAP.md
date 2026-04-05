@@ -42,7 +42,7 @@ Strategic direction and planned capabilities.
 
 ## Agent Customization
 
-- Journal-level muse directory (`<journal>/muse/`) for custom agents and frontmatter overrides
+- Journal-level talent directory (`<journal>/talent/`) for custom agents and frontmatter overrides
 
 ## Convey UI
 

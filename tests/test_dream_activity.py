@@ -58,7 +58,7 @@ class TestRunActivityPrompts:
             )
 
             # No activity-scheduled agents
-            monkeypatch.setattr("think.dream.get_muse_configs", lambda schedule: {})
+            monkeypatch.setattr("think.dream.get_talent_configs", lambda schedule: {})
 
             result = run_activity_prompts(
                 day="20260209",
@@ -103,7 +103,7 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.dream.get_muse_configs", lambda schedule: configs
+                "think.dream.get_talent_configs", lambda schedule: configs
             )
 
             spawned_requests = []
@@ -159,7 +159,7 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.dream.get_muse_configs", lambda schedule: configs
+                "think.dream.get_talent_configs", lambda schedule: configs
             )
 
             spawned = []
@@ -209,7 +209,7 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.dream.get_muse_configs", lambda schedule: configs
+                "think.dream.get_talent_configs", lambda schedule: configs
             )
 
             captured_config = {}
@@ -275,7 +275,7 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.dream.get_muse_configs", lambda schedule: configs
+                "think.dream.get_talent_configs", lambda schedule: configs
             )
             monkeypatch.setattr(
                 "think.dream.cortex_request",
@@ -351,7 +351,7 @@ class TestRunActivityPrompts:
             }
 
             monkeypatch.setattr(
-                "think.dream.get_muse_configs", lambda schedule: configs
+                "think.dream.get_talent_configs", lambda schedule: configs
             )
             monkeypatch.setattr(
                 "think.dream.cortex_request",
@@ -466,27 +466,27 @@ class TestActivityTemplateVars:
 
 
 # ---------------------------------------------------------------------------
-# Muse config validation for activity schedule
+# Talent config validation for activity schedule
 # ---------------------------------------------------------------------------
 
 
-class TestMuseActivityValidation:
-    """Tests for activity schedule validation in get_muse_configs."""
+class TestTalentActivityValidation:
+    """Tests for activity schedule validation in get_talent_configs."""
 
-    def _isolate_muse(self, monkeypatch, tmp_path):
-        """Point muse discovery at tmp_path only (no real muse/ or apps/)."""
-        muse_dir = tmp_path / "muse"
-        muse_dir.mkdir(exist_ok=True)
-        monkeypatch.setattr("think.muse.MUSE_DIR", muse_dir)
-        monkeypatch.setattr("think.muse.APPS_DIR", tmp_path / "no_apps")
-        return muse_dir
+    def _isolate_talent(self, monkeypatch, tmp_path):
+        """Point talent discovery at tmp_path only (no real talent/ or apps/)."""
+        talent_dir = tmp_path / "talent"
+        talent_dir.mkdir(exist_ok=True)
+        monkeypatch.setattr("think.talent.TALENT_DIR", talent_dir)
+        monkeypatch.setattr("think.talent.APPS_DIR", tmp_path / "no_apps")
+        return talent_dir
 
     def test_missing_activities_field_raises(self, monkeypatch, tmp_path):
         import frontmatter
 
-        from think.muse import get_muse_configs
+        from think.talent import get_talent_configs
 
-        muse_dir = self._isolate_muse(monkeypatch, tmp_path)
+        talent_dir = self._isolate_talent(monkeypatch, tmp_path)
 
         post = frontmatter.Post(
             "Test prompt",
@@ -496,17 +496,17 @@ class TestMuseActivityValidation:
             output="md",
             # Missing 'activities' field
         )
-        (muse_dir / "test_agent.md").write_text(frontmatter.dumps(post))
+        (talent_dir / "test_agent.md").write_text(frontmatter.dumps(post))
 
         with pytest.raises(ValueError, match="non-empty 'activities' list"):
-            get_muse_configs(schedule="activity")
+            get_talent_configs(schedule="activity")
 
     def test_valid_activities_field_passes(self, monkeypatch, tmp_path):
         import frontmatter
 
-        from think.muse import get_muse_configs
+        from think.talent import get_talent_configs
 
-        muse_dir = self._isolate_muse(monkeypatch, tmp_path)
+        talent_dir = self._isolate_talent(monkeypatch, tmp_path)
 
         post = frontmatter.Post(
             "Test prompt",
@@ -516,18 +516,18 @@ class TestMuseActivityValidation:
             output="md",
             activities=["coding", "meeting"],
         )
-        (muse_dir / "test_agent.md").write_text(frontmatter.dumps(post))
+        (talent_dir / "test_agent.md").write_text(frontmatter.dumps(post))
 
-        configs = get_muse_configs(schedule="activity")
+        configs = get_talent_configs(schedule="activity")
         assert "test_agent" in configs
         assert configs["test_agent"]["activities"] == ["coding", "meeting"]
 
     def test_wildcard_activities_passes(self, monkeypatch, tmp_path):
         import frontmatter
 
-        from think.muse import get_muse_configs
+        from think.talent import get_talent_configs
 
-        muse_dir = self._isolate_muse(monkeypatch, tmp_path)
+        talent_dir = self._isolate_talent(monkeypatch, tmp_path)
 
         post = frontmatter.Post(
             "Test prompt",
@@ -537,9 +537,9 @@ class TestMuseActivityValidation:
             output="md",
             activities=["*"],
         )
-        (muse_dir / "test_agent.md").write_text(frontmatter.dumps(post))
+        (talent_dir / "test_agent.md").write_text(frontmatter.dumps(post))
 
-        configs = get_muse_configs(schedule="activity")
+        configs = get_talent_configs(schedule="activity")
         assert "test_agent" in configs
         assert configs["test_agent"]["activities"] == ["*"]
 

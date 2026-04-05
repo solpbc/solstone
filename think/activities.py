@@ -705,7 +705,7 @@ def get_activity_output_path(
     Returns:
         Absolute path for the output file
     """
-    from think.muse import get_output_name
+    from think.talent import get_output_name
 
     output_name = get_output_name(key)
     ext = "json" if output_format == "json" else "md"

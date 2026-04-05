@@ -92,7 +92,7 @@ class TestRecordTriageExchange:
                     path="/home",
                     user_message="hello world",
                     agent_response="hi there",
-                    muse=agent_name,
+                    talent=agent_name,
                     agent_id="abc123",
                 )
 
@@ -119,7 +119,7 @@ class TestRecordTriageExchange:
                     path="",
                     user_message="",
                     agent_response="done",
-                    muse="unified",
+                    talent="unified",
                     agent_id="abc123",
                 )
 

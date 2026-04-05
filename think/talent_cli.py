@@ -1,23 +1,23 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""CLI for inspecting muse prompt configurations.
+"""CLI for inspecting talent prompt configurations.
 
 Lists all system and app prompts with their frontmatter metadata,
 supports filtering by schedule and source, and provides detail views.
 
 Usage:
-    sol muse                          List all prompts grouped by schedule
-    sol muse list --schedule daily    Filter by schedule type
-    sol muse list --json              Output all configs as JSONL
-    sol muse show <name>              Show details for a specific prompt
-    sol muse show <name> --json       Output a single prompt as JSONL
-    sol muse show <name> --prompt     Show full prompt context (dry-run)
-    sol muse logs                     Show recent agent runs
-    sol muse logs <agent> -c 5        Show last 5 runs for an agent
-    sol muse log <id>                 Show events for an agent run
-    sol muse log <id> --json          Output raw JSONL events
-    sol muse log <id> --full          Show expanded event details
+    sol talent                          List all prompts grouped by schedule
+    sol talent list --schedule daily    Filter by schedule type
+    sol talent list --json              Output all configs as JSONL
+    sol talent show <name>              Show details for a specific prompt
+    sol talent show <name> --json       Output a single prompt as JSONL
+    sol talent show <name> --prompt     Show full prompt context (dry-run)
+    sol talent logs                     Show recent agent runs
+    sol talent logs <agent> -c 5        Show last 5 runs for an agent
+    sol talent log <id>                 Show events for an agent run
+    sol talent log <id> --json          Output raw JSONL events
+    sol talent log <id> --full          Show expanded event details
 """
 
 from __future__ import annotations
@@ -35,10 +35,10 @@ from typing import Any
 
 import frontmatter
 
-from think.muse import (
-    MUSE_DIR,
+from think.talent import (
+    TALENT_DIR,
     _load_prompt_metadata,
-    get_muse_configs,
+    get_talent_configs,
 )
 from think.utils import setup_cli
 
@@ -61,8 +61,8 @@ def _resolve_md_path(name: str) -> Path:
     """Resolve a prompt name to its .md file path."""
     if ":" in name:
         app, agent_name = name.split(":", 1)
-        return _PROJECT_ROOT / "apps" / app / "muse" / f"{agent_name}.md"
-    return MUSE_DIR / f"{name}.md"
+        return _PROJECT_ROOT / "apps" / app / "talent" / f"{agent_name}.md"
+    return TALENT_DIR / f"{name}.md"
 
 
 def _scan_variables(body: str) -> list[str]:
@@ -162,8 +162,8 @@ def _collect_configs(
     source: str | None = None,
     include_disabled: bool = False,
 ) -> dict[str, dict[str, Any]]:
-    """Collect all muse configs with optional filters applied."""
-    configs = get_muse_configs(schedule=schedule, include_disabled=True)
+    """Collect all talent configs with optional filters applied."""
+    configs = get_talent_configs(schedule=schedule, include_disabled=True)
 
     filtered: dict[str, dict[str, Any]] = {}
     for key, info in configs.items():
@@ -424,7 +424,7 @@ def show_prompt_context(
     what would be sent to the LLM provider.
     """
     # Load prompt metadata
-    configs = get_muse_configs(include_disabled=True)
+    configs = get_talent_configs(include_disabled=True)
     if name not in configs:
         print(f"Prompt not found: {name}", file=sys.stderr)
         sys.exit(1)
@@ -571,7 +571,7 @@ def show_prompt_context(
             config["facet"] = facet
     else:
         # Cogitate prompt - use get_agent() to build full config with instructions
-        from think.muse import get_agent
+        from think.talent import get_agent
 
         try:
             agent_config = get_agent(name, facet=facet)
@@ -789,7 +789,7 @@ def _format_cost(cost_usd: float | None) -> str:
 
 def _get_output_size(request_event: dict[str, Any], journal_root: str) -> int | None:
     """Get output file size in bytes from a request event, or None."""
-    from think.muse import get_output_path
+    from think.talent import get_output_path
 
     req_output = request_event.get("output")
     if not req_output:
@@ -920,7 +920,7 @@ def logs_runs(
                 rec_schedule = record.get("schedule")
                 if rec_schedule is None:
                     if _schedule_lookup is None:
-                        all_configs = get_muse_configs(include_disabled=True)
+                        all_configs = get_talent_configs(include_disabled=True)
                         _schedule_lookup = {
                             key: info.get("schedule")
                             for key, info in all_configs.items()
@@ -1118,8 +1118,8 @@ def log_run(agent_id: str, *, json_mode: bool = False, full: bool = False) -> No
 
 
 def main() -> None:
-    """Entry point for sol muse."""
-    parser = argparse.ArgumentParser(description="Inspect muse prompt configurations")
+    """Entry point for sol talent."""
+    parser = argparse.ArgumentParser(description="Inspect talent prompt configurations")
     subparsers = parser.add_subparsers(dest="subcommand")
 
     # --- list subcommand ---

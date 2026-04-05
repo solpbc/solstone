@@ -4,7 +4,7 @@
 """Conversation memory service for solstone.
 
 Manages conversation exchange storage, retrieval, and context injection
-for the unified muse agent. Three layers of recall:
+for the unified talent agent. Three layers of recall:
 
 - Layer 1: Recent exchanges (last ~10 turns), loaded directly into context
 - Layer 2: Today's earlier exchanges, summarized compactly
@@ -30,7 +30,7 @@ EXCHANGES_FILE = "conversation/exchanges.jsonl"
 # Journal stream name for conversation segments
 CONVERSATION_STREAM = "conversation"
 
-# Marker in unified muse for memory injection
+# Marker in unified talent for memory injection
 INJECTION_MARKER = "CONVERSATION_MEMORY_INJECTION_POINT"
 
 # Context budget: max characters for agent response in recent exchanges
@@ -56,7 +56,7 @@ def record_exchange(
     path: str = "",
     user_message: str = "",
     agent_response: str = "",
-    muse: str = "",
+    talent: str = "",
     agent_id: str = "",
 ) -> None:
     """Record a conversation exchange to journal storage.
@@ -83,7 +83,7 @@ def record_exchange(
         "path": path,
         "user_message": user_message,
         "agent_response": agent_response,
-        "muse": muse,
+        "talent": talent,
         "agent_id": agent_id,
     }
 
@@ -321,7 +321,7 @@ def build_memory_context(
     """Build the full conversation memory context block.
 
     Assembles layer 1 (recent exchanges) and layer 2 (today's summary)
-    into a formatted block for injection into the unified muse prompt.
+    into a formatted block for injection into the unified talent prompt.
 
     Args:
         facet: Active facet for filtering.
@@ -361,7 +361,7 @@ def inject_memory(user_instruction: str, memory_context: str) -> str:
     """Replace the CONVERSATION_MEMORY_INJECTION_POINT with memory context.
 
     Args:
-        user_instruction: The unified muse's user instruction text.
+        user_instruction: The unified talent's user instruction text.
         memory_context: Formatted conversation memory to inject.
 
     Returns:

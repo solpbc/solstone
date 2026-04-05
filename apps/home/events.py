@@ -50,7 +50,7 @@ def record_triage_exchange(ctx: EventContext) -> None:
             path=path,
             user_message=user_message,
             agent_response=result,
-            muse=name,
+            talent=name,
             agent_id=agent_id,
         )
     except Exception:

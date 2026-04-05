@@ -43,7 +43,7 @@ apps/my_app/
 ├── app.json           # Optional: Metadata (icon, label, facet support)
 ├── app_bar.html       # Optional: Bottom bar controls (forms, buttons)
 ├── background.html    # Optional: Background JavaScript service
-├── muse/              # Optional: Custom agents, generators, and skills (auto-discovered)
+├── talent/              # Optional: Custom agents, generators, and skills (auto-discovered)
 │   └── my-skill/      #   Optional: Agent Skill directories (SKILL.md + resources)
 ├── maint/             # Optional: One-time maintenance tasks (auto-discovered)
 └── tests/             # Optional: App-specific tests (run via make test-apps)
@@ -61,7 +61,7 @@ apps/my_app/
 | `app.json` | No | Icon, label, facet support overrides |
 | `app_bar.html` | No | Bottom fixed bar for app controls |
 | `background.html` | No | Background service (WebSocket listeners) |
-| `muse/` | No | Custom agents, generators, and skills (`.md` files + skill subdirectories) |
+| `talent/` | No | Custom agents, generators, and skills (`.md` files + skill subdirectories) |
 | `maint/` | No | One-time maintenance tasks (run on Convey startup) |
 | `tests/` | No | App-specific tests with self-contained fixtures |
 
@@ -284,17 +284,17 @@ app = typer.Typer(help="Description of your app commands.")
 
 ---
 
-### 8. `muse/` - App Generators
+### 8. `talent/` - App Generators
 
 Define custom generator prompts that integrate with solstone's output generation system.
 
 **Key Points:**
-- Create `muse/` directory with `.md` files containing JSON frontmatter
+- Create `talent/` directory with `.md` files containing JSON frontmatter
 - App generators are automatically discovered alongside system generators
 - Keys are namespaced as `{app}:{agent}` (e.g., `my_app:weekly_summary`)
 - Outputs go to `JOURNAL/YYYYMMDD/agents/_<app>_<agent>.md` (or `.json` if `output: "json"`)
 
-**Metadata format:** Same schema as system generators in `muse/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `priority` (required for scheduled prompts), `hook`, `output`, `max_output_tokens`, and `thinking_budget` fields. The `schedule` field must be `"segment"` or `"daily"`. The `priority` field is required for all scheduled prompts - prompts without explicit priority will fail validation. Set `output: "json"` for structured JSON output instead of markdown. Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted).
+**Metadata format:** Same schema as system generators in `talent/*.md` - JSON frontmatter includes `title`, `description`, `color`, `schedule` (required), `priority` (required for scheduled prompts), `hook`, `output`, `max_output_tokens`, and `thinking_budget` fields. The `schedule` field must be `"segment"` or `"daily"`. The `priority` field is required for all scheduled prompts - prompts without explicit priority will fail validation. Set `output: "json"` for structured JSON output instead of markdown. Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted).
 
 **Priority bands:** Prompts run in priority order (lowest first). Recommended bands:
 - 10-30: Generators (content-producing prompts)
@@ -329,7 +329,7 @@ The `occurrences` field (optional string) provides agent-specific extraction gui
 - Use `"hook": {"post": "my_hook"}` for post-processing hooks
 - Use both together: `"hook": {"pre": "prep", "post": "process"}`
 - Use `"hook": {"flush": true}` to opt into segment flush (see below)
-- Resolution: `"name"` → `muse/{name}.py`, `"app:name"` → `apps/{app}/muse/{name}.py`, or explicit path
+- Resolution: `"name"` → `talent/{name}.py`, `"app:name"` → `apps/{app}/talent/{name}.py`, or explicit path
 
 **Pre-hooks** (`pre_process`): Modify inputs before the LLM call
 - `context` is the full config dict with: `name`, `agent_id`, `provider`, `model`, `prompt`, `system_instruction` (if set), `user_instruction`, `output`, `meta`, and for generators: `day`, `segment`, `span`, `span_mode`, `transcript`, `output_path`
@@ -346,7 +346,7 @@ The `occurrences` field (optional string) provides agent-specific extraction gui
 Hook errors are logged but don't crash the pipeline (graceful degradation).
 
 ```python
-# muse/my_hook.py
+# talent/my_hook.py
 def pre_process(context: dict) -> dict | None:
     # Modify inputs before LLM call
     return {"prompt": context["prompt"] + "\n\nBe concise."}
@@ -357,32 +357,32 @@ def post_process(result: str, context: dict) -> str | None:
 ```
 
 **Reference implementations:**
-- System generator templates: `muse/*.md` (files with `schedule` field but no `tools` field)
-- Extraction hooks: `muse/occurrence.py`, `muse/anticipation.py`
-- Discovery logic: `think/muse.py` - `get_muse_configs(has_tools=False)`, `get_output_name()`
-- Hook loading: `think/muse.py` - `load_pre_hook()`, `load_post_hook()`
+- System generator templates: `talent/*.md` (files with `schedule` field but no `tools` field)
+- Extraction hooks: `talent/occurrence.py`, `talent/anticipation.py`
+- Discovery logic: `think/talent.py` - `get_muse_configs(has_tools=False)`, `get_output_name()`
+- Hook loading: `think/talent.py` - `load_pre_hook()`, `load_post_hook()`
 
 ---
 
-### 9. `muse/` - App Agents and Generators
+### 9. `talent/` - App Agents and Generators
 
 Define custom agents and generator templates that integrate with solstone's Cortex agent system.
 
 **Key Points:**
-- Create `muse/` directory with `.md` files containing JSON frontmatter
+- Create `talent/` directory with `.md` files containing JSON frontmatter
 - Both agents and generators live in the same directory - distinguished by frontmatter fields
 - Agents have a `tools` field, generators have `schedule` but no `tools`
 - App agents/generators are automatically discovered alongside system ones
 - Keys are namespaced as `{app}:{name}` (e.g., `my_app:helper`)
 - Agents inherit all system agent capabilities (tools, scheduling, multi-facet)
 
-**Metadata format:** Same schema as system agents in `muse/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, `max_output_tokens`, and `thinking_budget` fields. The `priority` field is **required** for all scheduled prompts - prompts without explicit priority will fail validation. See the priority bands documentation in [THINK.md](THINK.md#unified-priority-execution). Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted; OpenAI uses fixed reasoning and ignores this field). See [CORTEX.md](CORTEX.md) for agent configuration details.
+**Metadata format:** Same schema as system agents in `talent/*.md` - JSON frontmatter includes `title`, `provider`, `model`, `tools`, `schedule`, `priority`, `multi_facet`, `max_output_tokens`, and `thinking_budget` fields. The `priority` field is **required** for all scheduled prompts - prompts without explicit priority will fail validation. See the priority bands documentation in [THINK.md](THINK.md#unified-priority-execution). Optional `max_output_tokens` sets the maximum response length; `thinking_budget` sets the model's thinking token budget (provider-specific defaults apply if omitted; OpenAI uses fixed reasoning and ignores this field). See [CORTEX.md](CORTEX.md) for agent configuration details.
 
 **Template variables:** Agent prompts can use template variables like `$name`, `$preferred`, and pronoun variables. See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for the complete template system documentation.
 
 **Reference implementations:**
-- System agent examples: `muse/*.md` (files with `tools` field)
-- Discovery logic: `think/muse.py` - `get_muse_configs(has_tools=True)`, `get_agent()`
+- System agent examples: `talent/*.md` (files with `tools` field)
+- Discovery logic: `think/talent.py` - `get_muse_configs(has_tools=True)`, `get_agent()`
 
 #### Prompt Context Configuration
 
@@ -406,25 +406,25 @@ Context is provided inline in the `.md` body via template variables:
 - `$facets` - focused facet context or all available facets
 - `$activity_context` - activity metadata, segment state, and analysis focus sections
 
-**Authoritative source:** `think/muse.py` - `_DEFAULT_LOAD`, `source_is_enabled()`, `source_is_required()`, `get_agent_filter()`
+**Authoritative source:** `think/talent.py` - `_DEFAULT_LOAD`, `source_is_enabled()`, `source_is_required()`, `get_agent_filter()`
 
 ---
 
-### 10. `muse/` - Agent Skills
+### 10. `talent/` - Agent Skills
 
-Define [Agent Skills](https://agentskills.io/specification) as subdirectories within `muse/`. Skills package procedural knowledge, workflows, and resources that AI coding agents (Claude Code, GitHub Copilot, Gemini CLI, etc.) can discover and use on demand.
+Define [Agent Skills](https://agentskills.io/specification) as subdirectories within `talent/`. Skills package procedural knowledge, workflows, and resources that AI coding agents (Claude Code, GitHub Copilot, Gemini CLI, etc.) can discover and use on demand.
 
 **Key Points:**
-- Create a subdirectory in `muse/` with a `SKILL.md` file (YAML frontmatter + markdown body)
+- Create a subdirectory in `talent/` with a `SKILL.md` file (YAML frontmatter + markdown body)
 - The directory name must match the `name` field in the YAML frontmatter
-- Skill names must be unique across system `muse/` and all `apps/*/muse/` directories
+- Skill names must be unique across system `talent/` and all `apps/*/talent/` directories
 - `make skills` discovers all skills and symlinks them into `.agents/skills/` and `.claude/skills/`
-- Skills are standalone — they don't interact with the muse agent/generator system
-- The muse loader ignores subdirectories, so skills won't interfere with agent discovery
+- Skills are standalone — they don't interact with the talent agent/generator system
+- The talent loader ignores subdirectories, so skills won't interfere with agent discovery
 
 **Directory structure:**
 ```
-muse/my-skill/
+talent/my-skill/
 ├── SKILL.md           # Required: YAML frontmatter + instructions
 ├── scripts/           # Optional: Executable code (Python, Bash, etc.)
 ├── references/        # Optional: Additional documentation loaded on demand
@@ -453,14 +453,14 @@ Step-by-step procedures, examples, and domain knowledge for the agent.
 - `metadata` — Arbitrary key-value string map
 - `allowed-tools` — Space-delimited list of pre-approved tools (experimental)
 
-**App skills** work the same way — place a skill directory inside `apps/my_app/muse/`:
+**App skills** work the same way — place a skill directory inside `apps/my_app/talent/`:
 ```
-apps/my_app/muse/my-skill/
+apps/my_app/talent/my-skill/
 ├── SKILL.md
 └── references/
 ```
 
-**Running `make skills`:** Discovers all `SKILL.md` files under `muse/*/` and `apps/*/muse/*/`, then creates symlinks so that all supported coding agents see the same skills. Errors if two skills share the same directory name.
+**Running `make skills`:** Discovers all `SKILL.md` files under `talent/*/` and `apps/*/talent/*/`, then creates symlinks so that all supported coding agents see the same skills. Errors if two skills share the same directory name.
 
 ---
 

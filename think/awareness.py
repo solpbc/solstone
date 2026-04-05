@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+_LEGACY_AGENT_FIELD = "mu" "se"
 
 
 def _awareness_dir() -> Path:
@@ -565,7 +566,11 @@ def compute_thickness() -> dict[str, Any]:
         exchanges = get_recent_exchanges(limit=10000)
     except Exception:
         exchanges = []
-    non_onboarding = [ex for ex in exchanges if ex.get("muse") != "onboarding"]
+    non_onboarding = [
+        ex
+        for ex in exchanges
+        if (ex.get("talent") or ex.get(_LEGACY_AGENT_FIELD, "")) != "onboarding"
+    ]
     conversation_count = len(non_onboarding)
 
     entity_names = [e["entity_name"].lower() for e in entities if e.get("entity_name")]

@@ -11,7 +11,7 @@ Layer 2: Structural heuristics (speaker count, setting field, screen.md,
          meetings.md) — no LLM
 Layer 3: Acoustic matching (voiceprint cosine similarity, same-stream
          preference) — no LLM
-Layer 4: Contextual identification (LLM) — handled externally via muse hook
+Layer 4: Contextual identification (LLM) — handled externally via talent hook
 
 High-confidence attributions from Layers 2-3 automatically accumulate
 into entity voiceprints, creating a learning flywheel.

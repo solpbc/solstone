@@ -283,7 +283,7 @@ def test_process_token_entry_counts_all_int_usage_fields(tmp_path, monkeypatch):
     token_entry_with_duration = {
         "timestamp": 1704067200.0,
         "model": "gemini-2.5-flash",
-        "context": "muse.system.meetings",
+        "context": "talent.system.meetings",
         "type": "cogitate",
         "usage": {
             "input_tokens": 100,

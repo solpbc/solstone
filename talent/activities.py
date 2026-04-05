@@ -26,7 +26,7 @@ import json
 import logging
 import os
 
-from muse.activity_state import (
+from talent.activity_state import (
     check_timeout,
     find_previous_segment,
 )
@@ -381,7 +381,7 @@ def _pre_process_normal(context: dict) -> dict | None:
     if not timed_out:
         # Look back for facets missing from the adjacent previous segment
         # but present in earlier segments (covers gaps from agent failures).
-        from muse.activity_state import _get_preceding_segments
+        from talent.activity_state import _get_preceding_segments
 
         for earlier_seg in _get_preceding_segments(day, prev_segment, stream=stream):
             if check_timeout(segment, earlier_seg):

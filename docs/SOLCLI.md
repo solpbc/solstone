@@ -13,7 +13,7 @@ The CLI has two tiers with distinct purposes:
 
 ### The boundary
 
-**If an AI agent should tool-call it → `sol call`.** These commands appear in SKILL.md files and are invoked by muse agents during conversations.
+**If an AI agent should tool-call it → `sol call`.** These commands appear in SKILL.md files and are invoked by talent agents during conversations.
 
 **If it's system plumbing → `sol <cmd>`.** Processing pipelines, supervisor, services, capture — things that cron or systemd runs.
 
@@ -134,7 +134,7 @@ def list_items(
 3. **Create the agent skill** (if agents should use these commands):
 
 ```markdown
-# apps/myapp/muse/myapp/SKILL.md
+# apps/myapp/talent/myapp/SKILL.md
 ---
 name: myapp
 description: >
@@ -175,14 +175,14 @@ Use this when the command depends heavily on `think/` internals and shouldn't li
 from think.tools.mytools import app as mytools_app
 call_app.add_typer(mytools_app, name="mytools")
 ```
-3. **Optionally create a skill** in `muse/<name>/SKILL.md`.
+3. **Optionally create a skill** in `talent/<name>/SKILL.md`.
 
 ### Files to maintain for a new call command
 
 | File | What to do | Required? |
 |------|-----------|-----------|
 | `apps/<name>/call.py` | Typer app with commands | Yes |
-| `apps/<name>/muse/<name>/SKILL.md` | Skill doc for agents | If agents should use it |
+| `apps/<name>/talent/<name>/SKILL.md` | Skill doc for agents | If agents should use it |
 | `.agents/skills/<name>` | Symlink (via `make skills`) | Auto-generated |
 | `AGENTS.md` Skills table | Add trigger description | If skill exists |
 | `tests/test_<name>_call.py` | CLI tests | Yes |
@@ -264,10 +264,10 @@ solstone/
 │   ├── todos/
 │   │   ├── call.py                 # sol call todos (auto-discovered)
 │   │   ├── todo.py                 # Data models
-│   │   └── muse/todos/SKILL.md     # Agent skill doc
+│   │   └── talent/todos/SKILL.md     # Agent skill doc
 │   ├── calendar/
 │   │   ├── call.py                 # sol call calendar (auto-discovered)
-│   │   └── muse/calendar/SKILL.md
+│   │   └── talent/calendar/SKILL.md
 │   ├── entities/call.py
 │   ├── speakers/call.py
 │   ├── support/call.py
@@ -275,7 +275,7 @@ solstone/
 │   ├── agent/call.py
 │   ├── awareness/call.py
 │   └── ... (web-only apps without call.py)
-├── muse/
+├── talent/
 │   ├── journal/SKILL.md            # Skills not tied to an app
 │   ├── coding/SKILL.md
 │   └── *.md                        # Agent prompt files
@@ -296,7 +296,7 @@ solstone/
 | Think (processing) | `import`, `dream`, `planner`, `indexer`, `supervisor`, `schedule`, `top`, `health`, `callosum`, `notify`, `heartbeat` |
 | Service | `service` (+ aliases `up`, `down`, `start`) |
 | Observe (capture) | `transcribe`, `describe`, `sense`, `sync`, `transfer`, `remote` |
-| Muse (AI agents) | `agents`, `cortex`, `muse`, `call`, `engage` |
+| Talent (AI agents) | `agents`, `cortex`, `talent`, `call`, `engage` |
 | Convey (web UI) | `convey`, `restart-convey`, `screenshot`, `maint` |
 | Specialized | `config`, `streams`, `journal-stats`, `formatter`, `detect-created` |
 | Help | `help`, `chat` |
@@ -323,8 +323,8 @@ solstone/
 Skills are documented in `SKILL.md` files and symlinked into `.agents/skills/` by `make skills`.
 
 **Skill locations:**
-- App skills: `apps/<name>/muse/<name>/SKILL.md`
-- Core skills: `muse/<name>/SKILL.md`
+- App skills: `apps/<name>/talent/<name>/SKILL.md`
+- Core skills: `talent/<name>/SKILL.md`
 
 **Skill ≠ call command.** Not every skill has a corresponding `call.py`, and not every `call.py` has a skill:
 - `health`, `coding`, `vit`, `onboarding` have skills but no `call.py`

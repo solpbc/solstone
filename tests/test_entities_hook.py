@@ -9,7 +9,7 @@ import json
 
 
 def test_entities_post_process_writes_without_segment(tmp_path):
-    from muse.entities import post_process
+    from talent.entities import post_process
 
     output_path = (
         tmp_path
@@ -40,16 +40,16 @@ def test_entities_post_process_writes_without_segment(tmp_path):
 
 
 def test_entities_post_process_requires_output_path(caplog):
-    from muse.entities import post_process
+    from talent.entities import post_process
 
     post_process("* Person: Alice Smith - Mentioned in the meeting\n", {})
 
     assert "missing output_path" in caplog.text
 
 
-def test_entities_muse_is_segment_scheduled():
-    from think.muse import get_muse_configs
+def test_entities_talent_is_segment_scheduled():
+    from think.talent import get_talent_configs
 
-    segment_prompts = get_muse_configs(schedule="segment")
+    segment_prompts = get_talent_configs(schedule="segment")
 
     assert "entities" in segment_prompts

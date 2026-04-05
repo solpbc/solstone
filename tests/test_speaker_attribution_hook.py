@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Unit tests for muse.speaker_attribution pre_process stub-writing behavior."""
+"""Unit tests for talent.speaker_attribution pre_process stub-writing behavior."""
 
 import json
 from unittest.mock import patch
@@ -19,7 +19,7 @@ def _run_pre_process(context, seg_dir, attribute_result):
             return_value=seg_dir,
         ),
     ):
-        from muse.speaker_attribution import pre_process
+        from talent.speaker_attribution import pre_process
 
         return pre_process(context)
 
@@ -82,7 +82,7 @@ class TestPreProcessStub:
         """Missing day/segment -> returns early before any stub logic."""
         (tmp_path / "audio.npz").write_bytes(b"x")
         with patch("think.utils.segment_path", return_value=tmp_path):
-            from muse.speaker_attribution import pre_process
+            from talent.speaker_attribution import pre_process
 
             result = pre_process({"stream": "default"})
         stub_path = tmp_path / "agents" / "speaker_labels.json"

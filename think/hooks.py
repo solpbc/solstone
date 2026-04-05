@@ -4,7 +4,7 @@
 """Shared utilities for output extraction hooks.
 
 This module provides common functions used by extraction hooks like
-occurrence.py and anticipation.py in the muse/ directory.
+occurrence.py and anticipation.py in the talent/ directory.
 """
 
 import json
@@ -182,7 +182,7 @@ def compute_output_source(context: dict) -> str:
     Returns:
         Relative path like "20240101/agents/meetings.md".
     """
-    from think.muse import get_output_name
+    from think.talent import get_output_name
     from think.utils import get_journal
 
     day = context.get("day", "")

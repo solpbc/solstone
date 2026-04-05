@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from apps.agents.routes import _resolve_output_path
-from think.muse import _resolve_agent_path, get_agent, get_muse_configs
+from think.talent import _resolve_agent_path, get_agent, get_talent_configs
 
 
 @pytest.fixture
@@ -24,13 +24,13 @@ def fixture_journal():
 def app_with_agent(tmp_path, monkeypatch):
     """Create a temporary app with an agent for testing.
 
-    Creates apps/testapp/muse/myhelper.md with frontmatter in a temp directory,
+    Creates apps/testapp/talent/myhelper.md with frontmatter in a temp directory,
     then monkeypatches the apps directory path.
     """
     # Create app structure
     app_dir = tmp_path / "apps" / "testapp"
-    muse_dir = app_dir / "muse"
-    muse_dir.mkdir(parents=True)
+    talent_dir = app_dir / "talent"
+    talent_dir.mkdir(parents=True)
 
     # Create workspace.html (required for app discovery, though not used here)
     (app_dir / "workspace.html").write_text("<h1>Test App</h1>")
@@ -45,12 +45,12 @@ def app_with_agent(tmp_path, monkeypatch):
         "priority": 42,
     }
     json_str = json.dumps(metadata, indent=2)
-    (muse_dir / "myhelper.md").write_text(
+    (talent_dir / "myhelper.md").write_text(
         f"{{\n{json_str[1:-1]}\n}}\n\nYou are a test helper agent.\n\n## Purpose\nHelp with testing."
     )
 
     # Create another agent without metadata (defaults only)
-    (muse_dir / "simple.md").write_text("A simple test agent with no metadata.")
+    (talent_dir / "simple.md").write_text("A simple test agent with no metadata.")
 
     # Monkeypatch the parent directory so apps discovery finds our temp apps
     monkeypatch.setattr(
@@ -64,7 +64,7 @@ def app_with_agent(tmp_path, monkeypatch):
     yield {
         "tmp_path": tmp_path,
         "app_dir": app_dir,
-        "muse_dir": muse_dir,
+        "talent_dir": talent_dir,
     }
 
 
@@ -73,7 +73,7 @@ def test_resolve_agent_path_system_agent():
     agent_dir, agent_name = _resolve_agent_path("unified")
 
     assert agent_name == "chat"
-    assert agent_dir.name == "muse"
+    assert agent_dir.name == "talent"
 
 
 def test_resolve_agent_path_app_agent():
@@ -81,7 +81,7 @@ def test_resolve_agent_path_app_agent():
     agent_dir, agent_name = _resolve_agent_path("support:support")
 
     assert agent_name == "support"
-    assert agent_dir.name == "muse"
+    assert agent_dir.name == "talent"
     assert agent_dir.parent.name == "support"
     assert "apps" in str(agent_dir)
 
@@ -119,9 +119,9 @@ def test_get_agent_nonexistent_app_agent_raises():
     assert "fakeapp:fakeagent" in str(exc_info.value)
 
 
-def test_get_muse_configs_includes_system_agents(fixture_journal):
-    """Test get_muse_configs returns system agents with metadata."""
-    agents = get_muse_configs(type="cogitate")
+def test_get_talent_configs_includes_system_agents(fixture_journal):
+    """Test get_talent_configs returns system agents with metadata."""
+    agents = get_talent_configs(type="cogitate")
 
     # Should include known system agents with frontmatter metadata
     assert "chat" in agents
@@ -130,9 +130,9 @@ def test_get_muse_configs_includes_system_agents(fixture_journal):
     assert "path" in agents["chat"]
 
 
-def test_get_muse_configs_system_agents_have_metadata(fixture_journal):
+def test_get_talent_configs_system_agents_have_metadata(fixture_journal):
     """Test system agents have proper metadata fields."""
-    agents = get_muse_configs(type="cogitate")
+    agents = get_talent_configs(type="cogitate")
 
     # Check a known system agent
     chat = agents.get("chat")
@@ -142,8 +142,8 @@ def test_get_muse_configs_system_agents_have_metadata(fixture_journal):
     assert "color" in chat
 
 
-def test_get_muse_configs_excludes_private_apps(fixture_journal, tmp_path, monkeypatch):
-    """Test get_muse_configs skips apps starting with underscore."""
+def test_get_talent_configs_excludes_private_apps(fixture_journal, tmp_path, monkeypatch):
+    """Test get_talent_configs skips apps starting with underscore."""
     # Create a private app with an agent
     private_app = tmp_path / "_private_app" / "agents"
     private_app.mkdir(parents=True)
@@ -151,9 +151,9 @@ def test_get_muse_configs_excludes_private_apps(fixture_journal, tmp_path, monke
 
     # This is tricky to test without modifying the actual apps directory
     # The current implementation filters by app_path.name.startswith("_")
-    # We verify this by checking the code behavior with get_muse_configs()
+    # We verify this by checking the code behavior with get_talent_configs()
 
-    agents = get_muse_configs(type="cogitate")
+    agents = get_talent_configs(type="cogitate")
 
     # No agents should have keys starting with "_"
     for key in agents:
@@ -162,7 +162,7 @@ def test_get_muse_configs_excludes_private_apps(fixture_journal, tmp_path, monke
 
 def test_app_agent_namespace_format(fixture_journal):
     """Test app agent keys follow {app}:{agent} format."""
-    agents = get_muse_configs(type="cogitate")
+    agents = get_talent_configs(type="cogitate")
 
     for key, config in agents.items():
         if config.get("source") == "app":

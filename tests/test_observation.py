@@ -16,13 +16,13 @@ def _temp_journal(monkeypatch, tmp_path):
 
 class TestPreHook:
     def test_skips_when_not_observing(self):
-        from muse.observation import pre_process
+        from talent.observation import pre_process
 
         result = pre_process({"day": "20260306", "segment": "120000_300"})
         assert result == {"skip_reason": "not_observing"}
 
     def test_skips_when_status_is_ready(self):
-        from muse.observation import pre_process
+        from talent.observation import pre_process
         from think.awareness import update_state
 
         update_state("onboarding", {"status": "ready"})
@@ -30,7 +30,7 @@ class TestPreHook:
         assert result == {"skip_reason": "not_observing"}
 
     def test_skips_when_status_is_complete(self):
-        from muse.observation import pre_process
+        from talent.observation import pre_process
         from think.awareness import update_state
 
         update_state("onboarding", {"status": "complete"})
@@ -38,7 +38,7 @@ class TestPreHook:
         assert result == {"skip_reason": "not_observing"}
 
     def test_skips_when_status_is_skipped(self):
-        from muse.observation import pre_process
+        from talent.observation import pre_process
         from think.awareness import update_state
 
         update_state("onboarding", {"status": "skipped"})
@@ -46,7 +46,7 @@ class TestPreHook:
         assert result == {"skip_reason": "not_observing"}
 
     def test_proceeds_when_observing(self):
-        from muse.observation import pre_process
+        from talent.observation import pre_process
         from think.awareness import start_onboarding
 
         start_onboarding("a")
@@ -62,7 +62,7 @@ class TestPostHook:
         start_onboarding("a")
 
     def test_writes_observation_to_log(self):
-        from muse.observation import post_process
+        from talent.observation import post_process
         from think.awareness import read_log
 
         findings = json.dumps(
@@ -89,7 +89,7 @@ class TestPostHook:
         assert obs[0]["message"] == "Solo coding session"
 
     def test_increments_observation_count(self):
-        from muse.observation import post_process
+        from talent.observation import post_process
         from think.awareness import get_onboarding
 
         findings = json.dumps({"summary": "test", "has_meeting": False})
@@ -101,19 +101,19 @@ class TestPostHook:
         assert get_onboarding()["observation_count"] == 2
 
     def test_handles_invalid_json(self):
-        from muse.observation import post_process
+        from talent.observation import post_process
 
         result = post_process("not json", {"day": "20260306", "segment": "120000_300"})
         assert result == "not json"  # Returns result unchanged
 
     def test_handles_non_dict_json(self):
-        from muse.observation import post_process
+        from talent.observation import post_process
 
         result = post_process("[1,2,3]", {"day": "20260306", "segment": "120000_300"})
         assert result == "[1,2,3]"  # Returns result unchanged
 
     def test_returns_result_unchanged(self):
-        from muse.observation import post_process
+        from talent.observation import post_process
 
         findings = json.dumps({"summary": "test", "has_meeting": False})
         result = post_process(findings, {"day": "20260306", "segment": "120000_300"})
@@ -122,7 +122,7 @@ class TestPostHook:
 
 class TestNudgeLogic:
     def test_first_meeting_triggers_nudge(self):
-        from muse.observation import _check_nudge
+        from talent.observation import _check_nudge
 
         findings = {
             "has_meeting": True,
@@ -135,14 +135,14 @@ class TestNudgeLogic:
         assert "3 people" in nudge["message"]
 
     def test_no_meeting_no_first_nudge(self):
-        from muse.observation import _check_nudge
+        from talent.observation import _check_nudge
 
         findings = {"has_meeting": False}
         nudge = _check_nudge(findings, 1, 0, {})
         assert nudge is None
 
     def test_entity_cluster_triggers_nudge(self):
-        from muse.observation import _check_nudge
+        from talent.observation import _check_nudge
 
         findings = {
             "has_meeting": False,
@@ -153,7 +153,7 @@ class TestNudgeLogic:
         assert "network" in nudge["title"].lower()
 
     def test_progress_update_at_5_segments(self):
-        from muse.observation import _check_nudge
+        from talent.observation import _check_nudge
 
         findings = {"has_meeting": False, "people": []}
         nudge = _check_nudge(findings, 5, 2, {})
@@ -161,7 +161,7 @@ class TestNudgeLogic:
         assert "Still learning" in nudge["title"]
 
     def test_no_nudge_when_max_reached(self):
-        from muse.observation import MAX_NUDGES, _check_nudge
+        from talent.observation import MAX_NUDGES, _check_nudge
 
         findings = {"has_meeting": True, "speaker_count": 5}
         # nudges_sent == MAX_NUDGES means all nudges used
@@ -173,7 +173,7 @@ class TestNudgeLogic:
 
 class TestThreshold:
     def test_not_met_with_few_segments(self):
-        from muse.observation import _threshold_met
+        from talent.observation import _threshold_met
 
         onboarding = {"started": "20260306T08:00:00"}
         assert _threshold_met(onboarding, 5) is False
@@ -182,21 +182,21 @@ class TestThreshold:
         # Just started — not enough time elapsed
         from datetime import datetime
 
-        from muse.observation import MIN_SEGMENTS, _threshold_met
+        from talent.observation import MIN_SEGMENTS, _threshold_met
 
         now = datetime.now().strftime("%Y%m%dT%H:%M:%S")
         onboarding = {"started": now}
         assert _threshold_met(onboarding, MIN_SEGMENTS) is False
 
     def test_met_with_enough_segments_and_time(self):
-        from muse.observation import MIN_SEGMENTS, _threshold_met
+        from talent.observation import MIN_SEGMENTS, _threshold_met
 
         # Started 5 hours ago
         onboarding = {"started": "20260101T03:00:00"}
         assert _threshold_met(onboarding, MIN_SEGMENTS) is True
 
     def test_not_met_with_no_started(self):
-        from muse.observation import MIN_SEGMENTS, _threshold_met
+        from talent.observation import MIN_SEGMENTS, _threshold_met
 
         onboarding = {}
         assert _threshold_met(onboarding, MIN_SEGMENTS) is False
@@ -204,19 +204,19 @@ class TestThreshold:
 
 class TestElapsedHours:
     def test_valid_iso(self):
-        from muse.observation import _elapsed_hours
+        from talent.observation import _elapsed_hours
 
         # A date far in the past should give many hours
         hours = _elapsed_hours("20200101T00:00:00")
         assert hours > 24
 
     def test_empty_string(self):
-        from muse.observation import _elapsed_hours
+        from talent.observation import _elapsed_hours
 
         assert _elapsed_hours("") == 0.0
 
     def test_invalid_format(self):
-        from muse.observation import _elapsed_hours
+        from talent.observation import _elapsed_hours
 
         assert _elapsed_hours("not-a-date") == 0.0
 

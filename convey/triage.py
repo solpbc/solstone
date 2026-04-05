@@ -31,7 +31,7 @@ def triage() -> Any:
     WebSocket (cortex/finish event). For reload recovery, use GET /result/<agent_id>.
 
     Routes based on onboarding status: new/in-progress journals go to
-    the onboarding muse, completed/skipped journals go to unified.
+    the onboarding talent, completed/skipped journals go to unified.
     """
     payload = request.get_json(force=True)
     message = payload.get("message", "").strip()
@@ -65,10 +65,10 @@ def triage() -> Any:
         # Path A active — use triage with observation context
         agent_name = "triage"
     elif onboarding_status not in ("complete", "skipped"):
-        # Onboarding not yet completed — route to onboarding muse
+        # Onboarding not yet completed — route to onboarding talent
         agent_name = "onboarding"
     elif has_conversation:
-        # Conversation context present — use unified muse
+        # Conversation context present — use unified talent
         agent_name = "unified"
     else:
         agent_name = "unified"

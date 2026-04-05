@@ -367,7 +367,7 @@ class TestComputeThickness:
         ]
         exchanges = [
             {
-                "muse": "triage",
+                "talent": "triage",
                 "agent_response": f"talked about entity_{i}",
                 "user_message": "hi",
             }
@@ -402,7 +402,7 @@ class TestComputeThickness:
         ]
         exchanges = [
             {
-                "muse": "triage",
+                "talent": "triage",
                 "agent_response": f"entity_{i} is great",
                 "user_message": "yo",
             }
@@ -443,7 +443,7 @@ class TestComputeThickness:
             {"entity_name": f"entity_{i}", "observation_depth": 3} for i in range(15)
         ]
         exchanges = [
-            {"muse": "triage", "agent_response": "hello there", "user_message": "hi"}
+            {"talent": "triage", "agent_response": "hello there", "user_message": "hi"}
             for _ in range(10)
         ]
         facets = {"work": {}, "personal": {}, "hobby": {}}
@@ -466,18 +466,18 @@ class TestComputeThickness:
         assert result["ready"] is False
 
     def test_onboarding_exchanges_excluded(self):
-        """Exchanges with muse='onboarding' are excluded from conversation_count."""
+        """Exchanges with talent='onboarding' are excluded from conversation_count."""
         from think.awareness import compute_thickness
 
         entities = [{"entity_name": "foo", "observation_depth": 3}] * 10
         exchanges = [
-            {"muse": "onboarding", "agent_response": "foo stuff", "user_message": "hi"},
+            {"talent": "onboarding", "agent_response": "foo stuff", "user_message": "hi"},
             {
-                "muse": "onboarding",
+                "talent": "onboarding",
                 "agent_response": "foo bar",
                 "user_message": "hello",
             },
-            {"muse": "triage", "agent_response": "foo is great", "user_message": "hey"},
+            {"talent": "triage", "agent_response": "foo is great", "user_message": "hey"},
         ]
 
         with unittest.mock.patch(

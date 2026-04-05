@@ -30,7 +30,7 @@ from think.facets import (
     get_enabled_facets,
     load_segment_facets,
 )
-from think.muse import get_muse_configs, get_output_path
+from think.talent import get_talent_configs, get_output_path
 from think.runner import run_task
 from think.sense_splitter import write_idle_stubs, write_sense_outputs
 from think.utils import (
@@ -404,7 +404,7 @@ def run_segment_sense(
     agents based on Sense output.
     """
     target_schedule = "segment"
-    all_prompts = get_muse_configs(schedule="segment")
+    all_prompts = get_talent_configs(schedule="segment")
     if not all_prompts:
         logging.info("No prompts found for schedule: segment")
         return (0, 0, [])
@@ -764,7 +764,7 @@ def run_daily_prompts(
     target_schedule = "daily"
 
     # Load ALL scheduled prompts (both generators and agents)
-    all_prompts = get_muse_configs(schedule=target_schedule)
+    all_prompts = get_talent_configs(schedule=target_schedule)
 
     if not all_prompts:
         logging.info(f"No prompts found for schedule: {target_schedule}")
@@ -773,7 +773,7 @@ def run_daily_prompts(
     # Group prompts by priority
     priority_groups: dict[int, list[tuple[str, dict]]] = {}
     for name, config in all_prompts.items():
-        priority = config["priority"]  # Required field, validated by get_muse_configs
+        priority = config["priority"]  # Required field, validated by get_talent_configs
         priority_groups.setdefault(priority, []).append((name, config))
 
     # Pre-compute shared data for multi-facet prompts
@@ -1060,7 +1060,7 @@ def run_weekly_prompts(
     target_schedule = "weekly"
 
     # Load ALL scheduled prompts (both generators and agents)
-    all_prompts = get_muse_configs(schedule=target_schedule)
+    all_prompts = get_talent_configs(schedule=target_schedule)
 
     if not all_prompts:
         logging.info(f"No prompts found for schedule: {target_schedule}")
@@ -1069,7 +1069,7 @@ def run_weekly_prompts(
     # Group prompts by priority
     priority_groups: dict[int, list[tuple[str, dict]]] = {}
     for name, config in all_prompts.items():
-        priority = config["priority"]  # Required field, validated by get_muse_configs
+        priority = config["priority"]  # Required field, validated by get_talent_configs
         priority_groups.setdefault(priority, []).append((name, config))
 
     # Pre-compute shared data for multi-facet prompts
@@ -1380,7 +1380,7 @@ def run_activity_prompts(
         return False
 
     # Load activity-scheduled agents
-    all_prompts = get_muse_configs(schedule="activity")
+    all_prompts = get_talent_configs(schedule="activity")
 
     if not all_prompts:
         logging.info("No activity-scheduled agents found")
@@ -1680,7 +1680,7 @@ def run_flush_prompts(
     Returns:
         True if all flush agents succeeded, False if any failed
     """
-    all_prompts = get_muse_configs(schedule="segment")
+    all_prompts = get_talent_configs(schedule="segment")
 
     # Filter to only agents with flush hooks
     flush_prompts = {
@@ -1895,7 +1895,7 @@ def dry_run(
         return
 
     if weekly:
-        all_prompts = get_muse_configs(schedule="weekly")
+        all_prompts = get_talent_configs(schedule="weekly")
         print(f"Day {day_formatted} — weekly agents\n")
         if not all_prompts:
             print("No prompts for schedule: weekly")
@@ -1917,14 +1917,14 @@ def dry_run(
                 label += f" stream={seg_stream}"
             print(label)
         print()
-        all_prompts = get_muse_configs(schedule="segment")
+        all_prompts = get_talent_configs(schedule="segment")
         if all_prompts:
             _print_segment_orchestrator(all_prompts, "<each>")
         return
 
     # Default: full daily or segment run
     target_schedule = "segment" if segment else "daily"
-    all_prompts = get_muse_configs(schedule=target_schedule)
+    all_prompts = get_talent_configs(schedule=target_schedule)
 
     header = f"Day {day_formatted}"
     if segment:
@@ -2063,7 +2063,7 @@ def _dry_run_activity(
     print(f"  type:     {activity_type}")
     print(f"  segments: {len(segments)}")
 
-    all_prompts = get_muse_configs(schedule="activity")
+    all_prompts = get_talent_configs(schedule="activity")
     matching = {
         n: c
         for n, c in all_prompts.items()
@@ -2102,7 +2102,7 @@ def _dry_run_activity(
 
 def _dry_run_flush(day: str, segment: str) -> None:
     """Dry-run for --flush mode."""
-    all_prompts = get_muse_configs(schedule="segment")
+    all_prompts = get_talent_configs(schedule="segment")
     flush_prompts = {
         n: c
         for n, c in all_prompts.items()

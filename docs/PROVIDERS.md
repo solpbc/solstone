@@ -217,24 +217,24 @@ usage_dict = {
 Context strings determine provider and model selection. Providers receive already-resolved models, but understanding the system helps:
 
 **Context naming convention:**
-- Muse configs (agents/generators): `muse.{source}.{name}` where source is `system` or app name
-  - System: `muse.system.meetings`, `muse.system.default`
-  - App: `muse.entities.observer`, `muse.chat.helper`
+- Talent configs (agents/generators): `talent.{source}.{name}` where source is `system` or app name
+  - System: `talent.system.meetings`, `talent.system.default`
+  - App: `talent.entities.observer`, `talent.chat.helper`
 - Other contexts: `{module}.{feature}[.{operation}]`
   - Examples: `observe.describe.frame`, `app.chat.title`
 
 **Dynamic discovery:** All context metadata (tier/label/group) is defined in prompt .md files via YAML frontmatter:
 - Prompt files: Listed in `PROMPT_PATHS` in `think/models.py` - add `context`, `tier`, `label`, `group` fields
 - Categories: `observe/categories/*.md` - add `tier`, `label`, `group` fields
-- System muse: `muse/*.md` - add `tier`, `label`, `group` fields in frontmatter
-- App muse: `apps/*/muse/*.md` - add `tier`, `label`, `group` fields in frontmatter
+- System talent: `talent/*.md` - add `tier`, `label`, `group` fields in frontmatter
+- App talent: `apps/*/talent/*.md` - add `tier`, `label`, `group` fields in frontmatter
 
 All contexts are discovered at runtime. Use `get_context_registry()` to get the complete context map.
 
 **Resolution** (handled by `think/models.py` `resolve_provider(context, agent_type)`):
 1. Exact match in journal.json `providers.contexts`
 2. Glob pattern match (fnmatch) with specificity ranking
-3. Dynamic context registry (discovered prompts, categories, muse configs)
+3. Dynamic context registry (discovered prompts, categories, talent configs)
 4. Type-specific default (from `providers.generate` or `providers.cogitate`)
 5. System defaults from `TYPE_DEFAULTS`
 

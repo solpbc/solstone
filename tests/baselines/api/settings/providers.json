@@ -20,7 +20,7 @@
       "label": "Date Detection",
       "tier": 3
     },
-    "muse.entities.entities": {
+    "talent.entities.entities": {
       "disabled": false,
       "group": "Entities",
       "label": "Entity Detector",
@@ -28,7 +28,7 @@
       "tier": 3,
       "type": "cogitate"
     },
-    "muse.entities.entities_review": {
+    "talent.entities.entities_review": {
       "disabled": false,
       "group": "Entities",
       "label": "Entity Reviewer",
@@ -36,21 +36,21 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.entities.entity_assist": {
+    "talent.entities.entity_assist": {
       "disabled": false,
       "group": "Entities",
       "label": "Entity Assistant",
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.entities.entity_describe": {
+    "talent.entities.entity_describe": {
       "disabled": false,
       "group": "Entities",
       "label": "Entity Description",
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.entities.entity_observer": {
+    "talent.entities.entity_observer": {
       "disabled": false,
       "group": "Entities",
       "label": "Entity Observer",
@@ -58,35 +58,35 @@
       "tier": 3,
       "type": "cogitate"
     },
-    "muse.support.support": {
+    "talent.support.support": {
       "disabled": false,
       "group": "Think",
       "label": "Support",
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.anticipation": {
+    "talent.system.anticipation": {
       "disabled": false,
       "group": "Think",
       "label": "Anticipation Extraction",
       "tier": 2,
       "type": null
     },
-    "muse.system.chat": {
+    "talent.system.chat": {
       "disabled": false,
       "group": "Think",
       "label": "Sol",
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.coder": {
+    "talent.system.coder": {
       "disabled": false,
       "group": "Think",
       "label": "Coder",
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.daily_schedule": {
+    "talent.system.daily_schedule": {
       "disabled": false,
       "group": "Think",
       "label": "Maintenance Window",
@@ -94,7 +94,7 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.decisionalizer": {
+    "talent.system.decisionalizer": {
       "disabled": false,
       "group": "Think",
       "label": "Decision Dossier Generator",
@@ -102,7 +102,7 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.decisions": {
+    "talent.system.decisions": {
       "disabled": false,
       "extract": true,
       "group": "Think",
@@ -111,7 +111,7 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.entities": {
+    "talent.system.entities": {
       "disabled": false,
       "group": "Think",
       "label": "Entity Extraction",
@@ -119,7 +119,7 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.facet_newsletter": {
+    "talent.system.facet_newsletter": {
       "disabled": false,
       "group": "Think",
       "label": "Facet Newsletter Generator",
@@ -127,7 +127,7 @@
       "tier": 3,
       "type": "cogitate"
     },
-    "muse.system.firstday_checkin": {
+    "talent.system.firstday_checkin": {
       "disabled": false,
       "group": "Think",
       "label": "First-Day Check-In",
@@ -135,7 +135,7 @@
       "tier": 3,
       "type": "generate"
     },
-    "muse.system.flow": {
+    "talent.system.flow": {
       "disabled": false,
       "extract": true,
       "group": "Think",
@@ -144,7 +144,7 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.followups": {
+    "talent.system.followups": {
       "disabled": false,
       "extract": true,
       "group": "Think",
@@ -153,7 +153,7 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.heartbeat": {
+    "talent.system.heartbeat": {
       "disabled": false,
       "group": "Think",
       "label": "Heartbeat",
@@ -161,7 +161,7 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.joke_bot": {
+    "talent.system.joke_bot": {
       "disabled": false,
       "group": "Think",
       "label": "Joke Bot",
@@ -169,7 +169,7 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.knowledge_graph": {
+    "talent.system.knowledge_graph": {
       "disabled": false,
       "extract": true,
       "group": "Think",
@@ -178,7 +178,7 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.meetings": {
+    "talent.system.meetings": {
       "disabled": false,
       "extract": true,
       "group": "Think",
@@ -187,7 +187,7 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.messaging": {
+    "talent.system.messaging": {
       "disabled": false,
       "extract": true,
       "group": "Think",
@@ -196,7 +196,7 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.morning_briefing": {
+    "talent.system.morning_briefing": {
       "disabled": false,
       "group": "Think",
       "label": "Morning Briefing",
@@ -204,14 +204,14 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.naming": {
+    "talent.system.naming": {
       "disabled": false,
       "group": "Think",
       "label": "Naming",
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.observation": {
+    "talent.system.observation": {
       "disabled": false,
       "group": "Think",
       "label": "Observation",
@@ -219,28 +219,28 @@
       "tier": 3,
       "type": "generate"
     },
-    "muse.system.observation_review": {
+    "talent.system.observation_review": {
       "disabled": false,
       "group": "Think",
       "label": "Observation Review",
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.occurrence": {
+    "talent.system.occurrence": {
       "disabled": false,
       "group": "Think",
       "label": "Occurrence Extraction",
       "tier": 2,
       "type": null
     },
-    "muse.system.onboarding": {
+    "talent.system.onboarding": {
       "disabled": false,
       "group": "Think",
       "label": "Onboarding",
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.partner": {
+    "talent.system.partner": {
       "disabled": false,
       "group": "Think",
       "label": "Partner Profile",
@@ -248,7 +248,7 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.pulse": {
+    "talent.system.pulse": {
       "disabled": false,
       "group": "Think",
       "label": "Pulse",
@@ -256,7 +256,7 @@
       "tier": 3,
       "type": "cogitate"
     },
-    "muse.system.routine": {
+    "talent.system.routine": {
       "disabled": false,
       "group": "Think",
       "label": "Routine",
@@ -264,7 +264,7 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.system.schedule": {
+    "talent.system.schedule": {
       "disabled": false,
       "extract": true,
       "group": "Think",
@@ -273,7 +273,7 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.screen": {
+    "talent.system.screen": {
       "disabled": false,
       "group": "Think",
       "label": "Screen Record",
@@ -281,7 +281,7 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.sense": {
+    "talent.system.sense": {
       "disabled": false,
       "group": "Think",
       "label": "Segment Sense",
@@ -289,7 +289,7 @@
       "tier": 3,
       "type": "generate"
     },
-    "muse.system.speaker_attribution": {
+    "talent.system.speaker_attribution": {
       "disabled": false,
       "group": "Think",
       "label": "Speaker Attribution",
@@ -297,7 +297,7 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.timeline": {
+    "talent.system.timeline": {
       "disabled": false,
       "extract": true,
       "group": "Think",
@@ -306,14 +306,14 @@
       "tier": 2,
       "type": "generate"
     },
-    "muse.system.triage": {
+    "talent.system.triage": {
       "disabled": false,
       "group": "Think",
       "label": "Triage",
       "tier": 2,
       "type": "cogitate"
     },
-    "muse.todos.daily": {
+    "talent.todos.daily": {
       "disabled": false,
       "group": "Todos",
       "label": "Daily TODO Curator",
@@ -321,7 +321,7 @@
       "tier": 3,
       "type": "cogitate"
     },
-    "muse.todos.todo": {
+    "talent.todos.todo": {
       "disabled": false,
       "group": "Todos",
       "label": "TODO Detector",
@@ -329,7 +329,7 @@
       "tier": 3,
       "type": "cogitate"
     },
-    "muse.todos.weekly": {
+    "talent.todos.weekly": {
       "disabled": false,
       "group": "Todos",
       "label": "TODO Weekly Scout",

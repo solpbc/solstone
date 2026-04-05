@@ -9,10 +9,10 @@ from pathlib import Path
 import pytest
 
 
-def test_get_muse_configs_generators():
+def test_get_talent_configs_generators():
     """Test that system generators are discovered with source field."""
-    muse = importlib.import_module("think.muse")
-    generators = muse.get_muse_configs(type="generate")
+    talent = importlib.import_module("think.talent")
+    generators = talent.get_talent_configs(type="generate")
     assert "flow" in generators
     info = generators["flow"]
     assert os.path.basename(info["path"]) == "flow.md"
@@ -26,23 +26,23 @@ def test_get_muse_configs_generators():
 
 def test_get_output_name():
     """Test generator key to filename conversion."""
-    muse = importlib.import_module("think.muse")
+    talent = importlib.import_module("think.talent")
 
     # System generators: key unchanged
-    assert muse.get_output_name("activity") == "activity"
-    assert muse.get_output_name("flow") == "flow"
+    assert talent.get_output_name("activity") == "activity"
+    assert talent.get_output_name("flow") == "flow"
 
     # App generators: _app_name format
-    assert muse.get_output_name("chat:sentiment") == "_chat_sentiment"
-    assert muse.get_output_name("my_app:weekly_summary") == "_my_app_weekly_summary"
+    assert talent.get_output_name("chat:sentiment") == "_chat_sentiment"
+    assert talent.get_output_name("my_app:weekly_summary") == "_my_app_weekly_summary"
 
 
-def test_get_muse_configs_app_discovery(tmp_path, monkeypatch):
-    """Test that app generators are discovered from apps/*/muse/."""
-    muse = importlib.import_module("think.muse")
+def test_get_talent_configs_app_discovery(tmp_path, monkeypatch):
+    """Test that app generators are discovered from apps/*/talent/."""
+    talent = importlib.import_module("think.talent")
 
     # Create a fake app with a generator
-    app_dir = tmp_path / "apps" / "test_app" / "muse"
+    app_dir = tmp_path / "apps" / "test_app" / "talent"
     app_dir.mkdir(parents=True)
 
     # Create generator files with frontmatter
@@ -54,24 +54,24 @@ def test_get_muse_configs_app_discovery(tmp_path, monkeypatch):
     (tmp_path / "apps" / "test_app" / "workspace.html").write_text("<h1>Test</h1>")
 
     # For now, just verify system generators have correct source
-    generators = muse.get_muse_configs(type="generate")
+    generators = talent.get_talent_configs(type="generate")
     for key, info in generators.items():
         if ":" not in key:
             assert info.get("source") == "system", f"{key} should have source=system"
 
 
-def test_get_muse_configs_by_schedule():
+def test_get_talent_configs_by_schedule():
     """Test filtering generators by schedule."""
-    muse = importlib.import_module("think.muse")
+    talent = importlib.import_module("think.talent")
 
     # Get daily generators
-    daily = muse.get_muse_configs(type="generate", schedule="daily")
+    daily = talent.get_talent_configs(type="generate", schedule="daily")
     assert len(daily) > 0
     for key, meta in daily.items():
         assert meta.get("schedule") == "daily", f"{key} should have schedule=daily"
 
     # Get segment generators
-    segment = muse.get_muse_configs(type="generate", schedule="segment")
+    segment = talent.get_talent_configs(type="generate", schedule="segment")
     assert len(segment) > 0
     for key, meta in segment.items():
         assert meta.get("schedule") == "segment", f"{key} should have schedule=segment"
@@ -82,19 +82,19 @@ def test_get_muse_configs_by_schedule():
     )
 
     # Unknown schedule returns empty dict
-    assert muse.get_muse_configs(type="generate", schedule="hourly") == {}
-    assert muse.get_muse_configs(type="generate", schedule="") == {}
+    assert talent.get_talent_configs(type="generate", schedule="hourly") == {}
+    assert talent.get_talent_configs(type="generate", schedule="") == {}
 
 
-def test_get_muse_configs_include_disabled(monkeypatch):
+def test_get_talent_configs_include_disabled(monkeypatch):
     """Test include_disabled parameter."""
-    muse = importlib.import_module("think.muse")
+    talent = importlib.import_module("think.talent")
 
     # Get generators without disabled (default)
-    without_disabled = muse.get_muse_configs(type="generate", schedule="daily")
+    without_disabled = talent.get_talent_configs(type="generate", schedule="daily")
 
     # Get generators with disabled included
-    with_disabled = muse.get_muse_configs(
+    with_disabled = talent.get_talent_configs(
         type="generate", schedule="daily", include_disabled=True
     )
 
@@ -109,9 +109,9 @@ def test_scheduled_generators_have_valid_schedule():
     ('segment', 'daily', or 'activity'). Some generators (like importer) have
     output but no schedule - they're used for ad-hoc processing, not scheduled runs.
     """
-    muse = importlib.import_module("think.muse")
+    talent = importlib.import_module("think.talent")
 
-    generators = muse.get_muse_configs(type="generate")
+    generators = talent.get_talent_configs(type="generate")
     valid_schedules = ("segment", "daily", "activity", "weekly")
 
     for key, meta in generators.items():
@@ -124,9 +124,9 @@ def test_scheduled_generators_have_valid_schedule():
 
 def test_sense_in_segment_schedule():
     """Test that sense generator exists in segment schedule at priority 5."""
-    muse = importlib.import_module("think.muse")
+    talent = importlib.import_module("think.talent")
 
-    generators = muse.get_muse_configs(type="generate", schedule="segment")
+    generators = talent.get_talent_configs(type="generate", schedule="segment")
     assert "sense" in generators
 
     sense = generators["sense"]
@@ -138,19 +138,19 @@ def test_sense_in_segment_schedule():
     assert sources.get("percepts") is True, "sense should include percepts"
 
 
-def _write_temp_muse_prompt(stem: str, frontmatter: str) -> Path:
-    muse_dir = Path(__file__).resolve().parent.parent / "muse"
-    prompt_path = muse_dir / f"{stem}.md"
+def _write_temp_talent_prompt(stem: str, frontmatter: str) -> Path:
+    talent_dir = Path(__file__).resolve().parent.parent / "talent"
+    prompt_path = talent_dir / f"{stem}.md"
     prompt_path.write_text(
         f"{frontmatter}\n\nTemporary test prompt\n", encoding="utf-8"
     )
     return prompt_path
 
 
-def test_get_muse_configs_raises_on_missing_type_with_output():
-    muse = importlib.import_module("think.muse")
+def test_get_talent_configs_raises_on_missing_type_with_output():
+    talent = importlib.import_module("think.talent")
     stem = f"test_missing_type_output_{uuid.uuid4().hex}"
-    prompt_path = _write_temp_muse_prompt(
+    prompt_path = _write_temp_talent_prompt(
         stem,
         '{\n  "schedule": "daily",\n  "priority": 10,\n  "output": "md"\n}',
     )
@@ -158,30 +158,30 @@ def test_get_muse_configs_raises_on_missing_type_with_output():
         with pytest.raises(
             ValueError, match=rf"Prompt '{stem}'.*missing required 'type'"
         ):
-            muse.get_muse_configs(include_disabled=True)
+            talent.get_talent_configs(include_disabled=True)
     finally:
         prompt_path.unlink(missing_ok=True)
 
 
-def test_get_muse_configs_allows_missing_type_with_tools():
-    muse = importlib.import_module("think.muse")
+def test_get_talent_configs_allows_missing_type_with_tools():
+    talent = importlib.import_module("think.talent")
     stem = f"test_missing_type_tools_{uuid.uuid4().hex}"
-    prompt_path = _write_temp_muse_prompt(
+    prompt_path = _write_temp_talent_prompt(
         stem,
         '{\n  "schedule": "daily",\n  "priority": 10,\n  "tools": "journal"\n}',
     )
     try:
-        configs = muse.get_muse_configs(include_disabled=True)
+        configs = talent.get_talent_configs(include_disabled=True)
         assert stem in configs
         assert configs[stem].get("type") is None
     finally:
         prompt_path.unlink(missing_ok=True)
 
 
-def test_get_muse_configs_raises_when_generate_missing_output():
-    muse = importlib.import_module("think.muse")
+def test_get_talent_configs_raises_when_generate_missing_output():
+    talent = importlib.import_module("think.talent")
     stem = f"test_generate_missing_output_{uuid.uuid4().hex}"
-    prompt_path = _write_temp_muse_prompt(
+    prompt_path = _write_temp_talent_prompt(
         stem,
         '{\n  "type": "generate",\n  "schedule": "daily",\n  "priority": 10\n}',
     )
@@ -190,35 +190,35 @@ def test_get_muse_configs_raises_when_generate_missing_output():
             ValueError,
             match=rf"Prompt '{stem}'.*type='generate'.*missing required 'output'",
         ):
-            muse.get_muse_configs(include_disabled=True)
+            talent.get_talent_configs(include_disabled=True)
     finally:
         prompt_path.unlink(missing_ok=True)
 
 
-def test_get_muse_configs_allows_cogitate_without_tools():
-    muse = importlib.import_module("think.muse")
+def test_get_talent_configs_allows_cogitate_without_tools():
+    talent = importlib.import_module("think.talent")
     stem = f"test_cogitate_missing_tools_{uuid.uuid4().hex}"
-    prompt_path = _write_temp_muse_prompt(
+    prompt_path = _write_temp_talent_prompt(
         stem,
         '{\n  "type": "cogitate",\n  "schedule": "daily",\n  "priority": 10\n}',
     )
     try:
-        configs = muse.get_muse_configs(include_disabled=True)
+        configs = talent.get_talent_configs(include_disabled=True)
         assert stem in configs
         assert configs[stem]["type"] == "cogitate"
     finally:
         prompt_path.unlink(missing_ok=True)
 
 
-def test_get_muse_configs_type_generate_returns_only_generate():
-    muse = importlib.import_module("think.muse")
-    generators = muse.get_muse_configs(type="generate")
+def test_get_talent_configs_type_generate_returns_only_generate():
+    talent = importlib.import_module("think.talent")
+    generators = talent.get_talent_configs(type="generate")
     assert generators, "Expected at least one generate prompt"
     assert all(meta.get("type") == "generate" for meta in generators.values())
 
 
-def test_get_muse_configs_type_cogitate_returns_only_cogitate():
-    muse = importlib.import_module("think.muse")
-    cogitate_prompts = muse.get_muse_configs(type="cogitate")
+def test_get_talent_configs_type_cogitate_returns_only_cogitate():
+    talent = importlib.import_module("think.talent")
+    cogitate_prompts = talent.get_talent_configs(type="cogitate")
     assert cogitate_prompts, "Expected at least one cogitate prompt"
     assert all(meta.get("type") == "cogitate" for meta in cogitate_prompts.values())

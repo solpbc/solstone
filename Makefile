@@ -66,17 +66,17 @@ install: .installed
 # Directories where AI coding agents look for skills
 SKILL_DIRS := .agents/skills .claude/skills
 
-# Discover SKILL.md files in muse/ and apps/*/muse/, symlink into agent skill dirs
+# Discover SKILL.md files in talent/ and apps/*/talent/, symlink into agent skill dirs
 skills:
 	@# Collect all skill directories (containing SKILL.md)
 	@SKILLS=""; \
-	for skill_md in muse/*/SKILL.md apps/*/muse/*/SKILL.md; do \
+	for skill_md in talent/*/SKILL.md apps/*/talent/*/SKILL.md; do \
 		[ -f "$$skill_md" ] || continue; \
 		skill_dir=$$(dirname "$$skill_md"); \
 		skill_name=$$(basename "$$skill_dir"); \
 		if echo "$$SKILLS" | grep -qw "$$skill_name"; then \
 			echo "Error: duplicate skill name '$$skill_name' found in $$skill_dir" >&2; \
-			echo "Each skill directory name must be unique across muse/ and apps/*/muse/." >&2; \
+			echo "Each skill directory name must be unique across talent/ and apps/*/talent/." >&2; \
 			exit 1; \
 		fi; \
 		SKILLS="$$SKILLS $$skill_name"; \
@@ -88,7 +88,7 @@ skills:
 		done; \
 	done; \
 	count=0; \
-	for skill_md in muse/*/SKILL.md apps/*/muse/*/SKILL.md; do \
+	for skill_md in talent/*/SKILL.md apps/*/talent/*/SKILL.md; do \
 		[ -f "$$skill_md" ] || continue; \
 		skill_dir=$$(dirname "$$skill_md"); \
 		skill_name=$$(basename "$$skill_dir"); \

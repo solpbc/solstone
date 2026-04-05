@@ -16,7 +16,7 @@ import os
 import shutil
 from pathlib import Path
 
-from think.muse import load_post_hook, load_pre_hook
+from think.talent import load_post_hook, load_pre_hook
 from think.utils import day_path
 
 FIXTURES = Path("tests/fixtures")
@@ -120,8 +120,8 @@ def test_load_post_hook_no_hook_config():
 
 
 def test_load_post_hook_named_resolution():
-    """Test that named hooks resolve to muse/{name}.py."""
-    # occurrence.py exists in muse/
+    """Test that named hooks resolve to talent/{name}.py."""
+    # occurrence.py exists in talent/
     config = {"hook": {"post": "occurrence"}}
     hook_fn = load_post_hook(config)
     assert callable(hook_fn)
@@ -139,7 +139,7 @@ def test_load_post_hook_file_not_found(tmp_path):
 
 def test_prompt_metadata_no_hook_path(tmp_path):
     """Test that _load_prompt_metadata no longer sets hook_path."""
-    muse = importlib.import_module("think.muse")
+    talent = importlib.import_module("think.talent")
 
     md_file = tmp_path / "test_generator.md"
     md_file.write_text(
@@ -150,7 +150,7 @@ def test_prompt_metadata_no_hook_path(tmp_path):
     hook_file = tmp_path / "test_generator.py"
     hook_file.write_text("def post_process(r, c): return r")
 
-    meta = muse._load_prompt_metadata(md_file)
+    meta = talent._load_prompt_metadata(md_file)
 
     # hook_path should no longer be set (hooks are loaded via load_post_hook)
     assert "hook_path" not in meta
@@ -163,10 +163,10 @@ def test_output_hook_invocation(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    # Use tmp_path as muse directory to avoid polluting real muse/
-    import think.muse
+    # Use tmp_path as talent directory to avoid polluting real talent/
+    import think.talent
 
-    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
 
     prompt_file = tmp_path / "hooked_test.md"
     prompt_file.write_text(
@@ -218,9 +218,9 @@ def test_output_hook_returns_none(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    import think.muse
+    import think.talent
 
-    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
 
     prompt_file = tmp_path / "noop_test.md"
     prompt_file.write_text(
@@ -264,9 +264,9 @@ def test_output_hook_error_fallback(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    import think.muse
+    import think.talent
 
-    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
 
     prompt_file = tmp_path / "broken_test.md"
     prompt_file.write_text(
@@ -381,9 +381,9 @@ def test_pre_hook_invocation(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    import think.muse
+    import think.talent
 
-    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
 
     prompt_file = tmp_path / "prehooked_test.md"
     prompt_file.write_text(
@@ -441,9 +441,9 @@ def test_both_pre_and_post_hooks(tmp_path, monkeypatch):
     mod = importlib.import_module("think.agents")
     copy_day(tmp_path)
 
-    import think.muse
+    import think.talent
 
-    monkeypatch.setattr(think.muse, "MUSE_DIR", tmp_path)
+    monkeypatch.setattr(think.talent, "TALENT_DIR", tmp_path)
 
     prompt_file = tmp_path / "both_hooks_test.md"
     prompt_file.write_text(

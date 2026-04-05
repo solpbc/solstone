@@ -130,7 +130,7 @@ The `$segment_preamble` or `$daily_preamble` template provides standardized cont
 
 **Optional model configuration:** Add `max_output_tokens` (response length limit) and `thinking_budget` (model thinking token budget) to override provider defaults.
 
-**Reference:** `muse/*.md` for examples (files with `schedule` field but no `tools` field)
+**Reference:** `talent/*.md` for examples (files with `schedule` field but no `tools` field)
 
 ### For Agents
 
@@ -152,7 +152,7 @@ from `sol/identity.md` via `_load_sol_vars()`. Each agent's `.md` file includes
 
 **Optional model configuration:** Add `max_output_tokens` (response length limit) and `thinking_budget` (model thinking token budget) to override provider defaults. Note: OpenAI uses fixed reasoning and ignores `thinking_budget`.
 
-**Reference:** `think/muse.py` → `get_agent()` for agent configuration loading
+**Reference:** `think/talent.py` → `get_agent()` for agent configuration loading
 
 ### The load_prompt() Function
 
@@ -196,5 +196,5 @@ load_prompt("myprompt", context={"custom_var": "value"})
 | Core load function | `think/prompts.py` (`load_prompt`) |
 | Template files | `think/templates/*.md` |
 | Test coverage | `tests/test_template_substitution.py` |
-| Generator prompts | `muse/*.md` (files with `schedule` field but no `tools`) |
-| Agent prompts | `muse/*.md` (files with `tools` field) |
+| Generator prompts | `talent/*.md` (files with `schedule` field but no `tools`) |
+| Agent prompts | `talent/*.md` (files with `tools` field) |

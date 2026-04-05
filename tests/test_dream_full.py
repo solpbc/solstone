@@ -101,11 +101,11 @@ def test_segment_mode_skips_pre_post_phases(tmp_path, monkeypatch):
 
 
 def test_priority_validation_required(tmp_path, monkeypatch):
-    """Test that get_muse_configs raises error for scheduled prompts without priority."""
-    from think.muse import get_muse_configs
+    """Test that get_talent_configs raises error for scheduled prompts without priority."""
+    from think.talent import get_talent_configs
 
     # This test verifies the validation exists - actual validation tested in test_utils.py
     # Here we just confirm all existing scheduled prompts have priority
-    configs = get_muse_configs(schedule="daily")
+    configs = get_talent_configs(schedule="daily")
     for name, config in configs.items():
         assert "priority" in config, f"Scheduled prompt '{name}' missing priority"

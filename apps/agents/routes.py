@@ -18,7 +18,7 @@ from convey import state
 from convey.utils import DATE_RE, format_date
 from think.facets import get_facets
 from think.models import calc_agent_cost
-from think.muse import get_muse_configs, get_output_path
+from think.talent import get_talent_configs, get_output_path
 from think.utils import updated_days
 
 agents_bp = Blueprint(
@@ -319,13 +319,13 @@ def _get_agents_for_day(day: str, facet_filter: str | None = None) -> list[dict]
 
 @lru_cache(maxsize=1)
 def _build_agents_meta() -> dict[str, dict[str, Any]]:
-    """Build agent metadata dict from all muse configs.
+    """Build agent metadata dict from all talent configs.
 
     Returns dict mapping agent name to metadata with capability fields
-    for frontend display. Cached for process lifetime since muse configs
+    for frontend display. Cached for process lifetime since talent configs
     are static.
     """
-    configs = get_muse_configs(include_disabled=True)
+    configs = get_talent_configs(include_disabled=True)
     agents: dict[str, dict[str, Any]] = {}
 
     for name, config in configs.items():
@@ -545,7 +545,7 @@ def api_preview_prompt(name: str) -> Any:
         }
     """
     try:
-        from think.muse import get_agent
+        from think.talent import get_agent
 
         config = get_agent(name)
 

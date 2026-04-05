@@ -26,9 +26,9 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from think.cluster import cluster, cluster_period, cluster_span
-from think.muse import (
+from think.talent import (
     get_agent_filter,
-    get_muse_configs,
+    get_talent_configs,
     get_output_path,
     load_post_hook,
     load_pre_hook,
@@ -434,7 +434,7 @@ def prepare_config(request: dict) -> dict:
         Fully prepared config dict
     """
     from think.models import resolve_model_for_provider, resolve_provider
-    from think.muse import get_agent, key_to_context
+    from think.talent import get_agent, key_to_context
 
     name = request.get("name", "unified")
     facet = request.get("facet")
@@ -806,7 +806,7 @@ async def _execute_with_tools(
 
         context = config.get("context")
         if not context:
-            from think.muse import key_to_context
+            from think.talent import key_to_context
 
             context = key_to_context(config.get("name", "unified"))
         backup_model = resolve_model_for_provider(context, backup, "cogitate")
@@ -862,7 +862,7 @@ async def _execute_generate(
         emit_event: Event emission callback
     """
     from think.models import generate_with_result
-    from think.muse import key_to_context
+    from think.talent import key_to_context
 
     name = config.get("name", "unified")
     transcript = config.get("transcript", "")
@@ -1127,7 +1127,7 @@ def scan_day(day: str) -> dict[str, list[str]]:
     stored within segment directories and are not included here.
     """
     day_dir = day_path(day)
-    daily_generators = get_muse_configs(
+    daily_generators = get_talent_configs(
         type="generate", schedule="daily", include_disabled=True
     )
     processed: list[str] = []

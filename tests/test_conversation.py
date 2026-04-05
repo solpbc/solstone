@@ -35,7 +35,7 @@ def test_record_exchange_writes_jsonl(journal_dir):
         path="/app/entities/adrian",
         user_message="what's our history with adrian?",
         agent_response="You met Adrian at betaworks.",
-        muse="unified",
+        talent="unified",
         agent_id="12345",
     )
 
@@ -52,7 +52,7 @@ def test_record_exchange_writes_jsonl(journal_dir):
     assert ex["app"] == "entities"
     assert ex["user_message"] == "what's our history with adrian?"
     assert ex["agent_response"] == "You met Adrian at betaworks."
-    assert ex["muse"] == "unified"
+    assert ex["talent"] == "unified"
     assert ex["agent_id"] == "12345"
 
 
@@ -70,7 +70,7 @@ def test_record_exchange_writes_journal_segment(journal_dir):
         path="/app/calendar",
         user_message="move my 3pm to 4pm",
         agent_response="Done — moved 'DVD sync' to 4pm.",
-        muse="unified",
+        talent="unified",
         agent_id="67890",
     )
 
@@ -102,13 +102,13 @@ def test_record_exchange_appends_multiple(journal_dir):
         ts=1710000001000,
         user_message="hello",
         agent_response="hi there",
-        muse="triage",
+        talent="triage",
     )
     record_exchange(
         ts=1710000002000,
         user_message="what time is it?",
         agent_response="It's 2pm.",
-        muse="triage",
+        talent="triage",
     )
 
     jsonl_path = journal_dir / "conversation" / "exchanges.jsonl"
@@ -124,8 +124,8 @@ def test_record_exchange_skips_empty(journal_dir):
     """Empty user_message or agent_response is silently skipped."""
     from think.conversation import record_exchange
 
-    record_exchange(user_message="", agent_response="response", muse="triage")
-    record_exchange(user_message="hello", agent_response="", muse="triage")
+    record_exchange(user_message="", agent_response="response", talent="triage")
+    record_exchange(user_message="hello", agent_response="", talent="triage")
 
     jsonl_path = journal_dir / "conversation" / "exchanges.jsonl"
     assert not jsonl_path.exists()
@@ -152,7 +152,7 @@ def test_get_recent_exchanges_returns_last_n(journal_dir):
             ts=1710000000000 + i * 1000,
             user_message=f"msg {i}",
             agent_response=f"resp {i}",
-            muse="triage",
+            talent="triage",
         )
 
     recent = get_recent_exchanges(limit=5)
@@ -170,14 +170,14 @@ def test_get_recent_exchanges_filters_by_facet(journal_dir):
         facet="work",
         user_message="work question",
         agent_response="work answer",
-        muse="triage",
+        talent="triage",
     )
     record_exchange(
         ts=1710000002000,
         facet="personal",
         user_message="personal question",
         agent_response="personal answer",
-        muse="triage",
+        talent="triage",
     )
 
     work = get_recent_exchanges(facet="work")
@@ -204,7 +204,7 @@ def test_get_today_exchanges_filters_by_day(journal_dir):
         ts=now_ms(),
         user_message="today question",
         agent_response="today answer",
-        muse="triage",
+        talent="triage",
     )
 
     # Record an exchange with old timestamp (not today)
@@ -212,7 +212,7 @@ def test_get_today_exchanges_filters_by_day(journal_dir):
         ts=1000000000000,  # 2001-09-08
         user_message="old question",
         agent_response="old answer",
-        muse="triage",
+        talent="triage",
     )
 
     today = get_today_exchanges()
@@ -244,7 +244,7 @@ def test_build_memory_context_includes_recent(journal_dir):
         app="entities",
         user_message="who is adrian?",
         agent_response="Adrian is the CTO of Own Company.",
-        muse="unified",
+        talent="unified",
     )
 
     context = build_memory_context()
@@ -266,7 +266,7 @@ def test_build_memory_context_truncates_long_responses(journal_dir):
         ts=now_ms(),
         user_message="tell me a story",
         agent_response=long_response,
-        muse="unified",
+        talent="unified",
     )
 
     context = build_memory_context()
@@ -287,7 +287,7 @@ def test_build_memory_context_earlier_today(journal_dir):
             ts=ts + i * 1000,
             user_message=f"question {i}",
             agent_response=f"answer {i}",
-            muse="unified",
+            talent="unified",
         )
 
     context = build_memory_context(recent_limit=10)
@@ -389,7 +389,7 @@ def test_format_exchange_compact():
 
 def test_conversation_memory_pre_hook(journal_dir):
     """Pre-hook injects memory into user instruction."""
-    from muse.conversation_memory import pre_process
+    from talent.conversation_memory import pre_process
     from think.conversation import record_exchange
     from think.utils import now_ms
 
@@ -399,7 +399,7 @@ def test_conversation_memory_pre_hook(journal_dir):
         facet="work",
         user_message="hello",
         agent_response="hi there!",
-        muse="unified",
+        talent="unified",
     )
 
     context = {
@@ -425,7 +425,7 @@ Populated by conversation memory service.
 
 def test_conversation_memory_pre_hook_no_marker():
     """Pre-hook returns None when no injection marker present."""
-    from muse.conversation_memory import pre_process
+    from talent.conversation_memory import pre_process
 
     context = {"user_instruction": "No marker here."}
     result = pre_process(context)
