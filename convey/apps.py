@@ -214,35 +214,25 @@ def _resolve_attention(awareness_current: dict) -> AttentionItem | None:
     return None
 
 
-def _resolve_placeholder(
-    onboarding_status: str, awareness_current: dict, day_count: int
-) -> str:
+def _resolve_placeholder(awareness_current: dict, day_count: int) -> str:
     """Resolve chat bar placeholder text based on journal state."""
-    if onboarding_status == "observing":
-        return "I'm learning how you work — ask me what I've noticed..."
-    if onboarding_status == "ready":
-        return "I have suggestions for organizing your journal — let's review"
-    if onboarding_status == "interviewing":
-        return "Tell me about your work..."
-    if onboarding_status in ("complete", "skipped"):
-        attention = _resolve_attention(awareness_current)
-        if attention:
-            return attention.placeholder_text
-        imports = awareness_current.get("imports", {})
-        if not imports.get("has_imported") and day_count < 3:
+    attention = _resolve_attention(awareness_current)
+    if attention:
+        return attention.placeholder_text
+    imports = awareness_current.get("imports", {})
+    if not imports.get("has_imported") and day_count < 3:
+        return (
+            "Bring in past conversations, calendar, or notes to give me context..."
+        )
+    if awareness_current.get("journal", {}).get("first_daily_ready"):
+        if day_count < 2:
+            return "Your first daily analysis is ready — ask me what I found..."
+        if day_count >= 7:
             return (
-                "Bring in past conversations, calendar, or notes to give me context..."
+                "Ask me about your day, search your journal, or explore insights..."
             )
-        if awareness_current.get("journal", {}).get("first_daily_ready"):
-            if day_count < 2:
-                return "Your first daily analysis is ready — ask me what I found..."
-            if day_count >= 7:
-                return (
-                    "Ask me about your day, search your journal, or explore insights..."
-                )
-            return "Your daily analysis is ready — ask about today or anything in your journal..."
-        return "Capture is running — your first daily analysis will be ready soon..."
-    return "Send a message..."
+        return "Your daily analysis is ready — ask about today or anything in your journal..."
+    return "Capture is running — your first daily analysis will be ready soon..."
 
 
 def register_app_context(app: Flask, registry: AppRegistry) -> None:
@@ -303,19 +293,15 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
         # Get starred apps list
         starred_apps = config.get("apps", {}).get("starred", [])
 
-        # Chat bar placeholder based on onboarding state
+        # Chat bar placeholder based on journal state
         chat_bar_placeholder = "Send a message..."
         try:
-            from think.awareness import get_current, get_onboarding
+            from think.awareness import get_current
             from think.utils import day_dirs
 
-            onboarding = get_onboarding()
-            onboarding_status = onboarding.get("status", "")
             awareness_current = get_current()
             day_count = len(day_dirs())
-            chat_bar_placeholder = _resolve_placeholder(
-                onboarding_status, awareness_current, day_count
-            )
+            chat_bar_placeholder = _resolve_placeholder(awareness_current, day_count)
         except Exception:
             pass  # Default placeholder on any error
 

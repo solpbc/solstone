@@ -67,36 +67,9 @@ def test_chat_context_always_appends_behavioral_defaults(monkeypatch):
     assert "## Behavioral Defaults" in result["user_instruction"]
 
 
-def test_chat_context_onboarding_observing(monkeypatch):
-    """Observing onboarding state appends observation guidance."""
-    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-    monkeypatch.setattr(
-        "think.awareness.get_onboarding", lambda: {"status": "observing"}
-    )
-
-    result = pre_process({"user_instruction": "Base instruction."})
-
-    assert result is not None
-    assert "## Onboarding Observation Context" in result["user_instruction"]
-
-
-def test_chat_context_onboarding_ready(monkeypatch):
-    """Ready onboarding state appends recommendation guidance."""
-    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-    monkeypatch.setattr("think.awareness.get_onboarding", lambda: {"status": "ready"})
-
-    result = pre_process({"user_instruction": "Base instruction."})
-
-    assert result is not None
-    assert "## Onboarding Observation Complete" in result["user_instruction"]
-
-
 def test_chat_context_import_awareness_injected(monkeypatch):
-    """Import awareness is appended when onboarding is complete and empty."""
+    """Import awareness is appended when imports are still empty."""
     monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-    monkeypatch.setattr(
-        "think.awareness.get_onboarding", lambda: {"status": "complete"}
-    )
     monkeypatch.setattr("think.awareness.get_imports", lambda: {"has_imported": False})
 
     result = pre_process({"user_instruction": "Base instruction."})
@@ -108,9 +81,6 @@ def test_chat_context_import_awareness_injected(monkeypatch):
 def test_chat_context_import_done_no_nudge(monkeypatch):
     """Import awareness is omitted once imports exist."""
     monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-    monkeypatch.setattr(
-        "think.awareness.get_onboarding", lambda: {"status": "complete"}
-    )
     monkeypatch.setattr("think.awareness.get_imports", lambda: {"has_imported": True})
 
     result = pre_process({"user_instruction": "Base instruction."})

@@ -1,7 +1,8 @@
 {
   "type": "cogitate",
   "title": "Onboarding",
-  "description": "Guided setup for new owners — offers passive observation or conversational interview"
+  "description": "Guided setup for new owners — offers passive observation or conversational interview",
+  "disabled": true
 }
 
 You are $agent_name's onboarding assistant. Your job is to help new owners get started with their journal.

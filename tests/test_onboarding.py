@@ -33,8 +33,6 @@ def _run_chat_cli_main(
 ) -> "MagicMock":
     with (
         patch("think.chat_cli.setup_cli", return_value=args),
-        patch("think.facets.get_enabled_facets", return_value=facets),
-        patch("think.awareness.get_onboarding", return_value=onboarding or {}),
         patch("think.chat_cli.cortex_request", return_value="agent-1") as mock_request,
         patch(
             "think.chat_cli.read_agent_events",
@@ -80,9 +78,9 @@ def _run_triage(
 
 
 def test_triage_new_user_gets_onboarding():
-    """No facets, no awareness state → onboarding agent."""
+    """No facets, no awareness state → unified agent."""
     mock = _run_triage()
-    assert mock.call_args.kwargs["name"] == "onboarding"
+    assert mock.call_args.kwargs["name"] == "unified"
 
 
 def test_triage_established_user_gets_unified():
@@ -92,15 +90,15 @@ def test_triage_established_user_gets_unified():
 
 
 def test_triage_path_a_observing_gets_triage():
-    """Path A active → triage (not onboarding again)."""
+    """Path A active → unified agent."""
     mock = _run_triage(onboarding={"status": "observing"})
-    assert mock.call_args.kwargs["name"] == "triage"
+    assert mock.call_args.kwargs["name"] == "unified"
 
 
 def test_triage_path_a_ready_gets_triage():
-    """Path A recommendations ready → triage."""
+    """Path A recommendations ready → unified agent."""
     mock = _run_triage(onboarding={"status": "ready"})
-    assert mock.call_args.kwargs["name"] == "triage"
+    assert mock.call_args.kwargs["name"] == "unified"
 
 
 def test_triage_skipped_gets_unified():
@@ -119,6 +117,7 @@ def test_triage_complete_gets_unified():
 
 
 def test_chat_cli_routes_to_onboarding_when_unified_and_no_facets():
+    """Unified talent stays unified when no facets exist."""
     args = argparse.Namespace(
         message=["Hi there"],
         talent="unified",
@@ -127,7 +126,7 @@ def test_chat_cli_routes_to_onboarding_when_unified_and_no_facets():
         verbose=False,
     )
     mock_request = _run_chat_cli_main(args, facets={})
-    assert mock_request.call_args.kwargs["name"] == "onboarding"
+    assert mock_request.call_args.kwargs["name"] == "unified"
 
 
 def test_chat_cli_keeps_explicit_talent_when_no_facets():
@@ -174,93 +173,49 @@ def test_chat_cli_skipped_stays_unified():
 
 
 class TestPlaceholderResolution:
-    def test_observing(self):
+    def test_no_imports_young(self):
         from convey.apps import _resolve_placeholder
 
-        result = _resolve_placeholder("observing", {}, 0)
-        assert "learning how you work" in result
-
-    def test_ready(self):
-        from convey.apps import _resolve_placeholder
-
-        result = _resolve_placeholder("ready", {}, 0)
-        assert "suggestions" in result
-
-    def test_interviewing(self):
-        from convey.apps import _resolve_placeholder
-
-        result = _resolve_placeholder("interviewing", {}, 0)
-        assert "Tell me about" in result
-
-    def test_complete_no_imports_young(self):
-        from convey.apps import _resolve_placeholder
-
-        result = _resolve_placeholder("complete", {}, 0)
+        result = _resolve_placeholder({}, 0)
         assert "Bring in past conversations" in result
 
-    def test_complete_no_daily(self):
+    def test_no_daily(self):
         from convey.apps import _resolve_placeholder
 
         current = {"imports": {"has_imported": True}}
-        result = _resolve_placeholder("complete", current, 0)
+        result = _resolve_placeholder(current, 0)
         assert "Capture is running" in result
 
-    def test_complete_first_daily_young(self):
+    def test_first_daily_young(self):
         from convey.apps import _resolve_placeholder
 
         current = {
             "imports": {"has_imported": True},
             "journal": {"first_daily_ready": True},
         }
-        result = _resolve_placeholder("complete", current, 1)
+        result = _resolve_placeholder(current, 1)
         assert "first daily analysis is ready" in result
 
-    def test_complete_first_daily_mid(self):
+    def test_first_daily_mid(self):
         from convey.apps import _resolve_placeholder
 
         current = {"journal": {"first_daily_ready": True}}
-        result = _resolve_placeholder("complete", current, 3)
+        result = _resolve_placeholder(current, 3)
         assert "daily analysis is ready" in result
         assert "first" not in result
 
-    def test_complete_first_daily_mature(self):
+    def test_first_daily_mature(self):
         from convey.apps import _resolve_placeholder
 
         current = {"journal": {"first_daily_ready": True}}
-        result = _resolve_placeholder("complete", current, 10)
+        result = _resolve_placeholder(current, 10)
         assert "Ask me about your day" in result
 
-    def test_skipped_no_imports_young(self):
+    def test_default_fallback(self):
         from convey.apps import _resolve_placeholder
 
-        result = _resolve_placeholder("skipped", {}, 0)
-        assert "Bring in past conversations" in result
-
-    def test_skipped_no_daily(self):
-        from convey.apps import _resolve_placeholder
-
-        current = {"imports": {"has_imported": True}}
-        result = _resolve_placeholder("skipped", current, 0)
+        result = _resolve_placeholder({}, 5)
         assert "Capture is running" in result
-
-    def test_skipped_with_daily_mature(self):
-        from convey.apps import _resolve_placeholder
-
-        current = {"journal": {"first_daily_ready": True}}
-        result = _resolve_placeholder("skipped", current, 10)
-        assert "Ask me about your day" in result
-
-    def test_unknown_status_fallback(self):
-        from convey.apps import _resolve_placeholder
-
-        result = _resolve_placeholder("", {}, 0)
-        assert result == "Send a message..."
-
-    def test_no_status_fallback(self):
-        from convey.apps import _resolve_placeholder
-
-        result = _resolve_placeholder("", {}, 5)
-        assert result == "Send a message..."
 
 
 class TestAttentionResolution:
@@ -469,7 +424,7 @@ class TestAttentionResolution:
             "capture": {"status": "stale"},
             "journal": {"first_daily_ready": True},
         }
-        result = _resolve_placeholder("complete", current, 10)
+        result = _resolve_placeholder(current, 10)
         assert "offline" in result.lower() or "capture" in result.lower()
 
     def test_placeholder_no_attention_preserves_behavior(self):
@@ -477,7 +432,7 @@ class TestAttentionResolution:
         from convey.apps import _resolve_placeholder
 
         current = {"journal": {"first_daily_ready": True}}
-        result = _resolve_placeholder("complete", current, 10)
+        result = _resolve_placeholder(current, 10)
         assert "Ask me about your day" in result
 
     def test_all_placeholder_texts_under_90_chars(self, tmp_path, monkeypatch):
@@ -554,7 +509,7 @@ class TestTriageDailyContext:
         (agents_dir / "flow.md").write_text("# Flow")
         (agents_dir / "meetings.md").write_text("# Meetings")
 
-        mock = _run_triage(onboarding={"status": "complete"})
+        mock = _run_triage()
         prompt = mock.call_args.kwargs["prompt"]
         assert "Daily analysis available" in prompt
         assert "flow" in prompt
@@ -562,7 +517,7 @@ class TestTriageDailyContext:
 
     def test_triage_complete_no_outputs_no_extra_context(self):
         """When no agent outputs exist, no daily analysis context is added."""
-        mock = _run_triage(onboarding={"status": "complete"})
+        mock = _run_triage()
         prompt = mock.call_args.kwargs["prompt"]
         assert "Daily analysis" not in prompt
 
@@ -575,7 +530,7 @@ class TestTriageDailyContext:
         agents_dir.mkdir(parents=True)
         (agents_dir / "flow.md").write_text("# Flow")
 
-        mock = _run_triage(onboarding={"status": "complete"})
+        mock = _run_triage()
         prompt = mock.call_args.kwargs["prompt"]
         assert "Daily analysis available" in prompt
         assert "flow" in prompt
@@ -590,7 +545,7 @@ class TestTriageDailyContext:
         agents_dir.mkdir(parents=True)
         (agents_dir / "knowledge_graph.md").write_text("# KG")
 
-        mock = _run_triage(onboarding={"status": "skipped"})
+        mock = _run_triage()
         prompt = mock.call_args.kwargs["prompt"]
         assert "Daily analysis available" in prompt
         assert "knowledge_graph" in prompt
@@ -607,13 +562,13 @@ class TestTriageSystemHealth:
 
         update_state("capture", {"status": "stale", "last_seen": 1000.0})
 
-        mock = _run_triage(onboarding={"status": "complete"})
+        mock = _run_triage()
         prompt = mock.call_args.kwargs["prompt"]
         assert "System health" in prompt
         assert "capture" in prompt.lower()
 
     def test_triage_no_health_context_when_healthy(self):
         """No system health context when nothing needs attention."""
-        mock = _run_triage(onboarding={"status": "complete"})
+        mock = _run_triage()
         prompt = mock.call_args.kwargs["prompt"]
         assert "System health" not in prompt
