@@ -20,6 +20,86 @@
       "label": "Date Detection",
       "tier": 3
     },
+    "observe.describe.browsing": {
+      "group": "Screen Analysis",
+      "label": "Browsing",
+      "tier": 2
+    },
+    "observe.describe.code": {
+      "group": "Screen Analysis",
+      "label": "Code",
+      "tier": 2
+    },
+    "observe.describe.frame": {
+      "group": "Observe",
+      "label": "Screen Categorization",
+      "tier": 3
+    },
+    "observe.describe.gaming": {
+      "group": "Screen Analysis",
+      "label": "Gaming",
+      "tier": 2
+    },
+    "observe.describe.media": {
+      "group": "Screen Analysis",
+      "label": "Media",
+      "tier": 2
+    },
+    "observe.describe.meeting": {
+      "group": "Screen Analysis",
+      "label": "Meeting",
+      "tier": 2
+    },
+    "observe.describe.messaging": {
+      "group": "Screen Analysis",
+      "label": "Messaging",
+      "tier": 2
+    },
+    "observe.describe.productivity": {
+      "group": "Screen Analysis",
+      "label": "Productivity",
+      "tier": 2
+    },
+    "observe.describe.reading": {
+      "group": "Screen Analysis",
+      "label": "Reading",
+      "tier": 2
+    },
+    "observe.describe.terminal": {
+      "group": "Screen Analysis",
+      "label": "Terminal",
+      "tier": 2
+    },
+    "observe.detect.json": {
+      "group": "Import",
+      "label": "Normalization",
+      "tier": 2
+    },
+    "observe.detect.segment": {
+      "group": "Import",
+      "label": "Segmentation",
+      "tier": 2
+    },
+    "observe.enrich": {
+      "group": "Observe",
+      "label": "Audio Enrichment",
+      "tier": 2
+    },
+    "observe.extract.selection": {
+      "group": "Observe",
+      "label": "Frame Selection",
+      "tier": 2
+    },
+    "observe.transcribe.gemini": {
+      "group": "Observe",
+      "label": "Audio Transcription (Gemini)",
+      "tier": 2
+    },
+    "planner.generate": {
+      "group": "Think",
+      "label": "Agent Prompt Generation",
+      "tier": 2
+    },
     "talent.entities.entities": {
       "disabled": false,
       "group": "Entities",
@@ -128,7 +208,7 @@
       "type": "cogitate"
     },
     "talent.system.firstday_checkin": {
-      "disabled": false,
+      "disabled": true,
       "group": "Think",
       "label": "First-Day Check-In",
       "schedule": "segment",
@@ -212,7 +292,7 @@
       "type": "cogitate"
     },
     "talent.system.observation": {
-      "disabled": false,
+      "disabled": true,
       "group": "Think",
       "label": "Observation",
       "schedule": "segment",
@@ -220,7 +300,7 @@
       "type": "generate"
     },
     "talent.system.observation_review": {
-      "disabled": false,
+      "disabled": true,
       "group": "Think",
       "label": "Observation Review",
       "tier": 2,
@@ -234,7 +314,7 @@
       "type": null
     },
     "talent.system.onboarding": {
-      "disabled": false,
+      "disabled": true,
       "group": "Think",
       "label": "Onboarding",
       "tier": 2,
@@ -335,86 +415,6 @@
       "label": "TODO Weekly Scout",
       "tier": 2,
       "type": "cogitate"
-    },
-    "observe.describe.browsing": {
-      "group": "Screen Analysis",
-      "label": "Browsing",
-      "tier": 2
-    },
-    "observe.describe.code": {
-      "group": "Screen Analysis",
-      "label": "Code",
-      "tier": 2
-    },
-    "observe.describe.frame": {
-      "group": "Observe",
-      "label": "Screen Categorization",
-      "tier": 3
-    },
-    "observe.describe.gaming": {
-      "group": "Screen Analysis",
-      "label": "Gaming",
-      "tier": 2
-    },
-    "observe.describe.media": {
-      "group": "Screen Analysis",
-      "label": "Media",
-      "tier": 2
-    },
-    "observe.describe.meeting": {
-      "group": "Screen Analysis",
-      "label": "Meeting",
-      "tier": 2
-    },
-    "observe.describe.messaging": {
-      "group": "Screen Analysis",
-      "label": "Messaging",
-      "tier": 2
-    },
-    "observe.describe.productivity": {
-      "group": "Screen Analysis",
-      "label": "Productivity",
-      "tier": 2
-    },
-    "observe.describe.reading": {
-      "group": "Screen Analysis",
-      "label": "Reading",
-      "tier": 2
-    },
-    "observe.describe.terminal": {
-      "group": "Screen Analysis",
-      "label": "Terminal",
-      "tier": 2
-    },
-    "observe.detect.json": {
-      "group": "Import",
-      "label": "Normalization",
-      "tier": 2
-    },
-    "observe.detect.segment": {
-      "group": "Import",
-      "label": "Segmentation",
-      "tier": 2
-    },
-    "observe.enrich": {
-      "group": "Observe",
-      "label": "Audio Enrichment",
-      "tier": 2
-    },
-    "observe.extract.selection": {
-      "group": "Observe",
-      "label": "Frame Selection",
-      "tier": 2
-    },
-    "observe.transcribe.gemini": {
-      "group": "Observe",
-      "label": "Audio Transcription (Gemini)",
-      "tier": 2
-    },
-    "planner.generate": {
-      "group": "Think",
-      "label": "Agent Prompt Generation",
-      "tier": 2
     }
   },
   "contexts": {

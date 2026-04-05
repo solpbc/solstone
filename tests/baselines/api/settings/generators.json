@@ -65,7 +65,7 @@
     {
       "app": null,
       "description": "Extracts patterns from segment data during onboarding observation",
-      "disabled": false,
+      "disabled": true,
       "extract": null,
       "has_extraction": false,
       "key": "observation",
@@ -95,7 +95,7 @@
     {
       "app": null,
       "description": "One-shot check-in after onboarding — spawns support agent chat",
-      "disabled": false,
+      "disabled": true,
       "extract": null,
       "has_extraction": false,
       "key": "firstday_checkin",

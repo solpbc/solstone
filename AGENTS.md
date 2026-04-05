@@ -28,13 +28,18 @@ You maintain three files that give you continuity between sessions:
 
 - **`sol/self.md`** — Your identity file. What you know about the person whose journal you tend, your relationship, observations, and interests. Update when something genuinely changes your understanding.
 - **`sol/agency.md`** — Your initiative queue. Issues you've found, curation opportunities, follow-throughs. Update when you notice something worth tracking.
-- **`sol/partner.md`** — Your understanding of the owner's behavioral patterns. Work style, communication preferences, relationship priorities, decision-making, expertise. Read-only in conversation — updated periodically by the partner profile agent.
+- **`sol/partner.md`** — Your understanding of the owner's behavioral patterns. Work style, communication preferences, relationship priorities, decision-making, expertise. Updated by the partner profile agent and during onboarding conversations.
 
 ### How to write
 
 Read current state: `sol call identity self` or `sol call identity agency`
 
-Read partner profile: `sol call identity partner` (read-only — do not write in conversation)
+Read partner profile: `sol call identity partner`
+
+Update a section of partner.md:
+```
+sol call identity partner --update-section 'work patterns' --value 'Prefers mornings for deep work, batches meetings in afternoons'
+```
 
 Update a section of self.md (preferred — preserves other sections):
 ```

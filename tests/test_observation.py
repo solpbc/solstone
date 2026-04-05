@@ -302,15 +302,14 @@ class TestChatBarPlaceholder:
             return ctx.get("chat_bar_placeholder", "")
 
     def test_default_placeholder(self):
-        assert self._get_placeholder() == "Send a message..."
+        assert "Bring in past conversations" in self._get_placeholder()
 
     def test_observing_placeholder(self):
         from think.awareness import start_onboarding
 
         start_onboarding("a")
         placeholder = self._get_placeholder()
-        assert "learning" in placeholder.lower()
-        assert "noticed" in placeholder.lower()
+        assert "Bring in past conversations" in placeholder
 
     def test_ready_placeholder(self):
         from think.awareness import start_onboarding, update_state
@@ -318,14 +317,14 @@ class TestChatBarPlaceholder:
         start_onboarding("a")
         update_state("onboarding", {"status": "ready"})
         placeholder = self._get_placeholder()
-        assert "suggestions" in placeholder.lower()
+        assert "Bring in past conversations" in placeholder
 
     def test_interviewing_placeholder(self):
         from think.awareness import start_onboarding
 
         start_onboarding("b")
         placeholder = self._get_placeholder()
-        assert "work" in placeholder.lower()
+        assert "Bring in past conversations" in placeholder
 
     def test_complete_placeholder(self):
         from think.awareness import start_onboarding, update_state

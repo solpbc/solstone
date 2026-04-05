@@ -2,6 +2,7 @@
   "type": "generate",
   "title": "Observation",
   "description": "Extracts patterns from segment data during onboarding observation",
+  "disabled": true,
   "schedule": "segment",
   "priority": 97,
   "output": "json",

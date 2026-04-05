@@ -2,6 +2,7 @@
   "type": "generate",
   "title": "First-Day Check-In",
   "description": "One-shot check-in after onboarding — spawns support agent chat",
+  "disabled": true,
   "schedule": "segment",
   "priority": 98,
   "output": "text",
