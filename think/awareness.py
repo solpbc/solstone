@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
-_LEGACY_AGENT_FIELD = "mu" "se"
+_LEGACY_AGENT_FIELD = "muse"
 
 
 def _awareness_dir() -> Path:

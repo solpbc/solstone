@@ -18,7 +18,7 @@ from convey import state
 from convey.utils import DATE_RE, format_date
 from think.facets import get_facets
 from think.models import calc_agent_cost
-from think.talent import get_talent_configs, get_output_path
+from think.talent import get_output_path, get_talent_configs
 from think.utils import updated_days
 
 agents_bp = Blueprint(

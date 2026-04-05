@@ -328,8 +328,8 @@ def get_providers() -> Any:
             TYPE_DEFAULTS,
             get_context_registry,
         )
-        from think.talent import get_talent_configs
         from think.providers import get_provider_list
+        from think.talent import get_talent_configs
 
         config = get_journal_config()
         providers_config = config.get("providers", {})

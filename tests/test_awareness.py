@@ -471,13 +471,21 @@ class TestComputeThickness:
 
         entities = [{"entity_name": "foo", "observation_depth": 3}] * 10
         exchanges = [
-            {"talent": "onboarding", "agent_response": "foo stuff", "user_message": "hi"},
+            {
+                "talent": "onboarding",
+                "agent_response": "foo stuff",
+                "user_message": "hi",
+            },
             {
                 "talent": "onboarding",
                 "agent_response": "foo bar",
                 "user_message": "hello",
             },
-            {"talent": "triage", "agent_response": "foo is great", "user_message": "hey"},
+            {
+                "talent": "triage",
+                "agent_response": "foo is great",
+                "user_message": "hey",
+            },
         ]
 
         with unittest.mock.patch(

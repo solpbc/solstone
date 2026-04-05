@@ -142,7 +142,9 @@ def test_get_talent_configs_system_agents_have_metadata(fixture_journal):
     assert "color" in chat
 
 
-def test_get_talent_configs_excludes_private_apps(fixture_journal, tmp_path, monkeypatch):
+def test_get_talent_configs_excludes_private_apps(
+    fixture_journal, tmp_path, monkeypatch
+):
     """Test get_talent_configs skips apps starting with underscore."""
     # Create a private app with an agent
     private_app = tmp_path / "_private_app" / "agents"

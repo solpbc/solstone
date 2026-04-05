@@ -30,9 +30,9 @@ from think.facets import (
     get_enabled_facets,
     load_segment_facets,
 )
-from think.talent import get_talent_configs, get_output_path
 from think.runner import run_task
 from think.sense_splitter import write_idle_stubs, write_sense_outputs
+from think.talent import get_output_path, get_talent_configs
 from think.utils import (
     day_input_summary,
     day_log,

@@ -20,8 +20,8 @@ from think.hooks import (
     write_events_jsonl,
 )
 from think.models import generate
-from think.talent import get_output_name
 from think.prompts import load_prompt
+from think.talent import get_output_name
 
 
 def post_process(result: str, context: dict) -> str | None:

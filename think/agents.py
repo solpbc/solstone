@@ -26,17 +26,17 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from think.cluster import cluster, cluster_period, cluster_span
+from think.providers.shared import Event
 from think.talent import (
     get_agent_filter,
-    get_talent_configs,
     get_output_path,
+    get_talent_configs,
     load_post_hook,
     load_pre_hook,
     load_prompt,
     source_is_enabled,
     source_is_required,
 )
-from think.providers.shared import Event
 from think.utils import (
     day_log,
     day_path,
