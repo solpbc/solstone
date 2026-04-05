@@ -681,19 +681,6 @@ def _handle_supervisor_request(message: dict) -> None:
     _restart_service(service)
 
 
-def _handle_code_shipped(message: dict) -> None:
-    """Restart convey when new code is deployed via sail."""
-    if message.get("tract") != "code" or message.get("event") != "shipped":
-        return
-
-    if "convey" in _restart_requests:
-        logging.debug("Skipping code.shipped restart: convey already restarting")
-        return
-
-    logging.info("Code shipped (hash=%s), restarting convey", message.get("hash"))
-    _restart_service("convey")
-
-
 def get_task_status(ref: str) -> dict:
     """Get status of a task.
 
@@ -1233,7 +1220,6 @@ def _handle_callosum_message(message: dict) -> None:
     """Dispatch incoming Callosum messages to appropriate handlers."""
     _handle_task_request(message)
     _handle_supervisor_request(message)
-    _handle_code_shipped(message)
     _handle_segment_observed(message)
     _handle_activity_recorded(message)
     _handle_dream_daily_complete(message)

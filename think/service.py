@@ -8,7 +8,7 @@ Usage:
     sol service uninstall              Remove the background service
     sol service start                  Start the background service
     sol service stop                   Stop the background service
-    sol service restart                Restart the background service
+    sol service restart [--if-installed]  Restart the background service
     sol service status                 Show service installation and runtime status
     sol service logs                   View service logs
     sol service logs -f                Follow service logs
@@ -285,8 +285,22 @@ def _stop() -> int:
     return 0
 
 
-def _restart() -> int:
+def _restart(if_installed: bool = False) -> int:
     platform = _platform()
+    if platform == "darwin":
+        installed = _plist_path().exists()
+    else:
+        installed = _unit_path().exists()
+
+    if not installed:
+        if if_installed:
+            return 0
+        print(
+            "Error: service not installed. Run 'sol service install' first.",
+            file=sys.stderr,
+        )
+        return 1
+
     if platform == "darwin":
         uid = os.getuid()
         subprocess.run(
@@ -441,7 +455,6 @@ _SUBCOMMANDS = {
     "uninstall": _uninstall,
     "start": _start,
     "stop": _stop,
-    "restart": _restart,
     "status": _status,
     "down": lambda **_kw: _down(),
 }
@@ -476,6 +489,10 @@ def main() -> None:
     if not args:
         print("Usage: sol service <install|uninstall|start|stop|restart|status|logs>")
         print("       sol service install [--port PORT]  (default: 5015)")
+        print(
+            "       sol service restart [--if-installed]  "
+            "(restart; --if-installed noops if not installed)"
+        )
         print("       sol up [--port PORT]               (install + start + status)")
         print("       sol down                           (stop)")
         sys.exit(1)
@@ -487,6 +504,9 @@ def main() -> None:
         sys.exit(_install(port=_parse_port(rest)))
     elif subcmd == "up":
         sys.exit(_up(port=_parse_port(rest)))
+    elif subcmd == "restart":
+        if_installed = "--if-installed" in rest
+        sys.exit(_restart(if_installed=if_installed))
     elif subcmd in _SUBCOMMANDS:
         sys.exit(_SUBCOMMANDS[subcmd]())
     else:

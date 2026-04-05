@@ -136,6 +136,56 @@ class TestStatus:
         assert "not installed" in output
 
 
+class TestRestart:
+    def test_if_installed_noop_when_not_installed_linux(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        monkeypatch.setattr(sys, "platform", "linux")
+        monkeypatch.setattr(
+            service, "_unit_path", lambda: tmp_path / "nonexistent.service"
+        )
+
+        result = service._restart(if_installed=True)
+        assert result == 0
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
+
+    def test_if_installed_noop_when_not_installed_darwin(
+        self, monkeypatch, tmp_path, capsys
+    ):
+        monkeypatch.setattr(sys, "platform", "darwin")
+        monkeypatch.setattr(
+            service, "_plist_path", lambda: tmp_path / "nonexistent.plist"
+        )
+
+        result = service._restart(if_installed=True)
+        assert result == 0
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
+
+    def test_errors_when_not_installed_linux(self, monkeypatch, tmp_path, capsys):
+        monkeypatch.setattr(sys, "platform", "linux")
+        monkeypatch.setattr(
+            service, "_unit_path", lambda: tmp_path / "nonexistent.service"
+        )
+
+        result = service._restart()
+        assert result == 1
+        assert "not installed" in capsys.readouterr().err
+
+    def test_errors_when_not_installed_darwin(self, monkeypatch, tmp_path, capsys):
+        monkeypatch.setattr(sys, "platform", "darwin")
+        monkeypatch.setattr(
+            service, "_plist_path", lambda: tmp_path / "nonexistent.plist"
+        )
+
+        result = service._restart()
+        assert result == 1
+        assert "not installed" in capsys.readouterr().err
+
+
 class TestInstall:
     def test_linux_idempotent(self, monkeypatch, tmp_path, capsys):
         monkeypatch.setattr(sys, "platform", "linux")
@@ -219,3 +269,10 @@ class TestMain:
         with pytest.raises(SystemExit):
             service.main()
         assert "Unknown subcommand" in capsys.readouterr().err
+
+    def test_restart_if_installed_flag(self, monkeypatch):
+        monkeypatch.setattr(sys, "argv", ["sol service", "restart", "--if-installed"])
+        with patch("think.service._restart", return_value=0) as mock:
+            with pytest.raises(SystemExit):
+                service.main()
+            mock.assert_called_once_with(if_installed=True)

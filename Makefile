@@ -106,9 +106,9 @@ skills:
 dev: .installed
 	$(TEST_ENV) PATH=$(CURDIR)/$(VENV_BIN):$$PATH $(VENV_BIN)/sol supervisor 0 --no-observers --no-daily
 
-# Emit a code.shipped event with current git hash
+# Restart solstone service (noop in dev mode)
 sail: .installed
-	$(VENV_BIN)/sol callosum send code shipped hash=$$(git rev-parse --short HEAD)
+	$(VENV_BIN)/sol service restart --if-installed
 
 # Start sandbox stack: fixture copy + background supervisor + readiness wait
 sandbox: .installed

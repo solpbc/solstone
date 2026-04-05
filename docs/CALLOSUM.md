@@ -146,13 +146,6 @@ callosum_send("notification", "show", title="Import Complete", message="3 segmen
 **Consumer:** `convey/static/websocket.js` (built-in listener)
 **Purpose:** Navigate the browser to a URL path and/or switch to a facet — facet-only triggers `selectFacet()` without page reload, path triggers full page load, path+facet sets facet cookie before navigating
 
-### `code` - Code lifecycle events
-**Source:** `make sail` (Makefile)
-**Events:** `shipped`
-**Key fields:** `hash` (short git commit hash)
-**Consumer:** Supervisor restarts convey on `shipped` events (`think/supervisor.py:_handle_code_shipped`)
-**Purpose:** Track code deployment and release events
-
 ---
 
 ## Key Concepts
