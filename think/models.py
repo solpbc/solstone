@@ -58,6 +58,10 @@ CLAUDE_OPUS_4 = "claude-opus-4-5"
 CLAUDE_SONNET_4 = "claude-sonnet-4-5"
 CLAUDE_HAIKU_4 = "claude-haiku-4-5"
 
+OLLAMA_PRO = "ollama-local/qwen3.5:35b-a3b-bf16"
+OLLAMA_FLASH = "ollama-local/qwen3.5:9b"
+OLLAMA_LITE = "ollama-local/qwen3.5:2b"
+
 # ---------------------------------------------------------------------------
 # System defaults: provider -> tier -> model
 # ---------------------------------------------------------------------------
@@ -77,6 +81,11 @@ PROVIDER_DEFAULTS: Dict[str, Dict[int, str]] = {
         TIER_PRO: CLAUDE_OPUS_4,
         TIER_FLASH: CLAUDE_SONNET_4,
         TIER_LITE: CLAUDE_HAIKU_4,
+    },
+    "ollama": {
+        TIER_PRO: OLLAMA_PRO,
+        TIER_FLASH: OLLAMA_FLASH,
+        TIER_LITE: OLLAMA_LITE,
     },
 }
 
@@ -641,7 +650,9 @@ def get_model_provider(model: str) -> str:
     """
     model_lower = model.lower()
 
-    if model_lower.startswith("gpt"):
+    if model_lower.startswith("ollama-local/"):
+        return "ollama"
+    elif model_lower.startswith("gpt"):
         return "openai"
     elif model_lower.startswith("gemini"):
         return "google"
@@ -700,6 +711,15 @@ def calc_token_cost(token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         provider_id = get_model_provider(model)
         if provider_id == "unknown":
             return None
+
+        # Ollama models are local — no cost
+        if provider_id == "ollama":
+            return {
+                "total_cost": 0.0,
+                "input_cost": 0.0,
+                "output_cost": 0.0,
+                "currency": "USD",
+            }
 
         # Apply price aliases for models genai-prices doesn't recognize yet
         model = MODEL_PRICE_ALIASES.get(model, model)
