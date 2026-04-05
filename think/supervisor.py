@@ -1504,6 +1504,37 @@ def main() -> None:
     if daily_enabled:
         logging.info("Daily processing scheduled for midnight")
 
+    # Startup catchup: submit dreams for days with pending stream data
+    if daily_enabled:
+        all_updated = updated_days()
+        if all_updated:
+            days_to_process = all_updated[-MAX_UPDATED_CATCHUP:]
+            skipped = len(all_updated) - len(days_to_process)
+
+            if skipped:
+                logging.warning(
+                    "Startup catchup: skipping %d older updated days (max %d): %s",
+                    skipped,
+                    MAX_UPDATED_CATCHUP,
+                    all_updated[:skipped],
+                )
+
+            logging.info(
+                "Startup catchup: submitted %d day(s) with pending stream data: %s",
+                len(days_to_process),
+                days_to_process,
+            )
+
+            for day_str in days_to_process:
+                cmd = ["sol", "dream", "-v", "--day", day_str]
+                if _task_queue:
+                    _task_queue.submit(cmd, day=day_str)
+                    logging.debug("Startup catchup: submitted dream for %s", day_str)
+                else:
+                    logging.warning(
+                        "No task queue available for startup catchup: %s", day_str
+                    )
+
     try:
         asyncio.run(
             supervise(
