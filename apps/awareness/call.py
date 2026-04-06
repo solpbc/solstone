@@ -16,7 +16,7 @@ app = typer.Typer(help="Awareness system — solstone's self-knowledge.")
 @app.command("status")
 def status(
     section: str | None = typer.Argument(
-        None, help="Section to read (e.g., 'onboarding'). Omit for all."
+        None, help="Section to read (e.g., 'journal'). Omit for all."
     ),
 ) -> None:
     """Show current awareness state."""
@@ -35,50 +35,6 @@ def status(
         typer.echo(json.dumps(value, indent=2))
     else:
         typer.echo(json.dumps(state, indent=2))
-
-
-@app.command("onboarding")
-def onboarding_cmd(
-    path: str | None = typer.Option(
-        None, "--path", "-p", help="Onboarding path: 'a' (observe) or 'b' (interview)."
-    ),
-    skip: bool = typer.Option(False, "--skip", help="Skip onboarding."),
-    complete: bool = typer.Option(
-        False, "--complete", help="Mark onboarding complete."
-    ),
-) -> None:
-    """Read or update onboarding state."""
-    from think.awareness import (
-        complete_onboarding,
-        get_onboarding,
-        skip_onboarding,
-        start_onboarding,
-    )
-
-    if skip:
-        state = skip_onboarding()
-        typer.echo(json.dumps(state, indent=2))
-        return
-
-    if complete:
-        state = complete_onboarding()
-        typer.echo(json.dumps(state, indent=2))
-        return
-
-    if path:
-        if path not in ("a", "b"):
-            typer.echo("Error: --path must be 'a' or 'b'", err=True)
-            raise typer.Exit(1)
-        state = start_onboarding(path)
-        typer.echo(json.dumps(state, indent=2))
-        return
-
-    # No flags — read current state
-    state = get_onboarding()
-    if not state:
-        typer.echo("No onboarding state yet.")
-        return
-    typer.echo(json.dumps(state, indent=2))
 
 
 @app.command("imports")

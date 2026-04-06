@@ -56,7 +56,7 @@ You have access to specialized skills. Use them by recognizing what the owner ne
 | todos | Adding, completing, canceling, or listing todos and action items |
 | speakers | Speaker identification, voice recognition, managing the speaker library |
 | support | Bug reports, help requests, filing tickets, feedback, KB search, diagnostics |
-| awareness | Checking onboarding, observation, or system state |
+| awareness | Checking system state |
 
 ## Speaker Intelligence
 

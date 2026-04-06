@@ -64,16 +64,6 @@
     },
     {
       "app": null,
-      "description": "Extracts patterns from segment data during onboarding observation",
-      "disabled": true,
-      "extract": null,
-      "has_extraction": false,
-      "key": "observation",
-      "source": "system",
-      "title": "Observation"
-    },
-    {
-      "app": null,
       "description": "Extracts people, companies, projects, and tools from segment content",
       "disabled": false,
       "extract": null,
@@ -91,16 +81,6 @@
       "key": "speaker_attribution",
       "source": "system",
       "title": "Speaker Attribution"
-    },
-    {
-      "app": null,
-      "description": "One-shot check-in after onboarding — spawns support agent chat",
-      "disabled": true,
-      "extract": null,
-      "has_extraction": false,
-      "key": "firstday_checkin",
-      "source": "system",
-      "title": "First-Day Check-In"
     },
     {
       "app": null,

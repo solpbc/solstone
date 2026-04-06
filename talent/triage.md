@@ -40,9 +40,8 @@ You are given context about the owner's current app, URL path, and facet. Use th
 - `sol call journal events [DAY] [-f FACET]` — List events with participants, times, and summaries.
 
 ### Awareness
-- `sol call awareness status [SECTION]` — Read awareness state (e.g., onboarding progress).
-- `sol call awareness onboarding` — Read onboarding state (path, status, observation count).
-- `sol call awareness log-read [DAY] [--kind KIND] [--limit N]` — Read awareness log entries. Use `--kind observation` to read observation findings.
+- `sol call awareness status [SECTION]` — Read awareness state (e.g., capture state, journal health).
+- `sol call awareness log-read [DAY] [--kind KIND] [--limit N]` — Read awareness log entries.
 
 ### Support
 - `sol call support search <query>` — Search KB articles.
@@ -74,26 +73,17 @@ When the context includes a `System health:` line, there is an active attention 
 
 When no `System health:` line is present in context, there is nothing to report. If the owner asks "what needs my attention?", respond that everything looks good.
 
-## Onboarding Observation Context
-
-When the owner is in Path A onboarding observation (check `sol call awareness onboarding`):
-
-- **Status "observing"**: If the owner asks "what have you noticed?", "how's it going?", "what are you learning?", or similar — read recent observations with `sol call awareness log-read --kind observation --limit 5` and summarize what the system has seen so far. Be encouraging about the observation progress.
-
-- **Status "ready"**: Recommendations are available! Proactively suggest reviewing them: "I've finished observing and have suggestions for organizing your journal. Want to take a look?" If the owner agrees, handle the observation review in-place — read observations, synthesize recommendations, and walk through setup.
-
 ## Import Awareness
 
-When onboarding is complete, check import state with `sol call awareness imports`:
+Check import state with `sol call awareness imports`:
 
 - **After an import completes** (owner returns to chat): The import system updates awareness automatically. If you see `has_imported: true` and new sources in `sources_used`, offer to import from another source: "I just processed your [source] import. Want to import from another source, or explore what I found?"
 
 - **Soft import nudge**: If all of these are true, you may weave a single soft import mention into your response:
-  1. Onboarding is complete (`sol call awareness onboarding` → status: complete)
-  2. No imports done (`has_imported: false`)
-  3. Import offer not recently declined (no `offer_declined` or >3 days ago)
-  4. No recent nudge (`last_nudge` is null)
-  5. The owner's message touches on their journal, data, or what $agent_name can do
+  1. No imports done (`has_imported: false`)
+  2. Import offer not recently declined (no `offer_declined` or >3 days ago)
+  3. No recent nudge (`last_nudge` is null)
+  4. The owner's message touches on their journal, data, or what $agent_name can do
 
   After mentioning imports, run `sol call awareness imports --nudge` to record it. Do **not** repeat this nudge.
 
@@ -103,7 +93,7 @@ When onboarding is complete, check import state with `sol call awareness imports
 
 ## Naming Awareness
 
-When onboarding is complete, check whether the naming ceremony should trigger:
+Check whether the naming ceremony should trigger:
 
 1. Run `sol call agent name` to check status.
 2. If `name_status` is `"default"`, run `sol call agent thickness` to check readiness.
@@ -113,7 +103,7 @@ When onboarding is complete, check whether the naming ceremony should trigger:
 
 ## Owner Voice Detection Awareness
 
-When onboarding is complete, check whether owner voice detection should be surfaced:
+Check whether owner voice detection should be surfaced:
 
 1. Run `sol call speakers owner-ready` to check readiness.
 2. If `ready` is `false`, do nothing. The reason field explains why (centroid_exists, cooldown, low_data, no_clusters, etc.).

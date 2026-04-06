@@ -215,14 +215,6 @@
       "tier": 3,
       "type": "cogitate"
     },
-    "talent.system.firstday_checkin": {
-      "disabled": true,
-      "group": "Think",
-      "label": "First-Day Check-In",
-      "schedule": "segment",
-      "tier": 3,
-      "type": "generate"
-    },
     "talent.system.flow": {
       "disabled": false,
       "extract": true,
@@ -299,34 +291,12 @@
       "tier": 2,
       "type": "cogitate"
     },
-    "talent.system.observation": {
-      "disabled": true,
-      "group": "Think",
-      "label": "Observation",
-      "schedule": "segment",
-      "tier": 3,
-      "type": "generate"
-    },
-    "talent.system.observation_review": {
-      "disabled": true,
-      "group": "Think",
-      "label": "Observation Review",
-      "tier": 2,
-      "type": "cogitate"
-    },
     "talent.system.occurrence": {
       "disabled": false,
       "group": "Think",
       "label": "Occurrence Extraction",
       "tier": 2,
       "type": null
-    },
-    "talent.system.onboarding": {
-      "disabled": true,
-      "group": "Think",
-      "label": "Onboarding",
-      "tier": 2,
-      "type": "cogitate"
     },
     "talent.system.partner": {
       "disabled": false,

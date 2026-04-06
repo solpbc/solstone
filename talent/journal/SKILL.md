@@ -105,7 +105,7 @@ Create a new facet directory and initial `facet.json`.
 - `--emoji`: optional icon emoji (default: `📦`).
 - `--color`: optional hex color (default: `#667eea`).
 - `--description`: optional description text.
-- `--consent`: asserts that the agent has received a direct owner request or explicit owner approval before calling this command. Pass when acting proactively (cogitate, suggestion flows) rather than in direct response to an owner instruction. Omit for the onboarding talent — onboarding is owner-driven by definition. Adds `"consent": true` to the audit log entry.
+- `--consent`: asserts that the agent has received a direct owner request or explicit owner approval before calling this command. Pass when acting proactively (cogitate, suggestion flows) rather than in direct response to an owner instruction. Adds `"consent": true` to the audit log entry.
 
 Examples:
 

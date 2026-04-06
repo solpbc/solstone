@@ -366,24 +366,6 @@ def _should_skip_preflight(
     if not segment:
         return (False, None)
 
-    if prompt_name == "firstday_checkin":
-        from think.awareness import get_onboarding
-
-        onboarding = get_onboarding()
-        if onboarding.get("status") != "complete":
-            return (True, "preflight:not_complete")
-        if onboarding.get("firstday_checkin_sent"):
-            return (True, "preflight:already_sent")
-        return (False, None)
-
-    if prompt_name == "observation":
-        from think.awareness import get_onboarding
-
-        onboarding = get_onboarding()
-        if onboarding.get("status") != "observing":
-            return (True, "preflight:not_observing")
-        return (False, None)
-
     return (False, None)
 
 
@@ -595,18 +577,6 @@ def run_segment_sense(
         speaker_config = _cfg("speaker_attribution")
         if speaker_config:
             agents_to_run.append(("speaker_attribution", speaker_config))
-
-    for onboarding_name in ("observation", "firstday_checkin"):
-        onboarding_config = _cfg(onboarding_name)
-        if onboarding_config:
-            skip, _skip_reason = _should_skip_preflight(
-                onboarding_name,
-                day=day,
-                segment=segment,
-                stream=stream,
-            )
-            if not skip:
-                agents_to_run.append((onboarding_name, onboarding_config))
 
     total_expected = 1 + len(agents_to_run)
     if recommend.get("pulse_update") and pulse_config:
@@ -1914,8 +1884,6 @@ def dry_run(
                 "speaker_attribution",
                 "if recommend.speaker_attribution + audio embeddings",
             ),
-            ("observation", "if onboarding=observing"),
-            ("firstday_checkin", "if onboarding=complete"),
             ("pulse", "if recommend.pulse_update"),
         ]:
             cfg = prompts.get(name)
@@ -2544,23 +2512,21 @@ def main() -> None:
             except Exception:
                 pass
 
-            # Set first_daily_ready awareness flag after first post-onboarding daily
+            # Set first_daily_ready awareness flag after first daily analysis
             try:
-                from think.awareness import get_current, get_onboarding, update_state
+                from think.awareness import get_current, update_state
 
-                ob = get_onboarding()
-                if ob.get("status") == "complete":
-                    cur = get_current()
-                    if not cur.get("journal", {}).get("first_daily_ready"):
-                        update_state(
-                            "journal",
-                            {
-                                "first_daily_ready": True,
-                                "first_daily_ready_at": datetime.now().strftime(
-                                    "%Y%m%dT%H:%M:%S"
-                                ),
-                            },
-                        )
+                cur = get_current()
+                if not cur.get("journal", {}).get("first_daily_ready"):
+                    update_state(
+                        "journal",
+                        {
+                            "first_daily_ready": True,
+                            "first_daily_ready_at": datetime.now().strftime(
+                                "%Y%m%dT%H:%M:%S"
+                            ),
+                        },
+                    )
             except Exception:
                 pass
 

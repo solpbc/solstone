@@ -154,17 +154,6 @@
       "title": "Facet Newsletter Generator",
       "type": "cogitate"
     },
-    "firstday_checkin": {
-      "app": null,
-      "color": "#6c757d",
-      "description": "One-shot check-in after onboarding — spawns support agent chat",
-      "multi_facet": false,
-      "output_format": "text",
-      "schedule": "segment",
-      "source": "system",
-      "title": "First-Day Check-In",
-      "type": "generate"
-    },
     "flow": {
       "app": null,
       "color": "#17a2b8",
@@ -264,28 +253,6 @@
       "title": "Naming",
       "type": "cogitate"
     },
-    "observation": {
-      "app": null,
-      "color": "#6c757d",
-      "description": "Extracts patterns from segment data during onboarding observation",
-      "multi_facet": false,
-      "output_format": "json",
-      "schedule": "segment",
-      "source": "system",
-      "title": "Observation",
-      "type": "generate"
-    },
-    "observation_review": {
-      "app": null,
-      "color": "#6c757d",
-      "description": "Synthesizes onboarding observations into facet and entity recommendations",
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "system",
-      "title": "Observation Review",
-      "type": "cogitate"
-    },
     "occurrence": {
       "app": null,
       "color": "#37474f",
@@ -296,17 +263,6 @@
       "source": "system",
       "title": "Occurrence Extraction",
       "type": null
-    },
-    "onboarding": {
-      "app": null,
-      "color": "#6c757d",
-      "description": "Guided setup for new owners — offers passive observation or conversational interview",
-      "multi_facet": false,
-      "output_format": null,
-      "schedule": null,
-      "source": "system",
-      "title": "Onboarding",
-      "type": "cogitate"
     },
     "partner": {
       "app": null,

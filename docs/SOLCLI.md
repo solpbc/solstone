@@ -312,7 +312,7 @@ solstone/
 | `transcripts` | `apps/transcripts/call.py` | list, read, segments |
 | `support` | `apps/support/call.py` | register, search, article, create, list, show, reply, attach, feedback, announcements, diagnose |
 | `agent` | `apps/agent/call.py` | name, set-name, reset, thickness, set-owner, sol-init |
-| `awareness` | `apps/awareness/call.py` | status, onboarding, imports, log, log-read |
+| `awareness` | `apps/awareness/call.py` | status, imports, log, log-read |
 | `journal` | `think/tools/call.py` | search, events, facets, facet (show/create/update/rename/mute/unmute/delete/merge), news, agents, read, imports, import, retention purge, storage-summary |
 | `routines` | `think/tools/routines.py` | list, templates, create, edit, delete, run, output, suggestions, suggest-respond, suggest-state |
 | `identity` | `think/tools/sol.py` | self, partner, agency, pulse, briefing |
@@ -327,7 +327,7 @@ Skills are documented in `SKILL.md` files and symlinked into `.agents/skills/` b
 - Core skills: `talent/<name>/SKILL.md`
 
 **Skill ≠ call command.** Not every skill has a corresponding `call.py`, and not every `call.py` has a skill:
-- `health`, `coding`, `vit`, `onboarding` have skills but no `call.py`
+- `health`, `coding`, `vit` have skills but no `call.py`
 - Some call apps provide the CLI while the skill provides agent behavioral context
 
 Skills document the CLI commands but also add behavioral guidance beyond what `--help` shows (e.g., "check upcoming before adding a future todo to avoid duplicates").

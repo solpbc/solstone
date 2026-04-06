@@ -47,16 +47,6 @@ def _segment_configs(*names: str) -> dict[str, dict]:
             "type": "cogitate",
             "schedule": "segment",
         },
-        "observation": {
-            "priority": 20,
-            "type": "cogitate",
-            "schedule": "segment",
-        },
-        "firstday_checkin": {
-            "priority": 20,
-            "type": "cogitate",
-            "schedule": "segment",
-        },
         "pulse": {
             "priority": 30,
             "type": "cogitate",

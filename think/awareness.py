@@ -3,13 +3,13 @@
 
 """Awareness system — solstone's self-awareness about the user.
 
-Tracks the system's evolving understanding: onboarding state, observations,
-nudges, and interactions. Two-layer storage:
+Tracks the system's evolving understanding: capture state, identity
+persistence, imports, and awareness signals. Two-layer storage:
 
 - ``awareness/current.json`` — materialized current state for fast reads
 - ``awareness/YYYYMMDD.jsonl`` — append-only daily log of everything noticed
 
-Designed to extend beyond onboarding to cogitate (proactive agents),
+Designed to extend to cogitate (proactive agents),
 learned preferences, and cross-session agent memory.
 """
 
@@ -519,67 +519,6 @@ def read_log(day: str | None = None) -> list[dict[str, Any]]:
     return entries
 
 
-# --- Onboarding convenience functions ---
-
-
-def get_onboarding() -> dict[str, Any]:
-    """Return the current onboarding state, or empty dict if none."""
-    return get_current().get("onboarding", {})
-
-
-def start_onboarding(path: str) -> dict[str, Any]:
-    """Record onboarding path selection.
-
-    Parameters
-    ----------
-    path : str
-        "a" for passive observation, "b" for conversational interview
-
-    Returns
-    -------
-    dict
-        The updated onboarding state
-    """
-    status = "observing" if path == "a" else "interviewing"
-    state = update_state(
-        "onboarding",
-        {
-            "path": path,
-            "status": status,
-            "started": _now_iso(),
-            "observation_count": 0,
-            "nudges_sent": 0,
-        },
-    )
-    append_log("state", key="onboarding.started", data={"path": path, "status": status})
-    return state
-
-
-def skip_onboarding() -> dict[str, Any]:
-    """Record onboarding skip."""
-    state = update_state(
-        "onboarding",
-        {
-            "status": "skipped",
-            "started": _now_iso(),
-        },
-    )
-    append_log("state", key="onboarding.skipped")
-    return state
-
-
-def complete_onboarding() -> dict[str, Any]:
-    """Record onboarding completion."""
-    state = update_state(
-        "onboarding",
-        {
-            "status": "complete",
-        },
-    )
-    append_log("state", key="onboarding.complete")
-    return state
-
-
 # --- Import tracking convenience functions ---
 
 
@@ -619,7 +558,7 @@ def compute_thickness() -> dict[str, Any]:
     Returns a dict with five signals and a composite ``ready`` boolean:
 
     - ``entity_depth``: count of entities with observation_depth >= 2
-    - ``conversation_count``: non-onboarding conversation exchanges
+    - ``conversation_count``: conversation exchanges excluding legacy onboarding
     - ``recall_success``: exchanges where an entity name appears in agent_response
     - ``facet_count``: number of enabled (non-muted) facets
     - ``journal_days``: number of day directories with at least one segment
