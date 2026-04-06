@@ -12,7 +12,7 @@ from typing import Any
 from observe.screen import format_screen_text
 
 from .streams import read_segment_stream
-from .utils import day_path
+from .utils import day_from_path, day_path
 
 
 def _date_str(day_dir: str) -> str:
@@ -645,8 +645,10 @@ def _load_entries_from_segment(
         List of entry dicts with timestamp, prefix, content, etc.
     """
     segment_path_obj = Path(segment_dir)
-    # Parent is stream dir; grandparent is day dir
-    date_str = _date_str(str(segment_path_obj.parent.parent))
+    day_str = day_from_path(segment_path_obj)
+    if day_str is None:
+        raise ValueError(f"Cannot determine day from segment path: {segment_dir}")
+    date_str = day_str
     entries = _process_segment(
         segment_path_obj, date_str, transcripts, percepts, agents
     )

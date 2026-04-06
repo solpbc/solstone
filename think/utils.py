@@ -27,6 +27,7 @@ from timefhuman import timefhuman
 from media import MIME_TYPES
 
 DATE_RE = re.compile(r"\d{8}")
+DEFAULT_STREAM = "_default"
 
 
 def now_ms() -> int:
@@ -275,6 +276,11 @@ def iter_segments(day: str | Path) -> list[tuple[str, str, Path]]:
     results = []
     for entry in day_dir.iterdir():
         if not entry.is_dir():
+            continue
+        if segment_key(entry.name) is not None:
+            results.append((DEFAULT_STREAM, entry.name, entry))
+            continue
+        if entry.name == "health":
             continue
         stream_name = entry.name
         for seg_entry in entry.iterdir():
