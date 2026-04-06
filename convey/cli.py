@@ -18,14 +18,14 @@ from .bridge import start_bridge, stop_bridge
 logger = logging.getLogger(__name__)
 
 
-def _resolve_config_password() -> str:
-    """Return the configured Convey password from journal config."""
+def _resolve_config_password_hash() -> str:
+    """Return the configured Convey password hash from journal config."""
     from think.utils import get_config
 
     try:
         config = get_config()
         convey_config = config.get("convey", {})
-        return convey_config.get("password", "")
+        return convey_config.get("password_hash", "")
     except Exception:
         return ""
 
@@ -96,12 +96,12 @@ def main() -> None:
             logger.info(f"Completed {succeeded}/{ran} maintenance task(s)")
 
     app = create_app(journal)
-    password = _resolve_config_password()
+    password = _resolve_config_password_hash()
     if password:
         logger.info("Password authentication enabled")
     else:
         logger.warning(
-            "No password configured - add to config/journal.json to enable authentication"
+            "No password configured - run 'sol password set' to enable authentication"
         )
 
     # Write port to health directory for discovery by other tools

@@ -18,17 +18,15 @@ convey
 
 ### Authentication
 
-Password authentication is configured through the journal config at `config/journal.json`:
+Password authentication is configured via the CLI:
 
-```json
-{
-  "convey": {
-    "password": "your-password-here"
-  }
-}
+```bash
+sol password set
 ```
 
-A password must be configured to use the application. If no password is set, the login page will display an error with configuration instructions.
+When a password is set, it is stored as a secure hash in `config/journal.json` under `convey.password_hash`.
+
+If no password is set, the login page will prompt you to run `sol password set`.
 
 ## Architecture
 

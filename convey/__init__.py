@@ -52,6 +52,31 @@ def _get_or_create_secret() -> str:
     return secret
 
 
+def _migrate_password_hash() -> None:
+    """Migrate plaintext convey.password to hashed password_hash."""
+    from werkzeug.security import generate_password_hash
+
+    from think.utils import get_config, get_journal
+
+    config = get_config()
+    convey = config.get("convey", {})
+
+    if "password_hash" in convey or "password" not in convey:
+        return
+
+    plaintext = convey.pop("password")
+    if plaintext:
+        convey["password_hash"] = generate_password_hash(plaintext)
+
+    config["convey"] = convey
+    config_path = Path(get_journal()) / "config" / "journal.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.chmod(config_path, 0o600)
+
+
 def create_app(journal: str = "") -> Flask:
     """Create and configure the Convey Flask application."""
     app = Flask(
@@ -72,6 +97,7 @@ def create_app(journal: str = "") -> Flask:
     )
 
     app.secret_key = _get_or_create_secret()
+    _migrate_password_hash()
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
     # Register root blueprint (login, logout, /, favicon)

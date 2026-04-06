@@ -18,17 +18,18 @@ from flask import (
     session,
     url_for,
 )
+from werkzeug.security import check_password_hash
 
 from think.cluster import cluster_segments
 from think.utils import day_dirs, get_config
 
 
-def _get_password() -> str:
-    """Get current password from config, reloading on each call."""
+def _get_password_hash() -> str:
+    """Get current password hash from config, reloading on each call."""
     try:
         config = get_config()
         convey_config = config.get("convey", {})
-        return convey_config.get("password", "")
+        return convey_config.get("password_hash", "")
     except Exception:
         return ""
 
@@ -77,20 +78,16 @@ def require_login() -> Any:
 @bp.route("/login", methods=["GET", "POST"])
 def login() -> Any:
     # Re-check password from config on each request
-    password = _get_password()
+    password_hash = _get_password_hash()
 
     # If no password is configured, show error page
-    if not password:
-        error = (
-            "No password configured. Please add a password to your journal "
-            "config at config/journal.json:\n\n"
-            '{\n  "convey": {\n    "password": "your-password-here"\n  }\n}'
-        )
+    if not password_hash:
+        error = "No password configured. Run 'sol password set' to set one."
         return render_template("login.html", error=error, no_password=True)
 
     error = None
     if request.method == "POST":
-        if request.form.get("password") == password:
+        if check_password_hash(password_hash, request.form.get("password", "")):
             session["logged_in"] = True
             session.permanent = True
             return redirect(url_for("root.index"))

@@ -128,13 +128,13 @@ The `convey` block contains settings for the web application:
 ```json
 {
   "convey": {
-    "password": "your-password-here"
+    "password_hash": "<set via sol password set>"
   }
 }
 ```
 
 Fields:
-- `password` (string) – Password for accessing the convey web application. When set, owners must authenticate before accessing the journal interface.
+- `password_hash` (string) – Hashed password for accessing the convey web application. Set via `sol password set`.
 
 **UI Preferences:** The separate `config/convey.json` file stores UI/UX personalization (facet/app ordering, selected facet). All fields optional:
 

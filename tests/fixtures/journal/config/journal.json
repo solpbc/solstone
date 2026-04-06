@@ -14,7 +14,7 @@
     "timezone": "America/Denver"
   },
   "convey": {
-    "password": "test123",
+    "password_hash": "scrypt:32768:8:1$ceTJLGRcxYTqVQ4n$74a88b364046ab7ca627df875f27b1fb50994d4311ff8c86393bd7d32eaac303c81f165e79a99164931457846b4e702ac6cb38b877871cb4fadf1f70937bbfba",
     "secret": "test-fixture-secret-do-not-use-in-production"
   },
   "transcribe": {

@@ -71,9 +71,7 @@ Create the config file:
 mkdir -p journal/config
 cat > journal/config/journal.json << 'EOF'
 {
-  "convey": {
-    "password": "your-password-here"
-  },
+  "convey": {},
   "env": {
     "GOOGLE_API_KEY": "your-key-here"
   }
@@ -82,7 +80,7 @@ EOF
 chmod 600 journal/config/journal.json
 ```
 
-Replace `your-password-here` with a password for the web interface, and `your-key-here` with your Google AI API key.
+Run `sol password set` to configure web authentication. Replace `your-key-here` with your Google AI API key.
 
 ### Google AI (Gemini) - Required
 
@@ -109,9 +107,7 @@ For transcribing imported audio files. Sign up at [Rev.ai](https://www.rev.ai/),
 
 ```json
 {
-  "convey": {
-    "password": "your-password"
-  },
+  "convey": {},
   "env": {
     "GOOGLE_API_KEY": "your-gemini-key",
     "OPENAI_API_KEY": "your-openai-key",
@@ -120,7 +116,7 @@ For transcribing imported audio files. Sign up at [Rev.ai](https://www.rev.ai/),
 }
 ```
 
-**Important:** `journal.json` contains your API keys and password. It should always have restricted permissions (`chmod 600`).
+**Important:** `journal.json` contains your API keys and credentials. It should always have restricted permissions (`chmod 600`).
 
 ---
 
