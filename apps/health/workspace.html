@@ -16,6 +16,15 @@
   border-radius: 12px;
   padding: 1.5em;
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  transition: background 0.5s ease;
+}
+
+.vitals-bar.warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.vitals-bar.error {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 }
 
 .vitals-header {
@@ -41,6 +50,24 @@
   display: flex;
   align-items: center;
   gap: 0.5em;
+}
+
+.connection-indicator {
+  font-size: 0.8em;
+  opacity: 0.8;
+  margin-left: 0.5em;
+}
+
+.connection-indicator.stale {
+  color: #fbbf24;
+  opacity: 1;
+  font-weight: 500;
+}
+
+.connection-indicator.disconnected {
+  color: #fca5a5;
+  opacity: 1;
+  font-weight: 600;
 }
 
 .vitals-content {
@@ -127,7 +154,7 @@
 }
 
 .health-badge {
-  background: #dc2626;
+  background: #6b7280;
   color: white;
   padding: 0.2em 0.6em;
   border-radius: 12px;
@@ -135,6 +162,11 @@
   display: flex;
   align-items: center;
   gap: 0.3em;
+  animation: none;
+}
+
+.health-badge.recording {
+  background: #16a34a;
   animation: pulse 2s infinite;
 }
 
@@ -145,6 +177,7 @@
 
 .health-badge.tmux {
   background: #8b5cf6;
+  animation: none;
 }
 
 @keyframes pulse {
@@ -623,6 +656,7 @@
         <span class="status-indicator active"></span>
         <span>All Systems Go</span>
       </div>
+      <span class="connection-indicator" id="connectionIndicator"></span>
     </div>
     <div class="vitals-content">
       <div class="vitals-section">
@@ -654,11 +688,11 @@
           <span>Waiting for status...</span>
         </div>
       </div>
-      <div class="vitals-section" id="queuesSection" style="display: none;">
+      <div class="vitals-section" id="queuesSection">
         <div class="vitals-label">Queues</div>
         <div class="vitals-value" id="queuesValue"></div>
       </div>
-      <div class="vitals-section" id="schedulesSection" style="display: none;">
+      <div class="vitals-section" id="schedulesSection">
         <div class="vitals-label">Schedules</div>
         <div class="vitals-value" id="schedulesValue"></div>
       </div>
@@ -808,6 +842,7 @@
     localHost: null,
     deepLinkMode: false,
     lastLogFilter: null,        // Last rendered filter state for incremental append
+    lastEventTs: null,           // Timestamp of last event from WebSocket
   };
 
   // DOM elements
@@ -853,7 +888,9 @@
     logServiceFilter: document.getElementById('logServiceFilter'),
     logStreamFilter: document.getElementById('logStreamFilter'),
     logFollowBtn: document.getElementById('logFollowBtn'),
-    logClearBtn: document.getElementById('logClearBtn')
+    logClearBtn: document.getElementById('logClearBtn'),
+    connectionIndicator: document.getElementById('connectionIndicator'),
+    vitalsBar: document.querySelector('.vitals-bar'),
   };
 
   // Utility functions
@@ -881,6 +918,18 @@
     const div = document.createElement('div');
     div.textContent = String(text ?? '');
     return div.innerHTML;
+  }
+
+  function formatNextRun(epochMs) {
+    if (!epochMs) return '';
+    const delta = epochMs - Date.now();
+    if (delta < 0) return 'overdue';
+    const mins = Math.floor(delta / 60000);
+    if (mins < 60) return `in ${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `in ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `in ${days}d`;
   }
 
   // Client-side elapsed time updater
@@ -968,30 +1017,35 @@
       }
     }
 
-    // Queues (show when non-empty)
+    // Queues (always visible)
     const queueEntries = Object.entries(state.queues).filter(([, count]) => count > 0);
     if (queueEntries.length > 0) {
-      elements.queuesSection.style.display = '';
       elements.queuesValue.innerHTML = '<div class="vitals-chips">' +
         queueEntries.map(([cmd, count]) =>
           `<span class="vitals-chip">${escapeHtml(cmd)}: ${count}</span>`
         ).join('') + '</div>';
     } else {
-      elements.queuesSection.style.display = 'none';
+      elements.queuesValue.textContent = '—';
     }
 
-    // Schedules (show when any exist)
+    // Schedules (always visible, enriched)
     if (state.schedules.length > 0) {
-      elements.schedulesSection.style.display = '';
-      const dueCount = state.schedules.filter(s => s.due).length;
-      elements.schedulesValue.innerHTML = `<span>${dueCount} due / ${state.schedules.length} total</span>`;
+      const chips = state.schedules.map(s => {
+        const name = escapeHtml(s.name || 'unnamed');
+        const next = formatNextRun(s.next_run);
+        const due = s.due ? ' ⏰' : '';
+        return `<span class="vitals-chip" title="${escapeHtml(s.every || '')}">${name}${due}${next ? ' · ' + next : ''}</span>`;
+      }).join('');
+      elements.schedulesValue.innerHTML = '<div class="vitals-chips">' + chips + '</div>';
     } else {
-      elements.schedulesSection.style.display = 'none';
+      elements.schedulesValue.textContent = '—';
     }
   }
 
   function updateVitalsStatus(status) {
     const vitalsStatus = elements.vitalsStatus;
+    const bar = elements.vitalsBar;
+    bar.classList.remove('warning', 'error');
     if (status === 'ok') {
       vitalsStatus.innerHTML = `
         <span class="status-indicator active"></span>
@@ -1002,11 +1056,13 @@
         <span class="status-indicator restarting"></span>
         <span>Warnings</span>
       `;
+      bar.classList.add('warning');
     } else if (status === 'error') {
       vitalsStatus.innerHTML = `
         <span class="status-indicator crashed"></span>
         <span>Issues Detected</span>
       `;
+      bar.classList.add('error');
     }
   }
 
@@ -1023,7 +1079,7 @@
     const label = elements.observeModeLabel;
 
     if (mode === 'screencast') {
-      badge.className = 'health-badge';
+      badge.className = 'health-badge recording';
       label.textContent = 'Recording';
     } else if (mode === 'tmux') {
       badge.className = 'health-badge tmux';
@@ -1682,6 +1738,7 @@
 
   // Main event handler
   function handleEvent(msg) {
+    state.lastEventTs = Date.now();
     const tract = msg.tract;
     if (tract === 'supervisor') handleSupervisorEvent(msg);
     else if (tract === 'cortex') handleCortexEvent(msg);
@@ -1782,5 +1839,26 @@
     });
     if (changed) updateImporterGrid();
   }, 60000);
+
+  // Connection health indicator — updated every 5s
+  setInterval(() => {
+    const el = elements.connectionIndicator;
+    if (!state.lastEventTs) {
+      el.textContent = '';
+      el.className = 'connection-indicator';
+      return;
+    }
+    const ago = Math.floor((Date.now() - state.lastEventTs) / 1000);
+    if (ago >= 60) {
+      el.textContent = `⚠ Disconnected (${formatElapsed(ago)})`;
+      el.className = 'connection-indicator disconnected';
+    } else if (ago >= 30) {
+      el.textContent = `Stale (${formatElapsed(ago)})`;
+      el.className = 'connection-indicator stale';
+    } else {
+      el.textContent = `Updated ${formatElapsed(ago)} ago`;
+      el.className = 'connection-indicator';
+    }
+  }, 5000);
 })();
 </script>
