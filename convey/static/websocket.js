@@ -34,7 +34,8 @@
 
   // Connect to WebSocket
   function connect(){
-    ws = new WebSocket(`ws://${location.host}/ws/events`);
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}/ws/events`);
 
     ws.onopen = () => {
       connectedAt = Date.now();

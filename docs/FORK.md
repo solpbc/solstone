@@ -49,6 +49,16 @@ Override via `providers.models.ollama` in `journal.json`.
 `tests/fixtures/journal/config/journal.json`
 
 
+## WebSocket HTTPS Support
+
+**File:** `convey/static/websocket.js`
+
+The WebSocket connection URL was hardcoded to `ws://`, which causes a mixed
+content error when the dashboard is served over HTTPS. The browser blocks
+insecure WebSocket connections from HTTPS pages. Changed to auto-detect the
+protocol (`wss:` for HTTPS, `ws:` for HTTP) based on `location.protocol`.
+
+
 ## Minimal Changes
 
 - **Makefile NVM/npx lookup** (`Makefile` ~line 20): Added `NVM_BIN` detection
