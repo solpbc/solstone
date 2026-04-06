@@ -49,6 +49,7 @@ COMMANDS: dict[str, str] = {
     "health": "think.health_cli",
     "callosum": "think.callosum",
     "notify": "think.notify_cli",
+    "password": "think.password_cli",
     "streams": "think.streams",
     "journal-stats": "think.journal_stats",
     "config": "think.config_cli",
@@ -132,6 +133,7 @@ GROUPS: dict[str, list[str]] = {
     ],
     "Specialized tools": [
         "config",
+        "password",
         "streams",
         "journal-stats",
         "formatter",
