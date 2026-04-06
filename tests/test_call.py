@@ -4,6 +4,7 @@
 """Tests for think/call.py CLI dispatcher and app discovery."""
 
 import json
+from pathlib import Path
 
 import pytest
 import typer
@@ -11,6 +12,7 @@ from typer.testing import CliRunner
 
 from think.call import call_app
 from think.utils import resolve_sol_day, resolve_sol_facet, resolve_sol_segment
+from tests.conftest import copytree_tracked
 
 runner = CliRunner()
 
@@ -279,12 +281,10 @@ class TestJournal:
 
     def test_journal_news_write(self, tmp_path, monkeypatch):
         """News --write saves content from stdin."""
-        import shutil
-
         # Copy fixtures to tmp so we can write
         journal = tmp_path / "journal"
-        shutil.copytree(
-            "tests/fixtures/journal/facets/work", journal / "facets" / "work"
+        copytree_tracked(
+            Path("tests/fixtures/journal/facets/work"), journal / "facets" / "work"
         )
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
         # Clear cached journal path

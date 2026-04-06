@@ -13,12 +13,12 @@ import importlib
 import io
 import json
 import os
-import shutil
 from pathlib import Path
 
 from think.agents import _apply_template_vars
 from think.talent import load_post_hook, load_pre_hook
 from think.utils import day_path
+from tests.conftest import copytree_tracked
 
 FIXTURES = Path("tests/fixtures")
 
@@ -27,11 +27,7 @@ def copy_day(tmp_path: Path) -> Path:
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
     dest = day_path("20240101")
     src = FIXTURES / "journal" / "20240101"
-    for item in src.iterdir():
-        if item.is_dir():
-            shutil.copytree(item, dest / item.name, dirs_exist_ok=True)
-        else:
-            shutil.copy2(item, dest / item.name)
+    copytree_tracked(src, dest)
     return dest
 
 
