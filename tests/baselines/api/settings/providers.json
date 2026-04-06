@@ -152,6 +152,14 @@
       "tier": 2,
       "type": null
     },
+    "talent.system.awareness_tender": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Awareness Tender",
+      "schedule": "segment",
+      "tier": 3,
+      "type": "cogitate"
+    },
     "talent.system.chat": {
       "disabled": false,
       "group": "Think",
