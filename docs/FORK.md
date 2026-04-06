@@ -59,8 +59,9 @@ insecure WebSocket connections from HTTPS pages. Changed to auto-detect the
 protocol (`wss:` for HTTPS, `ws:` for HTTP) based on `location.protocol`.
 
 
-## Minimal Changes
+## Makefile NVM/npx Lookup
 
-- **Makefile NVM/npx lookup** (`Makefile` ~line 20): Added `NVM_BIN` detection
-  so `npx` can be found outside interactive shells (e.g., nvm-managed Node
-  installs). Also catches internal node calls.
+**File:** `Makefile` (~line 20)
+
+Added `NVM_BIN` detection so `npx` can be found outside interactive shells
+(e.g., nvm-managed Node installs). Also catches internal node calls.
