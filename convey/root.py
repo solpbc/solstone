@@ -125,7 +125,8 @@ def init() -> Any:
         return redirect(url_for("root.index"))
 
     config_path = str(Path(get_journal()) / "config" / "journal.json")
-    return render_template("init.html", config_path=config_path)
+    repo_path = str(Path(__file__).resolve().parent.parent)
+    return render_template("init.html", config_path=config_path, repo_path=repo_path)
 
 
 @bp.route("/init/password", methods=["POST"])
