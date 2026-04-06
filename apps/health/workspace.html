@@ -264,17 +264,17 @@
 }
 
 .observer-stream-qualifier {
-  color: var(--text-muted);
+  color: #6b7280;
   min-width: 48px;
 }
 
 .observer-stream-mode {
-  color: var(--text-secondary);
+  color: #374151;
 }
 
 .observer-stream-row.stale .observer-stream-mode::after {
   content: ' (stale)';
-  color: var(--text-muted);
+  color: #6b7280;
 }
 
 /* Activity Grids Container */
@@ -806,6 +806,8 @@
     logFollow: true,            // Auto-scroll log viewport
     observers: new Map(),       // keyed by stream name
     localHost: null,
+    deepLinkMode: false,
+    lastLogFilter: null,        // Last rendered filter state for incremental append
   };
 
   // DOM elements
@@ -875,6 +877,12 @@
     return String(id).slice(-4);
   }
 
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = String(text ?? '');
+    return div.innerHTML;
+  }
+
   // Client-side elapsed time updater
   let elapsedTimer = null;
   function startElapsedTimer() {
@@ -889,6 +897,12 @@
           needsUpdate = true;
         }
       });
+      // Stop timer when no agents remain
+      if (state.agents.size === 0) {
+        clearInterval(elapsedTimer);
+        elapsedTimer = null;
+        return;
+      }
       if (needsUpdate) {
         updateCortexGrid();
       }
@@ -914,11 +928,11 @@
       const servicesHtml = allServices.map(({ name, info, crashed }) => {
         const statusClass = crashed ? 'crashed' : 'active';
         const dotClass = crashed ? 'service-dot crashed' : 'service-dot';
-        const restartInfo = crashed && info.restart_attempts ? ` (${info.restart_attempts}x)` : '';
+        const restartInfo = crashed && info.restart_attempts ? ` (${escapeHtml(info.restart_attempts)}x)` : '';
         return `
           <div class="${dotClass}">
             <span class="status-indicator ${statusClass}"></span>
-            <span>${name}${restartInfo}</span>
+            <span>${escapeHtml(name)}${restartInfo}</span>
           </div>
         `;
       }).join('');
@@ -942,7 +956,7 @@
         const staleNames = staleHeartbeats.join(', ');
         elements.healthValue.innerHTML = `
           <span style="color: #f59e0b;">! ${staleCount} stale</span>
-          <span class="stale-list">(${staleNames})</span>
+          <span class="stale-list">(${escapeHtml(staleNames)})</span>
         `;
         updateVitalsStatus('warning');
       } else if (hasCrashed) {
@@ -960,7 +974,7 @@
       elements.queuesSection.style.display = '';
       elements.queuesValue.innerHTML = '<div class="vitals-chips">' +
         queueEntries.map(([cmd, count]) =>
-          `<span class="vitals-chip">${cmd}: ${count}</span>`
+          `<span class="vitals-chip">${escapeHtml(cmd)}: ${count}</span>`
         ).join('') + '</div>';
     } else {
       elements.queuesSection.style.display = 'none';
@@ -1260,10 +1274,10 @@
       return `
         <div class="activity-card agent-active" data-agent-id="${agent.agent_id}">
           <div class="activity-card-id">...${getAgentId(agent.agent_id)}</div>
-          <div class="activity-card-name">${agent.name || 'default'}</div>
-          <div class="activity-card-state">${stateIcon} ${agent.event || 'unknown'}</div>
+          <div class="activity-card-name">${escapeHtml(agent.name || 'default')}</div>
+          <div class="activity-card-state">${stateIcon} ${escapeHtml(agent.event || 'unknown')}</div>
           <div class="activity-card-elapsed">${elapsed}</div>
-          <div class="activity-card-provider">${agent.provider || 'unknown'}</div>
+          <div class="activity-card-provider">${escapeHtml(agent.provider || 'unknown')}</div>
         </div>
       `;
     }).join('');
@@ -1292,20 +1306,20 @@
 
       let errorHtml = '';
       if (isError && imp.error) {
-        errorHtml = `<div class="activity-card-error">${truncate(imp.error, 40)}</div>`;
+        errorHtml = `<div class="activity-card-error">${escapeHtml(truncate(imp.error, 40))}</div>`;
       }
 
       return `
         <div class="activity-card ${cardClass}" data-import-id="${imp.import_id}">
           <div class="activity-card-id">...${getAgentId(imp.import_id)}</div>
-          <div class="activity-card-name">${truncate(imp.input_file || 'import', 20)}</div>
-          <div class="activity-card-state">${isError ? '! ' : ''}${imp.stage || 'processing'}</div>
+          <div class="activity-card-name">${escapeHtml(truncate(imp.input_file || 'import', 20))}</div>
+          <div class="activity-card-state">${isError ? '! ' : ''}${escapeHtml(imp.stage || 'processing')}</div>
           ${errorHtml}
           <div class="activity-card-progress">
             <div class="activity-card-progress-bar" style="width: ${progress}%"></div>
           </div>
           <div class="activity-card-elapsed">${elapsed}</div>
-          <div class="activity-card-provider">${imp.file_type || 'unknown'}</div>
+          <div class="activity-card-provider">${escapeHtml(imp.file_type || 'unknown')}</div>
         </div>
       `;
     }).join('');
@@ -1340,10 +1354,10 @@
 
     // Info fields
     const infoParts = [];
-    if (d.mode) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Mode</div><div>${d.mode}</div></div>`);
-    if (d.day) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Day</div><div>${d.day}</div></div>`);
-    if (d.facet) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Facet</div><div>${d.facet}</div></div>`);
-    if (d.segment) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Segment</div><div>${d.segment}</div></div>`);
+    if (d.mode) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Mode</div><div>${escapeHtml(d.mode)}</div></div>`);
+    if (d.day) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Day</div><div>${escapeHtml(d.day)}</div></div>`);
+    if (d.facet) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Facet</div><div>${escapeHtml(d.facet)}</div></div>`);
+    if (d.segment) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Segment</div><div>${escapeHtml(d.segment)}</div></div>`);
     elements.dreamInfo.innerHTML = infoParts.join('');
 
     // Progress bars
@@ -1392,11 +1406,11 @@
     elements.syncCard.classList.remove('hidden');
 
     const infoParts = [];
-    if (s.host) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Host</div><div>${s.host}</div></div>`);
-    if (s.platform) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Platform</div><div>${s.platform}</div></div>`);
+    if (s.host) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Host</div><div>${escapeHtml(s.host)}</div></div>`);
+    if (s.platform) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Platform</div><div>${escapeHtml(s.platform)}</div></div>`);
     infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Queue</div><div>${s.queue_size}</div></div>`);
-    if (s.state) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">State</div><div>${s.state}${s.confirm_attempt ? ' (' + s.confirm_attempt + ')' : ''}</div></div>`);
-    if (s.segment) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Segment</div><div>${s.segment}</div></div>`);
+    if (s.state) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">State</div><div>${escapeHtml(s.state)}${s.confirm_attempt ? ' (' + escapeHtml(s.confirm_attempt) + ')' : ''}</div></div>`);
+    if (s.segment) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Segment</div><div>${escapeHtml(s.segment)}</div></div>`);
     elements.syncInfo.innerHTML = infoParts.join('');
   }
 
@@ -1435,14 +1449,38 @@
       elements.logServiceFilter.appendChild(opt);
     }
 
-    renderLogs();
+    renderLogs(name, record);
   }
 
-  function renderLogs() {
+  function renderLogs(newService, newRecord) {
     if (state.deepLinkMode) return;
     const serviceFilter = elements.logServiceFilter.value;
     const streamFilter = elements.logStreamFilter.value;
     const viewport = elements.logsViewport;
+    const filterKey = serviceFilter + ':' + streamFilter;
+
+    // Incremental append: when following, filters unchanged, and we have a new record
+    if (newRecord && state.logFollow && state.lastLogFilter === filterKey && viewport.children.length > 0) {
+      const serviceMatch = serviceFilter === 'all' || serviceFilter === newService;
+      const streamMatch = streamFilter === 'all' || streamFilter === newRecord.stream;
+      if (serviceMatch && streamMatch) {
+        if (serviceFilter === 'all' && !viewport.querySelector(`[data-svc="${CSS.escape(newService)}"]`)) {
+          const header = document.createElement('div');
+          header.className = 'logs-service-header';
+          header.setAttribute('data-svc', newService);
+          header.textContent = '── ' + newService + ' ──';
+          viewport.appendChild(header);
+        }
+        const line = document.createElement('div');
+        line.className = newRecord.stream === 'stderr' ? 'logs-line stderr' : newRecord.stream === 'log' ? 'logs-line log' : 'logs-line';
+        line.textContent = newRecord.line;
+        viewport.appendChild(line);
+        viewport.scrollTop = viewport.scrollHeight;
+        return;
+      }
+    }
+
+    state.lastLogFilter = filterKey;
 
     // Check if user has scrolled away from bottom before updating
     const wasAtBottom = state.logFollow && (viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 50);
@@ -1458,7 +1496,7 @@
       const filtered = streamFilter === 'all' ? lines : lines.filter(l => l.stream === streamFilter);
       if (filtered.length === 0) continue;
 
-      html += `<div class="logs-service-header">── ${svc} ──</div>`;
+      html += `<div class="logs-service-header" data-svc="${escapeHtml(svc)}">── ${escapeHtml(svc)} ──</div>`;
       for (const rec of filtered) {
         const cls = rec.stream === 'stderr' ? 'logs-line stderr' : rec.stream === 'log' ? 'logs-line log' : 'logs-line';
         const escaped = rec.line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1599,7 +1637,8 @@
         file_type: msg.file_type,
         stage: msg.stage,
         event: 'started',
-        elapsed_ms: 0
+        elapsed_ms: 0,
+        lastSeen: Date.now()
       });
     } else if (msg.event === 'status') {
       const existing = state.imports.get(importId) || {};
@@ -1607,7 +1646,8 @@
         ...existing,
         stage: msg.stage,
         elapsed_ms: msg.elapsed_ms,
-        event: 'status'
+        event: 'status',
+        lastSeen: Date.now()
       });
     } else if (msg.event === 'completed') {
       const existing = state.imports.get(importId) || {};
@@ -1626,7 +1666,8 @@
       state.imports.set(importId, {
         ...existing,
         event: 'error',
-        error: msg.error || 'Unknown error'
+        error: msg.error || 'Unknown error',
+        lastSeen: Date.now()
       });
 
       // Keep error visible longer
@@ -1716,6 +1757,30 @@
   }
 
   // Listen to all Callosum events
-  window.appEvents.listen('*', handleEvent);
+  if (window.appEvents) {
+    window.appEvents.listen('*', handleEvent);
+  }
+
+  // Sweep stale agents and imports every 60s
+  setInterval(() => {
+    const cutoff = Date.now() - 5 * 60 * 1000;
+    let changed = false;
+    state.agents.forEach((agent, id) => {
+      if ((agent.ts || 0) < cutoff) {
+        state.agents.delete(id);
+        changed = true;
+      }
+    });
+    if (changed) updateCortexGrid();
+
+    changed = false;
+    state.imports.forEach((imp, id) => {
+      if ((imp.lastSeen || 0) < cutoff) {
+        state.imports.delete(id);
+        changed = true;
+      }
+    });
+    if (changed) updateImporterGrid();
+  }, 60000);
 })();
 </script>
