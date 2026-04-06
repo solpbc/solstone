@@ -2720,7 +2720,11 @@ function populateFields(config) {
 
   // Convey (password)
   const convey = config.convey || {};
-  setValue('field-password', convey.password || '');
+  if (convey.has_password) {
+    document.getElementById('field-password').placeholder = 'Password set (enter to change)';
+  } else {
+    document.getElementById('field-password').placeholder = 'Enter password to protect web access';
+  }
 
   // Support settings
   const support = config.support || {};

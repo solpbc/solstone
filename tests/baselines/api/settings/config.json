@@ -6,7 +6,7 @@
     "proposal_count": 0
   },
   "convey": {
-    "password": "test123"
+    "has_password": true
   },
   "describe": {
     "redact": [

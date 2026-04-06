@@ -62,6 +62,9 @@ def get_config() -> Any:
         # Strip convey secret from API response — never expose signing keys
         if "convey" in config:
             config["convey"].pop("secret", None)
+            has_pw = bool(config["convey"].pop("password_hash", None))
+            config["convey"].pop("password", None)
+            config["convey"]["has_password"] = has_pw
 
         # Add runtime_env - keys available in the running process
         config["runtime_env"] = {k: bool(os.getenv(k)) for k in API_KEY_ENV_VARS}
@@ -157,6 +160,15 @@ def update_config() -> Any:
                     changed_fields[key] = {"old": old_value, "new": new_value}
                 config[section][key] = new_value
 
+        # Hash password before writing to disk
+        if section == "convey" and "password" in data:
+            raw_password = config["convey"].pop("password", "")
+            if raw_password:
+                from werkzeug.security import generate_password_hash
+
+                config["convey"]["password_hash"] = generate_password_hash(raw_password)
+            # If empty, don't touch password_hash — user didn't enter a new one
+
         # Handle nested backend configs for transcribe section
         if section == "transcribe":
             for backend_key, allowed_keys in transcribe_nested.items():
@@ -250,6 +262,13 @@ def update_config() -> Any:
         # Mask env values in response
         if "env" in config:
             config["env"] = {k: bool(v) for k, v in config["env"].items()}
+
+        # Strip sensitive convey fields from response
+        if "convey" in config:
+            config["convey"].pop("secret", None)
+            has_pw = bool(config["convey"].pop("password_hash", None))
+            config["convey"].pop("password", None)
+            config["convey"]["has_password"] = has_pw
 
         key_validation = config.get("providers", {}).get("key_validation", {})
         return jsonify(

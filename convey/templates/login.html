@@ -35,12 +35,7 @@
     <h2>sign in to solstone</h2>
     {% if error %}
       <div style="color:red;margin:1em 0;text-align:left;">
-        {% if no_password %}
-          <p style="font-weight:bold;margin-bottom:1em;">{{ error.split('\n\n')[0] }}</p>
-          <pre style="background:#f5f5f5;padding:1em;text-align:left;border-radius:4px;">{{ error.split('\n\n')[1] }}</pre>
-        {% else %}
-          <p>{{ error }}</p>
-        {% endif %}
+        <p>{{ error }}</p>
       </div>
     {% endif %}
     {% if not no_password %}
