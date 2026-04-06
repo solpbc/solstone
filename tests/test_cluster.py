@@ -576,3 +576,62 @@ def test_agent_matches_filter():
     assert _agent_matches_filter("meetings", filter_dict) is False
     assert _agent_matches_filter("_todos_review", filter_dict) is True
     assert _agent_matches_filter("flow", filter_dict) is False  # Not in filter
+
+
+def test_scan_day_combined(tmp_path, monkeypatch):
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    day_dir = day_path("20240101")
+
+    mod = importlib.import_module("think.cluster")
+
+    first = day_dir / "default" / "090000_300"
+    first.mkdir(parents=True)
+    (first / "audio.jsonl").write_text("{}\n")
+    (first / "screen.jsonl").write_text('{"raw": "screen.webm"}\n')
+
+    second = day_dir / "default" / "093000_300"
+    second.mkdir(parents=True)
+    (second / "audio.jsonl").write_text("{}\n")
+
+    audio_ranges, screen_ranges, segments = mod.scan_day("20240101")
+    expected_ranges = mod.cluster_scan("20240101")
+    expected_segments = mod.cluster_segments("20240101")
+
+    assert audio_ranges == [("09:00", "09:15"), ("09:30", "09:45")]
+    assert screen_ranges == [("09:00", "09:15")]
+    assert segments == [
+        {
+            "key": "090000_300",
+            "start": "09:00",
+            "end": "09:05",
+            "types": ["audio", "screen"],
+            "stream": "default",
+        },
+        {
+            "key": "093000_300",
+            "start": "09:30",
+            "end": "09:35",
+            "types": ["audio"],
+            "stream": "default",
+        },
+    ]
+    assert (audio_ranges, screen_ranges) == expected_ranges
+    assert segments == expected_segments
+
+
+def test_scan_day_empty(tmp_path, monkeypatch):
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    mod = importlib.import_module("think.cluster")
+
+    assert mod.scan_day("20250101") == ([], [], [])
+
+
+def test_day_path_create_false(tmp_path, monkeypatch):
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    missing = day_path("29990101", create=False)
+    assert not missing.exists()
+
+    created = day_path("29990101")
+    assert created.exists()

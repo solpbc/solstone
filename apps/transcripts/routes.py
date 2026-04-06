@@ -29,7 +29,7 @@ from convey.utils import DATE_RE, error_response, format_date, success_response
 from observe.hear import format_audio
 from observe.screen import format_screen
 from observe.utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
-from think.cluster import cluster_scan, cluster_segments
+from think.cluster import cluster_scan, cluster_segments, scan_day
 from think.entities.journal import get_journal_principal, load_journal_entity
 from think.models import get_usage_cost
 from think.utils import day_dirs, day_path, segment_path
@@ -91,6 +91,16 @@ def transcript_segments(day: str) -> Any:
     return jsonify({"segments": segments})
 
 
+@transcripts_bp.route("/api/day/<day>")
+def transcript_day_data(day: str) -> Any:
+    """Return combined ranges and segments for a day in a single response."""
+    if not DATE_RE.fullmatch(day):
+        return "", 404
+
+    audio_ranges, screen_ranges, segments = scan_day(day)
+    return jsonify({"audio": audio_ranges, "screen": screen_ranges, "segments": segments})
+
+
 @transcripts_bp.route("/api/serve_file/<day>/<path:encoded_path>")
 def serve_file(day: str, encoded_path: str) -> Any:
     """Serve actual media files for embedding."""
@@ -101,7 +111,7 @@ def serve_file(day: str, encoded_path: str) -> Any:
         rel_path = encoded_path.replace("__", "/")
         full_path = os.path.join(state.journal_root, day, rel_path)
 
-        day_dir = str(day_path(day))
+        day_dir = str(day_path(day, create=False))
         if not os.path.commonpath([full_path, day_dir]) == day_dir:
             return "", 403
 

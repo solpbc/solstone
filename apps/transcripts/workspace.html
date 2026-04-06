@@ -2266,20 +2266,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     updateZoom();
   }).observe(zoom);
 
-  // Load transcript ranges and segments in parallel, initialize after both resolve
-  const rangesFetch = fetch(`/app/transcripts/api/ranges/${day}`).then(r => {
-    if (!r.ok) throw new Error(`Ranges failed: ${r.status}`);
-    return r.json();
-  });
-  const segmentsFetch = fetch(`/app/transcripts/api/segments/${day}`).then(r => {
-    if (!r.ok) throw new Error(`Segments failed: ${r.status}`);
-    return r.json();
-  });
-
-  Promise.all([rangesFetch, segmentsFetch])
-    .then(([rangesData, segmentsData]) => {
+  // Load combined transcript data
+  fetch(`/app/transcripts/api/day/${day}`)
+    .then(r => {
+      if (!r.ok) throw new Error(`Day data failed: ${r.status}`);
+      return r.json();
+    })
+    .then(data => {
       // Apply dynamic timeline bounds from ranges
-      const bounds = computeTimelineBounds(rangesData);
+      const bounds = computeTimelineBounds(data);
       timelineStart = bounds.start;
       timelineEnd = bounds.end;
 
@@ -2296,17 +2291,17 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       renderTimeline();
 
       // Add segment indicators from ranges
-      (rangesData.audio || []).forEach(rg => {
+      (data.audio || []).forEach(rg => {
         const [s, e] = rg.map(parseTime);
         addSegmentIndicator('audio', s, e, 0);
       });
-      (rangesData.screen || []).forEach(rg => {
+      (data.screen || []).forEach(rg => {
         const [s, e] = rg.map(parseTime);
         addSegmentIndicator('screen', s, e, 1);
       });
 
       // Store segments and update zoom
-      allSegments = segmentsData.segments || [];
+      allSegments = data.segments || [];
       updateZoom();
 
       // Check for hash fragment to auto-select segment

@@ -118,13 +118,15 @@ def get_journal() -> str:
     return journal
 
 
-def day_path(day: Optional[str] = None) -> Path:
+def day_path(day: Optional[str] = None, *, create: bool = True) -> Path:
     """Return absolute path for a day directory within the journal.
 
     Parameters
     ----------
     day : str, optional
         Day in YYYYMMDD format. If None, uses today's date.
+    create : bool, optional
+        Create the day directory if it does not exist. Defaults to True.
 
     Returns
     -------
@@ -145,7 +147,8 @@ def day_path(day: Optional[str] = None) -> Path:
         raise ValueError("day must be in YYYYMMDD format")
 
     path = Path(journal) / day
-    path.mkdir(parents=True, exist_ok=True)
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
     return path
 
 
@@ -268,7 +271,7 @@ def iter_segments(day: str | Path) -> list[tuple[str, str, Path]]:
     if isinstance(day, Path):
         day_dir = day
     else:
-        day_dir = day_path(day)
+        day_dir = day_path(day, create=False)
 
     if not day_dir.exists():
         return []
