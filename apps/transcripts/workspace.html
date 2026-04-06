@@ -2266,11 +2266,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     updateZoom();
   }).observe(zoom);
 
-  // Load transcript ranges and compute dynamic timeline bounds
-  fetch(`/app/transcripts/api/ranges/${day}`)
-    .then(r => r.json())
+  // Load combined transcript data
+  fetch(`/app/transcripts/api/day/${day}`)
+    .then(r => {
+      if (!r.ok) throw new Error(`Day data failed: ${r.status}`);
+      return r.json();
+    })
     .then(data => {
-      // Compute and apply dynamic bounds
+      // Apply dynamic timeline bounds from ranges
       const bounds = computeTimelineBounds(data);
       timelineStart = bounds.start;
       timelineEnd = bounds.end;
@@ -2283,11 +2286,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const mid = (timelineStart + timelineEnd) / 2;
       range = { start: snap(mid - DEFAULT_LEN / 2), end: snap(mid + DEFAULT_LEN / 2) };
 
-      // Now build the grid and render
+      // Build the grid and render timeline
       buildGrid();
       renderTimeline();
 
-      // Add segment indicators
+      // Add segment indicators from ranges
       (data.audio || []).forEach(rg => {
         const [s, e] = rg.map(parseTime);
         addSegmentIndicator('audio', s, e, 0);
@@ -2296,12 +2299,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         const [s, e] = rg.map(parseTime);
         addSegmentIndicator('screen', s, e, 1);
       });
-    });
 
-  // Load segments for the zoom view
-  fetch(`/app/transcripts/api/segments/${day}`)
-    .then(r => r.json())
-    .then(data => {
+      // Store segments and update zoom
       allSegments = data.segments || [];
       updateZoom();
 
@@ -2310,7 +2309,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       if (hash) {
         const seg = allSegments.find(s => s.key === hash);
         if (seg) {
-          // Adjust range to include the segment
           const segStart = parseTime(seg.start);
           const segEnd = parseTime(seg.end);
           const rangeLen = range.end - range.start;
@@ -2323,6 +2321,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           selectSegment(seg, false);
         }
       }
+    })
+    .catch(err => {
+      console.error('Failed to load transcript data:', err);
+      const errEl = document.createElement('div');
+      errEl.className = 'tr-zoom-empty';
+      errEl.textContent = 'Failed to load transcript data';
+      zoomSegments.innerHTML = '';
+      zoomSegments.appendChild(errEl);
     });
 
   // Handle browser back/forward

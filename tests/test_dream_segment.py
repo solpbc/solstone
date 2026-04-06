@@ -47,16 +47,6 @@ def _segment_configs(*names: str) -> dict[str, dict]:
             "type": "cogitate",
             "schedule": "segment",
         },
-        "observation": {
-            "priority": 20,
-            "type": "cogitate",
-            "schedule": "segment",
-        },
-        "firstday_checkin": {
-            "priority": 20,
-            "type": "cogitate",
-            "schedule": "segment",
-        },
         "pulse": {
             "priority": 30,
             "type": "cogitate",
@@ -182,6 +172,9 @@ class TestRunSegmentSense:
                 updates.append((sense_output, segment, day))
                 return []
 
+            def get_current_state(self):
+                return []
+
         _write_sense_output(
             segment_dir,
             {"density": "idle", "recommend": {"screen_record": True}, "facets": []},
@@ -227,6 +220,14 @@ class TestRunSegmentSense:
         ]
         density = json.loads((segment_dir / "agents" / "density.json").read_text())
         assert density["classification"] == "idle"
+
+        # Verify activity state persisted even on idle path
+        activity_state_path = (
+            segment_dir.parent.parent.parent / "awareness" / "activity_state.json"
+        )
+        assert activity_state_path.exists()
+        state_data = json.loads(activity_state_path.read_text())
+        assert state_data == []
 
     def test_conditional_screen_dispatch(self, segment_dir, monkeypatch):
         from think import dream
@@ -492,6 +493,9 @@ class TestRunSegmentSense:
                 updates.append((sense_output, segment, day))
                 return [{"state": "ended", "id": "coding_120000_300", "_facet": "work"}]
 
+            def get_current_state(self):
+                return [{"facet": "work", "state": "active", "id": "coding_120000_300"}]
+
         _write_sense_output(
             segment_dir,
             {"density": "active", "recommend": {}, "facets": []},
@@ -544,6 +548,14 @@ class TestRunSegmentSense:
                 "verbose": False,
                 "max_concurrency": 2,
             }
+        ]
+        activity_state_path = (
+            segment_dir.parent.parent.parent / "awareness" / "activity_state.json"
+        )
+        assert activity_state_path.exists()
+        state_data = json.loads(activity_state_path.read_text())
+        assert state_data == [
+            {"facet": "work", "state": "active", "id": "coding_120000_300"}
         ]
 
     def test_generator_triggers_incremental_indexing(self, segment_dir, monkeypatch):

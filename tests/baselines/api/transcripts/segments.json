@@ -6,8 +6,8 @@
       "start": "09:00",
       "stream": "default",
       "types": [
-        "transcripts",
-        "percepts"
+        "audio",
+        "screen"
       ]
     },
     {
@@ -16,8 +16,8 @@
       "start": "14:00",
       "stream": "default",
       "types": [
-        "transcripts",
-        "percepts"
+        "audio",
+        "screen"
       ]
     },
     {
@@ -26,8 +26,8 @@
       "start": "18:00",
       "stream": "default",
       "types": [
-        "transcripts",
-        "percepts"
+        "audio",
+        "screen"
       ]
     }
   ]

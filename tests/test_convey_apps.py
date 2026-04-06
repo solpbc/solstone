@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for onboarding routing logic."""
+"""Tests for convey app placeholder and attention behavior."""
 
-import argparse
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from flask import Flask
@@ -16,48 +15,10 @@ def _temp_journal(monkeypatch, tmp_path):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
 
-class _ImmediateEvent:
-    """Event object that never blocks in waits."""
-
-    def set(self) -> None:
-        pass
-
-    def wait(self, timeout: float | None = None) -> bool:
-        return True
-
-
-def _run_chat_cli_main(
-    args: argparse.Namespace,
-    facets: dict,
-    onboarding: dict | None = None,
-) -> "MagicMock":
-    with (
-        patch("think.chat_cli.setup_cli", return_value=args),
-        patch("think.chat_cli.cortex_request", return_value="agent-1") as mock_request,
-        patch(
-            "think.chat_cli.read_agent_events",
-            return_value=[{"event": "finish", "result": "ok"}],
-        ),
-        patch("think.chat_cli.threading.Event", return_value=_ImmediateEvent()),
-        patch("think.chat_cli.CallosumConnection") as mock_connection,
-    ):
-        mock_conn = MagicMock()
-        mock_connection.return_value = mock_conn
-
-        import think.chat_cli as chat_cli
-
-        chat_cli.main()
-
-    return mock_request
-
-
-def _run_triage(
-    onboarding: dict | None = None,
-) -> "MagicMock":
+def _run_triage():
     """Run the triage endpoint with mocked state."""
     app = Flask(__name__)
     with (
-        patch("think.awareness.get_onboarding", return_value=onboarding or {}),
         patch("convey.utils.spawn_agent", return_value="agent-1") as mock_spawn,
         patch("think.cortex_client.wait_for_agents", return_value=({}, [])),
         patch(
@@ -72,102 +33,6 @@ def _run_triage(
 
     assert response.status_code == 200
     return mock_spawn
-
-
-# --- Triage endpoint routing ---
-
-
-def test_triage_new_user_gets_onboarding():
-    """No facets, no awareness state → unified agent."""
-    mock = _run_triage()
-    assert mock.call_args.kwargs["name"] == "unified"
-
-
-def test_triage_established_user_gets_unified():
-    """Onboarding complete → unified agent."""
-    mock = _run_triage(onboarding={"status": "complete"})
-    assert mock.call_args.kwargs["name"] == "unified"
-
-
-def test_triage_path_a_observing_gets_triage():
-    """Path A active → unified agent."""
-    mock = _run_triage(onboarding={"status": "observing"})
-    assert mock.call_args.kwargs["name"] == "unified"
-
-
-def test_triage_path_a_ready_gets_triage():
-    """Path A recommendations ready → unified agent."""
-    mock = _run_triage(onboarding={"status": "ready"})
-    assert mock.call_args.kwargs["name"] == "unified"
-
-
-def test_triage_skipped_gets_unified():
-    """Onboarding skipped, no facets → unified (single talent, no two-mode split)."""
-    mock = _run_triage(onboarding={"status": "skipped"})
-    assert mock.call_args.kwargs["name"] == "unified"
-
-
-def test_triage_complete_gets_unified():
-    """Onboarding complete, no facets → unified (single talent, no two-mode split)."""
-    mock = _run_triage(onboarding={"status": "complete"})
-    assert mock.call_args.kwargs["name"] == "unified"
-
-
-# --- Chat CLI routing ---
-
-
-def test_chat_cli_routes_to_onboarding_when_unified_and_no_facets():
-    """Unified talent stays unified when no facets exist."""
-    args = argparse.Namespace(
-        message=["Hi there"],
-        talent="unified",
-        facet=None,
-        provider=None,
-        verbose=False,
-    )
-    mock_request = _run_chat_cli_main(args, facets={})
-    assert mock_request.call_args.kwargs["name"] == "unified"
-
-
-def test_chat_cli_keeps_explicit_talent_when_no_facets():
-    args = argparse.Namespace(
-        message=["Hi there"],
-        talent="entities",
-        facet=None,
-        provider=None,
-        verbose=False,
-    )
-    mock_request = _run_chat_cli_main(args, facets={})
-    assert mock_request.call_args.kwargs["name"] == "entities"
-
-
-def test_chat_cli_path_a_observing_stays_unified():
-    """During Path A observation, chat CLI uses unified talent, not onboarding."""
-    args = argparse.Namespace(
-        message=["What have you noticed?"],
-        talent="unified",
-        facet=None,
-        provider=None,
-        verbose=False,
-    )
-    mock_request = _run_chat_cli_main(
-        args, facets={}, onboarding={"status": "observing"}
-    )
-    assert mock_request.call_args.kwargs["name"] == "unified"
-
-
-def test_chat_cli_skipped_stays_unified():
-    """After skipping onboarding, chat CLI uses unified talent."""
-    args = argparse.Namespace(
-        message=["Hello"],
-        talent="unified",
-        facet=None,
-        provider=None,
-        verbose=False,
-    )
-    mock_request = _run_chat_cli_main(args, facets={}, onboarding={"status": "skipped"})
-    assert mock_request.call_args.kwargs["name"] == "unified"
-
 
 # --- Placeholder resolution ---
 
@@ -493,62 +358,6 @@ class TestAttentionResolution:
         assert "2" in result.placeholder_text
         assert "report" in result.placeholder_text.lower()
         assert len(result.placeholder_text) <= 90
-
-
-# --- Triage daily output context ---
-
-
-class TestTriageDailyContext:
-    def test_triage_complete_injects_daily_context(self, tmp_path):
-        """When agent outputs exist, the prompt includes daily analysis context."""
-        from datetime import datetime
-
-        today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / today / "agents"
-        agents_dir.mkdir(parents=True)
-        (agents_dir / "flow.md").write_text("# Flow")
-        (agents_dir / "meetings.md").write_text("# Meetings")
-
-        mock = _run_triage()
-        prompt = mock.call_args.kwargs["prompt"]
-        assert "Daily analysis available" in prompt
-        assert "flow" in prompt
-        assert "meetings" in prompt
-
-    def test_triage_complete_no_outputs_no_extra_context(self):
-        """When no agent outputs exist, no daily analysis context is added."""
-        mock = _run_triage()
-        prompt = mock.call_args.kwargs["prompt"]
-        assert "Daily analysis" not in prompt
-
-    def test_triage_complete_falls_back_to_yesterday(self, tmp_path):
-        """When today has no outputs but yesterday does, use yesterday's."""
-        from datetime import datetime, timedelta
-
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
-        agents_dir = tmp_path / yesterday / "agents"
-        agents_dir.mkdir(parents=True)
-        (agents_dir / "flow.md").write_text("# Flow")
-
-        mock = _run_triage()
-        prompt = mock.call_args.kwargs["prompt"]
-        assert "Daily analysis available" in prompt
-        assert "flow" in prompt
-        assert yesterday in prompt
-
-    def test_triage_skipped_injects_daily_context(self, tmp_path):
-        """Skipped onboarding also gets daily analysis context."""
-        from datetime import datetime
-
-        today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / today / "agents"
-        agents_dir.mkdir(parents=True)
-        (agents_dir / "knowledge_graph.md").write_text("# KG")
-
-        mock = _run_triage()
-        prompt = mock.call_args.kwargs["prompt"]
-        assert "Daily analysis available" in prompt
-        assert "knowledge_graph" in prompt
 
 
 class TestTriageSystemHealth:

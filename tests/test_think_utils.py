@@ -8,12 +8,20 @@ import json
 import os
 import sys
 import tempfile
+from datetime import time
 from pathlib import Path
 
 import pytest
 
 from think.entities import load_entity_names
-from think.utils import day_from_path, segment_key, setup_cli
+from think.utils import (
+    DEFAULT_STREAM,
+    day_from_path,
+    iter_segments,
+    segment_parse,
+    segment_key,
+    setup_cli,
+)
 
 
 class TestDayFromPath:
@@ -637,6 +645,12 @@ def test_segment_key_edge_cases():
     assert segment_key("143022_300 and 150000_600") == "143022_300"
 
 
+def test_segment_parse_clamps_midnight_crossing():
+    """Test segment_parse clamps end time when a segment crosses midnight."""
+    assert segment_parse("235900_300") == (time(23, 59, 0), time(23, 59, 59))
+    assert segment_parse("143022_300") == (time(14, 30, 22), time(14, 35, 22))
+
+
 class TestSetupCliConfigEnv:
     """Tests for config env injection via setup_cli()."""
 
@@ -811,3 +825,52 @@ class TestPortDiscovery:
         # Now it should exist
         assert health_dir.exists()
         assert (health_dir / "new_service.port").read_text() == "9999"
+
+
+class TestIterSegments:
+    def test_skips_health_directory(self, tmp_path):
+        """iter_segments does not return segments from health/ dirs."""
+        day_dir = tmp_path / "20240101"
+        day_dir.mkdir()
+        health_seg = day_dir / "health" / "120000_300"
+        health_seg.mkdir(parents=True)
+        normal_seg = day_dir / "default" / "130000_300"
+        normal_seg.mkdir(parents=True)
+
+        results = iter_segments(day_dir)
+        stream_names = [r[0] for r in results]
+        assert "health" not in stream_names
+        assert "default" in stream_names
+
+    def test_toplevel_segments_as_default_stream(self, tmp_path):
+        """Top-level segment dirs are returned with _default stream name."""
+        day_dir = tmp_path / "20240101"
+        day_dir.mkdir()
+        toplevel_seg = day_dir / "143022_300"
+        toplevel_seg.mkdir()
+        normal_seg = day_dir / "default" / "150000_300"
+        normal_seg.mkdir(parents=True)
+
+        results = iter_segments(day_dir)
+        assert len(results) == 2
+        default_results = [(s, k, p) for s, k, p in results if s == DEFAULT_STREAM]
+        assert len(default_results) == 1
+        assert default_results[0][1] == "143022_300"
+        normal_results = [(s, k, p) for s, k, p in results if s == "default"]
+        assert len(normal_results) == 1
+
+    def test_normal_stream_discovery_unchanged(self, tmp_path):
+        """Normal stream/segment discovery still works correctly."""
+        day_dir = tmp_path / "20240101"
+        day_dir.mkdir()
+        (day_dir / "default" / "100000_300").mkdir(parents=True)
+        (day_dir / "default" / "110000_300").mkdir(parents=True)
+        (day_dir / "import.apple" / "120000_600").mkdir(parents=True)
+
+        results = iter_segments(day_dir)
+        assert len(results) == 3
+        assert results[0][1] == "100000_300"
+        assert results[1][1] == "110000_300"
+        assert results[2][1] == "120000_600"
+        assert results[0][0] == "default"
+        assert results[2][0] == "import.apple"

@@ -150,13 +150,13 @@ def generate_span_summary(days: int = 7) -> str:
 
 
 def pre_process(context: dict) -> dict | None:
-    """Generate span data to replace transcript content.
+    """Generate span data as template vars.
 
     Args:
         context: PreHookContext with day, meta, etc.
 
     Returns:
-        Dict with transcript replacement, or None if insufficient data.
+        Dict with template_vars, or None if insufficient data.
     """
     # Get lookback window from meta, default 7 days
     meta = context.get("meta", {})
@@ -164,7 +164,7 @@ def pre_process(context: dict) -> dict | None:
 
     span_summary = generate_span_summary(days=days)
 
-    return {"transcript": span_summary}
+    return {"template_vars": {"activity_spans": span_summary}}
 
 
 def post_process(result: str, context: dict) -> str | None:

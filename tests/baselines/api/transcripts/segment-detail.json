@@ -138,5 +138,6 @@
     "screen": 0
   },
   "segment_key": "090000_300",
-  "video_files": {}
+  "video_files": {},
+  "warnings": 0
 }

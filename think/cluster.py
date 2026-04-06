@@ -12,7 +12,7 @@ from typing import Any
 from observe.screen import format_screen_text
 
 from .streams import read_segment_stream
-from .utils import day_path
+from .utils import day_from_path, day_path
 
 
 def _date_str(day_dir: str) -> str:
@@ -394,6 +394,82 @@ def _slots_to_ranges(slots: list[datetime]) -> list[tuple[str, str]]:
     return ranges
 
 
+def _detect_content_types(seg_path: Path) -> list[str]:
+    """Detect content types present in a segment directory."""
+    types = []
+    if (
+        (seg_path / "audio.jsonl").exists()
+        or any(seg_path.glob("*_audio.jsonl"))
+        or any(seg_path.glob("*_transcript.jsonl"))
+        or any(seg_path.glob("*_transcript.md"))
+        or (seg_path / "imported.md").exists()
+    ):
+        types.append("audio")
+    if (seg_path / "screen.jsonl").exists() or any(seg_path.glob("*_screen.jsonl")):
+        types.append("screen")
+    return types
+
+
+def scan_day(
+    day: str,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]], list[dict[str, Any]]]:
+    """Single-pass scan returning both range aggregation and segment list.
+
+    Combines the work of ``cluster_scan()`` and ``cluster_segments()``
+    into one ``iter_segments()`` traversal.
+
+    Args:
+        day: Day folder in ``YYYYMMDD`` format.
+
+    Returns:
+        Tuple of (audio_ranges, screen_ranges, segments) where ranges are
+        ``(start, end)`` pairs in ``HH:MM`` format and segments is a list
+        of dicts with ``key``, ``start``, ``end``, ``types``, and ``stream``.
+    """
+    from think.utils import iter_segments, segment_parse
+
+    day_dir = day_path(day, create=False)
+    if not day_dir.is_dir():
+        return [], [], []
+
+    date_str = _date_str(str(day_dir))
+    day_date = datetime.strptime(date_str, "%Y%m%d").date()
+    transcript_slots: set[datetime] = set()
+    percept_slots: set[datetime] = set()
+    segments: list[dict[str, Any]] = []
+
+    for stream_name, _, seg_path in iter_segments(day_dir):
+        start_time, end_time = segment_parse(seg_path.name)
+
+        types = _detect_content_types(seg_path) if start_time else []
+
+        if start_time and types:
+            dt = datetime.combine(day_date, start_time)
+            slot = dt.replace(
+                minute=dt.minute - (dt.minute % 15), second=0, microsecond=0
+            )
+            if "audio" in types:
+                transcript_slots.add(slot)
+            if "screen" in types:
+                percept_slots.add(slot)
+
+        if start_time and end_time and types:
+            segments.append(
+                {
+                    "key": seg_path.name,
+                    "start": start_time.strftime("%H:%M"),
+                    "end": end_time.strftime("%H:%M"),
+                    "types": types,
+                    "stream": stream_name,
+                }
+            )
+
+    audio_ranges = _slots_to_ranges(sorted(transcript_slots))
+    screen_ranges = _slots_to_ranges(sorted(percept_slots))
+    segments.sort(key=lambda s: s["start"])
+    return audio_ranges, screen_ranges, segments
+
+
 def cluster_scan(day: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     """Return 15-minute ranges with transcript and screen content for ``day``.
 
@@ -405,48 +481,8 @@ def cluster_scan(day: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]
         screen content respectively.
     """
 
-    day_dir = str(day_path(day))
-    # day_path now ensures dir exists
-    if not os.path.isdir(day_dir):
-        return [], []
-
-    date_str = _date_str(day_dir)
-    transcript_slots: set[datetime] = set()
-    percept_slots: set[datetime] = set()
-    day_path_obj = Path(day_dir)
-
-    # Check timestamp subdirectories for content files
-    from think.utils import iter_segments, segment_parse
-
-    for _stream, _seg_key, seg_path in iter_segments(day_path_obj):
-        start_time, _ = segment_parse(seg_path.name)
-        if start_time:
-            # Found segment - combine with date to get datetime
-            day_date = datetime.strptime(date_str, "%Y%m%d").date()
-            dt = datetime.combine(day_date, start_time)
-            slot = dt.replace(
-                minute=dt.minute - (dt.minute % 15), second=0, microsecond=0
-            )
-
-            # Check for transcript content (legacy audio + new transcript convention)
-            if (
-                (seg_path / "audio.jsonl").exists()
-                or any(seg_path.glob("*_audio.jsonl"))
-                or any(seg_path.glob("*_transcript.jsonl"))
-                or any(seg_path.glob("*_transcript.md"))
-                or (seg_path / "imported.md").exists()
-            ):
-                transcript_slots.add(slot)
-
-            # Check for screen content
-            if (seg_path / "screen.jsonl").exists() or any(
-                seg_path.glob("*_screen.jsonl")
-            ):
-                percept_slots.add(slot)
-
-    transcript_ranges = _slots_to_ranges(sorted(transcript_slots))
-    percept_ranges = _slots_to_ranges(sorted(percept_slots))
-    return transcript_ranges, percept_ranges
+    audio_ranges, screen_ranges, _ = scan_day(day)
+    return audio_ranges, screen_ranges
 
 
 def cluster_segments(day: str) -> list[dict[str, Any]]:
@@ -463,57 +499,9 @@ def cluster_segments(day: str) -> list[dict[str, Any]]:
         - key: segment directory name (HHMMSS_LEN format)
         - start: start time as HH:MM
         - end: end time as HH:MM
-        - types: list of content types present ("transcripts", "percepts", or both)
+        - types: list of content types present ("audio", "screen", or both)
     """
-    from think.utils import segment_parse
-
-    day_dir = str(day_path(day))
-    if not os.path.isdir(day_dir):
-        return []
-
-    from think.utils import iter_segments
-
-    day_path_obj = Path(day_dir)
-    segments: list[dict[str, Any]] = []
-
-    for stream_name, seg_key, seg_path in iter_segments(day_path_obj):
-        start_time, end_time = segment_parse(seg_path.name)
-        if not (start_time and end_time):
-            continue
-
-        types = []
-        # Check for transcript content (legacy audio + new transcript convention)
-        if (
-            (seg_path / "audio.jsonl").exists()
-            or any(seg_path.glob("*_audio.jsonl"))
-            or any(seg_path.glob("*_transcript.jsonl"))
-            or any(seg_path.glob("*_transcript.md"))
-            or (seg_path / "imported.md").exists()
-        ):
-            types.append("transcripts")
-
-        # Check for screen content
-        if (seg_path / "screen.jsonl").exists() or any(seg_path.glob("*_screen.jsonl")):
-            types.append("percepts")
-
-        if not types:
-            continue
-
-        start_str = start_time.strftime("%H:%M")
-        end_str = end_time.strftime("%H:%M")
-
-        segments.append(
-            {
-                "key": seg_path.name,
-                "start": start_str,
-                "end": end_str,
-                "types": types,
-                "stream": stream_name,
-            }
-        )
-
-    # Sort by start time
-    segments.sort(key=lambda s: s["start"])
+    _, _, segments = scan_day(day)
     return segments
 
 
@@ -645,8 +633,10 @@ def _load_entries_from_segment(
         List of entry dicts with timestamp, prefix, content, etc.
     """
     segment_path_obj = Path(segment_dir)
-    # Parent is stream dir; grandparent is day dir
-    date_str = _date_str(str(segment_path_obj.parent.parent))
+    day_str = day_from_path(segment_path_obj)
+    if day_str is None:
+        raise ValueError(f"Cannot determine day from segment path: {segment_dir}")
+    date_str = day_str
     entries = _process_segment(
         segment_path_obj, date_str, transcripts, percepts, agents
     )

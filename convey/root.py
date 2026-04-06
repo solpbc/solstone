@@ -117,8 +117,6 @@ def favicon() -> Any:
 def app_today() -> Any:
     """Redirect /app/today to the most recent day with journal data."""
     today = date.today().strftime("%Y%m%d")
-    if cluster_segments(today):
-        return redirect(url_for("app:transcripts.transcripts_day", day=today))
     for day in sorted(day_dirs().keys(), reverse=True):
         if cluster_segments(day):
             return redirect(url_for("app:transcripts.transcripts_day", day=day))
@@ -127,5 +125,5 @@ def app_today() -> Any:
 
 @bp.route("/")
 def index() -> Any:
-    """Root redirect — always to home, onboarding talent handles new journals."""
+    """Root redirect — always to home; the app handles new journals there."""
     return redirect(url_for("app:home.index"))

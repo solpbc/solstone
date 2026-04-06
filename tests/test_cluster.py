@@ -134,20 +134,20 @@ def test_cluster_segments(tmp_path, monkeypatch):
     assert segments[0]["key"] == "090000_300"
     assert segments[0]["start"] == "09:00"
     assert segments[0]["end"] == "09:05"
-    assert segments[0]["types"] == ["transcripts"]
+    assert segments[0]["types"] == ["audio"]
 
     # Check second segment (both transcripts and screen)
     assert segments[1]["key"] == "100000_600"
     assert segments[1]["start"] == "10:00"
     assert segments[1]["end"] == "10:10"
-    assert "transcripts" in segments[1]["types"]
-    assert "percepts" in segments[1]["types"]
+    assert "audio" in segments[1]["types"]
+    assert "screen" in segments[1]["types"]
 
     # Check third segment (screen only)
     assert segments[2]["key"] == "110000_300"
     assert segments[2]["start"] == "11:00"
     assert segments[2]["end"] == "11:05"
-    assert segments[2]["types"] == ["percepts"]
+    assert segments[2]["types"] == ["screen"]
 
 
 def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
@@ -189,6 +189,25 @@ def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
     assert "VS Code with Python file" in result
     # Insight content should NOT be present (agents=False for cluster_period)
     assert "This insight should NOT appear" not in result
+
+
+def test_load_entries_from_toplevel_segment(tmp_path, monkeypatch):
+    """_load_entries_from_segment resolves the day for top-level segment dirs."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    day_dir = day_path("20240101")
+    segment = day_dir / "100000_300"
+    segment.mkdir()
+
+    mod = importlib.import_module("think.cluster")
+
+    entries = mod._load_entries_from_segment(
+        str(segment),
+        transcripts=True,
+        percepts=False,
+        agents=False,
+    )
+
+    assert entries == []
 
 
 def test_cluster_range_with_agents(tmp_path, monkeypatch):
@@ -333,7 +352,7 @@ def test_cluster_segments_with_split_screen(tmp_path, monkeypatch):
 
     assert len(segments) == 1
     assert segments[0]["key"] == "100000_300"
-    assert "percepts" in segments[0]["types"]
+    assert "screen" in segments[0]["types"]
 
 
 def test_cluster_span(tmp_path, monkeypatch):
@@ -557,3 +576,62 @@ def test_agent_matches_filter():
     assert _agent_matches_filter("meetings", filter_dict) is False
     assert _agent_matches_filter("_todos_review", filter_dict) is True
     assert _agent_matches_filter("flow", filter_dict) is False  # Not in filter
+
+
+def test_scan_day_combined(tmp_path, monkeypatch):
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    day_dir = day_path("20240101")
+
+    mod = importlib.import_module("think.cluster")
+
+    first = day_dir / "default" / "090000_300"
+    first.mkdir(parents=True)
+    (first / "audio.jsonl").write_text("{}\n")
+    (first / "screen.jsonl").write_text('{"raw": "screen.webm"}\n')
+
+    second = day_dir / "default" / "093000_300"
+    second.mkdir(parents=True)
+    (second / "audio.jsonl").write_text("{}\n")
+
+    audio_ranges, screen_ranges, segments = mod.scan_day("20240101")
+    expected_ranges = mod.cluster_scan("20240101")
+    expected_segments = mod.cluster_segments("20240101")
+
+    assert audio_ranges == [("09:00", "09:15"), ("09:30", "09:45")]
+    assert screen_ranges == [("09:00", "09:15")]
+    assert segments == [
+        {
+            "key": "090000_300",
+            "start": "09:00",
+            "end": "09:05",
+            "types": ["audio", "screen"],
+            "stream": "default",
+        },
+        {
+            "key": "093000_300",
+            "start": "09:30",
+            "end": "09:35",
+            "types": ["audio"],
+            "stream": "default",
+        },
+    ]
+    assert (audio_ranges, screen_ranges) == expected_ranges
+    assert segments == expected_segments
+
+
+def test_scan_day_empty(tmp_path, monkeypatch):
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    mod = importlib.import_module("think.cluster")
+
+    assert mod.scan_day("20250101") == ([], [], [])
+
+
+def test_day_path_create_false(tmp_path, monkeypatch):
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+
+    missing = day_path("29990101", create=False)
+    assert not missing.exists()
+
+    created = day_path("29990101")
+    assert created.exists()

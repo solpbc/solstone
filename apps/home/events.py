@@ -15,7 +15,7 @@ from think.cortex_client import read_agent_events
 
 logger = logging.getLogger(__name__)
 
-TRIAGE_AGENT_NAMES = {"unified", "triage", "onboarding"}
+TRIAGE_AGENT_NAMES = {"unified", "triage"}
 
 
 @on_event("cortex", "finish")

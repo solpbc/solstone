@@ -88,3 +88,55 @@ class TestPreProcessStub:
         stub_path = tmp_path / "agents" / "speaker_labels.json"
         assert not stub_path.exists()
         assert result == {"skip_reason": "no_segment_context"}
+
+    def test_layer4_returns_template_vars(self):
+        """Unmatched sentences return template vars without changing transcript."""
+        result = _run_pre_process(
+            {
+                **CONTEXT,
+                "transcript": "some transcript",
+                "meta": {},
+            },
+            None,
+            {
+                "labels": [
+                    {
+                        "sentence_id": 0,
+                        "speaker": "owner",
+                        "confidence": "high",
+                        "method": "embedding",
+                    },
+                    {
+                        "sentence_id": 1,
+                        "speaker": None,
+                        "confidence": None,
+                        "method": None,
+                    },
+                    {
+                        "sentence_id": 2,
+                        "speaker": None,
+                        "confidence": None,
+                        "method": None,
+                    },
+                ],
+                "unmatched": [1, 2],
+                "unmatched_texts": {1: "Hello everyone", 2: "Let me explain"},
+                "candidates": ["Alice Johnson", "Bob Smith"],
+                "metadata": {"total": 3, "resolved": 1},
+                "source": "audio",
+            },
+        )
+
+        assert "meta" in result
+        assert "attribution_result" in result["meta"]
+        assert "template_vars" in result
+        assert "unmatched_context" in result["template_vars"]
+        assert "transcript" not in result
+
+        unmatched_context = result["template_vars"]["unmatched_context"]
+        assert "Alice Johnson" in unmatched_context
+        assert "Bob Smith" in unmatched_context
+        assert "Hello everyone" in unmatched_context
+        assert "Let me explain" in unmatched_context
+        assert "Sentence 1" in unmatched_context
+        assert "Sentence 2" in unmatched_context

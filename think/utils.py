@@ -27,6 +27,7 @@ from timefhuman import timefhuman
 from media import MIME_TYPES
 
 DATE_RE = re.compile(r"\d{8}")
+DEFAULT_STREAM = "_default"
 
 
 def now_ms() -> int:
@@ -117,13 +118,15 @@ def get_journal() -> str:
     return journal
 
 
-def day_path(day: Optional[str] = None) -> Path:
+def day_path(day: Optional[str] = None, *, create: bool = True) -> Path:
     """Return absolute path for a day directory within the journal.
 
     Parameters
     ----------
     day : str, optional
         Day in YYYYMMDD format. If None, uses today's date.
+    create : bool, optional
+        Create the day directory if it does not exist. Defaults to True.
 
     Returns
     -------
@@ -144,7 +147,8 @@ def day_path(day: Optional[str] = None) -> Path:
         raise ValueError("day must be in YYYYMMDD format")
 
     path = Path(journal) / day
-    path.mkdir(parents=True, exist_ok=True)
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
     return path
 
 
@@ -267,7 +271,7 @@ def iter_segments(day: str | Path) -> list[tuple[str, str, Path]]:
     if isinstance(day, Path):
         day_dir = day
     else:
-        day_dir = day_path(day)
+        day_dir = day_path(day, create=False)
 
     if not day_dir.exists():
         return []
@@ -275,6 +279,11 @@ def iter_segments(day: str | Path) -> list[tuple[str, str, Path]]:
     results = []
     for entry in day_dir.iterdir():
         if not entry.is_dir():
+            continue
+        if segment_key(entry.name) is not None:
+            results.append((DEFAULT_STREAM, entry.name, entry))
+            continue
+        if entry.name == "health":
             continue
         stream_name = entry.name
         for seg_entry in entry.iterdir():
@@ -404,7 +413,10 @@ def segment_parse(
         # Compute end time by adding duration
         start_dt = datetime.combine(datetime.today(), start_time)
         end_dt = start_dt + timedelta(seconds=length_seconds)
-        end_time = end_dt.time()
+        if end_dt.date() > start_dt.date():
+            end_time = time(23, 59, 59)
+        else:
+            end_time = end_dt.time()
         return (start_time, end_time)
     except ValueError:
         return (None, None)

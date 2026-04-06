@@ -116,10 +116,9 @@ def pre_process(context: dict) -> dict | None:
         lines.append(f'- Sentence {sid}: "{text}"')
     lines.append("")
 
-    original_transcript = context.get("transcript", "")
-    modified_transcript = "\n".join(lines) + "\n" + original_transcript
+    unmatched_block = "\n".join(lines)
 
-    return {"meta": meta, "transcript": modified_transcript}
+    return {"meta": meta, "template_vars": {"unmatched_context": unmatched_block}}
 
 
 def post_process(result: str, context: dict) -> str | None:

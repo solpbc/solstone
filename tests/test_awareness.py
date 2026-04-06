@@ -110,79 +110,6 @@ class TestDailyLog:
         assert entries[0]["detail"] == "meeting detected"
 
 
-class TestOnboarding:
-    def test_get_onboarding_empty(self):
-        from think.awareness import get_onboarding
-
-        assert get_onboarding() == {}
-
-    def test_start_onboarding_path_a(self):
-        from think.awareness import get_onboarding, start_onboarding
-
-        state = start_onboarding("a")
-
-        assert state["path"] == "a"
-        assert state["status"] == "observing"
-        assert state["observation_count"] == 0
-        assert state["nudges_sent"] == 0
-        assert "started" in state
-
-        # Verify persisted
-        assert get_onboarding()["status"] == "observing"
-
-    def test_start_onboarding_path_b(self):
-        from think.awareness import start_onboarding
-
-        state = start_onboarding("b")
-        assert state["path"] == "b"
-        assert state["status"] == "interviewing"
-
-    def test_skip_onboarding(self):
-        from think.awareness import get_onboarding, skip_onboarding
-
-        skip_onboarding()
-        assert get_onboarding()["status"] == "skipped"
-
-    def test_complete_onboarding(self):
-        from think.awareness import complete_onboarding, start_onboarding
-
-        start_onboarding("a")
-        complete_onboarding()
-
-        from think.awareness import get_onboarding
-
-        state = get_onboarding()
-        assert state["status"] == "complete"
-        assert state["path"] == "a"  # Preserved from start
-
-    def test_start_onboarding_writes_log(self):
-        from think.awareness import _today, read_log, start_onboarding
-
-        start_onboarding("a")
-
-        entries = read_log(_today())
-        assert len(entries) == 1
-        assert entries[0]["kind"] == "state"
-        assert entries[0]["key"] == "onboarding.started"
-        assert entries[0]["data"]["path"] == "a"
-
-    def test_skip_writes_log(self):
-        from think.awareness import _today, read_log, skip_onboarding
-
-        skip_onboarding()
-
-        entries = read_log(_today())
-        assert entries[0]["key"] == "onboarding.skipped"
-
-    def test_complete_writes_log(self):
-        from think.awareness import _today, complete_onboarding, read_log
-
-        complete_onboarding()
-
-        entries = read_log(_today())
-        assert entries[0]["key"] == "onboarding.complete"
-
-
 class TestAwarenessCLI:
     def test_status_empty(self):
         from typer.testing import CliRunner
@@ -216,65 +143,6 @@ class TestAwarenessCLI:
         result = CliRunner().invoke(app, ["status", "onboarding"])
         assert result.exit_code == 0
         assert "observing" in result.output
-
-    def test_onboarding_read_empty(self):
-        from typer.testing import CliRunner
-
-        from apps.awareness.call import app
-
-        result = CliRunner().invoke(app, ["onboarding"])
-        assert result.exit_code == 0
-        assert "No onboarding state" in result.output
-
-    def test_onboarding_set_path_a(self):
-        from typer.testing import CliRunner
-
-        from apps.awareness.call import app
-
-        result = CliRunner().invoke(app, ["onboarding", "--path", "a"])
-        assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert data["path"] == "a"
-        assert data["status"] == "observing"
-
-    def test_onboarding_set_path_b(self):
-        from typer.testing import CliRunner
-
-        from apps.awareness.call import app
-
-        result = CliRunner().invoke(app, ["onboarding", "--path", "b"])
-        assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert data["path"] == "b"
-        assert data["status"] == "interviewing"
-
-    def test_onboarding_skip(self):
-        from typer.testing import CliRunner
-
-        from apps.awareness.call import app
-
-        result = CliRunner().invoke(app, ["onboarding", "--skip"])
-        assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert data["status"] == "skipped"
-
-    def test_onboarding_complete(self):
-        from typer.testing import CliRunner
-
-        from apps.awareness.call import app
-
-        result = CliRunner().invoke(app, ["onboarding", "--complete"])
-        assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert data["status"] == "complete"
-
-    def test_onboarding_invalid_path(self):
-        from typer.testing import CliRunner
-
-        from apps.awareness.call import app
-
-        result = CliRunner().invoke(app, ["onboarding", "--path", "c"])
-        assert result.exit_code == 1
 
     def test_log_cmd(self):
         from typer.testing import CliRunner
@@ -316,21 +184,6 @@ class TestJournalState:
         state = get_current()
         assert state["journal"]["first_daily_ready"] is True
         assert state["journal"]["first_daily_ready_at"] == "20260308T14:00:00"
-
-    def test_first_daily_ready_preserves_onboarding(self):
-        from think.awareness import get_current, update_state
-
-        update_state("onboarding", {"status": "complete", "path": "b"})
-        update_state(
-            "journal",
-            {"first_daily_ready": True, "first_daily_ready_at": "20260308T14:00:00"},
-        )
-
-        state = get_current()
-        assert state["onboarding"]["status"] == "complete"
-        assert state["onboarding"]["path"] == "b"
-        assert state["journal"]["first_daily_ready"] is True
-
 
 class TestComputeThickness:
     """Tests for compute_thickness()."""
@@ -759,6 +612,10 @@ class TestEnsureSolDirectory:
         agency_content = (sol_dir / "agency.md").read_text()
         assert agency_content.startswith("# agency\n")
         assert "[nothing yet" in agency_content
+
+        assert (sol_dir / "awareness.md").exists()
+        awareness_content = (sol_dir / "awareness.md").read_text()
+        assert awareness_content.strip() == "not yet updated"
 
     def test_idempotent_does_not_overwrite(self, tmp_path):
         from think.awareness import ensure_sol_directory
