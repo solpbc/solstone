@@ -158,6 +158,27 @@
   gap: 1em;
 }
 
+.observe-content.hidden {
+  display: none;
+}
+
+.observe-empty {
+  text-align: center;
+  color: #6b7280;
+  padding: 2em 1em;
+  font-size: 0.95em;
+}
+
+.observe-empty a {
+  color: #10b981;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.observe-empty a:hover {
+  text-decoration: underline;
+}
+
 .observe-section {
   display: flex;
   flex-direction: column;
@@ -654,7 +675,10 @@
         <span id="observeModeLabel">Waiting...</span>
       </div>
     </div>
-    <div class="observe-content">
+    <div class="observe-empty" id="observeEmpty">
+      No observers connected — <a href="/app/remote/">Manage remotes →</a>
+    </div>
+    <div class="observe-content hidden" id="observeContent">
       <div class="observe-section">
         <div class="observe-section-title">Screencast</div>
         <div class="observe-section-value" id="screencastStatus">Waiting...</div>
@@ -807,6 +831,8 @@
     transcribeDetail: document.getElementById('transcribeDetail'),
     observersCard: document.getElementById('observersCard'),
     observersGrid: document.getElementById('observersGrid'),
+    observeContent: document.getElementById('observeContent'),
+    observeEmpty: document.getElementById('observeEmpty'),
     cortexSection: document.getElementById('cortexSection'),
     cortexGrid: document.getElementById('cortexGrid'),
     importerSection: document.getElementById('importerSection'),
@@ -972,6 +998,12 @@
 
   // Update observe mode badge
   function updateObserveMode() {
+    if (state.observers.size === 0) {
+      elements.observeModeBadge.className = 'health-badge idle';
+      elements.observeModeLabel.textContent = 'No observers';
+      return;
+    }
+
     const mode = state.observers.get(state.localHost)?.mode;
     const badge = elements.observeModeBadge;
     const label = elements.observeModeLabel;
@@ -993,6 +1025,15 @@
 
   // Update observe card
   function updateObserve() {
+    if (state.observers.size === 0) {
+      elements.observeEmpty.classList.remove('hidden');
+      elements.observeContent.classList.add('hidden');
+      updateObserveMode();
+      return;
+    }
+    elements.observeEmpty.classList.add('hidden');
+    elements.observeContent.classList.remove('hidden');
+
     const primary = state.localHost ? state.observers.get(state.localHost) : null;
     const tmux = state.localHost ? state.observers.get(state.localHost + '.tmux') : null;
 
