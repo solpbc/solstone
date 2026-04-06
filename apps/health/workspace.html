@@ -700,6 +700,21 @@
   border-radius: 10px;
   font-size: 0.8em;
 }
+
+.trust-indicator {
+  font-size: 0.75em;
+  opacity: 0.6;
+  color: white;
+  padding: 0.5em 1.2em;
+  text-align: right;
+}
+
+#cortexGrid .activity-card-id,
+#cortexGrid .activity-card-provider,
+#importerGrid .activity-card-id,
+#importerGrid .activity-card-provider {
+  display: none;
+}
 </style>
 
 <div class="health-dashboard">
@@ -707,7 +722,7 @@
   <div class="vitals-bar">
     <div class="vitals-header">
       <div class="vitals-title">
-        SYSTEM VITALS
+        System vitals
       </div>
       <div class="vitals-status" id="vitalsStatus">
         <span class="status-indicator active"></span>
@@ -754,6 +769,7 @@
         <div class="vitals-value" id="schedulesValue"></div>
       </div>
     </div>
+    <div class="trust-indicator" id="trustIndicator">All data stored locally on this machine</div>
   </div>
 
   <div class="status-summary">
@@ -764,7 +780,7 @@
   <div class="observe-card">
     <div class="card-header">
       <div class="card-title">
-        OBSERVATION STATUS
+        Observation status
       </div>
       <div class="health-badge idle" id="observeModeBadge">
         <span id="observeModeLabel">Waiting...</span>
@@ -778,22 +794,22 @@
         <div class="observe-group-label">Capture</div>
         <div class="observe-group-channels">
           <div class="observe-section">
-            <div class="observe-section-title">Screencast</div>
+            <div class="observe-section-title">Screen Recording</div>
             <div class="observe-section-value" id="screencastStatus">Waiting...</div>
             <div class="observe-section-detail" id="screencastDetail"></div>
           </div>
           <div class="observe-section">
-            <div class="observe-section-title">Tmux</div>
+            <div class="observe-section-title">Terminal Sessions</div>
             <div class="observe-section-value" id="tmuxStatus">Waiting...</div>
             <div class="observe-section-detail" id="tmuxDetail"></div>
           </div>
           <div class="observe-section">
-            <div class="observe-section-title">Audio</div>
+            <div class="observe-section-title">Audio Capture</div>
             <div class="observe-section-value" id="audioStatus">Waiting...</div>
             <div class="observe-section-detail" id="audioDetail"></div>
           </div>
           <div class="observe-section">
-            <div class="observe-section-title">Activity</div>
+            <div class="observe-section-title">System Activity</div>
             <div class="observe-section-value" id="activityStatus">Waiting...</div>
             <div class="observe-section-detail" id="activityDetail"></div>
           </div>
@@ -803,12 +819,12 @@
         <div class="observe-group-label">Processing</div>
         <div class="observe-group-channels">
           <div class="observe-section">
-            <div class="observe-section-title">Describe</div>
+            <div class="observe-section-title">Scene Analysis</div>
             <div class="observe-section-value" id="describeStatus">Idle</div>
             <div class="observe-section-detail" id="describeDetail"></div>
           </div>
           <div class="observe-section">
-            <div class="observe-section-title">Transcribe</div>
+            <div class="observe-section-title">Audio Transcription</div>
             <div class="observe-section-value" id="transcribeStatus">Idle</div>
             <div class="observe-section-detail" id="transcribeDetail"></div>
           </div>
@@ -821,7 +837,7 @@
   <div class="observers-card hidden" id="observersCard">
     <div class="card-header">
       <div class="card-title">
-        OBSERVERS
+        Connected observers
       </div>
     </div>
     <div class="observers-grid" id="observersGrid"></div>
@@ -832,7 +848,7 @@
     <!-- Cortex Agents -->
     <div class="activity-section hidden" id="cortexSection">
       <div class="activity-section-header">
-        AGENTS
+        Active agents
       </div>
       <div class="activity-grid" id="cortexGrid"></div>
     </div>
@@ -840,7 +856,7 @@
     <!-- Importers -->
     <div class="activity-section hidden" id="importerSection">
       <div class="activity-section-header">
-        IMPORTS
+        Active imports
       </div>
       <div class="activity-grid" id="importerGrid"></div>
     </div>
@@ -848,19 +864,19 @@
 
   <div class="activity-section hidden" id="errorSummary">
     <div class="activity-section-header" style="color: #dc2626;">
-      RECENT ERRORS
+      Recent errors
     </div>
     <div id="errorSummaryContent"></div>
   </div>
 
   <div class="activity-section hidden" id="allQuietCard" style="text-align: center; color: #6b7280; padding: 2em;">
-    All quiet — no active agents, imports, or processing
+    Everything is idle — nothing running right now
   </div>
 
   <!-- Dream Card (hidden when idle) -->
   <div class="dream-card hidden" id="dreamCard">
     <div class="card-header">
-      <div class="card-title">DREAM PROCESSING</div>
+      <div class="card-title">Overnight processing</div>
     </div>
     <div class="dream-info" id="dreamInfo"></div>
     <div id="dreamProgress"></div>
@@ -870,7 +886,7 @@
   <!-- Sync Card (hidden when idle) -->
   <div class="sync-card hidden" id="syncCard">
     <div class="card-header">
-      <div class="card-title">SYNC</div>
+      <div class="card-title">Cloud sync</div>
     </div>
     <div class="sync-info" id="syncInfo"></div>
   </div>
@@ -878,7 +894,7 @@
   <!-- Service Logs -->
   <div class="logs-card logs-collapsed">
     <div class="logs-header">
-      <div class="logs-title">SERVICE LOGS</div>
+      <div class="logs-title">Service logs</div>
       <span class="logs-error-badge hidden" id="logErrorBadge"></span>
       <span class="logs-collapse-indicator" id="logsCollapseIndicator">▶ Show</span>
       <div class="logs-controls">
@@ -983,8 +999,25 @@
     logErrorBadge: document.getElementById('logErrorBadge'),
     logsCollapseIndicator: document.getElementById('logsCollapseIndicator'),
     connectionIndicator: document.getElementById('connectionIndicator'),
+    trustIndicator: document.getElementById('trustIndicator'),
     vitalsBar: document.querySelector('.vitals-bar'),
   };
+
+  // Human-readable service names
+  const SERVICE_NAMES = {
+    supervisor: 'System Manager',
+    convey: 'Web Interface',
+    cortex: 'AI Engine',
+    observe: 'Screen & Audio',
+    dream: 'Overnight Processing',
+    sync: 'Cloud Sync',
+    importer: 'File Importer',
+    schedule: 'Task Scheduler',
+  };
+
+  function serviceName(internal) {
+    return SERVICE_NAMES[internal] || internal;
+  }
 
   // Utility functions
   function formatElapsed(seconds) {
@@ -1037,13 +1070,13 @@
       const captureDetails = [];
       if (observers.some(observer => observer.screencast?.recording)) captureDetails.push('screen');
       if (observers.some(observer => observer.audio && ((observer.audio.threshold_hits || 0) > 0 || observer.audio.will_save))) captureDetails.push('audio');
-      if (observers.some(observer => observer.tmux?.capturing)) captureDetails.push('tmux');
+      if (observers.some(observer => observer.tmux?.capturing)) captureDetails.push('terminal');
       parts.push(captureDetails.length > 0 ? `Capturing (${captureDetails.join(', ')})` : 'Capturing');
     }
 
     const processingDetails = [];
-    if (observers.some(observer => observer.describe?.running)) processingDetails.push('describe');
-    if (observers.some(observer => observer.transcribe?.running)) processingDetails.push('transcribe');
+    if (observers.some(observer => observer.describe?.running)) processingDetails.push('scene analysis');
+    if (observers.some(observer => observer.transcribe?.running)) processingDetails.push('audio transcription');
     if (processingDetails.length > 0) {
       parts.push(`Processing (${processingDetails.join(', ')})`);
     }
@@ -1055,10 +1088,10 @@
       parts.push(`${activeImports} import${activeImports === 1 ? '' : 's'} active`);
     }
     if (state.crashed.size > 0) {
-      parts.push(`${state.crashed.size} service${state.crashed.size === 1 ? '' : 's'} crashed`);
+      parts.push(state.crashed.size === 1 ? '1 service needs attention' : `${state.crashed.size} services need attention`);
     }
     if (staleCount > 0) {
-      parts.push(`${staleCount} stale heartbeat${staleCount === 1 ? '' : 's'}`);
+      parts.push(`${staleCount} service${staleCount === 1 ? '' : 's'} not responding`);
     }
     if (state.recentErrors.length > 0) {
       parts.push(`${state.recentErrors.length} recent error${state.recentErrors.length === 1 ? '' : 's'}`);
@@ -1092,13 +1125,14 @@
 
     elements.errorSummary.classList.remove('hidden');
     const recent = state.recentErrors.slice(-10).reverse();
-    elements.errorSummaryContent.innerHTML = recent.map(e => {
+    const errorsHtml = recent.map(e => {
       const icon = e.type === 'agent' ? '⚙' : '↓';
       const ago = formatElapsed(Math.floor((Date.now() - e.ts) / 1000));
       return `<div style="padding: 0.3em 0; font-size: 0.85em; color: #374151; border-bottom: 1px solid #f3f4f6;">
         ${icon} <strong>${escapeHtml(e.name)}</strong> — ${escapeHtml(truncate(e.error, 60))} <span style="color: #9ca3af; font-size: 0.85em;">${escapeHtml(ago)} ago</span>
       </div>`;
     }).join('');
+    elements.errorSummaryContent.innerHTML = errorsHtml + '<div style="padding: 0.5em 0; font-size: 0.8em; color: #9ca3af; font-style: italic;">Usually resolves automatically. If persistent, restart solstone.</div>';
   }
 
   // Client-side elapsed time updater
@@ -1143,14 +1177,14 @@
     });
 
     if (allServices.length > 0) {
-      const servicesHtml = allServices.map(({ name, info, crashed }) => {
+      const servicesHtml = allServices.map(({ name, crashed }) => {
         const statusClass = crashed ? 'crashed' : 'active';
         const dotClass = crashed ? 'service-dot crashed' : 'service-dot';
-        const restartInfo = crashed && info.restart_attempts ? ` (${escapeHtml(info.restart_attempts)}x)` : '';
+        const restartInfo = crashed ? ' (restarting...)' : '';
         return `
-          <div class="${dotClass}">
+          <div class="${dotClass}" data-service="${escapeHtml(name)}">
             <span class="status-indicator ${statusClass}"></span>
-            <span>${escapeHtml(name)}${restartInfo}</span>
+            <span title="${escapeHtml(name)}">${escapeHtml(serviceName(name))}${restartInfo}</span>
           </div>
         `;
       }).join('');
@@ -1171,14 +1205,14 @@
       const hasCrashed = state.crashed.size > 0;
 
       if (staleCount > 0) {
-        const staleNames = staleHeartbeats.join(', ');
+        const staleNames = staleHeartbeats.map(s => serviceName(s)).join(', ');
         elements.healthValue.innerHTML = `
-          <span style="color: #f59e0b;">! ${staleCount} stale</span>
+          <span style="color: #f59e0b;">${staleCount} service${staleCount === 1 ? '' : 's'} not responding</span>
           <span class="stale-list">(${escapeHtml(staleNames)})</span>
         `;
         updateVitalsStatus('warning');
       } else if (hasCrashed) {
-        elements.healthValue.innerHTML = `<span style="color: #f87171;">! Services crashed</span>`;
+        elements.healthValue.innerHTML = `<span style="color: #f87171;">Services need attention</span>`;
         updateVitalsStatus('error');
       } else {
         elements.healthValue.innerHTML = `<span>OK</span>`;
@@ -1225,13 +1259,13 @@
     } else if (status === 'warning') {
       vitalsStatus.innerHTML = `
         <span class="status-indicator restarting"></span>
-        <span>Warnings</span>
+        <span>Some services slow to respond</span>
       `;
       bar.classList.add('warning');
     } else if (status === 'error') {
       vitalsStatus.innerHTML = `
         <span class="status-indicator crashed"></span>
-        <span>Issues Detected</span>
+        <span>Services need attention</span>
       `;
       bar.classList.add('error');
     }
@@ -1254,7 +1288,7 @@
       label.textContent = 'Recording';
     } else if (mode === 'tmux') {
       badge.className = 'health-badge tmux';
-      label.textContent = 'Tmux';
+      label.textContent = 'Terminal Sessions';
     } else if (mode === 'idle') {
       badge.className = 'health-badge idle';
       label.textContent = 'Idle';
@@ -1305,8 +1339,9 @@
         const streams = primary.screencast.streams || [];
         const elapsed = primary.screencast.window_elapsed_seconds || 0;
         const streamCount = streams.length;
-        const label = streamCount === 1 ? 'monitor' : 'monitors';
-        elements.screencastStatus.textContent = `${elapsed}s (${streamCount} ${label})`;
+        const displayLabel = streamCount === 1 ? 'display' : 'displays';
+        const mins = Math.max(1, Math.round(elapsed / 60));
+        elements.screencastStatus.textContent = `Recording (${streamCount} ${displayLabel}, ~${mins} min)`;
         if (streamCount > 0) {
           elements.screencastDetail.textContent = streams
             .map(s => `${s.position || 'unknown'} ${s.connector || 'unknown'}`)
@@ -1315,11 +1350,11 @@
           elements.screencastDetail.textContent = '';
         }
       } else {
-        elements.screencastStatus.textContent = 'Idle';
+        elements.screencastStatus.textContent = 'Not recording';
         elements.screencastDetail.textContent = '';
       }
     } else {
-      elements.screencastStatus.textContent = 'Idle';
+      elements.screencastStatus.textContent = 'Not recording';
       elements.screencastDetail.textContent = '';
     }
 
@@ -1329,32 +1364,37 @@
         const captures = tmux.tmux.captures || 0;
         const sessions = tmux.tmux.sessions || [];
         const elapsed = tmux.tmux.window_elapsed_seconds || 0;
-        elements.tmuxStatus.textContent = `${elapsed}s (${captures} captures)`;
+        const mins = Math.max(1, Math.round(elapsed / 60));
+        elements.tmuxStatus.textContent = `Capturing (${captures} snapshots, ~${mins} min)`;
         if (sessions.length > 0) {
           elements.tmuxDetail.textContent = sessions.join(', ');
         } else {
           elements.tmuxDetail.textContent = '';
         }
       } else {
-        elements.tmuxStatus.textContent = 'Idle';
+        elements.tmuxStatus.textContent = 'Not capturing';
         elements.tmuxDetail.textContent = '';
       }
     } else if (tmux) {
-      elements.tmuxStatus.textContent = 'Idle';
+      elements.tmuxStatus.textContent = 'Not capturing';
       elements.tmuxDetail.textContent = '';
     } else {
-      elements.tmuxStatus.textContent = 'Waiting...';
+      elements.tmuxStatus.textContent = 'Not capturing';
       elements.tmuxDetail.textContent = '';
     }
 
     // Audio
     if (primary.audio) {
       const hits = primary.audio.threshold_hits || 0;
-      const willSave = primary.audio.will_save ? ' (saving)' : '';
-      elements.audioStatus.textContent = `${hits} hits${willSave}`;
+      const willSave = primary.audio.will_save ? ' · saving' : '';
+      if (hits > 0) {
+        elements.audioStatus.textContent = `Listening (${hits} sound${hits === 1 ? '' : 's'} detected)${willSave}`;
+      } else {
+        elements.audioStatus.textContent = 'Listening (quiet)';
+      }
       elements.audioDetail.textContent = '';
     } else {
-      elements.audioStatus.textContent = 'Idle';
+      elements.audioStatus.textContent = 'Listening (quiet)';
       elements.audioDetail.textContent = '';
     }
 
@@ -1362,11 +1402,11 @@
     if (primary.activity) {
       const idleMs = primary.activity.idle_time_ms || 0;
       if (primary.activity.power_save) {
-        elements.activityStatus.textContent = 'Power save';
+        elements.activityStatus.textContent = 'Power saving';
       } else if (primary.activity.screen_locked) {
-        elements.activityStatus.textContent = 'Locked';
+        elements.activityStatus.textContent = 'Screen locked';
       } else if (primary.activity.sink_muted) {
-        elements.activityStatus.textContent = 'Muted';
+        elements.activityStatus.textContent = 'Audio muted';
       } else {
         elements.activityStatus.textContent = `Idle: ${Math.floor(idleMs/1000)}s`;
       }
@@ -1500,15 +1540,15 @@
     elements.cortexSection.classList.remove('hidden');
 
     const html = activeAgents.map(agent => {
-      const stateIcon = agent.event === 'thinking' ? '~' :
-                       (agent.event === 'tool_start' || agent.event === 'tool_end') ? '#' : 'o';
+      const stateLabel = agent.event === 'thinking' ? 'Thinking...' :
+                        (agent.event === 'tool_start' || agent.event === 'tool_end') ? 'Working...' : 'Running...';
       const elapsed = agent.elapsed_seconds ? formatElapsed(agent.elapsed_seconds) : '0s';
 
       return `
         <div class="activity-card agent-active" data-agent-id="${agent.agent_id}">
           <div class="activity-card-id">...${getAgentId(agent.agent_id)}</div>
           <div class="activity-card-name">${escapeHtml(agent.name || 'default')}</div>
-          <div class="activity-card-state">${stateIcon} ${escapeHtml(agent.event || 'unknown')}</div>
+          <div class="activity-card-state">${stateLabel}</div>
           <div class="activity-card-elapsed">${elapsed}</div>
           <div class="activity-card-provider">${escapeHtml(agent.provider || 'unknown')}</div>
         </div>
@@ -1540,6 +1580,9 @@
                       imp.stage === 'transcribing' ? 50 :
                       imp.stage === 'segmenting' ? 75 : 90;
       const elapsed = imp.elapsed_ms ? formatDuration(imp.elapsed_ms) : '0s';
+      const humanStage = imp.stage === 'initialization' ? 'Starting...' :
+                         imp.stage === 'transcribing' ? 'Transcribing audio...' :
+                         imp.stage === 'segmenting' ? 'Organizing segments...' : 'Processing...';
 
       let errorHtml = '';
       if (isError && imp.error) {
@@ -1550,7 +1593,7 @@
         <div class="activity-card ${cardClass}" data-import-id="${imp.import_id}">
           <div class="activity-card-id">...${getAgentId(imp.import_id)}</div>
           <div class="activity-card-name">${escapeHtml(truncate(imp.input_file || 'import', 20))}</div>
-          <div class="activity-card-state">${isError ? '! ' : ''}${escapeHtml(imp.stage || 'processing')}</div>
+          <div class="activity-card-state" data-internal-stage="${escapeHtml(imp.stage || 'processing')}">${isError ? '! ' : ''}${escapeHtml(humanStage)}</div>
           ${errorHtml}
           <div class="activity-card-progress">
             <div class="activity-card-progress-bar" style="width: ${progress}%"></div>
@@ -1644,6 +1687,9 @@
     // Show when there's queued work or active upload
     if (!s || (s.queue_size === 0 && !s.segment)) {
       elements.syncCard.classList.add('hidden');
+      if (elements.trustIndicator) {
+        elements.trustIndicator.textContent = 'All data stored locally on this machine';
+      }
       updateAllQuiet();
       updateStatusSummary();
       return;
@@ -1658,6 +1704,13 @@
     if (s.state) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">State</div><div>${escapeHtml(s.state)}${s.confirm_attempt ? ' (' + escapeHtml(s.confirm_attempt) + ')' : ''}</div></div>`);
     if (s.segment) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Segment</div><div>${escapeHtml(s.segment)}</div></div>`);
     elements.syncInfo.innerHTML = infoParts.join('');
+    if (elements.trustIndicator) {
+      if (s && s.host) {
+        elements.trustIndicator.textContent = 'All data stored locally · Syncing to ' + s.host;
+      } else {
+        elements.trustIndicator.textContent = 'All data stored locally on this machine';
+      }
+    }
 
     updateAllQuiet();
     updateStatusSummary();
@@ -1704,7 +1757,7 @@
     if (isNew) {
       const opt = document.createElement('option');
       opt.value = name;
-      opt.textContent = name;
+      opt.textContent = serviceName(name);
       elements.logServiceFilter.appendChild(opt);
     }
 
@@ -1727,7 +1780,7 @@
           const header = document.createElement('div');
           header.className = 'logs-service-header';
           header.setAttribute('data-svc', newService);
-          header.textContent = '── ' + newService + ' ──';
+          header.textContent = '── ' + serviceName(newService) + ' ──';
           viewport.appendChild(header);
         }
         const line = document.createElement('div');
@@ -1755,7 +1808,7 @@
       const filtered = streamFilter === 'all' ? lines : lines.filter(l => l.stream === streamFilter);
       if (filtered.length === 0) continue;
 
-      html += `<div class="logs-service-header" data-svc="${escapeHtml(svc)}">── ${escapeHtml(svc)} ──</div>`;
+      html += `<div class="logs-service-header" data-svc="${escapeHtml(svc)}">── ${escapeHtml(serviceName(svc))} ──</div>`;
       for (const rec of filtered) {
         const cls = rec.stream === 'stderr' ? 'logs-line stderr' : rec.stream === 'log' ? 'logs-line log' : 'logs-line';
         const escaped = rec.line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
