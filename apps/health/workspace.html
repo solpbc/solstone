@@ -137,12 +137,16 @@
 .status-indicator.restarting { background: #fbbf24; }
 .status-indicator.inactive { background: #9ca3af; }
 
-/* Observe Card (Prominent) */
-.observe-card {
+/* Shared card base */
+.dashboard-card {
   background: white;
   border-radius: 12px;
   padding: 1.5em;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Observe Card (Prominent) */
+.observe-card {
   border-left: 4px solid #10b981;
 }
 
@@ -266,10 +270,6 @@
 
 /* Observers Card */
 .observers-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5em;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   border-left: 4px solid #8b5cf6;
 }
 
@@ -341,13 +341,6 @@
   display: flex;
   flex-direction: column;
   gap: 1em;
-}
-
-.activity-section {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5em;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .activity-section.hidden {
@@ -463,13 +456,6 @@
 }
 
 /* Service Logs */
-.logs-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5em;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
 .logs-card.logs-collapsed .logs-viewport,
 .logs-card.logs-collapsed .logs-controls {
   display: none;
@@ -588,10 +574,6 @@
 
 /* Dream Card */
 .dream-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5em;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   border-left: 4px solid #f59e0b;
 }
 
@@ -607,13 +589,13 @@
   font-size: 0.9em;
 }
 
-.dream-info-item {
+.info-item {
   display: flex;
   flex-direction: column;
   gap: 0.2em;
 }
 
-.dream-info-label {
+.info-label {
   font-size: 0.8em;
   color: #6b7280;
   text-transform: uppercase;
@@ -651,10 +633,6 @@
 
 /* Sync Card */
 .sync-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5em;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   border-left: 4px solid #06b6d4;
 }
 
@@ -667,19 +645,6 @@
   flex-wrap: wrap;
   gap: 1.5em;
   font-size: 0.9em;
-}
-
-.sync-info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2em;
-}
-
-.sync-info-label {
-  font-size: 0.8em;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 /* Stale heartbeats list */
@@ -715,6 +680,81 @@
 #importerGrid .activity-card-provider {
   display: none;
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .health-dashboard {
+    padding: 0.5em;
+    gap: 0.75em;
+  }
+
+  .vitals-bar {
+    padding: 1em;
+  }
+
+  .vitals-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5em;
+  }
+
+  .vitals-content {
+    gap: 0.75em;
+  }
+
+  .dashboard-card {
+    padding: 1em;
+    border-radius: 8px;
+  }
+
+  .observe-group-channels {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .observers-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .activity-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .health-dashboard {
+    padding: 0.25em;
+    gap: 0.5em;
+  }
+
+  .vitals-content {
+    gap: 0.5em;
+  }
+
+  .observe-group-channels {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .observers-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .card-title {
+    font-size: 1em;
+  }
+
+  .vitals-title {
+    font-size: 1.05em;
+  }
+
+  .status-summary {
+    font-size: 0.85em;
+    padding: 0.6em 1em;
+  }
+}
 </style>
 
 <div class="health-dashboard">
@@ -724,7 +764,7 @@
       <div class="vitals-title">
         System vitals
       </div>
-      <div class="vitals-status" id="vitalsStatus">
+      <div class="vitals-status" id="vitalsStatus" role="status" aria-live="polite">
         <span class="status-indicator active"></span>
         <span>All Systems Go</span>
       </div>
@@ -777,7 +817,7 @@
   </div>
 
   <!-- Observe Card -->
-  <div class="observe-card">
+  <div class="dashboard-card observe-card">
     <div class="card-header">
       <div class="card-title">
         Observation status
@@ -834,7 +874,7 @@
   </div>
 
   <!-- Observers Card -->
-  <div class="observers-card hidden" id="observersCard">
+  <div class="dashboard-card observers-card hidden" id="observersCard">
     <div class="card-header">
       <div class="card-title">
         Connected observers
@@ -846,7 +886,7 @@
   <!-- Activity Grids -->
   <div class="activity-grids">
     <!-- Cortex Agents -->
-    <div class="activity-section hidden" id="cortexSection">
+    <div class="dashboard-card activity-section hidden" id="cortexSection">
       <div class="activity-section-header">
         Active agents
       </div>
@@ -854,7 +894,7 @@
     </div>
 
     <!-- Importers -->
-    <div class="activity-section hidden" id="importerSection">
+    <div class="dashboard-card activity-section hidden" id="importerSection">
       <div class="activity-section-header">
         Active imports
       </div>
@@ -862,19 +902,19 @@
     </div>
   </div>
 
-  <div class="activity-section hidden" id="errorSummary">
+  <div class="dashboard-card activity-section hidden" id="errorSummary">
     <div class="activity-section-header" style="color: #dc2626;">
       Recent errors
     </div>
     <div id="errorSummaryContent"></div>
   </div>
 
-  <div class="activity-section hidden" id="allQuietCard" style="text-align: center; color: #6b7280; padding: 2em;">
+  <div class="dashboard-card activity-section hidden" id="allQuietCard" style="text-align: center; color: #6b7280; padding: 2em;">
     Everything is idle — nothing running right now
   </div>
 
   <!-- Dream Card (hidden when idle) -->
-  <div class="dream-card hidden" id="dreamCard">
+  <div class="dashboard-card dream-card hidden" id="dreamCard">
     <div class="card-header">
       <div class="card-title">Overnight processing</div>
     </div>
@@ -884,7 +924,7 @@
   </div>
 
   <!-- Sync Card (hidden when idle) -->
-  <div class="sync-card hidden" id="syncCard">
+  <div class="dashboard-card sync-card hidden" id="syncCard">
     <div class="card-header">
       <div class="card-title">Cloud sync</div>
     </div>
@@ -892,7 +932,7 @@
   </div>
 
   <!-- Service Logs -->
-  <div class="logs-card logs-collapsed">
+  <div class="dashboard-card logs-card logs-collapsed">
     <div class="logs-header">
       <div class="logs-title">Service logs</div>
       <span class="logs-error-badge hidden" id="logErrorBadge"></span>
@@ -911,7 +951,7 @@
         <button id="logClearBtn">Clear</button>
       </div>
     </div>
-    <div class="logs-viewport" id="logsViewport"></div>
+    <div class="logs-viewport" id="logsViewport" role="log"></div>
   </div>
 </div>
 
@@ -1058,6 +1098,13 @@
     return `in ${days}d`;
   }
 
+  function renderInfoItems(items) {
+    return items
+      .filter(item => item.value != null)
+      .map(item => `<div class="info-item"><div class="info-label">${escapeHtml(item.label)}</div><div>${item.value}</div></div>`)
+      .join('');
+  }
+
   function updateStatusSummary() {
     const parts = [];
     const observers = Array.from(state.observers.values());
@@ -1183,7 +1230,7 @@
         const restartInfo = crashed ? ' (restarting...)' : '';
         return `
           <div class="${dotClass}" data-service="${escapeHtml(name)}">
-            <span class="status-indicator ${statusClass}"></span>
+            <span class="status-indicator ${statusClass}" aria-label="${escapeHtml(serviceName(name))}: ${statusClass}${restartInfo}"></span>
             <span title="${escapeHtml(name)}">${escapeHtml(serviceName(name))}${restartInfo}</span>
           </div>
         `;
@@ -1253,18 +1300,18 @@
     bar.classList.remove('warning', 'error');
     if (status === 'ok') {
       vitalsStatus.innerHTML = `
-        <span class="status-indicator active"></span>
+        <span class="status-indicator active" aria-label="System status: healthy"></span>
         <span>All Systems Go</span>
       `;
     } else if (status === 'warning') {
       vitalsStatus.innerHTML = `
-        <span class="status-indicator restarting"></span>
+        <span class="status-indicator restarting" aria-label="System status: warning"></span>
         <span>Some services slow to respond</span>
       `;
       bar.classList.add('warning');
     } else if (status === 'error') {
       vitalsStatus.innerHTML = `
-        <span class="status-indicator crashed"></span>
+        <span class="status-indicator crashed" aria-label="System status: error"></span>
         <span>Services need attention</span>
       `;
       bar.classList.add('error');
@@ -1312,148 +1359,133 @@
 
     const primary = state.localHost ? state.observers.get(state.localHost) : null;
     const tmux = state.localHost ? state.observers.get(state.localHost + '.tmux') : null;
+    const channels = [
+      {
+        statusEl: elements.screencastStatus,
+        detailEl: elements.screencastDetail,
+        idleText: 'Not recording',
+        extract: () => {
+          if (!primary.screencast) return null;
+          const recording = primary.screencast.recording;
+          if (!recording) return { status: 'Not recording' };
+          const streams = primary.screencast.streams || [];
+          const elapsed = primary.screencast.window_elapsed_seconds || 0;
+          const streamCount = streams.length;
+          const displayLabel = streamCount === 1 ? 'display' : 'displays';
+          const mins = Math.max(1, Math.round(elapsed / 60));
+          return {
+            status: `Recording (${streamCount} ${displayLabel}, ~${mins} min)`,
+            detail: streamCount > 0
+              ? streams.map(s => `${s.position || 'unknown'} ${s.connector || 'unknown'}`).join(', ')
+              : '',
+          };
+        },
+      },
+      {
+        statusEl: elements.tmuxStatus,
+        detailEl: elements.tmuxDetail,
+        idleText: 'Not capturing',
+        extract: () => {
+          if (!tmux?.tmux) return null;
+          if (!tmux.tmux.capturing) return { status: 'Not capturing' };
+          const captures = tmux.tmux.captures || 0;
+          const sessions = tmux.tmux.sessions || [];
+          const elapsed = tmux.tmux.window_elapsed_seconds || 0;
+          const mins = Math.max(1, Math.round(elapsed / 60));
+          return {
+            status: `Capturing (${captures} snapshots, ~${mins} min)`,
+            detail: sessions.length > 0 ? sessions.join(', ') : '',
+          };
+        },
+      },
+      {
+        statusEl: elements.audioStatus,
+        detailEl: elements.audioDetail,
+        idleText: 'Listening (quiet)',
+        extract: () => {
+          if (!primary.audio) return null;
+          const hits = primary.audio.threshold_hits || 0;
+          const willSave = primary.audio.will_save ? ' · saving' : '';
+          return {
+            status: hits > 0
+              ? `Listening (${hits} sound${hits === 1 ? '' : 's'} detected)${willSave}`
+              : 'Listening (quiet)',
+          };
+        },
+      },
+      {
+        statusEl: elements.activityStatus,
+        detailEl: elements.activityDetail,
+        idleText: 'Idle',
+        extract: () => {
+          if (!primary.activity) return null;
+          const idleMs = primary.activity.idle_time_ms || 0;
+          if (primary.activity.power_save) return { status: 'Power saving' };
+          if (primary.activity.screen_locked) return { status: 'Screen locked' };
+          if (primary.activity.sink_muted) return { status: 'Audio muted' };
+          return { status: `Idle: ${Math.floor(idleMs/1000)}s` };
+        },
+      },
+      {
+        statusEl: elements.describeStatus,
+        detailEl: elements.describeDetail,
+        idleText: 'Idle',
+        extract: () => {
+          if (!primary.describe) return null;
+          return { processor: primary.describe };
+        },
+      },
+      {
+        statusEl: elements.transcribeStatus,
+        detailEl: elements.transcribeDetail,
+        idleText: 'Idle',
+        extract: () => {
+          if (!primary.transcribe) return null;
+          return { processor: primary.transcribe };
+        },
+      },
+    ];
 
     updateObserveMode();
 
     if (!state.localHost || !primary) {
-      elements.screencastStatus.textContent = 'Waiting...';
-      elements.screencastDetail.textContent = '';
-      elements.tmuxStatus.textContent = 'Waiting...';
-      elements.tmuxDetail.textContent = '';
-      elements.audioStatus.textContent = 'Waiting...';
-      elements.audioDetail.textContent = '';
-      elements.activityStatus.textContent = 'Waiting...';
-      elements.activityDetail.textContent = '';
-      elements.describeStatus.textContent = 'Waiting...';
-      elements.describeDetail.textContent = '';
-      elements.transcribeStatus.textContent = 'Waiting...';
-      elements.transcribeDetail.textContent = '';
+      channels.forEach(ch => {
+        ch.statusEl.textContent = 'Waiting...';
+        ch.detailEl.textContent = '';
+      });
       updateStatusSummary();
       return;
     }
 
-    // Screencast
-    if (primary.screencast) {
-      const recording = primary.screencast.recording;
-      if (recording) {
-        const streams = primary.screencast.streams || [];
-        const elapsed = primary.screencast.window_elapsed_seconds || 0;
-        const streamCount = streams.length;
-        const displayLabel = streamCount === 1 ? 'display' : 'displays';
-        const mins = Math.max(1, Math.round(elapsed / 60));
-        elements.screencastStatus.textContent = `Recording (${streamCount} ${displayLabel}, ~${mins} min)`;
-        if (streamCount > 0) {
-          elements.screencastDetail.textContent = streams
-            .map(s => `${s.position || 'unknown'} ${s.connector || 'unknown'}`)
-            .join(', ');
+    channels.forEach(ch => {
+      const result = ch.extract();
+      if (!result) {
+        ch.statusEl.textContent = ch.idleText;
+        ch.detailEl.textContent = '';
+      } else if (result.processor) {
+        // Describe/transcribe processor logic
+        const p = result.processor;
+        const isRunning = !!p.running;
+        const queued = p.queued?.length || 0;
+        if (isRunning && queued > 0) {
+          ch.statusEl.textContent = `Running (+${queued} queued)`;
+        } else if (isRunning) {
+          ch.statusEl.textContent = 'Running';
+        } else if (queued > 0) {
+          ch.statusEl.textContent = `Queued: ${queued}`;
         } else {
-          elements.screencastDetail.textContent = '';
+          ch.statusEl.textContent = 'Idle';
+        }
+        if (isRunning && p.running.file) {
+          ch.detailEl.textContent = truncate(p.running.file.split('/').pop(), 30);
+        } else {
+          ch.detailEl.textContent = '';
         }
       } else {
-        elements.screencastStatus.textContent = 'Not recording';
-        elements.screencastDetail.textContent = '';
+        ch.statusEl.textContent = result.status;
+        ch.detailEl.textContent = result.detail || '';
       }
-    } else {
-      elements.screencastStatus.textContent = 'Not recording';
-      elements.screencastDetail.textContent = '';
-    }
-
-    // Tmux
-    if (tmux?.tmux) {
-      if (tmux.tmux.capturing) {
-        const captures = tmux.tmux.captures || 0;
-        const sessions = tmux.tmux.sessions || [];
-        const elapsed = tmux.tmux.window_elapsed_seconds || 0;
-        const mins = Math.max(1, Math.round(elapsed / 60));
-        elements.tmuxStatus.textContent = `Capturing (${captures} snapshots, ~${mins} min)`;
-        if (sessions.length > 0) {
-          elements.tmuxDetail.textContent = sessions.join(', ');
-        } else {
-          elements.tmuxDetail.textContent = '';
-        }
-      } else {
-        elements.tmuxStatus.textContent = 'Not capturing';
-        elements.tmuxDetail.textContent = '';
-      }
-    } else if (tmux) {
-      elements.tmuxStatus.textContent = 'Not capturing';
-      elements.tmuxDetail.textContent = '';
-    } else {
-      elements.tmuxStatus.textContent = 'Not capturing';
-      elements.tmuxDetail.textContent = '';
-    }
-
-    // Audio
-    if (primary.audio) {
-      const hits = primary.audio.threshold_hits || 0;
-      const willSave = primary.audio.will_save ? ' · saving' : '';
-      if (hits > 0) {
-        elements.audioStatus.textContent = `Listening (${hits} sound${hits === 1 ? '' : 's'} detected)${willSave}`;
-      } else {
-        elements.audioStatus.textContent = 'Listening (quiet)';
-      }
-      elements.audioDetail.textContent = '';
-    } else {
-      elements.audioStatus.textContent = 'Listening (quiet)';
-      elements.audioDetail.textContent = '';
-    }
-
-    // Activity
-    if (primary.activity) {
-      const idleMs = primary.activity.idle_time_ms || 0;
-      if (primary.activity.power_save) {
-        elements.activityStatus.textContent = 'Power saving';
-      } else if (primary.activity.screen_locked) {
-        elements.activityStatus.textContent = 'Screen locked';
-      } else if (primary.activity.sink_muted) {
-        elements.activityStatus.textContent = 'Audio muted';
-      } else {
-        elements.activityStatus.textContent = `Idle: ${Math.floor(idleMs/1000)}s`;
-      }
-      elements.activityDetail.textContent = '';
-    } else {
-      elements.activityStatus.textContent = 'Idle';
-      elements.activityDetail.textContent = '';
-    }
-
-    // Helper for describe/transcribe status (running is an object {file, ref}, not array)
-    function updateProcessorStatus(processor, statusEl, detailEl) {
-      if (!processor) return;
-
-      const isRunning = !!processor.running;
-      const queued = processor.queued?.length || 0;
-
-      if (isRunning && queued > 0) {
-        statusEl.textContent = `Running (+${queued} queued)`;
-      } else if (isRunning) {
-        statusEl.textContent = 'Running';
-      } else if (queued > 0) {
-        statusEl.textContent = `Queued: ${queued}`;
-      } else {
-        statusEl.textContent = 'Idle';
-      }
-
-      // Show current file being processed
-      if (isRunning && processor.running.file) {
-        const file = processor.running.file.split('/').pop();
-        detailEl.textContent = truncate(file, 30);
-      } else {
-        detailEl.textContent = '';
-      }
-    }
-
-    if (primary.describe) {
-      updateProcessorStatus(primary.describe, elements.describeStatus, elements.describeDetail);
-    } else {
-      elements.describeStatus.textContent = 'Idle';
-      elements.describeDetail.textContent = '';
-    }
-    if (primary.transcribe) {
-      updateProcessorStatus(primary.transcribe, elements.transcribeStatus, elements.transcribeDetail);
-    } else {
-      elements.transcribeStatus.textContent = 'Idle';
-      elements.transcribeDetail.textContent = '';
-    }
+    });
 
     updateStatusSummary();
   }
@@ -1637,12 +1669,12 @@
     const d = state.dream;
 
     // Info fields
-    const infoParts = [];
-    if (d.mode) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Mode</div><div>${escapeHtml(d.mode)}</div></div>`);
-    if (d.day) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Day</div><div>${escapeHtml(d.day)}</div></div>`);
-    if (d.facet) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Facet</div><div>${escapeHtml(d.facet)}</div></div>`);
-    if (d.segment) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Segment</div><div>${escapeHtml(d.segment)}</div></div>`);
-    elements.dreamInfo.innerHTML = infoParts.join('');
+    elements.dreamInfo.innerHTML = renderInfoItems([
+      { label: 'Mode', value: d.mode ? escapeHtml(d.mode) : null },
+      { label: 'Day', value: d.day ? escapeHtml(d.day) : null },
+      { label: 'Facet', value: d.facet ? escapeHtml(d.facet) : null },
+      { label: 'Segment', value: d.segment ? escapeHtml(d.segment) : null },
+    ]);
 
     // Progress bars
     let progressHtml = '';
@@ -1697,13 +1729,13 @@
 
     elements.syncCard.classList.remove('hidden');
 
-    const infoParts = [];
-    if (s.host) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Host</div><div>${escapeHtml(s.host)}</div></div>`);
-    if (s.platform) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Platform</div><div>${escapeHtml(s.platform)}</div></div>`);
-    infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Queue</div><div>${s.queue_size}</div></div>`);
-    if (s.state) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">State</div><div>${escapeHtml(s.state)}${s.confirm_attempt ? ' (' + escapeHtml(s.confirm_attempt) + ')' : ''}</div></div>`);
-    if (s.segment) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Segment</div><div>${escapeHtml(s.segment)}</div></div>`);
-    elements.syncInfo.innerHTML = infoParts.join('');
+    elements.syncInfo.innerHTML = renderInfoItems([
+      { label: 'Host', value: s.host ? escapeHtml(s.host) : null },
+      { label: 'Platform', value: s.platform ? escapeHtml(s.platform) : null },
+      { label: 'Queue', value: String(s.queue_size) },
+      { label: 'State', value: s.state ? escapeHtml(s.state) + (s.confirm_attempt ? ' (' + escapeHtml(s.confirm_attempt) + ')' : '') : null },
+      { label: 'Segment', value: s.segment ? escapeHtml(s.segment) : null },
+    ]);
     if (elements.trustIndicator) {
       if (s && s.host) {
         elements.trustIndicator.textContent = 'All data stored locally · Syncing to ' + s.host;
