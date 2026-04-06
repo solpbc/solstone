@@ -53,64 +53,6 @@ def triage() -> Any:
     if facet:
         context_lines.append(f"Current facet: {facet}")
 
-    # Add import awareness context
-    try:
-        from think.awareness import get_imports
-
-        imports = get_imports()
-        if not imports.get("has_imported"):
-            offer_declined = imports.get("offer_declined")
-            last_nudge = imports.get("last_nudge")
-            context_lines.append(
-                f"Import state: no imports yet. "
-                f"offer_declined={offer_declined}, last_nudge={last_nudge}. "
-                "If contextually appropriate and no recent nudge, "
-                "you may suggest importing once (then record with "
-                "`sol call awareness imports --nudge`)."
-            )
-        else:
-            count = imports.get("import_count", 0)
-            sources = imports.get("sources_used", [])
-            context_lines.append(
-                f"Import state: {count} import(s) from {', '.join(sources)}. "
-                "User has imported — no nudging needed. "
-                "If they just returned from an import, offer another source."
-            )
-    except Exception:
-        pass  # Don't let import context break triage
-
-    # Add daily agent output context
-    try:
-        from datetime import datetime, timedelta
-        from pathlib import Path
-
-        from think.utils import get_journal
-
-        journal = Path(get_journal())
-        today = datetime.now().strftime("%Y%m%d")
-        relevant_day = today
-        agents_dir = journal / today / "agents"
-        outputs = (
-            sorted(p.stem for p in agents_dir.glob("*.md")) if agents_dir.is_dir() else []
-        )
-        if not outputs:
-            yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
-            agents_dir = journal / yesterday / "agents"
-            outputs = (
-                sorted(p.stem for p in agents_dir.glob("*.md"))
-                if agents_dir.is_dir()
-                else []
-            )
-            relevant_day = yesterday
-        if outputs:
-            names = ", ".join(outputs)
-            context_lines.append(
-                f"Daily analysis available: {names} (from {relevant_day}). "
-                "The user can ask about any of these topics."
-            )
-    except Exception:
-        pass  # Don't let context enrichment break triage
-
     # Add system health context when attention items exist
     try:
         from convey.apps import _resolve_attention

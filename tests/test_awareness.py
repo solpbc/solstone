@@ -760,6 +760,10 @@ class TestEnsureSolDirectory:
         assert agency_content.startswith("# agency\n")
         assert "[nothing yet" in agency_content
 
+        assert (sol_dir / "awareness.md").exists()
+        awareness_content = (sol_dir / "awareness.md").read_text()
+        assert awareness_content.strip() == "not yet updated"
+
     def test_idempotent_does_not_overwrite(self, tmp_path):
         from think.awareness import ensure_sol_directory
 

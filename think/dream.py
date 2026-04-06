@@ -556,6 +556,15 @@ def run_segment_sense(
         logging.info("Segment %s is idle, skipping remaining agents", segment)
         if state_machine is not None:
             state_machine.update(sense_json, segment, day)
+            # Persist activity state even on idle segments
+            try:
+                awareness_dir = Path(get_journal()) / "awareness"
+                _write_json_atomic(
+                    awareness_dir / "activity_state.json",
+                    state_machine.get_current_state(),
+                )
+            except Exception:
+                logging.debug("Failed to persist activity state", exc_info=True)
 
         duration_ms = int((time.time() - start_time) * 1000)
         emit(
@@ -662,6 +671,15 @@ def run_segment_sense(
 
     if state_machine is not None:
         changes = state_machine.update(sense_json, segment, day)
+        # Persist activity state for awareness.md consumption
+        try:
+            awareness_dir = Path(get_journal()) / "awareness"
+            _write_json_atomic(
+                awareness_dir / "activity_state.json",
+                state_machine.get_current_state(),
+            )
+        except Exception:
+            logging.debug("Failed to persist activity state", exc_info=True)
         for change in changes:
             if change.get("state") != "ended":
                 continue
@@ -681,6 +699,39 @@ def run_segment_sense(
                 refresh=refresh,
                 verbose=verbose,
                 max_concurrency=max_concurrency,
+            )
+
+    awareness_tender_config = _cfg("awareness_tender")
+    if awareness_tender_config:
+        at_agent_id = _dispatch_agent("awareness_tender", awareness_tender_config)
+        if at_agent_id is None:
+            total_failed += 1
+            all_failed_names.append("awareness_tender (send)")
+            _update_status(agents_completed=total_success + total_failed)
+        else:
+            emit(
+                "agent_started",
+                mode=target_schedule,
+                day=day,
+                segment=segment,
+                name="awareness_tender",
+                agent_id=at_agent_id,
+            )
+            _update_status(current_agents=["awareness_tender"])
+            s, f, fn = _drain_priority_batch(
+                [(at_agent_id, "awareness_tender", awareness_tender_config, None)],
+                target_schedule,
+                day,
+                segment,
+                stream,
+                timeout,
+            )
+            total_success += s
+            total_failed += f
+            all_failed_names.extend(fn)
+            _update_status(
+                agents_completed=total_success + total_failed,
+                current_agents=[],
             )
 
     if recommend.get("pulse_update") and pulse_config:

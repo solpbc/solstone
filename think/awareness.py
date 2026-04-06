@@ -20,6 +20,7 @@ import logging
 import os
 import tempfile
 import time
+import fcntl
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -123,6 +124,8 @@ responses. Nothing gets sent without their review.
 [not yet observed — sol will learn as we spend time together]
 """
 
+_AWARENESS_MD = "not yet updated\n"
+
 
 def _build_self_md(config: dict) -> str:
     """Build self.md content, optionally migrating from config data."""
@@ -212,6 +215,11 @@ def ensure_sol_directory() -> Path:
         partner_path.write_text(_PARTNER_MD, encoding="utf-8")
         logger.info("Created %s", partner_path)
 
+    awareness_path = sol_dir / "awareness.md"
+    if not awareness_path.exists():
+        awareness_path.write_text(_AWARENESS_MD, encoding="utf-8")
+        logger.info("Created %s", awareness_path)
+
     return sol_dir
 
 
@@ -265,53 +273,64 @@ def update_identity_section(filename: str, heading: str, content: str) -> bool:
         True if the section was found and updated, False otherwise.
     """
     from think.utils import get_journal
+    from think.entities.core import atomic_write
 
     file_path = Path(get_journal()) / "sol" / filename
+    lock_path = file_path.parent / f".{filename}.lock"
     if not file_path.exists():
         return False
 
-    text = file_path.read_text(encoding="utf-8")
-    lines = text.split("\n")
+    lock_fd = None
+    try:
+        lock_fd = open(lock_path, "w")
+        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
 
-    target = f"## {heading}"
-    start = None
-    end = None
-    for i, line in enumerate(lines):
-        if line == target:
-            start = i
-        elif start is not None and line.startswith("## "):
-            end = i
-            break
+        text = file_path.read_text(encoding="utf-8")
+        lines = text.split("\n")
 
-    if start is None:
-        return False
-
-    if end is None:
-        end = len(lines)
-
-    content_lines = content.split("\n") if content else []
-    new_lines = lines[: start + 1] + content_lines + [""] + lines[end:]
-    new_text = "\n".join(new_lines)
-
-    # Prune onboarding guidance from partner.md on first behavioral update
-    if filename == "partner.md" and "## getting started" in new_text:
-        gs_lines = new_text.split("\n")
-        gs_start = None
-        gs_end = None
-        for j, gl in enumerate(gs_lines):
-            if gl == "## getting started":
-                gs_start = j
-            elif gs_start is not None and gl.startswith("## "):
-                gs_end = j
+        target = f"## {heading}"
+        start = None
+        end = None
+        for i, line in enumerate(lines):
+            if line == target:
+                start = i
+            elif start is not None and line.startswith("## "):
+                end = i
                 break
-        if gs_start is not None:
-            gs_end = gs_end or len(gs_lines)
-            gs_lines = gs_lines[:gs_start] + gs_lines[gs_end:]
-            new_text = "\n".join(gs_lines)
 
-    file_path.write_text(new_text, encoding="utf-8")
-    _log_identity_change(filename, text, new_text, section=heading, source="api")
-    return True
+        if start is None:
+            return False
+
+        if end is None:
+            end = len(lines)
+
+        content_lines = content.split("\n") if content else []
+        new_lines = lines[: start + 1] + content_lines + [""] + lines[end:]
+        new_text = "\n".join(new_lines)
+
+        # Prune onboarding guidance from partner.md on first behavioral update
+        if filename == "partner.md" and "## getting started" in new_text:
+            gs_lines = new_text.split("\n")
+            gs_start = None
+            gs_end = None
+            for j, gl in enumerate(gs_lines):
+                if gl == "## getting started":
+                    gs_start = j
+                elif gs_start is not None and gl.startswith("## "):
+                    gs_end = j
+                    break
+            if gs_start is not None:
+                gs_end = gs_end or len(gs_lines)
+                gs_lines = gs_lines[:gs_start] + gs_lines[gs_end:]
+                new_text = "\n".join(gs_lines)
+
+        atomic_write(file_path, new_text)
+        _log_identity_change(filename, text, new_text, section=heading, source="api")
+        return True
+    finally:
+        if lock_fd:
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+            lock_fd.close()
 
 
 def update_self_md_section(heading: str, content: str) -> bool:
@@ -336,6 +355,7 @@ def update_self_md_opening(content: str) -> bool:
     bool
         True if updated, False if self.md is missing or has unexpected structure.
     """
+    from think.entities.core import atomic_write
     from think.utils import get_journal
 
     self_path = Path(get_journal()) / "sol" / "self.md"
@@ -359,7 +379,7 @@ def update_self_md_opening(content: str) -> bool:
 
     new_lines = lines[: start + 1] + ["", content, ""] + lines[end:]
     new_text = "\n".join(new_lines)
-    self_path.write_text(new_text, encoding="utf-8")
+    atomic_write(self_path, new_text)
     _log_identity_change("self.md", text, new_text, section=None, source="api")
     return True
 

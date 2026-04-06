@@ -5,8 +5,9 @@
 
 Provides read and write access to ``{journal}/sol/self.md``,
 ``{journal}/sol/partner.md``, ``{journal}/sol/agency.md``, and
-``{journal}/sol/pulse.md`` — sol's identity and initiative files. Also
-provides read access to the morning briefing at
+``{journal}/sol/pulse.md``, and ``{journal}/sol/awareness.md`` — sol's
+identity and initiative files. Also provides read access to the morning
+briefing at
 ``{journal}/YYYYMMDD/agents/morning_briefing.md``.
 
 Mounted by ``think.call`` as ``sol call identity ...``.
@@ -16,6 +17,7 @@ import sys
 
 import typer
 
+from think.entities.core import atomic_write
 from think.awareness import (
     _log_identity_change,
     ensure_sol_directory,
@@ -24,7 +26,7 @@ from think.awareness import (
 )
 
 app = typer.Typer(
-    help="Sol identity directory — self.md, partner.md, agency.md, pulse.md, and morning briefing."
+    help="Sol identity directory — self.md, partner.md, agency.md, pulse.md, awareness.md, and morning briefing."
 )
 
 
@@ -77,7 +79,7 @@ def self_cmd(
         old_content = (
             self_path.read_text(encoding="utf-8") if self_path.exists() else ""
         )
-        self_path.write_text(content, encoding="utf-8")
+        atomic_write(self_path, content)
         _log_identity_change(
             "self.md", old_content, content, section=None, source="cli"
         )
@@ -126,7 +128,7 @@ def partner_cmd(
         old_content = (
             partner_path.read_text(encoding="utf-8") if partner_path.exists() else ""
         )
-        partner_path.write_text(content, encoding="utf-8")
+        atomic_write(partner_path, content)
         _log_identity_change(
             "partner.md", old_content, content, section=None, source="cli"
         )
@@ -161,7 +163,7 @@ def agency_cmd(
         old_content = (
             agency_path.read_text(encoding="utf-8") if agency_path.exists() else ""
         )
-        agency_path.write_text(content, encoding="utf-8")
+        atomic_write(agency_path, content)
         _log_identity_change(
             "agency.md",
             old_content,
@@ -200,7 +202,7 @@ def pulse_cmd(
         old_content = (
             pulse_path.read_text(encoding="utf-8") if pulse_path.exists() else ""
         )
-        pulse_path.write_text(content, encoding="utf-8")
+        atomic_write(pulse_path, content)
         _log_identity_change(
             "pulse.md", old_content, content, section=None, source="cli"
         )
@@ -212,6 +214,43 @@ def pulse_cmd(
         typer.echo("pulse.md not found.", err=True)
         raise typer.Exit(1)
     typer.echo(pulse_path.read_text(encoding="utf-8"))
+
+
+@app.command("awareness")
+def awareness_cmd(
+    write: bool = typer.Option(
+        False,
+        "--write",
+        "-w",
+        help="Overwrite awareness.md (content via --value or stdin).",
+    ),
+    value: str | None = typer.Option(
+        None, "--value", help="Content to write (alternative to stdin)."
+    ),
+) -> None:
+    """Read or write sol/awareness.md."""
+    sol_dir = _sol_dir()
+    awareness_path = sol_dir / "awareness.md"
+
+    if write:
+        content = _resolve_content(value)
+        old_content = (
+            awareness_path.read_text(encoding="utf-8")
+            if awareness_path.exists()
+            else ""
+        )
+        atomic_write(awareness_path, content)
+        _log_identity_change(
+            "awareness.md", old_content, content, section=None, source="cli"
+        )
+        typer.echo("awareness.md updated.")
+        return
+
+    # Read mode
+    if not awareness_path.exists():
+        typer.echo("awareness.md not found.", err=True)
+        raise typer.Exit(1)
+    typer.echo(awareness_path.read_text(encoding="utf-8"))
 
 
 @app.command("briefing")

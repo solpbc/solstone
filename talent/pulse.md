@@ -27,14 +27,12 @@ Read current state using these tools:
 1. `sol call identity pulse` — previous pulse (may not exist yet; that's fine)
 2. `sol call identity self` — who the owner is
 3. `sol call identity partner` — behavioral profile of the owner
-4. `sol call calendar list` — today's events
+4. `sol call identity awareness` — current situational awareness (calendar, routines, activity, entities)
 5. `sol call todos list` — pending action items
 6. `sol call entities search --recent` — recent entity activity
-7. `sol call awareness status` — system health (brief check)
-8. `sol call routines list` — check for recent routine outputs
 
-If any routines have run recently, read their latest output:
-- `sol call routines output {id_prefix}` for each routine with a recent `last_run`
+If the awareness snapshot mentions routines with recent output, read their latest:
+- `sol call routines output {routine_name}` for each routine mentioned
 
 Note the key findings — you'll weave them into the narrative.
 

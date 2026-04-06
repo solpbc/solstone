@@ -16,18 +16,6 @@ from datetime import date, timedelta
 
 logger = logging.getLogger(__name__)
 
-# --- Awareness-conditional instruction blocks ---
-
-IMPORT_AWARENESS_TEXT = """## Import Awareness
-
-No content has been imported yet. If the user's message touches on their journal or what you can do, weave a single soft mention of importing into your response. Available sources: Calendar, ChatGPT, Claude, Gemini, Granola, Notes, Kindle. Do not repeat if already nudged.
-""".strip()
-
-NAMING_AWARENESS_TEXT = """## Naming Awareness
-
-The journal is still using its default name. When the moment feels right — after enough shared history — you may offer to suggest a name, or let the user choose one. Check naming readiness before offering. Only do this once per session.
-""".strip()
-
 
 TEMPLATE_TRIGGERS = {
     "morning-briefing": {
@@ -252,7 +240,6 @@ def _get_eligible_suggestion(
 
 def pre_process(context: dict) -> dict:
     """Build chat-context template vars for the unified talent prompt."""
-    from think.awareness import get_imports
     from think.conversation import build_memory_context
     from think.utils import get_config
 
@@ -261,8 +248,7 @@ def pre_process(context: dict) -> dict:
         "recent_conversation": "",
         "active_routines": "",
         "routine_suggestion": "",
-        "import_awareness": "",
-        "naming_awareness": "",
+        "sol_awareness": "",
     }
 
     try:
@@ -341,15 +327,17 @@ def pre_process(context: dict) -> dict:
         logger.debug("Routine suggestion eligibility check failed", exc_info=True)
 
     try:
-        imports = get_imports()
-        if not imports.get("has_imported"):
-            template_vars["import_awareness"] = IMPORT_AWARENESS_TEXT
+        from pathlib import Path
 
-        config = get_config()
-        agent_name = config.get("agent", {}).get("name", "sol")
-        if agent_name == "sol":
-            template_vars["naming_awareness"] = NAMING_AWARENESS_TEXT
+        from think.utils import get_journal
+
+        awareness_path = Path(get_journal()) / "sol" / "awareness.md"
+        if awareness_path.exists():
+            content = awareness_path.read_text(encoding="utf-8")
+            # Cold-start gating: don't inject placeholder content
+            if content.strip() != "not yet updated":
+                template_vars["sol_awareness"] = f"## Awareness\n\n{content}"
     except Exception:
-        logger.debug("Awareness context enrichment failed", exc_info=True)
+        logger.debug("Awareness context loading failed", exc_info=True)
 
     return {"template_vars": template_vars}

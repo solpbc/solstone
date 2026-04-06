@@ -495,62 +495,6 @@ class TestAttentionResolution:
         assert len(result.placeholder_text) <= 90
 
 
-# --- Triage daily output context ---
-
-
-class TestTriageDailyContext:
-    def test_triage_complete_injects_daily_context(self, tmp_path):
-        """When agent outputs exist, the prompt includes daily analysis context."""
-        from datetime import datetime
-
-        today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / today / "agents"
-        agents_dir.mkdir(parents=True)
-        (agents_dir / "flow.md").write_text("# Flow")
-        (agents_dir / "meetings.md").write_text("# Meetings")
-
-        mock = _run_triage()
-        prompt = mock.call_args.kwargs["prompt"]
-        assert "Daily analysis available" in prompt
-        assert "flow" in prompt
-        assert "meetings" in prompt
-
-    def test_triage_complete_no_outputs_no_extra_context(self):
-        """When no agent outputs exist, no daily analysis context is added."""
-        mock = _run_triage()
-        prompt = mock.call_args.kwargs["prompt"]
-        assert "Daily analysis" not in prompt
-
-    def test_triage_complete_falls_back_to_yesterday(self, tmp_path):
-        """When today has no outputs but yesterday does, use yesterday's."""
-        from datetime import datetime, timedelta
-
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
-        agents_dir = tmp_path / yesterday / "agents"
-        agents_dir.mkdir(parents=True)
-        (agents_dir / "flow.md").write_text("# Flow")
-
-        mock = _run_triage()
-        prompt = mock.call_args.kwargs["prompt"]
-        assert "Daily analysis available" in prompt
-        assert "flow" in prompt
-        assert yesterday in prompt
-
-    def test_triage_skipped_injects_daily_context(self, tmp_path):
-        """Skipped onboarding also gets daily analysis context."""
-        from datetime import datetime
-
-        today = datetime.now().strftime("%Y%m%d")
-        agents_dir = tmp_path / today / "agents"
-        agents_dir.mkdir(parents=True)
-        (agents_dir / "knowledge_graph.md").write_text("# KG")
-
-        mock = _run_triage()
-        prompt = mock.call_args.kwargs["prompt"]
-        assert "Daily analysis available" in prompt
-        assert "knowledge_graph" in prompt
-
-
 class TestTriageSystemHealth:
     """Tests for system health context injection in triage."""
 

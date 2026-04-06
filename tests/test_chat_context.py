@@ -10,8 +10,7 @@ TEMPLATE_VAR_KEYS = {
     "recent_conversation",
     "active_routines",
     "routine_suggestion",
-    "import_awareness",
-    "naming_awareness",
+    "sol_awareness",
 }
 
 
@@ -79,50 +78,16 @@ def test_chat_md_contains_behavioral_defaults():
     assert "## Behavioral Defaults" in chat_md
 
 
-def test_chat_context_import_awareness_injected(monkeypatch):
-    """Import awareness is appended when imports are still empty."""
-    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-    monkeypatch.setattr("think.awareness.get_imports", lambda: {"has_imported": False})
-
-    result = pre_process({"user_instruction": "Base instruction."})
-
-    template_vars = _assert_template_vars_result(result)
-    assert "## Import Awareness" in template_vars["import_awareness"]
+def test_chat_md_contains_static_import_guidance():
+    """Import guidance lives in the static chat prompt."""
+    chat_md = _read_chat_md()
+    assert "## Import Awareness" in chat_md
 
 
-def test_chat_context_import_done_no_nudge(monkeypatch):
-    """Import awareness is omitted once imports exist."""
-    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-    monkeypatch.setattr("think.awareness.get_imports", lambda: {"has_imported": True})
-
-    result = pre_process({"user_instruction": "Base instruction."})
-
-    template_vars = _assert_template_vars_result(result)
-    assert template_vars["import_awareness"] == ""
-
-
-def test_chat_context_naming_awareness_default(monkeypatch):
-    """Naming awareness is appended when the default agent name is still active."""
-    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-    monkeypatch.setattr("think.awareness.get_imports", lambda: {"has_imported": True})
-    monkeypatch.setattr("think.utils.get_config", lambda: {"agent": {"name": "sol"}})
-
-    result = pre_process({"user_instruction": "Base instruction."})
-
-    template_vars = _assert_template_vars_result(result)
-    assert "## Naming Awareness" in template_vars["naming_awareness"]
-
-
-def test_chat_context_naming_awareness_chosen(monkeypatch):
-    """Naming awareness is omitted once a custom agent name is chosen."""
-    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
-    monkeypatch.setattr("think.awareness.get_imports", lambda: {"has_imported": True})
-    monkeypatch.setattr("think.utils.get_config", lambda: {"agent": {"name": "aria"}})
-
-    result = pre_process({"user_instruction": "Base instruction."})
-
-    template_vars = _assert_template_vars_result(result)
-    assert template_vars["naming_awareness"] == ""
+def test_chat_md_contains_static_naming_guidance():
+    """Naming guidance lives in the static chat prompt."""
+    chat_md = _read_chat_md()
+    assert "## Naming Awareness" in chat_md
 
 
 def test_chat_context_awareness_error_graceful(monkeypatch):
@@ -134,16 +99,45 @@ def test_chat_context_awareness_error_graceful(monkeypatch):
         "think.utils.get_config",
         lambda: {"agent": {"name": "aria", "name_status": "default"}},
     )
-
-    def _raise() -> dict:
-        raise RuntimeError("boom")
-
-    monkeypatch.setattr("think.awareness.get_imports", _raise)
+    monkeypatch.setattr("think.utils.get_journal", lambda: "/nonexistent")
 
     result = pre_process({"user_instruction": "Base instruction."})
 
     template_vars = _assert_template_vars_result(result)
     assert all(template_vars[key] == "" for key in TEMPLATE_VAR_KEYS)
+
+
+def test_chat_context_sol_awareness_injected(monkeypatch, tmp_path):
+    """Sol awareness is injected when awareness.md has content."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
+
+    sol_dir = tmp_path / "sol"
+    sol_dir.mkdir()
+    (sol_dir / "awareness.md").write_text(
+        "as of: 2026-04-05T10:00:00\n\n## capture\n- status: active\n"
+    )
+
+    result = pre_process({"user_instruction": "Base instruction."})
+
+    template_vars = _assert_template_vars_result(result)
+    assert "## Awareness" in template_vars["sol_awareness"]
+    assert "capture" in template_vars["sol_awareness"]
+
+
+def test_chat_context_sol_awareness_cold_start(monkeypatch, tmp_path):
+    """Sol awareness is empty when awareness.md has placeholder content."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    monkeypatch.setattr("think.conversation.build_memory_context", lambda **kw: "")
+
+    sol_dir = tmp_path / "sol"
+    sol_dir.mkdir()
+    (sol_dir / "awareness.md").write_text("not yet updated\n")
+
+    result = pre_process({"user_instruction": "Base instruction."})
+
+    template_vars = _assert_template_vars_result(result)
+    assert template_vars["sol_awareness"] == ""
 
 
 def test_chat_context_routines_injected(monkeypatch):
@@ -189,7 +183,6 @@ def test_chat_context_routines_error_graceful(monkeypatch):
         lambda: (_ for _ in ()).throw(RuntimeError("boom")),
     )
     monkeypatch.setattr("think.routines.get_config", lambda: {"_meta": {"suggestions": {}}})
-    monkeypatch.setattr("think.awareness.get_imports", lambda: {"has_imported": True})
     monkeypatch.setattr(
         "think.utils.get_config",
         lambda: {"agent": {"name": "aria", "name_status": "default"}},
