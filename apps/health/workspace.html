@@ -30,8 +30,9 @@
 .status-summary {
   background: #f9fafb;
   border-radius: 10px;
-  padding: 0.8em 1.5em;
-  font-size: 0.95em;
+  padding: 1em 1.5em;
+  font-size: 1.1em;
+  font-weight: 500;
   color: #374151;
 }
 
@@ -116,9 +117,9 @@
   align-items: center;
   gap: 0.3em;
   background: rgba(255,255,255,0.15);
-  padding: 0.2em 0.6em;
+  padding: 0.15em 0.45em;
   border-radius: 12px;
-  font-size: 0.85em;
+  font-size: 0.75em;
 }
 
 .service-dot.crashed {
@@ -198,31 +199,13 @@
 }
 
 .observe-content {
-  display: flex;
-  gap: 2em;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1em;
 }
 
 .observe-content.hidden {
   display: none;
-}
-
-.observe-group {
-  flex: 1;
-}
-
-.observe-group-label {
-  font-size: 0.75em;
-  color: #9ca3af;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 0.5em;
-  font-weight: 500;
-}
-
-.observe-group-channels {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 1em;
 }
 
 .observe-empty {
@@ -230,6 +213,10 @@
   color: #6b7280;
   padding: 2em 1em;
   font-size: 0.95em;
+}
+
+.observe-empty.hidden {
+  display: none;
 }
 
 .observe-empty a {
@@ -249,9 +236,8 @@
 }
 
 .observe-section-title {
-  font-size: 0.85em;
+  font-size: 0.75em;
   color: #6b7280;
-  text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: 500;
 }
@@ -262,10 +248,17 @@
   font-weight: 500;
 }
 
+.observe-section-value.idle {
+  color: #9ca3af;
+}
+
 .observe-section-detail {
-  font-size: 0.85em;
+  font-size: 0.75em;
   color: #6b7280;
   padding-left: 1em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Observers Card */
@@ -284,7 +277,7 @@
 }
 
 .observer-host-card {
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  background: #f3f4f6;
   border-radius: 8px;
   padding: 1em;
   display: flex;
@@ -294,13 +287,13 @@
 }
 
 .observer-host-card.active {
-  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
-  border-color: #8b5cf6;
+  background: #f3f4f6;
+  border-left: 4px solid #8b5cf6;
 }
 
 .observer-host-card.stale {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  border-color: #f59e0b;
+  background: #fefce8;
+  border-left: 4px solid #f59e0b;
 }
 
 .observer-host-name {
@@ -707,7 +700,7 @@
     border-radius: 8px;
   }
 
-  .observe-group-channels {
+  .observe-content {
     grid-template-columns: repeat(3, 1fr);
   }
 
@@ -730,7 +723,7 @@
     gap: 0.5em;
   }
 
-  .observe-group-channels {
+  .observe-content {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -751,8 +744,8 @@
   }
 
   .status-summary {
-    font-size: 0.85em;
-    padding: 0.6em 1em;
+    font-size: 1em;
+    padding: 0.8em 1.2em;
   }
 }
 </style>
@@ -820,55 +813,45 @@
   <div class="dashboard-card observe-card">
     <div class="card-header">
       <div class="card-title">
-        Observation status
+        Observers
       </div>
       <div class="health-badge idle" id="observeModeBadge">
         <span id="observeModeLabel">Waiting...</span>
       </div>
     </div>
     <div class="observe-empty" id="observeEmpty">
-      No observers connected — <a href="/app/remote/">Manage remotes →</a>
+      No observers connected — <a href="/app/remote/">Manage observers →</a>
     </div>
     <div class="observe-content hidden" id="observeContent">
-      <div class="observe-group">
-        <div class="observe-group-label">Capture</div>
-        <div class="observe-group-channels">
-          <div class="observe-section">
-            <div class="observe-section-title">Screen Recording</div>
-            <div class="observe-section-value" id="screencastStatus">Waiting...</div>
-            <div class="observe-section-detail" id="screencastDetail"></div>
-          </div>
-          <div class="observe-section">
-            <div class="observe-section-title">Terminal Sessions</div>
-            <div class="observe-section-value" id="tmuxStatus">Waiting...</div>
-            <div class="observe-section-detail" id="tmuxDetail"></div>
-          </div>
-          <div class="observe-section">
-            <div class="observe-section-title">Audio Capture</div>
-            <div class="observe-section-value" id="audioStatus">Waiting...</div>
-            <div class="observe-section-detail" id="audioDetail"></div>
-          </div>
-          <div class="observe-section">
-            <div class="observe-section-title">System Activity</div>
-            <div class="observe-section-value" id="activityStatus">Waiting...</div>
-            <div class="observe-section-detail" id="activityDetail"></div>
-          </div>
-        </div>
+      <div class="observe-section">
+        <div class="observe-section-title">Screen Recording</div>
+        <div class="observe-section-value" id="screencastStatus">Waiting...</div>
+        <div class="observe-section-detail" id="screencastDetail"></div>
       </div>
-      <div class="observe-group">
-        <div class="observe-group-label">Processing</div>
-        <div class="observe-group-channels">
-          <div class="observe-section">
-            <div class="observe-section-title">Scene Analysis</div>
-            <div class="observe-section-value" id="describeStatus">Idle</div>
-            <div class="observe-section-detail" id="describeDetail"></div>
-          </div>
-          <div class="observe-section">
-            <div class="observe-section-title">Audio Transcription</div>
-            <div class="observe-section-value" id="transcribeStatus">Idle</div>
-            <div class="observe-section-detail" id="transcribeDetail"></div>
-          </div>
-        </div>
+      <div class="observe-section">
+        <div class="observe-section-title">Terminal Sessions</div>
+        <div class="observe-section-value" id="tmuxStatus">Waiting...</div>
+        <div class="observe-section-detail" id="tmuxDetail"></div>
+      </div>
+      <div class="observe-section">
+        <div class="observe-section-title">Audio Capture</div>
+        <div class="observe-section-value" id="audioStatus">Waiting...</div>
+        <div class="observe-section-detail" id="audioDetail"></div>
+      </div>
+      <div class="observe-section">
+        <div class="observe-section-title">System Activity</div>
+        <div class="observe-section-value" id="activityStatus">Waiting...</div>
+        <div class="observe-section-detail" id="activityDetail"></div>
+      </div>
+      <div class="observe-section">
+        <div class="observe-section-title">Scene Analysis</div>
+        <div class="observe-section-value" id="describeStatus">Idle</div>
+        <div class="observe-section-detail" id="describeDetail"></div>
+      </div>
+      <div class="observe-section">
+        <div class="observe-section-title">Audio Transcription</div>
+        <div class="observe-section-value" id="transcribeStatus">Idle</div>
+        <div class="observe-section-detail" id="transcribeDetail"></div>
       </div>
     </div>
   </div>
@@ -877,7 +860,7 @@
   <div class="dashboard-card observers-card hidden" id="observersCard">
     <div class="card-header">
       <div class="card-title">
-        Connected observers
+        Connected
       </div>
     </div>
     <div class="observers-grid" id="observersGrid"></div>
@@ -916,7 +899,7 @@
   <!-- Dream Card (hidden when idle) -->
   <div class="dashboard-card dream-card hidden" id="dreamCard">
     <div class="card-header">
-      <div class="card-title">Overnight processing</div>
+      <div class="card-title">Background analysis</div>
     </div>
     <div class="dream-info" id="dreamInfo"></div>
     <div id="dreamProgress"></div>
@@ -1050,7 +1033,7 @@
     cortex: 'AI Engine',
     sense: 'Media Processor',
     observe: 'Screen & Audio',
-    dream: 'Overnight Processing',
+    dream: 'Background Analysis',
     sync: 'Cloud Sync',
     importer: 'File Importer',
     schedule: 'Task Scheduler',
@@ -1452,6 +1435,7 @@
     if (!state.localHost || !primary) {
       channels.forEach(ch => {
         ch.statusEl.textContent = 'Waiting...';
+        ch.statusEl.classList.remove('idle');
         ch.detailEl.textContent = '';
       });
       updateStatusSummary();
@@ -1486,6 +1470,7 @@
         ch.statusEl.textContent = result.status;
         ch.detailEl.textContent = result.detail || '';
       }
+      ch.statusEl.classList.toggle('idle', ch.statusEl.textContent === ch.idleText);
     });
 
     updateStatusSummary();
