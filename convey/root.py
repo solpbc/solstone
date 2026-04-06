@@ -5,12 +5,15 @@
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 from flask import (
     Blueprint,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -18,10 +21,10 @@ from flask import (
     session,
     url_for,
 )
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from think.cluster import cluster_segments
-from think.utils import day_dirs, get_config
+from think.utils import day_dirs, get_config, get_journal
 
 
 def _get_password_hash() -> str:
@@ -32,6 +35,19 @@ def _get_password_hash() -> str:
         return convey_config.get("password_hash", "")
     except Exception:
         return ""
+
+
+def _save_config_section(section: str, data: dict) -> dict:
+    """Merge data into a config section and write back to journal.json."""
+    config = get_config()
+    config.setdefault(section, {}).update(data)
+    config_path = Path(get_journal()) / "config" / "journal.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.chmod(config_path, 0o600)
+    return config
 
 
 bp = Blueprint(
@@ -45,6 +61,12 @@ bp = Blueprint(
 @bp.before_app_request
 def require_login() -> Any:
     if request.endpoint in {
+        "root.init",
+        "root.init_password",
+        "root.init_identity",
+        "root.init_provider",
+        "root.init_observers",
+        "root.init_finalize",
         "root.login",
         "root.static",
         "root.favicon",
@@ -72,6 +94,8 @@ def require_login() -> Any:
 
     # Otherwise require session authentication
     if not session.get("logged_in"):
+        if not _get_password_hash():
+            return redirect(url_for("root.init"))
         return redirect(url_for("root.login"))
 
 
@@ -93,6 +117,104 @@ def login() -> Any:
             return redirect(url_for("root.index"))
         error = "Invalid password"
     return render_template("login.html", error=error, no_password=False)
+
+
+@bp.route("/init")
+def init() -> Any:
+    if _get_password_hash():
+        return redirect(url_for("root.index"))
+
+    config_path = str(Path(get_journal()) / "config" / "journal.json")
+    return render_template("init.html", config_path=config_path)
+
+
+@bp.route("/init/password", methods=["POST"])
+def init_password() -> Any:
+    if _get_password_hash():
+        return jsonify({"error": "Already configured"}), 400
+
+    data = request.get_json(silent=True) or {}
+    password = data.get("password", "")
+    if len(password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters"}), 400
+
+    hashed = generate_password_hash(password)
+    _save_config_section("convey", {"password_hash": hashed})
+    return jsonify({"success": True})
+
+
+@bp.route("/init/identity", methods=["POST"])
+def init_identity() -> Any:
+    if not _get_password_hash():
+        return jsonify({"error": "Password required first"}), 403
+
+    data = request.get_json(silent=True) or {}
+    allowed = {k: data[k] for k in ("name", "preferred", "timezone") if k in data}
+    _save_config_section("identity", allowed)
+    return jsonify({"success": True})
+
+
+@bp.route("/init/provider", methods=["POST"])
+def init_provider() -> Any:
+    if not _get_password_hash():
+        return jsonify({"error": "Password required first"}), 403
+
+    data = request.get_json(silent=True) or {}
+    key = data.get("key", "")
+    _save_config_section("env", {"GOOGLE_API_KEY": key})
+
+    from think.providers import validate_key
+
+    try:
+        result = validate_key("google", key)
+    except Exception as e:
+        result = {"valid": False, "error": str(e)}
+    return jsonify({"success": True, "validation": result})
+
+
+@bp.route("/init/observers")
+def init_observers() -> Any:
+    if not _get_password_hash():
+        return jsonify({"error": "Password required first"}), 403
+
+    from apps.remote.utils import list_remotes
+
+    remotes_list = []
+    for remote in list_remotes():
+        if remote.get("revoked", False):
+            continue
+        remotes_list.append(
+            {
+                "key_prefix": remote.get("key", "")[:8],
+                "name": remote.get("name", ""),
+                "created_at": remote.get("created_at", 0),
+                "last_seen": remote.get("last_seen"),
+                "last_segment": remote.get("last_segment"),
+                "enabled": remote.get("enabled", True),
+                "revoked": remote.get("revoked", False),
+                "revoked_at": remote.get("revoked_at"),
+                "stats": remote.get("stats", {}),
+            }
+        )
+    return jsonify(remotes_list)
+
+
+@bp.route("/init/finalize", methods=["POST"])
+def init_finalize() -> Any:
+    if not _get_password_hash():
+        return jsonify({"error": "Password required first"}), 403
+
+    from think.utils import now_ms
+
+    data = request.get_json(silent=True) or {}
+    coding_agent = data.get("coding_agent", "")
+    _save_config_section(
+        "setup",
+        {"coding_agent": coding_agent, "completed_at": now_ms()},
+    )
+    session["logged_in"] = True
+    session.permanent = True
+    return jsonify({"success": True, "redirect": url_for("root.index")})
 
 
 @bp.route("/logout")
