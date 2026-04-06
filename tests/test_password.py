@@ -20,7 +20,7 @@ def journal_dir(tmp_path, monkeypatch):
     """Copy test fixture to temp dir for mutation tests."""
     src = Path(__file__).resolve().parent / "fixtures" / "journal"
     dst = tmp_path / "journal"
-    shutil.copytree(src, dst)
+    shutil.copytree(src, dst, symlinks=True)
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst))
     return dst
 
@@ -65,7 +65,7 @@ class TestMigration:
         """Plaintext password is hashed and old key removed on app creation."""
         src = Path(__file__).resolve().parent / "fixtures" / "journal"
         dst = tmp_path / "journal"
-        shutil.copytree(src, dst)
+        shutil.copytree(src, dst, symlinks=True)
         config_path = dst / "config" / "journal.json"
         config = json.loads(config_path.read_text())
         config["convey"].pop("password_hash", None)
@@ -84,7 +84,7 @@ class TestMigration:
         """Empty plaintext password is removed, not hashed."""
         src = Path(__file__).resolve().parent / "fixtures" / "journal"
         dst = tmp_path / "journal"
-        shutil.copytree(src, dst)
+        shutil.copytree(src, dst, symlinks=True)
         config_path = dst / "config" / "journal.json"
         config = json.loads(config_path.read_text())
         config["convey"].pop("password_hash", None)
