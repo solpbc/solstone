@@ -53,7 +53,6 @@ COMMANDS: dict[str, str] = {
     "streams": "think.streams",
     "journal-stats": "think.journal_stats",
     "config": "think.config_cli",
-    "password": "think.password_cli",
     "formatter": "think.formatters",
     # observe package - multimodal capture
     "transcribe": "observe.transcribe",

@@ -153,7 +153,7 @@ PROMPT_PATHS: List[str] = [
 
 # Cached context registry (built lazily on first use)
 _context_registry: Optional[Dict[str, Dict[str, Any]]] = None
-_LEGACY_CONTEXT_PREFIX = "muse."
+_LEGACY_CONTEXT_PREFIX = "talent."
 _TALENT_CONTEXT_PREFIX = "talent."
 
 
