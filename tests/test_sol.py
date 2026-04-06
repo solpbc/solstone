@@ -216,6 +216,20 @@ class TestMain:
         assert path != ""
         assert path.endswith("/journal")
 
+    def test_main_root_command(self, monkeypatch, capsys):
+        """Test 'root' command prints the project root directory."""
+        monkeypatch.setattr(sys, "argv", ["sol", "root"])
+
+        sol.main()
+
+        captured = capsys.readouterr()
+        path = captured.out.strip()
+        assert path != ""
+        # root should NOT end with /journal — that's --path
+        assert not path.endswith("/journal")
+        # should be a parent of the journal path
+        assert path.endswith("/solstone") or "/solstone" in path
+
     def test_main_unknown_command_exits(self, monkeypatch):
         """Test that unknown command exits with code 1."""
         monkeypatch.setattr(sys, "argv", ["sol", "unknown-command"])

@@ -122,6 +122,10 @@ sol call journal storage-summary
 sol call support diagnose
 ```
 
+## Paths
+
+`sol root` prints the solstone repo root — useful for scripting: `cd $(sol root)`, `SOL=$(sol root)`.
+
 ## Environment
 
 The `sol` CLI uses three environment variables that default sensibly:

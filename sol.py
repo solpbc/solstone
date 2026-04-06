@@ -299,6 +299,13 @@ def main() -> None:
         print(path)
         return
 
+    # Root command — print repo root for scripting: SOL=$(sol root)
+    if cmd == "root":
+        from think.utils import get_project_root
+
+        print(get_project_root())
+        return
+
     # Resolve command to module path
     try:
         module_path, preset_args = resolve_command(cmd)
