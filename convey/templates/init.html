@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>set up — solstone</title>
+  <style>
+    body {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 1em; background: #fff;
+    }
+    svg[aria-label="sol logo"] { width: 64px; height: 64px; margin: 0 auto 1rem; display: block; }
+    .init-container { max-width: 520px; width: 90vw; }
+    .config-path { font-size: 0.75rem; color: #aaa; text-align: center; margin: 0 0 1.5rem; word-break: break-all; }
+    h2 { text-align: center; font-weight: 500; margin-bottom: 2rem; }
+    .init-section { margin-bottom: 2rem; }
+    .init-section.disabled { opacity: 0.4; pointer-events: none; }
+    .init-section h3 { font-size: 1rem; font-weight: 500; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; margin-bottom: 0.75rem; }
+    .section-hint { font-size: 0.85rem; color: #666; margin: 0 0 0.75rem; }
+    .section-hint a { color: #E8923A; }
+    .field-group { margin-bottom: 0.75rem; }
+    .field-group label { display: block; font-size: 0.85rem; color: #444; margin-bottom: 0.25rem; }
+    .field-group input {
+      width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 8px;
+      font-size: 0.95rem; box-sizing: border-box;
+    }
+    .field-group input:focus { outline: none; border-color: #E8923A; }
+    .field-group input:disabled { background: #f5f5f5; color: #999; }
+    .field-status { display: block; font-size: 0.8rem; min-height: 1.2em; margin-top: 0.25rem; }
+    .status-saved { color: #22c55e; }
+    .status-error { color: #ef4444; }
+    .status-fade { opacity: 0; transition: opacity 0.3s; }
+    .timezone-chip {
+      display: inline-block; background: #f5f5f5; border-radius: 6px;
+      padding: 6px 12px; font-size: 0.85rem; color: #666;
+    }
+    .agent-cards { display: flex; gap: 0.75rem; margin-top: 0.5rem; }
+    .agent-card {
+      flex: 1; padding: 1rem; border: 2px solid #ddd; border-radius: 8px;
+      cursor: pointer; text-align: center; transition: border-color 0.2s, background 0.2s;
+      display: flex; flex-direction: column; gap: 0.25rem;
+    }
+    .agent-card:hover { border-color: #E8923A; }
+    .agent-card.selected { border-color: #E8923A; background: #fef3e2; }
+    .agent-card strong { font-size: 0.95rem; }
+    .agent-card span { font-size: 0.8rem; color: #666; }
+    .observer-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; }
+    .observer-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .observer-dot.connected { background: #22c55e; }
+    .observer-dot.disconnected { background: #d1d5db; }
+    .observer-state { font-size: 0.8rem; color: #999; margin-left: auto; }
+    .input-wrap { position: relative; }
+    .input-wrap input { padding-right: 64px; }
+    .toggle-btn {
+      position: absolute; top: 50%; right: 12px; transform: translateY(-50%);
+      border: none; background: transparent; color: #666; cursor: pointer; font-size: 0.8rem;
+      padding: 0;
+    }
+    .footer-note { font-size: 0.8rem; color: #aaa; margin-top: 1.5rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="init-container">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="2.5 2.5 27 27" role="img" aria-label="sol logo">
+      <title>sol</title>
+      <!-- Sun rays: 10 floating wedges with curved inner arc matching the ring -->
+      <path fill="#F5C740" d="M16.0 2.5 L18.6 7.3 A9.1 9.1 0 0 0 13.4 7.3 Z M23.9 5.1 L23.2 10.5 A9.1 9.1 0 0 0 19.0 7.4 Z M28.8 11.8 L25.1 15.8 A9.1 9.1 0 0 0 23.5 10.9 Z M28.8 20.2 L23.5 21.1 A9.1 9.1 0 0 0 25.1 16.2 Z M23.9 26.9 L19.0 24.6 A9.1 9.1 0 0 0 23.2 21.5 Z M16.0 29.5 L13.4 24.7 A9.1 9.1 0 0 0 18.6 24.7 Z M8.1 26.9 L8.8 21.5 A9.1 9.1 0 0 0 13.0 24.6 Z M3.2 20.2 L6.9 16.2 A9.1 9.1 0 0 0 8.5 21.1 Z M3.2 11.8 L8.5 10.9 A9.1 9.1 0 0 0 6.9 15.8 Z M8.1 5.1 L13.0 7.4 A9.1 9.1 0 0 0 8.8 10.5 Z"/>
+      <!-- Sun ring: open annulus -->
+      <circle cx="16" cy="16" r="8.0" fill="none" stroke="#E8923A" stroke-width="1.2"/>
+      <!-- sol — Comfortaa Bold, scale=0.01 SVG/fu, letter-spacing=-100fu, 12.54 wide -->
+      <path fill="#E8923A" fill-rule="evenodd" d="M12.079 18.795C13.489 18.795 14.229 18.065 14.229 17.155C14.229 16.365 13.729 15.835 12.229 15.535C11.149 15.315 10.939 15.095 10.939 14.725C10.939 14.345 11.399 14.135 11.989 14.135C12.499 14.135 12.859 14.235 13.199 14.555C13.399 14.745 13.729 14.815 13.949 14.665C14.159 14.505 14.169 14.255 13.989 14.035C13.589 13.545 12.889 13.245 12.009 13.245C10.989 13.245 9.959 13.735 9.959 14.755C9.959 15.525 10.529 16.075 11.879 16.335C12.919 16.525 13.249 16.815 13.239 17.215C13.229 17.615 12.809 17.895 12.039 17.895C11.429 17.895 10.889 17.625 10.659 17.375C10.469 17.175 10.189 17.125 9.929 17.335C9.699 17.515 9.659 17.825 9.859 18.035C10.299 18.475 11.149 18.795 12.079 18.795Z M16.999 18.795C18.609 18.795 19.749 17.645 19.749 16.025C19.739 14.395 18.599 13.245 16.999 13.245C15.379 13.245 14.239 14.395 14.239 16.025C14.239 17.645 15.379 18.795 16.999 18.795ZM16.999 17.895C15.959 17.895 15.219 17.125 15.219 16.025C15.219 14.925 15.959 14.145 16.999 14.145C18.039 14.145 18.769 14.925 18.769 16.025C18.769 17.125 18.039 17.895 16.999 17.895Z M21.569 18.755H21.589C21.989 18.755 22.269 18.545 22.269 18.255C22.269 17.965 22.079 17.755 21.819 17.755H21.569C21.279 17.755 21.069 17.405 21.069 16.905V11.445C21.069 11.155 20.859 10.945 20.569 10.945C20.279 10.945 20.069 11.155 20.069 11.445V16.905C20.069 17.985 20.689 18.755 21.569 18.755Z"/>
+    </svg>
+    <p class="config-path">{{ config_path }}</p>
+    <h2>set up solstone</h2>
+
+    <section class="init-section" id="section-password">
+      <h3>1. set a password</h3>
+      <p class="section-hint">Required for remote access. At least 8 characters.</p>
+      <div class="field-group">
+        <label for="password">Password</label>
+        <div class="input-wrap">
+          <input type="password" id="password" autocomplete="new-password">
+          <button type="button" class="toggle-btn" id="toggle-password" onclick="togglePassword()">show</button>
+        </div>
+        <small class="field-status">&nbsp;</small>
+      </div>
+    </section>
+
+    <section class="init-section disabled" id="section-identity">
+      <h3>2. who are you?</h3>
+      <p class="section-hint">Optional — helps sol address you correctly.</p>
+      <div class="field-group">
+        <label for="name">Full name</label>
+        <input type="text" id="name">
+        <small class="field-status">&nbsp;</small>
+      </div>
+      <div class="field-group">
+        <label for="preferred">Preferred name</label>
+        <input type="text" id="preferred">
+        <small class="field-status">&nbsp;</small>
+      </div>
+      <div class="field-group">
+        <label>Timezone</label>
+        <span class="timezone-chip" id="timezone-display">Detecting…</span>
+      </div>
+    </section>
+
+    <section class="init-section disabled" id="section-provider">
+      <h3>3. connect gemini</h3>
+      <p class="section-hint">Optional — powers sol's thinking. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">aistudio.google.com/apikey</a></p>
+      <div class="field-group">
+        <label for="gemini-key">Gemini API key</label>
+        <input type="password" id="gemini-key">
+        <small class="field-status">&nbsp;</small>
+      </div>
+    </section>
+
+    <section class="init-section disabled" id="section-finalize">
+      <h3>4. get started</h3>
+      <div id="observer-status" style="display:none">
+        <p class="section-hint">Connected observers</p>
+        <div id="observer-list"></div>
+      </div>
+      <div class="agent-cards">
+        <div class="agent-card" data-agent="claude-code" onclick="selectAgent(this)">
+          <strong>Claude Code</strong>
+          <span>Using Claude Code</span>
+        </div>
+        <div class="agent-card" data-agent="codex" onclick="selectAgent(this)">
+          <strong>Codex</strong>
+          <span>Using Codex</span>
+        </div>
+        <div class="agent-card" data-agent="none" onclick="selectAgent(this)">
+          <strong>Skip</strong>
+          <span>Set this up later</span>
+        </div>
+      </div>
+    </section>
+
+    <p class="footer-note">your data stays on your machine</p>
+  </div>
+
+  <script>
+    function togglePassword() {
+      const input = document.getElementById('password');
+      const btn = document.getElementById('toggle-password');
+      if (input.type === 'password') { input.type = 'text'; btn.textContent = 'hide'; }
+      else { input.type = 'password'; btn.textContent = 'show'; }
+    }
+
+    function showFieldStatus(el, type, message) {
+      const group = el.closest('.field-group');
+      if (!group) return;
+      const small = group.querySelector('.field-status');
+      if (!small) return;
+      small.classList.remove('status-saved', 'status-error', 'status-fade');
+      if (type === 'saved') {
+        small.textContent = message || 'Saved';
+        small.classList.add('status-saved');
+        setTimeout(() => {
+          small.classList.add('status-fade');
+          setTimeout(() => { small.textContent = '\u00a0'; small.classList.remove('status-saved', 'status-fade'); }, 300);
+        }, 1500);
+      } else {
+        small.textContent = message || 'Error';
+        small.classList.add('status-error');
+      }
+    }
+
+    function unlockSections() {
+      ['section-identity', 'section-provider', 'section-finalize'].forEach(id =>
+        document.getElementById(id).classList.remove('disabled'));
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      document.getElementById('timezone-display').textContent = tz;
+      fetch('/init/identity', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({timezone: tz})
+      });
+      loadObservers();
+    }
+
+    document.getElementById('password').addEventListener('blur', async function() {
+      const password = this.value;
+      if (!password) return;
+      if (password.length < 8) { showFieldStatus(this, 'error', 'At least 8 characters'); return; }
+      try {
+        const resp = await fetch('/init/password', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({password})
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showFieldStatus(this, 'saved');
+          this.disabled = true;
+          document.getElementById('toggle-password').style.display = 'none';
+          unlockSections();
+        } else { showFieldStatus(this, 'error', data.error); }
+      } catch (err) { showFieldStatus(this, 'error', 'Failed to save'); }
+    });
+
+    ['name', 'preferred'].forEach(field => {
+      document.getElementById(field).addEventListener('blur', async function() {
+        const value = this.value.trim();
+        if (!value) return;
+        try {
+          const resp = await fetch('/init/identity', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({[field]: value})
+          });
+          const data = await resp.json();
+          if (data.success) showFieldStatus(this, 'saved');
+          else showFieldStatus(this, 'error', data.error);
+        } catch (err) { showFieldStatus(this, 'error', 'Failed to save'); }
+      });
+    });
+
+    document.getElementById('gemini-key').addEventListener('blur', async function() {
+      const key = this.value.trim();
+      if (!key) return;
+      try {
+        const resp = await fetch('/init/provider', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({key})
+        });
+        const data = await resp.json();
+        if (data.success) {
+          if (data.validation && data.validation.valid) showFieldStatus(this, 'saved', 'Connected');
+          else showFieldStatus(this, 'error', data.validation?.error || 'Key saved, validation failed');
+        } else showFieldStatus(this, 'error', data.error);
+      } catch (err) { showFieldStatus(this, 'error', 'Failed to save'); }
+    });
+
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    async function loadObservers() {
+      try {
+        const resp = await fetch('/init/observers');
+        const data = await resp.json();
+        if (data.length > 0) {
+          document.getElementById('observer-status').style.display = 'block';
+          const now = Date.now();
+          document.getElementById('observer-list').innerHTML = data.map(r => {
+            const connected = r.last_seen && (now - r.last_seen) < 120000;
+            const label = esc(r.name || r.key_prefix);
+            return '<div class="observer-item"><span class="observer-dot ' +
+              (connected ? 'connected' : 'disconnected') + '"></span><span>' +
+              label + '</span><span class="observer-state">' +
+              (connected ? 'connected' : 'disconnected') + '</span></div>';
+          }).join('');
+        }
+      } catch (err) {}
+    }
+
+    let selectedAgent = null;
+    function selectAgent(card) {
+      document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedAgent = card.dataset.agent;
+      finalize();
+    }
+    async function finalize() {
+      try {
+        const resp = await fetch('/init/finalize', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({coding_agent: selectedAgent})
+        });
+        const data = await resp.json();
+        if (data.success && data.redirect) window.location.href = data.redirect;
+      } catch (err) {}
+    }
+  </script>
+</body>
+</html>
