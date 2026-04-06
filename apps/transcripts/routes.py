@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -35,8 +36,10 @@ from think.models import get_usage_cost
 from think.utils import day_dirs, day_path, segment_path
 from think.utils import segment_key as validate_segment_key
 
-# Regex for HHMMSS time format validation
-TIME_RE = re.compile(r"\d{6}")
+logger = logging.getLogger(__name__)
+
+# Regex for YYYYMM month format validation
+MONTH_RE = re.compile(r"\d{6}")
 
 transcripts_bp = Blueprint(
     "app:transcripts",
@@ -49,8 +52,6 @@ transcripts_bp = Blueprint(
 def index() -> Any:
     """Redirect to the most recent day with segments, falling back to today."""
     today = date.today().strftime("%Y%m%d")
-    if cluster_segments(today):
-        return redirect(url_for("app:transcripts.transcripts_day", day=today))
     for day in sorted(day_dirs().keys(), reverse=True):
         if cluster_segments(day):
             return redirect(url_for("app:transcripts.transcripts_day", day=day))
@@ -61,7 +62,7 @@ def index() -> Any:
 def transcripts_day(day: str) -> str:
     """Render transcript viewer for a specific day."""
     if not DATE_RE.fullmatch(day):
-        return "", 404
+        return error_response("Day not found", 404)
 
     title = format_date(day)
 
@@ -72,7 +73,7 @@ def transcripts_day(day: str) -> str:
 def transcript_ranges(day: str) -> Any:
     """Return available transcript ranges for a day."""
     if not DATE_RE.fullmatch(day):
-        return "", 404
+        return error_response("Day not found", 404)
 
     audio_ranges, screen_ranges = cluster_scan(day)
     return jsonify({"audio": audio_ranges, "screen": screen_ranges})
@@ -85,7 +86,7 @@ def transcript_segments(day: str) -> Any:
     Returns list of segments with their content types for the segment selector UI.
     """
     if not DATE_RE.fullmatch(day):
-        return "", 404
+        return error_response("Day not found", 404)
 
     segments = cluster_segments(day)
     return jsonify({"segments": segments})
@@ -95,7 +96,7 @@ def transcript_segments(day: str) -> Any:
 def transcript_day_data(day: str) -> Any:
     """Return combined ranges and segments for a day in a single response."""
     if not DATE_RE.fullmatch(day):
-        return "", 404
+        return error_response("Day not found", 404)
 
     audio_ranges, screen_ranges, segments = scan_day(day)
     return jsonify({"audio": audio_ranges, "screen": screen_ranges, "segments": segments})
@@ -105,7 +106,7 @@ def transcript_day_data(day: str) -> Any:
 def serve_file(day: str, encoded_path: str) -> Any:
     """Serve actual media files for embedding."""
     if not DATE_RE.fullmatch(day):
-        return "", 404
+        return error_response("Day not found", 404)
 
     try:
         rel_path = encoded_path.replace("__", "/")
@@ -113,15 +114,15 @@ def serve_file(day: str, encoded_path: str) -> Any:
 
         day_dir = str(day_path(day, create=False))
         if not os.path.commonpath([full_path, day_dir]) == day_dir:
-            return "", 403
+            return error_response("Invalid file path", 403)
 
         if not os.path.isfile(full_path):
-            return "", 404
+            return error_response("File not found", 404)
 
         return send_file(full_path)
 
     except Exception:
-        return "", 404
+        return error_response("Failed to serve file", 404)
 
 
 @transcripts_bp.route("/api/stats/<month>")
@@ -135,8 +136,8 @@ def api_stats(month: str):
         JSON dict mapping day (YYYYMMDD) to transcript range count.
         Transcripts app is not facet-aware, so returns simple {day: count} mapping.
     """
-    if not TIME_RE.fullmatch(month):
-        return jsonify({"error": "Invalid month format, expected YYYYMM"}), 400
+    if not MONTH_RE.fullmatch(month):
+        return error_response("Invalid month format", 400)
 
     stats: dict[str, int] = {}
 
@@ -203,14 +204,14 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
         - media_sizes: dict with audio/screen byte counts for raw media files
     """
     if not DATE_RE.fullmatch(day):
-        return "", 404
+        return error_response("Invalid day format", 404)
 
     if not validate_segment_key(segment_key):
-        return "", 404
+        return error_response("Invalid segment key format", 404)
 
     segment_dir = str(segment_path(day, segment_key, stream))
     if not os.path.isdir(segment_dir):
-        return "", 404
+        return error_response("Segment directory not found", 404)
 
     chunks: list[dict] = []
     audio_file_url = None
@@ -218,6 +219,7 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
     media_sizes: dict[str, int] = {"audio": 0, "screen": 0}
     has_raw_reference = False
     has_raw_file = False
+    warnings = 0
 
     # Load speaker labels if available.
     speaker_labels_path = Path(segment_dir) / "agents" / "speaker_labels.json"
@@ -306,7 +308,9 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
                 if speaker_label:
                     chunk_data["speaker_label"] = speaker_label
                 chunks.append(chunk_data)
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to parse audio segment %s: %s", audio_path, e)
+            warnings += 1
             continue
 
     # Process screen files and collect video URLs for client-side decoding
@@ -396,7 +400,9 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
                         "basic": is_basic,
                     }
                 )
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to parse screen segment %s: %s", screen_path, e)
+            warnings += 1
             continue
 
     # Sort all chunks by timestamp
@@ -427,6 +433,7 @@ def segment_content(day: str, stream: str, segment_key: str) -> Any:
             "cost": cost_data["cost"],
             "media_sizes": media_sizes,
             "media_purged": media_purged,
+            "warnings": warnings,
         }
     )
 

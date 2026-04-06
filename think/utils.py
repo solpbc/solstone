@@ -413,7 +413,10 @@ def segment_parse(
         # Compute end time by adding duration
         start_dt = datetime.combine(datetime.today(), start_time)
         end_dt = start_dt + timedelta(seconds=length_seconds)
-        end_time = end_dt.time()
+        if end_dt.date() > start_dt.date():
+            end_time = time(23, 59, 59)
+        else:
+            end_time = end_dt.time()
         return (start_time, end_time)
     except ValueError:
         return (None, None)

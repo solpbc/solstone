@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import tempfile
+from datetime import time
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ from think.utils import (
     DEFAULT_STREAM,
     day_from_path,
     iter_segments,
+    segment_parse,
     segment_key,
     setup_cli,
 )
@@ -641,6 +643,12 @@ def test_segment_key_edge_cases():
     assert segment_key("prefix 143022_300 suffix") == "143022_300"
     # Multiple potential matches (should match first)
     assert segment_key("143022_300 and 150000_600") == "143022_300"
+
+
+def test_segment_parse_clamps_midnight_crossing():
+    """Test segment_parse clamps end time when a segment crosses midnight."""
+    assert segment_parse("235900_300") == (time(23, 59, 0), time(23, 59, 59))
+    assert segment_parse("143022_300") == (time(14, 30, 22), time(14, 35, 22))
 
 
 class TestSetupCliConfigEnv:
