@@ -685,6 +685,9 @@ class FileSensor:
                         "file": rel_file,
                         "ref": handler_proc.managed.ref,
                     }
+                    handler_status["running"]["duration_seconds"] = int(
+                        now - handler_proc.started_at
+                    )
 
                 # Queued items with age
                 if handler_queue.queue_size() > 0:
@@ -699,6 +702,13 @@ class FileSensor:
                             {"file": rel_file, "age_seconds": int(now - item.queued_at)}
                         )
                     handler_status["queued"] = queued_list
+
+                if handler_queue.queue_size() > 0:
+                    handler_status["max_age_seconds"] = int(
+                        now - min(item.queued_at for item in handler_queue.queue)
+                    )
+                elif handler_status:
+                    handler_status["max_age_seconds"] = 0
 
                 # Add section if any activity for this handler
                 if handler_status:
