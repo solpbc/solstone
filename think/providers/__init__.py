@@ -17,7 +17,7 @@ Available providers:
 - google: Google Gemini models
 - openai: OpenAI GPT models
 - anthropic: Anthropic Claude models
-- ollama: Ollama local models (generate only; cogitate not yet supported)
+- ollama: Ollama local models
 """
 
 from importlib import import_module
@@ -52,7 +52,7 @@ PROVIDER_METADATA: Dict[str, Dict[str, str]] = {
     "google": {"label": "Google (Gemini)", "env_key": "GOOGLE_API_KEY"},
     "openai": {"label": "OpenAI (GPT)", "env_key": "OPENAI_API_KEY"},
     "anthropic": {"label": "Anthropic (Claude)", "env_key": "ANTHROPIC_API_KEY"},
-    "ollama": {"label": "Ollama (Local)", "env_key": ""},
+    "ollama": {"label": "Ollama (Local)", "env_key": "OLLAMA_BASE_URL"},
 }
 
 

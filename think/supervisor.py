@@ -1297,8 +1297,8 @@ def parse_args() -> argparse.ArgumentParser:
         "port",
         nargs="?",
         type=int,
-        default=0,
-        help="Convey port (0 = auto-select available port)",
+        default=3000,
+        help="Convey port (default: 3000)",
     )
     parser.add_argument(
         "--threshold",
