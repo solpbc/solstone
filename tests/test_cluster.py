@@ -191,6 +191,25 @@ def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
     assert "This insight should NOT appear" not in result
 
 
+def test_load_entries_from_toplevel_segment(tmp_path, monkeypatch):
+    """_load_entries_from_segment resolves the day for top-level segment dirs."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    day_dir = day_path("20240101")
+    segment = day_dir / "100000_300"
+    segment.mkdir()
+
+    mod = importlib.import_module("think.cluster")
+
+    entries = mod._load_entries_from_segment(
+        str(segment),
+        transcripts=True,
+        percepts=False,
+        agents=False,
+    )
+
+    assert entries == []
+
+
 def test_cluster_range_with_agents(tmp_path, monkeypatch):
     """Test cluster_range with agents source loads all *.md files."""
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
