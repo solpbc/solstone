@@ -463,7 +463,7 @@ def cluster_segments(day: str) -> list[dict[str, Any]]:
         - key: segment directory name (HHMMSS_LEN format)
         - start: start time as HH:MM
         - end: end time as HH:MM
-        - types: list of content types present ("transcripts", "percepts", or both)
+        - types: list of content types present ("audio", "screen", or both)
     """
     from think.utils import segment_parse
 
@@ -490,11 +490,11 @@ def cluster_segments(day: str) -> list[dict[str, Any]]:
             or any(seg_path.glob("*_transcript.md"))
             or (seg_path / "imported.md").exists()
         ):
-            types.append("transcripts")
+            types.append("audio")
 
         # Check for screen content
         if (seg_path / "screen.jsonl").exists() or any(seg_path.glob("*_screen.jsonl")):
-            types.append("percepts")
+            types.append("screen")
 
         if not types:
             continue

@@ -2266,12 +2266,20 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     updateZoom();
   }).observe(zoom);
 
-  // Load transcript ranges and compute dynamic timeline bounds
-  fetch(`/app/transcripts/api/ranges/${day}`)
-    .then(r => r.json())
-    .then(data => {
-      // Compute and apply dynamic bounds
-      const bounds = computeTimelineBounds(data);
+  // Load transcript ranges and segments in parallel, initialize after both resolve
+  const rangesFetch = fetch(`/app/transcripts/api/ranges/${day}`).then(r => {
+    if (!r.ok) throw new Error(`Ranges failed: ${r.status}`);
+    return r.json();
+  });
+  const segmentsFetch = fetch(`/app/transcripts/api/segments/${day}`).then(r => {
+    if (!r.ok) throw new Error(`Segments failed: ${r.status}`);
+    return r.json();
+  });
+
+  Promise.all([rangesFetch, segmentsFetch])
+    .then(([rangesData, segmentsData]) => {
+      // Apply dynamic timeline bounds from ranges
+      const bounds = computeTimelineBounds(rangesData);
       timelineStart = bounds.start;
       timelineEnd = bounds.end;
 
@@ -2283,26 +2291,22 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const mid = (timelineStart + timelineEnd) / 2;
       range = { start: snap(mid - DEFAULT_LEN / 2), end: snap(mid + DEFAULT_LEN / 2) };
 
-      // Now build the grid and render
+      // Build the grid and render timeline
       buildGrid();
       renderTimeline();
 
-      // Add segment indicators
-      (data.audio || []).forEach(rg => {
+      // Add segment indicators from ranges
+      (rangesData.audio || []).forEach(rg => {
         const [s, e] = rg.map(parseTime);
         addSegmentIndicator('audio', s, e, 0);
       });
-      (data.screen || []).forEach(rg => {
+      (rangesData.screen || []).forEach(rg => {
         const [s, e] = rg.map(parseTime);
         addSegmentIndicator('screen', s, e, 1);
       });
-    });
 
-  // Load segments for the zoom view
-  fetch(`/app/transcripts/api/segments/${day}`)
-    .then(r => r.json())
-    .then(data => {
-      allSegments = data.segments || [];
+      // Store segments and update zoom
+      allSegments = segmentsData.segments || [];
       updateZoom();
 
       // Check for hash fragment to auto-select segment
@@ -2310,7 +2314,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       if (hash) {
         const seg = allSegments.find(s => s.key === hash);
         if (seg) {
-          // Adjust range to include the segment
           const segStart = parseTime(seg.start);
           const segEnd = parseTime(seg.end);
           const rangeLen = range.end - range.start;
@@ -2323,6 +2326,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           selectSegment(seg, false);
         }
       }
+    })
+    .catch(err => {
+      console.error('Failed to load transcript data:', err);
+      const errEl = document.createElement('div');
+      errEl.className = 'tr-zoom-empty';
+      errEl.textContent = 'Failed to load transcript data';
+      zoomSegments.innerHTML = '';
+      zoomSegments.appendChild(errEl);
     });
 
   // Handle browser back/forward

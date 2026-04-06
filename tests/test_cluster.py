@@ -134,20 +134,20 @@ def test_cluster_segments(tmp_path, monkeypatch):
     assert segments[0]["key"] == "090000_300"
     assert segments[0]["start"] == "09:00"
     assert segments[0]["end"] == "09:05"
-    assert segments[0]["types"] == ["transcripts"]
+    assert segments[0]["types"] == ["audio"]
 
     # Check second segment (both transcripts and screen)
     assert segments[1]["key"] == "100000_600"
     assert segments[1]["start"] == "10:00"
     assert segments[1]["end"] == "10:10"
-    assert "transcripts" in segments[1]["types"]
-    assert "percepts" in segments[1]["types"]
+    assert "audio" in segments[1]["types"]
+    assert "screen" in segments[1]["types"]
 
     # Check third segment (screen only)
     assert segments[2]["key"] == "110000_300"
     assert segments[2]["start"] == "11:00"
     assert segments[2]["end"] == "11:05"
-    assert segments[2]["types"] == ["percepts"]
+    assert segments[2]["types"] == ["screen"]
 
 
 def test_cluster_period_uses_raw_screen(tmp_path, monkeypatch):
@@ -333,7 +333,7 @@ def test_cluster_segments_with_split_screen(tmp_path, monkeypatch):
 
     assert len(segments) == 1
     assert segments[0]["key"] == "100000_300"
-    assert "percepts" in segments[0]["types"]
+    assert "screen" in segments[0]["types"]
 
 
 def test_cluster_span(tmp_path, monkeypatch):
