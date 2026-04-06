@@ -646,7 +646,7 @@ def get_model_provider(model: str) -> str:
     Returns
     -------
     str
-        Provider name: "openai", "google", "anthropic", or "unknown"
+        Provider name: "openai", "google", "anthropic", "ollama", or "unknown"
     """
     model_lower = model.lower()
 
