@@ -205,11 +205,6 @@ def ensure_sol_directory() -> Path:
         agency_path.write_text(_AGENCY_MD, encoding="utf-8")
         logger.info("Created %s", agency_path)
 
-    briefing_path = sol_dir / "briefing.md"
-    if not briefing_path.exists():
-        briefing_path.write_text("", encoding="utf-8")
-        logger.info("Created %s", briefing_path)
-
     partner_path = sol_dir / "partner.md"
     if not partner_path.exists():
         partner_path.write_text(_PARTNER_MD, encoding="utf-8")
@@ -249,6 +244,7 @@ def _log_identity_change(
         "section": section,
         "diff": diff,
         "source": source,
+        "pid": os.getpid(),
     }
     history_path = Path(get_journal()) / "sol" / "history.jsonl"
     with open(history_path, "a", encoding="utf-8") as f:
