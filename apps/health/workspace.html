@@ -27,6 +27,14 @@
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 }
 
+.status-summary {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 0.8em 1.5em;
+  font-size: 0.95em;
+  color: #374151;
+}
+
 .vitals-header {
   display: flex;
   justify-content: space-between;
@@ -186,13 +194,31 @@
 }
 
 .observe-content {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 1em;
+  display: flex;
+  gap: 2em;
 }
 
 .observe-content.hidden {
   display: none;
+}
+
+.observe-group {
+  flex: 1;
+}
+
+.observe-group-label {
+  font-size: 0.75em;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5em;
+  font-weight: 500;
+}
+
+.observe-group-channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1em;
 }
 
 .observe-empty {
@@ -444,16 +470,47 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
+.logs-card.logs-collapsed .logs-viewport,
+.logs-card.logs-collapsed .logs-controls {
+  display: none;
+}
+
+.logs-card.logs-collapsed .logs-header {
+  margin-bottom: 0;
+}
+
 .logs-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
+  gap: 0.75em;
   margin-bottom: 1em;
+  cursor: pointer;
+  user-select: none;
 }
 
 .logs-title {
   font-size: 1.1em;
   font-weight: 600;
+}
+
+.logs-error-badge {
+  background: #ef4444;
+  color: white;
+  padding: 0.15em 0.5em;
+  border-radius: 10px;
+  font-size: 0.8em;
+  margin-left: 0.5em;
+}
+
+.logs-error-badge.hidden {
+  display: none;
+}
+
+.logs-collapse-indicator {
+  font-size: 0.8em;
+  color: #6b7280;
+  margin-left: auto;
 }
 
 .logs-controls {
@@ -699,6 +756,10 @@
     </div>
   </div>
 
+  <div class="status-summary">
+    <span id="statusSummaryText">Waiting for status...</span>
+  </div>
+
   <!-- Observe Card -->
   <div class="observe-card">
     <div class="card-header">
@@ -713,35 +774,45 @@
       No observers connected — <a href="/app/remote/">Manage remotes →</a>
     </div>
     <div class="observe-content hidden" id="observeContent">
-      <div class="observe-section">
-        <div class="observe-section-title">Screencast</div>
-        <div class="observe-section-value" id="screencastStatus">Waiting...</div>
-        <div class="observe-section-detail" id="screencastDetail"></div>
+      <div class="observe-group">
+        <div class="observe-group-label">Capture</div>
+        <div class="observe-group-channels">
+          <div class="observe-section">
+            <div class="observe-section-title">Screencast</div>
+            <div class="observe-section-value" id="screencastStatus">Waiting...</div>
+            <div class="observe-section-detail" id="screencastDetail"></div>
+          </div>
+          <div class="observe-section">
+            <div class="observe-section-title">Tmux</div>
+            <div class="observe-section-value" id="tmuxStatus">Waiting...</div>
+            <div class="observe-section-detail" id="tmuxDetail"></div>
+          </div>
+          <div class="observe-section">
+            <div class="observe-section-title">Audio</div>
+            <div class="observe-section-value" id="audioStatus">Waiting...</div>
+            <div class="observe-section-detail" id="audioDetail"></div>
+          </div>
+          <div class="observe-section">
+            <div class="observe-section-title">Activity</div>
+            <div class="observe-section-value" id="activityStatus">Waiting...</div>
+            <div class="observe-section-detail" id="activityDetail"></div>
+          </div>
+        </div>
       </div>
-      <div class="observe-section">
-        <div class="observe-section-title">Tmux</div>
-        <div class="observe-section-value" id="tmuxStatus">Waiting...</div>
-        <div class="observe-section-detail" id="tmuxDetail"></div>
-      </div>
-      <div class="observe-section">
-        <div class="observe-section-title">Audio</div>
-        <div class="observe-section-value" id="audioStatus">Waiting...</div>
-        <div class="observe-section-detail" id="audioDetail"></div>
-      </div>
-      <div class="observe-section">
-        <div class="observe-section-title">Activity</div>
-        <div class="observe-section-value" id="activityStatus">Waiting...</div>
-        <div class="observe-section-detail" id="activityDetail"></div>
-      </div>
-      <div class="observe-section">
-        <div class="observe-section-title">Describe</div>
-        <div class="observe-section-value" id="describeStatus">Idle</div>
-        <div class="observe-section-detail" id="describeDetail"></div>
-      </div>
-      <div class="observe-section">
-        <div class="observe-section-title">Transcribe</div>
-        <div class="observe-section-value" id="transcribeStatus">Idle</div>
-        <div class="observe-section-detail" id="transcribeDetail"></div>
+      <div class="observe-group">
+        <div class="observe-group-label">Processing</div>
+        <div class="observe-group-channels">
+          <div class="observe-section">
+            <div class="observe-section-title">Describe</div>
+            <div class="observe-section-value" id="describeStatus">Idle</div>
+            <div class="observe-section-detail" id="describeDetail"></div>
+          </div>
+          <div class="observe-section">
+            <div class="observe-section-title">Transcribe</div>
+            <div class="observe-section-value" id="transcribeStatus">Idle</div>
+            <div class="observe-section-detail" id="transcribeDetail"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -775,6 +846,17 @@
     </div>
   </div>
 
+  <div class="activity-section hidden" id="errorSummary">
+    <div class="activity-section-header" style="color: #dc2626;">
+      RECENT ERRORS
+    </div>
+    <div id="errorSummaryContent"></div>
+  </div>
+
+  <div class="activity-section hidden" id="allQuietCard" style="text-align: center; color: #6b7280; padding: 2em;">
+    All quiet — no active agents, imports, or processing
+  </div>
+
   <!-- Dream Card (hidden when idle) -->
   <div class="dream-card hidden" id="dreamCard">
     <div class="card-header">
@@ -794,9 +876,11 @@
   </div>
 
   <!-- Service Logs -->
-  <div class="logs-card">
+  <div class="logs-card logs-collapsed">
     <div class="logs-header">
       <div class="logs-title">SERVICE LOGS</div>
+      <span class="logs-error-badge hidden" id="logErrorBadge"></span>
+      <span class="logs-collapse-indicator" id="logsCollapseIndicator">▶ Show</span>
       <div class="logs-controls">
         <select id="logServiceFilter">
           <option value="all">All Services</option>
@@ -838,7 +922,10 @@
     sync: null,                 // Sync status snapshot (null when idle)
     serviceLogs: new Map(),     // service name -> array of {ts, stream, line}
     logFollow: true,            // Auto-scroll log viewport
+    logsCollapsed: true,
+    logErrorCount: 0,
     observers: new Map(),       // keyed by stream name
+    recentErrors: [],
     localHost: null,
     deepLinkMode: false,
     lastLogFilter: null,        // Last rendered filter state for incremental append
@@ -852,6 +939,7 @@
     tasksValue: document.getElementById('tasksValue'),
     healthValue: document.getElementById('healthValue'),
     vitalsStatus: document.getElementById('vitalsStatus'),
+    statusSummaryText: document.getElementById('statusSummaryText'),
     observeModeBadge: document.getElementById('observeModeBadge'),
     observeModeLabel: document.getElementById('observeModeLabel'),
     screencastStatus: document.getElementById('screencastStatus'),
@@ -874,6 +962,9 @@
     cortexGrid: document.getElementById('cortexGrid'),
     importerSection: document.getElementById('importerSection'),
     importerGrid: document.getElementById('importerGrid'),
+    errorSummary: document.getElementById('errorSummary'),
+    errorSummaryContent: document.getElementById('errorSummaryContent'),
+    allQuietCard: document.getElementById('allQuietCard'),
     dreamCard: document.getElementById('dreamCard'),
     dreamInfo: document.getElementById('dreamInfo'),
     dreamProgress: document.getElementById('dreamProgress'),
@@ -889,6 +980,8 @@
     logStreamFilter: document.getElementById('logStreamFilter'),
     logFollowBtn: document.getElementById('logFollowBtn'),
     logClearBtn: document.getElementById('logClearBtn'),
+    logErrorBadge: document.getElementById('logErrorBadge'),
+    logsCollapseIndicator: document.getElementById('logsCollapseIndicator'),
     connectionIndicator: document.getElementById('connectionIndicator'),
     vitalsBar: document.querySelector('.vitals-bar'),
   };
@@ -930,6 +1023,82 @@
     if (hours < 24) return `in ${hours}h`;
     const days = Math.floor(hours / 24);
     return `in ${days}d`;
+  }
+
+  function updateStatusSummary() {
+    const parts = [];
+    const observers = Array.from(state.observers.values());
+    const activeAgents = Array.from(state.agents.values()).filter(agent => agent.event !== 'finish' && agent.event !== 'error').length;
+    const activeImports = Array.from(state.imports.values()).filter(imp => imp.event !== 'completed' && imp.event !== 'error').length;
+    const staleCount = state.health?.stale_heartbeats?.length || 0;
+    const servicesKnown = state.services.size > 0 || state.crashed.size > 0;
+
+    if (state.observers.size > 0) {
+      const captureDetails = [];
+      if (observers.some(observer => observer.screencast?.recording)) captureDetails.push('screen');
+      if (observers.some(observer => observer.audio && ((observer.audio.threshold_hits || 0) > 0 || observer.audio.will_save))) captureDetails.push('audio');
+      if (observers.some(observer => observer.tmux?.capturing)) captureDetails.push('tmux');
+      parts.push(captureDetails.length > 0 ? `Capturing (${captureDetails.join(', ')})` : 'Capturing');
+    }
+
+    const processingDetails = [];
+    if (observers.some(observer => observer.describe?.running)) processingDetails.push('describe');
+    if (observers.some(observer => observer.transcribe?.running)) processingDetails.push('transcribe');
+    if (processingDetails.length > 0) {
+      parts.push(`Processing (${processingDetails.join(', ')})`);
+    }
+
+    if (activeAgents > 0) {
+      parts.push(`${activeAgents} agent${activeAgents === 1 ? '' : 's'} running`);
+    }
+    if (activeImports > 0) {
+      parts.push(`${activeImports} import${activeImports === 1 ? '' : 's'} active`);
+    }
+    if (state.crashed.size > 0) {
+      parts.push(`${state.crashed.size} service${state.crashed.size === 1 ? '' : 's'} crashed`);
+    }
+    if (staleCount > 0) {
+      parts.push(`${staleCount} stale heartbeat${staleCount === 1 ? '' : 's'}`);
+    }
+    if (state.recentErrors.length > 0) {
+      parts.push(`${state.recentErrors.length} recent error${state.recentErrors.length === 1 ? '' : 's'}`);
+    }
+
+    if (parts.length === 0) {
+      elements.statusSummaryText.textContent = servicesKnown ? 'Healthy — all quiet' : 'Waiting for status...';
+      return;
+    }
+
+    if (servicesKnown && state.crashed.size === 0 && staleCount === 0 && state.recentErrors.length === 0) {
+      parts.push('Healthy');
+    }
+
+    elements.statusSummaryText.textContent = parts.join(' · ');
+  }
+
+  function updateAllQuiet() {
+    const allHidden = elements.cortexSection.classList.contains('hidden') &&
+      elements.importerSection.classList.contains('hidden') &&
+      elements.dreamCard.classList.contains('hidden') &&
+      elements.syncCard.classList.contains('hidden');
+    elements.allQuietCard.classList.toggle('hidden', !allHidden);
+  }
+
+  function updateErrorSummary() {
+    if (state.recentErrors.length === 0) {
+      elements.errorSummary.classList.add('hidden');
+      return;
+    }
+
+    elements.errorSummary.classList.remove('hidden');
+    const recent = state.recentErrors.slice(-10).reverse();
+    elements.errorSummaryContent.innerHTML = recent.map(e => {
+      const icon = e.type === 'agent' ? '⚙' : '↓';
+      const ago = formatElapsed(Math.floor((Date.now() - e.ts) / 1000));
+      return `<div style="padding: 0.3em 0; font-size: 0.85em; color: #374151; border-bottom: 1px solid #f3f4f6;">
+        ${icon} <strong>${escapeHtml(e.name)}</strong> — ${escapeHtml(truncate(e.error, 60))} <span style="color: #9ca3af; font-size: 0.85em;">${escapeHtml(ago)} ago</span>
+      </div>`;
+    }).join('');
   }
 
   // Client-side elapsed time updater
@@ -1040,6 +1209,8 @@
     } else {
       elements.schedulesValue.textContent = '—';
     }
+
+    updateStatusSummary();
   }
 
   function updateVitalsStatus(status) {
@@ -1099,6 +1270,7 @@
       elements.observeEmpty.classList.remove('hidden');
       elements.observeContent.classList.add('hidden');
       updateObserveMode();
+      updateStatusSummary();
       return;
     }
     elements.observeEmpty.classList.add('hidden');
@@ -1122,6 +1294,7 @@
       elements.describeDetail.textContent = '';
       elements.transcribeStatus.textContent = 'Waiting...';
       elements.transcribeDetail.textContent = '';
+      updateStatusSummary();
       return;
     }
 
@@ -1241,6 +1414,8 @@
       elements.transcribeStatus.textContent = 'Idle';
       elements.transcribeDetail.textContent = '';
     }
+
+    updateStatusSummary();
   }
 
   // Update observers
@@ -1317,6 +1492,8 @@
 
     if (activeAgents.length === 0) {
       elements.cortexSection.classList.add('hidden');
+      updateAllQuiet();
+      updateStatusSummary();
       return;
     }
 
@@ -1339,6 +1516,8 @@
     }).join('');
 
     elements.cortexGrid.innerHTML = html;
+    updateAllQuiet();
+    updateStatusSummary();
   }
 
   // Update importer grid
@@ -1347,6 +1526,8 @@
 
     if (activeImports.length === 0) {
       elements.importerSection.classList.add('hidden');
+      updateAllQuiet();
+      updateStatusSummary();
       return;
     }
 
@@ -1381,6 +1562,8 @@
     }).join('');
 
     elements.importerGrid.innerHTML = html;
+    updateAllQuiet();
+    updateStatusSummary();
   }
 
   function handleDreamEvent(msg) {
@@ -1402,6 +1585,8 @@
   function updateDreamCard() {
     if (!state.dreamActive || !state.dream) {
       elements.dreamCard.classList.add('hidden');
+      updateAllQuiet();
+      updateStatusSummary();
       return;
     }
 
@@ -1442,6 +1627,9 @@
     } else {
       elements.dreamAgents.textContent = '';
     }
+
+    updateAllQuiet();
+    updateStatusSummary();
   }
 
   function handleSyncEvent(msg) {
@@ -1456,6 +1644,8 @@
     // Show when there's queued work or active upload
     if (!s || (s.queue_size === 0 && !s.segment)) {
       elements.syncCard.classList.add('hidden');
+      updateAllQuiet();
+      updateStatusSummary();
       return;
     }
 
@@ -1468,6 +1658,9 @@
     if (s.state) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">State</div><div>${escapeHtml(s.state)}${s.confirm_attempt ? ' (' + escapeHtml(s.confirm_attempt) + ')' : ''}</div></div>`);
     if (s.segment) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Segment</div><div>${escapeHtml(s.segment)}</div></div>`);
     elements.syncInfo.innerHTML = infoParts.join('');
+
+    updateAllQuiet();
+    updateStatusSummary();
   }
 
   const LOG_BUFFER_SIZE = 50;
@@ -1495,6 +1688,16 @@
         message: record.line.replace(/^\S+\s+\[\S+\]\s+/, '').slice(0, 120),
         ts: record.ts
       });
+      state.logErrorCount++;
+      elements.logErrorBadge.textContent = state.logErrorCount + ' error' + (state.logErrorCount > 1 ? 's' : '');
+      elements.logErrorBadge.classList.remove('hidden');
+      if (state.logsCollapsed) {
+        state.logsCollapsed = false;
+        document.querySelector('.logs-card').classList.remove('logs-collapsed');
+        elements.logsCollapseIndicator.textContent = '▼ Hide';
+        renderLogs();
+        state.lastLogFilter = null;
+      }
     }
 
     // Update service filter dropdown if new service
@@ -1665,6 +1868,17 @@
 
     // Remove finished/error agents after delay
     if (msg.event === 'finish' || msg.event === 'error') {
+      if (msg.event === 'error') {
+        state.recentErrors.push({
+          type: 'agent',
+          id: agentId,
+          name: msg.name || existing.name || 'unknown',
+          error: msg.error || 'Unknown error',
+          ts: Date.now()
+        });
+        if (state.recentErrors.length > 50) state.recentErrors.shift();
+        updateErrorSummary();
+      }
       setTimeout(() => {
         state.agents.delete(agentId);
         updateCortexGrid();
@@ -1726,6 +1940,16 @@
         lastSeen: Date.now()
       });
 
+      state.recentErrors.push({
+        type: 'import',
+        id: importId,
+        name: msg.input_file || existing.input_file || 'unknown',
+        error: msg.error || 'Unknown error',
+        ts: Date.now()
+      });
+      if (state.recentErrors.length > 50) state.recentErrors.shift();
+      updateErrorSummary();
+
       // Keep error visible longer
       setTimeout(() => {
         state.imports.delete(importId);
@@ -1752,6 +1976,14 @@
   // Log controls
   elements.logServiceFilter.addEventListener('change', renderLogs);
   elements.logStreamFilter.addEventListener('change', renderLogs);
+  document.querySelector('.logs-header').addEventListener('click', (e) => {
+    if (state.deepLinkMode || e.target.closest('.logs-controls')) return;
+    state.logsCollapsed = !state.logsCollapsed;
+    const card = document.querySelector('.logs-card');
+    card.classList.toggle('logs-collapsed', state.logsCollapsed);
+    elements.logsCollapseIndicator.textContent = state.logsCollapsed ? '▶ Show' : '▼ Hide';
+    if (!state.logsCollapsed) renderLogs();
+  });
   elements.logFollowBtn.addEventListener('click', () => {
     state.logFollow = !state.logFollow;
     elements.logFollowBtn.classList.toggle('active', state.logFollow);
@@ -1768,6 +2000,9 @@
   // Deep-link: display log file content if ?log= param is present
   const deepLinkLog = new URLSearchParams(window.location.search).get('log');
   if (deepLinkLog) {
+    state.logsCollapsed = false;
+    document.querySelector('.logs-card').classList.remove('logs-collapsed');
+    elements.logsCollapseIndicator.textContent = '▼ Hide';
     const viewport = elements.logsViewport;
     const logsCard = viewport.closest('.logs-card');
     const logsTitle = logsCard.querySelector('.logs-title');
