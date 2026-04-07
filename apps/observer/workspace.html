@@ -445,15 +445,34 @@ window.onclick = (e) => {
   }
 };
 
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  // Fallback for non-HTTPS contexts (local solstone instances)
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  return Promise.resolve();
+}
+
 function setupCopyBtn(btn, codeEl) {
   btn.onclick = () => {
-    navigator.clipboard.writeText(codeEl.textContent).then(() => {
+    copyText(codeEl.textContent).then(() => {
       btn.textContent = 'Copied!';
       btn.classList.add('copied');
       setTimeout(() => {
         btn.textContent = 'Copy';
         btn.classList.remove('copied');
       }, 2000);
+    }, () => {
+      btn.textContent = 'Failed';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
     });
   };
 }
