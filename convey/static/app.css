@@ -125,6 +125,11 @@ body.has-date-nav .workspace {
   padding: 1.5rem 2rem 2rem;
 }
 
+.workspace-prose {
+  max-width: 72ch;
+  margin-inline: auto;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .workspace-content,
@@ -304,7 +309,11 @@ body:has(.status-pane.visible) .facet-bar::after {
 .date-nav-arrow {
   background: none;
   border: none;
-  padding: 4px 12px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   font-size: 18px;
   font-weight: 600;
@@ -683,17 +692,19 @@ body:not(.menu-full) .menu-bar .menu-item.current {
 .menu-bar .menu-item .star-toggle {
   display: none;
   font-size: 16px;
-  padding: 0 4px;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.2s;
   flex-shrink: 0;
   user-select: none;
-  line-height: 20px;
 }
 
 body.menu-full .menu-bar .menu-item .star-toggle {
-  display: block;
+  display: inline-flex;
 }
 
 /* Show star on hover or when starred */
@@ -710,18 +721,20 @@ body.menu-full .menu-bar .menu-item:hover .star-toggle,
 .menu-bar .menu-item .drag-handle {
   display: none;
   font-size: 20px;
-  padding: 0 4px 0 2px;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
   cursor: grab;
   opacity: 0;
   transition: opacity 0.2s;
   flex-shrink: 0;
   user-select: none;
   color: #999;
-  line-height: 20px;
 }
 
 body.menu-full .menu-bar .menu-item .drag-handle {
-  display: block;
+  display: inline-flex;
 }
 
 body.menu-full .menu-bar .menu-item:hover .drag-handle {
@@ -838,7 +851,8 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
 
 /* Menu expander (down arrow below last visible app icon) */
 .menu-bar .menu-expander {
-  padding: 4px 0;
+  min-width: 44px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1101,8 +1115,8 @@ body.menu-all .menu-bar {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 24px;
-  height: 24px;
+  min-width: 44px;
+  min-height: 44px;
   border: none;
   background: transparent;
   color: #999;
@@ -1452,9 +1466,8 @@ a.notification-card {
   line-height: 1;
   color: #9ca3af;
   cursor: pointer;
-  padding: 0;
-  width: 20px;
-  height: 20px;
+  min-width: 44px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1778,6 +1791,53 @@ button.close {
   clip: auto;
   white-space: normal;
   font-size: 14px;
+}
+
+/* ========================================
+ * Reduced Motion
+ * Respects prefers-reduced-motion user preference
+ * ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .chat-bar-thinking-dot {
+    animation: none;
+    opacity: 1;
+  }
+
+  .facet-pill:hover {
+    transform: none;
+  }
+
+  .facet-pill.dragging {
+    transform: none;
+  }
+
+  .facet-pill.drag-over {
+    transform: none;
+  }
+
+  .facet-add-pill:hover {
+    transform: none;
+  }
+
+  .menu-submenu {
+    transform: none;
+  }
+
+  .notification-card:hover {
+    transform: none;
+  }
 }
 
 /* Focus-visible states for keyboard navigation */
