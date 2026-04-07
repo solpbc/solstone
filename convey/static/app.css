@@ -1402,6 +1402,18 @@ body.menu-all .menu-bar {
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
 }
 
+#error-log-dismiss {
+  position: sticky;
+  top: 0;
+  float: right;
+  background: #222;
+  color: #eee;
+  border: 1px solid #444;
+  padding: 2px 8px;
+  font: 12px monospace;
+  cursor: pointer;
+}
+
 /* Notification Center */
 .notification-center {
   position: fixed;

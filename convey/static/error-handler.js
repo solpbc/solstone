@@ -27,6 +27,17 @@
   // Log error to bottom panel
   function logError(text) {
     if (errorLog) {
+      if (!document.getElementById('error-log-dismiss')) {
+        var btn = document.createElement('button');
+        btn.id = 'error-log-dismiss';
+        btn.textContent = 'clear';
+        btn.setAttribute('aria-label', 'dismiss error log');
+        btn.onclick = function() {
+          errorLog.innerHTML = '';
+          errorLog.style.display = 'none';
+        };
+        errorLog.insertAdjacentElement('afterbegin', btn);
+      }
       errorLog.insertAdjacentHTML(
         'beforeend',
         escapeHtml(text) + '<br>'
