@@ -76,7 +76,7 @@ html {
 
 /* Default theme (when no facet is selected) */
 :root {
-  --facet-color: #E8923A;
+  --facet-color: #b06a1a;
   --facet-bg: transparent;
   --facet-border: #e0e0e0;
 
@@ -370,7 +370,7 @@ body:has(.status-pane.visible) .facet-bar::after {
 }
 
 .date-nav-today:focus-visible {
-  outline: 2px solid #E8923A;
+  outline: 2px solid #b06a1a;
   outline-offset: 2px;
   background: rgba(0, 0, 0, 0.05);
   color: #111827;
@@ -516,18 +516,18 @@ body:has(.status-pane.visible) .facet-bar::after {
 
 /* Today indicator */
 .mp-day.mp-today {
-  box-shadow: inset 0 0 0 2px #E8923A;
+  box-shadow: inset 0 0 0 2px #b06a1a;
 }
 
 /* Selected day */
 .mp-day.mp-selected {
-  background: var(--facet-color, #E8923A);
+  background: var(--facet-color, #b06a1a);
   color: white;
   font-weight: 600;
 }
 
 .mp-day.mp-selected:hover {
-  background: var(--facet-color, #E8923A);
+  background: var(--facet-color, #b06a1a);
 }
 
 /* Status Pane - slides down from facet bar on right (mirrors menu bar on left) */
@@ -844,7 +844,7 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
 }
 
 .submenu-badge {
-  background: var(--facet-color, #E8923A);
+  background: var(--facet-color, #b06a1a);
   color: white;
   font-size: 10px;
   font-weight: 600;
@@ -935,7 +935,7 @@ body.menu-all .menu-bar {
   border: 1px solid #ddd;
   cursor: grab;
   font-size: 14px;
-  transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
   user-select: none;
   position: relative;
   min-width: 0;        /* Allow pill to shrink below content size */
@@ -1196,7 +1196,7 @@ body.menu-all .menu-bar {
 
 .chat-bar-input:focus {
   outline: none;
-  border-color: var(--facet-color, #E8923A);
+  border-color: var(--facet-color, #b06a1a);
 }
 
 .chat-bar-input::placeholder {
@@ -1208,7 +1208,7 @@ body.menu-all .menu-bar {
   height: 36px;
   border-radius: 50%;
   border: none;
-  background: var(--facet-color, #E8923A);
+  background: var(--facet-color, #b06a1a);
   color: white;
   font-size: 18px;
   cursor: pointer;
@@ -1237,7 +1237,7 @@ body.menu-all .menu-bar {
 .chat-bar-thinking-dot {
   width: 8px;
   height: 8px;
-  background: var(--facet-color, #E8923A);
+  background: var(--facet-color, #b06a1a);
   border-radius: 50%;
   animation: chat-bar-pulse 1s ease-in-out infinite;
 }
@@ -1381,7 +1381,7 @@ body.menu-all .menu-bar {
 
 .conversation-message.user {
   align-self: flex-end;
-  background: var(--facet-color, #E8923A);
+  background: var(--facet-color, #b06a1a);
   color: white;
   border-bottom-right-radius: 4px;
 }
@@ -1669,9 +1669,9 @@ a.notification-card {
 }
 
 .facet-add-pill:hover {
-  border-color: var(--facet-color, #E8923A);
-  color: var(--facet-color, #E8923A);
-  background: var(--facet-bg, rgba(232, 146, 58, 0.1));
+  border-color: var(--facet-color, #b06a1a);
+  color: var(--facet-color, #b06a1a);
+  background: var(--facet-bg, rgba(176, 106, 26, 0.1));
   transform: scale(1.1);
 }
 
@@ -1735,7 +1735,7 @@ a.notification-card {
 
 .facet-create-field input:focus {
   outline: none;
-  border-color: var(--facet-color, #E8923A);
+  border-color: var(--facet-color, #b06a1a);
 }
 
 .facet-create-slug {
@@ -1776,7 +1776,7 @@ a.notification-card {
 }
 
 .facet-create-submit {
-  background: var(--facet-color, #E8923A);
+  background: var(--facet-color, #b06a1a);
   border: none;
   color: white;
 }
@@ -1906,7 +1906,7 @@ button.close {
 .facet-create-cancel:focus-visible,
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid var(--facet-color, #E8923A);
+  outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: 2px;
 }
 
@@ -1930,7 +1930,7 @@ a:focus-visible {
   left: 0;
   z-index: 9999;
   padding: 8px 16px;
-  background: var(--facet-color, #E8923A);
+  background: var(--facet-color, #b06a1a);
   color: #fff;
   text-decoration: none;
   font-size: 14px;
