@@ -4,24 +4,11 @@
 """Tests for the dream module unified priority system."""
 
 import importlib
-import shutil
-from pathlib import Path
-
-FIXTURES = Path("tests/fixtures")
 
 
-def copy_journal(tmp_path: Path) -> Path:
-    src = FIXTURES / "journal"
-    dest = tmp_path / "journal"
-    shutil.copytree(src, dest, symlinks=True)
-    return dest
-
-
-def test_main_runs_with_mocked_prompts(tmp_path, monkeypatch):
+def test_main_runs_with_mocked_prompts(journal_copy, monkeypatch):
     """Test that main() runs pre/post phases and prompts by priority."""
     mod = importlib.import_module("think.dream")
-    journal = copy_journal(tmp_path)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     commands_run = []
     prompts_run = False
@@ -61,16 +48,13 @@ def test_main_runs_with_mocked_prompts(tmp_path, monkeypatch):
     assert any("--rescan" in cmd for cmd in indexer_cmds)
 
 
-def test_segment_mode_skips_pre_post_phases(tmp_path, monkeypatch):
+def test_segment_mode_skips_pre_post_phases(journal_copy, monkeypatch):
     """Test that segment mode skips sense and journal-stats."""
     mod = importlib.import_module("think.dream")
-    journal = copy_journal(tmp_path)
 
     # Create segment directory
-    segment_dir = journal / "20240101" / "default" / "120000_300"
+    segment_dir = journal_copy / "20240101" / "default" / "120000_300"
     segment_dir.mkdir(parents=True, exist_ok=True)
-
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     commands_run = []
 

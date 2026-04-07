@@ -989,11 +989,11 @@ def test_scan_entities_incremental_noop():
 
 def test_scan_entities_deletion(tmp_path):
     """Verify entity rows are removed when source file is deleted."""
-    import shutil
+    from tests.conftest import copytree_tracked
 
     src = Path("tests/fixtures/journal")
     dst = tmp_path / "journal"
-    shutil.copytree(src, dst, symlinks=True)
+    copytree_tracked(src, dst)
     j = str(dst)
 
     from think.indexer.journal import scan_journal
@@ -1138,11 +1138,11 @@ def test_scan_signals_incremental_noop():
 
 def test_scan_signals_deletion(tmp_path):
     """Verify signal rows are removed when source file is deleted."""
-    import shutil
+    from tests.conftest import copytree_tracked
 
     src = Path("tests/fixtures/journal")
     dst = tmp_path / "journal"
-    shutil.copytree(src, dst, symlinks=True)
+    copytree_tracked(src, dst)
     j = str(dst)
 
     from think.indexer.journal import scan_journal

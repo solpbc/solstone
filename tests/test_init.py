@@ -1,19 +1,8 @@
 import json
-import shutil
-from pathlib import Path
 
 import pytest
 
 from convey import create_app
-
-
-@pytest.fixture
-def journal_dir(tmp_path, monkeypatch):
-    src = Path(__file__).resolve().parent / "fixtures" / "journal"
-    dst = tmp_path / "journal"
-    shutil.copytree(src, dst, symlinks=True)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst))
-    return dst
 
 
 def _read_config(journal_dir):
@@ -28,16 +17,16 @@ def _remove_password(journal_dir):
 
 
 @pytest.fixture
-def fresh_client(journal_dir):
-    _remove_password(journal_dir)
-    app = create_app(str(journal_dir))
+def fresh_client(journal_copy):
+    _remove_password(journal_copy)
+    app = create_app(str(journal_copy))
     app.config["TESTING"] = True
     return app.test_client()
 
 
 @pytest.fixture
-def configured_client(journal_dir):
-    app = create_app(str(journal_dir))
+def configured_client(journal_copy):
+    app = create_app(str(journal_copy))
     app.config["TESTING"] = True
     return app.test_client()
 
@@ -64,7 +53,7 @@ class TestInitDetection:
 
 
 class TestInitPassword:
-    def test_save_password(self, fresh_client, journal_dir):
+    def test_save_password(self, fresh_client, journal_copy):
         resp = fresh_client.post(
             "/init/password",
             json={"password": "securepass123"},
@@ -73,20 +62,20 @@ class TestInitPassword:
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True
-        config = _read_config(journal_dir)
+        config = _read_config(journal_copy)
         assert "password_hash" in config["convey"]
         from werkzeug.security import check_password_hash
 
         assert check_password_hash(config["convey"]["password_hash"], "securepass123")
 
-    def test_password_too_short(self, fresh_client, journal_dir):
+    def test_password_too_short(self, fresh_client, journal_copy):
         resp = fresh_client.post(
             "/init/password",
             json={"password": "short"},
             content_type="application/json",
         )
         assert resp.status_code == 400
-        config = _read_config(journal_dir)
+        config = _read_config(journal_copy)
         assert "password_hash" not in config.get("convey", {})
 
     def test_password_already_set(self, configured_client):
@@ -99,7 +88,7 @@ class TestInitPassword:
 
 
 class TestInitIdentity:
-    def test_save_identity(self, fresh_client, journal_dir):
+    def test_save_identity(self, fresh_client, journal_copy):
         fresh_client.post(
             "/init/password",
             json={"password": "securepass123"},
@@ -111,7 +100,7 @@ class TestInitIdentity:
             content_type="application/json",
         )
         assert resp.status_code == 200
-        config = _read_config(journal_dir)
+        config = _read_config(journal_copy)
         assert config["identity"]["name"] == "Jane Doe"
         assert config["identity"]["preferred"] == "Jane"
 
@@ -125,7 +114,7 @@ class TestInitIdentity:
 
 
 class TestInitProvider:
-    def test_save_provider_key(self, fresh_client, journal_dir, monkeypatch):
+    def test_save_provider_key(self, fresh_client, journal_copy, monkeypatch):
         fresh_client.post(
             "/init/password",
             json={"password": "securepass123"},
@@ -144,10 +133,12 @@ class TestInitProvider:
         data = resp.get_json()
         assert data["success"] is True
         assert data["validation"]["valid"] is True
-        config = _read_config(journal_dir)
+        config = _read_config(journal_copy)
         assert config["env"]["GOOGLE_API_KEY"] == "test-api-key-123"
 
-    def test_provider_validation_failure(self, fresh_client, journal_dir, monkeypatch):
+    def test_provider_validation_failure(
+        self, fresh_client, journal_copy, monkeypatch
+    ):
         fresh_client.post(
             "/init/password",
             json={"password": "securepass123"},
@@ -166,7 +157,7 @@ class TestInitProvider:
         data = resp.get_json()
         assert data["success"] is True
         assert data["validation"]["valid"] is False
-        config = _read_config(journal_dir)
+        config = _read_config(journal_copy)
         assert config["env"]["GOOGLE_API_KEY"] == "bad-key"
 
 
@@ -175,7 +166,7 @@ class TestInitObservers:
         resp = fresh_client.get("/init/observers")
         assert resp.status_code == 403
 
-    def test_observers_returns_list(self, fresh_client, journal_dir, monkeypatch):
+    def test_observers_returns_list(self, fresh_client, journal_copy, monkeypatch):
         fresh_client.post(
             "/init/password",
             json={"password": "securepass123"},
@@ -221,7 +212,7 @@ class TestInitFinalizeGuard:
 
 
 class TestInitFinalize:
-    def test_finalize_sets_session_and_config(self, fresh_client, journal_dir):
+    def test_finalize_sets_session_and_config(self, fresh_client, journal_copy):
         fresh_client.post(
             "/init/password",
             json={"password": "securepass123"},
@@ -236,11 +227,11 @@ class TestInitFinalize:
         data = resp.get_json()
         assert data["success"] is True
         assert data["redirect"] == "/"
-        config = _read_config(journal_dir)
+        config = _read_config(journal_copy)
         assert config["setup"]["coding_agent"] == "claude-code"
         assert "completed_at" in config["setup"]
 
-    def test_finalize_auto_login(self, fresh_client, journal_dir):
+    def test_finalize_auto_login(self, fresh_client, journal_copy):
         fresh_client.post(
             "/init/password",
             json={"password": "securepass123"},
@@ -257,7 +248,7 @@ class TestInitFinalize:
         assert "/login" not in location
         assert "/init" not in location
 
-    def test_post_init_redirect(self, fresh_client, journal_dir):
+    def test_post_init_redirect(self, fresh_client, journal_copy):
         fresh_client.post(
             "/init/password",
             json={"password": "securepass123"},

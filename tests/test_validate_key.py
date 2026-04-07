@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -15,6 +14,7 @@ import think.providers.anthropic
 import think.providers.google
 import think.providers.openai
 from convey import create_app
+from tests.conftest import copytree_tracked
 from think.providers import validate_key
 
 
@@ -22,7 +22,7 @@ from think.providers import validate_key
 def settings_client(tmp_path, monkeypatch):
     src = Path(__file__).resolve().parent / "fixtures" / "journal"
     journal = tmp_path / "journal"
-    shutil.copytree(src, journal, symlinks=True)
+    copytree_tracked(src, journal)
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
 
     app = create_app(str(journal))

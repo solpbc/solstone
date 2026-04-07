@@ -279,11 +279,11 @@ class TestJournal:
 
     def test_journal_news_write(self, tmp_path, monkeypatch):
         """News --write saves content from stdin."""
-        import shutil
+        from tests.conftest import copytree_tracked
 
         # Copy fixtures to tmp so we can write
         journal = tmp_path / "journal"
-        shutil.copytree(
+        copytree_tracked(
             "tests/fixtures/journal/facets/work", journal / "facets" / "work"
         )
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))

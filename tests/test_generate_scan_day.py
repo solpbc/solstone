@@ -3,10 +3,10 @@
 
 import importlib
 import os
-import shutil
 from pathlib import Path
 
 from think.utils import day_path
+from tests.conftest import copytree_tracked
 
 FIXTURES = Path("tests/fixtures")
 
@@ -15,12 +15,7 @@ def copy_day(tmp_path: Path) -> Path:
     os.environ["_SOLSTONE_JOURNAL_OVERRIDE"] = str(tmp_path)
     dest = day_path("20240101")
     src = FIXTURES / "journal" / "20240101"
-    # Copy contents from fixture to the day_path created directory
-    for item in src.iterdir():
-        if item.is_dir():
-            shutil.copytree(item, dest / item.name, dirs_exist_ok=True)
-        else:
-            shutil.copy2(item, dest / item.name)
+    copytree_tracked(src, dest)
     agents_dir = dest / "agents"
     agents_dir.mkdir(exist_ok=True)  # Allow existing directory
     (agents_dir / "flow.md").write_text("done")

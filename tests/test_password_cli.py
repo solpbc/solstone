@@ -6,23 +6,11 @@
 from __future__ import annotations
 
 import json
-import shutil
-from pathlib import Path
 
 import pytest
 from werkzeug.security import check_password_hash
 
 from think.password_cli import main
-
-
-@pytest.fixture
-def journal_dir(tmp_path, monkeypatch):
-    """Copy test fixture to temp dir for mutation tests."""
-    src = Path(__file__).resolve().parent / "fixtures" / "journal"
-    dst = tmp_path / "journal"
-    shutil.copytree(src, dst, symlinks=True)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst))
-    return dst
 
 
 def _read_config(journal_dir):
@@ -36,18 +24,18 @@ def _mock_getpass(monkeypatch, *responses):
 
 
 class TestSetPassword:
-    def test_set_writes_hash(self, journal_dir, monkeypatch, capsys):
+    def test_set_writes_hash(self, journal_copy, monkeypatch, capsys):
         monkeypatch.setattr("sys.argv", ["sol password", "set"])
         _mock_getpass(monkeypatch, "mypassword", "mypassword")
 
         main()
 
-        config = _read_config(journal_dir)
+        config = _read_config(journal_copy)
         assert config["convey"]["password_hash"].startswith("scrypt:")
         assert check_password_hash(config["convey"]["password_hash"], "mypassword")
         assert "Password set successfully." in capsys.readouterr().out
 
-    def test_mismatch_rejected(self, journal_dir, monkeypatch, capsys):
+    def test_mismatch_rejected(self, journal_copy, monkeypatch, capsys):
         monkeypatch.setattr("sys.argv", ["sol password", "set"])
         _mock_getpass(monkeypatch, "password1", "different")
 
@@ -57,9 +45,9 @@ class TestSetPassword:
         assert exc_info.value.code == 1
         assert "Passwords do not match." in capsys.readouterr().err
 
-    def test_plaintext_cleanup(self, journal_dir, monkeypatch):
+    def test_plaintext_cleanup(self, journal_copy, monkeypatch):
         # Seed a plaintext password
-        config_path = journal_dir / "config" / "journal.json"
+        config_path = journal_copy / "config" / "journal.json"
         config = json.loads(config_path.read_text())
         config["convey"]["password"] = "old-plaintext"
         config_path.write_text(json.dumps(config, indent=2))
@@ -69,7 +57,7 @@ class TestSetPassword:
 
         main()
 
-        config = _read_config(journal_dir)
+        config = _read_config(journal_copy)
         assert "password" not in config["convey"]
         assert "password_hash" in config["convey"]
 
@@ -87,23 +75,23 @@ class TestSetPassword:
         assert check_password_hash(config["convey"]["password_hash"], "freshpass")
         assert config_path.stat().st_mode & 0o777 == 0o600
 
-    def test_file_permissions(self, journal_dir, monkeypatch):
+    def test_file_permissions(self, journal_copy, monkeypatch):
         monkeypatch.setattr("sys.argv", ["sol password", "set"])
         _mock_getpass(monkeypatch, "securepass", "securepass")
 
         main()
 
-        config_path = journal_dir / "config" / "journal.json"
+        config_path = journal_copy / "config" / "journal.json"
         assert config_path.stat().st_mode & 0o777 == 0o600
 
 
 class TestResetAlias:
-    def test_reset_writes_hash(self, journal_dir, monkeypatch, capsys):
+    def test_reset_writes_hash(self, journal_copy, monkeypatch, capsys):
         monkeypatch.setattr("sys.argv", ["sol password", "reset"])
         _mock_getpass(monkeypatch, "resetpass", "resetpass")
 
         main()
 
-        config = _read_config(journal_dir)
+        config = _read_config(journal_copy)
         assert check_password_hash(config["convey"]["password_hash"], "resetpass")
         assert "Password set successfully." in capsys.readouterr().out
