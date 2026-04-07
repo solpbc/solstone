@@ -76,6 +76,7 @@
       pill.style.borderColor = '';
       pill.title = `Click to filter by ${facet.title}`;
     }
+    pill.setAttribute('aria-pressed', String(isSelected));
     pill.style.boxShadow = '';
   }
 
@@ -97,6 +98,8 @@
     const facetPillsContainer = document.querySelector('.facet-pills-container');
     if (!facetPillsContainer) return;
 
+    facetPillsContainer.setAttribute('role', 'toolbar');
+    facetPillsContainer.setAttribute('aria-label', 'facet filter');
     facetPillsContainer.innerHTML = '';
 
     // Check if facets are disabled for this app
@@ -147,7 +150,9 @@
       // Apply styling and interactivity (only if facets enabled)
       if (!facetsDisabled) {
         const isSelected = window.selectedFacet === facet.name;
+        pill.setAttribute('role', 'button');
         applyPillStyle(pill, facet, isSelected);
+        pill.tabIndex = isSelected ? 0 : -1;
 
         // Click to select, or click again to deselect (show all facets)
         pill.onclick = () => {
@@ -165,6 +170,12 @@
 
       facetPillsContainer.appendChild(pill);
     });
+
+    // Ensure at least one pill is tabbable (handles null selection and stale facet names)
+    if (!facetPillsContainer.querySelector('.facet-pill[tabindex="0"]')) {
+      const firstPill = facetPillsContainer.querySelector('.facet-pill');
+      if (firstPill) firstPill.tabIndex = 0;
+    }
 
     // Add "+" button to create new facets (only in settings app)
     const currentApp = window.location.pathname.split('/')[2];
@@ -199,7 +210,14 @@
 
       const isSelected = window.selectedFacet === facet.name;
       applyPillStyle(pill, facet, isSelected);
+      pill.tabIndex = isSelected ? 0 : -1;
     });
+
+    // Ensure at least one pill is tabbable (handles null selection and stale facet names)
+    if (!container.querySelector('.facet-pill[tabindex="0"]')) {
+      const firstPill = container.querySelector('.facet-pill');
+      if (firstPill) firstPill.tabIndex = 0;
+    }
   }
 
   // Handle facet selection
@@ -629,6 +647,34 @@
               });
             }
           }
+        }
+      });
+
+      // Keyboard navigation for facet pills (toolbar pattern)
+      facetPillsContainer.addEventListener('keydown', (e) => {
+        const pill = e.target.closest('.facet-pill');
+        if (!pill) return;
+
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          pill.click();
+          return;
+        }
+
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const pills = Array.from(facetPillsContainer.querySelectorAll('.facet-pill'));
+          const currentIndex = pills.indexOf(pill);
+          let nextIndex;
+          if (e.key === 'ArrowRight') {
+            nextIndex = (currentIndex + 1) % pills.length;
+          } else {
+            nextIndex = (currentIndex - 1 + pills.length) % pills.length;
+          }
+          // Update roving tabindex
+          pill.tabIndex = -1;
+          pills[nextIndex].tabIndex = 0;
+          pills[nextIndex].focus();
         }
       });
     }
