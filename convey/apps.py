@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from flask import Flask, request, url_for
+from flask import Flask, g, request, url_for
 
 from apps import AppRegistry
 
@@ -55,19 +55,35 @@ def _get_selected_facet() -> str | None:
 
     Cookie takes precedence - if it differs from config, update config.
     If no cookie exists, use config value as default.
+    Validates against active (non-muted) facets; stale values are cleared.
     """
     from .config import get_selected_facet, set_selected_facet
 
     cookie_facet = request.cookies.get("selectedFacet")
     config_facet = get_selected_facet()
 
+    # Empty string cookie -> treat as no selection, expire it
+    if cookie_facet == "":
+        set_selected_facet(None)
+        g.clear_facet_cookie = True
+        return None
+
+    # Resolve: cookie takes precedence
+    facet = cookie_facet if cookie_facet is not None else config_facet
+
+    # Validate against active (non-muted) facets
+    if facet:
+        active_names = {f["name"] for f in _get_facets_data()}
+        if facet not in active_names:
+            set_selected_facet(None)
+            g.clear_facet_cookie = True
+            return None
+
     # Sync: cookie takes precedence, update config if different
     if cookie_facet is not None and cookie_facet != config_facet:
         set_selected_facet(cookie_facet)
-        return cookie_facet
 
-    # No cookie: use config default
-    return cookie_facet if cookie_facet is not None else config_facet
+    return facet
 
 
 @dataclass
@@ -339,3 +355,9 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
             return url_for("static", filename=f"vendor/{library_name}/{file}")
 
         return {"vendor_lib": vendor_lib}
+
+    @app.after_request
+    def clear_stale_facet_cookie(response):
+        if getattr(g, "clear_facet_cookie", False):
+            response.delete_cookie("selectedFacet", path="/", samesite="Lax")
+        return response
