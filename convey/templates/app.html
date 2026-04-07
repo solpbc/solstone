@@ -159,6 +159,7 @@
     if (panelOpen) return;
     panelOpen = true;
     if (expandBtn) expandBtn.setAttribute('aria-label', 'collapse conversation');
+    if (expandBtn) expandBtn.setAttribute('aria-expanded', 'true');
     appBar.classList.remove('app-bar--dismissing');
     appBar.classList.add('app-bar--focused');
     backdrop.classList.add('visible');
@@ -180,9 +181,11 @@
     if (!panelOpen) return;
     panelOpen = false;
     if (expandBtn) expandBtn.setAttribute('aria-label', 'expand conversation');
+    if (expandBtn) expandBtn.setAttribute('aria-expanded', 'false');
     save();
     appBar.classList.add('app-bar--dismissing');
     backdrop.classList.remove('visible');
+    input.focus();
 
     function onDone() {
       appBar.classList.remove('app-bar--focused', 'app-bar--dismissing');
@@ -245,6 +248,13 @@
       }
     });
   }
+
+  // --- Escape to collapse panel ---
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && panelOpen) {
+      closePanel();
+    }
+  });
 
   // --- Textarea auto-resize + debounced save ---
   let inputSaveTimer;
@@ -468,6 +478,7 @@
       var td = document.createElement('div');
       td.className = 'conversation-message agent thinking';
       td.id = 'panelThinking';
+      td.setAttribute('aria-live', 'assertive');
       td.innerHTML = '<span class="chat-bar-thinking-dot"></span> thinking\u2026';
       msgArea.appendChild(td);
       msgArea.scrollTop = msgArea.scrollHeight;
