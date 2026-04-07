@@ -34,17 +34,18 @@
     </svg>
     <h1 style="font-size: 1.5em; margin: 0.83em 0;">sign in to solstone</h1>
     {% if error %}
-      <div style="color:red;margin:1em 0;text-align:left;">
+      <div style="color:red;margin:1em 0;text-align:left;" role="alert">
         <p>{{ error }}</p>
       </div>
     {% endif %}
     {% if not no_password %}
       <form method="post">
-        <input type="password" name="password" placeholder="password" style="width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 0.95rem; box-sizing: border-box;" autofocus>
+        <label for="password" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">password</label>
+        <input type="password" id="password" name="password" placeholder="password" style="width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 0.95rem; box-sizing: border-box;" autofocus>
         <button type="submit" style="width: 100%; background: #E8923A; color: #fff; border: none; border-radius: 8px; padding: 10px 12px; min-height: 44px; cursor: pointer; font-size: 0.95rem; margin-top: 0.75rem;">sign in</button>
       </form>
     {% endif %}
-    <p style="font-size: 0.8rem; color: #aaa; margin-top: 1.5rem;">your data stays on your machine</p>
+    <p style="font-size: 0.875rem; font-weight: 500; color: #595959; margin-top: 1.5rem;">your data stays on your machine</p>
   </div>
 </body>
 </html>

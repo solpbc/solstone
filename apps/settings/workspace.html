@@ -28,8 +28,6 @@
 .settings-nav-label {
   font-size: 0.75em;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   color: #888;
   padding: 0 0.75em;
   margin-bottom: 0.5em;
@@ -600,8 +598,6 @@ input:checked + .slider:before {
   font-size: 0.75em;
   color: #888;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .log-row {
@@ -870,8 +866,6 @@ input:checked + .slider:before {
 .context-group-label {
   font-size: 0.75em;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   color: #888;
   margin-bottom: 0.5em;
   padding-left: 0.25em;
@@ -1031,8 +1025,6 @@ input:checked + .slider:before {
 .importance-section-header {
   font-size: 0.8em;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   margin-bottom: 0.5em;
   padding-left: 0.25em;
   display: flex;
@@ -1219,8 +1211,6 @@ input:checked + .slider:before {
 .insight-source-label {
   font-size: 0.7em;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   color: #888;
   padding: 0.5em 0.5em 0.25em;
 }
@@ -1639,7 +1629,7 @@ input:checked + .slider:before {
   <!-- Desktop nav sidebar -->
   <nav class="settings-nav" id="settingsNav">
     <div class="settings-nav-group">
-      <div class="settings-nav-label">Journal</div>
+      <div class="settings-nav-label">journal</div>
       <button class="settings-nav-item active" data-section="profile">Profile</button>
       <button class="settings-nav-item" data-section="agent">Agent Identity</button>
       <button class="settings-nav-item" data-section="providers">Providers</button>
@@ -1654,7 +1644,7 @@ input:checked + .slider:before {
       <button class="settings-nav-item" data-section="support">Support</button>
     </div>
     <div class="settings-nav-group" id="facetNavGroup" style="display:none">
-      <div class="settings-nav-label" id="facetNavLabel">Facet</div>
+      <div class="settings-nav-label" id="facetNavLabel">facet</div>
       <button class="settings-nav-item" data-section="facet-appearance">Appearance</button>
       <button class="settings-nav-item" data-section="facet-activities">Activities</button>
       <button class="settings-nav-item" data-section="facet-activity">Activity Log</button>
@@ -3222,11 +3212,11 @@ function formatLogDay(day) {
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().slice(0,10).replace(/-/g,'');
 
-  if (day === todayStr) return 'Today';
-  if (day === yesterdayStr) return 'Yesterday';
+  if (day === todayStr) return 'today';
+  if (day === yesterdayStr) return 'yesterday';
 
   const d = new Date(day.slice(0,4) + '-' + day.slice(4,6) + '-' + day.slice(6,8));
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase();
 }
 
 document.getElementById('logMoreBtn').onclick = () => {
@@ -4040,7 +4030,7 @@ function populateVision(data) {
 }
 
 const IMPORTANCE_LEVELS = ['high', 'normal', 'low', 'ignore'];
-const IMPORTANCE_LABELS = { high: 'High Priority', normal: 'Normal', low: 'Low Priority', ignore: 'Ignored' };
+const IMPORTANCE_LABELS = { high: 'high priority', normal: 'normal', low: 'low priority', ignore: 'ignored' };
 
 function renderVisionCategories(data) {
   const container = document.getElementById('visionCategoryGroups');
@@ -4507,7 +4497,7 @@ function renderInsightsList(insights) {
   // Group by source
   const groups = {};
   for (const insight of insights) {
-    const source = insight.source === 'system' ? 'System' : (insight.app || 'App');
+    const source = insight.source === 'system' ? 'system' : (insight.app || 'app');
     if (!groups[source]) groups[source] = [];
     groups[source].push(insight);
   }

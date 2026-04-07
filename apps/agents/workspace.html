@@ -75,8 +75,6 @@
 .section-title {
   font-size: 0.85rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: #666;
   margin-bottom: 0.75rem;
   padding-bottom: 0.25rem;
@@ -249,8 +247,6 @@
   font-weight: 600;
   color: #666;
   font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .runs-table tr {
@@ -429,8 +425,6 @@
 
 .meta-label {
   font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
   color: #6b7280;
 }
 
@@ -550,8 +544,6 @@
   font-weight: 600;
   color: #7c4dff;
   font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .event-thinking .thinking-text {
@@ -570,8 +562,6 @@
   font-weight: 600;
   color: #0288d1;
   font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .event-tool .tool-name {
@@ -613,8 +603,6 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
   margin-top: 0.4rem;
 }
 
@@ -641,8 +629,6 @@
   font-weight: 600;
   color: #d32f2f;
   font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .event-error .error-message {
@@ -682,8 +668,6 @@
   font-weight: 600;
   color: #388e3c;
   font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .event-finish .finish-result {
@@ -918,16 +902,16 @@
       <thead>
         <tr>
           <th class="col-status"></th>
-          <th class="col-time">Time</th>
-          <th class="col-model">Model</th>
-          <th class="col-provider">Provider</th>
-          <th class="col-runtime">Runtime</th>
+          <th class="col-time">time</th>
+          <th class="col-model">model</th>
+          <th class="col-provider">provider</th>
+          <th class="col-runtime">runtime</th>
           <th class="col-activity" title="Thinking events">💭</th>
           <th class="col-activity" title="Tool calls">🔧</th>
           <th class="col-activity" title="Cost">💰</th>
-          <th class="col-facet">Facet</th>
-          <th class="col-output">Output</th>
-          <th class="col-prompt">Prompt</th>
+          <th class="col-facet">facet</th>
+          <th class="col-output">output</th>
+          <th class="col-prompt">prompt</th>
         </tr>
       </thead>
       <tbody id="runs-tbody"></tbody>
@@ -1198,13 +1182,13 @@
 
     // Render system agents
     if (organized.system.length > 0) {
-      container.appendChild(renderSection('System Agents', organized.system));
+      container.appendChild(renderSection('system agents', organized.system));
     }
 
     // Render app agent sections
     const appNames = Object.keys(organized.apps).sort();
     for (const appName of appNames) {
-      const title = appName.charAt(0).toUpperCase() + appName.slice(1);
+      const title = appName;
       container.appendChild(renderSection(title, organized.apps[appName]));
     }
   }
@@ -1670,13 +1654,13 @@
     status.className = 'run-status-badge';
     if (data.status === 'running') {
       status.classList.add('status-running');
-      status.textContent = 'Running';
+      status.textContent = 'running';
     } else if (data.failed) {
       status.classList.add('status-failed');
-      status.textContent = 'Failed';
+      status.textContent = 'failed';
     } else {
       status.classList.add('status-completed');
-      status.textContent = 'Completed';
+      status.textContent = 'completed';
     }
     titleRow.appendChild(status);
 
@@ -1731,14 +1715,14 @@
       grid.appendChild(item);
     }
 
-    addMetaItem('Started', formatTimestamp(data.start) || '\u2014');
-    addMetaItem('Runtime', formatRuntime(data.runtime_seconds));
-    addMetaItem('Model', formatModel(data.model), data.model || '');
-    addMetaItem('Provider', data.provider || '\u2014');
-    addMetaItem('Thinking', String(data.thinking_count || 0));
-    addMetaItem('Tools', String(data.tool_count || 0));
+    addMetaItem('started', formatTimestamp(data.start) || '\u2014');
+    addMetaItem('runtime', formatRuntime(data.runtime_seconds));
+    addMetaItem('model', formatModel(data.model), data.model || '');
+    addMetaItem('provider', data.provider || '\u2014');
+    addMetaItem('thinking', String(data.thinking_count || 0));
+    addMetaItem('tools', String(data.tool_count || 0));
     const costInfo = formatCost(data.cost);
-    addMetaItem('Cost', costInfo.text, costInfo.title);
+    addMetaItem('cost', costInfo.text, costInfo.title);
 
     card.appendChild(grid);
     return card;
@@ -1888,7 +1872,7 @@
     const text = event.summary || event.content || '';
     block.innerHTML =
       '<span class="event-time">' + escapeHtml(formatTimestamp(event.ts)) + '</span>' +
-      '<span class="event-label">Thinking</span>' +
+      '<span class="event-label">thinking</span>' +
       (text ? '<div class="thinking-text">' + escapeHtml(text) + '</div>' : '');
 
     return block;
@@ -1909,7 +1893,7 @@
     const headerLine = document.createElement('div');
     headerLine.innerHTML =
       '<span class="event-time">' + escapeHtml(formatTimestamp(ts)) + '</span>' +
-      '<span class="event-label">Tool</span> ' +
+      '<span class="event-label">tool</span> ' +
       '<span class="tool-name">' + escapeHtml(toolName) + '</span>' +
       (incomplete ? '<span class="tool-incomplete-badge">did not complete</span>' : '');
 
@@ -1942,7 +1926,7 @@
       if (args && Object.keys(args).length > 0) {
         const argsLabel = document.createElement('div');
         argsLabel.className = 'tool-section-label';
-        argsLabel.textContent = 'Args';
+        argsLabel.textContent = 'args';
         details.appendChild(argsLabel);
         const argsPre = document.createElement('pre');
         argsPre.textContent = JSON.stringify(args, null, 2);
@@ -1952,7 +1936,7 @@
       if (result) {
         const resultLabel = document.createElement('div');
         resultLabel.className = 'tool-section-label';
-        resultLabel.textContent = 'Result';
+        resultLabel.textContent = 'result';
         details.appendChild(resultLabel);
         const resultPre = document.createElement('pre');
         resultPre.textContent = result;
@@ -1978,7 +1962,7 @@
 
     let html =
       '<span class="event-time">' + escapeHtml(formatTimestamp(event.ts)) + '</span>' +
-      '<span class="event-label">Error</span> ' +
+      '<span class="event-label">error</span> ' +
       '<span class="error-message">' + escapeHtml(event.error || 'Unknown error') + '</span>';
 
     if (event.trace) {
@@ -2009,7 +1993,7 @@
 
     const label = document.createElement('span');
     label.className = 'event-label';
-    label.textContent = 'Result';
+    label.textContent = 'result';
     block.appendChild(label);
 
     if (event.result && event.result.trim()) {

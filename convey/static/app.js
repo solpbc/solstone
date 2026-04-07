@@ -828,16 +828,16 @@
     modal.className = 'facet-create-modal';
     modal.innerHTML = `
       <div class="facet-create-content">
-        <h3>Create New Facet</h3>
+        <h3>create new facet</h3>
         <div class="facet-create-field">
-          <label for="facetCreateTitle">Title</label>
+          <label for="facetCreateTitle">title</label>
           <input type="text" id="facetCreateTitle" placeholder="e.g., Work Projects" autofocus>
           <div class="facet-create-slug" id="facetCreateSlug"></div>
           <div class="facet-create-error" id="facetCreateError"></div>
         </div>
         <div class="facet-create-buttons">
-          <button class="facet-create-cancel" id="facetCreateCancel">Cancel</button>
-          <button class="facet-create-submit" id="facetCreateSubmit" disabled>Create</button>
+          <button class="facet-create-cancel" id="facetCreateCancel">cancel</button>
+          <button class="facet-create-submit" id="facetCreateSubmit" disabled>create</button>
         </div>
       </div>
     `;
@@ -936,7 +936,7 @@
     if (!title) return;
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Creating...';
+    submitBtn.textContent = 'creating...';
 
     try {
       const response = await fetch('/app/settings/api/facet', {
@@ -979,7 +979,7 @@
       errorDisplay.textContent = error.message;
       errorDisplay.classList.add('visible');
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Create';
+      submitBtn.textContent = 'create';
     }
   }
 

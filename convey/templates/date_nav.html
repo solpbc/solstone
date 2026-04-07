@@ -7,7 +7,7 @@
   </div>
   <span class="date-nav-label" id="date-nav-label" title="Open month picker">{{ day|format_date_short }}</span>
   <div class="date-nav-right">
-    <button class="date-nav-today" id="date-nav-today" title="Jump to Today (T)">T</button>
+    <button class="date-nav-today" id="date-nav-today" title="jump to today (t)" aria-label="go to today">T</button>
     <button class="date-nav-arrow" id="date-nav-next" title="Next (→)">›</button>
   </div>
   <div class="month-picker"></div>
@@ -67,6 +67,12 @@
     container: '.month-picker',
     allowFutureDates: {{ app_registry.apps[app].allow_future_dates|tojson }}
   });
+
+  // Toggle today button emphasis based on current day
+  const todayBtn = document.getElementById('date-nav-today');
+  if (currentDay !== MonthPicker.getToday()) {
+    todayBtn.classList.add('is-other-day');
+  }
 
   // Click label to toggle month picker
   document.getElementById('date-nav-label').addEventListener('click', () => {

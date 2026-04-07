@@ -95,8 +95,6 @@
 .vitals-label {
   opacity: 0.8;
   font-size: 0.85em;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .vitals-value {
@@ -430,8 +428,6 @@
 .activity-card-provider {
   font-size: 0.75em;
   color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .activity-card-progress {
@@ -591,8 +587,6 @@
 .info-label {
   font-size: 0.8em;
   color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .dream-progress {
@@ -765,7 +759,7 @@
     </div>
     <div class="vitals-content">
       <div class="vitals-section">
-        <div class="vitals-label">Services</div>
+        <div class="vitals-label">services</div>
         <div class="vitals-value">
           <div class="service-dots" id="serviceDots">
             <div class="service-dot">
@@ -776,29 +770,29 @@
         </div>
       </div>
       <div class="vitals-section">
-        <div class="vitals-label">Agents</div>
+        <div class="vitals-label">agents</div>
         <div class="vitals-value" id="agentsValue">
           <span>0 running</span>
         </div>
       </div>
       <div class="vitals-section">
-        <div class="vitals-label">Tasks</div>
+        <div class="vitals-label">tasks</div>
         <div class="vitals-value" id="tasksValue">
           <span>0 active</span>
         </div>
       </div>
       <div class="vitals-section">
-        <div class="vitals-label">Health</div>
+        <div class="vitals-label">health</div>
         <div class="vitals-value" id="healthValue">
           <span>Waiting for status...</span>
         </div>
       </div>
       <div class="vitals-section" id="queuesSection">
-        <div class="vitals-label">Queues</div>
+        <div class="vitals-label">queues</div>
         <div class="vitals-value" id="queuesValue"></div>
       </div>
       <div class="vitals-section" id="schedulesSection">
-        <div class="vitals-label">Schedules</div>
+        <div class="vitals-label">schedules</div>
         <div class="vitals-value" id="schedulesValue"></div>
       </div>
     </div>
@@ -1656,10 +1650,10 @@
 
     // Info fields
     elements.dreamInfo.innerHTML = renderInfoItems([
-      { label: 'Mode', value: d.mode ? escapeHtml(d.mode) : null },
-      { label: 'Day', value: d.day ? escapeHtml(d.day) : null },
-      { label: 'Facet', value: d.facet ? escapeHtml(d.facet) : null },
-      { label: 'Segment', value: d.segment ? escapeHtml(d.segment) : null },
+      { label: 'mode', value: d.mode ? escapeHtml(d.mode) : null },
+      { label: 'day', value: d.day ? escapeHtml(d.day) : null },
+      { label: 'facet', value: d.facet ? escapeHtml(d.facet) : null },
+      { label: 'segment', value: d.segment ? escapeHtml(d.segment) : null },
     ]);
 
     // Progress bars
@@ -1716,11 +1710,11 @@
     elements.syncCard.classList.remove('hidden');
 
     elements.syncInfo.innerHTML = renderInfoItems([
-      { label: 'Host', value: s.host ? escapeHtml(s.host) : null },
-      { label: 'Platform', value: s.platform ? escapeHtml(s.platform) : null },
-      { label: 'Queue', value: String(s.queue_size) },
-      { label: 'State', value: s.state ? escapeHtml(s.state) + (s.confirm_attempt ? ' (' + escapeHtml(s.confirm_attempt) + ')' : '') : null },
-      { label: 'Segment', value: s.segment ? escapeHtml(s.segment) : null },
+      { label: 'host', value: s.host ? escapeHtml(s.host) : null },
+      { label: 'platform', value: s.platform ? escapeHtml(s.platform) : null },
+      { label: 'queue', value: String(s.queue_size) },
+      { label: 'state', value: s.state ? escapeHtml(s.state) + (s.confirm_attempt ? ' (' + escapeHtml(s.confirm_attempt) + ')' : '') : null },
+      { label: 'segment', value: s.segment ? escapeHtml(s.segment) : null },
     ]);
     if (elements.trustIndicator) {
       if (s && s.host) {

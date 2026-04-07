@@ -115,7 +115,7 @@ def login() -> Any:
             session["logged_in"] = True
             session.permanent = True
             return redirect(url_for("root.index"))
-        error = "Invalid password"
+        error = "incorrect password. passwords are case-sensitive. if you've forgotten it, you can reset via sol password set on the command line."
     return render_template("login.html", error=error, no_password=False)
 
 

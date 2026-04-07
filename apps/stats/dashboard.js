@@ -492,11 +492,11 @@ const Dashboard = (function() {
     // Render stats cards
     const statsGrid = document.getElementById('statsGrid');
     statsGrid.innerHTML = ''; // Clear existing content
-    statsGrid.appendChild(statCard('Total Days', totalDays, 'days recorded'));
-    statsGrid.appendChild(statCard('Audio Hours', totalAudioHours, 'hours'));
-    statsGrid.appendChild(statCard('Screen Hours', totalScreenHours, 'hours'));
-    statsGrid.appendChild(statCard('Total Tokens', fmtTokens(totalTokens), 'tokens'));
-    statsGrid.appendChild(statCard('Disk Usage', fmtBytes(totals.day_bytes || 0), 'journal days'));
+    statsGrid.appendChild(statCard('total days', totalDays, 'days recorded'));
+    statsGrid.appendChild(statCard('audio hours', totalAudioHours, 'hours'));
+    statsGrid.appendChild(statCard('screen hours', totalScreenHours, 'hours'));
+    statsGrid.appendChild(statCard('total tokens', fmtTokens(totalTokens), 'tokens'));
+    statsGrid.appendChild(statCard('disk usage', fmtBytes(totals.day_bytes || 0), 'journal days'));
     
     // Render progress cards
     const progressSection = document.getElementById('progressSection');
@@ -591,8 +591,8 @@ const Dashboard = (function() {
 
       const repairGrid = alert.querySelector('#repairGrid');
       const repairLabels = {
-        pending_segments: 'Pending Segments',
-        outputs_pending: 'Agent Outputs'
+        pending_segments: 'pending segments',
+        outputs_pending: 'agent outputs'
       };
 
       repairs.forEach(key => {
