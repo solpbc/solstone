@@ -16,31 +16,46 @@
   // Connection metrics
   let connectedAt = null;
   let lastMessageAt = null;
-  let isConnected = false;
+  let connectionState = 'disconnected';
 
   // Update status icon (if present)
-  function updateStatusIcon(connected) {
+  function updateStatusIcon(state) {
     if (!statusIcon) {
       statusIcon = document.querySelector('.facet-bar .status-icon');
     }
 
     if (statusIcon) {
-      statusIcon.textContent = connected ? '🟢' : '🔴';
-      statusIcon.setAttribute('title', connected ? 'Connected' : 'Disconnected');
-      statusIcon.setAttribute('aria-label', 'system status: ' + (connected ? 'connected' : 'disconnected'));
+      const badge = statusIcon.querySelector('#quiet-notif-badge');
+      const svgs = {
+        connected: '<svg class="status-indicator" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="#10b981"/></svg>',
+        connecting: '<svg class="status-indicator status-indicator--connecting" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="24 8"/></svg>',
+        disconnected: '<svg class="status-indicator" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 2 L14 13 L2 13 Z" fill="#ef4444"/></svg>'
+      };
+      const labels = {
+        connected: 'connected',
+        connecting: 'connecting',
+        disconnected: 'disconnected'
+      };
+
+      statusIcon.innerHTML = svgs[state] || svgs.disconnected;
+      if (badge) statusIcon.appendChild(badge);
+      statusIcon.setAttribute('title', labels[state] || state);
+      statusIcon.setAttribute('aria-label', 'system status: ' + (labels[state] || state));
     }
 
-    isConnected = connected;
+    connectionState = state;
   }
 
   // Connect to WebSocket
   function connect(){
-    ws = new WebSocket(`ws://${location.host}/ws/events`);
+    updateStatusIcon('connecting');
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}/ws/events`);
 
     ws.onopen = () => {
       connectedAt = Date.now();
       lastMessageAt = null;
-      updateStatusIcon(true);
+      updateStatusIcon('connected');
       retry = 1000;
       console.debug('[WebSocket] Connected to /ws/events');
     };
@@ -48,7 +63,7 @@
     ws.onclose = () => {
       connectedAt = null;
       lastMessageAt = null;
-      updateStatusIcon(false);
+      updateStatusIcon('disconnected');
       retry = Math.min(retry * 1.5, 15000);
       console.debug(`[WebSocket] Disconnected, reconnecting in ${retry}ms`);
       setTimeout(connect, retry);
@@ -146,7 +161,8 @@
     getMetrics(){
       const now = Date.now();
       return {
-        connected: isConnected,
+        connected: connectionState === 'connected',
+        state: connectionState,
         uptimeMs: connectedAt ? now - connectedAt : 0,
         lastMessageMs: lastMessageAt ? now - lastMessageAt : null,
         lastMessageAt: lastMessageAt,

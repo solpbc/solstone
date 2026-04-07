@@ -37,8 +37,10 @@
     statusIcon.addEventListener('click', (e) => {
       e.stopPropagation();
       statusPaneOpen = !statusPaneOpen;
+      const metrics = window.appEvents?.getMetrics?.();
+      const state = metrics?.state || (metrics?.connected ? 'connected' : 'disconnected');
       statusIcon.setAttribute('aria-label',
-        'system status' + (statusPaneOpen ? ' pane open' : ''));
+        'system status: ' + state + (statusPaneOpen ? ', pane open' : ''));
 
       if (statusPaneOpen) {
         statusPane.classList.add('visible');
@@ -69,8 +71,16 @@
     const wsLastMessage = document.getElementById('ws-last-message');
 
     if (wsStatus) {
-      wsStatus.textContent = metrics.connected ? '🟢 connected' : '🔴 disconnected';
-      wsStatus.style.color = metrics.connected ? '#10b981' : '#ef4444';
+      if (metrics.state === 'connected') {
+        wsStatus.textContent = 'connected';
+        wsStatus.style.color = '#10b981';
+      } else if (metrics.state === 'connecting') {
+        wsStatus.textContent = 'connecting…';
+        wsStatus.style.color = '#f59e0b';
+      } else {
+        wsStatus.textContent = 'disconnected';
+        wsStatus.style.color = '#ef4444';
+      }
     }
 
     if (wsUptime) {

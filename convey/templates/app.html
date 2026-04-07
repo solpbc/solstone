@@ -53,7 +53,7 @@
 <nav class="facet-bar{% if not app_registry.apps[app].facets_enabled() %} facets-disabled{% endif %}" aria-label="facets">
   <button id="hamburger" aria-label="toggle navigation" aria-expanded="false">☰</button>
   <div class="facet-pills-container"></div>
-  <button class="status-icon" aria-label="system status: connected">🟢<span id="quiet-notif-badge" class="quiet-notif-badge" style="display:none"></span></button>
+  <button class="status-icon" role="status" aria-live="polite" aria-label="system status: connecting"><svg class="status-indicator status-indicator--connecting" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="24 8"/></svg><span id="quiet-notif-badge" class="quiet-notif-badge" style="display:none"></span></button>
 </nav>
 
 <!-- Date Nav (centered below facet bar) -->

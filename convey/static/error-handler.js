@@ -7,7 +7,7 @@
  *
  * Features:
  * - Catches window errors and unhandled promise rejections
- * - Updates status icon to red with red glow on error
+ * - Adds error glow to status icon via .error class
  * - Displays error log at bottom of viewport
  * - Provides modal for manual error display via window.showError()
  */
@@ -49,7 +49,6 @@
   // Mark status icon as error state (red with glow)
   function markError() {
     if (statusIcon) {
-      statusIcon.textContent = '🔴';
       statusIcon.classList.add('error');
     }
   }

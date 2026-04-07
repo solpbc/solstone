@@ -251,6 +251,19 @@ body:has(.status-pane.visible) .facet-bar::after {
   border-radius: 4px;
 }
 
+/* Status indicator shapes (SVG inside .status-icon button) */
+.status-indicator {
+  display: block;
+}
+
+.status-indicator--connecting {
+  animation: status-spin 1.2s linear infinite;
+}
+
+@keyframes status-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Date Nav - hangs below facet bar */
 .date-nav {
   position: fixed;
@@ -1841,6 +1854,10 @@ button.close {
   .chat-bar-thinking-dot {
     animation: none;
     opacity: 1;
+  }
+
+  .status-indicator--connecting {
+    animation: none;
   }
 
   .facet-pill:hover {
