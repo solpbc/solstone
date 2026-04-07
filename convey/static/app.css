@@ -1755,3 +1755,34 @@ a:focus-visible {
   outline: 2px solid var(--facet-color, #E8923A);
   outline-offset: 2px;
 }
+
+/* Visually hidden — accessible to screen readers */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip-to-content link — visible on focus */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: var(--facet-color, #E8923A);
+  color: #fff;
+  text-decoration: none;
+  font-size: 14px;
+  border-radius: 0 0 4px 0;
+}
+
+.skip-link:focus {
+  top: 0;
+}

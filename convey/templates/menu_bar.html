@@ -1,5 +1,5 @@
 <!-- Menu Bar Component (left sidebar) -->
-<div class="menu-bar">
+<nav class="menu-bar" aria-label="app navigation">
   <div class="menu-items">
   {%- set app_names = apps.keys() | list -%}
   {%- set last_starred_index = -1 -%}
@@ -21,4 +21,4 @@
   {% endfor %}
   </div>
   <div class="menu-expander">⏷</div>
-</div>
+</nav>

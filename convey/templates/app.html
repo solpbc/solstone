@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -37,6 +37,7 @@
 {% set _ = body_classes.append('has-app-bar') %}
 {% if app_registry.apps[app].date_nav_enabled() and day %}{% set _ = body_classes.append('has-date-nav') %}{% endif %}
 <body{% if body_classes %} class="{{ body_classes|join(' ') }}"{% endif %}>
+<a href="#main-content" class="skip-link">skip to content</a>
 <!-- Corner Tags (screen region detection) -->
 <div class="corner-tags">
   <div class="corner-tag corner-tag-tl"></div>
@@ -49,11 +50,11 @@
 {% include "menu_bar.html" %}
 
 <!-- Facet Bar (top) -->
-<div class="facet-bar{% if not app_registry.apps[app].facets_enabled() %} facets-disabled{% endif %}">
+<nav class="facet-bar{% if not app_registry.apps[app].facets_enabled() %} facets-disabled{% endif %}" aria-label="facets">
   <div id="hamburger">☰</div>
   <div class="facet-pills-container"></div>
   <div class="status-icon">🟢<span id="quiet-notif-badge" class="quiet-notif-badge" style="display:none"></span></div>
-</div>
+</nav>
 
 <!-- Date Nav (centered below facet bar) -->
 {% if app_registry.apps[app].date_nav_enabled() and day %}
@@ -70,9 +71,10 @@
 {% include "conversation_panel.html" %}
 
 <!-- Main Content -->
-<div class="workspace">
+<main id="main-content" class="workspace">
+  <h1 class="visually-hidden">{{ app_registry.apps[app].label }}</h1>
   {% include app_registry.apps[app].get_workspace_template() %}
-</div>
+</main>
 
 <!-- App JavaScript (includes AppServices framework) -->
 <script src="{{ url_for('root.static', filename='app.js') }}"></script>
