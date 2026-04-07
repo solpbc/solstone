@@ -27,6 +27,7 @@
     if (statusIcon) {
       statusIcon.textContent = connected ? '🟢' : '🔴';
       statusIcon.setAttribute('title', connected ? 'Connected' : 'Disconnected');
+      statusIcon.setAttribute('aria-label', 'system status: ' + (connected ? 'connected' : 'disconnected'));
     }
 
     isConnected = connected;

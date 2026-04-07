@@ -37,6 +37,8 @@
     statusIcon.addEventListener('click', (e) => {
       e.stopPropagation();
       statusPaneOpen = !statusPaneOpen;
+      statusIcon.setAttribute('aria-label',
+        'system status' + (statusPaneOpen ? ' pane open' : ''));
 
       if (statusPaneOpen) {
         statusPane.classList.add('visible');

@@ -15,8 +15,8 @@
   <a href="/app/{{ app_name }}" class="menu-item{% if app == app_name %} current{% endif %}{% if is_last_starred %} last-starred{% endif %}" data-app-name="{{ app_name }}" data-starred="{{ 'true' if is_starred else 'false' }}">
     <span class="icon">{{ app_data['icon'] }}</span>
     <span class="label">{{ app_data['label'] }}</span>
-    <span class="star-toggle" data-app-name="{{ app_name }}">{{ '★' if is_starred else '☆' }}</span>
-    <span class="drag-handle" draggable="true">⋮</span>
+    <span class="star-toggle" data-app-name="{{ app_name }}" role="button" tabindex="0" aria-label="star {{ app_data['label'] }}" aria-pressed="{{ 'true' if is_starred else 'false' }}">{{ '★' if is_starred else '☆' }}</span>
+    <span class="drag-handle" draggable="true" role="button" tabindex="0" aria-label="reorder {{ app_data['label'] }}">⋮</span>
   </a>
   {% endfor %}
   </div>

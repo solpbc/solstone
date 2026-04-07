@@ -39,11 +39,11 @@
 <body{% if body_classes %} class="{{ body_classes|join(' ') }}"{% endif %}>
 <a href="#main-content" class="skip-link">skip to content</a>
 <!-- Corner Tags (screen region detection) -->
-<div class="corner-tags">
-  <div class="corner-tag corner-tag-tl"></div>
-  <div class="corner-tag corner-tag-tr"></div>
-  <div class="corner-tag corner-tag-bl"></div>
-  <div class="corner-tag corner-tag-br"></div>
+<div class="corner-tags" aria-hidden="true">
+  <div class="corner-tag corner-tag-tl" aria-hidden="true"></div>
+  <div class="corner-tag corner-tag-tr" aria-hidden="true"></div>
+  <div class="corner-tag corner-tag-bl" aria-hidden="true"></div>
+  <div class="corner-tag corner-tag-br" aria-hidden="true"></div>
 </div>
 
 <!-- Menu Bar -->
@@ -51,9 +51,9 @@
 
 <!-- Facet Bar (top) -->
 <nav class="facet-bar{% if not app_registry.apps[app].facets_enabled() %} facets-disabled{% endif %}" aria-label="facets">
-  <div id="hamburger">☰</div>
+  <button id="hamburger" aria-label="toggle navigation" aria-expanded="false">☰</button>
   <div class="facet-pills-container"></div>
-  <div class="status-icon">🟢<span id="quiet-notif-badge" class="quiet-notif-badge" style="display:none"></span></div>
+  <button class="status-icon" aria-label="system status: connected">🟢<span id="quiet-notif-badge" class="quiet-notif-badge" style="display:none"></span></button>
 </nav>
 
 <!-- Date Nav (centered below facet bar) -->
@@ -96,6 +96,7 @@
   const input = document.getElementById('chatMessageInput');
   const form = document.getElementById('chatInputForm');
   const sendBtn = document.getElementById('chatBarSend');
+  const expandBtn = document.getElementById('chatExpandBtn');
   const STORE_KEY = 'solstone:conversationState';
 
   if (!input || !form) return;
@@ -157,6 +158,7 @@
   function openPanel() {
     if (panelOpen) return;
     panelOpen = true;
+    if (expandBtn) expandBtn.setAttribute('aria-label', 'collapse conversation');
     appBar.classList.remove('app-bar--dismissing');
     appBar.classList.add('app-bar--focused');
     backdrop.classList.add('visible');
@@ -177,6 +179,7 @@
   function closePanel() {
     if (!panelOpen) return;
     panelOpen = false;
+    if (expandBtn) expandBtn.setAttribute('aria-label', 'expand conversation');
     save();
     appBar.classList.add('app-bar--dismissing');
     backdrop.classList.remove('visible');
@@ -230,6 +233,18 @@
     if (e.target.closest('textarea, button')) return;
     openPanel();
   });
+
+  // --- Explicit expand/collapse button ---
+  if (expandBtn) {
+    expandBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (panelOpen) {
+        closePanel();
+      } else {
+        openPanel();
+      }
+    });
+  }
 
   // --- Textarea auto-resize + debounced save ---
   let inputSaveTimer;
@@ -620,7 +635,7 @@
 <!-- Error Modal -->
 <div id="errorModal" class="modal">
   <div class="modal-content">
-    <span class="close">&times;</span>
+    <button class="close" aria-label="close">&times;</button>
     <pre id="errorMessage"></pre>
   </div>
 </div>

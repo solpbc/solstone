@@ -1739,6 +1739,47 @@ a.notification-card {
   display: block;
 }
 
+/* Button reset for a11y-converted controls */
+button#hamburger,
+button.status-icon,
+button.close {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Visually-hidden expand/collapse button - focusable but invisible */
+.chat-bar-expand {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+}
+
+.chat-bar-expand:focus-visible {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  font-size: 14px;
+}
+
 /* Focus-visible states for keyboard navigation */
 .menu-bar .menu-item:focus-visible,
 .facet-pill:focus-visible,

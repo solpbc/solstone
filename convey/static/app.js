@@ -521,6 +521,7 @@
     // Update DOM
     menuItem.dataset.starred = newStarredStatus;
     starToggle.textContent = newStarredStatus ? '★' : '☆';
+    starToggle.setAttribute('aria-pressed', String(newStarredStatus));
 
     // Reorder menu items to reflect new grouping
     reorderMenuItems();
@@ -556,6 +557,7 @@
       }
       menuItem.dataset.starred = !newStarredStatus;
       starToggle.textContent = !newStarredStatus ? '★' : '☆';
+      starToggle.setAttribute('aria-pressed', String(!newStarredStatus));
       reorderMenuItems();
     }
   }
@@ -647,6 +649,7 @@
           if (menuExpander) menuExpander.textContent = '⏷';
         }
         document.body.classList.toggle('menu-full');
+        hamburger.setAttribute('aria-expanded', document.body.classList.contains('menu-full'));
       });
 
       // Close menu when clicking outside
@@ -654,6 +657,7 @@
         if (document.body.classList.contains('menu-full')) {
           if (!menuBar.contains(e.target) && !hamburger.contains(e.target)) {
             document.body.classList.remove('menu-full');
+            hamburger.setAttribute('aria-expanded', 'false');
           }
         }
         // Also close menu-all when clicking outside
@@ -676,6 +680,21 @@
           if (appName) {
             toggleAppStar(appName);
           }
+        }
+      });
+
+      // Keyboard activation for star toggles and drag handles
+      menuBar.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const starToggle = e.target.closest('.star-toggle');
+        if (starToggle) {
+          e.preventDefault();
+          starToggle.click();
+          return;
+        }
+        // Suppress default for drag handles (keyboard DnD not supported)
+        if (e.target.closest('.drag-handle')) {
+          e.preventDefault();
         }
       });
     }
