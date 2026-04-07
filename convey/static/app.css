@@ -961,6 +961,21 @@ body.menu-all .menu-bar {
   opacity: 1;
 }
 
+/* "all" label - muted caption before first pill in all-mode */
+.facet-all-label {
+  font-size: 12px;
+  color: #999;
+  padding: 0 8px 0 4px;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* Hide "all" label when a facet is selected (CSS backup for JS toggle) */
+.facet-pills-container:has(.selected) .facet-all-label {
+  display: none;
+}
+
 .facet-pill:hover {
   opacity: 1;
   border-color: var(--pill-color, #999);

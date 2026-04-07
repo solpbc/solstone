@@ -101,7 +101,8 @@
     facetPillsContainer.innerHTML = '';
 
     // Check if facets are disabled for this app
-    const facetsDisabled = document.querySelector('.facet-bar')?.classList.contains('facets-disabled');
+    const facetBar = document.querySelector('.facet-bar');
+    const facetsDisabled = facetBar?.classList.contains('facets-disabled');
     if (!facetsDisabled) {
       facetPillsContainer.setAttribute('role', 'toolbar');
       facetPillsContainer.setAttribute('aria-label', 'facet filter');
@@ -114,8 +115,35 @@
 
     // Find selected facet data and apply theme
     const selectedFacetData = window.selectedFacet ? activeFacets.find(f => f.name === window.selectedFacet) : null;
+
+    if (!facetsDisabled && facetBar) {
+      const statusText = selectedFacetData
+        ? 'filtered to ' + selectedFacetData.title
+        : 'viewing all facets';
+      const existingStatus = document.querySelector('.facet-filter-status');
+      if (existingStatus) {
+        existingStatus.textContent = statusText;
+      } else {
+        const statusEl = document.createElement('span');
+        statusEl.className = 'facet-filter-status visually-hidden';
+        statusEl.setAttribute('aria-live', 'polite');
+        statusEl.setAttribute('aria-atomic', 'true');
+        statusEl.textContent = statusText;
+        facetBar.appendChild(statusEl);
+      }
+    }
+
     if (!facetsDisabled) {
       applyFacetTheme(selectedFacetData);
+
+      const allLabel = document.createElement('span');
+      allLabel.className = 'facet-all-label';
+      allLabel.textContent = 'all';
+      allLabel.setAttribute('aria-hidden', 'true');
+      if (selectedFacetData) {
+        allLabel.style.display = 'none';
+      }
+      facetPillsContainer.appendChild(allLabel);
     }
 
     // Facet pills
@@ -210,6 +238,21 @@
     // Apply theme
     const selectedFacetData = window.selectedFacet ? activeFacets.find(f => f.name === window.selectedFacet) : null;
     applyFacetTheme(selectedFacetData);
+
+    const statusEl = document.querySelector('.facet-filter-status');
+    if (statusEl) {
+      if (window.selectedFacet) {
+        const facetData = activeFacets.find(f => f.name === window.selectedFacet);
+        statusEl.textContent = 'filtered to ' + (facetData ? facetData.title : window.selectedFacet);
+      } else {
+        statusEl.textContent = 'viewing all facets';
+      }
+    }
+
+    const allLabel = container.querySelector('.facet-all-label');
+    if (allLabel) {
+      allLabel.style.display = window.selectedFacet ? 'none' : '';
+    }
 
     // Update each pill
     pills.forEach((pill, index) => {
