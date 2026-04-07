@@ -329,24 +329,40 @@ body:has(.status-pane.visible) .facet-bar::after {
   justify-content: flex-end;
 }
 
-/* Today button - hidden until hover over it */
+/* Today button - always visible, de-emphasized when viewing today */
 .date-nav-today {
   background: none;
   border: none;
   padding: 4px 12px;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 600;
-  color: #6b7280;
+  font-weight: 500;
+  color: #9ca3af;
   border-radius: 4px;
-  opacity: 0;
-  transition: background 0.15s, color 0.15s, opacity 0.15s;
+  transition: background 0.15s, color 0.15s, font-weight 0.15s;
 }
 
 .date-nav-today:hover {
-  opacity: 1;
   background: rgba(0, 0, 0, 0.05);
   color: #111827;
+}
+
+.date-nav-today:focus-visible {
+  outline: 2px solid #E8923A;
+  outline-offset: 2px;
+  background: rgba(0, 0, 0, 0.05);
+  color: #111827;
+}
+
+/* Prominent state when viewing a different day */
+.date-nav-today.is-other-day {
+  color: #111827;
+  background: rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+}
+
+.date-nav-today.is-other-day:hover {
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .date-nav-label {

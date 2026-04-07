@@ -192,8 +192,6 @@
 .detail-section-title {
   font-size: 0.7rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: #6b7280;
   margin: 0 0 0.4rem 0;
 }
@@ -550,7 +548,7 @@
 
     // Strength score
     html += '<div class="detail-section">';
-    html += '<div class="detail-section-title">Strength Score</div>';
+    html += '<div class="detail-section-title">strength score</div>';
     html += '<div style="font-size:1.3em;font-weight:700;color:#111827;margin-bottom:0.3rem;">' + (strength.score || 0).toFixed(1) + '</div>';
     html += '<div class="detail-score-grid">';
     html += scoreItem('Co-occurrence', strength.co_occurrence);
@@ -565,7 +563,7 @@
     const connectedNames = Object.keys(networkEntities).sort((a, b) => networkEntities[b] - networkEntities[a]).slice(0, 15);
     if (connectedNames.length > 0) {
       html += '<div class="detail-section">';
-      html += '<div class="detail-section-title">Connected Entities</div>';
+      html += '<div class="detail-section-title">connected entities</div>';
       html += '<ul class="detail-connected-list">';
       for (const name of connectedNames) {
         html += '<li class="detail-connected-item">';
@@ -580,7 +578,7 @@
     const activity = (intel.activity || []).slice(0, 10);
     if (activity.length > 0) {
       html += '<div class="detail-section">';
-      html += '<div class="detail-section-title">Recent Activity</div>';
+      html += '<div class="detail-section-title">recent activity</div>';
       for (const a of activity) {
         html += '<div class="detail-activity-item">';
         html += '<span class="detail-activity-day">' + formatDay(a.day) + '</span>';

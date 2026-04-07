@@ -138,8 +138,6 @@
 .dev-stat-label {
   font-size: 0.75rem;
   color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   margin-top: 0.25rem;
 }
 
@@ -524,11 +522,11 @@ function showStats() {
   statsEl.innerHTML = `
     <div class="dev-stat">
       <div class="dev-stat-value">${count}</div>
-      <div class="dev-stat-label">Active Notifications</div>
+      <div class="dev-stat-label">active notifications</div>
     </div>
     <div class="dev-stat">
       <div class="dev-stat-value">${lastNotificationId || 'N/A'}</div>
-      <div class="dev-stat-label">Last ID</div>
+      <div class="dev-stat-label">last id</div>
     </div>
   `;
   log(`Stats: ${count} active notifications`);

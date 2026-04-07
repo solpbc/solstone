@@ -34,7 +34,7 @@ class TestLogin:
     def test_wrong_password(self, client):
         resp = client.post("/login", data={"password": "wrong"})
         assert resp.status_code == 200
-        assert b"Invalid password" in resp.data
+        assert b"incorrect password. passwords are case-sensitive." in resp.data
 
     def test_no_password_configured(self, journal_copy):
         config = _read_config(journal_copy)

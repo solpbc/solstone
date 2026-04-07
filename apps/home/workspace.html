@@ -64,8 +64,6 @@
 .pulse-section-header {
   font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   color: #94a3b8;
   margin-bottom: 0.5rem;
 }
@@ -137,8 +135,6 @@
 .pulse-activities-label {
   font-size: 0.75rem;
   color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   margin-bottom: 0.4rem;
 }
 
@@ -257,9 +253,7 @@
   font-size: 0.65rem;
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
-  text-transform: uppercase;
   font-weight: 600;
-  letter-spacing: 0.3px;
 }
 
 .pulse-entity-type.person { background: #dbeafe; color: #1d4ed8; }
@@ -410,8 +404,6 @@
   background: none;
   border: none;
   padding: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
 }
 .pulse-briefing-section-toggle::before {
   content: "▾";
@@ -477,7 +469,7 @@
   {% if briefing_exists or briefing_phase == 'pending' %}
   <div class="pulse-briefing-card" id="pulse-briefing" data-phase="{{ briefing_phase }}" data-collapsed="{{ 'false' if briefing_phase == 'morning' else 'true' }}">
     <div class="pulse-briefing-header" onclick="toggleBriefingCard()">
-      <div class="pulse-section-header" style="margin-bottom:0">Morning Briefing</div>
+      <div class="pulse-section-header" style="margin-bottom:0">morning briefing</div>
       {% if briefing_needs_badge %}
       <span class="pulse-briefing-badge">{{ briefing_needs_badge }}</span>
       {% endif %}
@@ -498,7 +490,7 @@
         {% if section_key == 'needs_attention' %}
           {% if briefing_needs_deduped or briefing_needs_badge %}
           <div class="pulse-briefing-section" data-section="needs_attention" data-collapsed="false">
-            <button class="pulse-briefing-section-toggle" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">Needs Attention</button>
+            <button class="pulse-briefing-section-toggle" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">needs attention</button>
             {% if briefing_needs_deduped %}
             <div class="pulse-briefing-section-body" data-section-key="needs_attention">
               <ul>
@@ -511,7 +503,7 @@
           </div>
           {% endif %}
         {% elif section_content %}
-          {% set section_labels = {'your_day': 'Your Day', 'yesterday': 'Yesterday', 'forward_look': 'Forward Look', 'reading': 'Reading'} %}
+          {% set section_labels = {'your_day': 'your day', 'yesterday': 'yesterday', 'forward_look': 'forward look', 'reading': 'reading'} %}
           <div class="pulse-briefing-section" data-section="{{ section_key }}" data-collapsed="false">
             <button class="pulse-briefing-section-toggle" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">{{ section_labels[section_key] }}</button>
             <div class="pulse-briefing-section-body" data-section-key="{{ section_key }}"></div>
@@ -535,7 +527,7 @@
   </div>
   {% elif segment_count > 0 %}
   <div class="pulse-narrative" id="pulse-narrative">
-    <div class="pulse-section-header">{{ narrative_header or "Today's Flow" }}</div>
+    <div class="pulse-section-header">{{ narrative_header or "today's flow" }}</div>
     <div class="pulse-narrative-empty">Analysis will be available after the next processing cycle.</div>
   </div>
   {% endif %}
@@ -544,7 +536,7 @@
   {% set unseen_routines = routines|selectattr('seen', 'equalto', false)|list %}
   {% if unseen_routines %}
   <div class="pulse-routines" id="pulse-routines">
-    <div class="pulse-section-header">Your Routines</div>
+    <div class="pulse-section-header">your routines</div>
     <div class="pulse-routines-list">
       {% for routine in unseen_routines %}
       <div class="pulse-routine-item" data-conversation="Show me my {{ routine.name }} from today" data-routine-click="true">
@@ -565,7 +557,7 @@
   <!-- Today -->
   {% if events or activities %}
   <div class="pulse-today" id="pulse-today">
-    <div class="pulse-section-header">Today</div>
+    <div class="pulse-section-header">today</div>
     {% if events %}
     <div class="pulse-events">
       {% for event in events %}
@@ -578,7 +570,7 @@
     </div>
     {% endif %}
     {% if activities %}
-    <div class="pulse-activities-label">Recent Activity</div>
+    <div class="pulse-activities-label">recent activity</div>
     <div class="pulse-activities">
       {% for act in activities[:6] %}
       <div class="pulse-activity" data-conversation="Tell me about {{ act.get('description', act.get('activity', '')) }}">
@@ -601,7 +593,7 @@
   <!-- Needs You -->
   {% if attention or pulse_needs or todos %}
   <div class="pulse-needs" id="pulse-needs">
-    <div class="pulse-section-header">Needs You</div>
+    <div class="pulse-section-header">needs you</div>
     <div class="pulse-needs-list">
       {% if attention %}
       <div class="pulse-needs-item pulse-needs-attention" data-conversation="What happened with {{ attention.placeholder_text }}?">{{ attention.placeholder_text }}</div>
@@ -622,7 +614,7 @@
   <!-- Network Pulse -->
   {% if entities %}
   <div class="pulse-network" id="pulse-network">
-    <div class="pulse-section-header">Network Pulse</div>
+    <div class="pulse-section-header">network pulse</div>
     <div class="pulse-entities">
       {% for ent in entities %}
       <div class="pulse-entity" data-conversation="What do you know about {{ ent.get('name', '') }}?">
@@ -814,7 +806,7 @@
           if (container) container.remove();
           return;
         }
-        var html = '<div class="pulse-section-header">Your Routines</div><div class="pulse-routines-list">';
+        var html = '<div class="pulse-section-header">your routines</div><div class="pulse-routines-list">';
         routines.forEach(function(r) {
           var name = esc(r.name);
           html += '<div class="pulse-routine-item" data-conversation="Show me my ' + name + ' from today" data-routine-click="true"><span>';

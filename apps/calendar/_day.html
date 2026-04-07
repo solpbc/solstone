@@ -113,8 +113,6 @@
   margin: 0 0 0.5em 0;
   font-size: 0.85em;
   color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .all-day-cards {
@@ -494,7 +492,7 @@
     let html = '';
 
     if (untimedEvents.length) {
-      html += '<div class="all-day-section"><h4>All Day / Scheduled</h4><div class="all-day-cards">';
+      html += '<div class="all-day-section"><h4>all day / scheduled</h4><div class="all-day-cards">';
       untimedEvents.forEach((o, i) => {
         const idx = list.indexOf(o);
         const isPlanned = o.occurred === false;
