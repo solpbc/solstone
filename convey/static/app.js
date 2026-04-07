@@ -113,7 +113,7 @@
 
     // Facet pills
     activeFacets.forEach(facet => {
-      const pill = document.createElement('div');
+      const pill = document.createElement('button');
       pill.className = 'facet-pill';
 
       // Add muted class if facet is muted
@@ -150,7 +150,6 @@
       // Apply styling and interactivity (only if facets enabled)
       if (!facetsDisabled) {
         const isSelected = window.selectedFacet === facet.name;
-        pill.setAttribute('role', 'button');
         applyPillStyle(pill, facet, isSelected);
         pill.tabIndex = isSelected ? 0 : -1;
 
@@ -180,10 +179,11 @@
     // Add "+" button to create new facets (only in settings app)
     const currentApp = window.location.pathname.split('/')[2];
     if (!facetsDisabled && currentApp === 'settings') {
-      const addButton = document.createElement('div');
+      const addButton = document.createElement('button');
       addButton.className = 'facet-add-pill';
       addButton.textContent = '+';
       addButton.title = 'Create new facet';
+      addButton.setAttribute('aria-label', 'add facet');
       addButton.onclick = () => openFacetCreateModal();
       facetPillsContainer.appendChild(addButton);
     }
@@ -654,12 +654,6 @@
       facetPillsContainer.addEventListener('keydown', (e) => {
         const pill = e.target.closest('.facet-pill');
         if (!pill) return;
-
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          pill.click();
-          return;
-        }
 
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
           e.preventDefault();

@@ -922,6 +922,10 @@ body.menu-all .menu-bar {
 }
 
 .facet-pill {
+  appearance: none;
+  font-family: inherit;
+  color: inherit;
+  line-height: inherit;
   display: flex;
   align-items: center;
   padding: 8px 16px;
@@ -1645,6 +1649,10 @@ a.notification-card {
  * Plus button to create new facets
  * ======================================== */
 .facet-add-pill {
+  appearance: none;
+  font-family: inherit;
+  color: inherit;
+  line-height: inherit;
   display: flex;
   align-items: center;
   justify-content: center;
