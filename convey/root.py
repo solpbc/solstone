@@ -70,10 +70,10 @@ def require_login() -> Any:
         "root.login",
         "root.static",
         "root.favicon",
-        # Remote ingest endpoints use key-based auth, not session
-        "app:remote.ingest_upload",
-        "app:remote.ingest_event",
-        "app:remote.ingest_segments",
+        # Observer ingest endpoints use key-based auth, not session
+        "app:observer.ingest_upload",
+        "app:observer.ingest_event",
+        "app:observer.ingest_segments",
     }:
         return None
 
@@ -178,26 +178,26 @@ def init_observers() -> Any:
     if not _get_password_hash():
         return jsonify({"error": "Password required first"}), 403
 
-    from apps.remote.utils import list_remotes
+    from apps.observer.utils import list_observers
 
-    remotes_list = []
-    for remote in list_remotes():
-        if remote.get("revoked", False):
+    observers_list = []
+    for observer in list_observers():
+        if observer.get("revoked", False):
             continue
-        remotes_list.append(
+        observers_list.append(
             {
-                "key_prefix": remote.get("key", "")[:8],
-                "name": remote.get("name", ""),
-                "created_at": remote.get("created_at", 0),
-                "last_seen": remote.get("last_seen"),
-                "last_segment": remote.get("last_segment"),
-                "enabled": remote.get("enabled", True),
-                "revoked": remote.get("revoked", False),
-                "revoked_at": remote.get("revoked_at"),
-                "stats": remote.get("stats", {}),
+                "key_prefix": observer.get("key", "")[:8],
+                "name": observer.get("name", ""),
+                "created_at": observer.get("created_at", 0),
+                "last_seen": observer.get("last_seen"),
+                "last_segment": observer.get("last_segment"),
+                "enabled": observer.get("enabled", True),
+                "revoked": observer.get("revoked", False),
+                "revoked_at": observer.get("revoked_at"),
+                "stats": observer.get("stats", {}),
             }
         )
-    return jsonify(remotes_list)
+    return jsonify(observers_list)
 
 
 @bp.route("/init/finalize", methods=["POST"])

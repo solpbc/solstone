@@ -155,25 +155,25 @@ ENDPOINTS = [
         "params": {},
         "status": 404,
     },
-    # apps/remote/routes.py
+    # apps/observer/routes.py
     {
-        "app": "remote",
+        "app": "observer",
         "name": "list",
-        "path": "/app/remote/api/list",
+        "path": "/app/observer/api/list",
         "params": {},
         "status": 200,
     },
     {
-        "app": "remote",
-        "name": "remote-key",
-        "path": "/app/remote/api/example-key/key",
+        "app": "observer",
+        "name": "observer-key",
+        "path": "/app/observer/api/example-key/key",
         "params": {},
         "status": 404,
     },
     {
-        "app": "remote",
+        "app": "observer",
         "name": "ingest-day",
-        "path": "/app/remote/ingest/example-key/segments/20260304",
+        "path": "/app/observer/ingest/example-key/segments/20260304",
         "params": {},
         "status": 401,
     },

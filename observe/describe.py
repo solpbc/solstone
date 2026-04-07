@@ -438,10 +438,10 @@ class VideoProcessor:
                 # Files are in segment directories, filename is simple (e.g., center_DP-3_screen.webm)
                 metadata = {"raw": self.video_path.name}
 
-                # Add remote origin if set (from sense.py for remote observer uploads)
-                remote = os.getenv("REMOTE_NAME")
-                if remote:
-                    metadata["remote"] = remote
+                # Add observer origin if set (from sense.py for observer uploads)
+                observer = os.getenv("OBSERVER_NAME")
+                if observer:
+                    metadata["observer"] = observer
 
                 # Add segment metadata (from sense.py via SEGMENT_META env var)
                 segment_meta_str = os.getenv("SEGMENT_META")
@@ -971,9 +971,9 @@ async def async_main():
                     event_fields["day"] = day
                 if segment:
                     event_fields["segment"] = segment
-                remote = os.getenv("REMOTE_NAME")
-                if remote:
-                    event_fields["remote"] = remote
+                observer = os.getenv("OBSERVER_NAME")
+                if observer:
+                    event_fields["observer"] = observer
                 callosum_send("observe", "described", **event_fields)
     except Exception as e:
         logger.error(f"Failed to process {video_path}: {e}", exc_info=True)

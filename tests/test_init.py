@@ -171,7 +171,7 @@ class TestInitObservers:
             content_type="application/json",
         )
         monkeypatch.setattr(
-            "apps.remote.utils.list_remotes",
+            "apps.observer.utils.list_observers",
             lambda: [
                 {"key": "abcd1234xxxx", "name": "my-phone", "created_at": 100,
                  "last_seen": None, "last_segment": None, "enabled": True,

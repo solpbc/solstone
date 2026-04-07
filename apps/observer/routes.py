@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Remote app - manage remote observer connections.
+"""Observer app - manage observer connections.
 
 Provides endpoints for:
-- Managing remote observer registrations (UI)
-- Receiving file uploads from remote observers (ingest)
-- Relaying events from remote observers to local Callosum
+- Managing observer registrations (UI)
+- Receiving file uploads from observers (ingest)
+- Relaying events from observers to local Callosum
 - Retrieving segment upload history for sync verification
 """
 
@@ -36,19 +36,19 @@ from think.utils import day_path, now_ms, segment_path
 from .utils import (
     append_history_record,
     find_segment_by_sha256,
-    get_remotes_dir,
-    list_remotes,
+    get_observers_dir,
+    list_observers,
     load_history,
-    load_remote,
-    save_remote,
+    load_observer,
+    save_observer,
 )
 
 logger = logging.getLogger(__name__)
 
-remote_bp = Blueprint(
-    "app:remote",
+observer_bp = Blueprint(
+    "app:observer",
     __name__,
-    url_prefix="/app/remote",
+    url_prefix="/app/observer",
 )
 
 # Key length in bytes (256 bits = 32 bytes)
@@ -66,30 +66,30 @@ def _get_key(url_key: str | None = None) -> str | None:
 
 
 def _generate_key() -> str:
-    """Generate a URL-safe key for remote authentication."""
+    """Generate a URL-safe key for observer authentication."""
     return base64.urlsafe_b64encode(secrets.token_bytes(KEY_BYTES)).decode().rstrip("=")
 
 
-def _revoke_remote(key: str) -> bool:
-    """Revoke remote by key (soft-delete)."""
-    remote = load_remote(key)
-    if not remote:
+def _revoke_observer(key: str) -> bool:
+    """Revoke observer by key (soft-delete)."""
+    observer = load_observer(key)
+    if not observer:
         return False
-    remote["revoked"] = True
-    remote["revoked_at"] = now_ms()
-    return save_remote(remote)
+    observer["revoked"] = True
+    observer["revoked_at"] = now_ms()
+    return save_observer(observer)
 
 
 # === Management API (session-protected) ===
 
 
-@remote_bp.route("/api/list")
+@observer_bp.route("/api/list")
 def api_list() -> Any:
-    """List all registered remotes."""
-    remotes = list_remotes()
+    """List all registered observers."""
+    observers = list_observers()
     # Sanitize output - don't expose full keys
     result = []
-    for r in remotes:
+    for r in observers:
         result.append(
             {
                 "key_prefix": r.get("key", "")[:8],
@@ -106,9 +106,9 @@ def api_list() -> Any:
     return jsonify(result)
 
 
-@remote_bp.route("/api/create", methods=["POST"])
+@observer_bp.route("/api/create", methods=["POST"])
 def api_create() -> Any:
-    """Create a new remote registration."""
+    """Create a new observer registration."""
     data = request.get_json(force=True) if request.is_json else {}
     name = data.get("name", "").strip()
     if not name:
@@ -117,8 +117,8 @@ def api_create() -> Any:
     # Generate key
     key = _generate_key()
 
-    # Create remote record
-    remote_data = {
+    # Create observer record
+    observer_data = {
         "key": key,
         "name": name,
         "created_at": now_ms(),
@@ -131,19 +131,19 @@ def api_create() -> Any:
         },
     }
 
-    if not save_remote(remote_data):
-        return jsonify({"error": "Failed to save remote"}), 500
+    if not save_observer(observer_data):
+        return jsonify({"error": "Failed to save observer"}), 500
 
     # Log observer creation (journal-level, no facet)
     log_app_action(
-        app="remote",
+        app="observer",
         facet=None,
         action="observer_create",
         params={"name": name, "key_prefix": key[:8]},
     )
 
     # Build ingest URL
-    ingest_url = f"/app/remote/ingest/{key}"
+    ingest_url = f"/app/observer/ingest/{key}"
 
     return jsonify(
         {
@@ -155,29 +155,29 @@ def api_create() -> Any:
     )
 
 
-@remote_bp.route("/api/<key_prefix>", methods=["DELETE"])
+@observer_bp.route("/api/<key_prefix>", methods=["DELETE"])
 def api_delete(key_prefix: str) -> Any:
-    """Revoke a remote by key prefix (soft-delete)."""
-    # Find remote by prefix
-    remotes_dir = get_remotes_dir()
-    remote_path = remotes_dir / f"{key_prefix}.json"
-    if not remote_path.exists():
-        return jsonify({"error": "Remote not found"}), 404
+    """Revoke an observer by key prefix (soft-delete)."""
+    # Find observer by prefix
+    observers_dir = get_observers_dir()
+    observer_path = observers_dir / f"{key_prefix}.json"
+    if not observer_path.exists():
+        return jsonify({"error": "Observer not found"}), 404
 
     try:
-        with open(remote_path) as f:
+        with open(observer_path) as f:
             data = json.load(f)
         key = data.get("key", "")
         name = data.get("name", "")
     except (json.JSONDecodeError, OSError):
-        return jsonify({"error": "Failed to read remote"}), 500
+        return jsonify({"error": "Failed to read observer"}), 500
 
-    if not _revoke_remote(key):
-        return jsonify({"error": "Failed to revoke remote"}), 500
+    if not _revoke_observer(key):
+        return jsonify({"error": "Failed to revoke observer"}), 500
 
     # Log observer revocation (journal-level, no facet)
     log_app_action(
-        app="remote",
+        app="observer",
         facet=None,
         action="observer_revoke",
         params={"name": name, "key_prefix": key_prefix},
@@ -186,27 +186,27 @@ def api_delete(key_prefix: str) -> Any:
     return jsonify({"status": "ok"})
 
 
-@remote_bp.route("/api/<key_prefix>/key")
+@observer_bp.route("/api/<key_prefix>/key")
 def api_get_key(key_prefix: str) -> Any:
-    """Get full key and ingest URL for a remote."""
-    # Find remote by prefix
-    remotes_dir = get_remotes_dir()
-    remote_path = remotes_dir / f"{key_prefix}.json"
-    if not remote_path.exists():
-        return jsonify({"error": "Remote not found"}), 404
+    """Get full key and ingest URL for an observer."""
+    # Find observer by prefix
+    observers_dir = get_observers_dir()
+    observer_path = observers_dir / f"{key_prefix}.json"
+    if not observer_path.exists():
+        return jsonify({"error": "Observer not found"}), 404
 
     try:
-        with open(remote_path) as f:
+        with open(observer_path) as f:
             data = json.load(f)
     except (json.JSONDecodeError, OSError):
-        return jsonify({"error": "Failed to read remote"}), 500
+        return jsonify({"error": "Failed to read observer"}), 500
 
     key = data.get("key", "")
     return jsonify(
         {
             "key": key,
             "name": data.get("name", ""),
-            "ingest_url": f"/app/remote/ingest/{key}",
+            "ingest_url": f"/app/observer/ingest/{key}",
         }
     )
 
@@ -278,7 +278,7 @@ def _save_to_failed(
         Path to the failed directory where files were saved
     """
     # Use segment in path for easier identification of failed uploads
-    failed_dir = day_dir / "remote" / "failed" / segment / str(now_ms())
+    failed_dir = day_dir / "observer" / "failed" / segment / str(now_ms())
     failed_dir.mkdir(parents=True, exist_ok=True)
 
     for submitted_filename, _simple_filename, content, _sha256 in file_data:
@@ -291,17 +291,17 @@ def _save_to_failed(
 # === Ingest API (key-protected) ===
 
 
-@remote_bp.route("/ingest", methods=["POST"])
-@remote_bp.route("/ingest/<key>", methods=["POST"])
+@observer_bp.route("/ingest", methods=["POST"])
+@observer_bp.route("/ingest/<key>", methods=["POST"])
 def ingest_upload(key: str | None = None) -> Any:
-    """Receive file uploads from remote observer.
+    """Receive file uploads from observer.
 
     Expects multipart form with:
     - segment: Segment key (HHMMSS_LEN)
     - day: Day string (YYYYMMDD)
     - files: One or more media files
-    - host: (optional) Hostname of remote observer
-    - platform: (optional) Platform of remote observer
+    - host: (optional) Hostname of observer
+    - platform: (optional) Platform of observer
     - meta: (optional) JSON-encoded metadata dict (facet, setting, etc.)
 
     Writes files to journal and emits observe.observing event.
@@ -318,15 +318,15 @@ def ingest_upload(key: str | None = None) -> Any:
         return jsonify({"error": "Authorization required"}), 401
 
     # Validate key
-    remote = load_remote(auth_key)
-    if not remote:
+    observer = load_observer(auth_key)
+    if not observer:
         return jsonify({"error": "Invalid key"}), 401
 
-    if remote.get("revoked", False):
-        return jsonify({"error": "Remote revoked"}), 403
+    if observer.get("revoked", False):
+        return jsonify({"error": "Observer revoked"}), 403
 
-    if not remote.get("enabled", True):
-        return jsonify({"error": "Remote disabled"}), 403
+    if not observer.get("enabled", True):
+        return jsonify({"error": "Observer disabled"}), 403
 
     # Get segment, day, and host info from form
     segment = request.form.get("segment", "").strip()
@@ -341,20 +341,20 @@ def ingest_upload(key: str | None = None) -> Any:
         try:
             meta = json.loads(meta_str)
         except json.JSONDecodeError:
-            logger.warning(f"Invalid meta JSON from remote: {meta_str[:100]}")
+            logger.warning(f"Invalid meta JSON from observer: {meta_str[:100]}")
     if host and "host" not in meta:
         meta["host"] = host
     if platform and "platform" not in meta:
         meta["platform"] = platform
 
-    # Warn if client hostname differs from registered remote name
+    # Warn if client hostname differs from registered observer name
     effective_host = meta.get("host", host)
-    remote_name = remote.get("name", "")
-    if effective_host and effective_host != remote_name:
+    observer_name = observer.get("name", "")
+    if effective_host and effective_host != observer_name:
         logger.warning(
-            f"Remote '{remote_name}' ({auth_key[:8]}) connecting from host "
+            f"Observer '{observer_name}' ({auth_key[:8]}) connecting from host "
             f"'{effective_host}' — hostname differs from registered name. "
-            f"Use `sol remote rename` to update if the host was renamed."
+            f"Use `sol observer rename` to update if the host was renamed."
         )
 
     if not segment:
@@ -412,16 +412,16 @@ def ingest_upload(key: str | None = None) -> Any:
     if existing_segment:
         # Full duplicate - all files already exist in an existing segment
         logger.info(
-            f"Duplicate segment rejected: {day}/{segment} from {remote.get('name')} "
+            f"Duplicate segment rejected: {day}/{segment} from {observer.get('name')} "
             f"(matches existing {existing_segment})"
         )
 
         # Update last_seen and increment duplicates_rejected stat
-        remote["last_seen"] = now_ms()
-        remote["stats"]["duplicates_rejected"] = (
-            remote["stats"].get("duplicates_rejected", 0) + 1
+        observer["last_seen"] = now_ms()
+        observer["stats"]["duplicates_rejected"] = (
+            observer["stats"].get("duplicates_rejected", 0) + 1
         )
-        save_remote(remote)
+        save_observer(observer)
 
         return jsonify(
             {
@@ -439,16 +439,16 @@ def ingest_upload(key: str | None = None) -> Any:
     day_dir.mkdir(parents=True, exist_ok=True)
 
     # Determine stream name: trust client-provided stream in meta if valid,
-    # otherwise derive from remote registration name.
-    # Deriving from remote name via stream_name(remote=...) calls _strip_hostname,
+    # otherwise derive from observer registration name.
+    # Deriving from observer name via stream_name(observer=...) calls _strip_hostname,
     # which strips qualifiers like ".tmux" — so "fedora.tmux" becomes "fedora",
     # colliding both observers into one stream.
     client_stream = meta.get("stream", "").strip()
-    remote_name = remote.get("name", "unknown")
+    observer_name = observer.get("name", "unknown")
     if client_stream and re.match(r"^[a-z0-9][a-z0-9._-]*$", client_stream):
         stream = client_stream
     else:
-        stream = stream_name(remote=remote_name)
+        stream = stream_name(observer=observer_name)
 
     # Find available segment key within the stream directory
     stream_dir = day_dir / stream
@@ -461,7 +461,7 @@ def ingest_upload(key: str | None = None) -> Any:
         # Exhausted attempts, save to failed directory
         logger.error(
             f"No available segment slot for {day}/{stream}/{segment} from "
-            f"{remote_name} after {MAX_SEGMENT_ATTEMPTS} attempts"
+            f"{observer_name} after {MAX_SEGMENT_ATTEMPTS} attempts"
         )
         failed_dir = _save_to_failed(day_dir, file_data, segment)
         return (
@@ -479,7 +479,7 @@ def ingest_upload(key: str | None = None) -> Any:
     if segment != original_segment:
         logger.info(
             f"Segment collision resolved: {original_segment} -> {segment} "
-            f"for remote {remote_name}"
+            f"for observer {observer_name}"
         )
 
     # Create segment directory for files (under stream)
@@ -534,20 +534,20 @@ def ingest_upload(key: str | None = None) -> Any:
         sync_record["partial_match_sha256s"] = list(matched_sha256s)
     append_history_record(key_prefix, day, sync_record)
 
-    # Update remote stats
-    remote["last_seen"] = now_ms()
-    remote["last_segment"] = segment
-    remote["stats"]["segments_received"] = (
-        remote["stats"].get("segments_received", 0) + 1
+    # Update observer stats
+    observer["last_seen"] = now_ms()
+    observer["last_segment"] = segment
+    observer["stats"]["segments_received"] = (
+        observer["stats"].get("segments_received", 0) + 1
     )
-    remote["stats"]["bytes_received"] = (
-        remote["stats"].get("bytes_received", 0) + total_bytes
+    observer["stats"]["bytes_received"] = (
+        observer["stats"].get("bytes_received", 0) + total_bytes
     )
-    save_remote(remote)
+    save_observer(observer)
 
     # Write stream identity for this segment
     try:
-        result = update_stream(stream, day, segment, type="remote")
+        result = update_stream(stream, day, segment, type="observer")
         write_segment_stream(
             segment_dir,
             stream,
@@ -567,7 +567,7 @@ def ingest_upload(key: str | None = None) -> Any:
         "segment": segment,
         "day": day,
         "files": saved_files,
-        "remote": remote_name,
+        "observer": observer_name,
         "stream": stream,
     }
     if meta:
@@ -575,7 +575,7 @@ def ingest_upload(key: str | None = None) -> Any:
     emit("observe", "observing", **event_fields)
 
     logger.info(
-        f"Received {len(saved_files)} files for {day}/{segment} from {remote.get('name')}"
+        f"Received {len(saved_files)} files for {day}/{segment} from {observer.get('name')}"
     )
 
     # Determine response status
@@ -594,10 +594,10 @@ def ingest_upload(key: str | None = None) -> Any:
     )
 
 
-@remote_bp.route("/ingest/event", methods=["POST"])
-@remote_bp.route("/ingest/<key>/event", methods=["POST"])
+@observer_bp.route("/ingest/event", methods=["POST"])
+@observer_bp.route("/ingest/<key>/event", methods=["POST"])
 def ingest_event(key: str | None = None) -> Any:
-    """Receive events from remote observer and relay to local Callosum.
+    """Receive events from observer and relay to local Callosum.
 
     Expects JSON body with:
     - tract: Event tract
@@ -610,15 +610,15 @@ def ingest_event(key: str | None = None) -> Any:
         return jsonify({"error": "Authorization required"}), 401
 
     # Validate key
-    remote = load_remote(auth_key)
-    if not remote:
+    observer = load_observer(auth_key)
+    if not observer:
         return jsonify({"error": "Invalid key"}), 401
 
-    if remote.get("revoked", False):
-        return jsonify({"error": "Remote revoked"}), 403
+    if observer.get("revoked", False):
+        return jsonify({"error": "Observer revoked"}), 403
 
-    if not remote.get("enabled", True):
-        return jsonify({"error": "Remote disabled"}), 403
+    if not observer.get("enabled", True):
+        return jsonify({"error": "Observer disabled"}), 403
 
     # Parse event
     data = request.get_json(force=True) if request.is_json else {}
@@ -629,22 +629,22 @@ def ingest_event(key: str | None = None) -> Any:
     if not tract or not event:
         return jsonify({"error": "Missing tract or event"}), 400
 
-    # Add remote identifier
-    data["remote"] = remote.get("name", "unknown")
+    # Add observer identifier
+    data["observer"] = observer.get("name", "unknown")
 
     # Relay to local Callosum
     emit(tract, event, **{k: v for k, v in data.items() if k not in ("tract", "event")})
 
     # Update last_seen on status events
     if tract == "observe" and event == "status":
-        remote["last_seen"] = now_ms()
-        save_remote(remote)
+        observer["last_seen"] = now_ms()
+        save_observer(observer)
 
     return jsonify({"status": "ok"})
 
 
-@remote_bp.route("/ingest/segments/<day>")
-@remote_bp.route("/ingest/<key>/segments/<day>")
+@observer_bp.route("/ingest/segments/<day>")
+@observer_bp.route("/ingest/<key>/segments/<day>")
 def ingest_segments(day: str, key: str | None = None) -> Any:
     """List uploaded segments for a day with file verification.
 
@@ -655,7 +655,7 @@ def ingest_segments(day: str, key: str | None = None) -> Any:
 
     Args:
         day: Day string (YYYYMMDD)
-        key: Remote authentication key (from URL path, legacy)
+        key: Observer authentication key (from URL path, legacy)
     """
     # Extract key from Bearer header (primary) or URL path (legacy)
     auth_key = _get_key(key)
@@ -663,21 +663,21 @@ def ingest_segments(day: str, key: str | None = None) -> Any:
         return jsonify({"error": "Authorization required"}), 401
 
     # Validate key
-    remote = load_remote(auth_key)
-    if not remote:
+    observer = load_observer(auth_key)
+    if not observer:
         return jsonify({"error": "Invalid key"}), 401
 
-    if remote.get("revoked", False):
-        return jsonify({"error": "Remote revoked"}), 403
+    if observer.get("revoked", False):
+        return jsonify({"error": "Observer revoked"}), 403
 
-    if not remote.get("enabled", True):
-        return jsonify({"error": "Remote disabled"}), 403
+    if not observer.get("enabled", True):
+        return jsonify({"error": "Observer disabled"}), 403
 
     # Validate day format (YYYYMMDD)
     if not re.match(r"^\d{8}$", day):
         return jsonify({"error": "Invalid day format"}), 400
 
-    # Load sync history for this remote/day
+    # Load sync history for this observer/day
     key_prefix = auth_key[:8]
     records = load_history(key_prefix, day)
 
@@ -688,13 +688,13 @@ def ingest_segments(day: str, key: str | None = None) -> Any:
     day_dir = day_path(day)
 
     # Determine stream: trust client-provided query param if valid,
-    # otherwise derive from remote name (same logic as ingest_upload).
+    # otherwise derive from observer name (same logic as ingest_upload).
     client_stream = request.args.get("stream", "").strip()
-    remote_name = remote.get("name", "unknown")
+    observer_name = observer.get("name", "unknown")
     if client_stream and re.match(r"^[a-z0-9][a-z0-9._-]*$", client_stream):
         stream = client_stream
     else:
-        stream = stream_name(remote=remote_name)
+        stream = stream_name(observer=observer_name)
 
     # Build response grouped by segment, deduplicating by sha256
     # Later records overwrite earlier ones (most recent upload wins)

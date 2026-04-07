@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for remote app routes."""
+"""Tests for observer app routes."""
 
 from __future__ import annotations
 
@@ -9,21 +9,21 @@ import io
 import json
 
 
-def test_api_list_empty(remote_env):
-    """Test listing remotes when none exist."""
-    env = remote_env()
+def test_api_list_empty(observer_env):
+    """Test listing observers when none exist."""
+    env = observer_env()
 
-    resp = env.client.get("/app/remote/api/list")
+    resp = env.client.get("/app/observer/api/list")
     assert resp.status_code == 200
     assert resp.get_json() == []
 
 
-def test_api_create_remote(remote_env):
-    """Test creating a new remote."""
-    env = remote_env()
+def test_api_create_observer(observer_env):
+    """Test creating a new observer."""
+    env = observer_env()
 
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "test-laptop"},
         content_type="application/json",
     )
@@ -35,16 +35,16 @@ def test_api_create_remote(remote_env):
     assert len(data["key"]) > 32  # 256 bits = 43 base64 chars
     assert data["key_prefix"] == data["key"][:8]
     assert data["name"] == "test-laptop"
-    assert "/app/remote/ingest/" in data["ingest_url"]
+    assert "/app/observer/ingest/" in data["ingest_url"]
 
 
-def test_api_create_requires_name(remote_env):
-    """Test that creating a remote requires a name."""
-    env = remote_env()
+def test_api_create_requires_name(observer_env):
+    """Test that creating a observer requires a name."""
+    env = observer_env()
 
     # Missing name
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={},
         content_type="application/json",
     )
@@ -53,78 +53,78 @@ def test_api_create_requires_name(remote_env):
 
     # Empty name
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "   "},
         content_type="application/json",
     )
     assert resp.status_code == 400
 
 
-def test_api_list_shows_created_remote(remote_env):
-    """Test that created remotes appear in the list."""
-    env = remote_env()
+def test_api_list_shows_created_observer(observer_env):
+    """Test that created observers appear in the list."""
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
-        json={"name": "my-remote"},
+        "/app/observer/api/create",
+        json={"name": "my-observer"},
         content_type="application/json",
     )
     assert resp.status_code == 200
     key_prefix = resp.get_json()["key_prefix"]
 
     # List should show it
-    resp = env.client.get("/app/remote/api/list")
+    resp = env.client.get("/app/observer/api/list")
     assert resp.status_code == 200
-    remotes = resp.get_json()
+    observers = resp.get_json()
 
-    assert len(remotes) == 1
-    assert remotes[0]["key_prefix"] == key_prefix
-    assert remotes[0]["name"] == "my-remote"
-    assert remotes[0]["enabled"] is True
-    assert remotes[0]["stats"]["segments_received"] == 0
+    assert len(observers) == 1
+    assert observers[0]["key_prefix"] == key_prefix
+    assert observers[0]["name"] == "my-observer"
+    assert observers[0]["enabled"] is True
+    assert observers[0]["stats"]["segments_received"] == 0
 
 
-def test_api_delete_remote(remote_env):
-    """Test revoking a remote (soft-delete)."""
-    env = remote_env()
+def test_api_delete_observer(observer_env):
+    """Test revoking a observer (soft-delete)."""
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "to-revoke"},
         content_type="application/json",
     )
     key_prefix = resp.get_json()["key_prefix"]
 
     # Revoke it
-    resp = env.client.delete(f"/app/remote/api/{key_prefix}")
+    resp = env.client.delete(f"/app/observer/api/{key_prefix}")
     assert resp.status_code == 200
     assert resp.get_json()["status"] == "ok"
 
     # List should still show it, but marked as revoked
-    resp = env.client.get("/app/remote/api/list")
-    remotes = resp.get_json()
-    assert len(remotes) == 1
-    assert remotes[0]["key_prefix"] == key_prefix
-    assert remotes[0]["revoked"] is True
-    assert remotes[0]["revoked_at"] is not None
+    resp = env.client.get("/app/observer/api/list")
+    observers = resp.get_json()
+    assert len(observers) == 1
+    assert observers[0]["key_prefix"] == key_prefix
+    assert observers[0]["revoked"] is True
+    assert observers[0]["revoked_at"] is not None
 
 
-def test_api_delete_nonexistent(remote_env):
-    """Test deleting a nonexistent remote returns 404."""
-    env = remote_env()
+def test_api_delete_nonexistent(observer_env):
+    """Test deleting a nonexistent observer returns 404."""
+    env = observer_env()
 
-    resp = env.client.delete("/app/remote/api/nonexistent")
+    resp = env.client.delete("/app/observer/api/nonexistent")
     assert resp.status_code == 404
 
 
-def test_ingest_invalid_key(remote_env):
+def test_ingest_invalid_key(observer_env):
     """Test that ingest rejects invalid keys."""
-    env = remote_env()
+    env = observer_env()
 
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": "Bearer invalid-key-12345"},
         data={"day": "20250103", "segment": "120000_300"},
     )
@@ -132,13 +132,13 @@ def test_ingest_invalid_key(remote_env):
     assert "Invalid key" in resp.get_json()["error"]
 
 
-def test_ingest_missing_segment(remote_env):
+def test_ingest_missing_segment(observer_env):
     """Test that ingest requires segment."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "test"},
         content_type="application/json",
     )
@@ -146,7 +146,7 @@ def test_ingest_missing_segment(remote_env):
 
     # Upload without segment
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={"day": "20250103"},
     )
@@ -154,13 +154,13 @@ def test_ingest_missing_segment(remote_env):
     assert "Missing segment" in resp.get_json()["error"]
 
 
-def test_ingest_missing_day(remote_env):
+def test_ingest_missing_day(observer_env):
     """Test that ingest requires day."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "test"},
         content_type="application/json",
     )
@@ -168,7 +168,7 @@ def test_ingest_missing_day(remote_env):
 
     # Upload without day
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={"segment": "120000_300"},
     )
@@ -176,13 +176,13 @@ def test_ingest_missing_day(remote_env):
     assert "Missing day" in resp.get_json()["error"]
 
 
-def test_ingest_invalid_segment_format(remote_env):
+def test_ingest_invalid_segment_format(observer_env):
     """Test that ingest validates segment format."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "test"},
         content_type="application/json",
     )
@@ -190,7 +190,7 @@ def test_ingest_invalid_segment_format(remote_env):
 
     # Invalid segment format
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={"day": "20250103", "segment": "invalid"},
     )
@@ -198,13 +198,13 @@ def test_ingest_invalid_segment_format(remote_env):
     assert "Invalid segment format" in resp.get_json()["error"]
 
 
-def test_ingest_invalid_day_format(remote_env):
+def test_ingest_invalid_day_format(observer_env):
     """Test that ingest validates day format."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "test"},
         content_type="application/json",
     )
@@ -212,7 +212,7 @@ def test_ingest_invalid_day_format(remote_env):
 
     # Invalid day format
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={"day": "2025-01-03", "segment": "120000_300"},
     )
@@ -220,13 +220,13 @@ def test_ingest_invalid_day_format(remote_env):
     assert "Invalid day format" in resp.get_json()["error"]
 
 
-def test_ingest_no_files(remote_env):
+def test_ingest_no_files(observer_env):
     """Test that ingest requires files."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "test"},
         content_type="application/json",
     )
@@ -234,7 +234,7 @@ def test_ingest_no_files(remote_env):
 
     # Upload without files
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={"day": "20250103", "segment": "120000_300"},
     )
@@ -242,14 +242,14 @@ def test_ingest_no_files(remote_env):
     assert "No files uploaded" in resp.get_json()["error"]
 
 
-def test_ingest_success(remote_env):
+def test_ingest_success(observer_env):
     """Test successful file ingest."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
-        json={"name": "test-remote"},
+        "/app/observer/api/create",
+        json={"name": "test-observer"},
         content_type="application/json",
     )
     key = resp.get_json()["key"]
@@ -257,7 +257,7 @@ def test_ingest_success(remote_env):
     # Upload a file
     test_data = b"test audio content"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -273,19 +273,19 @@ def test_ingest_success(remote_env):
 
     # Verify file was written (in stream/segment directory)
     expected_file = (
-        env.journal / "20250103" / "test-remote" / "120000_300" / "test_audio.flac"
+        env.journal / "20250103" / "test-observer" / "120000_300" / "test_audio.flac"
     )
     assert expected_file.exists()
     assert expected_file.read_bytes() == test_data
 
 
-def test_ingest_updates_stats(remote_env):
-    """Test that ingest updates remote stats."""
-    env = remote_env()
+def test_ingest_updates_stats(observer_env):
+    """Test that ingest updates observer stats."""
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "stats-test"},
         content_type="application/json",
     )
@@ -294,7 +294,7 @@ def test_ingest_updates_stats(remote_env):
     # Upload a file
     test_data = b"test content"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -305,22 +305,22 @@ def test_ingest_updates_stats(remote_env):
     assert resp.status_code == 200
 
     # Check stats updated
-    resp = env.client.get("/app/remote/api/list")
-    remotes = resp.get_json()
-    assert len(remotes) == 1
-    assert remotes[0]["stats"]["segments_received"] == 1
-    assert remotes[0]["stats"]["bytes_received"] == len(test_data)
-    assert remotes[0]["last_segment"] == "120000_300"
-    assert remotes[0]["last_seen"] is not None
+    resp = env.client.get("/app/observer/api/list")
+    observers = resp.get_json()
+    assert len(observers) == 1
+    assert observers[0]["stats"]["segments_received"] == 1
+    assert observers[0]["stats"]["bytes_received"] == len(test_data)
+    assert observers[0]["last_segment"] == "120000_300"
+    assert observers[0]["last_seen"] is not None
 
 
-def test_ingest_event_relay(remote_env):
+def test_ingest_event_relay(observer_env):
     """Test event relay endpoint."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "event-test"},
         content_type="application/json",
     )
@@ -328,7 +328,7 @@ def test_ingest_event_relay(remote_env):
 
     # Send an event
     resp = env.client.post(
-        "/app/remote/ingest/event",
+        "/app/observer/ingest/event",
         headers={"Authorization": f"Bearer {key}"},
         json={"tract": "observe", "event": "status", "mode": "screencast"},
         content_type="application/json",
@@ -337,13 +337,13 @@ def test_ingest_event_relay(remote_env):
     assert resp.get_json()["status"] == "ok"
 
 
-def test_ingest_event_missing_tract(remote_env):
+def test_ingest_event_missing_tract(observer_env):
     """Test that event relay requires tract."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "test"},
         content_type="application/json",
     )
@@ -351,7 +351,7 @@ def test_ingest_event_missing_tract(remote_env):
 
     # Missing tract
     resp = env.client.post(
-        "/app/remote/ingest/event",
+        "/app/observer/ingest/event",
         headers={"Authorization": f"Bearer {key}"},
         json={"event": "status"},
         content_type="application/json",
@@ -360,13 +360,13 @@ def test_ingest_event_missing_tract(remote_env):
     assert "Missing tract or event" in resp.get_json()["error"]
 
 
-def test_ingest_revoked_key(remote_env):
+def test_ingest_revoked_key(observer_env):
     """Test that ingest rejects revoked keys."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create and revoke a remote
+    # Create and revoke a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "revoked-test"},
         content_type="application/json",
     )
@@ -374,13 +374,13 @@ def test_ingest_revoked_key(remote_env):
     key = data["key"]
     key_prefix = data["key_prefix"]
 
-    resp = env.client.delete(f"/app/remote/api/{key_prefix}")
+    resp = env.client.delete(f"/app/observer/api/{key_prefix}")
     assert resp.status_code == 200
 
     # Try to upload - should fail
     test_data = b"test content"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -389,16 +389,16 @@ def test_ingest_revoked_key(remote_env):
         },
     )
     assert resp.status_code == 403
-    assert "Remote revoked" in resp.get_json()["error"]
+    assert "Observer revoked" in resp.get_json()["error"]
 
 
-def test_ingest_event_revoked_key(remote_env):
+def test_ingest_event_revoked_key(observer_env):
     """Test that event relay rejects revoked keys."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create and revoke a remote
+    # Create and revoke a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "revoked-event-test"},
         content_type="application/json",
     )
@@ -406,27 +406,27 @@ def test_ingest_event_revoked_key(remote_env):
     key = data["key"]
     key_prefix = data["key_prefix"]
 
-    resp = env.client.delete(f"/app/remote/api/{key_prefix}")
+    resp = env.client.delete(f"/app/observer/api/{key_prefix}")
     assert resp.status_code == 200
 
     # Try to send event - should fail
     resp = env.client.post(
-        "/app/remote/ingest/event",
+        "/app/observer/ingest/event",
         headers={"Authorization": f"Bearer {key}"},
         json={"tract": "observe", "event": "status"},
         content_type="application/json",
     )
     assert resp.status_code == 403
-    assert "Remote revoked" in resp.get_json()["error"]
+    assert "Observer revoked" in resp.get_json()["error"]
 
 
-def test_api_get_key(remote_env):
-    """Test retrieving full key for a remote."""
-    env = remote_env()
+def test_api_get_key(observer_env):
+    """Test retrieving full key for a observer."""
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "key-test"},
         content_type="application/json",
     )
@@ -435,31 +435,31 @@ def test_api_get_key(remote_env):
     key_prefix = create_data["key_prefix"]
 
     # Get the key
-    resp = env.client.get(f"/app/remote/api/{key_prefix}/key")
+    resp = env.client.get(f"/app/observer/api/{key_prefix}/key")
     assert resp.status_code == 200
 
     data = resp.get_json()
     assert data["key"] == key
     assert data["name"] == "key-test"
-    assert data["ingest_url"] == f"/app/remote/ingest/{key}"
+    assert data["ingest_url"] == f"/app/observer/ingest/{key}"
 
 
-def test_api_get_key_nonexistent(remote_env):
-    """Test getting key for nonexistent remote returns 404."""
-    env = remote_env()
+def test_api_get_key_nonexistent(observer_env):
+    """Test getting key for nonexistent observer returns 404."""
+    env = observer_env()
 
-    resp = env.client.get("/app/remote/api/nonexistent/key")
+    resp = env.client.get("/app/observer/api/nonexistent/key")
     assert resp.status_code == 404
 
 
 # === Segment collision helper tests ===
 
 
-def test_find_available_segment_no_conflict(remote_env):
+def test_find_available_segment_no_conflict(observer_env):
     """Test find_available_segment returns original when no conflict."""
     from observe.utils import find_available_segment
 
-    env = remote_env()
+    env = observer_env()
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
 
@@ -467,11 +467,11 @@ def test_find_available_segment_no_conflict(remote_env):
     assert result == "120000_300"
 
 
-def test_find_available_segment_with_conflict(remote_env):
+def test_find_available_segment_with_conflict(observer_env):
     """Test find_available_segment finds alternative when conflict exists."""
     from observe.utils import find_available_segment
 
-    env = remote_env()
+    env = observer_env()
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
 
@@ -490,11 +490,11 @@ def test_find_available_segment_with_conflict(remote_env):
     assert dur_part.isdigit()
 
 
-def test_find_available_segment_with_limited_attempts(remote_env):
+def test_find_available_segment_with_limited_attempts(observer_env):
     """Test find_available_segment respects max_attempts limit."""
     from observe.utils import find_available_segment
 
-    env = remote_env()
+    env = observer_env()
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
 
@@ -506,11 +506,11 @@ def test_find_available_segment_with_limited_attempts(remote_env):
     assert result is None
 
 
-def test_save_to_failed_creates_directory(remote_env):
+def test_save_to_failed_creates_directory(observer_env):
     """Test _save_to_failed creates failed directory structure."""
-    from apps.remote.routes import _save_to_failed
+    from apps.observer.routes import _save_to_failed
 
-    env = remote_env()
+    env = observer_env()
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
 
@@ -524,7 +524,7 @@ def test_save_to_failed_creates_directory(remote_env):
 
     # Verify structure includes segment key
     assert failed_dir.exists()
-    assert "remote/failed/120000_300/" in str(failed_dir)
+    assert "observer/failed/120000_300/" in str(failed_dir)
     assert (failed_dir / "120000_300_audio.flac").exists()
     assert (failed_dir / "120000_300_screen.webm").exists()
     # Verify actual content was written
@@ -535,13 +535,13 @@ def test_save_to_failed_creates_directory(remote_env):
 # === Integration tests for collision handling ===
 
 
-def test_ingest_collision_adjusts_segment(remote_env):
+def test_ingest_collision_adjusts_segment(observer_env):
     """Test that ingest adjusts segment key on collision."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "collision-test"},
         content_type="application/json",
     )
@@ -557,7 +557,7 @@ def test_ingest_collision_adjusts_segment(remote_env):
     # Upload with same segment key
     test_data = b"new audio content"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -584,13 +584,13 @@ def test_ingest_collision_adjusts_segment(remote_env):
     assert (adjusted_segments[0] / "audio.flac").exists()
 
 
-def test_ingest_no_collision_preserves_segment(remote_env):
+def test_ingest_no_collision_preserves_segment(observer_env):
     """Test that ingest preserves segment key when no collision."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "no-collision-test"},
         content_type="application/json",
     )
@@ -599,7 +599,7 @@ def test_ingest_no_collision_preserves_segment(remote_env):
     # Upload without any conflicting segment directory
     test_data = b"audio content"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -620,13 +620,13 @@ def test_ingest_no_collision_preserves_segment(remote_env):
     assert expected_file.exists()
 
 
-def test_ingest_stats_use_adjusted_segment(remote_env):
-    """Test that remote stats record the adjusted segment key."""
-    env = remote_env()
+def test_ingest_stats_use_adjusted_segment(observer_env):
+    """Test that observer stats record the adjusted segment key."""
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "stats-adjust-test"},
         content_type="application/json",
     )
@@ -641,7 +641,7 @@ def test_ingest_stats_use_adjusted_segment(remote_env):
     # Upload with same segment key
     test_data = b"new audio"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -653,10 +653,10 @@ def test_ingest_stats_use_adjusted_segment(remote_env):
     assert resp.status_code == 200
 
     # Check stats - last_segment should be the adjusted one
-    resp = env.client.get("/app/remote/api/list")
-    remotes = resp.get_json()
-    assert len(remotes) == 1
-    last_segment = remotes[0]["last_segment"]
+    resp = env.client.get("/app/observer/api/list")
+    observers = resp.get_json()
+    assert len(observers) == 1
+    last_segment = observers[0]["last_segment"]
     assert last_segment is not None
     # It should be adjusted (not the original conflicting one)
     assert last_segment != "120000_300"
@@ -667,13 +667,13 @@ def test_ingest_stats_use_adjusted_segment(remote_env):
 # === Sync history tests ===
 
 
-def test_ingest_creates_sync_history(remote_env):
+def test_ingest_creates_sync_history(observer_env):
     """Test that ingest creates sync history record."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "history-test"},
         content_type="application/json",
     )
@@ -684,7 +684,7 @@ def test_ingest_creates_sync_history(remote_env):
     # Upload a file
     test_data = b"test audio content for history"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -698,8 +698,8 @@ def test_ingest_creates_sync_history(remote_env):
     hist_path = (
         env.journal
         / "apps"
-        / "remote"
-        / "remotes"
+        / "observer"
+        / "observers"
         / key_prefix
         / "hist"
         / "20250103.jsonl"
@@ -722,13 +722,13 @@ def test_ingest_creates_sync_history(remote_env):
     assert file_rec["inode"] > 0
 
 
-def test_ingest_history_with_collision(remote_env):
+def test_ingest_history_with_collision(observer_env):
     """Test that sync history records collision adjustment."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "collision-history-test"},
         content_type="application/json",
     )
@@ -745,7 +745,7 @@ def test_ingest_history_with_collision(remote_env):
     # Upload with same segment key
     test_data = b"new audio content"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -759,8 +759,8 @@ def test_ingest_history_with_collision(remote_env):
     hist_path = (
         env.journal
         / "apps"
-        / "remote"
-        / "remotes"
+        / "observer"
+        / "observers"
         / key_prefix
         / "hist"
         / "20250103.jsonl"
@@ -778,13 +778,13 @@ def test_ingest_history_with_collision(remote_env):
     assert file_rec["written"] == "audio.flac"  # Segment prefix stripped
 
 
-def test_segments_endpoint_empty(remote_env):
+def test_segments_endpoint_empty(observer_env):
     """Test segments endpoint returns empty for no uploads."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "segments-empty-test"},
         content_type="application/json",
     )
@@ -792,51 +792,51 @@ def test_segments_endpoint_empty(remote_env):
 
     # Query segments - should be empty
     resp = env.client.get(
-        "/app/remote/ingest/segments/20250103",
+        "/app/observer/ingest/segments/20250103",
         headers={"Authorization": f"Bearer {key}"},
     )
     assert resp.status_code == 200
     assert resp.get_json() == []
 
 
-def test_segments_endpoint_invalid_key(remote_env):
+def test_segments_endpoint_invalid_key(observer_env):
     """Test segments endpoint rejects invalid key."""
-    env = remote_env()
+    env = observer_env()
 
     resp = env.client.get(
-        "/app/remote/ingest/segments/20250103",
+        "/app/observer/ingest/segments/20250103",
         headers={"Authorization": "Bearer invalid-key"},
     )
     assert resp.status_code == 401
 
 
-def test_segments_endpoint_invalid_day(remote_env):
+def test_segments_endpoint_invalid_day(observer_env):
     """Test segments endpoint validates day format."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "segments-day-test"},
         content_type="application/json",
     )
     key = resp.get_json()["key"]
 
     resp = env.client.get(
-        "/app/remote/ingest/segments/2025-01-03",
+        "/app/observer/ingest/segments/2025-01-03",
         headers={"Authorization": f"Bearer {key}"},
     )
     assert resp.status_code == 400
     assert "Invalid day format" in resp.get_json()["error"]
 
 
-def test_segments_endpoint_lists_uploads(remote_env):
+def test_segments_endpoint_lists_uploads(observer_env):
     """Test segments endpoint lists uploaded segments."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "segments-list-test"},
         content_type="application/json",
     )
@@ -845,7 +845,7 @@ def test_segments_endpoint_lists_uploads(remote_env):
     # Upload a file
     test_data = b"test audio content"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -857,7 +857,7 @@ def test_segments_endpoint_lists_uploads(remote_env):
 
     # Query segments
     resp = env.client.get(
-        "/app/remote/ingest/segments/20250103",
+        "/app/observer/ingest/segments/20250103",
         headers={"Authorization": f"Bearer {key}"},
     )
     assert resp.status_code == 200
@@ -880,13 +880,13 @@ def test_segments_endpoint_lists_uploads(remote_env):
     )  # Original name preserved
 
 
-def test_segments_endpoint_shows_collision(remote_env):
+def test_segments_endpoint_shows_collision(observer_env):
     """Test segments endpoint shows collision info."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "segments-collision-test"},
         content_type="application/json",
     )
@@ -901,7 +901,7 @@ def test_segments_endpoint_shows_collision(remote_env):
     # Upload with collision
     test_data = b"new audio"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -913,7 +913,7 @@ def test_segments_endpoint_shows_collision(remote_env):
 
     # Query segments
     resp = env.client.get(
-        "/app/remote/ingest/segments/20250103",
+        "/app/observer/ingest/segments/20250103",
         headers={"Authorization": f"Bearer {key}"},
     )
     data = resp.get_json()
@@ -929,13 +929,13 @@ def test_segments_endpoint_shows_collision(remote_env):
     assert file_info["status"] == "present"
 
 
-def test_segments_endpoint_missing_file(remote_env):
+def test_segments_endpoint_missing_file(observer_env):
     """Test segments endpoint reports missing files."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "segments-missing-test"},
         content_type="application/json",
     )
@@ -944,7 +944,7 @@ def test_segments_endpoint_missing_file(remote_env):
     # Upload a file
     test_data = b"test audio"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -961,7 +961,7 @@ def test_segments_endpoint_missing_file(remote_env):
 
     # Query segments
     resp = env.client.get(
-        "/app/remote/ingest/segments/20250103",
+        "/app/observer/ingest/segments/20250103",
         headers={"Authorization": f"Bearer {key}"},
     )
     data = resp.get_json()
@@ -971,13 +971,13 @@ def test_segments_endpoint_missing_file(remote_env):
     assert file_info["status"] == "missing"
 
 
-def test_segments_endpoint_relocated_file(remote_env):
+def test_segments_endpoint_relocated_file(observer_env):
     """Test segments endpoint detects relocated files by inode."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "segments-relocate-test"},
         content_type="application/json",
     )
@@ -986,7 +986,7 @@ def test_segments_endpoint_relocated_file(remote_env):
     # Upload a file
     test_data = b"test audio for relocation"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1005,7 +1005,7 @@ def test_segments_endpoint_relocated_file(remote_env):
 
     # Query segments - should detect relocation by inode
     resp = env.client.get(
-        "/app/remote/ingest/segments/20250103",
+        "/app/observer/ingest/segments/20250103",
         headers={"Authorization": f"Bearer {key}"},
     )
     data = resp.get_json()
@@ -1019,11 +1019,11 @@ def test_segments_endpoint_relocated_file(remote_env):
     )
 
 
-def test_find_by_inode(remote_env):
+def test_find_by_inode(observer_env):
     """Test _find_by_inode helper."""
-    from apps.remote.routes import _find_by_inode
+    from apps.observer.routes import _find_by_inode
 
-    env = remote_env()
+    env = observer_env()
     day_dir = env.journal / "20250103"
     day_dir.mkdir(parents=True)
 
@@ -1051,13 +1051,13 @@ def test_find_by_inode(remote_env):
     assert found is None
 
 
-def test_segments_endpoint_revoked_key(remote_env):
+def test_segments_endpoint_revoked_key(observer_env):
     """Test segments endpoint rejects revoked key."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create and revoke a remote
+    # Create and revoke a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "segments-revoked-test"},
         content_type="application/json",
     )
@@ -1065,28 +1065,28 @@ def test_segments_endpoint_revoked_key(remote_env):
     key = data["key"]
     key_prefix = data["key_prefix"]
 
-    env.client.delete(f"/app/remote/api/{key_prefix}")
+    env.client.delete(f"/app/observer/api/{key_prefix}")
 
     # Query segments - should be rejected
     resp = env.client.get(
-        "/app/remote/ingest/segments/20250103",
+        "/app/observer/ingest/segments/20250103",
         headers={"Authorization": f"Bearer {key}"},
     )
     assert resp.status_code == 403
-    assert "Remote revoked" in resp.get_json()["error"]
+    assert "Observer revoked" in resp.get_json()["error"]
 
 
-def test_segments_endpoint_deduplicates_by_sha256(remote_env):
+def test_segments_endpoint_deduplicates_by_sha256(observer_env):
     """Test that duplicate file uploads are rejected (not duplicated on disk).
 
     With duplicate detection enabled, re-uploading the same content returns
     status='duplicate' and the segment is not written again.
     """
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "segments-dedup-test"},
         content_type="application/json",
     )
@@ -1095,7 +1095,7 @@ def test_segments_endpoint_deduplicates_by_sha256(remote_env):
     # Upload a file
     test_data = b"test audio content"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1109,7 +1109,7 @@ def test_segments_endpoint_deduplicates_by_sha256(remote_env):
     # Upload the same file again (same content = same sha256)
     # With duplicate detection, this should be rejected
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1122,7 +1122,7 @@ def test_segments_endpoint_deduplicates_by_sha256(remote_env):
 
     # Query segments - should have only one segment (duplicate was rejected)
     resp = env.client.get(
-        "/app/remote/ingest/segments/20250103",
+        "/app/observer/ingest/segments/20250103",
         headers={"Authorization": f"Bearer {key}"},
     )
     data = resp.get_json()
@@ -1134,13 +1134,13 @@ def test_segments_endpoint_deduplicates_by_sha256(remote_env):
     assert data[0]["files"][0]["status"] == "present"
 
 
-def test_segments_endpoint_shows_observed_status(remote_env):
+def test_segments_endpoint_shows_observed_status(observer_env):
     """Test that segments endpoint includes observed status."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "observed-test"},
         content_type="application/json",
     )
@@ -1151,7 +1151,7 @@ def test_segments_endpoint_shows_observed_status(remote_env):
     # Upload a file
     test_data = b"test audio content"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1163,7 +1163,7 @@ def test_segments_endpoint_shows_observed_status(remote_env):
 
     # Query segments - should show observed: false
     resp = env.client.get(
-        "/app/remote/ingest/segments/20250103",
+        "/app/observer/ingest/segments/20250103",
         headers={"Authorization": f"Bearer {key}"},
     )
     data = resp.get_json()
@@ -1171,7 +1171,7 @@ def test_segments_endpoint_shows_observed_status(remote_env):
     assert data[0]["observed"] is False
 
     # Manually add an observed record to simulate event handler
-    hist_dir = env.journal / "apps" / "remote" / "remotes" / key_prefix / "hist"
+    hist_dir = env.journal / "apps" / "observer" / "observers" / key_prefix / "hist"
     hist_dir.mkdir(parents=True, exist_ok=True)
     hist_path = hist_dir / "20250103.jsonl"
     with open(hist_path, "a") as f:
@@ -1179,7 +1179,7 @@ def test_segments_endpoint_shows_observed_status(remote_env):
 
     # Query again - should now show observed: true
     resp = env.client.get(
-        "/app/remote/ingest/segments/20250103",
+        "/app/observer/ingest/segments/20250103",
         headers={"Authorization": f"Bearer {key}"},
     )
     data = resp.get_json()
@@ -1187,13 +1187,13 @@ def test_segments_endpoint_shows_observed_status(remote_env):
     assert data[0]["observed"] is True
 
 
-def test_api_list_includes_segments_observed_stat(remote_env):
+def test_api_list_includes_segments_observed_stat(observer_env):
     """Test that api_list includes segments_observed stat."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "stats-test"},
         content_type="application/json",
     )
@@ -1201,21 +1201,21 @@ def test_api_list_includes_segments_observed_stat(remote_env):
     key_prefix = data["key_prefix"]
 
     # Initially no segments_observed
-    resp = env.client.get("/app/remote/api/list")
+    resp = env.client.get("/app/observer/api/list")
     data = resp.get_json()
     assert len(data) == 1
     assert "segments_observed" not in data[0]["stats"]
 
     # Manually add segments_observed stat
-    remote_path = env.journal / "apps" / "remote" / "remotes" / f"{key_prefix}.json"
-    with open(remote_path) as f:
-        remote_data = json.load(f)
-    remote_data["stats"]["segments_observed"] = 5
-    with open(remote_path, "w") as f:
-        json.dump(remote_data, f)
+    observer_path = env.journal / "apps" / "observer" / "observers" / f"{key_prefix}.json"
+    with open(observer_path) as f:
+        observer_data = json.load(f)
+    observer_data["stats"]["segments_observed"] = 5
+    with open(observer_path, "w") as f:
+        json.dump(observer_data, f)
 
     # Should now show in list
-    resp = env.client.get("/app/remote/api/list")
+    resp = env.client.get("/app/observer/api/list")
     data = resp.get_json()
     assert data[0]["stats"]["segments_observed"] == 5
 
@@ -1223,13 +1223,13 @@ def test_api_list_includes_segments_observed_stat(remote_env):
 # === Duplicate detection tests ===
 
 
-def test_ingest_duplicate_segment_returns_duplicate_status(remote_env):
+def test_ingest_duplicate_segment_returns_duplicate_status(observer_env):
     """Test that re-submitting identical files returns duplicate status."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "duplicate-test"},
         content_type="application/json",
     )
@@ -1238,7 +1238,7 @@ def test_ingest_duplicate_segment_returns_duplicate_status(remote_env):
     # First upload
     test_data = b"test audio content for duplicate test"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1253,7 +1253,7 @@ def test_ingest_duplicate_segment_returns_duplicate_status(remote_env):
 
     # Second upload with identical content
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1268,21 +1268,21 @@ def test_ingest_duplicate_segment_returns_duplicate_status(remote_env):
     assert "message" in data
 
 
-def test_ingest_duplicate_does_not_emit_event(remote_env, monkeypatch):
+def test_ingest_duplicate_does_not_emit_event(observer_env, monkeypatch):
     """Test that duplicate submission does not emit observe.observing event."""
     from unittest.mock import MagicMock
 
-    env = remote_env()
+    env = observer_env()
 
     # Mock emit
-    import apps.remote.routes as routes_module
+    import apps.observer.routes as routes_module
 
     emit_mock = MagicMock()
     monkeypatch.setattr(routes_module, "emit", emit_mock)
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "no-event-test"},
         content_type="application/json",
     )
@@ -1292,7 +1292,7 @@ def test_ingest_duplicate_does_not_emit_event(remote_env, monkeypatch):
 
     # First upload - should emit
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1305,7 +1305,7 @@ def test_ingest_duplicate_does_not_emit_event(remote_env, monkeypatch):
 
     # Second upload - should NOT emit
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1318,13 +1318,13 @@ def test_ingest_duplicate_does_not_emit_event(remote_env, monkeypatch):
     assert emit_mock.call_count == 1  # No new emit
 
 
-def test_ingest_duplicate_increments_duplicates_rejected_stat(remote_env):
+def test_ingest_duplicate_increments_duplicates_rejected_stat(observer_env):
     """Test that duplicate submission increments duplicates_rejected stat."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "dup-stat-test"},
         content_type="application/json",
     )
@@ -1334,7 +1334,7 @@ def test_ingest_duplicate_increments_duplicates_rejected_stat(remote_env):
 
     # First upload
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1345,13 +1345,13 @@ def test_ingest_duplicate_increments_duplicates_rejected_stat(remote_env):
     assert resp.status_code == 200
 
     # Check stats - no duplicates_rejected yet
-    resp = env.client.get("/app/remote/api/list")
+    resp = env.client.get("/app/observer/api/list")
     stats = resp.get_json()[0]["stats"]
     assert stats.get("duplicates_rejected", 0) == 0
 
     # Submit duplicate
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1363,18 +1363,18 @@ def test_ingest_duplicate_increments_duplicates_rejected_stat(remote_env):
     assert resp.get_json()["status"] == "duplicate"
 
     # Check stats - should have 1 duplicate rejected
-    resp = env.client.get("/app/remote/api/list")
+    resp = env.client.get("/app/observer/api/list")
     stats = resp.get_json()[0]["stats"]
     assert stats["duplicates_rejected"] == 1
 
 
-def test_ingest_partial_duplicate_creates_new_segment(remote_env):
+def test_ingest_partial_duplicate_creates_new_segment(observer_env):
     """Test that partial duplicate (some files match) creates new segment."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "partial-dup-test"},
         content_type="application/json",
     )
@@ -1386,7 +1386,7 @@ def test_ingest_partial_duplicate_creates_new_segment(remote_env):
 
     # First upload with audio and screen
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1396,7 +1396,7 @@ def test_ingest_partial_duplicate_creates_new_segment(remote_env):
     )
     # Add files manually for multipart
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1414,7 +1414,7 @@ def test_ingest_partial_duplicate_creates_new_segment(remote_env):
 
     # Second upload with same audio but different screen
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1433,13 +1433,13 @@ def test_ingest_partial_duplicate_creates_new_segment(remote_env):
     assert second_data["segment"] != first_segment
 
 
-def test_ingest_partial_match_logged_in_history(remote_env):
+def test_ingest_partial_match_logged_in_history(observer_env):
     """Test that partial SHA256 matches are logged in history record."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "partial-log-test"},
         content_type="application/json",
     )
@@ -1451,7 +1451,7 @@ def test_ingest_partial_match_logged_in_history(remote_env):
 
     # First upload
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1464,7 +1464,7 @@ def test_ingest_partial_match_logged_in_history(remote_env):
     # Second upload with same audio but new additional file
     new_data = b"brand new file"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1481,8 +1481,8 @@ def test_ingest_partial_match_logged_in_history(remote_env):
     hist_path = (
         env.journal
         / "apps"
-        / "remote"
-        / "remotes"
+        / "observer"
+        / "observers"
         / key_prefix
         / "hist"
         / "20250103.jsonl"
@@ -1499,13 +1499,13 @@ def test_ingest_partial_match_logged_in_history(remote_env):
     assert len(upload_records[1]["partial_match_sha256s"]) == 1
 
 
-def test_ingest_returns_collision_status_when_adjusted(remote_env):
+def test_ingest_returns_collision_status_when_adjusted(observer_env):
     """Test that collision resolution returns status='collision'."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "collision-status-test"},
         content_type="application/json",
     )
@@ -1521,7 +1521,7 @@ def test_ingest_returns_collision_status_when_adjusted(remote_env):
     # Upload - will need collision resolution
     test_data = b"new content"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1535,21 +1535,21 @@ def test_ingest_returns_collision_status_when_adjusted(remote_env):
     assert data["segment"] != "120000_300"  # Adjusted
 
 
-def test_ingest_zero_byte_file_rejected(remote_env):
+def test_ingest_zero_byte_file_rejected(observer_env):
     """Test that uploading only 0-byte files returns 400."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
-        json={"name": "test-remote"},
+        "/app/observer/api/create",
+        json={"name": "test-observer"},
         content_type="application/json",
     )
     key = resp.get_json()["key"]
 
     # Upload a 0-byte file
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1561,14 +1561,14 @@ def test_ingest_zero_byte_file_rejected(remote_env):
     assert "No valid files" in resp.get_json()["error"]
 
 
-def test_ingest_mixed_zero_byte_files(remote_env):
+def test_ingest_mixed_zero_byte_files(observer_env):
     """Test that 0-byte files are skipped but valid files are accepted."""
-    env = remote_env()
+    env = observer_env()
 
-    # Create a remote
+    # Create a observer
     resp = env.client.post(
-        "/app/remote/api/create",
-        json={"name": "test-remote"},
+        "/app/observer/api/create",
+        json={"name": "test-observer"},
         content_type="application/json",
     )
     key = resp.get_json()["key"]
@@ -1576,7 +1576,7 @@ def test_ingest_mixed_zero_byte_files(remote_env):
     # Upload one valid file and one 0-byte file
     valid_data = b"real audio content"
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",
@@ -1595,26 +1595,26 @@ def test_ingest_mixed_zero_byte_files(remote_env):
 
     # Verify only valid file was written
     expected_file = (
-        env.journal / "20250103" / "test-remote" / "120000_300" / "audio.flac"
+        env.journal / "20250103" / "test-observer" / "120000_300" / "audio.flac"
     )
     assert expected_file.exists()
     assert expected_file.read_bytes() == valid_data
 
 
-def test_ingest_stream_qualifier_preserved(remote_env):
+def test_ingest_stream_qualifier_preserved(observer_env):
     """Regression: tmux observer must land in host.tmux, not host stream.
 
     When a client registers as "fedora.tmux" and uploads with
     meta={"stream": "fedora.tmux"}, the server was calling
-    stream_name(remote="fedora.tmux") which strips the qualifier via
+    stream_name(observer="fedora.tmux") which strips the qualifier via
     _strip_hostname, collapsing both desktop and tmux observers into
     the same "fedora" stream.  The fix: trust meta["stream"] when present.
     """
-    env = remote_env()
+    env = observer_env()
 
     # Register as the tmux observer would (name = stream name with qualifier)
     resp = env.client.post(
-        "/app/remote/api/create",
+        "/app/observer/api/create",
         json={"name": "fedora.tmux"},
         content_type="application/json",
     )
@@ -1623,7 +1623,7 @@ def test_ingest_stream_qualifier_preserved(remote_env):
     test_data = b"tmux capture content"
     meta = json.dumps({"host": "fedora", "platform": "linux", "stream": "fedora.tmux"})
     resp = env.client.post(
-        "/app/remote/ingest",
+        "/app/observer/ingest",
         headers={"Authorization": f"Bearer {key}"},
         data={
             "day": "20250103",

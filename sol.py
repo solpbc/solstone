@@ -60,7 +60,7 @@ COMMANDS: dict[str, str] = {
     "sense": "observe.sense",
     "sync": "observe.sync",
     "transfer": "observe.transfer",
-    "remote": "observe.remote_cli",
+    "observer": "observe.observer_cli",
     # AI agents (talent package)
     "agents": "think.agents",
     "cortex": "think.cortex",
@@ -116,7 +116,7 @@ GROUPS: dict[str, list[str]] = {
         "sense",
         "sync",
         "transfer",
-        "remote",
+        "observer",
     ],
     "Talent (AI agents)": [
         "agents",

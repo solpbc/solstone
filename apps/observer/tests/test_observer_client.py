@@ -14,7 +14,7 @@ import requests
 
 @pytest.fixture
 def mock_session():
-    with patch("observe.remote_client.requests.Session") as mock:
+    with patch("observe.observer_client.requests.Session") as mock:
         session = MagicMock()
         mock.return_value = session
         yield session
@@ -23,8 +23,8 @@ def mock_session():
 @pytest.fixture
 def mock_config():
     with (
-        patch("observe.remote_client.get_config") as mock,
-        patch("observe.remote_client.read_service_port") as mock_port,
+        patch("observe.observer_client.get_config") as mock,
+        patch("observe.observer_client.read_service_port") as mock_port,
     ):
         mock.return_value = {}
         mock_port.return_value = 8000
@@ -33,13 +33,13 @@ def mock_config():
 
 @pytest.fixture
 def mock_journal(tmp_path):
-    with patch("observe.remote_client.get_journal") as mock:
+    with patch("observe.observer_client.get_journal") as mock:
         mock.return_value = str(tmp_path)
         yield tmp_path
 
 
 def test_observer_client_init(mock_session, mock_config):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
     client = ObserverClient("main-stream")
 
@@ -52,11 +52,11 @@ def test_observer_client_init(mock_session, mock_config):
 
 def test_observer_client_init_no_port(mock_session):
     """When no config URL and no convey.port file, _url is empty."""
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
     with (
-        patch("observe.remote_client.get_config") as cfg,
-        patch("observe.remote_client.read_service_port") as port,
+        patch("observe.observer_client.get_config") as cfg,
+        patch("observe.observer_client.read_service_port") as port,
     ):
         cfg.return_value = {}
         port.return_value = None
@@ -66,11 +66,11 @@ def test_observer_client_init_no_port(mock_session):
 
 
 def test_observer_client_init_with_config(mock_session, mock_config):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
     mock_config.return_value = {
         "observe": {
-            "remote": {
+            "observer": {
                 "url": "https://example.test/",
                 "key": "abc123",
                 "name": "named-observer",
@@ -88,7 +88,7 @@ def test_observer_client_init_with_config(mock_session, mock_config):
 
 
 def test_auto_registration(mock_session, mock_config, mock_journal, tmp_path):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
     file1 = tmp_path / "audio.flac"
     file1.write_bytes(b"audio")
@@ -108,15 +108,15 @@ def test_auto_registration(mock_session, mock_config, mock_journal, tmp_path):
 
     assert result.success is True
     assert client._key == "registered-key"
-    assert mock_session.post.call_args_list[0][0][0].endswith("/app/remote/api/create")
+    assert mock_session.post.call_args_list[0][0][0].endswith("/app/observer/api/create")
     config = json.loads((mock_journal / "config" / "journal.json").read_text())
-    assert config["observe"]["remote"]["key"] == "registered-key"
+    assert config["observe"]["observer"]["key"] == "registered-key"
 
 
 def test_existing_key_skips_registration(mock_session, mock_config, tmp_path):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
-    mock_config.return_value = {"observe": {"remote": {"key": "testkey123"}}}
+    mock_config.return_value = {"observe": {"observer": {"key": "testkey123"}}}
 
     file1 = tmp_path / "audio.flac"
     file1.write_bytes(b"audio")
@@ -131,11 +131,11 @@ def test_existing_key_skips_registration(mock_session, mock_config, tmp_path):
 
     assert result.success is True
     assert mock_session.post.call_count == 1
-    assert mock_session.post.call_args[0][0].endswith("/app/remote/ingest/testkey123")
+    assert mock_session.post.call_args[0][0].endswith("/app/observer/ingest/testkey123")
 
 
 def test_registration_retry(mock_session, mock_config, mock_journal, tmp_path):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
     file1 = tmp_path / "audio.flac"
     file1.write_bytes(b"audio")
@@ -154,7 +154,7 @@ def test_registration_retry(mock_session, mock_config, mock_journal, tmp_path):
         upload_response,
     ]
 
-    with patch("observe.remote_client.time.sleep"):
+    with patch("observe.observer_client.time.sleep"):
         client = ObserverClient("main-stream")
         result = client.upload_segment("20250103", "120000_300", [file1])
 
@@ -163,7 +163,7 @@ def test_registration_retry(mock_session, mock_config, mock_journal, tmp_path):
 
 
 def test_registration_403(mock_session, mock_config):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
     response = MagicMock()
     response.status_code = 403
@@ -177,9 +177,9 @@ def test_registration_403(mock_session, mock_config):
 
 
 def test_upload_segment_success(mock_session, mock_config, tmp_path):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
-    mock_config.return_value = {"observe": {"remote": {"key": "testkey123"}}}
+    mock_config.return_value = {"observe": {"observer": {"key": "testkey123"}}}
 
     file1 = tmp_path / "audio.flac"
     file1.write_bytes(b"audio data")
@@ -197,9 +197,9 @@ def test_upload_segment_success(mock_session, mock_config, tmp_path):
 
 
 def test_upload_segment_retry(mock_session, mock_config, tmp_path):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
-    mock_config.return_value = {"observe": {"remote": {"key": "testkey123"}}}
+    mock_config.return_value = {"observe": {"observer": {"key": "testkey123"}}}
 
     file1 = tmp_path / "audio.flac"
     file1.write_bytes(b"audio data")
@@ -214,7 +214,7 @@ def test_upload_segment_retry(mock_session, mock_config, tmp_path):
 
     mock_session.post.side_effect = [failure, success]
 
-    with patch("observe.remote_client.time.sleep"):
+    with patch("observe.observer_client.time.sleep"):
         client = ObserverClient("main-stream")
         result = client.upload_segment("20250103", "120000_300", [file1])
 
@@ -223,9 +223,9 @@ def test_upload_segment_retry(mock_session, mock_config, tmp_path):
 
 
 def test_upload_segment_403(mock_session, mock_config, tmp_path):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
-    mock_config.return_value = {"observe": {"remote": {"key": "testkey123"}}}
+    mock_config.return_value = {"observe": {"observer": {"key": "testkey123"}}}
 
     file1 = tmp_path / "audio.flac"
     file1.write_bytes(b"audio data")
@@ -243,9 +243,9 @@ def test_upload_segment_403(mock_session, mock_config, tmp_path):
 
 
 def test_upload_segment_all_retries_fail(mock_session, mock_config, tmp_path):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
-    mock_config.return_value = {"observe": {"remote": {"key": "testkey123"}}}
+    mock_config.return_value = {"observe": {"observer": {"key": "testkey123"}}}
 
     file1 = tmp_path / "audio.flac"
     file1.write_bytes(b"audio data")
@@ -255,7 +255,7 @@ def test_upload_segment_all_retries_fail(mock_session, mock_config, tmp_path):
     failure.text = "Server error"
     mock_session.post.return_value = failure
 
-    with patch("observe.remote_client.time.sleep"):
+    with patch("observe.observer_client.time.sleep"):
         client = ObserverClient("main-stream")
         result = client.upload_segment("20250103", "120000_300", [file1])
 
@@ -264,9 +264,9 @@ def test_upload_segment_all_retries_fail(mock_session, mock_config, tmp_path):
 
 
 def test_relay_event_success(mock_session, mock_config):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
-    mock_config.return_value = {"observe": {"remote": {"key": "testkey123"}}}
+    mock_config.return_value = {"observe": {"observer": {"key": "testkey123"}}}
 
     response = MagicMock()
     response.status_code = 200
@@ -284,9 +284,9 @@ def test_relay_event_success(mock_session, mock_config):
 
 
 def test_relay_event_403(mock_session, mock_config):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
-    mock_config.return_value = {"observe": {"remote": {"key": "testkey123"}}}
+    mock_config.return_value = {"observe": {"observer": {"key": "testkey123"}}}
 
     response = MagicMock()
     response.status_code = 403
@@ -301,17 +301,17 @@ def test_relay_event_403(mock_session, mock_config):
 
 
 def test_key_persistence(mock_session, mock_config, mock_journal):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
     client = ObserverClient("main-stream")
     client._persist_key("persisted-key")
 
     config = json.loads((mock_journal / "config" / "journal.json").read_text())
-    assert config == {"observe": {"remote": {"key": "persisted-key"}}}
+    assert config == {"observe": {"observer": {"key": "persisted-key"}}}
 
 
 def test_key_persistence_preserves_existing(mock_session, mock_config, mock_journal):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
     config_dir = mock_journal / "config"
     config_dir.mkdir()
@@ -328,11 +328,11 @@ def test_key_persistence_preserves_existing(mock_session, mock_config, mock_jour
     config = json.loads(config_path.read_text())
     assert config["identity"]["name"] == "Jer"
     assert config["observe"]["tmux"]["enabled"] is True
-    assert config["observe"]["remote"]["key"] == "persisted-key"
+    assert config["observe"]["observer"]["key"] == "persisted-key"
 
 
 def test_cleanup_draft(tmp_path):
-    from observe.remote_client import cleanup_draft
+    from observe.observer_client import cleanup_draft
 
     draft_dir = tmp_path / "draft"
     draft_dir.mkdir()
@@ -345,7 +345,7 @@ def test_cleanup_draft(tmp_path):
 
 
 def test_finalize_draft(tmp_path):
-    from observe.remote_client import finalize_draft
+    from observe.observer_client import finalize_draft
 
     draft_dir = tmp_path / "091551_draft"
     draft_dir.mkdir()
@@ -363,9 +363,9 @@ def test_finalize_draft(tmp_path):
 
 
 def test_upload_duplicate_response(mock_session, mock_config, tmp_path):
-    from observe.remote_client import ObserverClient
+    from observe.observer_client import ObserverClient
 
-    mock_config.return_value = {"observe": {"remote": {"key": "testkey123"}}}
+    mock_config.return_value = {"observe": {"observer": {"key": "testkey123"}}}
 
     file1 = tmp_path / "audio.flac"
     file1.write_bytes(b"audio data")

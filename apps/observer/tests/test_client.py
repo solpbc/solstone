@@ -23,9 +23,9 @@ def test_remote_client_init():
     """Test RemoteClient initialization."""
     from observe.sync import RemoteClient
 
-    client = RemoteClient("https://server:5000/app/remote/ingest/abc123")
+    client = RemoteClient("https://server:5000/app/observer/ingest/abc123")
 
-    assert client.remote_url == "https://server:5000/app/remote/ingest/abc123"
+    assert client.remote_url == "https://server:5000/app/observer/ingest/abc123"
 
 
 def test_upload_segment_success(mock_session, tmp_path):

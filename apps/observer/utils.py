@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Shared utilities for the remote app.
+"""Shared utilities for the observer app.
 
-Provides common helpers for remote metadata management and sync history
+Provides common helpers for observer metadata management and sync history
 that are used by both routes.py and events.py.
 """
 
@@ -19,41 +19,41 @@ from apps.utils import get_app_storage_path
 logger = logging.getLogger(__name__)
 
 
-def get_remotes_dir() -> Path:
-    """Get the remotes storage directory."""
-    return get_app_storage_path("remote", "remotes", ensure_exists=True)
+def get_observers_dir() -> Path:
+    """Get the observers storage directory."""
+    return get_app_storage_path("observer", "observers", ensure_exists=True)
 
 
 def get_hist_dir(key_prefix: str, ensure_exists: bool = True) -> Path:
-    """Get the history directory for a remote.
+    """Get the history directory for an observer.
 
     Args:
-        key_prefix: First 8 chars of remote key
+        key_prefix: First 8 chars of observer key
         ensure_exists: Create directory if it doesn't exist (default: True)
 
     Returns:
-        Path to apps/remote/remotes/<key_prefix>/hist/
+        Path to apps/observer/observers/<key_prefix>/hist/
     """
     return get_app_storage_path(
-        "remote", "remotes", key_prefix, "hist", ensure_exists=ensure_exists
+        "observer", "observers", key_prefix, "hist", ensure_exists=ensure_exists
     )
 
 
-def load_remote(key: str) -> dict | None:
-    """Load remote metadata by key.
+def load_observer(key: str) -> dict | None:
+    """Load observer metadata by key.
 
     Args:
-        key: Full remote authentication key
+        key: Full observer authentication key
 
     Returns:
-        Remote metadata dict if found and key matches, None otherwise
+        Observer metadata dict if found and key matches, None otherwise
     """
-    remotes_dir = get_remotes_dir()
-    remote_path = remotes_dir / f"{key[:8]}.json"
-    if not remote_path.exists():
+    observers_dir = get_observers_dir()
+    observer_path = observers_dir / f"{key[:8]}.json"
+    if not observer_path.exists():
         return None
     try:
-        with open(remote_path) as f:
+        with open(observer_path) as f:
             data = json.load(f)
         # Verify full key matches
         if data.get("key") != key:
@@ -63,11 +63,11 @@ def load_remote(key: str) -> dict | None:
         return None
 
 
-def save_remote(data: dict) -> bool:
-    """Save remote metadata.
+def save_observer(data: dict) -> bool:
+    """Save observer metadata.
 
     Args:
-        data: Remote metadata dict (must contain 'key' field)
+        data: Observer metadata dict (must contain 'key' field)
 
     Returns:
         True if saved successfully, False otherwise
@@ -75,48 +75,48 @@ def save_remote(data: dict) -> bool:
     key = data.get("key")
     if not key:
         return False
-    remotes_dir = get_remotes_dir()
-    remote_path = remotes_dir / f"{key[:8]}.json"
+    observers_dir = get_observers_dir()
+    observer_path = observers_dir / f"{key[:8]}.json"
     try:
-        with open(remote_path, "w") as f:
+        with open(observer_path, "w") as f:
             json.dump(data, f, indent=2)
-        os.chmod(remote_path, 0o600)
+        os.chmod(observer_path, 0o600)
         return True
     except OSError:
         return False
 
 
-def list_remotes() -> list[dict]:
-    """List all registered remotes.
+def list_observers() -> list[dict]:
+    """List all registered observers.
 
     Returns:
-        List of remote metadata dicts, sorted by created_at descending
+        List of observer metadata dicts, sorted by created_at descending
     """
-    remotes_dir = get_remotes_dir()
-    remotes = []
-    for remote_path in remotes_dir.glob("*.json"):
+    observers_dir = get_observers_dir()
+    observers = []
+    for observer_path in observers_dir.glob("*.json"):
         try:
-            with open(remote_path) as f:
+            with open(observer_path) as f:
                 data = json.load(f)
-            remotes.append(data)
+            observers.append(data)
         except (json.JSONDecodeError, OSError):
             continue
-    remotes.sort(key=lambda x: x.get("created_at", 0), reverse=True)
-    return remotes
+    observers.sort(key=lambda x: x.get("created_at", 0), reverse=True)
+    return observers
 
 
-def find_remote_by_name(name: str) -> dict | None:
-    """Find remote metadata by name.
+def find_observer_by_name(name: str) -> dict | None:
+    """Find observer metadata by name.
 
     Args:
-        name: Remote name to search for
+        name: Observer name to search for
 
     Returns:
-        Remote metadata dict if found, None otherwise
+        Observer metadata dict if found, None otherwise
     """
-    for remote in list_remotes():
-        if remote.get("name") == name:
-            return remote
+    for observer in list_observers():
+        if observer.get("name") == name:
+            return observer
     return None
 
 
@@ -124,7 +124,7 @@ def append_history_record(key_prefix: str, day: str, record: dict) -> None:
     """Append a record to the sync history file.
 
     Args:
-        key_prefix: First 8 chars of remote key
+        key_prefix: First 8 chars of observer key
         day: Day string (YYYYMMDD)
         record: Record to append (will be JSON-serialized)
     """
@@ -135,10 +135,10 @@ def append_history_record(key_prefix: str, day: str, record: dict) -> None:
 
 
 def load_history(key_prefix: str, day: str) -> list[dict]:
-    """Load sync history for a remote on a given day.
+    """Load sync history for an observer on a given day.
 
     Args:
-        key_prefix: First 8 chars of remote key
+        key_prefix: First 8 chars of observer key
         day: Day string (YYYYMMDD)
 
     Returns:
@@ -162,26 +162,26 @@ def load_history(key_prefix: str, day: str) -> list[dict]:
 
 
 def increment_stat(key_prefix: str, stat_name: str) -> None:
-    """Increment a stat counter for a remote.
+    """Increment a stat counter for an observer.
 
     Args:
-        key_prefix: First 8 chars of remote key
+        key_prefix: First 8 chars of observer key
         stat_name: Name of the stat to increment (e.g., 'segments_observed')
     """
-    remotes_dir = get_remotes_dir()
-    remote_path = remotes_dir / f"{key_prefix}.json"
-    if not remote_path.exists():
+    observers_dir = get_observers_dir()
+    observer_path = observers_dir / f"{key_prefix}.json"
+    if not observer_path.exists():
         return
 
     try:
-        with open(remote_path) as f:
+        with open(observer_path) as f:
             data = json.load(f)
 
         data["stats"][stat_name] = data["stats"].get(stat_name, 0) + 1
 
-        with open(remote_path, "w") as f:
+        with open(observer_path, "w") as f:
             json.dump(data, f, indent=2)
-        os.chmod(remote_path, 0o600)
+        os.chmod(observer_path, 0o600)
     except (json.JSONDecodeError, OSError, KeyError) as e:
         logger.warning(f"Failed to update {stat_name} for {key_prefix}: {e}")
 
@@ -195,7 +195,7 @@ def find_segment_by_sha256(
     all provided SHA256 hashes match existing files.
 
     Args:
-        key_prefix: First 8 chars of remote key
+        key_prefix: First 8 chars of observer key
         day: Day string (YYYYMMDD)
         file_sha256s: Set of SHA256 hashes to match
 

@@ -18,7 +18,7 @@ The package exposes several commands:
   `--length` to limit the report to a specific time range. See `sol call transcripts --help` for additional commands.
 - `sol dream` runs generators and agents for a single day via Cortex.
 - `sol agents` is the unified CLI for tool agents and generators (spawned by Cortex, NDJSON protocol).
-- `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for remote uploads and imports).
+- `sol supervisor` monitors observation heartbeats. Use `--no-observers` to disable local capture (sense still runs for observer uploads and imports).
 - `sol cortex` starts a Callosum-based service for managing AI agent instances and generators.
 - `sol talent` lists available agents and generators with their configuration. Use `sol talent show <name>` to see details, and `sol talent show <name> --prompt` to see the fully composed prompt that would be sent to the LLM.
 

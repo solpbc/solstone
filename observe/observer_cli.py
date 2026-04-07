@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""CLI for remote observer management.
+"""CLI for observer management.
 
 Provides commands for creating, listing, revoking, and checking status
-of remote observer registrations. Operates directly on the journal
+of observer registrations. Operates directly on the journal
 filesystem — no dependency on the Convey web server.
 
 Usage:
-    sol remote create <name>           Create a new remote observer
-    sol remote list                    List all registered remotes
-    sol remote revoke <name-or-prefix> Revoke a remote registration
-    sol remote status [name-or-prefix] Show remote status details
+    sol observer create <name>           Create a new observer
+    sol observer list                    List all registered observers
+    sol observer revoke <name-or-prefix> Revoke an observer registration
+    sol observer status [name-or-prefix] Show observer status details
 """
 
 from __future__ import annotations
@@ -24,13 +24,13 @@ import logging
 import secrets
 import sys
 
-from apps.remote.utils import (
-    find_remote_by_name,
+from apps.observer.utils import (
+    find_observer_by_name,
     get_hist_dir,
-    get_remotes_dir,
-    list_remotes,
+    get_observers_dir,
+    list_observers,
     load_history,
-    save_remote,
+    save_observer,
 )
 from apps.utils import log_app_action
 from think.utils import now_ms, setup_cli
@@ -45,23 +45,23 @@ CONNECTED_THRESHOLD_MS = 2 * 60 * 1000
 
 
 def _generate_key() -> str:
-    """Generate a URL-safe key for remote authentication."""
+    """Generate a URL-safe key for observer authentication."""
     return base64.urlsafe_b64encode(secrets.token_bytes(KEY_BYTES)).decode().rstrip("=")
 
 
-def _find_remote(identifier: str) -> dict | None:
-    """Find a remote by name or key prefix."""
+def _find_observer(identifier: str) -> dict | None:
+    """Find an observer by name or key prefix."""
     # Try name first
-    remote = find_remote_by_name(identifier)
-    if remote:
-        return remote
+    observer = find_observer_by_name(identifier)
+    if observer:
+        return observer
 
     # Try key prefix (file is named <prefix>.json)
-    remotes_dir = get_remotes_dir()
-    remote_path = remotes_dir / f"{identifier}.json"
-    if remote_path.exists():
+    observers_dir = get_observers_dir()
+    observer_path = observers_dir / f"{identifier}.json"
+    if observer_path.exists():
         try:
-            with open(remote_path) as f:
+            with open(observer_path) as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError):
             pass
@@ -69,11 +69,11 @@ def _find_remote(identifier: str) -> dict | None:
     return None
 
 
-def _status_label(remote: dict) -> str:
+def _status_label(observer: dict) -> str:
     """Get human-readable connection status."""
-    if remote.get("revoked", False):
+    if observer.get("revoked", False):
         return "revoked"
-    last_seen = remote.get("last_seen")
+    last_seen = observer.get("last_seen")
     if last_seen is None:
         return "disconnected"
     if now_ms() - last_seen < CONNECTED_THRESHOLD_MS:
@@ -104,15 +104,15 @@ def _fmt_time(ms: int | None) -> str:
 
 
 def cmd_create(args: argparse.Namespace) -> int:
-    """Create a new remote observer registration."""
+    """Create a new observer registration."""
     name = args.name
 
-    if find_remote_by_name(name):
-        print(f"Error: remote '{name}' already exists", file=sys.stderr)
+    if find_observer_by_name(name):
+        print(f"Error: observer '{name}' already exists", file=sys.stderr)
         return 1
 
     key = _generate_key()
-    remote_data = {
+    observer_data = {
         "key": key,
         "name": name,
         "created_at": now_ms(),
@@ -125,12 +125,12 @@ def cmd_create(args: argparse.Namespace) -> int:
         },
     }
 
-    if not save_remote(remote_data):
-        print("Error: failed to save remote", file=sys.stderr)
+    if not save_observer(observer_data):
+        print("Error: failed to save observer", file=sys.stderr)
         return 1
 
     log_app_action(
-        app="remote",
+        app="observer",
         facet=None,
         action="observer_create",
         params={"name": name, "key_prefix": key[:8]},
@@ -140,7 +140,7 @@ def cmd_create(args: argparse.Namespace) -> int:
         print(json.dumps({"name": name, "key": key, "prefix": key[:8]}))
         return 0
 
-    print("Remote observer created:")
+    print("Observer created:")
     print(f"  Name:       {name}")
     print(f"  Prefix:     {key[:8]}")
     print("  server url:  (set during server configuration)")
@@ -149,12 +149,12 @@ def cmd_create(args: argparse.Namespace) -> int:
 
 
 def cmd_list(args: argparse.Namespace) -> int:
-    """List all registered remotes."""
-    remotes = list_remotes()
+    """List all registered observers."""
+    observers = list_observers()
 
     if args.json_output:
         result = []
-        for r in remotes:
+        for r in observers:
             stats = r.get("stats", {})
             result.append(
                 {
@@ -169,8 +169,8 @@ def cmd_list(args: argparse.Namespace) -> int:
         print(json.dumps(result))
         return 0
 
-    if not remotes:
-        print("No remotes registered.")
+    if not observers:
+        print("No observers registered.")
         return 0
 
     print(
@@ -179,7 +179,7 @@ def cmd_list(args: argparse.Namespace) -> int:
     )
     print("-" * 86)
 
-    for r in remotes:
+    for r in observers:
         name = r.get("name", "")
         prefix = r.get("key", "")[:8]
         status = _status_label(r)
@@ -196,30 +196,30 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 
 def cmd_revoke(args: argparse.Namespace) -> int:
-    """Revoke a remote registration (soft-delete)."""
+    """Revoke an observer registration (soft-delete)."""
     identifier = args.identifier
 
-    remote = _find_remote(identifier)
-    if not remote:
-        print(f"Error: remote '{identifier}' not found", file=sys.stderr)
+    observer = _find_observer(identifier)
+    if not observer:
+        print(f"Error: observer '{identifier}' not found", file=sys.stderr)
         return 1
 
-    if remote.get("revoked", False):
-        print(f"Remote '{remote.get('name')}' is already revoked.", file=sys.stderr)
+    if observer.get("revoked", False):
+        print(f"Observer '{observer.get('name')}' is already revoked.", file=sys.stderr)
         return 1
 
-    name = remote.get("name", "")
-    key_prefix = remote.get("key", "")[:8]
+    name = observer.get("name", "")
+    key_prefix = observer.get("key", "")[:8]
 
-    remote["revoked"] = True
-    remote["revoked_at"] = now_ms()
+    observer["revoked"] = True
+    observer["revoked_at"] = now_ms()
 
-    if not save_remote(remote):
-        print("Error: failed to save remote", file=sys.stderr)
+    if not save_observer(observer):
+        print("Error: failed to save observer", file=sys.stderr)
         return 1
 
     log_app_action(
-        app="remote",
+        app="observer",
         facet=None,
         action="observer_revoke",
         params={"name": name, "key_prefix": key_prefix},
@@ -229,40 +229,40 @@ def cmd_revoke(args: argparse.Namespace) -> int:
         print(json.dumps({"name": name, "prefix": key_prefix, "revoked": True}))
         return 0
 
-    print(f"Revoked remote '{name}' ({key_prefix})")
+    print(f"Revoked observer '{name}' ({key_prefix})")
     return 0
 
 
 def cmd_rename(args: argparse.Namespace) -> int:
-    """Rename a remote observer (affects future stream names)."""
+    """Rename an observer (affects future stream names)."""
     identifier = args.identifier
     new_name = args.new_name
 
-    remote = _find_remote(identifier)
-    if not remote:
-        print(f"Error: remote '{identifier}' not found", file=sys.stderr)
+    observer = _find_observer(identifier)
+    if not observer:
+        print(f"Error: observer '{identifier}' not found", file=sys.stderr)
         return 1
 
     # Check new name isn't taken
-    existing = find_remote_by_name(new_name)
-    if existing and existing.get("key") != remote.get("key"):
-        print(f"Error: remote '{new_name}' already exists", file=sys.stderr)
+    existing = find_observer_by_name(new_name)
+    if existing and existing.get("key") != observer.get("key"):
+        print(f"Error: observer '{new_name}' already exists", file=sys.stderr)
         return 1
 
-    old_name = remote.get("name", "")
+    old_name = observer.get("name", "")
     if old_name == new_name:
-        print(f"Remote is already named '{new_name}'.", file=sys.stderr)
+        print(f"Observer is already named '{new_name}'.", file=sys.stderr)
         return 1
 
-    key_prefix = remote.get("key", "")[:8]
-    remote["name"] = new_name
+    key_prefix = observer.get("key", "")[:8]
+    observer["name"] = new_name
 
-    if not save_remote(remote):
-        print("Error: failed to save remote", file=sys.stderr)
+    if not save_observer(observer):
+        print("Error: failed to save observer", file=sys.stderr)
         return 1
 
     log_app_action(
-        app="remote",
+        app="observer",
         facet=None,
         action="observer_rename",
         params={"old_name": old_name, "new_name": new_name, "key_prefix": key_prefix},
@@ -276,29 +276,29 @@ def cmd_rename(args: argparse.Namespace) -> int:
         )
         return 0
 
-    print(f"Renamed remote '{old_name}' -> '{new_name}' ({key_prefix})")
+    print(f"Renamed observer '{old_name}' -> '{new_name}' ({key_prefix})")
     print(f"  Future segments will use stream: {new_name}")
     print(f"  Existing segments remain under stream: {old_name}")
     return 0
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    """Show remote status details."""
+    """Show observer status details."""
     if args.identifier:
         return _status_single(args.identifier, json_output=args.json_output)
     return _status_all(json_output=args.json_output)
 
 
 def _status_single(identifier: str, json_output: bool = False) -> int:
-    """Detailed status for a single remote."""
-    remote = _find_remote(identifier)
-    if not remote:
-        print(f"Error: remote '{identifier}' not found", file=sys.stderr)
+    """Detailed status for a single observer."""
+    observer = _find_observer(identifier)
+    if not observer:
+        print(f"Error: observer '{identifier}' not found", file=sys.stderr)
         return 1
 
-    name = remote.get("name", "")
-    key_prefix = remote.get("key", "")[:8]
-    stats = remote.get("stats", {})
+    name = observer.get("name", "")
+    key_prefix = observer.get("key", "")[:8]
+    stats = observer.get("stats", {})
 
     if json_output:
         print(
@@ -306,10 +306,10 @@ def _status_single(identifier: str, json_output: bool = False) -> int:
                 {
                     "name": name,
                     "prefix": key_prefix,
-                    "status": _status_label(remote),
-                    "created_at": remote.get("created_at"),
-                    "last_seen": remote.get("last_seen"),
-                    "revoked": remote.get("revoked", False),
+                    "status": _status_label(observer),
+                    "created_at": observer.get("created_at"),
+                    "last_seen": observer.get("last_seen"),
+                    "revoked": observer.get("revoked", False),
                     "segments": stats.get("segments_received", 0),
                     "bytes": stats.get("bytes_received", 0),
                 }
@@ -317,13 +317,13 @@ def _status_single(identifier: str, json_output: bool = False) -> int:
         )
         return 0
 
-    print(f"Remote: {name}")
+    print(f"Observer: {name}")
     print(f"  Prefix:     {key_prefix}")
-    print(f"  Status:     {_status_label(remote)}")
-    print(f"  Created:    {_fmt_time(remote.get('created_at'))}")
-    print(f"  Last seen:  {_fmt_time(remote.get('last_seen'))}")
-    if remote.get("revoked"):
-        print(f"  Revoked at: {_fmt_time(remote.get('revoked_at'))}")
+    print(f"  Status:     {_status_label(observer)}")
+    print(f"  Created:    {_fmt_time(observer.get('created_at'))}")
+    print(f"  Last seen:  {_fmt_time(observer.get('last_seen'))}")
+    if observer.get("revoked"):
+        print(f"  Revoked at: {_fmt_time(observer.get('revoked_at'))}")
     print(f"  Segments:   {stats.get('segments_received', 0)}")
     print(f"  Bytes:      {_fmt_bytes(stats.get('bytes_received', 0))}")
     if stats.get("duplicates_rejected"):
@@ -358,45 +358,45 @@ def _status_single(identifier: str, json_output: bool = False) -> int:
 
 
 def _status_all(json_output: bool = False) -> int:
-    """Health overview for all remotes."""
-    remotes = list_remotes()
+    """Health overview for all observers."""
+    observers = list_observers()
 
-    if not remotes and not json_output:
-        print("No remotes registered.")
+    if not observers and not json_output:
+        print("No observers registered.")
         return 0
 
-    connected = sum(1 for r in remotes if _status_label(r) == "connected")
-    disconnected = sum(1 for r in remotes if _status_label(r) == "disconnected")
-    revoked = sum(1 for r in remotes if _status_label(r) == "revoked")
+    connected = sum(1 for r in observers if _status_label(r) == "connected")
+    disconnected = sum(1 for r in observers if _status_label(r) == "disconnected")
+    revoked = sum(1 for r in observers if _status_label(r) == "revoked")
     total_segments = sum(
-        r.get("stats", {}).get("segments_received", 0) for r in remotes
+        r.get("stats", {}).get("segments_received", 0) for r in observers
     )
-    total_bytes = sum(r.get("stats", {}).get("bytes_received", 0) for r in remotes)
+    total_bytes = sum(r.get("stats", {}).get("bytes_received", 0) for r in observers)
 
     if json_output:
         print(
             json.dumps(
                 {
-                    "total": len(remotes),
+                    "total": len(observers),
                     "connected": connected,
                     "disconnected": disconnected,
                     "revoked": revoked,
                     "total_segments": total_segments,
                     "total_bytes": total_bytes,
-                    "remotes": [
+                    "observers": [
                         {
                             "name": r.get("name", ""),
                             "status": _status_label(r),
                             "last_seen": r.get("last_seen"),
                         }
-                        for r in remotes
+                        for r in observers
                     ],
                 }
             )
         )
         return 0
 
-    print(f"Remote observers: {len(remotes)} total")
+    print(f"Observers: {len(observers)} total")
     print(f"  Connected:    {connected}")
     print(f"  Disconnected: {disconnected}")
     print(f"  Revoked:      {revoked}")
@@ -405,7 +405,7 @@ def _status_all(json_output: bool = False) -> int:
 
     print(f"\n{'Name':<20} {'Status':<14} {'Last Seen':<18}")
     print("-" * 54)
-    for r in remotes:
+    for r in observers:
         name = r.get("name", "")
         status = _status_label(r)
         last_seen = _fmt_time(r.get("last_seen"))
@@ -418,10 +418,10 @@ def _status_all(json_output: bool = False) -> int:
 
 
 def main() -> None:
-    """Entry point for sol remote CLI."""
+    """Entry point for sol observer CLI."""
     parser = argparse.ArgumentParser(
-        prog="sol remote",
-        description="Manage remote observer registrations",
+        prog="sol observer",
+        description="Manage observer registrations",
     )
 
     parser.add_argument(
@@ -431,28 +431,28 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command")
 
     # create
-    p_create = sub.add_parser("create", help="Create a new remote observer")
-    p_create.add_argument("name", help="Name for the remote observer")
+    p_create = sub.add_parser("create", help="Create a new observer")
+    p_create.add_argument("name", help="Name for the observer")
 
     # list
-    sub.add_parser("list", help="List all registered remotes")
+    sub.add_parser("list", help="List all registered observers")
 
     # rename
-    p_rename = sub.add_parser("rename", help="Rename a remote (affects future streams)")
-    p_rename.add_argument("identifier", help="Remote name or key prefix")
-    p_rename.add_argument("new_name", help="New name for the remote")
+    p_rename = sub.add_parser("rename", help="Rename an observer (affects future streams)")
+    p_rename.add_argument("identifier", help="Observer name or key prefix")
+    p_rename.add_argument("new_name", help="New name for the observer")
 
     # revoke
-    p_revoke = sub.add_parser("revoke", help="Revoke a remote registration")
-    p_revoke.add_argument("identifier", help="Remote name or key prefix")
+    p_revoke = sub.add_parser("revoke", help="Revoke an observer registration")
+    p_revoke.add_argument("identifier", help="Observer name or key prefix")
 
     # status
-    p_status = sub.add_parser("status", help="Show remote status details")
+    p_status = sub.add_parser("status", help="Show observer status details")
     p_status.add_argument(
         "identifier",
         nargs="?",
         default=None,
-        help="Remote name or key prefix (omit for overview)",
+        help="Observer name or key prefix (omit for overview)",
     )
 
     args = setup_cli(parser)

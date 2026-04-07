@@ -70,7 +70,7 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 
 ### `observe` - Multimodal capture and processing
 **Sources:**
-- Capture: standalone observer services (solstone-linux, solstone-tmux, solstone-macos) upload via remote ingest
+- Capture: standalone observer services (solstone-linux, solstone-tmux, solstone-macos) upload vian observer ingest
 - Processing: `observe/sense.py`, `observe/describe.py`, `observe/transcribe/`
 
 **Events:**
@@ -83,10 +83,10 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 | `transcribed` | transcribe | Audio transcription complete (includes VAD metadata) |
 | `observed` | sense | All files for segment fully processed (may include errors) |
 
-**Common fields:** `day`, `segment`, `remote` (for remote uploads), `stream` (stream name, e.g., `"archon"`, `"import.apple"`)
+**Common fields:** `day`, `segment`, `observer` (for observer uploads), `stream` (stream name, e.g., `"archon"`, `"import.apple"`)
 **`observing` event fields:**
-- `meta` (dict, optional): Metadata dict from remote observer. Contains `host`, `platform`, and any client-provided fields (e.g., `facet`, `setting`). Passed to handlers via `SEGMENT_META` env var and unrolled into JSONL metadata headers.
-- `stream` (str, optional): Stream name identifying the segment source. Set by observers, remote ingest, and importer.
+- `meta` (dict, optional): Metadata dict from observer. Contains `host`, `platform`, and any client-provided fields (e.g., `facet`, `setting`). Passed to handlers via `SEGMENT_META` env var and unrolled into JSONL metadata headers.
+- `stream` (str, optional): Stream name identifying the segment source. Set by observers, observer ingest, and importer.
 
 **`observed` event fields:**
 - `stream` (str, optional): Stream name, forwarded from the originating `observing` event.
@@ -121,11 +121,11 @@ Callosum is a JSON-per-line message bus for real-time event distribution across 
 **`recorded`** - Emitted when a completed activity record is written to journal. Supervisor queues a per-activity dream task on receipt.
 **Key fields:** `facet`, `day`, `segment`, `id`, `activity` (type), `segments` (full span), `level_avg`, `description`, `active_entities`
 
-### `sync` - Remote segment synchronization
+### `sync` - Observer segment synchronization
 **Source:** `observe/sync.py`
 **Events:** `status`
 **Key fields:** `queue_size`, `segment`, `state`, `host`, `platform`
-**Purpose:** Track remote sync service status for segment uploads to central server
+**Purpose:** Track observer sync service status for segment uploads to central server
 
 ### `notification` - In-app notification display
 **Source:** `convey/static/websocket.js` (client-side listener; any service can emit)

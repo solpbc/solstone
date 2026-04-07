@@ -45,7 +45,7 @@ def cleanup_draft(draft_dir: str) -> None:
 def finalize_draft(draft_dir: str, segment_key: str) -> str | None:
     """Rename a draft directory to its final segment name.
 
-    Preserves captured data locally when remote upload fails, so the
+    Preserves captured data locally when observer upload fails, so the
     dream pipeline can process it later.
 
     Args:
@@ -66,7 +66,7 @@ def finalize_draft(draft_dir: str, segment_key: str) -> str | None:
 
 
 class ObserverClient:
-    """HTTP client for uploading observer segments to the remote ingest server."""
+    """HTTP client for uploading observer segments to the ingest server."""
 
     def __init__(
         self,
@@ -75,8 +75,8 @@ class ObserverClient:
         platform_name: str = PLATFORM,
     ):
         config = get_config()
-        remote_cfg = config.get("observe", {}).get("remote", {})
-        self._url = remote_cfg.get("url", "").rstrip("/")
+        observer_cfg = config.get("observe", {}).get("observer", {})
+        self._url = observer_cfg.get("url", "").rstrip("/")
         if not self._url:
             # Discover local convey port from health directory
             port = read_service_port("convey")
@@ -86,9 +86,9 @@ class ObserverClient:
             else:
                 logger.warning("No convey port found in health directory")
                 self._url = ""
-        self._key = remote_cfg.get("key")
-        self._auto_register = remote_cfg.get("auto_register", True)
-        self._name = remote_cfg.get("name") or stream
+        self._key = observer_cfg.get("key")
+        self._auto_register = observer_cfg.get("auto_register", True)
+        self._name = observer_cfg.get("name") or stream
         self._stream = stream
         self._host = host
         self._platform = platform_name
@@ -111,14 +111,14 @@ class ObserverClient:
                 )
                 return
 
-        config.setdefault("observe", {}).setdefault("remote", {})["key"] = key
+        config.setdefault("observe", {}).setdefault("observer", {})["key"] = key
 
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
             f.write("\n")
         os.chmod(config_path, 0o600)
 
-        logger.info(f"Persisted remote key to {config_path}")
+        logger.info(f"Persisted observer key to {config_path}")
 
     def _ensure_registered(self) -> None:
         if self._key:
@@ -127,12 +127,12 @@ class ObserverClient:
             return
         if not self._auto_register:
             logger.error(
-                "No remote key configured and auto_register disabled. "
-                "Set observe.remote.key in journal config or enable auto_register."
+                "No observer key configured and auto_register disabled. "
+                "Set observe.observer.key in journal config or enable auto_register."
             )
             return
 
-        url = f"{self._url}/app/remote/api/create"
+        url = f"{self._url}/app/observer/api/create"
         for attempt, delay in enumerate(RETRY_BACKOFF):
             try:
                 resp = self._session.post(
@@ -177,7 +177,7 @@ class ObserverClient:
         if not self._key:
             return UploadResult(False)
 
-        url = f"{self._url}/app/remote/ingest/{self._key}"
+        url = f"{self._url}/app/observer/ingest/{self._key}"
         for attempt, delay in enumerate(RETRY_BACKOFF):
             file_handles = []
             files_data = []
@@ -250,7 +250,7 @@ class ObserverClient:
         if not self._key:
             return False
 
-        url = f"{self._url}/app/remote/ingest/{self._key}/event"
+        url = f"{self._url}/app/observer/ingest/{self._key}/event"
         payload = {"tract": tract, "event": event, **fields}
         try:
             resp = self._session.post(url, json=payload, timeout=EVENT_TIMEOUT)

@@ -4,7 +4,7 @@ Multimodal capture and AI-powered analysis of desktop activity.
 
 ## Observer Architecture
 
-Observers are independent capture agents that upload segments to solstone via the HTTP ingest API (`/app/remote/ingest/<key>`). Each observer runs as its own process with its own lifecycle — solstone core is the journal + processing engine.
+Observers are independent capture agents that upload segments to solstone via the HTTP ingest API (`/app/observer/ingest/<key>`). Each observer runs as its own process with its own lifecycle — solstone core is the journal + processing engine.
 
 | Observer | What it captures | Repo | Runs as |
 |----------|-----------------|------|---------|
@@ -16,19 +16,19 @@ Observers are independent capture agents that upload segments to solstone via th
 
 ```bash
 # List all registered observers
-sol remote list
+sol observer list
 
 # Register a new observer
-sol remote create <name>
+sol observer create <name>
 
 # Check observer status
-sol remote status <name>
+sol observer status <name>
 
 # Rename an observer
-sol remote rename <old> <new>
+sol observer rename <old> <new>
 
 # Revoke an observer's key
-sol remote revoke <name>
+sol observer revoke <name>
 ```
 
 ## Commands
@@ -46,7 +46,7 @@ sol remote revoke <name>
 ```
 Observers (standalone or built-in)
        ↓ HTTP multipart upload
-Remote Ingest API (/app/remote/ingest/<key>)
+Observer Ingest API (/app/observer/ingest/<key>)
        ↓
    Raw media files (*.flac, *.webm, tmux_*.jsonl)
        ↓
@@ -79,7 +79,7 @@ SCREENCAST  ←→  IDLE
 - **linux/observer.py** — Linux capture: audio + screencast + activity detection
 - **linux/screencast.py** — XDG Portal screencast with PipeWire + GStreamer
 - **gnome/activity.py** — GNOME-specific activity detection (idle, lock, power save)
-- **remote_client.py** — HTTP upload client for observer → server communication
+- **observer_client.py** — HTTP upload client for observer → server communication
 - **sense.py** — File watcher that dispatches transcription and description jobs
 - **transcribe.py** — Audio transcription with faster-whisper and sentence-level embeddings
 - **describe.py** — Vision analysis with Gemini, category-based prompts

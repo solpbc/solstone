@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for remote app utilities."""
+"""Tests for observer app utilities."""
 
 from __future__ import annotations
 
@@ -9,17 +9,17 @@ import json
 
 import pytest
 
-from apps.remote.utils import (
+from apps.observer.utils import (
     append_history_record,
-    find_remote_by_name,
+    find_observer_by_name,
     find_segment_by_sha256,
     get_hist_dir,
-    get_remotes_dir,
+    get_observers_dir,
     increment_stat,
-    list_remotes,
+    list_observers,
     load_history,
-    load_remote,
-    save_remote,
+    load_observer,
+    save_observer,
 )
 
 
@@ -33,86 +33,86 @@ def storage_env(tmp_path, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
     monkeypatch.setattr(state, "journal_root", str(journal))
 
-    # Create remotes directory
-    remotes_dir = journal / "apps" / "remote" / "remotes"
-    remotes_dir.mkdir(parents=True)
+    # Create observers directory
+    observers_dir = journal / "apps" / "observer" / "observers"
+    observers_dir.mkdir(parents=True)
 
     class Env:
         def __init__(self):
             self.journal = journal
-            self.remotes_dir = remotes_dir
+            self.observers_dir = observers_dir
 
     return Env()
 
 
-class TestRemoteStorage:
-    """Tests for remote metadata storage."""
+class TestObserverStorage:
+    """Tests for observer metadata storage."""
 
-    def test_get_remotes_dir_creates_directory(self, storage_env):
-        """get_remotes_dir creates and returns remotes directory."""
-        result = get_remotes_dir()
+    def test_get_observers_dir_creates_directory(self, storage_env):
+        """get_observers_dir creates and returns observers directory."""
+        result = get_observers_dir()
         assert result.exists()
-        assert result == storage_env.remotes_dir
+        assert result == storage_env.observers_dir
 
-    def test_save_and_load_remote(self, storage_env):
-        """save_remote and load_remote work together."""
-        remote = {
+    def test_save_and_load_observer(self, storage_env):
+        """save_observer and load_observer work together."""
+        observer = {
             "key": "testkey123456789",
-            "name": "test-remote",
+            "name": "test-observer",
             "stats": {"segments_received": 0},
         }
 
-        assert save_remote(remote) is True
+        assert save_observer(observer) is True
 
-        loaded = load_remote("testkey123456789")
+        loaded = load_observer("testkey123456789")
         assert loaded is not None
-        assert loaded["name"] == "test-remote"
+        assert loaded["name"] == "test-observer"
 
-    def test_load_remote_wrong_key(self, storage_env):
-        """load_remote returns None for wrong key."""
-        remote = {
+    def test_load_observer_wrong_key(self, storage_env):
+        """load_observer returns None for wrong key."""
+        observer = {
             "key": "testkey123456789",
-            "name": "test-remote",
+            "name": "test-observer",
             "stats": {},
         }
-        save_remote(remote)
+        save_observer(observer)
 
         # Same prefix but different key
-        result = load_remote("testkey1xxxxxxxx")
+        result = load_observer("testkey1xxxxxxxx")
         assert result is None
 
-    def test_load_remote_not_found(self, storage_env):
-        """load_remote returns None when remote doesn't exist."""
-        result = load_remote("nonexistent12345")
+    def test_load_observer_not_found(self, storage_env):
+        """load_observer returns None when observer doesn't exist."""
+        result = load_observer("nonexistent12345")
         assert result is None
 
-    def test_list_remotes_empty(self, storage_env):
-        """list_remotes returns empty list when no remotes."""
-        result = list_remotes()
+    def test_list_observers_empty(self, storage_env):
+        """list_observers returns empty list when no observers."""
+        result = list_observers()
         assert result == []
 
-    def test_list_remotes_returns_all(self, storage_env):
-        """list_remotes returns all registered remotes."""
+    def test_list_observers_returns_all(self, storage_env):
+        """list_observers returns all registered observers."""
         for i in range(3):
-            save_remote(
+            save_observer(
                 {
-                    "key": f"remote{i}0123456789",
-                    "name": f"remote-{i}",
+                    "key": f"obs{i:05d}123456789",
+                    "name": f"observer-{i}",
                     "created_at": 1000 + i,
                     "stats": {},
                 }
             )
 
-        result = list_remotes()
+        result = list_observers()
         assert len(result) == 3
         # Sorted by created_at descending
-        assert result[0]["name"] == "remote-2"
-        assert result[1]["name"] == "remote-1"
-        assert result[2]["name"] == "remote-0"
+        assert result[0]["name"] == "observer-2"
+        assert result[1]["name"] == "observer-1"
+        assert result[2]["name"] == "observer-0"
 
-    def test_find_remote_by_name(self, storage_env):
-        """find_remote_by_name finds existing remote."""
-        save_remote(
+    def test_find_observer_by_name(self, storage_env):
+        """find_observer_by_name finds existing observer."""
+        save_observer(
             {
                 "key": "findme123456789",
                 "name": "find-me",
@@ -120,13 +120,13 @@ class TestRemoteStorage:
             }
         )
 
-        result = find_remote_by_name("find-me")
+        result = find_observer_by_name("find-me")
         assert result is not None
         assert result["key"] == "findme123456789"
 
-    def test_find_remote_by_name_not_found(self, storage_env):
-        """find_remote_by_name returns None for unknown name."""
-        result = find_remote_by_name("unknown")
+    def test_find_observer_by_name_not_found(self, storage_env):
+        """find_observer_by_name returns None for unknown name."""
+        result = find_observer_by_name("unknown")
         assert result is None
 
 
@@ -137,7 +137,7 @@ class TestHistoryStorage:
         """get_hist_dir creates history directory."""
         result = get_hist_dir("testkey1")
         assert result.exists()
-        assert result == storage_env.remotes_dir / "testkey1" / "hist"
+        assert result == storage_env.observers_dir / "testkey1" / "hist"
 
     def test_get_hist_dir_no_create(self, storage_env):
         """get_hist_dir with ensure_exists=False doesn't create."""
@@ -153,7 +153,7 @@ class TestHistoryStorage:
             "testkey1", "20250103", {"type": "observed", "segment": "120000_300"}
         )
 
-        hist_path = storage_env.remotes_dir / "testkey1" / "hist" / "20250103.jsonl"
+        hist_path = storage_env.observers_dir / "testkey1" / "hist" / "20250103.jsonl"
         assert hist_path.exists()
 
         with open(hist_path) as f:
@@ -184,7 +184,7 @@ class TestIncrementStat:
 
     def test_increment_stat_new_counter(self, storage_env):
         """increment_stat creates new counter."""
-        save_remote(
+        save_observer(
             {
                 "key": "testkey123456789",
                 "name": "test",
@@ -194,12 +194,12 @@ class TestIncrementStat:
 
         increment_stat("testkey1", "segments_observed")
 
-        loaded = load_remote("testkey123456789")
+        loaded = load_observer("testkey123456789")
         assert loaded["stats"]["segments_observed"] == 1
 
     def test_increment_stat_existing_counter(self, storage_env):
         """increment_stat increments existing counter."""
-        save_remote(
+        save_observer(
             {
                 "key": "testkey123456789",
                 "name": "test",
@@ -209,11 +209,11 @@ class TestIncrementStat:
 
         increment_stat("testkey1", "segments_observed")
 
-        loaded = load_remote("testkey123456789")
+        loaded = load_observer("testkey123456789")
         assert loaded["stats"]["segments_observed"] == 6
 
-    def test_increment_stat_missing_remote(self, storage_env):
-        """increment_stat handles missing remote gracefully."""
+    def test_increment_stat_missing_observer(self, storage_env):
+        """increment_stat handles missing observer gracefully."""
         # Should not raise
         increment_stat("nonexistent", "segments_observed")
 

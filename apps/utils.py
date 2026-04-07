@@ -111,7 +111,7 @@ def log_app_action(
 
     When facet is provided, writes to facets/{facet}/logs/{day}.jsonl.
     When facet is None, writes to config/actions/{day}.jsonl for journal-level
-    actions (settings changes, remote observer management, etc.).
+    actions (settings changes, observer management, etc.).
 
     Args:
         app: App name where action originated (e.g., "entities", "todos")
@@ -131,7 +131,7 @@ def log_app_action(
 
         # Journal-level action (no facet)
         log_app_action(
-            app="remote",
+            app="observer",
             facet=None,
             action="observer_create",
             params={"name": "laptop"},

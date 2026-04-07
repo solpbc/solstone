@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""Tests for remote app event handlers."""
+"""Tests for observer app event handlers."""
 
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ import json
 import pytest
 
 from apps.events import EventContext
-from apps.remote.events import handle_observed
+from apps.observer.events import handle_observed
 
 
 @pytest.fixture
-def remote_journal(tmp_path, monkeypatch):
-    """Create a temporary journal with a remote registered."""
+def observer_journal(tmp_path, monkeypatch):
+    """Create a temporary journal with a observer registered."""
     from convey import state
 
     journal = tmp_path / "journal"
@@ -24,14 +24,14 @@ def remote_journal(tmp_path, monkeypatch):
     # Set convey state (used by apps.utils for storage paths)
     monkeypatch.setattr(state, "journal_root", str(journal))
 
-    # Create remotes directory
-    remotes_dir = journal / "apps" / "remote" / "remotes"
-    remotes_dir.mkdir(parents=True)
+    # Create observers directory
+    observers_dir = journal / "apps" / "observer" / "observers"
+    observers_dir.mkdir(parents=True)
 
-    # Create a test remote
-    remote_data = {
+    # Create a test observer
+    observer_data = {
         "key": "testkey123456789abcdef",
-        "name": "test-remote",
+        "name": "test-observer",
         "created_at": 1704312000000,
         "last_seen": None,
         "last_segment": None,
@@ -41,15 +41,15 @@ def remote_journal(tmp_path, monkeypatch):
             "bytes_received": 1024,
         },
     }
-    remote_path = remotes_dir / "testkey1.json"
-    with open(remote_path, "w") as f:
-        json.dump(remote_data, f)
+    observer_path = observers_dir / "testkey1.json"
+    with open(observer_path, "w") as f:
+        json.dump(observer_data, f)
 
     class Env:
         def __init__(self):
             self.journal = journal
-            self.remotes_dir = remotes_dir
-            self.remote_path = remote_path
+            self.observers_dir = observers_dir
+            self.observer_path = observer_path
 
     return Env()
 
@@ -57,17 +57,17 @@ def remote_journal(tmp_path, monkeypatch):
 class TestHandleObserved:
     """Tests for handle_observed event handler."""
 
-    def test_records_observed_for_remote(self, remote_journal):
-        """Handler records observed status for remote segment."""
+    def test_records_observed_for_observer(self, observer_journal):
+        """Handler records observed status for observer segment."""
         ctx = EventContext(
             msg={
                 "tract": "observe",
                 "event": "observed",
-                "remote": "test-remote",
+                "observer": "test-observer",
                 "segment": "120000_300",
                 "day": "20250103",
             },
-            app="remote",
+            app="observer",
             tract="observe",
             event="observed",
         )
@@ -75,7 +75,7 @@ class TestHandleObserved:
         handle_observed(ctx)
 
         # Check history was written
-        hist_path = remote_journal.remotes_dir / "testkey1" / "hist" / "20250103.jsonl"
+        hist_path = observer_journal.observers_dir / "testkey1" / "hist" / "20250103.jsonl"
         assert hist_path.exists()
 
         with open(hist_path) as f:
@@ -86,29 +86,29 @@ class TestHandleObserved:
         assert "ts" in record
 
         # Check stat was incremented
-        with open(remote_journal.remote_path) as f:
+        with open(observer_journal.observer_path) as f:
             data = json.load(f)
         assert data["stats"]["segments_observed"] == 1
 
-    def test_multiple_observed_events(self, remote_journal):
+    def test_multiple_observed_events(self, observer_journal):
         """Handler appends multiple observed records."""
         for segment in ["120000_300", "130000_300", "140000_300"]:
             ctx = EventContext(
                 msg={
                     "tract": "observe",
                     "event": "observed",
-                    "remote": "test-remote",
+                    "observer": "test-observer",
                     "segment": segment,
                     "day": "20250103",
                 },
-                app="remote",
+                app="observer",
                 tract="observe",
                 event="observed",
             )
             handle_observed(ctx)
 
         # Check all records written
-        hist_path = remote_journal.remotes_dir / "testkey1" / "hist" / "20250103.jsonl"
+        hist_path = observer_journal.observers_dir / "testkey1" / "hist" / "20250103.jsonl"
         with open(hist_path) as f:
             lines = f.readlines()
 
@@ -118,12 +118,12 @@ class TestHandleObserved:
         assert json.loads(lines[2])["segment"] == "140000_300"
 
         # Check stat incremented 3 times
-        with open(remote_journal.remote_path) as f:
+        with open(observer_journal.observer_path) as f:
             data = json.load(f)
         assert data["stats"]["segments_observed"] == 3
 
-    def test_ignores_non_remote_events(self, remote_journal):
-        """Handler ignores events without remote field."""
+    def test_ignores_non_observer_events(self, observer_journal):
+        """Handler ignores events without observer field."""
         ctx = EventContext(
             msg={
                 "tract": "observe",
@@ -131,7 +131,7 @@ class TestHandleObserved:
                 "segment": "120000_300",
                 "day": "20250103",
             },
-            app="remote",
+            app="observer",
             tract="observe",
             event="observed",
         )
@@ -139,40 +139,40 @@ class TestHandleObserved:
         handle_observed(ctx)
 
         # No history should be created
-        hist_dir = remote_journal.remotes_dir / "testkey1" / "hist"
+        hist_dir = observer_journal.observers_dir / "testkey1" / "hist"
         assert not hist_dir.exists()
 
-    def test_ignores_unknown_remote(self, remote_journal):
-        """Handler ignores events for unknown remotes."""
+    def test_ignores_unknown_observer(self, observer_journal):
+        """Handler ignores events for unknown observers."""
         ctx = EventContext(
             msg={
                 "tract": "observe",
                 "event": "observed",
-                "remote": "unknown-remote",
+                "observer": "unknown-observer",
                 "segment": "120000_300",
                 "day": "20250103",
             },
-            app="remote",
+            app="observer",
             tract="observe",
             event="observed",
         )
 
         handle_observed(ctx)
 
-        # No history should be created for unknown remote
-        hist_dir = remote_journal.remotes_dir / "testkey1" / "hist"
+        # No history should be created for unknown observer
+        hist_dir = observer_journal.observers_dir / "testkey1" / "hist"
         assert not hist_dir.exists()
 
-    def test_handles_missing_segment(self, remote_journal):
+    def test_handles_missing_segment(self, observer_journal):
         """Handler handles events missing segment field."""
         ctx = EventContext(
             msg={
                 "tract": "observe",
                 "event": "observed",
-                "remote": "test-remote",
+                "observer": "test-observer",
                 "day": "20250103",
             },
-            app="remote",
+            app="observer",
             tract="observe",
             event="observed",
         )
@@ -181,19 +181,19 @@ class TestHandleObserved:
         handle_observed(ctx)
 
         # No history should be created
-        hist_dir = remote_journal.remotes_dir / "testkey1" / "hist"
+        hist_dir = observer_journal.observers_dir / "testkey1" / "hist"
         assert not hist_dir.exists()
 
-    def test_handles_missing_day(self, remote_journal):
+    def test_handles_missing_day(self, observer_journal):
         """Handler handles events missing day field."""
         ctx = EventContext(
             msg={
                 "tract": "observe",
                 "event": "observed",
-                "remote": "test-remote",
+                "observer": "test-observer",
                 "segment": "120000_300",
             },
-            app="remote",
+            app="observer",
             tract="observe",
             event="observed",
         )
@@ -202,5 +202,5 @@ class TestHandleObserved:
         handle_observed(ctx)
 
         # No history should be created
-        hist_dir = remote_journal.remotes_dir / "testkey1" / "hist"
+        hist_dir = observer_journal.observers_dir / "testkey1" / "hist"
         assert not hist_dir.exists()
