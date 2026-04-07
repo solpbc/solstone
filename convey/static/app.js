@@ -98,12 +98,19 @@
     const facetPillsContainer = document.querySelector('.facet-pills-container');
     if (!facetPillsContainer) return;
 
-    facetPillsContainer.setAttribute('role', 'toolbar');
-    facetPillsContainer.setAttribute('aria-label', 'facet filter');
     facetPillsContainer.innerHTML = '';
 
     // Check if facets are disabled for this app
     const facetsDisabled = document.querySelector('.facet-bar')?.classList.contains('facets-disabled');
+    if (!facetsDisabled) {
+      facetPillsContainer.setAttribute('role', 'toolbar');
+      facetPillsContainer.setAttribute('aria-label', 'facet filter');
+      facetPillsContainer.removeAttribute('aria-hidden');
+    } else {
+      facetPillsContainer.setAttribute('aria-hidden', 'true');
+      facetPillsContainer.removeAttribute('role');
+      facetPillsContainer.removeAttribute('aria-label');
+    }
 
     // Find selected facet data and apply theme
     const selectedFacetData = window.selectedFacet ? activeFacets.find(f => f.name === window.selectedFacet) : null;
@@ -136,6 +143,7 @@
           const badge = document.createElement('span');
           badge.className = 'facet-badge';
           badge.textContent = count;
+          badge.setAttribute('aria-label', count + ' pending');
           emojiContainer.appendChild(badge);
         }
 
@@ -171,7 +179,7 @@
     });
 
     // Ensure at least one pill is tabbable (handles null selection and stale facet names)
-    if (!facetPillsContainer.querySelector('.facet-pill[tabindex="0"]')) {
+    if (!facetsDisabled && !facetPillsContainer.querySelector('.facet-pill[tabindex="0"]')) {
       const firstPill = facetPillsContainer.querySelector('.facet-pill');
       if (firstPill) firstPill.tabIndex = 0;
     }
@@ -1831,6 +1839,7 @@ window.AppServices = {
         }
 
         badge.textContent = count;
+        badge.setAttribute('aria-label', count + ' pending');
         badge.style.display = '';
       }
     }

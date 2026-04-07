@@ -639,6 +639,8 @@ Apps can access and control facet selection through a uniform API:
 
 **See implementation:** `convey/static/app.js` - Facet switching logic and event dispatch
 
+**Disabled mode:** On apps with `facets.disabled: true`, the facet bar is visible but inert — pills render without interactivity or tab stops. The container is marked `aria-hidden="true"` so screen readers skip it. The bar remains visually present as always-visible chrome.
+
 ### WebSocket Events (Client-Side)
 
 `window.appEvents` API defined in `convey/static/websocket.js`:
