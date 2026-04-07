@@ -400,7 +400,7 @@
       "name": "Balthasar Davi",
       "observation_depth": 2,
       "recency": 0.5,
-      "score": 63.5,
+      "score": 63.4,
       "type": "person"
     },
     {
@@ -413,7 +413,7 @@
       "name": "Mesh Routing",
       "observation_depth": 3,
       "recency": 0.5,
-      "score": 65.5,
+      "score": 65.4,
       "type": "project"
     },
     {
@@ -426,7 +426,7 @@
       "name": "Verona Ventures",
       "observation_depth": 2,
       "recency": 0.5,
-      "score": 58.5,
+      "score": 58.4,
       "type": "company"
     },
     {
@@ -491,7 +491,7 @@
       "name": "Schema Bridge",
       "observation_depth": 2,
       "recency": 0.5,
-      "score": 63.5,
+      "score": 63.4,
       "type": "project"
     },
     {
@@ -530,7 +530,7 @@
       "name": "Montague Tech",
       "observation_depth": 3,
       "recency": 0.5,
-      "score": 74.5,
+      "score": 74.4,
       "type": "company"
     },
     {
@@ -569,7 +569,7 @@
       "name": "Nurse Angela",
       "observation_depth": 2,
       "recency": 0.5,
-      "score": 68.6,
+      "score": 68.5,
       "type": "person"
     },
     {

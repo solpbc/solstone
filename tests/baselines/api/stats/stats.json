@@ -351,88 +351,88 @@
     },
     "days": {
       "20240101": {
-        "audio_duration": 44.0,
-        "audio_segments": 6,
-        "audio_sessions": 2,
-        "day_bytes": 39028,
-        "outputs_pending": 9,
+        "day_bytes": 38312,
+        "outputs_pending": 3,
         "outputs_processed": 2,
         "pending_segments": 0,
-        "screen_duration": 0.0,
-        "screen_frames": 0,
-        "screen_sessions": 1
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 1,
+        "transcript_duration": 44.0,
+        "transcript_segments": 6,
+        "transcript_sessions": 2
       },
       "20240102": {
-        "audio_duration": 29.0,
-        "audio_segments": 3,
-        "audio_sessions": 1,
-        "day_bytes": 38591,
-        "outputs_pending": 11,
+        "day_bytes": 38210,
+        "outputs_pending": 4,
         "outputs_processed": 1,
         "pending_segments": 0,
-        "screen_duration": 23.1,
-        "screen_frames": 3,
-        "screen_sessions": 1
+        "percept_duration": 23.1,
+        "percept_frames": 3,
+        "percept_sessions": 1,
+        "transcript_duration": 29.0,
+        "transcript_segments": 3,
+        "transcript_sessions": 1
       },
       "20250101": {
-        "audio_duration": 0.0,
-        "day_bytes": 68855,
-        "outputs_pending": 12,
+        "day_bytes": 241,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20250103": {
-        "audio_duration": 0.0,
-        "day_bytes": 3991,
-        "outputs_pending": 12,
+        "day_bytes": 33,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20250104": {
-        "audio_duration": 0.0,
-        "day_bytes": 12058,
-        "outputs_pending": 12,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20250107": {
-        "audio_duration": 0.0,
-        "day_bytes": 4017,
-        "outputs_pending": 12,
+        "day_bytes": 33,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20250108": {
-        "audio_duration": 0.0,
-        "day_bytes": 12025,
-        "outputs_pending": 12,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20250110": {
-        "day_bytes": 15854,
-        "outputs_pending": 11,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20250124": {
-        "audio_duration": 0.0,
-        "day_bytes": 776,
-        "outputs_pending": 12,
+        "day_bytes": 499,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260101": {
         "day_bytes": 24508,
-        "outputs_pending": 11,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
@@ -441,168 +441,168 @@
         "transcript_sessions": 8
       },
       "20260130": {
-        "audio_duration": 0.0,
-        "day_bytes": 275,
-        "outputs_pending": 12,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260216": {
-        "audio_duration": 0.0,
-        "day_bytes": 397,
-        "outputs_pending": 12,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260217": {
-        "audio_duration": 0.0,
-        "day_bytes": 320,
-        "outputs_pending": 12,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260218": {
-        "audio_duration": 0.0,
-        "day_bytes": 120,
-        "outputs_pending": 12,
+        "day_bytes": 280,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260219": {
-        "audio_duration": 0.0,
-        "day_bytes": 240,
-        "outputs_pending": 12,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260220": {
-        "audio_duration": 0.0,
-        "day_bytes": 0,
-        "outputs_pending": 12,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260221": {
-        "audio_duration": 0.0,
-        "day_bytes": 160,
-        "outputs_pending": 12,
+        "day_bytes": 280,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260222": {
-        "audio_duration": 0.0,
-        "day_bytes": 80,
-        "outputs_pending": 12,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260223": {
-        "audio_duration": 0.0,
-        "day_bytes": 120,
-        "outputs_pending": 12,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260224": {
-        "audio_duration": 0.0,
-        "day_bytes": 160,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260225": {
-        "audio_duration": 0.0,
-        "day_bytes": 120,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260226": {
-        "audio_duration": 0.0,
-        "day_bytes": 80,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260227": {
-        "audio_duration": 0.0,
-        "day_bytes": 80,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260228": {
-        "audio_duration": 0.0,
-        "day_bytes": 120,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260301": {
-        "audio_duration": 0.0,
-        "day_bytes": 80,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260302": {
-        "audio_duration": 0.0,
-        "day_bytes": 637,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260303": {
-        "audio_duration": 0.0,
-        "day_bytes": 240,
-        "outputs_pending": 11,
+        "day_bytes": 280,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       },
       "20260304": {
-        "audio_duration": 250.0,
-        "audio_segments": 15,
-        "audio_sessions": 3,
-        "day_bytes": 44511,
-        "outputs_pending": 9,
+        "day_bytes": 45578,
+        "outputs_pending": 3,
         "outputs_processed": 2,
         "pending_segments": 0,
-        "screen_duration": 0.0,
-        "screen_frames": 0,
-        "screen_sessions": 3
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 3,
+        "transcript_duration": 250.0,
+        "transcript_segments": 15,
+        "transcript_sessions": 3
       },
       "20260305": {
-        "audio_duration": 175.0,
-        "audio_segments": 12,
-        "audio_sessions": 3,
-        "day_bytes": 41560,
-        "outputs_pending": 10,
+        "day_bytes": 42276,
+        "outputs_pending": 4,
         "outputs_processed": 1,
         "pending_segments": 0,
-        "screen_duration": 0.0,
-        "screen_frames": 0,
-        "screen_sessions": 3
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 3,
+        "transcript_duration": 175.0,
+        "transcript_segments": 12,
+        "transcript_sessions": 3
       },
       "20260306": {
-        "day_bytes": 62860,
-        "outputs_pending": 9,
+        "day_bytes": 61500,
+        "outputs_pending": 3,
         "outputs_processed": 2,
         "pending_segments": 0,
         "percept_duration": 0.0,
@@ -613,40 +613,40 @@
         "transcript_sessions": 4
       },
       "20260307": {
-        "audio_duration": 160.0,
-        "audio_segments": 11,
-        "audio_sessions": 2,
-        "day_bytes": 38153,
-        "outputs_pending": 10,
+        "day_bytes": 38800,
+        "outputs_pending": 4,
         "outputs_processed": 1,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 160.0,
+        "transcript_segments": 11,
+        "transcript_sessions": 2
       },
       "20260308": {
-        "audio_duration": 140.0,
-        "audio_segments": 9,
-        "audio_sessions": 2,
-        "day_bytes": 39213,
-        "outputs_pending": 9,
+        "day_bytes": 39229,
+        "outputs_pending": 3,
         "outputs_processed": 2,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 140.0,
+        "transcript_segments": 9,
+        "transcript_sessions": 2
       },
       "20260309": {
-        "audio_duration": 170.0,
-        "audio_segments": 12,
-        "audio_sessions": 3,
-        "day_bytes": 41937,
-        "outputs_pending": 10,
+        "day_bytes": 41954,
+        "outputs_pending": 4,
         "outputs_processed": 1,
         "pending_segments": 0,
-        "screen_duration": 0.0,
-        "screen_frames": 0,
-        "screen_sessions": 3
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 3,
+        "transcript_duration": 170.0,
+        "transcript_segments": 12,
+        "transcript_sessions": 3
       },
       "20260310": {
-        "day_bytes": 53726,
-        "outputs_pending": 9,
+        "day_bytes": 53384,
+        "outputs_pending": 3,
         "outputs_processed": 2,
         "pending_segments": 0,
         "percept_duration": 0.0,
@@ -657,143 +657,143 @@
         "transcript_sessions": 3
       },
       "20260311": {
-        "day_bytes": 483,
-        "outputs_pending": 11,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260312": {
-        "day_bytes": 520,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260314": {
-        "day_bytes": 160,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260315": {
-        "day_bytes": 483,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260316": {
-        "day_bytes": 160,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260317": {
-        "day_bytes": 403,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260318": {
-        "day_bytes": 360,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260319": {
-        "day_bytes": 120,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260320": {
-        "day_bytes": 350,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260321": {
-        "day_bytes": 660,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260322": {
-        "day_bytes": 746,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260323": {
-        "day_bytes": 0,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260326": {
-        "day_bytes": 792,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260327": {
-        "day_bytes": 3300,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260331": {
-        "day_bytes": 884,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260402": {
-        "day_bytes": 1201,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260403": {
-        "day_bytes": 1056,
-        "outputs_pending": 11,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
       "20260404": {
-        "day_bytes": 878,
+        "day_bytes": 282,
         "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
@@ -801,7 +801,15 @@
         "transcript_duration": 0.0
       },
       "20260405": {
-        "day_bytes": 528,
+        "day_bytes": 282,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
+      },
+      "20260406": {
+        "day_bytes": 282,
         "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
@@ -809,12 +817,12 @@
         "transcript_duration": 0.0
       },
       "20990101": {
-        "audio_duration": 0.0,
-        "day_bytes": 0,
-        "outputs_pending": 12,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
       }
     },
     "facet_counts": {
@@ -1798,23 +1806,17 @@
         }
       }
     },
-    "total_percept_duration": 0.0,
-    "total_transcript_duration": 2487.0,
+    "total_percept_duration": 23.1,
+    "total_transcript_duration": 3455.0,
     "totals": {
-      "audio_duration": 968.0,
-      "audio_segments": 68,
-      "audio_sessions": 16,
-      "day_bytes": 557976,
-      "outputs_pending": 585,
+      "day_bytes": 433575,
+      "outputs_pending": 261,
       "outputs_processed": 14,
       "pending_segments": 0,
-      "percept_frames": 0,
-      "percept_sessions": 6,
-      "screen_duration": 23.1,
-      "screen_frames": 3,
-      "screen_sessions": 11,
-      "transcript_segments": 104,
-      "transcript_sessions": 15
+      "percept_frames": 3,
+      "percept_sessions": 17,
+      "transcript_segments": 172,
+      "transcript_sessions": 31
     }
   }
 }
