@@ -145,7 +145,7 @@ def test_start_sync(tmp_path, mock_callosum, monkeypatch):
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
 
     # Test start_sync()
-    remote_url = "https://server:5000/app/remote/ingest/abc123"
+    remote_url = "https://server:5000/app/observer/ingest/abc123"
     sync_proc = mod.start_sync(remote_url)
     assert sync_proc is not None
 

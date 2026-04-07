@@ -63,7 +63,7 @@ def check_remote_health(
 
     Args:
         remote_url: Full URL to remote ingest endpoint (including key)
-                   e.g., "https://server:5000/app/remote/ingest/abc123..."
+                   e.g., "https://server:5000/app/observer/ingest/abc123..."
         timeout: Request timeout in seconds (default: 10)
 
     Returns:
@@ -76,7 +76,7 @@ def check_remote_health(
     try:
         parsed = urlparse(remote_url)
         host = parsed.netloc or parsed.hostname or "unknown"
-        # Extract key from path: /app/remote/ingest/KEY -> KEY[:8]
+        # Extract key from path: /app/observer/ingest/KEY -> KEY[:8]
         path_parts = parsed.path.split("/")
         key_prefix = path_parts[-1][:8] if path_parts else "unknown"
     except Exception:
@@ -126,7 +126,7 @@ class RemoteClient:
 
         Args:
             remote_url: Full URL to remote ingest endpoint (including key)
-                       e.g., "https://server:5000/app/remote/ingest/abc123..."
+                       e.g., "https://server:5000/app/observer/ingest/abc123..."
         """
         self.remote_url = remote_url.rstrip("/")
         self.session = requests.Session()
@@ -661,8 +661,8 @@ class SyncService:
             True if all files confirmed with matching sha256
         """
         # Build segments endpoint URL
-        # remote_url is like: https://server/app/remote/ingest/KEY
-        # segments endpoint is: https://server/app/remote/ingest/KEY/segments/DAY
+        # remote_url is like: https://server/app/observer/ingest/KEY
+        # segments endpoint is: https://server/app/observer/ingest/KEY/segments/DAY
         segments_url = f"{self.remote_url}/segments/{day}"
 
         try:
@@ -749,7 +749,7 @@ def main():
         "--remote",
         type=str,
         required=True,
-        help="Remote server URL (e.g., https://server:5000/app/remote/ingest/KEY)",
+        help="Remote server URL (e.g., https://server:5000/app/observer/ingest/KEY)",
     )
     parser.add_argument(
         "--days-back",
