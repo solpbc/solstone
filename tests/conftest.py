@@ -16,6 +16,29 @@ import pytest
 from think.utils import now_ms
 
 
+def copytree_tracked(src, dst):
+    """Copy only git-tracked files from src to dst."""
+    src = Path(src)
+    dst = Path(dst)
+    result = subprocess.run(
+        ["git", "ls-files"],
+        cwd=src,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    for rel in result.stdout.splitlines():
+        if not rel:
+            continue
+        src_path = src / rel
+        dst_path = dst / rel
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
+        if src_path.is_symlink():
+            os.symlink(os.readlink(src_path), dst_path)
+        else:
+            shutil.copy2(src_path, dst_path)
+
+
 @pytest.fixture(autouse=True)
 def set_test_journal_path(request, monkeypatch):
     """Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for all unit tests.
@@ -29,6 +52,16 @@ def set_test_journal_path(request, monkeypatch):
 
     # Set _SOLSTONE_JOURNAL_OVERRIDE to tests/fixtures/journal for all unit tests
     monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", "tests/fixtures/journal")
+
+
+@pytest.fixture
+def journal_copy(tmp_path, monkeypatch):
+    """Copy git-tracked fixture files to tmp_path for mutation tests."""
+    src = Path(__file__).resolve().parent / "fixtures" / "journal"
+    dst = tmp_path / "journal"
+    copytree_tracked(src, dst)
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst))
+    return dst
 
 
 @pytest.fixture(autouse=True)

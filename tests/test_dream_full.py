@@ -51,10 +51,9 @@ def test_main_runs_with_mocked_prompts(journal_copy, monkeypatch):
 def test_segment_mode_skips_pre_post_phases(journal_copy, monkeypatch):
     """Test that segment mode skips sense and journal-stats."""
     mod = importlib.import_module("think.dream")
-    journal = journal_copy
 
     # Create segment directory
-    segment_dir = journal / "20240101" / "default" / "120000_300"
+    segment_dir = journal_copy / "20240101" / "default" / "120000_300"
     segment_dir.mkdir(parents=True, exist_ok=True)
 
     commands_run = []

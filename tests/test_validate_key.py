@@ -13,6 +13,7 @@ import think.providers.anthropic
 import think.providers.google
 import think.providers.openai
 from convey import create_app
+from tests.conftest import copytree_tracked
 from think.providers import validate_key
 
 
