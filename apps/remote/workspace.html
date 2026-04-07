@@ -192,6 +192,12 @@
 .copy-btn.copied {
   background: #28a745;
 }
+.credential-label {
+  font-weight: bold;
+  font-size: 0.85em;
+  color: #333;
+  margin-bottom: 0.25em;
+}
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -234,14 +240,19 @@
   <div class="modal-content">
     <span class="modal-close" id="keyModalClose">&times;</span>
     <h3 id="keyModalTitle">Remote: <span id="modalRemoteName"></span></h3>
-    <p>Run this command on your observer machine:</p>
+    <p>Use these credentials in your solstone app's service settings:</p>
+    <div class="credential-label">Server URL</div>
     <div class="command-box">
-      <code id="commandText"></code>
-      <button class="copy-btn" id="copyBtn">Copy</button>
+      <code id="serverUrlText"></code>
+      <button class="copy-btn" id="copyServerUrlBtn">Copy</button>
+    </div>
+    <div class="credential-label">Key</div>
+    <div class="command-box">
+      <code id="keyText"></code>
+      <button class="copy-btn" id="copyKeyBtn">Copy</button>
     </div>
     <p style="font-size: 0.9em; color: #666;">
-      The observer will upload captured segments to this server for processing.
-      Keep this URL secret - anyone with it can upload files to your journal.
+      Keep this key secret — anyone with it can upload to your journal.
     </p>
     <div class="modal-actions">
       <button id="doneBtn" style="background: #007bff; color: white; border: none;">Done</button>
@@ -255,8 +266,10 @@ const addRemoteForm = document.getElementById('addRemoteForm');
 const remoteNameInput = document.getElementById('remoteName');
 const keyModal = document.getElementById('keyModal');
 const modalRemoteName = document.getElementById('modalRemoteName');
-const commandText = document.getElementById('commandText');
-const copyBtn = document.getElementById('copyBtn');
+const serverUrlText = document.getElementById('serverUrlText');
+const keyText = document.getElementById('keyText');
+const copyServerUrlBtn = document.getElementById('copyServerUrlBtn');
+const copyKeyBtn = document.getElementById('copyKeyBtn');
 const doneBtn = document.getElementById('doneBtn');
 const keyModalClose = document.getElementById('keyModalClose');
 
@@ -370,17 +383,16 @@ async function viewRemoteKey(keyPrefix, name) {
       throw new Error(data.error || 'Failed to get key');
     }
 
-    showKeyModal(name, data.ingest_url);
+    showKeyModal(name, data.key);
   } catch (err) {
     if (window.showError) showError(err.message);
   }
 }
 
-function showKeyModal(name, ingestUrl) {
-  const baseUrl = window.location.origin;
-  const fullUrl = `${baseUrl}${ingestUrl}`;
+function showKeyModal(name, key) {
   modalRemoteName.textContent = name;
-  commandText.textContent = `observer --remote ${fullUrl}`;
+  serverUrlText.textContent = window.location.origin;
+  keyText.textContent = key;
   keyModal.style.display = 'block';
 }
 
@@ -405,8 +417,8 @@ addRemoteForm.onsubmit = async (e) => {
       throw new Error(data.error || 'Failed to create remote');
     }
 
-    // Show modal with command
-    showKeyModal(name, data.ingest_url);
+    // Show modal with key
+    showKeyModal(name, data.key);
 
     // Clear input and reload list
     remoteNameInput.value = '';
@@ -433,16 +445,21 @@ window.onclick = (e) => {
   }
 };
 
-copyBtn.onclick = () => {
-  navigator.clipboard.writeText(commandText.textContent).then(() => {
-    copyBtn.textContent = 'Copied!';
-    copyBtn.classList.add('copied');
-    setTimeout(() => {
-      copyBtn.textContent = 'Copy';
-      copyBtn.classList.remove('copied');
-    }, 2000);
-  });
-};
+function setupCopyBtn(btn, codeEl) {
+  btn.onclick = () => {
+    navigator.clipboard.writeText(codeEl.textContent).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'Copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  };
+}
+
+setupCopyBtn(copyServerUrlBtn, serverUrlText);
+setupCopyBtn(copyKeyBtn, keyText);
 
 // Initial load
 loadRemotes();
