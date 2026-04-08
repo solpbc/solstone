@@ -7,4 +7,4 @@
 ## curation
 - [ ] 2026-04-03 personal facet has duplicate attached entity `Zoey` listed twice. (confirmed 2026-04-05)
 - [ ] 2026-04-03 solstone facet still needs alias/merge review for `Solstone` vs `Sunstone` attached as separate projects. (confirmed 2026-04-05)
-- [ ] 2026-04-06 speaker curation queue shows very active unknown cluster 18 (91 samples) across Plaud imports. Clusters 5, 30, 26, 23 also recurring.
+- [ ] 2026-04-07 Proactive update to sol/self.md: Ensure understanding of owner (Jeremie Miller) is precise and current. Review recent interactions/journal entries for any nuances in his work style, communication preferences, or priorities not yet captured.
