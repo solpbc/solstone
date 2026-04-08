@@ -312,13 +312,6 @@
   // Save state before navigation
   window.addEventListener('pagehide', save);
 
-  // --- Inline vs panel heuristic ---
-  function isOneLiner(text) {
-    if (!text) return true;
-    return text.length < 120 && !text.includes('\n') &&
-      (text.match(/[.!?]/g) || []).length <= 1;
-  }
-
   // --- Backdrop click = dismiss ---
   backdrop.addEventListener('click', closePanel);
 
@@ -417,7 +410,7 @@
             input.focus();
           }
 
-          function recoverDeliver(resp, panelHint, errMsg) {
+          function recoverDeliver(resp, display, errMsg) {
             if (resolved) return;
             resolved = true;
             var content = errMsg || resp;
@@ -426,8 +419,10 @@
             }
             pendingMessage = null;
 
+            // Multi-turn conversations always use panel — after the first exchange,
+            // the conversation has enough context that panel view is more appropriate.
             var userCount = messages.filter(function(m) { return m.role === 'user'; }).length;
-            var shouldInline = userCount === 1 && !panelHint && isOneLiner(resp) && !errMsg;
+            var shouldInline = userCount === 1 && display === 'inline' && !errMsg;
 
             if (panelOpen) {
               renderMessages();
@@ -457,22 +452,21 @@
               if (msg.agent_id === agentId) {
                 if (recoveryWatchdog) { clearTimeout(recoveryWatchdog); recoveryWatchdog = null; }
                 recoveryWatchdog = setTimeout(function() {
-                  recoverDeliver('', false, 'request timed out. the server took too long to respond. try a shorter question, or check if solstone services are running.');
+                  recoverDeliver('', 'panel', 'request timed out. the server took too long to respond. try a shorter question, or check if solstone services are running.');
                 }, 180000);
               }
               if (msg.agent_id === agentId && msg.event === 'finish') {
                 var resp = msg.result || '';
-                var panelHint = resp.length >= 120 || resp.includes('\n') || resp.split('. ').length > 2;
-                recoverDeliver(resp, panelHint, null);
+                recoverDeliver(resp, msg.display || 'panel', null);
               } else if (msg.agent_id === agentId && msg.event === 'error') {
-                recoverDeliver('', false, 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
+                recoverDeliver('', 'panel', 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
               }
             });
           }
 
           // Start watchdog for recovery
           recoveryWatchdog = setTimeout(function() {
-            recoverDeliver('', false, 'request timed out. the server took too long to respond. try a shorter question, or check if solstone services are running.');
+            recoverDeliver('', 'panel', 'request timed out. the server took too long to respond. try a shorter question, or check if solstone services are running.');
           }, 180000);
 
           // Check GET immediately in case agent already finished
@@ -484,8 +478,7 @@
               if (recoveryWatchdog) { clearTimeout(recoveryWatchdog); recoveryWatchdog = null; }
               var data = await r.json();
               var resp = data.response || '';
-              var panelHint = !!data.panel;
-              recoverDeliver(resp, panelHint, null);
+              recoverDeliver(resp, data.display || 'panel', null);
             }
             // If 404, agent still running — keep WS subscription active
           } catch (err) {
@@ -656,15 +649,17 @@
       input.focus();
     }
 
-    function deliverResult(resp, panelHint, errMsg) {
+    function deliverResult(resp, display, errMsg) {
       var content = errMsg || resp;
       if (content) {
         messages.push({ role: errMsg ? 'error' : 'agent', content: content, ts: Date.now() });
       }
       pendingMessage = null;
 
+      // Multi-turn conversations always use panel — after the first exchange,
+      // the conversation has enough context that panel view is more appropriate.
       var userCount = messages.filter(function(m) { return m.role === 'user'; }).length;
-      var shouldInline = userCount === 1 && !panelHint && isOneLiner(resp) && !errMsg;
+      var shouldInline = userCount === 1 && display === 'inline' && !errMsg;
 
       if (panelOpen) {
         renderMessages();
@@ -689,7 +684,7 @@
     function startWatchdog(agentId) {
       if (watchdogTimer) clearTimeout(watchdogTimer);
       watchdogTimer = setTimeout(function() {
-        deliverResult('', false, 'request timed out. the server took too long to respond. try a shorter question, or check if solstone services are running.');
+        deliverResult('', 'panel', 'request timed out. the server took too long to respond. try a shorter question, or check if solstone services are running.');
       }, 180000);
     }
 
@@ -706,14 +701,14 @@
       });
 
       if (!r.ok) {
-        deliverResult('', false, 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
+        deliverResult('', 'panel', 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
         return;
       }
 
       var data = await r.json();
       var agentId = data.agent_id;
       if (!agentId) {
-        deliverResult('', false, 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
+        deliverResult('', 'panel', 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
         return;
       }
 
@@ -757,19 +752,14 @@
           // Handle finish/error for our agent
           if (msg.agent_id === agentId && msg.event === 'finish') {
             var resp = msg.result || '';
-            var panelHint = (
-              resp.length >= 120 ||
-              resp.includes('\n') ||
-              resp.split('. ').length > 2
-            );
-            deliverResult(resp, panelHint, null);
+            deliverResult(resp, msg.display || 'panel', null);
           } else if (msg.agent_id === agentId && msg.event === 'error') {
-            deliverResult('', false, 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
+            deliverResult('', 'panel', 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
           }
         });
       }
     } catch (err) {
-      deliverResult('', false, 'connection lost. couldn\'t reach the server. try sending your message again, or check if solstone services are running.');
+      deliverResult('', 'panel', 'connection lost. couldn\'t reach the server. try sending your message again, or check if solstone services are running.');
     }
   };
 })();

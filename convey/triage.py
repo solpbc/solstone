@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from flask import Blueprint, jsonify, request
@@ -13,6 +14,20 @@ from flask import Blueprint, jsonify, request
 from convey.utils import error_response
 
 logger = logging.getLogger(__name__)
+
+
+def compute_display_mode(text: str) -> str:
+    """Return 'inline' or 'panel' based on response text characteristics."""
+    if not text:
+        return "inline"
+    if len(text) >= 120:
+        return "panel"
+    if "\n" in text:
+        return "panel"
+    if len(re.split(r"(?<=[.!?])\s", text)) > 2:
+        return "panel"
+    return "inline"
+
 
 bp = Blueprint("triage", __name__, url_prefix="/api/triage")
 
@@ -101,7 +116,7 @@ def triage() -> Any:
 def triage_result(agent_id: str) -> Any:
     """Return the result of a completed triage agent.
 
-    Returns {response, panel} if the agent has finished, 404 otherwise.
+    Returns {response, display} if the agent has finished, 404 otherwise.
     Used for page-reload recovery when the WebSocket may have missed the finish event.
     """
     try:
@@ -111,12 +126,7 @@ def triage_result(agent_id: str) -> Any:
         for event in reversed(events):
             if event.get("event") == "finish":
                 result = event.get("result", "")
-                panel = (
-                    len(result) >= 120
-                    or "\n" in result
-                    or len((result or "").split(". ")) > 2
-                )
-                return jsonify(response=result, panel=panel)
+                return jsonify(response=result, display=compute_display_mode(result))
     except FileNotFoundError:
         pass
     except Exception:
