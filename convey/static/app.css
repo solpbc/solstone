@@ -1578,6 +1578,8 @@ body.menu-all .menu-bar {
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 12px;
+  position: relative;
+  overflow: hidden;
   pointer-events: all;
   animation: slideIn 0.3s ease;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -1609,6 +1611,32 @@ a.notification-card {
     opacity: 1;
     transform: translateX(0);
   }
+}
+
+@keyframes countdownShrink {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.notification-countdown {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #3b82f6;
+  transform-origin: left;
+  animation: countdownShrink linear forwards;
+  border-radius: 0 0 8px 8px;
+}
+
+.notification-card:hover .notification-countdown,
+.notification-card:focus-within .notification-countdown {
+  animation-play-state: paused;
 }
 
 /* Notification Header */
