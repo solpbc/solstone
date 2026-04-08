@@ -1476,11 +1476,12 @@ body.menu-all .menu-bar {
 .conversation-messages {
   display: none;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   overflow-y: auto;
   padding: 16px;
   flex: 1;
   min-height: 0;
+  background: #fffcf9;
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
 }
@@ -1535,7 +1536,7 @@ body.menu-all .menu-bar {
 
 .conversation-message.agent {
   align-self: flex-start;
-  background: #f3f4f6;
+  background: #f5f0eb;
   color: #1f2937;
   border-bottom-left-radius: 4px;
 }
@@ -1546,6 +1547,7 @@ body.menu-all .menu-bar {
   gap: 0.5em;
   color: #999;
   font-size: 13px;
+  background: #f5f0eb;
 }
 
 .conversation-message.error {
