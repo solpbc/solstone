@@ -993,6 +993,19 @@
         const link = e.target.closest('.menu-item-link');
         if (!link) return;
 
+        // Open submenu on Enter or ArrowRight if one exists
+        if (e.key === 'Enter' || e.key === 'ArrowRight') {
+          if (link.getAttribute('aria-haspopup') === 'true' && !document.body.classList.contains('menu-full')) {
+            e.preventDefault();
+            const appName = link.closest('.menu-item').dataset.appName;
+            AppServices.submenus._open(appName);
+            AppServices.submenus._keyboardOpen = true;
+            const firstItem = document.querySelector(`#menu-submenu-${appName} [role="menuitem"]`);
+            if (firstItem) firstItem.focus();
+            return;
+          }
+        }
+
         let nextIndex;
         const links = getVisibleMenuLinks();
         const currentIndex = links.indexOf(link);
@@ -1793,6 +1806,8 @@ window.AppServices = {
    */
   submenus: {
     _data: {},  // {appName: [items]}
+    _openSubmenu: null,  // {appName, submenu, menuItem, menuItemLink} | null
+    _keyboardOpen: false,
 
     /**
      * Set entire submenu for an app (replaces existing)
@@ -1858,6 +1873,50 @@ window.AppServices = {
       return this._data[appName] || [];
     },
 
+    _closeAll() {
+      if (this._openSubmenu) {
+        this._openSubmenu.submenu.classList.remove('visible');
+        this._openSubmenu.menuItemLink.setAttribute('aria-expanded', 'false');
+        this._openSubmenu = null;
+      }
+      this._keyboardOpen = false;
+    },
+
+    _open(appName) {
+      this._closeAll();
+      const menuItem = document.querySelector(`.menu-item[data-app-name="${appName}"]`);
+      if (!menuItem) return;
+      const submenu = document.getElementById(`menu-submenu-${appName}`);
+      if (!submenu) return;
+      const menuItemLink = menuItem.querySelector('.menu-item-link');
+      // Position
+      const rect = menuItem.getBoundingClientRect();
+      submenu.style.position = 'fixed';
+      submenu.style.top = rect.top + 'px';
+      submenu.style.left = rect.right + 'px';
+      // Show
+      submenu.classList.add('visible');
+      if (menuItemLink) menuItemLink.setAttribute('aria-expanded', 'true');
+      this._openSubmenu = { appName, submenu, menuItem, menuItemLink };
+    },
+
+    _updateAriaOnLink(appName) {
+      const menuItem = document.querySelector(`.menu-item[data-app-name="${appName}"]`);
+      if (!menuItem) return;
+      const link = menuItem.querySelector('.menu-item-link');
+      if (!link) return;
+      const hasSubmenu = document.getElementById(`menu-submenu-${appName}`);
+      if (hasSubmenu) {
+        link.setAttribute('aria-haspopup', 'true');
+        if (!link.hasAttribute('aria-expanded')) {
+          link.setAttribute('aria-expanded', 'false');
+        }
+      } else {
+        link.removeAttribute('aria-haspopup');
+        link.removeAttribute('aria-expanded');
+      }
+    },
+
     /**
      * Render submenu for an app
      * @private
@@ -1882,9 +1941,20 @@ window.AppServices = {
         existing.remove();
       }
 
+      // Clear stale open state if re-rendering the currently open submenu
+      if (this._openSubmenu && this._openSubmenu.appName === appName) {
+        const menuItemLink = menuItem.querySelector('.menu-item-link');
+        if (menuItemLink) menuItemLink.setAttribute('aria-expanded', 'false');
+        this._openSubmenu = null;
+        this._keyboardOpen = false;
+      }
+
       // Get items for this app
       const items = this._data[appName];
-      if (!items || items.length === 0) return;
+      if (!items || items.length === 0) {
+        this._updateAriaOnLink(appName);
+        return;
+      }
 
       // Sort by order
       const sorted = [...items].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -1894,11 +1964,18 @@ window.AppServices = {
       submenu.className = 'menu-submenu';
       submenu.id = existingId;
       submenu.dataset.appName = appName;
+      submenu.setAttribute('role', 'menu');
+      const appLabel = menuItem.querySelector('.label');
+      if (appLabel) {
+        submenu.setAttribute('aria-label', appLabel.textContent.trim() + ' submenu');
+      }
 
       // Create items
       sorted.forEach(item => {
         const link = document.createElement('a');
         link.className = 'menu-submenu-item';
+        link.setAttribute('role', 'menuitem');
+        link.tabIndex = -1;
         link.href = item.href || '#';
 
         if (item.facet) {
@@ -1932,46 +2009,73 @@ window.AppServices = {
       // Append to body instead of menu item
       document.body.appendChild(submenu);
 
-      // Position submenu on hover
-      const positionSubmenu = () => {
-        const rect = menuItem.getBoundingClientRect();
-        submenu.style.position = 'fixed';
-        submenu.style.top = rect.top + 'px';
-        submenu.style.left = rect.right + 'px';
-      };
-
       // Show/hide on hover
       menuItem.addEventListener('mouseenter', () => {
-        // Only show when menu is not full (labels not visible)
         if (document.body.classList.contains('menu-full')) {
           return;
         }
-        positionSubmenu();
-        submenu.classList.add('visible');
+        AppServices.submenus._open(appName);
       });
 
       menuItem.addEventListener('mouseleave', (e) => {
-        // Check if moving to submenu
+        if (AppServices.submenus._keyboardOpen) return;
         const related = e.relatedTarget;
-        if (related && submenu.contains(related)) {
+        // Look up current submenu DOM (not stale closure ref) to handle re-renders
+        const currentSubmenu = document.getElementById(`menu-submenu-${appName}`);
+        if (related && currentSubmenu && currentSubmenu.contains(related)) {
           return;
         }
-        submenu.classList.remove('visible');
+        AppServices.submenus._closeAll();
       });
 
       submenu.addEventListener('mouseleave', (e) => {
-        // Check if moving back to menu item
+        if (AppServices.submenus._keyboardOpen) return;
         const related = e.relatedTarget;
         if (related && menuItem.contains(related)) {
           return;
         }
-        submenu.classList.remove('visible');
+        AppServices.submenus._closeAll();
       });
 
-      // Keep submenu visible while hovering it
       submenu.addEventListener('mouseenter', () => {
         submenu.classList.add('visible');
       });
+
+      // Keyboard navigation within submenu
+      submenu.addEventListener('keydown', (e) => {
+        const items = Array.from(submenu.querySelectorAll('[role="menuitem"]'));
+        const currentIndex = items.indexOf(document.activeElement);
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const next = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+          items[next].focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prev = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+          items[prev].focus();
+        } else if (e.key === 'Escape' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const parentLink = menuItem.querySelector('.menu-item-link');
+          AppServices.submenus._closeAll();
+          if (parentLink) parentLink.focus();
+        } else if (e.key === 'Tab') {
+          AppServices.submenus._closeAll();
+          // Don't preventDefault — let natural tab order proceed
+        }
+      });
+
+      // Close on focus loss
+      submenu.addEventListener('focusout', () => {
+        requestAnimationFrame(() => {
+          const active = document.activeElement;
+          if (!submenu.contains(active) && active !== menuItem.querySelector('.menu-item-link')) {
+            AppServices.submenus._closeAll();
+          }
+        });
+      });
+
+      this._updateAriaOnLink(appName);
     }
   },
 

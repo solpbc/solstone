@@ -2008,6 +2008,7 @@ button.close {
 
 /* Focus-visible states for keyboard navigation */
 .menu-bar .menu-item-link:focus-visible,
+.menu-submenu-item:focus-visible,
 .facet-pill:focus-visible,
 .facet-add-pill:focus-visible,
 #hamburger:focus-visible,
