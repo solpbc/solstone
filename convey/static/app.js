@@ -1541,6 +1541,7 @@ window.AppServices = {
     _history: JSON.parse(localStorage.getItem('solstone:notification_history') || '[]'),
     _nextId: 1,
     _container: null,
+    _dismissTimers: {},
 
     /**
      * Show a persistent notification card
@@ -1577,7 +1578,7 @@ window.AppServices = {
 
       // Auto-dismiss timer
       if (notif.autoDismiss) {
-        setTimeout(() => this.dismiss(notif.id), notif.autoDismiss);
+        this._startDismissTimer(notif);
       }
 
       return notif.id;
@@ -1588,6 +1589,7 @@ window.AppServices = {
      * @param {number} id - Notification ID
      */
     dismiss(id) {
+      this._clearDismissTimer(id);
       this._stack = this._stack.filter(n => n.id !== id);
       this._render();
     },
@@ -1597,6 +1599,7 @@ window.AppServices = {
      * @param {string} appName - App name
      */
     dismissApp(appName) {
+      this._stack.filter(n => n.app === appName).forEach(n => this._clearDismissTimer(n.id));
       this._stack = this._stack.filter(n => n.app !== appName);
       this._render();
     },
@@ -1605,8 +1608,54 @@ window.AppServices = {
      * Dismiss all notifications
      */
     dismissAll() {
+      Object.keys(this._dismissTimers).forEach(id => this._clearDismissTimer(id));
       this._stack = [];
       this._render();
+    },
+
+    _startDismissTimer(notif) {
+      // Clear any existing timer for this notification
+      if (this._dismissTimers[notif.id]) {
+        clearTimeout(this._dismissTimers[notif.id]);
+      }
+      this._dismissTimers[notif.id] = setTimeout(() => {
+        delete this._dismissTimers[notif.id];
+        this.dismiss(notif.id);
+      }, notif.autoDismiss);
+
+      // Reset the progress bar animation
+      const card = this._container && this._container.querySelector(`.notification-card[data-id="${notif.id}"]`);
+      if (card) {
+        const bar = card.querySelector('.notification-countdown');
+        if (bar) {
+          bar.style.animation = 'none';
+          // Force reflow to restart animation
+          bar.offsetHeight;
+          bar.style.animation = '';
+          bar.style.animationDuration = notif.autoDismiss + 'ms';
+        }
+      }
+    },
+
+    _pauseDismissTimer(id) {
+      if (this._dismissTimers[id]) {
+        clearTimeout(this._dismissTimers[id]);
+        delete this._dismissTimers[id];
+      }
+      const card = this._container && this._container.querySelector(`.notification-card[data-id="${id}"]`);
+      if (card) {
+        const bar = card.querySelector('.notification-countdown');
+        if (bar) {
+          bar.style.animationPlayState = 'paused';
+        }
+      }
+    },
+
+    _clearDismissTimer(id) {
+      if (this._dismissTimers[id]) {
+        clearTimeout(this._dismissTimers[id]);
+        delete this._dismissTimers[id];
+      }
     },
 
     /**
@@ -1766,6 +1815,10 @@ window.AppServices = {
         }
       }
 
+      if (n.autoDismiss) {
+        card.setAttribute('tabindex', '0');
+      }
+
       const relativeTime = this._getRelativeTime(n.timestamp);
       card.innerHTML = `
         <div class="notification-header">
@@ -1781,10 +1834,28 @@ window.AppServices = {
         <div class="notification-footer">
           <span class="notification-time">${relativeTime}</span>
         </div>
+        ${n.autoDismiss ? `<div class="notification-countdown" style="animation-duration: ${n.autoDismiss}ms"></div>` : ''}
       `;
 
       // Attach click handler
       this._attachClickHandler(card, n);
+
+      if (n.autoDismiss) {
+        const self = this;
+        card.addEventListener('mouseenter', () => self._pauseDismissTimer(n.id));
+        card.addEventListener('focusin', () => self._pauseDismissTimer(n.id));
+        card.addEventListener('mouseleave', () => {
+          if (card.matches(':focus-within')) return;
+          const notif = self._stack.find(s => s.id === n.id);
+          if (notif) self._startDismissTimer(notif);
+        });
+        card.addEventListener('focusout', (e) => {
+          if (!card.contains(e.relatedTarget) && !card.matches(':hover')) {
+            const notif = self._stack.find(s => s.id === n.id);
+            if (notif) self._startDismissTimer(notif);
+          }
+        });
+      }
 
       return card;
     },
