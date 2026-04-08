@@ -794,10 +794,79 @@
     // Hamburger and menu-bar elements
     const hamburger = document.getElementById('hamburger');
     const menuBar = document.querySelector('.menu-bar');
+    const mobileQuery = window.matchMedia('(max-width: 768px)');
+    let menuBackdrop = null;
+    let focusTrapHandler = null;
 
     // Hamburger menu interactions
     if (hamburger && menuBar) {
-      // Click to toggle menu
+      function openMobileMenu() {
+        document.body.classList.add('menu-full');
+        hamburger.setAttribute('aria-expanded', 'true');
+
+        // Create backdrop lazily, reuse thereafter
+        if (!menuBackdrop) {
+          menuBackdrop = document.createElement('div');
+          menuBackdrop.className = 'menu-backdrop';
+          menuBackdrop.addEventListener('click', closeMobileMenu);
+          document.body.appendChild(menuBackdrop);
+        }
+        // Trigger transition by deferring the class add
+        requestAnimationFrame(() => menuBackdrop.classList.add('visible'));
+
+        // Focus current menu item, or first if none
+        const focusTarget = menuBar.querySelector('.menu-item.current .menu-item-link')
+                         || menuBar.querySelector('.menu-item-link');
+        if (focusTarget) focusTarget.focus();
+
+        // Focus trap + Escape handler
+        focusTrapHandler = (e) => {
+          if (e.key === 'Escape') {
+            closeMobileMenu();
+            return;
+          }
+          if (e.key !== 'Tab') return;
+
+          const focusable = Array.from(
+            menuBar.querySelectorAll('.menu-item-link, .star-toggle, .drag-handle')
+          ).filter(el => el.offsetParent !== null);
+          if (focusable.length === 0) return;
+
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        };
+        document.addEventListener('keydown', focusTrapHandler);
+
+        saveMenuState();
+        updateScrollShadows();
+        setTimeout(updateScrollShadows, 350);
+      }
+
+      function closeMobileMenu() {
+        document.body.classList.remove('menu-full');
+        hamburger.setAttribute('aria-expanded', 'false');
+
+        if (menuBackdrop) menuBackdrop.classList.remove('visible');
+
+        if (focusTrapHandler) {
+          document.removeEventListener('keydown', focusTrapHandler);
+          focusTrapHandler = null;
+        }
+
+        hamburger.focus();
+        saveMenuState();
+        updateScrollShadows();
+        setTimeout(updateScrollShadows, 350);
+      }
+
       hamburger.addEventListener('click', (e) => {
         e.stopPropagation();
         // If menu-all is active, remove it before toggling to menu-full
@@ -810,22 +879,35 @@
             menuExpander.setAttribute('aria-label', 'show all apps');
           }
         }
-        document.body.classList.toggle('menu-full');
-        hamburger.setAttribute('aria-expanded', document.body.classList.contains('menu-full'));
-        saveMenuState();
-        updateScrollShadows();
-        setTimeout(updateScrollShadows, 350);
+
+        if (mobileQuery.matches) {
+          if (document.body.classList.contains('menu-full')) {
+            closeMobileMenu();
+          } else {
+            openMobileMenu();
+          }
+        } else {
+          document.body.classList.toggle('menu-full');
+          hamburger.setAttribute('aria-expanded', document.body.classList.contains('menu-full'));
+          saveMenuState();
+          updateScrollShadows();
+          setTimeout(updateScrollShadows, 350);
+        }
       });
 
       // Close menu when clicking outside
       document.addEventListener('click', (e) => {
         if (document.body.classList.contains('menu-full')) {
           if (!menuBar.contains(e.target) && !hamburger.contains(e.target)) {
-            document.body.classList.remove('menu-full');
-            hamburger.setAttribute('aria-expanded', 'false');
-            saveMenuState();
-            updateScrollShadows();
-            setTimeout(updateScrollShadows, 350);
+            if (mobileQuery.matches) {
+              closeMobileMenu();
+            } else {
+              document.body.classList.remove('menu-full');
+              hamburger.setAttribute('aria-expanded', 'false');
+              saveMenuState();
+              updateScrollShadows();
+              setTimeout(updateScrollShadows, 350);
+            }
           }
         }
         // Also close menu-all when clicking outside
@@ -841,6 +923,17 @@
             saveMenuState();
             updateScrollShadows();
             setTimeout(updateScrollShadows, 350);
+          }
+        }
+      });
+
+      mobileQuery.addEventListener('change', () => {
+        if (!mobileQuery.matches && menuBackdrop) {
+          // Crossed to desktop - remove modal behavior but keep menu-full state
+          menuBackdrop.classList.remove('visible');
+          if (focusTrapHandler) {
+            document.removeEventListener('keydown', focusTrapHandler);
+            focusTrapHandler = null;
           }
         }
       });

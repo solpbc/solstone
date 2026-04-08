@@ -162,6 +162,21 @@ body.has-date-nav .workspace {
   .app-bar {
     width: calc(100% - 16px) !important;
   }
+
+  .menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-bars) + 1);
+    background: rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .menu-backdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 /* Facet Bar (top) */
