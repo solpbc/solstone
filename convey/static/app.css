@@ -774,6 +774,10 @@ body.menu-full .menu-bar .menu-item:hover .star-toggle,
   opacity: 1;
 }
 
+.menu-bar .menu-item .star-toggle:focus-visible {
+  opacity: 1;
+}
+
 .menu-bar .menu-item[data-starred="true"] .star-toggle {
   color: #f59e0b;
 }
@@ -921,8 +925,11 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   display: flex;
   align-items: center;
   justify-content: center;
+  font: inherit;
   font-size: 16px;
   cursor: pointer;
+  color: inherit;
+  border: none;
   border-bottom: 1px solid var(--facet-border, #e0e0e0);
   border-right: 1px solid var(--facet-border, #e0e0e0);
   background: var(--facet-bg, white);

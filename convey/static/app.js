@@ -770,7 +770,11 @@
         if (document.body.classList.contains('menu-all')) {
           document.body.classList.remove('menu-all');
           const menuExpander = document.querySelector('.menu-expander');
-          if (menuExpander) menuExpander.textContent = '⏷';
+          if (menuExpander) {
+            menuExpander.textContent = '›';
+            menuExpander.setAttribute('aria-expanded', 'false');
+            menuExpander.setAttribute('aria-label', 'show all apps');
+          }
         }
         document.body.classList.toggle('menu-full');
         hamburger.setAttribute('aria-expanded', document.body.classList.contains('menu-full'));
@@ -789,7 +793,11 @@
           const menuExpander = document.querySelector('.menu-expander');
           if (!menuBar.contains(e.target) && (!menuExpander || !menuExpander.contains(e.target))) {
             document.body.classList.remove('menu-all');
-            if (menuExpander) menuExpander.textContent = '⏷';
+            if (menuExpander) {
+              menuExpander.textContent = '›';
+              menuExpander.setAttribute('aria-expanded', 'false');
+              menuExpander.setAttribute('aria-label', 'show all apps');
+            }
           }
         }
       });
@@ -822,12 +830,10 @@
         e.stopPropagation();
         document.body.classList.toggle('menu-all');
 
-        // Update arrow direction
-        if (document.body.classList.contains('menu-all')) {
-          menuExpander.textContent = '⏶'; // Up arrow when menu-all
-        } else {
-          menuExpander.textContent = '⏷'; // Down arrow when menu-minimal
-        }
+        const isExpanded = document.body.classList.contains('menu-all');
+        menuExpander.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+        menuExpander.setAttribute('aria-label', isExpanded ? 'show fewer apps' : 'show all apps');
+        menuExpander.textContent = isExpanded ? '«' : '›';
       });
     }
 
@@ -1811,22 +1817,23 @@ window.AppServices = {
         const iconContainer = menuItem.querySelector('.icon');
         if (!iconContainer) return;
 
-        // Remove existing badge
-        const existing = iconContainer.querySelector('.menu-badge');
-        if (existing) {
-          existing.remove();
+        // Find or create badge element
+        let badge = iconContainer.querySelector('.menu-badge');
+        const count = this._data[appName];
+        if (!count || count <= 0) {
+          if (badge) badge.remove();
+          return;
         }
 
-        // Get count for this app
-        const count = this._data[appName];
-        if (!count || count <= 0) return;
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'menu-badge';
+          badge.setAttribute('aria-live', 'polite');
+          iconContainer.appendChild(badge);
+        }
 
-        // Create badge element
-        const badge = document.createElement('span');
-        badge.className = 'menu-badge';
         badge.textContent = count;
-
-        iconContainer.appendChild(badge);
+        badge.setAttribute('aria-label', count + ' notifications');
       }
     },
 
