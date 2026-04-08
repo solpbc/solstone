@@ -113,6 +113,8 @@
   let messages = [];
   let savedScrollTop = 0;
   let pendingMessage = null;
+  let previouslyFocusedElement = null;
+  let panelFocusTrapHandler = null;
 
   // --- State persistence ---
   function save() {
@@ -165,6 +167,7 @@
   // --- Panel open/close ---
   function openPanel() {
     if (panelOpen) return;
+    previouslyFocusedElement = document.activeElement;
     panelOpen = true;
     if (expandBtn) expandBtn.setAttribute('aria-label', 'collapse conversation');
     if (expandBtn) expandBtn.setAttribute('aria-expanded', 'true');
@@ -174,8 +177,28 @@
     appBar.setAttribute('aria-modal', 'true');
     backdrop.classList.add('visible');
     renderMessages();
+    document.querySelector('.facet-bar')?.setAttribute('aria-hidden', 'true');
+    document.querySelector('.menu-bar')?.setAttribute('aria-hidden', 'true');
+    document.getElementById('main-content')?.setAttribute('aria-hidden', 'true');
     responsePanel.style.display = 'none';
     input.focus();
+    panelFocusTrapHandler = function(e) {
+      if (e.key !== 'Tab') return;
+      var focusable = Array.from(
+        appBar.querySelectorAll('button, textarea, [tabindex="0"]')
+      ).filter(function(el) { return el.offsetParent !== null && el.tabIndex >= 0 && !el.disabled; });
+      if (focusable.length === 0) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', panelFocusTrapHandler);
     requestAnimationFrame(() => {
       if (!msgArea) return;
       if (savedScrollTop > 0) {
@@ -195,7 +218,19 @@
     save();
     appBar.classList.add('app-bar--dismissing');
     backdrop.classList.remove('visible');
-    input.focus();
+    document.querySelector('.facet-bar')?.removeAttribute('aria-hidden');
+    document.querySelector('.menu-bar')?.removeAttribute('aria-hidden');
+    document.getElementById('main-content')?.removeAttribute('aria-hidden');
+    if (panelFocusTrapHandler) {
+      document.removeEventListener('keydown', panelFocusTrapHandler);
+      panelFocusTrapHandler = null;
+    }
+    if (previouslyFocusedElement && previouslyFocusedElement.isConnected) {
+      previouslyFocusedElement.focus();
+    } else {
+      input.focus();
+    }
+    previouslyFocusedElement = null;
 
     function onDone() {
       appBar.classList.remove('app-bar--focused', 'app-bar--dismissing');
