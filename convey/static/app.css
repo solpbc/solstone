@@ -640,6 +640,7 @@ body.menu-full .menu-bar {
   cursor: pointer;
   transition: background 0.2s, transform 0.3s ease, max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease, border-radius 0.3s ease;
   border-bottom: none;
+  border-left: 3px solid transparent;
   border-right: 1px solid var(--facet-border, #e0e0e0); /* Always present - extends naturally with item animation */
   text-decoration: none;
   color: inherit;
@@ -691,18 +692,30 @@ body:not(.menu-full) .menu-bar .menu-item {
   background: var(--facet-bg, white);
 }
 
-/* Consistent active/hover state for menu items */
-.menu-bar .menu-item:hover,
-.menu-bar .menu-item.current {
+/* Hover state for menu items */
+.menu-bar .menu-item:hover {
   background: rgba(0, 0, 0, 0.05);
 }
 
-/* In menu-minimal state, layer the tint over facet background */
-body:not(.menu-full) .menu-bar .menu-item:hover,
-body:not(.menu-full) .menu-bar .menu-item.current {
+/* Active app state - stronger background + accent bar */
+.menu-bar .menu-item.current {
+  background: rgba(0, 0, 0, 0.08);
+  border-left-color: var(--facet-color);
+}
+
+/* In menu-minimal state, layer hover tint over facet background */
+body:not(.menu-full) .menu-bar .menu-item:hover {
   background:
     linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)),
     var(--facet-bg, white);
+}
+
+/* In menu-minimal state, active app with stronger tint + accent bar */
+body:not(.menu-full) .menu-bar .menu-item.current {
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08)),
+    var(--facet-bg, white);
+  border-left-color: var(--facet-color);
 }
 
 .menu-bar .menu-item .icon {
