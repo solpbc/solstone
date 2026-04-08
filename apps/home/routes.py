@@ -565,6 +565,50 @@ def _build_pulse_context() -> dict[str, Any]:
         and not pulse_needs
     )
 
+    # Section summaries for collapsed state
+    narrative_summary = ""
+    if narrative_content:
+        narrative_summary = narrative_header
+        if narrative_updated_at:
+            narrative_summary += f" — updated {narrative_updated_at}"
+
+    routines_summary = ""
+    if unseen_routines:
+        n = len(unseen_routines)
+        routines_summary = f"{n} new routine{'s' if n != 1 else ''}"
+
+    today_summary_parts = []
+    if events:
+        n = len(events)
+        today_summary_parts.append(f"{n} event{'s' if n != 1 else ''}")
+    if activities:
+        n = len(activities)
+        today_summary_parts.append(f"{n} {'activities' if n != 1 else 'activity'}")
+    today_summary = ", ".join(today_summary_parts)
+
+    needs_count = len(pulse_needs) + len(todos) + (1 if attention else 0)
+    needs_summary = ""
+    if needs_count:
+        needs_summary = (
+            f"{needs_count} item{'s' if needs_count != 1 else ''} "
+            f"need{'s' if needs_count == 1 else ''} attention"
+        )
+
+    network_summary = ""
+    if entities:
+        people = sum(1 for e in entities if e.get("entity_type") == "person")
+        others = len(entities) - people
+        if people and others:
+            network_summary = (
+                f"{people} {'people' if people != 1 else 'person'}, {others} more"
+            )
+        elif people:
+            network_summary = f"{people} {'people' if people != 1 else 'person'}"
+        else:
+            network_summary = (
+                f"{len(entities)} {'entities' if len(entities) != 1 else 'entity'}"
+            )
+
     pulse_needs_normalized = {_normalize_item(item) for item in pulse_needs}
     briefing_needs_deduped = []
     briefing_needs_shared_count = 0
@@ -617,6 +661,11 @@ def _build_pulse_context() -> dict[str, Any]:
         "briefing_needs_shared_count": briefing_needs_shared_count,
         "briefing_needs_badge": briefing_needs_badge,
         "show_welcome": show_welcome,
+        "narrative_summary": narrative_summary,
+        "routines_summary": routines_summary,
+        "today_summary": today_summary,
+        "needs_summary": needs_summary,
+        "network_summary": network_summary,
     }
 
 

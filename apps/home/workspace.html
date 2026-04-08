@@ -69,6 +69,37 @@
   margin-top: 0;
 }
 
+/* Section collapse/expand */
+.pulse-section-toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.pulse-section-toggle::before {
+  content: "▾";
+  font-size: 0.75rem;
+  color: #94a3b8;
+  transition: transform 0.15s;
+}
+[data-section-collapsed="true"] .pulse-section-toggle::before {
+  transform: rotate(-90deg);
+}
+.pulse-section-toggle .pulse-section-header {
+  margin-bottom: 0;
+}
+.pulse-section-summary {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-left: auto;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+[data-section-collapsed="false"] .pulse-section-summary { display: none; }
+[data-section-collapsed="true"] .pulse-section-body { display: none; }
+
 /* Narrative */
 .pulse-narrative {
   padding: 1.25rem;
@@ -592,13 +623,18 @@
 
   <!-- Narrative -->
   {% if narrative_content is not none %}
-  <div class="pulse-narrative" id="pulse-narrative">
-    <h2 class="pulse-section-header">{{ narrative_header }}</h2>
-    <div class="pulse-narrative-content" id="pulse-narrative-content"></div>
-    <a href="#" class="pulse-tell-more" data-conversation="Tell me more about what's happening today">Tell me more →</a>
-    {% if narrative_updated_at %}
-    <div class="pulse-narrative-meta">Updated at {{ narrative_updated_at }}</div>
-    {% endif %}
+  <div class="pulse-narrative" id="pulse-narrative" data-section-collapsed="true">
+    <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="false" onclick="toggleSection(this.parentElement)">
+      <h2 class="pulse-section-header">{{ narrative_header }}</h2>
+      <span class="pulse-section-summary">{{ narrative_summary }}</span>
+    </div>
+    <div class="pulse-section-body">
+      <div class="pulse-narrative-content" id="pulse-narrative-content"></div>
+      <a href="#" class="pulse-tell-more" data-conversation="Tell me more about what's happening today">Tell me more →</a>
+      {% if narrative_updated_at %}
+      <div class="pulse-narrative-meta">Updated at {{ narrative_updated_at }}</div>
+      {% endif %}
+    </div>
   </div>
   {% elif segment_count > 0 %}
   <div class="pulse-narrative" id="pulse-narrative">
@@ -616,8 +652,12 @@
   <!-- Routines -->
   {% set unseen_routines = routines|selectattr('seen', 'equalto', false)|list %}
   {% if unseen_routines %}
-  <div class="pulse-routines" id="pulse-routines">
-    <h2 class="pulse-section-header">your routines</h2>
+  <div class="pulse-routines" id="pulse-routines" data-section-collapsed="true">
+    <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="false" onclick="toggleSection(this.parentElement)">
+      <h2 class="pulse-section-header">your routines</h2>
+      <span class="pulse-section-summary">{{ routines_summary }}</span>
+    </div>
+    <div class="pulse-section-body">
     <div class="pulse-routines-list">
       {% for routine in unseen_routines %}
       <div class="pulse-routine-item" role="button" tabindex="0" data-conversation="Show me my {{ routine.name }} from today" data-routine-click="true">
@@ -632,6 +672,7 @@
       {% endfor %}
     </div>
     <div class="pulse-routines-more"><a href="#" data-conversation="Show me all my routine history">all routine history →</a></div>
+    </div>
   </div>
   {% endif %}
   {% if not unseen_routines and routines and not show_welcome %}
@@ -643,8 +684,12 @@
 
   <!-- Today -->
   {% if events or activities %}
-  <div class="pulse-today" id="pulse-today">
-    <h2 class="pulse-section-header">today</h2>
+  <div class="pulse-today" id="pulse-today" data-section-collapsed="true">
+    <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="false" onclick="toggleSection(this.parentElement)">
+      <h2 class="pulse-section-header">today</h2>
+      <span class="pulse-section-summary">{{ today_summary }}</span>
+    </div>
+    <div class="pulse-section-body">
     {% if events %}
     <div class="pulse-events">
       {% for event in events %}
@@ -674,6 +719,7 @@
       {% endfor %}
     </div>
     {% endif %}
+    </div>
   </div>
   {% endif %}
   {% if not events and not activities and not show_welcome %}
@@ -685,8 +731,12 @@
 
   <!-- Needs You -->
   {% if attention or pulse_needs or todos %}
-  <div class="pulse-needs" id="pulse-needs">
-    <h2 class="pulse-section-header">needs you</h2>
+  <div class="pulse-needs" id="pulse-needs" data-section-collapsed="false">
+    <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this.parentElement)">
+      <h2 class="pulse-section-header">needs you</h2>
+      <span class="pulse-section-summary">{{ needs_summary }}</span>
+    </div>
+    <div class="pulse-section-body">
     <div class="pulse-needs-list">
       {% if attention %}
       <div class="pulse-needs-item pulse-needs-attention" role="button" tabindex="0" data-conversation="What happened with {{ attention.placeholder_text }}?">{{ attention.placeholder_text }}</div>
@@ -701,6 +751,7 @@
     {% if todos|length > 7 %}
     <div class="pulse-needs-more"><a href="/app/todos">and {{ todos|length - 7 }} more →</a></div>
     {% endif %}
+    </div>
   </div>
   {% endif %}
   {% if not attention and not pulse_needs and not todos and not show_welcome %}
@@ -712,8 +763,12 @@
 
   <!-- Network Pulse -->
   {% if entities %}
-  <div class="pulse-network" id="pulse-network">
-    <h2 class="pulse-section-header">network pulse</h2>
+  <div class="pulse-network" id="pulse-network" data-section-collapsed="true">
+    <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="false" onclick="toggleSection(this.parentElement)">
+      <h2 class="pulse-section-header">network pulse</h2>
+      <span class="pulse-section-summary">{{ network_summary }}</span>
+    </div>
+    <div class="pulse-section-body">
     <div class="pulse-entities">
       {% for ent in entities %}
       <div class="pulse-entity" role="button" tabindex="0" data-conversation="What do you know about {{ ent.get('name', '') }}?">
@@ -723,6 +778,7 @@
       {% endfor %}
     </div>
     <div class="pulse-network-link"><a href="/app/graph">View full graph →</a></div>
+    </div>
   </div>
   {% endif %}
   {% if not entities and not show_welcome %}
@@ -822,6 +878,12 @@
     });
     dashboard.addEventListener('keydown', function(e) {
       if (e.key !== 'Enter' && e.key !== ' ') return;
+      var toggleEl = e.target.closest('.pulse-section-toggle');
+      if (toggleEl) {
+        e.preventDefault();
+        toggleSection(toggleEl.parentElement);
+        return;
+      }
       var el = e.target.closest('[data-conversation]');
       if (el && window.openConversation) {
         e.preventDefault();
@@ -883,6 +945,45 @@
     if (toggle) toggle.setAttribute('aria-expanded', sectionEl.dataset.collapsed === 'false' ? 'true' : 'false');
   };
 
+  // Section collapse/expand
+  var SECTION_IDS = ['pulse-narrative', 'pulse-routines', 'pulse-today', 'pulse-needs', 'pulse-network'];
+  var SECTION_DEFAULTS = {
+    'pulse-narrative': 'true',
+    'pulse-routines': 'true',
+    'pulse-today': 'true',
+    'pulse-needs': 'false',
+    'pulse-network': 'true'
+  };
+
+  // Restore saved section states from sessionStorage
+  (function() {
+    try {
+      var saved = JSON.parse(sessionStorage.getItem('pulse-section-state') || '{}');
+      SECTION_IDS.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el || !el.hasAttribute('data-section-collapsed')) return;
+        if (saved.hasOwnProperty(id)) {
+          el.dataset.sectionCollapsed = saved[id];
+          var toggle = el.querySelector('.pulse-section-toggle');
+          if (toggle) toggle.setAttribute('aria-expanded', saved[id] === 'false' ? 'true' : 'false');
+        }
+      });
+    } catch(e) {}
+  })();
+
+  window.toggleSection = function(container) {
+    if (!container || !container.hasAttribute('data-section-collapsed')) return;
+    var collapsed = container.dataset.sectionCollapsed === 'true' ? 'false' : 'true';
+    container.dataset.sectionCollapsed = collapsed;
+    var toggle = container.querySelector('.pulse-section-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', collapsed === 'false' ? 'true' : 'false');
+    try {
+      var saved = JSON.parse(sessionStorage.getItem('pulse-section-state') || '{}');
+      saved[container.id] = collapsed;
+      sessionStorage.setItem('pulse-section-state', JSON.stringify(saved));
+    } catch(e) {}
+  };
+
   function refreshVitals() {
     fetch('/app/home/api/pulse')
       .then(r => r.json())
@@ -919,6 +1020,12 @@
           if (hdr && data.narrative_header) hdr.textContent = data.narrative_header;
           const meta = document.querySelector('.pulse-narrative .pulse-narrative-meta');
           if (meta && data.narrative_updated_at) meta.textContent = 'Updated at ' + data.narrative_updated_at;
+          var summaryEl = document.querySelector('.pulse-narrative .pulse-section-summary');
+          if (summaryEl) {
+            var st = data.narrative_header || '';
+            if (data.narrative_updated_at) st += ' — updated ' + data.narrative_updated_at;
+            summaryEl.textContent = st;
+          }
         }
       })
       .catch(function(err) { console.error('home: refreshNarrative failed', err); });
@@ -940,7 +1047,25 @@
           if (container) container.remove();
           return;
         }
-        var html = '<h2 class="pulse-section-header">your routines</h2><div class="pulse-routines-list">';
+        var wasCollapsed;
+        if (container) {
+          wasCollapsed = container.dataset.sectionCollapsed;
+        } else {
+          try {
+            var saved = JSON.parse(sessionStorage.getItem('pulse-section-state') || '{}');
+            wasCollapsed = saved['pulse-routines'] || SECTION_DEFAULTS['pulse-routines'];
+          } catch(e) {
+            wasCollapsed = SECTION_DEFAULTS['pulse-routines'];
+          }
+        }
+        var expanded = wasCollapsed === 'false' ? 'true' : 'false';
+        var summaryText = routines.length + ' new routine' + (routines.length !== 1 ? 's' : '');
+        var html = '<div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="' + expanded + '" onclick="toggleSection(this.parentElement)">';
+        html += '<h2 class="pulse-section-header">your routines</h2>';
+        html += '<span class="pulse-section-summary">' + esc(summaryText) + '</span>';
+        html += '</div>';
+        html += '<div class="pulse-section-body">';
+        html += '<div class="pulse-routines-list">';
         routines.forEach(function(r) {
           var name = esc(r.name);
           html += '<div class="pulse-routine-item" role="button" tabindex="0" data-conversation="Show me my ' + name + ' from today" data-routine-click="true"><span>';
@@ -950,12 +1075,15 @@
           html += '</span></div>';
         });
         html += '</div><div class="pulse-routines-more"><a href="#" data-conversation="Show me all my routine history">all routine history →</a></div>';
+        html += '</div>';
         if (container) {
           container.innerHTML = html;
+          container.dataset.sectionCollapsed = wasCollapsed;
         } else {
           var newDiv = document.createElement('div');
           newDiv.className = 'pulse-routines';
           newDiv.id = 'pulse-routines';
+          newDiv.dataset.sectionCollapsed = wasCollapsed;
           newDiv.innerHTML = html;
           var narrative = document.getElementById('pulse-narrative');
           var today = document.getElementById('pulse-today');
