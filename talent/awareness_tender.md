@@ -23,8 +23,7 @@ Read current state using these tools:
 2. `sol call identity self` — identity summary (skim for key changes)
 3. `sol call calendar list` — today's events
 4. `sol call routines list` — active routines and recent outputs
-5. `sol call entities search --recent --limit 5` — recent entity activity
-
+5. `sol call entities search --since --limit 5` — recent entity activity
 ## Write awareness.md
 
 Compose a structured bullet-point snapshot. Keep it under 30 lines. Use this format:

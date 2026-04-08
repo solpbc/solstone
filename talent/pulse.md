@@ -29,7 +29,7 @@ Read current state using these tools:
 3. `sol call identity partner` — behavioral profile of the owner
 4. `sol call identity awareness` — current situational awareness (calendar, routines, activity, entities)
 5. `sol call todos list` — pending action items
-6. `sol call entities search --recent` — recent entity activity
+6. `sol call entities search --since` — recent entity activity
 
 If the awareness snapshot mentions routines with recent output, read their latest:
 - `sol call routines output {routine_name}` for each routine mentioned
