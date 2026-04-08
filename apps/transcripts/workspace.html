@@ -238,6 +238,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   color: #fff;
 }
 
+.tr-tab:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 1px;
+}
+
 .tr-tab-pane {
   display: none;
   height: 100%;
@@ -980,6 +985,18 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   const titleEl = document.querySelector('.tr-title');
   const rangeText = document.getElementById('trRangeText');
   const tabsContainer = document.getElementById('trTabs');
+  tabsContainer.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const tabs = [...tabsContainer.querySelectorAll('.tr-tab')];
+    const idx = tabs.indexOf(e.target);
+    if (idx < 0) return;
+    const next = e.key === 'ArrowRight'
+      ? tabs[(idx + 1) % tabs.length]
+      : tabs[(idx - 1 + tabs.length) % tabs.length];
+    activateTab(next.dataset.tab);
+    next.focus();
+  });
   const panel = document.getElementById('trPanel');
   const deleteBtn = document.getElementById('trDeleteBtn');
 
@@ -1736,6 +1753,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
   function buildTabBar(data) {
     tabsContainer.innerHTML = '';
+    tabsContainer.setAttribute('role', 'tablist');
     tabsContainer.classList.remove('visible');
     panel.innerHTML = '';
     tabPanes = {};
@@ -1748,6 +1766,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       btn.className = 'tr-tab';
       btn.dataset.tab = tabId;
       btn.textContent = label;
+      btn.setAttribute('role', 'tab');
+      btn.id = 'tr-tab-' + tabId;
+      btn.setAttribute('aria-selected', 'false');
+      btn.setAttribute('aria-controls', 'tr-tabpanel-' + tabId);
+      btn.setAttribute('tabindex', '-1');
       btn.addEventListener('click', () => activateTab(tabId));
       tabsContainer.appendChild(btn);
     };
@@ -1772,7 +1795,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     }
 
     tabsContainer.querySelectorAll('.tr-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.tab === tabId);
+      const isActive = tab.dataset.tab === tabId;
+      tab.classList.toggle('active', isActive);
+      tab.setAttribute('aria-selected', String(isActive));
+      tab.setAttribute('tabindex', isActive ? '0' : '-1');
     });
 
     Object.values(tabPanes).forEach(pane => pane.classList.remove('active'));
@@ -1782,6 +1808,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       pane = document.createElement('div');
       pane.className = 'tr-tab-pane';
       pane.dataset.tab = tabId;
+      pane.setAttribute('role', 'tabpanel');
+      pane.setAttribute('tabindex', '0');
+      pane.id = 'tr-tabpanel-' + tabId;
+      pane.setAttribute('aria-labelledby', 'tr-tab-' + tabId);
       panel.appendChild(pane);
       tabPanes[tabId] = pane;
 
