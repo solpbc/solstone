@@ -1,18 +1,18 @@
 <!-- Status Pane Component -->
 <aside id="status-pane" class="status-pane" tabindex="-1" aria-label="status">
   <div class="status-pane-content">
-    <h3>websocket status</h3>
-    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px;">
-      <div>
-        <strong>status:</strong> <span id="ws-status">connecting...</span>
-      </div>
-      <div>
-        <strong>uptime:</strong> <span id="ws-uptime">-</span>
-      </div>
-      <div>
-        <strong>last message:</strong> <span id="ws-last-message">-</span>
-      </div>
+    <h3 id="status-sentence" style="margin: 0 0 8px 0;">connecting&hellip;</h3>
+    <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #9ca3af;">
+      <span id="status-detail"></span>
     </div>
+    <details style="margin-top: 12px; font-size: 12px; color: #9ca3af;">
+      <summary style="cursor: pointer; user-select: none;">technical details</summary>
+      <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-size: 12px;">
+        <div><strong>state:</strong> <span id="ws-status-raw">connecting</span></div>
+        <div><strong>uptime:</strong> <span id="ws-uptime-raw">-</span></div>
+        <div><strong>last message:</strong> <span id="ws-last-message-raw">-</span></div>
+      </div>
+    </details>
 
     <div id="quiet-notifs-section" style="display:none; margin-top: 16px;">
       <h3>quiet notifications</h3>
@@ -33,6 +33,7 @@
   const statusPane = document.querySelector('.status-pane');
   const liveRegion = document.getElementById('status-live-region');
   let statusPaneOpen = false;
+  let _lastHistoryLen = -1;
 
   // Shared label updater — called from here and from websocket.js
   window.updateStatusLabel = function() {
@@ -57,6 +58,7 @@
         statusPane.focus();
         window.AppServices?.quietNotifs?.markViewed();
         renderQuietNotifs();
+        updateStatusPane();
       } else {
         statusPane.classList.remove('visible');
         statusIcon.focus();
@@ -90,42 +92,65 @@
   // Update status pane metrics
   function updateStatusPane() {
     if (!window.appEvents) return;
+    if (!statusPaneOpen) return;
 
     const metrics = window.appEvents.getMetrics();
-    const wsStatus = document.getElementById('ws-status');
-    const wsUptime = document.getElementById('ws-uptime');
-    const wsLastMessage = document.getElementById('ws-last-message');
+    const statusSentence = document.getElementById('status-sentence');
+    const statusDetail = document.getElementById('status-detail');
+    const wsStatusRaw = document.getElementById('ws-status-raw');
+    const wsUptimeRaw = document.getElementById('ws-uptime-raw');
+    const wsLastMessageRaw = document.getElementById('ws-last-message-raw');
 
-    if (wsStatus) {
+    if (statusSentence) {
       if (metrics.state === 'connected') {
-        wsStatus.textContent = 'connected';
-        wsStatus.style.color = '#10b981';
+        statusSentence.textContent = 'all systems connected';
+        statusSentence.style.color = '#10b981';
       } else if (metrics.state === 'connecting') {
-        wsStatus.textContent = 'connecting…';
-        wsStatus.style.color = '#f59e0b';
+        statusSentence.textContent = 'connecting…';
+        statusSentence.style.color = '#f59e0b';
       } else {
-        wsStatus.textContent = 'disconnected';
-        wsStatus.style.color = '#ef4444';
+        statusSentence.textContent = 'connection lost — reconnecting';
+        statusSentence.style.color = '#ef4444';
       }
     }
 
-    if (wsUptime) {
+    if (statusDetail) {
+      if (metrics.state === 'connected') {
+        const uptimeText = `connected for ${formatDurationHuman(Math.floor(metrics.uptimeMs / 1000))}`;
+        if (metrics.lastMessageMs !== null) {
+          const seconds = Math.floor(metrics.lastMessageMs / 1000);
+          const lastUpdate = seconds === 0 ? 'just now' : `${formatDurationHuman(seconds)} ago`;
+          statusDetail.textContent = `${uptimeText} · last update ${lastUpdate}`;
+        } else {
+          statusDetail.textContent = uptimeText;
+        }
+      } else if (metrics.state === 'connecting') {
+        statusDetail.textContent = '';
+      } else {
+        statusDetail.textContent = 'some features may be delayed';
+      }
+    }
+
+    if (wsStatusRaw) {
+      wsStatusRaw.textContent = metrics.state;
+    }
+
+    if (wsUptimeRaw) {
       if (metrics.connected) {
-        const seconds = Math.floor(metrics.uptimeMs / 1000);
-        wsUptime.textContent = formatDuration(seconds);
+        wsUptimeRaw.textContent = formatDuration(Math.floor(metrics.uptimeMs / 1000));
       } else {
-        wsUptime.textContent = '-';
+        wsUptimeRaw.textContent = '-';
       }
     }
 
-    if (wsLastMessage) {
+    if (wsLastMessageRaw) {
       if (metrics.lastMessageMs !== null) {
         const seconds = Math.floor(metrics.lastMessageMs / 1000);
-        wsLastMessage.textContent = seconds === 0 ? 'just now' : `${formatDuration(seconds)} ago`;
+        wsLastMessageRaw.textContent = seconds === 0 ? 'just now' : `${formatDuration(seconds)} ago`;
       } else if (metrics.connected) {
-        wsLastMessage.textContent = 'no messages yet';
+        wsLastMessageRaw.textContent = 'no messages yet';
       } else {
-        wsLastMessage.textContent = '-';
+        wsLastMessageRaw.textContent = '-';
       }
     }
 
@@ -165,6 +190,8 @@
     if (!container || !window.AppServices?.notifications) return;
 
     const history = window.AppServices.notifications.getHistory();
+    if (!statusPaneOpen && history.length === _lastHistoryLen) return;
+    _lastHistoryLen = history.length;
     const escape = window.AppServices._escapeHtml;
 
     if (history.length === 0) {
@@ -202,6 +229,20 @@
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours}h ${mins}m`;
+  }
+
+  function formatDurationHuman(seconds) {
+    if (seconds < 10) return 'a few seconds';
+    if (seconds < 60) return 'less than a minute';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes === 1) return 'about a minute';
+    if (minutes < 60) return minutes + ' minutes';
+    const hours = Math.floor(minutes / 60);
+    if (hours === 1) return 'about an hour';
+    if (hours < 24) return hours + ' hours';
+    const days = Math.floor(hours / 24);
+    if (days === 1) return 'about a day';
+    return days + ' days';
   }
 
   function updateBellState() {
