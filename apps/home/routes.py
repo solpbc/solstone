@@ -6,10 +6,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 import frontmatter
 from flask import Blueprint, jsonify, render_template
@@ -53,7 +56,7 @@ def _load_flow_md(today: str) -> tuple[str | None, float | None]:
         if flow_path.exists():
             return flow_path.read_text(), flow_path.stat().st_mtime
     except Exception:
-        pass
+        logger.warning("home: failed to load flow.md", exc_info=True)
     return None, None
 
 
@@ -93,6 +96,7 @@ def _load_pulse_md() -> tuple[str | None, dict | None, list[str]]:
                     needs.append(stripped[2:].strip())
         return post.content, post.metadata, needs
     except Exception:
+        logger.warning("home: failed to load pulse.md", exc_info=True)
         return None, None, []
 
 
@@ -147,6 +151,7 @@ def _load_briefing_md(
 
         return sections, metadata, needs_attention_items
     except Exception:
+        logger.warning("home: failed to load briefing.md", exc_info=True)
         return {}, None, []
 
 
@@ -210,7 +215,7 @@ def _load_stats(today: str) -> dict[str, Any]:
         if stats_path.exists():
             return json.loads(stats_path.read_text())
     except Exception:
-        pass
+        logger.warning("home: failed to load stats", exc_info=True)
     return {}
 
 
@@ -222,6 +227,7 @@ def _collect_todos(today: str) -> list[dict[str, Any]]:
     try:
         facets = get_facets()
     except Exception:
+        logger.warning("home: failed to get facets for todos", exc_info=True)
         return []
 
     for facet_name in facets:
@@ -248,6 +254,7 @@ def _collect_events(today: str) -> list[dict[str, Any]]:
                 event["end"] = ""
         return events
     except Exception:
+        logger.warning("home: failed to collect events", exc_info=True)
         return []
 
 
@@ -259,6 +266,7 @@ def _collect_activities(today: str) -> list[dict[str, Any]]:
     try:
         facets = get_facets()
     except Exception:
+        logger.warning("home: failed to get facets for activities", exc_info=True)
         return []
 
     now = datetime.now()
@@ -326,6 +334,7 @@ def _collect_entities_today(today: str) -> list[dict[str, Any]]:
         finally:
             conn.close()
     except Exception:
+        logger.warning("home: failed to collect entities", exc_info=True)
         return []
 
 
@@ -466,6 +475,7 @@ def _collect_routines() -> list[dict[str, Any]]:
         routines.sort(key=lambda r: r["last_run"], reverse=True)
         return routines
     except Exception:
+        logger.warning("home: failed to collect routines", exc_info=True)
         return []
 
 
@@ -534,7 +544,9 @@ def _build_pulse_context() -> dict[str, Any]:
                 hours = int(delta.total_seconds() / 3600)
                 last_observe_relative = f"{hours}h ago"
         except Exception:
-            pass
+            logger.warning(
+                "home: failed to compute last_observe_relative", exc_info=True
+            )
 
     # Briefing card
     briefing_sections, briefing_meta, briefing_needs = _load_briefing_md(today)

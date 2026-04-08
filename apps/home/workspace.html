@@ -905,7 +905,7 @@
         html += '<div style="margin-left:auto"><a href="/app/health">Health →</a></div>';
         el.innerHTML = html;
       })
-      .catch(function() {});
+      .catch(function(err) { console.error('home: refreshVitals failed', err); });
   }
 
   function refreshNarrative() {
@@ -921,7 +921,7 @@
           if (meta && data.narrative_updated_at) meta.textContent = 'Updated at ' + data.narrative_updated_at;
         }
       })
-      .catch(function() {});
+      .catch(function(err) { console.error('home: refreshNarrative failed', err); });
   }
 
   function esc(s) {
@@ -969,7 +969,7 @@
           }
         }
       })
-      .catch(function() {});
+      .catch(function(err) { console.error('home: refreshRoutines failed', err); });
   }
 
   function refreshBriefing() {
@@ -1049,7 +1049,7 @@
           }
         }
       })
-      .catch(function() {});
+      .catch(function(err) { console.error('home: refreshBriefing failed', err); });
   }
 })();
 </script>
