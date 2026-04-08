@@ -1761,7 +1761,7 @@ window.AppServices = {
       const relativeTime = this._getRelativeTime(n.timestamp);
       card.innerHTML = `
         <div class="notification-header">
-          <span class="notification-app-icon">${n.icon}</span>
+          <span class="notification-app-icon">${window.AppServices._escapeHtml(n.icon)}</span>
           <span class="notification-app-name">${window.AppServices._escapeHtml(n.app)}</span>
           ${n.dismissible ? `<button class="notification-close" onclick="event.preventDefault(); event.stopPropagation(); window.AppServices.notifications.dismiss(${n.id});">×</button>` : ''}
         </div>
