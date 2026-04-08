@@ -19,7 +19,7 @@
       <div id="quiet-notifs-list" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;"></div>
     </div>
 
-    <h3 style="margin-top: 16px;">recent activity <span id="notif-bell" style="cursor: pointer; font-size: 14px; margin-left: 6px; opacity: 0.5;" title="enable browser notifications">🔔</span></h3>
+    <h3 style="margin-top: 16px;">recent activity <button id="notif-bell" style="background: none; border: none; padding: 0; font: inherit; cursor: pointer; font-size: 14px; margin-left: 6px; opacity: 0.5;" title="enable browser notifications" aria-label="enable browser notifications">🔔</button></h3>
     <div id="notification-history" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
       <span style="color: #9ca3af;">no recent activity</span>
     </div>
@@ -216,16 +216,19 @@
       bell.style.opacity = '1';
       bell.style.cursor = 'default';
       bell.title = 'browser notifications enabled';
+      bell.setAttribute('aria-label', 'browser notifications enabled');
     } else if (perm === 'denied') {
       bell.textContent = '🔕';
       bell.style.opacity = '0.4';
       bell.style.cursor = 'default';
       bell.title = 'notifications blocked — update in browser settings';
+      bell.setAttribute('aria-label', 'notifications blocked — update in browser settings');
     } else {
       bell.textContent = '🔔';
       bell.style.opacity = '0.5';
       bell.style.cursor = 'pointer';
       bell.title = 'enable browser notifications';
+      bell.setAttribute('aria-label', 'enable browser notifications');
     }
   }
 
