@@ -1547,6 +1547,89 @@ body.menu-all .menu-bar {
   background: #f5f0eb;
   color: #1f2937;
   border-bottom-left-radius: 4px;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.conversation-message.agent p {
+  margin: 0 0 0.5em 0;
+}
+
+.conversation-message.agent p:last-child {
+  margin-bottom: 0;
+}
+
+.conversation-message.agent ul,
+.conversation-message.agent ol {
+  margin: 0.25em 0 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.conversation-message.agent li {
+  margin-bottom: 0.2em;
+}
+
+.conversation-message.agent code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+}
+
+.conversation-message.agent pre {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.6em 0.8em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.4em 0;
+}
+
+.conversation-message.agent pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.85em;
+  white-space: pre;
+}
+
+.conversation-message.agent blockquote {
+  border-left: 3px solid rgba(0, 0, 0, 0.15);
+  margin: 0.4em 0;
+  padding: 0.2em 0 0.2em 0.8em;
+  color: #4b5563;
+}
+
+.conversation-message.agent h1,
+.conversation-message.agent h2,
+.conversation-message.agent h3,
+.conversation-message.agent h4,
+.conversation-message.agent h5,
+.conversation-message.agent h6 {
+  margin: 0.6em 0 0.3em 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.conversation-message.agent h1 { font-size: 1.2em; }
+.conversation-message.agent h2 { font-size: 1.1em; }
+.conversation-message.agent h3 { font-size: 1.05em; }
+
+.conversation-message.agent a {
+  color: #b06a1a;
+  text-decoration: underline;
+  text-decoration-color: rgba(176, 106, 26, 0.3);
+}
+
+.conversation-message.agent a:hover {
+  text-decoration-color: rgba(176, 106, 26, 0.7);
+}
+
+.conversation-message.agent hr {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  margin: 0.5em 0;
 }
 
 .conversation-message.agent.thinking {

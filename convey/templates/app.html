@@ -83,6 +83,7 @@
 
 <!-- App JavaScript (includes AppServices framework) -->
 <script src="{{ url_for('root.static', filename='app.js') }}"></script>
+<script src="{{ vendor_lib('marked') }}"></script>
 
 <script>
 (function() {
@@ -92,6 +93,46 @@
   // inline-vs-panel decision, backdrop blur with aruco marker exclusion.
 
   const appBar = document.getElementById('appBar');
+  function sanitizeAgentHtml(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const allowedTags = new Set([
+      'p', 'strong', 'em', 'code', 'pre', 'ul', 'ol', 'li', 'a',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'br', 'hr'
+    ]);
+    const allowedAttributes = {
+      a: new Set(['href'])
+    };
+
+    Array.from(doc.body.querySelectorAll('*')).forEach(function(el) {
+      const tagName = el.tagName.toLowerCase();
+      if (!allowedTags.has(tagName)) {
+        el.replaceWith(doc.createTextNode(el.textContent || ''));
+        return;
+      }
+
+      Array.from(el.attributes).forEach(function(attr) {
+        if (!allowedAttributes[tagName] || !allowedAttributes[tagName].has(attr.name)) {
+          el.removeAttribute(attr.name);
+        }
+      });
+
+      if (tagName === 'a') {
+        const href = el.getAttribute('href');
+        if (!href || !/^(https?:\/\/|mailto:)/.test(href)) {
+          el.removeAttribute('href');
+        }
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+      }
+    });
+
+    return doc.body.innerHTML;
+  }
+
+  function renderAgentContent(content) {
+    return sanitizeAgentHtml(marked.parse(content, { breaks: true, gfm: true }));
+  }
+
   const backdrop = document.getElementById('conversationBackdrop');
   const msgArea = document.getElementById('conversationMessages');
   const responsePanel = document.getElementById('chatBarResponsePanel');
@@ -159,7 +200,11 @@
       const d = document.createElement('div');
       d.className = 'conversation-message ' + m.role;
       if (m.role === 'error' && i === lastIdx) d.setAttribute('role', 'alert');
-      d.textContent = m.content;
+      if (m.role === 'agent') {
+        d.innerHTML = renderAgentContent(m.content);
+      } else {
+        d.textContent = m.content;
+      }
       msgArea.appendChild(d);
     }
   }
@@ -341,7 +386,7 @@
         if (messages[i].role === 'agent') { last = messages[i]; break; }
       }
       if (last && inlineResp) {
-        inlineResp.textContent = last.content;
+        inlineResp.innerHTML = renderAgentContent(last.content);
         inlineResp.style.display = '';
         dismissBtn.style.display = '';
         appBar.classList.add('app-bar--glance');
@@ -389,7 +434,11 @@
               msgArea.scrollTop = msgArea.scrollHeight;
             } else if (shouldInline) {
               thinking.style.display = 'none';
-              inlineResp.textContent = content;
+              if (errMsg) {
+                inlineResp.textContent = content;
+              } else {
+                inlineResp.innerHTML = renderAgentContent(content);
+              }
               inlineResp.style.display = content ? '' : 'none';
               dismissBtn.style.display = content ? '' : 'none';
               if (!content) appBar.classList.remove('app-bar--glance');
@@ -621,7 +670,11 @@
         renderMessages();
         msgArea.scrollTop = msgArea.scrollHeight;
       } else if (shouldInline) {
-        inlineResp.textContent = content;
+        if (errMsg) {
+          inlineResp.textContent = content;
+        } else {
+          inlineResp.innerHTML = renderAgentContent(content);
+        }
         inlineResp.style.display = content ? '' : 'none';
         dismissBtn.style.display = content ? '' : 'none';
         if (!content) appBar.classList.remove('app-bar--glance');
