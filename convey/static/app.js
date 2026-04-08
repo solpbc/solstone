@@ -717,6 +717,7 @@
     let exitMoveMode = () => {};
     let cancelMoveMode = () => {};
     let canMove = () => false;
+    const mobileQuery = window.matchMedia('(max-width: 768px)');
 
     // window.selectedFacet already initialized by server (see app.html)
     // Load facet chooser
@@ -735,7 +736,7 @@
           exp.setAttribute('aria-label', 'show fewer apps');
         }
       }
-      if (document.body.classList.contains('menu-full')) {
+      if (mobileQuery.matches && document.body.classList.contains('menu-full')) {
         const ham = document.getElementById('hamburger');
         if (ham) ham.setAttribute('aria-expanded', 'true');
       }
@@ -807,7 +808,6 @@
     // Hamburger and menu-bar elements
     const hamburger = document.getElementById('hamburger');
     const menuBar = document.querySelector('.menu-bar');
-    const mobileQuery = window.matchMedia('(max-width: 768px)');
     let menuBackdrop = null;
     let focusTrapHandler = null;
 
@@ -928,12 +928,6 @@
           } else {
             openMobileMenu();
           }
-        } else {
-          document.body.classList.toggle('menu-full');
-          hamburger.setAttribute('aria-expanded', document.body.classList.contains('menu-full'));
-          saveMenuState();
-          updateScrollShadows();
-          setTimeout(updateScrollShadows, 350);
         }
       });
 
@@ -941,15 +935,7 @@
       document.addEventListener('click', (e) => {
         if (document.body.classList.contains('menu-full')) {
           if (!menuBar.contains(e.target) && !hamburger.contains(e.target)) {
-            if (mobileQuery.matches) {
-              closeMobileMenu();
-            } else {
-              document.body.classList.remove('menu-full');
-              hamburger.setAttribute('aria-expanded', 'false');
-              saveMenuState();
-              updateScrollShadows();
-              setTimeout(updateScrollShadows, 350);
-            }
+            closeMobileMenu();
           }
         }
         // Also close menu-all when clicking outside
@@ -969,10 +955,15 @@
         }
       });
 
-      mobileQuery.addEventListener('change', () => {
-        if (!mobileQuery.matches && menuBackdrop) {
-          // Crossed to desktop - remove modal behavior but keep menu-full state
-          menuBackdrop.classList.remove('visible');
+      mobileQuery.addEventListener('change', (e) => {
+        if (!e.matches) {
+          document.body.classList.remove('menu-full');
+          hamburger.setAttribute('aria-expanded', 'false');
+          saveMenuState();
+
+          if (menuBackdrop) {
+            menuBackdrop.classList.remove('visible');
+          }
           if (focusTrapHandler) {
             document.removeEventListener('keydown', focusTrapHandler);
             focusTrapHandler = null;

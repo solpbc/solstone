@@ -233,6 +233,7 @@ body:has(.status-pane.visible) .facet-bar::after {
 }
 
 .facet-bar #hamburger {
+  display: none;
   font-size: 24px;
   cursor: pointer;
   padding: 8px;
@@ -244,6 +245,12 @@ body:has(.status-pane.visible) .facet-bar::after {
 
 .facet-bar #hamburger:hover {
   background: rgba(0,0,0,0.05);
+}
+
+@media (max-width: 768px) {
+  .facet-bar #hamburger {
+    display: flex;
+  }
 }
 
 .facet-bar .status-icon {
