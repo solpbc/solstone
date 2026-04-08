@@ -645,6 +645,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   border-left: 3px solid #86efac;
 }
 
+.tr-entry-audio:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: -1px;
+}
+
 .tr-entry-screen {
   border-left: 3px solid #facc15;
 }
@@ -1874,11 +1879,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     const displayItems = textOnlyScreen ? chunks : groupBasicScreenFrames(chunks);
     groupEntriesByIdx = new Map();
 
-    let html = '<div class="tr-unified">';
+    let html = `<div class="tr-unified" role="list" aria-label="Transcript entries, ${displayItems.length} items">`;
 
     // Audio player section (if we have audio)
     if (data.audio_file && showAudio) {
-      html += '<div class="tr-audio-players">';
+      html += '<div class="tr-audio-players" role="presentation">';
       html += '<div class="tr-audio-player">';
       html += '<div class="tr-audio-player-label">Segment Audio</div>';
       html += `<audio data-role="segment-audio" controls preload="metadata"><source src="${data.audio_file}" type="audio/flac">Your browser does not support audio.</audio>`;
@@ -1886,7 +1891,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     }
 
     if (data.media_purged && !data.audio_file && showAudio) {
-      html += '<div class="tr-purge-notice">Raw recording removed per retention policy</div>';
+      html += '<div class="tr-purge-notice" role="presentation">Raw recording removed per retention policy</div>';
     }
 
     // Render items (chunks or groups)
@@ -1897,7 +1902,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         html += renderScreenGroup(item, idx);
       } else if (item.type === 'audio') {
         const timeStr = item.time || '';
-        html += `<div class="tr-entry tr-entry-audio" data-idx="${idx}" data-type="audio" data-timestamp="${item.timestamp}">`;
+        html += `<div class="tr-entry tr-entry-audio" data-idx="${idx}" data-type="audio" data-timestamp="${item.timestamp}" role="listitem" tabindex="0" aria-label="Play from ${timeStr}">`;
         html += `<div class="tr-entry-time">${timeStr}</div>`;
         html += '<div class="tr-entry-content">';
         if (item.speaker_label) {
@@ -1914,7 +1919,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         if (textOnlyScreen) {
           const timeStr = item.time || '';
           const markdown = item.markdown ? marked.parse(item.markdown) : 'Screen activity';
-          html += '<div class="tr-entry">';
+          html += '<div class="tr-entry" role="listitem">';
           html += `<div class="tr-entry-time">${timeStr}</div>`;
           html += '<div class="tr-entry-content">';
           html += `<div class="tr-screen-text">${markdown}</div>`;
@@ -1941,6 +1946,16 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           const offsetSec = (timestamp - baseTimestamp) / 1000;
           paneAudioEl.currentTime = Math.max(0, offsetSec);
           paneAudioEl.play();
+        }
+      });
+    });
+
+    // Add keyboard handler for audio entries
+    targetEl.querySelectorAll('.tr-entry-audio').forEach(entry => {
+      entry.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          entry.click();
         }
       });
     });
@@ -2115,7 +2130,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       : `${group.startTime} - ${group.endTime}`;
     const countText = count === 1 ? '1 frame' : `${count} frames`;
 
-    let html = `<div class="tr-group" data-idx="${idx}">`;
+    let html = `<div class="tr-group" data-idx="${idx}" role="listitem">`;
     html += `<div class="tr-group-header" role="button" tabindex="0" aria-expanded="false" aria-controls="tr-group-grid-${idx}">`;
     html += `<svg class="tr-group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`;
     html += `<span class="tr-group-time">${timeRange}</span>`;
@@ -2152,7 +2167,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     const frameId = chunk.source_ref?.frame_id;
     const frameIdx = findFrameIndex(chunk);
 
-    let html = `<div class="tr-entry tr-entry-screen" data-idx="${idx}" data-frame-idx="${frameIdx}" data-type="screen">`;
+    let html = `<div class="tr-entry tr-entry-screen" data-idx="${idx}" data-frame-idx="${frameIdx}" data-type="screen" role="listitem">`;
     html += `<div class="tr-entry-time">${timeStr}</div>`;
     html += '<div class="tr-entry-content">';
 
