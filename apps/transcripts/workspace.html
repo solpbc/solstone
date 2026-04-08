@@ -412,6 +412,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5), 0 2px 4px rgba(0,0,0,.12);
 }
 
+.tr-zoom-pill:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 1px;
+}
+
 .tr-zoom-pill-audio {
   background: linear-gradient(135deg, rgba(134, 239, 172, 0.8), rgba(134, 239, 172, 0.6));
   border: 1px solid #86efac;
@@ -812,6 +817,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-group-header:hover {
   background: #f3f4f6;
+}
+
+.tr-group-header:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: -1px;
 }
 
 .tr-group-chevron {
@@ -1531,6 +1541,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
       const pill = document.createElement('div');
       pill.className = 'tr-zoom-pill';
+      pill.setAttribute('role', 'button');
+      pill.setAttribute('tabindex', '0');
 
       if (colCount > 1) {
         const colIdx = streams.indexOf(seg.stream);
@@ -1551,6 +1563,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       } else {
         pill.classList.add('tr-zoom-pill-screen');
       }
+      const typeLabel = (hasAudio && hasScreen) ? 'audio and screen' : hasAudio ? 'audio' : 'screen';
 
       if (selectedSegment && selectedSegment.key === seg.key) {
         pill.classList.add('tr-active');
@@ -1559,9 +1572,16 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       pill.style.top = zoomY(visStart) + 'px';
       pill.style.height = Math.max(4, zoomY(visEnd) - zoomY(visStart)) + 'px';
       pill.title = seg.stream ? `${seg.start} - ${seg.end} (${seg.stream})` : `${seg.start} - ${seg.end}`;
+      pill.setAttribute('aria-label', 'Segment ' + seg.start + ' \u2013 ' + seg.end + ', ' + typeLabel);
       pill.dataset.key = seg.key;
 
       pill.addEventListener('click', () => selectSegment(seg));
+      pill.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          selectSegment(seg);
+        }
+      });
       zoomSegments.appendChild(pill);
     });
   }
@@ -1913,12 +1933,19 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       header.addEventListener('click', () => {
         const groupEl = header.parentElement;
         const isExpanded = groupEl.classList.toggle('expanded');
+        header.setAttribute('aria-expanded', String(isExpanded));
         if (!isExpanded) return;
         if (groupEl.dataset.prefetched === 'true') return;
         const groupIdx = parseInt(groupEl.dataset.idx, 10);
         if (isNaN(groupIdx)) return;
         const entries = groupEntriesByIdx.get(groupIdx) || [];
         prefetchGroupThumbnails(entries, groupEl, targetEl);
+      });
+      header.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          header.click();
+        }
       });
     });
 
@@ -2059,14 +2086,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     const countText = count === 1 ? '1 frame' : `${count} frames`;
 
     let html = `<div class="tr-group" data-idx="${idx}">`;
-    html += '<div class="tr-group-header">';
+    html += `<div class="tr-group-header" role="button" tabindex="0" aria-expanded="false" aria-controls="tr-group-grid-${idx}">`;
     html += `<svg class="tr-group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`;
     html += `<span class="tr-group-time">${timeRange}</span>`;
     html += `<span class="tr-group-count">${countText}</span>`;
     html += '</div>';
 
     // Grid of thumbnails (hidden until expanded)
-    html += '<div class="tr-group-grid">';
+    html += `<div class="tr-group-grid" id="tr-group-grid-${idx}">`;
     for (const entry of group.entries) {
       const videoUrl = getVideoUrlForChunk(entry);
       const frameId = entry.source_ref?.frame_id;
