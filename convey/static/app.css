@@ -1406,6 +1406,10 @@ body.menu-all .menu-bar {
   z-index: 1;
 }
 
+.chat-bar-response--error {
+  color: #d97706;
+}
+
 /* ========================================
  * Conversation Panel
  * Expandable focus-mode conversation surface.
@@ -1542,6 +1546,19 @@ body.menu-all .menu-bar {
   gap: 0.5em;
   color: #999;
   font-size: 13px;
+}
+
+.conversation-message.error {
+  align-self: flex-start;
+  background: rgba(217, 119, 6, 0.06);
+  color: #1f2937;
+  border-left: 4px solid #d97706;
+  border-bottom-left-radius: 4px;
+}
+
+.conversation-message.error::before {
+  content: '\26A0\FE0F  ';
+  color: #d97706;
 }
 
 /* Error log display */

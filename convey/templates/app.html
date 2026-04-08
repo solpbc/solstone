@@ -151,9 +151,12 @@
   function renderMessages() {
     if (!msgArea) return;
     msgArea.innerHTML = '';
-    for (const m of messages) {
+    var lastIdx = messages.length - 1;
+    for (var i = 0; i <= lastIdx; i++) {
+      var m = messages[i];
       const d = document.createElement('div');
       d.className = 'conversation-message ' + m.role;
+      if (m.role === 'error' && i === lastIdx) d.setAttribute('role', 'alert');
       d.textContent = m.content;
       msgArea.appendChild(d);
     }
@@ -339,7 +342,7 @@
             resolved = true;
             var content = errMsg || resp;
             if (content) {
-              messages.push({ role: 'agent', content: content, ts: Date.now() });
+              messages.push({ role: errMsg ? 'error' : 'agent', content: content, ts: Date.now() });
             }
             pendingMessage = null;
 
@@ -572,7 +575,7 @@
     function deliverResult(resp, panelHint, errMsg) {
       var content = errMsg || resp;
       if (content) {
-        messages.push({ role: 'agent', content: content, ts: Date.now() });
+        messages.push({ role: errMsg ? 'error' : 'agent', content: content, ts: Date.now() });
       }
       pendingMessage = null;
 
