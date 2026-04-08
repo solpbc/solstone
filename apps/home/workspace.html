@@ -756,17 +756,17 @@
         const el = document.getElementById('pulse-vitals');
         if (!el) return;
         let dotClass = data.capture_status === 'ok' ? 'ok' : (data.capture_status === 'stale' ? 'stale' : (data.capture_status === 'offline' ? 'offline' : 'unknown'));
-        let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '"></span><span>Capture ' + data.capture_status + '</span></div>';
+        let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '"></span><span>Capture ' + esc(data.capture_status) + '</span></div>';
         if (data.segment_count > 0) {
           html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">' + data.segment_count + ' segment' + (data.segment_count !== 1 ? 's' : '');
           if (data.duration_minutes > 0) html += ' · ' + data.duration_minutes + 'm';
           html += '</div>';
         }
         if (data.last_observe_relative) {
-          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">Last observation ' + data.last_observe_relative + '</div>';
+          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">Last observation ' + esc(data.last_observe_relative) + '</div>';
         }
         if (data.attention) {
-          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + data.attention.placeholder_text + '</div>';
+          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.attention.placeholder_text) + '</div>';
         }
         html += '<div style="margin-left:auto"><a href="/app/health">Health →</a></div>';
         el.innerHTML = html;
