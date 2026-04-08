@@ -103,14 +103,46 @@
     // Check if facets are disabled for this app
     const facetBar = document.querySelector('.facet-bar');
     const facetsDisabled = facetBar?.classList.contains('facets-disabled');
-    if (!facetsDisabled) {
-      facetPillsContainer.setAttribute('role', 'toolbar');
-      facetPillsContainer.setAttribute('aria-label', 'facet filter');
-      facetPillsContainer.removeAttribute('aria-hidden');
-    } else {
+    if (facetsDisabled) {
       facetPillsContainer.setAttribute('aria-hidden', 'true');
       facetPillsContainer.removeAttribute('role');
       facetPillsContainer.removeAttribute('aria-label');
+    } else if (activeFacets.length === 0) {
+      facetPillsContainer.removeAttribute('aria-hidden');
+      facetPillsContainer.removeAttribute('role');
+      facetPillsContainer.removeAttribute('aria-label');
+
+      if (facetBar) {
+        const statusText = 'no facets configured';
+        const existingStatus = document.querySelector('.facet-filter-status');
+        if (existingStatus) {
+          existingStatus.textContent = statusText;
+        } else {
+          const statusEl = document.createElement('span');
+          statusEl.className = 'facet-filter-status visually-hidden';
+          statusEl.setAttribute('aria-live', 'polite');
+          statusEl.setAttribute('aria-atomic', 'true');
+          statusEl.textContent = statusText;
+          facetBar.appendChild(statusEl);
+        }
+      }
+
+      const emptyState = document.createElement('span');
+      emptyState.className = 'facet-empty-state';
+      emptyState.textContent = 'no facets yet \u2014 ';
+
+      const createBtn = document.createElement('button');
+      createBtn.className = 'facet-empty-create';
+      createBtn.textContent = 'create one';
+      createBtn.onclick = () => openFacetCreateModal();
+
+      emptyState.appendChild(createBtn);
+      facetPillsContainer.appendChild(emptyState);
+      return;
+    } else {
+      facetPillsContainer.setAttribute('role', 'toolbar');
+      facetPillsContainer.setAttribute('aria-label', 'facet filter');
+      facetPillsContainer.removeAttribute('aria-hidden');
     }
 
     // Find selected facet data and apply theme

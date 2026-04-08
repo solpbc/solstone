@@ -976,6 +976,30 @@ body.menu-all .menu-bar {
   display: none;
 }
 
+/* Empty state: no facets configured */
+.facet-empty-state {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+  user-select: none;
+  padding: 0 4px;
+}
+
+.facet-empty-create {
+  background: none;
+  border: none;
+  color: #777;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+  font-family: inherit;
+  padding: 0;
+}
+
+.facet-empty-create:hover {
+  color: #555;
+}
+
 .facet-pill:hover {
   opacity: 1;
   border-color: var(--pill-color, #999);
