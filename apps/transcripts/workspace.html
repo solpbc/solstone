@@ -50,6 +50,48 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   box-sizing: border-box;
 }
 
+.tr-timeline-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tr-timeline-legend {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #9ca3af;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tr-legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
 .tr-grid {
   position: absolute;
   top: 12px;
@@ -359,6 +401,23 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   overflow: hidden;
   padding: 12px 0;
   box-sizing: border-box;
+}
+
+.tr-zoom-timeline-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .tr-zoom-labels {
@@ -989,7 +1048,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 <div class="tr-wrap">
   <div class="tr-card">
     <!-- Left timeline -->
-    <div id="trTimeline" class="tr-timeline" aria-label="Day timeline (08:00-22:00)">
+    <div id="trTimeline" class="tr-timeline" aria-label="Day timeline">
+      <div class="tr-timeline-label">day</div>
       <div class="tr-grid" id="trGrid"></div>
       <div class="tr-labels" id="trLabels"></div>
       <div class="tr-segments" id="trSegments"></div>
@@ -999,10 +1059,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           <div class="tr-bumper tr-bumper-bottom" data-handle="end" title="Drag to adjust end"></div>
         </div>
       </div>
+      <div class="tr-timeline-legend">
+        <span><span class="tr-legend-dot" style="background: #86efac;"></span>audio</span>
+        <span><span class="tr-legend-dot" style="background: #facc15;"></span>screen</span>
+      </div>
     </div>
 
     <!-- Middle zoom timeline -->
     <div class="tr-zoom" id="trZoom">
+      <div class="tr-zoom-timeline-label">detail</div>
       <div class="tr-zoom-grid" id="trZoomGrid"></div>
       <div class="tr-zoom-labels" id="trZoomLabels"></div>
       <div class="tr-zoom-segments" id="trZoomSegments"></div>
@@ -2449,6 +2514,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   }
 
   function updateZoom() {
+    zoom.setAttribute('aria-label', 'Detail timeline (' + hhmm(range.start) + '\u2013' + hhmm(range.end) + ')');
     zoomHeight = zoom.clientHeight - 24; // account for padding
     const rangeLen = range.end - range.start;
     if (rangeLen > 0) {
@@ -2484,14 +2550,32 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const bounds = computeTimelineBounds(data);
       timelineStart = bounds.start;
       timelineEnd = bounds.end;
+      timeline.setAttribute('aria-label', 'Day timeline (' + hhmm(timelineStart) + '\u2013' + hhmm(timelineEnd) + ')');
 
       // Recalculate pixels-per-minute with new bounds
       height = timeline.clientHeight - PADDING;
       ppm = height / (timelineEnd - timelineStart);
 
       // Set initial selection range within bounds
-      const mid = (timelineStart + timelineEnd) / 2;
-      range = { start: snap(mid - DEFAULT_LEN / 2), end: snap(mid + DEFAULT_LEN / 2) };
+      // Center on current time if viewing today, otherwise midpoint
+      const now = new Date();
+      const todayStr = String(now.getFullYear()) +
+        String(now.getMonth() + 1).padStart(2, '0') +
+        String(now.getDate()).padStart(2, '0');
+      let center;
+      if (day === todayStr) {
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        center = Math.max(timelineStart, Math.min(timelineEnd, nowMin));
+      } else {
+        center = (timelineStart + timelineEnd) / 2;
+      }
+      range = { start: snap(center - DEFAULT_LEN / 2), end: snap(center + DEFAULT_LEN / 2) };
+      if (range.start < timelineStart) {
+        range = { start: timelineStart, end: timelineStart + DEFAULT_LEN };
+      }
+      if (range.end > timelineEnd) {
+        range = { start: timelineEnd - DEFAULT_LEN, end: timelineEnd };
+      }
 
       // Build the grid and render timeline
       buildGrid();
