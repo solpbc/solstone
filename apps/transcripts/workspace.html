@@ -709,6 +709,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   outline-offset: -1px;
 }
 
+.tr-entry.tr-entry-active {
+  background: #f0f9ff;
+  border-left-color: #3b82f6;
+}
+
 .tr-entry-screen {
   border-left: 3px solid #facc15;
 }
@@ -2136,6 +2141,37 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         }
       });
     });
+
+    // Playback highlight: track current entry during audio playback
+    if (paneAudioEl) {
+      const baseTimestamp = chunks[0]?.timestamp || 0;
+      let activeEntry = null;
+
+      paneAudioEl.addEventListener('timeupdate', () => {
+        const currentMs = baseTimestamp + (paneAudioEl.currentTime * 1000);
+        const entries = targetEl.querySelectorAll('.tr-entry-audio[data-timestamp]');
+        let best = null;
+        for (const el of entries) {
+          const ts = parseInt(el.dataset.timestamp, 10);
+          if (ts <= currentMs) best = el;
+          else break;
+        }
+        if (best === activeEntry) return;
+        if (activeEntry) activeEntry.classList.remove('tr-entry-active');
+        activeEntry = best;
+        if (activeEntry) {
+          activeEntry.classList.add('tr-entry-active');
+          activeEntry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      });
+
+      paneAudioEl.addEventListener('ended', () => {
+        if (activeEntry) {
+          activeEntry.classList.remove('tr-entry-active');
+          activeEntry = null;
+        }
+      });
+    }
 
     // Add click handlers for enhanced screen entries to open modal
     targetEl.querySelectorAll('.tr-entry-screen').forEach(entry => {
