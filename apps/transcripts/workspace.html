@@ -2218,10 +2218,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     currentFrameIndex = frameIndex;
     let maskHidden = false; // Track if user has revealed masked content
+    const triggerElement = document.activeElement;
+    const prevOverflow = document.body.style.overflow;
 
     const modal = document.createElement('div');
     modal.className = 'tr-screenshot-modal';
     modal.id = 'trImageModal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Screenshot viewer');
 
     const drawFrame = (canvas, f, showMask) => {
       const videoUrl = getVideoUrlForChunk(f);
@@ -2254,7 +2259,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const hasNext = currentFrameIndex < allScreenFrames.length - 1;
 
       modal.innerHTML = `
-        <div class="tr-modal-nav${hasPrev ? '' : ' disabled'}" data-dir="prev" title="Previous frame (Left arrow)">
+        <div class="tr-modal-nav${hasPrev ? '' : ' disabled'}" data-dir="prev" title="Previous frame (Left arrow)" role="button" tabindex="${hasPrev ? '0' : '-1'}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
         </div>
         <div class="tr-modal-center">
@@ -2262,14 +2267,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
             ${monitorPos ? `<span class="tr-modal-badge tr-modal-badge-monitor">${monitorPos}</span>` : ''}
             ${category ? `<span class="tr-modal-badge tr-modal-badge-category">${escapeHtml(category)}</span>` : ''}
             ${isMasked ? '<span class="tr-modal-badge tr-modal-badge-masked" title="Click image to reveal">Masked</span>' : ''}
-            <button class="tr-modal-close" title="Close (Esc)">&times;</button>
+            <button class="tr-modal-close" title="Close (Esc)" aria-label="Close">&times;</button>
           </div>
           <div class="tr-modal-img-wrap">
             <canvas id="trModalCanvas" class="loading${isMasked ? ' tr-masked-canvas' : ''}"></canvas>
           </div>
           ${description ? `<div class="tr-modal-description">${escapeHtml(description)}</div>` : ''}
         </div>
-        <div class="tr-modal-nav${hasNext ? '' : ' disabled'}" data-dir="next" title="Next frame (Right arrow)">
+        <div class="tr-modal-nav${hasNext ? '' : ' disabled'}" data-dir="next" title="Next frame (Right arrow)" role="button" tabindex="${hasNext ? '0' : '-1'}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
         </div>
       `;
@@ -2298,12 +2303,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         currentFrameIndex = newIndex;
         maskHidden = false; // Reset mask state when navigating
         updateModalContent();
+        modal.querySelector('.tr-modal-close')?.focus();
       }
     };
 
     const closeModal = () => {
       modal.remove();
       document.removeEventListener('keydown', handleKeys);
+      document.body.style.overflow = prevOverflow;
+      if (triggerElement && document.contains(triggerElement)) triggerElement.focus();
       currentFrameIndex = -1;
     };
 
@@ -2311,6 +2319,18 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       if (e.key === 'Escape') closeModal();
       else if (e.key === 'ArrowLeft') { e.preventDefault(); navigateFrame(-1); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); navigateFrame(1); }
+      else if (e.key === 'Tab') {
+        const focusable = [...modal.querySelectorAll('button:not([disabled]), [tabindex="0"]')];
+        if (focusable.length === 0) return;
+        const currentIndex = focusable.indexOf(document.activeElement);
+        if (e.shiftKey) {
+          e.preventDefault();
+          focusable[currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1].focus();
+        } else {
+          e.preventDefault();
+          focusable[currentIndex >= focusable.length - 1 ? 0 : currentIndex + 1].focus();
+        }
+      }
     };
 
     // Event delegation for modal clicks
@@ -2323,8 +2343,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       }
     });
 
+    document.body.style.overflow = 'hidden';
     document.body.appendChild(modal);
     updateModalContent();
+    modal.querySelector('.tr-modal-close')?.focus();
     document.addEventListener('keydown', handleKeys);
   }
 
