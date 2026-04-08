@@ -283,6 +283,14 @@
 [data-conversation]:hover {
   background: #f1f5f9;
 }
+[data-conversation]:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+.pulse-briefing-header:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
 .pulse-tell-more {
   display: inline-block;
   margin-top: 0.75rem;
@@ -469,7 +477,7 @@
   <!-- Briefing -->
   {% if briefing_exists or briefing_phase == 'pending' %}
   <div class="pulse-briefing-card" id="pulse-briefing" data-phase="{{ briefing_phase }}" data-collapsed="{{ 'false' if briefing_phase == 'morning' else 'true' }}">
-    <div class="pulse-briefing-header" onclick="toggleBriefingCard()">
+    <div class="pulse-briefing-header" role="button" tabindex="0" aria-expanded="{{ 'true' if briefing_phase == 'morning' else 'false' }}">
       <h2 class="pulse-section-header" style="margin-bottom:0">morning briefing</h2>
       {% if briefing_needs_badge %}
       <span class="pulse-briefing-badge">{{ briefing_needs_badge }}</span>
@@ -491,12 +499,12 @@
         {% if section_key == 'needs_attention' %}
           {% if briefing_needs_deduped or briefing_needs_badge %}
           <div class="pulse-briefing-section" data-section="needs_attention" data-collapsed="false">
-            <button class="pulse-briefing-section-toggle" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">needs attention</button>
+            <button class="pulse-briefing-section-toggle" aria-expanded="true" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">needs attention</button>
             {% if briefing_needs_deduped %}
             <div class="pulse-briefing-section-body" data-section-key="needs_attention">
               <ul>
               {% for item in briefing_needs_deduped %}
-                <li data-conversation="What's the status of: {{ item }}">{{ item }}</li>
+                <li role="button" tabindex="0" data-conversation="What's the status of: {{ item }}">{{ item }}</li>
               {% endfor %}
               </ul>
             </div>
@@ -506,7 +514,7 @@
         {% elif section_content %}
           {% set section_labels = {'your_day': 'your day', 'yesterday': 'yesterday', 'forward_look': 'forward look', 'reading': 'reading'} %}
           <div class="pulse-briefing-section" data-section="{{ section_key }}" data-collapsed="false">
-            <button class="pulse-briefing-section-toggle" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">{{ section_labels[section_key] }}</button>
+            <button class="pulse-briefing-section-toggle" aria-expanded="true" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">{{ section_labels[section_key] }}</button>
             <div class="pulse-briefing-section-body" data-section-key="{{ section_key }}"></div>
           </div>
         {% endif %}
@@ -540,7 +548,7 @@
     <h2 class="pulse-section-header">your routines</h2>
     <div class="pulse-routines-list">
       {% for routine in unseen_routines %}
-      <div class="pulse-routine-item" data-conversation="Show me my {{ routine.name }} from today" data-routine-click="true">
+      <div class="pulse-routine-item" role="button" tabindex="0" data-conversation="Show me my {{ routine.name }} from today" data-routine-click="true">
         <span>
           <span class="pulse-routine-name">{{ routine.name }}</span>
           <span class="pulse-routine-time">{{ routine.run_time_display }}</span>
@@ -563,7 +571,7 @@
     <div class="pulse-events">
       {% for event in events %}
       {% set is_past = event.get('occurred', false) or (event.get('end', '') and event['end'] < now.strftime('%H:%M:%S')) %}
-      <div class="pulse-event{% if is_past %} past{% endif %}" data-conversation="Tell me about {{ event.get('title', 'Untitled') }} at {{ event.get('start', '')[:5] }}">
+      <div class="pulse-event{% if is_past %} past{% endif %}" role="button" tabindex="0" data-conversation="Tell me about {{ event.get('title', 'Untitled') }} at {{ event.get('start', '')[:5] }}">
         <span class="pulse-event-time">{{ event.get('start', '')[:5] }}</span>
         <span class="pulse-event-title">{{ event.get('title', 'Untitled') }}</span>
       </div>
@@ -574,7 +582,7 @@
     <div class="pulse-activities-label">recent activity</div>
     <div class="pulse-activities">
       {% for act in activities[:6] %}
-      <div class="pulse-activity" data-conversation="Tell me about {{ act.get('description', act.get('activity', '')) }}">
+      <div class="pulse-activity" role="button" tabindex="0" data-conversation="Tell me about {{ act.get('description', act.get('activity', '')) }}">
         <span class="pulse-activity-time">{{ act.get('display_time', '') }}</span>
         <span>{{ act.get('description', act.get('activity', '')) }}</span>
       </div>
@@ -597,13 +605,13 @@
     <h2 class="pulse-section-header">needs you</h2>
     <div class="pulse-needs-list">
       {% if attention %}
-      <div class="pulse-needs-item pulse-needs-attention" data-conversation="What happened with {{ attention.placeholder_text }}?">{{ attention.placeholder_text }}</div>
+      <div class="pulse-needs-item pulse-needs-attention" role="button" tabindex="0" data-conversation="What happened with {{ attention.placeholder_text }}?">{{ attention.placeholder_text }}</div>
       {% endif %}
       {% for item in pulse_needs %}
-      <div class="pulse-needs-item" data-conversation="What happened with {{ item }}?">{{ item }}</div>
+      <div class="pulse-needs-item" role="button" tabindex="0" data-conversation="What happened with {{ item }}?">{{ item }}</div>
       {% endfor %}
       {% for todo in todos[:7] %}
-      <div class="pulse-needs-item" data-conversation="What's the context on: {{ todo.get('text', '') }}">{{ todo.get('text', '') }}{% if todo.get('facet') %} <span style="color:#94a3b8;font-size:0.75rem">({{ todo['facet'] }})</span>{% endif %}</div>
+      <div class="pulse-needs-item" role="button" tabindex="0" data-conversation="What's the context on: {{ todo.get('text', '') }}">{{ todo.get('text', '') }}{% if todo.get('facet') %} <span style="color:#94a3b8;font-size:0.75rem">({{ todo['facet'] }})</span>{% endif %}</div>
       {% endfor %}
     </div>
     {% if todos|length > 7 %}
@@ -618,7 +626,7 @@
     <h2 class="pulse-section-header">network pulse</h2>
     <div class="pulse-entities">
       {% for ent in entities %}
-      <div class="pulse-entity" data-conversation="What do you know about {{ ent.get('name', '') }}?">
+      <div class="pulse-entity" role="button" tabindex="0" data-conversation="What do you know about {{ ent.get('name', '') }}?">
         <span class="pulse-entity-type {{ ent.get('entity_type', 'unknown') }}">{{ ent.get('entity_type', '?')[:3] }}</span>
         <span>{{ ent.get('name', '') }}</span>
       </div>
@@ -686,6 +694,8 @@
         } else {
           li.setAttribute('data-conversation', promptPrefix[key] + text.substring(0, 80));
         }
+        li.setAttribute('role', 'button');
+        li.setAttribute('tabindex', '0');
       });
     });
   }
@@ -712,6 +722,30 @@
           fetch('/app/home/api/routines/seen', {method: 'POST'});
         }
         window.openConversation({ prompt: el.dataset.conversation });
+      }
+    });
+    dashboard.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var el = e.target.closest('[data-conversation]');
+      if (el && window.openConversation) {
+        e.preventDefault();
+        if (el.closest('[data-routine-click]') || el.hasAttribute('data-routine-click')) {
+          fetch('/app/home/api/routines/seen', {method: 'POST'});
+        }
+        window.openConversation({ prompt: el.dataset.conversation });
+      }
+    });
+  }
+
+  var briefingHeader = document.querySelector('.pulse-briefing-header');
+  if (briefingHeader) {
+    briefingHeader.addEventListener('click', function() {
+      toggleBriefingCard();
+    });
+    briefingHeader.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleBriefingCard();
       }
     });
   }
@@ -743,10 +777,14 @@
     var card = document.getElementById('pulse-briefing');
     if (!card || card.dataset.phase === 'pending') return;
     card.dataset.collapsed = card.dataset.collapsed === 'true' ? 'false' : 'true';
+    var header = card.querySelector('.pulse-briefing-header');
+    if (header) header.setAttribute('aria-expanded', card.dataset.collapsed === 'false' ? 'true' : 'false');
   };
 
   window.toggleBriefingSection = function(sectionEl) {
     sectionEl.dataset.collapsed = sectionEl.dataset.collapsed === 'true' ? 'false' : 'true';
+    var toggle = sectionEl.querySelector('.pulse-briefing-section-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', sectionEl.dataset.collapsed === 'false' ? 'true' : 'false');
   };
 
   function refreshVitals() {
@@ -809,7 +847,7 @@
         var html = '<h2 class="pulse-section-header">your routines</h2><div class="pulse-routines-list">';
         routines.forEach(function(r) {
           var name = esc(r.name);
-          html += '<div class="pulse-routine-item" data-conversation="Show me my ' + name + ' from today" data-routine-click="true"><span>';
+          html += '<div class="pulse-routine-item" role="button" tabindex="0" data-conversation="Show me my ' + name + ' from today" data-routine-click="true"><span>';
           html += '<span class="pulse-routine-name">' + name + '</span> ';
           html += '<span class="pulse-routine-time">' + esc(r.run_time_display) + '</span>';
           if (r.summary) html += ' <span class="pulse-routine-summary">— ' + esc(r.summary) + '</span>';
@@ -856,12 +894,13 @@
         if (data.phase === 'morning') {
           card.dataset.collapsed = 'false';
         }
+        var header = card.querySelector('.pulse-briefing-header');
+        if (header) header.setAttribute('aria-expanded', card.dataset.collapsed === 'false' ? 'true' : 'false');
 
         var summary = card.querySelector('.pulse-briefing-summary');
         if (!summary && data.summary) {
           summary = document.createElement('div');
           summary.className = 'pulse-briefing-summary';
-          var header = card.querySelector('.pulse-briefing-header');
           if (header) {
             header.insertAdjacentElement('afterend', summary);
           }
@@ -906,7 +945,7 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
-              return '<li data-conversation="What&#39;s the status of: ' + escaped + '">' + escaped + '</li>';
+              return '<li role="button" tabindex="0" data-conversation="What&#39;s the status of: ' + escaped + '">' + escaped + '</li>';
             });
             needsBody.innerHTML = '<ul>' + items.join('') + '</ul>';
           } else if (needsBody) {
