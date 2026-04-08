@@ -528,6 +528,59 @@
 .pulse-empty-state .pulse-empty-message a:hover {
   text-decoration: underline;
 }
+
+/* Responsive breakpoints */
+@media (max-width: 768px) {
+  .pulse-dashboard {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .pulse-vitals {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .pulse-vitals-sep {
+    display: none;
+  }
+
+  .pulse-entity,
+  .pulse-facet-chip,
+  .pulse-briefing-section-toggle,
+  .pulse-section-toggle,
+  .pulse-routine-item,
+  .pulse-event,
+  .pulse-activity,
+  .pulse-needs-item {
+    min-height: 44px;
+  }
+
+  .pulse-welcome p {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 375px) {
+  .pulse-dashboard {
+    padding: 0.75rem;
+  }
+
+  .pulse-narrative,
+  .pulse-routines,
+  .pulse-today,
+  .pulse-needs,
+  .pulse-network,
+  .pulse-briefing-card,
+  .pulse-empty-state {
+    padding: 0.75rem;
+  }
+
+  .pulse-entities,
+  .pulse-facet-dist {
+    gap: 0.35rem;
+  }
+}
 </style>
 
 <div class="pulse-dashboard">
