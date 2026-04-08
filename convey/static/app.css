@@ -1438,7 +1438,8 @@ body.menu-all .menu-bar {
 
 /* Panel expanded state */
 .app-bar.app-bar--focused {
-  height: 80vh;
+  height: 80vh; /* fallback for browsers without dvh */
+  height: 80dvh;
   bottom: 0;
   border-radius: 12px 12px 0 0;
   z-index: calc(var(--z-bars) + 50);
@@ -1462,6 +1463,7 @@ body.menu-all .menu-bar {
 @keyframes panel-collapse {
   from {
     height: 80vh;
+    height: 80dvh;
     bottom: 0;
     border-radius: 12px 12px 0 0;
   }
@@ -1469,6 +1471,12 @@ body.menu-all .menu-bar {
     height: var(--app-bar-height);
     bottom: 12px;
     border-radius: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-bar.app-bar--focused {
+    width: calc(100% - 16px);
   }
 }
 
