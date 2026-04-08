@@ -40,10 +40,10 @@
       statusIcon.innerHTML = svgs[state] || svgs.disconnected;
       if (badge) statusIcon.appendChild(badge);
       statusIcon.setAttribute('title', labels[state] || state);
-      statusIcon.setAttribute('aria-label', 'system status: ' + (labels[state] || state));
     }
 
     connectionState = state;
+    window.updateStatusLabel?.();
   }
 
   // Connect to WebSocket

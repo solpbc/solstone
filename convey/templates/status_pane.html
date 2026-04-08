@@ -1,5 +1,5 @@
 <!-- Status Pane Component -->
-<aside class="status-pane" aria-label="status">
+<aside id="status-pane" class="status-pane" tabindex="-1" aria-label="status">
   <div class="status-pane-content">
     <h3>websocket status</h3>
     <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px;">
@@ -31,23 +31,35 @@
 (function(){
   const statusIcon = document.querySelector('.facet-bar .status-icon');
   const statusPane = document.querySelector('.status-pane');
+  const liveRegion = document.getElementById('status-live-region');
   let statusPaneOpen = false;
+
+  // Shared label updater — called from here and from websocket.js
+  window.updateStatusLabel = function() {
+    if (!statusIcon) return;
+    const metrics = window.appEvents?.getMetrics?.();
+    const state = metrics?.state || 'connecting';
+    const expanded = statusIcon.getAttribute('aria-expanded') === 'true';
+    statusIcon.setAttribute('aria-label',
+      'system status: ' + state + ', ' + (expanded ? 'expanded' : 'collapsed'));
+    if (liveRegion) liveRegion.textContent = state;
+  };
 
   if (statusIcon && statusPane) {
     statusIcon.addEventListener('click', (e) => {
       e.stopPropagation();
       statusPaneOpen = !statusPaneOpen;
-      const metrics = window.appEvents?.getMetrics?.();
-      const state = metrics?.state || (metrics?.connected ? 'connected' : 'disconnected');
-      statusIcon.setAttribute('aria-label',
-        'system status: ' + state + (statusPaneOpen ? ', pane open' : ''));
+      statusIcon.setAttribute('aria-expanded', statusPaneOpen ? 'true' : 'false');
+      window.updateStatusLabel();
 
       if (statusPaneOpen) {
         statusPane.classList.add('visible');
+        statusPane.focus();
         window.AppServices?.quietNotifs?.markViewed();
         renderQuietNotifs();
       } else {
         statusPane.classList.remove('visible');
+        statusIcon.focus();
       }
     });
 
@@ -57,6 +69,20 @@
           !statusIcon.contains(e.target) && !statusPane.contains(e.target)) {
         statusPaneOpen = false;
         statusPane.classList.remove('visible');
+        statusIcon.setAttribute('aria-expanded', 'false');
+        window.updateStatusLabel();
+        statusIcon.focus();
+      }
+    });
+
+    // Escape to close status pane
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && statusPaneOpen) {
+        statusPaneOpen = false;
+        statusPane.classList.remove('visible');
+        statusIcon.setAttribute('aria-expanded', 'false');
+        window.updateStatusLabel();
+        statusIcon.focus();
       }
     });
   }
