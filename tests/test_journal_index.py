@@ -5,12 +5,17 @@
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from think.indexer import sanitize_fts_query
-from think.indexer.journal import get_journal_index, search_journal
+from think.indexer.journal import (
+    extract_temporal_references,
+    get_journal_index,
+    search_journal,
+)
 from tests.conftest import copytree_tracked
 
 
@@ -19,84 +24,252 @@ class TestSanitizeFtsQuery:
 
     def test_simple_words(self):
         """Simple words get NEAR proximity formulation."""
-        assert sanitize_fts_query("foo bar baz") == "NEAR(foo bar baz, 10) OR (foo AND bar AND baz)"
+        assert sanitize_fts_query("foo bar baz") == (
+            "NEAR(foo bar baz, 10) OR (foo AND bar AND baz)",
+            None,
+            None,
+        )
 
     def test_preserves_or_operator(self):
         """OR operator is preserved."""
-        assert sanitize_fts_query("foo OR bar") == "foo OR bar"
+        assert sanitize_fts_query("foo OR bar") == ("foo OR bar", None, None)
 
     def test_preserves_and_operator(self):
         """AND operator is preserved."""
-        assert sanitize_fts_query("foo AND bar") == "foo AND bar"
+        assert sanitize_fts_query("foo AND bar") == ("foo AND bar", None, None)
 
     def test_preserves_not_operator(self):
         """NOT operator is preserved."""
-        assert sanitize_fts_query("foo NOT bar") == "foo NOT bar"
+        assert sanitize_fts_query("foo NOT bar") == ("foo NOT bar", None, None)
 
     def test_preserves_asterisk_prefix_match(self):
         """Asterisk for prefix matching is preserved."""
-        assert sanitize_fts_query("test*") == "test*"
+        assert sanitize_fts_query("test*") == ("test*", None, None)
 
     def test_preserves_quoted_phrases(self):
         """Quoted phrases are preserved."""
-        assert sanitize_fts_query('"public benefit"') == '"public benefit"'
+        assert sanitize_fts_query('"public benefit"') == (
+            '"public benefit"',
+            None,
+            None,
+        )
 
     def test_complex_query_with_or_and_quotes(self):
         """Complex query with OR and quoted phrases."""
         result = sanitize_fts_query('solstone OR pbc OR "public benefit"')
-        assert result == 'solstone OR pbc OR "public benefit"'
+        assert result == ('solstone OR pbc OR "public benefit"', None, None)
 
     def test_dot_replaced_with_space(self):
         """Dots are replaced with spaces."""
-        assert sanitize_fts_query("config.json") == "NEAR(config json, 10) OR (config AND json)"
+        assert sanitize_fts_query("config.json") == (
+            "NEAR(config json, 10) OR (config AND json)",
+            None,
+            None,
+        )
 
     def test_colon_replaced_with_space(self):
         """Colons are replaced with spaces."""
-        assert sanitize_fts_query("foo:bar") == "NEAR(foo bar, 10) OR (foo AND bar)"
+        assert sanitize_fts_query("foo:bar") == (
+            "NEAR(foo bar, 10) OR (foo AND bar)",
+            None,
+            None,
+        )
 
     def test_special_chars_replaced_with_space(self):
         """Various special characters are replaced with spaces."""
-        assert sanitize_fts_query("a@b#c$d") == "NEAR(a b c d, 10) OR (a AND b AND c AND d)"
+        assert sanitize_fts_query("a@b#c$d") == (
+            "NEAR(a b c d, 10) OR (a AND b AND c AND d)",
+            None,
+            None,
+        )
 
     def test_preserves_apostrophe(self):
         """Apostrophes in contractions are preserved."""
-        assert sanitize_fts_query("what's up") == "NEAR(what's up, 10) OR (what's AND up)"
+        assert sanitize_fts_query("what's up") == (
+            "NEAR(what's up, 10) OR (what's AND up)",
+            None,
+            None,
+        )
 
     def test_unbalanced_quote_removed(self):
         """Unbalanced quotes are removed entirely."""
-        assert sanitize_fts_query('"unbalanced') == "unbalanced"
+        assert sanitize_fts_query('"unbalanced') == ("unbalanced", None, None)
 
     def test_unbalanced_quote_removes_all(self):
         """When quotes are unbalanced, all quotes are removed."""
-        assert sanitize_fts_query('foo "bar" baz "qux') == "NEAR(foo bar baz qux, 10) OR (foo AND bar AND baz AND qux)"
+        assert sanitize_fts_query('foo "bar" baz "qux') == (
+            "NEAR(foo bar baz qux, 10) OR (foo AND bar AND baz AND qux)",
+            None,
+            None,
+        )
 
     def test_balanced_quotes_preserved(self):
         """Balanced quotes are kept."""
-        assert sanitize_fts_query('"foo" "bar"') == '"foo" "bar"'
+        assert sanitize_fts_query('"foo" "bar"') == ('"foo" "bar"', None, None)
 
     def test_near_two_words(self):
         """Two plain words get NEAR proximity formulation."""
-        assert sanitize_fts_query("git commit") == "NEAR(git commit, 10) OR (git AND commit)"
+        assert sanitize_fts_query("git commit") == (
+            "NEAR(git commit, 10) OR (git AND commit)",
+            None,
+            None,
+        )
 
     def test_near_three_words(self):
         """Three plain words get NEAR proximity formulation."""
-        assert sanitize_fts_query("meeting with Alice") == "NEAR(meeting with Alice, 10) OR (meeting AND with AND Alice)"
+        assert sanitize_fts_query("meeting with Alice") == (
+            "NEAR(meeting with Alice, 10) OR (meeting AND with AND Alice)",
+            None,
+            None,
+        )
 
     def test_near_with_prefix(self):
         """Prefix matching works within NEAR formulation."""
-        assert sanitize_fts_query("test* foo") == "NEAR(test* foo, 10) OR (test* AND foo)"
+        assert sanitize_fts_query("test* foo") == (
+            "NEAR(test* foo, 10) OR (test* AND foo)",
+            None,
+            None,
+        )
 
     def test_single_word_no_near(self):
         """Single word does not get NEAR treatment."""
-        assert sanitize_fts_query("hello") == "hello"
+        assert sanitize_fts_query("hello") == ("hello", None, None)
 
     def test_empty_query(self):
         """Empty query returns empty string."""
-        assert sanitize_fts_query("") == ""
+        assert sanitize_fts_query("") == ("", None, None)
 
     def test_near_normalizes_whitespace(self):
         """Extra whitespace in input is normalized in NEAR output."""
-        assert sanitize_fts_query("foo  bar") == "NEAR(foo bar, 10) OR (foo AND bar)"
+        assert sanitize_fts_query("foo  bar") == (
+            "NEAR(foo bar, 10) OR (foo AND bar)",
+            None,
+            None,
+        )
+
+
+class TestTemporalExtraction:
+    """Tests for temporal date extraction from queries."""
+
+    REF = datetime(2024, 1, 15)  # Monday
+
+    def test_yesterday(self):
+        result = sanitize_fts_query("meeting yesterday", self.REF)
+        assert result == ("meeting", "20240114", "20240114")
+
+    def test_today(self):
+        result = sanitize_fts_query("meeting today", self.REF)
+        assert result == ("meeting", "20240115", "20240115")
+
+    def test_last_week(self):
+        result = sanitize_fts_query("meeting last week", self.REF)
+        assert result == ("meeting", "20240108", "20240114")
+
+    def test_this_week(self):
+        result = sanitize_fts_query("meeting this week", self.REF)
+        assert result == ("meeting", "20240115", "20240121")
+
+    def test_last_month(self):
+        result = sanitize_fts_query("meeting last month", self.REF)
+        assert result == ("meeting", "20231201", "20231231")
+
+    def test_this_month(self):
+        result = sanitize_fts_query("meeting this month", self.REF)
+        assert result == ("meeting", "20240101", "20240131")
+
+    def test_last_monday(self):
+        # ref is Monday, so "last monday" = 7 days ago
+        result = sanitize_fts_query("meeting last Monday", self.REF)
+        assert result == ("meeting", "20240108", "20240108")
+
+    def test_last_tuesday(self):
+        result = sanitize_fts_query("meeting last Tuesday", self.REF)
+        assert result == ("meeting", "20240109", "20240109")
+
+    def test_last_wednesday(self):
+        result = sanitize_fts_query("meeting last Wednesday", self.REF)
+        assert result == ("meeting", "20240110", "20240110")
+
+    def test_last_thursday(self):
+        result = sanitize_fts_query("meeting last Thursday", self.REF)
+        assert result == ("meeting", "20240111", "20240111")
+
+    def test_last_friday(self):
+        result = sanitize_fts_query("meeting last Friday", self.REF)
+        assert result == ("meeting", "20240112", "20240112")
+
+    def test_last_saturday(self):
+        result = sanitize_fts_query("meeting last Saturday", self.REF)
+        assert result == ("meeting", "20240113", "20240113")
+
+    def test_last_sunday(self):
+        result = sanitize_fts_query("meeting last Sunday", self.REF)
+        assert result == ("meeting", "20240114", "20240114")
+
+    def test_over_the_weekend(self):
+        result = sanitize_fts_query("meeting over the weekend", self.REF)
+        assert result == ("meeting", "20240113", "20240114")
+
+    def test_on_the_weekend(self):
+        result = sanitize_fts_query("meeting on the weekend", self.REF)
+        assert result == ("meeting", "20240113", "20240114")
+
+    def test_case_insensitive(self):
+        result = sanitize_fts_query("meeting Last Monday", self.REF)
+        assert result == ("meeting", "20240108", "20240108")
+
+    def test_temporal_only_query(self):
+        """Pure temporal query produces empty FTS string + date filter."""
+        result = sanitize_fts_query("yesterday", self.REF)
+        assert result == ("", "20240114", "20240114")
+
+    def test_no_temporal_reference(self):
+        """Query without temporal words returns None dates."""
+        result = sanitize_fts_query("machine learning", self.REF)
+        assert result == (
+            "NEAR(machine learning, 10) OR (machine AND learning)",
+            None,
+            None,
+        )
+
+    def test_temporal_at_start(self):
+        result = sanitize_fts_query("yesterday meeting with Alice", self.REF)
+        assert result == (
+            "NEAR(meeting with Alice, 10) OR (meeting AND with AND Alice)",
+            "20240114",
+            "20240114",
+        )
+
+    def test_temporal_in_middle(self):
+        result = sanitize_fts_query("project last week update", self.REF)
+        assert result == (
+            "NEAR(project update, 10) OR (project AND update)",
+            "20240108",
+            "20240114",
+        )
+
+    def test_quoted_temporal_not_extracted(self):
+        """Temporal words inside quotes are not extracted."""
+        result = sanitize_fts_query('"last week" meeting', self.REF)
+        assert result == ('"last week" meeting', None, None)
+
+    def test_multiple_temporal_first_wins(self):
+        """When multiple temporal references exist, first one wins."""
+        result = sanitize_fts_query("yesterday last week meeting", self.REF)
+        assert result == (
+            "NEAR(last week meeting, 10) OR (last AND week AND meeting)",
+            "20240114",
+            "20240114",
+        )
+
+    def test_extract_temporal_references_directly(self):
+        """Test extract_temporal_references for the cleaned query."""
+        cleaned, day_from, day_to = extract_temporal_references(
+            "meeting last week", self.REF
+        )
+        assert cleaned == "meeting"
+        assert day_from == "20240108"
+        assert day_to == "20240114"
 
 
 @pytest.fixture

@@ -15,6 +15,7 @@ then indexed with metadata fields for filtering (day, facet, agent).
 Raw audio/screen transcripts are formattable but not indexed by default.
 """
 
+import calendar
 import json
 import logging
 import math
@@ -22,7 +23,7 @@ import os
 import re
 import sqlite3
 import time
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -1712,16 +1713,190 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
     return bool(to_index or removed or entity_changed or signal_changed)
 
 
-def sanitize_fts_query(query: str) -> str:
-    """Sanitize query for FTS5: keep alphanumeric, spaces, quotes, apostrophes, and *.
+# Compiled patterns for temporal extraction (checked against unquoted text only)
+_TEMPORAL_PATTERNS: list[tuple[re.Pattern, str]] = []
 
-    This allows FTS5 operators (OR, AND, NOT), quoted phrases, and prefix
-    matching while preventing syntax errors from special characters.
+
+def _build_temporal_patterns():
+    """Build compiled regex patterns for temporal date references.
+
+    Each entry is (compiled_regex, handler_name). Longer patterns are listed
+    first so "last monday" is tried before "last week".
+    """
+    days = "monday|tuesday|wednesday|thursday|friday|saturday|sunday"
+    patterns = [
+        # "over the weekend" / "on the weekend"
+        (r"\b(?:over|on)\s+the\s+weekend\b", "weekend"),
+        # "last monday" through "last sunday"
+        (rf"\blast\s+({days})\b", "last_day"),
+        # Multi-word phrases
+        (r"\blast\s+week\b", "last_week"),
+        (r"\bthis\s+week\b", "this_week"),
+        (r"\blast\s+month\b", "last_month"),
+        (r"\bthis\s+month\b", "this_month"),
+        # Single words
+        (r"\byesterday\b", "yesterday"),
+        (r"\btoday\b", "today"),
+    ]
+    return [(re.compile(p, re.IGNORECASE), name) for p, name in patterns]
+
+
+_TEMPORAL_PATTERNS = _build_temporal_patterns()
+
+
+def extract_temporal_references(
+    query: str, reference_date: datetime | None = None
+) -> tuple[str, str | None, str | None]:
+    """Extract temporal date references from a query string.
+
+    Scans unquoted portions of the query for temporal phrases like "yesterday",
+    "last week", "last Monday", etc. Returns the query with the temporal phrase
+    removed, plus day_from/day_to as YYYYMMDD strings.
+
+    Only the first temporal match is used. Content inside double quotes is
+    never matched.
+
+    Args:
+        query: Raw query string.
+        reference_date: Pin "today" for testability. Defaults to datetime.now().
+
+    Returns:
+        Tuple of (cleaned_query, day_from, day_to). day_from/day_to are None
+        if no temporal reference was found.
+    """
+    if not query:
+        return query, None, None
+
+    ref = reference_date or datetime.now()
+
+    # Split into quoted and unquoted segments to protect quoted content.
+    # re.split with a capturing group keeps the delimiters in the list.
+    segments = re.split(r'("(?:[^"]*)")', query)
+
+    best_match: tuple[int, int, str, re.Match] | None = None
+
+    # Scan unquoted segments only and keep the earliest match in query order.
+    for i, seg in enumerate(segments):
+        if i % 2 == 1:  # odd indices are quoted segments
+            continue
+        for pattern, handler in _TEMPORAL_PATTERNS:
+            m = pattern.search(seg)
+            if not m:
+                continue
+            candidate = (i, m.start(), handler, m)
+            if best_match is None:
+                best_match = candidate
+                continue
+            best_i, best_start, _, _ = best_match
+            if i < best_i or (i == best_i and m.start() < best_start):
+                best_match = candidate
+
+    if best_match:
+        seg_idx, _, handler, match = best_match
+        seg = segments[seg_idx]
+        # Remove the matched text from this segment
+        segments[seg_idx] = seg[: match.start()] + seg[match.end() :]
+        cleaned = "".join(segments).strip()
+        # Collapse multiple spaces
+        cleaned = re.sub(r"\s{2,}", " ", cleaned)
+        day_from, day_to = _resolve_temporal(handler, match, ref)
+        return cleaned, day_from, day_to
+
+    return query, None, None
+
+
+def _resolve_temporal(
+    handler: str, match: re.Match, ref: datetime
+) -> tuple[str | None, str | None]:
+    """Resolve a temporal handler + match into (day_from, day_to) YYYYMMDD strings."""
+    fmt = "%Y%m%d"
+
+    if handler == "yesterday":
+        d = ref - timedelta(days=1)
+        s = d.strftime(fmt)
+        return s, s
+
+    if handler == "today":
+        s = ref.strftime(fmt)
+        return s, s
+
+    if handler == "last_week":
+        # Monday of this week, then back 7 days
+        mon_this = ref - timedelta(days=ref.weekday())
+        mon_last = mon_this - timedelta(days=7)
+        sun_last = mon_last + timedelta(days=6)
+        return mon_last.strftime(fmt), sun_last.strftime(fmt)
+
+    if handler == "this_week":
+        mon = ref - timedelta(days=ref.weekday())
+        sun = mon + timedelta(days=6)
+        return mon.strftime(fmt), sun.strftime(fmt)
+
+    if handler == "last_month":
+        first_this = ref.replace(day=1)
+        last_prev = first_this - timedelta(days=1)
+        first_prev = last_prev.replace(day=1)
+        return first_prev.strftime(fmt), last_prev.strftime(fmt)
+
+    if handler == "this_month":
+        first = ref.replace(day=1)
+        last_day = calendar.monthrange(ref.year, ref.month)[1]
+        last = ref.replace(day=last_day)
+        return first.strftime(fmt), last.strftime(fmt)
+
+    if handler == "last_day":
+        # "last monday" etc. — match group 1 is the day name
+        day_name = match.group(1).lower()
+        day_map = {
+            "monday": 0,
+            "tuesday": 1,
+            "wednesday": 2,
+            "thursday": 3,
+            "friday": 4,
+            "saturday": 5,
+            "sunday": 6,
+        }
+        target = day_map[day_name]
+        days_back = (ref.weekday() - target) % 7
+        if days_back == 0:
+            days_back = 7  # "last Monday" on a Monday = a week ago
+        d = ref - timedelta(days=days_back)
+        s = d.strftime(fmt)
+        return s, s
+
+    if handler == "weekend":
+        # Most recent Saturday-Sunday
+        weekday = ref.weekday()
+        if weekday >= 5:  # Sat=5, Sun=6
+            sat = ref - timedelta(days=(weekday - 5))
+        else:
+            sat = ref - timedelta(days=(weekday + 2))
+        sun = sat + timedelta(days=1)
+        return sat.strftime(fmt), sun.strftime(fmt)
+
+    return None, None  # unreachable
+
+
+def sanitize_fts_query(
+    query: str, reference_date: datetime | None = None
+) -> tuple[str, str | None, str | None]:
+    """Sanitize query for FTS5 and extract temporal date references.
+
+    Extracts temporal phrases (yesterday, last week, etc.) from the query,
+    then sanitizes the remaining text for FTS5: keeps alphanumeric, spaces,
+    quotes, apostrophes, and *.
 
     For plain multi-word queries (no explicit operators or quotes), produces
     a NEAR-proximity formulation with AND fallback:
         NEAR(term1 term2, 10) OR (term1 AND term2)
+
+    Returns:
+        Tuple of (sanitized_query, day_from, day_to) where day_from/day_to
+        are YYYYMMDD strings or None.
     """
+    # Extract temporal references before sanitization
+    query, day_from, day_to = extract_temporal_references(query, reference_date)
+
     result = re.sub(r"[^a-zA-Z0-9\s\"'*]", " ", query)
     # Remove all quotes if unbalanced
     if result.count('"') % 2:
@@ -1734,7 +1909,7 @@ def sanitize_fts_query(query: str) -> str:
         near_terms = " ".join(words)
         and_terms = " AND ".join(words)
         result = f"NEAR({near_terms}, 10) OR ({and_terms})"
-    return result
+    return result, day_from, day_to
 
 
 def _build_where_clause(
@@ -1762,9 +1937,15 @@ def _build_where_clause(
     """
     params: list[Any] = []
 
+    extracted_from: str | None = None
+    extracted_to: str | None = None
+
     if query:
-        sanitized = sanitize_fts_query(query)
-        where_clause = f"chunks MATCH '{sanitized}'"
+        sanitized, extracted_from, extracted_to = sanitize_fts_query(query)
+        if sanitized:
+            where_clause = f"chunks MATCH '{sanitized}'"
+        else:
+            where_clause = "1=1"
     else:
         where_clause = "1=1"
 
@@ -1778,6 +1959,13 @@ def _build_where_clause(
         if day_to:
             where_clause += " AND day<=?"
             params.append(day_to)
+    elif extracted_from or extracted_to:
+        if extracted_from:
+            where_clause += " AND day>=?"
+            params.append(extracted_from)
+        if extracted_to:
+            where_clause += " AND day<=?"
+            params.append(extracted_to)
     if facet:
         where_clause += " AND facet=?"
         params.append(facet.lower())
