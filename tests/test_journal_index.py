@@ -18,8 +18,8 @@ class TestSanitizeFtsQuery:
     """Tests for FTS5 query sanitization."""
 
     def test_simple_words(self):
-        """Simple words pass through unchanged."""
-        assert sanitize_fts_query("foo bar baz") == "foo bar baz"
+        """Simple words get NEAR proximity formulation."""
+        assert sanitize_fts_query("foo bar baz") == "NEAR(foo bar baz, 10) OR (foo AND bar AND baz)"
 
     def test_preserves_or_operator(self):
         """OR operator is preserved."""
@@ -48,19 +48,19 @@ class TestSanitizeFtsQuery:
 
     def test_dot_replaced_with_space(self):
         """Dots are replaced with spaces."""
-        assert sanitize_fts_query("config.json") == "config json"
+        assert sanitize_fts_query("config.json") == "NEAR(config json, 10) OR (config AND json)"
 
     def test_colon_replaced_with_space(self):
         """Colons are replaced with spaces."""
-        assert sanitize_fts_query("foo:bar") == "foo bar"
+        assert sanitize_fts_query("foo:bar") == "NEAR(foo bar, 10) OR (foo AND bar)"
 
     def test_special_chars_replaced_with_space(self):
         """Various special characters are replaced with spaces."""
-        assert sanitize_fts_query("a@b#c$d") == "a b c d"
+        assert sanitize_fts_query("a@b#c$d") == "NEAR(a b c d, 10) OR (a AND b AND c AND d)"
 
     def test_preserves_apostrophe(self):
         """Apostrophes in contractions are preserved."""
-        assert sanitize_fts_query("what's up") == "what's up"
+        assert sanitize_fts_query("what's up") == "NEAR(what's up, 10) OR (what's AND up)"
 
     def test_unbalanced_quote_removed(self):
         """Unbalanced quotes are removed entirely."""
@@ -68,11 +68,35 @@ class TestSanitizeFtsQuery:
 
     def test_unbalanced_quote_removes_all(self):
         """When quotes are unbalanced, all quotes are removed."""
-        assert sanitize_fts_query('foo "bar" baz "qux') == "foo bar baz qux"
+        assert sanitize_fts_query('foo "bar" baz "qux') == "NEAR(foo bar baz qux, 10) OR (foo AND bar AND baz AND qux)"
 
     def test_balanced_quotes_preserved(self):
         """Balanced quotes are kept."""
         assert sanitize_fts_query('"foo" "bar"') == '"foo" "bar"'
+
+    def test_near_two_words(self):
+        """Two plain words get NEAR proximity formulation."""
+        assert sanitize_fts_query("git commit") == "NEAR(git commit, 10) OR (git AND commit)"
+
+    def test_near_three_words(self):
+        """Three plain words get NEAR proximity formulation."""
+        assert sanitize_fts_query("meeting with Alice") == "NEAR(meeting with Alice, 10) OR (meeting AND with AND Alice)"
+
+    def test_near_with_prefix(self):
+        """Prefix matching works within NEAR formulation."""
+        assert sanitize_fts_query("test* foo") == "NEAR(test* foo, 10) OR (test* AND foo)"
+
+    def test_single_word_no_near(self):
+        """Single word does not get NEAR treatment."""
+        assert sanitize_fts_query("hello") == "hello"
+
+    def test_empty_query(self):
+        """Empty query returns empty string."""
+        assert sanitize_fts_query("") == ""
+
+    def test_near_normalizes_whitespace(self):
+        """Extra whitespace in input is normalized in NEAR output."""
+        assert sanitize_fts_query("foo  bar") == "NEAR(foo bar, 10) OR (foo AND bar)"
 
 
 @pytest.fixture

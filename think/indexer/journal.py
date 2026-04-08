@@ -1717,11 +1717,23 @@ def sanitize_fts_query(query: str) -> str:
 
     This allows FTS5 operators (OR, AND, NOT), quoted phrases, and prefix
     matching while preventing syntax errors from special characters.
+
+    For plain multi-word queries (no explicit operators or quotes), produces
+    a NEAR-proximity formulation with AND fallback:
+        NEAR(term1 term2, 10) OR (term1 AND term2)
     """
     result = re.sub(r"[^a-zA-Z0-9\s\"'*]", " ", query)
     # Remove all quotes if unbalanced
     if result.count('"') % 2:
         result = result.replace('"', "")
+    # NEAR formulation for plain multi-word queries
+    words = result.split()
+    has_operators = any(word in ("AND", "OR", "NOT") for word in words)
+    has_quotes = '"' in result
+    if len(words) > 1 and not has_operators and not has_quotes:
+        near_terms = " ".join(words)
+        and_terms = " AND ".join(words)
+        result = f"NEAR({near_terms}, 10) OR ({and_terms})"
     return result
 
 
