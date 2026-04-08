@@ -250,6 +250,14 @@
       addButton.onclick = () => openFacetCreateModal();
       facetPillsContainer.appendChild(addButton);
     }
+
+    // Re-apply dynamic badge counts that survived in memory
+    const badgeSvc = window.AppServices?.badges?.facet;
+    if (badgeSvc) {
+      for (const name of Object.keys(badgeSvc._data)) {
+        badgeSvc._render(name);
+      }
+    }
   }
 
   // Update selection styles without re-rendering
