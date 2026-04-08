@@ -303,6 +303,15 @@ def journal_fixture(tmp_path):
         "# Activity Summary\n\nMet with Scott Ward about Acme deal.\n"
     )
 
+    # Create evening segment for time_bucket testing
+    evening_segment = stream_dir / "200000_300"
+    evening_segment.mkdir()
+    (evening_segment / "agents").mkdir()
+    (evening_segment / "agents" / "screen.md").write_text(
+        "# Evening Screen\n\nReviewed evening reports.\n"
+    )
+    write_segment_stream(str(evening_segment), "default", None, None, 1)
+
     # Create facet events
     events_dir = journal / "facets" / "work" / "events"
     events_dir.mkdir(parents=True)
@@ -447,6 +456,82 @@ def test_search_journal_agent_case_insensitive(journal_fixture):
     # All results should have lowercase agent in metadata
     for r in results_upper:
         assert r["metadata"]["agent"] == "event"
+
+
+def test_time_bucket_population(journal_fixture):
+    """Test that indexed chunks have correct time_bucket values."""
+    from think.indexer.journal import get_journal_index, scan_journal
+
+    scan_journal(str(journal_fixture), verbose=True, full=True)
+    conn, _ = get_journal_index(str(journal_fixture))
+
+    # Segment chunks should have correct time buckets
+    morning_rows = conn.execute(
+        "SELECT time_bucket FROM chunks WHERE agent='segment' AND path LIKE '%100000_300%'"
+    ).fetchall()
+    assert all(r[0] == "morning" for r in morning_rows)
+
+    evening_rows = conn.execute(
+        "SELECT time_bucket FROM chunks WHERE agent='segment' AND path LIKE '%200000_300%'"
+    ).fetchall()
+    assert all(r[0] == "evening" for r in evening_rows)
+
+    # Non-segment content should have empty time_bucket
+    entity_rows = conn.execute(
+        "SELECT time_bucket FROM chunks WHERE path LIKE 'entity_search:%'"
+    ).fetchall()
+    assert all(r[0] == "" for r in entity_rows)
+
+    conn.close()
+
+
+def test_search_filter_by_time_bucket(journal_fixture):
+    """Test filtering search by time_bucket."""
+    from think.indexer.journal import scan_journal, search_journal
+
+    scan_journal(str(journal_fixture), verbose=True, full=True)
+
+    # Morning filter should find 100000 segment content
+    total, results = search_journal("", time_bucket="morning")
+    assert total >= 1
+    # All segment results should be from morning segments
+    for r in results:
+        if r["metadata"]["agent"] == "segment":
+            assert "100000_300" in r["metadata"]["path"]
+
+    # Evening filter should find 200000 segment content
+    total, results = search_journal("", time_bucket="evening")
+    assert total >= 1
+    for r in results:
+        if r["metadata"]["agent"] == "segment":
+            assert "200000_300" in r["metadata"]["path"]
+
+    # Non-matching bucket should return no segment content
+    total, results = search_journal("", time_bucket="afternoon")
+    segment_results = [r for r in results if r["metadata"]["agent"] == "segment"]
+    assert len(segment_results) == 0
+
+
+def test_time_bucket_non_segment_empty(journal_fixture):
+    """Test that non-segment content (day-level agents, facet files) has empty time_bucket."""
+    from think.indexer.journal import get_journal_index, scan_journal
+
+    scan_journal(str(journal_fixture), verbose=True, full=True)
+    conn, _ = get_journal_index(str(journal_fixture))
+
+    # Day-level flow agent should have empty time_bucket
+    flow_rows = conn.execute(
+        "SELECT time_bucket FROM chunks WHERE agent='flow'"
+    ).fetchall()
+    assert all(r[0] == "" for r in flow_rows)
+
+    # Event chunks should have empty time_bucket
+    event_rows = conn.execute(
+        "SELECT time_bucket FROM chunks WHERE agent='event'"
+    ).fetchall()
+    assert all(r[0] == "" for r in event_rows)
+
+    conn.close()
 
 
 def test_get_events(journal_fixture):

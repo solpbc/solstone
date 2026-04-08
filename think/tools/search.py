@@ -85,6 +85,7 @@ def search_journal(
     facet: str | None = None,
     agent: str | None = None,
     stream: str | None = None,
+    time_bucket: str | None = None,
 ) -> dict[str, Any]:
     """Search across all journal content using semantic full-text search.
 
@@ -104,6 +105,8 @@ def search_journal(
         facet: Filter by facet name (e.g., "work", "personal")
         agent: Filter by agent (e.g., "flow", "event", "entity:detected", "news")
         stream: Filter by stream name (e.g., "archon", "import.apple")
+        time_bucket: Filter by time of day — "morning" (06:00–11:59),
+            "afternoon" (12:00–16:59), "evening" (17:00–20:59), or "night" (21:00–05:59)
 
     Returns:
         Dictionary containing:
@@ -122,6 +125,7 @@ def search_journal(
         - search_journal("weekly sync", day_from="20241201", day_to="20241207")
         - search_journal(agent="flow", day="20240101")  # Browse all flow for a day
         - search_journal("meeting", stream="archon")  # Filter by stream
+        - search_journal("standup", time_bucket="morning")  # Morning meetings
     """
     try:
         kwargs: dict[str, Any] = {}
@@ -144,6 +148,9 @@ def search_journal(
         if stream is not None:
             kwargs["stream"] = stream
             filters["stream"] = stream
+        if time_bucket is not None:
+            kwargs["time_bucket"] = time_bucket
+            filters["time_bucket"] = time_bucket
 
         # Get search results
         total, results = search_journal_impl(query, limit, offset, **kwargs)

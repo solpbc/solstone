@@ -36,7 +36,7 @@ from think.formatters import (
     load_jsonl,
 )
 from think.markdown import format_markdown
-from think.utils import DATE_RE, get_journal, now_ms, segment_key
+from think.utils import DATE_RE, get_journal, now_ms, segment_key, segment_parse
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,8 @@ SCHEMA = [
         facet UNINDEXED,
         agent UNINDEXED,
         stream UNINDEXED,
-        idx UNINDEXED
+        idx UNINDEXED,
+        time_bucket UNINDEXED
     )
     """,
     """
@@ -813,6 +814,39 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     for statement in SCHEMA:
         conn.execute(statement)
 
+    # Detect old schema missing time_bucket — FTS5 cannot ALTER, must rebuild
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='chunks'"
+    ).fetchone()
+    if row and "time_bucket" not in row[0]:
+        logger.warning(
+            "Schema migration: rebuilding chunks table to add time_bucket column"
+        )
+        conn.execute("DROP TABLE IF EXISTS chunks")
+        conn.execute("DROP TABLE IF EXISTS files")
+        for statement in SCHEMA:
+            conn.execute(statement)
+
+
+def _time_bucket(rel: str) -> str:
+    """Derive time bucket from a journal-relative path.
+
+    Returns 'morning' (06-11), 'afternoon' (12-16), 'evening' (17-20),
+    'night' (21-05), or '' for non-segment content.
+    """
+    start_time, _ = segment_parse(rel)
+    if start_time is None:
+        return ""
+    hour = start_time.hour
+    if 6 <= hour <= 11:
+        return "morning"
+    elif 12 <= hour <= 16:
+        return "afternoon"
+    elif 17 <= hour <= 20:
+        return "evening"
+    else:
+        return "night"
+
 
 def get_journal_index(journal: str | None = None) -> tuple[sqlite3.Connection, str]:
     """Return SQLite connection for the journal index.
@@ -990,8 +1024,8 @@ def _index_file(
             continue
 
         conn.execute(
-            "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (content, rel, day, facet, agent, stream, idx),
+            "INSERT INTO chunks(content, path, day, facet, agent, stream, idx, time_bucket) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (content, rel, day, facet, agent, stream, idx, _time_bucket(rel)),
         )
 
 
@@ -1026,8 +1060,17 @@ def _index_segment_chunks(
         if not chunk_content:
             continue
         conn.execute(
-            "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (chunk_content, rel_segment, day, "", "segment", stream, idx),
+            "INSERT INTO chunks(content, path, day, facet, agent, stream, idx, time_bucket) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                chunk_content,
+                rel_segment,
+                day,
+                "",
+                "segment",
+                stream,
+                idx,
+                _time_bucket(rel_segment),
+            ),
         )
         inserted += 1
 
@@ -1399,9 +1442,9 @@ def _index_entity_search_chunks(conn: sqlite3.Connection) -> int:
                     )
 
                 conn.execute(
-                    "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (content, path, day, facet, "entity", "", idx),
+                    "INSERT INTO chunks(content, path, day, facet, agent, stream, idx, time_bucket) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (content, path, day, facet, "entity", "", idx, ""),
                 )
                 count += 1
         else:
@@ -1411,9 +1454,9 @@ def _index_entity_search_chunks(conn: sqlite3.Connection) -> int:
                 identity["created_at"]
             )
             conn.execute(
-                "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (content, path, day, "", "entity", "", 0),
+                "INSERT INTO chunks(content, path, day, facet, agent, stream, idx, time_bucket) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (content, path, day, "", "entity", "", 0, ""),
             )
             count += 1
 
@@ -1920,6 +1963,7 @@ def _build_where_clause(
     facet: str | None = None,
     agent: str | None = None,
     stream: str | None = None,
+    time_bucket: str | None = None,
 ) -> tuple[str, list[Any]]:
     """Build WHERE clause and params for FTS5 search.
 
@@ -1931,6 +1975,7 @@ def _build_where_clause(
         facet: Filter by facet name
         agent: Filter by agent
         stream: Filter by stream name
+        time_bucket: Filter by time of day bucket (morning, afternoon, evening, night)
 
     Returns:
         Tuple of (where_clause, params)
@@ -1975,6 +2020,9 @@ def _build_where_clause(
     if stream:
         where_clause += " AND stream=?"
         params.append(stream)
+    if time_bucket:
+        where_clause += " AND time_bucket=?"
+        params.append(time_bucket)
 
     return where_clause, params
 
@@ -1990,6 +2038,7 @@ def search_journal(
     facet: str | None = None,
     agent: str | None = None,
     stream: str | None = None,
+    time_bucket: str | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
     """Search the journal index.
 
@@ -2004,6 +2053,7 @@ def search_journal(
         facet: Filter by facet name
         agent: Filter by agent (e.g., "flow", "event", "news")
         stream: Filter by stream name
+        time_bucket: Filter by time of day (morning, afternoon, evening, night)
 
     Returns:
         Tuple of (total_count, results) where each result has:
@@ -2014,7 +2064,7 @@ def search_journal(
     """
     conn, _ = get_journal_index()
     where_clause, params = _build_where_clause(
-        query, day, day_from, day_to, facet, agent, stream
+        query, day, day_from, day_to, facet, agent, stream, time_bucket
     )
 
     # Get total count
@@ -2072,6 +2122,7 @@ def search_counts(
     facet: str | None = None,
     agent: str | None = None,
     stream: str | None = None,
+    time_bucket: str | None = None,
 ) -> dict[str, Any]:
     """Get aggregated counts for a search query.
 
@@ -2085,6 +2136,7 @@ def search_counts(
         facet: Filter by facet name
         agent: Filter by agent
         stream: Filter by stream name
+        time_bucket: Filter by time of day (morning, afternoon, evening, night)
 
     Returns:
         Dict with:
@@ -2098,7 +2150,7 @@ def search_counts(
 
     conn, _ = get_journal_index()
     where_clause, params = _build_where_clause(
-        query, day, day_from, day_to, facet, agent, stream
+        query, day, day_from, day_to, facet, agent, stream, time_bucket
     )
 
     rows = conn.execute(
