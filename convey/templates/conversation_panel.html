@@ -26,8 +26,8 @@
     <form id="chatInputForm" style="display: contents;">
       <textarea id="chatMessageInput" class="chat-bar-input" aria-label="message your solstone" rows="1"
         placeholder="{{ chat_bar_placeholder|default('send a message...') }}"></textarea>
-      <button type="submit" class="chat-bar-send" id="chatBarSend" title="send"
-        style="display: none;">&uarr;</button>
+      <button type="submit" class="chat-bar-send" id="chatBarSend" title="send" aria-label="send message"
+        style="display: none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
     </form>
   </div>
 </div>
