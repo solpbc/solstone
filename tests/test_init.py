@@ -206,7 +206,7 @@ class TestInitFinalizeGuard:
     def test_finalize_requires_password(self, fresh_client):
         resp = fresh_client.post(
             "/init/finalize",
-            json={"coding_agent": "none"},
+            json={},
             content_type="application/json",
         )
         assert resp.status_code == 403
@@ -221,7 +221,7 @@ class TestInitFinalize:
         )
         resp = fresh_client.post(
             "/init/finalize",
-            json={"coding_agent": "claude-code"},
+            json={},
             content_type="application/json",
         )
         assert resp.status_code == 200
@@ -229,7 +229,6 @@ class TestInitFinalize:
         assert data["success"] is True
         assert data["redirect"] == "/"
         config = _read_config(journal_copy)
-        assert config["setup"]["coding_agent"] == "claude-code"
         assert "completed_at" in config["setup"]
 
     def test_finalize_auto_login(self, fresh_client, journal_copy):
@@ -240,7 +239,7 @@ class TestInitFinalize:
         )
         fresh_client.post(
             "/init/finalize",
-            json={"coding_agent": "claude-code"},
+            json={},
             content_type="application/json",
         )
         resp = fresh_client.get("/", headers={"X-Forwarded-For": "1.2.3.4"})
@@ -257,7 +256,7 @@ class TestInitFinalize:
         )
         fresh_client.post(
             "/init/finalize",
-            json={"coding_agent": "none"},
+            json={},
             content_type="application/json",
         )
         resp = fresh_client.get("/init")

@@ -242,11 +242,9 @@ def init_finalize() -> Any:
 
     from think.utils import now_ms
 
-    data = request.get_json(silent=True) or {}
-    coding_agent = data.get("coding_agent", "")
     _save_config_section(
         "setup",
-        {"coding_agent": coding_agent, "completed_at": now_ms()},
+        {"completed_at": now_ms()},
     )
     session["logged_in"] = True
     session.permanent = True
