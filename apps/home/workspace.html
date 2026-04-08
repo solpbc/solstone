@@ -440,6 +440,63 @@
   font-size: 0.85rem;
   margin-top: 0.5rem;
 }
+
+.pulse-welcome {
+  padding: 2rem 1.5rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.pulse-welcome h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 0.75rem;
+}
+
+.pulse-welcome p {
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0 0 1rem;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.pulse-welcome a {
+  color: #6366f1;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.pulse-welcome a:hover {
+  text-decoration: underline;
+}
+
+.pulse-empty-state {
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.pulse-empty-state .pulse-empty-message {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.pulse-empty-state .pulse-empty-message a {
+  color: #6366f1;
+  text-decoration: none;
+}
+
+.pulse-empty-state .pulse-empty-message a:hover {
+  text-decoration: underline;
+}
 </style>
 
 <div class="pulse-dashboard">
@@ -473,6 +530,15 @@
       <a href="/app/health">Health →</a>
     </div>
   </div>
+
+  <!-- Welcome -->
+  {% if show_welcome %}
+  <div class="pulse-welcome">
+    <h2>welcome to your home page</h2>
+    <p>this is where your day comes together — narrative summaries, calendar events, tasks, routines, and the people in your network. as solstone captures and processes your day, sections will appear here automatically.</p>
+    <a href="/app/health">check system health →</a>
+  </div>
+  {% endif %}
 
   <!-- Briefing -->
   {% if briefing_exists or briefing_phase == 'pending' %}
@@ -540,6 +606,12 @@
     <div class="pulse-narrative-empty">Analysis will be available after the next processing cycle.</div>
   </div>
   {% endif %}
+  {% if narrative_content is none and segment_count == 0 and not show_welcome %}
+  <div class="pulse-empty-state">
+    <h2 class="pulse-section-header">today's flow</h2>
+    <div class="pulse-empty-message">no narrative yet — one will appear after solstone processes some audio. <a href="/app/health">check capture status →</a></div>
+  </div>
+  {% endif %}
 
   <!-- Routines -->
   {% set unseen_routines = routines|selectattr('seen', 'equalto', false)|list %}
@@ -560,6 +632,12 @@
       {% endfor %}
     </div>
     <div class="pulse-routines-more"><a href="#" data-conversation="Show me all my routine history">all routine history →</a></div>
+  </div>
+  {% endif %}
+  {% if not unseen_routines and routines and not show_welcome %}
+  <div class="pulse-empty-state">
+    <h2 class="pulse-section-header">your routines</h2>
+    <div class="pulse-empty-message">all caught up — no new routine results since you last checked.</div>
   </div>
   {% endif %}
 
@@ -598,6 +676,12 @@
     {% endif %}
   </div>
   {% endif %}
+  {% if not events and not activities and not show_welcome %}
+  <div class="pulse-empty-state">
+    <h2 class="pulse-section-header">today</h2>
+    <div class="pulse-empty-message">no events or activity yet today.</div>
+  </div>
+  {% endif %}
 
   <!-- Needs You -->
   {% if attention or pulse_needs or todos %}
@@ -619,6 +703,12 @@
     {% endif %}
   </div>
   {% endif %}
+  {% if not attention and not pulse_needs and not todos and not show_welcome %}
+  <div class="pulse-empty-state">
+    <h2 class="pulse-section-header">needs you</h2>
+    <div class="pulse-empty-message">nothing needs your attention right now.</div>
+  </div>
+  {% endif %}
 
   <!-- Network Pulse -->
   {% if entities %}
@@ -633,6 +723,12 @@
       {% endfor %}
     </div>
     <div class="pulse-network-link"><a href="/app/graph">View full graph →</a></div>
+  </div>
+  {% endif %}
+  {% if not entities and not show_welcome %}
+  <div class="pulse-empty-state">
+    <h2 class="pulse-section-header">network pulse</h2>
+    <div class="pulse-empty-message">no one has appeared in today's record yet.</div>
   </div>
   {% endif %}
 

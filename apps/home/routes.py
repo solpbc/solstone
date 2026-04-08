@@ -540,6 +540,18 @@ def _build_pulse_context() -> dict[str, Any]:
     briefing_sections, briefing_meta, briefing_needs = _load_briefing_md(today)
     briefing_exists = bool(briefing_sections)
     briefing_phase = _compute_briefing_phase(segment_count, now.hour, briefing_exists)
+    unseen_routines = [r for r in routines if not r["seen"]]
+    show_welcome = (
+        narrative_content is None
+        and not events
+        and not activities
+        and not todos
+        and not entities
+        and not unseen_routines
+        and not briefing_exists
+        and not attention
+        and not pulse_needs
+    )
 
     pulse_needs_normalized = {_normalize_item(item) for item in pulse_needs}
     briefing_needs_deduped = []
@@ -592,6 +604,7 @@ def _build_pulse_context() -> dict[str, Any]:
         "briefing_needs_deduped": briefing_needs_deduped,
         "briefing_needs_shared_count": briefing_needs_shared_count,
         "briefing_needs_badge": briefing_needs_badge,
+        "show_welcome": show_welcome,
     }
 
 
@@ -611,6 +624,7 @@ def api_pulse():
             "placeholder_text": attention.placeholder_text,
             "context_lines": attention.context_lines,
         }
+    ctx.pop("show_welcome", None)
     ctx["now"] = ctx["now"].isoformat()
     return jsonify(ctx)
 
