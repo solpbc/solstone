@@ -167,6 +167,8 @@
     if (expandBtn) expandBtn.setAttribute('aria-expanded', 'true');
     appBar.classList.remove('app-bar--dismissing');
     appBar.classList.add('app-bar--focused');
+    appBar.setAttribute('role', 'dialog');
+    appBar.setAttribute('aria-modal', 'true');
     backdrop.classList.add('visible');
     renderMessages();
     responsePanel.style.display = 'none';
@@ -194,6 +196,8 @@
 
     function onDone() {
       appBar.classList.remove('app-bar--focused', 'app-bar--dismissing');
+      appBar.setAttribute('role', 'region');
+      appBar.removeAttribute('aria-modal');
       responsePanel.style.display = '';
     }
     appBar.addEventListener('animationend', onDone, { once: true });

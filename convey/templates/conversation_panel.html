@@ -2,7 +2,7 @@
 <div class="conversation-backdrop" id="conversationBackdrop"></div>
 
 <!-- Chat Bar / Conversation Panel -->
-<div class="app-bar" id="appBar">
+<div class="app-bar" id="appBar" role="region" aria-label="conversation">
   <!-- Conversation messages (visible in panel mode) -->
   <div class="conversation-messages" id="conversationMessages" aria-live="polite"></div>
 
@@ -13,7 +13,7 @@
       thinking&hellip;
     </div>
     <div class="chat-bar-response" id="chatBarResponse" style="display: none;"></div>
-    <button class="chat-bar-dismiss" id="chatBarDismiss" style="display: none;" title="dismiss">&times;</button>
+    <button class="chat-bar-dismiss" id="chatBarDismiss" style="display: none;" title="dismiss" aria-label="close conversation">&times;</button>
     <div class="chat-bar-separator"></div>
   </div>
 
@@ -24,7 +24,7 @@
   <div class="chat-bar-input-row">
     <button id="chatExpandBtn" class="chat-bar-expand" aria-label="expand conversation" aria-expanded="false">⤢</button>
     <form id="chatInputForm" style="display: contents;">
-      <textarea id="chatMessageInput" class="chat-bar-input" rows="1"
+      <textarea id="chatMessageInput" class="chat-bar-input" aria-label="message your solstone" rows="1"
         placeholder="{{ chat_bar_placeholder|default('send a message...') }}"></textarea>
       <button type="submit" class="chat-bar-send" id="chatBarSend" title="send"
         style="display: none;">&uarr;</button>
