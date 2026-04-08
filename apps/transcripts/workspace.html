@@ -88,7 +88,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   right: 0;
   padding-right: 8px;
   transform: translateY(-50%);
-  font-size: 11px;
+  font-size: 12px;
   color: #6b7280;
 }
 
@@ -377,7 +377,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   right: 0;
   padding-right: 6px;
   transform: translateY(-50%);
-  font-size: 10px;
+  font-size: 12px;
   color: #6b7280;
 }
 
@@ -613,7 +613,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 }
 
 .tr-audio-player-label {
-  font-size: 11px;
+  font-size: 12px;
   color: #6b7280;
   margin-bottom: 4px;
 }
@@ -714,7 +714,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   display: inline-block;
   padding: 2px 6px;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   background: #dbeafe;
   color: #1d4ed8;
@@ -730,7 +730,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: #6b7280;
   margin-bottom: 2px;
@@ -901,7 +901,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   left: 4px;
   padding: 2px 6px;
   border-radius: 4px;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 500;
   background: rgba(0,0,0,0.6);
   color: #fff;
@@ -909,6 +909,18 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>
 
@@ -1905,13 +1917,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         html += `<div class="tr-entry tr-entry-audio" data-idx="${idx}" data-type="audio" data-timestamp="${item.timestamp}" role="listitem" tabindex="0" aria-label="Play from ${timeStr}">`;
         html += `<div class="tr-entry-time">${timeStr}</div>`;
         html += '<div class="tr-entry-content">';
+        html += '<span class="sr-only">Audio: </span>';
         if (item.speaker_label) {
           const sl = item.speaker_label;
           const dotClass = sl.confidence === 'high' ? 'tr-speaker-dot-high' : 'tr-speaker-dot-medium';
           const labelClass = sl.is_owner ? 'tr-speaker-label tr-speaker-label-owner' : 'tr-speaker-label';
           const displayName = sl.is_owner ? 'You' : escapeHtml(sl.name);
           const entityHref = '/app/entities#' + encodeURIComponent(sl.entity_id);
-          html += `<div class="${labelClass}"><span class="tr-speaker-dot ${dotClass}"></span><a href="${entityHref}">${displayName}</a></div>`;
+          html += `<div class="${labelClass}" aria-label="Speaker: ${displayName}, ${sl.confidence} confidence"><span class="tr-speaker-dot ${dotClass}"></span><a href="${entityHref}">${displayName}</a><span class="sr-only">${sl.confidence} confidence</span></div>`;
         }
         html += `<div class="tr-entry-text">${escapeHtml(item.markdown)}</div>`;
         html += '</div></div>';
@@ -1922,6 +1935,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           html += '<div class="tr-entry" role="listitem">';
           html += `<div class="tr-entry-time">${timeStr}</div>`;
           html += '<div class="tr-entry-content">';
+          html += '<span class="sr-only">Screen: </span>';
           html += `<div class="tr-screen-text">${markdown}</div>`;
           html += '</div></div>';
         } else {
@@ -2170,6 +2184,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     let html = `<div class="tr-entry tr-entry-screen" data-idx="${idx}" data-frame-idx="${frameIdx}" data-type="screen" role="listitem">`;
     html += `<div class="tr-entry-time">${timeStr}</div>`;
     html += '<div class="tr-entry-content">';
+    html += '<span class="sr-only">Screen: </span>';
 
     if (videoUrl && frameId) {
       html += `<canvas class="tr-entry-thumb loading" data-video-url="${escapeHtml(videoUrl)}" data-frame-id="${frameId}"></canvas>`;
