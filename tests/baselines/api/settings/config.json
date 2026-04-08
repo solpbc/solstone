@@ -6,7 +6,8 @@
     "proposal_count": 0
   },
   "convey": {
-    "has_password": true
+    "has_password": true,
+    "trust_localhost": true
   },
   "describe": {
     "redact": [
@@ -87,6 +88,9 @@
     "OPENAI_API_KEY": false,
     "PLAUD_ACCESS_TOKEN": false,
     "REVAI_ACCESS_TOKEN": false
+  },
+  "setup": {
+    "completed_at": 1700000000000
   },
   "transcribe": {
     "backend": "whisper",

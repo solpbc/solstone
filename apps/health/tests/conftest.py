@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 
@@ -18,6 +20,19 @@ def health_env(tmp_path, monkeypatch):
     ):
         journal = tmp_path / "journal"
         journal.mkdir(exist_ok=True)
+
+        config_dir = journal / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_file = config_dir / "journal.json"
+        config_file.write_text(
+            json.dumps(
+                {
+                    "convey": {"trust_localhost": True},
+                    "setup": {"completed_at": 1700000000000},
+                },
+                indent=2,
+            )
+        )
 
         # Create sample log file
         log_file = journal / log_path
