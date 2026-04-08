@@ -17,6 +17,8 @@
   let connectedAt = null;
   let lastMessageAt = null;
   let connectionState = 'disconnected';
+  let disconnectTimerId = null;
+  let disconnectCardId = null;
 
   // Update status icon (if present)
   function updateStatusIcon(state) {
@@ -54,16 +56,50 @@
 
     ws.onopen = () => {
       connectedAt = Date.now();
-      lastMessageAt = null;
       updateStatusIcon('connected');
       retry = 1000;
+      // Cancel disconnect notification timer if reconnected within grace period
+      if (disconnectTimerId) {
+        clearTimeout(disconnectTimerId);
+        disconnectTimerId = null;
+      }
+      // If a disconnect card is showing, dismiss it and show brief reconnected card
+      if (disconnectCardId !== null) {
+        window.AppServices?.notifications?.dismiss(disconnectCardId);
+        const reconnectedId = window.AppServices?.notifications?.show({
+          app: 'system',
+          icon: '✓',
+          title: 'reconnected',
+          message: 'all features restored',
+          dismissible: true
+        });
+        if (reconnectedId != null) {
+          setTimeout(() => window.AppServices?.notifications?.dismiss(reconnectedId), 3000);
+        }
+        disconnectCardId = null;
+      }
       console.debug('[WebSocket] Connected to /ws/events');
     };
 
     ws.onclose = () => {
       connectedAt = null;
-      lastMessageAt = null;
       updateStatusIcon('disconnected');
+      // Start 5-second grace timer before showing disconnect notification
+      if (!disconnectTimerId && disconnectCardId === null) {
+        disconnectTimerId = setTimeout(() => {
+          disconnectTimerId = null;
+          const id = window.AppServices?.notifications?.show({
+            app: 'system',
+            icon: '⚠️',
+            title: 'connection lost',
+            message: 'reconnecting — some features may be delayed',
+            dismissible: false
+          });
+          if (id != null) {
+            disconnectCardId = id;
+          }
+        }, 5000);
+      }
       retry = Math.min(retry * 1.5, 15000);
       console.debug(`[WebSocket] Disconnected, reconnecting in ${retry}ms`);
       setTimeout(connect, retry);
