@@ -751,6 +751,13 @@ body.menu-full .menu-bar .menu-item.dragging {
   border-top: 2px solid var(--facet-color);
 }
 
+/* Keyboard reorder visual feedback */
+body.menu-full .menu-bar .menu-item.reordering {
+  outline: 2px dashed var(--facet-color, #b06a1a);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 8%, transparent);
+}
+
 /* Apply facet background to menu items in menu-minimal state */
 body:not(.menu-full) .menu-bar .menu-item {
   background: var(--facet-bg, white);

@@ -705,6 +705,19 @@
 
   // Initialize
   function init() {
+    // Keyboard reorder state
+    let movingItem = null;       // The .menu-item being moved, or null
+    let originalNextSibling = null; // For cancel: restore position
+    let originalAriaLabel = null;   // For restoring drag handle's aria-label
+    let saveAppOrder = null;
+    let announceReorder = () => {};
+    let getMenuItems = () => [];
+    let getPositionText = () => '';
+    let getAppLabel = item => item?.dataset.appName || '';
+    let exitMoveMode = () => {};
+    let cancelMoveMode = () => {};
+    let canMove = () => false;
+
     // window.selectedFacet already initialized by server (see app.html)
     // Load facet chooser
     loadFacetChooser();
@@ -979,17 +992,96 @@
         }
       });
 
-      // Keyboard activation for drag handles
+      // Keyboard reorder: Enter/Space on drag handle enters move mode
       menuBar.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
-        // Suppress default for drag handles (keyboard DnD not supported)
-        if (e.target.closest('.drag-handle')) {
+        const handle = e.target.closest('.drag-handle');
+        if (!handle) return;
+        e.preventDefault();
+
+        // Only in menu-full mode (matches mouse drag constraint)
+        if (!document.body.classList.contains('menu-full')) return;
+
+        const item = handle.closest('.menu-item');
+        if (!item || !menuItemsContainer) return;
+
+        if (movingItem) {
+          // Already moving - Enter confirms
+          if (e.key === 'Enter' || e.key === ' ') {
+            const items = getMenuItems();
+            const order = items.map(i => i.dataset.appName);
+            saveAppOrder(order);
+            updateLastStarredSeparator();
+            const label = getAppLabel(movingItem);
+            exitMoveMode(movingItem, `${label}, dropped, ${getPositionText(movingItem)}`);
+          }
+        } else {
+          // Enter move mode
+          movingItem = item;
+          originalNextSibling = item.nextElementSibling;
+          originalAriaLabel = handle.getAttribute('aria-label');
+          item.classList.add('reordering');
+          const label = getAppLabel(item);
+          handle.setAttribute('aria-label', `moving ${label}, use arrow keys to reorder, Enter to confirm, Escape to cancel`);
+          announceReorder(`${label}, grabbed, ${getPositionText(item)}`);
+        }
+      });
+
+      // Keyboard reorder: arrow keys move, Escape cancels
+      menuBar.addEventListener('keydown', (e) => {
+        if (!movingItem) return;
+
+        if (e.key === 'Escape') {
           e.preventDefault();
+          e.stopPropagation();
+          cancelMoveMode();
+          return;
+        }
+
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          e.stopPropagation();
+          const direction = e.key === 'ArrowUp' ? -1 : 1;
+
+          if (!canMove(movingItem, direction)) {
+            const label = getAppLabel(movingItem);
+            announceReorder(`${label}, cannot move ${direction === -1 ? 'up' : 'down'}, boundary reached`);
+            return;
+          }
+
+          const items = getMenuItems();
+          const index = items.indexOf(movingItem);
+          const targetIndex = index + direction;
+          const target = items[targetIndex];
+
+          if (direction === 1) {
+            menuItemsContainer.insertBefore(movingItem, target.nextElementSibling);
+          } else {
+            menuItemsContainer.insertBefore(movingItem, target);
+          }
+
+          const label = getAppLabel(movingItem);
+          announceReorder(`${label}, ${getPositionText(movingItem)}`);
+
+          // Keep focus on the drag handle
+          const handle = movingItem.querySelector('.drag-handle');
+          if (handle) handle.focus();
+        }
+      });
+
+      // Cancel keyboard reorder on focus loss
+      document.addEventListener('focusin', (e) => {
+        if (!movingItem) return;
+        // If focus moved outside the moving item's drag handle, cancel
+        const handle = movingItem.querySelector('.drag-handle');
+        if (e.target !== handle) {
+          cancelMoveMode();
         }
       });
 
       // Roving tabindex for menu item navigation
       menuBar.addEventListener('keydown', (e) => {
+        if (movingItem) return;
         const link = e.target.closest('.menu-item-link');
         if (!link) return;
 
@@ -1076,7 +1168,7 @@
     const menuItemsContainer = document.querySelector('.menu-bar .menu-items');
     if (menuItemsContainer) {
       // Helper: Save app order to config with starred/unstarred grouping
-      async function saveAppOrder(order) {
+      saveAppOrder = async function(order) {
         try {
           // Separate into starred and unstarred groups
           const starredOrder = order.filter(name => starredApps.includes(name));
@@ -1108,7 +1200,78 @@
             });
           }
         }
-      }
+      };
+
+      // Persistent live region for keyboard reorder announcements
+      const reorderLiveRegion = document.createElement('div');
+      reorderLiveRegion.setAttribute('aria-live', 'assertive');
+      reorderLiveRegion.setAttribute('aria-atomic', 'true');
+      reorderLiveRegion.className = 'visually-hidden';
+      document.body.appendChild(reorderLiveRegion);
+
+      announceReorder = function(message) {
+        reorderLiveRegion.textContent = '';
+        // Force screen reader to re-announce by clearing then setting
+        requestAnimationFrame(() => {
+          reorderLiveRegion.textContent = message;
+        });
+      };
+
+      getMenuItems = function() {
+        return Array.from(menuItemsContainer.querySelectorAll('.menu-item'));
+      };
+
+      getPositionText = function(item) {
+        const items = getMenuItems();
+        const index = items.indexOf(item);
+        return `position ${index + 1} of ${items.length}`;
+      };
+
+      getAppLabel = function(item) {
+        const label = item.querySelector('.label');
+        return label ? label.textContent.trim() : item.dataset.appName;
+      };
+
+      exitMoveMode = function(item, announce) {
+        if (!item) return;
+        item.classList.remove('reordering');
+        const handle = item.querySelector('.drag-handle');
+        if (handle && originalAriaLabel) {
+          handle.setAttribute('aria-label', originalAriaLabel);
+        }
+        if (handle) handle.focus();
+        if (announce) announceReorder(announce);
+        movingItem = null;
+        originalNextSibling = null;
+        originalAriaLabel = null;
+      };
+
+      cancelMoveMode = function() {
+        if (!movingItem) return;
+        // Restore original position
+        const container = movingItem.closest('.menu-items');
+        if (originalNextSibling) {
+          container.insertBefore(movingItem, originalNextSibling);
+        } else {
+          container.appendChild(movingItem);
+        }
+        updateLastStarredSeparator();
+        const label = getAppLabel(movingItem);
+        exitMoveMode(movingItem, `${label}, reorder cancelled`);
+      };
+
+      canMove = function(item, direction) {
+        const items = getMenuItems();
+        const index = items.indexOf(item);
+        const targetIndex = index + direction; // -1 for up, +1 for down
+        if (targetIndex < 0 || targetIndex >= items.length) return false;
+
+        const itemIsStarred = starredApps.includes(item.dataset.appName);
+        const targetIsStarred = starredApps.includes(items[targetIndex].dataset.appName);
+
+        // Cannot cross starred/unstarred boundary
+        return itemIsStarred === targetIsStarred;
+      };
 
       // Setup drag-and-drop using shared helper with boundary constraints
       setupDragDrop({
