@@ -97,6 +97,14 @@ def journal_fixture(tmp_path):
     (segment / "agents" / "screen.md").write_text(
         "# Screen Summary\n\nViewed documentation.\n"
     )
+    # Add stream.json for segment stream metadata
+    from think.streams import write_segment_stream
+
+    write_segment_stream(str(segment), "default", None, None, 1)
+    # Add second agent file for cross-file segment testing
+    (segment / "agents" / "activity.md").write_text(
+        "# Activity Summary\n\nMet with Scott Ward about Acme deal.\n"
+    )
 
     # Create facet events
     events_dir = journal / "facets" / "work" / "events"
@@ -1318,3 +1326,112 @@ def test_entity_search_idempotent():
     ).fetchone()[0]
     conn.close()
     assert count1 == count2 == 40
+
+
+class TestSegmentChunks:
+    """Tests for segment-level concatenated FTS5 chunks."""
+
+    def test_segment_chunks_created(self, journal_fixture):
+        """scan_journal creates segment chunks with agent='segment'."""
+        from think.indexer.journal import get_journal_index, scan_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        conn, _ = get_journal_index(str(journal_fixture))
+        rows = conn.execute(
+            "SELECT content, path, day, facet, agent, stream FROM chunks WHERE agent='segment'"
+        ).fetchall()
+        conn.close()
+        assert len(rows) >= 1
+        content, path, day, facet, agent, stream = rows[0]
+        assert content
+        assert path == "20240101/default/100000_300"
+        assert day == "20240101"
+        assert facet == ""
+        assert agent == "segment"
+        assert stream == "default"
+
+    def test_segment_chunk_contains_all_agent_content(self, journal_fixture):
+        """Segment chunk content includes text from all agent files."""
+        from think.indexer.journal import get_journal_index, scan_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        conn, _ = get_journal_index(str(journal_fixture))
+        rows = conn.execute(
+            "SELECT content FROM chunks WHERE agent='segment'"
+        ).fetchall()
+        conn.close()
+        all_content = " ".join(r[0] for r in rows)
+        assert "Viewed documentation" in all_content
+        assert "Scott Ward" in all_content
+
+    def test_segment_chunk_searchable(self, journal_fixture):
+        """Segment chunks are searchable via search_journal."""
+        from think.indexer.journal import scan_journal, search_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        total, results = search_journal("Scott Ward")
+        assert total >= 1
+        segment_results = [r for r in results if r["metadata"]["agent"] == "segment"]
+        assert len(segment_results) >= 1
+
+    def test_segment_chunk_cross_file_search(self, journal_fixture):
+        """Search spanning multiple agent files matches segment chunk."""
+        from think.indexer.journal import scan_journal, search_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        total1, results1 = search_journal("documentation")
+        total2, results2 = search_journal("Acme deal")
+        assert total1 >= 1
+        assert total2 >= 1
+        seg1 = [r for r in results1 if r["metadata"]["agent"] == "segment"]
+        seg2 = [r for r in results2 if r["metadata"]["agent"] == "segment"]
+        assert len(seg1) >= 1
+        assert len(seg2) >= 1
+
+    def test_agent_filter_returns_only_segments(self, journal_fixture):
+        """agent='segment' filter returns only segment chunks."""
+        from think.indexer.journal import scan_journal, search_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        total, results = search_journal("", agent="segment")
+        assert total >= 1
+        for r in results:
+            assert r["metadata"]["agent"] == "segment"
+
+    def test_existing_agent_chunks_unchanged(self, journal_fixture):
+        """Segment chunks are additive — agent-level chunks still exist."""
+        from think.indexer.journal import get_journal_index, scan_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        conn, _ = get_journal_index(str(journal_fixture))
+        screen_chunks = conn.execute(
+            "SELECT count(*) FROM chunks WHERE path='20240101/default/100000_300/agents/screen.md'"
+        ).fetchone()[0]
+        activity_chunks = conn.execute(
+            "SELECT count(*) FROM chunks WHERE path='20240101/default/100000_300/agents/activity.md'"
+        ).fetchone()[0]
+        segment_chunks = conn.execute(
+            "SELECT count(*) FROM chunks WHERE agent='segment'"
+        ).fetchone()[0]
+        conn.close()
+        assert screen_chunks >= 1
+        assert activity_chunks >= 1
+        assert segment_chunks >= 1
+
+    def test_idempotent_scan(self, journal_fixture):
+        """Running scan_journal twice produces same segment chunk count."""
+        from think.indexer.journal import get_journal_index, scan_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        conn, _ = get_journal_index(str(journal_fixture))
+        count1 = conn.execute(
+            "SELECT count(*) FROM chunks WHERE agent='segment'"
+        ).fetchone()[0]
+        conn.close()
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        conn, _ = get_journal_index(str(journal_fixture))
+        count2 = conn.execute(
+            "SELECT count(*) FROM chunks WHERE agent='segment'"
+        ).fetchone()[0]
+        conn.close()
+        assert count1 == count2

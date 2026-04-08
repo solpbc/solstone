@@ -34,7 +34,8 @@ from think.formatters import (
     get_formatter,
     load_jsonl,
 )
-from think.utils import DATE_RE, get_journal, now_ms
+from think.markdown import format_markdown
+from think.utils import DATE_RE, get_journal, now_ms, segment_key
 
 logger = logging.getLogger(__name__)
 
@@ -902,6 +903,16 @@ def index_file(journal: str, file_path: str, verbose: bool = False) -> bool:
     # Update file mtime
     conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel_path, mtime))
 
+    # Regenerate segment chunk if file is in a segment
+    parts = rel_path.replace("\\", "/").split("/")
+    if len(parts) >= 4 and segment_key(parts[2]):
+        rel_segment = "/".join(parts[:3])
+        seg_dir = os.path.join(journal, rel_segment)
+        conn.execute("DELETE FROM chunks WHERE path=?", (rel_segment,))
+        if os.path.isdir(seg_dir):
+            seg_stream = _extract_stream(journal, rel_segment + "/dummy")
+            _index_segment_chunks(conn, seg_dir, rel_segment, seg_stream, verbose)
+
     conn.commit()
     conn.close()
 
@@ -917,7 +928,6 @@ def _extract_stream(journal: str, rel: str) -> str | None:
     Returns stream name string or None for non-segment paths or pre-stream segments.
     """
     from think.streams import read_segment_stream
-    from think.utils import segment_key
 
     parts = rel.replace("\\", "/").split("/")
     # Segment paths: parts[0]=day, parts[1]=stream, parts[2]=segment, parts[3+]=file
@@ -982,6 +992,50 @@ def _index_file(
             "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (content, rel, day, facet, agent, stream, idx),
         )
+
+
+def _index_segment_chunks(
+    conn: sqlite3.Connection,
+    segment_dir: str,
+    rel_segment: str,
+    stream: str | None,
+    verbose: bool,
+) -> int:
+    """Index concatenated markdown content for one segment."""
+    segment_path = Path(segment_dir)
+    agent_files = sorted(
+        [
+            *segment_path.glob("agents/*.md"),
+            *segment_path.glob("agents/*/*.md"),
+        ],
+        key=lambda path: str(path),
+    )
+    if not agent_files:
+        return 0
+
+    content = "\n\n---\n\n".join(
+        path.read_text(encoding="utf-8") for path in agent_files
+    )
+    chunks, _meta = format_markdown(content)
+    day = rel_segment.replace("\\", "/").split("/")[0]
+
+    inserted = 0
+    for idx, chunk in enumerate(chunks):
+        chunk_content = chunk.get("markdown", "")
+        if not chunk_content:
+            continue
+        conn.execute(
+            "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (chunk_content, rel_segment, day, "", "segment", stream, idx),
+        )
+        inserted += 1
+
+    if verbose:
+        logger.info(
+            "  %s segment chunks, path=%s, stream=%s", inserted, rel_segment, stream
+        )
+
+    return inserted
 
 
 def _is_historical_day(rel_path: str) -> bool:
@@ -1611,6 +1665,35 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
     logger.info(
         "%s indexed, %s removed in %.2f seconds", len(to_index), len(removed), elapsed
     )
+
+    # Index segment-level concatenated chunks
+    affected_segments: set[str] = set()
+    for rel, _path, _mtime in to_index:
+        parts = rel.replace("\\", "/").split("/")
+        if len(parts) >= 4 and segment_key(parts[2]):
+            affected_segments.add("/".join(parts[:3]))
+    for rel in removed:
+        parts = rel.replace("\\", "/").split("/")
+        if len(parts) >= 4 and segment_key(parts[2]):
+            affected_segments.add("/".join(parts[:3]))
+
+    seg_count = 0
+    for rel_segment in sorted(affected_segments):
+        segment_dir = os.path.join(journal, rel_segment)
+        conn.execute("DELETE FROM chunks WHERE path=?", (rel_segment,))
+        if os.path.isdir(segment_dir):
+            stream = _extract_stream(journal, rel_segment + "/dummy")
+            seg_count += _index_segment_chunks(
+                conn, segment_dir, rel_segment, stream, verbose
+            )
+
+    if affected_segments:
+        conn.commit()
+        logger.info(
+            "%s segment chunks indexed for %s segments",
+            seg_count,
+            len(affected_segments),
+        )
 
     consolidate_segment_entities(journal, full=full)
     entity_changed = scan_entities(journal, conn, verbose=verbose, full=full)
