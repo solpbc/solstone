@@ -497,7 +497,7 @@ def _build_pulse_context() -> dict[str, Any]:
     if pulse_content:
         narrative_content = pulse_content
         narrative_source = "pulse"
-        narrative_header = "Pulse"
+        narrative_header = "pulse"
         updated = pulse_meta.get("updated", "")
         if isinstance(updated, str):
             try:
@@ -511,7 +511,7 @@ def _build_pulse_context() -> dict[str, Any]:
     else:
         narrative_content = flow_content
         narrative_source = "flow"
-        narrative_header = "Today's Flow"
+        narrative_header = "today's flow"
         narrative_updated_at = flow_updated_at
         pulse_needs = []
 

@@ -66,6 +66,7 @@
   font-weight: 600;
   color: #94a3b8;
   margin-bottom: 0.5rem;
+  margin-top: 0;
 }
 
 /* Narrative */
@@ -250,7 +251,7 @@
 }
 
 .pulse-entity-type {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
   font-weight: 600;
@@ -321,7 +322,7 @@
   content: "◆";
   color: #6366f1;
   flex-shrink: 0;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
 }
 
 .pulse-routine-name {
@@ -372,7 +373,7 @@
   margin-left: auto;
 }
 .pulse-briefing-badge {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   padding: 0.15rem 0.5rem;
   background: #fef3c7;
   color: #b45309;
@@ -407,7 +408,7 @@
 }
 .pulse-briefing-section-toggle::before {
   content: "▾";
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   transition: transform 0.15s;
 }
 .pulse-briefing-section[data-collapsed="true"] .pulse-briefing-section-toggle::before {
@@ -436,11 +437,11 @@
 <div class="pulse-dashboard">
 
   <!-- Vital Signs -->
-  <div class="pulse-vitals" id="pulse-vitals">
+  <div class="pulse-vitals" id="pulse-vitals" role="status" aria-live="polite">
     {% set dot_class = 'ok' if capture_status == 'ok' else ('stale' if capture_status == 'stale' else ('offline' if capture_status == 'offline' else 'unknown')) %}
     <div class="pulse-vitals-item">
-      <span class="pulse-vitals-dot {{ dot_class }}"></span>
-      <span>Capture {{ capture_status }}</span>
+      <span class="pulse-vitals-dot {{ dot_class }}" aria-hidden="true"></span>
+      <span>capture {{ capture_status }}</span>
     </div>
     {% if segment_count > 0 %}
     <div class="pulse-vitals-sep"></div>
@@ -469,7 +470,7 @@
   {% if briefing_exists or briefing_phase == 'pending' %}
   <div class="pulse-briefing-card" id="pulse-briefing" data-phase="{{ briefing_phase }}" data-collapsed="{{ 'false' if briefing_phase == 'morning' else 'true' }}">
     <div class="pulse-briefing-header" onclick="toggleBriefingCard()">
-      <div class="pulse-section-header" style="margin-bottom:0">morning briefing</div>
+      <h2 class="pulse-section-header" style="margin-bottom:0">morning briefing</h2>
       {% if briefing_needs_badge %}
       <span class="pulse-briefing-badge">{{ briefing_needs_badge }}</span>
       {% endif %}
@@ -518,7 +519,7 @@
   <!-- Narrative -->
   {% if narrative_content is not none %}
   <div class="pulse-narrative" id="pulse-narrative">
-    <div class="pulse-section-header">{{ narrative_header }}</div>
+    <h2 class="pulse-section-header">{{ narrative_header }}</h2>
     <div class="pulse-narrative-content" id="pulse-narrative-content"></div>
     <a href="#" class="pulse-tell-more" data-conversation="Tell me more about what's happening today">Tell me more →</a>
     {% if narrative_updated_at %}
@@ -527,7 +528,7 @@
   </div>
   {% elif segment_count > 0 %}
   <div class="pulse-narrative" id="pulse-narrative">
-    <div class="pulse-section-header">{{ narrative_header or "today's flow" }}</div>
+    <h2 class="pulse-section-header">{{ narrative_header or "today's flow" }}</h2>
     <div class="pulse-narrative-empty">Analysis will be available after the next processing cycle.</div>
   </div>
   {% endif %}
@@ -536,7 +537,7 @@
   {% set unseen_routines = routines|selectattr('seen', 'equalto', false)|list %}
   {% if unseen_routines %}
   <div class="pulse-routines" id="pulse-routines">
-    <div class="pulse-section-header">your routines</div>
+    <h2 class="pulse-section-header">your routines</h2>
     <div class="pulse-routines-list">
       {% for routine in unseen_routines %}
       <div class="pulse-routine-item" data-conversation="Show me my {{ routine.name }} from today" data-routine-click="true">
@@ -557,7 +558,7 @@
   <!-- Today -->
   {% if events or activities %}
   <div class="pulse-today" id="pulse-today">
-    <div class="pulse-section-header">today</div>
+    <h2 class="pulse-section-header">today</h2>
     {% if events %}
     <div class="pulse-events">
       {% for event in events %}
@@ -593,7 +594,7 @@
   <!-- Needs You -->
   {% if attention or pulse_needs or todos %}
   <div class="pulse-needs" id="pulse-needs">
-    <div class="pulse-section-header">needs you</div>
+    <h2 class="pulse-section-header">needs you</h2>
     <div class="pulse-needs-list">
       {% if attention %}
       <div class="pulse-needs-item pulse-needs-attention" data-conversation="What happened with {{ attention.placeholder_text }}?">{{ attention.placeholder_text }}</div>
@@ -614,7 +615,7 @@
   <!-- Network Pulse -->
   {% if entities %}
   <div class="pulse-network" id="pulse-network">
-    <div class="pulse-section-header">network pulse</div>
+    <h2 class="pulse-section-header">network pulse</h2>
     <div class="pulse-entities">
       {% for ent in entities %}
       <div class="pulse-entity" data-conversation="What do you know about {{ ent.get('name', '') }}?">
@@ -755,7 +756,7 @@
         const el = document.getElementById('pulse-vitals');
         if (!el) return;
         let dotClass = data.capture_status === 'ok' ? 'ok' : (data.capture_status === 'stale' ? 'stale' : (data.capture_status === 'offline' ? 'offline' : 'unknown'));
-        let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '"></span><span>Capture ' + esc(data.capture_status) + '</span></div>';
+        let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '" aria-hidden="true"></span><span>capture ' + esc(data.capture_status) + '</span></div>';
         if (data.segment_count > 0) {
           html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">' + data.segment_count + ' segment' + (data.segment_count !== 1 ? 's' : '');
           if (data.duration_minutes > 0) html += ' · ' + data.duration_minutes + 'm';
@@ -805,7 +806,7 @@
           if (container) container.remove();
           return;
         }
-        var html = '<div class="pulse-section-header">your routines</div><div class="pulse-routines-list">';
+        var html = '<h2 class="pulse-section-header">your routines</h2><div class="pulse-routines-list">';
         routines.forEach(function(r) {
           var name = esc(r.name);
           html += '<div class="pulse-routine-item" data-conversation="Show me my ' + name + ' from today" data-routine-click="true"><span>';
