@@ -594,7 +594,7 @@
 
     // Update DOM order
     orderedItems.forEach(item => {
-      menuItemsContainer.appendChild(item.parentElement);
+      menuItemsContainer.appendChild(item);
     });
 
     // Update separator
@@ -798,8 +798,6 @@
       menuBar.addEventListener('click', (e) => {
         const starToggle = e.target.closest('.star-toggle');
         if (starToggle) {
-          e.preventDefault();
-          e.stopPropagation();
           const appName = starToggle.dataset.appName;
           if (appName) {
             toggleAppStar(appName);
@@ -807,15 +805,9 @@
         }
       });
 
-      // Keyboard activation for star toggles and drag handles
+      // Keyboard activation for drag handles
       menuBar.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
-        const starToggle = e.target.closest('.star-toggle');
-        if (starToggle) {
-          e.preventDefault();
-          starToggle.click();
-          return;
-        }
         // Suppress default for drag handles (keyboard DnD not supported)
         if (e.target.closest('.drag-handle')) {
           e.preventDefault();

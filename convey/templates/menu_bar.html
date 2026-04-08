@@ -12,13 +12,13 @@
   {% for app_name, app_data in apps.items() %}
   {%- set is_starred = app_name in starred_apps -%}
   {%- set is_last_starred = loop.index0 == last_starred_index and starred_apps | length > 0 -%}
-  <li>
-    <a href="/app/{{ app_name }}" class="menu-item{% if app == app_name %} current{% endif %}{% if is_last_starred %} last-starred{% endif %}" data-app-name="{{ app_name }}" data-starred="{{ 'true' if is_starred else 'false' }}"{% if app == app_name %} aria-current="page"{% endif %}>
+  <li class="menu-item{% if app == app_name %} current{% endif %}{% if is_last_starred %} last-starred{% endif %}" data-app-name="{{ app_name }}" data-starred="{{ 'true' if is_starred else 'false' }}">
+    <a href="/app/{{ app_name }}" class="menu-item-link"{% if app == app_name %} aria-current="page"{% endif %}>
       <span class="icon">{{ app_data['icon'] }}</span>
       <span class="label">{{ app_data['label'] }}</span>
-      <span class="star-toggle" data-app-name="{{ app_name }}" role="button" tabindex="0" aria-label="star {{ app_data['label'] }}" aria-pressed="{{ 'true' if is_starred else 'false' }}">{{ '★' if is_starred else '☆' }}</span>
-      <span class="drag-handle" draggable="true" role="button" tabindex="0" aria-label="reorder {{ app_data['label'] }}">⋮</span>
     </a>
+    <button class="star-toggle" type="button" data-app-name="{{ app_name }}" aria-label="star {{ app_data['label'] }}" aria-pressed="{{ 'true' if is_starred else 'false' }}">{{ '★' if is_starred else '☆' }}</button>
+    <button class="drag-handle" type="button" draggable="true" aria-label="reorder {{ app_data['label'] }}">⋮</button>
   </li>
   {% endfor %}
   </ul>

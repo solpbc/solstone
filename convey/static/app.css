@@ -648,12 +648,20 @@ body.menu-full .menu-bar {
   border-bottom: none;
   border-left: 3px solid transparent;
   border-right: 1px solid var(--facet-border, #e0e0e0); /* Always present - extends naturally with item animation */
-  text-decoration: none;
   color: inherit;
   white-space: nowrap;
   position: relative;
   overflow: hidden;
   flex-shrink: 0;  /* Don't compress - let container scroll instead */
+}
+
+.menu-bar .menu-item-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+  flex: 1;
+  min-width: 0;
 }
 
 
@@ -739,11 +747,16 @@ body:not(.menu-full) .menu-bar .menu-item.current {
 
 .menu-bar .menu-item .star-toggle {
   display: none;
+  background: none;
+  border: none;
+  font: inherit;
   font-size: 16px;
   min-width: 44px;
   min-height: 44px;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  color: inherit;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.2s;
@@ -768,11 +781,15 @@ body.menu-full .menu-bar .menu-item:hover .star-toggle,
 /* Drag handle */
 .menu-bar .menu-item .drag-handle {
   display: none;
+  background: none;
+  border: none;
+  font: inherit;
   font-size: 20px;
   min-width: 44px;
   min-height: 44px;
   align-items: center;
   justify-content: center;
+  padding: 0;
   cursor: grab;
   opacity: 0;
   transition: opacity 0.2s;
@@ -1933,7 +1950,7 @@ button.close {
 }
 
 /* Focus-visible states for keyboard navigation */
-.menu-bar .menu-item:focus-visible,
+.menu-bar .menu-item-link:focus-visible,
 .facet-pill:focus-visible,
 .facet-add-pill:focus-visible,
 #hamburger:focus-visible,
