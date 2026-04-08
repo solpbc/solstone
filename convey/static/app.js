@@ -798,6 +798,32 @@
     let menuBackdrop = null;
     let focusTrapHandler = null;
 
+    function getVisibleMenuLinks() {
+      return Array.from(menuBar.querySelectorAll('.menu-item-link'))
+        .filter(link => link.closest('.menu-item').offsetHeight > 0);
+    }
+
+    function activateMenuSubControls(link) {
+      menuBar.querySelectorAll('.star-toggle, .drag-handle').forEach(el => { el.tabIndex = -1; });
+      const item = link.closest('.menu-item');
+      const star = item.querySelector('.star-toggle');
+      const drag = item.querySelector('.drag-handle');
+      if (star) star.tabIndex = 0;
+      if (drag) drag.tabIndex = 0;
+    }
+
+    function normalizeRovingTabindex() {
+      const activeLink = menuBar.querySelector('.menu-item-link[tabindex="0"]');
+      if (activeLink && activeLink.closest('.menu-item').offsetHeight > 0) return;
+      const visibleLinks = getVisibleMenuLinks();
+      if (visibleLinks.length === 0) return;
+      if (activeLink) activeLink.tabIndex = -1;
+      const currentLink = visibleLinks.find(l => l.closest('.menu-item').classList.contains('current'));
+      const newActive = currentLink || visibleLinks[0];
+      newActive.tabIndex = 0;
+      activateMenuSubControls(newActive);
+    }
+
     // Hamburger menu interactions
     if (hamburger && menuBar) {
       function openMobileMenu() {
@@ -817,7 +843,10 @@
         // Focus current menu item, or first if none
         const focusTarget = menuBar.querySelector('.menu-item.current .menu-item-link')
                          || menuBar.querySelector('.menu-item-link');
-        if (focusTarget) focusTarget.focus();
+        if (focusTarget) {
+          focusTarget.focus();
+          activateMenuSubControls(focusTarget);
+        }
 
         // Focus trap + Escape handler
         focusTrapHandler = (e) => {
@@ -829,7 +858,7 @@
 
           const focusable = Array.from(
             menuBar.querySelectorAll('.menu-item-link, .star-toggle, .drag-handle')
-          ).filter(el => el.offsetParent !== null);
+          ).filter(el => el.offsetParent !== null && el.tabIndex >= 0);
           if (focusable.length === 0) return;
 
           const first = focusable[0];
@@ -945,6 +974,7 @@
           const appName = starToggle.dataset.appName;
           if (appName) {
             toggleAppStar(appName);
+            setTimeout(normalizeRovingTabindex, 350);
           }
         }
       });
@@ -956,6 +986,50 @@
         if (e.target.closest('.drag-handle')) {
           e.preventDefault();
         }
+      });
+
+      // Roving tabindex for menu item navigation
+      menuBar.addEventListener('keydown', (e) => {
+        const link = e.target.closest('.menu-item-link');
+        if (!link) return;
+
+        let nextIndex;
+        const links = getVisibleMenuLinks();
+        const currentIndex = links.indexOf(link);
+        if (currentIndex === -1) return;
+
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+          nextIndex = (currentIndex + 1) % links.length;
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+          nextIndex = (currentIndex - 1 + links.length) % links.length;
+        } else if (e.key === 'Home') {
+          nextIndex = 0;
+        } else if (e.key === 'End') {
+          nextIndex = links.length - 1;
+        } else {
+          return;
+        }
+
+        e.preventDefault();
+        link.tabIndex = -1;
+        links[nextIndex].tabIndex = 0;
+        activateMenuSubControls(links[nextIndex]);
+        links[nextIndex].focus();
+      });
+
+      // Initialize sub-controls for the active menu item
+      const activeMenuLink = menuBar.querySelector('.menu-item-link[tabindex="0"]');
+      if (activeMenuLink) activateMenuSubControls(activeMenuLink);
+
+      menuBar.addEventListener('focusin', (e) => {
+        const subControl = e.target.closest('.star-toggle, .drag-handle');
+        if (!subControl) return;
+        const link = subControl.closest('.menu-item')?.querySelector('.menu-item-link');
+        if (!link) return;
+        const currentActive = menuBar.querySelector('.menu-item-link[tabindex="0"]');
+        if (currentActive && currentActive !== link) currentActive.tabIndex = -1;
+        link.tabIndex = 0;
+        activateMenuSubControls(link);
       });
     }
 
@@ -973,6 +1047,7 @@
         saveMenuState();
         updateScrollShadows();
         setTimeout(updateScrollShadows, 350);
+        setTimeout(normalizeRovingTabindex, 350);
       });
     }
 
