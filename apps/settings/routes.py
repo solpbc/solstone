@@ -1213,6 +1213,28 @@ def update_observe() -> Any:
         return jsonify({"error": str(e)}), 500
 
 
+@settings_bp.route("/api/facets/muted")
+def get_muted_facets() -> Any:
+    """List muted facets."""
+    try:
+        from think.facets import get_facets
+
+        facets = get_facets()
+        muted = [
+            {
+                "name": name,
+                "title": data.get("title", name),
+                "color": data.get("color", ""),
+                "emoji": data.get("emoji", ""),
+            }
+            for name, data in facets.items()
+            if data.get("muted", False)
+        ]
+        return jsonify({"facets": muted})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @settings_bp.route("/api/facet", methods=["POST"])
 def create_facet() -> Any:
     """Create a new facet.

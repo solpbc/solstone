@@ -1617,6 +1617,7 @@ input:checked + .slider:before {
         <option value="storage">Storage</option>
         <option value="support">Support</option>
         <option value="agent">Agent Identity</option>
+        <option value="facets">Facets</option>
       </optgroup>
       <optgroup label="Facet" id="navSelectFacetGroup" style="display:none">
         <option value="facet-appearance">Appearance</option>
@@ -1642,6 +1643,7 @@ input:checked + .slider:before {
       <button class="settings-nav-item" data-section="sync">Sync</button>
       <button class="settings-nav-item" data-section="storage">Storage</button>
       <button class="settings-nav-item" data-section="support">Support</button>
+      <button class="settings-nav-item" data-section="facets">Facets</button>
     </div>
     <div class="settings-nav-group" id="facetNavGroup" style="display:none">
       <div class="settings-nav-label" id="facetNavLabel">facet</div>
@@ -2310,6 +2312,16 @@ input:checked + .slider:before {
       </div>
     </section>
 
+    <!-- Facets Section (journal-level, not per-facet) -->
+    <section class="settings-section" id="section-facets">
+      <h2>Facets</h2>
+      <p class="settings-section-desc">Manage muted facets. Muted facets are hidden from the facet bar but retain all their data.</p>
+
+      <div id="mutedFacetsList">
+        <p class="text-muted">Loading...</p>
+      </div>
+    </section>
+
     <!-- Agent Identity Section -->
     <section class="settings-section" id="section-agent">
       <h2>Agent Identity</h2>
@@ -2532,7 +2544,7 @@ let insightsData = null;
 let keyValidationData = {};
 
 // ========== NAVIGATION ==========
-const VALID_SECTIONS = ['profile', 'agent', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'sync', 'storage', 'support', 'facet-appearance', 'facet-activities', 'facet-activity'];
+const VALID_SECTIONS = ['profile', 'agent', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'sync', 'storage', 'support', 'facets', 'facet-appearance', 'facet-activities', 'facet-activity'];
 
 function switchSection(sectionId, updateHash = true) {
   // Validate section exists
@@ -2558,6 +2570,10 @@ function switchSection(sectionId, updateHash = true) {
     section.classList.toggle('active', section.id === 'section-' + sectionId);
   });
 
+  if (sectionId === 'facets') {
+    loadMutedFacets();
+  }
+
   // Update URL hash
   if (updateHash) {
     history.replaceState(null, '', '#' + sectionId);
@@ -2574,6 +2590,91 @@ function switchSection(sectionId, updateHash = true) {
     if (sectionId === 'facet-activities') {
       loadActivities(window.selectedFacet);
     }
+  }
+}
+
+// ========== MUTED FACETS ==========
+async function loadMutedFacets() {
+  const container = document.getElementById('mutedFacetsList');
+  try {
+    const response = await fetch('/app/settings/api/facets/muted');
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+
+    const facets = data.facets || [];
+    if (facets.length === 0) {
+      container.innerHTML = '<p class="text-muted">No muted facets.</p>';
+      return;
+    }
+
+    container.innerHTML = '';
+    facets.forEach(facet => {
+      const row = document.createElement('div');
+      row.className = 'settings-field';
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.justifyContent = 'space-between';
+
+      const info = document.createElement('div');
+      info.style.display = 'flex';
+      info.style.alignItems = 'center';
+      info.style.gap = '0.5em';
+
+      if (facet.emoji) {
+        const emoji = document.createElement('span');
+        emoji.textContent = facet.emoji;
+        info.appendChild(emoji);
+      }
+
+      const title = document.createElement('span');
+      title.textContent = facet.title;
+      info.appendChild(title);
+
+      if (facet.color) {
+        const swatch = document.createElement('span');
+        swatch.style.display = 'inline-block';
+        swatch.style.width = '12px';
+        swatch.style.height = '12px';
+        swatch.style.borderRadius = '50%';
+        swatch.style.backgroundColor = facet.color;
+        swatch.style.marginLeft = '0.25em';
+        info.appendChild(swatch);
+      }
+
+      const btn = document.createElement('button');
+      btn.className = 'setup-btn';
+      btn.style.fontSize = '0.85em';
+      btn.style.padding = '0.3em 0.8em';
+      btn.textContent = 'Unmute';
+      btn.onclick = async () => {
+        btn.disabled = true;
+        btn.textContent = 'Unmuting...';
+        try {
+          const res = await fetch(`/app/settings/api/facet/${facet.name}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ muted: false })
+          });
+          const result = await res.json();
+          if (result.error) throw new Error(result.error);
+          row.remove();
+          if (container.children.length === 0) {
+            container.innerHTML = '<p class="text-muted">No muted facets.</p>';
+          }
+          notifySuccess('Unmuted', `${facet.title} will appear in the facet bar on reload.`);
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = 'Unmute';
+          notifyError('Error', 'Failed to unmute facet');
+        }
+      };
+
+      row.appendChild(info);
+      row.appendChild(btn);
+      container.appendChild(row);
+    });
+  } catch (err) {
+    container.innerHTML = '<p class="text-muted">Failed to load muted facets.</p>';
   }
 }
 

@@ -12,15 +12,8 @@ from flask import Flask, g, request, url_for
 from apps import AppRegistry
 
 
-def _get_facets_data(include_muted: bool = False) -> list[dict]:
-    """Get facets data for templates.
-
-    Args:
-        include_muted: If True, include facets marked as disabled
-
-    Returns:
-        List of facet dicts with name, title, color, emoji, and muted status
-    """
+def _get_facets_data() -> list[dict]:
+    """Get active facets data for templates."""
     from think.facets import get_facets
 
     from .config import apply_facet_order, load_convey_config
@@ -29,10 +22,7 @@ def _get_facets_data(include_muted: bool = False) -> list[dict]:
     facets_list = []
 
     for name, data in all_facets.items():
-        is_muted = data.get("muted", False)
-
-        # Skip muted facets unless explicitly requested
-        if is_muted and not include_muted:
+        if data.get("muted", False):
             continue
 
         facets_list.append(
@@ -41,7 +31,6 @@ def _get_facets_data(include_muted: bool = False) -> list[dict]:
                 "title": data.get("title", name),
                 "color": data.get("color", ""),
                 "emoji": data.get("emoji", ""),
-                "muted": is_muted,  # Include muted status for styling
             }
         )
 
@@ -286,12 +275,7 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
         ):
             day = path_parts[3]
 
-        # Determine if current app wants muted facets shown
-        include_muted = False
-        if current_app_name:
-            include_muted = registry.apps[current_app_name].show_muted_facets()
-
-        facets = _get_facets_data(include_muted=include_muted)
+        facets = _get_facets_data()
         selected_facet = _get_selected_facet()
 
         # Build apps dict for menu-bar

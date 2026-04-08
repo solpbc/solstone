@@ -151,11 +151,6 @@
       const pill = document.createElement('button');
       pill.className = 'facet-pill';
 
-      // Add muted class if facet is muted
-      if (facet.muted) {
-        pill.classList.add('muted');
-      }
-
       if (facet.emoji) {
         const emojiContainer = document.createElement('div');
         emojiContainer.className = 'emoji-container';
