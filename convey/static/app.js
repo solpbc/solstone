@@ -345,6 +345,12 @@
     let touchDragActive = false;
     let isDragging = false;
 
+    // Resolve the movable DOM node: if the item is inside a wrapper (e.g. <li>),
+    // move the wrapper; otherwise move the item directly.
+    function movable(item) {
+      return item.parentElement === container ? item : item.parentElement;
+    }
+
     // Helper: Get current order and trigger callback
     function triggerReorder() {
       const items = Array.from(container.querySelectorAll(itemSelector));
@@ -439,10 +445,10 @@
       if (draggedIndex !== -1 && targetIndex !== -1 && draggedIndex !== targetIndex) {
         if (draggedIndex < targetIndex) {
           // Moving down/right: insert after target
-          container.insertBefore(draggedItem, target.nextSibling);
+          container.insertBefore(movable(draggedItem), movable(target).nextSibling);
         } else {
           // Moving up/left: insert before target
-          container.insertBefore(draggedItem, target);
+          container.insertBefore(movable(draggedItem), movable(target));
         }
       }
     });
@@ -525,9 +531,9 @@
 
         if (draggedIndex !== -1 && targetIndex !== -1 && draggedIndex !== targetIndex) {
           if (draggedIndex < targetIndex) {
-            container.insertBefore(touchedItem, target.nextSibling);
+            container.insertBefore(movable(touchedItem), movable(target).nextSibling);
           } else {
-            container.insertBefore(touchedItem, target);
+            container.insertBefore(movable(touchedItem), movable(target));
           }
         }
       }
@@ -570,10 +576,10 @@
 
   // Reorder menu items based on starred status
   function reorderMenuItems() {
-    const menuBar = document.querySelector('.menu-bar');
-    if (!menuBar) return;
+    const menuItemsContainer = document.querySelector('.menu-bar .menu-items');
+    if (!menuItemsContainer) return;
 
-    const menuItems = Array.from(menuBar.querySelectorAll('.menu-item'));
+    const menuItems = Array.from(menuItemsContainer.querySelectorAll('.menu-item'));
 
     // Separate starred and unstarred items
     const starredItems = menuItems.filter(item =>
@@ -588,7 +594,7 @@
 
     // Update DOM order
     orderedItems.forEach(item => {
-      menuBar.appendChild(item);
+      menuItemsContainer.appendChild(item.parentElement);
     });
 
     // Update separator
