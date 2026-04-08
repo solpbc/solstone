@@ -37,6 +37,10 @@
 {% set _ = body_classes.append('has-app-bar') %}
 {% if app_registry.apps[app].date_nav_enabled() and day %}{% set _ = body_classes.append('has-date-nav') %}{% endif %}
 <body{% if body_classes %} class="{{ body_classes|join(' ') }}"{% endif %}>
+<script>
+// Restore sidebar state before first paint to prevent FOUC
+(function(){try{var s=localStorage.getItem('solstone:menu-state');if(s==='full')document.body.classList.add('menu-full');else if(s==='all')document.body.classList.add('menu-all');}catch(e){}})();
+</script>
 <a href="#main-content" class="skip-link">skip to content</a>
 <!-- Corner Tags (screen region detection) -->
 <div class="corner-tags" aria-hidden="true">

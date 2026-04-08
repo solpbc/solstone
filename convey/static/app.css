@@ -631,6 +631,41 @@ ul.menu-items {
   display: none;  /* Chrome, Safari, Edge */
 }
 
+/* Scroll overflow shadows on .menu-items */
+.menu-bar .menu-items::before,
+.menu-bar .menu-items::after {
+  content: '';
+  display: block;
+  position: sticky;
+  left: 0;
+  right: 0;
+  height: 28px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.menu-bar .menu-items::before {
+  top: 0;
+  margin-bottom: -28px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.06), transparent);
+}
+
+.menu-bar .menu-items::after {
+  bottom: 0;
+  margin-top: -28px;
+  background: linear-gradient(to top, rgba(0,0,0,0.06), transparent);
+}
+
+.menu-bar .menu-items.scroll-shadow-top::before {
+  opacity: 1;
+}
+
+.menu-bar .menu-items.scroll-shadow-bottom::after {
+  opacity: 1;
+}
+
 body.menu-full .menu-bar {
   width: var(--menu-bar-width-full);
   background: linear-gradient(var(--facet-bg, transparent), var(--facet-bg, transparent)), white;

@@ -599,6 +599,8 @@
 
     // Update separator
     updateLastStarredSeparator();
+    // Refresh scroll shadows after visibility changes
+    updateScrollShadows();
   }
 
   // Toggle star status for an app
@@ -685,6 +687,22 @@
     }
   }
 
+  // Update scroll overflow shadow indicators on .menu-items
+  function updateScrollShadows() {
+    const menuItems = document.querySelector('.menu-bar .menu-items');
+    if (!menuItems) return;
+    const { scrollTop, scrollHeight, clientHeight } = menuItems;
+    menuItems.classList.toggle('scroll-shadow-top', scrollTop > 0);
+    menuItems.classList.toggle('scroll-shadow-bottom', scrollTop + clientHeight < scrollHeight - 1);
+  }
+
+  // Persist sidebar state to localStorage
+  function saveMenuState() {
+    const state = document.body.classList.contains('menu-full') ? 'full' :
+                  document.body.classList.contains('menu-all') ? 'all' : 'minimal';
+    try { localStorage.setItem('solstone:menu-state', state); } catch (e) {}
+  }
+
   // Initialize
   function init() {
     // window.selectedFacet already initialized by server (see app.html)
@@ -693,6 +711,22 @@
 
     // Load starred apps
     loadStarredApps();
+
+    // Restore sidebar UI state (body class set by inline FOUC script; update controls here)
+    {
+      if (document.body.classList.contains('menu-all')) {
+        const exp = document.querySelector('.menu-expander');
+        if (exp) {
+          exp.textContent = '«';
+          exp.setAttribute('aria-expanded', 'true');
+          exp.setAttribute('aria-label', 'show fewer apps');
+        }
+      }
+      if (document.body.classList.contains('menu-full')) {
+        const ham = document.getElementById('hamburger');
+        if (ham) ham.setAttribute('aria-expanded', 'true');
+      }
+    }
 
     // Setup facet pill drag-and-drop
     const facetPillsContainer = document.querySelector('.facet-pills-container');
@@ -778,6 +812,9 @@
         }
         document.body.classList.toggle('menu-full');
         hamburger.setAttribute('aria-expanded', document.body.classList.contains('menu-full'));
+        saveMenuState();
+        updateScrollShadows();
+        setTimeout(updateScrollShadows, 350);
       });
 
       // Close menu when clicking outside
@@ -786,6 +823,9 @@
           if (!menuBar.contains(e.target) && !hamburger.contains(e.target)) {
             document.body.classList.remove('menu-full');
             hamburger.setAttribute('aria-expanded', 'false');
+            saveMenuState();
+            updateScrollShadows();
+            setTimeout(updateScrollShadows, 350);
           }
         }
         // Also close menu-all when clicking outside
@@ -798,6 +838,9 @@
               menuExpander.setAttribute('aria-expanded', 'false');
               menuExpander.setAttribute('aria-label', 'show all apps');
             }
+            saveMenuState();
+            updateScrollShadows();
+            setTimeout(updateScrollShadows, 350);
           }
         }
       });
@@ -834,7 +877,18 @@
         menuExpander.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
         menuExpander.setAttribute('aria-label', isExpanded ? 'show fewer apps' : 'show all apps');
         menuExpander.textContent = isExpanded ? '«' : '›';
+        saveMenuState();
+        updateScrollShadows();
+        setTimeout(updateScrollShadows, 350);
       });
+    }
+
+    // Scroll shadow listeners
+    const menuItemsScroll = document.querySelector('.menu-bar .menu-items');
+    if (menuItemsScroll) {
+      menuItemsScroll.addEventListener('scroll', updateScrollShadows, { passive: true });
+      window.addEventListener('resize', updateScrollShadows);
+      updateScrollShadows();
     }
 
     // App ordering via drag-and-drop
