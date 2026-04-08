@@ -1365,6 +1365,16 @@ body.menu-all .menu-bar {
   font-size: 13px;
   position: relative;
   z-index: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.chat-bar-thinking > [aria-hidden="true"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .chat-bar-thinking-dot {

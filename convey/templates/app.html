@@ -446,24 +446,75 @@
         });
       }
 
-      if (cmd.includes('sol call journal search')) return 'searching your journal\u2026';
+      if (cmd.includes('sol call journal search')) {
+        var query = extractArg(cmd, '--query');
+        if (query) return 'searching: ' + query.substring(0, 50) + '\u2026';
+        return 'searching your journal\u2026';
+      }
       if (cmd.includes('sol call journal events') || cmd.includes('sol call calendar list')) return 'looking up events\u2026';
       if (cmd.includes('sol call navigate')) return 'navigating\u2026';
       if (cmd.includes('sol call transcripts')) return 'reading transcripts\u2026';
-      if (cmd.includes('sol call journal read')) return 'reading your notes\u2026';
+      if (cmd.includes('sol call entity') || cmd.includes('sol call entities')) {
+        var entityDetail = extractArg(cmd, '--query')
+          || extractArg(cmd, 'intelligence')
+          || extractArg(cmd, 'observations')
+          || extractArg(cmd, 'observe');
+        if (entityDetail) return 'looking up: ' + entityDetail.substring(0, 50) + '\u2026';
+      }
+      if (cmd.includes('sol call journal read')) {
+        var identifier = extractArg(cmd, '--id') || extractArg(cmd, '--date');
+        if (identifier) return 'reading: ' + identifier.substring(0, 50) + '\u2026';
+        return 'reading your notes\u2026';
+      }
       if (cmd.includes('sol call journal agents')) return 'checking daily insights\u2026';
       return 'working\u2026';
     }
     return null;
   }
 
+  function extractArg(cmd, flag) {
+    if (!cmd || !flag) return '';
+    var singleQuoted = cmd.match(new RegExp(flag + "\\s+'([^']+)'"));
+    if (singleQuoted && singleQuoted[1]) return singleQuoted[1];
+    var doubleQuoted = cmd.match(new RegExp(flag + '\\s+"([^"]+)"'));
+    if (doubleQuoted && doubleQuoted[1]) return doubleQuoted[1];
+    var unquoted = cmd.match(new RegExp(flag + '\\s+(\\S+)'));
+    if (unquoted && unquoted[1]) return unquoted[1];
+    return '';
+  }
+
+  var announceTimer = null;
+
   function updateThinkingLabel(text) {
     var barEl = document.getElementById('chatBarThinking');
     var panelEl = document.getElementById('panelThinking');
     [barEl, panelEl].forEach(function(el) {
       if (!el) return;
-      el.innerHTML = '<span class="chat-bar-thinking-dot"></span> ' + text;
+      var visual = el.querySelector('[aria-hidden="true"]');
+      var announce = el.querySelector('.thinking-announce');
+      if (!visual) {
+        visual = document.createElement('span');
+        visual.setAttribute('aria-hidden', 'true');
+        el.innerHTML = '';
+        el.appendChild(visual);
+      }
+      if (!announce) {
+        announce = document.createElement('span');
+        announce.className = 'visually-hidden thinking-announce';
+        el.appendChild(announce);
+      }
+      visual.innerHTML = '<span class="chat-bar-thinking-dot"></span> ' + text;
     });
+    if (announceTimer) clearTimeout(announceTimer);
+    announceTimer = setTimeout(function() {
+      var delayedBarEl = document.getElementById('chatBarThinking');
+      var delayedPanelEl = document.getElementById('panelThinking');
+      [delayedBarEl, delayedPanelEl].forEach(function(el) {
+        if (!el) return;
+        var announce = el.querySelector('.thinking-announce');
+        if (announce) announce.textContent = text;
+      });
+    }, 500);
   }
 
   // --- Form submit ---
@@ -488,7 +539,7 @@
       td.className = 'conversation-message agent thinking';
       td.id = 'panelThinking';
       td.setAttribute('aria-live', 'assertive');
-      td.innerHTML = '<span class="chat-bar-thinking-dot"></span> thinking\u2026';
+      td.innerHTML = '<span aria-hidden="true"><span class="chat-bar-thinking-dot"></span> thinking\u2026</span><span class="visually-hidden thinking-announce">thinking\u2026</span>';
       msgArea.appendChild(td);
       msgArea.scrollTop = msgArea.scrollHeight;
     } else {
@@ -510,6 +561,7 @@
       if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
       if (timerTimeout) { clearTimeout(timerTimeout); timerTimeout = null; }
       if (watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
+      if (announceTimer) { clearTimeout(announceTimer); announceTimer = null; }
       var pt = document.getElementById('panelThinking');
       if (pt) pt.remove();
       thinking.style.display = 'none';
@@ -581,16 +633,18 @@
       timerTimeout = setTimeout(function() {
         timerInterval = setInterval(function() {
           var elapsed = Math.round((Date.now() - thinkingStarted) / 1000);
-          var suffix = ' <span class="thinking-elapsed">' + elapsed + 's</span>';
+          var suffix = ' <span class="thinking-elapsed" aria-hidden="true">' + elapsed + 's</span>';
           var barEl = document.getElementById('chatBarThinking');
           var panelEl = document.getElementById('panelThinking');
           [barEl, panelEl].forEach(function(el) {
             if (!el) return;
-            var existing = el.querySelector('.thinking-elapsed');
+            var visual = el.querySelector('[aria-hidden="true"]');
+            if (!visual) visual = el;
+            var existing = visual.querySelector('.thinking-elapsed');
             if (existing) {
               existing.textContent = elapsed + 's';
             } else {
-              el.insertAdjacentHTML('beforeend', suffix);
+              visual.insertAdjacentHTML('beforeend', suffix);
             }
           });
         }, 1000);
@@ -602,12 +656,10 @@
       // Subscribe to cortex events for this agent
       if (window.appEvents) {
         cleanupCortex = window.appEvents.listen('cortex', function(msg) {
-          // Update thinking label on any progress event
-          var label = getProgressLabel(msg);
-          if (label) updateThinkingLabel(label);
-
-          // Reset inactivity watchdog on any event for our agent
+          // Reset inactivity watchdog and update thinking label for our agent
           if (msg.agent_id === agentId) {
+            var label = getProgressLabel(msg);
+            if (label) updateThinkingLabel(label);
             startWatchdog(agentId);
           }
 

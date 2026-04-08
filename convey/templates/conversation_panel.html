@@ -9,8 +9,8 @@
   <!-- Inline response (visible in bar mode) -->
   <div class="chat-bar-response-panel" id="chatBarResponsePanel">
     <div class="chat-bar-thinking" id="chatBarThinking" style="display: none;" aria-live="assertive">
-      <span class="chat-bar-thinking-dot"></span>
-      thinking&hellip;
+      <span aria-hidden="true"><span class="chat-bar-thinking-dot"></span> thinking&hellip;</span>
+      <span class="visually-hidden thinking-announce">thinking&hellip;</span>
     </div>
     <div class="chat-bar-response" id="chatBarResponse" style="display: none;"></div>
     <button class="chat-bar-dismiss" id="chatBarDismiss" style="display: none;" title="dismiss" aria-label="close conversation">&times;</button>
