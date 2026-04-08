@@ -37,6 +37,26 @@ def _get_password_hash() -> str:
         return ""
 
 
+def _is_setup_complete() -> bool:
+    """Check if initial setup has been completed."""
+    try:
+        config = get_config()
+        return bool(config.get("setup", {}).get("completed_at"))
+    except Exception:
+        return False
+
+
+def _check_basic_auth() -> bool:
+    """Check Basic Auth credentials against stored password hash."""
+    auth = request.authorization
+    if not auth or auth.type != "basic":
+        return False
+    password_hash = _get_password_hash()
+    if not password_hash:
+        return False
+    return check_password_hash(password_hash, auth.password or "")
+
+
 def _save_config_section(section: str, data: dict) -> dict:
     """Merge data into a config section and write back to journal.json."""
     config = get_config()
@@ -77,26 +97,35 @@ def require_login() -> Any:
     }:
         return None
 
-    # Auto-bypass for localhost requests WITHOUT proxy headers
-    remote_addr = request.remote_addr
-    is_localhost = remote_addr in ("127.0.0.1", "::1", "localhost")
-
-    # Detect proxy headers that might indicate forwarded external request
-    proxy_headers = (
-        request.headers.get("X-Forwarded-For")
-        or request.headers.get("X-Real-IP")
-        or request.headers.get("X-Forwarded-Host")
-    )
-
-    if is_localhost and not proxy_headers:
-        # Genuine localhost request - auto-bypass
+    # Session cookie
+    if session.get("logged_in"):
         return None
 
-    # Otherwise require session authentication
-    if not session.get("logged_in"):
-        if not _get_password_hash():
-            return redirect(url_for("root.init"))
-        return redirect(url_for("root.login"))
+    # Basic Auth (per-request, no session creation)
+    if _check_basic_auth():
+        return None
+
+    # Check setup state
+    setup_complete = _is_setup_complete()
+
+    # Opt-in localhost bypass (requires completed setup + trust_localhost flag)
+    if setup_complete:
+        config = get_config()
+        if config.get("convey", {}).get("trust_localhost", False):
+            remote_addr = request.remote_addr
+            is_localhost = remote_addr in ("127.0.0.1", "::1", "localhost")
+            proxy_headers = (
+                request.headers.get("X-Forwarded-For")
+                or request.headers.get("X-Real-IP")
+                or request.headers.get("X-Forwarded-Host")
+            )
+            if is_localhost and not proxy_headers:
+                return None
+
+    # Not authenticated — redirect based on setup state
+    if not setup_complete:
+        return redirect(url_for("root.init"))
+    return redirect(url_for("root.login"))
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -121,12 +150,18 @@ def login() -> Any:
 
 @bp.route("/init")
 def init() -> Any:
-    if _get_password_hash():
+    if _is_setup_complete():
         return redirect(url_for("root.index"))
 
     config_path = str(Path(get_journal()) / "config" / "journal.json")
     repo_path = str(Path(__file__).resolve().parent.parent)
-    return render_template("init.html", config_path=config_path, repo_path=repo_path)
+    has_password = bool(_get_password_hash())
+    return render_template(
+        "init.html",
+        config_path=config_path,
+        repo_path=repo_path,
+        has_password=has_password,
+    )
 
 
 @bp.route("/init/password", methods=["POST"])

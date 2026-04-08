@@ -307,6 +307,17 @@
         if (data.success && data.redirect) window.location.href = data.redirect;
       } catch (err) {}
     }
+
+    {% if has_password %}
+    document.addEventListener('DOMContentLoaded', function() {
+      const pwField = document.getElementById('password');
+      pwField.value = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+      pwField.disabled = true;
+      const toggle = document.getElementById('toggle-password');
+      if (toggle) toggle.style.display = 'none';
+      unlockSections();
+    });
+    {% endif %}
   </script>
 </body>
 </html>
