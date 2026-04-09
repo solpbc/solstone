@@ -531,7 +531,7 @@ button.activity-detail-back {
         const idx = list.indexOf(o);
         const isPlanned = o.occurred === false;
         const cardClass = isPlanned ? 'all-day-card planned' : 'all-day-card';
-        const badge = isPlanned ? '<span class="card-badge">Planned</span>' : '';
+        const badge = isPlanned ? '<span class="card-badge">planned</span>' : '';
         const title = escapeHtml(o.title || o.summary || o.agent || 'Event');
         html += `<div class="${cardClass}" data-index="${idx}" tabindex="0" role="button" style="border-color:${o.color || '#6c757d'}">`;
         html += `<span class="card-title">${title}</span>${badge}</div>`;
@@ -714,20 +714,20 @@ button.activity-detail-back {
     if (occ.startTime) {
       const when = fmtTime(occ.startTime);
       const len = fmtLength(occ.startTime, occ.endTime);
-      const timeLabel = isPlanned ? 'Scheduled' : 'Started';
+      const timeLabel = isPlanned ? 'planned' : 'started';
       html += `<div class="occ-field"><strong>${timeLabel}</strong> ${when} - ${len}</div>`;
     }
     if (occ.facet) {
-      html += `<div class="occ-field"><strong>Facet</strong> ${escapeHtml(occ.facet)}</div>`;
+      html += `<div class="occ-field"><strong>facet</strong> ${escapeHtml(occ.facet)}</div>`;
     }
     if (Array.isArray(occ.participants) && occ.participants.length > 0) {
-      const participantsLabel = isPlanned ? 'Expected' : 'Participants';
+      const participantsLabel = isPlanned ? 'expected' : 'participants';
       html += `<div class="occ-field"><strong>${participantsLabel}</strong> ${escapeHtml(occ.participants.join(', '))}</div>`;
     }
     if (isPlanned) {
       const createdOn = parseCreatedDate(occ.source);
       if (createdOn) {
-        html += `<div class="occ-field"><strong>Created</strong> ${createdOn}</div>`;
+        html += `<div class="occ-field"><strong>created</strong> ${createdOn}</div>`;
       }
     }
     if (occ.details) {
@@ -1008,8 +1008,7 @@ button.activity-detail-back {
   // ── Init ──
 
   window.addEventListener('facet.switch', () => {
-    // Reload to pick up facet-filtered activities
-    loadData();
+    applyFilters();
   });
 
   document.querySelector('#eventModal .close').onclick = () => {
