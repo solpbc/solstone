@@ -61,11 +61,19 @@
 }
 
 .todo-checkbox {
-  flex-shrink: 0;
   width: 1.25rem;
   height: 1.25rem;
-  cursor: pointer;
   accent-color: #2563eb;
+}
+
+.todo-checkbox-target {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 .todo-content {
@@ -126,8 +134,8 @@
 }
 
 .todo-action-btn {
-  width: 2rem;
-  height: 2rem;
+  width: 2.75rem;
+  height: 2.75rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -320,17 +328,20 @@
                 <input type="hidden" name="action" value="{{ 'uncomplete' if item.completed else 'complete' }}">
                 <input type="hidden" name="facet" value="{{ facet_name }}">
                 <input type="hidden" name="index" value="{{ item.index }}">
-                <input
-                  type="checkbox"
-                  class="todo-checkbox"
-                  {% if item.completed %}checked{% endif %}
-                  data-index="{{ item.index }}"
-                  data-facet="{{ facet_name }}"
-                  data-completed="{{ 'true' if item.completed else 'false' }}"
-                >
+                <label class="todo-checkbox-target">
+                  <input
+                    type="checkbox"
+                    class="todo-checkbox"
+                    id="todo-{{ facet_name }}-{{ item.index }}"
+                    {% if item.completed %}checked{% endif %}
+                    data-index="{{ item.index }}"
+                    data-facet="{{ facet_name }}"
+                    data-completed="{{ 'true' if item.completed else 'false' }}"
+                  >
+                </label>
               </form>
 
-              <div class="todo-content">
+              <label class="todo-content" for="todo-{{ facet_name }}-{{ item.index }}">
                 <span
                   class="todo-text"
                   title="{{ item.text }}"
@@ -340,12 +351,13 @@
                 {% if item.nudge %}
                   <span class="todo-nudge">{{ format_nudge(item.nudge) }}</span>
                 {% endif %}
-              </div>
+              </label>
 
               <div class="todo-actions">
                 <button
                   type="button"
                   class="todo-action-btn move"
+                  aria-label="Move to another day"
                   title="Move to another day"
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
@@ -357,6 +369,7 @@
                 <button
                   type="button"
                   class="todo-action-btn cancel"
+                  aria-label="Cancel todo"
                   title="Cancel"
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
@@ -1300,16 +1313,19 @@ document.addEventListener('DOMContentLoaded', function() {
         <input type="hidden" name="action" value="complete">
         <input type="hidden" name="facet" value="${facetName}">
         <input type="hidden" name="index" value="${todo.index}">
-        <input
-          type="checkbox"
-          class="todo-checkbox"
-          data-index="${todo.index}"
-          data-facet="${facetName}"
-          data-completed="false"
-        >
+        <label class="todo-checkbox-target">
+          <input
+            type="checkbox"
+            class="todo-checkbox"
+            id="todo-${facetName}-${todo.index}"
+            data-index="${todo.index}"
+            data-facet="${facetName}"
+            data-completed="false"
+          >
+        </label>
       </form>
 
-      <div class="todo-content">
+      <label class="todo-content" for="todo-${facetName}-${todo.index}">
         <span
           class="todo-text"
           title="${escape(todo.text)}"
@@ -1317,12 +1333,13 @@ document.addEventListener('DOMContentLoaded', function() {
           data-facet="${facetName}"
         >${escape(todo.text)}</span>
         ${todo.nudge_display ? `<span class="todo-nudge">${escape(todo.nudge_display)}</span>` : ''}
-      </div>
+      </label>
 
       <div class="todo-actions">
         <button
           type="button"
           class="todo-action-btn move"
+          aria-label="Move to another day"
           title="Move to another day"
           data-index="${todo.index}"
           data-facet="${facetName}"
@@ -1334,6 +1351,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <button
           type="button"
           class="todo-action-btn cancel"
+          aria-label="Cancel todo"
           title="Cancel"
           data-index="${todo.index}"
           data-facet="${facetName}"
