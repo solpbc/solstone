@@ -321,8 +321,9 @@
 
     <!-- Main content -->
     <main class="search-main">
-      <form class="search-input-form" id="search-input-form">
-        <input type="text" class="search-input" id="search-input"
+      <form class="search-input-form" id="search-input-form" role="search">
+        <label for="search-input" class="visually-hidden">search your journal</label>
+        <input type="search" class="search-input" id="search-input"
                placeholder="Search your journal..." autocomplete="off">
       </form>
 

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import html
 import re
 from typing import Any
 
@@ -70,6 +71,7 @@ def _highlight_query_terms(text: str, query: str) -> str:
     """Add bold highlighting around query terms in text."""
     if not query:
         return text
+    text = html.escape(text)
     # Extract individual words from query (ignore FTS operators)
     terms = [t for t in query.split() if t.upper() not in ("AND", "OR", "NOT")]
     for term in terms:
