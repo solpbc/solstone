@@ -87,6 +87,12 @@
   white-space: pre-wrap;
 }
 
+.day-summary {
+  font-size: 0.9em;
+  color: #888;
+  margin-bottom: 1em;
+}
+
 .events-empty {
   color: #666;
   font-style: italic;
@@ -446,6 +452,7 @@ button.activity-detail-back {
     <span class="breadcrumb-current" aria-current="page">{{ title }}</span>
   </nav>
   <h1>{{ title }}</h1>
+  <div id="daySummary" class="day-summary"></div>
 
   <div id="dayView">
     <div id="eventsView">
@@ -548,6 +555,54 @@ button.activity-detail-back {
       return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
     }
     return null;
+  }
+
+  function renderSummary() {
+    const el = document.getElementById('daySummary');
+    const ec = events.length;
+    const ac = activities.length;
+
+    if (!ec && !ac) {
+      el.textContent = '';
+      el.style.display = 'none';
+      return;
+    }
+
+    el.style.display = '';
+
+    const parts = [];
+    if (ec) parts.push(ec === 1 ? '1 event' : `${ec} events`);
+    if (ac) parts.push(ac === 1 ? '1 activity' : `${ac} activities`);
+    const counts = parts.join(', ');
+
+    const times = []
+      .concat(events, activities)
+      .filter(x => x.startTime)
+      .map(x => new Date(x.startTime));
+
+    if (!times.length) {
+      el.textContent = counts;
+      return;
+    }
+
+    times.sort((a, b) => a - b);
+    const earliest = times[0];
+    const latest = times[times.length - 1];
+    const eh = earliest.getHours();
+    const lh = latest.getHours();
+
+    let timeLabel;
+    if (lh < 12) {
+      timeLabel = 'morning';
+    } else if (eh >= 12 && lh < 17) {
+      timeLabel = 'afternoon';
+    } else if (eh >= 17) {
+      timeLabel = 'evening';
+    } else {
+      timeLabel = `${fmtTime(earliest)} to ${fmtTime(latest)}`;
+    }
+
+    el.textContent = `${counts} — ${timeLabel}`;
   }
 
   // ── Events rendering ──
@@ -959,6 +1014,8 @@ button.activity-detail-back {
   function applyFilters() {
     events = filterByFacet(allEvents);
     activities = filterByFacet(allActivities);
+
+    renderSummary();
 
     if (currentActivityId) {
       // Stay on detail if it still exists
