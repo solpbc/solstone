@@ -363,7 +363,7 @@
           <span class="facet-chevron" aria-hidden="true">▸</span>
           {% if facet_emoji %}<span class="facet-emoji" aria-hidden="true">{{ facet_emoji }}</span>{% endif %}
           <h2 class="facet-title">{{ facet_title }}</h2>
-          <span class="facet-pending-text">{% if total_count == 0 %}{% elif incomplete_count == 0 %}all done{% else %}{{ incomplete_count }} remaining{% endif %}</span>
+          <span class="facet-pending-text">{% if total_count == 0 %}{% elif incomplete_count == 0 %}all done{% else %}{{ total_count - incomplete_count }} of {{ total_count }} done{% endif %}</span>
           <a href="#"
              class="facet-generate-btn"
              data-facet="{{ facet_name }}"
@@ -626,7 +626,8 @@ document.addEventListener('DOMContentLoaded', function() {
       } else if (isAllComplete) {
         pendingText.textContent = 'all done';
       } else {
-        pendingText.textContent = `${incompleteCount} remaining`;
+        const doneCount = totalCount - incompleteCount;
+        pendingText.textContent = `${doneCount} of ${totalCount} done`;
       }
     }
   }
@@ -909,6 +910,19 @@ document.addEventListener('DOMContentLoaded', function() {
             todoRow.classList.add('completed');
           } else {
             todoRow.classList.remove('completed');
+          }
+
+          // Reorder: completed rows go to bottom, uncompleted rows go above completed section
+          const todoList = todoRow.closest('.todo-list');
+          if (todoList) {
+            if (isCompleted) {
+              todoList.appendChild(todoRow);
+            } else {
+              const firstCompleted = todoList.querySelector('.todo-row.completed');
+              if (firstCompleted) {
+                todoList.insertBefore(todoRow, firstCompleted);
+              }
+            }
           }
 
           // Update form action for next click
@@ -1470,8 +1484,12 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
     `;
 
-    // Add to bottom of list
-    todoList.appendChild(li);
+    const firstCompleted = todoList.querySelector('.todo-row.completed');
+    if (firstCompleted) {
+      todoList.insertBefore(li, firstCompleted);
+    } else {
+      todoList.appendChild(li);
+    }
 
     // Hide per-facet empty state since we now have a todo
     const facetEmpty = facetSection.querySelector('.todo-facet-empty');

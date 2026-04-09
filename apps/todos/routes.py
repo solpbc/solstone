@@ -445,6 +445,7 @@ def todos_day(day: str):  # type: ignore[override]
         if facet_todos:
             # Filter out cancelled todos and add facet info
             facet_todos = [t for t in facet_todos if not t.get("cancelled")]
+            facet_todos.sort(key=lambda t: t.get("completed", False))
             for todo in facet_todos:
                 todo["facet"] = facet_name
         else:
