@@ -993,6 +993,7 @@ tr:hover .entity-delete-btn {
         <button class="btn btn-secondary" id="journal-detail-block-btn">Block</button>
         <button class="btn btn-danger" id="journal-detail-delete-btn">Delete</button>
       </div>
+      <div id="block-action-error" class="error-message" style="display: none;"></div>
       <p style="margin-top: 0.75em; font-size: 0.85em; color: #6c757d;">
         <strong>Block</strong> hides the entity from all views but preserves data.
         <strong>Delete</strong> permanently removes the entity and all associated data.
@@ -1019,6 +1020,7 @@ tr:hover .entity-delete-btn {
           <span>detected entities</span>
           <input type="text" id="entity-search" class="entity-search-input" placeholder="Search entities...">
         </h3>
+        <div id="detected-action-error" class="error-message" style="display: none;"></div>
         <table class="entities-table">
           <thead>
             <tr>
@@ -1050,6 +1052,7 @@ tr:hover .entity-delete-btn {
     <div class="entity-detail-section">
       <h4>description</h4>
       <div id="detail-description-container"></div>
+      <div id="description-save-error" class="error-message" style="display: none;"></div>
     </div>
 
     <div class="entity-detail-section">
@@ -1060,6 +1063,7 @@ tr:hover .entity-delete-btn {
     <div class="entity-detach-section">
       <button class="btn" id="detail-detach-btn"></button>
     </div>
+    <div id="detach-action-error" class="error-message" style="display: none;"></div>
 
     <div class="entity-attach-section" id="detail-attach-section" style="display: none;">
       <h4>attach to <span id="attach-facet-name"></span></h4>
@@ -1118,6 +1122,7 @@ tr:hover .entity-delete-btn {
           <li id="deleteJournalEntityObs"></li>
         </ul>
       </div>
+      <div id="delete-modal-error" class="error-message" style="display: none; margin-top: 0.5em;"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeDeleteJournalEntityModal()">Cancel</button>
@@ -1133,9 +1138,32 @@ let journalEntitiesData = null;  // For all-facet mode
 let currentDetailEntity = null;
 const pendingEntities = new Map(); // agent_id → { name, element }
 const pendingAgentCallbacks = new Map(); // agent_id → callback function
+const _errorTimers = {};
 
 // Standard entity types - fetched from server
 let ENTITY_TYPES = [];
+
+// Inline error helpers
+function showInlineError(elementId, message) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.textContent = message;
+  el.style.display = 'block';
+  if (_errorTimers[elementId]) clearTimeout(_errorTimers[elementId]);
+  _errorTimers[elementId] = setTimeout(() => {
+    el.style.display = 'none';
+  }, 8000);
+}
+
+function hideInlineError(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.style.display = 'none';
+  if (_errorTimers[elementId]) {
+    clearTimeout(_errorTimers[elementId]);
+    delete _errorTimers[elementId];
+  }
+}
 
 // Load entity types from server and populate UI elements
 async function loadEntityTypes() {
@@ -1661,13 +1689,14 @@ function blockJournalEntity() {
     if (data.error) {
       throw new Error(data.error);
     }
+    hideInlineError('block-action-error');
     // Navigate back to list and reload
     navigateToList();
     loadEntities();
   })
   .catch(error => {
     console.error('Error blocking entity:', error);
-    alert('Error: ' + error.message);
+    showInlineError('block-action-error', "couldn't block entity");
     btn.disabled = false;
     btn.textContent = 'Block';
   });
@@ -1689,13 +1718,14 @@ function unblockJournalEntity() {
     if (data.error) {
       throw new Error(data.error);
     }
+    hideInlineError('block-action-error');
     // Refresh the detail view
     showJournalDetailView(entityId);
     loadEntities();  // Refresh list in background
   })
   .catch(error => {
     console.error('Error unblocking entity:', error);
-    alert('Error: ' + error.message);
+    showInlineError('block-action-error', "couldn't unblock entity");
     btn.disabled = false;
     btn.textContent = 'Unblock';
   });
@@ -1720,6 +1750,7 @@ function showDeleteJournalEntityModal() {
 }
 
 function closeDeleteJournalEntityModal() {
+  hideInlineError('delete-modal-error');
   document.getElementById('deleteJournalEntityModal').style.display = 'none';
 }
 
@@ -1739,13 +1770,14 @@ function confirmDeleteJournalEntity() {
     if (data.error) {
       throw new Error(data.error);
     }
+    hideInlineError('delete-modal-error');
     closeDeleteJournalEntityModal();
     navigateToList();
     loadEntities();
   })
   .catch(error => {
     console.error('Error deleting entity:', error);
-    alert('Error: ' + error.message);
+    showInlineError('delete-modal-error', "couldn't delete entity");
     btn.disabled = false;
     btn.textContent = 'Delete Permanently';
   });
@@ -2018,6 +2050,7 @@ function saveDescription(entity, newDescription) {
     if (data.success) {
       entity.description = newDescription;
       currentDetailEntity.description = newDescription;
+      hideInlineError('description-save-error');
       renderDescriptionSection(entity);
     } else {
       throw new Error(data.error || 'Failed to save');
@@ -2025,7 +2058,7 @@ function saveDescription(entity, newDescription) {
   })
   .catch(error => {
     console.error('Error saving description:', error);
-    alert('Error saving: ' + error.message);
+    showInlineError('description-save-error', "couldn't save description");
   });
 }
 
@@ -2038,6 +2071,7 @@ function detachEntity(entity) {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
+      hideInlineError('detach-action-error');
       // Go back to list view and refresh
       navigateToList();
       loadEntities();
@@ -2047,7 +2081,7 @@ function detachEntity(entity) {
   })
   .catch(error => {
     console.error('Error detaching entity:', error);
-    alert('Error: ' + error.message);
+    showInlineError('detach-action-error', "couldn't detach entity");
   });
 }
 
@@ -2064,6 +2098,7 @@ function reattachEntity(entity) {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
+      hideInlineError('detach-action-error');
       // Update local state and re-render detail view
       delete entity.detached;
       delete currentDetailEntity.detached;
@@ -2076,7 +2111,7 @@ function reattachEntity(entity) {
   })
   .catch(error => {
     console.error('Error re-attaching entity:', error);
-    alert('Error: ' + error.message);
+    showInlineError('detach-action-error', "couldn't re-attach entity");
   });
 }
 
@@ -2618,6 +2653,7 @@ function attachDetectedEntity(entity, button) {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
+      hideInlineError('detected-action-error');
       // Reload to get full entity data
       loadEntities();
     } else {
@@ -2626,7 +2662,7 @@ function attachDetectedEntity(entity, button) {
   })
   .catch(error => {
     console.error('Error attaching entity:', error);
-    alert('Error: ' + error.message);
+    showInlineError('detected-action-error', "couldn't attach entity");
     button.disabled = false;
     button.style.opacity = '1';
   });
@@ -2824,6 +2860,7 @@ function previewEntityDelete(entityName) {
     .then(response => response.json())
     .then(data => {
       if (data.success && data.days) {
+        hideInlineError('detected-action-error');
         if (data.days.length === 1) {
           // Single detection - delete directly
           removeEntityFromUI(entityName);
@@ -2852,7 +2889,7 @@ function previewEntityDelete(entityName) {
     })
     .catch(error => {
       console.error('Error previewing delete:', error);
-      alert('Error: ' + error.message);
+      showInlineError('detected-action-error', "couldn't load delete preview");
     });
 }
 
