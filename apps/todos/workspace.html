@@ -17,10 +17,25 @@
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
-  padding-bottom: 0.25rem;
-  border-bottom: 2px solid;
+  padding-left: 0.5rem;
+  border-left: 4px solid;
   cursor: pointer;
   user-select: none;
+}
+
+.facet-chevron {
+  display: inline-block;
+  transition: transform 0.2s ease;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.facet-section:not(.collapsed) .facet-chevron {
+  transform: rotate(90deg);
+}
+
+.facet-emoji {
+  font-size: 0.875rem;
 }
 
 .facet-header:hover {
@@ -32,6 +47,12 @@
   font-weight: 600;
   margin: 0;
   color: #374151;
+}
+
+.facet-pending-text {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 400;
 }
 
 .facet-count {
@@ -298,6 +319,7 @@
       {% set facet_info = facet_map.get(facet_name, {}) %}
       {% set facet_title = facet_info.get('title', facet_name.title()) %}
       {% set facet_color = facet_info.get('color', '#6b7280') %}
+      {% set facet_emoji = facet_info.get('emoji', '') %}
       {% set incomplete_count = facet_todos | selectattr('completed', 'equalto', false) | list | length %}
       {% set total_count = facet_todos | length %}
       {% if total_count == 0 %}
@@ -311,8 +333,11 @@
       {% endif %}
 
       <div class="facet-section" data-facet="{{ facet_name }}">
-        <div class="facet-header" style="border-color: {{ facet_color }};">
+        <div class="facet-header" role="button" tabindex="0" aria-expanded="true" aria-controls="todo-list-{{ facet_name }}" style="border-color: {{ facet_color }};">
+          <span class="facet-chevron" aria-hidden="true">▸</span>
+          {% if facet_emoji %}<span class="facet-emoji" aria-hidden="true">{{ facet_emoji }}</span>{% endif %}
           <h2 class="facet-title">{{ facet_title }}</h2>
+          <span class="facet-pending-text">{% if total_count == 0 %}{% elif incomplete_count == 0 %}all done{% else %}{{ incomplete_count }} remaining{% endif %}</span>
           <a href="#"
              class="facet-generate-btn"
              data-facet="{{ facet_name }}"
@@ -321,7 +346,7 @@
           <span class="facet-count">{{ count_emoji }}</span>
         </div>
 
-        <ul class="todo-list">
+        <ul class="todo-list" id="todo-list-{{ facet_name }}">
           {% for item in facet_todos %}
             <li class="todo-row {% if item.completed %}completed{% endif %}" data-todo-row>
               <form method="post" style="display: contents;">
@@ -465,6 +490,8 @@ document.addEventListener('DOMContentLoaded', function() {
           hasVisibleSection = true;
           // Expand the section (no auto-collapse in single-facet mode)
           s.classList.remove('collapsed');
+          const header = s.querySelector('.facet-header');
+          if (header) header.setAttribute('aria-expanded', 'true');
         } else {
           s.style.display = 'none';
         }
@@ -524,6 +551,10 @@ document.addEventListener('DOMContentLoaded', function() {
       delete collapsedState[facet];
     }
 
+    const header = facetSection.querySelector('.facet-header');
+    if (header) {
+      header.setAttribute('aria-expanded', collapse ? 'false' : 'true');
+    }
     saveCollapsedState(collapsedState);
   }
 
@@ -555,6 +586,17 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
       countSpan.textContent = '*️⃣';
     }
+
+    const pendingText = facetSection.querySelector('.facet-pending-text');
+    if (pendingText) {
+      if (isEmpty) {
+        pendingText.textContent = '';
+      } else if (isAllComplete) {
+        pendingText.textContent = 'all done';
+      } else {
+        pendingText.textContent = `${incompleteCount} remaining`;
+      }
+    }
   }
 
   // Initialize collapsed state from sessionStorage (only in all-facet mode)
@@ -571,6 +613,8 @@ document.addEventListener('DOMContentLoaded', function() {
       // Collapse if: (1) stored as collapsed, OR (2) all items are complete, OR (3) facet is empty
       if (collapsedState[facet] || isAllComplete || isEmpty) {
         section.classList.add('collapsed');
+        const header = section.querySelector('.facet-header');
+        if (header) header.setAttribute('aria-expanded', 'false');
         if ((isAllComplete || isEmpty) && !collapsedState[facet]) {
           // Save the auto-collapsed state
           collapsedState[facet] = true;
@@ -580,12 +624,23 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Setup click handlers for facet headers
+  // Setup click and keyboard handlers for facet headers
   document.querySelectorAll('.facet-header').forEach(header => {
     header.addEventListener('click', (e) => {
       const facetSection = header.closest('.facet-section');
       if (facetSection) {
         toggleFacetCollapse(facetSection);
+      }
+    });
+    header.addEventListener('keydown', (e) => {
+      // Don't interfere with generate button
+      if (e.target.closest('.facet-generate-btn')) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const facetSection = header.closest('.facet-section');
+        if (facetSection) {
+          toggleFacetCollapse(facetSection);
+        }
       }
     });
   });
