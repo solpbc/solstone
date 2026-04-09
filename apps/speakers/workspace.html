@@ -805,6 +805,143 @@
   vertical-align: middle;
   margin-right: 6px;
 }
+
+@media (max-width: 768px) {
+  .spk-wrap {
+    padding: 12px 16px;
+  }
+  .spk-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    min-height: auto;
+  }
+  .spk-segments-list {
+    max-height: 40vh;
+  }
+  .spk-detail {
+    padding: 16px;
+  }
+  .spk-discovery-clusters {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+  .spk-select-small {
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  .spk-wrap {
+    padding: 8px 12px;
+  }
+  .spk-segments-list {
+    max-height: 35vh;
+  }
+  .spk-detail {
+    padding: 12px;
+  }
+  .spk-sentence {
+    grid-template-columns: 40px 1fr auto;
+    gap: 8px;
+  }
+  .spk-discovery-clusters {
+    grid-template-columns: 1fr;
+  }
+  .spk-owner-samples {
+    grid-template-columns: 1fr;
+  }
+  .spk-owner-banner,
+  .spk-discovery-banner {
+    padding: 12px;
+  }
+  .spk-select-small {
+    min-width: 0;
+  }
+  /* Font size floor - no text below 14px on mobile */
+  .spk-source-badge,
+  .spk-confidence-label,
+  .spk-speaker-detected,
+  .spk-speaker-count,
+  .spk-review-badge,
+  .spk-segment-meta,
+  .spk-sentence-speaker,
+  .spk-owner-sample-title,
+  .spk-owner-sample-meta {
+    font-size: 14px;
+  }
+  .spk-sentence-time,
+  .spk-filter-btn,
+  .spk-btn,
+  .spk-select-small,
+  .spk-status,
+  .spk-discovery-sample-text,
+  .spk-discovery-status,
+  .spk-segments-count,
+  .spk-source-tab,
+  .spk-seeding-prompt,
+  .spk-speaker-card,
+  .spk-owner-btn,
+  .spk-discovery-cluster-title,
+  .spk-discovery-input,
+  .spk-discovery-btn,
+  .spk-detail-summary,
+  .spk-expand-btn,
+  .spk-load-more-btn {
+    font-size: 14px;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .spk-skip-back,
+  .spk-speed-toggle {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+  .spk-btn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  .spk-btn-icon {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+  .spk-filter-btn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  .spk-source-tab {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  .spk-select-small {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+  .spk-expand-btn {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+  .spk-load-more-btn {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+  .spk-owner-btn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  .spk-discovery-btn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  .spk-discovery-input {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+  .spk-status-dismiss {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px;
+  }
+}
 </style>
 
 <div class="spk-wrap">
