@@ -414,9 +414,37 @@ button.activity-detail-back {
   white-space: nowrap;
   border: 0;
 }
+
+.calendar-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.85em;
+  color: #888;
+  margin-bottom: 0.25em;
+}
+.breadcrumb-link {
+  color: #888;
+  text-decoration: none;
+}
+.breadcrumb-link:hover {
+  color: #555;
+  text-decoration: underline;
+}
+.breadcrumb-sep {
+  color: #ccc;
+}
+.breadcrumb-current {
+  color: #888;
+}
 </style>
 
 <div class="workspace-content-wide">
+  <nav class="calendar-breadcrumb" aria-label="calendar navigation">
+    <a href="#" id="breadcrumbMonth" class="breadcrumb-link"></a>
+    <span class="breadcrumb-sep" aria-hidden="true">›</span>
+    <span class="breadcrumb-current" aria-current="page">{{ title }}</span>
+  </nav>
   <h1>{{ title }}</h1>
 
   <div id="dayView">
@@ -441,6 +469,20 @@ button.activity-detail-back {
 <script>
 (function() {
   const day = '{{ day }}';
+
+  // Breadcrumb month link
+  const monthLink = document.getElementById('breadcrumbMonth');
+  if (monthLink) {
+    const year = parseInt(day.slice(0, 4), 10);
+    const month = parseInt(day.slice(4, 6), 10) - 1;
+    const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' });
+    monthLink.textContent = monthName + ' ' + year;
+    monthLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (window.MonthPicker) MonthPicker.show();
+    });
+  }
+
   let allEvents = [];
   let allActivities = [];
   let events = [];
