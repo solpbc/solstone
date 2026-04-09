@@ -1878,7 +1878,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       .catch(() => {
         tabsContainer.classList.remove('visible');
         tabsContainer.innerHTML = '';
-        panel.innerHTML = '<p>Error loading transcript.</p>';
+        panel.innerHTML = emptyStateHTML(emptyIcons.transcript, 'couldn\'t load this segment', 'something went wrong loading the transcript. try selecting the segment again, or refresh the page.');
       });
   }
 
@@ -2055,7 +2055,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
             if (tabPanes[tabId] !== pane) {
               return;
             }
-            pane.innerHTML = '<p>Error loading screen entries.</p>';
+            pane.innerHTML = emptyStateHTML(emptyIcons.screen, 'couldn\'t load screen entries', 'something went wrong decoding the screen data. try selecting the segment again.');
           });
       } else if (tabId.startsWith('md-')) {
         const stem = tabId.slice(3);
@@ -2692,11 +2692,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     })
     .catch(err => {
       console.error('Failed to load transcript data:', err);
-      const errEl = document.createElement('div');
-      errEl.className = 'tr-zoom-empty';
-      errEl.textContent = 'Failed to load transcript data';
       zoomSegments.innerHTML = '';
-      zoomSegments.appendChild(errEl);
+      panel.innerHTML = emptyStateHTML(emptyIcons.transcript, 'couldn\'t load transcripts', 'the data service may be offline. try refreshing the page.');
     });
 
   // Handle browser back/forward
@@ -2876,7 +2873,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         });
 
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      const notice = document.createElement('div');
+      notice.className = 'tr-warning-notice visible';
+      notice.style.borderColor = '#fca5a5';
+      notice.style.background = '#fef2f2';
+      notice.style.color = '#991b1b';
+      notice.innerHTML = '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> <span>' + escapeHtml(err.message) + '</span>';
+      panel.insertBefore(notice, panel.firstChild);
+      setTimeout(() => notice.remove(), 5000);
     }
   });
 
