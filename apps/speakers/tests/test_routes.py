@@ -4,6 +4,7 @@
 """Tests for speakers app - sentence-based embeddings."""
 
 import numpy as np
+from flask import Flask
 
 
 def test_normalize_embedding():
@@ -416,8 +417,6 @@ def test_scan_segment_embeddings_includes_speaker_data(speakers_env):
 
 def test_api_speakers_empty_when_no_speakers_json(speakers_env):
     """Test /api/speakers/ returns empty matched/unmatched when no speakers.json."""
-    from flask import Flask
-
     from apps.speakers.routes import speakers_bp
 
     env = speakers_env()
@@ -433,6 +432,26 @@ def test_api_speakers_empty_when_no_speakers_json(speakers_env):
         data = response.get_json()
         assert data["matched"] == []
         assert data["unmatched"] == []
+
+
+def test_serve_audio_sets_flac_mimetype(speakers_env, monkeypatch):
+    """Serve audio endpoint returns FLAC mimetype for sample playback."""
+    from apps.speakers.routes import speakers_bp
+    from convey import state
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    monkeypatch.setattr(state, "journal_root", str(env.journal))
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        response = client.get(
+            "/app/speakers/api/serve_audio/20240101/test__143022_300__mic_audio.flac"
+        )
+        assert response.status_code == 200
+        assert response.mimetype == "audio/flac"
 
 
 def test_get_journal_principal(speakers_env):

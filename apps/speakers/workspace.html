@@ -790,6 +790,21 @@
   color: #9ca3af;
   font-size: 12px;
 }
+
+@keyframes spk-spin {
+  to { transform: rotate(360deg); }
+}
+.spk-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #b3d9f2;
+  border-top-color: #1e40af;
+  border-radius: 50%;
+  animation: spk-spin 1s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
 </style>
 
 <div class="spk-wrap">
@@ -846,6 +861,22 @@
       if (backendMessage.includes(entry.match)) return entry.message;
     }
     return 'something went wrong — try again';
+  }
+
+  function attachAudioErrorListeners(container) {
+    container.querySelectorAll('audio').forEach(audio => {
+      audio.addEventListener('error', () => {
+        const msg = document.createElement('div');
+        msg.className = 'spk-status spk-status-error';
+        msg.setAttribute('role', 'alert');
+        msg.innerHTML = 'Couldn\'t load this audio<button class="spk-status-dismiss" aria-label="Dismiss">&times;</button>';
+        msg.querySelector('.spk-status-dismiss').addEventListener('click', (e) => {
+          e.target.closest('.spk-status-error').remove();
+        });
+        audio.parentNode.insertBefore(msg, audio.nextSibling);
+        audio.style.display = 'none';
+      });
+    });
   }
 
   function emptyStateHTML(icon, heading, desc) {
@@ -1084,6 +1115,8 @@
     document.getElementById('spkOwnerReject')?.addEventListener('click', () => {
       submitOwnerChoice('/app/speakers/api/owner/reject');
     });
+
+    attachAudioErrorListeners(ownerBanner);
   }
 
   function submitOwnerChoice(path) {
@@ -1099,6 +1132,8 @@
   }
 
   function checkDiscovery() {
+    discoveryBanner.style.display = 'block';
+    discoveryBanner.innerHTML = '<div class="spk-discovery-panel"><div class="spk-discovery-title"><span class="spk-spinner"></span> Discovering new voices…</div></div>';
     fetch('/app/speakers/api/discovery/scan', { method: 'POST' })
       .then(r => r.json())
       .then(data => {
@@ -1143,6 +1178,8 @@
         </div>
       </div>
     `;
+
+    attachAudioErrorListeners(discoveryBanner);
   }
 
   function hideDiscovery() {
@@ -1846,6 +1883,16 @@
           row.querySelector('.spk-play-btn').innerHTML = '&#9654;';
         }
         playingSentenceId = null;
+      }
+    });
+
+    audioPlayer.addEventListener('error', () => {
+      const container = document.getElementById('spkAudioContainer');
+      if (container) {
+        container.innerHTML = '<div class="spk-status spk-status-error" role="alert">Couldn\'t load audio — the file may be missing or in an unsupported format<button class="spk-status-dismiss" aria-label="Dismiss">&times;</button></div>';
+        container.querySelector('.spk-status-dismiss')?.addEventListener('click', (e) => {
+          e.target.closest('.spk-status-error').remove();
+        });
       }
     });
 

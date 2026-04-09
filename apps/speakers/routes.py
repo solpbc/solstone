@@ -1280,7 +1280,7 @@ def serve_audio(day: str, encoded_path: str) -> Any:
         if not os.path.isfile(full_path):
             return "", 404
 
-        return send_file(full_path)
+        return send_file(full_path, mimetype="audio/flac")
 
     except Exception as e:
         logger.warning("Error serving audio %s/%s: %s", day, encoded_path, e)
