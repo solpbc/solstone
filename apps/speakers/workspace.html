@@ -398,8 +398,27 @@
 }
 
 .spk-status-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   background: #fee2e2;
   color: #991b1b;
+}
+
+.spk-status-dismiss {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0 0 8px;
+  opacity: 0.7;
+}
+
+.spk-status-dismiss:hover,
+.spk-status-dismiss:focus {
+  opacity: 1;
 }
 
 .spk-status-info {
@@ -709,7 +728,7 @@
 
 <div class="spk-wrap">
   <div id="spkOwnerBanner" class="spk-owner-banner"></div>
-  <div id="spkDiscoveryBanner" class="spk-discovery-banner"></div>
+  <div id="spkDiscoveryBanner" class="spk-discovery-banner" aria-live="polite"></div>
   <div class="spk-layout">
     <nav class="spk-segments" aria-label="segments">
       <h2 class="spk-segments-header">
@@ -720,7 +739,7 @@
       </ul>
     </nav>
 
-    <div class="spk-detail" id="spkDetail">
+    <div class="spk-detail" id="spkDetail" aria-live="polite">
       <div class="spk-empty-state">
         <div class="spk-empty-icon"><svg viewBox="0 0 24 24"><path d="M4 4l7.07 17 2.51-7.39L21 11.07z"></path></svg></div>
         <p class="spk-empty-heading">ready to review</p>
@@ -739,6 +758,26 @@
     text: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
     audio: '<svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>'
   };
+
+  const ERROR_MAP = [
+    { match: 'Embedding too similar to owner voice', message: "this voice sounds like yours — it can't be saved as a different speaker" },
+    { match: 'Cannot confirm unattributed sentence', message: 'this sentence needs to be assigned to a speaker first' },
+    { match: 'Can only confirm medium-confidence', message: 'this attribution is already confirmed' },
+    { match: 'Sentence embedding not found', message: 'something went wrong — try again' },
+    { match: 'No speaker labels found', message: 'something went wrong — try again' },
+    { match: 'not found in labels', message: "this sentence wasn't found — try refreshing the page" },
+    { match: 'Sentence already has a speaker', message: 'this sentence already has a speaker — use correct to change it' },
+    { match: 'is blocked', message: "that speaker is blocked and can't be used" },
+    { match: 'not found', message: "that speaker wasn't found — they may have been removed. Try refreshing the page" },
+  ];
+
+  function friendlyError(backendMessage) {
+    if (!backendMessage) return 'something went wrong — try again';
+    for (const entry of ERROR_MAP) {
+      if (backendMessage.includes(entry.match)) return entry.message;
+    }
+    return 'something went wrong — try again';
+  }
 
   function emptyStateHTML(icon, heading, desc) {
     return '<div class="spk-empty-state">' +
@@ -774,6 +813,7 @@
   let reviewEntities = [];
   let hasLabels = false;
   let reviewSummary = null;
+  const statusTimers = {};
   let currentFilter = 'all';
   let playingSentenceId = null;
   let ownerDetectionInFlight = false;
@@ -1353,7 +1393,7 @@
         <div class="spk-sentence-content">
           <div class="spk-sentence-text">${escapeHtml(sentence.text)}</div>
           <div class="spk-sentence-speaker">${speakerHtml}</div>
-          <div class="spk-status-container" id="status-${sentence.id}"></div>
+          <div class="spk-status-container" id="status-${sentence.id}" role="status" aria-live="polite"></div>
         </div>
         <div class="spk-sentence-actions">
           <button class="spk-btn spk-btn-icon spk-play-btn" aria-label="Play from here" title="Play from here">&#9654;</button>
@@ -1510,7 +1550,7 @@
       .then(r => r.json())
       .then(data => {
         if (data.error) {
-          showStatusBySentence(sentenceId, data.error, 'error');
+          showStatusBySentence(sentenceId, friendlyError(data.error), 'error');
           return;
         }
 
@@ -1526,7 +1566,7 @@
         loadSegments();
       })
       .catch(() => {
-        showStatusBySentence(sentenceId, 'Failed to confirm attribution', 'error');
+        showStatusBySentence(sentenceId, 'Failed to confirm attribution — try again', 'error');
       });
   }
 
@@ -1546,14 +1586,14 @@
       .then(r => r.json())
       .then(data => {
         if (data.error) {
-          showStatusBySentence(sentenceId, data.error, 'error');
+          showStatusBySentence(sentenceId, friendlyError(data.error), 'error');
           return;
         }
         loadReview(selectedSegment, selectedSource);
         loadSegments();
       })
       .catch(() => {
-        showStatusBySentence(sentenceId, 'Failed to correct attribution', 'error');
+        showStatusBySentence(sentenceId, 'Failed to correct attribution — try again', 'error');
       });
   }
 
@@ -1573,25 +1613,36 @@
       .then(r => r.json())
       .then(data => {
         if (data.error) {
-          showStatusBySentence(sentenceId, data.error, 'error');
+          showStatusBySentence(sentenceId, friendlyError(data.error), 'error');
           return;
         }
         loadReview(selectedSegment, selectedSource);
         loadSegments();
       })
       .catch(() => {
-        showStatusBySentence(sentenceId, 'Failed to assign attribution', 'error');
+        showStatusBySentence(sentenceId, 'Failed to assign attribution — try again', 'error');
       });
   }
 
   function showStatusBySentence(sentenceId, message, type) {
     const container = document.getElementById(`status-${sentenceId}`);
     if (!container) return;
-    container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}</div>`;
-    setTimeout(() => {
-      const current = document.getElementById(`status-${sentenceId}`);
-      if (current) current.innerHTML = '';
-    }, 3000);
+    if (statusTimers[sentenceId]) {
+      clearTimeout(statusTimers[sentenceId]);
+      delete statusTimers[sentenceId];
+    }
+    if (type === 'error') {
+      container.setAttribute('aria-live', 'assertive');
+      container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}<button class="spk-status-dismiss" aria-label="Dismiss" onclick="this.closest('.spk-status-container').innerHTML='';this.closest('.spk-status-container').setAttribute('aria-live','polite')">&times;</button></div>`;
+    } else {
+      container.setAttribute('aria-live', 'polite');
+      container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}</div>`;
+      statusTimers[sentenceId] = setTimeout(() => {
+        const current = document.getElementById(`status-${sentenceId}`);
+        if (current) current.innerHTML = '';
+        delete statusTimers[sentenceId];
+      }, 3000);
+    }
   }
 
   function setupAudioListeners() {
