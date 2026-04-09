@@ -187,12 +187,53 @@
   border-radius: 6px;
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
 }
 
 .flash-message.error {
   background: #fee2e2;
   color: #b91c1c;
   border: 1px solid #fecaca;
+}
+
+.flash-message.success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.flash-message.info {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.flash-message .flash-close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  color: inherit;
+  opacity: 0.6;
+  margin-left: 0.5rem;
+  flex-shrink: 0;
+}
+
+.flash-message .flash-close:hover {
+  opacity: 1;
+}
+
+@keyframes flashFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.flash-message.fade-out {
+  animation: flashFadeOut 0.3s ease forwards;
 }
 
 .facet-generate-btn {
@@ -230,11 +271,15 @@
 </style>
 
 <div class="workspace-content">
+  <div class="flash-messages" id="flash-message-region" aria-live="polite"></div>
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="flash-messages">
         {% for category, message in messages %}
-          <div class="flash-message {{ category }}">{{ message }}</div>
+          <div class="flash-message {{ category }}" role="{% if category == 'error' %}alert{% else %}status{% endif %}">
+            <span>{{ message }}</span>
+            <button class="flash-close" aria-label="Dismiss message" onclick="this.parentElement.remove()">×</button>
+          </div>
         {% endfor %}
       </div>
     {% endif %}
@@ -339,6 +384,31 @@ document.addEventListener('DOMContentLoaded', function() {
   const currentDay = {{ day | tojson }};
   const storageKey = `todos_collapsed_${currentDay}`;
   const todayDay = {{ today_day | tojson }};
+
+  function showMessage(text, type = 'error') {
+    const region = document.getElementById('flash-message-region');
+    const msg = document.createElement('div');
+    msg.className = 'flash-message ' + type;
+    msg.setAttribute('role', type === 'error' ? 'alert' : 'status');
+
+    const span = document.createElement('span');
+    span.textContent = text;
+    msg.appendChild(span);
+
+    const btn = document.createElement('button');
+    btn.className = 'flash-close';
+    btn.setAttribute('aria-label', 'Dismiss message');
+    btn.innerHTML = '×';
+    btn.onclick = function() { msg.remove(); };
+    msg.appendChild(btn);
+
+    region.appendChild(msg);
+
+    setTimeout(function() {
+      msg.classList.add('fade-out');
+      msg.addEventListener('animationend', function() { msg.remove(); });
+    }, 8000);
+  }
 
   // Update badges from server response
   function updateBadgesFromResponse(data, facetName) {
@@ -538,10 +608,10 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!response.ok) {
         if (response.status === 409) {
           // Guard mismatch - reload to get fresh data
-          alert(data.error || 'Todo list changed, refreshing...');
-          window.location.reload();
+          showMessage(data.error || 'Todo list changed, refreshing...', 'error');
+          setTimeout(function() { window.location.reload(); }, 1500);
         } else {
-          alert(data.error || 'Failed to move todo');
+          showMessage(data.error || 'Failed to move todo', 'error');
           button.disabled = false;
           button.textContent = originalText;
         }
@@ -564,7 +634,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateBadgesFromResponse(data, facet);
       }, 200);
     } catch (error) {
-      alert('Network error - please try again');
+      showMessage('Network error - please try again', 'error');
       button.disabled = false;
       button.textContent = originalText;
     }
@@ -666,12 +736,12 @@ document.addEventListener('DOMContentLoaded', function() {
             updateBadgesFromResponse(data, facet);
           }, 200);
         } else {
-          alert('Failed to cancel todo - please refresh and try again');
+          showMessage('Failed to cancel todo - please refresh and try again', 'error');
           button.disabled = false;
           button.textContent = originalText;
         }
       } catch (error) {
-        alert('Network error - please try again');
+        showMessage('Network error - please try again', 'error');
         button.disabled = false;
         button.textContent = originalText;
       }
@@ -734,12 +804,12 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           // Revert on error
           checkbox.checked = !wasChecked;
-          alert('Failed to update todo - please refresh and try again');
+          showMessage('Failed to update todo - please refresh and try again', 'error');
         }
       } catch (error) {
         // Revert on error
         checkbox.checked = !wasChecked;
-        alert('Network error - please try again');
+        showMessage('Network error - please try again', 'error');
       } finally {
         checkbox.disabled = false;
       }
@@ -774,7 +844,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const newText = input.value.trim();
 
         if (!newText) {
-          alert('Todo text cannot be empty');
+          showMessage('Todo text cannot be empty', 'error');
           input.focus();
           return;
         }
@@ -819,13 +889,13 @@ document.addEventListener('DOMContentLoaded', function() {
               content.replaceChild(span, input);
             }
           } else {
-            alert('Failed to update todo - please refresh and try again');
+            showMessage('Failed to update todo - please refresh and try again', 'error');
             if (input.parentElement === content) {
               content.replaceChild(span, input);
             }
           }
         } catch (error) {
-          alert('Network error - please try again');
+          showMessage('Network error - please try again', 'error');
           if (input.parentElement === content) {
             content.replaceChild(span, input);
           }
@@ -885,7 +955,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.textContent = '✨';
         btn.classList.remove('generating');
         delete btn.dataset.agentId;
-        alert('Todo generation failed: ' + (msg.error || 'Unknown error'));
+        showMessage('Todo generation failed: ' + (msg.error || 'Unknown error'), 'error');
       }
     });
   }
@@ -925,7 +995,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.href = `/agents#${data.agent_id}`;
 
       } catch (error) {
-        alert('Failed to start todo generation');
+        showMessage('Failed to start todo generation', 'error');
         btn.textContent = '✨';
         btn.classList.remove('generating');
       }
@@ -984,11 +1054,11 @@ document.addEventListener('DOMContentLoaded', function() {
             updateBadgesFromResponse(data, facet);
           } else {
             checkbox.checked = !wasChecked;
-            alert('Failed to update todo - please refresh and try again');
+            showMessage('Failed to update todo - please refresh and try again', 'error');
           }
         } catch (error) {
           checkbox.checked = !wasChecked;
-          alert('Network error - please try again');
+          showMessage('Network error - please try again', 'error');
         } finally {
           checkbox.disabled = false;
         }
@@ -1034,12 +1104,12 @@ document.addEventListener('DOMContentLoaded', function() {
               updateBadgesFromResponse(data, facet);
             }, 200);
           } else {
-            alert('Failed to cancel todo - please refresh and try again');
+            showMessage('Failed to cancel todo - please refresh and try again', 'error');
             cancelBtn.disabled = false;
             cancelBtn.textContent = originalText;
           }
         } catch (error) {
-          alert('Network error - please try again');
+          showMessage('Network error - please try again', 'error');
           cancelBtn.disabled = false;
           cancelBtn.textContent = originalText;
         }
@@ -1119,7 +1189,7 @@ document.addEventListener('DOMContentLoaded', function() {
           const newText = input.value.trim();
 
           if (!newText) {
-            alert('Todo text cannot be empty');
+            showMessage('Todo text cannot be empty', 'error');
             input.focus();
             return;
           }
@@ -1159,13 +1229,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 content.replaceChild(span, input);
               }
             } else {
-              alert('Failed to update todo - please refresh and try again');
+              showMessage('Failed to update todo - please refresh and try again', 'error');
               if (input.parentElement === content) {
                 content.replaceChild(span, input);
               }
             }
           } catch (error) {
-            alert('Network error - please try again');
+            showMessage('Network error - please try again', 'error');
             if (input.parentElement === content) {
               content.replaceChild(span, input);
             }
