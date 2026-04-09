@@ -186,6 +186,32 @@
   color: #999;
 }
 
+.no-todos-action {
+  margin-top: 1rem;
+}
+
+.no-todos-action a {
+  color: #6366f1;
+  text-decoration: none;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.no-todos-action a:hover {
+  text-decoration: underline;
+}
+
+.todo-facet-empty {
+  padding: 0.75rem 0;
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.facet-section.collapsed .todo-facet-empty {
+  display: none;
+}
+
 .flash-messages {
   margin-bottom: 1rem;
 }
@@ -380,14 +406,20 @@
             </li>
           {% endfor %}
         </ul>
+        {% if facet_todos | length == 0 %}
+        <div class="todo-facet-empty" data-facet-empty="{{ facet_name }}">no todos in {{ facet_title }} for today</div>
+        {% endif %}
       </div>
     {% endfor %}
   {% else %}
-    <div class="no-todos">
+    <section class="no-todos" role="status">
       <div class="no-todos-icon">✅</div>
       <div class="no-todos-text">No todos for this day</div>
       <div class="no-todos-hint">Todos appear from recordings and AI analysis</div>
-    </div>
+      <div class="no-todos-action">
+        <a href="#" onclick="window.openConversation({ prompt: 'add a todo' }); return false;">add a todo via chat →</a>
+      </div>
+    </section>
   {% endif %}
 </div>
 
@@ -557,6 +589,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  // Show per-facet empty state if facet has no remaining todos
+  function showFacetEmptyIfNeeded(facetSection) {
+    const todoRows = facetSection.querySelectorAll('[data-todo-row]');
+    if (todoRows.length > 0) return;
+
+    let emptyEl = facetSection.querySelector('.todo-facet-empty');
+    if (emptyEl) {
+      emptyEl.style.display = '';
+    } else {
+      const facetName = facetSection.dataset.facet;
+      const facetData = window.facetsData?.find(f => f.name === facetName);
+      const facetTitle = facetData?.title || facetName;
+      emptyEl = document.createElement('div');
+      emptyEl.className = 'todo-facet-empty';
+      emptyEl.setAttribute('data-facet-empty', facetName);
+      emptyEl.textContent = `no todos in ${facetTitle} for today`;
+      facetSection.appendChild(emptyEl);
+    }
+  }
+
   // Initialize collapsed state from sessionStorage (only in all-facet mode)
   const collapsedState = loadCollapsedState();
   if (!window.selectedFacet) {
@@ -638,9 +690,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const facetSection = todoRow.closest('.facet-section');
         todoRow.remove();
 
-        // Update the count emoji (facet will now show ➕ if empty)
+        // Update the count emoji
         if (facetSection) {
           updateFacetCount(facetSection);
+          showFacetEmptyIfNeeded(facetSection);
         }
 
         // Update badges from response
@@ -743,6 +796,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update the count emoji
             if (facetSection) {
               updateFacetCount(facetSection);
+              showFacetEmptyIfNeeded(facetSection);
             }
 
             // Update badges from response
@@ -1363,6 +1417,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Add to bottom of list
     todoList.appendChild(li);
+
+    // Hide per-facet empty state since we now have a todo
+    const facetEmpty = facetSection.querySelector('.todo-facet-empty');
+    if (facetEmpty) {
+      facetEmpty.style.display = 'none';
+    }
 
     // Wire up event handlers
     setupTodoRowHandlers(li);
