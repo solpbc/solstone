@@ -34,9 +34,6 @@ def calendar_day(day: str) -> str:
     """Render events timeline for a specific day."""
     if not DATE_RE.fullmatch(day):
         return "", 404
-    day_dir = str(day_path(day))
-    if not os.path.isdir(day_dir):
-        return "", 404
 
     title = format_date(day)
 
