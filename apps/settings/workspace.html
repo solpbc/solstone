@@ -1579,6 +1579,43 @@ input:checked + .slider:before {
   font-size: 0.85em;
 }
 
+/* Keyboard focus indicators */
+.settings-nav-item:focus-visible,
+.setup-btn:focus-visible,
+.save-color-btn:focus-visible,
+.settings-mode-btn:focus-visible,
+.settings-preset-btn:focus-visible,
+.password-toggle:focus-visible,
+.activities-add-custom-btn:focus-visible,
+.log-more-btn:focus-visible,
+.color-close:focus-visible,
+.color-swatch:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Active nav item needs contrasting focus ring since it already has a colored background */
+.settings-nav-item.active:focus-visible {
+  outline-color: #333;
+}
+
+/* Toggle switches */
+.toggle-switch:focus-visible {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+/* Remove default focus outline for mouse users - only show for keyboard */
+.settings-nav-item:focus:not(:focus-visible),
+.setup-btn:focus:not(:focus-visible),
+.save-color-btn:focus:not(:focus-visible),
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .settings-wrap {
