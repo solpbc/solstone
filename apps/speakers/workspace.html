@@ -1411,6 +1411,7 @@
           <option value="">Correct...</option>
           ${options}
         </select>
+        <button class="spk-btn spk-btn-primary spk-apply-btn" data-sentence-id="${sentence.id}" data-action="correct" style="display:none" aria-label="Apply correction">&#10003;</button>
       `;
 
       if (sentence.confidence === 'medium') {
@@ -1428,6 +1429,7 @@
         <option value="">Assign...</option>
         ${options}
       </select>
+      <button class="spk-btn spk-btn-primary spk-apply-btn" data-sentence-id="${sentence.id}" data-action="assign" style="display:none" aria-label="Apply assignment">&#10003;</button>
     `;
   }
 
@@ -1458,17 +1460,37 @@
 
     detailPanel.querySelectorAll('.spk-correct-select').forEach(select => {
       select.addEventListener('change', () => {
-        if (!select.value) return;
-        const sentenceId = parseInt(select.dataset.sentenceId, 10);
-        correctAttribution(sentenceId, select.value);
+        const applyBtn = select.nextElementSibling;
+        if (select.value) {
+          applyBtn.dataset.value = select.value;
+          applyBtn.style.display = '';
+        } else {
+          applyBtn.style.display = 'none';
+        }
       });
     });
 
     detailPanel.querySelectorAll('.spk-assign-select').forEach(select => {
       select.addEventListener('change', () => {
-        if (!select.value) return;
-        const sentenceId = parseInt(select.dataset.sentenceId, 10);
-        assignAttribution(sentenceId, select.value);
+        const applyBtn = select.nextElementSibling;
+        if (select.value) {
+          applyBtn.dataset.value = select.value;
+          applyBtn.style.display = '';
+        } else {
+          applyBtn.style.display = 'none';
+        }
+      });
+    });
+
+    detailPanel.querySelectorAll('.spk-apply-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sentenceId = parseInt(btn.dataset.sentenceId, 10);
+        const value = btn.dataset.value;
+        if (btn.dataset.action === 'correct') {
+          correctAttribution(sentenceId, value);
+        } else if (btn.dataset.action === 'assign') {
+          assignAttribution(sentenceId, value);
+        }
       });
     });
   }
