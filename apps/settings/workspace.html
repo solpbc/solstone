@@ -1628,35 +1628,35 @@ input:checked + .slider:before {
   </div>
 
   <!-- Desktop nav sidebar -->
-  <nav class="settings-nav" id="settingsNav">
+  <nav class="settings-nav" id="settingsNav" role="tablist" aria-label="settings sections" aria-orientation="vertical">
     <div class="settings-nav-group">
       <div class="settings-nav-label">journal</div>
-      <button class="settings-nav-item active" data-section="profile">profile</button>
-      <button class="settings-nav-item" data-section="agent">agent identity</button>
-      <button class="settings-nav-item" data-section="providers">providers</button>
-      <button class="settings-nav-item" data-section="apikeys">API keys</button>
-      <button class="settings-nav-item" data-section="transcription">transcription</button>
-      <button class="settings-nav-item" data-section="observer">observer</button>
-      <button class="settings-nav-item" data-section="vision">vision</button>
-      <button class="settings-nav-item" data-section="insights">insights</button>
-      <button class="settings-nav-item" data-section="security">security</button>
-      <button class="settings-nav-item" data-section="sync">sync</button>
-      <button class="settings-nav-item" data-section="storage">storage</button>
-      <button class="settings-nav-item" data-section="support">support</button>
-      <button class="settings-nav-item" data-section="facets">facets</button>
+      <button class="settings-nav-item active" data-section="profile" id="tab-profile" role="tab" aria-selected="true" aria-controls="section-profile" tabindex="0">profile</button>
+      <button class="settings-nav-item" data-section="agent" id="tab-agent" role="tab" aria-selected="false" aria-controls="section-agent" tabindex="-1">agent identity</button>
+      <button class="settings-nav-item" data-section="providers" id="tab-providers" role="tab" aria-selected="false" aria-controls="section-providers" tabindex="-1">providers</button>
+      <button class="settings-nav-item" data-section="apikeys" id="tab-apikeys" role="tab" aria-selected="false" aria-controls="section-apikeys" tabindex="-1">API keys</button>
+      <button class="settings-nav-item" data-section="transcription" id="tab-transcription" role="tab" aria-selected="false" aria-controls="section-transcription" tabindex="-1">transcription</button>
+      <button class="settings-nav-item" data-section="observer" id="tab-observer" role="tab" aria-selected="false" aria-controls="section-observer" tabindex="-1">observer</button>
+      <button class="settings-nav-item" data-section="vision" id="tab-vision" role="tab" aria-selected="false" aria-controls="section-vision" tabindex="-1">vision</button>
+      <button class="settings-nav-item" data-section="insights" id="tab-insights" role="tab" aria-selected="false" aria-controls="section-insights" tabindex="-1">insights</button>
+      <button class="settings-nav-item" data-section="security" id="tab-security" role="tab" aria-selected="false" aria-controls="section-security" tabindex="-1">security</button>
+      <button class="settings-nav-item" data-section="sync" id="tab-sync" role="tab" aria-selected="false" aria-controls="section-sync" tabindex="-1">sync</button>
+      <button class="settings-nav-item" data-section="storage" id="tab-storage" role="tab" aria-selected="false" aria-controls="section-storage" tabindex="-1">storage</button>
+      <button class="settings-nav-item" data-section="support" id="tab-support" role="tab" aria-selected="false" aria-controls="section-support" tabindex="-1">support</button>
+      <button class="settings-nav-item" data-section="facets" id="tab-facets" role="tab" aria-selected="false" aria-controls="section-facets" tabindex="-1">facets</button>
     </div>
     <div class="settings-nav-group" id="facetNavGroup" style="display:none">
       <div class="settings-nav-label" id="facetNavLabel">facet</div>
-      <button class="settings-nav-item" data-section="facet-appearance">appearance</button>
-      <button class="settings-nav-item" data-section="facet-activities">activities</button>
-      <button class="settings-nav-item" data-section="facet-activity">activity log</button>
+      <button class="settings-nav-item" data-section="facet-appearance" id="tab-facet-appearance" role="tab" aria-selected="false" aria-controls="section-facet-appearance" tabindex="-1">appearance</button>
+      <button class="settings-nav-item" data-section="facet-activities" id="tab-facet-activities" role="tab" aria-selected="false" aria-controls="section-facet-activities" tabindex="-1">activities</button>
+      <button class="settings-nav-item" data-section="facet-activity" id="tab-facet-activity" role="tab" aria-selected="false" aria-controls="section-facet-activity" tabindex="-1">activity log</button>
     </div>
   </nav>
 
   <!-- Content panels -->
   <div class="settings-content">
     <!-- Profile Section -->
-    <section class="settings-section active" id="section-profile">
+    <section class="settings-section active" id="section-profile" role="tabpanel" aria-labelledby="tab-profile">
       <h2>profile</h2>
       <p class="settings-section-desc">Your identity information used in AI templates and transcription.</p>
 
@@ -1750,7 +1750,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Providers Section -->
-    <section class="settings-section" id="section-providers">
+    <section class="settings-section" id="section-providers" role="tabpanel" aria-labelledby="tab-providers">
       <h2>providers</h2>
       <p class="settings-section-desc">Configure AI providers separately for generation (text analysis) and cogitate (tool-calling agents).</p>
 
@@ -1844,7 +1844,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- API Keys Section -->
-    <section class="settings-section" id="section-apikeys">
+    <section class="settings-section" id="section-apikeys" role="tabpanel" aria-labelledby="tab-apikeys">
       <h2>API keys</h2>
       <p class="settings-section-desc">Configure API keys for AI providers. Keys are stored in your journal config.</p>
       <div style="margin-bottom: 1em;">
@@ -1908,7 +1908,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Transcription Section -->
-    <section class="settings-section" id="section-transcription">
+    <section class="settings-section" id="section-transcription" role="tabpanel" aria-labelledby="tab-transcription">
       <h2>transcription</h2>
       <p class="settings-section-desc">Speech-to-text backend and processing settings.</p>
 
@@ -2022,7 +2022,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Observer Section -->
-    <section class="settings-section" id="section-observer">
+    <section class="settings-section" id="section-observer" role="tabpanel" aria-labelledby="tab-observer">
       <h2>observer</h2>
       <p class="settings-section-desc">Configure capture behavior for the observer service.</p>
 
@@ -2054,7 +2054,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Vision Section -->
-    <section class="settings-section" id="section-vision">
+    <section class="settings-section" id="section-vision" role="tabpanel" aria-labelledby="tab-vision">
       <h2>vision</h2>
       <p class="settings-section-desc">Screen analysis settings for observe-describe.</p>
 
@@ -2095,7 +2095,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Insights Section -->
-    <section class="settings-section" id="section-insights">
+    <section class="settings-section" id="section-insights" role="tabpanel" aria-labelledby="tab-insights">
       <h2>insights</h2>
       <p class="settings-section-desc">Configure which AI insights run and whether they extract events to your timeline.</p>
 
@@ -2125,7 +2125,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Security Section -->
-    <section class="settings-section" id="section-security">
+    <section class="settings-section" id="section-security" role="tabpanel" aria-labelledby="tab-security">
       <h2>security</h2>
       <p class="settings-section-desc">Authentication and access control.</p>
 
@@ -2142,7 +2142,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Sync Section -->
-    <section class="settings-section" id="section-sync">
+    <section class="settings-section" id="section-sync" role="tabpanel" aria-labelledby="tab-sync">
       <h2>sync</h2>
       <p class="settings-section-desc">Configure automatic syncing of recordings from external devices.</p>
 
@@ -2206,7 +2206,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Storage Section -->
-    <section class="settings-section" id="section-storage">
+    <section class="settings-section" id="section-storage" role="tabpanel" aria-labelledby="tab-storage">
       <h2>storage</h2>
       <p class="settings-section-desc">Manage raw media retention and view storage usage.</p>
 
@@ -2268,7 +2268,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Support Section -->
-    <section class="settings-section" id="section-support">
+    <section class="settings-section" id="section-support" role="tabpanel" aria-labelledby="tab-support">
       <h2>support</h2>
       <p class="settings-section-desc">Configure how your sol communicates with sol pbc support.</p>
 
@@ -2313,7 +2313,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Facets Section (journal-level, not per-facet) -->
-    <section class="settings-section" id="section-facets">
+    <section class="settings-section" id="section-facets" role="tabpanel" aria-labelledby="tab-facets">
       <h2>facets</h2>
       <p class="settings-section-desc">Manage muted facets. Muted facets are hidden from the facet bar but retain all their data.</p>
 
@@ -2323,7 +2323,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Agent Identity Section -->
-    <section class="settings-section" id="section-agent">
+    <section class="settings-section" id="section-agent" role="tabpanel" aria-labelledby="tab-agent">
       <h2>agent identity</h2>
       <p class="settings-section-desc">Your assistant's name and identity.</p>
 
@@ -2352,7 +2352,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Facet Appearance Section -->
-    <section class="settings-section" id="section-facet-appearance" data-requires-facet>
+    <section class="settings-section" id="section-facet-appearance" data-requires-facet role="tabpanel" aria-labelledby="tab-facet-appearance">
       <div class="facet-header">
         <h2>appearance</h2>
         <div class="toggle-container">
@@ -2401,7 +2401,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Facet Activities Section -->
-    <section class="settings-section" id="section-facet-activities" data-requires-facet>
+    <section class="settings-section" id="section-facet-activities" data-requires-facet role="tabpanel" aria-labelledby="tab-facet-activities">
       <h2>activities</h2>
       <p class="settings-section-desc">Configure which activities are tracked for this facet.</p>
 
@@ -2458,7 +2458,7 @@ input:checked + .slider:before {
     </section>
 
     <!-- Facet Activity Section -->
-    <section class="settings-section" id="section-facet-activity" data-requires-facet>
+    <section class="settings-section" id="section-facet-activity" data-requires-facet role="tabpanel" aria-labelledby="tab-facet-activity">
       <h2>activity log</h2>
       <p class="settings-section-desc">Recent actions and changes to this facet.</p>
 
@@ -2609,7 +2609,10 @@ function switchSection(sectionId, updateHash = true) {
 
   // Update nav items
   document.querySelectorAll('.settings-nav-item').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.section === sectionId);
+    const isActive = btn.dataset.section === sectionId;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    btn.setAttribute('tabindex', isActive ? '0' : '-1');
   });
 
   // Update mobile select
@@ -2731,6 +2734,28 @@ async function loadMutedFacets() {
 // Desktop nav clicks
 document.querySelectorAll('.settings-nav-item').forEach(btn => {
   btn.addEventListener('click', () => switchSection(btn.dataset.section));
+});
+
+// Keyboard navigation for settings nav tabs
+document.getElementById('settingsNav').addEventListener('keydown', (e) => {
+  if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
+  e.preventDefault();
+
+  const tabs = Array.from(document.querySelectorAll('.settings-nav-item'));
+  const visibleTabs = tabs.filter(t => t.offsetParent !== null);
+  const currentIndex = visibleTabs.indexOf(document.activeElement);
+  if (currentIndex === -1) return;
+
+  let newIndex;
+  switch (e.key) {
+    case 'ArrowDown': newIndex = (currentIndex + 1) % visibleTabs.length; break;
+    case 'ArrowUp': newIndex = (currentIndex - 1 + visibleTabs.length) % visibleTabs.length; break;
+    case 'Home': newIndex = 0; break;
+    case 'End': newIndex = visibleTabs.length - 1; break;
+  }
+
+  visibleTabs[newIndex].focus();
+  switchSection(visibleTabs[newIndex].dataset.section);
 });
 
 // Mobile select change
