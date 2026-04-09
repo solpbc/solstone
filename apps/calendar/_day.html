@@ -489,6 +489,75 @@ button.activity-detail-back {
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+/* Responsive: tablet */
+@media (max-width: 768px) {
+  .workspace-content-wide {
+    padding: 0.5em;
+  }
+  .all-day-cards {
+    flex-direction: column;
+  }
+  .modal-content {
+    margin: 2% auto;
+    max-width: 95%;
+  }
+}
+
+/* Responsive: mobile */
+@media (max-width: 480px) {
+  .day-view {
+    border-left-width: 40px;
+    overflow-x: auto;
+  }
+  .hour-line span {
+    left: -38px;
+    font-size: 0.65em;
+  }
+  h1 {
+    font-size: 1.3em;
+  }
+  .occ {
+    min-height: 30px;
+  }
+  .all-day-card {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  .activity-card {
+    min-height: 44px;
+  }
+  .modal-content {
+    margin: 0;
+    max-width: 100%;
+    min-height: 100vh;
+    border-radius: 0;
+  }
+  .calendar-breadcrumb {
+    font-size: 0.75em;
+  }
+  .day-summary {
+    font-size: 0.8em;
+  }
+  .timeline-legend {
+    font-size: 0.7em;
+  }
+  .activities-section {
+    margin-top: 1em;
+  }
+  .ad-fields {
+    grid-template-columns: 1fr;
+  }
+  .ad-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ad-tab {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
 </style>
 
 <div class="workspace-content-wide">

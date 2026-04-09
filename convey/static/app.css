@@ -439,6 +439,20 @@ body:has(.status-pane.visible) .facet-bar::after {
   border-radius: 0;
 }
 
+/* Date nav mobile */
+@media (max-width: 480px) {
+  :root {
+    --date-nav-width: 100%;
+  }
+  .date-nav {
+    left: 0;
+    transform: none;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+}
+
 /* Month Picker Dropdown */
 .month-picker {
   position: absolute;
@@ -559,6 +573,32 @@ body:has(.status-pane.visible) .facet-bar::after {
 .mp-day:focus-visible {
   outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: -2px;
+}
+
+/* Month picker responsive */
+@media (max-width: 768px) {
+  .month-picker.open {
+    width: 100%;
+    max-width: 350px;
+  }
+}
+
+@media (max-width: 480px) {
+  .month-picker.open {
+    width: 100%;
+    max-width: none;
+    left: 0;
+    right: 0;
+  }
+  .mp-day {
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 14px;
+  }
+  .mp-grid {
+    gap: 2px;
+    padding: 4px;
+  }
 }
 
 /* Status Pane - slides down from facet bar on right (mirrors menu bar on left) */
