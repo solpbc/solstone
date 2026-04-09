@@ -528,20 +528,32 @@
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
-  opacity: 0;
+  opacity: 0.4;
   transition: opacity 0.2s;
   font-size: 1em;
-  background: white;
-  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 4px;
 }
 
 tr:hover .entity-delete-btn {
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 .entity-delete-btn:hover {
   opacity: 1 !important;
+}
+
+.entity-delete-btn:focus-visible {
+  opacity: 1;
+  outline: 2px solid #dc3545;
+  outline-offset: 2px;
 }
 
 /* Section headers */
@@ -2623,7 +2635,8 @@ function createDetectedRow(entity) {
   descCell.textContent = entity.description || '—';
 
   // Delete button
-  const deleteBtn = document.createElement('span');
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
   deleteBtn.className = 'entity-delete-btn';
   deleteBtn.textContent = '🗑️';
   deleteBtn.title = 'Delete detected entity';
@@ -2861,17 +2874,9 @@ function previewEntityDelete(entityName) {
     .then(data => {
       if (data.success && data.days) {
         hideInlineError('detected-action-error');
-        if (data.days.length === 1) {
-          // Single detection - delete directly
-          removeEntityFromUI(entityName);
-          deleteEntity(entityName, true);
-          return;
-        }
-
-        // Multiple - show modal
         const modal = document.getElementById('deleteModal');
         document.getElementById('deleteEntityName').textContent = entityName;
-        document.getElementById('deleteDaysCount').textContent = `${data.days.length} days`;
+        document.getElementById('deleteDaysCount').textContent = `${data.days.length} day${data.days.length !== 1 ? 's' : ''}`;
 
         const daysList = document.getElementById('deleteDaysList');
         daysList.innerHTML = '';
