@@ -2432,10 +2432,10 @@ input:checked + .slider:before {
       </div>
 
       <!-- Custom Activity Modal -->
-      <div id="customActivityModal" class="color-modal">
+      <div id="customActivityModal" class="color-modal" role="dialog" aria-modal="true" aria-labelledby="customActivityHeading">
         <div class="color-modal-content" style="max-width: 400px;">
           <span class="color-close" id="customActivityClose">&times;</span>
-          <h3>add custom activity</h3>
+          <h3 id="customActivityHeading">add custom activity</h3>
           <div class="settings-field">
             <label for="customActivityName">name</label>
             <input type="text" id="customActivityName" placeholder="e.g., Research">
@@ -2477,10 +2477,10 @@ input:checked + .slider:before {
 </div>
 
 <!-- Color Picker Modal -->
-<div id="colorPickerModal" class="color-modal">
+<div id="colorPickerModal" class="color-modal" role="dialog" aria-modal="true" aria-labelledby="colorPickerHeading">
   <div class="color-modal-content">
     <span class="color-close">&times;</span>
-    <h3>choose theme color</h3>
+    <h3 id="colorPickerHeading">choose theme color</h3>
     <div class="color-swatches" id="colorSwatches"></div>
     <div class="custom-color">
       <label for="customColorInput">custom color:</label>
@@ -2501,10 +2501,10 @@ input:checked + .slider:before {
 </div>
 
 <!-- Cleanup Confirmation Modal -->
-<div id="cleanupModal" class="color-modal">
+<div id="cleanupModal" class="color-modal" role="dialog" aria-modal="true" aria-labelledby="cleanupHeading">
   <div class="color-modal-content" style="max-width: 480px;">
     <span class="color-close" id="cleanupModalClose">&times;</span>
-    <h3>clean up raw media</h3>
+    <h3 id="cleanupHeading">clean up raw media</h3>
     <p style="color: #666; font-size: 0.9em; margin-bottom: 1em;">Delete raw media files (audio, video, screen captures) from segments older than the specified number of days.</p>
 
     <div class="settings-field" style="margin-bottom: 1em;">
@@ -2542,6 +2542,56 @@ let saveTimeout = null;
 let logNextCursor = null;
 let insightsData = null;
 let keyValidationData = {};
+
+// ========== MODAL ACCESSIBILITY ==========
+function setupModalAccessibility(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+
+  modal._openAccessible = function(triggerEl) {
+    this._triggerEl = triggerEl || document.activeElement;
+    const focusable = this.querySelectorAll('input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    this._focusableEls = Array.from(focusable);
+    if (this._focusableEls.length) {
+      requestAnimationFrame(() => this._focusableEls[0].focus());
+    }
+  };
+
+  modal._closeAccessible = function() {
+    this.style.display = 'none';
+    if (this._triggerEl && typeof this._triggerEl.focus === 'function') {
+      this._triggerEl.focus();
+    }
+  };
+
+  // Focus trap and Escape key
+  modal.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      modal._closeAccessible();
+      return;
+    }
+    if (e.key === 'Tab' && modal._focusableEls && modal._focusableEls.length) {
+      const first = modal._focusableEls[0];
+      const last = modal._focusableEls[modal._focusableEls.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+  });
+}
+
+setupModalAccessibility('colorPickerModal');
+setupModalAccessibility('customActivityModal');
+setupModalAccessibility('cleanupModal');
 
 // ========== NAVIGATION ==========
 const VALID_SECTIONS = ['profile', 'agent', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'sync', 'storage', 'support', 'facets', 'facet-appearance', 'facet-activities', 'facet-activity'];
@@ -3182,10 +3232,11 @@ function setupColorPicker() {
     selectedColor = facetConfig?.color || '#667eea';
     updateColorUI(selectedColor);
     modal.style.display = 'block';
+    modal._openAccessible(trigger);
   };
 
-  closeBtn.onclick = () => modal.style.display = 'none';
-  modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+  closeBtn.onclick = () => modal._closeAccessible();
+  modal.onclick = (e) => { if (e.target === modal) modal._closeAccessible(); };
 
   picker.oninput = () => { selectedColor = picker.value; updateColorUI(selectedColor); };
   hexInput.oninput = () => {
@@ -3200,7 +3251,7 @@ function setupColorPicker() {
       document.getElementById('colorPreview').style.backgroundColor = selectedColor;
       document.getElementById('colorHexDisplay').textContent = selectedColor;
       saveFacetField('color', selectedColor, null);
-      modal.style.display = 'none';
+      modal._closeAccessible();
     }
   };
 
@@ -4961,15 +5012,19 @@ async function removeActivity(activityId) {
 // Custom activity modal
 document.getElementById('addCustomActivityBtn').addEventListener('click', () => {
   document.getElementById('customActivityModal').style.display = 'block';
+  document.getElementById('customActivityModal')._openAccessible(document.getElementById('addCustomActivityBtn'));
   document.getElementById('customActivityName').value = '';
   document.getElementById('customActivityDesc').value = '';
   document.getElementById('customActivityIcon').value = '';
   document.getElementById('customActivityInstructions').value = '';
-  document.getElementById('customActivityName').focus();
 });
 
 document.getElementById('customActivityClose').addEventListener('click', () => {
-  document.getElementById('customActivityModal').style.display = 'none';
+  document.getElementById('customActivityModal')._closeAccessible();
+});
+
+document.getElementById('customActivityModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('customActivityModal')) document.getElementById('customActivityModal')._closeAccessible();
 });
 
 document.getElementById('saveCustomActivityBtn').addEventListener('click', async () => {
@@ -4994,7 +5049,7 @@ document.getElementById('saveCustomActivityBtn').addEventListener('click', async
     const result = await response.json();
     if (result.error) throw new Error(result.error);
 
-    document.getElementById('customActivityModal').style.display = 'none';
+    document.getElementById('customActivityModal')._closeAccessible();
     await loadActivities(window.selectedFacet);
   } catch (err) {
     console.error('Error adding custom activity:', err);
@@ -5069,12 +5124,6 @@ if (resetAgentBtn) {
     }
   });
 }
-
-// Close modal on outside click
-window.addEventListener('click', (e) => {
-  const modal = document.getElementById('customActivityModal');
-  if (e.target === modal) modal.style.display = 'none';
-});
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -5264,6 +5313,7 @@ function setupStorageListeners() {
 function openCleanupModal() {
   const modal = document.getElementById('cleanupModal');
   modal.style.display = 'flex';
+  modal._openAccessible(document.getElementById('cleanupNowBtn'));
   resetCleanupPreview();
 
   // Populate stream filter
@@ -5280,7 +5330,7 @@ function openCleanupModal() {
 }
 
 function closeCleanupModal() {
-  document.getElementById('cleanupModal').style.display = 'none';
+  document.getElementById('cleanupModal')._closeAccessible();
 }
 
 function resetCleanupPreview() {
