@@ -1604,25 +1604,25 @@ input:checked + .slider:before {
   <!-- Mobile nav dropdown -->
   <div class="settings-nav-mobile">
     <select class="settings-nav-select" id="navSelect">
-      <optgroup label="Journal">
-        <option value="profile">Profile</option>
-        <option value="agent">Agent Identity</option>
-        <option value="providers">Providers</option>
-        <option value="apikeys">API Keys</option>
-        <option value="transcription">Transcription</option>
-        <option value="observer">Observer</option>
-        <option value="vision">Vision</option>
-        <option value="insights">Insights</option>
-        <option value="security">Security</option>
-        <option value="sync">Sync</option>
-        <option value="storage">Storage</option>
-        <option value="support">Support</option>
-        <option value="facets">Facets</option>
+      <optgroup label="journal">
+        <option value="profile">profile</option>
+        <option value="agent">agent identity</option>
+        <option value="providers">providers</option>
+        <option value="apikeys">API keys</option>
+        <option value="transcription">transcription</option>
+        <option value="observer">observer</option>
+        <option value="vision">vision</option>
+        <option value="insights">insights</option>
+        <option value="security">security</option>
+        <option value="sync">sync</option>
+        <option value="storage">storage</option>
+        <option value="support">support</option>
+        <option value="facets">facets</option>
       </optgroup>
-      <optgroup label="Facet" id="navSelectFacetGroup" style="display:none">
-        <option value="facet-appearance">Appearance</option>
-        <option value="facet-activities">Activities</option>
-        <option value="facet-activity">Activity Log</option>
+      <optgroup label="facet" id="navSelectFacetGroup" style="display:none">
+        <option value="facet-appearance">appearance</option>
+        <option value="facet-activities">activities</option>
+        <option value="facet-activity">activity log</option>
       </optgroup>
     </select>
   </div>
@@ -1631,25 +1631,25 @@ input:checked + .slider:before {
   <nav class="settings-nav" id="settingsNav">
     <div class="settings-nav-group">
       <div class="settings-nav-label">journal</div>
-      <button class="settings-nav-item active" data-section="profile">Profile</button>
-      <button class="settings-nav-item" data-section="agent">Agent Identity</button>
-      <button class="settings-nav-item" data-section="providers">Providers</button>
-      <button class="settings-nav-item" data-section="apikeys">API Keys</button>
-      <button class="settings-nav-item" data-section="transcription">Transcription</button>
-      <button class="settings-nav-item" data-section="observer">Observer</button>
-      <button class="settings-nav-item" data-section="vision">Vision</button>
-      <button class="settings-nav-item" data-section="insights">Insights</button>
-      <button class="settings-nav-item" data-section="security">Security</button>
-      <button class="settings-nav-item" data-section="sync">Sync</button>
-      <button class="settings-nav-item" data-section="storage">Storage</button>
-      <button class="settings-nav-item" data-section="support">Support</button>
-      <button class="settings-nav-item" data-section="facets">Facets</button>
+      <button class="settings-nav-item active" data-section="profile">profile</button>
+      <button class="settings-nav-item" data-section="agent">agent identity</button>
+      <button class="settings-nav-item" data-section="providers">providers</button>
+      <button class="settings-nav-item" data-section="apikeys">API keys</button>
+      <button class="settings-nav-item" data-section="transcription">transcription</button>
+      <button class="settings-nav-item" data-section="observer">observer</button>
+      <button class="settings-nav-item" data-section="vision">vision</button>
+      <button class="settings-nav-item" data-section="insights">insights</button>
+      <button class="settings-nav-item" data-section="security">security</button>
+      <button class="settings-nav-item" data-section="sync">sync</button>
+      <button class="settings-nav-item" data-section="storage">storage</button>
+      <button class="settings-nav-item" data-section="support">support</button>
+      <button class="settings-nav-item" data-section="facets">facets</button>
     </div>
     <div class="settings-nav-group" id="facetNavGroup" style="display:none">
       <div class="settings-nav-label" id="facetNavLabel">facet</div>
-      <button class="settings-nav-item" data-section="facet-appearance">Appearance</button>
-      <button class="settings-nav-item" data-section="facet-activities">Activities</button>
-      <button class="settings-nav-item" data-section="facet-activity">Activity Log</button>
+      <button class="settings-nav-item" data-section="facet-appearance">appearance</button>
+      <button class="settings-nav-item" data-section="facet-activities">activities</button>
+      <button class="settings-nav-item" data-section="facet-activity">activity log</button>
     </div>
   </nav>
 
@@ -1657,24 +1657,24 @@ input:checked + .slider:before {
   <div class="settings-content">
     <!-- Profile Section -->
     <section class="settings-section active" id="section-profile">
-      <h2>Profile</h2>
+      <h2>profile</h2>
       <p class="settings-section-desc">Your identity information used in AI templates and transcription.</p>
 
       <!-- Setup prompt (shown when no facets) -->
       <div class="setup-section" id="setupSection" style="display:none">
-        <h3>Welcome to solstone</h3>
+        <h3>welcome to solstone</h3>
         <p>Create your first facet to start organizing your journal.</p>
         <button class="setup-btn" id="createPersonalBtn">Create Personal Facet</button>
       </div>
 
       <div class="settings-field">
-        <label for="field-name">Full Name</label>
+        <label for="field-name">full name</label>
         <input type="text" id="field-name" data-section="identity" data-key="name" placeholder="Your full name">
         <small>Your full legal or formal name</small>
       </div>
 
       <div class="settings-field">
-        <label for="field-preferred">Preferred Name</label>
+        <label for="field-preferred">preferred name</label>
         <input type="text" id="field-preferred" data-section="identity" data-key="preferred" placeholder="Your preferred name">
         <small>Preferred name or nickname to be used when addressing you</small>
       </div>
@@ -1706,13 +1706,13 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field">
-        <label for="field-emails">Email Addresses</label>
+        <label for="field-emails">email addresses</label>
         <input type="text" id="field-emails" data-section="identity" data-key="email_addresses" placeholder="e.g., work@company.com, personal@example.com">
         <small>Comma-separated email addresses for participant detection</small>
       </div>
 
       <div class="settings-field">
-        <label for="field-timezone">Home Timezone</label>
+        <label for="field-timezone">home timezone</label>
         <input type="text" id="field-timezone" data-section="identity" data-key="timezone" list="timezone-list" placeholder="e.g., America/New_York">
         <datalist id="timezone-list">
           <option value="America/New_York">
@@ -1751,10 +1751,10 @@ input:checked + .slider:before {
 
     <!-- Providers Section -->
     <section class="settings-section" id="section-providers">
-      <h2>Providers</h2>
+      <h2>providers</h2>
       <p class="settings-section-desc">Configure AI providers separately for generation (text analysis) and cogitate (tool-calling agents).</p>
 
-      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">Generate</h3>
+      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">generate</h3>
       <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Text generation for analysis, extraction, and transcription tasks.</p>
       <div class="provider-row">
         <div class="settings-field">
@@ -1787,7 +1787,7 @@ input:checked + .slider:before {
         <a href="#" id="generateProviderKeyLink">Configure in API Keys</a>
       </div>
 
-      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">Cogitate</h3>
+      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">cogitate</h3>
       <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Tool-calling agents for interactive chat, daily briefings, and complex reasoning.</p>
       <div class="provider-row">
         <div class="settings-field">
@@ -1845,7 +1845,7 @@ input:checked + .slider:before {
 
     <!-- API Keys Section -->
     <section class="settings-section" id="section-apikeys">
-      <h2>API Keys</h2>
+      <h2>API keys</h2>
       <p class="settings-section-desc">Configure API keys for AI providers. Keys are stored in your journal config.</p>
       <div style="margin-bottom: 1em;">
         <button type="button" id="revalidateAllKeys" class="btn-secondary" onclick="revalidateAllKeys()">Re-validate All Keys</button>
@@ -1909,7 +1909,7 @@ input:checked + .slider:before {
 
     <!-- Transcription Section -->
     <section class="settings-section" id="section-transcription">
-      <h2>Transcription</h2>
+      <h2>transcription</h2>
       <p class="settings-section-desc">Speech-to-text backend and processing settings.</p>
 
       <div class="settings-field">
@@ -1953,7 +1953,7 @@ input:checked + .slider:before {
         </div>
 
         <div class="settings-field">
-          <label for="field-whisper-compute">Compute Type</label>
+          <label for="field-whisper-compute">compute type</label>
           <select id="field-whisper-compute">
             <option value="default" selected>Default - Auto-select</option>
             <option value="float32">Float32 - Highest precision</option>
@@ -1993,7 +1993,7 @@ input:checked + .slider:before {
             <input type="checkbox" id="field-transcribe-enrich" data-section="transcribe" data-key="enrich">
             <span class="slider"></span>
           </label>
-          <label for="field-transcribe-enrich" class="toggle-label" style="cursor: pointer;">Enrich Transcripts</label>
+          <label for="field-transcribe-enrich" class="toggle-label" style="cursor: pointer;">enrich transcripts</label>
         </div>
         <small>Use AI to extract topics, correct transcription errors, and add descriptions</small>
       </div>
@@ -2004,7 +2004,7 @@ input:checked + .slider:before {
             <input type="checkbox" id="field-transcribe-preserve" data-section="transcribe" data-key="preserve_all">
             <span class="slider"></span>
           </label>
-          <label for="field-transcribe-preserve" class="toggle-label" style="cursor: pointer;">Preserve Silent Recordings</label>
+          <label for="field-transcribe-preserve" class="toggle-label" style="cursor: pointer;">preserve silent recordings</label>
         </div>
         <small>Keep audio files even when no speech is detected</small>
       </div>
@@ -2015,7 +2015,7 @@ input:checked + .slider:before {
             <input type="checkbox" id="field-transcribe-noise-upgrade" data-section="transcribe" data-key="noise_upgrade">
             <span class="slider"></span>
           </label>
-          <label for="field-transcribe-noise-upgrade" class="toggle-label" style="cursor: pointer;">Noise Upgrade</label>
+          <label for="field-transcribe-noise-upgrade" class="toggle-label" style="cursor: pointer;">noise upgrade</label>
         </div>
         <small>Automatically use Rev.ai for noisy recordings (requires Rev.ai token)</small>
       </div>
@@ -2023,16 +2023,16 @@ input:checked + .slider:before {
 
     <!-- Observer Section -->
     <section class="settings-section" id="section-observer">
-      <h2>Observer</h2>
+      <h2>observer</h2>
       <p class="settings-section-desc">Configure capture behavior for the observer service.</p>
 
-      <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Terminal Capture</h3>
+      <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">terminal capture</h3>
       <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
         When your screen is idle, the observer can capture terminal content from active tmux sessions.
       </p>
 
       <div class="settings-field">
-        <label>Enable Terminal Capture</label>
+        <label>enable terminal capture</label>
         <div style="display: flex; align-items: center; gap: 1em;">
           <label class="toggle-switch toggle-positive">
             <input type="checkbox" id="field-tmux-enabled">
@@ -2043,7 +2043,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field" id="tmuxCaptureIntervalField">
-        <label for="field-tmux-capture-interval">Capture Interval (seconds)</label>
+        <label for="field-tmux-capture-interval">capture interval (seconds)</label>
         <input type="number" id="field-tmux-capture-interval" style="max-width: 100px;">
         <small id="tmuxCaptureIntervalHelp">How often to capture terminal content</small>
       </div>
@@ -2055,11 +2055,11 @@ input:checked + .slider:before {
 
     <!-- Vision Section -->
     <section class="settings-section" id="section-vision">
-      <h2>Vision</h2>
+      <h2>vision</h2>
       <p class="settings-section-desc">Screen analysis settings for observe-describe.</p>
 
       <div class="settings-field">
-        <label for="field-max-extractions">Max Extractions (of 300 possible frames)</label>
+        <label for="field-max-extractions">max extractions (of 300 possible frames)</label>
         <input type="number" id="field-max-extractions" min="5" max="100" value="20" style="max-width: 100px;">
         <small>Maximum frames to extract detailed content from per 5 minute screen segment (big impact on token usage)</small>
       </div>
@@ -2096,13 +2096,13 @@ input:checked + .slider:before {
 
     <!-- Insights Section -->
     <section class="settings-section" id="section-insights">
-      <h2>Insights</h2>
+      <h2>insights</h2>
       <p class="settings-section-desc">Configure which AI insights run and whether they extract events to your timeline.</p>
 
       <!-- Segment Insights -->
       <div class="insights-group expanded" id="segmentInsightsGroup">
         <div class="insights-group-header" id="segmentInsightsHeader">
-          <span><span class="insights-group-title">Segment Insights</span><span class="insights-group-count" id="segmentInsightsCount"></span></span>
+          <span><span class="insights-group-title">segment insights</span><span class="insights-group-count" id="segmentInsightsCount"></span></span>
           <span class="insights-group-toggle">&#9660;</span>
         </div>
         <div class="insights-group-body" id="segmentInsightsBody">
@@ -2114,7 +2114,7 @@ input:checked + .slider:before {
       <!-- Daily Insights -->
       <div class="insights-group expanded" id="dailyInsightsGroup">
         <div class="insights-group-header" id="dailyInsightsHeader">
-          <span><span class="insights-group-title">Daily Insights</span><span class="insights-group-count" id="dailyInsightsCount"></span></span>
+          <span><span class="insights-group-title">daily insights</span><span class="insights-group-count" id="dailyInsightsCount"></span></span>
           <span class="insights-group-toggle">&#9660;</span>
         </div>
         <div class="insights-group-body" id="dailyInsightsBody">
@@ -2126,11 +2126,11 @@ input:checked + .slider:before {
 
     <!-- Security Section -->
     <section class="settings-section" id="section-security">
-      <h2>Security</h2>
+      <h2>security</h2>
       <p class="settings-section-desc">Authentication and access control.</p>
 
       <div class="settings-field">
-        <label for="field-password">Web Password</label>
+        <label for="field-password">web password</label>
         <div class="password-wrap">
           <input type="password" id="field-password" data-section="convey" data-key="password" placeholder="Enter password to protect web access">
           <button type="button" class="password-toggle" id="passwordToggle" title="Show password">
@@ -2143,7 +2143,7 @@ input:checked + .slider:before {
 
     <!-- Sync Section -->
     <section class="settings-section" id="section-sync">
-      <h2>Sync</h2>
+      <h2>sync</h2>
       <p class="settings-section-desc">Configure automatic syncing of recordings from external devices.</p>
 
       <div id="plaudSyncCard">
@@ -2153,7 +2153,7 @@ input:checked + .slider:before {
         </p>
 
         <div class="settings-field" id="plaudSyncField">
-          <label>Hourly Sync</label>
+          <label>hourly sync</label>
           <div style="display: flex; align-items: center; gap: 1em;">
             <label class="toggle-switch toggle-positive">
               <input type="checkbox" id="field-plaud-sync-enabled">
@@ -2175,7 +2175,7 @@ input:checked + .slider:before {
         </p>
 
         <div class="settings-field" id="granolaSyncField">
-          <label>Hourly Sync</label>
+          <label>hourly sync</label>
           <div style="display: flex; align-items: center; gap: 1em;">
             <label class="toggle-switch toggle-positive">
               <input type="checkbox" id="field-granola-sync-enabled">
@@ -2187,13 +2187,13 @@ input:checked + .slider:before {
       </div>
 
       <div id="obsidianSyncCard">
-        <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Obsidian Vault</h3>
+        <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Obsidian vault</h3>
         <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
           Automatically sync new and updated notes from your vault.
         </p>
 
         <div class="settings-field" id="obsidianSyncField">
-          <label>Hourly Sync</label>
+          <label>hourly sync</label>
           <div style="display: flex; align-items: center; gap: 1em;">
             <label class="toggle-switch toggle-positive">
               <input type="checkbox" id="field-obsidian-sync-enabled">
@@ -2207,7 +2207,7 @@ input:checked + .slider:before {
 
     <!-- Storage Section -->
     <section class="settings-section" id="section-storage">
-      <h2>Storage</h2>
+      <h2>storage</h2>
       <p class="settings-section-desc">Manage raw media retention and view storage usage.</p>
 
       <div id="storageSummaryCard" style="background: #f8f8f8; border-radius: 8px; padding: 1em 1.25em; margin-bottom: 1.5em;">
@@ -2229,7 +2229,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field" id="retentionModeField">
-        <label>Retention Mode</label>
+        <label>retention mode</label>
         <small>Controls how long raw media files (audio, video, screen diffs) are kept after processing.</small>
         <div id="retentionModeSelector" style="display: flex; gap: 0.5em; margin-top: 0.5em;">
           <button type="button" class="settings-mode-btn" data-mode="keep">Keep Forever</button>
@@ -2239,7 +2239,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field" id="retentionDaysField" style="display: none;">
-        <label>Days to Keep</label>
+        <label>days to keep</label>
         <small>Raw media older than this will be eligible for cleanup.</small>
         <div style="display: flex; gap: 0.5em; align-items: center; margin-top: 0.5em;">
           <button type="button" class="settings-preset-btn" data-days="7">7</button>
@@ -2269,7 +2269,7 @@ input:checked + .slider:before {
 
     <!-- Support Section -->
     <section class="settings-section" id="section-support">
-      <h2>Support</h2>
+      <h2>support</h2>
       <p class="settings-section-desc">Configure how your sol communicates with sol pbc support.</p>
 
       <div class="settings-field">
@@ -2278,7 +2278,7 @@ input:checked + .slider:before {
             <input type="checkbox" id="field-support-enabled" data-section="support" data-key="enabled">
             <span class="slider"></span>
           </label>
-          <label for="field-support-enabled" class="toggle-label" style="cursor: pointer;">Support Agent</label>
+          <label for="field-support-enabled" class="toggle-label" style="cursor: pointer;">support agent</label>
         </div>
         <small>When enabled, your sol can file and track support tickets on your behalf. You always review and approve before anything is sent.</small>
       </div>
@@ -2289,7 +2289,7 @@ input:checked + .slider:before {
             <input type="checkbox" id="field-support-proactive" data-section="support" data-key="proactive">
             <span class="slider"></span>
           </label>
-          <label for="field-support-proactive" class="toggle-label" style="cursor: pointer;">Proactive Detection</label>
+          <label for="field-support-proactive" class="toggle-label" style="cursor: pointer;">proactive detection</label>
         </div>
         <small>Detect repeated errors and suggest filing a support ticket. No data is sent — only a local notification.</small>
       </div>
@@ -2300,13 +2300,13 @@ input:checked + .slider:before {
             <input type="checkbox" id="field-support-anonymous" data-section="support" data-key="anonymous_feedback">
             <span class="slider"></span>
           </label>
-          <label for="field-support-anonymous" class="toggle-label" style="cursor: pointer;">Anonymous Feedback</label>
+          <label for="field-support-anonymous" class="toggle-label" style="cursor: pointer;">anonymous feedback</label>
         </div>
         <small>Strip installation identifiers when submitting feedback.</small>
       </div>
 
       <div class="settings-field">
-        <label for="field-support-portal-url">Portal URL</label>
+        <label for="field-support-portal-url">portal URL</label>
         <input type="text" id="field-support-portal-url" data-section="support" data-key="portal_url" placeholder="https://support.solpbc.org">
         <small>Support portal endpoint. Change this if you run your own portal.</small>
       </div>
@@ -2314,7 +2314,7 @@ input:checked + .slider:before {
 
     <!-- Facets Section (journal-level, not per-facet) -->
     <section class="settings-section" id="section-facets">
-      <h2>Facets</h2>
+      <h2>facets</h2>
       <p class="settings-section-desc">Manage muted facets. Muted facets are hidden from the facet bar but retain all their data.</p>
 
       <div id="mutedFacetsList">
@@ -2324,11 +2324,11 @@ input:checked + .slider:before {
 
     <!-- Agent Identity Section -->
     <section class="settings-section" id="section-agent">
-      <h2>Agent Identity</h2>
+      <h2>agent identity</h2>
       <p class="settings-section-desc">Your assistant's name and identity.</p>
 
       <div class="settings-field">
-        <label for="field-agent-name">Agent Name</label>
+        <label for="field-agent-name">agent name</label>
         <input type="text" id="field-agent-name" placeholder="sol">
         <small>The name your assistant uses to identify itself</small>
       </div>
@@ -2340,7 +2340,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field">
-        <label>Named Date</label>
+        <label>named date</label>
         <span id="agent-named-date" class="field-display">—</span>
         <small>When the name was last changed</small>
       </div>
@@ -2354,7 +2354,7 @@ input:checked + .slider:before {
     <!-- Facet Appearance Section -->
     <section class="settings-section" id="section-facet-appearance" data-requires-facet>
       <div class="facet-header">
-        <h2>Appearance</h2>
+        <h2>appearance</h2>
         <div class="toggle-container">
           <span class="toggle-label" id="toggleLabel">Active</span>
           <label class="toggle-switch">
@@ -2391,7 +2391,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field">
-        <label>Theme Color</label>
+        <label>theme color</label>
         <div class="color-picker-trigger" id="colorTrigger">
           <div class="color-preview" id="colorPreview"></div>
           <span id="colorHexDisplay">#667eea</span>
@@ -2402,7 +2402,7 @@ input:checked + .slider:before {
 
     <!-- Facet Activities Section -->
     <section class="settings-section" id="section-facet-activities" data-requires-facet>
-      <h2>Activities</h2>
+      <h2>activities</h2>
       <p class="settings-section-desc">Configure which activities are tracked for this facet.</p>
 
       <!-- Attached Activities -->
@@ -2435,7 +2435,7 @@ input:checked + .slider:before {
       <div id="customActivityModal" class="color-modal">
         <div class="color-modal-content" style="max-width: 400px;">
           <span class="color-close" id="customActivityClose">&times;</span>
-          <h3>Add Custom Activity</h3>
+          <h3>add custom activity</h3>
           <div class="settings-field">
             <label for="customActivityName">Name</label>
             <input type="text" id="customActivityName" placeholder="e.g., Research">
@@ -2445,11 +2445,11 @@ input:checked + .slider:before {
             <textarea id="customActivityDesc" rows="2" placeholder="Brief description of this activity"></textarea>
           </div>
           <div class="settings-field">
-            <label for="customActivityIcon">Icon (emoji)</label>
+            <label for="customActivityIcon">icon (emoji)</label>
             <input type="text" id="customActivityIcon" placeholder="e.g., 🔬" maxlength="4" style="max-width: 100px;">
           </div>
           <div class="settings-field">
-            <label for="customActivityInstructions">Instructions <span style="font-weight:normal;color:#888;">(optional)</span></label>
+            <label for="customActivityInstructions">instructions <span style="font-weight:normal;color:#888;">(optional)</span></label>
             <textarea id="customActivityInstructions" rows="2" placeholder="Detection hints and level guidance for the AI agent"></textarea>
           </div>
           <button class="save-color-btn" id="saveCustomActivityBtn">Add Activity</button>
@@ -2459,7 +2459,7 @@ input:checked + .slider:before {
 
     <!-- Facet Activity Section -->
     <section class="settings-section" id="section-facet-activity" data-requires-facet>
-      <h2>Activity Log</h2>
+      <h2>activity log</h2>
       <p class="settings-section-desc">Recent actions and changes to this facet.</p>
 
       <div class="log-panel">
@@ -2480,17 +2480,17 @@ input:checked + .slider:before {
 <div id="colorPickerModal" class="color-modal">
   <div class="color-modal-content">
     <span class="color-close">&times;</span>
-    <h3>Choose Theme Color</h3>
+    <h3>choose theme color</h3>
     <div class="color-swatches" id="colorSwatches"></div>
     <div class="custom-color">
-      <label>Custom Color:</label>
+      <label>custom color:</label>
       <div class="color-input-group">
         <input type="color" id="customColorPicker" value="#667eea">
         <input type="text" id="customColorInput" placeholder="#667eea" maxlength="7">
       </div>
     </div>
     <div class="color-preview-section">
-      <h4>Preview</h4>
+      <h4>preview</h4>
       <div class="modal-preview-pill" id="modalPreview">
         <span class="modal-preview-emoji" id="modalPreviewEmoji">&#128230;</span>
         <span class="modal-preview-title" id="modalPreviewTitle">Facet</span>
@@ -2504,11 +2504,11 @@ input:checked + .slider:before {
 <div id="cleanupModal" class="color-modal">
   <div class="color-modal-content" style="max-width: 480px;">
     <span class="color-close" id="cleanupModalClose">&times;</span>
-    <h3>Clean Up Raw Media</h3>
+    <h3>clean up raw media</h3>
     <p style="color: #666; font-size: 0.9em; margin-bottom: 1em;">Delete raw media files (audio, video, screen captures) from segments older than the specified number of days.</p>
 
     <div class="settings-field" style="margin-bottom: 1em;">
-      <label>Older Than</label>
+      <label>older than</label>
       <div style="display: flex; gap: 0.5em; align-items: center;">
         <input type="number" id="cleanupDaysInput" min="1" value="30" style="width: 5em; padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px;">
         <span style="color: #666;">days</span>
@@ -2516,7 +2516,7 @@ input:checked + .slider:before {
     </div>
 
     <div class="settings-field" style="margin-bottom: 1em;">
-      <label>Stream Filter (optional)</label>
+      <label>stream filter (optional)</label>
       <select id="cleanupStreamFilter" style="padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
         <option value="">All streams</option>
       </select>
