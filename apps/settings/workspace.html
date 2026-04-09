@@ -1606,6 +1606,7 @@ input:checked + .slider:before {
     <select class="settings-nav-select" id="navSelect">
       <optgroup label="Journal">
         <option value="profile">Profile</option>
+        <option value="agent">Agent Identity</option>
         <option value="providers">Providers</option>
         <option value="apikeys">API Keys</option>
         <option value="transcription">Transcription</option>
@@ -1616,7 +1617,6 @@ input:checked + .slider:before {
         <option value="sync">Sync</option>
         <option value="storage">Storage</option>
         <option value="support">Support</option>
-        <option value="agent">Agent Identity</option>
         <option value="facets">Facets</option>
       </optgroup>
       <optgroup label="Facet" id="navSelectFacetGroup" style="display:none">
@@ -3387,6 +3387,19 @@ function notifyError(title, message) {
       message,
       dismissible: true,
       autoDismiss: 5000
+    });
+  }
+}
+
+function notifySuccess(title, message) {
+  if (window.AppServices?.notifications) {
+    window.AppServices.notifications.show({
+      app: 'settings',
+      icon: '\u2705',
+      title,
+      message,
+      dismissible: true,
+      autoDismiss: 3000
     });
   }
 }
