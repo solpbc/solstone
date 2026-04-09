@@ -133,10 +133,17 @@ button.day-header {
 .result-item {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid #f3f4f6;
+  display: block;
+  text-decoration: none;
+  color: inherit;
 }
 
 .result-item:last-child {
   border-bottom: none;
+}
+
+.result-item:hover {
+  background: #f9fafb;
 }
 
 .result-meta {
@@ -487,6 +494,8 @@ button.day-header {
   let currentFacet = '';
   let currentAgent = '';
   let dayOffset = 0;
+  let searchController = null;
+  let loadMoreController = null;
 
   // DOM elements
   const resultsContainer = document.getElementById('results-container');
@@ -591,6 +600,9 @@ button.day-header {
       return;
     }
 
+    searchController?.abort();
+    searchController = new AbortController();
+
     if (reset) {
       dayOffset = 0;
       resultsContainer.innerHTML = '<div class="search-loading">Searching...</div>';
@@ -603,7 +615,7 @@ button.day-header {
     if (currentFacet) url.searchParams.set('facet', currentFacet);
     if (currentAgent) url.searchParams.set('agent', currentAgent);
 
-    fetch(url)
+    fetch(url, { signal: searchController.signal })
       .then(r => {
         if (!r.ok) throw new Error('search returned ' + r.status);
         return r.json();
@@ -619,6 +631,7 @@ button.day-header {
         updateLoadMoreButton(data);
       })
       .catch(err => {
+        if (err.name === 'AbortError') return;
         console.error('Search error:', err);
         resultsContainer.innerHTML = `
           <div class="search-error">
@@ -805,8 +818,9 @@ button.day-header {
   }
 
   function createResultItem(result) {
-    const item = document.createElement('div');
+    const item = document.createElement('a');
     item.className = 'result-item';
+    item.href = calendarDayBase + result.day;
 
     // Build facet badge
     let facetBadge = '';
@@ -834,6 +848,8 @@ button.day-header {
   }
 
   function loadMoreForDay(day, currentOffset, resultsDiv, btn) {
+    loadMoreController?.abort();
+    loadMoreController = new AbortController();
     btn.textContent = 'Loading...';
     btn.disabled = true;
 
@@ -845,7 +861,7 @@ button.day-header {
     if (currentFacet) url.searchParams.set('facet', currentFacet);
     if (currentAgent) url.searchParams.set('agent', currentAgent);
 
-    fetch(url)
+    fetch(url, { signal: loadMoreController.signal })
       .then(r => r.json())
       .then(data => {
         for (const result of data.results) {
@@ -867,6 +883,7 @@ button.day-header {
         }
       })
       .catch(err => {
+        if (err.name === 'AbortError') return;
         console.error('Load more error:', err);
         btn.textContent = 'Error - click to retry';
         btn.disabled = false;
