@@ -1165,7 +1165,7 @@ tr:hover .entity-delete-btn {
     </div>
 
     <div class="entity-detail-section">
-      <h4>Edit Entity</h4>
+      <h4>edit entity</h4>
       <div id="journal-detail-edit-error" class="error-message" style="display: none;"></div>
       <form class="entity-edit-form" id="journal-detail-edit-form">
         <div class="form-group">
@@ -1179,12 +1179,12 @@ tr:hover .entity-delete-btn {
           </select>
         </div>
         <div class="form-group">
-          <label for="journal-detail-edit-akas">Alternative Names (AKAs)</label>
+          <label for="journal-detail-edit-akas">alternative names (AKAs)</label>
           <input type="text" id="journal-detail-edit-akas" placeholder="alias1, alias2, alias3">
           <small>Comma-separated list of alternative names for audio transcription</small>
         </div>
         <div class="form-actions">
-          <button type="submit" class="btn btn-primary" id="journal-detail-save-btn">Save Changes</button>
+          <button type="submit" class="btn btn-primary" id="journal-detail-save-btn">save changes</button>
         </div>
       </form>
     </div>
@@ -1292,7 +1292,7 @@ tr:hover .entity-delete-btn {
 <div id="deleteModal" class="modal">
   <div class="modal-content">
     <div class="modal-header danger">
-      <h3>Delete Detected Entity</h3>
+      <h3>delete detected entity</h3>
       <button class="close" aria-label="Close" onclick="closeDeleteModal()">&times;</button>
     </div>
     <div class="modal-body">
@@ -1316,7 +1316,7 @@ tr:hover .entity-delete-btn {
 <div id="deleteJournalEntityModal" class="modal">
   <div class="modal-content">
     <div class="modal-header danger">
-      <h3>Delete Entity Permanently</h3>
+      <h3>delete entity permanently</h3>
       <button class="close" aria-label="Close" onclick="closeDeleteJournalEntityModal()">&times;</button>
     </div>
     <div class="modal-body">
@@ -1336,7 +1336,7 @@ tr:hover .entity-delete-btn {
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeDeleteJournalEntityModal()">Cancel</button>
-      <button id="confirmDeleteJournalEntityBtn" class="btn btn-danger" onclick="confirmDeleteJournalEntity()">Delete Permanently</button>
+      <button id="confirmDeleteJournalEntityBtn" class="btn btn-danger" onclick="confirmDeleteJournalEntity()">delete permanently</button>
     </div>
   </div>
 </div>
@@ -1390,7 +1390,7 @@ async function loadEntityTypes() {
       ENTITY_TYPES.forEach(t => {
         const opt = document.createElement('option');
         opt.value = t.name;
-        opt.textContent = t.name;
+        opt.textContent = t.name.toLowerCase();
         select.appendChild(opt);
       });
     }
@@ -1407,7 +1407,7 @@ async function loadEntityTypes() {
       ENTITY_TYPES.forEach(t => {
         const opt = document.createElement('option');
         opt.value = t.name;
-        opt.textContent = t.name;
+        opt.textContent = t.name.toLowerCase();
         select.appendChild(opt);
       });
     }
@@ -1760,7 +1760,7 @@ function renderJournalDetailView(entity) {
       if (isDetachedFacet) {
         const detachedBadge = document.createElement('span');
         detachedBadge.className = 'facet-rel-detached-badge';
-        detachedBadge.textContent = 'Detached';
+        detachedBadge.textContent = 'detached';
         header.appendChild(detachedBadge);
       }
 
@@ -1870,7 +1870,7 @@ document.getElementById('journal-detail-edit-form').addEventListener('submit', f
     errorEl.style.display = 'none';
     saveBtn.textContent = 'Saved!';
     setTimeout(() => {
-      saveBtn.textContent = 'Save Changes';
+      saveBtn.textContent = 'save changes';
       saveBtn.disabled = false;
     }, 1500);
   })
@@ -1878,7 +1878,7 @@ document.getElementById('journal-detail-edit-form').addEventListener('submit', f
     console.error('Error updating journal entity:', error);
     errorEl.textContent = error.message || 'Failed to save changes';
     errorEl.style.display = 'block';
-    saveBtn.textContent = 'Save Changes';
+    saveBtn.textContent = 'save changes';
     saveBtn.disabled = false;
   });
 });
@@ -1990,7 +1990,7 @@ function confirmDeleteJournalEntity() {
     console.error('Error deleting entity:', error);
     showInlineError('delete-modal-error', "couldn't delete entity");
     btn.disabled = false;
-    btn.textContent = 'Delete Permanently';
+    btn.textContent = 'delete permanently';
   });
 }
 
@@ -2023,7 +2023,7 @@ function renderDetailView(entity, observations) {
       detachedBadge.className = 'entity-detail-detached-badge';
       typeEl.parentNode.insertBefore(detachedBadge, typeEl.nextSibling);
     }
-    detachedBadge.textContent = needsAttachment ? 'Not Attached' : 'Detached';
+    detachedBadge.textContent = needsAttachment ? 'not attached' : 'detached';
   } else if (detachedBadge) {
     detachedBadge.remove();
   }
@@ -2560,7 +2560,7 @@ function renderJournalEntities(searchTerm = '') {
 
     const header = document.createElement('div');
     header.className = 'entity-type-header';
-    header.textContent = type;
+    header.textContent = type.toLowerCase();
     groupDiv.appendChild(header);
 
     const grid = document.createElement('div');
@@ -2749,7 +2749,7 @@ function renderEntityCards(searchTerm = '') {
 
     const header = document.createElement('div');
     header.className = 'entity-type-header';
-    header.textContent = type;
+    header.textContent = type.toLowerCase();
     groupDiv.appendChild(header);
 
     const grid = document.createElement('div');
