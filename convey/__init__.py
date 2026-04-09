@@ -78,7 +78,13 @@ def _migrate_password_hash() -> None:
 
 
 def _migrate_setup_completed() -> None:
-    """Infer setup.completed_at and set trust_localhost for existing installs."""
+    """Infer setup.completed_at and set trust_localhost for existing installs.
+
+    Legacy migration: handles journals where password_hash was set via
+    'sol password set' CLI before web onboarding existed. Web onboarding
+    now writes all config atomically in init_finalize(), so this path is
+    only reached for pre-existing journals.
+    """
     from think.utils import get_config, get_journal
 
     config = get_config()

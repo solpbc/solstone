@@ -177,6 +177,8 @@
       }
     }
 
+    let detectedTimezone = '';
+
     function unlockSections() {
       ['section-identity', 'section-provider', 'section-observers', 'section-finalize'].forEach(id => {
         const section = document.getElementById(id);
@@ -184,46 +186,23 @@
         section.querySelectorAll('input[disabled]').forEach(inp => inp.disabled = false);
         section.querySelectorAll('[tabindex="-1"]').forEach(el => el.removeAttribute('tabindex'));
       });
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      fetch('/init/identity', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({timezone: tz})
-      });
+      detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       loadObservers();
     }
 
-    document.getElementById('password').addEventListener('blur', async function() {
+    document.getElementById('password').addEventListener('blur', function() {
       const password = this.value;
       if (!password) return;
       if (password.length < 8) { showFieldStatus(this, 'error', 'at least 8 characters'); return; }
-      try {
-        const resp = await fetch('/init/password', {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({password})
-        });
-        const data = await resp.json();
-        if (data.success) {
-          showFieldStatus(this, 'saved');
-          this.disabled = true;
-          document.getElementById('toggle-password').style.display = 'none';
-          unlockSections();
-        } else { showFieldStatus(this, 'error', data.error); }
-      } catch (err) { showFieldStatus(this, 'error', 'Failed to save'); }
+      showFieldStatus(this, 'saved', 'looks good');
+      unlockSections();
     });
 
     ['name', 'preferred'].forEach(field => {
-      document.getElementById(field).addEventListener('blur', async function() {
+      document.getElementById(field).addEventListener('blur', function() {
         const value = this.value.trim();
         if (!value) return;
-        try {
-          const resp = await fetch('/init/identity', {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({[field]: value})
-          });
-          const data = await resp.json();
-          if (data.success) showFieldStatus(this, 'saved');
-          else showFieldStatus(this, 'error', data.error);
-        } catch (err) { showFieldStatus(this, 'error', 'Failed to save'); }
+        showFieldStatus(this, 'saved');
       });
     });
 
@@ -231,16 +210,14 @@
       const key = this.value.trim();
       if (!key) return;
       try {
-        const resp = await fetch('/init/provider', {
+        const resp = await fetch('/init/validate-provider', {
           method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({key})
         });
         const data = await resp.json();
-        if (data.success) {
-          if (data.validation && data.validation.valid) showFieldStatus(this, 'saved', 'connected');
-          else showFieldStatus(this, 'error', data.validation?.error || 'Key saved, validation failed');
-        } else showFieldStatus(this, 'error', data.error);
-      } catch (err) { showFieldStatus(this, 'error', 'Failed to save'); }
+        if (data.valid) showFieldStatus(this, 'saved', 'connected');
+        else showFieldStatus(this, 'error', data.error || 'validation failed');
+      } catch (err) { showFieldStatus(this, 'error', 'validation failed'); }
     });
 
     function esc(s) {
@@ -277,23 +254,21 @@
       try {
         const resp = await fetch('/init/finalize', {
           method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({})
+          body: JSON.stringify({
+            password: document.getElementById('password').value,
+            name: document.getElementById('name').value.trim(),
+            preferred: document.getElementById('preferred').value.trim(),
+            timezone: detectedTimezone,
+            gemini_key: document.getElementById('gemini-key').value.trim()
+          })
         });
         const data = await resp.json();
         if (data.success && data.redirect) window.location.href = data.redirect;
+        else if (data.error) {
+          showFieldStatus(document.getElementById('password'), 'error', data.error);
+        }
       } catch (err) {}
     }
-
-    {% if has_password %}
-    document.addEventListener('DOMContentLoaded', function() {
-      const pwField = document.getElementById('password');
-      pwField.value = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
-      pwField.disabled = true;
-      const toggle = document.getElementById('toggle-password');
-      if (toggle) toggle.style.display = 'none';
-      unlockSections();
-    });
-    {% endif %}
   </script>
 </body>
 </html>

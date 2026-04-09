@@ -55,133 +55,94 @@ class TestInitDetection:
         assert resp.status_code == 302
 
 
-class TestInitPassword:
-    def test_save_password(self, fresh_client, journal_copy):
-        resp = fresh_client.post(
-            "/init/password",
-            json={"password": "securepass123"},
-            content_type="application/json",
-        )
-        assert resp.status_code == 200
-        data = resp.get_json()
-        assert data["success"] is True
-        config = _read_config(journal_copy)
-        assert "password_hash" in config["convey"]
-        from werkzeug.security import check_password_hash
+class TestInitValidateProvider:
+    """Tests for the validate-only provider endpoint."""
 
-        assert check_password_hash(config["convey"]["password_hash"], "securepass123")
-
-    def test_password_too_short(self, fresh_client, journal_copy):
-        resp = fresh_client.post(
-            "/init/password",
-            json={"password": "short"},
-            content_type="application/json",
-        )
-        assert resp.status_code == 400
-        config = _read_config(journal_copy)
-        assert "password_hash" not in config.get("convey", {})
-
-    def test_password_already_set(self, configured_client):
-        resp = configured_client.post(
-            "/init/password",
-            json={"password": "newpassword123"},
-            content_type="application/json",
-        )
-        assert resp.status_code == 400
-
-
-class TestInitIdentity:
-    def test_save_identity(self, fresh_client, journal_copy):
-        fresh_client.post(
-            "/init/password",
-            json={"password": "securepass123"},
-            content_type="application/json",
-        )
-        resp = fresh_client.post(
-            "/init/identity",
-            json={"name": "Jane Doe", "preferred": "Jane"},
-            content_type="application/json",
-        )
-        assert resp.status_code == 200
-        config = _read_config(journal_copy)
-        assert config["identity"]["name"] == "Jane Doe"
-        assert config["identity"]["preferred"] == "Jane"
-
-    def test_identity_requires_password(self, fresh_client):
-        resp = fresh_client.post(
-            "/init/identity",
-            json={"name": "Jane"},
-            content_type="application/json",
-        )
-        assert resp.status_code == 403
-
-
-class TestInitProvider:
-    def test_save_provider_key(self, fresh_client, journal_copy, monkeypatch):
-        fresh_client.post(
-            "/init/password",
-            json={"password": "securepass123"},
-            content_type="application/json",
-        )
+    def test_validate_provider_valid_key(self, fresh_client, monkeypatch):
         monkeypatch.setattr(
             "think.providers.validate_key",
             lambda provider, key: {"valid": True},
         )
         resp = fresh_client.post(
-            "/init/provider",
+            "/init/validate-provider",
             json={"key": "test-api-key-123"},
             content_type="application/json",
         )
         assert resp.status_code == 200
         data = resp.get_json()
-        assert data["success"] is True
-        assert data["validation"]["valid"] is True
-        config = _read_config(journal_copy)
-        assert config["env"]["GOOGLE_API_KEY"] == "test-api-key-123"
+        assert data["valid"] is True
 
-    def test_provider_validation_failure(self, fresh_client, journal_copy, monkeypatch):
-        fresh_client.post(
-            "/init/password",
-            json={"password": "securepass123"},
-            content_type="application/json",
-        )
+    def test_validate_provider_invalid_key(self, fresh_client, monkeypatch):
         monkeypatch.setattr(
             "think.providers.validate_key",
             lambda provider, key: {"valid": False, "error": "Invalid key"},
         )
         resp = fresh_client.post(
-            "/init/provider",
+            "/init/validate-provider",
             json={"key": "bad-key"},
             content_type="application/json",
         )
         assert resp.status_code == 200
         data = resp.get_json()
-        assert data["success"] is True
-        assert data["validation"]["valid"] is False
-        config = _read_config(journal_copy)
-        assert config["env"]["GOOGLE_API_KEY"] == "bad-key"
+        assert data["valid"] is False
+        assert data["error"] == "Invalid key"
+
+    def test_validate_provider_no_config_write(
+        self, fresh_client, journal_copy, monkeypatch
+    ):
+        """Validate endpoint must not write to config."""
+        monkeypatch.setattr(
+            "think.providers.validate_key",
+            lambda provider, key: {"valid": True},
+        )
+        config_before = _read_config(journal_copy)
+        fresh_client.post(
+            "/init/validate-provider",
+            json={"key": "test-api-key-123"},
+            content_type="application/json",
+        )
+        config_after = _read_config(journal_copy)
+        assert config_before == config_after
 
 
 class TestInitObservers:
-    def test_observers_requires_password(self, fresh_client):
-        resp = fresh_client.get("/init/observers")
-        assert resp.status_code == 403
+    """Tests for the observer list endpoint during onboarding."""
 
-    def test_observers_returns_list(self, fresh_client, journal_copy, monkeypatch):
-        fresh_client.post(
-            "/init/password",
-            json={"password": "securepass123"},
-            content_type="application/json",
+    def test_observers_no_password_required(self, fresh_client, monkeypatch):
+        """Observers endpoint works without password_hash set."""
+        monkeypatch.setattr(
+            "apps.observer.utils.list_observers",
+            lambda: [],
         )
+        resp = fresh_client.get("/init/observers")
+        assert resp.status_code == 200
+
+    def test_observers_returns_list(self, fresh_client, monkeypatch):
         monkeypatch.setattr(
             "apps.observer.utils.list_observers",
             lambda: [
-                {"key": "abcd1234xxxx", "name": "my-phone", "created_at": 100,
-                 "last_seen": None, "last_segment": None, "enabled": True,
-                 "revoked": False, "revoked_at": None, "stats": {}},
-                {"key": "revoked1xxxx", "name": "old-device", "created_at": 50,
-                 "last_seen": None, "last_segment": None, "enabled": False,
-                 "revoked": True, "revoked_at": 90, "stats": {}},
+                {
+                    "key": "abcd1234xxxx",
+                    "name": "my-phone",
+                    "created_at": 100,
+                    "last_seen": None,
+                    "last_segment": None,
+                    "enabled": True,
+                    "revoked": False,
+                    "revoked_at": None,
+                    "stats": {},
+                },
+                {
+                    "key": "revoked1xxxx",
+                    "name": "old-device",
+                    "created_at": 50,
+                    "last_seen": None,
+                    "last_segment": None,
+                    "enabled": False,
+                    "revoked": True,
+                    "revoked_at": 90,
+                    "stats": {},
+                },
             ],
         )
         resp = fresh_client.get("/init/observers")
@@ -192,54 +153,76 @@ class TestInitObservers:
         assert data[0]["key_prefix"] == "abcd1234"
 
 
-class TestInitProviderGuard:
-    def test_provider_requires_password(self, fresh_client):
-        resp = fresh_client.post(
-            "/init/provider",
-            json={"key": "some-key"},
-            content_type="application/json",
-        )
-        assert resp.status_code == 403
-
-
-class TestInitFinalizeGuard:
-    def test_finalize_requires_password(self, fresh_client):
-        resp = fresh_client.post(
-            "/init/finalize",
-            json={},
-            content_type="application/json",
-        )
-        assert resp.status_code == 403
-
-
 class TestInitFinalize:
-    def test_finalize_sets_session_and_config(self, fresh_client, journal_copy):
-        fresh_client.post(
-            "/init/password",
-            json={"password": "securepass123"},
-            content_type="application/json",
-        )
+    """Tests for the atomic finalize endpoint."""
+
+    def test_finalize_saves_all_config(self, fresh_client, journal_copy):
         resp = fresh_client.post(
             "/init/finalize",
-            json={},
+            json={
+                "password": "securepass123",
+                "name": "Jane Doe",
+                "preferred": "Jane",
+                "timezone": "America/Denver",
+                "gemini_key": "test-api-key-123",
+            },
             content_type="application/json",
         )
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True
         assert data["redirect"] == "/"
+
         config = _read_config(journal_copy)
+        # Password
+        from werkzeug.security import check_password_hash
+
+        assert check_password_hash(config["convey"]["password_hash"], "securepass123")
+        assert config["convey"]["trust_localhost"] is True
+        # Identity
+        assert config["identity"]["name"] == "Jane Doe"
+        assert config["identity"]["preferred"] == "Jane"
+        assert config["identity"]["timezone"] == "America/Denver"
+        # Provider
+        assert config["env"]["GOOGLE_API_KEY"] == "test-api-key-123"
+        # Setup
         assert "completed_at" in config["setup"]
 
-    def test_finalize_auto_login(self, fresh_client, journal_copy):
-        fresh_client.post(
-            "/init/password",
+    def test_finalize_password_required(self, fresh_client):
+        resp = fresh_client.post(
+            "/init/finalize",
+            json={"name": "Jane"},
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+        assert "8 characters" in resp.get_json()["error"]
+
+    def test_finalize_password_too_short(self, fresh_client):
+        resp = fresh_client.post(
+            "/init/finalize",
+            json={"password": "short"},
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+
+    def test_finalize_minimal(self, fresh_client, journal_copy):
+        """Finalize with only password — optional fields omitted."""
+        resp = fresh_client.post(
+            "/init/finalize",
             json={"password": "securepass123"},
             content_type="application/json",
         )
+        assert resp.status_code == 200
+        config = _read_config(journal_copy)
+        assert "password_hash" in config["convey"]
+        assert "completed_at" in config["setup"]
+        # No gemini key written
+        assert "GOOGLE_API_KEY" not in config.get("env", {})
+
+    def test_finalize_auto_login(self, fresh_client, journal_copy):
         fresh_client.post(
             "/init/finalize",
-            json={},
+            json={"password": "securepass123"},
             content_type="application/json",
         )
         resp = fresh_client.get("/", headers={"X-Forwarded-For": "1.2.3.4"})
@@ -248,19 +231,49 @@ class TestInitFinalize:
         assert "/login" not in location
         assert "/init" not in location
 
+    def test_finalize_no_early_config_write(self, fresh_client, journal_copy):
+        """Before finalize, config should have no password_hash or setup."""
+        config = _read_config(journal_copy)
+        assert "password_hash" not in config.get("convey", {})
+        assert "setup" not in config or "completed_at" not in config.get("setup", {})
+
     def test_post_init_redirect(self, fresh_client, journal_copy):
-        fresh_client.post(
-            "/init/password",
-            json={"password": "securepass123"},
-            content_type="application/json",
-        )
+        """After finalize, /init redirects away."""
         fresh_client.post(
             "/init/finalize",
-            json={},
+            json={"password": "securepass123"},
             content_type="application/json",
         )
         resp = fresh_client.get("/init")
         assert resp.status_code == 302
+
+
+class TestRemovedEndpoints:
+    """Verify old endpoints no longer exist."""
+
+    def test_init_password_gone(self, fresh_client):
+        resp = fresh_client.post(
+            "/init/password",
+            json={"password": "securepass123"},
+            content_type="application/json",
+        )
+        assert resp.status_code in (404, 405)
+
+    def test_init_identity_gone(self, fresh_client):
+        resp = fresh_client.post(
+            "/init/identity",
+            json={"name": "Jane"},
+            content_type="application/json",
+        )
+        assert resp.status_code in (404, 405)
+
+    def test_init_provider_gone(self, fresh_client):
+        resp = fresh_client.post(
+            "/init/provider",
+            json={"key": "some-key"},
+            content_type="application/json",
+        )
+        assert resp.status_code in (404, 405)
 
 
 class TestLocalhostBypass:
@@ -377,37 +390,12 @@ class TestBasicAuth:
         assert "/login" in resp2.headers["Location"]
 
 
-class TestPartialInit:
-    """Tests for partial init resumption."""
-
-    def test_partial_init_redirects_to_init(self, fresh_client, journal_copy):
-        """password_hash set but no setup.completed_at → redirect to /init."""
-        # Set password through the init flow
-        fresh_client.post(
-            "/init/password",
-            json={"password": "securepass123"},
-            content_type="application/json",
-        )
-        # Now password_hash exists but no setup.completed_at
-        resp = fresh_client.get("/", headers={"X-Forwarded-For": "1.2.3.4"})
-        assert resp.status_code == 302
-        assert "/init" in resp.headers["Location"]
-
-    def test_partial_init_renders_with_has_password(self, fresh_client, journal_copy):
-        """Partial init: init page renders with sections unlocked."""
-        fresh_client.post(
-            "/init/password",
-            json={"password": "securepass123"},
-            content_type="application/json",
-        )
-        resp = fresh_client.get("/init")
-        assert resp.status_code == 200
-        # The has_password template var triggers unlockSections()
-        assert b"unlockSections()" in resp.data
-
-
 class TestSetupMigration:
-    """Tests for the _migrate_setup_completed migration."""
+    """Tests for the _migrate_setup_completed migration.
+
+    Legacy-only: handles journals where password was set via CLI before
+    web onboarding existed. New onboarding writes all config atomically.
+    """
 
     def test_migration_writes_setup_and_trust(self, journal_copy):
         """App startup with password_hash but no setup.completed_at writes both."""
