@@ -1597,6 +1597,7 @@ input:checked + .slider:before {
 .log-more-btn:focus-visible,
 .color-close:focus-visible,
 .color-swatch:focus-visible,
+.field-display:focus-visible,
 button:focus-visible {
   outline: 2px solid var(--facet-color, #E8923A);
   outline-offset: 2px;
@@ -1619,6 +1620,7 @@ button:focus-visible {
 .settings-nav-item:focus:not(:focus-visible),
 .setup-btn:focus:not(:focus-visible),
 .save-color-btn:focus:not(:focus-visible),
+.field-display:focus:not(:focus-visible),
 button:focus:not(:focus-visible) {
   outline: none;
 }
@@ -2487,7 +2489,7 @@ button:focus:not(:focus-visible) {
           <span class="field-display" id="facetTitleDisplay">Loading...</span>
           <input type="text" class="field-input" id="facetTitleInput" style="display:none">
         </div>
-        <small>Double-click to edit</small>
+        <small id="facetTitleField-hint">Double-click or press Enter to edit</small>
       </div>
 
       <div class="settings-field">
@@ -2496,7 +2498,7 @@ button:focus:not(:focus-visible) {
           <span class="field-display" id="facetDescDisplay">No description set</span>
           <textarea class="field-input" id="facetDescInput" rows="3" style="display:none"></textarea>
         </div>
-        <small>Double-click to edit</small>
+        <small id="facetDescField-hint">Double-click or press Enter to edit</small>
       </div>
 
       <div class="settings-field">
@@ -3304,6 +3306,20 @@ function setupDoubleTapEdit(fieldId, displayId, inputId, configKey) {
     }
   };
 
+  display.setAttribute('tabindex', '0');
+  display.setAttribute('role', 'button');
+  display.setAttribute('aria-describedby', fieldId + '-hint');
+
+  display.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === 'F2') {
+      e.preventDefault();
+      display.style.display = 'none';
+      input.style.display = 'block';
+      input.focus();
+      input.select();
+    }
+  };
+
   input.onblur = () => {
     const value = input.value.trim();
     if (configKey === 'description' || value) {
@@ -3349,6 +3365,16 @@ function setupEmojiPicker() {
   };
 }
 
+function colorName(hex) {
+  const names = {
+    '#007bff': 'Blue', '#28a745': 'Green', '#17a2b8': 'Teal',
+    '#ffc107': 'Yellow', '#6f42c1': 'Purple', '#fd7e14': 'Orange',
+    '#e83e8c': 'Pink', '#6c757d': 'Gray', '#20c997': 'Mint',
+    '#ff5722': 'Red-Orange', '#9c27b0': 'Deep Purple', '#795548': 'Brown'
+  };
+  return names[hex.toLowerCase()] || hex;
+}
+
 function setupColorPicker() {
   const modal = document.getElementById('colorPickerModal');
   const trigger = document.getElementById('colorTrigger');
@@ -3362,12 +3388,33 @@ function setupColorPicker() {
 
   // Populate swatches
   const colors = ['#007bff','#28a745','#17a2b8','#ffc107','#6f42c1','#fd7e14','#e83e8c','#6c757d','#20c997','#ff5722','#9c27b0','#795548'];
-  swatches.innerHTML = colors.map(c => `<div class="color-swatch" data-color="${c}" style="background:${c}"></div>`).join('');
+  swatches.innerHTML = colors.map(c => `<div class="color-swatch" role="button" tabindex="0" aria-label="${colorName(c)}" data-color="${c}" style="background:${c}"></div>`).join('');
 
   swatches.onclick = (e) => {
     if (e.target.classList.contains('color-swatch')) {
       selectedColor = e.target.dataset.color;
       updateColorUI(selectedColor);
+    }
+  };
+
+  swatches.onkeydown = (e) => {
+    if (!e.target.classList.contains('color-swatch')) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      selectedColor = e.target.dataset.color;
+      updateColorUI(selectedColor);
+    }
+    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
+      e.preventDefault();
+      const all = [...swatches.querySelectorAll('.color-swatch')];
+      const idx = all.indexOf(e.target);
+      const cols = Math.floor(swatches.clientWidth / all[0].offsetWidth) || 4;
+      let next = idx;
+      if (e.key === 'ArrowRight') next = Math.min(idx + 1, all.length - 1);
+      if (e.key === 'ArrowLeft') next = Math.max(idx - 1, 0);
+      if (e.key === 'ArrowDown') next = Math.min(idx + cols, all.length - 1);
+      if (e.key === 'ArrowUp') next = Math.max(idx - cols, 0);
+      all[next].focus();
     }
   };
 
