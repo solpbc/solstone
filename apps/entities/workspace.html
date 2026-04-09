@@ -1018,6 +1018,107 @@ tr:hover .entity-delete-btn {
   color: #999;
   margin-bottom: 0.5em;
 }
+
+/* ── Responsive: Tablet (≤768px) ── */
+@media (max-width: 768px) {
+  .entity-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .entity-detail-header {
+    padding: 1.25em;
+  }
+
+  .entity-detail-section {
+    padding: 1.25em;
+  }
+}
+
+/* ── Responsive: Mobile (≤480px) ── */
+@media (max-width: 480px) {
+  /* Card grid: single column */
+  .entity-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Card touch targets */
+  .entity-card {
+    padding: 1em;
+    min-height: 44px;
+  }
+
+  /* Container padding tighter */
+  .entity-cards-container {
+    padding: 1em;
+  }
+
+  /* Table: horizontal scroll */
+  .entities-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Relax fixed type column width */
+  .entity-type {
+    width: auto;
+    min-width: 80px;
+  }
+
+  /* Section headers: wrap search input below title */
+  .entities-section h3 {
+    flex-wrap: wrap;
+    padding: 0.75em 1em;
+  }
+
+  .entities-subtitle {
+    padding: 0.25em 1em;
+  }
+
+  /* Search input: full width on mobile */
+  .entity-search-input {
+    width: 100%;
+    max-width: none;
+    margin-top: 0.5em;
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  /* Star button touch target */
+  .star-button {
+    width: 44px;
+    min-height: 44px;
+  }
+
+  /* Pagination button touch targets */
+  .detected-pagination button {
+    min-height: 44px;
+    padding: 8px 16px;
+  }
+
+  /* Small button touch targets */
+  .btn-sm {
+    min-height: 44px;
+    padding: 0.5em 1em;
+  }
+
+  /* Detail view: tighter padding, smaller title */
+  .entity-detail-header {
+    padding: 1em;
+  }
+
+  .entity-detail-name {
+    font-size: 1.25em;
+  }
+
+  .entity-detail-title {
+    flex-wrap: wrap;
+  }
+
+  .entity-detail-section {
+    padding: 1em;
+  }
+}
+
 </style>
 
 <div class="workspace-content">
