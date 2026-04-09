@@ -381,6 +381,27 @@
 .level-high { background: #2ecc71; }
 .level-medium { background: #f39c12; }
 .level-low { background: #95a5a6; }
+
+/* Focus-visible for interactive elements */
+.occ:focus-visible,
+.occ-activity:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 1px;
+}
+.all-day-card:focus-visible,
+.activity-card:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 2px;
+}
+/* Button reset for back link */
+button.activity-detail-back {
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  padding: 0.25em 0;
+  text-align: left;
+}
 </style>
 
 <div class="workspace-content-wide">
@@ -395,9 +416,9 @@
 
   <div id="activityDetail" class="activity-detail" style="display:none"></div>
 
-  <div id="eventModal" class="modal">
+  <div id="eventModal" class="modal" role="dialog" aria-modal="true">
     <div class="modal-content">
-      <span class="close">&times;</span>
+      <button type="button" class="close" aria-label="Close">&times;</button>
       <div id="modalBody"></div>
     </div>
   </div>
@@ -412,6 +433,7 @@
   let allActivities = [];
   let events = [];
   let activities = [];
+  let modalTrigger = null;
   let currentActivityId = null;
   const outputCache = {};
 
@@ -499,7 +521,7 @@
         const cardClass = isPlanned ? 'all-day-card planned' : 'all-day-card';
         const badge = isPlanned ? '<span class="card-badge">Planned</span>' : '';
         const title = escapeHtml(o.title || o.summary || o.agent || 'Event');
-        html += `<div class="${cardClass}" data-index="${idx}" style="border-color:${o.color || '#6c757d'}">`;
+        html += `<div class="${cardClass}" data-index="${idx}" tabindex="0" role="button" style="border-color:${o.color || '#6c757d'}">`;
         html += `<span class="card-title">${title}</span>${badge}</div>`;
       });
       html += '</div></div>';
@@ -549,7 +571,7 @@
       const top = ((sMin - startHour * 60) / totalMinutes) * 100;
       const height = Math.max((eMin - sMin) / totalMinutes * 100, 0.4);
       const color = levelColor(a.level_avg);
-      html += `<a class='occ occ-activity' data-activity-id='${escapeHtml(a.id)}' style='top:${top}%;height:${height}%;left:0;width:100%;border-color:${color};background:${color}' title='${escapeHtml(a.icon + " " + a.name)}'>${escapeHtml(a.icon)} ${escapeHtml(a.name)}</a>`;
+      html += `<a class='occ occ-activity' data-activity-id='${escapeHtml(a.id)}' tabindex='0' role='button' style='top:${top}%;height:${height}%;left:0;width:100%;border-color:${color};background:${color}' title='${escapeHtml(a.icon + " " + a.name)}'>${escapeHtml(a.icon)} ${escapeHtml(a.name)}</a>`;
     });
 
     // Process event blocks for column layout
@@ -624,7 +646,7 @@
       const plannedClass = event.isPlanned ? ' occ-planned' : '';
       const bgStyle = event.isPlanned ? `border-color:${event.color}` : `background:${event.color}`;
       const titlePrefix = event.isPlanned ? '▸ ' : '';
-      html += `<a class='occ${plannedClass}' data-index='${event.index}' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;${bgStyle}' title='${titlePrefix}${event.title}'></a>`;
+      html += `<a class='occ${plannedClass}' data-index='${event.index}' tabindex='0' role='button' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;${bgStyle}' title='${titlePrefix}${event.title}'></a>`;
     });
 
     html += '</div>';
@@ -646,7 +668,7 @@
       const lvl = levelLabel(a.level_avg);
       const timeStr = a.startTime ? fmtTime(a.startTime) : '';
       const color = levelColor(a.level_avg);
-      html += `<div class="activity-card" data-activity-id="${escapeHtml(a.id)}" style="border-left-color:${color}">`;
+      html += `<div class="activity-card" data-activity-id="${escapeHtml(a.id)}" tabindex="0" role="button" style="border-left-color:${color}">`;
       html += `<span class="act-icon">${escapeHtml(a.icon || '')}</span>`;
       html += `<div class="act-body">`;
       html += `<div class="act-name">${escapeHtml(a.name)}</div>`;
@@ -667,6 +689,7 @@
   function openModal(idx) {
     const occ = events[idx];
     if (!occ) return;
+    modalTrigger = document.activeElement;
     const body = document.getElementById('modalBody');
     const isPlanned = occ.occurred === false;
     const agent = occ.agent ? occ.agent.charAt(0).toUpperCase() + occ.agent.slice(1) : '';
@@ -701,6 +724,41 @@
     }
     body.innerHTML = html;
     document.getElementById('eventModal').style.display = 'block';
+    const modal = document.getElementById('eventModal');
+    const eventTitle = occ.title || occ.summary || 'Event details';
+    modal.setAttribute('aria-label', eventTitle);
+    modal.querySelector('.close').focus();
+    document.addEventListener('keydown', handleModalKeys);
+  }
+
+  function closeModal() {
+    const modal = document.getElementById('eventModal');
+    modal.style.display = 'none';
+    document.removeEventListener('keydown', handleModalKeys);
+    if (modalTrigger && document.contains(modalTrigger)) {
+      modalTrigger.focus();
+    }
+    modalTrigger = null;
+  }
+
+  function handleModalKeys(e) {
+    if (e.key === 'Escape') {
+      closeModal();
+      return;
+    }
+    if (e.key === 'Tab') {
+      const modal = document.getElementById('eventModal');
+      const focusable = [...modal.querySelectorAll('button:not([disabled]), [tabindex="0"]')];
+      if (focusable.length === 0) return;
+      const currentIndex = focusable.indexOf(document.activeElement);
+      if (e.shiftKey) {
+        e.preventDefault();
+        focusable[currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1].focus();
+      } else {
+        e.preventDefault();
+        focusable[currentIndex >= focusable.length - 1 ? 0 : currentIndex + 1].focus();
+      }
+    }
   }
 
   // ── Activity detail view ──
@@ -730,7 +788,7 @@
       : '';
 
     let html = '';
-    html += `<div class="activity-detail-back" onclick="location.hash=''">← Back to day</div>`;
+    html += `<button type="button" class="activity-detail-back">← Back to day</button>`;
     html += `<div class="activity-detail-header">`;
     html += `<h2>${escapeHtml(a.icon || '')} ${escapeHtml(a.name)}</h2>`;
     html += `<div class="ad-subtitle">${escapeHtml(a.facet)}</div>`;
@@ -775,6 +833,9 @@
     });
 
     detail.innerHTML = html;
+    detail.querySelector('.activity-detail-back').addEventListener('click', () => {
+      location.hash = '';
+    });
 
     // Tab click handler
     detail.querySelector('.ad-tabs').addEventListener('click', function(e) {
@@ -891,6 +952,26 @@
           location.hash = 'activity/' + card.dataset.activityId;
         }
       };
+
+      // Keyboard activation
+      document.getElementById('eventsView').onkeydown = e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const el = e.target.closest('.occ-activity, .occ, .all-day-card');
+          if (el) {
+            e.preventDefault();
+            el.click();
+          }
+        }
+      };
+      document.getElementById('activitiesView').onkeydown = e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const el = e.target.closest('.activity-card');
+          if (el) {
+            e.preventDefault();
+            el.click();
+          }
+        }
+      };
     }).catch(() => {
       document.getElementById('eventsView').innerHTML = '<div class="events-empty">Failed to load data.</div>';
     });
@@ -920,11 +1001,11 @@
   });
 
   document.querySelector('#eventModal .close').onclick = () => {
-    document.getElementById('eventModal').style.display = 'none';
+    closeModal();
   };
   window.onclick = e => {
     const modal = document.getElementById('eventModal');
-    if (e.target === modal) modal.style.display = 'none';
+    if (e.target === modal) closeModal();
   };
 
   loadData();
