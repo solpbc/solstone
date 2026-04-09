@@ -72,7 +72,7 @@
   color: var(--facet-color, #667eea);
 }
 
-.entity-card-obs-badge,
+.entity-card-mention-badge,
 .entity-card-badge {
   position: absolute;
   top: 0;
@@ -599,6 +599,13 @@ tr:hover .entity-delete-btn {
   justify-content: space-between;
 }
 
+.entities-subtitle {
+  margin: 0;
+  padding: 0.5em 1.5em;
+  color: #6c757d;
+  font-size: 0.85em;
+}
+
 .no-entities {
   padding: 3em;
   text-align: center;
@@ -620,14 +627,14 @@ tr:hover .entity-delete-btn {
   border-color: var(--facet-color, #667eea);
 }
 
-.detection-count-badge {
+.mention-count-badge {
   margin-left: 8px;
-  background: color-mix(in srgb, var(--facet-color, #1976d2) 15%, white);
-  color: var(--facet-color, #1976d2);
+  background: color-mix(in srgb, var(--facet-color, #667eea) 15%, white);
+  color: var(--facet-color, #667eea);
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 0.8em;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* Loading and states */
@@ -976,6 +983,8 @@ tr:hover .entity-delete-btn {
   <!-- Journal-wide entities view (all-facet mode) -->
   <div id="journal-entities-view" style="display: none;">
     <div class="entities-section">
+      <h3>your entities</h3>
+      <p class="entities-subtitle">people, places, and things across your journal</p>
       <div class="entity-cards-container">
         <div id="journal-entity-cards-content"></div>
         <div id="no-journal-entities" class="no-journal-entities" style="display: none;">
@@ -1045,6 +1054,8 @@ tr:hover .entity-delete-btn {
   <div id="entities-list-view" style="display: none;">
     <!-- Facet Entities Section (Cards) -->
     <div class="entities-section">
+      <h3 id="facet-entities-heading">entities</h3>
+      <p class="entities-subtitle" id="facet-entities-subtitle">people, places, and things you're tracking</p>
       <div class="entity-cards-container">
         <div id="entity-cards-content"></div>
         <div id="no-facet-entities" class="no-entities" style="display: none;">
@@ -1060,6 +1071,7 @@ tr:hover .entity-delete-btn {
           <span>detected entities</span>
           <input type="text" id="entity-search" class="entity-search-input" placeholder="Search entities...">
         </h3>
+        <p class="entities-subtitle">found by AI in the last 30 days — star to add to your journal</p>
         <div id="detected-action-error" class="error-message" style="display: none;"></div>
         <table class="entities-table">
           <thead>
@@ -2428,12 +2440,12 @@ function createJournalEntityCard(entity) {
     }
   });
 
-  // Observation count badge (top-right corner)
+  // Mention count badge (top-right corner)
   if (entity.total_observation_count > 0) {
     const badge = document.createElement('div');
     badge.className = 'entity-card-badge';
     badge.textContent = entity.total_observation_count;
-    badge.title = `${entity.total_observation_count} observation${entity.total_observation_count !== 1 ? 's' : ''}`;
+    badge.title = `${entity.total_observation_count} mention${entity.total_observation_count !== 1 ? 's' : ''} — observations recorded about this entity`;
     card.appendChild(badge);
   }
 
@@ -2477,6 +2489,14 @@ function createJournalEntityCard(entity) {
 
 function renderEntityCards() {
   const container = document.getElementById('entity-cards-content');
+
+  // Update facet heading
+  const facetHeading = document.getElementById('facet-entities-heading');
+  if (facetHeading && currentFacet) {
+    const facetTitle = (window.facetsData || []).find(f => f.name === currentFacet)?.title || currentFacet;
+    facetHeading.textContent = `entities in ${facetTitle}`;
+  }
+
   const noEntities = document.getElementById('no-facet-entities');
 
   // Preserve pending cards
@@ -2561,12 +2581,12 @@ function createEntityCard(entity) {
     }
   });
 
-  // Observation count badge (top-right corner)
+  // Mention count badge (top-right corner)
   if (entity.observation_count && entity.observation_count > 0) {
     const badge = document.createElement('div');
-    badge.className = 'entity-card-obs-badge';
+    badge.className = 'entity-card-mention-badge';
     badge.textContent = entity.observation_count;
-    badge.title = `${entity.observation_count} observation${entity.observation_count > 1 ? 's' : ''}`;
+    badge.title = `${entity.observation_count} mention${entity.observation_count > 1 ? 's' : ''} — observations recorded about this entity`;
     card.appendChild(badge);
   }
 
@@ -2671,11 +2691,12 @@ function createDetectedRow(entity) {
   nameCell.className = 'entity-name';
   nameCell.textContent = entity.name;
 
-  // Count badge
-  if (entity.count && entity.count > 1) {
+  // Mention count badge
+  if (entity.count && entity.count > 0) {
     const badge = document.createElement('span');
-    badge.className = 'detection-count-badge';
-    badge.textContent = `${entity.count} detections`;
+    badge.className = 'mention-count-badge';
+    badge.textContent = entity.count;
+    badge.title = `${entity.count} mention${entity.count !== 1 ? 's' : ''} — days detected in the last 30 days`;
     nameCell.appendChild(badge);
   }
   row.appendChild(nameCell);
