@@ -80,11 +80,12 @@ bp = Blueprint(
 
 @bp.before_app_request
 def require_login() -> Any:
+    if request.endpoint is None:
+        return None
+
     if request.endpoint in {
         "root.init",
-        "root.init_password",
-        "root.init_identity",
-        "root.init_provider",
+        "root.init_validate_provider",
         "root.init_observers",
         "root.init_finalize",
         "root.login",
@@ -155,49 +156,17 @@ def init() -> Any:
 
     config_path = str(Path(get_journal()) / "config" / "journal.json")
     repo_path = str(Path(__file__).resolve().parent.parent)
-    has_password = bool(_get_password_hash())
     return render_template(
         "init.html",
         config_path=config_path,
         repo_path=repo_path,
-        has_password=has_password,
     )
 
 
-@bp.route("/init/password", methods=["POST"])
-def init_password() -> Any:
-    if _get_password_hash():
-        return jsonify({"error": "Already configured"}), 400
-
-    data = request.get_json(silent=True) or {}
-    password = data.get("password", "")
-    if len(password) < 8:
-        return jsonify({"error": "Password must be at least 8 characters"}), 400
-
-    hashed = generate_password_hash(password)
-    _save_config_section("convey", {"password_hash": hashed})
-    return jsonify({"success": True})
-
-
-@bp.route("/init/identity", methods=["POST"])
-def init_identity() -> Any:
-    if not _get_password_hash():
-        return jsonify({"error": "Password required first"}), 403
-
-    data = request.get_json(silent=True) or {}
-    allowed = {k: data[k] for k in ("name", "preferred", "timezone") if k in data}
-    _save_config_section("identity", allowed)
-    return jsonify({"success": True})
-
-
-@bp.route("/init/provider", methods=["POST"])
-def init_provider() -> Any:
-    if not _get_password_hash():
-        return jsonify({"error": "Password required first"}), 403
-
+@bp.route("/init/validate-provider", methods=["POST"])
+def init_validate_provider() -> Any:
     data = request.get_json(silent=True) or {}
     key = data.get("key", "")
-    _save_config_section("env", {"GOOGLE_API_KEY": key})
 
     from think.providers import validate_key
 
@@ -205,14 +174,11 @@ def init_provider() -> Any:
         result = validate_key("google", key)
     except Exception as e:
         result = {"valid": False, "error": str(e)}
-    return jsonify({"success": True, "validation": result})
+    return jsonify(result)
 
 
 @bp.route("/init/observers")
 def init_observers() -> Any:
-    if not _get_password_hash():
-        return jsonify({"error": "Password required first"}), 403
-
     from apps.observer.utils import list_observers
 
     observers_list = []
@@ -237,15 +203,46 @@ def init_observers() -> Any:
 
 @bp.route("/init/finalize", methods=["POST"])
 def init_finalize() -> Any:
-    if not _get_password_hash():
-        return jsonify({"error": "Password required first"}), 403
+    data = request.get_json(silent=True) or {}
+
+    password = data.get("password", "")
+    if len(password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters"}), 400
 
     from think.utils import now_ms
 
-    _save_config_section(
-        "setup",
-        {"completed_at": now_ms()},
+    hashed = generate_password_hash(password)
+
+    config = get_config()
+    config.setdefault("convey", {}).update(
+        {
+            "password_hash": hashed,
+            "trust_localhost": True,
+        }
     )
+    config.setdefault("identity", {}).update(
+        {
+            k: v
+            for k, v in {
+                "name": data.get("name"),
+                "preferred": data.get("preferred"),
+                "timezone": data.get("timezone"),
+            }.items()
+            if v
+        }
+    )
+    gemini_key = data.get("gemini_key")
+    if gemini_key:
+        config.setdefault("env", {})["GOOGLE_API_KEY"] = gemini_key
+    config.setdefault("setup", {})["completed_at"] = now_ms()
+
+    config_path = Path(get_journal()) / "config" / "journal.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.chmod(config_path, 0o600)
+
     session["logged_in"] = True
     session.permanent = True
     return jsonify({"success": True, "redirect": url_for("root.index")})
