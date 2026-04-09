@@ -150,6 +150,34 @@
   border-radius: 7px 0 6px 0;
 }
 
+/* Entity type indicator dot */
+.entity-card-type-indicator {
+  position: absolute;
+  bottom: 0.5em;
+  left: 0.75em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--type-color, #95a5a6);
+}
+
+/* Type colors */
+.entity-card-type-person { --type-color: #4a90d9; }
+.entity-card-type-company { --type-color: #e6a23c; }
+.entity-card-type-project { --type-color: #27ae60; }
+.entity-card-type-tool { --type-color: #9b59b6; }
+
+/* Detail view affordance chevron */
+.entity-card-detail-affordance {
+  position: absolute;
+  bottom: 0.3em;
+  right: 0.75em;
+  font-size: 1.1em;
+  line-height: 1;
+  color: #adb5bd;
+  pointer-events: none;
+}
+
 /* Entity detail view */
 .entity-detail-view {
   background: white;
@@ -2349,6 +2377,23 @@ function renderJournalEntities() {
   });
 }
 
+function appendTypeIndicator(card, type) {
+  const slug = type ? type.toLowerCase().replace(/\s+/g, '-') : 'other';
+  card.classList.add('entity-card-type-' + slug);
+  const dot = document.createElement('span');
+  dot.className = 'entity-card-type-indicator';
+  dot.title = type || 'Other';
+  card.appendChild(dot);
+}
+
+function appendDetailAffordance(card) {
+  const chevron = document.createElement('span');
+  chevron.className = 'entity-card-detail-affordance';
+  chevron.textContent = '\u203A';
+  chevron.setAttribute('aria-hidden', 'true');
+  card.appendChild(chevron);
+}
+
 function createJournalEntityCard(entity) {
   const card = document.createElement('div');
   card.className = 'entity-card';
@@ -2423,6 +2468,9 @@ function createJournalEntityCard(entity) {
 
     card.appendChild(dotsContainer);
   }
+
+  appendTypeIndicator(card, entity.type);
+  appendDetailAffordance(card);
 
   return card;
 }
@@ -2552,6 +2600,9 @@ function createEntityCard(entity) {
   if (meta.childNodes.length > 0) {
     card.appendChild(meta);
   }
+
+  appendTypeIndicator(card, entity.type);
+  appendDetailAffordance(card);
 
   return card;
 }
