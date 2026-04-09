@@ -109,7 +109,7 @@
   border-radius: 6px;
 }
 
-.all-day-section h4 {
+.all-day-section h2 {
   margin: 0 0 0.5em 0;
   font-size: 0.85em;
   color: #666;
@@ -152,7 +152,7 @@
   border-top: 1px solid #eee;
 }
 
-.activities-section h3 {
+.activities-section h2 {
   margin: 0 0 0.75em 0;
   font-size: 1em;
   color: #555;
@@ -402,6 +402,18 @@ button.activity-detail-back {
   padding: 0.25em 0;
   text-align: left;
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 </style>
 
 <div class="workspace-content-wide">
@@ -514,7 +526,7 @@ button.activity-detail-back {
     let html = '';
 
     if (untimedEvents.length) {
-      html += '<div class="all-day-section"><h4>all day / scheduled</h4><div class="all-day-cards">';
+      html += '<section class="all-day-section" aria-labelledby="all-day-heading"><h2 id="all-day-heading">all day / scheduled</h2><div class="all-day-cards">';
       untimedEvents.forEach((o, i) => {
         const idx = list.indexOf(o);
         const isPlanned = o.occurred === false;
@@ -524,7 +536,7 @@ button.activity-detail-back {
         html += `<div class="${cardClass}" data-index="${idx}" tabindex="0" role="button" style="border-color:${o.color || '#6c757d'}">`;
         html += `<span class="card-title">${title}</span>${badge}</div>`;
       });
-      html += '</div></div>';
+      html += '</div></section>';
     }
 
     // Collect all timed items (events + activities) for unified timeline range
@@ -551,7 +563,7 @@ button.activity-detail-back {
     const pxPerHour = 66.7;
     const totalMinutes = (endHour - startHour) * 60;
 
-    html += `<div class='day-view' style='height:${(endHour - startHour) * pxPerHour}px'>`;
+    html += `<section class='day-view' aria-label='timeline' style='height:${(endHour - startHour) * pxPerHour}px'>`;
 
     for (let h = startHour; h <= endHour; h++) {
       const label = h === 0 ? '12am' : h < 12 ? h + 'am' : h === 12 ? '12pm' : (h - 12) + 'pm';
@@ -649,7 +661,7 @@ button.activity-detail-back {
       html += `<a class='occ${plannedClass}' data-index='${event.index}' tabindex='0' role='button' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;${bgStyle}' title='${titlePrefix}${event.title}'></a>`;
     });
 
-    html += '</div>';
+    html += '</section>';
     div.innerHTML = html;
   }
 
@@ -662,7 +674,7 @@ button.activity-detail-back {
       return;
     }
 
-    let html = '<div class="activities-section"><h3>Activities</h3><div class="activity-cards">';
+    let html = '<section class="activities-section" aria-labelledby="activities-heading"><h2 id="activities-heading">activities</h2><div class="activity-cards">';
     list.forEach(a => {
       const dur = fmtDuration(a.duration_minutes);
       const lvl = levelLabel(a.level_avg);
@@ -676,11 +688,11 @@ button.activity-detail-back {
       html += `</div>`;
       html += `<div class="act-meta">`;
       if (timeStr) html += `<div>${timeStr}</div>`;
-      html += `<div class="act-duration">${dur}<span class="act-level level-${lvl}" title="${lvl} engagement"></span></div>`;
+      html += `<div class="act-duration">${dur}<span class="act-level level-${lvl}" aria-hidden="true"></span><span class="sr-only">${lvl} engagement</span></div>`;
       if (a.outputs.length) html += `<div>${a.outputs.length} output${a.outputs.length > 1 ? 's' : ''}</div>`;
       html += `</div></div>`;
     });
-    html += '</div></div>';
+    html += '</div></section>';
     div.innerHTML = html;
   }
 
@@ -810,7 +822,7 @@ button.activity-detail-back {
       html += `<dt>Time</dt><dd>${timeRange}</dd>`;
     }
     html += `<dt>Duration</dt><dd>${fmtDuration(a.duration_minutes)}</dd>`;
-    html += `<dt>Engagement</dt><dd><span class="act-level level-${lvl}"></span> ${lvl}</dd>`;
+    html += `<dt>Engagement</dt><dd><span class="act-level level-${lvl}" aria-hidden="true"></span> ${lvl}</dd>`;
     html += `<dt>Segments</dt><dd>${a.segments.length}</dd>`;
     if (a.active_entities && a.active_entities.length) {
       html += `<dt>Entities</dt><dd><div class="ad-entities">`;
