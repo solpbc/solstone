@@ -669,6 +669,13 @@ input:checked + .slider:before {
   margin-bottom: 0;
 }
 
+.storage-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1em;
+  text-align: center;
+}
+
 .provider-key-warning {
   display: flex;
   align-items: center;
@@ -1635,24 +1642,48 @@ button:focus:not(:focus-visible) {
     max-width: none;
   }
 }
+
+@media (max-width: 480px) {
+  .provider-row {
+    flex-direction: column;
+  }
+
+  .storage-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-field input,
+  .settings-field select,
+  .settings-field textarea {
+    font-size: 16px;
+  }
+}
 </style>
 
 <div class="settings-wrap">
   <!-- Mobile nav dropdown -->
   <div class="settings-nav-mobile">
     <select class="settings-nav-select" id="navSelect">
-      <optgroup label="journal">
+      <optgroup label="identity">
         <option value="profile">profile</option>
         <option value="agent">agent identity</option>
+      </optgroup>
+      <optgroup label="AI">
         <option value="providers">providers</option>
         <option value="apikeys">API keys</option>
         <option value="transcription">transcription</option>
+        <option value="insights">insights</option>
+      </optgroup>
+      <optgroup label="capture">
         <option value="observer">observer</option>
         <option value="vision">vision</option>
-        <option value="insights">insights</option>
+      </optgroup>
+      <optgroup label="data">
         <option value="security">security</option>
         <option value="sync">sync</option>
         <option value="storage">storage</option>
+      </optgroup>
+      <optgroup label="help">
         <option value="support">support</option>
         <option value="facets">facets</option>
       </optgroup>
@@ -1667,18 +1698,30 @@ button:focus:not(:focus-visible) {
   <!-- Desktop nav sidebar -->
   <nav class="settings-nav" id="settingsNav" role="tablist" aria-label="settings sections" aria-orientation="vertical">
     <div class="settings-nav-group">
-      <div class="settings-nav-label">journal</div>
+      <div class="settings-nav-label">identity</div>
       <button class="settings-nav-item active" data-section="profile" id="tab-profile" role="tab" aria-selected="true" aria-controls="section-profile" tabindex="0">profile</button>
       <button class="settings-nav-item" data-section="agent" id="tab-agent" role="tab" aria-selected="false" aria-controls="section-agent" tabindex="-1">agent identity</button>
+    </div>
+    <div class="settings-nav-group">
+      <div class="settings-nav-label">AI</div>
       <button class="settings-nav-item" data-section="providers" id="tab-providers" role="tab" aria-selected="false" aria-controls="section-providers" tabindex="-1">providers</button>
       <button class="settings-nav-item" data-section="apikeys" id="tab-apikeys" role="tab" aria-selected="false" aria-controls="section-apikeys" tabindex="-1">API keys</button>
       <button class="settings-nav-item" data-section="transcription" id="tab-transcription" role="tab" aria-selected="false" aria-controls="section-transcription" tabindex="-1">transcription</button>
+      <button class="settings-nav-item" data-section="insights" id="tab-insights" role="tab" aria-selected="false" aria-controls="section-insights" tabindex="-1">insights</button>
+    </div>
+    <div class="settings-nav-group">
+      <div class="settings-nav-label">capture</div>
       <button class="settings-nav-item" data-section="observer" id="tab-observer" role="tab" aria-selected="false" aria-controls="section-observer" tabindex="-1">observer</button>
       <button class="settings-nav-item" data-section="vision" id="tab-vision" role="tab" aria-selected="false" aria-controls="section-vision" tabindex="-1">vision</button>
-      <button class="settings-nav-item" data-section="insights" id="tab-insights" role="tab" aria-selected="false" aria-controls="section-insights" tabindex="-1">insights</button>
+    </div>
+    <div class="settings-nav-group">
+      <div class="settings-nav-label">data</div>
       <button class="settings-nav-item" data-section="security" id="tab-security" role="tab" aria-selected="false" aria-controls="section-security" tabindex="-1">security</button>
       <button class="settings-nav-item" data-section="sync" id="tab-sync" role="tab" aria-selected="false" aria-controls="section-sync" tabindex="-1">sync</button>
       <button class="settings-nav-item" data-section="storage" id="tab-storage" role="tab" aria-selected="false" aria-controls="section-storage" tabindex="-1">storage</button>
+    </div>
+    <div class="settings-nav-group">
+      <div class="settings-nav-label">help</div>
       <button class="settings-nav-item" data-section="support" id="tab-support" role="tab" aria-selected="false" aria-controls="section-support" tabindex="-1">support</button>
       <button class="settings-nav-item" data-section="facets" id="tab-facets" role="tab" aria-selected="false" aria-controls="section-facets" tabindex="-1">facets</button>
     </div>
@@ -2277,7 +2320,7 @@ button:focus:not(:focus-visible) {
       <form class="settings-form" onsubmit="return false;">
 
       <div id="storageSummaryCard" style="background: #f8f8f8; border-radius: 8px; padding: 1em 1.25em; margin-bottom: 1.5em;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1em; text-align: center;">
+        <div class="storage-summary-grid">
           <div>
             <div style="font-size: 1.5em; font-weight: 600;" id="storageSummaryRaw">—</div>
             <div style="font-size: 0.85em; color: #666;">Raw Media</div>
