@@ -1697,6 +1697,8 @@ button:focus:not(:focus-visible) {
       <h2>profile</h2>
       <p class="settings-section-desc">Your identity information used in AI templates and transcription.</p>
 
+      <form class="settings-form" onsubmit="return false;">
+
       <!-- Setup prompt (shown when no facets) -->
       <div class="setup-section" id="setupSection" style="display:none">
         <h3>welcome to solstone</h3>
@@ -1784,12 +1786,15 @@ button:focus:not(:focus-visible) {
         </datalist>
         <small>IANA timezone identifier</small>
       </div>
+      </form>
     </section>
 
     <!-- Providers Section -->
     <section class="settings-section" id="section-providers" role="tabpanel" aria-labelledby="tab-providers">
       <h2>providers</h2>
       <p class="settings-section-desc">Configure AI providers separately for generation (text analysis) and cogitate (tool-calling agents).</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">generate</h3>
       <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Text generation for analysis, extraction, and transcription tasks.</p>
@@ -1878,12 +1883,15 @@ button:focus:not(:focus-visible) {
           <div id="contextGroups">Loading...</div>
         </div>
       </div>
+      </form>
     </section>
 
     <!-- API Keys Section -->
     <section class="settings-section" id="section-apikeys" role="tabpanel" aria-labelledby="tab-apikeys">
       <h2>API keys</h2>
       <p class="settings-section-desc">Configure API keys for AI providers. Keys are stored in your journal config.</p>
+
+      <form class="settings-form" onsubmit="return false;">
       <div style="margin-bottom: 1em;">
         <button type="button" id="revalidateAllKeys" class="btn-secondary" onclick="revalidateAllKeys()">Re-validate All Keys</button>
         <span id="revalidateStatus" style="margin-left: 0.5em; font-size: 0.85em;"></span>
@@ -1942,12 +1950,15 @@ button:focus:not(:focus-visible) {
         </div>
         <small>Import audio from Plaud recorder. Log into the web portal and extract token from browser console.</small>
       </div>
+      </form>
     </section>
 
     <!-- Transcription Section -->
     <section class="settings-section" id="section-transcription" role="tabpanel" aria-labelledby="tab-transcription">
       <h2>transcription</h2>
       <p class="settings-section-desc">Speech-to-text backend and processing settings.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <div class="settings-field">
         <label for="field-transcribe-backend">backend</label>
@@ -2056,12 +2067,15 @@ button:focus:not(:focus-visible) {
         </div>
         <small>Automatically use Rev.ai for noisy recordings (requires Rev.ai token)</small>
       </div>
+      </form>
     </section>
 
     <!-- Observer Section -->
     <section class="settings-section" id="section-observer" role="tabpanel" aria-labelledby="tab-observer">
       <h2>observer</h2>
       <p class="settings-section-desc">Configure capture behavior for the observer service.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">terminal capture</h3>
       <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
@@ -2088,12 +2102,15 @@ button:focus:not(:focus-visible) {
       <p style="color: #888; font-size: 0.85em; margin-top: 1.5em; padding: 0.75em; background: #f8f9fa; border-radius: 4px;">
         Changes take effect on next observer restart.
       </p>
+      </form>
     </section>
 
     <!-- Vision Section -->
     <section class="settings-section" id="section-vision" role="tabpanel" aria-labelledby="tab-vision">
       <h2>vision</h2>
       <p class="settings-section-desc">Screen analysis settings for observe-describe.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <div class="settings-field">
         <label for="field-max-extractions">max extractions (of 300 possible frames)</label>
@@ -2129,12 +2146,15 @@ button:focus:not(:focus-visible) {
           <div id="visionCategoryGroups">Loading...</div>
         </div>
       </div>
+      </form>
     </section>
 
     <!-- Insights Section -->
     <section class="settings-section" id="section-insights" role="tabpanel" aria-labelledby="tab-insights">
       <h2>insights</h2>
       <p class="settings-section-desc">Configure which AI insights run and whether they extract events to your timeline.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <!-- Segment Insights -->
       <div class="insights-group expanded" id="segmentInsightsGroup">
@@ -2159,12 +2179,15 @@ button:focus:not(:focus-visible) {
           <div id="dailyInsightsList">Loading...</div>
         </div>
       </div>
+      </form>
     </section>
 
     <!-- Security Section -->
     <section class="settings-section" id="section-security" role="tabpanel" aria-labelledby="tab-security">
       <h2>security</h2>
       <p class="settings-section-desc">Authentication and access control.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <div class="settings-field">
         <label for="field-password">web password</label>
@@ -2176,12 +2199,15 @@ button:focus:not(:focus-visible) {
         </div>
         <small>Set a password to protect the web interface. Leave empty to allow unauthenticated localhost access.</small>
       </div>
+      </form>
     </section>
 
     <!-- Sync Section -->
     <section class="settings-section" id="section-sync" role="tabpanel" aria-labelledby="tab-sync">
       <h2>sync</h2>
       <p class="settings-section-desc">Configure automatic syncing of recordings from external devices.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <div id="plaudSyncCard">
         <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Plaud</h3>
@@ -2240,12 +2266,15 @@ button:focus:not(:focus-visible) {
           </div>
         </div>
       </div>
+      </form>
     </section>
 
     <!-- Storage Section -->
     <section class="settings-section" id="section-storage" role="tabpanel" aria-labelledby="tab-storage">
       <h2>storage</h2>
       <p class="settings-section-desc">Manage raw media retention and view storage usage.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <div id="storageSummaryCard" style="background: #f8f8f8; border-radius: 8px; padding: 1em 1.25em; margin-bottom: 1.5em;">
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1em; text-align: center;">
@@ -2302,12 +2331,15 @@ button:focus:not(:focus-visible) {
         <button type="button" id="cleanupNowBtn" class="action-button" style="background: #dc3545; color: white; border: none; padding: 0.6em 1.2em; border-radius: 6px; cursor: pointer; font-size: 0.9em;">Clean Up Now</button>
         <small style="display: block; margin-top: 0.5em; color: #666;">Manually purge raw media older than a specified number of days.</small>
       </div>
+      </form>
     </section>
 
     <!-- Support Section -->
     <section class="settings-section" id="section-support" role="tabpanel" aria-labelledby="tab-support">
       <h2>support</h2>
       <p class="settings-section-desc">Configure how your sol communicates with sol pbc support.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <div class="settings-field">
         <div class="toggle-container" style="justify-content: flex-start; gap: 1em;">
@@ -2347,6 +2379,7 @@ button:focus:not(:focus-visible) {
         <input type="text" id="field-support-portal-url" data-section="support" data-key="portal_url" placeholder="https://support.solpbc.org">
         <small>Support portal endpoint. Change this if you run your own portal.</small>
       </div>
+      </form>
     </section>
 
     <!-- Facets Section (journal-level, not per-facet) -->
@@ -2363,6 +2396,8 @@ button:focus:not(:focus-visible) {
     <section class="settings-section" id="section-agent" role="tabpanel" aria-labelledby="tab-agent">
       <h2>agent identity</h2>
       <p class="settings-section-desc">Your assistant's name and identity.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <div class="settings-field">
         <label for="field-agent-name">agent name</label>
@@ -2386,6 +2421,7 @@ button:focus:not(:focus-visible) {
         <button class="setup-btn" id="resetAgentName" style="background: var(--text-muted); font-size: 0.85em; padding: 0.4em 1em;">Reset to Default</button>
         <small>Reset the agent name back to "sol"</small>
       </div>
+      </form>
     </section>
 
     <!-- Facet Appearance Section -->
@@ -2575,7 +2611,7 @@ button:focus:not(:focus-visible) {
 // ========== STATE ==========
 let configData = null;
 let facetConfig = null;
-let saveTimeout = null;
+const saveTimeouts = new Map();
 let logNextCursor = null;
 let insightsData = null;
 let keyValidationData = {};
@@ -3059,8 +3095,10 @@ function handleFieldChange(el) {
 }
 
 function saveField(el, section, key, value) {
-  clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(async () => {
+  const timeoutKey = el?.id || `${section}:${key}`;
+  clearTimeout(saveTimeouts.get(timeoutKey));
+  saveTimeouts.set(timeoutKey, setTimeout(async () => {
+    saveTimeouts.delete(timeoutKey);
     try {
       const runtimeEnv = configData?.runtime_env || {};
       const response = await fetch('api/config', {
@@ -3109,7 +3147,7 @@ function saveField(el, section, key, value) {
       console.error('Save error:', err);
       if (el) showFieldStatus(el, 'error', err.message);
     }
-  }, 500);
+  }, 500));
 }
 
 // Store original helper text and timeout per field
@@ -5507,6 +5545,16 @@ loadSync();
 loadStorage();
 setupAutoSave();
 setupStorageListeners();
+
+// Enter-to-save for auto-save text inputs inside forms
+document.querySelectorAll('.settings-form input[data-section][type="text"], .settings-form input[data-section][type="number"], .settings-form input[data-section][type="password"]').forEach(input => {
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+    }
+  });
+});
 
 // If facet is selected on load, load its config
 if (window.selectedFacet) {
