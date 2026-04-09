@@ -1680,13 +1680,13 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field">
-        <label for="field-bio">Bio</label>
+        <label for="field-bio">bio</label>
         <textarea id="field-bio" data-section="identity" data-key="bio" rows="2" placeholder="e.g., a software engineer interested in AI"></textarea>
         <small>Brief description of yourself used in AI templates</small>
       </div>
 
       <div class="settings-field">
-        <label for="field-pronouns">Pronouns</label>
+        <label for="field-pronouns">pronouns</label>
         <select id="field-pronouns" data-section="identity" data-key="pronouns">
           <option value="">Select pronouns...</option>
           <option value="she/her/her/herself">she/her/hers/herself</option>
@@ -1700,7 +1700,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field">
-        <label for="field-aliases">Aliases</label>
+        <label for="field-aliases">aliases</label>
         <input type="text" id="field-aliases" data-section="identity" data-key="aliases" placeholder="e.g., nickname1, nickname2">
         <small>Comma-separated alternative names that may appear in transcripts</small>
       </div>
@@ -1758,14 +1758,14 @@ input:checked + .slider:before {
       <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Text generation for analysis, extraction, and transcription tasks.</p>
       <div class="provider-row">
         <div class="settings-field">
-          <label for="field-generate-provider">Provider</label>
+          <label for="field-generate-provider">provider</label>
           <select id="field-generate-provider">
             <!-- Populated dynamically from registry -->
           </select>
           <small></small>
         </div>
         <div class="settings-field">
-          <label for="field-generate-tier">Tier</label>
+          <label for="field-generate-tier">tier</label>
           <select id="field-generate-tier">
             <option value="1">Best - Most capable</option>
             <option value="2">Average - Balanced</option>
@@ -1774,7 +1774,7 @@ input:checked + .slider:before {
           <small></small>
         </div>
         <div class="settings-field">
-          <label for="field-generate-backup">Backup</label>
+          <label for="field-generate-backup">backup</label>
           <select id="field-generate-backup">
             <!-- Populated dynamically from registry -->
           </select>
@@ -1791,14 +1791,14 @@ input:checked + .slider:before {
       <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Tool-calling agents for interactive chat, daily briefings, and complex reasoning.</p>
       <div class="provider-row">
         <div class="settings-field">
-          <label for="field-cogitate-provider">Provider</label>
+          <label for="field-cogitate-provider">provider</label>
           <select id="field-cogitate-provider">
             <!-- Populated dynamically from registry -->
           </select>
           <small></small>
         </div>
         <div class="settings-field">
-          <label for="field-cogitate-tier">Tier</label>
+          <label for="field-cogitate-tier">tier</label>
           <select id="field-cogitate-tier">
             <option value="1">Best - Most capable</option>
             <option value="2">Average - Balanced</option>
@@ -1807,7 +1807,7 @@ input:checked + .slider:before {
           <small></small>
         </div>
         <div class="settings-field">
-          <label for="field-cogitate-backup">Backup</label>
+          <label for="field-cogitate-backup">backup</label>
           <select id="field-cogitate-backup">
             <!-- Populated dynamically from registry -->
           </select>
@@ -1816,7 +1816,7 @@ input:checked + .slider:before {
       </div>
       <div class="provider-row" style="max-width:16em">
         <div class="settings-field">
-          <label for="field-cogitate-auth">Auth</label>
+          <label for="field-cogitate-auth">auth</label>
           <select id="field-cogitate-auth">
             <option value="platform">Platform Account</option>
             <option value="api_key">API Key</option>
@@ -1913,7 +1913,7 @@ input:checked + .slider:before {
       <p class="settings-section-desc">Speech-to-text backend and processing settings.</p>
 
       <div class="settings-field">
-        <label for="field-transcribe-backend">Backend</label>
+        <label for="field-transcribe-backend">backend</label>
         <select id="field-transcribe-backend">
           <!-- Options populated dynamically from /api/transcribe -->
         </select>
@@ -1930,7 +1930,7 @@ input:checked + .slider:before {
       <!-- Whisper-specific settings -->
       <fieldset id="whisper-settings" class="backend-settings">
         <div class="settings-field">
-          <label for="field-whisper-device">Device</label>
+          <label for="field-whisper-device">device</label>
           <select id="field-whisper-device">
             <option value="auto" selected>Auto - Detect GPU if available</option>
             <option value="cpu">CPU - Use processor only</option>
@@ -1940,7 +1940,7 @@ input:checked + .slider:before {
         </div>
 
         <div class="settings-field">
-          <label for="field-whisper-model">Model</label>
+          <label for="field-whisper-model">model</label>
           <select id="field-whisper-model">
             <option value="tiny.en">Tiny - Fastest</option>
             <option value="base.en">Base</option>
@@ -1967,7 +1967,7 @@ input:checked + .slider:before {
       <!-- Rev.ai-specific settings -->
       <fieldset id="revai-settings" class="backend-settings" style="display:none">
         <div class="settings-field">
-          <label for="field-revai-model">Model</label>
+          <label for="field-revai-model">model</label>
           <select id="field-revai-model">
             <option value="fusion" selected>Fusion - Best quality (default)</option>
             <option value="machine">Machine - Fast automated</option>
@@ -2334,7 +2334,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field">
-        <label>Status</label>
+        <label>status</label>
         <span id="agent-name-status" class="field-display">default</span>
         <small>How the name was set: default, chosen, self-named, or deferred</small>
       </div>
@@ -2366,7 +2366,7 @@ input:checked + .slider:before {
       <p class="settings-section-desc">Customize how this facet appears in the interface.</p>
 
       <div class="settings-field">
-        <label>Title</label>
+        <label>title</label>
         <div class="editable-field" id="facetTitleField">
           <span class="field-display" id="facetTitleDisplay">Loading...</span>
           <input type="text" class="field-input" id="facetTitleInput" style="display:none">
@@ -2375,7 +2375,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field">
-        <label>Description</label>
+        <label>description</label>
         <div class="editable-field" id="facetDescField">
           <span class="field-display" id="facetDescDisplay">No description set</span>
           <textarea class="field-input" id="facetDescInput" rows="3" style="display:none"></textarea>
@@ -2384,7 +2384,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field">
-        <label>Icon</label>
+        <label>icon</label>
         <div class="emoji-display" id="emojiDisplay">&#128230;</div>
         <input type="text" id="emojiInput" class="emoji-input" maxlength="4" placeholder="Paste emoji" style="display:none">
         <small>Click to change emoji</small>
@@ -2437,11 +2437,11 @@ input:checked + .slider:before {
           <span class="color-close" id="customActivityClose">&times;</span>
           <h3>add custom activity</h3>
           <div class="settings-field">
-            <label for="customActivityName">Name</label>
+            <label for="customActivityName">name</label>
             <input type="text" id="customActivityName" placeholder="e.g., Research">
           </div>
           <div class="settings-field">
-            <label for="customActivityDesc">Description</label>
+            <label for="customActivityDesc">description</label>
             <textarea id="customActivityDesc" rows="2" placeholder="Brief description of this activity"></textarea>
           </div>
           <div class="settings-field">
