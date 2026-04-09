@@ -108,6 +108,13 @@
   background: #f3f4f6;
 }
 
+button.day-header {
+  border: none;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
 .day-date {
   font-weight: 600;
   color: #111827;
@@ -327,7 +334,8 @@
                placeholder="Search your journal..." autocomplete="off">
       </form>
 
-      <div class="search-summary" id="search-summary" style="display: none;"></div>
+      <div class="search-summary" id="search-summary" role="status" aria-live="polite" style="display: none;"></div>
+      <div id="search-announcer" class="visually-hidden" aria-live="polite"></div>
 
       <div id="results-container">
         <div class="search-empty" id="search-empty">
@@ -364,6 +372,7 @@
   const agentList = document.getElementById('agent-list');
   const searchInput = document.getElementById('search-input');
   const searchInputForm = document.getElementById('search-input-form');
+  const searchAnnouncer = document.getElementById('search-announcer');
 
   // Initialize
   loadFromHash();
@@ -433,6 +442,11 @@
     doSearch(false);
   };
 
+  function announce(msg) {
+    searchAnnouncer.textContent = '';
+    setTimeout(() => { searchAnnouncer.textContent = msg; }, 100);
+  }
+
   // Main search function
   function doSearch(reset) {
     if (!currentQuery) {
@@ -443,6 +457,7 @@
     if (reset) {
       dayOffset = 0;
       resultsContainer.innerHTML = '<div class="search-loading">Searching...</div>';
+      announce('searching…');
     }
 
     const url = new URL(searchUrl, window.location.origin);
@@ -466,6 +481,7 @@
       .catch(err => {
         console.error('Search error:', err);
         resultsContainer.innerHTML = '<div class="search-empty"><div class="search-empty-text">Search failed. Please try again.</div></div>';
+        announce('search failed');
       });
   }
 
@@ -552,6 +568,7 @@
           <div class="search-empty-text">No results found for "${escapeHtml(currentQuery)}"</div>
         </div>
       `;
+      announce('no results found');
       return;
     }
 
@@ -566,7 +583,7 @@
     card.className = 'day-card';
     card.dataset.day = dayData.day;
 
-    const header = document.createElement('div');
+    const header = document.createElement('button');
     header.className = 'day-header';
     header.innerHTML = `
       <span class="day-date">${escapeHtml(dayData.date)}</span>
@@ -673,11 +690,13 @@
   function updateSummary(data) {
     if (data.total === 0) {
       searchSummary.style.display = 'none';
+      announce('no results found');
       return;
     }
 
     searchSummary.textContent = `${data.total} results across ${data.total_days} day${data.total_days !== 1 ? 's' : ''}`;
     searchSummary.style.display = 'block';
+    announce(searchSummary.textContent);
   }
 
   function updateLoadMoreButton(data) {
