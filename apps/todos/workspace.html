@@ -1201,6 +1201,7 @@ document.addEventListener('DOMContentLoaded', function() {
   window.addEventListener('todo.added', (e) => {
     const todo = e.detail;
     const facetName = todo.facet;
+    const escape = window.AppServices._escapeHtml;
 
     // Find or create facet section
     let facetSection = document.querySelector(`.facet-section[data-facet="${facetName}"]`);
@@ -1241,11 +1242,11 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="todo-content">
         <span
           class="todo-text"
-          title="${todo.text.replace(/"/g, '&quot;')}"
+          title="${escape(todo.text)}"
           data-index="${todo.index}"
           data-facet="${facetName}"
-        >${todo.text}</span>
-        ${todo.nudge_display ? `<span class="todo-nudge">${todo.nudge_display}</span>` : ''}
+        >${escape(todo.text)}</span>
+        ${todo.nudge_display ? `<span class="todo-nudge">${escape(todo.nudge_display)}</span>` : ''}
       </div>
 
       <div class="todo-actions">
