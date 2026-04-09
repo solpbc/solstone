@@ -2032,7 +2032,7 @@ input:checked + .slider:before {
       </p>
 
       <div class="settings-field">
-        <label>enable terminal capture</label>
+        <label for="field-tmux-enabled">enable terminal capture</label>
         <div style="display: flex; align-items: center; gap: 1em;">
           <label class="toggle-switch toggle-positive">
             <input type="checkbox" id="field-tmux-enabled">
@@ -2153,7 +2153,7 @@ input:checked + .slider:before {
         </p>
 
         <div class="settings-field" id="plaudSyncField">
-          <label>hourly sync</label>
+          <label for="field-plaud-sync-enabled">hourly sync</label>
           <div style="display: flex; align-items: center; gap: 1em;">
             <label class="toggle-switch toggle-positive">
               <input type="checkbox" id="field-plaud-sync-enabled">
@@ -2175,7 +2175,7 @@ input:checked + .slider:before {
         </p>
 
         <div class="settings-field" id="granolaSyncField">
-          <label>hourly sync</label>
+          <label for="field-granola-sync-enabled">hourly sync</label>
           <div style="display: flex; align-items: center; gap: 1em;">
             <label class="toggle-switch toggle-positive">
               <input type="checkbox" id="field-granola-sync-enabled">
@@ -2193,7 +2193,7 @@ input:checked + .slider:before {
         </p>
 
         <div class="settings-field" id="obsidianSyncField">
-          <label>hourly sync</label>
+          <label for="field-obsidian-sync-enabled">hourly sync</label>
           <div style="display: flex; align-items: center; gap: 1em;">
             <label class="toggle-switch toggle-positive">
               <input type="checkbox" id="field-obsidian-sync-enabled">
@@ -2239,7 +2239,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field" id="retentionDaysField" style="display: none;">
-        <label>days to keep</label>
+        <label for="retentionDaysInput">days to keep</label>
         <small>Raw media older than this will be eligible for cleanup.</small>
         <div style="display: flex; gap: 0.5em; align-items: center; margin-top: 0.5em;">
           <button type="button" class="settings-preset-btn" data-days="7">7</button>
@@ -2366,7 +2366,7 @@ input:checked + .slider:before {
       <p class="settings-section-desc">Customize how this facet appears in the interface.</p>
 
       <div class="settings-field">
-        <label>title</label>
+        <label for="facetTitleInput">title</label>
         <div class="editable-field" id="facetTitleField">
           <span class="field-display" id="facetTitleDisplay">Loading...</span>
           <input type="text" class="field-input" id="facetTitleInput" style="display:none">
@@ -2375,7 +2375,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field">
-        <label>description</label>
+        <label for="facetDescInput">description</label>
         <div class="editable-field" id="facetDescField">
           <span class="field-display" id="facetDescDisplay">No description set</span>
           <textarea class="field-input" id="facetDescInput" rows="3" style="display:none"></textarea>
@@ -2384,7 +2384,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field">
-        <label>icon</label>
+        <label for="emojiInput">icon</label>
         <div class="emoji-display" id="emojiDisplay">&#128230;</div>
         <input type="text" id="emojiInput" class="emoji-input" maxlength="4" placeholder="Paste emoji" style="display:none">
         <small>Click to change emoji</small>
@@ -2483,7 +2483,7 @@ input:checked + .slider:before {
     <h3>choose theme color</h3>
     <div class="color-swatches" id="colorSwatches"></div>
     <div class="custom-color">
-      <label>custom color:</label>
+      <label for="customColorInput">custom color:</label>
       <div class="color-input-group">
         <input type="color" id="customColorPicker" value="#667eea">
         <input type="text" id="customColorInput" placeholder="#667eea" maxlength="7">
@@ -2508,7 +2508,7 @@ input:checked + .slider:before {
     <p style="color: #666; font-size: 0.9em; margin-bottom: 1em;">Delete raw media files (audio, video, screen captures) from segments older than the specified number of days.</p>
 
     <div class="settings-field" style="margin-bottom: 1em;">
-      <label>older than</label>
+      <label for="cleanupDaysInput">older than</label>
       <div style="display: flex; gap: 0.5em; align-items: center;">
         <input type="number" id="cleanupDaysInput" min="1" value="30" style="width: 5em; padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px;">
         <span style="color: #666;">days</span>
@@ -2516,7 +2516,7 @@ input:checked + .slider:before {
     </div>
 
     <div class="settings-field" style="margin-bottom: 1em;">
-      <label>stream filter (optional)</label>
+      <label for="cleanupStreamFilter">stream filter (optional)</label>
       <select id="cleanupStreamFilter" style="padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
         <option value="">All streams</option>
       </select>
