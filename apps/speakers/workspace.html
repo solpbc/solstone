@@ -746,16 +746,11 @@
     }
   });
 
-  discoveryBanner.addEventListener('click', e => {
-    const btn = e.target.closest('.spk-discovery-btn');
-    if (!btn) return;
-
-    const card = btn.closest('.spk-discovery-cluster');
-    if (!card) return;
-
+  function submitDiscoveryName(card) {
     const clusterId = parseInt(card.dataset.clusterId, 10);
     const input = card.querySelector('.spk-discovery-input');
     const status = card.querySelector('.spk-discovery-status');
+    const btn = card.querySelector('.spk-discovery-btn');
     const name = input.value.trim();
 
     if (!name) {
@@ -799,6 +794,13 @@
         btn.disabled = false;
         input.disabled = false;
       });
+  }
+
+  discoveryBanner.addEventListener('submit', e => {
+    e.preventDefault();
+    const card = e.target.closest('.spk-discovery-cluster');
+    if (!card) return;
+    submitDiscoveryName(card);
   });
 
   function checkOwnerStatus() {
@@ -942,10 +944,10 @@
                   <audio controls preload="metadata" src="${sample.audio_url}"></audio>
                 </div>
               `).join('')}
-              <div class="spk-discovery-form">
-                <input type="text" class="spk-discovery-input" placeholder="Enter speaker name..." />
+              <form class="spk-discovery-form">
+                <input type="text" class="spk-discovery-input" aria-label="Speaker name" placeholder="Enter speaker name..." />
                 <button class="spk-discovery-btn">Name</button>
-              </div>
+              </form>
               <div class="spk-discovery-status"></div>
             </div>
           `).join('')}
@@ -1278,7 +1280,7 @@
           <div class="spk-status-container" id="status-${sentence.id}"></div>
         </div>
         <div class="spk-sentence-actions">
-          <button class="spk-btn spk-btn-icon spk-play-btn" title="Play from here">&#9654;</button>
+          <button class="spk-btn spk-btn-icon spk-play-btn" aria-label="Play from here" title="Play from here">&#9654;</button>
           ${actionsHtml}
         </div>
       </div>
@@ -1328,7 +1330,7 @@
 
     if (sentence.speaker_entity_id) {
       const correctSelect = `
-        <select class="spk-select-small spk-correct-select" data-sentence-id="${sentence.id}">
+        <select class="spk-select-small spk-correct-select" aria-label="Correct attribution" data-sentence-id="${sentence.id}">
           <option value="">Correct...</option>
           ${options}
         </select>
@@ -1345,7 +1347,7 @@
     }
 
     return `
-      <select class="spk-select-small spk-assign-select" data-sentence-id="${sentence.id}">
+      <select class="spk-select-small spk-assign-select" aria-label="Assign speaker" data-sentence-id="${sentence.id}">
         <option value="">Assign...</option>
         ${options}
       </select>
