@@ -627,6 +627,21 @@ tr:hover .entity-delete-btn {
   border-color: var(--facet-color, #667eea);
 }
 
+.entity-card-search-count {
+  font-size: 0.8em;
+  font-weight: normal;
+  color: #888;
+  margin-left: 8px;
+}
+
+.no-card-matches {
+  text-align: center;
+  padding: 2em 1em;
+  color: #888;
+  font-size: 0.95em;
+  display: none;
+}
+
 .mention-count-badge {
   margin-left: 8px;
   background: color-mix(in srgb, var(--facet-color, #667eea) 15%, white);
@@ -983,7 +998,11 @@ tr:hover .entity-delete-btn {
   <!-- Journal-wide entities view (all-facet mode) -->
   <div id="journal-entities-view" style="display: none;">
     <div class="entities-section">
-      <h3>your entities</h3>
+      <h3>
+        <span>your entities</span>
+        <input type="text" id="journal-entity-card-search" class="entity-search-input" placeholder="Search entities..." aria-label="Search entity cards">
+        <span id="journal-card-search-count" class="entity-card-search-count" style="display: none;"></span>
+      </h3>
       <p class="entities-subtitle">people, places, and things across your journal</p>
       <div class="entity-cards-container">
         <div id="journal-entity-cards-content"></div>
@@ -991,6 +1010,7 @@ tr:hover .entity-delete-btn {
           <h2>No entities yet</h2>
           <p>Select a facet to add entities to your journal.</p>
         </div>
+        <div id="no-journal-card-matches" class="no-card-matches" style="display: none;">No entities match your search.</div>
       </div>
     </div>
   </div>
@@ -1054,13 +1074,18 @@ tr:hover .entity-delete-btn {
   <div id="entities-list-view" style="display: none;">
     <!-- Facet Entities Section (Cards) -->
     <div class="entities-section">
-      <h3 id="facet-entities-heading">entities</h3>
+      <h3 id="facet-entities-heading">
+        <span>entities</span>
+        <input type="text" id="entity-card-search" class="entity-search-input" placeholder="Search entities..." aria-label="Search entity cards">
+        <span id="facet-card-search-count" class="entity-card-search-count" style="display: none;"></span>
+      </h3>
       <p class="entities-subtitle" id="facet-entities-subtitle">people, places, and things you're tracking</p>
       <div class="entity-cards-container">
         <div id="entity-cards-content"></div>
         <div id="no-facet-entities" class="no-entities" style="display: none;">
           No entities added to this facet yet. Star entities below to add them.
         </div>
+        <div id="no-facet-card-matches" class="no-card-matches" style="display: none;">No entities match your search.</div>
       </div>
     </div>
 
@@ -2225,6 +2250,20 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
+  const journalCardSearch = document.getElementById('journal-entity-card-search');
+  if (journalCardSearch) {
+    journalCardSearch.addEventListener('input', function() {
+      renderJournalEntities(this.value.trim());
+    });
+  }
+
+  const facetCardSearch = document.getElementById('entity-card-search');
+  if (facetCardSearch) {
+    facetCardSearch.addEventListener('input', function() {
+      renderEntityCards(this.value.trim());
+    });
+  }
+
   // Entity assistant input (in app bar)
   const assistInput = document.getElementById('entity-assist-input');
   if (assistInput) {
@@ -2330,20 +2369,27 @@ function loadJournalEntities() {
 function renderEntities(searchTerm = '') {
   if (!entitiesData) return;
 
-  renderEntityCards();
+  const cardInput = document.getElementById('entity-card-search');
+  renderEntityCards(cardInput ? cardInput.value.trim() : '');
   renderDetectedTable(searchTerm);
 }
 
-function renderJournalEntities() {
+function renderJournalEntities(searchTerm = '') {
   const container = document.getElementById('journal-entity-cards-content');
   const noEntities = document.getElementById('no-journal-entities');
+  const countEl = document.getElementById('journal-card-search-count');
+  const noMatchEl = document.getElementById('no-journal-card-matches');
 
   container.innerHTML = '';
 
   const entities = journalEntitiesData || [];
+  const totalCount = entities.length;
+  const term = searchTerm.toLowerCase();
 
   if (entities.length === 0) {
     noEntities.style.display = 'block';
+    countEl.style.display = 'none';
+    noMatchEl.style.display = 'none';
     return;
   }
 
@@ -2365,8 +2411,13 @@ function renderJournalEntities() {
     const typeEntities = groups[type];
     if (!typeEntities || typeEntities.length === 0) return;
 
+    const filteredEntities = term
+      ? typeEntities.filter(entity => entity.name.toLowerCase().includes(term))
+      : typeEntities;
+    if (filteredEntities.length === 0) return;
+
     // Sort by activity date (most recent first)
-    typeEntities.sort((a, b) => (b.last_active_ts || 0) - (a.last_active_ts || 0));
+    filteredEntities.sort((a, b) => (b.last_active_ts || 0) - (a.last_active_ts || 0));
 
     const groupDiv = document.createElement('div');
     groupDiv.className = 'entity-type-group';
@@ -2379,7 +2430,7 @@ function renderJournalEntities() {
     const grid = document.createElement('div');
     grid.className = 'entity-cards-grid';
 
-    typeEntities.forEach(entity => {
+    filteredEntities.forEach(entity => {
       const card = createJournalEntityCard(entity);
       grid.appendChild(card);
     });
@@ -2387,6 +2438,16 @@ function renderJournalEntities() {
     groupDiv.appendChild(grid);
     container.appendChild(groupDiv);
   });
+
+  const matchCount = container.querySelectorAll('.entity-card').length;
+  if (term) {
+    countEl.textContent = `${matchCount} of ${totalCount} entities`;
+    countEl.style.display = '';
+    noMatchEl.style.display = matchCount === 0 && totalCount > 0 ? '' : 'none';
+  } else {
+    countEl.style.display = 'none';
+    noMatchEl.style.display = 'none';
+  }
 }
 
 function appendTypeIndicator(card, type) {
@@ -2487,17 +2548,20 @@ function createJournalEntityCard(entity) {
   return card;
 }
 
-function renderEntityCards() {
+function renderEntityCards(searchTerm = '') {
   const container = document.getElementById('entity-cards-content');
 
   // Update facet heading
   const facetHeading = document.getElementById('facet-entities-heading');
   if (facetHeading && currentFacet) {
     const facetTitle = (window.facetsData || []).find(f => f.name === currentFacet)?.title || currentFacet;
-    facetHeading.textContent = `entities in ${facetTitle}`;
+    const headingSpan = facetHeading.querySelector('span');
+    if (headingSpan) headingSpan.textContent = `entities in ${facetTitle}`;
   }
 
   const noEntities = document.getElementById('no-facet-entities');
+  const countEl = document.getElementById('facet-card-search-count');
+  const noMatchEl = document.getElementById('no-facet-card-matches');
 
   // Preserve pending cards
   const pendingCards = Array.from(container.querySelectorAll('.entity-card-pending'));
@@ -2508,9 +2572,13 @@ function renderEntityCards() {
   pendingCards.forEach(card => container.appendChild(card));
 
   const attached = entitiesData.attached || [];
+  const totalCount = attached.length;
+  const term = searchTerm.toLowerCase();
 
   if (attached.length === 0 && pendingCards.length === 0) {
     noEntities.style.display = 'block';
+    countEl.style.display = 'none';
+    noMatchEl.style.display = 'none';
     return;
   }
 
@@ -2532,8 +2600,13 @@ function renderEntityCards() {
     const entities = groups[type];
     if (!entities || entities.length === 0) return;
 
+    const filteredEntities = term
+      ? entities.filter(entity => entity.name.toLowerCase().includes(term))
+      : entities;
+    if (filteredEntities.length === 0) return;
+
     // Sort by activity date (most recent first) using server-computed timestamp
-    entities.sort((a, b) => (b.last_active_ts || 0) - (a.last_active_ts || 0));
+    filteredEntities.sort((a, b) => (b.last_active_ts || 0) - (a.last_active_ts || 0));
 
     const groupDiv = document.createElement('div');
     groupDiv.className = 'entity-type-group';
@@ -2546,7 +2619,7 @@ function renderEntityCards() {
     const grid = document.createElement('div');
     grid.className = 'entity-cards-grid';
 
-    entities.forEach(entity => {
+    filteredEntities.forEach(entity => {
       const card = createEntityCard(entity);
       grid.appendChild(card);
     });
@@ -2554,6 +2627,16 @@ function renderEntityCards() {
     groupDiv.appendChild(grid);
     container.appendChild(groupDiv);
   });
+
+  const matchCount = container.querySelectorAll('.entity-card:not(.entity-card-pending)').length;
+  if (term) {
+    countEl.textContent = `${matchCount} of ${totalCount} entities`;
+    countEl.style.display = '';
+    noMatchEl.style.display = matchCount === 0 && totalCount > 0 ? '' : 'none';
+  } else {
+    countEl.style.display = 'none';
+    noMatchEl.style.display = 'none';
+  }
 }
 
 function createEntityCard(entity) {
