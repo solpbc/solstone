@@ -518,6 +518,37 @@
   background: #f8f9fa;
 }
 
+.detected-pagination {
+  display: flex;
+  gap: 0.5em;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75em 1em;
+}
+
+.detected-pagination button {
+  padding: 6px 14px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.detected-pagination button:hover {
+  background: #f5f5f5;
+}
+
+.detected-pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.detected-pagination .detected-page-info {
+  font-size: 0.8em;
+  color: #888;
+}
+
 .entity-type {
   width: 120px;
   font-weight: 500;
@@ -1110,6 +1141,7 @@ tr:hover .entity-delete-btn {
           <tbody id="all-entities-tbody">
           </tbody>
         </table>
+        <div id="detected-pagination" class="detected-pagination"></div>
       </div>
     </div>
   </div>
@@ -1211,6 +1243,7 @@ tr:hover .entity-delete-btn {
 <script>
 let currentFacet = window.selectedFacet;
 let entitiesData = null;
+let detectedPage = 1;
 let journalEntitiesData = null;  // For all-facet mode
 let currentDetailEntity = null;
 const pendingEntities = new Map(); // agent_id → { name, element }
@@ -2245,6 +2278,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (entitySearchInput) {
     entitySearchInput.addEventListener('input', function() {
       if (entitiesData) {
+        detectedPage = 1;
         renderEntities(this.value.trim());
       }
     });
@@ -2329,6 +2363,7 @@ function loadEntities() {
         showListView();
       }
 
+      detectedPage = 1;
       renderEntities();
     })
     .catch(error => {
@@ -2744,9 +2779,48 @@ function renderDetectedTable(searchTerm = '') {
     filtered = filtered.filter(e => e.name.toLowerCase().includes(term));
   }
 
-  filtered.forEach(entity => {
+  // Paginate
+  const pageSize = 25;
+  const total = filtered.length;
+  const totalPages = Math.ceil(total / pageSize);
+  if (detectedPage > totalPages) detectedPage = Math.max(1, totalPages);
+  const start = (detectedPage - 1) * pageSize;
+  const end = Math.min(start + pageSize, total);
+  const pageItems = filtered.slice(start, end);
+
+  pageItems.forEach(entity => {
     const row = createDetectedRow(entity);
     tbody.appendChild(row);
+  });
+
+  renderDetectedPagination(total, start, end);
+}
+
+function renderDetectedPagination(total, start, end) {
+  const el = document.getElementById('detected-pagination');
+  if (total <= 25) {
+    el.innerHTML = '';
+    return;
+  }
+  const totalPages = Math.ceil(total / 25);
+  const prevDisabled = detectedPage <= 1 ? 'disabled' : '';
+  const nextDisabled = detectedPage >= totalPages ? 'disabled' : '';
+  el.innerHTML =
+    `<button ${prevDisabled} id="detected-prev-btn">Previous</button>` +
+    `<span class="detected-page-info">showing ${start + 1}\u2013${end} of ${total} detected entities</span>` +
+    `<button ${nextDisabled} id="detected-next-btn">Next</button>`;
+
+  const prevBtn = document.getElementById('detected-prev-btn');
+  const nextBtn = document.getElementById('detected-next-btn');
+  prevBtn.addEventListener('click', function() {
+    detectedPage--;
+    const searchInput = document.getElementById('entity-search');
+    renderDetectedTable(searchInput ? searchInput.value.trim() : '');
+  });
+  nextBtn.addEventListener('click', function() {
+    detectedPage++;
+    const searchInput = document.getElementById('entity-search');
+    renderDetectedTable(searchInput ? searchInput.value.trim() : '');
   });
 }
 
