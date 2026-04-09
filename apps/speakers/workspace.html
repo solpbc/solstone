@@ -282,6 +282,11 @@
   background: #eab308;
 }
 
+.spk-confidence-label {
+  font-size: 11px;
+  color: #6b7280;
+}
+
 .spk-correction-original {
   text-decoration: line-through;
   color: #9ca3af;
@@ -684,6 +689,18 @@
 
 <script>
 (() => {
+  const METHOD_DISPLAY = {
+    acoustic: 'voice match',
+    structural_single_speaker: 'only speaker',
+    structural_setting: 'setting match',
+    owner_centroid: 'voice profile match',
+    user_confirmed: 'you confirmed',
+    user_corrected: 'you corrected',
+    user_assigned: 'you assigned',
+    user_identified: 'you identified',
+    context: 'context match',
+    contextual: 'context match',
+  };
   const day = '{{ day }}';
   const segmentList = document.getElementById('spkSegmentList');
   const detailPanel = document.getElementById('spkDetail');
@@ -1301,7 +1318,8 @@
 
     let html = '';
     if (dotClass) {
-      html += `<span class="spk-confidence-dot${dotClass}"></span>`;
+      html += `<span class="spk-confidence-dot${dotClass}" aria-label="${sentence.confidence} confidence"></span>`;
+      html += `<span class="spk-confidence-label">${escapeHtml(sentence.confidence)}</span>`;
     }
 
     if (sentence.is_correction && sentence.original_speaker_name) {
@@ -1313,7 +1331,7 @@
     if (sentence.needs_review) {
       html += '<span class="spk-review-state">Needs review</span>';
     } else if (sentence.method) {
-      html += `<span class="spk-review-state">${escapeHtml(sentence.method)}</span>`;
+      html += `<span class="spk-review-state">${escapeHtml(METHOD_DISPLAY[sentence.method] || sentence.method)}</span>`;
     }
 
     return html;
