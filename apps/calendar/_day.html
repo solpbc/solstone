@@ -468,6 +468,27 @@ button.activity-detail-back {
   background: #e4e4e4;
   color: #555;
 }
+.timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em 1em;
+  padding: 0.3em 0.5em;
+  font-size: 0.8em;
+  color: #666;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  white-space: nowrap;
+}
+.legend-dot {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
 </style>
 
 <div class="workspace-content-wide">
@@ -762,6 +783,27 @@ button.activity-detail-back {
       });
     });
 
+    // Build color legend
+    const legendPairs = [];
+    const seenAgents = new Set();
+    processedEvents.forEach(ev => {
+      if (!seenAgents.has(ev.agent)) {
+        seenAgents.add(ev.agent);
+        legendPairs.push({ label: ev.agent, color: ev.color });
+      }
+    });
+    if (timedActivities.length > 0) {
+      legendPairs.push({ label: 'activity', color: '#6c757d' });
+    }
+    let legendHtml = '';
+    if (legendPairs.length > 0) {
+      legendHtml += `<div class="timeline-legend" role="list" aria-label="timeline color legend">`;
+      legendPairs.forEach(p => {
+        legendHtml += `<span class="legend-item" role="listitem"><span class="legend-dot" style="background:${p.color}" aria-hidden="true"></span>${escapeHtml(p.label)}</span>`;
+      });
+      legendHtml += `</div>`;
+    }
+
     const eventsByAgent = {};
     agents.forEach(agent => {
       eventsByAgent[agent] = processedEvents.filter(e => e.agent === agent);
@@ -813,6 +855,7 @@ button.activity-detail-back {
     });
 
     html += '</section>';
+    if (legendHtml) html = html.replace("<section class='day-view'", legendHtml + "<section class='day-view'");
     div.innerHTML = html;
   }
 
