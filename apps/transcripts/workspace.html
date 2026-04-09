@@ -217,6 +217,26 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   border: 1px solid #facc15;
 }
 
+.tr-now-marker {
+  position: absolute;
+  left: 64px;
+  right: 0;
+  height: 0;
+  border-top: 2px solid #ef4444;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.tr-now-label {
+  position: absolute;
+  right: 4px;
+  top: -8px;
+  font-size: 12px;
+  color: #ef4444;
+  font-weight: 500;
+  line-height: 1;
+}
+
 /* Right content panel */
 .tr-content {
   padding: 24px;
@@ -1189,6 +1209,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   let drag = null;
   let allSegments = [];
   let selectedSegment = null;
+  let updateNowPosition = null;
 
   // Zoom state
   let zoomHeight = zoom.clientHeight;
@@ -1620,6 +1641,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     el.setAttribute('role', 'button');
     el.setAttribute('tabindex', '0');
     el.setAttribute('aria-label', _label);
+    el.title = hhmm(startMin) + ' – ' + hhmm(endMin) + ' (' + (endMin - startMin) + ' min, ' + type + ')';
     el.addEventListener('click', e => {
       e.stopPropagation();
       const midMin = (startMin + endMin) / 2;
@@ -1770,7 +1792,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
       pill.style.top = zoomY(visStart) + 'px';
       pill.style.height = Math.max(4, zoomY(visEnd) - zoomY(visStart)) + 'px';
-      pill.title = seg.stream ? `${seg.start} - ${seg.end} (${seg.stream})` : `${seg.start} - ${seg.end}`;
+      const duration = Math.round(visEnd - visStart);
+      const typeDesc = (hasAudio && hasScreen) ? 'audio + screen' : hasAudio ? 'audio' : 'screen';
+      pill.title = seg.start + ' – ' + seg.end + ' · ' + duration + ' min · ' + typeDesc;
       pill.setAttribute('aria-label', 'Segment ' + seg.start + ' \u2013 ' + seg.end + ', ' + typeLabel);
       pill.dataset.key = seg.key;
 
@@ -2607,6 +2631,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     ppm = height / (timelineEnd - timelineStart);
     buildGrid();
     renderTimeline();
+    if (updateNowPosition) updateNowPosition();
   }).observe(timeline);
 
   new ResizeObserver(() => {
@@ -2664,6 +2689,31 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         const [s, e] = rg.map(parseTime);
         addSegmentIndicator('screen', s, e, 1);
       });
+
+      // Now-marker for today
+      if (day === todayStr) {
+        const marker = document.createElement('div');
+        marker.className = 'tr-now-marker';
+        marker.setAttribute('aria-label', 'Current time');
+        const lbl = document.createElement('span');
+        lbl.className = 'tr-now-label';
+        lbl.textContent = 'now';
+        marker.appendChild(lbl);
+        timeline.appendChild(marker);
+
+        updateNowPosition = function() {
+          const n = new Date();
+          const nowMin = n.getHours() * 60 + n.getMinutes();
+          if (nowMin < timelineStart || nowMin > timelineEnd) {
+            marker.style.display = 'none';
+          } else {
+            marker.style.display = '';
+            marker.style.top = y(nowMin) + 'px';
+          }
+        };
+        updateNowPosition();
+        setInterval(updateNowPosition, 60000);
+      }
 
       // Store segments and update zoom
       allSegments = data.segments || [];
