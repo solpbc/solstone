@@ -94,10 +94,21 @@
 }
 
 .events-empty {
-  color: #666;
-  font-style: italic;
-  padding: 2em;
+  color: #888;
+  padding: 3em 2em;
   text-align: center;
+}
+.empty-icon {
+  font-size: 2em;
+  margin-bottom: 0.25em;
+}
+.empty-heading {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-bottom: 0.25em;
+}
+.empty-desc {
+  font-size: 0.9em;
 }
 
 /* Planned/anticipated events - dotted outline, faded */
@@ -443,6 +454,20 @@ button.activity-detail-back {
 .breadcrumb-current {
   color: #888;
 }
+.today-chip {
+  font-size: 0.8em;
+  color: #888;
+  background: #f0f0f0;
+  padding: 1px 7px;
+  border-radius: 3px;
+  text-decoration: none;
+  margin-left: 0.5em;
+  white-space: nowrap;
+}
+.today-chip:hover {
+  background: #e4e4e4;
+  color: #555;
+}
 </style>
 
 <div class="workspace-content-wide">
@@ -450,6 +475,7 @@ button.activity-detail-back {
     <a href="#" id="breadcrumbMonth" class="breadcrumb-link"></a>
     <span class="breadcrumb-sep" aria-hidden="true">›</span>
     <span class="breadcrumb-current" aria-current="page">{{ title }}</span>
+    <a href="#" id="todayChip" class="today-chip" style="display:none"></a>
   </nav>
   <h1>{{ title }}</h1>
   <div id="daySummary" class="day-summary"></div>
@@ -488,6 +514,34 @@ button.activity-detail-back {
       e.preventDefault();
       if (window.MonthPicker) MonthPicker.show();
     });
+  }
+
+  // Today chip — show relative distance when viewing a non-today date
+  const todayChip = document.getElementById('todayChip');
+  if (todayChip) {
+    const now = new Date();
+    const todayStr = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+    if (day !== todayStr) {
+      const dayDate = new Date(parseInt(day.slice(0, 4)), parseInt(day.slice(4, 6)) - 1, parseInt(day.slice(6, 8)));
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffDays = Math.round((dayDate - today) / 86400000);
+      const abs = Math.abs(diffDays);
+      let label;
+      if (abs === 1) {
+        label = diffDays < 0 ? 'yesterday' : 'tomorrow';
+      } else if (abs <= 30) {
+        label = diffDays < 0 ? abs + ' days ago' : 'in ' + abs + ' days';
+      } else if (abs <= 90) {
+        const weeks = Math.round(abs / 7);
+        label = diffDays < 0 ? weeks + ' weeks ago' : 'in ' + weeks + ' weeks';
+      } else {
+        const months = Math.round(abs / 30);
+        label = diffDays < 0 ? months + ' months ago' : 'in ' + months + ' months';
+      }
+      todayChip.textContent = '\u21a9 today (' + label + ')';
+      todayChip.href = '/app/calendar/' + todayStr;
+      todayChip.style.display = '';
+    }
   }
 
   let allEvents = [];
@@ -610,7 +664,7 @@ button.activity-detail-back {
   function renderEvents(list) {
     const div = document.getElementById('eventsView');
     if (!list.length && !activities.length) {
-      div.innerHTML = '<div class="events-empty">No events or activities for this day.</div>';
+      div.innerHTML = '<div class="events-empty"><div class="empty-icon">📅</div><div class="empty-heading">no events or activities</div><div class="empty-desc">nothing recorded for this day</div></div>';
       return;
     }
     if (!list.length) {
