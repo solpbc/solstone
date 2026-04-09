@@ -185,6 +185,12 @@
   color: #ef4444;
 }
 
+.todo-text:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .no-todos {
   text-align: center;
   padding: 3rem 1rem;
@@ -395,6 +401,7 @@
               <label class="todo-content" for="todo-{{ facet_name }}-{{ item.index }}">
                 <span
                   class="todo-text"
+                  tabindex="0"
                   title="{{ item.text }}"
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
@@ -405,6 +412,16 @@
               </label>
 
               <div class="todo-actions">
+                <button
+                  type="button"
+                  class="todo-action-btn edit"
+                  aria-label="Edit todo"
+                  title="Edit"
+                  data-index="{{ item.index }}"
+                  data-facet="{{ facet_name }}"
+                >
+                  ✏️
+                </button>
                 <button
                   type="button"
                   class="todo-action-btn move"
@@ -938,116 +955,135 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Setup double-click to edit todo text
-  document.querySelectorAll('.todo-text').forEach(span => {
+  function startEditMode(span) {
     const originalText = span.textContent;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'todo-text-input';
+    input.value = originalText;
 
-    span.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
+    const content = span.parentElement;
+    content.replaceChild(input, span);
+    input.focus();
+    input.select();
 
-      // Create input element
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'todo-text-input';
-      input.value = originalText;
+    let isEditing = true;
 
-      // Replace span with input
-      const content = span.parentElement;
-      content.replaceChild(input, span);
-      input.focus();
-      input.select();
+    const cancel = () => {
+      if (!isEditing) return;
+      isEditing = false;
+      if (input.parentElement === content) {
+        content.replaceChild(span, input);
+      }
+    };
 
-      let isEditing = true;
+    const save = async () => {
+      if (!isEditing) return;
 
-      // Save function
-      const save = async () => {
-        if (!isEditing) return;
+      const newText = input.value.trim();
 
-        const newText = input.value.trim();
+      if (!newText) {
+        cancel();
+        return;
+      }
 
-        if (!newText) {
-          showMessage('Todo text cannot be empty', 'error');
-          input.focus();
-          return;
-        }
+      if (newText === originalText) {
+        cancel();
+        return;
+      }
 
-        if (newText === originalText) {
-          // No change, just restore span
-          cancel();
-          return;
-        }
+      isEditing = false;
 
-        isEditing = false;
+      const index = parseInt(span.dataset.index, 10);
+      const facet = span.dataset.facet;
 
-        const index = parseInt(span.dataset.index, 10);
-        const facet = span.dataset.facet;
+      // Check if text contains a facet hashtag
+      const facetMatch = newText.match(/#([a-z][a-z0-9_-]*)/i);
+      const hasFacetChange = facetMatch && facetMatch[1].toLowerCase() !== facet;
 
-        // Check if text contains a facet hashtag
-        const facetMatch = newText.match(/#([a-z][a-z0-9_-]*)/i);
-        const hasFacetChange = facetMatch && facetMatch[1].toLowerCase() !== facet;
+      // Save via form submission
+      const form = new FormData();
+      form.append('action', 'edit');
+      form.append('facet', facet);
+      form.append('index', index);
+      form.append('text', newText);
 
-        // Save via form submission
-        const form = new FormData();
-        form.append('action', 'edit');
-        form.append('facet', facet);
-        form.append('index', index);
-        form.append('text', newText);
+      try {
+        const response = await fetch(window.location.href, {
+          method: 'POST',
+          body: form
+        });
 
-        try {
-          const response = await fetch(window.location.href, {
-            method: 'POST',
-            body: form
-          });
-
-          if (response.ok) {
-            if (hasFacetChange) {
-              // Facet changed, reload to show it in new location
-              window.location.reload();
-            } else {
-              // Same facet, just update the text in place
-              const cleanText = newText.replace(/#[a-z][a-z0-9_-]*/gi, '').trim();
-              span.textContent = cleanText;
-              span.title = cleanText;
-              content.replaceChild(span, input);
-            }
+        if (response.ok) {
+          if (hasFacetChange) {
+            // Facet changed, reload to show it in new location
+            window.location.reload();
           } else {
-            showMessage('Failed to update todo - please refresh and try again', 'error');
-            if (input.parentElement === content) {
-              content.replaceChild(span, input);
-            }
+            // Same facet, just update the text in place
+            const cleanText = newText.replace(/#[a-z][a-z0-9_-]*/gi, '').trim();
+            span.textContent = cleanText;
+            span.title = cleanText;
+            content.replaceChild(span, input);
           }
-        } catch (error) {
-          showMessage('Network error - please try again', 'error');
+        } else {
+          showMessage('Failed to update todo - please refresh and try again', 'error');
           if (input.parentElement === content) {
             content.replaceChild(span, input);
           }
         }
-      };
-
-      // Cancel function
-      const cancel = () => {
-        if (!isEditing) return;
-        isEditing = false;
+      } catch (error) {
+        showMessage('Network error - please try again', 'error');
         if (input.parentElement === content) {
           content.replaceChild(span, input);
         }
-      };
+      }
+    };
 
-      // Handle Enter key
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          save();
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        save();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancel();
+      }
+    });
+
+    input.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (!isEditing) return;
+        const newText = input.value.trim();
+        if (!newText || newText === originalText) {
           cancel();
+        } else {
+          save();
         }
-      });
+      }, 100);
+    });
+  }
 
-      // Handle blur (click outside)
-      input.addEventListener('blur', () => {
-        setTimeout(cancel, 100);
-      });
+  // Setup edit triggers for server-rendered todos
+  document.querySelectorAll('.todo-text').forEach(span => {
+    span.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      startEditMode(span);
+    });
+    span.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        startEditMode(span);
+      }
+    });
+  });
+
+  // Setup edit button click for server-rendered todos
+  document.querySelectorAll('.todo-action-btn.edit').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const todoRow = btn.closest('.todo-row');
+      const span = todoRow.querySelector('.todo-text');
+      if (span) startEditMode(span);
     });
   });
 
@@ -1285,106 +1321,29 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
-    // Setup double-click to edit
+    // Setup edit triggers
     const span = todoRow.querySelector('.todo-text');
     if (span) {
-      const originalText = span.textContent;
-
       span.addEventListener('dblclick', (e) => {
         e.stopPropagation();
+        startEditMode(span);
+      });
+      span.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          startEditMode(span);
+        }
+      });
+    }
 
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'todo-text-input';
-        input.value = originalText;
-
-        const content = span.parentElement;
-        content.replaceChild(input, span);
-        input.focus();
-        input.select();
-
-        let isEditing = true;
-
-        const save = async () => {
-          if (!isEditing) return;
-
-          const newText = input.value.trim();
-
-          if (!newText) {
-            showMessage('Todo text cannot be empty', 'error');
-            input.focus();
-            return;
-          }
-
-          if (newText === originalText) {
-            cancel();
-            return;
-          }
-
-          isEditing = false;
-
-          const index = parseInt(span.dataset.index, 10);
-          const facet = span.dataset.facet;
-
-          const facetMatch = newText.match(/#([a-z][a-z0-9_-]*)/i);
-          const hasFacetChange = facetMatch && facetMatch[1].toLowerCase() !== facet;
-
-          const form = new FormData();
-          form.append('action', 'edit');
-          form.append('facet', facet);
-          form.append('index', index);
-          form.append('text', newText);
-
-          try {
-            const response = await fetch(window.location.href, {
-              method: 'POST',
-              body: form
-            });
-
-            if (response.ok) {
-              if (hasFacetChange) {
-                window.location.reload();
-              } else {
-                const cleanText = newText.replace(/#[a-z][a-z0-9_-]*/gi, '').trim();
-                span.textContent = cleanText;
-                span.title = cleanText;
-                content.replaceChild(span, input);
-              }
-            } else {
-              showMessage('Failed to update todo - please refresh and try again', 'error');
-              if (input.parentElement === content) {
-                content.replaceChild(span, input);
-              }
-            }
-          } catch (error) {
-            showMessage('Network error - please try again', 'error');
-            if (input.parentElement === content) {
-              content.replaceChild(span, input);
-            }
-          }
-        };
-
-        const cancel = () => {
-          if (!isEditing) return;
-          isEditing = false;
-          if (input.parentElement === content) {
-            content.replaceChild(span, input);
-          }
-        };
-
-        input.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            save();
-          } else if (e.key === 'Escape') {
-            e.preventDefault();
-            cancel();
-          }
-        });
-
-        input.addEventListener('blur', () => {
-          setTimeout(cancel, 100);
-        });
+    // Setup edit button
+    const editBtn = todoRow.querySelector('.todo-action-btn.edit');
+    if (editBtn) {
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const currentSpan = todoRow.querySelector('.todo-text');
+        if (currentSpan) startEditMode(currentSpan);
       });
     }
   }
@@ -1437,6 +1396,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <label class="todo-content" for="todo-${facetName}-${todo.index}">
         <span
           class="todo-text"
+          tabindex="0"
           title="${escape(todo.text)}"
           data-index="${todo.index}"
           data-facet="${facetName}"
@@ -1445,6 +1405,16 @@ document.addEventListener('DOMContentLoaded', function() {
       </label>
 
       <div class="todo-actions">
+        <button
+          type="button"
+          class="todo-action-btn edit"
+          aria-label="Edit todo"
+          title="Edit"
+          data-index="${todo.index}"
+          data-facet="${facetName}"
+        >
+          ✏️
+        </button>
         <button
           type="button"
           class="todo-action-btn move"
