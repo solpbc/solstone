@@ -4,6 +4,7 @@
 .day-view {
   position: relative;
   border-left: 60px solid transparent;
+  overflow-x: auto;
 }
 
 .hour-line {
@@ -25,6 +26,7 @@
   position: absolute;
   left: 0;
   right: 0;
+  min-width: 40px;
   border-radius: 4px;
   opacity: 0.9;
   display: block;
@@ -160,6 +162,23 @@
   font-size: 0.75em;
   color: #666;
   margin-left: 0.5em;
+}
+
+.allday-expand {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4em 0.75em;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #f8f9fa;
+  color: #666;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+.allday-expand:hover {
+  background: #e9ecef;
+  color: #333;
 }
 
 /* Activities section */
@@ -495,7 +514,8 @@ button.activity-detail-back {
   .workspace-content-wide {
     padding: 0.5em;
   }
-  .all-day-cards {
+  .all-day-cards,
+  .allday-overflow {
     flex-direction: column;
   }
   .modal-content {
@@ -767,6 +787,7 @@ button.activity-detail-back {
     let html = '';
 
     if (untimedEvents.length) {
+      const MAX_ALLDAY_VISIBLE = 5;
       html += '<section class="all-day-section" aria-labelledby="all-day-heading"><h2 id="all-day-heading">all day / scheduled</h2><div class="all-day-cards">';
       untimedEvents.forEach((o, i) => {
         const idx = list.indexOf(o);
@@ -774,9 +795,17 @@ button.activity-detail-back {
         const cardClass = isPlanned ? 'all-day-card planned' : 'all-day-card';
         const badge = isPlanned ? '<span class="card-badge">planned</span>' : '';
         const title = escapeHtml(o.title || o.summary || o.agent || 'Event');
+        if (i === MAX_ALLDAY_VISIBLE && untimedEvents.length > MAX_ALLDAY_VISIBLE) {
+          const overflow = untimedEvents.length - MAX_ALLDAY_VISIBLE;
+          html += `<button type="button" class="allday-expand" data-expanded="false" aria-expanded="false">+${overflow} more</button>`;
+          html += '<div class="allday-overflow" style="display:none;flex-wrap:wrap;gap:0.5em;width:100%">';
+        }
         html += `<div class="${cardClass}" data-index="${idx}" tabindex="0" role="button" style="border-color:${o.color || '#6c757d'}">`;
         html += `<span class="card-title">${title}</span>${badge}</div>`;
       });
+      if (untimedEvents.length > MAX_ALLDAY_VISIBLE) {
+        html += '</div>';
+      }
       html += '</div></section>';
     }
 
@@ -1210,6 +1239,23 @@ button.activity-detail-back {
 
       // Click handlers
       document.getElementById('eventsView').onclick = e => {
+        const expandBtn = e.target.closest('.allday-expand');
+        if (expandBtn) {
+          const overflow = expandBtn.nextElementSibling;
+          const isExpanded = expandBtn.dataset.expanded === 'true';
+          if (isExpanded) {
+            overflow.style.display = 'none';
+            expandBtn.dataset.expanded = 'false';
+            expandBtn.setAttribute('aria-expanded', 'false');
+            expandBtn.textContent = '+' + overflow.children.length + ' more';
+          } else {
+            overflow.style.display = 'flex';
+            expandBtn.dataset.expanded = 'true';
+            expandBtn.setAttribute('aria-expanded', 'true');
+            expandBtn.textContent = 'show fewer';
+          }
+          return;
+        }
         const actEl = e.target.closest('.occ-activity');
         if (actEl) {
           e.preventDefault();
