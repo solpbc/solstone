@@ -74,6 +74,13 @@ window.MonthPicker = (function() {
     return d.toLocaleString('default', { month: 'long' }) + ' ' + year;
   }
 
+  function formatDayLabel(dateStr) {
+    const year = parseInt(dateStr.slice(0, 4), 10);
+    const month = parseInt(dateStr.slice(4, 6), 10) - 1;
+    const day = parseInt(dateStr.slice(6, 8), 10);
+    return new Date(year, month, day).toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric' });
+  }
+
   function isFocusable(cell) {
     return !cell.classList.contains('mp-other') && !cell.classList.contains('mp-empty');
   }
@@ -180,10 +187,13 @@ window.MonthPicker = (function() {
 
       const rawIntensity = maxCount > 0 ? count / maxCount : 0;
       const intensity = count > 0 ? 0.2 + (rawIntensity * 0.8) : 0;
+      const dateLabel = formatDayLabel(dateStr);
+      const countText = count === 1 ? '1 event' : count > 0 ? `${count} events` : 'no events';
 
-      let attrs = `class="${classes.join(' ')}" role="gridcell" data-day="${dateStr}" style="--intensity: ${intensity}"`;
+      let attrs = `class="${classes.join(' ')}" role="gridcell" data-day="${dateStr}" style="--intensity: ${intensity}" aria-label="${dateLabel}, ${countText}"`;
       if (dateStr === TODAY) attrs += ' aria-current="date"';
       if (dateStr === selectedDay) attrs += ' aria-selected="true"';
+      if (count > 0) attrs += ` title="${countText}"`;
 
       cells.push(`<div ${attrs}>${d}</div>`);
     }
