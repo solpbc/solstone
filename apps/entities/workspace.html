@@ -46,6 +46,10 @@
   border-color: var(--facet-color, #667eea);
   box-shadow: 0 2px 8px var(--facet-bg, rgba(102, 126, 234, 0.15));
 }
+.entity-card:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
 
 .entity-card-name {
   font-weight: 500;
@@ -679,6 +683,9 @@ tr:hover .entity-delete-btn {
   font-weight: bold;
   cursor: pointer;
   line-height: 20px;
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .close:hover {
@@ -763,6 +770,10 @@ tr:hover .entity-delete-btn {
 .facet-relationship-row:hover {
   background: #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.facet-relationship-row:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .facet-rel-info {
@@ -938,7 +949,7 @@ tr:hover .entity-delete-btn {
   <!-- Journal entity detail view (all-facet mode) -->
   <div id="journal-entity-detail-view" class="entity-detail-view" style="display: none;">
     <div class="entity-detail-header">
-      <a class="entity-detail-back" onclick="navigateToList()">← Back to entities</a>
+      <a class="entity-detail-back" href="#" onclick="event.preventDefault(); navigateToList()">← Back to entities</a>
       <div class="entity-detail-title">
         <h2 class="entity-detail-name" id="journal-detail-name"></h2>
         <span class="entity-detail-type" id="journal-detail-type"></span>
@@ -1027,7 +1038,7 @@ tr:hover .entity-delete-btn {
   <!-- Entity detail view -->
   <div id="entity-detail-view" class="entity-detail-view" style="display: none;">
     <div class="entity-detail-header">
-      <a class="entity-detail-back" onclick="navigateToList()">← Back to entities</a>
+      <a class="entity-detail-back" href="#" onclick="event.preventDefault(); navigateToList()">← Back to entities</a>
       <div class="entity-detail-title">
         <h2 class="entity-detail-name" id="detail-name"></h2>
         <span class="entity-detail-type" id="detail-type"></span>
@@ -1068,7 +1079,7 @@ tr:hover .entity-delete-btn {
   <div class="modal-content">
     <div class="modal-header danger">
       <h3>Delete Detected Entity</h3>
-      <span class="close" onclick="closeDeleteModal()">&times;</span>
+      <button class="close" aria-label="Close" onclick="closeDeleteModal()">&times;</button>
     </div>
     <div class="modal-body">
       <div class="delete-warning">
@@ -1092,7 +1103,7 @@ tr:hover .entity-delete-btn {
   <div class="modal-content">
     <div class="modal-header danger">
       <h3>Delete Entity Permanently</h3>
-      <span class="close" onclick="closeDeleteJournalEntityModal()">&times;</span>
+      <button class="close" aria-label="Close" onclick="closeDeleteJournalEntityModal()">&times;</button>
     </div>
     <div class="modal-body">
       <div class="delete-warning">
@@ -1478,6 +1489,14 @@ function renderJournalDetailView(entity) {
           // Select the facet, which will reload entities and show this entity in facet context
           window.selectFacet(facet.name);
         };
+        row.setAttribute('role', 'button');
+        row.setAttribute('tabindex', '0');
+        row.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            window.selectFacet(facet.name);
+          }
+        });
       }
 
       const info = document.createElement('div');
@@ -2130,6 +2149,18 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      const deleteModal = document.getElementById('deleteModal');
+      const deleteJournalModal = document.getElementById('deleteJournalEntityModal');
+      if (deleteModal.style.display === 'flex') {
+        closeDeleteModal();
+      } else if (deleteJournalModal.style.display === 'flex') {
+        closeDeleteJournalEntityModal();
+      }
+    }
+  });
+
   // Modal close on outside click
   window.onclick = function(event) {
     const deleteModal = document.getElementById('deleteModal');
@@ -2274,6 +2305,8 @@ function renderJournalEntities() {
 function createJournalEntityCard(entity) {
   const card = document.createElement('div');
   card.className = 'entity-card';
+  card.setAttribute('role', 'button');
+  card.setAttribute('tabindex', '0');
 
   // Principal styling for the journal owner
   if (entity.is_principal) {
@@ -2296,6 +2329,12 @@ function createJournalEntityCard(entity) {
   }
 
   card.onclick = () => navigateToEntity(entity.id);
+  card.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      navigateToEntity(entity.id);
+    }
+  });
 
   // Observation count badge (top-right corner)
   if (entity.total_observation_count > 0) {
@@ -2405,6 +2444,8 @@ function renderEntityCards() {
 function createEntityCard(entity) {
   const card = document.createElement('div');
   card.className = 'entity-card';
+  card.setAttribute('role', 'button');
+  card.setAttribute('tabindex', '0');
 
   // Principal styling for the journal owner
   if (entity.is_principal) {
@@ -2418,6 +2459,12 @@ function createEntityCard(entity) {
   }
 
   card.onclick = () => navigateToEntity(entity.id);
+  card.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      navigateToEntity(entity.id);
+    }
+  });
 
   // Observation count badge (top-right corner)
   if (entity.observation_count && entity.observation_count > 0) {
