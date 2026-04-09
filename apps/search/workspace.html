@@ -267,6 +267,74 @@ button.day-header {
   font-size: 0.95rem;
 }
 
+/* Error state */
+.search-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.search-error-icon {
+  font-size: 2.5rem;
+}
+
+.search-error-text {
+  font-size: 0.95rem;
+  color: #92400e;
+  font-weight: 500;
+}
+
+.search-error-hint {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.search-error-retry {
+  margin-top: 0.75rem;
+  padding: 0.4rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background: #fff;
+  color: #374151;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.search-error-retry:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* No-results suggestions */
+.search-noresults-suggestions {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.search-noresults-suggestions button {
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  color: #4b5563;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.search-noresults-suggestions button:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
 .search-agents-empty {
   color: #9ca3af;
   font-size: 0.8rem;
@@ -536,7 +604,10 @@ button.day-header {
     if (currentAgent) url.searchParams.set('agent', currentAgent);
 
     fetch(url)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error('search returned ' + r.status);
+        return r.json();
+      })
       .then(data => {
         if (reset) {
           resultsContainer.innerHTML = '';
@@ -549,8 +620,16 @@ button.day-header {
       })
       .catch(err => {
         console.error('Search error:', err);
-        resultsContainer.innerHTML = '<div class="search-empty"><div class="search-empty-text">Search failed. Please try again.</div></div>';
-        announce('search failed');
+        resultsContainer.innerHTML = `
+          <div class="search-error">
+            <div class="search-error-icon">⚠️</div>
+            <div class="search-error-text">something went wrong with that search</div>
+            <div class="search-error-hint">could be a network issue or the server might be busy — give it a moment</div>
+            <button class="search-error-retry">try again</button>
+          </div>
+        `;
+        resultsContainer.querySelector('.search-error-retry').onclick = () => doSearch(true);
+        announce('search failed, use the try again button to retry');
       });
   }
 
@@ -635,13 +714,47 @@ button.day-header {
 
   function renderResults(data, reset) {
     if (data.days.length === 0 && reset) {
-      resultsContainer.innerHTML = `
-        <div class="search-empty">
-          <div class="search-empty-icon">🔍</div>
-          <div class="search-empty-text">No results found for "${escapeHtml(currentQuery)}"</div>
-        </div>
+      const container = document.createElement('div');
+      container.className = 'search-empty';
+
+      container.innerHTML = `
+        <div class="search-empty-icon">🔍</div>
+        <div class="search-empty-text">no results found for "${escapeHtml(currentQuery)}"</div>
       `;
-      announce('no results found');
+
+      const suggestions = document.createElement('div');
+      suggestions.className = 'search-noresults-suggestions';
+      suggestions.innerHTML = '<span>try different keywords or check your spelling</span>';
+
+      if (currentFacet) {
+        const btn = document.createElement('button');
+        btn.textContent = 'search all facets instead of ' + currentFacet;
+        btn.onclick = () => {
+          currentFacet = '';
+          updateHash();
+          doSearch(true);
+        };
+        suggestions.appendChild(btn);
+      }
+
+      if (currentAgent) {
+        const btn = document.createElement('button');
+        btn.textContent = 'search all agents instead of ' + currentAgent;
+        btn.onclick = () => {
+          currentAgent = '';
+          updateHash();
+          doSearch(true);
+        };
+        suggestions.appendChild(btn);
+      }
+
+      container.appendChild(suggestions);
+      resultsContainer.innerHTML = '';
+      resultsContainer.appendChild(container);
+
+      let msg = 'no results found';
+      if (currentFacet || currentAgent) msg += ', try clearing filters';
+      announce(msg);
       return;
     }
 
