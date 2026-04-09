@@ -832,6 +832,14 @@
         "percept_duration": 0.0,
         "transcript_duration": 0.0
       },
+      "20260409": {
+        "day_bytes": 660,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
+      },
       "20990101": {
         "day_bytes": 282,
         "outputs_pending": 5,
@@ -1825,8 +1833,8 @@
     "total_percept_duration": 23.1,
     "total_transcript_duration": 3455.0,
     "totals": {
-      "day_bytes": 436412,
-      "outputs_pending": 271,
+      "day_bytes": 437072,
+      "outputs_pending": 276,
       "outputs_processed": 14,
       "pending_segments": 0,
       "percept_frames": 3,
