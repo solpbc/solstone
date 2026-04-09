@@ -6,7 +6,7 @@
 Describe screencast videos by detecting significant frame changes.
 
 Processes per-monitor screencast files (.webm/.mp4/.mov), detects changes using
-RMS-based comparison, and sends frames for multi-stage LLM analysis:
+perceptual hashing (dHash), and sends frames for multi-stage LLM analysis:
 
 1. Phase 1: Categorization - All frames get initial category analysis
 2. Phase 2: Selection - AI/fallback selects which frames get detailed extraction
@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import av
-from PIL import Image, ImageChops, ImageStat
+from PIL import Image
 
 from observe.aruco import detect_markers, mask_convey_region, polygon_area
 from observe.extract import DEFAULT_MAX_EXTRACTIONS, select_frames_for_extraction
@@ -172,10 +172,10 @@ CATEGORIZATION_PROMPT = _build_categorization_prompt()
 class VideoProcessor:
     """Process per-monitor screencast videos and detect significant frame changes."""
 
-    # RMS threshold for frame qualification (5% difference)
-    RMS_THRESHOLD = 0.05
-    # Downsample size for RMS comparison
-    COMPARE_SIZE = (160, 90)
+    # Resize target for 64-bit perceptual hashing
+    DHASH_SIZE = (9, 8)
+    # Minimum Hamming distance for frame qualification
+    DHASH_THRESHOLD = 6
     # Skip frame if Convey UI covers more than this fraction of the frame
     MASK_SKIP_THRESHOLD = 0.8
 
@@ -194,15 +194,14 @@ class VideoProcessor:
         """
         Process video and return qualified frames.
 
-        Uses RMS-based comparison on downsampled frames to detect significant
-        changes. Caches the downsampled version of the last qualified frame
-        to avoid repeated resizing.
+        Uses dHash perceptual hashing to detect significant changes. Caches
+        the dHash of the last qualified frame for comparison.
 
         Returns:
             List of qualified frames with timestamp and frame_bytes.
         """
-        # Cache for downsampled last qualified frame
-        last_qualified_small: Optional[Image.Image] = None
+        # Cache for the last qualified frame hash
+        last_hash: Optional[int] = None
 
         try:
             with av.open(str(self.video_path)) as container:
@@ -250,9 +249,6 @@ class VideoProcessor:
                         mask_convey_region(pil_img, polygon)
                         aruco_masked = True
 
-                    # Downsample for comparison
-                    current_small = self._downsample(pil_img)
-
                     # Build frame data dict
                     frame_data: dict = {
                         "frame_id": frame_count,
@@ -269,23 +265,23 @@ class VideoProcessor:
                                 "extrapolated"
                             ]
 
-                    # First frame: always qualify (RMS vs nothing = 100% different)
-                    if last_qualified_small is None:
+                    # First frame: always qualify
+                    if last_hash is None:
                         frame_data["frame_bytes"] = self._frame_to_bytes(pil_img)
+                        last_hash = self._dhash(pil_img)
                         pil_img.close()
 
                         self.qualified_frames.append(frame_data)
 
-                        last_qualified_small = current_small
                         logger.debug(f"First frame at {timestamp:.2f}s")
                         continue
 
-                    # Compare current frame with last qualified using RMS
-                    rms = self._rms_diff(last_qualified_small, current_small)
+                    # Compare current frame with last qualified using dHash
+                    current_hash = self._dhash(pil_img)
+                    distance = bin(last_hash ^ current_hash).count("1")
 
-                    if rms < self.RMS_THRESHOLD:
+                    if distance < self.DHASH_THRESHOLD:
                         # Not enough change - skip this frame
-                        current_small.close()
                         pil_img.close()
                         continue
 
@@ -295,17 +291,12 @@ class VideoProcessor:
 
                     self.qualified_frames.append(frame_data)
 
-                    # Update cached downsampled frame
-                    last_qualified_small.close()
-                    last_qualified_small = current_small
+                    # Update cached frame hash
+                    last_hash = current_hash
 
                     logger.debug(
-                        f"Qualified frame at {timestamp:.2f}s (RMS: {rms:.3f})"
+                        f"Qualified frame at {timestamp:.2f}s (hamming: {distance})"
                     )
-
-                # Clean up last cached frame
-                if last_qualified_small is not None:
-                    last_qualified_small.close()
 
                 logger.info(
                     f"Processed {frame_count} frames from {self.video_path.name}, "
@@ -320,23 +311,17 @@ class VideoProcessor:
 
         return self.qualified_frames
 
-    def _downsample(self, img: Image.Image) -> Image.Image:
-        """Downsample image to comparison size."""
-        if img.mode != "RGB":
-            img = img.convert("RGB")
-        return img.resize(self.COMPARE_SIZE, Image.BILINEAR)
-
-    def _rms_diff(self, img1: Image.Image, img2: Image.Image) -> float:
-        """
-        Compute RMS difference between two images, normalized to [0, 1].
-
-        Both images should already be downsampled to COMPARE_SIZE.
-        """
-        diff = ImageChops.difference(img1, img2)
-        stat = ImageStat.Stat(diff)
-        # Normalize RMS to [0, 1] by dividing by 255 per channel
-        rms = sum(stat.rms) / (len(stat.rms) * 255.0)
-        return float(rms)
+    def _dhash(self, img: Image.Image) -> int:
+        """Compute 64-bit dHash (difference hash) for perceptual comparison."""
+        small = img.resize(self.DHASH_SIZE, Image.BILINEAR).convert("L")
+        pixels = list(small.getdata())
+        hash_val = 0
+        for row in range(8):
+            for col in range(8):
+                idx = row * 9 + col
+                if pixels[idx] > pixels[idx + 1]:
+                    hash_val |= 1 << (row * 8 + col)
+        return hash_val
 
     def _frame_to_bytes(self, img: Image.Image) -> bytes:
         """
