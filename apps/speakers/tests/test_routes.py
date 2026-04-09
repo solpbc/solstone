@@ -1047,3 +1047,42 @@ def test_remove_voiceprint_no_file(speakers_env):
 
     removed = _remove_voiceprint("alice_test", "20240101", "143022_300", "mic_audio", 1)
     assert removed is False
+
+
+def test_api_segments_pagination(speakers_env):
+    """Segments endpoint supports limit/offset pagination."""
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    for i in range(25):
+        h = 8 + (i // 6)
+        m = (i % 6) * 10
+        key = f"{h:02d}{m:02d}00_300"
+        env.create_segment("20240101", key, ["mic_audio"], num_sentences=2)
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.get("/app/speakers/api/segments/20240101")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 25
+        assert len(data["segments"]) == 20
+
+        resp = client.get("/app/speakers/api/segments/20240101?limit=20&offset=20")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 25
+        assert len(data["segments"]) == 5
+
+        resp = client.get("/app/speakers/api/segments/20240101?limit=10&offset=5")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 25
+        assert len(data["segments"]) == 10
+
+        keys = [s["key"] for s in data["segments"]]
+        assert keys == sorted(keys)

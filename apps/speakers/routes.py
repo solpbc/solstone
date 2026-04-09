@@ -591,7 +591,17 @@ def api_segments(day: str) -> Any:
     if not DATE_RE.fullmatch(day):
         return error_response("Invalid day format", 400)
 
+    try:
+        limit = max(0, int(request.args.get("limit", 20)))
+        offset = max(0, int(request.args.get("offset", 0)))
+    except (ValueError, TypeError):
+        return error_response("Invalid limit/offset parameter", 400)
+
     segments = _scan_segment_embeddings(day)
+    segments.sort(key=lambda s: s["key"])
+    total = len(segments)
+    segments = segments[offset : offset + limit]
+
     principal = get_journal_principal()
     principal_id = principal["id"] if principal else None
     for seg in segments:
@@ -620,7 +630,7 @@ def api_segments(day: str) -> Any:
             seg["attribution_null"] = 0
             seg["attribution_non_owner_total"] = 0
 
-    return jsonify({"segments": segments})
+    return jsonify({"segments": segments, "total": total})
 
 
 @speakers_bp.route("/api/speakers/<day>/<stream>/<segment_key>")

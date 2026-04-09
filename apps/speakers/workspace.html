@@ -724,6 +724,72 @@
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
+
+/* Progressive disclosure - collapsed detail */
+.spk-detail-collapsed .spk-speakers,
+.spk-detail-collapsed .spk-sentences {
+  display: none;
+}
+
+.spk-detail-summary {
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.spk-detail-summary span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spk-expand-btn {
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  margin: 8px 16px;
+  transition: background 0.15s;
+}
+
+.spk-expand-btn:hover {
+  background: #f9fafb;
+}
+
+/* Pagination - load more */
+.spk-load-more {
+  padding: 8px 16px;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.spk-load-more-btn {
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.15s;
+}
+
+.spk-load-more-btn:hover {
+  background: #f3f4f6;
+}
+
+.spk-segments-count {
+  font-weight: 400;
+  color: #9ca3af;
+  font-size: 12px;
+}
 </style>
 
 <div class="spk-wrap">
@@ -737,6 +803,9 @@
       <ul class="spk-segments-list" id="spkSegmentList" role="listbox">
         <li class="spk-empty">Loading...</li>
       </ul>
+      <div class="spk-load-more" id="spkLoadMore" style="display: none;">
+        <button class="spk-load-more-btn" id="spkLoadMoreBtn">Load more segments</button>
+      </div>
     </nav>
 
     <div class="spk-detail" id="spkDetail" aria-live="polite">
@@ -806,6 +875,7 @@
   const discoveryBanner = document.getElementById('spkDiscoveryBanner');
 
   let segments = [];
+  let segmentTotal = 0;
   let selectedSegment = null;
   let selectedSource = null;
   let audioPlayer = null;
@@ -816,6 +886,7 @@
   const statusTimers = {};
   let currentFilter = 'all';
   let playingSentenceId = null;
+  let detailExpanded = false;
   let ownerDetectionInFlight = false;
 
   checkOwnerStatus();
@@ -823,7 +894,9 @@
 
   window.addEventListener('hashchange', () => {
     const hash = window.location.hash.slice(1);
-    if (hash) selectSegmentByKey(hash);
+    if (hash && !selectSegmentByKey(hash) && segments.length < segmentTotal) {
+      loadUntilFound(hash);
+    }
   });
 
   segmentList.addEventListener('keydown', e => {
@@ -1078,13 +1151,19 @@
   }
 
   function loadSegments() {
-    fetch(`/app/speakers/api/segments/${day}`)
+    const fetchLimit = Math.max(segments.length, 20);
+    fetch(`/app/speakers/api/segments/${day}?limit=${fetchLimit}&offset=0`)
       .then(r => r.json())
       .then(data => {
         segments = data.segments || [];
+        segmentTotal = data.total || 0;
         renderSegmentList();
+        updateLoadMore();
         if (window.location.hash) {
-          selectSegmentByKey(window.location.hash.slice(1));
+          const hashKey = window.location.hash.slice(1);
+          if (!selectSegmentByKey(hashKey) && segments.length < segmentTotal) {
+            loadUntilFound(hashKey);
+          }
         }
       })
       .catch(() => {
@@ -1092,9 +1171,60 @@
       });
   }
 
+  function loadMoreSegments() {
+    const btn = document.getElementById('spkLoadMoreBtn');
+    if (btn) btn.disabled = true;
+    fetch(`/app/speakers/api/segments/${day}?limit=20&offset=${segments.length}`)
+      .then(r => r.json())
+      .then(data => {
+        const newSegments = data.segments || [];
+        segments = segments.concat(newSegments);
+        segmentTotal = data.total || 0;
+        renderSegmentList();
+        updateLoadMore();
+      })
+      .catch(() => {
+        if (btn) btn.disabled = false;
+      });
+  }
+
+  function loadUntilFound(key) {
+    fetch(`/app/speakers/api/segments/${day}?limit=20&offset=${segments.length}`)
+      .then(r => r.json())
+      .then(data => {
+        const newSegments = data.segments || [];
+        if (newSegments.length === 0) return;
+        segments = segments.concat(newSegments);
+        segmentTotal = data.total || 0;
+        renderSegmentList();
+        updateLoadMore();
+        if (!selectSegmentByKey(key) && segments.length < segmentTotal) {
+          loadUntilFound(key);
+        }
+      });
+  }
+
+  function updateLoadMore() {
+    const container = document.getElementById('spkLoadMore');
+    const btn = document.getElementById('spkLoadMoreBtn');
+    if (!container || !btn) return;
+
+    if (segmentTotal > 20 && segments.length < segmentTotal) {
+      container.style.display = '';
+      btn.textContent = `Load more segments (${segments.length} of ${segmentTotal})`;
+      btn.onclick = loadMoreSegments;
+    } else {
+      container.style.display = 'none';
+    }
+  }
+
   function renderSegmentList() {
     if (segments.length === 0) {
       segmentList.innerHTML = '<li>' + emptyStateHTML(emptyIcons.segment, 'no speakers discovered today', 'solstone hasn\'t found any speaker segments for this day yet') + '</li>';
+      const header = document.querySelector('.spk-segments-header');
+      if (header) {
+        header.textContent = 'Segments';
+      }
       return;
     }
 
@@ -1150,17 +1280,29 @@
         || segmentList.querySelector('.spk-segment');
       if (target) target.focus();
     }
+
+    const header = document.querySelector('.spk-segments-header');
+    if (header) {
+      if (segmentTotal > 20) {
+        header.innerHTML = `Segments <span class="spk-segments-count">${segments.length} of ${segmentTotal}</span>`;
+      } else {
+        header.textContent = 'Segments';
+      }
+    }
   }
 
   function selectSegmentByKey(key) {
     const seg = segments.find(s => s.key === key);
     if (seg) selectSegment(seg);
+    return !!seg;
   }
 
   function selectSegment(seg) {
+    const switchingSegment = !selectedSegment || selectedSegment.key !== seg.key;
     selectedSegment = seg;
     selectedSource = seg.sources[0] || null;
     currentFilter = 'all';
+    if (switchingSegment) detailExpanded = false;
     renderSegmentList();
     renderDetail(seg);
   }
@@ -1171,10 +1313,20 @@
       return;
     }
 
+    const summaryParts = [];
+    if (seg.speaker_count > 0) {
+      summaryParts.push(`<span>${seg.speaker_count} speaker${seg.speaker_count !== 1 ? 's' : ''}</span>`);
+    }
+    if (seg.attribution_total > 0) {
+      const reviewed = seg.attribution_total - seg.attribution_needs_review;
+      summaryParts.push(`<span>${reviewed}/${seg.attribution_total} attributed</span>`);
+    }
+
     let html = `
       <div class="spk-detail-header">
         <h2 class="spk-detail-title">${seg.start} - ${seg.end}</h2>
       </div>
+      ${summaryParts.length ? `<div class="spk-detail-summary">${summaryParts.join('')}</div>` : ''}
     `;
 
     html += '<div class="spk-speakers" id="spkSpeakers"><div class="spk-empty">Loading speakers...</div></div>';
@@ -1192,8 +1344,28 @@
     }
 
     html += '<div class="spk-audio-player" id="spkAudioContainer"></div>';
+
+    if (!detailExpanded) {
+      html += '<button class="spk-expand-btn" id="spkExpandBtn">Show sentences and details</button>';
+    }
+
     html += '<div class="spk-sentences" id="spkSentences"><div class="spk-empty">Loading...</div></div>';
     detailPanel.innerHTML = html;
+
+    if (!detailExpanded) {
+      detailPanel.classList.add('spk-detail-collapsed');
+    } else {
+      detailPanel.classList.remove('spk-detail-collapsed');
+    }
+
+    const expandBtn = document.getElementById('spkExpandBtn');
+    if (expandBtn) {
+      expandBtn.addEventListener('click', () => {
+        detailExpanded = true;
+        detailPanel.classList.remove('spk-detail-collapsed');
+        expandBtn.remove();
+      });
+    }
 
     detailPanel.querySelectorAll('.spk-source-tab').forEach(tab => {
       tab.addEventListener('click', () => {
