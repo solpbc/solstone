@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import os
 import re
 import subprocess
@@ -24,6 +25,8 @@ from think.retention import (
 )
 from think.streams import list_streams
 from think.utils import get_config as get_journal_config
+
+logger = logging.getLogger(__name__)
 
 settings_bp = Blueprint(
     "app:settings",
@@ -70,8 +73,9 @@ def get_config() -> Any:
         config["runtime_env"] = {k: bool(os.getenv(k)) for k in API_KEY_ENV_VARS}
 
         return jsonify(config)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/config", methods=["PUT"])
@@ -274,8 +278,9 @@ def update_config() -> Any:
         return jsonify(
             {"success": True, "config": config, "key_validation": key_validation}
         )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error updating config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -317,8 +322,9 @@ def get_transcribe() -> Any:
                 "config": transcribe_config,
             }
         )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading transcribe config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -431,8 +437,9 @@ def get_providers() -> Any:
                 "key_validation": key_validation,
             }
         )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading providers")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/validate-keys", methods=["POST"])
@@ -478,8 +485,9 @@ def validate_all_keys() -> Any:
         os.chmod(config_path, 0o600)
 
         return jsonify({"success": True, "key_validation": key_validation})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error validating keys")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/providers", methods=["PUT"])
@@ -707,8 +715,9 @@ def update_providers() -> Any:
         # Return updated providers config
         return get_providers()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving providers")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -772,8 +781,9 @@ def get_generators() -> Any:
 
         return jsonify({"segment": segment, "daily": daily})
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading generators")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/generators", methods=["PUT"])
@@ -859,8 +869,9 @@ def update_generators() -> Any:
         # Return updated generators
         return get_generators()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving generators")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -907,8 +918,9 @@ def get_vision() -> Any:
                 "category_defaults": category_defaults,
             }
         )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading vision config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/vision", methods=["PUT"])
@@ -1069,8 +1081,9 @@ def update_vision() -> Any:
         # Return updated vision config
         return get_vision()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving vision config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -1116,8 +1129,9 @@ def get_observe() -> Any:
 
         return jsonify(result)
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading observe config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/observe", methods=["PUT"])
@@ -1209,8 +1223,9 @@ def update_observe() -> Any:
 
         return get_observe()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving observe config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facets/muted")
@@ -1231,8 +1246,9 @@ def get_muted_facets() -> Any:
             if data.get("muted", False)
         ]
         return jsonify({"facets": muted})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading muted facets")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facet", methods=["POST"])
@@ -1302,8 +1318,9 @@ def create_facet() -> Any:
 
         return jsonify({"success": True, "facet": slug, "config": config}), 201
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error creating facet")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>")
@@ -1317,8 +1334,9 @@ def get_facet_config(facet_name: str) -> Any:
             return jsonify({"error": "Facet not found"}), 404
 
         return jsonify({"facet": facet_name, "config": facets[facet_name]})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading facet config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>", methods=["PUT"])
@@ -1369,8 +1387,9 @@ def update_facet_config(facet_name: str) -> Any:
             )
 
         return jsonify({"success": True, "facet": facet_name, "config": config})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving facet config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 def _get_logs_from_dir(logs_dir: Path, cursor: str | None) -> dict:
@@ -1474,8 +1493,9 @@ def get_default_activities() -> Any:
         from think.activities import get_default_activities as _get_defaults
 
         return jsonify({"activities": _get_defaults()})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading default activities")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>/activities")
@@ -1501,8 +1521,9 @@ def get_facet_activities(facet_name: str) -> Any:
 
         return jsonify({"activities": attached, "defaults": defaults})
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading facet activities")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>/activities", methods=["POST"])
@@ -1581,8 +1602,9 @@ def add_facet_activity(facet_name: str) -> Any:
 
         return jsonify({"success": True, "activity": activity}), 201
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error adding activity")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>/activities/<activity_id>", methods=["PUT"])
@@ -1639,8 +1661,9 @@ def update_facet_activity(facet_name: str, activity_id: str) -> Any:
 
         return jsonify({"success": True, "activity": activity})
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error updating activity")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route(
@@ -1680,8 +1703,9 @@ def remove_facet_activity(facet_name: str, activity_id: str) -> Any:
 
         return jsonify({"success": True})
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error removing activity")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/sync")
@@ -1733,8 +1757,9 @@ def get_sync() -> Any:
             }
         )
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading sync config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/sync", methods=["PUT"])
@@ -1853,8 +1878,9 @@ def update_sync() -> Any:
 
         return get_sync()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving sync config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/storage")
@@ -1890,8 +1916,9 @@ def get_storage() -> Any:
                 "streams": [{"name": s.get("name", "")} for s in streams],
             }
         )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading storage")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/storage", methods=["PUT"])
@@ -1974,8 +2001,9 @@ def update_storage() -> Any:
             )
 
         return jsonify({"success": True, "retention": retention})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving retention config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/storage/purge", methods=["POST"])
@@ -2037,5 +2065,6 @@ def run_purge() -> Any:
             )
 
         return jsonify(response)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error running purge")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
