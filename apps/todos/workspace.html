@@ -557,6 +557,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const currentDay = {{ day | tojson }};
   const storageKey = `todos_collapsed_${currentDay}`;
   const todayDay = {{ today_day | tojson }};
+  const workspaceContent = document.querySelector('.workspace-content');
 
   function showMessage(text, type = 'error') {
     const region = document.getElementById('flash-message-region');
@@ -865,22 +866,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Setup move functionality with native date picker
-  document.querySelectorAll('.todo-action-btn.move').forEach(button => {
-    button.addEventListener('click', (e) => {
+  // Delegated click handler for todo actions
+  workspaceContent.addEventListener('click', (e) => {
+    const moveBtn = e.target.closest('.todo-action-btn.move');
+    if (moveBtn) {
       e.stopPropagation();
 
-      const index = parseInt(button.dataset.index, 10);
-      const facet = button.dataset.facet;
-      const currentDay = button.dataset.currentDay;
+      const index = parseInt(moveBtn.dataset.index, 10);
+      const facet = moveBtn.dataset.facet;
+      const btnCurrentDay = moveBtn.dataset.currentDay;
 
-      // Create native date input positioned near the button
       const dateInput = document.createElement('input');
       dateInput.type = 'date';
-      dateInput.value = dayToInputValue(currentDay);
+      dateInput.value = dayToInputValue(btnCurrentDay);
 
-      // Position near the calendar button
-      const rect = button.getBoundingClientRect();
+      const rect = moveBtn.getBoundingClientRect();
       dateInput.style.position = 'fixed';
       dateInput.style.left = `${rect.left}px`;
       dateInput.style.top = `${rect.top}px`;
@@ -889,25 +889,20 @@ document.addEventListener('DOMContentLoaded', function() {
       dateInput.style.width = '0';
       dateInput.style.height = '0';
 
-      // Handle date selection
       dateInput.addEventListener('change', () => {
         const targetDay = inputValueToDay(dateInput.value);
-        if (targetDay && targetDay !== currentDay) {
-          moveTodo(targetDay, facet, index, button);
+        if (targetDay && targetDay !== btnCurrentDay) {
+          moveTodo(targetDay, facet, index, moveBtn);
         }
         dateInput.remove();
       });
 
-      // Handle cancel (close without selection)
       dateInput.addEventListener('blur', () => {
         setTimeout(() => dateInput.remove(), 100);
       });
 
-      // Add to DOM and trigger picker
       document.body.appendChild(dateInput);
-      // Focus first (works reliably on iOS/iPad)
       dateInput.focus();
-      // Try showPicker for desktop browsers
       if (typeof dateInput.showPicker === 'function') {
         try {
           dateInput.showPicker();
@@ -915,144 +910,161 @@ document.addEventListener('DOMContentLoaded', function() {
           // Ignore - focus() already worked on iOS
         }
       }
-    });
-  });
+      return;
+    }
 
-  // Setup cancel functionality with AJAX
-  document.querySelectorAll('.todo-action-btn.cancel').forEach(button => {
-    button.addEventListener('click', async (e) => {
+    const cancelBtn = e.target.closest('.todo-action-btn.cancel');
+    if (cancelBtn) {
       e.stopPropagation();
 
-      const index = parseInt(button.dataset.index, 10);
-      const facet = button.dataset.facet;
+      const index = parseInt(cancelBtn.dataset.index, 10);
+      const facet = cancelBtn.dataset.facet;
 
-      const todoRow = button.closest('[data-todo-row]');
-      const originalText = button.textContent;
-      button.disabled = true;
+      const todoRow = cancelBtn.closest('[data-todo-row]');
+      const originalText = cancelBtn.textContent;
+      cancelBtn.disabled = true;
 
-      try {
-        const form = new FormData();
-        form.append('action', 'cancel');
-        form.append('facet', facet);
-        form.append('index', index);
+      (async () => {
+        try {
+          const form = new FormData();
+          form.append('action', 'cancel');
+          form.append('facet', facet);
+          form.append('index', index);
 
-        const response = await fetch(window.location.href, {
-          method: 'POST',
-          body: form
-        });
+          const response = await fetch(window.location.href, {
+            method: 'POST',
+            body: form
+          });
 
-        const data = await response.json();
+          const data = await response.json();
 
-        if (response.ok) {
-          // Remove the todo item from the DOM with a fade-out animation
-          // (cancelled items are hidden from view)
-          todoRow.style.transition = 'opacity 0.2s ease-out';
-          todoRow.style.opacity = '0';
-          setTimeout(() => {
-            const facetSection = todoRow.closest('.facet-section');
-            todoRow.remove();
+          if (response.ok) {
+            todoRow.style.transition = 'opacity 0.2s ease-out';
+            todoRow.style.opacity = '0';
+            setTimeout(() => {
+              const facetSection = todoRow.closest('.facet-section');
+              todoRow.remove();
 
-            // Update the count emoji
-            if (facetSection) {
-              updateFacetCount(facetSection);
-              showFacetEmptyIfNeeded(facetSection);
-            }
+              if (facetSection) {
+                updateFacetCount(facetSection);
+                showFacetEmptyIfNeeded(facetSection);
+              }
 
-            // Update badges from response
-            updateBadgesFromResponse(data, facet);
-          }, 200);
-        } else {
-          showMessage('Failed to cancel todo - please refresh and try again', 'error');
-          button.disabled = false;
-          button.textContent = originalText;
+              updateBadgesFromResponse(data, facet);
+            }, 200);
+          } else {
+            showMessage('Failed to cancel todo - please refresh and try again', 'error');
+            cancelBtn.disabled = false;
+            cancelBtn.textContent = originalText;
+          }
+        } catch (error) {
+          showMessage('Network error - please try again', 'error');
+          cancelBtn.disabled = false;
+          cancelBtn.textContent = originalText;
         }
-      } catch (error) {
-        showMessage('Network error - please try again', 'error');
-        button.disabled = false;
-        button.textContent = originalText;
-      }
-    });
+      })();
+      return;
+    }
+
+    const editBtn = e.target.closest('.todo-action-btn.edit');
+    if (editBtn) {
+      e.stopPropagation();
+      e.preventDefault();
+      const todoRow = editBtn.closest('.todo-row');
+      const span = todoRow.querySelector('.todo-text');
+      if (span) startEditMode(span);
+    }
   });
 
-  // Setup checkbox toggle with AJAX
-  document.querySelectorAll('.todo-checkbox').forEach(checkbox => {
+  // Delegated change handler for todo checkboxes
+  workspaceContent.addEventListener('change', async (e) => {
+    const checkbox = e.target.closest('.todo-checkbox');
+    if (!checkbox) return;
+
+    e.preventDefault();
+
     let isCompleted = checkbox.dataset.completed === 'true';
+    const index = parseInt(checkbox.dataset.index, 10);
+    const facet = checkbox.dataset.facet;
 
-    checkbox.addEventListener('change', async (e) => {
-      e.preventDefault();
+    const todoRow = checkbox.closest('[data-todo-row]');
+    const wasChecked = checkbox.checked;
 
-      const index = parseInt(checkbox.dataset.index, 10);
-      const facet = checkbox.dataset.facet;
+    checkbox.disabled = true;
 
-      const todoRow = checkbox.closest('[data-todo-row]');
-      const wasChecked = checkbox.checked;
+    try {
+      const form = new FormData();
+      form.append('action', isCompleted ? 'uncomplete' : 'complete');
+      form.append('facet', facet);
+      form.append('index', index);
 
-      // Optimistically update UI
-      checkbox.disabled = true;
+      const response = await fetch(window.location.href, {
+        method: 'POST',
+        body: form
+      });
 
-      try {
-        const form = new FormData();
-        form.append('action', isCompleted ? 'uncomplete' : 'complete');
-        form.append('facet', facet);
-        form.append('index', index);
+      const data = await response.json();
 
-        const response = await fetch(window.location.href, {
-          method: 'POST',
-          body: form
-        });
+      if (response.ok) {
+        isCompleted = !isCompleted;
+        checkbox.dataset.completed = isCompleted ? 'true' : 'false';
 
-        const data = await response.json();
+        if (isCompleted) {
+          todoRow.classList.add('completed');
+        } else {
+          todoRow.classList.remove('completed');
+        }
 
-        if (response.ok) {
-          // Update state
-          isCompleted = !isCompleted;
-          checkbox.dataset.completed = isCompleted ? 'true' : 'false';
-
-          // Update UI
+        // Reorder: completed rows go to bottom, uncompleted rows go above completed section
+        const todoList = todoRow.closest('.todo-list');
+        if (todoList) {
           if (isCompleted) {
-            todoRow.classList.add('completed');
+            todoList.appendChild(todoRow);
           } else {
-            todoRow.classList.remove('completed');
-          }
-
-          // Reorder: completed rows go to bottom, uncompleted rows go above completed section
-          const todoList = todoRow.closest('.todo-list');
-          if (todoList) {
-            if (isCompleted) {
-              todoList.appendChild(todoRow);
-            } else {
-              const firstCompleted = todoList.querySelector('.todo-row.completed');
-              if (firstCompleted) {
-                todoList.insertBefore(todoRow, firstCompleted);
-              }
+            const firstCompleted = todoList.querySelector('.todo-row.completed');
+            if (firstCompleted) {
+              todoList.insertBefore(todoRow, firstCompleted);
             }
           }
-
-          // Update form action for next click
-          const actionInput = checkbox.form.querySelector('input[name="action"]');
-          actionInput.value = isCompleted ? 'uncomplete' : 'complete';
-
-          // Update facet count emoji
-          const facetSection = todoRow.closest('.facet-section');
-          if (facetSection) {
-            updateFacetCount(facetSection);
-          }
-
-          // Update badges from response
-          updateBadgesFromResponse(data, facet);
-        } else {
-          // Revert on error
-          checkbox.checked = !wasChecked;
-          showMessage('Failed to update todo - please refresh and try again', 'error');
         }
-      } catch (error) {
-        // Revert on error
+
+        const actionInput = checkbox.form.querySelector('input[name="action"]');
+        actionInput.value = isCompleted ? 'uncomplete' : 'complete';
+
+        const facetSection = todoRow.closest('.facet-section');
+        if (facetSection) {
+          updateFacetCount(facetSection);
+        }
+
+        updateBadgesFromResponse(data, facet);
+      } else {
         checkbox.checked = !wasChecked;
-        showMessage('Network error - please try again', 'error');
-      } finally {
-        checkbox.disabled = false;
+        showMessage('Failed to update todo - please refresh and try again', 'error');
       }
-    });
+    } catch (error) {
+      checkbox.checked = !wasChecked;
+      showMessage('Network error - please try again', 'error');
+    } finally {
+      checkbox.disabled = false;
+    }
+  });
+
+  // Delegated dblclick handler for todo text editing
+  workspaceContent.addEventListener('dblclick', (e) => {
+    const span = e.target.closest('.todo-text');
+    if (!span) return;
+    e.stopPropagation();
+    startEditMode(span);
+  });
+
+  // Delegated keydown handler for todo text Enter-to-edit
+  workspaceContent.addEventListener('keydown', (e) => {
+    const span = e.target.closest('.todo-text');
+    if (!span) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      startEditMode(span);
+    }
   });
 
   function startEditMode(span) {
@@ -1162,31 +1174,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Setup edit triggers for server-rendered todos
-  document.querySelectorAll('.todo-text').forEach(span => {
-    span.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
-      startEditMode(span);
-    });
-    span.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        startEditMode(span);
-      }
-    });
-  });
-
-  // Setup edit button click for server-rendered todos
-  document.querySelectorAll('.todo-action-btn.edit').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      const todoRow = btn.closest('.todo-row');
-      const span = todoRow.querySelector('.todo-text');
-      if (span) startEditMode(span);
-    });
-  });
-
   // Listen for cortex events (agent completion)
   if (window.appEvents) {
     window.appEvents.listen('cortex', msg => {
@@ -1259,194 +1246,6 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   });
-
-  // Helper to set up event handlers for a single todo row
-  function setupTodoRowHandlers(todoRow) {
-    const facetSection = todoRow.closest('.facet-section');
-
-    // Setup checkbox handler
-    const checkbox = todoRow.querySelector('.todo-checkbox');
-    if (checkbox) {
-      let isCompleted = checkbox.dataset.completed === 'true';
-
-      checkbox.addEventListener('change', async (e) => {
-        e.preventDefault();
-
-        const index = parseInt(checkbox.dataset.index, 10);
-        const facet = checkbox.dataset.facet;
-        const wasChecked = checkbox.checked;
-
-        checkbox.disabled = true;
-
-        try {
-          const form = new FormData();
-          form.append('action', isCompleted ? 'uncomplete' : 'complete');
-          form.append('facet', facet);
-          form.append('index', index);
-
-          const response = await fetch(window.location.href, {
-            method: 'POST',
-            body: form
-          });
-
-          const data = await response.json();
-
-          if (response.ok) {
-            isCompleted = !isCompleted;
-            checkbox.dataset.completed = isCompleted ? 'true' : 'false';
-
-            if (isCompleted) {
-              todoRow.classList.add('completed');
-            } else {
-              todoRow.classList.remove('completed');
-            }
-
-            const actionInput = checkbox.form.querySelector('input[name="action"]');
-            actionInput.value = isCompleted ? 'uncomplete' : 'complete';
-
-            if (facetSection) {
-              updateFacetCount(facetSection);
-            }
-
-            // Update badges from response
-            updateBadgesFromResponse(data, facet);
-          } else {
-            checkbox.checked = !wasChecked;
-            showMessage('Failed to update todo - please refresh and try again', 'error');
-          }
-        } catch (error) {
-          checkbox.checked = !wasChecked;
-          showMessage('Network error - please try again', 'error');
-        } finally {
-          checkbox.disabled = false;
-        }
-      });
-    }
-
-    // Setup cancel button handler
-    const cancelBtn = todoRow.querySelector('.todo-action-btn.cancel');
-    if (cancelBtn) {
-      cancelBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-
-        const index = parseInt(cancelBtn.dataset.index, 10);
-        const facet = cancelBtn.dataset.facet;
-        const originalText = cancelBtn.textContent;
-
-        cancelBtn.disabled = true;
-
-        try {
-          const form = new FormData();
-          form.append('action', 'cancel');
-          form.append('facet', facet);
-          form.append('index', index);
-
-          const response = await fetch(window.location.href, {
-            method: 'POST',
-            body: form
-          });
-
-          const data = await response.json();
-
-          if (response.ok) {
-            todoRow.style.transition = 'opacity 0.2s ease-out';
-            todoRow.style.opacity = '0';
-            setTimeout(() => {
-              todoRow.remove();
-
-              if (facetSection) {
-                updateFacetCount(facetSection);
-              }
-
-              // Update badges from response
-              updateBadgesFromResponse(data, facet);
-            }, 200);
-          } else {
-            showMessage('Failed to cancel todo - please refresh and try again', 'error');
-            cancelBtn.disabled = false;
-            cancelBtn.textContent = originalText;
-          }
-        } catch (error) {
-          showMessage('Network error - please try again', 'error');
-          cancelBtn.disabled = false;
-          cancelBtn.textContent = originalText;
-        }
-      });
-    }
-
-    // Setup move button handler
-    const moveBtn = todoRow.querySelector('.todo-action-btn.move');
-    if (moveBtn) {
-      moveBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-
-        const index = parseInt(moveBtn.dataset.index, 10);
-        const facet = moveBtn.dataset.facet;
-        const btnCurrentDay = moveBtn.dataset.currentDay;
-
-        const dateInput = document.createElement('input');
-        dateInput.type = 'date';
-        dateInput.value = dayToInputValue(btnCurrentDay);
-
-        const rect = moveBtn.getBoundingClientRect();
-        dateInput.style.position = 'fixed';
-        dateInput.style.left = `${rect.left}px`;
-        dateInput.style.top = `${rect.top}px`;
-        dateInput.style.opacity = '0';
-        dateInput.style.pointerEvents = 'none';
-        dateInput.style.width = '0';
-        dateInput.style.height = '0';
-
-        dateInput.addEventListener('change', () => {
-          const targetDay = inputValueToDay(dateInput.value);
-          if (targetDay && targetDay !== btnCurrentDay) {
-            moveTodo(targetDay, facet, index, moveBtn);
-          }
-          dateInput.remove();
-        });
-
-        dateInput.addEventListener('blur', () => {
-          setTimeout(() => dateInput.remove(), 100);
-        });
-
-        document.body.appendChild(dateInput);
-        dateInput.focus();
-        if (typeof dateInput.showPicker === 'function') {
-          try {
-            dateInput.showPicker();
-          } catch (e) {
-            // Ignore
-          }
-        }
-      });
-    }
-
-    // Setup edit triggers
-    const span = todoRow.querySelector('.todo-text');
-    if (span) {
-      span.addEventListener('dblclick', (e) => {
-        e.stopPropagation();
-        startEditMode(span);
-      });
-      span.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          startEditMode(span);
-        }
-      });
-    }
-
-    // Setup edit button
-    const editBtn = todoRow.querySelector('.todo-action-btn.edit');
-    if (editBtn) {
-      editBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        const currentSpan = todoRow.querySelector('.todo-text');
-        if (currentSpan) startEditMode(currentSpan);
-      });
-    }
-  }
 
   // Listen for new todos added via AJAX
   window.addEventListener('todo.added', (e) => {
@@ -1552,9 +1351,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (facetEmpty) {
       facetEmpty.style.display = 'none';
     }
-
-    // Wire up event handlers
-    setupTodoRowHandlers(li);
 
     // Update facet count
     updateFacetCount(facetSection);
