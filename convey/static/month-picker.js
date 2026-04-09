@@ -18,6 +18,7 @@ window.MonthPicker = (function() {
   let app = null;               // Current app name
   let isVisible = false;
   let allowFutureDates = false; // Whether future dates without data are clickable
+  let pendingFocusDay = null;   // Set before render to auto-focus: YYYYMMDD, 'first', or 'last'
 
   // External elements (set during init)
   let labelEl = null;
@@ -65,6 +66,32 @@ window.MonthPicker = (function() {
     const monthName = d.toLocaleString('default', { month: 'short' });
     const yearShort = String(year).slice(2);
     return `${monthName} '${yearShort}`;
+  }
+
+  function getFullMonthLabel(ym) {
+    const { year, month } = parseYM(ym);
+    const d = new Date(year, month, 1);
+    return d.toLocaleString('default', { month: 'long' }) + ' ' + year;
+  }
+
+  function isFocusable(cell) {
+    return !cell.classList.contains('mp-other') && !cell.classList.contains('mp-empty');
+  }
+
+  function getActiveDay(focusableCells) {
+    return focusableCells.find(el => el.dataset.day === selectedDay) ||
+           focusableCells.find(el => el.dataset.day === TODAY) ||
+           focusableCells[0] || null;
+  }
+
+  function focusCell(cell) {
+    const grid = container.querySelector('.mp-grid');
+    if (!grid) return;
+    grid.querySelectorAll('.mp-day[tabindex]').forEach(el => {
+      el.setAttribute('tabindex', '-1');
+    });
+    cell.setAttribute('tabindex', '0');
+    cell.focus();
   }
 
   function getDaysInMonth(ym) {
@@ -126,17 +153,12 @@ window.MonthPicker = (function() {
       maxCount = Math.max(maxCount, data[dateStr] || 0);
     }
 
-    // Build HTML (no header - nav is in date-nav bar)
-    let html = `
-      <div class="mp-weekdays">
-        ${WEEKDAYS.map(d => `<span>${d}</span>`).join('')}
-      </div>
-      <div class="mp-grid">
-    `;
+    // Build cells array
+    const cells = [];
 
     // Leading empty cells
     for (let i = 0; i < startDay; i++) {
-      html += `<div class="mp-day mp-other"></div>`;
+      cells.push('<div class="mp-day mp-other" role="gridcell"></div>');
     }
 
     // Days of month
@@ -150,8 +172,6 @@ window.MonthPicker = (function() {
       if (dateStr === TODAY) classes.push('mp-today');
       if (dateStr === selectedDay) classes.push('mp-selected');
 
-      // Future days without data: clickable if allowFutureDates, styled differently
-      // Historical days without data: disabled (mp-empty)
       if (isFuture && !hasData && allowFutureDates) {
         classes.push('mp-future');
       } else if (!hasData) {
@@ -161,20 +181,65 @@ window.MonthPicker = (function() {
       const rawIntensity = maxCount > 0 ? count / maxCount : 0;
       const intensity = count > 0 ? 0.2 + (rawIntensity * 0.8) : 0;
 
-      html += `<div class="${classes.join(' ')}" data-day="${dateStr}" style="--intensity: ${intensity}">${d}</div>`;
+      let attrs = `class="${classes.join(' ')}" role="gridcell" data-day="${dateStr}" style="--intensity: ${intensity}"`;
+      if (dateStr === TODAY) attrs += ' aria-current="date"';
+      if (dateStr === selectedDay) attrs += ' aria-selected="true"';
+
+      cells.push(`<div ${attrs}>${d}</div>`);
     }
 
     // Trailing empty cells
-    const totalCells = startDay + daysInMonth;
-    const remainder = totalCells % 7;
+    const remainder = cells.length % 7;
     if (remainder > 0) {
       for (let i = 0; i < 7 - remainder; i++) {
-        html += `<div class="mp-day mp-other"></div>`;
+        cells.push('<div class="mp-day mp-other" role="gridcell"></div>');
       }
     }
 
-    html += '</div>';
+    // Group cells into rows of 7
+    let gridHtml = '';
+    for (let i = 0; i < cells.length; i += 7) {
+      gridHtml += `<div role="row">${cells.slice(i, i + 7).join('')}</div>`;
+    }
+
+    // Build full HTML — outer div owns the ARIA grid role so the
+    // columnheader row and the data rows share the same grid context.
+    const html = `
+      <div role="grid" aria-label="${getFullMonthLabel(currentMonth)}">
+        <div class="mp-weekdays" role="row">
+          ${WEEKDAYS.map(d => `<span role="columnheader">${d}</span>`).join('')}
+        </div>
+        <div class="mp-grid" role="rowgroup">
+          ${gridHtml}
+        </div>
+      </div>
+    `;
+
     container.innerHTML = html;
+
+    // Apply roving tabindex
+    const focusableCells = Array.from(container.querySelectorAll('.mp-day')).filter(isFocusable);
+    const activeCell = getActiveDay(focusableCells);
+    focusableCells.forEach(el => {
+      el.setAttribute('tabindex', el === activeCell ? '0' : '-1');
+    });
+
+    // Handle pending focus
+    if (pendingFocusDay) {
+      let target;
+      if (pendingFocusDay === 'first') {
+        target = focusableCells[0];
+      } else if (pendingFocusDay === 'last') {
+        target = focusableCells[focusableCells.length - 1];
+      } else {
+        target = container.querySelector(`.mp-day[data-day="${pendingFocusDay}"]`);
+        if (!target || !isFocusable(target)) {
+          target = activeCell;
+        }
+      }
+      pendingFocusDay = null;
+      if (target) focusCell(target);
+    }
 
     // Update the date-nav label to show month
     if (labelEl) {
@@ -214,6 +279,111 @@ window.MonthPicker = (function() {
     }
   }
 
+  function handleGridKeydown(e) {
+    const cell = e.target.closest('.mp-day');
+    if (!cell || !isFocusable(cell)) return;
+
+    const grid = container.querySelector('.mp-grid');
+    if (!grid || !grid.contains(cell)) return;
+
+    const allCells = Array.from(grid.querySelectorAll('.mp-day'));
+    const focusableCells = allCells.filter(isFocusable);
+    const cellIndex = allCells.indexOf(cell);
+    const focusIndex = focusableCells.indexOf(cell);
+
+    let targetCell = null;
+
+    switch (e.key) {
+      case 'ArrowRight': {
+        e.preventDefault();
+        e.stopPropagation();
+        if (focusIndex < focusableCells.length - 1) {
+          targetCell = focusableCells[focusIndex + 1];
+        } else {
+          pendingFocusDay = 'first';
+          navigateMonth(1);
+          return;
+        }
+        break;
+      }
+      case 'ArrowLeft': {
+        e.preventDefault();
+        e.stopPropagation();
+        if (focusIndex > 0) {
+          targetCell = focusableCells[focusIndex - 1];
+        } else {
+          pendingFocusDay = 'last';
+          navigateMonth(-1);
+          return;
+        }
+        break;
+      }
+      case 'ArrowDown': {
+        e.preventDefault();
+        e.stopPropagation();
+        const downIndex = cellIndex + 7;
+        if (downIndex < allCells.length && isFocusable(allCells[downIndex])) {
+          targetCell = allCells[downIndex];
+        } else {
+          pendingFocusDay = 'first';
+          navigateMonth(1);
+          return;
+        }
+        break;
+      }
+      case 'ArrowUp': {
+        e.preventDefault();
+        e.stopPropagation();
+        const upIndex = cellIndex - 7;
+        if (upIndex >= 0 && isFocusable(allCells[upIndex])) {
+          targetCell = allCells[upIndex];
+        } else {
+          pendingFocusDay = 'last';
+          navigateMonth(-1);
+          return;
+        }
+        break;
+      }
+      case 'Home': {
+        e.preventDefault();
+        e.stopPropagation();
+        const rowStart = cellIndex - (cellIndex % 7);
+        for (let i = rowStart; i < rowStart + 7 && i < allCells.length; i++) {
+          if (isFocusable(allCells[i])) {
+            targetCell = allCells[i];
+            break;
+          }
+        }
+        break;
+      }
+      case 'End': {
+        e.preventDefault();
+        e.stopPropagation();
+        const rowStart = cellIndex - (cellIndex % 7);
+        for (let i = Math.min(rowStart + 6, allCells.length - 1); i >= rowStart; i--) {
+          if (isFocusable(allCells[i])) {
+            targetCell = allCells[i];
+            break;
+          }
+        }
+        break;
+      }
+      case 'Enter':
+      case ' ': {
+        e.preventDefault();
+        const dateStr = cell.dataset.day;
+        if (dateStr) {
+          window.location.href = `/app/${app}/${dateStr}`;
+        }
+        return;
+      }
+      default:
+        return;
+    }
+
+    if (targetCell) focusCell(targetCell);
+  }
+
   function handleClickOutside(e) {
     if (!isVisible) return;
     const dateNav = document.querySelector('.date-nav');
@@ -242,6 +412,7 @@ window.MonthPicker = (function() {
 
     if (labelEl) {
       dayLabel = labelEl.textContent;
+      labelEl.setAttribute('tabindex', '-1');
     }
 
     if (!container) {
@@ -250,6 +421,7 @@ window.MonthPicker = (function() {
     }
 
     container.addEventListener('click', handleClick);
+    container.addEventListener('keydown', handleGridKeydown);
     document.addEventListener('keydown', handleKeydown);
     document.addEventListener('click', handleClickOutside);
     window.addEventListener('facet.switch', handleFacetSwitch);
@@ -263,6 +435,7 @@ window.MonthPicker = (function() {
     isVisible = true;
     container.classList.add('open');
     document.querySelector('.date-nav')?.classList.add('picker-open');
+    pendingFocusDay = selectedDay || TODAY;
     showMonth(currentMonth);
   }
 
@@ -272,10 +445,11 @@ window.MonthPicker = (function() {
     container.classList.remove('open');
     document.querySelector('.date-nav')?.classList.remove('picker-open');
 
-    // Restore day label
+    pendingFocusDay = null;
     if (labelEl && dayLabel) {
       labelEl.textContent = dayLabel;
     }
+    if (labelEl) labelEl.focus();
   }
 
   function toggle() {

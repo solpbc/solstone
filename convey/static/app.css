@@ -552,6 +552,15 @@ body:has(.status-pane.visible) .facet-bar::after {
   background: var(--facet-color, #b06a1a);
 }
 
+/* ARIA row wrappers - invisible to CSS grid */
+.mp-grid [role="row"] { display: contents; }
+
+/* Focus indicator for keyboard navigation */
+.mp-day:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: -2px;
+}
+
 /* Status Pane - slides down from facet bar on right (mirrors menu bar on left) */
 .status-pane {
   position: fixed;
