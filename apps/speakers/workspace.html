@@ -87,6 +87,41 @@
   font-size: 14px;
 }
 
+.spk-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: #9ca3af;
+  padding: 48px 24px;
+  gap: 12px;
+}
+
+.spk-empty-icon svg {
+  width: 48px;
+  height: 48px;
+  stroke: #d1d5db;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.spk-empty-heading {
+  font-size: 16px;
+  font-weight: 500;
+  color: #6b7280;
+  margin: 0;
+}
+
+.spk-empty-desc {
+  font-size: 14px;
+  color: #9ca3af;
+  margin: 0;
+}
+
 .spk-detail {
   background: #fff;
   border-radius: 12px;
@@ -365,6 +400,12 @@
 .spk-status-error {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.spk-status-info {
+  background: #e8f4fd;
+  border: 1px solid #b3d9f2;
+  color: #1e40af;
 }
 
 .spk-speaker-count {
@@ -680,8 +721,10 @@
     </nav>
 
     <div class="spk-detail" id="spkDetail">
-      <div class="spk-empty">
-        Select a segment to review
+      <div class="spk-empty-state">
+        <div class="spk-empty-icon"><svg viewBox="0 0 24 24"><path d="M4 4l7.07 17 2.51-7.39L21 11.07z"></path></svg></div>
+        <p class="spk-empty-heading">ready to review</p>
+        <p class="spk-empty-desc">select a segment from the list to review speaker assignments</p>
       </div>
     </div>
   </div>
@@ -689,6 +732,22 @@
 
 <script>
 (() => {
+  const emptyIcons = {
+    segment: '<svg viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1"></rect><rect x="8" y="5" width="2" height="14" rx="1"></rect><rect x="12" y="3" width="2" height="18" rx="1"></rect><rect x="16" y="6" width="2" height="12" rx="1"></rect><rect x="20" y="9" width="2" height="6" rx="1"></rect></svg>',
+    cursor: '<svg viewBox="0 0 24 24"><path d="M4 4l7.07 17 2.51-7.39L21 11.07z"></path></svg>',
+    people: '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
+    text: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+    audio: '<svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>'
+  };
+
+  function emptyStateHTML(icon, heading, desc) {
+    return '<div class="spk-empty-state">' +
+      '<div class="spk-empty-icon">' + icon + '</div>' +
+      '<p class="spk-empty-heading">' + heading + '</p>' +
+      '<p class="spk-empty-desc">' + desc + '</p>' +
+      '</div>';
+  }
+
   const METHOD_DISPLAY = {
     acoustic: 'voice match',
     structural_single_speaker: 'only speaker',
@@ -995,7 +1054,7 @@
 
   function renderSegmentList() {
     if (segments.length === 0) {
-      segmentList.innerHTML = '<li class="spk-empty">No segments with embeddings found for this day</li>';
+      segmentList.innerHTML = '<li>' + emptyStateHTML(emptyIcons.segment, 'no speakers discovered today', 'solstone hasn\'t found any speaker segments for this day yet') + '</li>';
       return;
     }
 
@@ -1068,7 +1127,7 @@
 
   function renderDetail(seg) {
     if (!seg.sources.length) {
-      detailPanel.innerHTML = '<div class="spk-empty">No audio sources found</div>';
+      detailPanel.innerHTML = emptyStateHTML(emptyIcons.audio, 'no audio sources', 'this segment doesn\'t have any audio recordings');
       return;
     }
 
@@ -1138,7 +1197,7 @@
     const unmatchedCount = unmatched ? unmatched.length : 0;
 
     if (!hasMatched && !hasUnmatched) {
-      container.innerHTML = '<div class="spk-empty">No speakers in this segment</div>';
+      container.innerHTML = emptyStateHTML(emptyIcons.people, 'no speakers found', 'no speaker voices were detected in this segment');
       return;
     }
 
@@ -1231,7 +1290,7 @@
     const countLabel = countLabelForFilter(sentences.length, total);
 
     if (total === 0) {
-      container.innerHTML = '<div class="spk-empty">No sentences with embeddings found</div>';
+      container.innerHTML = emptyStateHTML(emptyIcons.text, 'no sentences to review', 'this segment doesn\'t have any sentences to work with yet');
       return;
     }
 
@@ -1251,7 +1310,7 @@
         const showPrompt = seg?.speaker_count > 0 && nonOwnerTotal > 0 && (nullCount / nonOwnerTotal) > 0.5;
         return showPrompt ? `<div class="spk-seeding-prompt">This meeting has ${seg.speaker_count} named speakers but I can't match voices yet. Assigning even a few sentences will help me learn their voices for future meetings.</div>` : '';
       })()}
-      ${!hasLabels ? '<div class="spk-status spk-status-error">Not yet attributed</div>' : ''}
+      ${!hasLabels ? '<div class="spk-status spk-status-info">speakers haven\'t been identified yet — assign a few sentences to help solstone learn their voices</div>' : ''}
       ${sentences.length === 0 ? '<div class="spk-empty">No sentences match this filter</div>' : sentences.map(renderSentence).join('')}
     `;
 
@@ -1339,7 +1398,7 @@
 
   function renderActions(sentence) {
     if (!hasLabels) {
-      return '<span class="spk-review-state">Not yet attributed</span>';
+      return '<span class="spk-review-state">not yet identified</span>';
     }
 
     const options = reviewEntities.map(entity => (
