@@ -614,20 +614,65 @@
   color: #166534;
   margin-top: 6px;
 }
+
+/* Semantic element resets - prevent browser defaults from changing layout */
+.spk-segments-header,
+.spk-detail-title,
+.spk-speakers-title,
+.spk-sentences-title,
+.spk-speaker-entity {
+  font-size: inherit;
+  font-weight: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+/* List resets - no bullets, no margin, no padding */
+.spk-segments-list,
+.spk-speaker-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Focus-visible indicators */
+.spk-source-tab:focus-visible,
+.spk-filter-btn:focus-visible,
+.spk-btn:focus-visible,
+.spk-skip-back:focus-visible,
+.spk-speed-toggle:focus-visible,
+.spk-segment:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Banner buttons need darker ring for contrast on colored backgrounds */
+.spk-owner-btn:focus-visible,
+.spk-discovery-btn:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+/* Inputs and selects use :focus (browser convention - always show focus ring) */
+.spk-select-small:focus,
+.spk-discovery-input:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
 </style>
 
 <div class="spk-wrap">
   <div id="spkOwnerBanner" class="spk-owner-banner"></div>
   <div id="spkDiscoveryBanner" class="spk-discovery-banner"></div>
   <div class="spk-layout">
-    <div class="spk-segments">
-      <div class="spk-segments-header">
+    <nav class="spk-segments" aria-label="segments">
+      <h2 class="spk-segments-header">
         Segments
-      </div>
-      <div class="spk-segments-list" id="spkSegmentList">
-        <div class="spk-empty">Loading...</div>
-      </div>
-    </div>
+      </h2>
+      <ul class="spk-segments-list" id="spkSegmentList">
+        <li class="spk-empty">Loading...</li>
+      </ul>
+    </nav>
 
     <div class="spk-detail" id="spkDetail">
       <div class="spk-empty">
@@ -889,13 +934,13 @@
         }
       })
       .catch(() => {
-        segmentList.innerHTML = '<div class="spk-empty">Failed to load segments</div>';
+        segmentList.innerHTML = '<li class="spk-empty">Failed to load segments</li>';
       });
   }
 
   function renderSegmentList() {
     if (segments.length === 0) {
-      segmentList.innerHTML = '<div class="spk-empty">No segments with embeddings found for this day</div>';
+      segmentList.innerHTML = '<li class="spk-empty">No segments with embeddings found for this day</li>';
       return;
     }
 
@@ -910,7 +955,7 @@
     });
 
     segmentList.innerHTML = sorted.map(seg => `
-      <div class="spk-segment${selectedSegment?.key === seg.key ? ' active' : ''}" data-key="${seg.key}">
+      <li class="spk-segment${selectedSegment?.key === seg.key ? ' active' : ''}" data-key="${seg.key}">
         <div class="spk-segment-time">
           ${seg.start} - ${seg.end}
           ${seg.speaker_count > 0 ? `<span class="spk-speaker-count">${seg.speaker_count} speakers</span>` : ''}
@@ -920,7 +965,7 @@
           ${seg.sources.map(s => `<span class="spk-source-badge">${formatSource(s)}</span>`).join('')}
         </div>
         ${seg.attribution_needs_review > 0 ? `<div class="spk-review-badge">${seg.attribution_needs_review} to review</div>` : ''}
-      </div>
+      </li>
     `).join('');
 
     segmentList.querySelectorAll('.spk-segment').forEach(el => {
@@ -955,7 +1000,7 @@
 
     let html = `
       <div class="spk-detail-header">
-        <div class="spk-detail-title">${seg.start} - ${seg.end}</div>
+        <h2 class="spk-detail-title">${seg.start} - ${seg.end}</h2>
       </div>
     `;
 
@@ -1028,25 +1073,25 @@
     if (unmatchedCount > 0) titleParts.push(`${unmatchedCount} unmatched`);
     const title = `Speakers (${titleParts.join(', ')})`;
 
-    let html = `<div class="spk-speakers-title">${title}</div><div class="spk-speaker-cards">`;
+    let html = `<h2 class="spk-speakers-title">${title}</h2><ul class="spk-speaker-cards">`;
     if (hasMatched) {
       matched.forEach(m => {
         html += `
-          <div class="spk-speaker-card spk-speaker-matched">
-            <span class="spk-speaker-entity">${escapeHtml(m.entity_name)}</span>
+          <li class="spk-speaker-card spk-speaker-matched">
+            <h3 class="spk-speaker-entity">${escapeHtml(m.entity_name)}</h3>
             ${m.detected_name !== m.entity_name ? `<span class="spk-speaker-detected">(${escapeHtml(m.detected_name)})</span>` : ''}
-          </div>
+          </li>
         `;
       });
     }
 
     if (hasUnmatched) {
       unmatched.forEach(name => {
-        html += `<div class="spk-speaker-card spk-speaker-unmatched">${escapeHtml(name)}</div>`;
+        html += `<li class="spk-speaker-card spk-speaker-unmatched"><h3 class="spk-speaker-entity">${escapeHtml(name)}</h3></li>`;
       });
     }
 
-    html += '</div>';
+    html += '</ul>';
     container.innerHTML = html;
   }
 
@@ -1117,9 +1162,9 @@
     }
 
     container.innerHTML = `
-      <div class="spk-sentences-title">
+      <h2 class="spk-sentences-title">
         <span id="spkSentenceCount">${escapeHtml(countLabel)}</span>
-      </div>
+      </h2>
       <div class="spk-filter-bar">
         <button class="spk-filter-btn${currentFilter === 'all' ? ' active' : ''}" data-filter="all">All</button>
         <button class="spk-filter-btn${currentFilter === 'needs_review' ? ' active' : ''}" data-filter="needs_review">Needs Review</button>
