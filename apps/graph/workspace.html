@@ -56,9 +56,9 @@
   </div>
 
   <!-- Entity detail panel (slide-in from right) -->
-  <div class="graph-detail-panel" id="graph-detail-panel">
+  <div class="graph-detail-panel" id="graph-detail-panel" tabindex="-1" aria-label="Entity details">
     <div class="graph-detail-header">
-      <h2 id="detail-name"></h2>
+      <h2 id="detail-name" tabindex="-1"></h2>
       <button class="graph-detail-close" id="detail-close">&times;</button>
     </div>
     <div class="graph-detail-body" id="detail-body"></div>
@@ -231,6 +231,7 @@
 .graph-detail-close:hover {
   color: #111827;
 }
+.graph-detail-close:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 .graph-detail-body {
   flex: 1;
   overflow-y: auto;
@@ -302,10 +303,15 @@
 }
 .detail-connected-item:last-child { border-bottom: none; }
 .detail-connected-name {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
   cursor: pointer;
   color: #2563eb;
 }
 .detail-connected-name:hover { text-decoration: underline; }
+.detail-connected-name:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 .detail-connected-rel {
   color: #9ca3af;
   font-size: 0.75rem;
@@ -710,6 +716,7 @@
     bodyEl.innerHTML = '<div style="text-align:center;padding:2em;color:#999;">Loading...</div>';
     panel.classList.add('open');
     detailOpen = true;
+    nameEl.focus();
 
     fetchEntity(nodeData.id).then(intel => {
       if (!intel || intel.error) {
@@ -770,7 +777,7 @@
       html += '<ul class="detail-connected-list">';
       for (const name of connectedNames) {
         html += '<li class="detail-connected-item">';
-        html += '<span class="detail-connected-name" data-entity="' + escapeHtml(name) + '">' + escapeHtml(name) + '</span>';
+        html += '<button class="detail-connected-name" data-entity="' + escapeHtml(name) + '">' + escapeHtml(name) + '</button>';
         html += '<span class="detail-connected-rel">' + networkEntities[name] + ' shared</span>';
         html += '</li>';
       }
@@ -825,6 +832,7 @@
     document.getElementById('graph-detail-panel').classList.remove('open');
     detailOpen = false;
     if (network) network.unselectAll();
+    document.getElementById('graph-canvas').focus();
   }
 
   // --- Filter handlers ---
@@ -907,6 +915,11 @@
   });
 
   document.getElementById('detail-close').addEventListener('click', closeDetail);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && detailOpen) {
+      closeDetail();
+    }
+  });
   document.getElementById('graph-retry').addEventListener('click', function(e) {
     e.preventDefault();
     reload();
