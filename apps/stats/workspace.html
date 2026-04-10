@@ -175,6 +175,7 @@ h1 {
   height: 300px;
   position: relative;
   margin-top: 1.5em;
+  padding-bottom: 24px;
 }
 
 .bar-chart {
@@ -399,6 +400,13 @@ h1 {
   }
   .bar-value {
     font-size: 0.7em;
+  }
+  .bar-label {
+    display: none;
+  }
+  .bar:first-child .bar-label,
+  .bar:last-child .bar-label {
+    display: block;
   }
 }
 </style>

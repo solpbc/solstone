@@ -47,6 +47,20 @@ const Dashboard = (function() {
     return String(Math.round(value));
   }
 
+  function fmtDay(raw) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    if (raw.length === 8) {
+      // YYYYMMDD
+      return months[parseInt(raw.slice(4, 6), 10) - 1] + ' ' + parseInt(raw.slice(6, 8), 10);
+    }
+    // MM/DD
+    return months[parseInt(raw.slice(0, 2), 10) - 1] + ' ' + parseInt(raw.slice(3, 5), 10);
+  }
+
+  function shouldLabel(i, len) {
+    return i === 0 || i === len - 1 || (i % 7 === 0);
+  }
+
   // Create a stat card
   function statCard(title, value, subtitle, color) {
     return el('div', {className: 'stat-card'}, [
@@ -131,7 +145,7 @@ const Dashboard = (function() {
 
     const chart = el('div', {className: 'bar-chart'});
     
-    chartData.forEach(d => {
+    chartData.forEach((d, i) => {
       const height = (d.total / maxTotal) * 100;
       const bar = el('div', {
         className: 'bar',
@@ -170,16 +184,13 @@ const Dashboard = (function() {
       bar.appendChild(stack);
 
       if (d.total > 0) {
-        let formatted;
-        if (d.total >= 1000000) {
-          formatted = `${Math.round(d.total/1000000)}m`;
-        } else if (d.total >= 1000) {
-          formatted = `${Math.round(d.total/1000)}k`;
-        } else {
-          formatted = String(d.total);
-        }
+        const formatted = fmtTokens(d.total);
         bar.appendChild(el('div', {className: 'bar-value'}, [formatted]));
         bar.setAttribute('title', `${d.day.slice(4, 6)}/${d.day.slice(6, 8)} - Input: ${d.input}, Reasoning: ${d.reasoning}, Output: ${d.output}`);
+      }
+
+      if (shouldLabel(i, chartData.length)) {
+        bar.appendChild(el('div', {className: 'bar-label'}, [fmtDay(d.day)]));
       }
       
       chart.appendChild(bar);
@@ -221,7 +232,7 @@ const Dashboard = (function() {
 
     const chart = el('div', {className: 'bar-chart'});
 
-    data.forEach(d => {
+    data.forEach((d, i) => {
       const total = d.audio + d.screen;
       const height = (total / maxTotal) * 100;
       const bar = el('div', {
@@ -267,6 +278,10 @@ const Dashboard = (function() {
         const titleParts = [`${d.day} - Audio: ${d.audio.toFixed(1)}h, Screen: ${d.screen.toFixed(1)}h`];
         if (d.bytes) titleParts.push(`Disk: ${fmtBytes(d.bytes)}`);
         bar.setAttribute('title', titleParts.join(', '));
+      }
+
+      if (shouldLabel(i, data.length)) {
+        bar.appendChild(el('div', {className: 'bar-label'}, [fmtDay(d.day)]));
       }
 
       chart.appendChild(bar);
@@ -393,7 +408,7 @@ const Dashboard = (function() {
 
     const chart = el('div', {className: 'bar-chart'});
 
-    chartData.forEach(d => {
+    chartData.forEach((d, i) => {
       const height = (d.total / maxTotal) * 100;
       const bar = el('div', {
         className: 'bar',
@@ -431,6 +446,10 @@ const Dashboard = (function() {
       if (d.total > 0) {
         bar.appendChild(el('div', {className: 'bar-value'}, [String(d.total)]));
         bar.setAttribute('title', tooltipParts.join('\n'));
+      }
+
+      if (shouldLabel(i, chartData.length)) {
+        bar.appendChild(el('div', {className: 'bar-label'}, [fmtDay(d.day)]));
       }
 
       chart.appendChild(bar);
