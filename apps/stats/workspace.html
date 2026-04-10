@@ -226,6 +226,8 @@ h1 {
   padding: 2em;
   height: 100%;
   display: flex;
+  flex-direction: column;
+  gap: 0.5em;
   align-items: center;
   justify-content: center;
 }
@@ -424,6 +426,7 @@ h1 {
   <div id="mainContent" style="display: none;">
     <div id="statsGrid" class="stats-grid"></div>
     <div id="progressSection" class="progress-section"></div>
+    <div id="repairSection"></div>
 
     <div class="chart-section">
       <div class="chart-header">
@@ -455,8 +458,6 @@ h1 {
       <h2>Events (Last 30 Days)</h2>
       <div class="chart" id="eventsChart"></div>
     </div>
-
-    <div id="repairSection"></div>
   </div>
 </div>
 

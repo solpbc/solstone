@@ -95,7 +95,11 @@ const Dashboard = (function() {
     
     if (!tokenData || !model) {
       container.appendChild(
-        el('div', {className: 'empty-chart'}, ['Select a model to view token usage'])
+        el('div', {className: 'empty-chart'}, [
+          el('div', {style: 'font-size: 2em;'}, ['📊']),
+          el('div', {style: 'font-weight: 600; font-size: 1.1em;'}, ['Select a model']),
+          el('div', {style: 'color: #999;'}, ['Choose a model above to view token usage'])
+        ])
       );
       return;
     }
@@ -105,7 +109,11 @@ const Dashboard = (function() {
     
     if (!days.length) {
       container.appendChild(
-        el('div', {className: 'empty-chart'}, ['No token data available for this model'])
+        el('div', {className: 'empty-chart'}, [
+          el('div', {style: 'font-size: 2em;'}, ['📊']),
+          el('div', {style: 'font-weight: 600; font-size: 1.1em;'}, ['No token data']),
+          el('div', {style: 'color: #999;'}, ['No token usage recorded for this model'])
+        ])
       );
       return;
     }
@@ -138,7 +146,11 @@ const Dashboard = (function() {
 
     if (maxTotal === 0) {
       container.appendChild(
-        el('div', {className: 'empty-chart'}, ['No token usage for this model in the last 30 days'])
+        el('div', {className: 'empty-chart'}, [
+          el('div', {style: 'font-size: 2em;'}, ['📊']),
+          el('div', {style: 'font-weight: 600; font-size: 1.1em;'}, ['No recent token usage']),
+          el('div', {style: 'color: #999;'}, ['No tokens used for this model in the last 30 days'])
+        ])
       );
       return;
     }
@@ -222,7 +234,11 @@ const Dashboard = (function() {
 
     if (!data || !data.length) {
       container.appendChild(
-        el('div', {className: 'empty-chart'}, ['No data available'])
+        el('div', {className: 'empty-chart'}, [
+          el('div', {style: 'font-size: 2em;'}, ['🎙️']),
+          el('div', {style: 'font-weight: 600; font-size: 1.1em;'}, ['No capture data']),
+          el('div', {style: 'color: #999;'}, ['No audio or screen capture hours recorded'])
+        ])
       );
       return;
     }
@@ -355,7 +371,11 @@ const Dashboard = (function() {
 
     if (!countsByDay || Object.keys(countsByDay).length === 0) {
       container.appendChild(
-        el('div', {className: 'empty-chart'}, ['No data available'])
+        el('div', {className: 'empty-chart'}, [
+          el('div', {style: 'font-size: 2em;'}, [meta.emptyIcon || '📊']),
+          el('div', {style: 'font-weight: 600; font-size: 1.1em;'}, ['No data available']),
+          el('div', {style: 'color: #999;'}, [meta.emptyText || 'No data available'])
+        ])
       );
       return;
     }
@@ -364,7 +384,11 @@ const Dashboard = (function() {
     const days = Object.keys(countsByDay).sort().slice(-30);
     if (!days.length) {
       container.appendChild(
-        el('div', {className: 'empty-chart'}, ['No data available'])
+        el('div', {className: 'empty-chart'}, [
+          el('div', {style: 'font-size: 2em;'}, [meta.emptyIcon || '📊']),
+          el('div', {style: 'font-weight: 600; font-size: 1.1em;'}, ['No data available']),
+          el('div', {style: 'color: #999;'}, [meta.emptyText || 'No data available'])
+        ])
       );
       return;
     }
@@ -378,7 +402,11 @@ const Dashboard = (function() {
 
     if (!categories.length) {
       container.appendChild(
-        el('div', {className: 'empty-chart'}, ['No data available'])
+        el('div', {className: 'empty-chart'}, [
+          el('div', {style: 'font-size: 2em;'}, [meta.emptyIcon || '📊']),
+          el('div', {style: 'font-weight: 600; font-size: 1.1em;'}, ['No data available']),
+          el('div', {style: 'color: #999;'}, [meta.emptyText || 'No data available'])
+        ])
       );
       return;
     }
@@ -401,7 +429,11 @@ const Dashboard = (function() {
 
     if (maxTotal === 0) {
       container.appendChild(
-        el('div', {className: 'empty-chart'}, ['No data available'])
+        el('div', {className: 'empty-chart'}, [
+          el('div', {style: 'font-size: 2em;'}, [meta.emptyIcon || '📊']),
+          el('div', {style: 'font-weight: 600; font-size: 1.1em;'}, ['No data available']),
+          el('div', {style: 'color: #999;'}, [meta.emptyText || 'No data available'])
+        ])
       );
       return;
     }
@@ -598,14 +630,20 @@ const Dashboard = (function() {
     buildStackedCategoryChart(
       document.getElementById('facetsChart'),
       stats.facet_counts_by_day || {},
-      {}  // No special metadata for facets
+      {
+        emptyIcon: '🏷️',
+        emptyText: 'No facet data recorded'
+      }
     );
 
     // Render Events stacked bar chart
     buildStackedCategoryChart(
       document.getElementById('eventsChart'),
       stats.agent_counts_by_day || {},
-      data.generators || {}  // Use generator metadata for titles/colors
+      Object.assign({}, data.generators || {}, {
+        emptyIcon: '⚡',
+        emptyText: 'No event data recorded'
+      })  // Use generator metadata for titles/colors
     );
     
     // Render repairs if needed
