@@ -497,6 +497,17 @@
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 @keyframes spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .import-status.running::before {
+        animation: none;
+        opacity: 1;
+    }
+    .spinner {
+        animation: none;
+        border-top-color: #fff;
+        opacity: 0.7;
+    }
+}
 </style>
 <div class="workspace-content-wide">
   <div id="importGrid" class="import-source-grid"></div>
