@@ -30,13 +30,14 @@
       <div class="graph-empty-icon">🕸️</div>
       <h2>Your knowledge graph builds itself from daily use</h2>
       <p>As solstone captures your meetings, conversations, and work, entities and relationships appear here automatically.</p>
+      <a href="/app/home" class="graph-empty-action">Get started with solstone →</a>
     </div>
     <div class="graph-error" id="graph-error" style="display:none;">
       <div class="graph-error-icon">⚠️</div>
-      <h2>Graph couldn't render</h2>
-      <p>Try refreshing the page. <a href="#" id="graph-retry">Retry</a></p>
+      <h2>Couldn't load the knowledge graph</h2>
+      <p>This usually means the server didn't respond. <a href="#" id="graph-retry">Try again</a></p>
     </div>
-    <div id="graph-canvas" style="width:100%;height:100%;display:none;"></div>
+    <div id="graph-canvas" tabindex="0" role="img" aria-label="Knowledge graph" style="width:100%;height:100%;display:none;"></div>
   </div>
 
   <!-- Entity detail panel (slide-in from right) -->
@@ -150,6 +151,16 @@
   color: #666;
   line-height: 1.5;
 }
+.graph-empty-action {
+  display: inline-block;
+  margin-top: 1em;
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.graph-empty-action:hover { text-decoration: underline; }
+.graph-empty-action:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+#graph-canvas:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 .graph-error p {
   margin: 0;
   color: #666;
@@ -456,6 +467,7 @@
       container.style.display = 'none';
       empty.style.display = 'block';
       controls.style.display = 'none';
+      container.removeAttribute('aria-label');
       return;
     }
 
@@ -556,6 +568,7 @@
 
     // Update stats
     updateStats(data);
+    container.setAttribute('aria-label', 'Knowledge graph: ' + data.nodes.length + ' entities, ' + data.edges.length + ' connections');
   }
 
   function updateStats(data) {
@@ -576,7 +589,15 @@
 
     fetchEntity(nodeData.id).then(intel => {
       if (!intel || intel.error) {
-        bodyEl.innerHTML = '<div style="padding:1em;color:#999;">Could not load entity details.</div>';
+        bodyEl.innerHTML = '<div style="padding:1em;color:#666;">' +
+          '<strong>Couldn\'t load entity details</strong><br>' +
+          '<span style="color:#999;font-size:0.85rem;">The server may not have responded.</span><br>' +
+          '<a href="#" class="detail-retry-link" style="color:#2563eb;text-decoration:none;font-size:0.85rem;">Try again</a>' +
+          '</div>';
+        bodyEl.querySelector('.detail-retry-link').addEventListener('click', function(e) {
+          e.preventDefault();
+          showDetail(nodeData);
+        });
         return;
       }
       renderDetail(intel, nodeData);
@@ -739,7 +760,11 @@
     } catch (err) {
       console.error('Graph load failed:', err);
       if (thisLoad === loadCount) {
-        document.getElementById('graph-loading').textContent = 'Failed to load graph';
+        document.getElementById('graph-loading').style.display = 'none';
+        document.getElementById('graph-empty').style.display = 'none';
+        document.getElementById('graph-error').style.display = 'block';
+        document.getElementById('graph-canvas').style.display = 'none';
+        document.getElementById('graph-controls').style.display = 'none';
       }
     }
   }
