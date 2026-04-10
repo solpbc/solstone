@@ -873,6 +873,14 @@
   to { transform: rotate(360deg); }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    border-top-color: #007bff;
+    opacity: 0.7;
+  }
+}
+
 .agent-card:focus-visible {
   outline: 2px solid #007bff;
   outline-offset: 2px;
@@ -908,14 +916,28 @@
     font-size: 0.8rem;
   }
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 </style>
 
 <div class="agents-content">
   <!-- Loading state -->
-  <div id="loading-view" class="loading">
-    <div class="spinner"></div>
+  <div id="loading-view" class="loading" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
     <div>Loading agents...</div>
   </div>
+
+  <div id="agents-status" class="sr-only" role="status" aria-live="polite"></div>
 
   <!-- Card Grid View -->
   <div id="grid-view" style="display: none;">
@@ -1179,6 +1201,7 @@
 
     hideAllViews();
     document.getElementById('loading-view').style.display = 'block';
+    document.getElementById('agents-status').textContent = '';
 
     try {
       const response = await fetch(`api/agents/${currentDay}`);
@@ -1189,6 +1212,8 @@
       facetsMeta = data.facets || {};
 
       renderGridView();
+      document.getElementById('agents-status').textContent =
+        allRuns.length + ' agent run' + (allRuns.length !== 1 ? 's' : '') + ' loaded';
 
       // Restore hash-based view after data load
       if (location.hash) {
