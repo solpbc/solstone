@@ -148,6 +148,10 @@
   position: absolute;
   top: 10px;
   right: 15px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
   cursor: pointer;
   font-size: 24px;
   color: #666;
@@ -237,9 +241,9 @@
 </div>
 
 <!-- Observer Key Modal (for new observers and viewing existing keys) -->
-<div id="keyModal" class="modal">
+<div id="keyModal" class="modal" role="dialog" aria-modal="true" aria-label="observer key">
   <div class="modal-content">
-    <span class="modal-close" id="keyModalClose">&times;</span>
+    <button type="button" class="modal-close" id="keyModalClose" aria-label="Close">&times;</button>
     <h3 id="keyModalTitle">Observer: <span id="modalObserverName"></span></h3>
     <p>Use these credentials in your solstone app's service settings:</p>
     <div class="credential-label">Server URL</div>
@@ -273,6 +277,7 @@ const copyServerUrlBtn = document.getElementById('copyServerUrlBtn');
 const copyKeyBtn = document.getElementById('copyKeyBtn');
 const doneBtn = document.getElementById('doneBtn');
 const keyModalClose = document.getElementById('keyModalClose');
+let keyModalTrigger = null;
 
 function formatBytes(bytes) {
   if (bytes === 0) return '0 B';
@@ -376,6 +381,7 @@ async function revokeObserver(keyPrefix, name) {
 }
 
 async function viewObserverKey(keyPrefix, name) {
+  const trigger = document.querySelector(`.observer-card[data-key="${keyPrefix}"] button`);
   try {
     const response = await fetch(`/app/observer/api/${keyPrefix}/key`);
     const data = await response.json();
@@ -384,17 +390,20 @@ async function viewObserverKey(keyPrefix, name) {
       throw new Error(data.error || 'Failed to get key');
     }
 
-    showKeyModal(name, data.key);
+    showKeyModal(name, data.key, trigger);
   } catch (err) {
     if (window.showError) showError(err.message);
   }
 }
 
-function showKeyModal(name, key) {
+function showKeyModal(name, key, trigger) {
   modalObserverName.textContent = name;
   serverUrlText.textContent = window.location.origin;
   keyText.textContent = key;
   keyModal.style.display = 'block';
+  keyModalTrigger = trigger || null;
+  keyModalClose.focus();
+  document.addEventListener('keydown', handleKeyModalKeys);
 }
 
 addObserverForm.onsubmit = async (e) => {
@@ -419,7 +428,7 @@ addObserverForm.onsubmit = async (e) => {
     }
 
     // Show modal with key
-    showKeyModal(name, data.key);
+    showKeyModal(name, data.key, submitBtn);
 
     // Clear input and reload list
     observerNameInput.value = '';
@@ -431,18 +440,41 @@ addObserverForm.onsubmit = async (e) => {
   }
 };
 
-// Modal controls
-keyModalClose.onclick = () => {
-  keyModal.style.display = 'none';
-};
+function handleKeyModalKeys(e) {
+  if (e.key === 'Escape') {
+    closeKeyModal();
+    return;
+  }
+  if (e.key === 'Tab') {
+    const focusable = [...keyModal.querySelectorAll('button:not([disabled]), [tabindex="0"]')];
+    if (focusable.length === 0) return;
+    const currentIndex = focusable.indexOf(document.activeElement);
+    if (e.shiftKey) {
+      e.preventDefault();
+      focusable[currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1].focus();
+    } else {
+      e.preventDefault();
+      focusable[currentIndex >= focusable.length - 1 ? 0 : currentIndex + 1].focus();
+    }
+  }
+}
 
-doneBtn.onclick = () => {
+function closeKeyModal() {
   keyModal.style.display = 'none';
-};
+  document.removeEventListener('keydown', handleKeyModalKeys);
+  if (keyModalTrigger && document.contains(keyModalTrigger)) {
+    keyModalTrigger.focus();
+  }
+  keyModalTrigger = null;
+}
+
+// Modal controls
+keyModalClose.onclick = () => closeKeyModal();
+doneBtn.onclick = () => closeKeyModal();
 
 window.onclick = (e) => {
   if (e.target === keyModal) {
-    keyModal.style.display = 'none';
+    closeKeyModal();
   }
 };
 
