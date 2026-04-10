@@ -885,6 +885,29 @@
   outline-offset: -2px;
   background: #f0f4ff;
 }
+
+/* Responsive: tablet */
+@media (max-width: 768px) {
+  .col-model, .col-provider, .col-output, .col-prompt {
+    display: none;
+  }
+  .runs-table {
+    font-size: 0.85rem;
+  }
+  #list-view {
+    overflow-x: auto;
+  }
+}
+
+/* Responsive: mobile */
+@media (max-width: 480px) {
+  .col-runtime, .col-facet {
+    display: none;
+  }
+  .runs-table {
+    font-size: 0.8rem;
+  }
+}
 </style>
 
 <div class="agents-content">
