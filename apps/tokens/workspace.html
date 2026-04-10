@@ -43,13 +43,13 @@
       <table class="breakdown-table" id="provider-table">
         <thead>
           <tr>
-            <th scope="col" class="sortable" data-sort="provider">Provider</th>
-            <th scope="col" class="sortable num" data-sort="requests">Requests</th>
-            <th scope="col" class="sortable num" data-sort="tokens">Tokens</th>
-            <th scope="col" class="sortable num" data-sort="input_cost">Input Cost</th>
-            <th scope="col" class="sortable num" data-sort="output_cost">Output Cost</th>
-            <th scope="col" class="sortable num" data-sort="cached_tokens">Cached</th>
-            <th scope="col" class="sortable num" data-sort="cost">Total</th>
+            <th scope="col" class="sortable" data-sort="provider" role="button" tabindex="0" aria-sort="none">Provider</th>
+            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">Requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">Tokens</th>
+            <th scope="col" class="sortable num" data-sort="input_cost" role="button" tabindex="0" aria-sort="none">Input Cost</th>
+            <th scope="col" class="sortable num" data-sort="output_cost" role="button" tabindex="0" aria-sort="none">Output Cost</th>
+            <th scope="col" class="sortable num" data-sort="cached_tokens" role="button" tabindex="0" aria-sort="none">Cached</th>
+            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">Total</th>
             <th scope="col" class="num">% of Day</th>
           </tr>
         </thead>
@@ -67,12 +67,12 @@
       <table class="breakdown-table" id="model-table">
         <thead>
           <tr>
-            <th scope="col" class="sortable" data-sort="model">Model</th>
-            <th scope="col" class="sortable num" data-sort="requests">Requests</th>
-            <th scope="col" class="sortable num" data-sort="tokens">Tokens</th>
-            <th scope="col" class="sortable num" data-sort="cost">Total Cost</th>
+            <th scope="col" class="sortable" data-sort="model" role="button" tabindex="0" aria-sort="none">Model</th>
+            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">Requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">Tokens</th>
+            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">Total Cost</th>
             <th scope="col" class="num">% of Day</th>
-            <th scope="col" class="sortable num" data-sort="avg_cost_per_request">Per-Request Avg</th>
+            <th scope="col" class="sortable num" data-sort="avg_cost_per_request" role="button" tabindex="0" aria-sort="none">Per-Request Avg</th>
           </tr>
         </thead>
         <tbody id="model-body">
@@ -114,10 +114,10 @@
       <table class="breakdown-table" id="context-table">
         <thead>
           <tr>
-            <th scope="col" class="sortable" data-sort="context">Context Prefix</th>
-            <th scope="col" class="sortable num" data-sort="requests">Requests</th>
-            <th scope="col" class="sortable num" data-sort="tokens">Tokens</th>
-            <th scope="col" class="sortable num" data-sort="cost">Total Cost</th>
+            <th scope="col" class="sortable" data-sort="context" role="button" tabindex="0" aria-sort="none">Context Prefix</th>
+            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">Requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">Tokens</th>
+            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">Total Cost</th>
             <th scope="col" class="num">% of Day</th>
             <th scope="col">Models Used</th>
           </tr>
@@ -140,10 +140,10 @@
       <table class="breakdown-table" id="segment-table">
         <thead>
           <tr>
-            <th scope="col" class="sortable" data-sort="segment">Segment</th>
-            <th scope="col" class="sortable num" data-sort="requests">Requests</th>
-            <th scope="col" class="sortable num" data-sort="tokens">Tokens</th>
-            <th scope="col" class="sortable num" data-sort="cost">Total Cost</th>
+            <th scope="col" class="sortable" data-sort="segment" role="button" tabindex="0" aria-sort="none">Segment</th>
+            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">Requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">Tokens</th>
+            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">Total Cost</th>
             <th scope="col" class="num">% of Day</th>
             <th scope="col">Models Used</th>
           </tr>
@@ -258,6 +258,9 @@
   font-weight: 600;
   color: #555;
   border-bottom: 2px solid #e0e0e0;
+}
+
+.breakdown-table th.sortable {
   cursor: pointer;
   user-select: none;
 }
@@ -265,6 +268,10 @@
 .breakdown-table th.sortable:hover {
   background: #e9ecef;
 }
+
+.breakdown-table th.sortable[aria-sort="ascending"]::after { content: " ▲"; }
+.breakdown-table th.sortable[aria-sort="descending"]::after { content: " ▼"; }
+.breakdown-table th.sortable[aria-sort="none"]::after { content: " ⇅"; opacity: 0.3; }
 
 .breakdown-table th.num,
 .breakdown-table td.num {
@@ -379,6 +386,14 @@
 // Global state
 let currentData = null;
 let currentDay = '{{ day }}';
+const sortState = {};
+
+const tableConfig = {
+  'provider-table': { dataKey: 'by_provider', render: renderProviderTable },
+  'model-table': { dataKey: 'by_model', render: renderModelTable },
+  'context-table': { dataKey: 'by_context', render: renderContextTable, filterInput: 'context-search' },
+  'segment-table': { dataKey: 'by_segment', render: renderSegmentTable, filterInput: 'segment-search' },
+};
 
 // Format numbers
 function formatCost(value) {
@@ -427,6 +442,54 @@ function createPercentBar(percent, color) {
   const safeColor = /^#[0-9a-fA-F]{3,6}$/i.test(color) ? color : '#999';
   const width = Math.min(100, Math.max(0, percent * 2)); // Scale for visual effect
   return `<span class="percent-bar" style="--bar-color: ${safeColor}; width: ${width}px;" aria-hidden="true"></span>`;
+}
+
+function sortData(tableId, data) {
+  const state = sortState[tableId];
+  if (!state || !data) return data;
+  return [...data].sort((a, b) => {
+    const aVal = a[state.key];
+    const bVal = b[state.key];
+    if (typeof aVal === 'number' && typeof bVal === 'number') {
+      return state.ascending ? aVal - bVal : bVal - aVal;
+    }
+    return state.ascending
+      ? String(aVal).localeCompare(String(bVal))
+      : String(bVal).localeCompare(String(aVal));
+  });
+}
+
+function handleSort(tableId, sortKey, isNumeric) {
+  const current = sortState[tableId];
+  if (current && current.key === sortKey) {
+    current.ascending = !current.ascending;
+  } else {
+    sortState[tableId] = { key: sortKey, ascending: !isNumeric };
+  }
+
+  const table = document.getElementById(tableId);
+  table.querySelectorAll('th.sortable').forEach(th => {
+    const key = th.getAttribute('data-sort');
+    if (key === sortKey) {
+      th.setAttribute('aria-sort', sortState[tableId].ascending ? 'ascending' : 'descending');
+    } else {
+      th.setAttribute('aria-sort', 'none');
+    }
+  });
+
+  rerenderTable(tableId);
+}
+
+function rerenderTable(tableId) {
+  const config = tableConfig[tableId];
+  if (!config || !currentData) return;
+  const data = sortData(tableId, currentData[config.dataKey]);
+  if (config.filterInput) {
+    const filter = document.getElementById(config.filterInput)?.value || '';
+    config.render(data, filter);
+  } else {
+    config.render(data);
+  }
 }
 
 // Get provider color
@@ -498,19 +561,21 @@ function renderDashboard(data) {
   });
 
   // Render provider table
-  renderProviderTable(data.by_provider);
+  renderProviderTable(sortData('provider-table', data.by_provider));
 
   // Render model table
-  renderModelTable(data.by_model);
+  renderModelTable(sortData('model-table', data.by_model));
 
   // Render token type table
   renderTokenTypeTable(data.by_token_type);
 
   // Render context table
-  renderContextTable(data.by_context);
+  const contextFilter = document.getElementById('context-search')?.value || '';
+  renderContextTable(sortData('context-table', data.by_context), contextFilter);
 
   // Render segment table
-  renderSegmentTable(data.by_segment);
+  const segmentFilter = document.getElementById('segment-search')?.value || '';
+  renderSegmentTable(sortData('segment-table', data.by_segment), segmentFilter);
 
   // Show/hide skipped unknown models notice
   const skippedNotice = document.getElementById('skipped-notice');
@@ -665,7 +730,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const contextSearchInput = document.getElementById('context-search');
   contextSearchInput.addEventListener('input', (e) => {
     if (currentData) {
-      renderContextTable(currentData.by_context, e.target.value);
+      renderContextTable(sortData('context-table', currentData.by_context), e.target.value);
     }
   });
 
@@ -673,8 +738,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const segmentSearchInput = document.getElementById('segment-search');
   segmentSearchInput.addEventListener('input', (e) => {
     if (currentData) {
-      renderSegmentTable(currentData.by_segment, e.target.value);
+      renderSegmentTable(sortData('segment-table', currentData.by_segment), e.target.value);
     }
+  });
+
+  document.querySelectorAll('.breakdown-table').forEach(table => {
+    table.querySelector('thead').addEventListener('click', e => {
+      const th = e.target.closest('th.sortable');
+      if (!th) return;
+      const tableId = table.id;
+      const sortKey = th.getAttribute('data-sort');
+      const isNumeric = th.classList.contains('num');
+      handleSort(tableId, sortKey, isNumeric);
+    });
+
+    table.querySelector('thead').addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const th = e.target.closest('th.sortable');
+      if (!th) return;
+      e.preventDefault();
+      const tableId = table.id;
+      const sortKey = th.getAttribute('data-sort');
+      const isNumeric = th.classList.contains('num');
+      handleSort(tableId, sortKey, isNumeric);
+    });
   });
 
   // Load initial data
