@@ -103,8 +103,24 @@
   color: #666;
   margin-bottom: 0.5em;
 }
-.observer-stats span {
-  margin-right: 1.5em;
+.observer-stats dl {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.5em;
+}
+.observer-stats dl > div {
+  display: flex;
+  gap: 0.3em;
+}
+.observer-stats dt {
+  color: #999;
+}
+.observer-stats dt::after {
+  content: ':';
+}
+.observer-stats dd {
+  margin: 0;
 }
 .observer-actions {
   display: flex;
@@ -261,10 +277,39 @@
 }
 
 .no-observers {
-  color: #666;
-  font-style: italic;
   text-align: center;
-  padding: 2em;
+  padding: 3rem 1rem;
+  color: #666;
+}
+.no-observers-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+.no-observers-text {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+.no-observers-hint {
+  font-size: 0.9rem;
+  color: #999;
+  margin-bottom: 1.5rem;
+}
+.no-observers-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  min-height: 44px;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.no-observers-action:hover {
+  background: #1976D2;
 }
 
 .section-title {
@@ -325,13 +370,9 @@
 
 /* ── Responsive: Mobile (≤480px) ── */
 @media (max-width: 480px) {
-  .observer-stats {
-    display: flex;
+  .observer-stats dl {
     flex-direction: column;
     gap: 4px;
-  }
-  .observer-stats span {
-    margin-right: 0;
   }
   .observer-actions {
     flex-wrap: wrap;
@@ -484,6 +525,23 @@ let countdownInterval = null;
 let lastPollTime = Date.now();
 let isFirstLoad = true;
 
+function emptyStateHTML() {
+  return `<div class="no-observers">
+    <div class="no-observers-icon">📡</div>
+    <div class="no-observers-text">no observers yet</div>
+    <div class="no-observers-hint">observers capture audio and screen from your devices</div>
+    <button class="no-observers-action" onclick="setFormCollapsed(false); document.getElementById('observerName').focus();">add an observer</button>
+  </div>`;
+}
+
+function statsHTML(observer, statusClass) {
+  return `<dl>
+    <div><dt>Last seen</dt><dd data-last-seen="${observer.last_seen || ''}" data-state="${statusClass}">${formatTimeAgo(observer.last_seen, statusClass)}</dd></div>
+    <div><dt>Segments (5-min chunks)</dt><dd>${observer.stats?.segments_received ?? 0}</dd></div>
+    <div><dt>Data</dt><dd>${formatBytes(observer.stats?.bytes_received || 0)}</dd></div>
+  </dl>`;
+}
+
 function showLocalError(message, opts = {}) {
   wsErrorMessage.textContent = message;
   wsErrorContainer.style.display = 'flex';
@@ -597,7 +655,7 @@ async function loadObservers() {
 
     if (isFirstLoad) {
       if (!observers || observers.length === 0) {
-        observersList.innerHTML = '<div class="no-observers">No observers registered yet. Add one to get started.</div>';
+        observersList.innerHTML = emptyStateHTML();
         isFirstLoad = false;
         setFormCollapsed(false);
         clearError();
@@ -628,11 +686,7 @@ async function loadObservers() {
               <span class="observer-name">${escapeHtml(observer.name)}</span>
               <span class="observer-status ${statusClass}">${statusText}</span>
             </div>
-            <div class="observer-stats">
-              <span data-last-seen="${observer.last_seen || ''}" data-state="${statusClass}">Last seen: ${formatTimeAgo(observer.last_seen, statusClass)}</span>
-              <span>Segments: ${observer.stats?.segments_received || 0}</span>
-              <span>Data: ${formatBytes(observer.stats?.bytes_received || 0)}</span>
-            </div>
+            <div class="observer-stats">${statsHTML(observer, statusClass)}</div>
             <div class="observer-actions">
               ${isRevoked ? '' : `<button onclick="viewObserverKey('${observer.key_prefix}', '${escapeHtml(observer.name)}')">View Key</button>`}
               ${isRevoked ? '' : `<button class="danger" onclick="revokeObserver('${observer.key_prefix}', '${escapeHtml(observer.name)}')">Revoke</button>`}
@@ -708,18 +762,18 @@ async function loadObservers() {
         // Update name (in case it somehow changed — safe to always set)
         card.querySelector('.observer-name').textContent = observer.name;
 
-        // Update stats spans
-        const statsSpans = card.querySelectorAll('.observer-stats span');
+        // Update stats
+        const statsSpans = card.querySelectorAll('.observer-stats dd');
         if (statsSpans[0]) {
           statsSpans[0].setAttribute('data-last-seen', observer.last_seen || '');
           statsSpans[0].setAttribute('data-state', statusClass);
-          statsSpans[0].textContent = `Last seen: ${formatTimeAgo(observer.last_seen, statusClass)}`;
+          statsSpans[0].textContent = formatTimeAgo(observer.last_seen, statusClass);
         }
         if (statsSpans[1]) {
-          statsSpans[1].textContent = `Segments: ${observer.stats?.segments_received || 0}`;
+          statsSpans[1].textContent = observer.stats?.segments_received ?? 0;
         }
         if (statsSpans[2]) {
-          statsSpans[2].textContent = `Data: ${formatBytes(observer.stats?.bytes_received || 0)}`;
+          statsSpans[2].textContent = formatBytes(observer.stats?.bytes_received || 0);
         }
 
         // Update actions (revoked status may have changed)
@@ -759,11 +813,7 @@ async function loadObservers() {
             <span class="observer-name">${escapeHtml(observer.name)}</span>
             <span class="observer-status ${statusClass}">${statusText}</span>
           </div>
-          <div class="observer-stats">
-            <span data-last-seen="${observer.last_seen || ''}" data-state="${statusClass}">Last seen: ${formatTimeAgo(observer.last_seen, statusClass)}</span>
-            <span>Segments: ${observer.stats?.segments_received || 0}</span>
-            <span>Data: ${formatBytes(observer.stats?.bytes_received || 0)}</span>
-          </div>
+          <div class="observer-stats">${statsHTML(observer, statusClass)}</div>
           <div class="observer-actions">
             ${isRevoked ? '' : `<button onclick="viewObserverKey('${key}', '${escapeHtml(observer.name)}')">View Key</button>`}
             ${isRevoked ? '' : `<button class="danger" onclick="revokeObserver('${key}', '${escapeHtml(observer.name)}')">Revoke</button>`}
@@ -774,7 +824,7 @@ async function loadObservers() {
 
       // Handle empty state transition
       if (newDataMap.size === 0) {
-        observersList.innerHTML = '<div class="no-observers">No observers registered yet. Add one to get started.</div>';
+        observersList.innerHTML = emptyStateHTML();
       } else {
         // Remove stale "no observers" message if present
         const noObs = observersList.querySelector('.no-observers');
@@ -821,7 +871,7 @@ function refreshTimestamps() {
     const oldState = span.getAttribute('data-state');
 
     // Update timestamp text
-    span.textContent = `Last seen: ${formatTimeAgo(lastSeen, newState)}`;
+    span.textContent = formatTimeAgo(lastSeen, newState);
     span.setAttribute('data-state', newState);
 
     // If freshness changed, update the card's visual state too
