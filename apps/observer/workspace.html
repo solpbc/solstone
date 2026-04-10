@@ -482,6 +482,7 @@ const wsErrorCountdown = document.getElementById('wsErrorCountdown');
 let errorAutoHideTimer = null;
 let countdownInterval = null;
 let lastPollTime = Date.now();
+let isFirstLoad = true;
 
 function showLocalError(message, opts = {}) {
   wsErrorMessage.textContent = message;
@@ -594,61 +595,253 @@ async function loadObservers() {
     const response = await fetch('/app/observer/api/list');
     const observers = await response.json();
 
-    if (!observers || observers.length === 0) {
-      observersList.innerHTML = '<div class="no-observers">No observers registered yet. Add one to get started.</div>';
-      setFormCollapsed(false);
-      clearError();
-      return;
-    }
-
-    let html = '';
-    for (const observer of observers) {
-      const isRevoked = observer.revoked;
-      let statusClass, statusText, cardClass;
-
-      if (isRevoked) {
-        statusClass = 'revoked';
-        statusText = 'Revoked';
-        cardClass = 'revoked';
-      } else {
-        const state = freshness(observer.last_seen);
-        statusClass = state;
-        if (state === 'connected') statusText = 'Connected';
-        else if (state === 'stale') statusText = 'Stale';
-        else statusText = 'Disconnected';
-        cardClass = state;
+    if (isFirstLoad) {
+      if (!observers || observers.length === 0) {
+        observersList.innerHTML = '<div class="no-observers">No observers registered yet. Add one to get started.</div>';
+        isFirstLoad = false;
+        setFormCollapsed(false);
+        clearError();
+        return;
       }
 
-      html += `
-        <div class="observer-card ${cardClass}" data-key="${observer.key_prefix}" role="listitem" aria-label="${escapeHtml(observer.name)}, ${statusText}">
+      let html = '';
+      for (const observer of observers) {
+        const isRevoked = observer.revoked;
+        let statusClass, statusText, cardClass;
+
+        if (isRevoked) {
+          statusClass = 'revoked';
+          statusText = 'Revoked';
+          cardClass = 'revoked';
+        } else {
+          const state = freshness(observer.last_seen);
+          statusClass = state;
+          if (state === 'connected') statusText = 'Connected';
+          else if (state === 'stale') statusText = 'Stale';
+          else statusText = 'Disconnected';
+          cardClass = state;
+        }
+
+        html += `
+          <div class="observer-card ${cardClass}" data-key="${observer.key_prefix}" role="listitem" aria-label="${escapeHtml(observer.name)}, ${statusText}">
+            <div class="observer-header">
+              <span class="observer-name">${escapeHtml(observer.name)}</span>
+              <span class="observer-status ${statusClass}">${statusText}</span>
+            </div>
+            <div class="observer-stats">
+              <span data-last-seen="${observer.last_seen || ''}" data-state="${statusClass}">Last seen: ${formatTimeAgo(observer.last_seen, statusClass)}</span>
+              <span>Segments: ${observer.stats?.segments_received || 0}</span>
+              <span>Data: ${formatBytes(observer.stats?.bytes_received || 0)}</span>
+            </div>
+            <div class="observer-actions">
+              ${isRevoked ? '' : `<button onclick="viewObserverKey('${observer.key_prefix}', '${escapeHtml(observer.name)}')">View Key</button>`}
+              ${isRevoked ? '' : `<button class="danger" onclick="revokeObserver('${observer.key_prefix}', '${escapeHtml(observer.name)}')">Revoke</button>`}
+            </div>
+          </div>
+        `;
+      }
+      observersList.innerHTML = html;
+      isFirstLoad = false;
+    } else {
+      // Save focus
+      const activeEl = document.activeElement;
+      let focusSelector = null;
+      if (activeEl && observersList.contains(activeEl)) {
+        const card = activeEl.closest('[data-key]');
+        if (card) {
+          const key = card.getAttribute('data-key');
+          const buttons = [...card.querySelectorAll('button')];
+          const btnIndex = buttons.indexOf(activeEl);
+          if (btnIndex >= 0) {
+            focusSelector = `[data-key="${key}"] button:nth-child(${btnIndex + 1})`;
+          }
+        }
+      }
+
+      // Save scroll
+      const scrollTop = observersList.scrollTop;
+
+      // Build lookup from API data
+      const newDataMap = new Map();
+      for (const observer of observers) {
+        newDataMap.set(observer.key_prefix, observer);
+      }
+
+      // Remove cards not in new data
+      const existingCards = observersList.querySelectorAll('[data-key]');
+      for (const card of existingCards) {
+        if (!newDataMap.has(card.getAttribute('data-key'))) {
+          card.remove();
+        }
+      }
+
+      // Update existing cards and track which keys exist in DOM
+      const existingKeys = new Set();
+      for (const card of observersList.querySelectorAll('[data-key]')) {
+        const key = card.getAttribute('data-key');
+        existingKeys.add(key);
+        const observer = newDataMap.get(key);
+        if (!observer) continue; // shouldn't happen after removal pass, but safe
+
+        const isRevoked = observer.revoked;
+        let statusClass, statusText, cardClass;
+        if (isRevoked) {
+          statusClass = 'revoked';
+          statusText = 'Revoked';
+          cardClass = 'revoked';
+        } else {
+          const state = freshness(observer.last_seen);
+          statusClass = state;
+          statusText = state === 'connected' ? 'Connected' : state === 'stale' ? 'Stale' : 'Disconnected';
+          cardClass = state;
+        }
+
+        // Update card class — replace all status classes
+        card.className = `observer-card ${cardClass}`;
+        card.setAttribute('aria-label', `${escapeHtml(observer.name)}, ${statusText}`);
+
+        // Update status badge
+        const statusEl = card.querySelector('.observer-status');
+        statusEl.className = `observer-status ${statusClass}`;
+        statusEl.textContent = statusText;
+
+        // Update name (in case it somehow changed — safe to always set)
+        card.querySelector('.observer-name').textContent = observer.name;
+
+        // Update stats spans
+        const statsSpans = card.querySelectorAll('.observer-stats span');
+        if (statsSpans[0]) {
+          statsSpans[0].setAttribute('data-last-seen', observer.last_seen || '');
+          statsSpans[0].setAttribute('data-state', statusClass);
+          statsSpans[0].textContent = `Last seen: ${formatTimeAgo(observer.last_seen, statusClass)}`;
+        }
+        if (statsSpans[1]) {
+          statsSpans[1].textContent = `Segments: ${observer.stats?.segments_received || 0}`;
+        }
+        if (statsSpans[2]) {
+          statsSpans[2].textContent = `Data: ${formatBytes(observer.stats?.bytes_received || 0)}`;
+        }
+
+        // Update actions (revoked status may have changed)
+        const actionsEl = card.querySelector('.observer-actions');
+        if (isRevoked) {
+          actionsEl.innerHTML = '';
+        } else {
+          // Only rebuild if buttons are missing (was previously revoked → now not, which shouldn't normally happen, but be safe)
+          if (actionsEl.querySelectorAll('button').length === 0) {
+            actionsEl.innerHTML = `<button onclick="viewObserverKey('${observer.key_prefix}', '${escapeHtml(observer.name)}')">View Key</button><button class="danger" onclick="revokeObserver('${observer.key_prefix}', '${escapeHtml(observer.name)}')">Revoke</button>`;
+          }
+        }
+      }
+
+      // Add new cards
+      for (const [key, observer] of newDataMap) {
+        if (existingKeys.has(key)) continue;
+
+        const isRevoked = observer.revoked;
+        let statusClass, statusText, cardClass;
+        if (isRevoked) {
+          statusClass = 'revoked'; statusText = 'Revoked'; cardClass = 'revoked';
+        } else {
+          const state = freshness(observer.last_seen);
+          statusClass = state;
+          statusText = state === 'connected' ? 'Connected' : state === 'stale' ? 'Stale' : 'Disconnected';
+          cardClass = state;
+        }
+
+        const div = document.createElement('div');
+        div.className = `observer-card ${cardClass}`;
+        div.setAttribute('data-key', key);
+        div.setAttribute('role', 'listitem');
+        div.setAttribute('aria-label', `${escapeHtml(observer.name)}, ${statusText}`);
+        div.innerHTML = `
           <div class="observer-header">
             <span class="observer-name">${escapeHtml(observer.name)}</span>
             <span class="observer-status ${statusClass}">${statusText}</span>
           </div>
           <div class="observer-stats">
-            <span>Last seen: ${formatTimeAgo(observer.last_seen, statusClass)}</span>
+            <span data-last-seen="${observer.last_seen || ''}" data-state="${statusClass}">Last seen: ${formatTimeAgo(observer.last_seen, statusClass)}</span>
             <span>Segments: ${observer.stats?.segments_received || 0}</span>
             <span>Data: ${formatBytes(observer.stats?.bytes_received || 0)}</span>
           </div>
           <div class="observer-actions">
-            ${isRevoked ? '' : `<button onclick="viewObserverKey('${observer.key_prefix}', '${escapeHtml(observer.name)}')">View Key</button>`}
-            ${isRevoked ? '' : `<button class="danger" onclick="revokeObserver('${observer.key_prefix}', '${escapeHtml(observer.name)}')">Revoke</button>`}
+            ${isRevoked ? '' : `<button onclick="viewObserverKey('${key}', '${escapeHtml(observer.name)}')">View Key</button>`}
+            ${isRevoked ? '' : `<button class="danger" onclick="revokeObserver('${key}', '${escapeHtml(observer.name)}')">Revoke</button>`}
           </div>
-        </div>
-      `;
+        `;
+        observersList.appendChild(div);
+      }
+
+      // Handle empty state transition
+      if (newDataMap.size === 0) {
+        observersList.innerHTML = '<div class="no-observers">No observers registered yet. Add one to get started.</div>';
+      } else {
+        // Remove stale "no observers" message if present
+        const noObs = observersList.querySelector('.no-observers');
+        if (noObs) noObs.remove();
+      }
+
+      // Restore scroll
+      observersList.scrollTop = scrollTop;
+
+      // Restore focus
+      if (focusSelector) {
+        const target = observersList.querySelector(focusSelector);
+        if (target) target.focus();
+      }
     }
-    observersList.innerHTML = html;
+
     clearError();
 
-    // Auto-collapse form when observers exist, unless user is actively editing
-    const formHasFocus = addObserverSection.contains(document.activeElement);
-    if (!formHasFocus) {
-      setFormCollapsed(true);
+    // Auto-collapse form when observers exist, expand when empty
+    if (!observers || observers.length === 0) {
+      setFormCollapsed(false);
+    } else {
+      const formHasFocus = addObserverSection.contains(document.activeElement);
+      if (!formHasFocus) {
+        setFormCollapsed(true);
+      }
     }
   } catch (err) {
     observersList.innerHTML = '<div class="no-observers">couldn\'t load observers</div>';
+    isFirstLoad = true;
     showLocalError('couldn\'t load observers — the server may be unreachable. it will retry automatically, or you can retry now.', { retry: true });
     console.error('Failed to load observers:', err);
+  }
+}
+
+function refreshTimestamps() {
+  const spans = observersList.querySelectorAll('[data-last-seen]');
+  for (const span of spans) {
+    const lastSeen = parseInt(span.getAttribute('data-last-seen'), 10);
+    if (!lastSeen) continue;
+
+    // Recompute freshness — it may have changed since last data fetch
+    const newState = freshness(lastSeen);
+    const oldState = span.getAttribute('data-state');
+
+    // Update timestamp text
+    span.textContent = `Last seen: ${formatTimeAgo(lastSeen, newState)}`;
+    span.setAttribute('data-state', newState);
+
+    // If freshness changed, update the card's visual state too
+    if (newState !== oldState) {
+      const card = span.closest('[data-key]');
+      if (card && !card.classList.contains('revoked')) {
+        card.className = `observer-card ${newState}`;
+        const statusEl = card.querySelector('.observer-status');
+        if (statusEl) {
+          statusEl.className = `observer-status ${newState}`;
+          statusEl.textContent = newState === 'connected' ? 'Connected' : newState === 'stale' ? 'Stale' : 'Disconnected';
+        }
+        // Update aria-label
+        const nameEl = card.querySelector('.observer-name');
+        if (nameEl) {
+          const statusText = newState === 'connected' ? 'Connected' : newState === 'stale' ? 'Stale' : 'Disconnected';
+          card.setAttribute('aria-label', `${nameEl.textContent}, ${statusText}`);
+        }
+      }
+    }
   }
 }
 
@@ -863,4 +1056,5 @@ loadObservers();
 
 // Refresh every 30 seconds to update connection status
 setInterval(loadObservers, 30000);
+setInterval(refreshTimestamps, 10000);
 </script>
