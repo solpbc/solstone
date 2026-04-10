@@ -17,6 +17,7 @@ from flask import Blueprint, jsonify, request
 
 from apps.utils import log_app_action
 from convey import state
+from think.providers.google import validate_vertex_credentials
 from think.retention import (
     _human_bytes,
     compute_storage_summary,
@@ -425,6 +426,18 @@ def get_providers() -> Any:
         # Get cached key validation results
         key_validation = providers_config.get("key_validation", {})
 
+        # Vertex SA credentials status (never expose secrets)
+        vertex_creds_path = providers_config.get("vertex_credentials")
+        vertex_creds_configured = False
+        vertex_creds_email = ""
+        if vertex_creds_path and Path(vertex_creds_path).exists():
+            vertex_creds_configured = True
+            try:
+                creds_data = json.loads(Path(vertex_creds_path).read_text())
+                vertex_creds_email = creds_data.get("client_email", "")
+            except Exception:
+                pass
+
         return jsonify(
             {
                 "providers": providers_list,
@@ -438,6 +451,8 @@ def get_providers() -> Any:
                 "google_backend": providers_config.get("google_backend", "auto"),
                 "vertex_project": providers_config.get("vertex_project", ""),
                 "vertex_location": providers_config.get("vertex_location", ""),
+                "vertex_credentials_configured": vertex_creds_configured,
+                "vertex_credentials_email": vertex_creds_email,
             }
         )
     except Exception:
@@ -730,6 +745,101 @@ def update_providers() -> Any:
                     config["providers"][vfield] = value
                 else:
                     config["providers"].pop(vfield, None)
+
+        # Handle vertex credentials
+        if "vertex_credentials" in request_data:
+            vertex_creds_value = request_data["vertex_credentials"]
+
+            if vertex_creds_value:
+                # Parse and validate JSON structure
+                try:
+                    creds_data = (
+                        json.loads(vertex_creds_value)
+                        if isinstance(vertex_creds_value, str)
+                        else vertex_creds_value
+                    )
+                except json.JSONDecodeError:
+                    return jsonify({"error": "Invalid JSON in vertex_credentials"}), 400
+
+                required_fields = (
+                    "type",
+                    "project_id",
+                    "client_email",
+                    "private_key",
+                )
+                missing = [f for f in required_fields if f not in creds_data]
+                if missing:
+                    return (
+                        jsonify(
+                            {
+                                "error": f"Missing required fields: {', '.join(missing)}"
+                            }
+                        ),
+                        400,
+                    )
+
+                # Save credentials file
+                creds_dir = Path(state.journal_root) / ".config"
+                creds_dir.mkdir(parents=True, exist_ok=True)
+                creds_file = creds_dir / "vertex-credentials.json"
+                with open(creds_file, "w", encoding="utf-8") as f:
+                    json.dump(creds_data, f, indent=2, ensure_ascii=False)
+                    f.write("\n")
+                os.chmod(creds_file, 0o600)
+
+                # Store path in config
+                old_val = old_providers.get("vertex_credentials", "")
+                creds_path_str = str(creds_file)
+                if old_val != creds_path_str:
+                    changed_fields["vertex_credentials"] = {
+                        "old": old_val,
+                        "new": creds_path_str,
+                    }
+                config["providers"]["vertex_credentials"] = creds_path_str
+
+                # Validate credentials by attempting to list models
+                project = config["providers"].get("vertex_project")
+                location = config["providers"].get("vertex_location")
+                validation = validate_vertex_credentials(
+                    creds_path_str,
+                    project=project,
+                    location=location,
+                )
+
+                if not validation.get("valid"):
+                    # Still save the file (user can fix project/location), but report the error
+                    # Don't block save - credentials may be valid once project is configured
+                    pass
+
+                # Store validation result
+                if "key_validation" not in config["providers"]:
+                    config["providers"]["key_validation"] = {}
+                config["providers"]["key_validation"]["google_vertex"] = {
+                    **validation,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+
+            else:
+                # Remove credentials — only delete the canonical path
+                old_path = config["providers"].get("vertex_credentials")
+                if old_path:
+                    changed_fields["vertex_credentials"] = {
+                        "old": old_path,
+                        "new": None,
+                    }
+                    # Only delete the file we created, not arbitrary paths
+                    canonical = (
+                        Path(state.journal_root) / ".config" / "vertex-credentials.json"
+                    )
+                    if Path(old_path).resolve() == canonical.resolve():
+                        try:
+                            canonical.unlink(missing_ok=True)
+                        except OSError:
+                            pass
+                    config["providers"].pop("vertex_credentials", None)
+                    # Clear validation
+                    kv = config["providers"].get("key_validation", {})
+                    kv.pop("google_vertex", None)
 
         # Write back to file
         with open(config_path, "w", encoding="utf-8") as f:
