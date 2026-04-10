@@ -200,7 +200,10 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   border: 1px solid rgba(0,0,0,0.1);
 }
 
@@ -1286,14 +1289,14 @@
     if (successCount > 0) {
       const successBadge = document.createElement('span');
       successBadge.className = 'badge badge-success';
-      successBadge.textContent = successCount;
+      successBadge.textContent = '✓ ' + successCount;
       badges.appendChild(successBadge);
     }
 
     if (agent.failed_count > 0) {
       const failBadge = document.createElement('span');
       failBadge.className = 'badge badge-failed';
-      failBadge.textContent = agent.failed_count;
+      failBadge.textContent = '✗ ' + agent.failed_count;
       badges.appendChild(failBadge);
     }
 
@@ -1376,7 +1379,14 @@
           const dot = document.createElement('span');
           dot.className = 'facet-dot';
           dot.style.backgroundColor = (facet && facet.color) || '#999';
-          dot.title = (facet && facet.title) || facetName;
+          const label = (facet && facet.title) || facetName;
+          dot.setAttribute('aria-label', label);
+          dot.style.fontSize = '7px';
+          dot.style.color = 'white';
+          dot.style.fontWeight = 'bold';
+          dot.style.lineHeight = '10px';
+          dot.style.textAlign = 'center';
+          dot.appendChild(document.createTextNode(label.charAt(0).toUpperCase()));
           dots.appendChild(dot);
         }
 
@@ -1536,6 +1546,7 @@
           const dot = document.createElement('span');
           dot.className = 'facet-dot';
           dot.style.backgroundColor = facet.color;
+          dot.setAttribute('aria-label', facet.title || run.facet);
           tag.appendChild(dot);
         }
         tag.appendChild(document.createTextNode((facet && facet.title) || run.facet));
@@ -1717,6 +1728,7 @@
         const dot = document.createElement('span');
         dot.className = 'facet-dot';
         dot.style.backgroundColor = facet.color;
+        dot.setAttribute('aria-label', (facet && facet.title) || data.facet);
         tag.appendChild(dot);
       }
       tag.appendChild(document.createTextNode((facet && facet.title) || data.facet));
