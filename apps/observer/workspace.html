@@ -108,15 +108,16 @@
 }
 .observer-actions {
   display: flex;
-  gap: 0.5em;
+  gap: 8px;
 }
 .observer-actions button {
-  padding: 4px 12px;
+  padding: 8px 16px;
   border: 1px solid #ccc;
   border-radius: 4px;
   background: white;
   cursor: pointer;
   font-size: 0.9em;
+  min-height: 44px;
 }
 .observer-actions button:hover {
   background: #f0f0f0;
@@ -132,7 +133,7 @@
 /* Add observer form */
 .add-observer-form {
   display: flex;
-  gap: 0.5em;
+  gap: 8px;
   margin-bottom: 1.5em;
 }
 .add-observer-form input {
@@ -150,6 +151,7 @@
   border-radius: 4px;
   cursor: pointer;
   font-weight: bold;
+  min-height: 44px;
 }
 .add-observer-form button:hover {
   background: #0056b3;
@@ -189,6 +191,11 @@
   cursor: pointer;
   font-size: 24px;
   color: #666;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .modal-close:hover {
   color: #333;
@@ -223,6 +230,8 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.8em;
+  min-height: 44px;
+  min-width: 44px;
 }
 .copy-btn:hover {
   background: #555;
@@ -245,6 +254,7 @@
   padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
+  min-height: 44px;
 }
 
 .no-observers {
@@ -257,6 +267,43 @@
 .section-title {
   margin-bottom: 1em;
   color: #333;
+}
+
+/* ── Responsive: Tablet (≤768px) ── */
+@media (max-width: 768px) {
+  .add-observer-form {
+    flex-direction: column;
+  }
+  .add-observer-form input,
+  .add-observer-form button {
+    width: 100%;
+  }
+  .observer-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .modal-content {
+    margin: 16px;
+    max-width: calc(100vw - 32px);
+  }
+}
+
+/* ── Responsive: Mobile (≤480px) ── */
+@media (max-width: 480px) {
+  .observer-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .observer-stats span {
+    margin-right: 0;
+  }
+  .observer-actions {
+    flex-wrap: wrap;
+  }
+  .command-box {
+    max-width: 100%;
+  }
 }
 </style>
 
