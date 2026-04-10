@@ -1058,8 +1058,19 @@
     .then(info => { state.localHost = info.hostname; updateObserve(); })
     .catch(() => {
       if (!state.connected) {
-        elements.statusSummaryText.innerHTML = '<span style="color: #dc2626;">Couldn\'t connect to solstone — is it running?</span>';
-        elements.vitalsStatus.innerHTML = '<span class="status-indicator crashed"></span> <span>Connection error</span>';
+        elements.statusSummaryText.textContent = '';
+        const errSpan = document.createElement('span');
+        errSpan.style.color = '#dc2626';
+        errSpan.textContent = "Couldn't connect to solstone — is it running?";
+        elements.statusSummaryText.appendChild(errSpan);
+
+        elements.vitalsStatus.textContent = '';
+        const indicator = document.createElement('span');
+        indicator.className = 'status-indicator crashed';
+        elements.vitalsStatus.appendChild(indicator);
+        const errText = document.createElement('span');
+        errText.textContent = ' Connection error';
+        elements.vitalsStatus.appendChild(errText);
       }
     });
 
@@ -1208,11 +1219,25 @@
     return `in ${days}d`;
   }
 
-  function renderInfoItems(items) {
-    return items
-      .filter(item => item.value != null)
-      .map(item => `<div class="info-item"><div class="info-label">${escapeHtml(item.label)}</div><div>${item.value}</div></div>`)
-      .join('');
+  function renderInfoItems(parent, items) {
+    const filtered = items.filter(item => item.value != null);
+    while (parent.children.length > filtered.length) {
+      parent.removeChild(parent.lastChild);
+    }
+    filtered.forEach((item, i) => {
+      let el = parent.children[i];
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'info-item';
+        const label = document.createElement('div');
+        label.className = 'info-label';
+        el.appendChild(label);
+        el.appendChild(document.createElement('div'));
+        parent.appendChild(el);
+      }
+      el.children[0].textContent = item.label;
+      el.children[1].textContent = item.value;
+    });
   }
 
   function updateStatusSummary() {
@@ -1280,18 +1305,34 @@
   }
 
   function updateAllQuietContent() {
-    const parts = [];
+    const container = elements.idleCardStats;
+    let idx = 0;
+
+    function ensureChild(i) {
+      let el = container.children[i];
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'idle-stat';
+        container.appendChild(el);
+      }
+      return el;
+    }
 
     if (state.lastAgentFinishTs) {
       const ago = formatElapsed(Math.floor((Date.now() - state.lastAgentFinishTs) / 1000));
-      parts.push('<div class="idle-stat">Last agent finished ' + escapeHtml(ago) + ' ago</div>');
+      const el = ensureChild(idx++);
+      el.textContent = 'Last agent finished ' + ago + ' ago';
+      el.style.color = '';
     }
 
     const errCount = state.recentErrors.length;
+    const errEl = ensureChild(idx++);
     if (errCount > 0) {
-      parts.push('<div class="idle-stat" style="color: #dc2626;">' + errCount + ' recent error' + (errCount !== 1 ? 's' : '') + '</div>');
+      errEl.textContent = errCount + ' recent error' + (errCount !== 1 ? 's' : '');
+      errEl.style.color = '#dc2626';
     } else {
-      parts.push('<div class="idle-stat">No recent errors</div>');
+      errEl.textContent = 'No recent errors';
+      errEl.style.color = '';
     }
 
     const now = Date.now();
@@ -1299,10 +1340,14 @@
       .filter(s => s.next_run && s.next_run > now)
       .sort((a, b) => a.next_run - b.next_run)[0];
     if (nextSchedule) {
-      parts.push('<div class="idle-stat">Next: ' + escapeHtml(nextSchedule.name || 'scheduled') + ' ' + formatNextRun(nextSchedule.next_run) + '</div>');
+      const el = ensureChild(idx++);
+      el.textContent = 'Next: ' + (nextSchedule.name || 'scheduled') + ' ' + formatNextRun(nextSchedule.next_run);
+      el.style.color = '';
     }
 
-    elements.idleCardStats.innerHTML = parts.join('');
+    while (container.children.length > idx) {
+      container.removeChild(container.lastChild);
+    }
   }
 
   function updateLogsBadge() {
@@ -1326,37 +1371,122 @@
     }
 
     elements.errorSummary.classList.remove('hidden');
+    const container = elements.errorSummaryContent;
     const recent = state.recentErrors.slice(-10).reverse();
-    const errorsHtml = recent.map((e, idx) => {
+
+    const newKeys = new Set();
+    const entries = recent.map((e, idx) => {
       const realIdx = state.recentErrors.length - 1 - idx;
+      const key = realIdx + ':' + e.ts + ':' + e.type;
+      newKeys.add(key);
+      return { e, realIdx, key };
+    });
+
+    const existingByKey = new Map();
+    for (const child of Array.from(container.children)) {
+      const k = child.getAttribute('data-key');
+      if (k) existingByKey.set(k, child);
+    }
+
+    for (const [k, child] of existingByKey) {
+      if (!newKeys.has(k)) container.removeChild(child);
+    }
+
+    for (const child of Array.from(container.children)) {
+      if (!child.getAttribute('data-key')) container.removeChild(child);
+    }
+
+    for (const { e, realIdx, key } of entries) {
+      let row = existingByKey.get(key);
+      if (!row) {
+        row = document.createElement('div');
+        row.setAttribute('data-key', key);
+        row.style.cssText = 'padding: 0.3em 0; font-size: 0.85em; color: #374151; border-bottom: 1px solid #f3f4f6; display: flex; align-items: baseline; gap: 0.4em; flex-wrap: wrap;';
+
+        const info = document.createElement('span');
+        row.appendChild(info);
+
+        const actions = document.createElement('span');
+        actions.style.cssText = 'margin-left: auto; display: flex; gap: 0.3em;';
+        const viewBtn = document.createElement('button');
+        viewBtn.setAttribute('data-action', 'view-logs');
+        viewBtn.style.cssText = 'padding: 0.1em 0.4em; font-size: 0.8em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #3b82f6; cursor: pointer;';
+        viewBtn.textContent = 'view logs';
+        actions.appendChild(viewBtn);
+        const dismissBtn = document.createElement('button');
+        dismissBtn.setAttribute('data-action', 'dismiss');
+        dismissBtn.style.cssText = 'padding: 0.1em 0.4em; font-size: 0.8em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #6b7280; cursor: pointer;';
+        dismissBtn.textContent = 'dismiss';
+        actions.appendChild(dismissBtn);
+        row.appendChild(actions);
+      }
+
       const icon = e.type === 'agent' ? '⚙' : e.type === 'import' ? '↓' : '⚠';
       const ago = formatElapsed(Math.floor((Date.now() - e.ts) / 1000));
-      return `<div style="padding: 0.3em 0; font-size: 0.85em; color: #374151; border-bottom: 1px solid #f3f4f6; display: flex; align-items: baseline; gap: 0.4em; flex-wrap: wrap;">
-        <span>${icon} <strong>${escapeHtml(e.name)}</strong> — ${escapeHtml(truncate(e.error, 60))} <span style="color: #9ca3af; font-size: 0.85em;">${escapeHtml(ago)} ago</span></span>
-        <span style="margin-left: auto; display: flex; gap: 0.3em;">
-          <button data-action="view-logs" data-error-index="${realIdx}" style="padding: 0.1em 0.4em; font-size: 0.8em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #3b82f6; cursor: pointer;">view logs</button>
-          <button data-action="dismiss" data-error-index="${realIdx}" style="padding: 0.1em 0.4em; font-size: 0.8em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #6b7280; cursor: pointer;">dismiss</button>
-        </span>
-      </div>`;
-    }).join('');
+      const info = row.children[0];
+      info.textContent = '';
+      info.appendChild(document.createTextNode(icon + ' '));
+      const strong = document.createElement('strong');
+      strong.textContent = e.name;
+      info.appendChild(strong);
+      info.appendChild(document.createTextNode(' — ' + truncate(e.error, 60) + ' '));
+      const timeSpan = document.createElement('span');
+      timeSpan.style.cssText = 'color: #9ca3af; font-size: 0.85em;';
+      timeSpan.textContent = ago + ' ago';
+      info.appendChild(timeSpan);
+
+      const viewBtn = row.querySelector('[data-action="view-logs"]');
+      viewBtn.setAttribute('data-error-index', realIdx);
+      const dismissBtn = row.querySelector('[data-action="dismiss"]');
+      dismissBtn.setAttribute('data-error-index', realIdx);
+
+      container.appendChild(row);
+    }
 
     // Error-type-specific advice templates
     const types = new Set(recent.map(e => e.type));
-    let adviceHtml = '';
     if (types.has('agent')) {
-      adviceHtml += `<div style="padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;">Agent errors usually resolve on the next run. <button data-action="view-logs" data-service="cortex" style="background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;">View AI Engine logs</button> for details.</div>`;
+      const advice = document.createElement('div');
+      advice.style.cssText = 'padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;';
+      advice.appendChild(document.createTextNode('Agent errors usually resolve on the next run. '));
+      const btn = document.createElement('button');
+      btn.setAttribute('data-action', 'view-logs');
+      btn.setAttribute('data-service', 'cortex');
+      btn.style.cssText = 'background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;';
+      btn.textContent = 'View AI Engine logs';
+      advice.appendChild(btn);
+      advice.appendChild(document.createTextNode(' for details.'));
+      container.appendChild(advice);
     }
     if (types.has('import')) {
       const importErr = recent.find(e => e.type === 'import');
-      const stageText = importErr?.stage && importErr.stage !== 'unknown' ? ` at ${escapeHtml(importErr.stage)}` : '';
-      adviceHtml += `<div style="padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;">Import failed${stageText}. Check the source file and retry, or <button data-action="view-logs" data-service="importer" style="background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;">view File Importer logs</button>.</div>`;
+      const stageText = importErr?.stage && importErr.stage !== 'unknown' ? ' at ' + importErr.stage : '';
+      const advice = document.createElement('div');
+      advice.style.cssText = 'padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;';
+      advice.appendChild(document.createTextNode('Import failed' + stageText + '. Check the source file and retry, or '));
+      const btn = document.createElement('button');
+      btn.setAttribute('data-action', 'view-logs');
+      btn.setAttribute('data-service', 'importer');
+      btn.style.cssText = 'background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;';
+      btn.textContent = 'view File Importer logs';
+      advice.appendChild(btn);
+      advice.appendChild(document.createTextNode('.'));
+      container.appendChild(advice);
     }
     // Default fallback for any unrecognized error types (connection/service errors)
     if (Array.from(types).some(t => t !== 'agent' && t !== 'import')) {
-      adviceHtml += `<div style="padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;">Service error detected. <button data-action="view-logs" data-service="supervisor" style="background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;">View System Manager logs</button> for details.</div>`;
+      const advice = document.createElement('div');
+      advice.style.cssText = 'padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;';
+      advice.appendChild(document.createTextNode('Service error detected. '));
+      const btn = document.createElement('button');
+      btn.setAttribute('data-action', 'view-logs');
+      btn.setAttribute('data-service', 'supervisor');
+      btn.style.cssText = 'background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;';
+      btn.textContent = 'View System Manager logs';
+      advice.appendChild(btn);
+      advice.appendChild(document.createTextNode(' for details.'));
+      container.appendChild(advice);
     }
-
-    elements.errorSummaryContent.innerHTML = errorsHtml + adviceHtml;
   }
 
   function viewServiceLogs(service) {
@@ -1429,28 +1559,30 @@
 
   // Client-side elapsed time updater
   let elapsedTimer = null;
+  function updateElapsed() {
+    // Update agent elapsed times based on start timestamp
+    let needsUpdate = false;
+    const now = Date.now();
+    state.agents.forEach((agent, id) => {
+      if (agent.startTs && agent.event !== 'finish' && agent.event !== 'error') {
+        agent.elapsed_seconds = Math.floor((now - agent.startTs) / 1000);
+        needsUpdate = true;
+      }
+    });
+    // Stop timer when no agents remain
+    if (state.agents.size === 0) {
+      clearInterval(elapsedTimer);
+      elapsedTimer = null;
+      return;
+    }
+    if (needsUpdate) {
+      updateCortexGrid();
+    }
+  }
+
   function startElapsedTimer() {
-    if (elapsedTimer) return;
-    elapsedTimer = setInterval(() => {
-      // Update agent elapsed times based on start timestamp
-      let needsUpdate = false;
-      const now = Date.now();
-      state.agents.forEach((agent, id) => {
-        if (agent.startTs && agent.event !== 'finish' && agent.event !== 'error') {
-          agent.elapsed_seconds = Math.floor((now - agent.startTs) / 1000);
-          needsUpdate = true;
-        }
-      });
-      // Stop timer when no agents remain
-      if (state.agents.size === 0) {
-        clearInterval(elapsedTimer);
-        elapsedTimer = null;
-        return;
-      }
-      if (needsUpdate) {
-        updateCortexGrid();
-      }
-    }, 1000);
+    if (elapsedTimer || document.hidden) return;
+    elapsedTimer = setInterval(updateElapsed, 1000);
   }
 
   // Update vitals bar
@@ -1469,26 +1601,50 @@
     });
 
     if (allServices.length > 0) {
-      const servicesHtml = allServices.map(({ name, crashed }) => {
+      const container = elements.serviceDots;
+      const existingByKey = new Map();
+      for (const child of Array.from(container.children)) {
+        const key = child.getAttribute('data-service');
+        if (key) {
+          existingByKey.set(key, child);
+        } else {
+          container.removeChild(child);
+        }
+      }
+
+      const newKeys = new Set(allServices.map(s => s.name));
+
+      for (const [key, child] of existingByKey) {
+        if (!newKeys.has(key)) container.removeChild(child);
+      }
+
+      for (const { name, crashed } of allServices) {
+        let dot = existingByKey.get(name);
+        if (!dot) {
+          dot = document.createElement('div');
+          dot.setAttribute('data-service', name);
+          const indicator = document.createElement('span');
+          dot.appendChild(indicator);
+          const label = document.createElement('span');
+          dot.appendChild(label);
+          container.appendChild(dot);
+        }
         const statusClass = crashed ? 'crashed' : 'active';
-        const dotClass = crashed ? 'service-dot crashed' : 'service-dot';
         const restartInfo = crashed ? ' (restarting...)' : '';
-        return `
-          <div class="${dotClass}" data-service="${escapeHtml(name)}">
-            <span class="status-indicator ${statusClass}" aria-label="${escapeHtml(serviceName(name))}: ${statusClass}${restartInfo}"></span>
-            <span title="${escapeHtml(name)}">${escapeHtml(serviceName(name))}${restartInfo}</span>
-          </div>
-        `;
-      }).join('');
-      elements.serviceDots.innerHTML = servicesHtml;
+        dot.className = crashed ? 'service-dot crashed' : 'service-dot';
+        dot.children[0].className = 'status-indicator ' + statusClass;
+        dot.children[0].setAttribute('aria-label', serviceName(name) + ': ' + statusClass + restartInfo);
+        dot.children[1].setAttribute('title', name);
+        dot.children[1].textContent = serviceName(name) + restartInfo;
+      }
     }
 
     // Agents count
-    elements.agentsValue.innerHTML = `<span>${state.agentCount} running</span>`;
+    elements.agentsValue.firstElementChild.textContent = state.agentCount + ' running';
 
     // Tasks
     const taskCount = state.tasks.length;
-    elements.tasksValue.innerHTML = `<span>${taskCount} active</span>`;
+    elements.tasksValue.firstElementChild.textContent = taskCount + ' active';
 
     // Health with stale heartbeat names
     if (state.health) {
@@ -1496,18 +1652,37 @@
       const staleCount = staleHeartbeats.length;
       const hasCrashed = state.crashed.size > 0;
 
+      const hv = elements.healthValue;
+      if (!hv.querySelector('.health-main')) {
+        hv.textContent = '';
+        const main = document.createElement('span');
+        main.className = 'health-main';
+        hv.appendChild(main);
+        const staleList = document.createElement('span');
+        staleList.className = 'stale-list';
+        hv.appendChild(staleList);
+      }
+      const mainSpan = hv.children[0];
+      const staleListSpan = hv.children[1];
+
       if (staleCount > 0) {
         const staleNames = staleHeartbeats.map(s => serviceName(s)).join(', ');
-        elements.healthValue.innerHTML = `
-          <span style="color: #f59e0b;">${staleCount} service${staleCount === 1 ? '' : 's'} not responding</span>
-          <span class="stale-list">(${escapeHtml(staleNames)})</span>
-        `;
+        mainSpan.textContent = staleCount + ' service' + (staleCount === 1 ? '' : 's') + ' not responding';
+        mainSpan.style.color = '#f59e0b';
+        staleListSpan.textContent = '(' + staleNames + ')';
+        staleListSpan.style.display = '';
         updateVitalsStatus('warning');
       } else if (hasCrashed) {
-        elements.healthValue.innerHTML = `<span style="color: #f87171;">Services need attention</span>`;
+        mainSpan.textContent = 'Services need attention';
+        mainSpan.style.color = '#f87171';
+        staleListSpan.textContent = '';
+        staleListSpan.style.display = 'none';
         updateVitalsStatus('error');
       } else {
-        elements.healthValue.innerHTML = `<span>OK</span>`;
+        mainSpan.textContent = 'OK';
+        mainSpan.style.color = '';
+        staleListSpan.textContent = '';
+        staleListSpan.style.display = 'none';
         updateVitalsStatus('ok');
       }
     }
@@ -1515,23 +1690,66 @@
     // Queues (always visible)
     const queueEntries = Object.entries(state.queues).filter(([, count]) => count > 0);
     if (queueEntries.length > 0) {
-      elements.queuesValue.innerHTML = '<div class="vitals-chips">' +
-        queueEntries.map(([cmd, count]) =>
-          `<span class="vitals-chip">${escapeHtml(cmd)}: ${count}</span>`
-        ).join('') + '</div>';
+      let wrapper = elements.queuesValue.querySelector('.vitals-chips');
+      if (!wrapper) {
+        elements.queuesValue.textContent = '';
+        wrapper = document.createElement('div');
+        wrapper.className = 'vitals-chips';
+        elements.queuesValue.appendChild(wrapper);
+      }
+      const existingByKey = new Map();
+      for (const child of Array.from(wrapper.children)) {
+        existingByKey.set(child.getAttribute('data-key'), child);
+      }
+      const newKeys = new Set(queueEntries.map(([cmd]) => cmd));
+      for (const [key, child] of existingByKey) {
+        if (!newKeys.has(key)) wrapper.removeChild(child);
+      }
+      for (const [cmd, count] of queueEntries) {
+        let chip = existingByKey.get(cmd);
+        if (!chip) {
+          chip = document.createElement('span');
+          chip.className = 'vitals-chip';
+          chip.setAttribute('data-key', cmd);
+          wrapper.appendChild(chip);
+        }
+        chip.textContent = cmd + ': ' + count;
+      }
     } else {
       elements.queuesValue.textContent = '—';
     }
 
     // Schedules (always visible, enriched)
     if (state.schedules.length > 0) {
-      const chips = state.schedules.map(s => {
-        const name = escapeHtml(s.name || 'unnamed');
+      let wrapper = elements.schedulesValue.querySelector('.vitals-chips');
+      if (!wrapper) {
+        elements.schedulesValue.textContent = '';
+        wrapper = document.createElement('div');
+        wrapper.className = 'vitals-chips';
+        elements.schedulesValue.appendChild(wrapper);
+      }
+      const existingByKey = new Map();
+      for (const child of Array.from(wrapper.children)) {
+        existingByKey.set(child.getAttribute('data-key'), child);
+      }
+      const newKeys = new Set(state.schedules.map(s => s.name || 'unnamed'));
+      for (const [key, child] of existingByKey) {
+        if (!newKeys.has(key)) wrapper.removeChild(child);
+      }
+      for (const s of state.schedules) {
+        const key = s.name || 'unnamed';
         const next = formatNextRun(s.next_run);
         const due = s.due ? ' ⏰' : '';
-        return `<span class="vitals-chip" title="${escapeHtml(s.every || '')}">${name}${due}${next ? ' · ' + next : ''}</span>`;
-      }).join('');
-      elements.schedulesValue.innerHTML = '<div class="vitals-chips">' + chips + '</div>';
+        let chip = existingByKey.get(key);
+        if (!chip) {
+          chip = document.createElement('span');
+          chip.className = 'vitals-chip';
+          chip.setAttribute('data-key', key);
+          wrapper.appendChild(chip);
+        }
+        chip.textContent = key + due + (next ? ' · ' + next : '');
+        chip.setAttribute('title', s.every || '');
+      }
     } else {
       elements.schedulesValue.textContent = '—';
     }
@@ -1540,28 +1758,43 @@
   }
 
   function updateVitalsStatus(status) {
-    const vitalsStatus = elements.vitalsStatus;
-    vitalsStatus.classList.remove('warning', 'error');
+    const el = elements.vitalsStatus;
+    el.classList.remove('warning', 'error');
+
+    // Ensure stable child structure: [indicator, text, severity-label]
+    if (!el.querySelector('.status-indicator') || el.children.length < 3 || !el.querySelector('.severity-label')) {
+      el.textContent = '';
+      const indicator = document.createElement('span');
+      indicator.className = 'status-indicator';
+      el.appendChild(indicator);
+      const text = document.createElement('span');
+      el.appendChild(text);
+      const severity = document.createElement('span');
+      severity.className = 'severity-label';
+      el.appendChild(severity);
+    }
+
+    const indicator = el.children[0];
+    const text = el.children[1];
+    const severity = el.children[2];
+
     if (status === 'ok') {
-      vitalsStatus.innerHTML = `
-        <span class="status-indicator active" aria-label="System status: healthy"></span>
-        <span>All Systems Go</span>
-        <span class="severity-label">healthy</span>
-      `;
+      indicator.className = 'status-indicator active';
+      indicator.setAttribute('aria-label', 'System status: healthy');
+      text.textContent = 'All Systems Go';
+      severity.textContent = 'healthy';
     } else if (status === 'warning') {
-      vitalsStatus.innerHTML = `
-        <span class="status-indicator restarting" aria-label="System status: warning"></span>
-        <span>Some services slow to respond</span>
-        <span class="severity-label">warning</span>
-      `;
-      vitalsStatus.classList.add('warning');
+      indicator.className = 'status-indicator restarting';
+      indicator.setAttribute('aria-label', 'System status: warning');
+      text.textContent = 'Some services slow to respond';
+      severity.textContent = 'warning';
+      el.classList.add('warning');
     } else if (status === 'error') {
-      vitalsStatus.innerHTML = `
-        <span class="status-indicator crashed" aria-label="System status: error"></span>
-        <span>Services need attention</span>
-        <span class="severity-label">error</span>
-      `;
-      vitalsStatus.classList.add('error');
+      indicator.className = 'status-indicator crashed';
+      indicator.setAttribute('aria-label', 'System status: error');
+      text.textContent = 'Services need attention';
+      severity.textContent = 'error';
+      el.classList.add('error');
     }
   }
 
@@ -1835,23 +2068,49 @@
 
     elements.cortexSection.classList.remove('hidden');
 
-    const html = activeAgents.map(agent => {
+    const container = elements.cortexGrid;
+    const existingByKey = new Map();
+    for (const child of Array.from(container.children)) {
+      const k = child.getAttribute('data-key');
+      if (k) existingByKey.set(k, child);
+    }
+    const newKeys = new Set(activeAgents.map(a => a.agent_id));
+    for (const [k, child] of existingByKey) {
+      if (!newKeys.has(k)) container.removeChild(child);
+    }
+    for (const agent of activeAgents) {
+      const key = agent.agent_id;
+      let card = existingByKey.get(key);
+      if (!card) {
+        card = document.createElement('div');
+        card.className = 'activity-card agent-active';
+        card.setAttribute('data-key', key);
+        const idEl = document.createElement('div');
+        idEl.className = 'activity-card-id';
+        card.appendChild(idEl);
+        const nameEl = document.createElement('div');
+        nameEl.className = 'activity-card-name';
+        card.appendChild(nameEl);
+        const stateEl = document.createElement('div');
+        stateEl.className = 'activity-card-state';
+        card.appendChild(stateEl);
+        const elapsedEl = document.createElement('div');
+        elapsedEl.className = 'activity-card-elapsed';
+        card.appendChild(elapsedEl);
+        const providerEl = document.createElement('div');
+        providerEl.className = 'activity-card-provider';
+        card.appendChild(providerEl);
+        container.appendChild(card);
+      }
       const stateLabel = agent.event === 'thinking' ? 'Thinking...' :
                         (agent.event === 'tool_start' || agent.event === 'tool_end') ? 'Working...' : 'Running...';
       const elapsed = agent.elapsed_seconds ? formatElapsed(agent.elapsed_seconds) : '0s';
-
-      return `
-        <div class="activity-card agent-active">
-          <div class="activity-card-id">...${getAgentId(agent.agent_id)}</div>
-          <div class="activity-card-name">${escapeHtml(agent.name || 'default')}</div>
-          <div class="activity-card-state">${stateLabel}</div>
-          <div class="activity-card-elapsed">${elapsed}</div>
-          <div class="activity-card-provider">${escapeHtml(agent.provider || 'unknown')}</div>
-        </div>
-      `;
-    }).join('');
-
-    elements.cortexGrid.innerHTML = html;
+      card.children[0].textContent = '...' + getAgentId(agent.agent_id);
+      card.children[1].textContent = agent.name || 'default';
+      card.children[2].textContent = stateLabel;
+      card.children[3].textContent = elapsed;
+      card.children[4].textContent = agent.provider || 'unknown';
+    }
     updateAllQuiet();
     updateStatusSummary();
   }
@@ -1869,9 +2128,60 @@
 
     elements.importerSection.classList.remove('hidden');
 
-    const html = activeImports.map(imp => {
+    const container = elements.importerGrid;
+    const existingByKey = new Map();
+    for (const child of Array.from(container.children)) {
+      const k = child.getAttribute('data-key');
+      if (k) existingByKey.set(k, child);
+    }
+    const newKeys = new Set(activeImports.map(i => i.import_id));
+    for (const [k, child] of existingByKey) {
+      if (!newKeys.has(k)) container.removeChild(child);
+    }
+    for (const imp of activeImports) {
+      const key = imp.import_id;
       const isError = imp.event === 'error';
+      let card = existingByKey.get(key);
+      if (!card) {
+        card = document.createElement('div');
+        card.setAttribute('data-key', key);
+        const idEl = document.createElement('div');
+        idEl.className = 'activity-card-id';
+        card.appendChild(idEl);
+        const nameEl = document.createElement('div');
+        nameEl.className = 'activity-card-name';
+        card.appendChild(nameEl);
+        const stateEl = document.createElement('div');
+        stateEl.className = 'activity-card-state';
+        card.appendChild(stateEl);
+        const errorEl = document.createElement('div');
+        errorEl.className = 'activity-card-error';
+        card.appendChild(errorEl);
+        const retryWrap = document.createElement('div');
+        retryWrap.style.marginTop = '0.3em';
+        const retryBtn = document.createElement('button');
+        retryBtn.setAttribute('data-action', 'retry');
+        retryBtn.style.cssText = 'padding: 0.15em 0.5em; font-size: 0.78em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #3b82f6; cursor: pointer;';
+        retryBtn.textContent = 'Retry';
+        retryWrap.appendChild(retryBtn);
+        card.appendChild(retryWrap);
+        const progressWrap = document.createElement('div');
+        progressWrap.className = 'activity-card-progress';
+        const progressBar = document.createElement('div');
+        progressBar.className = 'activity-card-progress-bar';
+        progressWrap.appendChild(progressBar);
+        card.appendChild(progressWrap);
+        const elapsedEl = document.createElement('div');
+        elapsedEl.className = 'activity-card-elapsed';
+        card.appendChild(elapsedEl);
+        const providerEl = document.createElement('div');
+        providerEl.className = 'activity-card-provider';
+        card.appendChild(providerEl);
+        container.appendChild(card);
+      }
+
       const cardClass = isError ? 'import-error' : 'import-active';
+      card.className = 'activity-card ' + cardClass;
       const progress = imp.stage === 'initialization' ? 25 :
                       imp.stage === 'transcribing' ? 50 :
                       imp.stage === 'segmenting' ? 75 : 90;
@@ -1880,28 +2190,25 @@
                          imp.stage === 'transcribing' ? 'Transcribing audio...' :
                          imp.stage === 'segmenting' ? 'Organizing segments...' : 'Processing...';
 
-      let errorHtml = '';
       if (isError && imp.error) {
-        errorHtml = `<div class="activity-card-error">${escapeHtml(truncate(imp.error, 40))}</div>`;
-        errorHtml += `<div style="margin-top: 0.3em;"><button data-action="retry" data-import-id="${escapeHtml(imp.import_id)}" style="padding: 0.15em 0.5em; font-size: 0.78em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #3b82f6; cursor: pointer;">Retry</button></div>`;
+        card.children[3].textContent = truncate(imp.error, 40);
+        card.children[3].style.display = '';
+        card.children[4].style.display = '';
+        card.children[4].querySelector('button').setAttribute('data-import-id', imp.import_id);
+      } else {
+        card.children[3].textContent = '';
+        card.children[3].style.display = 'none';
+        card.children[4].style.display = 'none';
       }
 
-      return `
-        <div class="activity-card ${cardClass}">
-          <div class="activity-card-id">...${getAgentId(imp.import_id)}</div>
-          <div class="activity-card-name">${escapeHtml(truncate(imp.input_file || 'import', 20))}</div>
-          <div class="activity-card-state" data-internal-stage="${escapeHtml(imp.stage || 'processing')}">${isError ? '! ' : ''}${escapeHtml(humanStage)}</div>
-          ${errorHtml}
-          <div class="activity-card-progress">
-            <div class="activity-card-progress-bar" style="width: ${progress}%"></div>
-          </div>
-          <div class="activity-card-elapsed">${elapsed}</div>
-          <div class="activity-card-provider">${escapeHtml(imp.file_type || 'unknown')}</div>
-        </div>
-      `;
-    }).join('');
-
-    elements.importerGrid.innerHTML = html;
+      card.children[0].textContent = '...' + getAgentId(imp.import_id);
+      card.children[1].textContent = truncate(imp.input_file || 'import', 20);
+      card.children[2].textContent = (isError ? '! ' : '') + humanStage;
+      card.children[2].setAttribute('data-internal-stage', imp.stage || 'processing');
+      card.children[5].children[0].style.width = progress + '%';
+      card.children[6].textContent = elapsed;
+      card.children[7].textContent = imp.file_type || 'unknown';
+    }
     updateAllQuiet();
     updateStatusSummary();
   }
@@ -1934,32 +2241,44 @@
     const d = state.dream;
 
     // Info fields
-    elements.dreamInfo.innerHTML = renderInfoItems([
-      { label: 'mode', value: d.mode ? escapeHtml(d.mode) : null },
-      { label: 'day', value: d.day ? escapeHtml(d.day) : null },
-      { label: 'facet', value: d.facet ? escapeHtml(d.facet) : null },
-      { label: 'segment', value: d.segment ? escapeHtml(d.segment) : null },
+    renderInfoItems(elements.dreamInfo, [
+      { label: 'mode', value: d.mode || null },
+      { label: 'day', value: d.day || null },
+      { label: 'facet', value: d.facet || null },
+      { label: 'segment', value: d.segment || null },
     ]);
 
     // Progress bars
-    let progressHtml = '';
+    const progressItems = [];
     if (d.agents_total > 0) {
-      const pct = Math.round((d.agents_completed || 0) / d.agents_total * 100);
-      progressHtml += `
-        <div class="dream-progress">
-          <div class="dream-progress-label">Agents: ${d.agents_completed || 0} / ${d.agents_total}</div>
-          <div class="dream-progress-bar"><div class="dream-progress-fill" style="width:${pct}%"></div></div>
-        </div>`;
+      progressItems.push({ label: 'Agents: ' + (d.agents_completed || 0) + ' / ' + d.agents_total, pct: Math.round((d.agents_completed || 0) / d.agents_total * 100) });
     }
     if (d.segments_total > 0) {
-      const pct = Math.round((d.segments_completed || 0) / d.segments_total * 100);
-      progressHtml += `
-        <div class="dream-progress">
-          <div class="dream-progress-label">Segments: ${d.segments_completed || 0} / ${d.segments_total}</div>
-          <div class="dream-progress-bar"><div class="dream-progress-fill" style="width:${pct}%"></div></div>
-        </div>`;
+      progressItems.push({ label: 'Segments: ' + (d.segments_completed || 0) + ' / ' + d.segments_total, pct: Math.round((d.segments_completed || 0) / d.segments_total * 100) });
     }
-    elements.dreamProgress.innerHTML = progressHtml;
+    const progContainer = elements.dreamProgress;
+    while (progContainer.children.length > progressItems.length) {
+      progContainer.removeChild(progContainer.lastChild);
+    }
+    progressItems.forEach((item, i) => {
+      let wrap = progContainer.children[i];
+      if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.className = 'dream-progress';
+        const label = document.createElement('div');
+        label.className = 'dream-progress-label';
+        wrap.appendChild(label);
+        const bar = document.createElement('div');
+        bar.className = 'dream-progress-bar';
+        const fill = document.createElement('div');
+        fill.className = 'dream-progress-fill';
+        bar.appendChild(fill);
+        wrap.appendChild(bar);
+        progContainer.appendChild(wrap);
+      }
+      wrap.children[0].textContent = item.label;
+      wrap.children[1].children[0].style.width = item.pct + '%';
+    });
 
     // Current agents
     if (d.current_agents && d.current_agents.length > 0) {
@@ -1994,12 +2313,12 @@
 
     elements.syncCard.classList.remove('hidden');
 
-    elements.syncInfo.innerHTML = renderInfoItems([
-      { label: 'host', value: s.host ? escapeHtml(s.host) : null },
-      { label: 'platform', value: s.platform ? escapeHtml(s.platform) : null },
+    renderInfoItems(elements.syncInfo, [
+      { label: 'host', value: s.host || null },
+      { label: 'platform', value: s.platform || null },
       { label: 'queue', value: String(s.queue_size) },
-      { label: 'state', value: s.state ? escapeHtml(s.state) + (s.confirm_attempt ? ' (' + escapeHtml(s.confirm_attempt) + ')' : '') : null },
-      { label: 'segment', value: s.segment ? escapeHtml(s.segment) : null },
+      { label: 'state', value: s.state ? s.state + (s.confirm_attempt ? ' (' + s.confirm_attempt + ')' : '') : null },
+      { label: 'segment', value: s.segment || null },
     ]);
     if (elements.trustIndicator) {
       if (s && s.host) {
@@ -2098,8 +2417,7 @@
     // Check if user has scrolled away from bottom before updating
     const wasAtBottom = state.logFollow && (viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 50);
 
-    let html = '';
-    // Get services to display, sorted alphabetically
+    const fragment = document.createDocumentFragment();
     const services = serviceFilter === 'all'
       ? Array.from(state.serviceLogs.keys()).sort()
       : (state.serviceLogs.has(serviceFilter) ? [serviceFilter] : []);
@@ -2109,15 +2427,22 @@
       const filtered = streamFilter === 'all' ? lines : lines.filter(l => l.stream === streamFilter);
       if (filtered.length === 0) continue;
 
-      html += `<div class="logs-service-header" data-svc="${escapeHtml(svc)}">── ${escapeHtml(serviceName(svc))} ──</div>`;
+      const header = document.createElement('div');
+      header.className = 'logs-service-header';
+      header.setAttribute('data-svc', svc);
+      header.textContent = '── ' + serviceName(svc) + ' ──';
+      fragment.appendChild(header);
+
       for (const rec of filtered) {
-        const cls = rec.stream === 'stderr' ? 'logs-line stderr' : rec.stream === 'log' ? 'logs-line log' : 'logs-line';
-        const escaped = rec.line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        html += `<div class="${cls}">${escaped}</div>`;
+        const line = document.createElement('div');
+        line.className = rec.stream === 'stderr' ? 'logs-line stderr' : rec.stream === 'log' ? 'logs-line log' : 'logs-line';
+        line.textContent = rec.line;
+        fragment.appendChild(line);
       }
     }
 
-    viewport.innerHTML = html;
+    viewport.textContent = '';
+    viewport.appendChild(fragment);
 
     // Auto-scroll if following
     if (wasAtBottom || state.logFollow) {
@@ -2462,8 +2787,7 @@
     window.appEvents.listen('*', handleEvent);
   }
 
-  // Sweep stale agents and imports every 60s
-  setInterval(() => {
+  function sweepStale() {
     const cutoff = Date.now() - 5 * 60 * 1000;
     let changed = false;
     state.agents.forEach((agent, id) => {
@@ -2482,10 +2806,9 @@
       }
     });
     if (changed) updateImporterGrid();
-  }, 60000);
+  }
 
-  // Connection health indicator — updated every 5s
-  setInterval(() => {
+  function updateConnectionHealth() {
     const el = elements.connectionIndicator;
     if (!state.lastEventTs) {
       el.textContent = '';
@@ -2503,6 +2826,35 @@
       el.textContent = `Updated ${formatElapsed(ago)} ago`;
       el.className = 'connection-indicator';
     }
-  }, 5000);
+  }
+
+  // Sweep stale agents and imports every 60s
+  let staleSweepTimer = setInterval(sweepStale, 60000);
+
+  // Connection health indicator — updated every 5s
+  let connectionHealthTimer = setInterval(updateConnectionHealth, 5000);
+
+  // Pause intervals when tab is hidden
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      clearInterval(staleSweepTimer);
+      staleSweepTimer = null;
+      clearInterval(connectionHealthTimer);
+      connectionHealthTimer = null;
+      if (elapsedTimer) {
+        clearInterval(elapsedTimer);
+        elapsedTimer = null;
+      }
+    } else {
+      sweepStale();
+      updateConnectionHealth();
+      if (state.agents.size > 0) {
+        updateElapsed();
+        startElapsedTimer();
+      }
+      staleSweepTimer = setInterval(sweepStale, 60000);
+      connectionHealthTimer = setInterval(updateConnectionHealth, 5000);
+    }
+  });
 })();
 </script>
