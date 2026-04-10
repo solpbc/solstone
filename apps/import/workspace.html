@@ -22,6 +22,9 @@
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  font: inherit;
+  color: inherit;
+  text-align: left;
 }
 
 .import-source-card:hover {
@@ -72,7 +75,7 @@
   margin-top: 1rem;
 }
 
-.import-step:first-child {
+.import-steps-list > li:first-child .import-step {
   border-top: none;
   margin-top: 0;
   padding-top: 0;
@@ -409,6 +412,23 @@
   font-size: 0.9rem;
 }
 
+.import-source-card:focus-visible {
+  outline: 2px solid #0f4c81;
+  outline-offset: 2px;
+}
+
+.import-table tbody tr:focus-visible {
+  outline: 2px solid #0f4c81;
+  outline-offset: -2px;
+  background: #f0f4ff;
+}
+
+.import-steps-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
 @media (max-width: 980px) {
   .import-source-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -580,11 +600,11 @@ async function loadSourceGrid() {
       ? 'showQuickImport()'
       : `navigateTo(&quot;guide/${source.name}&quot;)`;
     return `
-      <div class="import-source-card" onclick="${clickHandler}">
-        <div class="import-source-card-emoji">${source.emoji || ''}</div>
+      <button type="button" class="import-source-card" onclick="${clickHandler}">
+        <div class="import-source-card-emoji" aria-label="${escapeHtml(source.display_name)}">${source.emoji || ''}</div>
         <div class="import-source-card-name">${escapeHtml(source.display_name)}</div>
         <div class="import-source-card-desc">${escapeHtml(source.description || '')}</div>
-      </div>
+      </button>
     `;
   }).join('');
 }
@@ -779,7 +799,7 @@ async function loadImports() {
         : renderSourceDisplay('', imp.original_filename || '-', imp.original_filename || '-');
       const statsText = formatImportStats(imp.entries_written, imp.entities_seeded);
 
-      html += `<tr data-import-id="${imp.timestamp}" data-facet="${imp.facet || ''}" data-source-type="${imp.source_type || ''}" onclick="window.location.href='/app/import/${imp.timestamp}'">`;
+      html += `<tr data-import-id="${imp.timestamp}" data-facet="${imp.facet || ''}" data-source-type="${imp.source_type || ''}" tabindex="0" role="link" onclick="window.location.href='/app/import/${imp.timestamp}'" onkeydown="if(event.key==='Enter')window.location.href='/app/import/${imp.timestamp}'">`;
       html += `<td class="nowrap">${importedAt}</td>`;
       html += `<td>${escapeHtml(imp.original_filename || 'Unknown')}</td>`;
       html += `<td class="source-cell">${sourceCell}</td>`;
@@ -953,7 +973,7 @@ async function loadGuidedFlow(sourceName) {
     const response = await fetch(`/app/import/api/guide/${sourceName}`);
     if (response.ok) {
       const markdown = await response.text();
-      guideHtml = `<div class="import-step"><div class="import-step-number">Step 1</div><div class="import-guide-content">${marked.parse(markdown, { breaks: true, gfm: true })}</div></div>`;
+      guideHtml = `<li><div class="import-step"><div class="import-step-number">Step 1</div><div class="import-guide-content">${marked.parse(markdown, { breaks: true, gfm: true })}</div></div></li>`;
     }
   }
 
@@ -962,42 +982,44 @@ async function loadGuidedFlow(sourceName) {
       <h3 class="import-guide-title">${source.emoji || ''} ${escapeHtml(source.display_name)}</h3>
       <p class="import-guide-subtitle">${escapeHtml(source.description || '')}</p>
     </div>
+    <ol class="import-steps-list">
     ${guideHtml}
-    <div class="import-step">
-      <div class="import-step-number">Step 2</div>
-      ${source.input_type === 'path_input' ? `
-        <h4>${escapeHtml(source.upload_prompt || 'Paste the full path to your folder')}</h4>
-        <input id="guidedPathInput" class="import-path-input" type="text"
-          placeholder="${escapeHtml(source.upload_prompt || 'Paste the full path to your folder')}" />
-        <div id="guidedPathStatus" style="margin-top: 0.5em; font-size: 0.9em; color: #666;"></div>
-      ` : `
-        <h4>Upload your export</h4>
-        <div class="import-upload-area" id="guidedDropArea">
-          <p>${escapeHtml(source.upload_prompt || 'Select a file to import')}</p>
-          <div class="import-upload-help">${escapeHtml(source.accept ? `Accepted: ${source.accept}` : 'Any supported file')}</div>
-          <input id="guidedFileInput" type="file" accept="${escapeHtml(source.accept || '')}" style="display:none" />
-          <div id="guidedFileLabel" class="import-file-label"></div>
+      <li><div class="import-step">
+        <div class="import-step-number">Step 2</div>
+        ${source.input_type === 'path_input' ? `
+          <h4>${escapeHtml(source.upload_prompt || 'Paste the full path to your folder')}</h4>
+          <input id="guidedPathInput" class="import-path-input" type="text"
+            placeholder="${escapeHtml(source.upload_prompt || 'Paste the full path to your folder')}" />
+          <div id="guidedPathStatus" style="margin-top: 0.5em; font-size: 0.9em; color: #666;"></div>
+        ` : `
+          <h4>Upload your export</h4>
+          <div class="import-upload-area" id="guidedDropArea">
+            <p>${escapeHtml(source.upload_prompt || 'Select a file to import')}</p>
+            <div class="import-upload-help">${escapeHtml(source.accept ? `Accepted: ${source.accept}` : 'Any supported file')}</div>
+            <input id="guidedFileInput" type="file" accept="${escapeHtml(source.accept || '')}" style="display:none" />
+            <div id="guidedFileLabel" class="import-file-label"></div>
+          </div>
+        `}
+        <div id="guidedDedupNotice"></div>
+      </div></li>
+      <li><div class="import-step">
+        <div class="import-step-number">Step 3</div>
+        <h4>Configure and start</h4>
+        <div class="import-inline-fields">
+          <div class="confirm-field">
+            <label for="guidedFacetSelect">Facet</label>
+            <select id="guidedFacetSelect"><option value="">None</option></select>
+          </div>
+          <div class="confirm-field">
+            <label for="guidedSettingInput">Setting</label>
+            <input id="guidedSettingInput" placeholder="e.g. Weekly planning" />
+          </div>
         </div>
-      `}
-      <div id="guidedDedupNotice"></div>
-    </div>
-    <div class="import-step">
-      <div class="import-step-number">Step 3</div>
-      <h4>Configure and start</h4>
-      <div class="import-inline-fields">
-        <div class="confirm-field">
-          <label for="guidedFacetSelect">Facet</label>
-          <select id="guidedFacetSelect"><option value="">None</option></select>
+        <div class="import-action-row">
+          <button id="guidedStartBtn" class="import-primary-btn" type="button">Start Import</button>
         </div>
-        <div class="confirm-field">
-          <label for="guidedSettingInput">Setting</label>
-          <input id="guidedSettingInput" placeholder="e.g. Weekly planning" />
-        </div>
-      </div>
-      <div class="import-action-row">
-        <button id="guidedStartBtn" class="import-primary-btn" type="button">Start Import</button>
-      </div>
-    </div>
+      </div></li>
+    </ol>
   `;
 
   loadFacets(window.selectedFacet || '', document.getElementById('guidedFacetSelect'));
@@ -1045,31 +1067,33 @@ function renderQuickImportFlow() {
       <p class="import-guide-subtitle">Paste text or drop a file, then confirm the detected timestamp in the modal.</p>
     </div>
     <form id="importForm">
-      <div class="import-step">
-        <div class="import-step-number">Step 1</div>
-        <div class="import-upload-area" id="dropArea">
-          <p>Drag file here or click to select</p>
-          <input id="fileInput" type="file" style="display:none" />
-          <div id="fileLabel" class="import-file-label"></div>
-        </div>
-      </div>
-      <div class="import-step">
-        <div class="import-step-number">Step 2</div>
-        <textarea id="pasteText" class="import-paste-text" placeholder="Paste text here..."></textarea>
-        <div class="import-inline-fields">
-          <div class="confirm-field">
-            <label for="quickFacetSelect">Facet</label>
-            <select id="quickFacetSelect"><option value="">None</option></select>
+      <ol class="import-steps-list">
+        <li><div class="import-step">
+          <div class="import-step-number">Step 1</div>
+          <div class="import-upload-area" id="dropArea">
+            <p>Drag file here or click to select</p>
+            <input id="fileInput" type="file" style="display:none" />
+            <div id="fileLabel" class="import-file-label"></div>
           </div>
-          <div class="confirm-field">
-            <label for="quickSettingInput">Setting</label>
-            <input id="quickSettingInput" placeholder="e.g. Paste from notes app" />
+        </div></li>
+        <li><div class="import-step">
+          <div class="import-step-number">Step 2</div>
+          <textarea id="pasteText" class="import-paste-text" placeholder="Paste text here..."></textarea>
+          <div class="import-inline-fields">
+            <div class="confirm-field">
+              <label for="quickFacetSelect">Facet</label>
+              <select id="quickFacetSelect"><option value="">None</option></select>
+            </div>
+            <div class="confirm-field">
+              <label for="quickSettingInput">Setting</label>
+              <input id="quickSettingInput" placeholder="e.g. Paste from notes app" />
+            </div>
           </div>
-        </div>
-        <div class="import-action-row">
-          <button type="submit" id="validateBtn" class="import-primary-btn">Validate</button>
-        </div>
-      </div>
+          <div class="import-action-row">
+            <button type="submit" id="validateBtn" class="import-primary-btn">Validate</button>
+          </div>
+        </div></li>
+      </ol>
     </form>
   `;
 
