@@ -13,19 +13,19 @@
             <th scope="col">Cost</th>
             <th scope="col">Tokens</th>
             <th scope="col">Requests</th>
-            <th scope="col">$/Seg</th>
+            <th scope="col">Avg / Segment</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td class="row-label">Generate</td>
+            <td class="row-label" title="Generate">Processing</td>
             <td id="generate-cost">-</td>
             <td id="generate-tokens">-</td>
             <td id="generate-requests">-</td>
             <td id="generate-seg-avg">-</td>
           </tr>
           <tr>
-            <td class="row-label">Cogitate</td>
+            <td class="row-label" title="Cogitate">Analysis</td>
             <td id="cogitate-cost">-</td>
             <td id="cogitate-tokens">-</td>
             <td id="cogitate-requests">-</td>
@@ -192,9 +192,9 @@
 }
 
 .summary-table th {
-  font-size: 0.8em;
+  font-size: 0.85em;
   font-weight: normal;
-  opacity: 0.7;
+  opacity: 1;
 }
 
 .summary-table th:first-child,
@@ -395,6 +395,20 @@ function getProviderColor(provider) {
   return colors[provider] || '#999';
 }
 
+// Get friendly model display name
+function getModelDisplayName(model) {
+  const names = {
+    'gemini-2.0-flash-001': 'Gemini Flash',
+    'gemini-2.5-flash-preview-04-17': 'Gemini 2.5 Flash',
+    'gemini-2.5-pro-preview-03-25': 'Gemini 2.5 Pro',
+    'gpt-4o-mini-2024-07-18': 'GPT-4o Mini',
+    'gpt-4.1-nano-2025-04-14': 'GPT-4.1 Nano',
+    'claude-3-5-haiku-20241022': 'Claude Haiku',
+    'claude-sonnet-4-20250514': 'Claude Sonnet',
+  };
+  return names[model] || model;
+}
+
 // Load token usage data
 async function loadTokenData(day) {
   try {
@@ -477,7 +491,7 @@ function renderModelTable(models) {
 
   tbody.innerHTML = models.map(m => `
     <tr>
-      <td>${escapeHtml(m.model)}</td>
+      <td title="${escapeHtml(m.model)}">${escapeHtml(getModelDisplayName(m.model))}</td>
       <td class="num">${formatNumber(m.requests)}</td>
       <td class="num">${formatNumber(m.tokens)}</td>
       <td class="num cost-value">${formatCost(m.cost)}</td>
