@@ -1,19 +1,19 @@
-<div class="tokens-dashboard">
+<main class="tokens-dashboard">
   <div class="loading-state" id="loading">
     <p>Loading token usage data...</p>
   </div>
 
   <div class="dashboard-content" id="dashboard" style="display: none;">
     <!-- Daily Summary Card -->
-    <div class="summary-card">
+    <section class="summary-card" aria-label="Daily summary">
       <table class="summary-table">
         <thead>
           <tr>
-            <th></th>
-            <th>Cost</th>
-            <th>Tokens</th>
-            <th>Requests</th>
-            <th>$/Seg</th>
+            <th scope="col" aria-label="Category"></th>
+            <th scope="col">Cost</th>
+            <th scope="col">Tokens</th>
+            <th scope="col">Requests</th>
+            <th scope="col">$/Seg</th>
           </tr>
         </thead>
         <tbody>
@@ -33,22 +33,22 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
 
     <!-- By Provider -->
-    <div class="breakdown-section">
-      <h2>By Provider</h2>
+    <section class="breakdown-section" aria-labelledby="section-provider">
+      <h2 id="section-provider">By Provider</h2>
       <table class="breakdown-table" id="provider-table">
         <thead>
           <tr>
-            <th class="sortable" data-sort="provider">Provider</th>
-            <th class="sortable num" data-sort="requests">Requests</th>
-            <th class="sortable num" data-sort="tokens">Tokens</th>
-            <th class="sortable num" data-sort="input_cost">Input Cost</th>
-            <th class="sortable num" data-sort="output_cost">Output Cost</th>
-            <th class="sortable num" data-sort="cached_tokens">Cached</th>
-            <th class="sortable num" data-sort="cost">Total</th>
-            <th class="num">% of Day</th>
+            <th scope="col" class="sortable" data-sort="provider">Provider</th>
+            <th scope="col" class="sortable num" data-sort="requests">Requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens">Tokens</th>
+            <th scope="col" class="sortable num" data-sort="input_cost">Input Cost</th>
+            <th scope="col" class="sortable num" data-sort="output_cost">Output Cost</th>
+            <th scope="col" class="sortable num" data-sort="cached_tokens">Cached</th>
+            <th scope="col" class="sortable num" data-sort="cost">Total</th>
+            <th scope="col" class="num">% of Day</th>
           </tr>
         </thead>
         <tbody id="provider-body">
@@ -57,20 +57,20 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
 
     <!-- By Model -->
-    <div class="breakdown-section">
-      <h2>By Model</h2>
+    <section class="breakdown-section" aria-labelledby="section-model">
+      <h2 id="section-model">By Model</h2>
       <table class="breakdown-table" id="model-table">
         <thead>
           <tr>
-            <th class="sortable" data-sort="model">Model</th>
-            <th class="sortable num" data-sort="requests">Requests</th>
-            <th class="sortable num" data-sort="tokens">Tokens</th>
-            <th class="sortable num" data-sort="cost">Total Cost</th>
-            <th class="num">% of Day</th>
-            <th class="sortable num" data-sort="avg_cost_per_request">Per-Request Avg</th>
+            <th scope="col" class="sortable" data-sort="model">Model</th>
+            <th scope="col" class="sortable num" data-sort="requests">Requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens">Tokens</th>
+            <th scope="col" class="sortable num" data-sort="cost">Total Cost</th>
+            <th scope="col" class="num">% of Day</th>
+            <th scope="col" class="sortable num" data-sort="avg_cost_per_request">Per-Request Avg</th>
           </tr>
         </thead>
         <tbody id="model-body">
@@ -79,19 +79,19 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
 
     <!-- By Token Type -->
-    <div class="breakdown-section">
-      <h2>By Token Type</h2>
+    <section class="breakdown-section" aria-labelledby="section-token-type">
+      <h2 id="section-token-type">By Token Type</h2>
       <table class="breakdown-table" id="token-type-table">
         <thead>
           <tr>
-            <th>Token Type</th>
-            <th class="num">Total Tokens</th>
-            <th class="num">Cost</th>
-            <th class="num">% of Total Cost</th>
-            <th class="num">Avg Rate</th>
+            <th scope="col">Token Type</th>
+            <th scope="col" class="num">Total Tokens</th>
+            <th scope="col" class="num">Cost</th>
+            <th scope="col" class="num">% of Total Cost</th>
+            <th scope="col" class="num">Avg Rate</th>
           </tr>
         </thead>
         <tbody id="token-type-body">
@@ -100,23 +100,24 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
 
     <!-- By Context Prefix -->
-    <div class="breakdown-section">
-      <h2>By Context Prefix</h2>
+    <section class="breakdown-section" aria-labelledby="section-context">
+      <h2 id="section-context">By Context Prefix</h2>
       <div class="search-box">
+        <label for="context-search" class="sr-only">Filter context prefixes</label>
         <input type="text" id="context-search" placeholder="Filter contexts..." />
       </div>
       <table class="breakdown-table" id="context-table">
         <thead>
           <tr>
-            <th class="sortable" data-sort="context">Context Prefix</th>
-            <th class="sortable num" data-sort="requests">Requests</th>
-            <th class="sortable num" data-sort="tokens">Tokens</th>
-            <th class="sortable num" data-sort="cost">Total Cost</th>
-            <th class="num">% of Day</th>
-            <th>Models Used</th>
+            <th scope="col" class="sortable" data-sort="context">Context Prefix</th>
+            <th scope="col" class="sortable num" data-sort="requests">Requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens">Tokens</th>
+            <th scope="col" class="sortable num" data-sort="cost">Total Cost</th>
+            <th scope="col" class="num">% of Day</th>
+            <th scope="col">Models Used</th>
           </tr>
         </thead>
         <tbody id="context-body">
@@ -125,23 +126,24 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
 
     <!-- By Segment -->
-    <div class="breakdown-section">
-      <h2>By Segment</h2>
+    <section class="breakdown-section" aria-labelledby="section-segment">
+      <h2 id="section-segment">By Segment</h2>
       <div class="search-box">
+        <label for="segment-search" class="sr-only">Filter segments</label>
         <input type="text" id="segment-search" placeholder="Filter segments..." />
       </div>
       <table class="breakdown-table" id="segment-table">
         <thead>
           <tr>
-            <th class="sortable" data-sort="segment">Segment</th>
-            <th class="sortable num" data-sort="requests">Requests</th>
-            <th class="sortable num" data-sort="tokens">Tokens</th>
-            <th class="sortable num" data-sort="cost">Total Cost</th>
-            <th class="num">% of Day</th>
-            <th>Models Used</th>
+            <th scope="col" class="sortable" data-sort="segment">Segment</th>
+            <th scope="col" class="sortable num" data-sort="requests">Requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens">Tokens</th>
+            <th scope="col" class="sortable num" data-sort="cost">Total Cost</th>
+            <th scope="col" class="num">% of Day</th>
+            <th scope="col">Models Used</th>
           </tr>
         </thead>
         <tbody id="segment-body">
@@ -150,10 +152,10 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
 
   </div>
-</div>
+</main>
 
 <style>
 .tokens-dashboard {
@@ -315,6 +317,18 @@
   font-size: 0.85em;
   color: #666;
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 </style>
 
 <script>
@@ -368,7 +382,7 @@ function escapeHtml(val) {
 function createPercentBar(percent, color) {
   const safeColor = /^#[0-9a-fA-F]{3,6}$/i.test(color) ? color : '#999';
   const width = Math.min(100, Math.max(0, percent * 2)); // Scale for visual effect
-  return `<span class="percent-bar" style="--bar-color: ${safeColor}; width: ${width}px;"></span>`;
+  return `<span class="percent-bar" style="--bar-color: ${safeColor}; width: ${width}px;" aria-hidden="true"></span>`;
 }
 
 // Get provider color
