@@ -445,7 +445,7 @@ def build_cogitate_env(env_key: str) -> dict[str, str]:
     if auth_mode == "platform":
         env.pop(env_key, None)
 
-    # Vertex AI Express: set backend env vars for Google provider
+    # Vertex AI: set backend env vars for Google provider
     if env_key == "GOOGLE_API_KEY":
         providers_config = config.get("providers", {})
         google_backend = providers_config.get("google_backend", "auto")
@@ -464,10 +464,17 @@ def build_cogitate_env(env_key: str) -> dict[str, str]:
 
         if effective_backend == "vertex":
             env["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
-            # Preserve API key for Vertex Express regardless of auth mode
-            api_key = os.getenv("GOOGLE_API_KEY")
-            if api_key:
-                env["GOOGLE_API_KEY"] = api_key
+            # Service account credentials path
+            vertex_credentials = providers_config.get("vertex_credentials")
+            if vertex_credentials:
+                env["GOOGLE_APPLICATION_CREDENTIALS"] = vertex_credentials
+                # Don't set GOOGLE_API_KEY for service account auth
+                env.pop("GOOGLE_API_KEY", None)
+            else:
+                # Vertex Express: preserve API key
+                api_key = os.getenv("GOOGLE_API_KEY")
+                if api_key:
+                    env["GOOGLE_API_KEY"] = api_key
             # Set project/location from config if present
             vertex_project = providers_config.get("vertex_project")
             if vertex_project:
@@ -479,6 +486,7 @@ def build_cogitate_env(env_key: str) -> dict[str, str]:
             # AI Studio: clear any inherited Vertex env vars so the CLI
             # doesn't accidentally run in Vertex mode.
             for vkey in (
+                "GOOGLE_APPLICATION_CREDENTIALS",
                 "GOOGLE_GENAI_USE_VERTEXAI",
                 "GOOGLE_CLOUD_PROJECT",
                 "GOOGLE_CLOUD_LOCATION",

@@ -425,6 +425,16 @@ def get_providers() -> Any:
         # Get cached key validation results
         key_validation = providers_config.get("key_validation", {})
 
+        # Check vertex credentials status
+        vertex_credentials_email = None
+        vertex_creds_path = providers_config.get("vertex_credentials")
+        if vertex_creds_path:
+            try:
+                creds_data = json.loads(Path(vertex_creds_path).read_text())
+                vertex_credentials_email = creds_data.get("client_email")
+            except Exception:
+                pass
+
         return jsonify(
             {
                 "providers": providers_list,
@@ -438,6 +448,7 @@ def get_providers() -> Any:
                 "google_backend": providers_config.get("google_backend", "auto"),
                 "vertex_project": providers_config.get("vertex_project", ""),
                 "vertex_location": providers_config.get("vertex_location", ""),
+                "vertex_credentials_email": vertex_credentials_email,
             }
         )
     except Exception:
@@ -477,6 +488,22 @@ def validate_all_keys() -> Any:
                 result["timestamp"] = datetime.now(timezone.utc).isoformat()
                 key_validation[provider] = result
 
+        # Validate vertex credentials if configured
+        providers_config = config.get("providers", {})
+        if (
+            providers_config.get("google_backend") == "vertex"
+            and providers_config.get("vertex_credentials")
+        ):
+            from think.providers.google import validate_vertex_credentials
+
+            result = validate_vertex_credentials(
+                providers_config["vertex_credentials"],
+                project=providers_config.get("vertex_project"),
+                location=providers_config.get("vertex_location"),
+            )
+            result["timestamp"] = datetime.now(timezone.utc).isoformat()
+            key_validation["google"] = result
+
         config["providers"]["key_validation"] = key_validation
 
         config_dir = Path(state.journal_root) / "config"
@@ -490,6 +517,120 @@ def validate_all_keys() -> Any:
         return jsonify({"success": True, "key_validation": key_validation})
     except Exception:
         logger.exception("error validating keys")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+
+
+@settings_bp.route("/api/vertex-credentials", methods=["POST"])
+def upload_vertex_credentials() -> Any:
+    """Upload or paste Vertex AI service account credentials JSON.
+
+    Accepts JSON body with a "credentials" key containing the service account JSON.
+    Validates required fields, saves to {journal}/config/vertex-credentials.json,
+    and stores the path in providers.vertex_credentials.
+    """
+    try:
+        request_data = request.get_json()
+        if not request_data or "credentials" not in request_data:
+            return jsonify({"error": "No credentials provided"}), 400
+
+        creds = request_data["credentials"]
+        if isinstance(creds, str):
+            try:
+                creds = json.loads(creds)
+            except json.JSONDecodeError:
+                return jsonify({"error": "Invalid JSON"}), 400
+
+        if not isinstance(creds, dict):
+            return jsonify({"error": "Credentials must be a JSON object"}), 400
+
+        # Validate required fields
+        required = ("type", "project_id", "client_email", "private_key")
+        missing = [f for f in required if not creds.get(f)]
+        if missing:
+            return (
+                jsonify(
+                    {"error": f"Missing required fields: {', '.join(missing)}"}
+                ),
+                400,
+            )
+
+        if creds.get("type") != "service_account":
+            return jsonify({"error": "Credentials type must be 'service_account'"}), 400
+
+        # Save credentials file
+        config_dir = Path(state.journal_root) / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        creds_path = config_dir / "vertex-credentials.json"
+        with open(creds_path, "w", encoding="utf-8") as f:
+            json.dump(creds, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        os.chmod(creds_path, 0o600)
+
+        # Store path in config
+        config = get_journal_config()
+        if "providers" not in config:
+            config["providers"] = {}
+        config["providers"]["vertex_credentials"] = str(creds_path)
+
+        config_path = config_dir / "journal.json"
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        os.chmod(config_path, 0o600)
+
+        log_app_action(
+            app="settings",
+            facet=None,
+            action="vertex_credentials_upload",
+            params={"client_email": creds.get("client_email")},
+        )
+
+        return jsonify(
+            {
+                "success": True,
+                "client_email": creds.get("client_email"),
+            }
+        )
+    except Exception:
+        logger.exception("error saving vertex credentials")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+
+
+@settings_bp.route("/api/vertex-credentials", methods=["DELETE"])
+def delete_vertex_credentials() -> Any:
+    """Remove Vertex AI service account credentials."""
+    try:
+        # Remove credentials file
+        config_dir = Path(state.journal_root) / "config"
+        creds_path = config_dir / "vertex-credentials.json"
+        if creds_path.exists():
+            creds_path.unlink()
+
+        # Remove from config
+        config = get_journal_config()
+        if "providers" in config:
+            config["providers"].pop("vertex_credentials", None)
+            # Clear stale validation result
+            if "key_validation" in config["providers"]:
+                config["providers"]["key_validation"].pop("google", None)
+
+        config_path = config_dir / "journal.json"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        os.chmod(config_path, 0o600)
+
+        log_app_action(
+            app="settings",
+            facet=None,
+            action="vertex_credentials_delete",
+            params={},
+        )
+
+        return jsonify({"success": True})
+    except Exception:
+        logger.exception("error deleting vertex credentials")
         return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 

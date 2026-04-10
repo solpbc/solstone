@@ -38,6 +38,7 @@ from typing import Any, Callable
 
 from google import genai
 from google.genai import types
+from google.oauth2 import service_account
 
 from think.models import GEMINI_FLASH
 from think.utils import now_ms
@@ -60,7 +61,7 @@ _DEFAULT_MODEL = GEMINI_FLASH
 
 logger = logging.getLogger(__name__)
 
-# Vertex AI Express Mode backend detection cache
+# Vertex AI backend detection cache
 _detected_backend: str | None = None
 
 
@@ -120,7 +121,8 @@ def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
     ----------
     client : genai.Client, optional
         Existing client to reuse. If not provided, creates a new one
-        using GOOGLE_API_KEY from environment.
+        using service account credentials, ADC, or GOOGLE_API_KEY
+        depending on the configured backend.
 
     Returns
     -------
@@ -128,17 +130,45 @@ def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
         The provided client or a newly created one.
     """
     if client is None:
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY not found in environment")
-        client_kwargs = {
-            "api_key": api_key,
-            "http_options": types.HttpOptions(
-                retry_options=types.HttpRetryOptions(attempts=8)
-            ),
-        }
-        client_kwargs["vertexai"] = _get_effective_backend(api_key) == "vertex"
-        client = genai.Client(**client_kwargs)
+        from think.utils import get_config
+
+        config = get_config()
+        providers_config = config.get("providers", {})
+        backend = providers_config.get("google_backend", "auto")
+        http_options = types.HttpOptions(
+            retry_options=types.HttpRetryOptions(attempts=8)
+        )
+
+        if backend == "vertex" and providers_config.get("vertex_credentials"):
+            creds_path = providers_config["vertex_credentials"]
+            creds = service_account.Credentials.from_service_account_file(
+                creds_path,
+                scopes=["https://www.googleapis.com/auth/cloud-platform"],
+            )
+            client = genai.Client(
+                vertexai=True,
+                credentials=creds,
+                project=providers_config.get("vertex_project"),
+                location=providers_config.get("vertex_location"),
+                http_options=http_options,
+            )
+        elif backend == "vertex":
+            client = genai.Client(
+                vertexai=True,
+                project=providers_config.get("vertex_project"),
+                location=providers_config.get("vertex_location"),
+                http_options=http_options,
+            )
+        else:
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if not api_key:
+                raise ValueError("GOOGLE_API_KEY not found in environment")
+            client_kwargs = {
+                "api_key": api_key,
+                "http_options": http_options,
+            }
+            client_kwargs["vertexai"] = _get_effective_backend(api_key) == "vertex"
+            client = genai.Client(**client_kwargs)
     return client
 
 
@@ -753,11 +783,40 @@ def validate_key(api_key: str) -> dict:
         return {"valid": False, "error": str(e)}
 
 
+def validate_vertex_credentials(
+    credentials_path: str,
+    project: str | None = None,
+    location: str | None = None,
+) -> dict:
+    """Validate Vertex AI service account credentials by listing models.
+
+    Returns {"valid": True, "backend": "vertex"} or
+    {"valid": False, "error": "..."}.
+    """
+    try:
+        creds = service_account.Credentials.from_service_account_file(
+            credentials_path,
+            scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        )
+        client = genai.Client(
+            vertexai=True,
+            credentials=creds,
+            project=project,
+            location=location,
+            http_options=types.HttpOptions(timeout=10000),
+        )
+        list(client.models.list(config={"page_size": 1}))
+        return {"valid": True, "backend": "vertex"}
+    except Exception as e:
+        return {"valid": False, "error": str(e)}
+
+
 __all__ = [
     "run_cogitate",
     "run_generate",
     "run_agenerate",
     "get_or_create_client",
+    "validate_vertex_credentials",
     "_detect_backend",
     "_get_effective_backend",
     "list_models",

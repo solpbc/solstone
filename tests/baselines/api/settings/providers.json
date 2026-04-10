@@ -453,6 +453,7 @@
       "name": "openai"
     }
   ],
+  "vertex_credentials_email": null,
   "vertex_location": "",
   "vertex_project": ""
 }
