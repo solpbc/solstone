@@ -1020,14 +1020,16 @@
     return clean.substring(0, maxLen) + '...';
   }
 
-  // Format cost in cents with exact USD in title
+  // Format cost in USD with exact value in title
   function formatCost(costUSD) {
     if (costUSD === null || costUSD === undefined) {
       return { text: '\u2014', title: '' };
     }
-    const cents = Math.round(costUSD * 100);
     const exactUSD = '$' + costUSD.toFixed(4);
-    return { text: cents + 'c', title: exactUSD };
+    if (costUSD > 0 && costUSD < 0.01) {
+      return { text: '<$0.01', title: exactUSD };
+    }
+    return { text: '$' + costUSD.toFixed(2), title: exactUSD };
   }
 
   // Shorten model name for display
