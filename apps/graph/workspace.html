@@ -20,6 +20,7 @@
         <span id="min-strength-val">0</span>
       </div>
       <div class="graph-stats" id="graph-stats"></div>
+      <button id="graph-view-toggle" class="graph-view-toggle" title="Switch between graph and list view">View as list</button>
     </div>
   </div>
 
@@ -38,6 +39,20 @@
       <p>This usually means the server didn't respond. <a href="#" id="graph-retry">Try again</a></p>
     </div>
     <div id="graph-canvas" tabindex="0" role="img" aria-label="Knowledge graph" style="width:100%;height:100%;display:none;"></div>
+    <div id="graph-sr-summary" class="sr-only" aria-live="polite"></div>
+    <div id="graph-list" style="display:none;overflow:auto;height:100%;">
+      <table class="graph-table">
+        <thead>
+          <tr>
+            <th role="button" tabindex="0" aria-sort="none" data-col="name">Name</th>
+            <th role="button" tabindex="0" aria-sort="none" data-col="type">Type</th>
+            <th role="button" tabindex="0" aria-sort="descending" data-col="score">Score</th>
+            <th role="button" tabindex="0" aria-sort="none" data-col="connections">Connections</th>
+          </tr>
+        </thead>
+        <tbody id="graph-list-body"></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- Entity detail panel (slide-in from right) -->
@@ -314,6 +329,58 @@
   font-size: 0.85rem;
 }
 .detail-entity-link:hover { text-decoration: underline; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.graph-view-toggle {
+  background: var(--bg-secondary, #f5f5f5);
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--text-primary, #333);
+}
+.graph-view-toggle:hover {
+  background: var(--bg-tertiary, #e5e5e5);
+}
+.graph-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.graph-table th,
+.graph-table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color, #e5e5e5);
+}
+.graph-table th {
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  color: var(--text-secondary, #666);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.graph-table th:hover {
+  color: var(--text-primary, #333);
+}
+.graph-table th[aria-sort="ascending"]::after { content: " ▲"; }
+.graph-table th[aria-sort="descending"]::after { content: " ▼"; }
+.graph-table tbody tr:hover {
+  background: var(--bg-secondary, #f5f5f5);
+}
 </style>
 
 <script src="{{ vendor_lib('vis-network') }}"></script>
@@ -327,6 +394,8 @@
   let timeDays = 90;
   let minStrength = 0;
   let detailOpen = false;
+  let listMode = false;
+  let sortState = { column: 'score', ascending: false };
 
   // --- Color maps ---
   const TYPE_COLORS = {
@@ -465,15 +534,23 @@
 
     if (!data.nodes || data.nodes.length === 0) {
       container.style.display = 'none';
+      document.getElementById('graph-list').style.display = 'none';
       empty.style.display = 'block';
       controls.style.display = 'none';
       container.removeAttribute('aria-label');
+      document.getElementById('graph-sr-summary').textContent = '';
       return;
     }
 
     empty.style.display = 'none';
     container.style.display = 'block';
     controls.style.display = 'block';
+    if (listMode) {
+      container.style.display = 'none';
+      document.getElementById('graph-list').style.display = 'block';
+    } else {
+      document.getElementById('graph-list').style.display = 'none';
+    }
 
     const visData = buildVisData(data);
 
@@ -568,12 +645,59 @@
 
     // Update stats
     updateStats(data);
+    updateSrSummary(data);
+    if (listMode) renderList();
     container.setAttribute('aria-label', 'Knowledge graph: ' + data.nodes.length + ' entities, ' + data.edges.length + ' connections');
   }
 
   function updateStats(data) {
     const el = document.getElementById('graph-stats');
     el.textContent = data.nodes.length + ' nodes, ' + data.edges.length + ' edges';
+  }
+
+  function updateSrSummary(data) {
+    const el = document.getElementById('graph-sr-summary');
+    if (!data.nodes || data.nodes.length === 0) {
+      el.textContent = '';
+      return;
+    }
+    const top = data.nodes.slice().sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 10);
+    const topList = top.map(n => n.name + ' (' + n.type + ')').join(', ');
+    el.textContent = 'Knowledge graph showing ' + data.nodes.length + ' entities and ' + data.edges.length + ' connections. Top entities: ' + topList + '.';
+  }
+
+  function renderList() {
+    if (!graphData || !graphData.nodes) return;
+    const tbody = document.getElementById('graph-list-body');
+
+    // Build connection count map
+    const connCount = new Map();
+    (graphData.edges || []).forEach(e => {
+      connCount.set(e.from, (connCount.get(e.from) || 0) + 1);
+      connCount.set(e.to, (connCount.get(e.to) || 0) + 1);
+    });
+
+    // Build rows with connection count
+    const rows = graphData.nodes.map(n => ({
+      name: n.name,
+      type: n.type,
+      score: n.score || 0,
+      connections: connCount.get(n.id) || 0,
+    }));
+
+    // Sort
+    const col = sortState.column;
+    const dir = sortState.ascending ? 1 : -1;
+    rows.sort((a, b) => {
+      const av = a[col], bv = b[col];
+      if (typeof av === 'string') return dir * av.localeCompare(bv);
+      return dir * ((av || 0) - (bv || 0));
+    });
+
+    // Render
+    tbody.innerHTML = rows.map(r =>
+      '<tr><td>' + escapeHtml(r.name) + '</td><td>' + escapeHtml(r.type) + '</td><td>' + r.score + '</td><td>' + r.connections + '</td></tr>'
+    ).join('');
   }
 
   // --- Detail panel ---
@@ -738,6 +862,50 @@
     reload();
   });
 
+  // --- View toggle ---
+  document.getElementById('graph-view-toggle').addEventListener('click', function() {
+    listMode = !listMode;
+    const canvas = document.getElementById('graph-canvas');
+    const list = document.getElementById('graph-list');
+    this.textContent = listMode ? 'View as graph' : 'View as list';
+    if (listMode) {
+      canvas.style.display = 'none';
+      list.style.display = 'block';
+      renderList();
+    } else {
+      list.style.display = 'none';
+      canvas.style.display = 'block';
+      if (network) network.fit();
+    }
+  });
+
+  // --- Sort handlers ---
+  document.querySelectorAll('.graph-table th').forEach(th => {
+    function doSort() {
+      const col = th.dataset.col;
+      if (sortState.column === col) {
+        sortState.ascending = !sortState.ascending;
+      } else {
+        sortState.column = col;
+        sortState.ascending = col === 'name';
+      }
+      // Update aria-sort on all headers
+      document.querySelectorAll('.graph-table th').forEach(h => {
+        h.setAttribute('aria-sort', h.dataset.col === sortState.column
+          ? (sortState.ascending ? 'ascending' : 'descending')
+          : 'none');
+      });
+      renderList();
+    }
+    th.addEventListener('click', doSort);
+    th.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        doSort();
+      }
+    });
+  });
+
   document.getElementById('detail-close').addEventListener('click', closeDetail);
   document.getElementById('graph-retry').addEventListener('click', function(e) {
     e.preventDefault();
@@ -764,7 +932,9 @@
         document.getElementById('graph-empty').style.display = 'none';
         document.getElementById('graph-error').style.display = 'block';
         document.getElementById('graph-canvas').style.display = 'none';
+        document.getElementById('graph-list').style.display = 'none';
         document.getElementById('graph-controls').style.display = 'none';
+        document.getElementById('graph-sr-summary').textContent = '';
       }
     }
   }
