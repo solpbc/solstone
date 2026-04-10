@@ -1,4 +1,16 @@
 <style>
+/*
+ * Health Dashboard Color Convention
+ * ──────────────────────────────────
+ * Status signals use a traffic-light palette:
+ *   Green  (#16a34a / #22c55e) — healthy, active, ok
+ *   Amber  (#d97706 / #f59e0b) — warning, stale, in-progress
+ *   Red    (#dc2626 / #ef4444) — error, crashed, disconnected
+ *
+ * The vitals bar background is always neutral (#f9fafb).
+ * Only the status badge carries saturated color.
+ * Purple is reserved for non-status decorative use (e.g. log syntax).
+ */
 /* Health Dashboard Layout */
 .health-dashboard {
   padding: 1em;
@@ -11,20 +23,12 @@
 
 /* Vitals Bar (Full Width) */
 .vitals-bar {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: #f9fafb;
+  color: #374151;
   border-radius: 12px;
-  padding: 1.5em;
+  padding: 0.75em 1em;
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
   transition: background 0.5s ease;
-}
-
-.vitals-bar.warning {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-}
-
-.vitals-bar.error {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 }
 
 .status-summary {
@@ -52,7 +56,8 @@
 }
 
 .vitals-status {
-  background: rgba(255,255,255,0.2);
+  background: #16a34a;
+  color: #fff;
   padding: 0.4em 0.8em;
   border-radius: 20px;
   font-size: 0.9em;
@@ -61,20 +66,30 @@
   gap: 0.5em;
 }
 
+.vitals-status.warning {
+  background: #d97706;
+  color: #fff;
+}
+
+.vitals-status.error {
+  background: #dc2626;
+  color: #fff;
+}
+
 .connection-indicator {
   font-size: 0.8em;
-  opacity: 0.8;
+  color: #374151;
   margin-left: 0.5em;
 }
 
 .connection-indicator.stale {
-  color: #fbbf24;
+  color: #d97706;
   opacity: 1;
   font-weight: 500;
 }
 
 .connection-indicator.disconnected {
-  color: #fca5a5;
+  color: #dc2626;
   opacity: 1;
   font-weight: 600;
 }
@@ -93,7 +108,7 @@
 }
 
 .vitals-label {
-  opacity: 0.8;
+  color: #6b7280;
   font-size: 0.85em;
 }
 
@@ -114,14 +129,14 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3em;
-  background: rgba(255,255,255,0.15);
+  background: #e5e7eb;
   padding: 0.15em 0.45em;
   border-radius: 12px;
   font-size: 0.75em;
 }
 
 .service-dot.crashed {
-  background: rgba(248, 113, 113, 0.3);
+  background: rgba(220, 38, 38, 0.15);
 }
 
 .status-indicator {
@@ -173,7 +188,7 @@
   50% { opacity: 0.7; }
 }
 .skeleton {
-  background: rgba(255,255,255,0.15);
+  background: #e5e7eb;
   border-radius: 4px;
   animation: skeleton-pulse 1.5s ease-in-out infinite;
   display: inline-block;
@@ -187,7 +202,7 @@
 
 .severity-label {
   font-size: 0.75em;
-  opacity: 0.8;
+  color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-left: 0.5em;
@@ -244,7 +259,7 @@
 }
 
 .health-badge.tmux {
-  background: #8b5cf6;
+  background: #16a34a;
   animation: none;
 }
 
@@ -318,7 +333,7 @@
 
 /* Observers Card */
 .observers-card {
-  border-left: 4px solid #8b5cf6;
+  border-left: 4px solid #22c55e;
 }
 
 .observers-card.hidden {
@@ -343,7 +358,7 @@
 
 .observer-host-card.active {
   background: #f3f4f6;
-  border-left: 4px solid #8b5cf6;
+  border-left: 4px solid #22c55e;
 }
 
 .observer-host-card.stale {
@@ -425,8 +440,8 @@
 }
 
 .activity-card.agent-active {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-  border-color: #3b82f6;
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  border-color: #22c55e;
 }
 
 .activity-card.import-active {
@@ -694,7 +709,7 @@
 /* Stale heartbeats list */
 .stale-list {
   font-size: 0.85em;
-  opacity: 0.9;
+  color: #374151;
 }
 
 .vitals-chips {
@@ -704,7 +719,8 @@
 }
 
 .vitals-chip {
-  background: rgba(255,255,255,0.2);
+  background: #e5e7eb;
+  color: #374151;
   padding: 0.15em 0.5em;
   border-radius: 10px;
   font-size: 0.8em;
@@ -713,10 +729,10 @@
 .trust-indicator {
   font-size: 0.75em;
   opacity: 1.0;
-  color: white;
+  color: #374151;
   padding: 0.4em 0.8em;
   text-align: right;
-  background: rgba(0, 0, 0, 0.3);
+  background: #e5e7eb;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
@@ -739,7 +755,7 @@
   }
 
   .vitals-bar {
-    padding: 1em;
+    padding: 0.75em 1em;
   }
 
   .vitals-header {
@@ -1351,8 +1367,7 @@
 
   function updateVitalsStatus(status) {
     const vitalsStatus = elements.vitalsStatus;
-    const bar = elements.vitalsBar;
-    bar.classList.remove('warning', 'error');
+    vitalsStatus.classList.remove('warning', 'error');
     if (status === 'ok') {
       vitalsStatus.innerHTML = `
         <span class="status-indicator active" aria-label="System status: healthy"></span>
@@ -1365,14 +1380,14 @@
         <span>Some services slow to respond</span>
         <span class="severity-label">warning</span>
       `;
-      bar.classList.add('warning');
+      vitalsStatus.classList.add('warning');
     } else if (status === 'error') {
       vitalsStatus.innerHTML = `
         <span class="status-indicator crashed" aria-label="System status: error"></span>
         <span>Services need attention</span>
         <span class="severity-label">error</span>
       `;
-      bar.classList.add('error');
+      vitalsStatus.classList.add('error');
     }
   }
 
