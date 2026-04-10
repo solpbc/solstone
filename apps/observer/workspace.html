@@ -340,9 +340,75 @@
     max-width: 100%;
   }
 }
+
+/* ── Error container ── */
+.ws-error-container {
+  display: none;
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+  color: #856404;
+  padding: 12px 16px;
+  margin-bottom: 1em;
+  border-radius: 4px;
+  position: relative;
+  font-size: 0.95em;
+  line-height: 1.4;
+}
+.ws-error-container[style*="display: flex"] {
+  display: flex !important;
+  flex-direction: column;
+  gap: 8px;
+}
+.ws-error-message {
+  flex: 1;
+}
+.ws-error-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ws-error-retry {
+  background: #856404;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 0.9em;
+  min-height: 44px;
+}
+.ws-error-retry:hover {
+  background: #6d5303;
+}
+.ws-error-dismiss {
+  background: transparent;
+  border: 1px solid #856404;
+  color: #856404;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.9em;
+  min-height: 44px;
+}
+.ws-error-dismiss:hover {
+  background: rgba(133, 100, 4, 0.1);
+}
+.ws-error-countdown {
+  color: #997a1e;
+  font-size: 0.85em;
+}
 </style>
 
 <div class="workspace-content">
+  <div id="wsErrorContainer" class="ws-error-container" role="alert" style="display: none">
+    <div class="ws-error-message" id="wsErrorMessage"></div>
+    <div class="ws-error-actions">
+      <button type="button" class="ws-error-retry" id="wsErrorRetry" style="display: none" onclick="loadObservers()">retry now</button>
+      <span class="ws-error-countdown" id="wsErrorCountdown"></span>
+      <button type="button" class="ws-error-dismiss" onclick="clearError()">dismiss</button>
+    </div>
+  </div>
   <section aria-label="observers">
     <h2 class="section-title">Connected Observers</h2>
     <div id="observersList" role="list">
@@ -408,6 +474,64 @@ const doneBtn = document.getElementById('doneBtn');
 const keyModalClose = document.getElementById('keyModalClose');
 const revealKeyBtn = document.getElementById('revealKeyBtn');
 let keyModalTrigger = null;
+// Error display state
+const wsErrorContainer = document.getElementById('wsErrorContainer');
+const wsErrorMessage = document.getElementById('wsErrorMessage');
+const wsErrorRetry = document.getElementById('wsErrorRetry');
+const wsErrorCountdown = document.getElementById('wsErrorCountdown');
+let errorAutoHideTimer = null;
+let countdownInterval = null;
+let lastPollTime = Date.now();
+
+function showLocalError(message, opts = {}) {
+  wsErrorMessage.textContent = message;
+  wsErrorContainer.style.display = 'flex';
+  wsErrorRetry.style.display = opts.retry ? 'inline-block' : 'none';
+
+  // Clear any existing auto-hide timer
+  if (errorAutoHideTimer) clearTimeout(errorAutoHideTimer);
+
+  if (opts.retry) {
+    // For load errors: start countdown, no auto-hide (countdown stays until next load)
+    startCountdown();
+  } else {
+    // For action errors: auto-hide after 10 seconds, no countdown
+    if (countdownInterval) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+    wsErrorCountdown.textContent = '';
+    errorAutoHideTimer = setTimeout(clearError, 10000);
+  }
+}
+
+function clearError() {
+  wsErrorContainer.style.display = 'none';
+  wsErrorMessage.textContent = '';
+  wsErrorCountdown.textContent = '';
+  wsErrorRetry.style.display = 'none';
+  if (errorAutoHideTimer) {
+    clearTimeout(errorAutoHideTimer);
+    errorAutoHideTimer = null;
+  }
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+}
+
+function startCountdown() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  updateCountdownDisplay();
+  countdownInterval = setInterval(updateCountdownDisplay, 1000);
+}
+
+function updateCountdownDisplay() {
+  const elapsed = Math.floor((Date.now() - lastPollTime) / 1000);
+  const remaining = Math.max(0, 30 - elapsed);
+  wsErrorCountdown.textContent = remaining > 0 ? `retrying in ${remaining}s\u2026` : 'retrying\u2026';
+}
+
 let currentFullKey = null;
 let revealTimer = null;
 
@@ -464,6 +588,8 @@ function freshness(lastSeen) {
 }
 
 async function loadObservers() {
+  lastPollTime = Date.now();
+  if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
   try {
     const response = await fetch('/app/observer/api/list');
     const observers = await response.json();
@@ -471,6 +597,7 @@ async function loadObservers() {
     if (!observers || observers.length === 0) {
       observersList.innerHTML = '<div class="no-observers">No observers registered yet. Add one to get started.</div>';
       setFormCollapsed(false);
+      clearError();
       return;
     }
 
@@ -511,6 +638,7 @@ async function loadObservers() {
       `;
     }
     observersList.innerHTML = html;
+    clearError();
 
     // Auto-collapse form when observers exist, unless user is actively editing
     const formHasFocus = addObserverSection.contains(document.activeElement);
@@ -518,7 +646,8 @@ async function loadObservers() {
       setFormCollapsed(true);
     }
   } catch (err) {
-    observersList.innerHTML = '<div class="no-observers">Error loading observers</div>';
+    observersList.innerHTML = '<div class="no-observers">couldn\'t load observers</div>';
+    showLocalError('couldn\'t load observers — the server may be unreachable. it will retry automatically, or you can retry now.', { retry: true });
     console.error('Failed to load observers:', err);
   }
 }
@@ -546,7 +675,8 @@ async function revokeObserver(keyPrefix, name) {
 
     loadObservers();
   } catch (err) {
-    if (window.showError) showError(err.message);
+    const msg = 'couldn\'t revoke observer — the server may be unavailable. try again in a moment.';
+    if (window.showError) { showError(msg); } else { showLocalError(msg); }
   }
 }
 
@@ -563,7 +693,8 @@ async function viewObserverKey(keyPrefix, name) {
 
     showKeyModal(name, data.key, trigger);
   } catch (err) {
-    if (window.showError) showError(err.message);
+    const msg = 'couldn\'t retrieve observer key — the server may be unavailable. try again in a moment.';
+    if (window.showError) { showError(msg); } else { showLocalError(msg); }
   }
 }
 
@@ -611,7 +742,8 @@ addObserverForm.onsubmit = async (e) => {
     setFormCollapsed(true);
     keyModalTrigger = addObserverToggle;
   } catch (err) {
-    if (window.showError) showError(err.message);
+    const msg = 'couldn\'t add observer — the name may already be in use. try a different name or refresh the page.';
+    if (window.showError) { showError(msg); } else { showLocalError(msg); }
   } finally {
     submitBtn.disabled = false;
   }
