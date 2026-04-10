@@ -7,11 +7,16 @@
   margin-bottom: 1em;
 }
 .observer-card.disconnected {
-  opacity: 0.7;
+  background: #f8f9fa;
+  border-color: #ced4da;
 }
 .observer-card.revoked {
-  opacity: 0.5;
-  background: #e9ecef;
+  background: #f0f0f0;
+  border-color: #ccc;
+}
+.observer-card.revoked .observer-name {
+  text-decoration: line-through;
+  color: #5a6268;
 }
 .observer-header {
   display: flex;
@@ -227,17 +232,21 @@
 </style>
 
 <div class="workspace-content">
-  <h2 class="section-title">add observer</h2>
-  <form class="add-observer-form" id="addObserverForm">
-    <label for="observerName">Observer name</label>
-    <input type="text" id="observerName" placeholder="e.g., laptop, desktop" maxlength="64" required>
-    <button type="submit">Add Observer</button>
-  </form>
+  <section aria-label="add observer">
+    <h2 class="section-title">add observer</h2>
+    <form class="add-observer-form" id="addObserverForm">
+      <label for="observerName">Observer name</label>
+      <input type="text" id="observerName" placeholder="e.g., laptop, desktop" maxlength="64" required>
+      <button type="submit">Add Observer</button>
+    </form>
+  </section>
 
-  <h2 class="section-title">Connected Observers</h2>
-  <div id="observersList">
-    <div class="no-observers">Loading...</div>
-  </div>
+  <section aria-label="observers">
+    <h2 class="section-title">Connected Observers</h2>
+    <div id="observersList" role="list">
+      <div class="no-observers">Loading...</div>
+    </div>
+  </section>
 </div>
 
 <!-- Observer Key Modal (for new observers and viewing existing keys) -->
@@ -329,7 +338,7 @@ async function loadObservers() {
       }
 
       html += `
-        <div class="observer-card ${cardClass}" data-key="${observer.key_prefix}">
+        <div class="observer-card ${cardClass}" data-key="${observer.key_prefix}" role="listitem" aria-label="${escapeHtml(observer.name)}, ${statusText}">
           <div class="observer-header">
             <span class="observer-name">${escapeHtml(observer.name)}</span>
             <span class="observer-status ${statusClass}">${statusText}</span>
