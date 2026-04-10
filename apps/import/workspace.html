@@ -159,6 +159,11 @@
   background: #edf5ff;
 }
 
+.import-upload-area:focus-visible {
+  outline: 2px solid #0f4c81;
+  outline-offset: 2px;
+}
+
 .import-upload-area p {
   margin: 0 0 0.5rem 0;
 }
@@ -1019,7 +1024,7 @@ async function loadGuidedFlow(sourceName) {
       <h3 class="import-guide-title">${source.emoji || ''} ${escapeHtml(source.display_name)}</h3>
       <p class="import-guide-subtitle">${escapeHtml(source.description || '')}</p>
     </div>
-    <ol class="import-steps-list">
+    <form id="guidedImportForm" onsubmit="return false;"><ol class="import-steps-list">
     ${guideHtml}
       <li><div class="import-step">
         <div class="import-step-number">Step 2</div>
@@ -1030,7 +1035,7 @@ async function loadGuidedFlow(sourceName) {
           <div id="guidedPathStatus" style="margin-top: 0.5em; font-size: 0.9em; color: #666;"></div>
         ` : `
           <h4>Upload your export</h4>
-          <div class="import-upload-area" id="guidedDropArea">
+          <div class="import-upload-area" id="guidedDropArea" role="button" tabindex="0" aria-label="Choose file to upload">
             <p>${escapeHtml(source.upload_prompt || 'Select a file to import')}</p>
             <div class="import-upload-help">${escapeHtml(source.accept ? `Accepted: ${source.accept}` : 'Any supported file')}</div>
             <input id="guidedFileInput" type="file" accept="${escapeHtml(source.accept || '')}" style="display:none" />
@@ -1053,10 +1058,10 @@ async function loadGuidedFlow(sourceName) {
           </div>
         </div>
         <div class="import-action-row">
-          <button id="guidedStartBtn" class="import-primary-btn" type="button">Start Import</button>
+          <button id="guidedStartBtn" class="import-primary-btn" type="submit">Start Import</button>
         </div>
       </div></li>
-    </ol>
+    </ol></form>
   `;
 
   loadFacets(window.selectedFacet || '', document.getElementById('guidedFacetSelect'));
@@ -1067,6 +1072,13 @@ async function loadGuidedFlow(sourceName) {
     checkDefaultPath(sourceName);
   }
   document.getElementById('guidedStartBtn').addEventListener('click', () => startGuidedImport(source));
+  const guidedForm = document.getElementById('guidedImportForm');
+  if (guidedForm) {
+    guidedForm.addEventListener('submit', e => {
+      e.preventDefault();
+      document.getElementById('guidedStartBtn').click();
+    });
+  }
 }
 
 async function checkDefaultPath(sourceName) {
@@ -1107,7 +1119,7 @@ function renderQuickImportFlow() {
       <ol class="import-steps-list">
         <li><div class="import-step">
           <div class="import-step-number">Step 1</div>
-          <div class="import-upload-area" id="dropArea">
+          <div class="import-upload-area" id="dropArea" role="button" tabindex="0" aria-label="Choose file to upload">
             <p>Drag file here or click to select</p>
             <input id="fileInput" type="file" style="display:none" />
             <div id="fileLabel" class="import-file-label"></div>
@@ -1154,6 +1166,12 @@ function setupGuidedUploadArea() {
   };
 
   dropArea.onclick = () => fileInput.click();
+  dropArea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
   ['dragenter', 'dragover'].forEach(eventName => {
     dropArea.addEventListener(eventName, event => {
       event.preventDefault();
@@ -1192,6 +1210,12 @@ function setupQuickImportForm() {
 
   currentFile = null;
   dropArea.onclick = () => fileInput.click();
+  dropArea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
   ['dragenter', 'dragover'].forEach(ev => dropArea.addEventListener(ev, e => {
     e.preventDefault();
     dropArea.classList.add('dragover');
