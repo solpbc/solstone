@@ -174,8 +174,12 @@ class VideoProcessor:
 
     # Resize target for 64-bit perceptual hashing
     DHASH_SIZE = (9, 8)
-    # Minimum Hamming distance for frame qualification
-    DHASH_THRESHOLD = 6
+    # Minimum Hamming distance for frame qualification (out of 64 bits).
+    # Tuned via real-segment comparison on 094809_301/left_HDMI-2: threshold 6
+    # kept +17 frames vs RMS but added no new extracted content; threshold 8
+    # keeps +13 vs RMS, matches RMS's extraction count, and drops the borderline
+    # near-duplicates that 6 was letting through.
+    DHASH_THRESHOLD = 8
     # Skip frame if Convey UI covers more than this fraction of the frame
     MASK_SKIP_THRESHOLD = 0.8
 
