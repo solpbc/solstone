@@ -343,6 +343,95 @@
     color: #c62828;
     margin-top: 0.75rem;
   }
+
+  /* ── Responsive: General ── */
+  .support-nav {
+    flex-wrap: wrap;
+  }
+  .support-ticket-subject,
+  .support-message,
+  .support-help-card p {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  /* ── Responsive: Tablet (≤768px) ── */
+  @media (max-width: 768px) {
+    .support-nav button {
+      padding: 0.5rem 1rem;
+      min-height: 44px;
+    }
+    .support-detail-back {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+    }
+    .support-ticket-header {
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .support-diagnostics-section summary {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
+    .support-drop-zone {
+      padding: 1.25rem;
+      min-height: 44px;
+    }
+  }
+
+  /* ── Responsive: Mobile (≤375px) ── */
+  @media (max-width: 375px) {
+    #support-root {
+      overflow-x: hidden;
+    }
+    .support-nav {
+      flex-direction: column;
+    }
+    .support-nav button {
+      min-height: 44px;
+      width: 100%;
+      text-align: left;
+      padding: 0.625rem 1rem;
+    }
+    .support-ticket-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .support-btn,
+    .support-empty-action {
+      width: 100%;
+    }
+    .support-detail-back {
+      min-height: 44px;
+    }
+    .support-help-card {
+      padding: 0.75rem;
+    }
+    .support-diagnostics-section .support-diagnostics-body {
+      padding: 0.25rem 0.5rem 0.5rem;
+    }
+    .support-empty {
+      padding: 2rem 0.75rem;
+    }
+    .support-drop-zone {
+      padding: 1.5rem 1rem;
+    }
+    .support-keyboard-hint {
+      display: block;
+      margin-left: 0;
+      margin-top: 0.25rem;
+    }
+    .support-feedback-options {
+      flex-wrap: wrap;
+    }
+    .support-diagnostics-row {
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+  }
 </style>
 
 <div class="workspace-content" id="support-root">
