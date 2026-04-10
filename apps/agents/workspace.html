@@ -462,6 +462,11 @@
   color: #fff;
 }
 
+.rd-tab:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
 .rd-panel {
   padding-top: 0.85rem;
 }
@@ -941,13 +946,13 @@
       <span class="crumb-current" id="crumb-run">Run 09:41</span>
     </div>
     <div id="run-detail-header-mount"></div>
-    <div id="run-detail-tabs" class="rd-tabs">
-      <button type="button" class="rd-tab active" data-tab="log">Run Log</button>
-      <button type="button" class="rd-tab" data-tab="output" id="run-detail-output-tab" style="display: none;">Output</button>
+    <div id="run-detail-tabs" class="rd-tabs" role="tablist" aria-label="run detail tabs">
+      <button type="button" class="rd-tab active" data-tab="log" id="tab-log" role="tab" aria-selected="true" aria-controls="run-detail-log-pane" tabindex="0">Run Log</button>
+      <button type="button" class="rd-tab" data-tab="output" id="tab-output" role="tab" aria-selected="false" aria-controls="run-detail-output-pane" tabindex="-1" style="display: none;">Output</button>
     </div>
     <div id="run-detail-panel" class="rd-panel">
-      <div id="run-detail-log-pane" class="rd-tab-pane active"></div>
-      <div id="run-detail-output-pane" class="rd-tab-pane"></div>
+      <div id="run-detail-log-pane" class="rd-tab-pane active" role="tabpanel" aria-labelledby="tab-log"></div>
+      <div id="run-detail-output-pane" class="rd-tab-pane" role="tabpanel" aria-labelledby="tab-output"></div>
     </div>
   </div>
 </div>
@@ -1603,7 +1608,7 @@
     document.getElementById('run-detail-log-pane').innerHTML =
       '<div class="run-loading"><div class="spinner"></div><div>Loading run log...</div></div>';
     document.getElementById('run-detail-output-pane').innerHTML = '';
-    document.getElementById('run-detail-output-tab').style.display = 'none';
+    document.getElementById('tab-output').style.display = 'none';
     activateRunDetailTab('log');
 
     try {
@@ -1638,7 +1643,7 @@
     msg.textContent = message;
     logPane.appendChild(msg);
     document.getElementById('run-detail-output-pane').innerHTML = '';
-    document.getElementById('run-detail-output-tab').style.display = 'none';
+    document.getElementById('tab-output').style.display = 'none';
     activateRunDetailTab('log');
   }
 
@@ -1672,7 +1677,7 @@
       logPane.appendChild(empty);
     }
 
-    const outputTab = document.getElementById('run-detail-output-tab');
+    const outputTab = document.getElementById('tab-output');
     outputTab.style.display = data.output_file ? 'inline-flex' : 'none';
     document.getElementById('run-detail-output-pane').innerHTML = '';
     activateRunDetailTab('log');
@@ -1767,6 +1772,8 @@
     const tabs = document.querySelectorAll('#run-detail-tabs .rd-tab');
     for (const tab of tabs) {
       tab.classList.toggle('active', tab.dataset.tab === tabId);
+      tab.setAttribute('aria-selected', tab.dataset.tab === tabId ? 'true' : 'false');
+      tab.setAttribute('tabindex', tab.dataset.tab === tabId ? '0' : '-1');
     }
 
     document.getElementById('run-detail-log-pane').classList.toggle('active', tabId === 'log');
@@ -2144,6 +2151,24 @@
     const tab = e.target.closest('.rd-tab');
     if (!tab) return;
     activateRunDetailTab(tab.dataset.tab);
+  });
+
+  document.getElementById('run-detail-tabs').addEventListener('keydown', function(e) {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    const visibleTabs = Array.from(this.querySelectorAll('.rd-tab')).filter(t => t.offsetParent !== null);
+    if (visibleTabs.length === 0) return;
+    const currentIndex = visibleTabs.indexOf(document.activeElement);
+    if (currentIndex === -1) return;
+    let newIndex;
+    switch (e.key) {
+      case 'ArrowRight': newIndex = (currentIndex + 1) % visibleTabs.length; break;
+      case 'ArrowLeft': newIndex = (currentIndex - 1 + visibleTabs.length) % visibleTabs.length; break;
+      case 'Home': newIndex = 0; break;
+      case 'End': newIndex = visibleTabs.length - 1; break;
+    }
+    visibleTabs[newIndex].focus();
+    activateRunDetailTab(visibleTabs[newIndex].dataset.tab);
   });
 
   window.showPreview = async function() {
