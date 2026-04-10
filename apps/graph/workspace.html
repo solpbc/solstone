@@ -26,7 +26,7 @@
 
   <!-- Graph container -->
   <div id="graph-container" style="flex:1;position:relative;min-height:0;">
-    <div class="graph-loading" id="graph-loading">Loading knowledge graph...</div>
+    <div class="graph-loading" id="graph-loading"><div class="graph-spinner"></div>Loading knowledge graph...</div>
     <div class="graph-empty" id="graph-empty" style="display:none;">
       <div class="graph-empty-icon">🕸️</div>
       <h2>Your knowledge graph builds itself from daily use</h2>
@@ -39,6 +39,8 @@
       <p>This usually means the server didn't respond. <a href="#" id="graph-retry">Try again</a></p>
     </div>
     <div id="graph-canvas" tabindex="0" role="img" aria-label="Knowledge graph" style="width:100%;height:100%;display:none;"></div>
+    <div id="graph-stabilize"><div id="graph-stabilize-bar"></div></div>
+    <div id="graph-reload-overlay"><div class="graph-spinner"></div></div>
     <div id="graph-sr-summary" class="sr-only" aria-live="polite"></div>
     <div id="graph-list" style="display:none;overflow:auto;height:100%;">
       <table class="graph-table">
@@ -387,6 +389,20 @@
 .graph-table tbody tr:hover {
   background: var(--bg-secondary, #f5f5f5);
 }
+
+/* Spinner */
+.graph-spinner { width:24px; height:24px; border:3px solid #e5e7eb; border-top-color:#2563eb; border-radius:50%; animation:graph-spin 0.8s linear infinite; margin:0 auto 0.5em; }
+.graph-spinner-sm { width:18px; height:18px; border-width:2px; }
+@keyframes graph-spin { to { transform:rotate(360deg) } }
+
+/* Stabilization progress bar */
+#graph-stabilize { position:absolute; bottom:0; left:0; right:0; height:3px; background:#e5e7eb; z-index:10; display:none; }
+#graph-stabilize-bar { height:100%; width:0; background:#2563eb; transition:width 0.1s; }
+
+/* Reload overlay */
+.graph-reloading #graph-canvas { opacity:0.4; transition:opacity 0.15s; }
+#graph-reload-overlay { display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:10; }
+.graph-reloading #graph-reload-overlay { display:block; }
 </style>
 
 <script src="{{ vendor_lib('vis-network') }}"></script>
@@ -471,6 +487,15 @@
   function buildVisData(data) {
     const maxScore = Math.max(...data.nodes.map(n => n.score), 1);
     const scaleFactor = 30 / maxScore;
+    // Connection count map for label sizing
+    const connCount = new Map();
+    (data.edges || []).forEach(e => {
+      connCount.set(e.from, (connCount.get(e.from) || 0) + 1);
+      connCount.set(e.to, (connCount.get(e.to) || 0) + 1);
+    });
+    // Top 15 most-connected node IDs
+    const sortedByConn = data.nodes.slice().sort((a, b) => (connCount.get(b.id) || 0) - (connCount.get(a.id) || 0));
+    const topConnected = new Set(sortedByConn.slice(0, 15).map(n => n.id));
 
     const nodes = data.nodes.map(n => {
       const size = n.is_principal
@@ -488,7 +513,7 @@
           hover: { background: color, border: n.is_principal ? '#f59e0b' : '#374151' },
         },
         borderWidth: n.is_principal ? 3 : 1.5,
-        font: { size: Math.max(14, Math.min(22, 10 + size * 0.3)), color: '#374151' },
+        font: { size: topConnected.has(n.id) ? Math.max(16, Math.min(24, 12 + size * 0.35)) : 11, color: '#374151' },
         title: n.name + ' (' + n.type + ') — score: ' + n.score.toFixed(1),
         _data: n,
       };
@@ -575,7 +600,7 @@
       },
       nodes: {
         shape: 'dot',
-        scaling: { min: 10, max: 40 },
+        scaling: { min: 10, max: 40, label: { enabled: true, min: 10, max: 24 } },
         borderWidth: 1.5,
         shadow: { enabled: true, size: 4, x: 1, y: 1, color: 'rgba(0,0,0,0.1)' },
       },
@@ -606,9 +631,18 @@
         }
 
         network = new vis.Network(container, visData, options);
+        // Show stabilization progress
+        var stabilizeEl = document.getElementById('graph-stabilize');
+        stabilizeEl.style.display = 'block';
+        network.on('stabilizationProgress', function(params) {
+          var pct = (params.iterations / params.total * 100);
+          document.getElementById('graph-stabilize-bar').style.width = pct + '%';
+        });
 
         // Fit graph to container after stabilization
         network.on('stabilizationIterationsDone', function() {
+          document.getElementById('graph-stabilize').style.display = 'none';
+          document.getElementById('graph-stabilize-bar').style.width = '0';
           network.fit({ animation: { duration: 300 } });
 
           // Post-stabilization recovery guard
@@ -713,7 +747,7 @@
     const bodyEl = document.getElementById('detail-body');
 
     nameEl.textContent = nodeData.name;
-    bodyEl.innerHTML = '<div style="text-align:center;padding:2em;color:#999;">Loading...</div>';
+    bodyEl.innerHTML = '<div style="text-align:center;padding:2em;color:#999;"><div class="graph-spinner graph-spinner-sm" style="margin:0 auto 0.5em;"></div>Loading...</div>';
     panel.classList.add('open');
     detailOpen = true;
     nameEl.focus();
@@ -934,11 +968,16 @@
   let loadCount = 0;
   async function reload() {
     const thisLoad = ++loadCount;
+    // Show reload overlay if graph already rendered
+    var gc = document.getElementById('graph-container');
+    if (network) gc.classList.add('graph-reloading');
     try {
       const data = await fetchGraph();
-      if (thisLoad !== loadCount) return; // stale
+      if (thisLoad !== loadCount) { gc.classList.remove('graph-reloading'); return; } // stale
       renderGraph(data);
+      gc.classList.remove('graph-reloading');
     } catch (err) {
+      gc.classList.remove('graph-reloading');
       console.error('Graph load failed:', err);
       if (thisLoad === loadCount) {
         document.getElementById('graph-loading').style.display = 'none';
