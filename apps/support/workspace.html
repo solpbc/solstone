@@ -539,7 +539,10 @@
         '<div class="support-empty-icon">⚠️</div>' +
         '<div class="support-empty-heading">unable to load tickets</div>' +
         '<div class="support-empty-hint">check your connection and try refreshing</div>' +
+        '<button class="support-empty-action" id="retry-tickets-btn">try again</button>' +
       '</div>';
+      const retryBtn = document.getElementById('retry-tickets-btn');
+      if (retryBtn) retryBtn.addEventListener('click', () => loadTickets());
     }
   }
 
@@ -741,7 +744,7 @@
             document.getElementById('reply-text').value = '';
             setTimeout(() => openTicket(id), 500);
           } catch (e) {
-            status.textContent = e.message || 'Failed to send.';
+            status.textContent = "couldn't send your reply — check your connection and try again";
             status.className = 'support-status-msg error';
           }
           replyBtn.disabled = false;
@@ -781,7 +784,18 @@
         });
       }
     } catch (e) {
-      detail.innerHTML = '<p>Failed to load ticket.</p>';
+      detail.innerHTML = '<div class="support-empty">' +
+        '<div class="support-empty-icon">⚠️</div>' +
+        '<div class="support-empty-heading">couldn\'t load this ticket</div>' +
+        '<div class="support-empty-hint">try going back and selecting it again</div>' +
+        '<button class="support-empty-action" id="error-back-btn">back to tickets</button>' +
+      '</div>';
+      const errorBackBtn = document.getElementById('error-back-btn');
+      if (errorBackBtn) errorBackBtn.addEventListener('click', () => {
+        detail.classList.remove('active');
+        detail.innerHTML = '';
+        list.style.display = '';
+      });
     }
   }
 
@@ -816,7 +830,7 @@
         throw new Error('Failed');
       }
     } catch (e) {
-      status.textContent = 'Failed to submit feedback.';
+      status.textContent = "couldn't send your feedback — try again in a moment";
       status.className = 'support-status-msg error';
     }
     document.getElementById('feedback-submit').disabled = false;
@@ -833,18 +847,25 @@
 
   // Load announcements
   async function loadAnnouncements() {
+    const banner = document.getElementById('support-announcements-banner');
     try {
       const resp = await fetch('/app/support/api/announcements');
       if (!resp.ok) return;
       const items = await resp.json();
       if (!items.length) return;
-      const banner = document.getElementById('support-announcements-banner');
       banner.style.display = '';
       const icons = {'known-issue': '⚠️', 'maintenance': '🔧', 'info': '📢'};
       banner.innerHTML = items.map(a =>
         `<div><h4>${icons[a.type] || '📢'} ${esc(a.title || '')}</h4><p style="margin:0;font-size:0.85rem;">${esc((a.content || '').slice(0, 200))}</p></div>`
       ).join('');
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      console.warn('Failed to load announcements:', e);
+      banner.style.display = '';
+      banner.style.background = 'none';
+      banner.style.border = 'none';
+      banner.style.padding = '0.5rem 0';
+      banner.innerHTML = '<p style="margin:0;font-size:0.8rem;color:var(--muted,#595959);">couldn\'t load announcements</p>';
+    }
   }
 
   // Helpers

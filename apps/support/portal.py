@@ -367,7 +367,7 @@ class PortalClient:
         self._save_tos(tos_text)
         return tos_text
 
-    def register(self) -> dict[str, Any]:
+    def register(self, _retry_count: int = 0) -> dict[str, Any]:
         """Run the full welcome-mat registration flow.
 
         1. Ensure keypair exists
@@ -399,15 +399,20 @@ class PortalClient:
             )
 
         if resp.status_code == 409:
-            # Handle already taken — append random suffix
+            if _retry_count >= 3:
+                raise RuntimeError(
+                    "could not register — all handle variants were taken after 3 attempts"
+                )
+            import re
             import random
             import string
 
+            base = re.sub(r"-[a-z0-9]{4}$", "", self._handle)
             suffix = "".join(
                 random.choices(string.ascii_lowercase + string.digits, k=4)
             )
-            self._handle = f"{self.handle}-{suffix}"
-            return self.register()
+            self._handle = f"{base}-{suffix}"
+            return self.register(_retry_count=_retry_count + 1)
 
         self._raise_for_status(resp)
         data = resp.json()
