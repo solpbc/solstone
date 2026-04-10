@@ -125,16 +125,73 @@
 }
 
 .status-indicator {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
+  display: inline-block;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Active: filled circle (default) */
+.status-indicator.active {
+  background: #4ade80;
+}
+
+/* Crashed: filled diamond (rotated square) */
+.status-indicator.crashed {
+  background: #f87171;
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+
+/* Restarting: pulsing ring */
+.status-indicator.restarting {
+  background: transparent;
+  border: 2px solid #fbbf24;
+  animation: status-pulse 1.2s ease-in-out infinite;
+}
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Inactive: hollow circle */
+.status-indicator.inactive {
+  background: transparent;
+  border: 2px solid #9ca3af;
+}
+
+/* Stale: dashed circle */
+.status-indicator.stale {
+  background: transparent;
+  border: 2px dashed #f59e0b;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+.skeleton {
+  background: rgba(255,255,255,0.15);
+  border-radius: 4px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  display: inline-block;
+}
+.skeleton-dark {
+  background: #e5e7eb;
+  border-radius: 4px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
   display: inline-block;
 }
 
-.status-indicator.active { background: #4ade80; }
-.status-indicator.crashed { background: #f87171; }
-.status-indicator.restarting { background: #fbbf24; }
-.status-indicator.inactive { background: #9ca3af; }
+.severity-label {
+  font-size: 0.75em;
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 0.5em;
+}
 
 /* Shared card base */
 .dashboard-card {
@@ -655,10 +712,16 @@
 
 .trust-indicator {
   font-size: 0.75em;
-  opacity: 0.6;
+  opacity: 1.0;
   color: white;
-  padding: 0.5em 1.2em;
+  padding: 0.4em 0.8em;
   text-align: right;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  float: right;
 }
 
 #cortexGrid .activity-card-id,
@@ -742,6 +805,14 @@
     padding: 0.8em 1.2em;
   }
 }
+
+@media (max-width: 375px) {
+  .trust-indicator {
+    float: none;
+    text-align: center;
+    font-size: 0.7em;
+  }
+}
 </style>
 
 <div class="health-dashboard">
@@ -752,8 +823,7 @@
         System vitals
       </div>
       <div class="vitals-status" id="vitalsStatus" role="status" aria-live="polite">
-        <span class="status-indicator active"></span>
-        <span>All Systems Go</span>
+        <span class="skeleton" style="width: 120px; height: 1em;">&nbsp;</span>
       </div>
       <span class="connection-indicator" id="connectionIndicator"></span>
     </div>
@@ -762,10 +832,7 @@
         <div class="vitals-label">services</div>
         <div class="vitals-value">
           <div class="service-dots" id="serviceDots">
-            <div class="service-dot">
-              <span class="status-indicator inactive"></span>
-              <span>Waiting...</span>
-            </div>
+            <span class="skeleton" style="width: 80px; height: 0.9em;">&nbsp;</span>
           </div>
         </div>
       </div>
@@ -784,7 +851,7 @@
       <div class="vitals-section">
         <div class="vitals-label">health</div>
         <div class="vitals-value" id="healthValue">
-          <span>Waiting for status...</span>
+          <span class="skeleton" style="width: 100px; height: 0.9em;">&nbsp;</span>
         </div>
       </div>
       <div class="vitals-section" id="queuesSection">
@@ -796,11 +863,11 @@
         <div class="vitals-value" id="schedulesValue"></div>
       </div>
     </div>
-    <div class="trust-indicator" id="trustIndicator">All data stored locally on this machine</div>
+    <div class="trust-indicator" id="trustIndicator">🔒 All data stored locally on this machine</div>
   </div>
 
   <div class="status-summary">
-    <span id="statusSummaryText">Waiting for status...</span>
+    <span id="statusSummaryText"><span class="skeleton-dark" style="width: 160px; height: 1em;">&nbsp;</span></span>
   </div>
 
   <!-- Observe Card -->
@@ -937,11 +1004,17 @@
   fetch('/app/health/api/info')
     .then(r => r.json())
     .then(info => { state.localHost = info.hostname; updateObserve(); })
-    .catch(() => {});
+    .catch(() => {
+      if (!state.connected) {
+        elements.statusSummaryText.innerHTML = '<span style="color: #dc2626;">Couldn\'t connect to solstone — is it running?</span>';
+        elements.vitalsStatus.innerHTML = '<span class="status-indicator crashed"></span> <span>Connection error</span>';
+      }
+    });
 
   // State management
   const state = {
     services: new Map(),        // Running services
+    connected: false,
     crashed: new Map(),         // Crashed services (separate from running)
     tasks: [],
     health: null,
@@ -1123,7 +1196,11 @@
     }
 
     if (parts.length === 0) {
-      elements.statusSummaryText.textContent = servicesKnown ? 'Healthy — all quiet' : 'Waiting for status...';
+      if (servicesKnown) {
+        elements.statusSummaryText.textContent = 'Healthy — all quiet';
+      } else if (state.connected) {
+        elements.statusSummaryText.textContent = 'Waiting for data...';
+      }
       return;
     }
 
@@ -1280,17 +1357,20 @@
       vitalsStatus.innerHTML = `
         <span class="status-indicator active" aria-label="System status: healthy"></span>
         <span>All Systems Go</span>
+        <span class="severity-label">healthy</span>
       `;
     } else if (status === 'warning') {
       vitalsStatus.innerHTML = `
         <span class="status-indicator restarting" aria-label="System status: warning"></span>
         <span>Some services slow to respond</span>
+        <span class="severity-label">warning</span>
       `;
       bar.classList.add('warning');
     } else if (status === 'error') {
       vitalsStatus.innerHTML = `
         <span class="status-indicator crashed" aria-label="System status: error"></span>
         <span>Services need attention</span>
+        <span class="severity-label">error</span>
       `;
       bar.classList.add('error');
     }
@@ -1501,6 +1581,13 @@
       const nameEl = document.createElement('div');
       nameEl.className = 'observer-host-name';
       nameEl.textContent = host;
+      const statusIcon = document.createElement('span');
+      statusIcon.className = 'status-indicator ' + (anyActive ? 'active' : 'stale');
+      statusIcon.setAttribute('aria-label', anyActive ? 'active' : 'stale');
+      nameEl.prepend(statusIcon);
+      nameEl.style.display = 'flex';
+      nameEl.style.alignItems = 'center';
+      nameEl.style.gap = '0.4em';
       card.appendChild(nameEl);
 
       const platform = streams[0]?.data?.platform || '';
@@ -1700,7 +1787,7 @@
     if (!s || (s.queue_size === 0 && !s.segment)) {
       elements.syncCard.classList.add('hidden');
       if (elements.trustIndicator) {
-        elements.trustIndicator.textContent = 'All data stored locally on this machine';
+        elements.trustIndicator.textContent = '🔒 All data stored locally on this machine';
       }
       updateAllQuiet();
       updateStatusSummary();
@@ -1718,9 +1805,9 @@
     ]);
     if (elements.trustIndicator) {
       if (s && s.host) {
-        elements.trustIndicator.textContent = 'All data stored locally · Syncing to ' + s.host;
+        elements.trustIndicator.textContent = '🔒 All data stored locally · Syncing to ' + s.host;
       } else {
-        elements.trustIndicator.textContent = 'All data stored locally on this machine';
+        elements.trustIndicator.textContent = '🔒 All data stored locally on this machine';
       }
     }
 
@@ -1839,6 +1926,10 @@
   // Event handlers by tract
   function handleSupervisorEvent(msg) {
     if (msg.event === 'status') {
+      if (!state.connected) {
+        state.connected = true;
+      }
+
       // Update running services
       if (msg.services) {
         state.services.clear();
