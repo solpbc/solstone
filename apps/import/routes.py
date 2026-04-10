@@ -104,7 +104,7 @@ SOURCE_METADATA = [
     {
         "name": "granola",
         "display_name": "Granola",
-        "emoji": "🎙️",
+        "emoji": "🌾",
         "icon": "mic",
         "description": "Import meeting transcripts from Granola via muesli",
         "input_type": "path_input",

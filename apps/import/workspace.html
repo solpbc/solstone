@@ -836,6 +836,15 @@ function renderImportRow(imp) {
   return html;
 }
 
+function scrollToGrid() {
+  const grid = document.getElementById('importGrid');
+  if (grid) {
+    grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const firstCard = grid.querySelector('.import-source-card');
+    if (firstCard) firstCard.focus();
+  }
+}
+
 async function loadImports() {
   currentPage = 1;
   await loadSourceGrid();
@@ -848,7 +857,14 @@ async function loadImports() {
     const container = document.getElementById('importListContent');
 
     if (imports.length === 0) {
-      container.innerHTML = '<div class="no-imports">No imports found</div>';
+      container.innerHTML = `
+        <div class="no-imports">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">📥</div>
+          <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 0.25rem;">No imports yet</div>
+          <div>Import your data from any supported source above.</div>
+          <div style="margin-top: 0.75rem;"><a href="#" onclick="scrollToGrid(); return false;" style="color: #0f4c81; font-weight: 600;">Choose a source →</a></div>
+        </div>
+      `;
       return;
     }
 
@@ -892,7 +908,14 @@ async function loadImports() {
 
     filterImportsByFacet(window.selectedFacet);
   } catch (err) {
-    document.getElementById('importListContent').innerHTML = '<div class="no-imports">Error loading imports</div>';
+    document.getElementById('importListContent').innerHTML = `
+      <div class="no-imports">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚠️</div>
+        <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 0.25rem;">Couldn't load your import history</div>
+        <div>This might be temporary.</div>
+        <div style="margin-top: 0.75rem;"><button class="import-primary-btn" onclick="loadImports()">Retry</button></div>
+      </div>
+    `;
   }
 }
 
@@ -957,7 +980,7 @@ function filterImportsByFacet(facetName) {
       noMatchEl.className = 'no-imports no-imports-filtered';
       container.appendChild(noMatchEl);
     }
-    noMatchEl.textContent = `No imports for ${facetTitle}`;
+    noMatchEl.innerHTML = '<div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div><div>No imports match this filter.</div>';
     noMatchEl.style.display = '';
   } else {
     const noMatchEl = container.querySelector('.no-imports-filtered');
