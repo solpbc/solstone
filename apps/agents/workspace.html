@@ -931,6 +931,7 @@
 </style>
 
 <div class="agents-content">
+  <h2 class="sr-only">Agent Runs</h2>
   <!-- Loading state -->
   <div id="loading-view" class="loading" role="status" aria-live="polite">
     <div class="spinner" aria-hidden="true"></div>
@@ -1009,7 +1010,7 @@
 <script src="{{ vendor_lib('marked') }}"></script>
 
 <!-- Preview Modal -->
-<div id="preview-modal" class="modal-backdrop">
+<div id="preview-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="preview-modal-title">
   <div class="modal-content">
     <div class="modal-header">
       <h3 class="modal-title" id="preview-modal-title">Agent Prompt</h3>
@@ -1033,6 +1034,8 @@
   let allRuns = [];
   let agentsMeta = {};
   let facetsMeta = {};
+  let previousPreviewFocus = null;
+  let previewFocusTrapHandler = null;
 
   // Get current day from URL path
   function getDayFromUrl() {
@@ -2245,12 +2248,37 @@
   window.showPreview = async function() {
     if (!currentName) return;
 
+    previousPreviewFocus = document.activeElement;
+
     const modal = document.getElementById('preview-modal');
     const content = document.getElementById('preview-modal-content');
     const title = document.getElementById('preview-modal-title');
 
     content.textContent = 'Loading...';
     modal.classList.add('show');
+
+    // Focus the close button
+    const closeBtn = modal.querySelector('.modal-close');
+    if (closeBtn) closeBtn.focus();
+
+    // Install focus trap (mirrors conversation panel pattern from app.html:230-246)
+    previewFocusTrapHandler = function(e) {
+      if (e.key !== 'Tab') return;
+      var focusable = Array.from(
+        modal.querySelectorAll('button, [href], input, select, textarea, [tabindex="0"]')
+      ).filter(function(el) { return el.offsetParent !== null && el.tabIndex >= 0 && !el.disabled; });
+      if (focusable.length === 0) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', previewFocusTrapHandler);
 
     try {
       const response = await fetch(`api/preview/${encodeURIComponent(currentName)}`);
@@ -2269,6 +2297,20 @@
 
   window.hidePreview = function() {
     document.getElementById('preview-modal').classList.remove('show');
+
+    // Remove focus trap
+    if (previewFocusTrapHandler) {
+      document.removeEventListener('keydown', previewFocusTrapHandler);
+      previewFocusTrapHandler = null;
+    }
+
+    // Restore focus (mirrors conversation panel pattern from app.html:273-278)
+    if (previousPreviewFocus && previousPreviewFocus.isConnected) {
+      previousPreviewFocus.focus();
+    } else {
+      document.getElementById('preview-btn')?.focus();
+    }
+    previousPreviewFocus = null;
   };
 
   // Close modal on backdrop click
@@ -2280,7 +2322,7 @@
 
   // Close modal on Escape
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' && document.getElementById('preview-modal').classList.contains('show')) {
       hidePreview();
     }
   });
