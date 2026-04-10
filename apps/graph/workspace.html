@@ -474,6 +474,14 @@
     unknown: '#a1a1aa',
   };
 
+  const TYPE_SEEDS = {
+    person: { x: -300, y: -200 },
+    company: { x: 300, y: -200 },
+    project: { x: -300, y: 200 },
+    tool: { x: 300, y: 200 },
+    unknown: { x: 0, y: 0 },
+  };
+
   const EDGE_REL_COLORS = {
     'works-on': '#8b5cf6',
     'works-at': '#06b6d4',
@@ -547,6 +555,13 @@
         font: { color: '#374151' },
         title: n.name + ' (' + n.type + ') — score: ' + n.score.toFixed(1),
         _data: n,
+        ...(window.selectedFacet ? {} : (() => {
+          const seed = TYPE_SEEDS[n.type] || TYPE_SEEDS.unknown;
+          return {
+            x: seed.x + (Math.random() - 0.5) * 150,
+            y: seed.y + (Math.random() - 0.5) * 150,
+          };
+        })()),
       };
     });
 
