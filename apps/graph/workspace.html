@@ -15,11 +15,11 @@
         <button class="graph-time-btn" data-days="">All</button>
       </div>
       <div class="graph-strength-filter">
-        <label for="min-strength">Min strength</label>
+        <label for="min-strength" title="Filter out weaker connections — higher means only stronger relationships">Min strength</label>
         <input type="range" id="min-strength" min="0" max="500" value="0" step="5">
         <span id="min-strength-val">0</span>
       </div>
-      <div class="graph-stats" id="graph-stats"></div>
+      <div class="graph-stats" id="graph-stats" aria-live="polite"></div>
       <button id="graph-view-toggle" class="graph-view-toggle" title="Switch between graph and list view">View as list</button>
     </div>
   </div>
@@ -531,27 +531,12 @@
 
   // --- Graph rendering ---
   function buildVisData(data) {
-    const maxScore = Math.max(...data.nodes.map(n => n.score), 1);
-    const scaleFactor = 30 / maxScore;
-    // Connection count map for label sizing
-    const connCount = new Map();
-    (data.edges || []).forEach(e => {
-      connCount.set(e.from, (connCount.get(e.from) || 0) + 1);
-      connCount.set(e.to, (connCount.get(e.to) || 0) + 1);
-    });
-    // Top 15 most-connected node IDs
-    const sortedByConn = data.nodes.slice().sort((a, b) => (connCount.get(b.id) || 0) - (connCount.get(a.id) || 0));
-    const topConnected = new Set(sortedByConn.slice(0, 15).map(n => n.id));
-
     const nodes = data.nodes.map(n => {
-      const size = n.is_principal
-        ? Math.max(30, 10 + n.score * scaleFactor)
-        : Math.max(10, Math.min(40, 10 + n.score * scaleFactor));
       const color = TYPE_COLORS[n.type] || TYPE_COLORS.unknown;
       return {
         id: n.id,
         label: n.name,
-        size: size,
+        value: n.is_principal ? n.score * 1.5 : n.score,
         color: {
           background: color,
           border: n.is_principal ? '#f59e0b' : color,
@@ -559,7 +544,7 @@
           hover: { background: color, border: n.is_principal ? '#f59e0b' : '#374151' },
         },
         borderWidth: n.is_principal ? 3 : 1.5,
-        font: { size: topConnected.has(n.id) ? Math.max(16, Math.min(24, 12 + size * 0.35)) : 11, color: '#374151' },
+        font: { color: '#374151' },
         title: n.name + ' (' + n.type + ') — score: ' + n.score.toFixed(1),
         _data: n,
       };
@@ -572,8 +557,8 @@
           id: 'e' + i,
           from: e.from,
           to: e.to,
-          width: 1 + Math.min(4, e.frequency * 0.5),
-          color: { color: relColor, opacity: 0.7, highlight: relColor, hover: relColor },
+          value: e.frequency,
+          color: { color: relColor, opacity: Math.min(0.9, 0.5 + e.frequency * 0.05), highlight: relColor, hover: relColor },
           arrows: { to: { enabled: true, scaleFactor: 0.5 } },
           smooth: { type: 'curvedCW', roundness: 0.15 },
           title: (e.relationship_type || 'related') + ' (' + e.frequency + ')',
@@ -583,8 +568,8 @@
           id: 'e' + i,
           from: e.from,
           to: e.to,
-          width: 1 + Math.min(3, e.frequency * 0.3),
-          color: { color: '#d1d5db', opacity: 0.5, highlight: '#9ca3af', hover: '#9ca3af' },
+          value: e.frequency,
+          color: { color: '#d1d5db', opacity: Math.min(0.8, 0.4 + e.frequency * 0.04), highlight: '#9ca3af', hover: '#9ca3af' },
           dashes: [4, 4],
           smooth: { type: 'curvedCW', roundness: 0.1 },
           title: 'co-occurrence (' + e.frequency + ')',
@@ -646,11 +631,12 @@
       },
       nodes: {
         shape: 'dot',
-        scaling: { min: 10, max: 40, label: { enabled: true, min: 10, max: 24 } },
+        scaling: { min: 12, max: 45, label: { enabled: true, min: 14, max: 24 } },
         borderWidth: 1.5,
         shadow: { enabled: true, size: 4, x: 1, y: 1, color: 'rgba(0,0,0,0.1)' },
       },
       edges: {
+        scaling: { min: 1, max: 5 },
         smooth: { enabled: true, type: 'curvedCW', roundness: 0.15 },
       },
       interaction: {
@@ -738,7 +724,7 @@
 
   function updateStats(data) {
     const el = document.getElementById('graph-stats');
-    el.textContent = data.nodes.length + ' nodes, ' + data.edges.length + ' edges';
+    el.textContent = data.nodes.length + ' entities, ' + data.edges.length + ' connections';
   }
 
   function updateSrSummary(data) {
