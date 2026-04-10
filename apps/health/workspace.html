@@ -420,6 +420,29 @@
   gap: 0.5em;
 }
 
+.idle-card {
+  text-align: center;
+  padding: 1.5em;
+}
+
+.idle-card-title {
+  color: #6b7280;
+  font-weight: 600;
+  margin-bottom: 0.75em;
+}
+
+.idle-card-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.idle-stat {
+  color: #6b7280;
+  font-size: 0.9em;
+}
+
 .activity-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -539,6 +562,13 @@
 .logs-title {
   font-size: 1.1em;
   font-weight: 600;
+}
+
+.logs-summary-badge {
+  color: #6b7280;
+  font-size: 0.85em;
+  font-weight: 400;
+  margin-left: 0.5em;
 }
 
 .logs-error-badge {
@@ -969,8 +999,11 @@
     <div id="errorSummaryContent"></div>
   </div>
 
-  <div class="dashboard-card activity-section hidden" id="allQuietCard" style="text-align: center; color: #6b7280; padding: 2em;">
-    Everything is idle — nothing running right now
+  <div class="dashboard-card activity-section hidden" id="allQuietCard">
+    <div class="idle-card">
+      <div class="idle-card-title">Everything is idle</div>
+      <div class="idle-card-stats" id="idleCardStats"></div>
+    </div>
   </div>
 
   <!-- Dream Card (hidden when idle) -->
@@ -995,6 +1028,7 @@
   <div class="dashboard-card logs-card logs-collapsed">
     <div class="logs-header" role="button" tabindex="0" aria-expanded="false" aria-controls="logsViewport">
       <div class="logs-title">Service logs</div>
+      <span class="logs-summary-badge" id="logsSummaryBadge" aria-live="polite"></span>
       <span class="logs-error-badge hidden" id="logErrorBadge"></span>
       <span class="logs-collapse-indicator" id="logsCollapseIndicator">▶ Show</span>
       <div class="logs-controls">
@@ -1046,6 +1080,9 @@
     logFollow: true,            // Auto-scroll log viewport
     logsCollapsed: true,
     logErrorCount: 0,
+    logTotalCount: 0,
+    lastLogTs: null,
+    lastAgentFinishTs: null,
     observers: new Map(),       // keyed by stream name
     recentErrors: [],
     localHost: null,
@@ -1087,6 +1124,7 @@
     errorSummary: document.getElementById('errorSummary'),
     errorSummaryContent: document.getElementById('errorSummaryContent'),
     allQuietCard: document.getElementById('allQuietCard'),
+    idleCardStats: document.getElementById('idleCardStats'),
     dreamCard: document.getElementById('dreamCard'),
     dreamInfo: document.getElementById('dreamInfo'),
     dreamProgress: document.getElementById('dreamProgress'),
@@ -1103,6 +1141,7 @@
     logFollowBtn: document.getElementById('logFollowBtn'),
     logClearBtn: document.getElementById('logClearBtn'),
     logErrorBadge: document.getElementById('logErrorBadge'),
+    logsSummaryBadge: document.getElementById('logsSummaryBadge'),
     logsCollapseIndicator: document.getElementById('logsCollapseIndicator'),
     connectionIndicator: document.getElementById('connectionIndicator'),
     trustIndicator: document.getElementById('trustIndicator'),
@@ -1232,8 +1271,49 @@
       elements.importerSection.classList.contains('hidden') &&
       elements.dreamCard.classList.contains('hidden') &&
       elements.syncCard.classList.contains('hidden');
+    if (allHidden) updateAllQuietContent();
     elements.allQuietCard.classList.toggle('hidden', !allHidden);
   }
+
+  function updateAllQuietContent() {
+    const parts = [];
+
+    if (state.lastAgentFinishTs) {
+      const ago = formatElapsed(Math.floor((Date.now() - state.lastAgentFinishTs) / 1000));
+      parts.push('<div class="idle-stat">Last agent finished ' + escapeHtml(ago) + ' ago</div>');
+    }
+
+    const errCount = state.recentErrors.length;
+    if (errCount > 0) {
+      parts.push('<div class="idle-stat" style="color: #dc2626;">' + errCount + ' recent error' + (errCount !== 1 ? 's' : '') + '</div>');
+    } else {
+      parts.push('<div class="idle-stat">No recent errors</div>');
+    }
+
+    const now = Date.now();
+    const nextSchedule = state.schedules
+      .filter(s => s.next_run && s.next_run > now)
+      .sort((a, b) => a.next_run - b.next_run)[0];
+    if (nextSchedule) {
+      parts.push('<div class="idle-stat">Next: ' + escapeHtml(nextSchedule.name || 'scheduled') + ' ' + formatNextRun(nextSchedule.next_run) + '</div>');
+    }
+
+    elements.idleCardStats.innerHTML = parts.join('');
+  }
+
+  function updateLogsBadge() {
+    if (state.deepLinkMode) return;
+    let text = state.logTotalCount + ' line' + (state.logTotalCount !== 1 ? 's' : '');
+    if (state.lastLogTs) {
+      const d = new Date(state.lastLogTs);
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      text += ' · ' + hh + ':' + mm + ':' + ss;
+    }
+    elements.logsSummaryBadge.textContent = text;
+  }
+  updateLogsBadge();
 
   function updateErrorSummary() {
     if (state.recentErrors.length === 0) {
@@ -1845,6 +1925,8 @@
 
     const name = msg.name || 'unknown';
     const record = { ts: msg.ts || Date.now(), stream: msg.stream || 'stdout', line: msg.line || '' };
+    state.logTotalCount++;
+    state.lastLogTs = record.ts;
 
     // Check if this is a new service before adding to buffer
     const isNew = !state.serviceLogs.has(name);
@@ -1885,6 +1967,7 @@
     }
 
     renderLogs(name, record);
+    updateLogsBadge();
   }
 
   function renderLogs(newService, newRecord) {
@@ -2048,6 +2131,7 @@
 
     // Remove finished/error agents after delay
     if (msg.event === 'finish' || msg.event === 'error') {
+      state.lastAgentFinishTs = msg.ts || Date.now();
       if (msg.event === 'error') {
         state.recentErrors.push({
           type: 'agent',
@@ -2185,7 +2269,14 @@
   });
   elements.logClearBtn.addEventListener('click', () => {
     state.serviceLogs.clear();
+    state.logTotalCount = 0;
+    state.logErrorCount = 0;
+    state.lastLogTs = null;
+    state.lastLogFilter = null;
+    elements.logErrorBadge.textContent = '';
+    elements.logErrorBadge.classList.add('hidden');
     elements.logServiceFilter.innerHTML = '<option value="all">All Services</option>';
+    updateLogsBadge();
     renderLogs();
   });
 
@@ -2205,6 +2296,7 @@
     const dashboard = document.querySelector('.health-dashboard');
     dashboard.querySelectorAll('.vitals-bar, .observe-card, .observers-card, .activity-grids, .dream-card, .sync-card').forEach(el => el.style.display = 'none');
     state.deepLinkMode = true;
+    elements.logsSummaryBadge.style.display = 'none';
 
     // Replace header with log file context
     logsTitle.textContent = 'LOG FILE';
