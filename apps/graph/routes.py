@@ -48,8 +48,10 @@ def api_graph():
     min_strength = request.args.get("min_strength", type=float, default=0.0)
     limit = request.args.get("limit", type=int, default=100)
 
-    # Default to 90 days if no since provided
-    if not since:
+    # "all" means no date filter; default to 90 days if not specified
+    if since == "all":
+        since = None
+    elif not since:
         since = (date.today() - timedelta(days=90)).strftime("%Y%m%d")
 
     # Get ranked entities

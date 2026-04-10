@@ -3,9 +3,9 @@
   <div class="graph-controls" id="graph-controls" style="display:none;">
     <div class="graph-controls-row">
       <div class="graph-type-filters">
-        <button class="graph-type-btn active" data-type="person" style="--btn-color:#3b82f6">Person</button>
-        <button class="graph-type-btn active" data-type="company" style="--btn-color:#22c55e">Company</button>
-        <button class="graph-type-btn active" data-type="project" style="--btn-color:#f59e0b">Project</button>
+        <button class="graph-type-btn active" data-type="person" style="--btn-color:#2563eb">Person</button>
+        <button class="graph-type-btn active" data-type="company" style="--btn-color:#16a34a">Company</button>
+        <button class="graph-type-btn active" data-type="project" style="--btn-color:#b45309">Project</button>
         <button class="graph-type-btn active" data-type="tool" style="--btn-color:#6b7280">Tool</button>
       </div>
       <div class="graph-time-filters">
@@ -78,9 +78,9 @@
   color: #374151;
 }
 .graph-type-btn.active {
-  background: var(--btn-color, #3b82f6);
+  background: var(--btn-color, #2563eb);
   color: white;
-  border-color: var(--btn-color, #3b82f6);
+  border-color: var(--btn-color, #2563eb);
 }
 .graph-time-btn.active {
   background: #374151;
@@ -216,7 +216,7 @@
   margin-bottom: 1rem;
 }
 .detail-section-title {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #6b7280;
   margin: 0 0 0.4rem 0;
@@ -319,9 +319,9 @@
 
   // --- Color maps ---
   const TYPE_COLORS = {
-    person: '#3b82f6',
-    company: '#22c55e',
-    project: '#f59e0b',
+    person: '#2563eb',
+    company: '#16a34a',
+    project: '#b45309',
     tool: '#6b7280',
     unknown: '#a1a1aa',
   };
@@ -339,7 +339,7 @@
 
   // --- Helpers ---
   function sinceFromDays(days) {
-    if (!days) return '';
+    if (!days) return 'all';
     const d = new Date();
     d.setDate(d.getDate() - days);
     return d.toISOString().slice(0,10).replace(/-/g,'');
@@ -361,8 +361,7 @@
     const params = new URLSearchParams();
     const facet = window.selectedFacet;
     if (facet) params.set('facet', facet);
-    const since = sinceFromDays(timeDays);
-    if (since) params.set('since', since);
+    params.set('since', sinceFromDays(timeDays));
     const types = Array.from(activeTypes).join(',');
     if (types) params.set('types', types);
     if (minStrength > 0) params.set('min_strength', minStrength);
