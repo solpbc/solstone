@@ -12,7 +12,7 @@
     padding: 0.5rem 1rem;
     cursor: pointer;
     font-size: 0.9rem;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
     border-bottom: 2px solid transparent;
     transition: all 0.15s;
   }
@@ -41,9 +41,9 @@
     align-items: center;
     margin-bottom: 0.25rem;
   }
-  .support-ticket-id { font-size: 0.8rem; color: var(--muted, #888); }
+  .support-ticket-id { font-size: 0.8rem; color: var(--muted, #595959); }
   .support-ticket-subject { font-weight: 600; }
-  .support-ticket-meta { font-size: 0.8rem; color: var(--muted, #888); margin-top: 0.25rem; }
+  .support-ticket-meta { font-size: 0.8rem; color: var(--muted, #595959); margin-top: 0.25rem; }
   .support-status {
     font-size: 0.75rem;
     padding: 0.15rem 0.5rem;
@@ -63,7 +63,7 @@
     border: none;
     cursor: pointer;
     font-size: 0.9rem;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
     padding: 0;
     margin-bottom: 1rem;
   }
@@ -73,7 +73,7 @@
     padding: 0.75rem 1rem;
     margin-bottom: 0.75rem;
   }
-  .support-message-meta { font-size: 0.8rem; color: var(--muted, #888); margin-bottom: 0.25rem; }
+  .support-message-meta { font-size: 0.8rem; color: var(--muted, #595959); margin-bottom: 0.25rem; }
   .support-reply-form { margin-top: 1rem; }
   .support-reply-form textarea {
     width: 100%;
@@ -122,7 +122,7 @@
     margin-bottom: 0.75rem;
   }
   .support-help-card h3 { margin: 0 0 0.5rem 0; font-size: 1rem; }
-  .support-help-card p { margin: 0; font-size: 0.9rem; color: var(--muted, #888); }
+  .support-help-card p { margin: 0; font-size: 0.9rem; color: var(--muted, #595959); }
 
   /* Buttons */
   .support-btn {
@@ -146,12 +146,12 @@
   .support-empty {
     text-align: center;
     padding: 3rem 1rem;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
   }
   .support-disabled {
     text-align: center;
     padding: 3rem 1rem;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
   }
 
   .support-status-msg {
@@ -169,7 +169,7 @@
   }
   .support-keyboard-hint {
     font-size: 0.8rem;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
     margin-left: 0.5rem;
   }
 
@@ -182,7 +182,7 @@
     display: flex;
     align-items: center;
     gap: 0.35rem;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
     margin-top: 0.15rem;
   }
   .support-drop-zone {
@@ -190,7 +190,7 @@
     border-radius: 8px;
     padding: 1rem;
     text-align: center;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
     font-size: 0.85rem;
     margin-top: 0.75rem;
     transition: all 0.15s;
@@ -216,7 +216,7 @@
   .support-file-entry .remove-file {
     background: none;
     border: none;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
     cursor: pointer;
     font-size: 0.9rem;
     padding: 0 0.25rem;
@@ -247,9 +247,9 @@
 
     <!-- Navigation tabs -->
     <nav class="support-nav" role="tablist" aria-label="support sections">
-      <button type="button" role="tab" id="tab-tickets" class="active" data-section="tickets" aria-selected="true" aria-controls="section-tickets" tabindex="0">Active Tickets</button>
-      <button type="button" role="tab" id="tab-feedback" data-section="feedback" aria-selected="false" aria-controls="section-feedback" tabindex="-1">Feedback</button>
-      <button type="button" role="tab" id="tab-help" data-section="help" aria-selected="false" aria-controls="section-help" tabindex="-1">Help &amp; Guidance</button>
+      <button type="button" role="tab" id="tab-tickets" class="active" data-section="tickets" aria-selected="true" aria-controls="section-tickets" tabindex="0">active tickets</button>
+      <button type="button" role="tab" id="tab-feedback" data-section="feedback" aria-selected="false" aria-controls="section-feedback" tabindex="-1">feedback</button>
+      <button type="button" role="tab" id="tab-help" data-section="help" aria-selected="false" aria-controls="section-help" tabindex="-1">help &amp; guidance</button>
     </nav>
 
     <!-- Section: Active Tickets -->
@@ -269,7 +269,7 @@
           <div class="support-feedback-options">
             <label><input type="checkbox" id="feedback-anonymous"> Submit anonymously</label>
           </div>
-          <button class="support-btn" id="feedback-submit" type="submit">Send Feedback</button>
+          <button class="support-btn" id="feedback-submit" type="submit">send feedback</button>
           <span class="support-keyboard-hint">ctrl+enter to send</span>
           <div id="feedback-status" class="support-status-msg"></div>
         </form>
@@ -279,23 +279,23 @@
     <!-- Section: Help & Guidance -->
     <div id="section-help" class="support-section" role="tabpanel" aria-labelledby="tab-help">
       <div class="support-help-card">
-        <h3>🛟 Getting Help</h3>
+        <h3>🛟 getting help</h3>
         <p>Just say "I need help" or "something's not working" in the chat bar. Your sol will handle everything — searching for answers, running diagnostics, and filing a ticket if needed.</p>
       </div>
       <div class="support-help-card">
-        <h3>🔍 Search the Knowledge Base</h3>
+        <h3>🔍 search the knowledge base</h3>
         <p>Run <code>sol call support search "your question"</code> to find answers in our knowledge base before filing a ticket.</p>
       </div>
       <div class="support-help-card">
-        <h3>🩺 Run Diagnostics</h3>
+        <h3>🩺 run diagnostics</h3>
         <p>Run <code>sol call support diagnose</code> to check your system health locally — no data is sent anywhere.</p>
       </div>
       <div class="support-help-card">
-        <h3>📢 Announcements</h3>
+        <h3>📢 announcements</h3>
         <p>Run <code>sol call support announcements</code> to check for product updates and known issues.</p>
       </div>
       <div class="support-help-card">
-        <h3>🔒 Privacy</h3>
+        <h3>🔒 privacy</h3>
         <p>Nothing leaves your device without your explicit approval. You review every ticket before it's sent and can edit or redact anything. Journal content is never included unless you attach it yourself.</p>
       </div>
     </div>
@@ -419,7 +419,7 @@
 
       const msgs = t.messages || [];
       if (msgs.length) {
-        html += '<h3 style="margin-top:1.5rem;">Thread</h3>';
+        html += '<h3 style="margin-top:1.5rem;">thread</h3>';
         msgs.forEach(m => {
           let attachHtml = '';
           const atts = m.attachments || [];
@@ -450,8 +450,8 @@
             </div>
             <div class="support-file-list" id="attach-file-list"></div>
             <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:center;">
-              <button class="support-btn" id="reply-submit" type="submit">Send Reply</button>
-              <button class="support-btn support-btn-secondary" id="attach-only-submit" type="button" style="display:none;">Upload Files Only</button>
+              <button class="support-btn" id="reply-submit" type="submit">send reply</button>
+              <button class="support-btn support-btn-secondary" id="attach-only-submit" type="button" style="display:none;">upload files only</button>
               <span class="support-keyboard-hint">ctrl+enter to send</span>
             </div>
             <div id="reply-status" class="support-status-msg"></div>
