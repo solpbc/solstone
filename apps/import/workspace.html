@@ -528,6 +528,8 @@ let currentGuidedSaved = null;
 let importEvents = {};
 let importsCache = [];
 let currentSourceFilter = '';
+let currentPage = 1;
+let totalImports = 0;
 
 function escapeHtml(str) {
   if (str === null || str === undefined) {
@@ -762,9 +764,7 @@ function getImportById(importId) {
   return importsCache.find(item => item.timestamp === importId) || null;
 }
 
-function buildHistoryHeader(imports) {
-  const entryTotal = imports.reduce((sum, imp) => sum + (imp.entries_written || 0), 0);
-  const entityTotal = imports.reduce((sum, imp) => sum + (imp.entities_seeded || 0), 0);
+function buildHistoryHeader(total, totalEntriesWritten, totalEntitiesSeeded) {
   const sourceOptions = [
     '<option value="">All sources</option>',
     ...cachedSources.map(source => {
@@ -775,7 +775,7 @@ function buildHistoryHeader(imports) {
 
   return `
     <div class="import-history-header">
-      <div class="import-history-summary">${imports.length} imports total, ${entryTotal} entries imported, ${entityTotal} entities found</div>
+      <div class="import-history-summary">${total} imports total, ${totalEntriesWritten} entries imported, ${totalEntitiesSeeded} entities found</div>
       <div class="import-history-filters">
         <label for="importSourceFilter">Source</label>
         <select id="importSourceFilter">
@@ -786,18 +786,73 @@ function buildHistoryHeader(imports) {
   `;
 }
 
+function renderImportRow(imp) {
+  const importedAt = imp.imported_at ? new Date(imp.imported_at * 1000).toLocaleString() : new Date(imp.created_at * 1000).toLocaleString();
+  const targetDay = imp.target_day ? imp.target_day.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : '-';
+
+  let statusClass;
+  let statusText;
+  let statusDetail = '';
+  if (imp.status === 'success') {
+    statusClass = 'success';
+    statusText = 'Completed';
+  } else if (imp.status === 'failed') {
+    statusClass = 'failed';
+    statusText = 'Failed';
+    if (imp.error) {
+      const errorStage = imp.error_stage ? ` (${capitalizeStage(imp.error_stage)})` : '';
+      statusDetail = `<div class="progress-detail">${escapeHtml(imp.error)}${escapeHtml(errorStage)}</div>`;
+    }
+  } else if (imp.status === 'running') {
+    statusClass = 'running';
+    statusText = 'Running';
+  } else {
+    statusClass = 'pending';
+    statusText = 'Pending';
+  }
+
+  const sourceCell = imp.source_type
+    ? renderSourceDisplay(imp.source_type, imp.source_display || sourceMetadataByName[imp.source_type]?.display_name || imp.original_filename || '-')
+    : renderSourceDisplay('', imp.original_filename || '-', imp.original_filename || '-');
+  const statsText = formatImportStats(imp.entries_written, imp.entities_seeded);
+
+  let html = `<tr data-import-id="${imp.timestamp}" data-facet="${imp.facet || ''}" data-source-type="${imp.source_type || ''}" tabindex="0" role="link" onclick="window.location.href='/app/import/${imp.timestamp}'" onkeydown="if(event.key==='Enter')window.location.href='/app/import/${imp.timestamp}'">`;
+  html += `<td class="nowrap">${importedAt}</td>`;
+  html += `<td>${escapeHtml(imp.original_filename || 'Unknown')}</td>`;
+  html += `<td class="source-cell">${sourceCell}</td>`;
+  html += `<td class="file-size nowrap">${formatFileSize(imp.file_size || 0)}</td>`;
+  html += '<td class="nowrap">';
+  if (imp.target_day) {
+    html += `<a href="/calendar/${imp.target_day}" class="timestamp-link" onclick="event.stopPropagation();">${targetDay}</a>`;
+  } else {
+    html += '-';
+  }
+  html += '</td>';
+  html += `<td class="status-cell"><span class="import-status ${statusClass}">${statusText}</span>${statusDetail}</td>`;
+  html += `<td class="files-cell">${imp.total_files_created || 0}</td>`;
+  html += `<td class="stats-cell import-stats-cell">${statsText}</td>`;
+  html += `<td class="duration-cell">${formatDuration(imp.duration_minutes)}</td>`;
+  html += '</tr>';
+  return html;
+}
+
 async function loadImports() {
+  currentPage = 1;
   await loadSourceGrid();
-  fetch('/app/import/api/list').then(r => r.json()).then(imports => {
-    importsCache = imports || [];
+  try {
+    const response = await fetch('/app/import/api/list?page=1&per_page=25');
+    const data = await response.json();
+    const imports = data.imports || [];
+    importsCache = imports;
+    totalImports = data.total;
     const container = document.getElementById('importListContent');
 
-    if (!imports || imports.length === 0) {
+    if (imports.length === 0) {
       container.innerHTML = '<div class="no-imports">No imports found</div>';
       return;
     }
 
-    let html = buildHistoryHeader(imports);
+    let html = buildHistoryHeader(data.total, data.total_entries_written, data.total_entities_seeded);
     html += '<table class="import-table">';
     html += '<thead><tr>';
     html += '<th>Imported At</th>';
@@ -812,55 +867,19 @@ async function loadImports() {
     html += '</tr></thead><tbody>';
 
     imports.forEach(imp => {
-      const importedAt = imp.imported_at ? new Date(imp.imported_at * 1000).toLocaleString() : new Date(imp.created_at * 1000).toLocaleString();
-      const targetDay = imp.target_day ? imp.target_day.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : '-';
-
-      let statusClass;
-      let statusText;
-      let statusDetail = '';
-      if (imp.status === 'success') {
-        statusClass = 'success';
-        statusText = 'Completed';
-      } else if (imp.status === 'failed') {
-        statusClass = 'failed';
-        statusText = 'Failed';
-        if (imp.error) {
-          const errorStage = imp.error_stage ? ` (${capitalizeStage(imp.error_stage)})` : '';
-          statusDetail = `<div class="progress-detail">${escapeHtml(imp.error)}${escapeHtml(errorStage)}</div>`;
-        }
-      } else if (imp.status === 'running') {
-        statusClass = 'running';
-        statusText = 'Running';
-      } else {
-        statusClass = 'pending';
-        statusText = 'Pending';
-      }
-
-      const sourceCell = imp.source_type
-        ? renderSourceDisplay(imp.source_type, imp.source_display || sourceMetadataByName[imp.source_type]?.display_name || imp.original_filename || '-')
-        : renderSourceDisplay('', imp.original_filename || '-', imp.original_filename || '-');
-      const statsText = formatImportStats(imp.entries_written, imp.entities_seeded);
-
-      html += `<tr data-import-id="${imp.timestamp}" data-facet="${imp.facet || ''}" data-source-type="${imp.source_type || ''}" tabindex="0" role="link" onclick="window.location.href='/app/import/${imp.timestamp}'" onkeydown="if(event.key==='Enter')window.location.href='/app/import/${imp.timestamp}'">`;
-      html += `<td class="nowrap">${importedAt}</td>`;
-      html += `<td>${escapeHtml(imp.original_filename || 'Unknown')}</td>`;
-      html += `<td class="source-cell">${sourceCell}</td>`;
-      html += `<td class="file-size nowrap">${formatFileSize(imp.file_size || 0)}</td>`;
-      html += '<td class="nowrap">';
-      if (imp.target_day) {
-        html += `<a href="/calendar/${imp.target_day}" class="timestamp-link" onclick="event.stopPropagation();">${targetDay}</a>`;
-      } else {
-        html += '-';
-      }
-      html += '</td>';
-      html += `<td class="status-cell"><span class="import-status ${statusClass}">${statusText}</span>${statusDetail}</td>`;
-      html += `<td class="files-cell">${imp.total_files_created || 0}</td>`;
-      html += `<td class="stats-cell import-stats-cell">${statsText}</td>`;
-      html += `<td class="duration-cell">${formatDuration(imp.duration_minutes)}</td>`;
-      html += '</tr>';
+      html += renderImportRow(imp);
     });
 
     html += '</tbody></table>';
+    if (data.page < data.pages) {
+      html += `
+        <div id="importLoadMore" style="text-align: center; margin: 1.5rem 0;">
+          <button class="import-primary-btn" onclick="loadMoreImports()">
+            Load More (${importsCache.length} of ${data.total} shown)
+          </button>
+        </div>
+      `;
+    }
     container.innerHTML = html;
 
     const sourceFilter = document.getElementById('importSourceFilter');
@@ -872,9 +891,44 @@ async function loadImports() {
     }
 
     filterImportsByFacet(window.selectedFacet);
-  }).catch(() => {
+  } catch (err) {
     document.getElementById('importListContent').innerHTML = '<div class="no-imports">Error loading imports</div>';
-  });
+  }
+}
+
+async function loadMoreImports() {
+  currentPage++;
+  try {
+    const response = await fetch(`/app/import/api/list?page=${currentPage}&per_page=25`);
+    const data = await response.json();
+
+    importsCache = importsCache.concat(data.imports || []);
+
+    const tbody = document.querySelector('.import-table tbody');
+    if (tbody) {
+      let rowsHtml = '';
+      (data.imports || []).forEach(imp => {
+        rowsHtml += renderImportRow(imp);
+      });
+      tbody.insertAdjacentHTML('beforeend', rowsHtml);
+    }
+
+    const loadMoreContainer = document.getElementById('importLoadMore');
+    if (loadMoreContainer) {
+      if (data.page < data.pages) {
+        loadMoreContainer.innerHTML = `
+          <button class="import-primary-btn" onclick="loadMoreImports()">
+            Load More (${importsCache.length} of ${data.total} shown)
+          </button>`;
+      } else {
+        loadMoreContainer.remove();
+      }
+    }
+
+    filterImportsByFacet(window.selectedFacet);
+  } catch (err) {
+    console.error('Failed to load more imports:', err);
+  }
 }
 
 function filterImportsByFacet(facetName) {

@@ -428,7 +428,33 @@ def import_list() -> Any:
     # Sort by imported_at (newest first)
     imports.sort(key=lambda x: x.get("imported_at", 0), reverse=True)
 
-    return jsonify(imports)
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except ValueError:
+        page = 1
+    try:
+        per_page = min(100, max(1, int(request.args.get("per_page", 25))))
+    except ValueError:
+        per_page = 25
+
+    total = len(imports)
+    total_entries_written = sum(imp.get("entries_written") or 0 for imp in imports)
+    total_entities_seeded = sum(imp.get("entities_seeded") or 0 for imp in imports)
+
+    start = (page - 1) * per_page
+    page_imports = imports[start : start + per_page]
+
+    return jsonify(
+        {
+            "imports": page_imports,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "pages": (total + per_page - 1) // per_page if total > 0 else 0,
+            "total_entries_written": total_entries_written,
+            "total_entities_seeded": total_entities_seeded,
+        }
+    )
 
 
 @import_bp.route("/api/sources")
