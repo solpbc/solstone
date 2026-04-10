@@ -758,6 +758,7 @@ def test_ingest_creates_sync_history(observer_env):
         record = json.loads(f.readline())
 
     assert record["segment"] == "120000_300"
+    assert record["stream"] == "history-test"
     assert "segment_original" not in record  # No collision
     assert len(record["files"]) == 1
 

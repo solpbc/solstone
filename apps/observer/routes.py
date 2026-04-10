@@ -535,6 +535,7 @@ def ingest_upload(key: str | None = None) -> Any:
     sync_record = {
         "ts": now_ms(),
         "segment": segment,
+        "stream": stream,
         "files": file_records,
     }
     if segment != original_segment:
@@ -702,9 +703,9 @@ def ingest_segments(day: str, key: str | None = None) -> Any:
     client_stream = request.args.get("stream", "").strip()
     observer_name = observer.get("name", "unknown")
     if client_stream and re.match(r"^[a-z0-9][a-z0-9._-]*$", client_stream):
-        stream = client_stream
+        fallback_stream = client_stream
     else:
-        stream = stream_name(observer=observer_name)
+        fallback_stream = stream_name(observer=observer_name)
 
     # Build response grouped by segment, deduplicating by sha256
     # Later records overwrite earlier ones (most recent upload wins)
@@ -719,6 +720,7 @@ def ingest_segments(day: str, key: str | None = None) -> Any:
             continue
 
         segment = record.get("segment", "")
+        stream = record.get("stream", fallback_stream)
         segment_original = record.get("segment_original")
 
         if segment not in segments:
