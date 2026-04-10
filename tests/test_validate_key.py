@@ -13,7 +13,6 @@ import think.providers.anthropic
 import think.providers.google
 import think.providers.openai
 from convey import create_app
-from tests.conftest import copytree_tracked
 from think.providers import validate_key
 
 
@@ -22,6 +21,14 @@ def settings_client(journal_copy):
     app = create_app(str(journal_copy))
     app.config["TESTING"] = True
     return app.test_client(), journal_copy
+
+
+@pytest.fixture(autouse=True)
+def reset_google_backend_cache():
+    original = think.providers.google._detected_backend
+    think.providers.google._detected_backend = None
+    yield
+    think.providers.google._detected_backend = original
 
 
 def test_validate_key_anthropic_success():
@@ -72,10 +79,13 @@ def test_validate_key_google_success():
     client = Mock()
     client.models.list.return_value = [Mock()]
 
-    with patch("think.providers.google.genai.Client", return_value=client) as mock_cls:
+    with (
+        patch("think.providers.google.genai.Client", return_value=client) as mock_cls,
+        patch("think.providers.google._probe_backend", return_value="aistudio"),
+    ):
         result = think.providers.google.validate_key("test-key")
 
-    assert result == {"valid": True}
+    assert result == {"valid": True, "backend": "aistudio"}
     mock_cls.assert_called_once()
     assert mock_cls.call_args.kwargs["api_key"] == "test-key"
 
@@ -84,11 +94,104 @@ def test_validate_key_google_auth_error():
     client = Mock()
     client.models.list.side_effect = Exception("API key not valid")
 
-    with patch("think.providers.google.genai.Client", return_value=client):
+    with (
+        patch("think.providers.google.genai.Client", return_value=client),
+        patch("think.providers.google._probe_backend", return_value="aistudio"),
+    ):
         result = think.providers.google.validate_key("bad-key")
 
     assert result["valid"] is False
     assert "API key not valid" in result["error"]
+
+
+def test_validate_key_google_returns_backend_aistudio():
+    """validate_key returns backend field when successful."""
+    client = Mock()
+    client.models.list.return_value = [Mock()]
+
+    with (
+        patch("think.providers.google.genai.Client", return_value=client),
+        patch("think.providers.google._probe_backend", return_value="aistudio"),
+    ):
+        result = think.providers.google.validate_key("test-key")
+
+    assert result == {"valid": True, "backend": "aistudio"}
+
+
+def test_validate_key_google_returns_backend_vertex():
+    """validate_key returns vertex backend and uses vertexai=True."""
+    client = Mock()
+    client.models.list.return_value = [Mock()]
+
+    with (
+        patch("think.providers.google.genai.Client", return_value=client) as mock_cls,
+        patch("think.providers.google._probe_backend", return_value="vertex"),
+    ):
+        result = think.providers.google.validate_key("test-key")
+
+    assert result == {"valid": True, "backend": "vertex"}
+    assert mock_cls.call_args.kwargs["vertexai"] is True
+    assert mock_cls.call_args.kwargs["api_key"] == "test-key"
+
+
+def test_probe_backend_aistudio():
+    """HTTP 200 from AI Studio endpoint -> aistudio."""
+    mock_resp = Mock()
+    mock_resp.status_code = 200
+    with patch("httpx.get", return_value=mock_resp):
+        result = think.providers.google._probe_backend("test-key")
+    assert result == "aistudio"
+
+
+def test_probe_backend_vertex():
+    """Non-200 from AI Studio endpoint -> vertex."""
+    mock_resp = Mock()
+    mock_resp.status_code = 403
+    with patch("httpx.get", return_value=mock_resp):
+        result = think.providers.google._probe_backend("test-key")
+    assert result == "vertex"
+
+
+def test_probe_backend_error_defaults_aistudio():
+    """Network error defaults to aistudio."""
+    with patch("httpx.get", side_effect=Exception("timeout")):
+        result = think.providers.google._probe_backend("test-key")
+    assert result == "aistudio"
+
+
+def test_detect_backend_caches():
+    """Second call returns cached result without probing."""
+    import think.providers.google as gmod
+
+    original = gmod._detected_backend
+    try:
+        gmod._detected_backend = None
+        mock_resp = Mock()
+        mock_resp.status_code = 403
+        with patch("httpx.get", return_value=mock_resp) as mock_get:
+            r1 = gmod._detect_backend("key")
+            r2 = gmod._detect_backend("key")
+        assert r1 == "vertex"
+        assert r2 == "vertex"
+        assert mock_get.call_count == 1
+    finally:
+        gmod._detected_backend = original
+
+
+def test_get_effective_backend_config_override():
+    """Config override skips detection."""
+    import think.providers.google as gmod
+
+    original = gmod._detected_backend
+    try:
+        gmod._detected_backend = None
+        config = {"providers": {"google_backend": "vertex"}}
+        with patch("think.utils.get_config", return_value=config):
+            result = gmod._get_effective_backend("key")
+        assert result == "vertex"
+        assert gmod._detected_backend is None
+    finally:
+        gmod._detected_backend = original
 
 
 def test_validate_key_dispatcher_success():
@@ -207,3 +310,47 @@ def test_validate_all_keys_endpoint(settings_client):
 
     saved = json.loads(config_path.read_text())
     assert set(saved["providers"]["key_validation"]) == {"google", "openai"}
+
+
+def test_providers_google_backend_roundtrip(settings_client):
+    """PUT/GET google_backend, vertex_project, vertex_location."""
+    client, journal = settings_client
+
+    response = client.put(
+        "/app/settings/api/providers",
+        json={
+            "google_backend": "vertex",
+            "vertex_project": "my-project",
+            "vertex_location": "us-central1",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["google_backend"] == "vertex"
+    assert payload["vertex_project"] == "my-project"
+    assert payload["vertex_location"] == "us-central1"
+
+    # Verify persisted
+    config = json.loads((journal / "config" / "journal.json").read_text())
+    assert config["providers"]["google_backend"] == "vertex"
+    assert config["providers"]["vertex_project"] == "my-project"
+    assert config["providers"]["vertex_location"] == "us-central1"
+
+    # GET returns the same
+    response = client.get("/app/settings/api/providers")
+    payload = response.get_json()
+    assert payload["google_backend"] == "vertex"
+    assert payload["vertex_project"] == "my-project"
+    assert payload["vertex_location"] == "us-central1"
+
+
+def test_providers_google_backend_invalid(settings_client):
+    """Invalid google_backend is rejected."""
+    client, _journal = settings_client
+
+    response = client.put(
+        "/app/settings/api/providers",
+        json={"google_backend": "invalid"},
+    )
+    assert response.status_code == 400
+    assert "Invalid google_backend" in response.get_json()["error"]

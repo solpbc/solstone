@@ -429,6 +429,7 @@
     "provider": "google",
     "tier": 2
   },
+  "google_backend": "auto",
   "key_validation": {},
   "providers": [
     {
@@ -439,12 +440,19 @@
     {
       "env_key": "GOOGLE_API_KEY",
       "label": "Google (Gemini)",
-      "name": "google"
+      "name": "google",
+      "vertex_env_keys": [
+        "GOOGLE_GENAI_USE_VERTEXAI",
+        "GOOGLE_CLOUD_PROJECT",
+        "GOOGLE_CLOUD_LOCATION"
+      ]
     },
     {
       "env_key": "OPENAI_API_KEY",
       "label": "OpenAI (GPT)",
       "name": "openai"
     }
-  ]
+  ],
+  "vertex_location": "",
+  "vertex_project": ""
 }

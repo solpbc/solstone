@@ -1911,6 +1911,33 @@ button:focus:not(:focus-visible) {
           <small>How the CLI authenticates with the provider</small>
         </div>
       </div>
+      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">google backend</h3>
+      <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">How solstone connects to Google AI. Auto-detect works for most users.</p>
+      <div class="provider-row">
+        <div class="settings-field">
+          <label for="field-google-backend">backend</label>
+          <select id="field-google-backend">
+            <option value="auto">Auto-detect</option>
+            <option value="aistudio">AI Studio</option>
+            <option value="vertex">Vertex AI Express</option>
+          </select>
+          <small>Auto-detect probes your key on first use</small>
+        </div>
+      </div>
+      <div id="vertexFields" style="display:none">
+        <div class="provider-row">
+          <div class="settings-field">
+            <label for="field-vertex-project">project</label>
+            <input type="text" id="field-vertex-project" placeholder="Optional for Express Mode">
+            <small>Google Cloud project ID</small>
+          </div>
+          <div class="settings-field">
+            <label for="field-vertex-location">location</label>
+            <input type="text" id="field-vertex-location" placeholder="Optional - e.g., us-central1">
+            <small>Google Cloud region</small>
+          </div>
+        </div>
+      </div>
       <div id="cogitateProviderKeyWarning" class="provider-key-warning" style="display:none">
         <span>&#9888;</span>
         <span>API key not configured for cogitate provider.</span>
@@ -3081,7 +3108,11 @@ function updateEnvStatus(fieldId, isJournalConfigured, isSystemConfigured) {
         validationSpan.className = 'key-validation-status';
         if (validation.valid) {
           validationSpan.className += ' key-status-valid';
-          validationSpan.textContent = ' ✓ Valid';
+          let validText = ' ✓ Valid';
+          if (providerName === 'google' && validation.backend) {
+            validText += validation.backend === 'vertex' ? ' (Vertex AI)' : ' (AI Studio)';
+          }
+          validationSpan.textContent = validText;
         } else {
           validationSpan.className += ' key-status-invalid';
           const errMsg = validation.error || 'Invalid';
@@ -3714,6 +3745,21 @@ function populateProviders(data) {
     authSelect.value = data.auth[cogitateProvider] || 'platform';
   }
 
+  // Set Google backend selector
+  const backendSelect = document.getElementById('field-google-backend');
+  if (backendSelect) {
+    backendSelect.value = data.google_backend || 'auto';
+  }
+  const vertexProjectField = document.getElementById('field-vertex-project');
+  const vertexLocationField = document.getElementById('field-vertex-location');
+  if (vertexProjectField) vertexProjectField.value = data.vertex_project || '';
+  if (vertexLocationField) vertexLocationField.value = data.vertex_location || '';
+  // Show/hide vertex fields
+  const vertexFields = document.getElementById('vertexFields');
+  if (vertexFields) {
+    vertexFields.style.display = (data.google_backend === 'vertex') ? '' : 'none';
+  }
+
   // Update status text
   document.getElementById('providerStatus').textContent = '';
 
@@ -4027,6 +4073,50 @@ document.getElementById('field-cogitate-auth')?.addEventListener('change', async
     showFieldStatus(authSelect, 'error', err.message);
   }
 });
+
+// Google backend change handler
+document.getElementById('field-google-backend')?.addEventListener('change', async function() {
+  const value = this.value;
+  try {
+    const response = await fetch('api/providers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ google_backend: value })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    providersData = result;
+    showFieldStatus(this, 'saved');
+    const vf = document.getElementById('vertexFields');
+    if (vf) vf.style.display = value === 'vertex' ? '' : 'none';
+  } catch (err) {
+    console.error('Error saving google backend:', err);
+    showFieldStatus(this, 'error', err.message);
+  }
+});
+
+// Vertex project/location change handlers
+for (const vfield of ['vertex-project', 'vertex-location']) {
+  const el = document.getElementById(`field-${vfield}`);
+  if (!el) continue;
+  el.addEventListener('change', async function() {
+    const key = vfield.replace('-', '_');
+    try {
+      const response = await fetch('api/providers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: this.value })
+      });
+      const result = await response.json();
+      if (result.error) throw new Error(result.error);
+      providersData = result;
+      showFieldStatus(this, 'saved');
+    } catch (err) {
+      console.error(`Error saving ${vfield}:`, err);
+      showFieldStatus(this, 'error', err.message);
+    }
+  });
+}
 
 // ========== TRANSCRIPTION ==========
 // Backend metadata loaded from API

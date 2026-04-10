@@ -60,10 +60,57 @@ _DEFAULT_MODEL = GEMINI_FLASH
 
 logger = logging.getLogger(__name__)
 
+# Vertex AI Express Mode backend detection cache
+_detected_backend: str | None = None
+
 
 # ---------------------------------------------------------------------------
 # Client and helper functions for generate/agenerate
 # ---------------------------------------------------------------------------
+
+
+def _probe_backend(api_key: str) -> str:
+    """Probe AI Studio endpoint to classify key type.
+
+    Returns ``"aistudio"`` when the key works against the AI Studio models
+    endpoint (HTTP 200) or ``"vertex"`` otherwise. Network errors default
+    to ``"aistudio"`` for backward compatibility.
+    """
+    try:
+        import httpx
+
+        resp = httpx.get(
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            params={"key": api_key},
+            timeout=5,
+        )
+        return "aistudio" if resp.status_code == 200 else "vertex"
+    except Exception:
+        return "aistudio"
+
+
+def _detect_backend(api_key: str) -> str:
+    """Return cached backend detection result, probing on first call."""
+    global _detected_backend
+    if _detected_backend is not None:
+        return _detected_backend
+    _detected_backend = _probe_backend(api_key)
+    return _detected_backend
+
+
+def _get_effective_backend(api_key: str) -> str:
+    """Return effective backend, checking config override before cache.
+
+    Reads ``providers.google_backend`` from journal config. Values
+    ``"aistudio"`` or ``"vertex"`` bypass detection; ``"auto"`` (the default
+    when the key is absent) uses :func:`_detect_backend`.
+    """
+    from think.utils import get_config
+
+    configured = get_config().get("providers", {}).get("google_backend", "auto")
+    if configured in ("aistudio", "vertex"):
+        return configured
+    return _detect_backend(api_key)
 
 
 def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
@@ -84,12 +131,14 @@ def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GOOGLE_API_KEY not found in environment")
-        client = genai.Client(
-            api_key=api_key,
-            http_options=types.HttpOptions(
+        client_kwargs = {
+            "api_key": api_key,
+            "http_options": types.HttpOptions(
                 retry_options=types.HttpRetryOptions(attempts=8)
             ),
-        )
+        }
+        client_kwargs["vertexai"] = _get_effective_backend(api_key) == "vertex"
+        client = genai.Client(**client_kwargs)
     return client
 
 
@@ -682,15 +731,24 @@ def validate_key(api_key: str) -> dict:
     Creates a temporary client with the provided key. Never uses
     the cached client or environment variables.
 
-    Returns {"valid": True} or {"valid": False, "error": "..."}.
+    Returns {"valid": True, "backend": "aistudio"|"vertex"} or
+    {"valid": False, "error": "..."}.
     """
+    global _detected_backend
     try:
-        client = genai.Client(
-            api_key=api_key,
-            http_options=types.HttpOptions(timeout=10000),
-        )
+        # Probe backend for this specific key (always probes, bypasses cache).
+        backend = _probe_backend(api_key)
+
+        client_kwargs = {
+            "api_key": api_key,
+            "http_options": types.HttpOptions(timeout=10000),
+            "vertexai": backend == "vertex",
+        }
+
+        client = genai.Client(**client_kwargs)
         list(client.models.list(config={"page_size": 1}))
-        return {"valid": True}
+        _detected_backend = backend  # only cache after successful validation
+        return {"valid": True, "backend": backend}
     except Exception as e:
         return {"valid": False, "error": str(e)}
 
@@ -700,6 +758,8 @@ __all__ = [
     "run_generate",
     "run_agenerate",
     "get_or_create_client",
+    "_detect_backend",
+    "_get_effective_backend",
     "list_models",
     "validate_key",
 ]

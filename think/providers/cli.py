@@ -444,6 +444,46 @@ def build_cogitate_env(env_key: str) -> dict[str, str]:
     env = os.environ.copy()
     if auth_mode == "platform":
         env.pop(env_key, None)
+
+    # Vertex AI Express: set backend env vars for Google provider
+    if env_key == "GOOGLE_API_KEY":
+        providers_config = config.get("providers", {})
+        google_backend = providers_config.get("google_backend", "auto")
+
+        # Determine effective backend
+        if google_backend in ("aistudio", "vertex"):
+            effective_backend = google_backend
+        else:
+            api_key = os.getenv("GOOGLE_API_KEY", "")
+            if api_key:
+                from think.providers.google import _detect_backend
+
+                effective_backend = _detect_backend(api_key)
+            else:
+                effective_backend = "aistudio"
+
+        if effective_backend == "vertex":
+            env["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
+            # Preserve API key for Vertex Express regardless of auth mode
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if api_key:
+                env["GOOGLE_API_KEY"] = api_key
+            # Set project/location from config if present
+            vertex_project = providers_config.get("vertex_project")
+            if vertex_project:
+                env["GOOGLE_CLOUD_PROJECT"] = vertex_project
+            vertex_location = providers_config.get("vertex_location")
+            if vertex_location:
+                env["GOOGLE_CLOUD_LOCATION"] = vertex_location
+        else:
+            # AI Studio: clear any inherited Vertex env vars so the CLI
+            # doesn't accidentally run in Vertex mode.
+            for vkey in (
+                "GOOGLE_GENAI_USE_VERTEXAI",
+                "GOOGLE_CLOUD_PROJECT",
+                "GOOGLE_CLOUD_LOCATION",
+            ):
+                env.pop(vkey, None)
     return env
 
 

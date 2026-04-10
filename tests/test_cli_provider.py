@@ -642,3 +642,83 @@ class TestBuildCogitateEnv:
             oai_env = build_cogitate_env("OPENAI_API_KEY")
         assert ant_env["ANTHROPIC_API_KEY"] == "sk-ant"
         assert "OPENAI_API_KEY" not in oai_env
+
+    def test_vertex_backend_sets_env_vars(self):
+        """Vertex backend sets GOOGLE_GENAI_USE_VERTEXAI and preserves key."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
+        assert env["GOOGLE_API_KEY"] == "gk-test"
+
+    def test_vertex_backend_with_project_location(self):
+        """Vertex config sets project/location env vars."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "vertex_project": "my-project",
+                "vertex_location": "us-central1",
+                "auth": {"google": "api_key"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
+        assert env["GOOGLE_CLOUD_PROJECT"] == "my-project"
+        assert env["GOOGLE_CLOUD_LOCATION"] == "us-central1"
+        assert env["GOOGLE_API_KEY"] == "gk-test"
+
+    def test_aistudio_backend_no_vertex_env_vars(self):
+        """AI Studio backend does not set Vertex env vars."""
+        config = {
+            "providers": {
+                "google_backend": "aistudio",
+                "auth": {"google": "api_key"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GOOGLE_GENAI_USE_VERTEXAI" not in env
+        assert env["GOOGLE_API_KEY"] == "gk-test"
+
+    def test_auto_backend_detects_vertex(self):
+        """Auto backend with Vertex detection sets env vars."""
+        config = {"providers": {"auth": {"google": "platform"}}}
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("think.providers.google._detect_backend", return_value="vertex"),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
+        assert env["GOOGLE_API_KEY"] == "gk-test"
+
+    def test_non_google_key_unaffected_by_vertex(self):
+        """Vertex logic only applies to GOOGLE_API_KEY."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "auth": {"anthropic": "api_key"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("ANTHROPIC_API_KEY")
+        assert "GOOGLE_GENAI_USE_VERTEXAI" not in env
+        assert env["ANTHROPIC_API_KEY"] == "sk-ant"

@@ -46,8 +46,16 @@ PROVIDER_REGISTRY: Dict[str, str] = {
 # Used by settings UI to dynamically build provider dropdowns.
 # ---------------------------------------------------------------------------
 
-PROVIDER_METADATA: Dict[str, Dict[str, str]] = {
-    "google": {"label": "Google (Gemini)", "env_key": "GOOGLE_API_KEY"},
+PROVIDER_METADATA: Dict[str, Dict[str, Any]] = {
+    "google": {
+        "label": "Google (Gemini)",
+        "env_key": "GOOGLE_API_KEY",
+        "vertex_env_keys": [
+            "GOOGLE_GENAI_USE_VERTEXAI",
+            "GOOGLE_CLOUD_PROJECT",
+            "GOOGLE_CLOUD_LOCATION",
+        ],
+    },
     "openai": {"label": "OpenAI (GPT)", "env_key": "OPENAI_API_KEY"},
     "anthropic": {"label": "Anthropic (Claude)", "env_key": "ANTHROPIC_API_KEY"},
 }

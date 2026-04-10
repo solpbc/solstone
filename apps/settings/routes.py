@@ -435,6 +435,9 @@ def get_providers() -> Any:
                 "api_keys": api_keys,
                 "auth": auth,
                 "key_validation": key_validation,
+                "google_backend": providers_config.get("google_backend", "auto"),
+                "vertex_project": providers_config.get("vertex_project", ""),
+                "vertex_location": providers_config.get("vertex_location", ""),
             }
         )
     except Exception:
@@ -696,6 +699,37 @@ def update_providers() -> Any:
                             "new": ctx_config,
                         }
                     config["providers"]["contexts"][pattern] = ctx_config
+
+        # Handle Google backend settings
+        if "google_backend" in request_data:
+            backend = request_data["google_backend"]
+            if backend not in ("auto", "aistudio", "vertex"):
+                return (
+                    jsonify(
+                        {
+                            "error": f"Invalid google_backend: {backend}. "
+                            "Must be 'auto', 'aistudio', or 'vertex'."
+                        }
+                    ),
+                    400,
+                )
+            old_val = old_providers.get("google_backend", "auto")
+            if old_val != backend:
+                changed_fields["google_backend"] = {"old": old_val, "new": backend}
+            config["providers"]["google_backend"] = backend
+
+        for vfield in ("vertex_project", "vertex_location"):
+            if vfield in request_data:
+                value = request_data[vfield]
+                if not isinstance(value, str):
+                    return jsonify({"error": f"{vfield} must be a string"}), 400
+                old_val = old_providers.get(vfield, "")
+                if old_val != value:
+                    changed_fields[vfield] = {"old": old_val, "new": value}
+                if value:
+                    config["providers"][vfield] = value
+                else:
+                    config["providers"].pop(vfield, None)
 
         # Write back to file
         with open(config_path, "w", encoding="utf-8") as f:
