@@ -155,7 +155,7 @@ const Dashboard = (function() {
       return;
     }
 
-    const chart = el('div', {className: 'bar-chart'});
+    const chart = el('div', {className: 'bar-chart', role: 'img', 'aria-label': 'Token activity bar chart showing usage over the last 30 days'});
     
     chartData.forEach((d, i) => {
       const height = (d.total / maxTotal) * 100;
@@ -165,7 +165,8 @@ const Dashboard = (function() {
       });
       
       // Create stacked segments
-      const stack = el('div', {className: 'bar-stack', style: {height: '100%'}});
+      const stackLabel = `${fmtDay(d.day)}: ${fmtTokens(d.total)} tokens (input: ${d.input}, reasoning: ${d.reasoning}, output: ${d.output})`;
+      const stack = el('div', {className: 'bar-stack', style: {height: '100%'}, 'aria-label': stackLabel});
       
       // Calculate segment heights as percentages of the bar
       if (d.total > 0) {
@@ -213,15 +214,15 @@ const Dashboard = (function() {
     // Add legend
     const legend = el('div', {className: 'token-legend'}, [
       el('div', {className: 'legend-item'}, [
-        el('div', {className: 'legend-color', style: {background: '#667eea'}}),
+        el('div', {className: 'legend-color', style: {background: '#667eea'}, 'aria-hidden': 'true'}),
         'Input'
       ]),
       el('div', {className: 'legend-item'}, [
-        el('div', {className: 'legend-color', style: {background: '#9b59b6'}}),
+        el('div', {className: 'legend-color', style: {background: '#9b59b6'}, 'aria-hidden': 'true'}),
         'Reasoning'
       ]),
       el('div', {className: 'legend-item'}, [
-        el('div', {className: 'legend-color', style: {background: '#e91e63'}}),
+        el('div', {className: 'legend-color', style: {background: '#e91e63'}, 'aria-hidden': 'true'}),
         'Output'
       ])
     ]);
@@ -246,7 +247,7 @@ const Dashboard = (function() {
     // Calculate max total for scaling
     const maxTotal = Math.max(...data.map(d => d.audio + d.screen)) || 1;
 
-    const chart = el('div', {className: 'bar-chart'});
+    const chart = el('div', {className: 'bar-chart', role: 'img', 'aria-label': 'Captured hours bar chart showing audio and screen time per day'});
 
     data.forEach((d, i) => {
       const total = d.audio + d.screen;
@@ -257,7 +258,8 @@ const Dashboard = (function() {
       });
 
       // Create stacked segments
-      const stack = el('div', {className: 'bar-stack', style: {height: '100%'}});
+      const stackLabel = `${fmtDay(d.day)}: ${total.toFixed(1)}h (audio: ${d.audio.toFixed(1)}h, screen: ${d.screen.toFixed(1)}h)`;
+      const stack = el('div', {className: 'bar-stack', style: {height: '100%'}, 'aria-label': stackLabel});
 
       // Calculate segment heights as percentages of the bar
       if (total > 0) {
@@ -308,11 +310,11 @@ const Dashboard = (function() {
     // Add legend
     const legend = el('div', {className: 'token-legend'}, [
       el('div', {className: 'legend-item'}, [
-        el('div', {className: 'legend-color', style: {background: '#667eea'}}),
+        el('div', {className: 'legend-color', style: {background: '#667eea'}, 'aria-hidden': 'true'}),
         'Audio'
       ]),
       el('div', {className: 'legend-item'}, [
-        el('div', {className: 'legend-color', style: {background: '#e91e63'}}),
+        el('div', {className: 'legend-color', style: {background: '#e91e63'}, 'aria-hidden': 'true'}),
         'Screen'
       ])
     ]);
@@ -324,7 +326,7 @@ const Dashboard = (function() {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const maxVal = Math.max(...data.flat()) || 1;
     
-    const heatmap = el('div', {className: 'heatmap'});
+    const heatmap = el('div', {className: 'heatmap', role: 'img', 'aria-label': 'Activity heatmap showing captures by day of week and hour'});
     
     // Empty top-left corner
     heatmap.appendChild(el('div'));
@@ -342,10 +344,12 @@ const Dashboard = (function() {
       
       for (let h = 0; h < 24; h++) {
         const intensity = data[d][h] / maxVal;
+        const cellTitle = `${days[d]} ${h}:00 - ${Math.round(data[d][h])} min`;
         const cell = el('div', {
           className: 'heatmap-cell',
           style: {background: `rgba(102,126,234,${intensity})`},
-          title: `${days[d]} ${h}:00 - ${Math.round(data[d][h])} min`
+          title: cellTitle,
+          'aria-label': cellTitle
         });
         heatmap.appendChild(cell);
       }
@@ -438,7 +442,7 @@ const Dashboard = (function() {
       return;
     }
 
-    const chart = el('div', {className: 'bar-chart'});
+    const chart = el('div', {className: 'bar-chart', role: 'img', 'aria-label': meta.ariaLabel || ''});
 
     chartData.forEach((d, i) => {
       const height = (d.total / maxTotal) * 100;
@@ -471,6 +475,11 @@ const Dashboard = (function() {
             tooltipParts.push(`${title}: ${count}`);
           }
         });
+        const catParts = categories.filter(cat => (d.counts[cat] || 0) > 0).map(cat => {
+          const info = meta[cat] || {};
+          return `${info.title || cat}: ${d.counts[cat]}`;
+        });
+        stack.setAttribute('aria-label', `${fmtDay(d.day)}: ${d.total} (${catParts.join(', ')})`);
       }
 
       bar.appendChild(stack);
@@ -495,7 +504,7 @@ const Dashboard = (function() {
       const info = meta[cat] || {};
       const title = info.title || cat;
       legend.appendChild(el('div', {className: 'legend-item'}, [
-        el('div', {className: 'legend-color', style: {background: categoryColors[cat]}}),
+        el('div', {className: 'legend-color', style: {background: categoryColors[cat]}, 'aria-hidden': 'true'}),
         title
       ]));
     });
@@ -632,7 +641,8 @@ const Dashboard = (function() {
       stats.facet_counts_by_day || {},
       {
         emptyIcon: '🏷️',
-        emptyText: 'No facet data recorded'
+        emptyText: 'No facet data recorded',
+        ariaLabel: 'Facets bar chart showing facet distribution over the last 30 days'
       }
     );
 
@@ -642,7 +652,8 @@ const Dashboard = (function() {
       stats.agent_counts_by_day || {},
       Object.assign({}, data.generators || {}, {
         emptyIcon: '⚡',
-        emptyText: 'No event data recorded'
+        emptyText: 'No event data recorded',
+        ariaLabel: 'Events bar chart showing agent event counts over the last 30 days'
       })  // Use generator metadata for titles/colors
     );
     
