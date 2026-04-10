@@ -872,6 +872,7 @@
         <span class="skeleton" style="width: 120px; height: 1em;">&nbsp;</span>
       </div>
       <span class="connection-indicator" id="connectionIndicator"></span>
+      <button id="vitalsCheckBtn" style="margin-left: 0.5em; padding: 0.15em 0.5em; font-size: 0.75em; border: 1px solid #e5e7eb; border-radius: 4px; background: white; color: #6b7280; cursor: pointer;">Check now</button>
     </div>
     <div class="vitals-content">
       <div class="vitals-section">
@@ -1043,6 +1044,7 @@
         </select>
         <button id="logFollowBtn" class="active">Follow</button>
         <button id="logClearBtn">Clear</button>
+        <button id="logExportBtn">Export</button>
       </div>
     </div>
     <div class="logs-viewport" id="logsViewport" role="log"></div>
@@ -1146,6 +1148,8 @@
     connectionIndicator: document.getElementById('connectionIndicator'),
     trustIndicator: document.getElementById('trustIndicator'),
     vitalsBar: document.querySelector('.vitals-bar'),
+    vitalsCheckBtn: document.getElementById('vitalsCheckBtn'),
+    logExportBtn: document.getElementById('logExportBtn'),
   };
 
   // Human-readable service names
@@ -1323,15 +1327,105 @@
 
     elements.errorSummary.classList.remove('hidden');
     const recent = state.recentErrors.slice(-10).reverse();
-    const errorsHtml = recent.map(e => {
-      const icon = e.type === 'agent' ? '⚙' : '↓';
+    const errorsHtml = recent.map((e, idx) => {
+      const realIdx = state.recentErrors.length - 1 - idx;
+      const icon = e.type === 'agent' ? '⚙' : e.type === 'import' ? '↓' : '⚠';
       const ago = formatElapsed(Math.floor((Date.now() - e.ts) / 1000));
-      return `<div style="padding: 0.3em 0; font-size: 0.85em; color: #374151; border-bottom: 1px solid #f3f4f6;">
-        ${icon} <strong>${escapeHtml(e.name)}</strong> — ${escapeHtml(truncate(e.error, 60))} <span style="color: #9ca3af; font-size: 0.85em;">${escapeHtml(ago)} ago</span>
+      return `<div style="padding: 0.3em 0; font-size: 0.85em; color: #374151; border-bottom: 1px solid #f3f4f6; display: flex; align-items: baseline; gap: 0.4em; flex-wrap: wrap;">
+        <span>${icon} <strong>${escapeHtml(e.name)}</strong> — ${escapeHtml(truncate(e.error, 60))} <span style="color: #9ca3af; font-size: 0.85em;">${escapeHtml(ago)} ago</span></span>
+        <span style="margin-left: auto; display: flex; gap: 0.3em;">
+          <button data-action="view-logs" data-error-index="${realIdx}" style="padding: 0.1em 0.4em; font-size: 0.8em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #3b82f6; cursor: pointer;">view logs</button>
+          <button data-action="dismiss" data-error-index="${realIdx}" style="padding: 0.1em 0.4em; font-size: 0.8em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #6b7280; cursor: pointer;">dismiss</button>
+        </span>
       </div>`;
     }).join('');
-    elements.errorSummaryContent.innerHTML = errorsHtml + '<div style="padding: 0.5em 0; font-size: 0.8em; color: #9ca3af; font-style: italic;">Usually resolves automatically. If persistent, restart solstone.</div>';
+
+    // Error-type-specific advice templates
+    const types = new Set(recent.map(e => e.type));
+    let adviceHtml = '';
+    if (types.has('agent')) {
+      adviceHtml += `<div style="padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;">Agent errors usually resolve on the next run. <button data-action="view-logs" data-service="cortex" style="background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;">View AI Engine logs</button> for details.</div>`;
+    }
+    if (types.has('import')) {
+      const importErr = recent.find(e => e.type === 'import');
+      const stageText = importErr?.stage && importErr.stage !== 'unknown' ? ` at ${escapeHtml(importErr.stage)}` : '';
+      adviceHtml += `<div style="padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;">Import failed${stageText}. Check the source file and retry, or <button data-action="view-logs" data-service="importer" style="background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;">view File Importer logs</button>.</div>`;
+    }
+    // Default fallback for any unrecognized error types (connection/service errors)
+    if (Array.from(types).some(t => t !== 'agent' && t !== 'import')) {
+      adviceHtml += `<div style="padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;">Service error detected. <button data-action="view-logs" data-service="supervisor" style="background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;">View System Manager logs</button> for details.</div>`;
+    }
+
+    elements.errorSummaryContent.innerHTML = errorsHtml + adviceHtml;
   }
+
+  function viewServiceLogs(service) {
+    // Set filter to the relevant service
+    const option = Array.from(elements.logServiceFilter.options).find(o => o.value === service);
+    if (option) {
+      elements.logServiceFilter.value = service;
+    }
+    // Expand logs if collapsed
+    if (state.logsCollapsed) {
+      state.logsCollapsed = false;
+      document.querySelector('.logs-card').classList.remove('logs-collapsed');
+      elements.logsCollapseIndicator.textContent = '▼ Hide';
+      document.querySelector('.logs-header').setAttribute('aria-expanded', 'true');
+    }
+    renderLogs();
+    document.querySelector('.logs-card').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  elements.errorSummaryContent.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === 'dismiss') {
+      const idx = parseInt(btn.dataset.errorIndex, 10);
+      if (!isNaN(idx) && idx >= 0 && idx < state.recentErrors.length) {
+        state.recentErrors.splice(idx, 1);
+        updateErrorSummary();
+        updateStatusSummary();
+      }
+    } else if (action === 'view-logs') {
+      // If data-service is set (from advice template), use it directly
+      const service = btn.dataset.service;
+      if (service) {
+        viewServiceLogs(service);
+        return;
+      }
+      // Otherwise derive from the error entry
+      const idx = parseInt(btn.dataset.errorIndex, 10);
+      if (!isNaN(idx) && idx >= 0 && idx < state.recentErrors.length) {
+        const err = state.recentErrors[idx];
+        const svc = err.type === 'agent' ? 'cortex' : err.type === 'import' ? 'importer' : 'supervisor';
+        viewServiceLogs(svc);
+      }
+    }
+  });
+
+  elements.importerGrid.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="retry"]');
+    if (!btn) return;
+    const importId = btn.dataset.importId;
+    if (!importId) return;
+    btn.disabled = true;
+    btn.textContent = 'Retrying...';
+    fetch('/app/health/api/retry-import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ import_id: importId })
+    })
+    .then(r => r.json())
+    .then(data => {
+      btn.textContent = data.status === 'not_implemented' ? 'Not yet available' : 'Retry sent';
+      btn.style.color = '#9ca3af';
+    })
+    .catch(() => {
+      btn.textContent = 'Retry failed';
+      btn.style.color = '#dc2626';
+    });
+  });
 
   // Client-side elapsed time updater
   let elapsedTimer = null;
@@ -1789,6 +1883,7 @@
       let errorHtml = '';
       if (isError && imp.error) {
         errorHtml = `<div class="activity-card-error">${escapeHtml(truncate(imp.error, 40))}</div>`;
+        errorHtml += `<div style="margin-top: 0.3em;"><button data-action="retry" data-import-id="${escapeHtml(imp.import_id)}" style="padding: 0.15em 0.5em; font-size: 0.78em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #3b82f6; cursor: pointer;">Retry</button></div>`;
       }
 
       return `
@@ -2209,6 +2304,7 @@
         id: importId,
         name: msg.input_file || existing.input_file || 'unknown',
         error: msg.error || 'Unknown error',
+        stage: existing.stage || msg.stage || 'unknown',
         ts: Date.now()
       });
       if (state.recentErrors.length > 50) state.recentErrors.shift();
@@ -2278,6 +2374,34 @@
     elements.logServiceFilter.innerHTML = '<option value="all">All Services</option>';
     updateLogsBadge();
     renderLogs();
+  });
+  elements.vitalsCheckBtn.addEventListener('click', () => {
+    elements.vitalsCheckBtn.textContent = 'Checking...';
+    elements.vitalsCheckBtn.disabled = true;
+    fetch('/app/health/api/info')
+      .then(r => r.json())
+      .then(info => {
+        state.localHost = info.hostname;
+        updateObserve();
+        elements.vitalsCheckBtn.textContent = 'Check now';
+        elements.vitalsCheckBtn.disabled = false;
+      })
+      .catch(() => {
+        elements.vitalsCheckBtn.textContent = 'Check now';
+        elements.vitalsCheckBtn.disabled = false;
+      });
+  });
+  elements.logExportBtn.addEventListener('click', () => {
+    const content = elements.logsViewport.textContent;
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'solstone-logs-' + new Date().toISOString().slice(0, 19).replace(/:/g, '') + '.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   });
 
   // Deep-link: display log file content if ?log= param is present
