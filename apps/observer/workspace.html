@@ -269,8 +269,40 @@
   color: #333;
 }
 
+/* Add observer toggle */
+.add-observer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1em;
+  min-height: 44px;
+  margin-bottom: 1em;
+}
+.add-observer-toggle:hover {
+  background: #0056b3;
+}
+.add-observer-toggle .toggle-indicator {
+  font-size: 0.75em;
+}
+
+/* Collapsed state for add-observer section */
+.add-observer-section.collapsed .add-observer-form,
+.add-observer-section.collapsed .section-title {
+  display: none;
+}
+
 /* ── Responsive: Tablet (≤768px) ── */
 @media (max-width: 768px) {
+  .add-observer-toggle {
+    width: 100%;
+  }
   .add-observer-form {
     flex-direction: column;
   }
@@ -308,20 +340,26 @@
 </style>
 
 <div class="workspace-content">
-  <section aria-label="add observer">
+  <section aria-label="observers">
+    <h2 class="section-title">Connected Observers</h2>
+    <div id="observersList" role="list">
+      <div class="no-observers">Loading...</div>
+    </div>
+  </section>
+
+  <button class="add-observer-toggle" id="addObserverToggle"
+          aria-expanded="false" aria-controls="addObserverSection">
+    <span class="toggle-indicator">▶</span> Add observer
+  </button>
+
+  <section class="add-observer-section collapsed" id="addObserverSection"
+           aria-label="add observer" aria-hidden="true">
     <h2 class="section-title">add observer</h2>
     <form class="add-observer-form" id="addObserverForm">
       <label for="observerName">Observer name</label>
       <input type="text" id="observerName" placeholder="e.g., laptop, desktop" maxlength="64" required>
       <button type="submit">Add Observer</button>
     </form>
-  </section>
-
-  <section aria-label="observers">
-    <h2 class="section-title">Connected Observers</h2>
-    <div id="observersList" role="list">
-      <div class="no-observers">Loading...</div>
-    </div>
   </section>
 </div>
 
@@ -354,6 +392,8 @@
 const observersList = document.getElementById('observersList');
 const addObserverForm = document.getElementById('addObserverForm');
 const observerNameInput = document.getElementById('observerName');
+const addObserverToggle = document.getElementById('addObserverToggle');
+const addObserverSection = document.getElementById('addObserverSection');
 const keyModal = document.getElementById('keyModal');
 const modalObserverName = document.getElementById('modalObserverName');
 const serverUrlText = document.getElementById('serverUrlText');
@@ -363,6 +403,29 @@ const copyKeyBtn = document.getElementById('copyKeyBtn');
 const doneBtn = document.getElementById('doneBtn');
 const keyModalClose = document.getElementById('keyModalClose');
 let keyModalTrigger = null;
+
+function setFormCollapsed(collapsed) {
+  if (collapsed) {
+    addObserverSection.classList.add('collapsed');
+    addObserverSection.setAttribute('aria-hidden', 'true');
+    addObserverToggle.setAttribute('aria-expanded', 'false');
+    addObserverToggle.querySelector('.toggle-indicator').textContent = '▶';
+  } else {
+    addObserverSection.classList.remove('collapsed');
+    addObserverSection.setAttribute('aria-hidden', 'false');
+    addObserverToggle.setAttribute('aria-expanded', 'true');
+    addObserverToggle.querySelector('.toggle-indicator').textContent = '▼';
+  }
+}
+
+addObserverToggle.addEventListener('click', () => {
+  const isCollapsed = addObserverSection.classList.contains('collapsed');
+  setFormCollapsed(!isCollapsed);
+  if (isCollapsed) {
+    // Focus the input when expanding
+    document.getElementById('observerName').focus();
+  }
+});
 
 function formatBytes(bytes) {
   if (bytes === 0) return '0 B';
@@ -399,7 +462,8 @@ async function loadObservers() {
     const observers = await response.json();
 
     if (!observers || observers.length === 0) {
-      observersList.innerHTML = '<div class="no-observers">No observers registered yet. Add one above to get started.</div>';
+      observersList.innerHTML = '<div class="no-observers">No observers registered yet. Add one to get started.</div>';
+      setFormCollapsed(false);
       return;
     }
 
@@ -440,6 +504,12 @@ async function loadObservers() {
       `;
     }
     observersList.innerHTML = html;
+
+    // Auto-collapse form when observers exist, unless user is actively editing
+    const formHasFocus = addObserverSection.contains(document.activeElement);
+    if (!formHasFocus) {
+      setFormCollapsed(true);
+    }
   } catch (err) {
     observersList.innerHTML = '<div class="no-observers">Error loading observers</div>';
     console.error('Failed to load observers:', err);
@@ -526,6 +596,9 @@ addObserverForm.onsubmit = async (e) => {
     // Clear input and reload list
     observerNameInput.value = '';
     loadObservers();
+    // Auto-collapse form after successful add
+    setFormCollapsed(true);
+    keyModalTrigger = addObserverToggle;
   } catch (err) {
     if (window.showError) showError(err.message);
   } finally {
