@@ -371,7 +371,8 @@
 .spinner { display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; margin-left:6px; }
 .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
 .modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:800px; max-height:80vh; overflow:auto; position:relative; }
-.close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
+.close { position:absolute; top:10px; right:15px; cursor:pointer; background:none; border:none; font:inherit; font-size:24px; padding:0; }
+.modal-content h3 { margin: 0 0 0.75em 0; font-size: 1.1rem; }
 .confirm-fields { display: flex; gap: 1em; flex-wrap: wrap; margin-top: 0.5em; }
 .confirm-field { display: flex; flex-direction: column; flex: 1 1 180px; min-width: 180px; }
 .confirm-field label { font-size: 0.9em; color: #666; margin-bottom: 0.25em; }
@@ -465,9 +466,10 @@
   </div>
 </div>
 
-<div id="detectModal" class="modal">
+<div id="detectModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="detectModalTitle">
   <div class="modal-content">
-    <span class="close">&times;</span>
+    <h3 id="detectModalTitle">Confirm import details</h3>
+    <button class="close" type="button" aria-label="Close" onclick="closeDetectModal()">&times;</button>
     <div class="confirm-fields">
       <div class="confirm-field">
         <label for="timestampInput">Timestamp</label>
@@ -613,13 +615,48 @@ function showQuickImport() {
   navigateTo('guide/quick');
 }
 
+let previousDetectFocus = null;
+let detectFocusTrapHandler = null;
+
 function showDetect(res) {
   document.getElementById('timestampInput').value = res.timestamp || '';
   document.getElementById('savedPath').value = res.path;
   const defaultFacet = res.facet || window.selectedFacet || '';
   loadFacets(defaultFacet);
   settingInput.value = res.setting || '';
+  previousDetectFocus = document.activeElement;
   document.getElementById('detectModal').style.display = 'block';
+  document.getElementById('timestampInput').focus();
+  detectFocusTrapHandler = function(e) {
+    if (e.key !== 'Tab') return;
+    const modal = document.getElementById('detectModal');
+    const focusable = Array.from(
+      modal.querySelectorAll('button, [href], input, select, textarea, [tabindex="0"]')
+    ).filter(el => el.offsetParent !== null && el.tabIndex >= 0 && !el.disabled);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+  document.addEventListener('keydown', detectFocusTrapHandler);
+}
+
+function closeDetectModal() {
+  document.getElementById('detectModal').style.display = 'none';
+  if (detectFocusTrapHandler) {
+    document.removeEventListener('keydown', detectFocusTrapHandler);
+    detectFocusTrapHandler = null;
+  }
+  if (previousDetectFocus && previousDetectFocus.isConnected) {
+    previousDetectFocus.focus();
+  }
+  previousDetectFocus = null;
 }
 
 function formatFileSize(bytes) {
@@ -1436,7 +1473,6 @@ startBtn.addEventListener('click', async () => {
   const path = document.getElementById('savedPath').value;
   const facet = facetSelect.value;
   const setting = settingInput.value.trim();
-  const detectModal = document.getElementById('detectModal');
 
   if (!ts) {
     if (window.showError) showError('Timestamp is required before starting the import.');
@@ -1472,7 +1508,7 @@ startBtn.addEventListener('click', async () => {
 
     startBtn.disabled = false;
     startBtn.textContent = originalText;
-    detectModal.style.display = 'none';
+    closeDetectModal();
     importEvents[ts] = {
       import_id: ts,
       event: 'started',
@@ -1489,15 +1525,17 @@ startBtn.addEventListener('click', async () => {
   }
 });
 
-document.querySelector('.close').onclick = () => {
-  document.getElementById('detectModal').style.display = 'none';
-};
-
 window.onclick = e => {
   if (e.target === document.getElementById('detectModal')) {
-    document.getElementById('detectModal').style.display = 'none';
+    closeDetectModal();
   }
 };
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && document.getElementById('detectModal').style.display === 'block') {
+    closeDetectModal();
+  }
+});
 
 function loadFacets(defaultValue = null, selectEl = null) {
   const select = selectEl || document.getElementById('facetSelect');
