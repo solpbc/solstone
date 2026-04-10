@@ -16,7 +16,7 @@ stats_bp = Blueprint(
     "app:stats",
     __name__,
     url_prefix="/app/stats",
-    static_folder=".",
+    static_folder="static",
     static_url_path="/static",
 )
 
