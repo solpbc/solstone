@@ -214,15 +214,30 @@ const Dashboard = (function() {
     // Add legend
     const legend = el('div', {className: 'token-legend'}, [
       el('div', {className: 'legend-item'}, [
-        el('div', {className: 'legend-color', style: {background: '#667eea'}, 'aria-hidden': 'true'}),
+        el('div', {className: 'legend-color', style: {background: '#2171b5'}, 'aria-hidden': 'true'}),
         'Input'
       ]),
       el('div', {className: 'legend-item'}, [
-        el('div', {className: 'legend-color', style: {background: '#9b59b6'}, 'aria-hidden': 'true'}),
+        el('div', {
+          className: 'legend-color',
+          style: {
+            background: '#e6550d',
+            backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.3) 3px, rgba(255,255,255,0.3) 6px)'
+          },
+          'aria-hidden': 'true'
+        }),
         'Reasoning'
       ]),
       el('div', {className: 'legend-item'}, [
-        el('div', {className: 'legend-color', style: {background: '#e91e63'}, 'aria-hidden': 'true'}),
+        el('div', {
+          className: 'legend-color',
+          style: {
+            background: '#31a354',
+            backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.3) 1px, transparent 1px)',
+            backgroundSize: '6px 6px'
+          },
+          'aria-hidden': 'true'
+        }),
         'Output'
       ])
     ]);
@@ -266,24 +281,18 @@ const Dashboard = (function() {
         const audioPct = (d.audio / total) * 100;
         const screenPct = (d.screen / total) * 100;
 
-        // Screen on top (pink/purple)
+        // Screen on top
         if (d.screen > 0) {
           stack.appendChild(el('div', {
-            className: 'stack-segment',
-            style: {
-              height: `${screenPct}%`,
-              background: '#e91e63'
-            }
+            className: 'stack-segment screen',
+            style: {height: `${screenPct}%`}
           }));
         }
-        // Audio on bottom (blue/purple)
+        // Audio on bottom
         if (d.audio > 0) {
           stack.appendChild(el('div', {
-            className: 'stack-segment',
-            style: {
-              height: `${audioPct}%`,
-              background: '#667eea'
-            }
+            className: 'stack-segment audio',
+            style: {height: `${audioPct}%`}
           }));
         }
       }
@@ -310,11 +319,18 @@ const Dashboard = (function() {
     // Add legend
     const legend = el('div', {className: 'token-legend'}, [
       el('div', {className: 'legend-item'}, [
-        el('div', {className: 'legend-color', style: {background: '#667eea'}, 'aria-hidden': 'true'}),
+        el('div', {className: 'legend-color', style: {background: '#2171b5'}, 'aria-hidden': 'true'}),
         'Audio'
       ]),
       el('div', {className: 'legend-item'}, [
-        el('div', {className: 'legend-color', style: {background: '#e91e63'}, 'aria-hidden': 'true'}),
+        el('div', {
+          className: 'legend-color',
+          style: {
+            background: '#e6550d',
+            backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.3) 3px, rgba(255,255,255,0.3) 6px)'
+          },
+          'aria-hidden': 'true'
+        }),
         'Screen'
       ])
     ]);
@@ -362,9 +378,9 @@ const Dashboard = (function() {
   function getCategoryColor(index, total) {
     // Use a palette of distinct colors
     const palette = [
-      '#667eea', '#764ba2', '#e91e63', '#00bcd4', '#4caf50',
-      '#ff9800', '#9c27b0', '#3f51b5', '#009688', '#ff5722',
-      '#795548', '#607d8b', '#8bc34a', '#ffc107', '#673ab7'
+      '#0072B2', '#E69F00', '#009E73', '#CC79A7', '#56B4E9',
+      '#D55E00', '#F0E442', '#000000', '#332288', '#88CCEE',
+      '#44AA99', '#117733', '#999933', '#882255', '#661100'
     ];
     return palette[index % palette.length];
   }
