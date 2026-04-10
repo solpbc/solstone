@@ -1928,7 +1928,7 @@ button:focus:not(:focus-visible) {
         <div class="provider-row">
           <div class="settings-field">
             <label for="field-vertex-project">project</label>
-            <input type="text" id="field-vertex-project" placeholder="Required — e.g., my-project-id">
+            <input type="text" id="field-vertex-project" placeholder="my-gcp-project">
             <small>Google Cloud project ID</small>
           </div>
           <div class="settings-field">
@@ -1937,32 +1937,24 @@ button:focus:not(:focus-visible) {
             <small>Google Cloud region</small>
           </div>
         </div>
-      </div>
-      <div id="vertexCredentials" style="display:none">
         <div class="provider-row">
-          <div class="settings-field" style="flex:1">
-            <label>service account credentials</label>
-            <div id="vertexCredStatus" style="display:none;margin-bottom:0.5em;">
-              <span style="color:#4a9;">&#10003;</span>
-              <span id="vertexCredEmail" style="font-family:monospace;font-size:0.9em;"></span>
-              <button type="button" class="btn-secondary" style="margin-left:0.5em;font-size:0.8em;" onclick="removeVertexCredentials()">Remove</button>
+          <div class="settings-field" style="flex:1" id="vertex-creds-field">
+            <label>service account</label>
+            <div id="vertex-creds-status" style="margin-bottom:0.4em">
+              <span id="vertex-creds-email" style="color:#666;font-size:0.9em">not configured</span>
             </div>
-            <div id="vertexCredUpload">
-              <div style="display:flex;gap:0.5em;align-items:start;">
-                <label class="btn-secondary" style="cursor:pointer;display:inline-block;text-align:center;">
-                  Upload JSON
-                  <input type="file" id="vertexCredFile" accept=".json" style="display:none" onchange="handleVertexCredFile(this)">
-                </label>
-                <span style="color:#888;padding-top:0.3em;">or</span>
-                <button type="button" class="btn-secondary" onclick="document.getElementById('vertexCredPasteArea').style.display=''">Paste JSON</button>
-              </div>
-              <div id="vertexCredPasteArea" style="display:none;margin-top:0.5em;">
-                <textarea id="vertexCredPasteInput" rows="4" style="width:100%;font-family:monospace;font-size:0.85em;" placeholder="Paste service account JSON here..."></textarea>
-                <button type="button" class="btn-secondary" style="margin-top:0.3em;" onclick="submitVertexCredPaste()">Save Credentials</button>
-              </div>
+            <div id="vertex-creds-actions">
+              <button type="button" id="btn-vertex-creds-file" onclick="document.getElementById('vertex-creds-file-input').click()" style="margin-right:0.4em">Choose file</button>
+              <button type="button" id="btn-vertex-creds-paste" onclick="toggleVertexCredsPaste()">Paste JSON</button>
+              <button type="button" id="btn-vertex-creds-remove" onclick="removeVertexCreds()" style="display:none;color:#c33">Remove</button>
             </div>
-            <small>Service account JSON for Vertex AI authentication</small>
-            <span id="vertexCredStatus2" style="font-size:0.85em;margin-left:0.5em;"></span>
+            <input type="file" id="vertex-creds-file-input" accept=".json" style="display:none" onchange="uploadVertexCredsFile(this)">
+            <textarea id="vertex-creds-paste-input" rows="6" style="display:none;width:100%;margin-top:0.5em;font-family:monospace;font-size:0.85em" placeholder="Paste service account JSON here"></textarea>
+            <div id="vertex-creds-paste-actions" style="display:none;margin-top:0.4em">
+              <button type="button" onclick="submitVertexCredsPaste()">Save</button>
+              <button type="button" onclick="cancelVertexCredsPaste()" style="margin-left:0.4em">Cancel</button>
+            </div>
+            <small>JSON credentials for Vertex AI authentication</small>
           </div>
         </div>
       </div>
@@ -3787,26 +3779,8 @@ function populateProviders(data) {
   if (vertexFields) {
     vertexFields.style.display = (data.google_backend === 'vertex') ? '' : 'none';
   }
-  const vertexCreds = document.getElementById('vertexCredentials');
-  if (vertexCreds) {
-    vertexCreds.style.display = (data.google_backend === 'vertex') ? '' : 'none';
-  }
-  const googleKeyField = document.getElementById('googleApiKeyField');
-  if (googleKeyField) {
-    googleKeyField.style.display = (data.google_backend === 'vertex') ? 'none' : '';
-  }
   // Populate vertex credentials status
-  const credStatus = document.getElementById('vertexCredStatus');
-  const credUpload = document.getElementById('vertexCredUpload');
-  const credEmail = document.getElementById('vertexCredEmail');
-  if (data.vertex_credentials_email) {
-    if (credStatus) credStatus.style.display = '';
-    if (credUpload) credUpload.style.display = 'none';
-    if (credEmail) credEmail.textContent = data.vertex_credentials_email;
-  } else {
-    if (credStatus) credStatus.style.display = 'none';
-    if (credUpload) credUpload.style.display = '';
-  }
+  updateVertexCredsUI(data.vertex_credentials_configured, data.vertex_credentials_email);
 
   // Update status text
   document.getElementById('providerStatus').textContent = '';
@@ -4170,65 +4144,105 @@ for (const vfield of ['vertex-project', 'vertex-location']) {
   });
 }
 
-// Vertex credentials handlers
-async function handleVertexCredFile(input) {
-  if (!input.files || !input.files[0]) return;
-  const text = await input.files[0].text();
-  await saveVertexCredentials(text);
-  input.value = '';
+// Vertex SA credentials handlers
+function updateVertexCredsUI(configured, email) {
+  const emailEl = document.getElementById('vertex-creds-email');
+  const removeBtn = document.getElementById('btn-vertex-creds-remove');
+  const fileBtn = document.getElementById('btn-vertex-creds-file');
+  const pasteBtn = document.getElementById('btn-vertex-creds-paste');
+  if (configured && email) {
+    emailEl.textContent = email;
+    emailEl.style.color = '#2a7';
+    removeBtn.style.display = '';
+    fileBtn.style.display = 'none';
+    pasteBtn.style.display = 'none';
+  } else {
+    emailEl.textContent = 'not configured';
+    emailEl.style.color = '#666';
+    removeBtn.style.display = 'none';
+    fileBtn.style.display = '';
+    pasteBtn.style.display = '';
+  }
+  // Hide paste area
+  document.getElementById('vertex-creds-paste-input').style.display = 'none';
+  document.getElementById('vertex-creds-paste-actions').style.display = 'none';
 }
 
-async function submitVertexCredPaste() {
-  const text = document.getElementById('vertexCredPasteInput')?.value;
-  if (!text) return;
-  await saveVertexCredentials(text);
+function toggleVertexCredsPaste() {
+  const ta = document.getElementById('vertex-creds-paste-input');
+  const actions = document.getElementById('vertex-creds-paste-actions');
+  const show = ta.style.display === 'none';
+  ta.style.display = show ? '' : 'none';
+  actions.style.display = show ? '' : 'none';
+  if (show) { ta.value = ''; ta.focus(); }
 }
 
-async function saveVertexCredentials(jsonText) {
-  const statusEl = document.getElementById('vertexCredStatus2');
+function cancelVertexCredsPaste() {
+  document.getElementById('vertex-creds-paste-input').style.display = 'none';
+  document.getElementById('vertex-creds-paste-actions').style.display = 'none';
+}
+
+async function saveVertexCreds(jsonString) {
+  const field = document.getElementById('vertex-creds-field');
+  const small = field?.querySelector('small');
   try {
-    let creds;
-    try {
-      creds = JSON.parse(jsonText);
-    } catch (e) {
-      if (statusEl) { statusEl.textContent = 'Invalid JSON'; statusEl.style.color = '#c44'; }
+    // Basic client-side JSON validation
+    const parsed = JSON.parse(jsonString);
+    const required = ['type', 'project_id', 'client_email', 'private_key'];
+    const missing = required.filter(f => !parsed[f]);
+    if (missing.length) {
+      showFieldStatus(document.getElementById('btn-vertex-creds-file'), 'error', `Missing: ${missing.join(', ')}`);
       return;
     }
-    const response = await fetch('api/vertex-credentials', {
-      method: 'POST',
+
+    const response = await fetch('api/providers', {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credentials: creds })
+      body: JSON.stringify({ vertex_credentials: jsonString })
     });
     const result = await response.json();
     if (result.error) throw new Error(result.error);
-    // Update UI
-    const credStatus = document.getElementById('vertexCredStatus');
-    const credUpload = document.getElementById('vertexCredUpload');
-    const credEmail = document.getElementById('vertexCredEmail');
-    if (credStatus) credStatus.style.display = '';
-    if (credUpload) credUpload.style.display = 'none';
-    if (credEmail) credEmail.textContent = result.client_email;
-    document.getElementById('vertexCredPasteArea').style.display = 'none';
-    document.getElementById('vertexCredPasteInput').value = '';
-    if (statusEl) { statusEl.textContent = 'Saved'; statusEl.style.color = '#4a9'; }
-    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+    providersData = result;
+    updateVertexCredsUI(result.vertex_credentials_configured, result.vertex_credentials_email);
+    showFieldStatus(document.getElementById('btn-vertex-creds-remove'), 'saved', result.vertex_credentials_email || 'saved');
   } catch (err) {
     console.error('Error saving vertex credentials:', err);
-    if (statusEl) { statusEl.textContent = err.message; statusEl.style.color = '#c44'; }
+    showFieldStatus(document.getElementById('btn-vertex-creds-file') || small?.parentElement?.querySelector('button'), 'error', err.message);
   }
 }
 
-async function removeVertexCredentials() {
+function uploadVertexCredsFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    saveVertexCreds(e.target.result);
+  };
+  reader.readAsText(file);
+  input.value = ''; // reset so same file can be re-selected
+}
+
+function submitVertexCredsPaste() {
+  const ta = document.getElementById('vertex-creds-paste-input');
+  if (!ta.value.trim()) return;
+  saveVertexCreds(ta.value.trim());
+}
+
+async function removeVertexCreds() {
   try {
-    const response = await fetch('api/vertex-credentials', { method: 'DELETE' });
+    const response = await fetch('api/providers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vertex_credentials: '' })
+    });
     const result = await response.json();
     if (result.error) throw new Error(result.error);
-    const credStatus = document.getElementById('vertexCredStatus');
-    const credUpload = document.getElementById('vertexCredUpload');
-    if (credStatus) credStatus.style.display = 'none';
-    if (credUpload) credUpload.style.display = '';
+    providersData = result;
+    updateVertexCredsUI(false, '');
+    showFieldStatus(document.getElementById('btn-vertex-creds-file'), 'saved', 'credentials removed');
   } catch (err) {
     console.error('Error removing vertex credentials:', err);
+    showFieldStatus(document.getElementById('btn-vertex-creds-remove'), 'error', err.message);
   }
 }
 

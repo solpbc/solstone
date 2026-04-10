@@ -444,7 +444,8 @@
       "vertex_env_keys": [
         "GOOGLE_GENAI_USE_VERTEXAI",
         "GOOGLE_CLOUD_PROJECT",
-        "GOOGLE_CLOUD_LOCATION"
+        "GOOGLE_CLOUD_LOCATION",
+        "GOOGLE_APPLICATION_CREDENTIALS"
       ]
     },
     {
@@ -455,5 +456,7 @@
   ],
   "vertex_credentials_email": null,
   "vertex_location": "",
-  "vertex_project": ""
+  "vertex_project": "",
+  "vertex_credentials_configured": false,
+  "vertex_credentials_email": ""
 }

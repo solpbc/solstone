@@ -54,6 +54,7 @@ PROVIDER_METADATA: Dict[str, Dict[str, Any]] = {
             "GOOGLE_GENAI_USE_VERTEXAI",
             "GOOGLE_CLOUD_PROJECT",
             "GOOGLE_CLOUD_LOCATION",
+            "GOOGLE_APPLICATION_CREDENTIALS",
         ],
     },
     "openai": {"label": "OpenAI (GPT)", "env_key": "OPENAI_API_KEY"},

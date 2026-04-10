@@ -644,7 +644,7 @@ class TestBuildCogitateEnv:
         assert "OPENAI_API_KEY" not in oai_env
 
     def test_vertex_backend_sets_env_vars(self):
-        """Vertex backend sets GOOGLE_GENAI_USE_VERTEXAI and preserves key."""
+        """Vertex backend sets GOOGLE_GENAI_USE_VERTEXAI (no API key for vertex)."""
         config = {
             "providers": {
                 "google_backend": "vertex",
@@ -657,7 +657,26 @@ class TestBuildCogitateEnv:
         ):
             env = build_cogitate_env("GOOGLE_API_KEY")
         assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
-        assert env["GOOGLE_API_KEY"] == "gk-test"
+        assert "GOOGLE_API_KEY" not in env
+
+    def test_vertex_backend_with_sa_creds(self):
+        """Vertex with SA credentials sets GOOGLE_APPLICATION_CREDENTIALS, removes API key."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "vertex_credentials": "/tmp/fake-sa.json",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("os.path.exists", return_value=True),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
+        assert env["GOOGLE_APPLICATION_CREDENTIALS"] == "/tmp/fake-sa.json"
+        assert "GOOGLE_API_KEY" not in env
 
     def test_vertex_backend_with_project_location(self):
         """Vertex config sets project/location env vars."""
@@ -677,7 +696,6 @@ class TestBuildCogitateEnv:
         assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
         assert env["GOOGLE_CLOUD_PROJECT"] == "my-project"
         assert env["GOOGLE_CLOUD_LOCATION"] == "us-central1"
-        assert env["GOOGLE_API_KEY"] == "gk-test"
 
     def test_aistudio_backend_no_vertex_env_vars(self):
         """AI Studio backend does not set Vertex env vars."""
@@ -705,7 +723,7 @@ class TestBuildCogitateEnv:
         ):
             env = build_cogitate_env("GOOGLE_API_KEY")
         assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
-        assert env["GOOGLE_API_KEY"] == "gk-test"
+        assert "GOOGLE_API_KEY" not in env
 
     def test_non_google_key_unaffected_by_vertex(self):
         """Vertex logic only applies to GOOGLE_API_KEY."""

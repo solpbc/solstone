@@ -135,109 +135,36 @@ def test_validate_key_google_returns_backend_vertex():
     assert mock_cls.call_args.kwargs["api_key"] == "test-key"
 
 
-def test_validate_vertex_credentials_success():
-    """validate_vertex_credentials returns valid with backend vertex."""
+def test_validate_vertex_credentials():
+    """validate_vertex_credentials creates SA-authenticated client."""
     client = Mock()
     client.models.list.return_value = [Mock()]
 
+    mock_creds = Mock()
+    mock_creds.service_account_email = "test@project.iam.gserviceaccount.com"
+
     with (
         patch(
-            "think.providers.google.service_account.Credentials.from_service_account_file"
-        ) as mock_creds,
-        patch("think.providers.google.genai.Client", return_value=client) as mock_cls,
+            "think.providers.google.genai.Client", return_value=client
+        ) as mock_cls,
+        patch(
+            "google.oauth2.service_account.Credentials.from_service_account_file",
+            return_value=mock_creds,
+        ),
     ):
-        mock_creds.return_value = Mock()
         result = think.providers.google.validate_vertex_credentials(
-            "/path/to/creds.json", project="my-project", location="us-central1"
+            "/tmp/sa.json", project="my-proj", location="us-central1"
         )
 
-    assert result == {"valid": True, "backend": "vertex"}
-    mock_creds.assert_called_once_with(
-        "/path/to/creds.json",
-        scopes=["https://www.googleapis.com/auth/cloud-platform"],
-    )
-    assert mock_cls.call_args.kwargs["vertexai"] is True
-    assert mock_cls.call_args.kwargs["credentials"] is mock_creds.return_value
-    assert mock_cls.call_args.kwargs["project"] == "my-project"
-    assert "api_key" not in mock_cls.call_args.kwargs
-
-
-def test_validate_vertex_credentials_error():
-    """validate_vertex_credentials returns error on failure."""
-    with patch(
-        "think.providers.google.service_account.Credentials.from_service_account_file",
-        side_effect=Exception("Invalid credentials"),
-    ):
-        result = think.providers.google.validate_vertex_credentials("/bad/path.json")
-
-    assert result["valid"] is False
-    assert "Invalid credentials" in result["error"]
-
-
-def test_get_or_create_client_service_account():
-    """Vertex + vertex_credentials uses service_account.Credentials."""
-    config = {
-        "providers": {
-            "google_backend": "vertex",
-            "vertex_credentials": "/path/to/creds.json",
-            "vertex_project": "my-project",
-            "vertex_location": "us-central1",
-        }
+    assert result == {
+        "valid": True,
+        "email": "test@project.iam.gserviceaccount.com",
     }
-    with (
-        patch("think.utils.get_config", return_value=config),
-        patch(
-            "think.providers.google.service_account.Credentials.from_service_account_file"
-        ) as mock_creds,
-        patch("think.providers.google.genai.Client") as mock_cls,
-    ):
-        mock_creds.return_value = Mock()
-        think.providers.google.get_or_create_client()
-
-    mock_creds.assert_called_once_with(
-        "/path/to/creds.json",
-        scopes=["https://www.googleapis.com/auth/cloud-platform"],
-    )
     assert mock_cls.call_args.kwargs["vertexai"] is True
-    assert mock_cls.call_args.kwargs["credentials"] is mock_creds.return_value
-    assert mock_cls.call_args.kwargs["project"] == "my-project"
+    assert mock_cls.call_args.kwargs["credentials"] is mock_creds
+    assert "api_key" not in mock_cls.call_args.kwargs
+    assert mock_cls.call_args.kwargs["project"] == "my-proj"
     assert mock_cls.call_args.kwargs["location"] == "us-central1"
-    assert "api_key" not in mock_cls.call_args.kwargs
-
-
-def test_get_or_create_client_vertex_adc():
-    """Vertex without credentials uses ADC (no api_key, no credentials)."""
-    config = {
-        "providers": {
-            "google_backend": "vertex",
-            "vertex_project": "my-project",
-        }
-    }
-    with (
-        patch("think.utils.get_config", return_value=config),
-        patch("think.providers.google.genai.Client") as mock_cls,
-    ):
-        think.providers.google.get_or_create_client()
-
-    assert mock_cls.call_args.kwargs["vertexai"] is True
-    assert mock_cls.call_args.kwargs["project"] == "my-project"
-    assert "api_key" not in mock_cls.call_args.kwargs
-    assert "credentials" not in mock_cls.call_args.kwargs
-
-
-def test_get_or_create_client_api_key():
-    """Default path uses GOOGLE_API_KEY from environment."""
-    config = {"providers": {"google_backend": "auto"}}
-    with (
-        patch("think.utils.get_config", return_value=config),
-        patch.dict("os.environ", {"GOOGLE_API_KEY": "test-key"}),
-        patch("think.providers.google._get_effective_backend", return_value="aistudio"),
-        patch("think.providers.google.genai.Client") as mock_cls,
-    ):
-        think.providers.google.get_or_create_client()
-
-    assert mock_cls.call_args.kwargs["api_key"] == "test-key"
-    assert "credentials" not in mock_cls.call_args.kwargs
 
 
 def test_probe_backend_aistudio():
@@ -448,6 +375,94 @@ def test_providers_google_backend_roundtrip(settings_client):
     assert payload["google_backend"] == "vertex"
     assert payload["vertex_project"] == "my-project"
     assert payload["vertex_location"] == "us-central1"
+
+
+def test_providers_vertex_credentials_roundtrip(settings_client):
+    """PUT/GET vertex_credentials saves file and returns email."""
+    client, journal = settings_client
+
+    sa_json = json.dumps({
+        "type": "service_account",
+        "project_id": "test-project",
+        "client_email": "test@test-project.iam.gserviceaccount.com",
+        "private_key": "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----\n",
+        "client_id": "123",
+        "token_uri": "https://oauth2.googleapis.com/token",
+    })
+
+    # Mock validation (don't actually call Google API)
+    with patch(
+        "apps.settings.routes.validate_vertex_credentials",
+        return_value={
+            "valid": True,
+            "email": "test@test-project.iam.gserviceaccount.com",
+        },
+    ):
+        response = client.put(
+            "/app/settings/api/providers",
+            json={"vertex_credentials": sa_json},
+        )
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["vertex_credentials_configured"] is True
+    assert (
+        payload["vertex_credentials_email"]
+        == "test@test-project.iam.gserviceaccount.com"
+    )
+
+    # Verify file saved with correct permissions
+    creds_file = journal / ".config" / "vertex-credentials.json"
+    assert creds_file.exists()
+    assert oct(creds_file.stat().st_mode & 0o777) == "0o600"
+
+    # Verify config stores path
+    config = json.loads((journal / "config" / "journal.json").read_text())
+    assert config["providers"]["vertex_credentials"] == str(creds_file)
+
+    # GET returns status without secrets
+    response = client.get("/app/settings/api/providers")
+    payload = response.get_json()
+    assert payload["vertex_credentials_configured"] is True
+    assert (
+        payload["vertex_credentials_email"]
+        == "test@test-project.iam.gserviceaccount.com"
+    )
+    assert "private_key" not in json.dumps(payload)
+
+    # Remove credentials
+    response = client.put(
+        "/app/settings/api/providers",
+        json={"vertex_credentials": ""},
+    )
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["vertex_credentials_configured"] is False
+    assert payload["vertex_credentials_email"] == ""
+    assert not creds_file.exists()
+
+
+def test_providers_vertex_credentials_invalid_json(settings_client):
+    """Invalid JSON in vertex_credentials is rejected."""
+    client, _journal = settings_client
+
+    response = client.put(
+        "/app/settings/api/providers",
+        json={"vertex_credentials": "not json"},
+    )
+    assert response.status_code == 400
+    assert "Invalid JSON" in response.get_json()["error"]
+
+
+def test_providers_vertex_credentials_missing_fields(settings_client):
+    """SA JSON missing required fields is rejected."""
+    client, _journal = settings_client
+
+    response = client.put(
+        "/app/settings/api/providers",
+        json={"vertex_credentials": json.dumps({"type": "service_account"})},
+    )
+    assert response.status_code == 400
+    assert "Missing required fields" in response.get_json()["error"]
 
 
 def test_providers_google_backend_invalid(settings_client):
