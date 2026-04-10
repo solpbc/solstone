@@ -380,6 +380,57 @@
   color: #555;
   font-size: 0.9em;
 }
+
+@media (max-width: 768px) {
+  .tokens-dashboard {
+    padding: 1em;
+  }
+  .summary-card {
+    padding: 1em 1.2em;
+  }
+  .summary-table td {
+    font-size: 1.1em;
+  }
+  .breakdown-section h2 {
+    font-size: 1.2em;
+  }
+  .breakdown-table th,
+  .breakdown-table td {
+    padding: 0.6em;
+  }
+}
+
+@media (max-width: 480px) {
+  .tokens-dashboard {
+    padding: 0.5em;
+  }
+  .summary-card {
+    padding: 0.8em;
+  }
+  .summary-table td {
+    font-size: 1em;
+  }
+  .summary-table th {
+    font-size: 0.75em;
+  }
+  .summary-table th,
+  .summary-table td {
+    padding: 0.3em 0.5em;
+  }
+  .breakdown-table td {
+    font-size: 0.85em;
+  }
+  .breakdown-table th,
+  .breakdown-table td {
+    padding: 0.4em;
+  }
+  .breakdown-section {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -0.5em;
+    padding: 0 0.5em;
+  }
+}
 </style>
 
 <script>
