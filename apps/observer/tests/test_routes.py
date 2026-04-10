@@ -452,6 +452,53 @@ def test_api_get_key_nonexistent(observer_env):
     assert resp.status_code == 404
 
 
+def test_api_get_key_revoked(observer_env):
+    """Test getting key for revoked observer returns 403."""
+    env = observer_env()
+
+    # Create then revoke
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "revoke-key-test"},
+        content_type="application/json",
+    )
+    create_data = resp.get_json()
+    key_prefix = create_data["key_prefix"]
+
+    env.client.delete(f"/app/observer/api/{key_prefix}")
+
+    # Try to get the key
+    resp = env.client.get(f"/app/observer/api/{key_prefix}/key")
+    assert resp.status_code == 403
+    assert "revoked" in resp.get_json()["error"]
+
+
+def test_api_get_key_audit_log(observer_env):
+    """Test that viewing a key logs an audit action."""
+    from unittest.mock import patch
+
+    env = observer_env()
+
+    resp = env.client.post(
+        "/app/observer/api/create",
+        json={"name": "audit-test"},
+        content_type="application/json",
+    )
+    create_data = resp.get_json()
+    key_prefix = create_data["key_prefix"]
+
+    with patch("apps.observer.routes.log_app_action") as mock_log:
+        resp = env.client.get(f"/app/observer/api/{key_prefix}/key")
+        assert resp.status_code == 200
+
+        mock_log.assert_called_once_with(
+            app="observer",
+            facet=None,
+            action="observer_key_view",
+            params={"name": "audit-test", "key_prefix": key_prefix},
+        )
+
+
 # === Segment collision helper tests ===
 
 

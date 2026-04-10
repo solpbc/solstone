@@ -239,6 +239,9 @@
 .copy-btn.copied {
   background: #28a745;
 }
+#revealKeyBtn {
+  right: 60px;
+}
 .credential-label {
   font-weight: bold;
   font-size: 0.85em;
@@ -368,7 +371,7 @@
   <div class="modal-content">
     <button type="button" class="modal-close" id="keyModalClose" aria-label="Close">&times;</button>
     <h3 id="keyModalTitle">Observer: <span id="modalObserverName"></span></h3>
-    <p>Use these credentials in your solstone app's service settings:</p>
+    <p>Use these credentials in your solstone app's service settings. Bearer authentication (header) is recommended; URL path auth is legacy.</p>
     <div class="credential-label">Server URL</div>
     <div class="command-box">
       <code id="serverUrlText"></code>
@@ -377,6 +380,7 @@
     <div class="credential-label">Key</div>
     <div class="command-box">
       <code id="keyText"></code>
+      <button class="copy-btn" id="revealKeyBtn">Reveal</button>
       <button class="copy-btn" id="copyKeyBtn">Copy</button>
     </div>
     <p style="font-size: 0.9em; color: #666;">
@@ -402,7 +406,10 @@ const copyServerUrlBtn = document.getElementById('copyServerUrlBtn');
 const copyKeyBtn = document.getElementById('copyKeyBtn');
 const doneBtn = document.getElementById('doneBtn');
 const keyModalClose = document.getElementById('keyModalClose');
+const revealKeyBtn = document.getElementById('revealKeyBtn');
 let keyModalTrigger = null;
+let currentFullKey = null;
+let revealTimer = null;
 
 function setFormCollapsed(collapsed) {
   if (collapsed) {
@@ -544,6 +551,7 @@ async function revokeObserver(keyPrefix, name) {
 }
 
 async function viewObserverKey(keyPrefix, name) {
+  if (!confirm(`Reveal key for "${name}"?`)) return;
   const trigger = document.querySelector(`.observer-card[data-key="${keyPrefix}"] button`);
   try {
     const response = await fetch(`/app/observer/api/${keyPrefix}/key`);
@@ -562,7 +570,10 @@ async function viewObserverKey(keyPrefix, name) {
 function showKeyModal(name, key, trigger) {
   modalObserverName.textContent = name;
   serverUrlText.textContent = window.location.origin;
-  keyText.textContent = key;
+  currentFullKey = key;
+  keyText.textContent = key.slice(0, 8) + '••••••••••••••••';
+  revealKeyBtn.textContent = 'Reveal';
+  if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
   keyModal.style.display = 'block';
   keyModalTrigger = trigger || null;
   keyModalClose.focus();
@@ -626,6 +637,9 @@ function handleKeyModalKeys(e) {
 }
 
 function closeKeyModal() {
+  if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
+  currentFullKey = null;
+  revealKeyBtn.textContent = 'Reveal';
   keyModal.style.display = 'none';
   document.removeEventListener('keydown', handleKeyModalKeys);
   if (keyModalTrigger && document.contains(keyModalTrigger)) {
@@ -677,7 +691,40 @@ function setupCopyBtn(btn, codeEl) {
 }
 
 setupCopyBtn(copyServerUrlBtn, serverUrlText);
-setupCopyBtn(copyKeyBtn, keyText);
+copyKeyBtn.onclick = () => {
+  if (!currentFullKey) return;
+  copyText(currentFullKey).then(() => {
+    copyKeyBtn.textContent = 'Copied!';
+    copyKeyBtn.classList.add('copied');
+    setTimeout(() => {
+      copyKeyBtn.textContent = 'Copy';
+      copyKeyBtn.classList.remove('copied');
+    }, 2000);
+  }, () => {
+    copyKeyBtn.textContent = 'Failed';
+    setTimeout(() => { copyKeyBtn.textContent = 'Copy'; }, 2000);
+  });
+};
+revealKeyBtn.onclick = () => {
+  if (!currentFullKey) return;
+  const isRevealed = keyText.textContent === currentFullKey;
+  if (isRevealed) {
+    keyText.textContent = currentFullKey.slice(0, 8) + '••••••••••••••••';
+    revealKeyBtn.textContent = 'Reveal';
+    if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
+  } else {
+    keyText.textContent = currentFullKey;
+    revealKeyBtn.textContent = 'Hide';
+    if (revealTimer) clearTimeout(revealTimer);
+    revealTimer = setTimeout(() => {
+      if (currentFullKey && keyText.textContent === currentFullKey) {
+        keyText.textContent = currentFullKey.slice(0, 8) + '••••••••••••••••';
+        revealKeyBtn.textContent = 'Reveal';
+      }
+      revealTimer = null;
+    }, 30000);
+  }
+};
 
 // Initial load
 loadObservers();

@@ -201,6 +201,16 @@ def api_get_key(key_prefix: str) -> Any:
     except (json.JSONDecodeError, OSError):
         return jsonify({"error": "Failed to read observer"}), 500
 
+    if data.get("revoked", False):
+        return jsonify({"error": "key unavailable — observer revoked"}), 403
+
+    log_app_action(
+        app="observer",
+        facet=None,
+        action="observer_key_view",
+        params={"name": data.get("name", ""), "key_prefix": key_prefix},
+    )
+
     key = data.get("key", "")
     return jsonify(
         {
