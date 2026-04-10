@@ -460,6 +460,17 @@ const Dashboard = (function() {
     // Clear loading state and notices
     document.getElementById('loading').style.display = 'none';
     document.getElementById('notice').innerHTML = '';
+
+    // Handle API error
+    if (data.error) {
+      document.getElementById('notice').appendChild(
+        el('div', {className: 'alert alert-error'}, [
+          'Couldn\'t load stats data — the stats file may be corrupt or unreadable. ',
+          'Try regenerating with think-journal-stats.'
+        ])
+      );
+      return;
+    }
     
     // Show main content
     const main = document.getElementById('mainContent');
