@@ -146,9 +146,10 @@
   font-size: 0.8rem;
   color: #888;
   margin: 0 0 0.5rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .agent-card-caps {
@@ -161,12 +162,12 @@
 .cap-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.1rem 0.4rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 3px;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 500;
   background: #f0f0f0;
-  color: #777;
+  color: #555;
   letter-spacing: 0.02em;
 }
 
