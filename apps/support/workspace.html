@@ -233,20 +233,20 @@
     <div id="support-announcements-banner" class="support-announcements" style="display:none;"></div>
 
     <!-- Navigation tabs -->
-    <nav class="support-nav">
-      <button class="active" data-section="tickets">Active Tickets</button>
-      <button data-section="feedback">Feedback</button>
-      <button data-section="help">Help &amp; Guidance</button>
+    <nav class="support-nav" role="tablist" aria-label="support sections">
+      <button type="button" role="tab" id="tab-tickets" class="active" data-section="tickets" aria-selected="true" aria-controls="section-tickets" tabindex="0">Active Tickets</button>
+      <button type="button" role="tab" id="tab-feedback" data-section="feedback" aria-selected="false" aria-controls="section-feedback" tabindex="-1">Feedback</button>
+      <button type="button" role="tab" id="tab-help" data-section="help" aria-selected="false" aria-controls="section-help" tabindex="-1">Help &amp; Guidance</button>
     </nav>
 
     <!-- Section: Active Tickets -->
-    <div id="section-tickets" class="support-section active">
+    <div id="section-tickets" class="support-section active" role="tabpanel" aria-labelledby="tab-tickets">
       <div id="tickets-list"></div>
       <div id="ticket-detail" class="support-detail"></div>
     </div>
 
     <!-- Section: Feedback -->
-    <div id="section-feedback" class="support-section">
+    <div id="section-feedback" class="support-section" role="tabpanel" aria-labelledby="tab-feedback">
       <p style="margin-bottom:1rem;">Share your impressions, ideas, or anything on your mind. Your feedback shapes the product.</p>
       <div class="support-feedback-form">
         <textarea id="feedback-text" placeholder="What's on your mind?"></textarea>
@@ -259,7 +259,7 @@
     </div>
 
     <!-- Section: Help & Guidance -->
-    <div id="section-help" class="support-section">
+    <div id="section-help" class="support-section" role="tabpanel" aria-labelledby="tab-help">
       <div class="support-help-card">
         <h3>🛟 Getting Help</h3>
         <p>Just say "I need help" or "something's not working" in the chat bar. Your sol will handle everything — searching for answers, running diagnostics, and filing a ticket if needed.</p>
@@ -287,18 +287,43 @@
 <script>
 (function() {
   // Tab navigation
+  function activateTab(sectionName) {
+    document.querySelectorAll('.support-nav button').forEach(b => {
+      const isActive = b.dataset.section === sectionName;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      b.setAttribute('tabindex', isActive ? '0' : '-1');
+    });
+    document.querySelectorAll('.support-section').forEach(s => s.classList.remove('active'));
+    document.getElementById('section-' + sectionName).classList.add('active');
+    // Reset ticket detail when switching to tickets
+    if (sectionName === 'tickets') {
+      document.getElementById('ticket-detail').classList.remove('active');
+      document.getElementById('tickets-list').style.display = '';
+    }
+  }
+
   document.querySelectorAll('.support-nav button').forEach(btn => {
     btn.addEventListener('click', function() {
-      document.querySelectorAll('.support-nav button').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.support-section').forEach(s => s.classList.remove('active'));
-      this.classList.add('active');
-      document.getElementById('section-' + this.dataset.section).classList.add('active');
-      // Reset ticket detail when switching to tickets
-      if (this.dataset.section === 'tickets') {
-        document.getElementById('ticket-detail').classList.remove('active');
-        document.getElementById('tickets-list').style.display = '';
-      }
+      activateTab(this.dataset.section);
     });
+  });
+
+  document.querySelector('.support-nav').addEventListener('keydown', function(e) {
+    const tabs = [...this.querySelectorAll('button')];
+    const current = tabs.indexOf(e.target);
+    if (current === -1) return;
+    let next;
+    if (e.key === 'ArrowRight') {
+      next = (current + 1) % tabs.length;
+    } else if (e.key === 'ArrowLeft') {
+      next = (current - 1 + tabs.length) % tabs.length;
+    } else {
+      return;
+    }
+    e.preventDefault();
+    tabs[next].focus();
+    activateTab(tabs[next].dataset.section);
   });
 
   // Load tickets
