@@ -118,6 +118,7 @@
     "cost": 0.038015,
     "requests": 2,
     "segment_count": 0,
+    "skipped_unknown": 0,
     "tokens": 9000
   }
 }
