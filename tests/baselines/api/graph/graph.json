@@ -399,8 +399,8 @@
       "kg_edge_count": 1,
       "name": "Balthasar Davi",
       "observation_depth": 2,
-      "recency": 0.5,
-      "score": 63.4,
+      "recency": 0.4,
+      "score": 63.3,
       "type": "person"
     },
     {
@@ -412,8 +412,8 @@
       "kg_edge_count": 1,
       "name": "Mesh Routing",
       "observation_depth": 3,
-      "recency": 0.5,
-      "score": 65.4,
+      "recency": 0.4,
+      "score": 65.3,
       "type": "project"
     },
     {
@@ -425,8 +425,8 @@
       "kg_edge_count": 0,
       "name": "Verona Ventures",
       "observation_depth": 2,
-      "recency": 0.5,
-      "score": 58.4,
+      "recency": 0.4,
+      "score": 58.3,
       "type": "company"
     },
     {
@@ -490,8 +490,8 @@
       "kg_edge_count": 1,
       "name": "Schema Bridge",
       "observation_depth": 2,
-      "recency": 0.5,
-      "score": 63.4,
+      "recency": 0.4,
+      "score": 63.3,
       "type": "project"
     },
     {
@@ -529,8 +529,8 @@
       "kg_edge_count": 2,
       "name": "Montague Tech",
       "observation_depth": 3,
-      "recency": 0.5,
-      "score": 74.4,
+      "recency": 0.4,
+      "score": 74.3,
       "type": "company"
     },
     {
@@ -569,7 +569,7 @@
       "name": "Nurse Angela",
       "observation_depth": 2,
       "recency": 0.5,
-      "score": 68.5,
+      "score": 68.4,
       "type": "person"
     },
     {

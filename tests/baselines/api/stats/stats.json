@@ -243,7 +243,7 @@
     },
     "sense": {
       "color": "#ff6f00",
-      "description": "Unified segment understanding \u2014 density, content type, entities, facets, speakers, and routing recommendations in a single pass",
+      "description": "Unified segment understanding — density, content type, entities, facets, speakers, and routing recommendations in a single pass",
       "load": {
         "agents": false,
         "percepts": true,
@@ -834,6 +834,14 @@
       },
       "20260409": {
         "day_bytes": 660,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "transcript_duration": 0.0
+      },
+      "20260410": {
+        "day_bytes": 942,
         "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
@@ -1833,8 +1841,8 @@
     "total_percept_duration": 23.1,
     "total_transcript_duration": 3455.0,
     "totals": {
-      "day_bytes": 437072,
-      "outputs_pending": 276,
+      "day_bytes": 438014,
+      "outputs_pending": 281,
       "outputs_processed": 14,
       "pending_segments": 0,
       "percept_frames": 3,
