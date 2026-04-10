@@ -31,6 +31,11 @@
       <h2>Your knowledge graph builds itself from daily use</h2>
       <p>As solstone captures your meetings, conversations, and work, entities and relationships appear here automatically.</p>
     </div>
+    <div class="graph-error" id="graph-error" style="display:none;">
+      <div class="graph-error-icon">⚠️</div>
+      <h2>Graph couldn't render</h2>
+      <p>Try refreshing the page. <a href="#" id="graph-retry">Retry</a></p>
+    </div>
     <div id="graph-canvas" style="width:100%;height:100%;display:none;"></div>
   </div>
 
@@ -114,7 +119,17 @@
   max-width: 450px;
   margin: 2em auto;
 }
+.graph-error {
+  text-align: center;
+  padding: 4em 2em;
+  max-width: 450px;
+  margin: 2em auto;
+}
 .graph-empty-icon {
+  font-size: 4em;
+  margin-bottom: 0.25em;
+}
+.graph-error-icon {
   font-size: 4em;
   margin-bottom: 0.25em;
 }
@@ -124,7 +139,18 @@
   font-weight: 600;
   color: #333;
 }
+.graph-error h2 {
+  margin: 0 0 0.5em 0;
+  font-size: 1.3em;
+  font-weight: 600;
+  color: #333;
+}
 .graph-empty p {
+  margin: 0;
+  color: #666;
+  line-height: 1.5;
+}
+.graph-error p {
   margin: 0;
   color: #666;
   line-height: 1.5;
@@ -421,9 +447,11 @@
     const container = document.getElementById('graph-canvas');
     const loading = document.getElementById('graph-loading');
     const empty = document.getElementById('graph-empty');
+    const error = document.getElementById('graph-error');
     const controls = document.getElementById('graph-controls');
 
     loading.style.display = 'none';
+    error.style.display = 'none';
 
     if (!data.nodes || data.nodes.length === 0) {
       container.style.display = 'none';
@@ -473,26 +501,57 @@
 
     if (network) {
       network.setData(visData);
+      network.fit({ animation: { duration: 300 } });
     } else {
-      network = new vis.Network(container, visData, options);
-
-      // Fit graph to container after stabilization
-      network.on('stabilizationIterationsDone', function() {
-        network.fit({ animation: { duration: 300 } });
-      });
-
-      // Click node → inspect
-      network.on('click', function(params) {
-        if (params.nodes.length > 0) {
-          const nodeId = params.nodes[0];
-          const nodeData = visData.nodes.get(nodeId);
-          if (nodeData && nodeData._data) {
-            showDetail(nodeData._data);
-          }
-        } else {
-          // Click canvas → dismiss
-          closeDetail();
+      requestAnimationFrame(function() {
+        // Guard against stale rAF callback if network was already created
+        if (network) {
+          network.setData(visData);
+          network.fit({ animation: { duration: 300 } });
+          return;
         }
+
+        network = new vis.Network(container, visData, options);
+
+        // Fit graph to container after stabilization
+        network.on('stabilizationIterationsDone', function() {
+          network.fit({ animation: { duration: 300 } });
+
+          // Post-stabilization recovery guard
+          if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+            console.error('Graph canvas has zero dimensions after stabilization');
+            document.getElementById('graph-error').style.display = 'block';
+            container.style.display = 'none';
+            return;
+          }
+
+          // Check if all nodes clustered at origin (render failure)
+          var positions = network.getPositions();
+          var nodeIds = Object.keys(positions);
+          if (nodeIds.length > 0) {
+            var allAtOrigin = nodeIds.every(function(id) {
+              return Math.abs(positions[id].x) < 1 && Math.abs(positions[id].y) < 1;
+            });
+            if (allAtOrigin) {
+              console.warn('All nodes at origin after stabilization, attempting recovery fit');
+              network.fit({ animation: { duration: 300 } });
+            }
+          }
+        });
+
+        // Click node → inspect
+        network.on('click', function(params) {
+          if (params.nodes.length > 0) {
+            const nodeId = params.nodes[0];
+            const nodeData = visData.nodes.get(nodeId);
+            if (nodeData && nodeData._data) {
+              showDetail(nodeData._data);
+            }
+          } else {
+            // Click canvas → dismiss
+            closeDetail();
+          }
+        });
       });
     }
 
@@ -660,6 +719,10 @@
   });
 
   document.getElementById('detail-close').addEventListener('click', closeDetail);
+  document.getElementById('graph-retry').addEventListener('click', function(e) {
+    e.preventDefault();
+    reload();
+  });
 
   // --- Facet awareness ---
   window.addEventListener('facet.switch', () => {
