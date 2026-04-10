@@ -152,11 +152,6 @@
       </table>
     </div>
 
-    <!-- Additional Info -->
-    <div class="info-section">
-      <a href="#" id="view-raw">View token log file</a> |
-      <a href="#" id="export-csv">Export day as CSV</a>
-    </div>
   </div>
 </div>
 
@@ -319,22 +314,6 @@
 .models-list {
   font-size: 0.85em;
   color: #666;
-}
-
-.info-section {
-  text-align: center;
-  padding: 2em 0;
-  color: #666;
-  font-size: 0.9em;
-}
-
-.info-section a {
-  color: #667eea;
-  text-decoration: none;
-}
-
-.info-section a:hover {
-  text-decoration: underline;
 }
 </style>
 
@@ -602,18 +581,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentData) {
       renderSegmentTable(currentData.by_segment, e.target.value);
     }
-  });
-
-  // View raw log file
-  document.getElementById('view-raw').addEventListener('click', (e) => {
-    e.preventDefault();
-    window.open(`/tokens/${currentDay}.jsonl`, '_blank');
-  });
-
-  // Export CSV (placeholder)
-  document.getElementById('export-csv').addEventListener('click', (e) => {
-    e.preventDefault();
-    alert('CSV export coming soon!');
   });
 
   // Load initial data
