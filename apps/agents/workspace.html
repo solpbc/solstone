@@ -1197,7 +1197,12 @@
     } catch (error) {
       console.error('Error loading agents:', error);
       document.getElementById('loading-view').innerHTML =
-        '<div class="empty-state"><div class="empty-state-text">Error loading agents</div></div>';
+        '<div class="empty-state" aria-live="polite">' +
+          '<div class="empty-state-icon">⚠️</div>' +
+          '<div class="empty-state-text">Unable to load agents</div>' +
+          '<div class="empty-state-hint">The server may be temporarily unavailable. Check your connection and try again.</div>' +
+          '<button class="back-btn" onclick="loadAgents()" style="margin-top: 1rem;">Try again</button>' +
+        '</div>';
     }
   }
 
@@ -1660,14 +1665,14 @@
       }
 
       if (data.error) {
-        renderRunDetailMessage(`Error: ${data.error}`);
+        renderRunDetailMessage(`Unable to load run details — ${data.error}. Go back and select the run again.`);
         return;
       }
 
       renderRunDetail(data, agentName);
     } catch (error) {
       if (currentRunId !== runId) return;
-      renderRunDetailMessage('Error loading run details');
+      renderRunDetailMessage('Unable to load run details. The server may be unreachable — check your connection and try again.');
     }
   }
 
@@ -1677,6 +1682,7 @@
     logPane.innerHTML = '';
     const msg = document.createElement('div');
     msg.className = 'run-loading';
+    msg.setAttribute('aria-live', 'polite');
     msg.textContent = message;
     logPane.appendChild(msg);
     document.getElementById('run-detail-output-pane').innerHTML = '';
@@ -1847,7 +1853,7 @@
       const data = await response.json();
 
       if (data.error) {
-        pane.innerHTML = `<div class="run-loading">Error: ${escapeHtml(data.error)}</div>`;
+        pane.innerHTML = `<div class="run-loading" aria-live="polite">Unable to load output — ${escapeHtml(data.error)}. Try switching tabs or reloading the page.</div>`;
         return;
       }
 
@@ -1877,7 +1883,7 @@
       pane.appendChild(container);
       runOutputLoaded = true;
     } catch (error) {
-      pane.innerHTML = '<div class="run-loading">Error loading output file</div>';
+      pane.innerHTML = '<div class="run-loading" aria-live="polite">Unable to load output file. The server may be unreachable — check your connection and try again.</div>';
     } finally {
       runOutputLoading = false;
     }
@@ -2141,6 +2147,8 @@
   // =========================================================================
   // Navigation & Preview Modal
   // =========================================================================
+
+  window.loadAgents = loadAgents;
 
   window.showGridView = function() {
     currentName = null;
