@@ -375,10 +375,21 @@ function formatSegmentKey(segment) {
   return `${hh}:${mm}:${ss} (${minutes}m)`;
 }
 
+// Escape HTML special characters for safe innerHTML interpolation
+function escapeHtml(val) {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // Create percent bar
 function createPercentBar(percent, color) {
+  const safeColor = /^#[0-9a-fA-F]{3,6}$/i.test(color) ? color : '#999';
   const width = Math.min(100, Math.max(0, percent * 2)); // Scale for visual effect
-  return `<span class="percent-bar" style="--bar-color: ${color}; width: ${width}px;"></span>`;
+  return `<span class="percent-bar" style="--bar-color: ${safeColor}; width: ${width}px;"></span>`;
 }
 
 // Get provider color
@@ -450,7 +461,7 @@ function renderProviderTable(providers) {
 
   tbody.innerHTML = providers.map(p => `
     <tr>
-      <td><span class="provider-${p.provider}">${p.provider}</span></td>
+      <td><span class="provider-${p.provider.toLowerCase().replace(/[^a-z0-9-]/g, '')}">${escapeHtml(p.provider)}</span></td>
       <td class="num">${formatNumber(p.requests)}</td>
       <td class="num">${formatNumber(p.tokens)}</td>
       <td class="num">${formatCost(p.input_cost)}</td>
@@ -473,7 +484,7 @@ function renderModelTable(models) {
 
   tbody.innerHTML = models.map(m => `
     <tr>
-      <td>${m.model}</td>
+      <td>${escapeHtml(m.model)}</td>
       <td class="num">${formatNumber(m.requests)}</td>
       <td class="num">${formatNumber(m.tokens)}</td>
       <td class="num cost-value">${formatCost(m.cost)}</td>
@@ -508,7 +519,7 @@ function renderTokenTypeTable(tokenTypes) {
 
     return `
       <tr>
-        <td>${label}</td>
+        <td>${escapeHtml(label)}</td>
         <td class="num">${formatNumber(data.tokens)}</td>
         <td class="num cost-value">${formatCost(data.cost)}</td>
         <td class="num">${createPercentBar(data.percent, '#667eea')} ${formatPercent(data.percent)}</td>
@@ -535,12 +546,12 @@ function renderContextTable(contexts, filter = '') {
 
   tbody.innerHTML = filteredContexts.map(c => `
     <tr>
-      <td><code>${c.context}</code></td>
+      <td><code>${escapeHtml(c.context)}</code></td>
       <td class="num">${formatNumber(c.requests)}</td>
       <td class="num">${formatNumber(c.tokens)}</td>
       <td class="num cost-value">${formatCost(c.cost)}</td>
       <td class="num">${createPercentBar(c.percent, '#667eea')} ${formatPercent(c.percent)}</td>
-      <td class="models-list">${c.models_used.join(', ')}</td>
+      <td class="models-list">${escapeHtml(c.models_used.join(', '))}</td>
     </tr>
   `).join('');
 }
@@ -565,12 +576,12 @@ function renderSegmentTable(segments, filter = '') {
     const isUnattributed = s.segment === '[unattributed]';
     return `
       <tr>
-        <td><code title="${s.segment}">${displayName}</code></td>
+        <td><code title="${escapeHtml(s.segment)}">${escapeHtml(displayName)}</code></td>
         <td class="num">${formatNumber(s.requests)}</td>
         <td class="num">${formatNumber(s.tokens)}</td>
         <td class="num cost-value">${formatCost(s.cost)}</td>
         <td class="num">${createPercentBar(s.percent, isUnattributed ? '#999' : '#667eea')} ${formatPercent(s.percent)}</td>
-        <td class="models-list">${s.models_used.join(', ')}</td>
+        <td class="models-list">${escapeHtml(s.models_used.join(', '))}</td>
       </tr>
     `;
   }).join('');
