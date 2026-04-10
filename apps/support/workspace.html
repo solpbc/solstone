@@ -7,6 +7,7 @@
     padding-bottom: 0.5rem;
   }
   .support-nav button {
+    position: relative;
     background: none;
     border: none;
     padding: 0.5rem 1rem;
@@ -146,8 +147,49 @@
   .support-empty {
     text-align: center;
     padding: 3rem 1rem;
-    color: var(--muted, #595959);
   }
+  .support-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+  .support-empty-heading {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+  .support-empty-hint {
+    font-size: 0.9rem;
+    color: var(--muted, #595959);
+    margin-bottom: 1.5rem;
+  }
+  .support-empty-action {
+    background: var(--facet-color, #3b82f6);
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1.25rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .support-empty-action:hover { opacity: 0.9; }
+
+  .support-tab-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: var(--facet-color, #3b82f6);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    line-height: 1.1rem;
+    border-radius: 1rem;
+    text-align: center;
+    display: none;
+  }
+
   .support-disabled {
     text-align: center;
     padding: 3rem 1rem;
@@ -260,7 +302,7 @@
 
     <!-- Section: Feedback -->
     <div id="section-feedback" class="support-section" role="tabpanel" aria-labelledby="tab-feedback">
-      <p style="margin-bottom:1rem;">Share your impressions, ideas, or anything on your mind. Your feedback shapes the product.</p>
+      <p style="margin-bottom:1rem;">💬 Share your impressions, ideas, or anything on your mind. Your feedback shapes the product.</p>
       <div class="support-feedback-form">
         <form id="feedback-form" novalidate>
           <label for="feedback-text">your feedback</label>
@@ -304,6 +346,8 @@
 
 <script>
 (function() {
+  let ticketCount = 0;
+
   // Tab navigation
   function activateTab(sectionName) {
     document.querySelectorAll('.support-nav button').forEach(b => {
@@ -318,6 +362,11 @@
     if (sectionName === 'tickets') {
       document.getElementById('ticket-detail').classList.remove('active');
       document.getElementById('tickets-list').style.display = '';
+    }
+    // Update tab badge visibility
+    const badge = document.getElementById('tab-tickets-badge');
+    if (badge) {
+      badge.style.display = (sectionName !== 'tickets' && ticketCount > 0) ? '' : 'none';
     }
   }
 
@@ -360,7 +409,16 @@
       const tickets = await resp.json();
 
       if (!tickets.length) {
-        list.innerHTML = '<div class="support-empty"><p>No tickets yet.</p><p style="font-size:0.85rem;">File one by saying "I need help" in the chat bar, or use <code>sol call support create</code>.</p></div>';
+        ticketCount = 0;
+        list.innerHTML = '<div class="support-empty">' +
+          '<div class="support-empty-icon">🛟</div>' +
+          '<div class="support-empty-heading">no tickets yet — that\'s a good thing</div>' +
+          '<div class="support-empty-hint">if something comes up, check the help tab for ways to get support</div>' +
+          '<button class="support-empty-action" id="empty-help-btn">browse help &amp; guidance</button>' +
+        '</div>';
+        const helpBtn = document.getElementById('empty-help-btn');
+        if (helpBtn) helpBtn.addEventListener('click', () => activateTab('help'));
+        activateTab('help');
         return;
       }
 
@@ -391,8 +449,25 @@
           }
         });
       });
+      // Update ticket count and inject badge
+      ticketCount = tickets.length;
+      let badge = document.getElementById('tab-tickets-badge');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.id = 'tab-tickets-badge';
+        badge.className = 'support-tab-badge';
+        document.getElementById('tab-tickets').appendChild(badge);
+      }
+      badge.textContent = ticketCount;
+      // Show badge if user already switched away from tickets tab
+      const activeTab = document.querySelector('.support-nav button.active');
+      badge.style.display = (activeTab && activeTab.dataset.section !== 'tickets') ? '' : 'none';
     } catch (e) {
-      list.innerHTML = '<div class="support-empty"><p>Unable to load tickets.</p></div>';
+      list.innerHTML = '<div class="support-empty">' +
+        '<div class="support-empty-icon">⚠️</div>' +
+        '<div class="support-empty-heading">unable to load tickets</div>' +
+        '<div class="support-empty-hint">check your connection and try refreshing</div>' +
+      '</div>';
     }
   }
 
