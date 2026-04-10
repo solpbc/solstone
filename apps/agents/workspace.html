@@ -863,6 +863,19 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+.agent-card:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+  border-color: #007bff;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+}
+
+.runs-table tbody tr:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: -2px;
+  background: #f0f4ff;
+}
 </style>
 
 <div class="agents-content">
@@ -1243,6 +1256,14 @@
     card.className = 'agent-card';
     card.style.borderLeftColor = agent.color;
     card.onclick = () => showRunList(agent.name);
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('aria-label', agent.title);
+    card.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      showRunList(agent.name);
+    });
 
     // Header with title and badges
     const header = document.createElement('div');
@@ -1412,6 +1433,20 @@
       const row = document.createElement('tr');
       row.dataset.runId = run.id;
       row.onclick = () => showRunDetail(run.id, run.name);
+      row.setAttribute('tabindex', '0');
+      row.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          showRunDetail(run.id, run.name);
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const next = row.nextElementSibling;
+          if (next) next.focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prev = row.previousElementSibling;
+          if (prev) prev.focus();
+        }
+      });
 
       // Status
       const statusCell = document.createElement('td');
