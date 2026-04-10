@@ -221,6 +221,67 @@ def test_caching(tmp_path, monkeypatch):
     assert js3.days["20240101"]["transcript_sessions"] == 1
 
 
+def test_facet_event_mtime_invalidates_cache(tmp_path, monkeypatch):
+    """Modifying a facet event file invalidates that day's cache."""
+    stats_mod = importlib.import_module("think.journal_stats")
+    journal = tmp_path
+    day = journal / "20240101"
+    day.mkdir()
+
+    # Create minimal day content
+    ts_dir = day / "default" / "123456_300"
+    ts_dir.mkdir(parents=True)
+    (ts_dir / "audio.jsonl").write_text(
+        '{"raw": "raw.flac"}\n'
+        '{"start": "10:00:00", "text": "hello"}\n'
+    )
+
+    # Create facet event file
+    events_dir = journal / "facets" / "work" / "events"
+    events_dir.mkdir(parents=True)
+    event = {
+        "type": "meeting",
+        "start": "00:00:00",
+        "end": "00:05:00",
+        "title": "t",
+        "summary": "s",
+        "work": True,
+        "participants": [],
+        "details": "",
+        "facet": "work",
+        "agent": "meetings",
+        "occurred": True,
+        "source": "20240101/agents/meetings.md",
+    }
+    (events_dir / "20240101.jsonl").write_text(json.dumps(event))
+
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(journal))
+
+    # First scan - creates cache
+    js1 = stats_mod.JournalStats()
+    js1.scan(str(journal), use_cache=True)
+    assert js1.agent_counts["meetings"] == 1
+    assert (day / "stats.json").exists()
+
+    # Record cache mtime
+    import time
+
+    cache_mtime = (day / "stats.json").stat().st_mtime
+    time.sleep(0.05)
+
+    # Modify the facet event file (add a second event)
+    event2 = dict(event, start="01:00:00", end="01:10:00", agent="summarize")
+    with open(events_dir / "20240101.jsonl", "a") as f:
+        f.write("\n" + json.dumps(event2))
+
+    # Second scan - cache should be invalidated because facet event mtime > cache mtime
+    js2 = stats_mod.JournalStats()
+    js2.scan(str(journal), use_cache=True)
+    assert (day / "stats.json").stat().st_mtime > cache_mtime
+    assert js2.agent_counts["meetings"] == 1
+    assert js2.agent_counts["summarize"] == 1
+
+
 def test_token_usage_new_format(tmp_path, monkeypatch):
     """Test that the new unified token format is properly handled."""
     stats_mod = importlib.import_module("think.journal_stats")

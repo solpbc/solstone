@@ -6,7 +6,7 @@ import json
 import logging
 import os
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict
 
@@ -58,6 +58,16 @@ class JournalStats:
             files.extend(agents_dir.glob("*.md"))
             files.extend(agents_dir.glob("*/*.json"))
             files.extend(agents_dir.glob("*/*.md"))
+
+        # Check facet event files for this day
+        journal_root = day_dir.parent
+        day = day_dir.name
+        facets_dir = journal_root / "facets"
+        if facets_dir.is_dir():
+            for facet_name in os.listdir(facets_dir):
+                event_file = facets_dir / facet_name / "events" / f"{day}.jsonl"
+                if event_file.is_file():
+                    files.append(event_file)
 
         if not files:
             return 0.0
@@ -337,7 +347,7 @@ class JournalStats:
             "heatmap_data": {"weekday": weekday, "hours": heatmap_hours},
         }
 
-    def scan_all_tokens(self, journal_path: Path) -> None:
+    def scan_all_tokens(self, journal_path: Path, use_cache: bool = True) -> None:
         """Scan all token usage files in the tokens directory.
 
         Reads daily *.jsonl files (one JSON object per line).
@@ -346,8 +356,30 @@ class JournalStats:
         if not tokens_dir.is_dir():
             return
 
+        today = datetime.now(timezone.utc).strftime("%Y%m%d")
+
         # Scan JSONL files only
         for token_file in tokens_dir.glob("*.jsonl"):
+            day = token_file.stem
+            cache_file = token_file.parent / f"{day}.tokens_cache.json"
+
+            if use_cache and day != today and cache_file.exists():
+                try:
+                    if cache_file.stat().st_mtime > token_file.stat().st_mtime:
+                        with open(cache_file, encoding="utf-8") as f:
+                            cached = json.load(f)
+                        self.token_usage[day] = cached
+                        for model, counts in cached.items():
+                            if model not in self.token_totals:
+                                self.token_totals[model] = {}
+                            for token_type, count in counts.items():
+                                if token_type not in self.token_totals[model]:
+                                    self.token_totals[model][token_type] = 0
+                                self.token_totals[model][token_type] += count
+                        continue
+                except Exception as e:
+                    logger.debug(f"Token cache load failed for {token_file}: {e}")
+
             try:
                 with open(token_file, "r", encoding="utf-8") as f:
                     for line in f:
@@ -365,10 +397,15 @@ class JournalStats:
                 logger.warning(f"Error reading token file {token_file}: {e}")
                 continue
 
+            if use_cache and day != today:
+                try:
+                    with open(cache_file, "w", encoding="utf-8") as f:
+                        json.dump(self.token_usage.get(day, {}), f)
+                except Exception as e:
+                    logger.debug(f"Token cache save failed for {token_file}: {e}")
+
     def _process_token_entry(self, data: dict) -> None:
         """Process a single token usage entry (expects normalized format)."""
-        from datetime import datetime, timezone
-
         # Extract date from timestamp
         timestamp = data.get("timestamp")
         if not timestamp:
@@ -449,7 +486,7 @@ class JournalStats:
                     self._save_day_cache(day_dir, day_data)
 
         # Scan tokens directory once after all days are processed
-        self.scan_all_tokens(Path(journal))
+        self.scan_all_tokens(Path(journal), use_cache=use_cache)
 
         if verbose:
             cache_status = (
