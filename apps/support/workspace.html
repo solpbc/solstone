@@ -34,6 +34,7 @@
     transition: background 0.1s;
   }
   .support-ticket:hover { background: var(--card-bg, #fafafa); }
+  .support-ticket:focus-visible { outline: 2px solid var(--facet-color, #3b82f6); outline-offset: 2px; }
   .support-ticket-header {
     display: flex;
     justify-content: space-between;
@@ -189,6 +190,7 @@
     background: rgba(59, 130, 246, 0.04);
     color: var(--text, #222);
   }
+  .support-drop-zone:focus-visible { outline: 2px solid var(--facet-color, #3b82f6); outline-offset: 2px; }
   .support-drop-zone input[type="file"] { display: none; }
   .support-file-list {
     margin-top: 0.5rem;
@@ -348,7 +350,7 @@
 
       list.innerHTML = tickets.map(t => {
         const statusClass = 'support-status-' + (t.status || 'open').replace(/[^a-z-]/g, '');
-        return `<div class="support-ticket" data-id="${t.id}">
+        return `<div class="support-ticket" data-id="${t.id}" tabindex="0" role="button">
           <div class="support-ticket-header">
             <span class="support-ticket-subject">${esc(t.subject || 'Untitled')}</span>
             <span class="support-status ${statusClass}">${esc(t.status || 'open')}</span>
@@ -364,6 +366,14 @@
       // Click to open detail
       list.querySelectorAll('.support-ticket').forEach(el => {
         el.addEventListener('click', () => openTicket(parseInt(el.dataset.id)));
+      });
+      list.querySelectorAll('.support-ticket').forEach(el => {
+        el.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openTicket(parseInt(el.dataset.id));
+          }
+        });
       });
     } catch (e) {
       list.innerHTML = '<div class="support-empty"><p>Unable to load tickets.</p></div>';
@@ -415,7 +425,7 @@
       if (t.status !== 'resolved') {
         html += `<div class="support-reply-form">
           <textarea id="reply-text" placeholder="Write a reply..."></textarea>
-          <div class="support-drop-zone" id="attach-zone">
+          <div class="support-drop-zone" id="attach-zone" role="button" tabindex="0" aria-label="Attach files — drop files here or click to browse">
             <input type="file" id="attach-input" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.pdf,.txt,.csv,.html,.md,.xml,.json">
             Drop files here or click to attach (max 10 MB each, up to 5 files)
           </div>
@@ -435,6 +445,8 @@
         detail.innerHTML = '';
         list.style.display = '';
       });
+      const backBtn = document.getElementById('back-to-list');
+      if (backBtn) backBtn.focus();
 
       // -- Attachment handling --
       let pendingFiles = [];
@@ -484,6 +496,12 @@
 
       if (zone) {
         zone.addEventListener('click', () => fileInput && fileInput.click());
+        zone.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileInput && fileInput.click();
+          }
+        });
         zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
         zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
         zone.addEventListener('drop', e => {
