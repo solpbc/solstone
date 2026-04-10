@@ -10,6 +10,10 @@
   background: #f8f9fa;
   border-color: #ced4da;
 }
+.observer-card.stale {
+  background: #fff9e6;
+  border-color: #ffc107;
+}
 .observer-card.revoked {
   background: #f0f0f0;
   border-color: #ccc;
@@ -32,8 +36,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.9em;
-  padding: 2px 8px;
+  font-size: 1em;
+  padding: 3px 10px;
   border-radius: 4px;
 }
 .observer-status.connected {
@@ -42,10 +46,14 @@
 }
 .observer-status.connected::before {
   content: '';
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #28a745;
+}
+.observer-status.connected::after {
+  content: '✓';
+  font-weight: bold;
 }
 .observer-status.disconnected {
   background: #f8d7da;
@@ -53,10 +61,28 @@
 }
 .observer-status.disconnected::before {
   content: '';
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #dc3545;
+}
+.observer-status.stale {
+  background: #fff3cd;
+  color: #856404;
+}
+.observer-status.stale::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffc107;
+}
+.observer-status.stale::after {
+  content: '⚠';
+}
+.observer-status.disconnected::after {
+  content: '✗';
+  font-weight: bold;
 }
 .observer-status.revoked {
   background: #e9ecef;
@@ -64,10 +90,13 @@
 }
 .observer-status.revoked::before {
   content: '';
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #6c757d;
+}
+.observer-status.revoked::after {
+  content: '—';
 }
 .observer-stats {
   font-size: 0.9em;
@@ -296,19 +325,25 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function formatTimeAgo(timestamp) {
+function formatTimeAgo(timestamp, state) {
   if (!timestamp) return 'never';
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-  return `${Math.floor(seconds / 86400)} days ago`;
+  let text;
+  if (seconds < 60) text = 'just now';
+  else if (seconds < 3600) text = `${Math.floor(seconds / 60)} min ago`;
+  else if (seconds < 86400) text = `${Math.floor(seconds / 3600)} hours ago`;
+  else text = `${Math.floor(seconds / 86400)} days ago`;
+  if (state === 'stale') return `${text} — stale`;
+  if (state === 'disconnected') return `${text} — offline`;
+  return text;
 }
 
-function isConnected(lastSeen) {
-  if (!lastSeen) return false;
-  // Consider connected if seen in last 2 minutes
-  return (Date.now() - lastSeen) < 120000;
+function freshness(lastSeen) {
+  if (!lastSeen) return 'disconnected';
+  const elapsed = Date.now() - lastSeen;
+  if (elapsed < 30000) return 'connected';
+  if (elapsed < 120000) return 'stale';
+  return 'disconnected';
 }
 
 async function loadObservers() {
@@ -331,10 +366,12 @@ async function loadObservers() {
         statusText = 'Revoked';
         cardClass = 'revoked';
       } else {
-        const connected = isConnected(observer.last_seen);
-        statusClass = connected ? 'connected' : 'disconnected';
-        statusText = connected ? 'Connected' : 'Disconnected';
-        cardClass = statusClass;
+        const state = freshness(observer.last_seen);
+        statusClass = state;
+        if (state === 'connected') statusText = 'Connected';
+        else if (state === 'stale') statusText = 'Stale';
+        else statusText = 'Disconnected';
+        cardClass = state;
       }
 
       html += `
@@ -344,7 +381,7 @@ async function loadObservers() {
             <span class="observer-status ${statusClass}">${statusText}</span>
           </div>
           <div class="observer-stats">
-            <span>Last seen: ${formatTimeAgo(observer.last_seen)}</span>
+            <span>Last seen: ${formatTimeAgo(observer.last_seen, statusClass)}</span>
             <span>Segments: ${observer.stats?.segments_received || 0}</span>
             <span>Data: ${formatBytes(observer.stats?.bytes_received || 0)}</span>
           </div>
