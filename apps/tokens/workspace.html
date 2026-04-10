@@ -35,6 +35,8 @@
       </table>
     </section>
 
+    <div id="skipped-notice" class="skipped-notice" style="display: none;" role="status"></div>
+
     <!-- By Provider -->
     <section class="breakdown-section" aria-labelledby="section-provider">
       <h2 id="section-provider">By Provider</h2>
@@ -329,6 +331,48 @@
   white-space: nowrap;
   border: 0;
 }
+
+.error-state {
+  text-align: center;
+  padding: 2em;
+}
+
+.error-state h2 {
+  color: #c0392b;
+  margin-bottom: 0.5em;
+  font-size: 1.1em;
+}
+
+.error-hint {
+  color: #888;
+  font-size: 0.9em;
+  margin-bottom: 1.5em;
+}
+
+.error-state button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.6em 1.8em;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.95em;
+}
+
+.error-state button:hover {
+  opacity: 0.9;
+}
+
+.skipped-notice {
+  background: rgba(102, 126, 234, 0.08);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 8px;
+  padding: 0.8em 1.2em;
+  margin-bottom: 2em;
+  color: #555;
+  font-size: 0.9em;
+}
 </style>
 
 <script>
@@ -413,6 +457,13 @@ function getModelDisplayName(model) {
 async function loadTokenData(day) {
   try {
     const response = await fetch(`/app/tokens/api/usage?day=${day}`);
+    if (response.status === 401 || response.status === 403) {
+      window.location.href = '/';
+      return;
+    }
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}`);
+    }
     const data = await response.json();
     currentData = data;
     renderDashboard(data);
@@ -420,7 +471,12 @@ async function loadTokenData(day) {
     document.getElementById('dashboard').style.display = 'block';
   } catch (error) {
     console.error('Failed to load token data:', error);
-    document.getElementById('loading').innerHTML = '<p style="color: red;">Failed to load data</p>';
+    document.getElementById('loading').innerHTML =
+      '<div class="error-state">' +
+        '<h2>Unable to load token data</h2>' +
+        '<p class="error-hint">Try refreshing, or check the health dashboard if this persists.</p>' +
+        '<button onclick="document.getElementById(\'loading\').innerHTML = \'<p>Loading token usage data...</p>\'; loadTokenData(currentDay);">Retry</button>' +
+      '</div>';
   }
 }
 
@@ -455,6 +511,16 @@ function renderDashboard(data) {
 
   // Render segment table
   renderSegmentTable(data.by_segment);
+
+  // Show/hide skipped unknown models notice
+  const skippedNotice = document.getElementById('skipped-notice');
+  const skippedCount = data.total.skipped_unknown || 0;
+  if (skippedCount > 0) {
+    skippedNotice.textContent = skippedCount + ' request' + (skippedCount === 1 ? '' : 's') + ' with unrecognized models not shown.';
+    skippedNotice.style.display = 'block';
+  } else {
+    skippedNotice.style.display = 'none';
+  }
 }
 
 // Render provider table

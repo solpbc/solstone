@@ -91,6 +91,7 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
     total_requests = 0
     total_tokens = 0
     total_cost = 0.0
+    skipped_unknown = 0
 
     for entry in iter_token_log(day):
         # Extract fields
@@ -119,7 +120,8 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
         # Get provider
         provider = get_model_provider(model)
         if provider == "unknown":
-            continue  # Skip unknown providers
+            skipped_unknown += 1
+            continue
 
         # Update totals
         total_requests += 1
@@ -292,6 +294,7 @@ def _aggregate_token_data(day: str) -> Dict[str, Any]:
             "tokens": total_tokens,
             "cost": round(total_cost, 6),
             "segment_count": segment_count,
+            "skipped_unknown": skipped_unknown,
         },
         "by_provider": provider_list,
         "by_model": model_list,
