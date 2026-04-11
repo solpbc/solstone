@@ -160,7 +160,7 @@ The `sol agents` command is primarily used internally by Cortex. For testing pur
 sol agents [TASK_FILE] [--provider PROVIDER] [--model MODEL] [--max-tokens N] [-o OUT_FILE]
 ```
 
-The provider can be ``openai`` (default), ``google`` or ``anthropic``. Configure the corresponding API key in the ``env`` section of ``journal/config/journal.json`` (e.g., ``OPENAI_API_KEY``, ``GOOGLE_API_KEY``, or ``ANTHROPIC_API_KEY``). Keys are loaded into ``os.environ`` by ``setup_cli()`` at process startup.
+The provider can be ``openai`` (default), ``google``, ``anthropic``, or ``ollama``. Configure the corresponding API key in the ``env`` section of ``journal/config/journal.json`` (e.g., ``OPENAI_API_KEY``, ``GOOGLE_API_KEY``, or ``ANTHROPIC_API_KEY``). The ``ollama`` provider requires no API key — it connects to a local Ollama instance. Keys are loaded into ``os.environ`` by ``setup_cli()`` at process startup.
 
 ### Provider modules
 
@@ -228,7 +228,7 @@ Cortex (orchestrator)
    ├── Tool execution via `sol call`
    └── Agent subprocess management
           ↓
-   Providers (openai, google, anthropic)
+   Providers (openai, google, anthropic, ollama)
 ```
 
 ## Providers
@@ -238,6 +238,7 @@ Cortex (orchestrator)
 | OpenAI | `think/providers/openai.py` | GPT models via Agents SDK |
 | Google | `think/providers/google.py` | Gemini models |
 | Anthropic | `think/providers/anthropic.py` | Claude via Anthropic SDK |
+| Ollama | `think/providers/ollama.py` | Local models via Ollama |
 
 Providers implement `run_generate()`, `run_agenerate()`, and `run_cogitate()` functions. See [PROVIDERS.md](PROVIDERS.md) for implementation details.
 

@@ -506,7 +506,7 @@ def prepare_config(request: dict) -> dict:
         backup = get_backup_provider(agent_type)
         if backup and backup != provider:
             env_key = PROVIDER_METADATA.get(backup, {}).get("env_key")
-            if env_key and os.getenv(env_key):
+            if not env_key or os.getenv(env_key):
                 config["fallback_from"] = provider
                 config["provider"] = backup
                 config["model"] = resolve_model_for_provider(
@@ -820,7 +820,7 @@ async def _execute_with_tools(
         if not backup or backup == provider:
             raise
         env_key = PROVIDER_METADATA.get(backup, {}).get("env_key")
-        if not env_key or not os.getenv(env_key):
+        if env_key and not os.getenv(env_key):
             raise
 
         context = config.get("context")
@@ -941,7 +941,7 @@ async def _execute_generate(
         if not backup or backup == provider:
             raise
         env_key = PROVIDER_METADATA.get(backup, {}).get("env_key")
-        if not env_key or not os.getenv(env_key):
+        if env_key and not os.getenv(env_key):
             raise
 
         backup_model = resolve_model_for_provider(context, backup, "generate")
@@ -1171,8 +1171,16 @@ def _check_generate(provider_name: str, tier: int, timeout: int) -> tuple[bool, 
     from think.providers import PROVIDER_METADATA, get_provider_module
 
     env_key = PROVIDER_METADATA[provider_name]["env_key"]
-    if not os.getenv(env_key):
+    if env_key and not os.getenv(env_key):
         return False, f"FAIL: {env_key} not set"
+
+    # For keyless providers (e.g., Ollama), check reachability instead
+    if not env_key:
+        from think.providers import validate_key
+
+        result = validate_key(provider_name, "")
+        if not result.get("valid"):
+            return False, f"FAIL: {result.get('error', 'unreachable')}"
 
     try:
         module = get_provider_module(provider_name)

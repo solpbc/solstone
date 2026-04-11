@@ -17,6 +17,7 @@ Available providers:
 - google: Google Gemini models
 - openai: OpenAI GPT models
 - anthropic: Anthropic Claude models
+- ollama: Ollama local models
 """
 
 from importlib import import_module
@@ -37,6 +38,7 @@ PROVIDER_REGISTRY: Dict[str, str] = {
     "google": "think.providers.google",
     "openai": "think.providers.openai",
     "anthropic": "think.providers.anthropic",
+    "ollama": "think.providers.ollama",
 }
 
 # ---------------------------------------------------------------------------
@@ -57,6 +59,7 @@ PROVIDER_METADATA: Dict[str, Dict[str, Any]] = {
     },
     "openai": {"label": "OpenAI (GPT)", "env_key": "OPENAI_API_KEY"},
     "anthropic": {"label": "Anthropic (Claude)", "env_key": "ANTHROPIC_API_KEY"},
+    "ollama": {"label": "Ollama (Local)", "env_key": ""},
 }
 
 

@@ -3786,6 +3786,14 @@ function updateTypeProviderKeyWarning(type, provider, apiKeys, auth) {
   if (!warning || !link) return;
   const message = warning.querySelectorAll('span')[1];
 
+  // Providers with no env_key (e.g., Ollama local) don't need API keys
+  const providerMeta = providersData?.providers?.find(p => p.name === provider);
+  if (providerMeta && !providerMeta.env_key) {
+    warning.style.display = 'none';
+    warning.title = '';
+    return;
+  }
+
   // For cogitate, hide key warning when using platform auth
   const authMode = (auth && type === 'cogitate') ? (auth[provider] || 'platform') : 'api_key';
   const validation = provider ? keyValidationData[provider] : null;

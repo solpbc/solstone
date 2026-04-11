@@ -52,7 +52,8 @@
       "test.tier.inherit": {"tier": 3},
       "test.tier.override": {"provider": "openai", "tier": 2},
       "test.config.override": {"provider": "google", "tier": 2},
-      "observe.*": {"provider": "google", "tier": 3}
+      "observe.*": {"provider": "google", "tier": 3},
+      "test.ollama": {"provider": "ollama", "model": "ollama-local/qwen3.5:2b"}
     },
     "models": {
       "google": {
