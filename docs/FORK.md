@@ -49,14 +49,15 @@ Override via `providers.models.ollama` in `journal.json`.
 `tests/fixtures/journal/config/journal.json`
 
 
-## WebSocket HTTPS Support
+## Fixed Convey Port (3000)
 
-**File:** `convey/static/websocket.js`
+**File:** `think/supervisor.py` (~line 1300)
 
-The WebSocket connection URL was hardcoded to `ws://`, which causes a mixed
-content error when the dashboard is served over HTTPS. The browser blocks
-insecure WebSocket connections from HTTPS pages. Changed to auto-detect the
-protocol (`wss:` for HTTPS, `ws:` for HTTP) based on `location.protocol`.
+Upstream defaults the Convey port to `0` (auto-select an available port). This
+fork changes the default to `3000` so the service always binds to a known
+address. A stable port is required for the home server's Pangolin reverse-proxy
+relay, which routes Convey through a private network for remote access. With
+auto-select, the port changes on every restart and the relay rule breaks.
 
 
 ## Makefile NVM/npx Lookup
@@ -65,3 +66,20 @@ protocol (`wss:` for HTTPS, `ws:` for HTTP) based on `location.protocol`.
 
 Added `NVM_BIN` detection so `npx` can be found outside interactive shells
 (e.g., nvm-managed Node installs). Also catches internal node calls.
+
+
+---
+
+*The following changes originated on this fork and have since been merged upstream.*
+
+
+## WebSocket HTTPS Support
+
+> **Merged upstream** in commit [`27b0745`](https://github.com/solpbc/solstone/commit/27b0745fded2c507b5ccb94df906434c5bc7818d)
+
+**File:** `convey/static/websocket.js`
+
+The WebSocket connection URL was hardcoded to `ws://`, which causes a mixed
+content error when the dashboard is served over HTTPS. The browser blocks
+insecure WebSocket connections from HTTPS pages. Changed to auto-detect the
+protocol (`wss:` for HTTPS, `ws:` for HTTP) based on `location.protocol`.
