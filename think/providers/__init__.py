@@ -59,7 +59,7 @@ PROVIDER_METADATA: Dict[str, Dict[str, Any]] = {
     },
     "openai": {"label": "OpenAI (GPT)", "env_key": "OPENAI_API_KEY"},
     "anthropic": {"label": "Anthropic (Claude)", "env_key": "ANTHROPIC_API_KEY"},
-    "ollama": {"label": "Ollama (Local)", "env_key": "OLLAMA_BASE_URL"},
+    "ollama": {"label": "Ollama (Local)", "env_key": ""},
 }
 
 

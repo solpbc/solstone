@@ -2,11 +2,13 @@
   "api_keys": {
     "anthropic": false,
     "google": false,
+    "ollama": false,
     "openai": false
   },
   "auth": {
     "anthropic": "platform",
     "google": "platform",
+    "ollama": "platform",
     "openai": "platform"
   },
   "cogitate": {
@@ -408,6 +410,10 @@
       "provider": "google",
       "tier": 2
     },
+    "test.ollama": {
+      "model": "ollama-local/qwen3.5:2b",
+      "provider": "ollama"
+    },
     "test.openai": {
       "model": "gpt-5-mini",
       "provider": "openai"
@@ -432,6 +438,11 @@
   "google_backend": "auto",
   "key_validation": {},
   "providers": [
+    {
+      "env_key": "",
+      "label": "Ollama (Local)",
+      "name": "ollama"
+    },
     {
       "env_key": "ANTHROPIC_API_KEY",
       "label": "Anthropic (Claude)",

@@ -680,7 +680,8 @@ class TestRunCogitate:
                 self.run = AsyncMock(return_value="test result")
                 MockCLIRunner.last_instance = self
 
-        with patch("think.providers.ollama.CLIRunner", MockCLIRunner):
+        with patch("shutil.which", return_value="/usr/bin/opencode"), \
+             patch("think.providers.ollama.CLIRunner", MockCLIRunner):
             events = []
             asyncio.run(
                 provider.run_cogitate(
@@ -716,7 +717,8 @@ class TestRunCogitate:
                 self.run = AsyncMock(return_value="ok")
                 MockCLIRunner.last_instance = self
 
-        with patch("think.providers.ollama.CLIRunner", MockCLIRunner):
+        with patch("shutil.which", return_value="/usr/bin/opencode"), \
+             patch("think.providers.ollama.CLIRunner", MockCLIRunner):
             asyncio.run(
                 provider.run_cogitate(
                     {"prompt": "test", "model": "ollama-local/qwen3.5:35b-a3b-bf16"},
@@ -741,7 +743,8 @@ class TestRunCogitate:
                 self.run = AsyncMock(return_value="ok")
                 MockCLIRunner.last_instance = self
 
-        with patch("think.providers.ollama.CLIRunner", MockCLIRunner):
+        with patch("shutil.which", return_value="/usr/bin/opencode"), \
+             patch("think.providers.ollama.CLIRunner", MockCLIRunner):
             asyncio.run(
                 provider.run_cogitate(
                     {
@@ -771,7 +774,8 @@ class TestRunCogitate:
                 self.run = AsyncMock(return_value="ok")
                 MockCLIRunner.last_instance = self
 
-        with patch("think.providers.ollama.CLIRunner", MockCLIRunner):
+        with patch("shutil.which", return_value="/usr/bin/opencode"), \
+             patch("think.providers.ollama.CLIRunner", MockCLIRunner):
             asyncio.run(
                 provider.run_cogitate(
                     {
@@ -798,7 +802,8 @@ class TestRunCogitate:
                 self.run = AsyncMock(side_effect=RuntimeError("CLI not found"))
 
         events = []
-        with patch("think.providers.ollama.CLIRunner", MockCLIRunner):
+        with patch("shutil.which", return_value="/usr/bin/opencode"), \
+             patch("think.providers.ollama.CLIRunner", MockCLIRunner):
             with pytest.raises(RuntimeError, match="CLI not found"):
                 asyncio.run(
                     provider.run_cogitate(
@@ -810,6 +815,23 @@ class TestRunCogitate:
         error_events = [e for e in events if e.get("event") == "error"]
         assert len(error_events) == 1
         assert "CLI not found" in error_events[0]["error"]
+
+    def test_cogitate_raises_when_opencode_not_installed(self):
+        provider = _ollama_provider()
+
+        events = []
+        with patch("shutil.which", return_value=None):
+            with pytest.raises(RuntimeError, match="Cogitate requires OpenCode CLI"):
+                asyncio.run(
+                    provider.run_cogitate(
+                        {"prompt": "test", "model": OLLAMA_FLASH},
+                        lambda e: events.append(e),
+                    )
+                )
+
+        error_events = [e for e in events if e.get("event") == "error"]
+        assert len(error_events) == 1
+        assert "OpenCode CLI" in error_events[0]["error"]
 
 
 # ---------------------------------------------------------------------------

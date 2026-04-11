@@ -238,7 +238,7 @@ Cortex (orchestrator)
 | OpenAI | `think/providers/openai.py` | GPT models via Agents SDK |
 | Google | `think/providers/google.py` | Gemini models |
 | Anthropic | `think/providers/anthropic.py` | Claude via Anthropic SDK |
-| Ollama | `think/providers/ollama.py` | Local models via Ollama (generate only) |
+| Ollama | `think/providers/ollama.py` | Local models via Ollama |
 
 Providers implement `run_generate()`, `run_agenerate()`, and `run_cogitate()` functions. See [PROVIDERS.md](PROVIDERS.md) for implementation details.
 

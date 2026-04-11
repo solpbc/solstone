@@ -719,7 +719,7 @@ body:has(.status-pane.visible) .facet-bar::after {
   width: var(--menu-bar-width-minimal);
   max-height: calc(100vh - var(--facet-bar-height));
   background: white;
-  border-right: none; /* No border on container - items have their own borders */
+  border-right: 1px solid var(--facet-border, #e5e0db); /* Container carries the border, not individual items */
   z-index: calc(var(--z-bars) + 1);  /* Above app bar */
   transition: width 0.3s ease, background 0.3s ease, box-shadow 0.3s ease, border-radius 0.3s ease;
   overflow: hidden; /* Clip all content to rounded corner */
@@ -753,7 +753,7 @@ ul.menu-items {
   position: sticky;
   left: 0;
   right: 0;
-  height: 28px;
+  height: 16px;
   pointer-events: none;
   z-index: 1;
   opacity: 0;
@@ -762,13 +762,13 @@ ul.menu-items {
 
 .menu-bar .menu-items::before {
   top: 0;
-  margin-bottom: -28px;
+  margin-bottom: -16px;
   background: linear-gradient(to bottom, rgba(0,0,0,0.06), transparent);
 }
 
 .menu-bar .menu-items::after {
   bottom: 0;
-  margin-top: -28px;
+  margin-top: -16px;
   background: linear-gradient(to top, rgba(0,0,0,0.06), transparent);
 }
 
@@ -795,8 +795,9 @@ body.menu-full .menu-bar {
   cursor: pointer;
   transition: background 0.2s, transform 0.3s ease, max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease, border-radius 0.3s ease;
   border-bottom: none;
-  border-left: 2px solid transparent;
-  border-right: 1px solid var(--facet-border, #e5e0db); /* Always present - extends naturally with item animation */
+  border-left: 3px solid transparent;
+  border-right: none;
+  margin-top: 2px;
   color: inherit;
   white-space: nowrap;
   position: relative;
@@ -820,6 +821,7 @@ body.menu-full .menu-bar {
   opacity: 0;
   padding-top: 0;
   padding-bottom: 0;
+  margin-top: 0;
   pointer-events: none;
 }
 
@@ -829,6 +831,7 @@ body.menu-full .menu-bar {
   opacity: 1;
   padding-top: 8px;
   padding-bottom: 8px;
+  margin-top: 2px;
   pointer-events: auto;
 }
 
@@ -838,6 +841,7 @@ body.menu-full .menu-bar .menu-item[data-starred="false"] {
   opacity: 1;
   padding-top: 8px;
   padding-bottom: 8px;
+  margin-top: 2px;
   pointer-events: auto;
 }
 
@@ -857,6 +861,16 @@ body.menu-full .menu-bar .menu-item.reordering {
   background: color-mix(in srgb, var(--facet-color, #b06a1a) 8%, transparent);
 }
 
+@keyframes boundary-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+body.menu-full .menu-bar .menu-item.boundary-hit {
+  animation: boundary-shake 0.2s ease;
+}
+
 /* Apply facet background to menu items in menu-minimal state */
 body:not(.menu-full) .menu-bar .menu-item {
   background: var(--facet-bg, white);
@@ -868,12 +882,12 @@ body:not(.menu-full) .menu-bar .menu-item {
 }
 
 .menu-bar .menu-item:active {
-  background: rgba(0, 0, 0, 0.10);
+  background: rgba(0, 0, 0, 0.14);
 }
 
 /* Active app state - stronger background + accent bar */
 .menu-bar .menu-item.current {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.10);
   border-left-color: var(--facet-color);
 }
 
@@ -886,22 +900,24 @@ body:not(.menu-full) .menu-bar .menu-item:hover {
 
 body:not(.menu-full) .menu-bar .menu-item:active {
   background:
-    linear-gradient(rgba(0, 0, 0, 0.10), rgba(0, 0, 0, 0.10)),
+    linear-gradient(rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.14)),
     var(--facet-bg, white);
 }
 
 /* In menu-minimal state, active app with stronger tint + accent bar */
 body:not(.menu-full) .menu-bar .menu-item.current {
   background:
-    linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08)),
+    linear-gradient(rgba(0, 0, 0, 0.10), rgba(0, 0, 0, 0.10)),
     var(--facet-bg, white);
   border-left-color: var(--facet-color);
 }
 
 .menu-bar .menu-item .icon {
-  font-size: 20px;
+  font-size: 22px;
   width: var(--menu-bar-width-minimal);
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
@@ -917,7 +933,7 @@ body:not(.menu-full) .menu-bar .menu-item.current {
   background: none;
   border: none;
   font: inherit;
-  font-size: 16px;
+  font-size: 18px;
   min-width: 44px;
   min-height: 44px;
   align-items: center;
@@ -926,7 +942,7 @@ body:not(.menu-full) .menu-bar .menu-item.current {
   color: inherit;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, transform 0.1s ease, color 0.15s ease;
   flex-shrink: 0;
   user-select: none;
 }
@@ -958,13 +974,17 @@ body.menu-full .menu-bar .menu-item:hover .star-toggle,
   color: #f59e0b;
 }
 
+.menu-bar .menu-item[data-starred="true"] .star-toggle:hover {
+  color: #d97706;
+}
+
 /* Drag handle */
 .menu-bar .menu-item .drag-handle {
   display: none;
   background: none;
   border: none;
   font: inherit;
-  font-size: 20px;
+  font-size: 16px;
   min-width: 44px;
   min-height: 44px;
   align-items: center;
@@ -975,7 +995,7 @@ body.menu-full .menu-bar .menu-item:hover .star-toggle,
   transition: opacity 0.2s;
   flex-shrink: 0;
   user-select: none;
-  color: #999;
+  color: #bbb;
 }
 
 body.menu-full .menu-bar .menu-item .drag-handle {
@@ -992,14 +1012,16 @@ body.menu-full .menu-bar .menu-item:hover .drag-handle {
 }
 
 body.menu-full .menu-bar .menu-item .drag-handle:active {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
   cursor: grabbing;
 }
 
 /* Visual separator after last starred app */
 .menu-bar .menu-item.last-starred {
   border-bottom: 1px solid var(--facet-border, #e5e0db);
-  padding-bottom: 10px;
-  margin-bottom: 6px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
 }
 
 /* Menu Submenus - hover pop-outs for app quick-links */
@@ -1046,6 +1068,10 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   background: rgba(0, 0, 0, 0.10);
 }
 
+.menu-submenu-item:focus-visible {
+  background: rgba(0, 0, 0, 0.05);
+}
+
 .menu-submenu-item:first-child {
   border-radius: 7px 7px 0 0;
 }
@@ -1086,17 +1112,23 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   position: relative;
 }
 
+@keyframes badge-pop {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
 .menu-badge {
+  animation: badge-pop 0.2s ease;
   position: absolute;
   bottom: -2px;
-  right: 4px;
-  min-width: 15px;
-  height: 15px;
-  font-size: 10px;
+  right: 8px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 11px;
   font-weight: 600;
   background: #ef4444;
   color: white;
-  border-radius: 7px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1112,17 +1144,18 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   align-items: center;
   justify-content: center;
   font: inherit;
-  font-size: 16px;
+  font-size: 20px;
   cursor: pointer;
   color: inherit;
   border: none;
-  border-right: 1px solid var(--facet-border, #e5e0db);
+  border-right: none;
   background: var(--facet-bg, white);
   transition: background 0.2s;
   user-select: none;
   position: relative;
   border-bottom-right-radius: 8px;
   flex-shrink: 0;  /* Never shrink - always visible at bottom */
+  margin-top: auto;
 }
 
 
@@ -1145,6 +1178,7 @@ body.menu-all .menu-bar .menu-item[data-starred="false"] {
   opacity: 1;
   padding-top: 8px;
   padding-bottom: 8px;
+  margin-top: 2px;
   pointer-events: auto;
 }
 
@@ -2409,6 +2443,7 @@ button.close {
 .date-nav-arrow:focus-visible,
 .facet-create-submit:focus-visible,
 .facet-create-cancel:focus-visible,
+.menu-bar .menu-expander:focus-visible,
 button:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--facet-color, #b06a1a);

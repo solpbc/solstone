@@ -479,6 +479,16 @@ async def run_cogitate(
     callback = JSONEventCallback(on_event)
 
     try:
+        # Check that OpenCode CLI is available
+        import shutil
+
+        if not shutil.which("opencode"):
+            raise RuntimeError(
+                "Cogitate requires OpenCode CLI (opencode). "
+                "Install from https://opencode.ai and configure it with a local "
+                "Ollama provider. Generate works without it."
+            )
+
         # Assemble prompt from config fields
         prompt_body, system_instruction = assemble_prompt(config)
 

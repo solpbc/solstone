@@ -55,6 +55,10 @@
         "provider": "google",
         "tier": 2
       },
+      "test.ollama": {
+        "model": "ollama-local/qwen3.5:2b",
+        "provider": "ollama"
+      },
       "test.openai": {
         "model": "gpt-5-mini",
         "provider": "openai"

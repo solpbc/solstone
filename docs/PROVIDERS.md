@@ -336,9 +336,10 @@ from cloud providers:
   None or 0 disables it.
 - **Cogitate via OpenCode CLI.** ``run_cogitate()`` uses the OpenCode CLI
   (``opencode run --format json``) as a subprocess, following the same
-  CLIRunner pattern as the other providers. Requires OpenCode installed.
-  Project-level config at ``.opencode/opencode.json`` connects OpenCode
-  to the local Ollama instance.
+  CLIRunner pattern as the other providers. Requires OpenCode CLI installed
+  and configured with a user-level ``.opencode/opencode.json`` that registers
+  the local Ollama instance as a provider. Do not place this config in the
+  project root — it belongs in the user's config directory.
 - **Base URL:** Reads ``OLLAMA_BASE_URL`` env var, defaults to
   ``http://localhost:11434``.
 
