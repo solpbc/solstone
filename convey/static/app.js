@@ -854,6 +854,7 @@
     // Hamburger menu interactions
     if (hamburger && menuBar) {
       function openMobileMenu() {
+        AppServices.submenus._closeAll();
         document.body.classList.add('menu-full');
         hamburger.setAttribute('aria-expanded', 'true');
 
