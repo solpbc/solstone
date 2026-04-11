@@ -583,7 +583,9 @@
         announce.className = 'visually-hidden thinking-announce';
         el.appendChild(announce);
       }
+      visual.style.opacity = '0';
       visual.innerHTML = '<span class="chat-bar-thinking-dot"></span> ' + text;
+      requestAnimationFrame(function() { visual.style.opacity = '1'; });
     });
     if (announceTimer) clearTimeout(announceTimer);
     announceTimer = setTimeout(function() {
@@ -731,6 +733,10 @@
               existing.textContent = elapsed + 's';
             } else {
               visual.insertAdjacentHTML('beforeend', suffix);
+              requestAnimationFrame(function() {
+                var el = visual.querySelector('.thinking-elapsed');
+                if (el) el.style.opacity = '0.6';
+              });
             }
           });
         }, 1000);

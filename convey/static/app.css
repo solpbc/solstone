@@ -1448,11 +1448,13 @@ body.menu-all .menu-bar {
 .app-bar--glance .chat-bar-thinking {
   margin-top: 12px;
   margin-bottom: 8px;
+  opacity: 1;
 }
 
 .app-bar--glance .chat-bar-response {
   margin-top: 12px;
   margin-bottom: 8px;
+  opacity: 1;
 }
 
 .chat-bar-separator {
@@ -1604,12 +1606,15 @@ body.menu-all .menu-bar {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease 0.05s;
 }
 
 .chat-bar-thinking > [aria-hidden="true"] {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  transition: opacity 0.15s ease;
 }
 
 .chat-bar-thinking-dot {
@@ -1626,8 +1631,9 @@ body.menu-all .menu-bar {
 }
 
 .thinking-elapsed {
-  opacity: 0.6;
+  opacity: 0;
   font-variant-numeric: tabular-nums;
+  transition: opacity 0.3s ease;
 }
 
 .chat-bar-response {
@@ -1641,6 +1647,8 @@ body.menu-all .menu-bar {
   z-index: 1;
   -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
   mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.2s ease 0.1s;
 }
 
 .chat-bar-response--error {
