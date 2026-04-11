@@ -678,25 +678,6 @@ class TestBuildCogitateEnv:
         assert env["GOOGLE_APPLICATION_CREDENTIALS"] == "/tmp/fake-sa.json"
         assert "GOOGLE_API_KEY" not in env
 
-    def test_vertex_backend_with_project_location(self):
-        """Vertex config sets project/location env vars."""
-        config = {
-            "providers": {
-                "google_backend": "vertex",
-                "vertex_project": "my-project",
-                "vertex_location": "us-central1",
-                "auth": {"google": "api_key"},
-            }
-        }
-        with (
-            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
-            patch("think.utils.get_config", return_value=config),
-        ):
-            env = build_cogitate_env("GOOGLE_API_KEY")
-        assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
-        assert env["GOOGLE_CLOUD_PROJECT"] == "my-project"
-        assert env["GOOGLE_CLOUD_LOCATION"] == "us-central1"
-
     def test_aistudio_backend_no_vertex_env_vars(self):
         """AI Studio backend does not set Vertex env vars."""
         config = {
@@ -740,4 +721,3 @@ class TestBuildCogitateEnv:
             env = build_cogitate_env("ANTHROPIC_API_KEY")
         assert "GOOGLE_GENAI_USE_VERTEXAI" not in env
         assert env["ANTHROPIC_API_KEY"] == "sk-ant"
-

@@ -1926,18 +1926,6 @@ button:focus:not(:focus-visible) {
       </div>
       <div id="vertexFields" style="display:none">
         <div class="provider-row">
-          <div class="settings-field">
-            <label for="field-vertex-project">project</label>
-            <input type="text" id="field-vertex-project" placeholder="my-gcp-project">
-            <small>Google Cloud project ID</small>
-          </div>
-          <div class="settings-field">
-            <label for="field-vertex-location">location</label>
-            <input type="text" id="field-vertex-location" placeholder="Required — e.g., us-central1">
-            <small>Google Cloud region</small>
-          </div>
-        </div>
-        <div class="provider-row">
           <div class="settings-field" style="flex:1" id="vertex-creds-field">
             <label>service account</label>
             <div id="vertex-creds-status" style="margin-bottom:0.4em">
@@ -3770,10 +3758,6 @@ function populateProviders(data) {
   if (backendSelect) {
     backendSelect.value = data.google_backend || 'auto';
   }
-  const vertexProjectField = document.getElementById('field-vertex-project');
-  const vertexLocationField = document.getElementById('field-vertex-location');
-  if (vertexProjectField) vertexProjectField.value = data.vertex_project || '';
-  if (vertexLocationField) vertexLocationField.value = data.vertex_location || '';
   // Show/hide vertex fields
   const vertexFields = document.getElementById('vertexFields');
   if (vertexFields) {
@@ -4120,29 +4104,6 @@ document.getElementById('field-google-backend')?.addEventListener('change', asyn
     showFieldStatus(this, 'error', err.message);
   }
 });
-
-// Vertex project/location change handlers
-for (const vfield of ['vertex-project', 'vertex-location']) {
-  const el = document.getElementById(`field-${vfield}`);
-  if (!el) continue;
-  el.addEventListener('change', async function() {
-    const key = vfield.replace('-', '_');
-    try {
-      const response = await fetch('api/providers', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [key]: this.value })
-      });
-      const result = await response.json();
-      if (result.error) throw new Error(result.error);
-      providersData = result;
-      showFieldStatus(this, 'saved');
-    } catch (err) {
-      console.error(`Error saving ${vfield}:`, err);
-      showFieldStatus(this, 'error', err.message);
-    }
-  });
-}
 
 // Vertex SA credentials handlers
 function updateVertexCredsUI(configured, email) {

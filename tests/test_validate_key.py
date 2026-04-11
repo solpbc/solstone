@@ -152,9 +152,7 @@ def test_validate_vertex_credentials():
             return_value=mock_creds,
         ),
     ):
-        result = think.providers.google.validate_vertex_credentials(
-            "/tmp/sa.json", project="my-proj", location="us-central1"
-        )
+        result = think.providers.google.validate_vertex_credentials("/tmp/sa.json")
 
     assert result == {
         "valid": True,
@@ -163,8 +161,8 @@ def test_validate_vertex_credentials():
     assert mock_cls.call_args.kwargs["vertexai"] is True
     assert mock_cls.call_args.kwargs["credentials"] is mock_creds
     assert "api_key" not in mock_cls.call_args.kwargs
-    assert mock_cls.call_args.kwargs["project"] == "my-proj"
-    assert mock_cls.call_args.kwargs["location"] == "us-central1"
+    assert "project" not in mock_cls.call_args.kwargs
+    assert "location" not in mock_cls.call_args.kwargs
 
 
 def test_probe_backend_aistudio():
@@ -346,35 +344,25 @@ def test_validate_all_keys_endpoint(settings_client):
 
 
 def test_providers_google_backend_roundtrip(settings_client):
-    """PUT/GET google_backend, vertex_project, vertex_location."""
+    """PUT/GET google_backend."""
     client, journal = settings_client
 
     response = client.put(
         "/app/settings/api/providers",
-        json={
-            "google_backend": "vertex",
-            "vertex_project": "my-project",
-            "vertex_location": "us-central1",
-        },
+        json={"google_backend": "vertex"},
     )
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["google_backend"] == "vertex"
-    assert payload["vertex_project"] == "my-project"
-    assert payload["vertex_location"] == "us-central1"
 
     # Verify persisted
     config = json.loads((journal / "config" / "journal.json").read_text())
     assert config["providers"]["google_backend"] == "vertex"
-    assert config["providers"]["vertex_project"] == "my-project"
-    assert config["providers"]["vertex_location"] == "us-central1"
 
     # GET returns the same
     response = client.get("/app/settings/api/providers")
     payload = response.get_json()
     assert payload["google_backend"] == "vertex"
-    assert payload["vertex_project"] == "my-project"
-    assert payload["vertex_location"] == "us-central1"
 
 
 def test_providers_vertex_credentials_roundtrip(settings_client):
@@ -488,7 +476,6 @@ def test_validate_all_keys_with_vertex_credentials(settings_client):
     config["providers"]["vertex_credentials"] = str(
         journal / "config" / "vertex-credentials.json"
     )
-    config["providers"]["vertex_project"] = "my-project"
     config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
     with patch(
@@ -501,4 +488,6 @@ def test_validate_all_keys_with_vertex_credentials(settings_client):
     payload = response.get_json()
     assert payload["key_validation"]["google"]["valid"] is True
     assert payload["key_validation"]["google"]["backend"] == "vertex"
-    mock_validate.assert_called_once()
+    mock_validate.assert_called_once_with(
+        str(journal / "config" / "vertex-credentials.json")
+    )

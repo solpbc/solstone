@@ -449,8 +449,6 @@ def get_providers() -> Any:
                 "auth": auth,
                 "key_validation": key_validation,
                 "google_backend": providers_config.get("google_backend", "auto"),
-                "vertex_project": providers_config.get("vertex_project", ""),
-                "vertex_location": providers_config.get("vertex_location", ""),
                 "vertex_credentials_configured": vertex_creds_configured,
                 "vertex_credentials_email": vertex_creds_email,
             }
@@ -502,8 +500,6 @@ def validate_all_keys() -> Any:
 
             result = validate_vertex_credentials(
                 providers_config["vertex_credentials"],
-                project=providers_config.get("vertex_project"),
-                location=providers_config.get("vertex_location"),
             )
             result["timestamp"] = datetime.now(timezone.utc).isoformat()
             key_validation["google"] = result
@@ -751,19 +747,6 @@ def update_providers() -> Any:
                 changed_fields["google_backend"] = {"old": old_val, "new": backend}
             config["providers"]["google_backend"] = backend
 
-        for vfield in ("vertex_project", "vertex_location"):
-            if vfield in request_data:
-                value = request_data[vfield]
-                if not isinstance(value, str):
-                    return jsonify({"error": f"{vfield} must be a string"}), 400
-                old_val = old_providers.get(vfield, "")
-                if old_val != value:
-                    changed_fields[vfield] = {"old": old_val, "new": value}
-                if value:
-                    config["providers"][vfield] = value
-                else:
-                    config["providers"].pop(vfield, None)
-
         # Handle vertex credentials
         if "vertex_credentials" in request_data:
             vertex_creds_value = request_data["vertex_credentials"]
@@ -816,17 +799,11 @@ def update_providers() -> Any:
                 config["providers"]["vertex_credentials"] = creds_path_str
 
                 # Validate credentials by attempting to list models
-                project = config["providers"].get("vertex_project")
-                location = config["providers"].get("vertex_location")
-                validation = validate_vertex_credentials(
-                    creds_path_str,
-                    project=project,
-                    location=location,
-                )
+                validation = validate_vertex_credentials(creds_path_str)
 
                 if not validation.get("valid"):
-                    # Still save the file (user can fix project/location), but report the error
-                    # Don't block save - credentials may be valid once project is configured
+                    # Still save the file, but report the error
+                    # Don't block save - credentials may need reconfiguration
                     pass
 
                 # Store validation result
