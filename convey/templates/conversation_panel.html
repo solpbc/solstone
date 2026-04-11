@@ -13,7 +13,7 @@
       <span class="visually-hidden thinking-announce">thinking&hellip;</span>
     </div>
     <div class="chat-bar-response" id="chatBarResponse" style="display: none;"></div>
-    <button class="chat-bar-dismiss" id="chatBarDismiss" style="display: none;" title="dismiss" aria-label="close conversation">&times;</button>
+    <button class="chat-bar-dismiss" id="chatBarDismiss" title="dismiss" aria-label="close conversation">&times;</button>
     <div class="chat-bar-separator"></div>
   </div>
 
@@ -26,8 +26,7 @@
     <form id="chatInputForm" style="display: contents;">
       <textarea id="chatMessageInput" class="chat-bar-input" aria-label="message your solstone" rows="1"
         placeholder="{{ chat_bar_placeholder|default('send a message...') }}"></textarea>
-      <button type="submit" class="chat-bar-send" id="chatBarSend" title="send" aria-label="send message"
-        style="display: none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+      <button type="submit" class="chat-bar-send" id="chatBarSend" title="send" aria-label="send message"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
     </form>
   </div>
 </div>

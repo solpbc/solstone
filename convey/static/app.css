@@ -1478,6 +1478,16 @@ body.menu-all .menu-bar {
   align-items: center;
   justify-content: center;
   z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+.chat-bar-dismiss.visible {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
 }
 
 .chat-bar-dismiss:hover {
@@ -1554,14 +1564,23 @@ body.menu-all .menu-bar {
   position: relative;
   z-index: 1;
   flex-shrink: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
 }
 
-.chat-bar-send:hover {
+.chat-bar-send.visible {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.chat-bar-send.visible:hover {
   opacity: 0.85;
 }
 
-.chat-bar-send:active {
+.chat-bar-send.visible:active {
   transform: scale(0.92);
   opacity: 0.75;
 }
@@ -2439,7 +2458,7 @@ button.close {
     transform: none;
   }
 
-  .chat-bar-send:active {
+  .chat-bar-send.visible:active {
     transform: none;
   }
 

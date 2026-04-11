@@ -346,7 +346,7 @@
   input.addEventListener('input', function() {
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-    sendBtn.style.display = input.value.trim() ? '' : 'none';
+    sendBtn.classList.toggle('visible', !!input.value.trim());
     clearTimeout(inputSaveTimer);
     inputSaveTimer = setTimeout(save, 300);
   });
@@ -364,7 +364,7 @@
       input.value = saved.inputText;
       input.style.height = 'auto';
       input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-      sendBtn.style.display = input.value.trim() ? '' : 'none';
+      sendBtn.classList.toggle('visible', !!input.value.trim());
     }
 
     // Restore cursor position
@@ -381,7 +381,7 @@
       if (last && inlineResp) {
         inlineResp.innerHTML = renderAgentContent(last.content);
         inlineResp.style.display = '';
-        dismissBtn.style.display = '';
+        dismissBtn.classList.add('visible');
         appBar.classList.add('app-bar--glance');
       }
     }
@@ -393,7 +393,7 @@
         pendingMessage = saved.pendingMessage;
         thinking.style.display = '';
         inlineResp.style.display = 'none';
-        dismissBtn.style.display = 'none';
+        dismissBtn.classList.remove('visible');
         appBar.classList.add('app-bar--glance');
 
         (async function() {
@@ -435,7 +435,7 @@
                 inlineResp.innerHTML = renderAgentContent(content);
               }
               inlineResp.style.display = content ? '' : 'none';
-              dismissBtn.style.display = content ? '' : 'none';
+              dismissBtn.classList.toggle('visible', !!content);
               if (!content) appBar.classList.remove('app-bar--glance');
             } else {
               thinking.style.display = 'none';
@@ -499,7 +499,7 @@
     appBar.classList.remove('app-bar--glance');
     thinking.style.display = 'none';
     inlineResp.style.display = 'none';
-    dismissBtn.style.display = 'none';
+    dismissBtn.classList.remove('visible');
     clearConversation();
   });
 
@@ -608,7 +608,7 @@
     // Clear input
     input.value = '';
     input.style.height = '';
-    sendBtn.style.display = 'none';
+    sendBtn.classList.remove('visible');
     input.disabled = true;
     save();
 
@@ -626,7 +626,7 @@
       // Show thinking in inline response area
       thinking.style.display = '';
       inlineResp.style.display = 'none';
-      dismissBtn.style.display = 'none';
+      dismissBtn.classList.remove('visible');
       appBar.classList.add('app-bar--glance');
     }
 
@@ -671,7 +671,7 @@
           inlineResp.innerHTML = renderAgentContent(content);
         }
         inlineResp.style.display = content ? '' : 'none';
-        dismissBtn.style.display = content ? '' : 'none';
+        dismissBtn.classList.toggle('visible', !!content);
         if (!content) appBar.classList.remove('app-bar--glance');
       } else {
         appBar.classList.remove('app-bar--glance');
