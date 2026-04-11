@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from think.segment import cmd_inspect, cmd_list, cmd_verify
+from think.segment import cmd_inspect, cmd_list, cmd_move, cmd_verify
 
 
 def _make_segment(
@@ -472,3 +472,404 @@ def test_main_no_subcommand(monkeypatch, capsys):
         main()
 
     assert excinfo.value.code == 1
+
+
+# --- move tests ---
+
+
+def test_move_basic(tmp_path, monkeypatch, capsys):
+    """Basic move from one day to another."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+    )
+    streams_dir = tmp_path / "streams"
+    streams_dir.mkdir()
+    (streams_dir / "default.json").write_text(
+        json.dumps({"last_day": "20240101", "last_segment": "090000_300", "seq": 1})
+    )
+
+    args = argparse.Namespace(
+        path="20240101/default/090000_300",
+        to_day="20240115",
+        to_time=None,
+        dry_run=False,
+        subcommand="move",
+    )
+    cmd_move(args)
+
+    assert not (tmp_path / "20240101" / "default" / "090000_300").exists()
+    assert (tmp_path / "20240115" / "default" / "090000_300").is_dir()
+    import think.streams
+
+    marker = think.streams.read_segment_stream(
+        tmp_path / "20240115" / "default" / "090000_300"
+    )
+    assert marker["stream"] == "default"
+    assert marker["seq"] == 1
+
+
+def test_move_with_to_time(tmp_path, monkeypatch, capsys):
+    """Move with --to-time changes the segment key, preserving duration."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+    )
+    streams_dir = tmp_path / "streams"
+    streams_dir.mkdir()
+    (streams_dir / "default.json").write_text(
+        json.dumps({"last_day": "20240101", "last_segment": "090000_300", "seq": 1})
+    )
+
+    args = argparse.Namespace(
+        path="20240101/default/090000_300",
+        to_day="20240101",
+        to_time="140000",
+        dry_run=False,
+        subcommand="move",
+    )
+    cmd_move(args)
+
+    assert not (tmp_path / "20240101" / "default" / "090000_300").exists()
+    assert (tmp_path / "20240101" / "default" / "140000_300").is_dir()
+
+
+def test_move_dry_run(tmp_path, monkeypatch, capsys):
+    """--dry-run prints plan without moving."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+    )
+    streams_dir = tmp_path / "streams"
+    streams_dir.mkdir()
+    (streams_dir / "default.json").write_text(
+        json.dumps({"last_day": "20240101", "last_segment": "090000_300", "seq": 1})
+    )
+
+    args = argparse.Namespace(
+        path="20240101/default/090000_300",
+        to_day="20240115",
+        to_time=None,
+        dry_run=True,
+        subcommand="move",
+    )
+    cmd_move(args)
+    out = capsys.readouterr().out
+
+    assert "[dry run]" in out
+    assert "090000_300" in out
+    assert (tmp_path / "20240101" / "default" / "090000_300").is_dir()
+
+
+def test_move_collision_no_to_time(tmp_path, monkeypatch, capsys):
+    """Collision without --to-time is an error."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+    )
+    _make_segment(
+        tmp_path,
+        "20240115",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+    )
+    streams_dir = tmp_path / "streams"
+    streams_dir.mkdir()
+    (streams_dir / "default.json").write_text(
+        json.dumps({"last_day": "20240115", "last_segment": "090000_300", "seq": 1})
+    )
+
+    args = argparse.Namespace(
+        path="20240101/default/090000_300",
+        to_day="20240115",
+        to_time=None,
+        dry_run=False,
+        subcommand="move",
+    )
+    with pytest.raises(SystemExit) as excinfo:
+        cmd_move(args)
+
+    err = capsys.readouterr().err
+    assert excinfo.value.code == 1
+    assert "already exists" in err
+
+
+def test_move_no_events_jsonl(tmp_path, monkeypatch, capsys):
+    """Segment with no events.jsonl moves cleanly."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        audio=False,
+        screen=False,
+    )
+    streams_dir = tmp_path / "streams"
+    streams_dir.mkdir()
+    (streams_dir / "default.json").write_text(
+        json.dumps({"last_day": "20240101", "last_segment": "090000_300", "seq": 1})
+    )
+
+    args = argparse.Namespace(
+        path="20240101/default/090000_300",
+        to_day="20240115",
+        to_time=None,
+        dry_run=False,
+        subcommand="move",
+    )
+    cmd_move(args)
+    out = capsys.readouterr().out
+
+    assert (tmp_path / "20240115" / "default" / "090000_300").is_dir()
+    assert "events.jsonl lines: 0" in out
+
+
+def test_move_patches_successor(tmp_path, monkeypatch, capsys):
+    """Moving a segment patches the successor's prev_day/prev_segment."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+    )
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "140000_300",
+        stream_json={
+            "stream": "default",
+            "prev_day": "20240101",
+            "prev_segment": "090000_300",
+            "seq": 2,
+        },
+    )
+    streams_dir = tmp_path / "streams"
+    streams_dir.mkdir()
+    (streams_dir / "default.json").write_text(
+        json.dumps({"last_day": "20240101", "last_segment": "140000_300", "seq": 2})
+    )
+
+    args = argparse.Namespace(
+        path="20240101/default/090000_300",
+        to_day="20240115",
+        to_time=None,
+        dry_run=False,
+        subcommand="move",
+    )
+    cmd_move(args)
+
+    import think.streams
+
+    succ_marker = think.streams.read_segment_stream(
+        tmp_path / "20240101" / "default" / "140000_300"
+    )
+    assert succ_marker["prev_day"] == "20240115"
+    assert succ_marker["prev_segment"] == "090000_300"
+
+
+def test_move_stream_tail(tmp_path, monkeypatch, capsys):
+    """Moving the stream tail (no successor) works cleanly."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+    )
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "140000_300",
+        stream_json={
+            "stream": "default",
+            "prev_day": "20240101",
+            "prev_segment": "090000_300",
+            "seq": 2,
+        },
+    )
+    streams_dir = tmp_path / "streams"
+    streams_dir.mkdir()
+    (streams_dir / "default.json").write_text(
+        json.dumps({"last_day": "20240101", "last_segment": "140000_300", "seq": 2})
+    )
+
+    args = argparse.Namespace(
+        path="20240101/default/140000_300",
+        to_day="20240115",
+        to_time=None,
+        dry_run=False,
+        subcommand="move",
+    )
+    cmd_move(args)
+    out = capsys.readouterr().out
+
+    assert "successor to patch: (none - stream tail)" in out
+    assert (tmp_path / "20240115" / "default" / "140000_300").is_dir()
+
+
+def test_move_rewrites_events_jsonl(tmp_path, monkeypatch, capsys):
+    """events.jsonl day and segment fields are updated after move."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    seg_dir = _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+        audio=False,
+        screen=False,
+    )
+    events = [
+        {"tract": "observe", "event": "start", "day": "20240101", "segment": "090000_300"},
+        {"tract": "dream", "event": "done", "day": "20240101", "segment": "090000_300"},
+    ]
+    (seg_dir / "events.jsonl").write_text("\n".join(json.dumps(e) for e in events) + "\n")
+    streams_dir = tmp_path / "streams"
+    streams_dir.mkdir()
+    (streams_dir / "default.json").write_text(
+        json.dumps({"last_day": "20240101", "last_segment": "090000_300", "seq": 1})
+    )
+
+    args = argparse.Namespace(
+        path="20240101/default/090000_300",
+        to_day="20240115",
+        to_time="140000",
+        dry_run=False,
+        subcommand="move",
+    )
+    cmd_move(args)
+
+    new_events_path = tmp_path / "20240115" / "default" / "140000_300" / "events.jsonl"
+    assert new_events_path.exists()
+    lines = [
+        json.loads(line)
+        for line in new_events_path.read_text().splitlines()
+        if line.strip()
+    ]
+    assert all(event["day"] == "20240115" for event in lines)
+    assert all(event["segment"] == "140000_300" for event in lines)
+
+
+def test_move_touches_health_markers(tmp_path, monkeypatch, capsys):
+    """Health markers are touched on both source and destination days."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+    )
+    streams_dir = tmp_path / "streams"
+    streams_dir.mkdir()
+    (streams_dir / "default.json").write_text(
+        json.dumps({"last_day": "20240101", "last_segment": "090000_300", "seq": 1})
+    )
+
+    args = argparse.Namespace(
+        path="20240101/default/090000_300",
+        to_day="20240115",
+        to_time=None,
+        dry_run=False,
+        subcommand="move",
+    )
+    cmd_move(args)
+
+    assert (tmp_path / "20240101" / "health" / "stream.updated").exists()
+    assert (tmp_path / "20240115" / "health" / "stream.updated").exists()
+
+
+def test_move_same_location_refused(tmp_path, monkeypatch, capsys):
+    """Moving to the same location is refused."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+    )
+
+    args = argparse.Namespace(
+        path="20240101/default/090000_300",
+        to_day="20240101",
+        to_time=None,
+        dry_run=False,
+        subcommand="move",
+    )
+    with pytest.raises(SystemExit) as excinfo:
+        cmd_move(args)
+    assert excinfo.value.code == 1
+    assert "same" in capsys.readouterr().err
+
+
+def test_move_invalid_to_time(tmp_path, monkeypatch, capsys):
+    """Invalid --to-time format is rejected."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+    )
+
+    args = argparse.Namespace(
+        path="20240101/default/090000_300",
+        to_day="20240115",
+        to_time="bad",
+        dry_run=False,
+        subcommand="move",
+    )
+    with pytest.raises(SystemExit) as excinfo:
+        cmd_move(args)
+    assert excinfo.value.code == 1
+    assert "Invalid --to-time" in capsys.readouterr().err
+
+
+def test_move_invalid_to_day(tmp_path, monkeypatch, capsys):
+    """Invalid --to-day format is rejected."""
+    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+    _make_segment(
+        tmp_path,
+        "20240101",
+        "default",
+        "090000_300",
+        stream_json={"stream": "default", "prev_day": None, "prev_segment": None, "seq": 1},
+    )
+
+    args = argparse.Namespace(
+        path="20240101/default/090000_300",
+        to_day="not-a-day",
+        to_time=None,
+        dry_run=False,
+        subcommand="move",
+    )
+    with pytest.raises(SystemExit) as excinfo:
+        cmd_move(args)
+    assert excinfo.value.code == 1
+    assert "Invalid --to-day" in capsys.readouterr().err

@@ -1,19 +1,34 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 sol pbc
 
-"""sol segment - read-only segment inspection CLI."""
+"""sol segment - segment inspection and management CLI."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
+import shutil
 import sqlite3
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from think.streams import get_stream_state, read_segment_stream
-from think.utils import day_path, get_journal, iter_segments, segment_parse, setup_cli
+from think.streams import (
+    get_stream_state,
+    read_segment_stream,
+    rebuild_stream_state,
+    write_segment_stream,
+)
+from think.utils import (
+    day_dirs,
+    day_path,
+    get_journal,
+    iter_segments,
+    segment_parse,
+    setup_cli,
+)
 
 
 def _find_segment_dir_readonly(
@@ -104,6 +119,31 @@ def _find_next_segment(
                 continue
             return scan_day, seg_key
     return None, None
+
+
+def _find_successor_segment(
+    day: str, stream: str, segment: str
+) -> tuple[str | None, str | None, Path | None]:
+    """Find the segment whose stream.json points back to day/segment.
+
+    Unlike _find_next_segment which only checks 2 days, this scans
+    all days in the journal. The successor can be on any day because
+    prior cross-day moves may have reordered the chain.
+
+    Returns (day, segment_key, segment_path) or (None, None, None).
+    """
+    for scan_day in sorted(day_dirs().keys()):
+        for stream_name, seg_key, seg_path in iter_segments(scan_day):
+            if stream_name != stream:
+                continue
+            marker = read_segment_stream(seg_path)
+            if not marker:
+                continue
+            if marker.get("stream") != stream:
+                continue
+            if marker.get("prev_day") == day and marker.get("prev_segment") == segment:
+                return scan_day, seg_key, seg_path
+    return None, None, None
 
 
 def _is_stream_tail(day: str, stream: str, segment: str) -> bool:
@@ -309,6 +349,246 @@ def _run_checks(day: str, stream: str, segment: str) -> list[dict[str, object]]:
     ]
 
 
+def _rewrite_events_jsonl(seg_dir: Path, new_day: str, new_segment: str) -> int:
+    """Rewrite events.jsonl to update day and segment fields.
+
+    Returns number of lines rewritten.
+    """
+    events_path = seg_dir / "events.jsonl"
+    if not events_path.exists():
+        return 0
+
+    lines = events_path.read_text(encoding="utf-8").splitlines()
+    rewritten = []
+    count = 0
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            rewritten.append(line)
+            continue
+        try:
+            obj = json.loads(stripped)
+            obj["day"] = new_day
+            obj["segment"] = new_segment
+            rewritten.append(json.dumps(obj, ensure_ascii=False))
+            count += 1
+        except (json.JSONDecodeError, TypeError):
+            rewritten.append(line)
+
+    tmp = events_path.with_suffix(".tmp")
+    tmp.write_text("\n".join(rewritten) + "\n" if rewritten else "", encoding="utf-8")
+    os.rename(str(tmp), str(events_path))
+    return count
+
+
+def _touch_health_marker(day: str) -> None:
+    """Touch health/stream.updated for a day."""
+    health_dir = day_path(day) / "health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    (health_dir / "stream.updated").touch()
+
+
+def _delete_index_rows(journal: str, rel_path: str) -> dict[str, int]:
+    """Delete all index rows referencing a segment path.
+
+    Returns counts of deleted rows per table.
+    """
+    db_path = Path(journal) / "indexer" / "journal.sqlite"
+    if not db_path.exists():
+        return {"chunks": 0, "files": 0, "entities": 0, "entity_signals": 0}
+
+    try:
+        conn = sqlite3.connect(db_path)
+        try:
+            cur = conn.execute(
+                "DELETE FROM chunks WHERE path = ? OR path LIKE ?",
+                (rel_path, f"{rel_path}/%"),
+            )
+            chunks_deleted = cur.rowcount
+
+            cur = conn.execute(
+                "DELETE FROM files WHERE path LIKE ?",
+                (f"{rel_path}/%",),
+            )
+            files_deleted = cur.rowcount
+
+            cur = conn.execute(
+                "DELETE FROM entities WHERE path LIKE ?",
+                (f"{rel_path}/%",),
+            )
+            entities_deleted = cur.rowcount
+
+            cur = conn.execute(
+                "DELETE FROM entity_signals WHERE path LIKE ?",
+                (f"{rel_path}/%",),
+            )
+            signals_deleted = cur.rowcount
+
+            conn.commit()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return {"chunks": 0, "files": 0, "entities": 0, "entity_signals": 0}
+
+    return {
+        "chunks": chunks_deleted,
+        "files": files_deleted,
+        "entities": entities_deleted,
+        "entity_signals": signals_deleted,
+    }
+
+
+def _reindex_segment(journal: str, seg_dir: Path) -> int:
+    """Re-index all formattable files in a segment directory.
+
+    Returns the number of files indexed.
+    """
+    from think.indexer.journal import index_file
+
+    count = 0
+    for path in sorted(seg_dir.rglob("*")):
+        if not path.is_file():
+            continue
+        try:
+            if index_file(journal, str(path)):
+                count += 1
+        except (ValueError, FileNotFoundError):
+            continue
+    return count
+
+
+def cmd_move(args: argparse.Namespace) -> None:
+    """Move a segment to a different day/time."""
+    src_day, stream, src_segment = _split_segment_path(args.path)
+
+    src_dir = _find_segment_dir_readonly(src_day, src_segment, stream)
+    if src_dir is None:
+        print(f"Segment not found: {args.path}", file=sys.stderr)
+        raise SystemExit(1)
+
+    to_day = args.to_day
+    if not re.fullmatch(r"\d{8}", to_day):
+        print(f"Invalid --to-day format: {to_day} (expected YYYYMMDD)", file=sys.stderr)
+        raise SystemExit(1)
+
+    if args.to_time:
+        if not re.fullmatch(r"\d{6}", args.to_time):
+            print(
+                f"Invalid --to-time format: {args.to_time} (expected HHMMSS)",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
+        duration = src_segment.split("_", 1)[1]
+        new_segment = f"{args.to_time}_{duration}"
+    else:
+        new_segment = src_segment
+
+    if to_day == src_day and new_segment == src_segment:
+        print("Source and destination are the same", file=sys.stderr)
+        raise SystemExit(1)
+
+    dst_parent = day_path(to_day, create=False) / stream
+    dst_dir = dst_parent / new_segment
+    if dst_dir.exists():
+        if args.to_time:
+            from observe.utils import find_available_segment
+
+            avail = find_available_segment(dst_parent, new_segment)
+            if avail is None:
+                print(
+                    f"No available segment slot near {new_segment} on {to_day}",
+                    file=sys.stderr,
+                )
+                raise SystemExit(1)
+            new_segment = avail
+            dst_dir = dst_parent / new_segment
+        else:
+            print(
+                f"Segment {new_segment} already exists on {to_day}/{stream}. "
+                f"Use --to-time to specify an alternate time.",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
+
+    marker = read_segment_stream(src_dir)
+    if not marker:
+        print("No stream.json in source segment", file=sys.stderr)
+        raise SystemExit(1)
+    if marker.get("stream") != stream:
+        print(
+            f"Stream mismatch: path says '{stream}' but stream.json says '{marker.get('stream')}'",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    succ_day, succ_seg, succ_path = _find_successor_segment(src_day, stream, src_segment)
+
+    events_path = src_dir / "events.jsonl"
+    events_count = 0
+    if events_path.exists():
+        with open(events_path, encoding="utf-8") as handle:
+            events_count = sum(1 for line in handle if line.strip())
+
+    journal = get_journal()
+    old_rel = f"{src_day}/{stream}/{src_segment}"
+    index_info = _segment_index_info(src_day, stream, src_segment)
+
+    print(f"Move: {src_day}/{stream}/{src_segment} -> {to_day}/{stream}/{new_segment}")
+    print(f"  events.jsonl lines: {events_count}")
+    if succ_day:
+        print(f"  successor to patch: {succ_day}/{stream}/{succ_seg}")
+    else:
+        print("  successor to patch: (none - stream tail)")
+    if index_info["available"]:
+        print(f"  index chunks: {index_info['chunks']}")
+    print(f"  health markers: {src_day}, {to_day}")
+
+    if args.dry_run:
+        print("\n[dry run] No changes made")
+        return
+
+    dst_parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(src_dir), str(dst_dir))
+
+    rewritten = _rewrite_events_jsonl(dst_dir, to_day, new_segment)
+    if rewritten:
+        print(f"  rewrote {rewritten} events.jsonl lines")
+
+    if succ_path:
+        succ_marker = read_segment_stream(succ_path)
+        if succ_marker:
+            write_segment_stream(
+                succ_path,
+                succ_marker["stream"],
+                to_day,
+                new_segment,
+                succ_marker["seq"],
+            )
+            print(f"  patched successor {succ_day}/{stream}/{succ_seg}")
+
+    rebuild_stream_state(stream)
+    print(f"  rebuilt stream state: {stream}")
+
+    if index_info["available"]:
+        deleted = _delete_index_rows(journal, old_rel)
+        if any(deleted.values()):
+            print(f"  deleted index rows: {deleted}")
+        indexed = _reindex_segment(journal, dst_dir)
+        if indexed:
+            print(f"  re-indexed {indexed} files")
+
+    _touch_health_marker(src_day)
+    _touch_health_marker(to_day)
+    print(f"  touched health markers: {src_day}, {to_day}")
+
+    # Post-move verify is informational — the move already completed.
+    print()
+    results = _run_checks(to_day, stream, new_segment)
+    _print_check_results(results)
+    passed = sum(1 for result in results if result["passed"])
+    print(f"\n{passed}/{len(results)} checks passed")
+
+
 def cmd_list(args: argparse.Namespace) -> None:
     """List segments for a day."""
     segments = iter_segments(args.day)
@@ -507,7 +787,7 @@ def cmd_verify(args: argparse.Namespace) -> None:
 def main() -> None:
     """CLI entry point for sol segment."""
     parser = argparse.ArgumentParser(
-        description="Inspect journal segments",
+        description="Inspect and manage journal segments",
         usage="sol segment <command> [options]",
     )
     sub = parser.add_subparsers(dest="subcommand")
@@ -535,6 +815,19 @@ def main() -> None:
         "--json", dest="json_output", action="store_true", help="Output as JSON"
     )
 
+    p_move = sub.add_parser("move", help="Move segment to a different day/time")
+    p_move.add_argument(
+        "path",
+        help="Segment path: day/stream/segment (e.g. 20260304/default/090000_300)",
+    )
+    p_move.add_argument("--to-day", required=True, help="Destination day (YYYYMMDD)")
+    p_move.add_argument(
+        "--to-time", help="New time (HHMMSS), preserving original duration"
+    )
+    p_move.add_argument(
+        "--dry-run", action="store_true", help="Show plan without making changes"
+    )
+
     args = setup_cli(parser)
 
     if args.subcommand is None:
@@ -547,3 +840,5 @@ def main() -> None:
         cmd_inspect(args)
     elif args.subcommand == "verify":
         cmd_verify(args)
+    elif args.subcommand == "move":
+        cmd_move(args)
