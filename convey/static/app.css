@@ -1164,7 +1164,7 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   animation: badge-pop 0.2s ease;
   position: absolute;
   bottom: -2px;
-  right: 8px;
+  right: 4px;
   min-width: 16px;
   height: 16px;
   font-size: 11px;
@@ -1357,8 +1357,8 @@ body.menu-all .menu-bar {
 
 .facet-pill .facet-badge {
   position: absolute;
-  bottom: -4px;
-  right: -6px;
+  bottom: -3px;
+  right: -5px;
   min-width: 16px;
   height: 16px;
   font-size: 11px;
@@ -1373,6 +1373,8 @@ body.menu-all .menu-bar {
   line-height: 1;
   user-select: none;
   pointer-events: none;
+  box-shadow: 0 0 0 2px white;
+  animation: badge-pop 0.2s ease;
 }
 
 .status-icon .quiet-notif-badge {
