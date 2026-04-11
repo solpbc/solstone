@@ -796,21 +796,26 @@
         const pill = e.target.closest('.facet-pill');
         if (!pill) return;
 
-        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-          e.preventDefault();
-          const pills = Array.from(facetPillsContainer.querySelectorAll('.facet-pill'));
-          const currentIndex = pills.indexOf(pill);
-          let nextIndex;
-          if (e.key === 'ArrowRight') {
-            nextIndex = (currentIndex + 1) % pills.length;
-          } else {
-            nextIndex = (currentIndex - 1 + pills.length) % pills.length;
-          }
-          // Update roving tabindex
-          pill.tabIndex = -1;
-          pills[nextIndex].tabIndex = 0;
-          pills[nextIndex].focus();
+        let nextIndex;
+        const pills = Array.from(facetPillsContainer.querySelectorAll('.facet-pill'));
+        const currentIndex = pills.indexOf(pill);
+
+        if (e.key === 'ArrowRight') {
+          nextIndex = (currentIndex + 1) % pills.length;
+        } else if (e.key === 'ArrowLeft') {
+          nextIndex = (currentIndex - 1 + pills.length) % pills.length;
+        } else if (e.key === 'Home') {
+          nextIndex = 0;
+        } else if (e.key === 'End') {
+          nextIndex = pills.length - 1;
+        } else {
+          return;
         }
+
+        e.preventDefault();
+        pill.tabIndex = -1;
+        pills[nextIndex].tabIndex = 0;
+        pills[nextIndex].focus();
       });
     }
 
