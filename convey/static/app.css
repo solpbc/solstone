@@ -831,6 +831,7 @@ body.menu-full .menu-bar {
   opacity: 1;
   padding-top: 8px;
   padding-bottom: 8px;
+  margin-top: 2px;
   pointer-events: auto;
 }
 
@@ -840,6 +841,7 @@ body.menu-full .menu-bar .menu-item[data-starred="false"] {
   opacity: 1;
   padding-top: 8px;
   padding-bottom: 8px;
+  margin-top: 2px;
   pointer-events: auto;
 }
 
@@ -1176,6 +1178,7 @@ body.menu-all .menu-bar .menu-item[data-starred="false"] {
   opacity: 1;
   padding-top: 8px;
   padding-bottom: 8px;
+  margin-top: 2px;
   pointer-events: auto;
 }
 
