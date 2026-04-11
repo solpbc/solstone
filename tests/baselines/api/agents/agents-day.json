@@ -330,6 +330,17 @@
       "title": "Segment Sense",
       "type": "generate"
     },
+    "skills": {
+      "app": null,
+      "color": "#6c757d",
+      "description": "Detects recurring activity patterns and generates structured skill documents describing what the owner does, how, and why.",
+      "multi_facet": false,
+      "output_format": "json",
+      "schedule": "activity",
+      "source": "system",
+      "title": "Skill Observer",
+      "type": "generate"
+    },
     "speaker_attribution": {
       "app": null,
       "color": "#d84315",
