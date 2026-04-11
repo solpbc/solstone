@@ -1341,7 +1341,8 @@ body.menu-all .menu-bar {
 .facet-bar.facets-disabled .facet-pill {
   pointer-events: none;
   cursor: default;
-  opacity: 0.5;
+  opacity: 0.45;
+  filter: grayscale(0.6);
 }
 
 /* App Bar (bottom) */
