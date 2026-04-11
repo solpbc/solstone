@@ -1821,7 +1821,6 @@ window.AppServices = {
 
       if (n.action) {
         card.href = n.action;
-        card.style.cursor = 'pointer';
         if (n.facet) {
           card.setAttribute('data-facet', n.facet);
         }
@@ -1926,7 +1925,6 @@ window.AppServices = {
         if (card.tagName === 'A') {
           card.href = n.action;
         }
-        card.style.cursor = 'pointer';
 
         if (n.facet) {
           card.setAttribute('data-facet', n.facet);

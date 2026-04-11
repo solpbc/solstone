@@ -2018,18 +2018,15 @@ body.menu-all .menu-bar {
 a.notification-card {
   color: inherit;
   text-decoration: none;
-}
-
-.notification-card[data-action]:not([data-action=""]) {
   cursor: pointer;
 }
 
-.notification-card:hover {
+a.notification-card:hover {
   transform: translateX(-4px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
-.notification-card[data-action]:not([data-action=""]):active {
+a.notification-card:active {
   transform: translateX(-4px) scale(0.98);
 }
 
@@ -2089,6 +2086,7 @@ a.notification-card {
   text-transform: capitalize;
   letter-spacing: 0.03em;
   flex: 1;
+  font-weight: 500;
 }
 
 .notification-close {
@@ -2098,13 +2096,14 @@ a.notification-card {
   line-height: 1;
   color: #9ca3af;
   cursor: pointer;
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 28px;
+  min-height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
   transition: background 0.2s, color 0.2s;
+  margin: -6px -6px -6px 0;
 }
 
 .notification-close:hover {
@@ -2158,7 +2157,7 @@ a.notification-card {
 .notification-footer {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid #e5e7eb;
 }
 
 .notification-time {
@@ -2499,7 +2498,7 @@ button.close {
     transform: none;
   }
 
-  .notification-card:hover {
+  a.notification-card:hover {
     transform: none;
   }
 
@@ -2523,7 +2522,7 @@ button.close {
     transform: none;
   }
 
-  .notification-card[data-action]:not([data-action=""]):active {
+  a.notification-card:active {
     transform: none;
   }
 }
@@ -2541,6 +2540,7 @@ button.close {
 .facet-create-submit:focus-visible,
 .facet-create-cancel:focus-visible,
 .menu-bar .menu-expander:focus-visible,
+.notification-card:focus-visible,
 button:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--facet-color, #b06a1a);
