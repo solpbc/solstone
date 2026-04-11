@@ -715,6 +715,18 @@ body:has(.status-pane.visible) .facet-bar::after {
   color: #9ca3af;
 }
 
+.status-pane-history-item {
+  transition: background 0.15s ease;
+}
+
+.status-pane-history-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.status-pane-history-item:active {
+  background: rgba(0, 0, 0, 0.08);
+}
+
 #notif-bell {
   background: none;
   border: none;
