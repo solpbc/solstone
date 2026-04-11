@@ -1162,8 +1162,8 @@ body.menu-all .menu-bar {
   align-items: center;
   padding: 8px 16px;
   border-radius: 20px;
-  background: #f5f5f5;
-  border: 1px solid var(--facet-border, #e5e0db);
+  background: var(--pill-bg-rest, #f5f5f5);
+  border: 1px solid #e5e0db;
   cursor: pointer;
   font-size: 15px;
   font-weight: 500;
@@ -1186,7 +1186,7 @@ body.menu-all .menu-bar {
 
 /* Dim unselected pills when a facet is selected */
 .facet-pill:not(.selected) {
-  opacity: 0.85;
+  opacity: 0.7;
 }
 
 .facet-pills-container:not(:has(.selected)) .facet-pill {

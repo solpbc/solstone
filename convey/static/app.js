@@ -61,6 +61,7 @@
     if (facet.color) {
       pill.style.setProperty('--pill-color', facet.color);
       pill.style.setProperty('--pill-bg', hexToRgba(facet.color, 0.2));
+      pill.style.setProperty('--pill-bg-rest', hexToRgba(facet.color, 0.08));
     }
 
     if (isSelected) {
