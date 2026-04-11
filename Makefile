@@ -17,6 +17,12 @@ ifndef UV
 $(error uv is not installed. Install it: curl -LsSf https://astral.sh/uv/install.sh | sh)
 endif
 
+# Node — add nvm bin dir to PATH if npx isn't already available
+NVM_BIN := $(lastword $(wildcard $(HOME)/.nvm/versions/node/*/bin))
+ifneq ($(NVM_BIN),)
+export PATH := $(NVM_BIN):$(PATH)
+endif
+
 # User bin directory for symlink (standard location, usually already in PATH)
 USER_BIN := $(HOME)/.local/bin
 
