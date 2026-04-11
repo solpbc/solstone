@@ -715,6 +715,35 @@ body:has(.status-pane.visible) .facet-bar::after {
   color: #9ca3af;
 }
 
+#notif-bell {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  margin-left: 6px;
+  font-size: 12px;
+  transition: opacity 0.15s ease;
+}
+
+#notif-bell[data-perm="granted"] {
+  opacity: 1;
+  cursor: default;
+}
+
+#notif-bell[data-perm="denied"] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#notif-bell[data-perm="default"] {
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+#notif-bell[data-perm="default"]:hover {
+  opacity: 0.8;
+}
+
 .facet-bar .facet-pills-container {
   flex: 1;
   display: flex;
