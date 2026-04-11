@@ -854,6 +854,7 @@
     // Hamburger menu interactions
     if (hamburger && menuBar) {
       function openMobileMenu() {
+        AppServices.submenus._closeAll();
         document.body.classList.add('menu-full');
         hamburger.setAttribute('aria-expanded', 'true');
 
@@ -928,6 +929,7 @@
         // If menu-all is active, remove it before toggling to menu-full
         if (document.body.classList.contains('menu-all')) {
           document.body.classList.remove('menu-all');
+          AppServices.submenus._closeAll();
           const menuExpander = document.querySelector('.menu-expander');
           if (menuExpander) {
             menuExpander.textContent = '›';
