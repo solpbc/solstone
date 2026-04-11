@@ -122,7 +122,6 @@ GROUPS: dict[str, list[str]] = {
         "agents",
         "cortex",
         "talent",
-        "call",
         "engage",
     ],
     "Convey (web UI)": [
@@ -188,6 +187,21 @@ def print_help() -> None:
                 module = COMMANDS[cmd]
                 print(f"  {cmd:16} {module}")
         print()
+
+    # Print call sub-apps
+    try:
+        from think.call import call_app
+
+        print("Apps (sol call <app>):")
+        for group in call_app.registered_groups:
+            name = group.name or ""
+            help_text = group.typer_instance.info.help
+            if not isinstance(help_text, str):
+                help_text = ""
+            print(f"  call {name:16} {help_text}")
+        print()
+    except Exception:
+        pass
 
     # Print aliases if any
     if ALIASES:
