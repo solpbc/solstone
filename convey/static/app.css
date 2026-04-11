@@ -626,7 +626,7 @@ body:has(.status-pane.visible) .facet-bar::after {
   /* Slide animation */
   max-height: 0;
   opacity: 0;
-  transition: max-height 0.3s ease, opacity 0.2s ease;
+  transition: max-height 0.25s ease, opacity 0.25s ease;
 }
 
 .status-pane.visible {
@@ -662,6 +662,16 @@ body:has(.status-pane.visible) .facet-bar::after {
   margin: 0;
   font-size: 14px;
   color: #666;
+}
+
+.status-pane-detail {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.status-pane-technical {
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 .facet-bar .facet-pills-container {

@@ -2,12 +2,12 @@
 <aside id="status-pane" class="status-pane" tabindex="-1" aria-label="status">
   <div class="status-pane-content">
     <h3 id="status-sentence" style="margin: 0 0 8px 0;">connecting&hellip;</h3>
-    <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #9ca3af;">
+    <div class="status-pane-detail" style="display: flex; flex-direction: column; gap: 4px;">
       <span id="status-detail"></span>
     </div>
-    <details style="margin-top: 12px; font-size: 12px; color: #9ca3af;">
+    <details class="status-pane-technical" style="margin-top: 12px;">
       <summary style="cursor: pointer; user-select: none;">technical details</summary>
-      <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-size: 12px;">
+      <div class="status-pane-technical" style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
         <div><strong>state:</strong> <span id="ws-status-raw">connecting</span></div>
         <div><strong>uptime:</strong> <span id="ws-uptime-raw">-</span></div>
         <div><strong>last message:</strong> <span id="ws-last-message-raw">-</span></div>
