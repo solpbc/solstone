@@ -1270,6 +1270,7 @@ body.menu-all .menu-bar {
 
 .facet-pill .emoji {
   display: block;
+  line-height: 0;
   user-select: none;
   pointer-events: none;
 }
