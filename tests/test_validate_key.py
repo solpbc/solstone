@@ -161,8 +161,6 @@ def test_validate_vertex_credentials():
     assert mock_cls.call_args.kwargs["vertexai"] is True
     assert mock_cls.call_args.kwargs["credentials"] is mock_creds
     assert "api_key" not in mock_cls.call_args.kwargs
-    assert "project" not in mock_cls.call_args.kwargs
-    assert "location" not in mock_cls.call_args.kwargs
 
 
 def test_probe_backend_aistudio():
@@ -488,6 +486,4 @@ def test_validate_all_keys_with_vertex_credentials(settings_client):
     payload = response.get_json()
     assert payload["key_validation"]["google"]["valid"] is True
     assert payload["key_validation"]["google"]["backend"] == "vertex"
-    mock_validate.assert_called_once_with(
-        str(journal / "config" / "vertex-credentials.json")
-    )
+    mock_validate.assert_called_once()

@@ -802,8 +802,8 @@ def update_providers() -> Any:
                 validation = validate_vertex_credentials(creds_path_str)
 
                 if not validation.get("valid"):
-                    # Still save the file, but report the error
-                    # Don't block save - credentials may need reconfiguration
+                    # Still save the file, but report the error.
+                    # Don't block save - credentials may be valid with the right service account.
                     pass
 
                 # Store validation result
