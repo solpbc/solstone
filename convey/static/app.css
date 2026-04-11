@@ -684,8 +684,18 @@ body:has(.status-pane.visible) .facet-bar::after {
 
 .status-pane-content h3 {
   margin: 0 0 12px 0;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9ca3af;
+}
+
+#status-sentence {
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
   color: #333;
 }
 
