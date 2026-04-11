@@ -391,6 +391,100 @@
 
 .pulse-routines-more a:hover { text-decoration: underline; }
 
+/* Skills */
+.pulse-skills {
+  padding: 1.25rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.pulse-skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pulse-skill-item {
+  font-size: 0.85rem;
+  color: #334155;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.25rem 0.35rem;
+  cursor: pointer;
+}
+
+.pulse-skill-item::before {
+  content: "◇";
+  color: #8b5cf6;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+
+.pulse-skill-item.is-new::before {
+  content: "◆";
+}
+
+.pulse-skill-name {
+  font-weight: 500;
+}
+
+.pulse-skill-badge {
+  font-size: 0.7rem;
+  color: #8b5cf6;
+  background: #f5f3ff;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.pulse-skill-facet {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  background: #f1f5f9;
+  border-radius: 4px;
+  color: #475569;
+}
+
+.pulse-skill-summary {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.pulse-skill-detail {
+  padding: 0.75rem 1rem 0.75rem 1.5rem;
+  font-size: 0.85rem;
+  color: #334155;
+  line-height: 1.6;
+  border-left: 2px solid #e2e8f0;
+  margin-left: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.pulse-skill-detail h1,
+.pulse-skill-detail h2,
+.pulse-skill-detail h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.pulse-skill-detail h1:first-child,
+.pulse-skill-detail h2:first-child,
+.pulse-skill-detail h3:first-child {
+  margin-top: 0;
+}
+
+.pulse-skill-detail p {
+  margin: 0.25rem 0;
+}
+
+.pulse-skill-detail ul, .pulse-skill-detail ol {
+  margin: 0.25rem 0;
+  padding-left: 1.25rem;
+}
+
 /* Briefing Card */
 .pulse-briefing-card {
   padding: 1.25rem;
@@ -550,6 +644,7 @@
   .pulse-briefing-section-toggle,
   .pulse-section-toggle,
   .pulse-routine-item,
+  .pulse-skill-item,
   .pulse-event,
   .pulse-activity,
   .pulse-needs-item {
@@ -568,6 +663,7 @@
 
   .pulse-narrative,
   .pulse-routines,
+  .pulse-skills,
   .pulse-today,
   .pulse-needs,
   .pulse-network,
@@ -735,6 +831,33 @@
   </div>
   {% endif %}
 
+  <!-- Skills -->
+  {% if skills %}
+  <div class="pulse-skills" id="pulse-skills" data-section-collapsed="true">
+    <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="false" onclick="toggleSection(this.parentElement)">
+      <h2 class="pulse-section-header">your skills</h2>
+      <span class="pulse-section-summary">{{ skills_summary }}</span>
+    </div>
+    <div class="pulse-section-body">
+    <div class="pulse-skills-list">
+      {% for skill in skills %}
+      <div class="pulse-skill-item{{ ' is-new' if not skill.seen else '' }}" role="button" tabindex="0" data-skill-click="true" data-skill-id="{{ skill.id }}">
+        <span>
+          <span class="pulse-skill-name">{{ skill.name }}</span>
+          <span class="pulse-skill-badge">{{ skill.observations }} obs</span>
+          <span class="pulse-skill-facet">{{ skill.facet }}</span>
+          {% if skill.summary %}
+          <span class="pulse-skill-summary">— {{ skill.summary }}</span>
+          {% endif %}
+        </span>
+      </div>
+      <div class="pulse-skill-detail" id="skill-detail-{{ skill.id }}" style="display: none;"></div>
+      {% endfor %}
+    </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Today -->
   {% if events or activities %}
   <div class="pulse-today" id="pulse-today" data-section-collapsed="true">
@@ -848,6 +971,7 @@
   // Render narrative content with marked
   const narrativeRaw = {{ (narrative_content or '')|tojson|safe }};
   var briefingSections = {{ briefing_sections|tojson|safe }};
+  var skillContent = {{ skills_content|default({})|tojson|safe }};
   var sectionOrder = ['your_day', 'yesterday', 'forward_look', 'reading'];
   if (narrativeRaw) {
     const el = document.getElementById('pulse-narrative-content');
@@ -916,10 +1040,31 @@
 
   renderBriefingSections(briefingSections);
 
+  function toggleSkillDetail(skillId) {
+    var detail = document.getElementById('skill-detail-' + skillId);
+    if (!detail) return;
+    if (detail.style.display === 'none') {
+      if (skillContent[skillId]) {
+        detail.innerHTML = marked.parse(skillContent[skillId], {breaks: true, gfm: true});
+      }
+      detail.style.display = 'block';
+    } else {
+      detail.style.display = 'none';
+    }
+  }
+
   // Click-to-converse: delegated handler for all [data-conversation] elements
   var dashboard = document.querySelector('.pulse-dashboard');
   if (dashboard) {
     dashboard.addEventListener('click', function(e) {
+      // Skill inline expansion
+      var skillEl = e.target.closest('[data-skill-click]');
+      if (skillEl && !e.target.closest('.pulse-section-toggle')) {
+        e.preventDefault();
+        toggleSkillDetail(skillEl.dataset.skillId);
+        fetch('/app/home/api/skills/seen', {method: 'POST'});
+        return;
+      }
       var el = e.target.closest('[data-conversation]');
       if (el && window.openConversation) {
         e.preventDefault();
@@ -935,6 +1080,13 @@
       if (toggleEl) {
         e.preventDefault();
         toggleSection(toggleEl.parentElement);
+        return;
+      }
+      var skillEl = e.target.closest('[data-skill-click]');
+      if (skillEl) {
+        e.preventDefault();
+        toggleSkillDetail(skillEl.dataset.skillId);
+        fetch('/app/home/api/skills/seen', {method: 'POST'});
         return;
       }
       var el = e.target.closest('[data-conversation]');
@@ -999,10 +1151,11 @@
   };
 
   // Section collapse/expand
-  var SECTION_IDS = ['pulse-narrative', 'pulse-routines', 'pulse-today', 'pulse-needs', 'pulse-network'];
+  var SECTION_IDS = ['pulse-narrative', 'pulse-routines', 'pulse-skills', 'pulse-today', 'pulse-needs', 'pulse-network'];
   var SECTION_DEFAULTS = {
     'pulse-narrative': 'true',
     'pulse-routines': 'true',
+    'pulse-skills': 'true',
     'pulse-today': 'true',
     'pulse-needs': 'false',
     'pulse-network': 'true'
@@ -1151,6 +1304,75 @@
         }
       })
       .catch(function(err) { console.error('home: refreshRoutines failed', err); });
+  }
+
+  function refreshSkills() {
+    fetch('/app/home/api/pulse')
+      .then(r => r.json())
+      .then(data => {
+        var container = document.getElementById('pulse-skills');
+        var skills = data.skills || [];
+        var newContent = data.skills_content || {};
+        if (skills.length === 0) {
+          if (container) container.remove();
+          return;
+        }
+        // Update content map
+        Object.keys(newContent).forEach(function(k) { skillContent[k] = newContent[k]; });
+        var wasCollapsed;
+        if (container) {
+          wasCollapsed = container.dataset.sectionCollapsed;
+        } else {
+          try {
+            var saved = JSON.parse(sessionStorage.getItem('pulse-section-state') || '{}');
+            wasCollapsed = saved['pulse-skills'] || SECTION_DEFAULTS['pulse-skills'];
+          } catch(e) {
+            wasCollapsed = SECTION_DEFAULTS['pulse-skills'];
+          }
+        }
+        var expanded = wasCollapsed === 'false' ? 'true' : 'false';
+        var summaryText = data.skills_summary || (skills.length + ' skill' + (skills.length !== 1 ? 's' : ''));
+        var html = '<div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="' + expanded + '" onclick="toggleSection(this.parentElement)">';
+        html += '<h2 class="pulse-section-header">your skills</h2>';
+        html += '<span class="pulse-section-summary">' + esc(summaryText) + '</span>';
+        html += '</div>';
+        html += '<div class="pulse-section-body">';
+        html += '<div class="pulse-skills-list">';
+        skills.forEach(function(s) {
+          var name = esc(s.name);
+          var newClass = s.seen ? '' : ' is-new';
+          html += '<div class="pulse-skill-item' + newClass + '" role="button" tabindex="0" data-skill-click="true" data-skill-id="' + esc(s.id) + '"><span>';
+          html += '<span class="pulse-skill-name">' + name + '</span> ';
+          html += '<span class="pulse-skill-badge">' + (s.observations || 0) + ' obs</span> ';
+          html += '<span class="pulse-skill-facet">' + esc(s.facet) + '</span>';
+          if (s.summary) html += ' <span class="pulse-skill-summary">— ' + esc(s.summary) + '</span>';
+          html += '</span></div>';
+          html += '<div class="pulse-skill-detail" id="skill-detail-' + esc(s.id) + '" style="display: none;"></div>';
+        });
+        html += '</div>';
+        html += '</div>';
+        if (container) {
+          container.innerHTML = html;
+          container.dataset.sectionCollapsed = wasCollapsed;
+        } else {
+          var newDiv = document.createElement('div');
+          newDiv.className = 'pulse-skills';
+          newDiv.id = 'pulse-skills';
+          newDiv.dataset.sectionCollapsed = wasCollapsed;
+          newDiv.innerHTML = html;
+          var routines = document.getElementById('pulse-routines');
+          var today = document.getElementById('pulse-today');
+          if (routines) {
+            routines.parentNode.insertBefore(newDiv, routines.nextSibling);
+          } else if (today) {
+            today.parentNode.insertBefore(newDiv, today);
+          } else {
+            var dash = document.querySelector('.pulse-dashboard');
+            if (dash) dash.appendChild(newDiv);
+          }
+        }
+      })
+      .catch(function(err) { console.error('home: refreshSkills failed', err); });
   }
 
   function refreshBriefing() {
