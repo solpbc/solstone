@@ -795,7 +795,7 @@ body.menu-full .menu-bar {
   cursor: pointer;
   transition: background 0.2s, transform 0.3s ease, max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease, border-radius 0.3s ease;
   border-bottom: none;
-  border-left: 2px solid transparent;
+  border-left: 3px solid transparent;
   border-right: none;
   margin-top: 2px;
   color: inherit;
@@ -870,12 +870,12 @@ body:not(.menu-full) .menu-bar .menu-item {
 }
 
 .menu-bar .menu-item:active {
-  background: rgba(0, 0, 0, 0.10);
+  background: rgba(0, 0, 0, 0.14);
 }
 
 /* Active app state - stronger background + accent bar */
 .menu-bar .menu-item.current {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.10);
   border-left-color: var(--facet-color);
 }
 
@@ -888,14 +888,14 @@ body:not(.menu-full) .menu-bar .menu-item:hover {
 
 body:not(.menu-full) .menu-bar .menu-item:active {
   background:
-    linear-gradient(rgba(0, 0, 0, 0.10), rgba(0, 0, 0, 0.10)),
+    linear-gradient(rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.14)),
     var(--facet-bg, white);
 }
 
 /* In menu-minimal state, active app with stronger tint + accent bar */
 body:not(.menu-full) .menu-bar .menu-item.current {
   background:
-    linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08)),
+    linear-gradient(rgba(0, 0, 0, 0.10), rgba(0, 0, 0, 0.10)),
     var(--facet-bg, white);
   border-left-color: var(--facet-color);
 }
