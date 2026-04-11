@@ -48,6 +48,7 @@ COMMANDS: dict[str, str] = {
     "notify": "think.notify_cli",
     "password": "think.password_cli",
     "streams": "think.streams",
+    "segment": "think.segment",
     "journal-stats": "think.journal_stats",
     # observe package - multimodal capture
     "transcribe": "observe.transcribe",
@@ -125,6 +126,7 @@ GROUPS: dict[str, list[str]] = {
     "Specialized tools": [
         "password",
         "streams",
+        "segment",
         "journal-stats",
     ],
     "Help": ["chat"],
