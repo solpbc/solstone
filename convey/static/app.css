@@ -680,7 +680,7 @@ body:has(.status-pane.visible) .facet-bar::after {
   z-index: calc(var(--z-bars) + 1);  /* Above app bar */
   transition: width 0.3s ease, background 0.3s ease, box-shadow 0.3s ease, border-radius 0.3s ease;
   overflow: hidden; /* Clip all content to rounded corner */
-  border-bottom-right-radius: 12px;
+  border-bottom-right-radius: 8px;
   display: flex;
   flex-direction: column;
 }
@@ -752,7 +752,7 @@ body.menu-full .menu-bar {
   cursor: pointer;
   transition: background 0.2s, transform 0.3s ease, max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease, border-radius 0.3s ease;
   border-bottom: none;
-  border-left: 3px solid transparent;
+  border-left: 2px solid transparent;
   border-right: 1px solid var(--facet-border, #e5e0db); /* Always present - extends naturally with item animation */
   color: inherit;
   white-space: nowrap;
@@ -854,6 +854,7 @@ body:not(.menu-full) .menu-bar .menu-item.current {
 
 .menu-bar .menu-item .label {
   font-size: 14px;
+  font-weight: 500;
   padding-right: 4px;
   flex: 1;
 }
@@ -930,8 +931,8 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
 /* Visual separator after last starred app */
 .menu-bar .menu-item.last-starred {
   border-bottom: 1px solid var(--facet-border, #e5e0db);
-  padding-bottom: 12px;
-  margin-bottom: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 /* Menu Submenus - hover pop-outs for app quick-links */
@@ -1043,13 +1044,12 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   cursor: pointer;
   color: inherit;
   border: none;
-  border-bottom: 1px solid var(--facet-border, #e5e0db);
   border-right: 1px solid var(--facet-border, #e5e0db);
   background: var(--facet-bg, white);
   transition: background 0.2s;
   user-select: none;
   position: relative;
-  border-bottom-right-radius: 12px;
+  border-bottom-right-radius: 8px;
   flex-shrink: 0;  /* Never shrink - always visible at bottom */
 }
 
