@@ -859,6 +859,16 @@ body.menu-full .menu-bar .menu-item.reordering {
   background: color-mix(in srgb, var(--facet-color, #b06a1a) 8%, transparent);
 }
 
+@keyframes boundary-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+body.menu-full .menu-bar .menu-item.boundary-hit {
+  animation: boundary-shake 0.2s ease;
+}
+
 /* Apply facet background to menu items in menu-minimal state */
 body:not(.menu-full) .menu-bar .menu-item {
   background: var(--facet-bg, white);
@@ -1100,7 +1110,13 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   position: relative;
 }
 
+@keyframes badge-pop {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
 .menu-badge {
+  animation: badge-pop 0.2s ease;
   position: absolute;
   bottom: -2px;
   right: 8px;

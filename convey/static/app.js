@@ -1051,6 +1051,10 @@
           if (!canMove(movingItem, direction)) {
             const label = getAppLabel(movingItem);
             announceReorder(`${label}, cannot move ${direction === -1 ? 'up' : 'down'}, boundary reached`);
+            movingItem.classList.add('boundary-hit');
+            movingItem.addEventListener('animationend', () => {
+              movingItem.classList.remove('boundary-hit');
+            }, { once: true });
             return;
           }
 
