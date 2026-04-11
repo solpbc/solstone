@@ -281,6 +281,10 @@ body:has(.status-pane.visible) .facet-bar::after {
   background: rgba(0, 0, 0, 0.10);
 }
 
+.facet-bar .status-icon[aria-expanded="true"] {
+  background: rgba(0, 0, 0, 0.08);
+}
+
 .facet-bar .status-icon.error {
   box-shadow: 0 0 4px 2px red;
   border-radius: 4px;
@@ -1334,21 +1338,23 @@ body.menu-all .menu-bar {
 
 .status-icon .quiet-notif-badge {
   position: absolute;
-  bottom: 0;
-  right: 0;
+  bottom: -2px;
+  right: -4px;
   min-width: 16px;
   height: 16px;
   border-radius: 8px;
   padding: 0 3px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   background: #ef4444;
   color: white;
+  box-shadow: 0 0 0 2px white;
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: none;
   user-select: none;
+  animation: badge-pop 0.2s ease;
 }
 
 /* Drag-and-drop states */
