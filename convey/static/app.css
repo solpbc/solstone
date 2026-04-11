@@ -704,12 +704,10 @@ body:has(.status-pane.visible) .facet-bar::after {
 .facet-bar .facet-pills-container {
   flex: 1;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  padding-top: 4px;
-  padding-bottom: 4px;
   min-width: 0;  /* Allow container to shrink below content size */
 }
 
@@ -1198,7 +1196,9 @@ body.menu-all .menu-bar {
 .facet-all-label {
   font-size: 12px;
   color: #999;
-  padding: 0 8px 0 4px;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  padding: 0 6px 0 0;
   pointer-events: none;
   user-select: none;
   white-space: nowrap;
