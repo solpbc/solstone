@@ -1578,7 +1578,7 @@ body.menu-all .menu-bar {
   align-items: center;
   gap: 0.5em;
   color: #999;
-  font-size: 13px;
+  font-size: 0.9em;
   position: relative;
   z-index: 1;
   overflow: hidden;
@@ -1607,7 +1607,7 @@ body.menu-all .menu-bar {
 }
 
 .thinking-elapsed {
-  opacity: 0.5;
+  opacity: 0.6;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1620,6 +1620,8 @@ body.menu-all .menu-bar {
   padding-right: 28px;
   position: relative;
   z-index: 1;
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
 }
 
 .chat-bar-response--error {
@@ -1641,7 +1643,7 @@ body.menu-all .menu-bar {
   z-index: calc(var(--z-bars) + 49);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.12);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
@@ -1854,7 +1856,7 @@ body.menu-all .menu-bar {
   align-items: center;
   gap: 0.5em;
   color: #999;
-  font-size: 13px;
+  font-size: 0.9em;
   background: #f5f0eb;
 }
 
