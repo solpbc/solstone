@@ -1056,6 +1056,10 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   background: rgba(0, 0, 0, 0.10);
 }
 
+.menu-submenu-item:focus-visible {
+  background: rgba(0, 0, 0, 0.05);
+}
+
 .menu-submenu-item:first-child {
   border-radius: 7px 7px 0 0;
 }
@@ -2420,6 +2424,7 @@ button.close {
 .date-nav-arrow:focus-visible,
 .facet-create-submit:focus-visible,
 .facet-create-cancel:focus-visible,
+.menu-bar .menu-expander:focus-visible,
 button:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--facet-color, #b06a1a);
