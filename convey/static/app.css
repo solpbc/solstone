@@ -78,7 +78,7 @@ html {
 :root {
   --facet-color: #b06a1a;
   --facet-bg: transparent;
-  --facet-border: #e0e0e0;
+  --facet-border: #e5e0db;
 
   /* Layout dimensions */
   --facet-bar-height: 60px;
@@ -217,7 +217,7 @@ body.has-date-nav .workspace {
   left: var(--menu-bar-width-minimal);
   right: 0;
   height: 1px;
-  background: var(--facet-border, #e0e0e0);
+  background: var(--facet-border, #e5e0db);
   transition: left 0.3s ease, background-color 0.3s ease;  /* right is instant */
   pointer-events: none;
 }
@@ -304,7 +304,7 @@ body:has(.status-pane.visible) .facet-bar::after {
 
   /* Match facet bar styling */
   background: white;
-  border: 1px solid var(--facet-border, #e0e0e0);
+  border: 1px solid var(--facet-border, #e5e0db);
   border-top: none;  /* Seamless connection to facet bar */
   border-radius: 0 0 12px 12px;  /* Rounded bottom only */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
@@ -460,7 +460,7 @@ body:has(.status-pane.visible) .facet-bar::after {
   left: -1px;   /* Align with parent's outer border */
   right: -1px;  /* Align with parent's outer border */
   background: white;
-  border: 1px solid var(--facet-border, #e0e0e0);
+  border: 1px solid var(--facet-border, #e5e0db);
   border-top: none;
   border-radius: 0 0 12px 12px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -608,8 +608,8 @@ body:has(.status-pane.visible) .facet-bar::after {
   right: 0;
   width: var(--status-pane-width);
   background: white;
-  border-left: 1px solid var(--facet-border, #e0e0e0);
-  border-bottom: 1px solid var(--facet-border, #e0e0e0);
+  border-left: 1px solid var(--facet-border, #e5e0db);
+  border-bottom: 1px solid var(--facet-border, #e5e0db);
   border-radius: 0 0 0 12px;  /* Only bottom-left rounded */
   /* Shadow only on left and bottom - offset down to avoid top bleed */
   box-shadow: -4px 4px 8px -2px rgba(0, 0, 0, 0.1);
@@ -740,7 +740,7 @@ ul.menu-items {
 body.menu-full .menu-bar {
   width: var(--menu-bar-width-full);
   background: linear-gradient(var(--facet-bg, transparent), var(--facet-bg, transparent)), white;
-  border-right: 1px solid var(--facet-border, #e0e0e0);
+  border-right: 1px solid var(--facet-border, #e5e0db);
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
   border-bottom-right-radius: 0; /* Remove rounded corner when expanded */
 }
@@ -753,7 +753,7 @@ body.menu-full .menu-bar {
   transition: background 0.2s, transform 0.3s ease, max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease, border-radius 0.3s ease;
   border-bottom: none;
   border-left: 3px solid transparent;
-  border-right: 1px solid var(--facet-border, #e0e0e0); /* Always present - extends naturally with item animation */
+  border-right: 1px solid var(--facet-border, #e5e0db); /* Always present - extends naturally with item animation */
   color: inherit;
   white-space: nowrap;
   position: relative;
@@ -929,7 +929,7 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
 
 /* Visual separator after last starred app */
 .menu-bar .menu-item.last-starred {
-  border-bottom: 1px solid var(--facet-border, #e0e0e0);
+  border-bottom: 1px solid var(--facet-border, #e5e0db);
   padding-bottom: 12px;
   margin-bottom: 8px;
 }
@@ -939,7 +939,7 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   position: fixed;
   min-width: 160px;
   background: white;
-  border: 1px solid var(--facet-border, #e0e0e0);
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 4px 0;
@@ -1043,8 +1043,8 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   cursor: pointer;
   color: inherit;
   border: none;
-  border-bottom: 1px solid var(--facet-border, #e0e0e0);
-  border-right: 1px solid var(--facet-border, #e0e0e0);
+  border-bottom: 1px solid var(--facet-border, #e5e0db);
+  border-right: 1px solid var(--facet-border, #e5e0db);
   background: var(--facet-bg, white);
   transition: background 0.2s;
   user-select: none;
@@ -1088,7 +1088,7 @@ body.menu-all .menu-bar {
   margin-right: 8px;
   border-radius: 20px;
   background: #f5f5f5;
-  border: 1px solid #ddd;
+  border: 1px solid var(--facet-border, #e5e0db);
   cursor: grab;
   font-size: 14px;
   transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
@@ -1268,7 +1268,7 @@ body.menu-all .menu-bar {
   display: flex;
   flex-direction: column;
   border-radius: 12px;
-  border: 1px solid var(--facet-border, #e0e0e0);
+  border: 1px solid var(--facet-border, #e5e0db);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 -2px 8px rgba(0, 0, 0, 0.06);
 }
 
@@ -1316,7 +1316,7 @@ body.menu-all .menu-bar {
 
 .chat-bar-separator {
   height: 1px;
-  background: var(--facet-border, #e0e0e0);
+  background: var(--facet-border, #e5e0db);
   margin: 12px -16px 0;
 }
 
@@ -1357,7 +1357,7 @@ body.menu-all .menu-bar {
 .chat-bar-input {
   flex: 1;
   resize: none;
-  border: 1px solid #ddd;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 20px;
   padding: 0.75em 1em;
   font-family: inherit;
@@ -1569,7 +1569,7 @@ body.menu-all .menu-bar {
 .app-bar.app-bar--focused .conversation-separator {
   display: block;
   height: 1px;
-  background: var(--facet-border, #e0e0e0);
+  background: var(--facet-border, #e5e0db);
   flex-shrink: 0;
 }
 
@@ -1749,7 +1749,7 @@ body.menu-all .menu-bar {
 /* Notification Card */
 .notification-card {
   background: white;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 12px;
@@ -2056,8 +2056,8 @@ a.notification-card {
 
 .facet-create-field input {
   width: 100%;
-  padding: 10px 12px;
-  border: 2px solid #ddd;
+  padding: 11px 13px;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
   font-size: 16px;
   transition: border-color 0.2s;
@@ -2097,7 +2097,7 @@ a.notification-card {
 
 .facet-create-cancel {
   background: #f5f5f5;
-  border: 1px solid #ddd;
+  border: 1px solid var(--facet-border, #e5e0db);
   color: #666;
 }
 
