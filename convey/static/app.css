@@ -315,8 +315,8 @@ body:has(.status-pane.visible) .facet-bar::after {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   z-index: var(--z-bars);
 
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: #374151;
   user-select: none;
   view-transition-name: date-nav;
@@ -384,8 +384,8 @@ body:has(.status-pane.visible) .facet-bar::after {
   border: none;
   padding: 4px 12px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: #9ca3af;
   border-radius: 4px;
   transition: background 0.15s, color 0.15s, font-weight 0.15s;
@@ -503,6 +503,8 @@ body:has(.status-pane.visible) .facet-bar::after {
   font-size: 11px;
   font-weight: 600;
   color: #9ca3af;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   text-align: center;
 }
 
@@ -1026,7 +1028,7 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   right: 4px;
   min-width: 15px;
   height: 15px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   background: #ef4444;
   color: white;
@@ -1201,7 +1203,7 @@ body.menu-all .menu-bar {
   right: -2px;
   min-width: 15px;
   height: 15px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   background: #ef4444;
   color: white;
@@ -1224,7 +1226,7 @@ body.menu-all .menu-bar {
   border-radius: 8px;
   padding: 0 3px;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   background: #ef4444;
   color: white;
   display: flex;
@@ -1843,6 +1845,7 @@ a.notification-card {
   font-size: 11px;
   color: #9ca3af;
   text-transform: capitalize;
+  letter-spacing: 0.03em;
   flex: 1;
 }
 
