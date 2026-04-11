@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -840,7 +840,7 @@ def api_routines_seen():
 def api_skills_seen():
     """Mark skills as seen."""
     state = _load_skills_state()
-    state["skills_last_seen"] = datetime.utcnow().isoformat()
+    state["skills_last_seen"] = datetime.now(timezone.utc).isoformat()
     _save_skills_state(state)
     return jsonify({"ok": True})
 
