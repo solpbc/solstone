@@ -52,8 +52,6 @@ PROVIDER_METADATA: Dict[str, Dict[str, Any]] = {
         "env_key": "GOOGLE_API_KEY",
         "vertex_env_keys": [
             "GOOGLE_GENAI_USE_VERTEXAI",
-            "GOOGLE_CLOUD_PROJECT",
-            "GOOGLE_CLOUD_LOCATION",
             "GOOGLE_APPLICATION_CREDENTIALS",
         ],
     },

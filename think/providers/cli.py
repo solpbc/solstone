@@ -471,21 +471,12 @@ def build_cogitate_env(env_key: str) -> dict[str, str]:
             if creds_path and os.path.exists(creds_path):
                 env["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
             # else: GOOGLE_APPLICATION_CREDENTIALS may be inherited from env
-            # Set project/location from config if present
-            vertex_project = providers_config.get("vertex_project")
-            if vertex_project:
-                env["GOOGLE_CLOUD_PROJECT"] = vertex_project
-            vertex_location = providers_config.get("vertex_location")
-            if vertex_location:
-                env["GOOGLE_CLOUD_LOCATION"] = vertex_location
         else:
             # AI Studio: clear any inherited Vertex env vars so the CLI
             # doesn't accidentally run in Vertex mode.
             for vkey in (
                 "GOOGLE_APPLICATION_CREDENTIALS",
                 "GOOGLE_GENAI_USE_VERTEXAI",
-                "GOOGLE_CLOUD_PROJECT",
-                "GOOGLE_CLOUD_LOCATION",
             ):
                 env.pop(vkey, None)
     return env

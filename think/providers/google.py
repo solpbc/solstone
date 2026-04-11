@@ -147,17 +147,11 @@ def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
 
     if backend == "vertex":
         creds_path = providers_config.get("vertex_credentials")
-        project = providers_config.get("vertex_project")
-        location = providers_config.get("vertex_location")
 
         client_kwargs: dict[str, Any] = {
             "vertexai": True,
             "http_options": http_options,
         }
-        if project:
-            client_kwargs["project"] = project
-        if location:
-            client_kwargs["location"] = location
 
         if creds_path and os.path.exists(creds_path):
             from google.oauth2.service_account import Credentials
@@ -801,8 +795,6 @@ def validate_key(api_key: str) -> dict:
 
 def validate_vertex_credentials(
     creds_path: str,
-    project: str | None = None,
-    location: str | None = None,
 ) -> dict:
     """Validate Vertex AI service account credentials by listing models.
 
@@ -822,10 +814,6 @@ def validate_vertex_credentials(
             "credentials": creds,
             "http_options": types.HttpOptions(timeout=10000),
         }
-        if project:
-            client_kwargs["project"] = project
-        if location:
-            client_kwargs["location"] = location
 
         client = genai.Client(**client_kwargs)
         list(client.models.list(config={"page_size": 1}))
