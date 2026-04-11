@@ -352,7 +352,7 @@
         "meetings": 570.0
       }
     },
-    "day_count": 59,
+    "day_count": 60,
     "days": {
       "20240101": {
         "day_bytes": 38312,
@@ -1050,6 +1050,18 @@
         "transcript_segments": 0,
         "transcript_sessions": 0
       },
+      "20260411": {
+        "day_bytes": 1544,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
       "20990101": {
         "day_bytes": 282,
         "outputs_pending": 5,
@@ -1114,7 +1126,7 @@
         "work": 150.0
       }
     },
-    "generated_at": "2026-04-11T00:34:09.498953+00:00",
+    "generated_at": "2026-04-11T18:18:15.453108+00:00",
     "heatmap": [
       [
         0.0,
@@ -1849,8 +1861,8 @@
       }
     },
     "totals": {
-      "day_bytes": 438014,
-      "outputs_pending": 281,
+      "day_bytes": 439558,
+      "outputs_pending": 286,
       "outputs_processed": 14,
       "pending_segments": 0,
       "percept_frames": 3,
