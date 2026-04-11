@@ -1524,7 +1524,17 @@ body.menu-all .menu-bar {
 }
 
 .chat-bar-input::placeholder {
-  color: #999;
+  color: #aaa;
+  transition: opacity 0.2s ease;
+}
+
+.chat-bar-input:focus::placeholder {
+  opacity: 0.5;
+}
+
+.chat-bar-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .chat-bar-send {
