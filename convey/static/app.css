@@ -1393,7 +1393,7 @@ body.menu-all .menu-bar {
   flex-direction: column;
   border-radius: 12px;
   border: 1px solid var(--facet-border, #e5e0db);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08), 0 -1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 .app-bar::before {
@@ -1423,11 +1423,19 @@ body.menu-all .menu-bar {
   border-radius: 12px;
 }
 
+.app-bar:not(.app-bar--focused):hover {
+  cursor: pointer;
+}
+
+.app-bar:not(.app-bar--focused) .chat-bar-input-row {
+  cursor: default;
+}
+
 /* Response panel (above input row) */
 .chat-bar-response-panel {
   max-height: 0;
   overflow: hidden;
-  padding: 0 16px;
+  padding: 0 20px;
   position: relative;
   z-index: 1;
   transition: max-height 0.2s ease;
@@ -1448,7 +1456,7 @@ body.menu-all .menu-bar {
 .chat-bar-separator {
   height: 1px;
   background: var(--facet-border, #e5e0db);
-  margin: 12px -16px 0;
+  margin: 12px -20px 0;
 }
 
 .chat-bar-dismiss {
@@ -1483,8 +1491,8 @@ body.menu-all .menu-bar {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 12px;
-  padding: 0 16px;
+  gap: 8px;
+  padding: 0 20px;
   min-height: var(--app-bar-height);
 }
 
@@ -1494,7 +1502,7 @@ body.menu-all .menu-bar {
   resize: none;
   border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 20px;
-  padding: 0.75em 1em;
+  padding: 0.75em 1.25em;
   font-family: inherit;
   font-size: 15px;
   line-height: 1.5;
