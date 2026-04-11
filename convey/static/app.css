@@ -651,7 +651,7 @@ body:has(.status-pane.visible) .facet-bar::after {
   border-radius: 0 0 0 12px;  /* Only bottom-left rounded */
   /* Shadow only on left and bottom - offset down to avoid top bleed */
   box-shadow: -4px 4px 8px -2px rgba(0, 0, 0, 0.1);
-  z-index: var(--z-bars);
+  z-index: var(--z-notifications);
   overflow: hidden;  /* Clip content during animation */
 
   /* Slide animation */
@@ -1998,6 +1998,17 @@ body.menu-all .menu-bar {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  transition: right 0.25s ease;
+}
+
+body:has(.status-pane.visible) .notification-center {
+  right: calc(var(--status-pane-width) + 12px);
+}
+
+@media (max-width: 768px) {
+  body:has(.status-pane.visible) .notification-center {
+    right: 8px;
+  }
 }
 
 /* Notification Card */
