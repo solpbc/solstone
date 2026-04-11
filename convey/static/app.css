@@ -247,6 +247,10 @@ body:has(.status-pane.visible) .facet-bar::after {
   background: rgba(0,0,0,0.05);
 }
 
+.facet-bar #hamburger:active {
+  background: rgba(0, 0, 0, 0.10);
+}
+
 @media (max-width: 768px) {
   .facet-bar #hamburger {
     display: flex;
@@ -271,6 +275,10 @@ body:has(.status-pane.visible) .facet-bar::after {
 
 .facet-bar .status-icon:hover {
   background: rgba(0,0,0,0.05);
+}
+
+.facet-bar .status-icon:active {
+  background: rgba(0, 0, 0, 0.10);
 }
 
 .facet-bar .status-icon.error {
@@ -367,6 +375,10 @@ body:has(.status-pane.visible) .facet-bar::after {
   color: #111827;
 }
 
+.date-nav-arrow:active {
+  background: rgba(0, 0, 0, 0.10);
+}
+
 /* Button groups for grid layout symmetry */
 .date-nav-left {
   display: flex;
@@ -394,6 +406,10 @@ body:has(.status-pane.visible) .facet-bar::after {
 .date-nav-today:hover {
   background: rgba(0, 0, 0, 0.05);
   color: #111827;
+}
+
+.date-nav-today:active {
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .date-nav-today:focus-visible {
@@ -531,6 +547,10 @@ body:has(.status-pane.visible) .facet-bar::after {
 
 .mp-day:hover:not(.mp-other):not(.mp-empty):not(.mp-future) {
   background: color-mix(in srgb, var(--facet-color) 40%, transparent);
+}
+
+.mp-day:active:not(.mp-other):not(.mp-empty) {
+  transform: scale(0.92);
 }
 
 /* Empty days - striped pattern, not clickable */
@@ -842,6 +862,10 @@ body:not(.menu-full) .menu-bar .menu-item {
   background: rgba(0, 0, 0, 0.05);
 }
 
+.menu-bar .menu-item:active {
+  background: rgba(0, 0, 0, 0.10);
+}
+
 /* Active app state - stronger background + accent bar */
 .menu-bar .menu-item.current {
   background: rgba(0, 0, 0, 0.08);
@@ -852,6 +876,12 @@ body:not(.menu-full) .menu-bar .menu-item {
 body:not(.menu-full) .menu-bar .menu-item:hover {
   background:
     linear-gradient(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05)),
+    var(--facet-bg, white);
+}
+
+body:not(.menu-full) .menu-bar .menu-item:active {
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.10), rgba(0, 0, 0, 0.10)),
     var(--facet-bg, white);
 }
 
@@ -910,6 +940,15 @@ body.menu-full .menu-bar .menu-item:hover .star-toggle,
   opacity: 1;
 }
 
+.menu-bar .menu-item .star-toggle:hover {
+  opacity: 1;
+  color: #f59e0b;
+}
+
+.menu-bar .menu-item .star-toggle:active {
+  transform: scale(0.9);
+}
+
 .menu-bar .menu-item[data-starred="true"] .star-toggle {
   color: #f59e0b;
 }
@@ -940,6 +979,11 @@ body.menu-full .menu-bar .menu-item .drag-handle {
 
 body.menu-full .menu-bar .menu-item:hover .drag-handle {
   opacity: 1;
+}
+
+.menu-bar .menu-item .drag-handle:hover {
+  opacity: 1;
+  color: #666;
 }
 
 body.menu-full .menu-bar .menu-item .drag-handle:active {
@@ -986,10 +1030,15 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   transition: background 0.15s ease;
   gap: 8px;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .menu-submenu-item:hover {
   background: rgba(0, 0, 0, 0.05);
+}
+
+.menu-submenu-item:active {
+  background: rgba(0, 0, 0, 0.10);
 }
 
 .menu-submenu-item:first-child {
@@ -1074,6 +1123,10 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
 
 .menu-bar .menu-expander:hover {
   background: rgba(0,0,0,0.05);
+}
+
+.menu-bar .menu-expander:active {
+  background: rgba(0, 0, 0, 0.10);
 }
 
 /* Hide only when sidebar is menu-full (keep visible during menu-all) */
@@ -1367,6 +1420,10 @@ body.menu-all .menu-bar {
   color: #666;
 }
 
+.chat-bar-dismiss:active {
+  background: rgba(0, 0, 0, 0.10);
+}
+
 /* Input row */
 .chat-bar-input-row {
   display: flex;
@@ -1417,10 +1474,16 @@ body.menu-all .menu-bar {
   position: relative;
   z-index: 1;
   flex-shrink: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .chat-bar-send:hover {
   opacity: 0.85;
+}
+
+.chat-bar-send:active {
+  transform: scale(0.92);
+  opacity: 0.75;
 }
 
 @media (max-width: 768px) {
@@ -1507,6 +1570,7 @@ body.menu-all .menu-bar {
 .conversation-backdrop.visible {
   opacity: 1;
   pointer-events: auto;
+  cursor: pointer;
 }
 
 /* Panel expanded state */
@@ -1757,6 +1821,14 @@ body.menu-all .menu-bar {
   cursor: pointer;
 }
 
+#error-log-dismiss:hover {
+  background: #333;
+}
+
+#error-log-dismiss:active {
+  background: #444;
+}
+
 /* Notification Center */
 .notification-center {
   position: fixed;
@@ -1799,6 +1871,10 @@ a.notification-card {
 .notification-card:hover {
   transform: translateX(-4px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.notification-card[data-action]:not([data-action=""]):active {
+  transform: translateX(-4px) scale(0.98);
 }
 
 @keyframes slideIn {
@@ -1878,6 +1954,10 @@ a.notification-card {
 .notification-close:hover {
   background: #f3f4f6;
   color: #374151;
+}
+
+.notification-close:active {
+  background: #e5e7eb;
 }
 
 /* Notification Body */
@@ -1973,6 +2053,15 @@ a.notification-card {
   right: 15px;
   cursor: pointer;
   font-size: 24px;
+  transition: color 0.15s ease;
+}
+
+.close:hover {
+  color: #333;
+}
+
+.close:active {
+  transform: scale(0.9);
 }
 
 /* Corner Tags - fixed markers for screen region detection */
@@ -2028,6 +2117,10 @@ a.notification-card {
   color: var(--facet-color, #b06a1a);
   background: var(--facet-bg, rgba(176, 106, 26, 0.1));
   transform: scale(1.1);
+}
+
+.facet-add-pill:active {
+  transform: scale(0.95);
 }
 
 /* ========================================
@@ -2195,6 +2288,9 @@ button.close {
   clip: auto;
   white-space: normal;
   font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
 }
 
 /* ========================================
@@ -2246,6 +2342,30 @@ button.close {
   .notification-card:hover {
     transform: none;
   }
+
+  .menu-bar .menu-item .star-toggle:active {
+    transform: none;
+  }
+
+  .facet-add-pill:active {
+    transform: none;
+  }
+
+  .chat-bar-send:active {
+    transform: none;
+  }
+
+  .mp-day:active:not(.mp-other):not(.mp-empty) {
+    transform: none;
+  }
+
+  .close:active {
+    transform: none;
+  }
+
+  .notification-card[data-action]:not([data-action=""]):active {
+    transform: none;
+  }
 }
 
 /* Focus-visible states for keyboard navigation */
@@ -2291,6 +2411,7 @@ a:focus-visible {
   text-decoration: none;
   font-size: 14px;
   border-radius: 0 0 4px 0;
+  transition: top 0.15s ease;
 }
 
 .skip-link:focus {
