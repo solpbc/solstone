@@ -1,4 +1,16 @@
 <style>
+/*
+ * Health Dashboard Color Convention
+ * ──────────────────────────────────
+ * Status signals use a traffic-light palette:
+ *   Green  (#16a34a / #22c55e) — healthy, active, ok
+ *   Amber  (#d97706 / #f59e0b) — warning, stale, in-progress
+ *   Red    (#dc2626 / #ef4444) — error, crashed, disconnected
+ *
+ * The vitals bar background is always neutral (#f9fafb).
+ * Only the status badge carries saturated color.
+ * Purple is reserved for non-status decorative use (e.g. log syntax).
+ */
 /* Health Dashboard Layout */
 .health-dashboard {
   padding: 1em;
@@ -11,11 +23,21 @@
 
 /* Vitals Bar (Full Width) */
 .vitals-bar {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: #f9fafb;
+  color: #374151;
   border-radius: 12px;
-  padding: 1.5em;
+  padding: 0.75em 1em;
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  transition: background 0.5s ease;
+}
+
+.status-summary {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 1em 1.5em;
+  font-size: 1.1em;
+  font-weight: 500;
+  color: #374151;
 }
 
 .vitals-header {
@@ -34,13 +56,42 @@
 }
 
 .vitals-status {
-  background: rgba(255,255,255,0.2);
+  background: #16a34a;
+  color: #fff;
   padding: 0.4em 0.8em;
   border-radius: 20px;
   font-size: 0.9em;
   display: flex;
   align-items: center;
   gap: 0.5em;
+}
+
+.vitals-status.warning {
+  background: #d97706;
+  color: #fff;
+}
+
+.vitals-status.error {
+  background: #dc2626;
+  color: #fff;
+}
+
+.connection-indicator {
+  font-size: 0.8em;
+  color: #374151;
+  margin-left: 0.5em;
+}
+
+.connection-indicator.stale {
+  color: #d97706;
+  opacity: 1;
+  font-weight: 500;
+}
+
+.connection-indicator.disconnected {
+  color: #dc2626;
+  opacity: 1;
+  font-weight: 600;
 }
 
 .vitals-content {
@@ -57,10 +108,8 @@
 }
 
 .vitals-label {
-  opacity: 0.8;
+  color: #6b7280;
   font-size: 0.85em;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .vitals-value {
@@ -80,34 +129,95 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3em;
-  background: rgba(255,255,255,0.15);
-  padding: 0.2em 0.6em;
+  background: #e5e7eb;
+  padding: 0.15em 0.45em;
   border-radius: 12px;
-  font-size: 0.85em;
+  font-size: 0.75em;
 }
 
 .service-dot.crashed {
-  background: rgba(248, 113, 113, 0.3);
+  background: rgba(220, 38, 38, 0.15);
 }
 
 .status-indicator {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
+  display: inline-block;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Active: filled circle (default) */
+.status-indicator.active {
+  background: #4ade80;
+}
+
+/* Crashed: filled diamond (rotated square) */
+.status-indicator.crashed {
+  background: #f87171;
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+
+/* Restarting: pulsing ring */
+.status-indicator.restarting {
+  background: transparent;
+  border: 2px solid #fbbf24;
+  animation: status-pulse 1.2s ease-in-out infinite;
+}
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Inactive: hollow circle */
+.status-indicator.inactive {
+  background: transparent;
+  border: 2px solid #9ca3af;
+}
+
+/* Stale: dashed circle */
+.status-indicator.stale {
+  background: transparent;
+  border: 2px dashed #f59e0b;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+.skeleton {
+  background: #e5e7eb;
+  border-radius: 4px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  display: inline-block;
+}
+.skeleton-dark {
+  background: #e5e7eb;
+  border-radius: 4px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
   display: inline-block;
 }
 
-.status-indicator.active { background: #4ade80; }
-.status-indicator.crashed { background: #f87171; }
-.status-indicator.restarting { background: #fbbf24; }
-.status-indicator.inactive { background: #9ca3af; }
+.severity-label {
+  font-size: 0.75em;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 0.5em;
+}
 
-/* Observe Card (Prominent) */
-.observe-card {
+/* Shared card base */
+.dashboard-card {
   background: white;
   border-radius: 12px;
   padding: 1.5em;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Observe Card (Prominent) */
+.observe-card {
   border-left: 4px solid #10b981;
 }
 
@@ -127,7 +237,7 @@
 }
 
 .health-badge {
-  background: #dc2626;
+  background: #6b7280;
   color: white;
   padding: 0.2em 0.6em;
   border-radius: 12px;
@@ -135,6 +245,11 @@
   display: flex;
   align-items: center;
   gap: 0.3em;
+  animation: none;
+}
+
+.health-badge.recording {
+  background: #16a34a;
   animation: pulse 2s infinite;
 }
 
@@ -144,7 +259,8 @@
 }
 
 .health-badge.tmux {
-  background: #8b5cf6;
+  background: #16a34a;
+  animation: none;
 }
 
 @keyframes pulse {
@@ -154,8 +270,33 @@
 
 .observe-content {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 1em;
+}
+
+.observe-content.hidden {
+  display: none;
+}
+
+.observe-empty {
+  text-align: center;
+  color: #6b7280;
+  padding: 2em 1em;
+  font-size: 0.95em;
+}
+
+.observe-empty.hidden {
+  display: none;
+}
+
+.observe-empty a {
+  color: #10b981;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.observe-empty a:hover {
+  text-decoration: underline;
 }
 
 .observe-section {
@@ -165,9 +306,8 @@
 }
 
 .observe-section-title {
-  font-size: 0.85em;
+  font-size: 0.75em;
   color: #6b7280;
-  text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: 500;
 }
@@ -178,19 +318,22 @@
   font-weight: 500;
 }
 
+.observe-section-value.idle {
+  color: #9ca3af;
+}
+
 .observe-section-detail {
-  font-size: 0.85em;
+  font-size: 0.75em;
   color: #6b7280;
   padding-left: 1em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Observers Card */
 .observers-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5em;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  border-left: 4px solid #8b5cf6;
+  border-left: 4px solid #22c55e;
 }
 
 .observers-card.hidden {
@@ -204,7 +347,7 @@
 }
 
 .observer-host-card {
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  background: #f3f4f6;
   border-radius: 8px;
   padding: 1em;
   display: flex;
@@ -214,13 +357,13 @@
 }
 
 .observer-host-card.active {
-  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
-  border-color: #8b5cf6;
+  background: #f3f4f6;
+  border-left: 4px solid #22c55e;
 }
 
 .observer-host-card.stale {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  border-color: #f59e0b;
+  background: #fefce8;
+  border-left: 4px solid #f59e0b;
 }
 
 .observer-host-name {
@@ -243,17 +386,17 @@
 }
 
 .observer-stream-qualifier {
-  color: var(--text-muted);
+  color: #6b7280;
   min-width: 48px;
 }
 
 .observer-stream-mode {
-  color: var(--text-secondary);
+  color: #374151;
 }
 
-.observer-stream-row.stale .observer-stream-mode::after {
-  content: ' (stale)';
-  color: var(--text-muted);
+.stale-badge {
+  color: #6b7280;
+  font-size: 11px;
 }
 
 /* Activity Grids Container */
@@ -261,13 +404,6 @@
   display: flex;
   flex-direction: column;
   gap: 1em;
-}
-
-.activity-section {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5em;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .activity-section.hidden {
@@ -282,6 +418,29 @@
   display: flex;
   align-items: center;
   gap: 0.5em;
+}
+
+.idle-card {
+  text-align: center;
+  padding: 1.5em;
+}
+
+.idle-card-title {
+  color: #6b7280;
+  font-weight: 600;
+  margin-bottom: 0.75em;
+}
+
+.idle-card-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.idle-stat {
+  color: #6b7280;
+  font-size: 0.9em;
 }
 
 .activity-grid {
@@ -300,18 +459,12 @@
   gap: 0.5em;
   border: 2px solid transparent;
   transition: all 0.3s ease;
-  cursor: pointer;
   min-height: 140px;
 }
 
-.activity-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
 .activity-card.agent-active {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-  border-color: #3b82f6;
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  border-color: #22c55e;
 }
 
 .activity-card.import-active {
@@ -364,8 +517,6 @@
 .activity-card-provider {
   font-size: 0.75em;
   color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .activity-card-progress {
@@ -383,23 +534,60 @@
 }
 
 /* Service Logs */
-.logs-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5em;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+.logs-card.logs-collapsed .logs-viewport,
+.logs-card.logs-collapsed .logs-controls {
+  display: none;
+}
+
+.logs-card.logs-collapsed .logs-header {
+  margin-bottom: 0;
 }
 
 .logs-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
+  gap: 0.75em;
   margin-bottom: 1em;
+  cursor: pointer;
+  user-select: none;
+}
+
+.logs-header:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .logs-title {
   font-size: 1.1em;
   font-weight: 600;
+}
+
+.logs-summary-badge {
+  color: #6b7280;
+  font-size: 0.85em;
+  font-weight: 400;
+  margin-left: 0.5em;
+}
+
+.logs-error-badge {
+  background: #ef4444;
+  color: white;
+  padding: 0.15em 0.5em;
+  border-radius: 10px;
+  font-size: 0.8em;
+  margin-left: 0.5em;
+}
+
+.logs-error-badge.hidden {
+  display: none;
+}
+
+.logs-collapse-indicator {
+  font-size: 0.8em;
+  color: #6b7280;
+  margin-left: auto;
 }
 
 .logs-controls {
@@ -477,10 +665,6 @@
 
 /* Dream Card */
 .dream-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5em;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   border-left: 4px solid #f59e0b;
 }
 
@@ -496,17 +680,15 @@
   font-size: 0.9em;
 }
 
-.dream-info-item {
+.info-item {
   display: flex;
   flex-direction: column;
   gap: 0.2em;
 }
 
-.dream-info-label {
+.info-label {
   font-size: 0.8em;
   color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .dream-progress {
@@ -540,10 +722,6 @@
 
 /* Sync Card */
 .sync-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5em;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   border-left: 4px solid #06b6d4;
 }
 
@@ -558,23 +736,10 @@
   font-size: 0.9em;
 }
 
-.sync-info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2em;
-}
-
-.sync-info-label {
-  font-size: 0.8em;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 /* Stale heartbeats list */
 .stale-list {
   font-size: 0.85em;
-  opacity: 0.9;
+  color: #374151;
 }
 
 .vitals-chips {
@@ -584,10 +749,115 @@
 }
 
 .vitals-chip {
-  background: rgba(255,255,255,0.2);
+  background: #e5e7eb;
+  color: #374151;
   padding: 0.15em 0.5em;
   border-radius: 10px;
   font-size: 0.8em;
+}
+
+.trust-indicator {
+  font-size: 0.75em;
+  opacity: 1.0;
+  color: #374151;
+  padding: 0.4em 0.8em;
+  text-align: right;
+  background: #e5e7eb;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  float: right;
+}
+
+#cortexGrid .activity-card-id,
+#cortexGrid .activity-card-provider,
+#importerGrid .activity-card-id,
+#importerGrid .activity-card-provider {
+  display: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .health-dashboard {
+    padding: 0.5em;
+    gap: 0.75em;
+  }
+
+  .vitals-bar {
+    padding: 0.75em 1em;
+  }
+
+  .vitals-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5em;
+  }
+
+  .vitals-content {
+    gap: 0.75em;
+  }
+
+  .dashboard-card {
+    padding: 1em;
+    border-radius: 8px;
+  }
+
+  .observe-content {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .observers-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .activity-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .health-dashboard {
+    padding: 0.25em;
+    gap: 0.5em;
+  }
+
+  .vitals-content {
+    gap: 0.5em;
+  }
+
+  .observe-content {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .observers-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .card-title {
+    font-size: 1em;
+  }
+
+  .vitals-title {
+    font-size: 1.05em;
+  }
+
+  .status-summary {
+    font-size: 1em;
+    padding: 0.8em 1.2em;
+  }
+}
+
+@media (max-width: 375px) {
+  .trust-indicator {
+    float: none;
+    text-align: center;
+    font-size: 0.7em;
+  }
 }
 </style>
 
@@ -596,92 +866,98 @@
   <div class="vitals-bar">
     <div class="vitals-header">
       <div class="vitals-title">
-        SYSTEM VITALS
+        System vitals
       </div>
-      <div class="vitals-status" id="vitalsStatus">
-        <span class="status-indicator active"></span>
-        <span>All Systems Go</span>
+      <div class="vitals-status" id="vitalsStatus" role="status" aria-live="polite">
+        <span class="skeleton" style="width: 120px; height: 1em;">&nbsp;</span>
       </div>
+      <span class="connection-indicator" id="connectionIndicator"></span>
+      <button id="vitalsCheckBtn" style="margin-left: 0.5em; padding: 0.15em 0.5em; font-size: 0.75em; border: 1px solid #e5e7eb; border-radius: 4px; background: white; color: #6b7280; cursor: pointer;">Check now</button>
     </div>
     <div class="vitals-content">
       <div class="vitals-section">
-        <div class="vitals-label">Services</div>
+        <div class="vitals-label">services</div>
         <div class="vitals-value">
           <div class="service-dots" id="serviceDots">
-            <div class="service-dot">
-              <span class="status-indicator inactive"></span>
-              <span>Waiting...</span>
-            </div>
+            <span class="skeleton" style="width: 80px; height: 0.9em;">&nbsp;</span>
           </div>
         </div>
       </div>
       <div class="vitals-section">
-        <div class="vitals-label">Agents</div>
+        <div class="vitals-label">agents</div>
         <div class="vitals-value" id="agentsValue">
           <span>0 running</span>
         </div>
       </div>
       <div class="vitals-section">
-        <div class="vitals-label">Tasks</div>
+        <div class="vitals-label">tasks</div>
         <div class="vitals-value" id="tasksValue">
           <span>0 active</span>
         </div>
       </div>
       <div class="vitals-section">
-        <div class="vitals-label">Health</div>
+        <div class="vitals-label">health</div>
         <div class="vitals-value" id="healthValue">
-          <span>Waiting for status...</span>
+          <span class="skeleton" style="width: 100px; height: 0.9em;">&nbsp;</span>
         </div>
       </div>
-      <div class="vitals-section" id="queuesSection" style="display: none;">
-        <div class="vitals-label">Queues</div>
+      <div class="vitals-section" id="queuesSection">
+        <div class="vitals-label">queues</div>
         <div class="vitals-value" id="queuesValue"></div>
       </div>
-      <div class="vitals-section" id="schedulesSection" style="display: none;">
-        <div class="vitals-label">Schedules</div>
+      <div class="vitals-section" id="schedulesSection">
+        <div class="vitals-label">schedules</div>
         <div class="vitals-value" id="schedulesValue"></div>
       </div>
     </div>
+    <div class="trust-indicator" id="trustIndicator">🔒 All data stored locally on this machine</div>
+  </div>
+
+  <div class="status-summary">
+    <span id="statusSummaryText"><span class="skeleton-dark" style="width: 160px; height: 1em;">&nbsp;</span></span>
   </div>
 
   <!-- Observe Card -->
-  <div class="observe-card">
+  <div class="dashboard-card observe-card">
     <div class="card-header">
       <div class="card-title">
-        OBSERVATION STATUS
+        Observers
       </div>
       <div class="health-badge idle" id="observeModeBadge">
         <span id="observeModeLabel">Waiting...</span>
       </div>
     </div>
-    <div class="observe-content">
+    <div class="observe-empty" id="observeEmpty">
+      No observers connected — <a href="/app/observer/">Manage observers →</a>
+    </div>
+    <div class="observe-content hidden" id="observeContent">
       <div class="observe-section">
-        <div class="observe-section-title">Screencast</div>
+        <div class="observe-section-title">Screen Recording</div>
         <div class="observe-section-value" id="screencastStatus">Waiting...</div>
         <div class="observe-section-detail" id="screencastDetail"></div>
       </div>
       <div class="observe-section">
-        <div class="observe-section-title">Tmux</div>
+        <div class="observe-section-title">Terminal Sessions</div>
         <div class="observe-section-value" id="tmuxStatus">Waiting...</div>
         <div class="observe-section-detail" id="tmuxDetail"></div>
       </div>
       <div class="observe-section">
-        <div class="observe-section-title">Audio</div>
+        <div class="observe-section-title">Audio Capture</div>
         <div class="observe-section-value" id="audioStatus">Waiting...</div>
         <div class="observe-section-detail" id="audioDetail"></div>
       </div>
       <div class="observe-section">
-        <div class="observe-section-title">Activity</div>
+        <div class="observe-section-title">System Activity</div>
         <div class="observe-section-value" id="activityStatus">Waiting...</div>
         <div class="observe-section-detail" id="activityDetail"></div>
       </div>
       <div class="observe-section">
-        <div class="observe-section-title">Describe</div>
+        <div class="observe-section-title">Scene Analysis</div>
         <div class="observe-section-value" id="describeStatus">Idle</div>
         <div class="observe-section-detail" id="describeDetail"></div>
       </div>
       <div class="observe-section">
-        <div class="observe-section-title">Transcribe</div>
+        <div class="observe-section-title">Audio Transcription</div>
         <div class="observe-section-value" id="transcribeStatus">Idle</div>
         <div class="observe-section-detail" id="transcribeDetail"></div>
       </div>
@@ -689,10 +965,10 @@
   </div>
 
   <!-- Observers Card -->
-  <div class="observers-card hidden" id="observersCard">
+  <div class="dashboard-card observers-card hidden" id="observersCard">
     <div class="card-header">
       <div class="card-title">
-        OBSERVERS
+        Connected
       </div>
     </div>
     <div class="observers-grid" id="observersGrid"></div>
@@ -701,26 +977,40 @@
   <!-- Activity Grids -->
   <div class="activity-grids">
     <!-- Cortex Agents -->
-    <div class="activity-section hidden" id="cortexSection">
+    <div class="dashboard-card activity-section hidden" id="cortexSection">
       <div class="activity-section-header">
-        AGENTS
+        Active agents
       </div>
       <div class="activity-grid" id="cortexGrid"></div>
     </div>
 
     <!-- Importers -->
-    <div class="activity-section hidden" id="importerSection">
+    <div class="dashboard-card activity-section hidden" id="importerSection">
       <div class="activity-section-header">
-        IMPORTS
+        Active imports
       </div>
       <div class="activity-grid" id="importerGrid"></div>
     </div>
   </div>
 
+  <div class="dashboard-card activity-section hidden" id="errorSummary">
+    <div class="activity-section-header" style="color: #dc2626;">
+      Recent errors
+    </div>
+    <div id="errorSummaryContent"></div>
+  </div>
+
+  <div class="dashboard-card activity-section hidden" id="allQuietCard">
+    <div class="idle-card">
+      <div class="idle-card-title">Everything is idle</div>
+      <div class="idle-card-stats" id="idleCardStats"></div>
+    </div>
+  </div>
+
   <!-- Dream Card (hidden when idle) -->
-  <div class="dream-card hidden" id="dreamCard">
+  <div class="dashboard-card dream-card hidden" id="dreamCard">
     <div class="card-header">
-      <div class="card-title">DREAM PROCESSING</div>
+      <div class="card-title">Background analysis</div>
     </div>
     <div class="dream-info" id="dreamInfo"></div>
     <div id="dreamProgress"></div>
@@ -728,17 +1018,20 @@
   </div>
 
   <!-- Sync Card (hidden when idle) -->
-  <div class="sync-card hidden" id="syncCard">
+  <div class="dashboard-card sync-card hidden" id="syncCard">
     <div class="card-header">
-      <div class="card-title">SYNC</div>
+      <div class="card-title">Cloud sync</div>
     </div>
     <div class="sync-info" id="syncInfo"></div>
   </div>
 
   <!-- Service Logs -->
-  <div class="logs-card">
-    <div class="logs-header">
-      <div class="logs-title">SERVICE LOGS</div>
+  <div class="dashboard-card logs-card logs-collapsed">
+    <div class="logs-header" role="button" tabindex="0" aria-expanded="false" aria-controls="logsViewport">
+      <div class="logs-title">Service logs</div>
+      <span class="logs-summary-badge" id="logsSummaryBadge" aria-live="polite"></span>
+      <span class="logs-error-badge hidden" id="logErrorBadge"></span>
+      <span class="logs-collapse-indicator" id="logsCollapseIndicator">▶ Show</span>
       <div class="logs-controls">
         <select id="logServiceFilter">
           <option value="all">All Services</option>
@@ -751,9 +1044,10 @@
         </select>
         <button id="logFollowBtn" class="active">Follow</button>
         <button id="logClearBtn">Clear</button>
+        <button id="logExportBtn">Export</button>
       </div>
     </div>
-    <div class="logs-viewport" id="logsViewport"></div>
+    <div class="logs-viewport" id="logsViewport" role="log"></div>
   </div>
 </div>
 
@@ -762,11 +1056,28 @@
   fetch('/app/health/api/info')
     .then(r => r.json())
     .then(info => { state.localHost = info.hostname; updateObserve(); })
-    .catch(() => {});
+    .catch(() => {
+      if (!state.connected) {
+        elements.statusSummaryText.textContent = '';
+        const errSpan = document.createElement('span');
+        errSpan.style.color = '#dc2626';
+        errSpan.textContent = "Couldn't connect to solstone — is it running?";
+        elements.statusSummaryText.appendChild(errSpan);
+
+        elements.vitalsStatus.textContent = '';
+        const indicator = document.createElement('span');
+        indicator.className = 'status-indicator crashed';
+        elements.vitalsStatus.appendChild(indicator);
+        const errText = document.createElement('span');
+        errText.textContent = ' Connection error';
+        elements.vitalsStatus.appendChild(errText);
+      }
+    });
 
   // State management
   const state = {
     services: new Map(),        // Running services
+    connected: false,
     crashed: new Map(),         // Crashed services (separate from running)
     tasks: [],
     health: null,
@@ -780,8 +1091,17 @@
     sync: null,                 // Sync status snapshot (null when idle)
     serviceLogs: new Map(),     // service name -> array of {ts, stream, line}
     logFollow: true,            // Auto-scroll log viewport
+    logsCollapsed: true,
+    logErrorCount: 0,
+    logTotalCount: 0,
+    lastLogTs: null,
+    lastAgentFinishTs: null,
     observers: new Map(),       // keyed by stream name
+    recentErrors: [],
     localHost: null,
+    deepLinkMode: false,
+    lastLogFilter: null,        // Last rendered filter state for incremental append
+    lastEventTs: null,           // Timestamp of last event from WebSocket
   };
 
   // DOM elements
@@ -791,6 +1111,7 @@
     tasksValue: document.getElementById('tasksValue'),
     healthValue: document.getElementById('healthValue'),
     vitalsStatus: document.getElementById('vitalsStatus'),
+    statusSummaryText: document.getElementById('statusSummaryText'),
     observeModeBadge: document.getElementById('observeModeBadge'),
     observeModeLabel: document.getElementById('observeModeLabel'),
     screencastStatus: document.getElementById('screencastStatus'),
@@ -807,10 +1128,16 @@
     transcribeDetail: document.getElementById('transcribeDetail'),
     observersCard: document.getElementById('observersCard'),
     observersGrid: document.getElementById('observersGrid'),
+    observeContent: document.getElementById('observeContent'),
+    observeEmpty: document.getElementById('observeEmpty'),
     cortexSection: document.getElementById('cortexSection'),
     cortexGrid: document.getElementById('cortexGrid'),
     importerSection: document.getElementById('importerSection'),
     importerGrid: document.getElementById('importerGrid'),
+    errorSummary: document.getElementById('errorSummary'),
+    errorSummaryContent: document.getElementById('errorSummaryContent'),
+    allQuietCard: document.getElementById('allQuietCard'),
+    idleCardStats: document.getElementById('idleCardStats'),
     dreamCard: document.getElementById('dreamCard'),
     dreamInfo: document.getElementById('dreamInfo'),
     dreamProgress: document.getElementById('dreamProgress'),
@@ -825,8 +1152,33 @@
     logServiceFilter: document.getElementById('logServiceFilter'),
     logStreamFilter: document.getElementById('logStreamFilter'),
     logFollowBtn: document.getElementById('logFollowBtn'),
-    logClearBtn: document.getElementById('logClearBtn')
+    logClearBtn: document.getElementById('logClearBtn'),
+    logErrorBadge: document.getElementById('logErrorBadge'),
+    logsSummaryBadge: document.getElementById('logsSummaryBadge'),
+    logsCollapseIndicator: document.getElementById('logsCollapseIndicator'),
+    connectionIndicator: document.getElementById('connectionIndicator'),
+    trustIndicator: document.getElementById('trustIndicator'),
+    vitalsBar: document.querySelector('.vitals-bar'),
+    vitalsCheckBtn: document.getElementById('vitalsCheckBtn'),
+    logExportBtn: document.getElementById('logExportBtn'),
   };
+
+  // Human-readable service names
+  const SERVICE_NAMES = {
+    supervisor: 'System Manager',
+    convey: 'Web Interface',
+    cortex: 'AI Engine',
+    sense: 'Media Processor',
+    observe: 'Screen & Audio',
+    dream: 'Background Analysis',
+    sync: 'Cloud Sync',
+    importer: 'File Importer',
+    schedule: 'Task Scheduler',
+  };
+
+  function serviceName(internal) {
+    return SERVICE_NAMES[internal] || internal;
+  }
 
   // Utility functions
   function formatElapsed(seconds) {
@@ -849,24 +1201,388 @@
     return String(id).slice(-4);
   }
 
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = String(text ?? '');
+    return div.innerHTML;
+  }
+
+  function formatNextRun(epochMs) {
+    if (!epochMs) return '';
+    const delta = epochMs - Date.now();
+    if (delta < 0) return 'overdue';
+    const mins = Math.floor(delta / 60000);
+    if (mins < 60) return `in ${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `in ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `in ${days}d`;
+  }
+
+  function renderInfoItems(parent, items) {
+    const filtered = items.filter(item => item.value != null);
+    while (parent.children.length > filtered.length) {
+      parent.removeChild(parent.lastChild);
+    }
+    filtered.forEach((item, i) => {
+      let el = parent.children[i];
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'info-item';
+        const label = document.createElement('div');
+        label.className = 'info-label';
+        el.appendChild(label);
+        el.appendChild(document.createElement('div'));
+        parent.appendChild(el);
+      }
+      el.children[0].textContent = item.label;
+      el.children[1].textContent = item.value;
+    });
+  }
+
+  function updateStatusSummary() {
+    const parts = [];
+    const observers = Array.from(state.observers.values());
+    const activeAgents = Array.from(state.agents.values()).filter(agent => agent.event !== 'finish' && agent.event !== 'error').length;
+    const activeImports = Array.from(state.imports.values()).filter(imp => imp.event !== 'completed' && imp.event !== 'error').length;
+    const staleCount = state.health?.stale_heartbeats?.length || 0;
+    const servicesKnown = state.services.size > 0 || state.crashed.size > 0;
+
+    if (state.observers.size > 0) {
+      const captureDetails = [];
+      if (observers.some(observer => observer.screencast?.recording)) captureDetails.push('screen');
+      if (observers.some(observer => observer.audio && ((observer.audio.threshold_hits || 0) > 0 || observer.audio.will_save))) captureDetails.push('audio');
+      if (observers.some(observer => observer.tmux?.capturing)) captureDetails.push('terminal');
+      parts.push(captureDetails.length > 0 ? `Capturing (${captureDetails.join(', ')})` : 'Capturing');
+    }
+
+    const processingDetails = [];
+    if (observers.some(observer => observer.describe?.running)) processingDetails.push('scene analysis');
+    if (observers.some(observer => observer.transcribe?.running)) processingDetails.push('audio transcription');
+    if (processingDetails.length > 0) {
+      parts.push(`Processing (${processingDetails.join(', ')})`);
+    }
+
+    if (activeAgents > 0) {
+      parts.push(`${activeAgents} agent${activeAgents === 1 ? '' : 's'} running`);
+    }
+    if (activeImports > 0) {
+      parts.push(`${activeImports} import${activeImports === 1 ? '' : 's'} active`);
+    }
+    if (state.crashed.size > 0) {
+      parts.push(state.crashed.size === 1 ? '1 service needs attention' : `${state.crashed.size} services need attention`);
+    }
+    if (staleCount > 0) {
+      parts.push(`${staleCount} service${staleCount === 1 ? '' : 's'} not responding`);
+    }
+    if (state.recentErrors.length > 0) {
+      parts.push(`${state.recentErrors.length} recent error${state.recentErrors.length === 1 ? '' : 's'}`);
+    }
+
+    if (parts.length === 0) {
+      if (servicesKnown) {
+        elements.statusSummaryText.textContent = 'Healthy — all quiet';
+      } else if (state.connected) {
+        elements.statusSummaryText.textContent = 'Waiting for data...';
+      }
+      return;
+    }
+
+    if (servicesKnown && state.crashed.size === 0 && staleCount === 0 && state.recentErrors.length === 0) {
+      parts.push('Healthy');
+    }
+
+    elements.statusSummaryText.textContent = parts.join(' · ');
+  }
+
+  function updateAllQuiet() {
+    const allHidden = elements.cortexSection.classList.contains('hidden') &&
+      elements.importerSection.classList.contains('hidden') &&
+      elements.dreamCard.classList.contains('hidden') &&
+      elements.syncCard.classList.contains('hidden');
+    if (allHidden) updateAllQuietContent();
+    elements.allQuietCard.classList.toggle('hidden', !allHidden);
+  }
+
+  function updateAllQuietContent() {
+    const container = elements.idleCardStats;
+    let idx = 0;
+
+    function ensureChild(i) {
+      let el = container.children[i];
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'idle-stat';
+        container.appendChild(el);
+      }
+      return el;
+    }
+
+    if (state.lastAgentFinishTs) {
+      const ago = formatElapsed(Math.floor((Date.now() - state.lastAgentFinishTs) / 1000));
+      const el = ensureChild(idx++);
+      el.textContent = 'Last agent finished ' + ago + ' ago';
+      el.style.color = '';
+    }
+
+    const errCount = state.recentErrors.length;
+    const errEl = ensureChild(idx++);
+    if (errCount > 0) {
+      errEl.textContent = errCount + ' recent error' + (errCount !== 1 ? 's' : '');
+      errEl.style.color = '#dc2626';
+    } else {
+      errEl.textContent = 'No recent errors';
+      errEl.style.color = '';
+    }
+
+    const now = Date.now();
+    const nextSchedule = state.schedules
+      .filter(s => s.next_run && s.next_run > now)
+      .sort((a, b) => a.next_run - b.next_run)[0];
+    if (nextSchedule) {
+      const el = ensureChild(idx++);
+      el.textContent = 'Next: ' + (nextSchedule.name || 'scheduled') + ' ' + formatNextRun(nextSchedule.next_run);
+      el.style.color = '';
+    }
+
+    while (container.children.length > idx) {
+      container.removeChild(container.lastChild);
+    }
+  }
+
+  function updateLogsBadge() {
+    if (state.deepLinkMode) return;
+    let text = state.logTotalCount + ' line' + (state.logTotalCount !== 1 ? 's' : '');
+    if (state.lastLogTs) {
+      const d = new Date(state.lastLogTs);
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      text += ' · ' + hh + ':' + mm + ':' + ss;
+    }
+    elements.logsSummaryBadge.textContent = text;
+  }
+  updateLogsBadge();
+
+  function updateErrorSummary() {
+    if (state.recentErrors.length === 0) {
+      elements.errorSummary.classList.add('hidden');
+      return;
+    }
+
+    elements.errorSummary.classList.remove('hidden');
+    const container = elements.errorSummaryContent;
+    const recent = state.recentErrors.slice(-10).reverse();
+
+    const newKeys = new Set();
+    const entries = recent.map((e, idx) => {
+      const realIdx = state.recentErrors.length - 1 - idx;
+      const key = realIdx + ':' + e.ts + ':' + e.type;
+      newKeys.add(key);
+      return { e, realIdx, key };
+    });
+
+    const existingByKey = new Map();
+    for (const child of Array.from(container.children)) {
+      const k = child.getAttribute('data-key');
+      if (k) existingByKey.set(k, child);
+    }
+
+    for (const [k, child] of existingByKey) {
+      if (!newKeys.has(k)) container.removeChild(child);
+    }
+
+    for (const child of Array.from(container.children)) {
+      if (!child.getAttribute('data-key')) container.removeChild(child);
+    }
+
+    for (const { e, realIdx, key } of entries) {
+      let row = existingByKey.get(key);
+      if (!row) {
+        row = document.createElement('div');
+        row.setAttribute('data-key', key);
+        row.style.cssText = 'padding: 0.3em 0; font-size: 0.85em; color: #374151; border-bottom: 1px solid #f3f4f6; display: flex; align-items: baseline; gap: 0.4em; flex-wrap: wrap;';
+
+        const info = document.createElement('span');
+        row.appendChild(info);
+
+        const actions = document.createElement('span');
+        actions.style.cssText = 'margin-left: auto; display: flex; gap: 0.3em;';
+        const viewBtn = document.createElement('button');
+        viewBtn.setAttribute('data-action', 'view-logs');
+        viewBtn.style.cssText = 'padding: 0.1em 0.4em; font-size: 0.8em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #3b82f6; cursor: pointer;';
+        viewBtn.textContent = 'view logs';
+        actions.appendChild(viewBtn);
+        const dismissBtn = document.createElement('button');
+        dismissBtn.setAttribute('data-action', 'dismiss');
+        dismissBtn.style.cssText = 'padding: 0.1em 0.4em; font-size: 0.8em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #6b7280; cursor: pointer;';
+        dismissBtn.textContent = 'dismiss';
+        actions.appendChild(dismissBtn);
+        row.appendChild(actions);
+      }
+
+      const icon = e.type === 'agent' ? '⚙' : e.type === 'import' ? '↓' : '⚠';
+      const ago = formatElapsed(Math.floor((Date.now() - e.ts) / 1000));
+      const info = row.children[0];
+      info.textContent = '';
+      info.appendChild(document.createTextNode(icon + ' '));
+      const strong = document.createElement('strong');
+      strong.textContent = e.name;
+      info.appendChild(strong);
+      info.appendChild(document.createTextNode(' — ' + truncate(e.error, 60) + ' '));
+      const timeSpan = document.createElement('span');
+      timeSpan.style.cssText = 'color: #9ca3af; font-size: 0.85em;';
+      timeSpan.textContent = ago + ' ago';
+      info.appendChild(timeSpan);
+
+      const viewBtn = row.querySelector('[data-action="view-logs"]');
+      viewBtn.setAttribute('data-error-index', realIdx);
+      const dismissBtn = row.querySelector('[data-action="dismiss"]');
+      dismissBtn.setAttribute('data-error-index', realIdx);
+
+      container.appendChild(row);
+    }
+
+    // Error-type-specific advice templates
+    const types = new Set(recent.map(e => e.type));
+    if (types.has('agent')) {
+      const advice = document.createElement('div');
+      advice.style.cssText = 'padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;';
+      advice.appendChild(document.createTextNode('Agent errors usually resolve on the next run. '));
+      const btn = document.createElement('button');
+      btn.setAttribute('data-action', 'view-logs');
+      btn.setAttribute('data-service', 'cortex');
+      btn.style.cssText = 'background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;';
+      btn.textContent = 'View AI Engine logs';
+      advice.appendChild(btn);
+      advice.appendChild(document.createTextNode(' for details.'));
+      container.appendChild(advice);
+    }
+    if (types.has('import')) {
+      const importErr = recent.find(e => e.type === 'import');
+      const stageText = importErr?.stage && importErr.stage !== 'unknown' ? ' at ' + importErr.stage : '';
+      const advice = document.createElement('div');
+      advice.style.cssText = 'padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;';
+      advice.appendChild(document.createTextNode('Import failed' + stageText + '. Check the source file and retry, or '));
+      const btn = document.createElement('button');
+      btn.setAttribute('data-action', 'view-logs');
+      btn.setAttribute('data-service', 'importer');
+      btn.style.cssText = 'background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;';
+      btn.textContent = 'view File Importer logs';
+      advice.appendChild(btn);
+      advice.appendChild(document.createTextNode('.'));
+      container.appendChild(advice);
+    }
+    // Default fallback for any unrecognized error types (connection/service errors)
+    if (Array.from(types).some(t => t !== 'agent' && t !== 'import')) {
+      const advice = document.createElement('div');
+      advice.style.cssText = 'padding: 0.25em 0; font-size: 0.8em; color: #9ca3af;';
+      advice.appendChild(document.createTextNode('Service error detected. '));
+      const btn = document.createElement('button');
+      btn.setAttribute('data-action', 'view-logs');
+      btn.setAttribute('data-service', 'supervisor');
+      btn.style.cssText = 'background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;';
+      btn.textContent = 'View System Manager logs';
+      advice.appendChild(btn);
+      advice.appendChild(document.createTextNode(' for details.'));
+      container.appendChild(advice);
+    }
+  }
+
+  function viewServiceLogs(service) {
+    // Set filter to the relevant service
+    const option = Array.from(elements.logServiceFilter.options).find(o => o.value === service);
+    if (option) {
+      elements.logServiceFilter.value = service;
+    }
+    // Expand logs if collapsed
+    if (state.logsCollapsed) {
+      state.logsCollapsed = false;
+      document.querySelector('.logs-card').classList.remove('logs-collapsed');
+      elements.logsCollapseIndicator.textContent = '▼ Hide';
+      document.querySelector('.logs-header').setAttribute('aria-expanded', 'true');
+    }
+    renderLogs();
+    document.querySelector('.logs-card').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  elements.errorSummaryContent.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === 'dismiss') {
+      const idx = parseInt(btn.dataset.errorIndex, 10);
+      if (!isNaN(idx) && idx >= 0 && idx < state.recentErrors.length) {
+        state.recentErrors.splice(idx, 1);
+        updateErrorSummary();
+        updateStatusSummary();
+      }
+    } else if (action === 'view-logs') {
+      // If data-service is set (from advice template), use it directly
+      const service = btn.dataset.service;
+      if (service) {
+        viewServiceLogs(service);
+        return;
+      }
+      // Otherwise derive from the error entry
+      const idx = parseInt(btn.dataset.errorIndex, 10);
+      if (!isNaN(idx) && idx >= 0 && idx < state.recentErrors.length) {
+        const err = state.recentErrors[idx];
+        const svc = err.type === 'agent' ? 'cortex' : err.type === 'import' ? 'importer' : 'supervisor';
+        viewServiceLogs(svc);
+      }
+    }
+  });
+
+  elements.importerGrid.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="retry"]');
+    if (!btn) return;
+    const importId = btn.dataset.importId;
+    if (!importId) return;
+    btn.disabled = true;
+    btn.textContent = 'Retrying...';
+    fetch('/app/health/api/retry-import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ import_id: importId })
+    })
+    .then(r => r.json())
+    .then(data => {
+      btn.textContent = data.status === 'not_implemented' ? 'Not yet available' : 'Retry sent';
+      btn.style.color = '#9ca3af';
+    })
+    .catch(() => {
+      btn.textContent = 'Retry failed';
+      btn.style.color = '#dc2626';
+    });
+  });
+
   // Client-side elapsed time updater
   let elapsedTimer = null;
-  function startElapsedTimer() {
-    if (elapsedTimer) return;
-    elapsedTimer = setInterval(() => {
-      // Update agent elapsed times based on start timestamp
-      let needsUpdate = false;
-      const now = Date.now();
-      state.agents.forEach((agent, id) => {
-        if (agent.startTs && agent.event !== 'finish' && agent.event !== 'error') {
-          agent.elapsed_seconds = Math.floor((now - agent.startTs) / 1000);
-          needsUpdate = true;
-        }
-      });
-      if (needsUpdate) {
-        updateCortexGrid();
+  function updateElapsed() {
+    // Update agent elapsed times based on start timestamp
+    let needsUpdate = false;
+    const now = Date.now();
+    state.agents.forEach((agent, id) => {
+      if (agent.startTs && agent.event !== 'finish' && agent.event !== 'error') {
+        agent.elapsed_seconds = Math.floor((now - agent.startTs) / 1000);
+        needsUpdate = true;
       }
-    }, 1000);
+    });
+    // Stop timer when no agents remain
+    if (state.agents.size === 0) {
+      clearInterval(elapsedTimer);
+      elapsedTimer = null;
+      return;
+    }
+    if (needsUpdate) {
+      updateCortexGrid();
+    }
+  }
+
+  function startElapsedTimer() {
+    if (elapsedTimer || document.hidden) return;
+    elapsedTimer = setInterval(updateElapsed, 1000);
   }
 
   // Update vitals bar
@@ -885,26 +1601,50 @@
     });
 
     if (allServices.length > 0) {
-      const servicesHtml = allServices.map(({ name, info, crashed }) => {
+      const container = elements.serviceDots;
+      const existingByKey = new Map();
+      for (const child of Array.from(container.children)) {
+        const key = child.getAttribute('data-service');
+        if (key) {
+          existingByKey.set(key, child);
+        } else {
+          container.removeChild(child);
+        }
+      }
+
+      const newKeys = new Set(allServices.map(s => s.name));
+
+      for (const [key, child] of existingByKey) {
+        if (!newKeys.has(key)) container.removeChild(child);
+      }
+
+      for (const { name, crashed } of allServices) {
+        let dot = existingByKey.get(name);
+        if (!dot) {
+          dot = document.createElement('div');
+          dot.setAttribute('data-service', name);
+          const indicator = document.createElement('span');
+          dot.appendChild(indicator);
+          const label = document.createElement('span');
+          dot.appendChild(label);
+          container.appendChild(dot);
+        }
         const statusClass = crashed ? 'crashed' : 'active';
-        const dotClass = crashed ? 'service-dot crashed' : 'service-dot';
-        const restartInfo = crashed && info.restart_attempts ? ` (${info.restart_attempts}x)` : '';
-        return `
-          <div class="${dotClass}">
-            <span class="status-indicator ${statusClass}"></span>
-            <span>${name}${restartInfo}</span>
-          </div>
-        `;
-      }).join('');
-      elements.serviceDots.innerHTML = servicesHtml;
+        const restartInfo = crashed ? ' (restarting...)' : '';
+        dot.className = crashed ? 'service-dot crashed' : 'service-dot';
+        dot.children[0].className = 'status-indicator ' + statusClass;
+        dot.children[0].setAttribute('aria-label', serviceName(name) + ': ' + statusClass + restartInfo);
+        dot.children[1].setAttribute('title', name);
+        dot.children[1].textContent = serviceName(name) + restartInfo;
+      }
     }
 
     // Agents count
-    elements.agentsValue.innerHTML = `<span>${state.agentCount} running</span>`;
+    elements.agentsValue.firstElementChild.textContent = state.agentCount + ' running';
 
     // Tasks
     const taskCount = state.tasks.length;
-    elements.tasksValue.innerHTML = `<span>${taskCount} active</span>`;
+    elements.tasksValue.firstElementChild.textContent = taskCount + ' active';
 
     // Health with stale heartbeat names
     if (state.health) {
@@ -912,76 +1652,170 @@
       const staleCount = staleHeartbeats.length;
       const hasCrashed = state.crashed.size > 0;
 
+      const hv = elements.healthValue;
+      if (!hv.querySelector('.health-main')) {
+        hv.textContent = '';
+        const main = document.createElement('span');
+        main.className = 'health-main';
+        hv.appendChild(main);
+        const staleList = document.createElement('span');
+        staleList.className = 'stale-list';
+        hv.appendChild(staleList);
+      }
+      const mainSpan = hv.children[0];
+      const staleListSpan = hv.children[1];
+
       if (staleCount > 0) {
-        const staleNames = staleHeartbeats.join(', ');
-        elements.healthValue.innerHTML = `
-          <span style="color: #f59e0b;">! ${staleCount} stale</span>
-          <span class="stale-list">(${staleNames})</span>
-        `;
+        const staleNames = staleHeartbeats.map(s => serviceName(s)).join(', ');
+        mainSpan.textContent = staleCount + ' service' + (staleCount === 1 ? '' : 's') + ' not responding';
+        mainSpan.style.color = '#f59e0b';
+        staleListSpan.textContent = '(' + staleNames + ')';
+        staleListSpan.style.display = '';
         updateVitalsStatus('warning');
       } else if (hasCrashed) {
-        elements.healthValue.innerHTML = `<span style="color: #f87171;">! Services crashed</span>`;
+        mainSpan.textContent = 'Services need attention';
+        mainSpan.style.color = '#f87171';
+        staleListSpan.textContent = '';
+        staleListSpan.style.display = 'none';
         updateVitalsStatus('error');
       } else {
-        elements.healthValue.innerHTML = `<span>OK</span>`;
+        mainSpan.textContent = 'OK';
+        mainSpan.style.color = '';
+        staleListSpan.textContent = '';
+        staleListSpan.style.display = 'none';
         updateVitalsStatus('ok');
       }
     }
 
-    // Queues (show when non-empty)
+    // Queues (always visible)
     const queueEntries = Object.entries(state.queues).filter(([, count]) => count > 0);
     if (queueEntries.length > 0) {
-      elements.queuesSection.style.display = '';
-      elements.queuesValue.innerHTML = '<div class="vitals-chips">' +
-        queueEntries.map(([cmd, count]) =>
-          `<span class="vitals-chip">${cmd}: ${count}</span>`
-        ).join('') + '</div>';
+      let wrapper = elements.queuesValue.querySelector('.vitals-chips');
+      if (!wrapper) {
+        elements.queuesValue.textContent = '';
+        wrapper = document.createElement('div');
+        wrapper.className = 'vitals-chips';
+        elements.queuesValue.appendChild(wrapper);
+      }
+      const existingByKey = new Map();
+      for (const child of Array.from(wrapper.children)) {
+        existingByKey.set(child.getAttribute('data-key'), child);
+      }
+      const newKeys = new Set(queueEntries.map(([cmd]) => cmd));
+      for (const [key, child] of existingByKey) {
+        if (!newKeys.has(key)) wrapper.removeChild(child);
+      }
+      for (const [cmd, count] of queueEntries) {
+        let chip = existingByKey.get(cmd);
+        if (!chip) {
+          chip = document.createElement('span');
+          chip.className = 'vitals-chip';
+          chip.setAttribute('data-key', cmd);
+          wrapper.appendChild(chip);
+        }
+        chip.textContent = cmd + ': ' + count;
+      }
     } else {
-      elements.queuesSection.style.display = 'none';
+      elements.queuesValue.textContent = '—';
     }
 
-    // Schedules (show when any exist)
+    // Schedules (always visible, enriched)
     if (state.schedules.length > 0) {
-      elements.schedulesSection.style.display = '';
-      const dueCount = state.schedules.filter(s => s.due).length;
-      elements.schedulesValue.innerHTML = `<span>${dueCount} due / ${state.schedules.length} total</span>`;
+      let wrapper = elements.schedulesValue.querySelector('.vitals-chips');
+      if (!wrapper) {
+        elements.schedulesValue.textContent = '';
+        wrapper = document.createElement('div');
+        wrapper.className = 'vitals-chips';
+        elements.schedulesValue.appendChild(wrapper);
+      }
+      const existingByKey = new Map();
+      for (const child of Array.from(wrapper.children)) {
+        existingByKey.set(child.getAttribute('data-key'), child);
+      }
+      const newKeys = new Set(state.schedules.map(s => s.name || 'unnamed'));
+      for (const [key, child] of existingByKey) {
+        if (!newKeys.has(key)) wrapper.removeChild(child);
+      }
+      for (const s of state.schedules) {
+        const key = s.name || 'unnamed';
+        const next = formatNextRun(s.next_run);
+        const due = s.due ? ' ⏰' : '';
+        let chip = existingByKey.get(key);
+        if (!chip) {
+          chip = document.createElement('span');
+          chip.className = 'vitals-chip';
+          chip.setAttribute('data-key', key);
+          wrapper.appendChild(chip);
+        }
+        chip.textContent = key + due + (next ? ' · ' + next : '');
+        chip.setAttribute('title', s.every || '');
+      }
     } else {
-      elements.schedulesSection.style.display = 'none';
+      elements.schedulesValue.textContent = '—';
     }
+
+    updateStatusSummary();
   }
 
   function updateVitalsStatus(status) {
-    const vitalsStatus = elements.vitalsStatus;
+    const el = elements.vitalsStatus;
+    el.classList.remove('warning', 'error');
+
+    // Ensure stable child structure: [indicator, text, severity-label]
+    if (!el.querySelector('.status-indicator') || el.children.length < 3 || !el.querySelector('.severity-label')) {
+      el.textContent = '';
+      const indicator = document.createElement('span');
+      indicator.className = 'status-indicator';
+      el.appendChild(indicator);
+      const text = document.createElement('span');
+      el.appendChild(text);
+      const severity = document.createElement('span');
+      severity.className = 'severity-label';
+      el.appendChild(severity);
+    }
+
+    const indicator = el.children[0];
+    const text = el.children[1];
+    const severity = el.children[2];
+
     if (status === 'ok') {
-      vitalsStatus.innerHTML = `
-        <span class="status-indicator active"></span>
-        <span>All Systems Go</span>
-      `;
+      indicator.className = 'status-indicator active';
+      indicator.setAttribute('aria-label', 'System status: healthy');
+      text.textContent = 'All Systems Go';
+      severity.textContent = 'healthy';
     } else if (status === 'warning') {
-      vitalsStatus.innerHTML = `
-        <span class="status-indicator restarting"></span>
-        <span>Warnings</span>
-      `;
+      indicator.className = 'status-indicator restarting';
+      indicator.setAttribute('aria-label', 'System status: warning');
+      text.textContent = 'Some services slow to respond';
+      severity.textContent = 'warning';
+      el.classList.add('warning');
     } else if (status === 'error') {
-      vitalsStatus.innerHTML = `
-        <span class="status-indicator crashed"></span>
-        <span>Issues Detected</span>
-      `;
+      indicator.className = 'status-indicator crashed';
+      indicator.setAttribute('aria-label', 'System status: error');
+      text.textContent = 'Services need attention';
+      severity.textContent = 'error';
+      el.classList.add('error');
     }
   }
 
   // Update observe mode badge
   function updateObserveMode() {
+    if (state.observers.size === 0) {
+      elements.observeModeBadge.className = 'health-badge idle';
+      elements.observeModeLabel.textContent = 'No observers';
+      return;
+    }
+
     const mode = state.observers.get(state.localHost)?.mode;
     const badge = elements.observeModeBadge;
     const label = elements.observeModeLabel;
 
     if (mode === 'screencast') {
-      badge.className = 'health-badge';
+      badge.className = 'health-badge recording';
       label.textContent = 'Recording';
     } else if (mode === 'tmux') {
       badge.className = 'health-badge tmux';
-      label.textContent = 'Tmux';
+      label.textContent = 'Terminal Sessions';
     } else if (mode === 'idle') {
       badge.className = 'health-badge idle';
       label.textContent = 'Idle';
@@ -993,143 +1827,149 @@
 
   // Update observe card
   function updateObserve() {
+    if (state.observers.size === 0) {
+      elements.observeEmpty.classList.remove('hidden');
+      elements.observeContent.classList.add('hidden');
+      updateObserveMode();
+      updateStatusSummary();
+      return;
+    }
+    elements.observeEmpty.classList.add('hidden');
+    elements.observeContent.classList.remove('hidden');
+
     const primary = state.localHost ? state.observers.get(state.localHost) : null;
     const tmux = state.localHost ? state.observers.get(state.localHost + '.tmux') : null;
+    const channels = [
+      {
+        statusEl: elements.screencastStatus,
+        detailEl: elements.screencastDetail,
+        idleText: 'Not recording',
+        extract: () => {
+          if (!primary.screencast) return null;
+          const recording = primary.screencast.recording;
+          if (!recording) return { status: 'Not recording' };
+          const streams = primary.screencast.streams || [];
+          const elapsed = primary.screencast.window_elapsed_seconds || 0;
+          const streamCount = streams.length;
+          const displayLabel = streamCount === 1 ? 'display' : 'displays';
+          const mins = Math.max(1, Math.round(elapsed / 60));
+          return {
+            status: `Recording (${streamCount} ${displayLabel}, ~${mins} min)`,
+            detail: streamCount > 0
+              ? streams.map(s => `${s.position || 'unknown'} ${s.connector || 'unknown'}`).join(', ')
+              : '',
+          };
+        },
+      },
+      {
+        statusEl: elements.tmuxStatus,
+        detailEl: elements.tmuxDetail,
+        idleText: 'Not capturing',
+        extract: () => {
+          if (!tmux?.tmux) return null;
+          if (!tmux.tmux.capturing) return { status: 'Not capturing' };
+          const captures = tmux.tmux.captures || 0;
+          const sessions = tmux.tmux.sessions || [];
+          const elapsed = tmux.tmux.window_elapsed_seconds || 0;
+          const mins = Math.max(1, Math.round(elapsed / 60));
+          return {
+            status: `Capturing (${captures} snapshots, ~${mins} min)`,
+            detail: sessions.length > 0 ? sessions.join(', ') : '',
+          };
+        },
+      },
+      {
+        statusEl: elements.audioStatus,
+        detailEl: elements.audioDetail,
+        idleText: 'Listening (quiet)',
+        extract: () => {
+          if (!primary.audio) return null;
+          const hits = primary.audio.threshold_hits || 0;
+          const willSave = primary.audio.will_save ? ' · saving' : '';
+          return {
+            status: hits > 0
+              ? `Listening (${hits} sound${hits === 1 ? '' : 's'} detected)${willSave}`
+              : 'Listening (quiet)',
+          };
+        },
+      },
+      {
+        statusEl: elements.activityStatus,
+        detailEl: elements.activityDetail,
+        idleText: 'Idle',
+        extract: () => {
+          if (!primary.activity) return null;
+          const idleMs = primary.activity.idle_time_ms || 0;
+          if (primary.activity.power_save) return { status: 'Power saving' };
+          if (primary.activity.screen_locked) return { status: 'Screen locked' };
+          if (primary.activity.sink_muted) return { status: 'Audio muted' };
+          return { status: `Idle: ${Math.floor(idleMs/1000)}s` };
+        },
+      },
+      {
+        statusEl: elements.describeStatus,
+        detailEl: elements.describeDetail,
+        idleText: 'Idle',
+        extract: () => {
+          if (!primary.describe) return null;
+          return { processor: primary.describe };
+        },
+      },
+      {
+        statusEl: elements.transcribeStatus,
+        detailEl: elements.transcribeDetail,
+        idleText: 'Idle',
+        extract: () => {
+          if (!primary.transcribe) return null;
+          return { processor: primary.transcribe };
+        },
+      },
+    ];
 
     updateObserveMode();
 
     if (!state.localHost || !primary) {
-      elements.screencastStatus.textContent = 'Waiting...';
-      elements.screencastDetail.textContent = '';
-      elements.tmuxStatus.textContent = 'Waiting...';
-      elements.tmuxDetail.textContent = '';
-      elements.audioStatus.textContent = 'Waiting...';
-      elements.audioDetail.textContent = '';
-      elements.activityStatus.textContent = 'Waiting...';
-      elements.activityDetail.textContent = '';
-      elements.describeStatus.textContent = 'Waiting...';
-      elements.describeDetail.textContent = '';
-      elements.transcribeStatus.textContent = 'Waiting...';
-      elements.transcribeDetail.textContent = '';
+      channels.forEach(ch => {
+        ch.statusEl.textContent = 'Waiting...';
+        ch.statusEl.classList.remove('idle');
+        ch.detailEl.textContent = '';
+      });
+      updateStatusSummary();
       return;
     }
 
-    // Screencast
-    if (primary.screencast) {
-      const recording = primary.screencast.recording;
-      if (recording) {
-        const streams = primary.screencast.streams || [];
-        const elapsed = primary.screencast.window_elapsed_seconds || 0;
-        const streamCount = streams.length;
-        const label = streamCount === 1 ? 'monitor' : 'monitors';
-        elements.screencastStatus.textContent = `${elapsed}s (${streamCount} ${label})`;
-        if (streamCount > 0) {
-          elements.screencastDetail.textContent = streams
-            .map(s => `${s.position || 'unknown'} ${s.connector || 'unknown'}`)
-            .join(', ');
+    channels.forEach(ch => {
+      const result = ch.extract();
+      if (!result) {
+        ch.statusEl.textContent = ch.idleText;
+        ch.detailEl.textContent = '';
+      } else if (result.processor) {
+        // Describe/transcribe processor logic
+        const p = result.processor;
+        const isRunning = !!p.running;
+        const queued = p.queued?.length || 0;
+        if (isRunning && queued > 0) {
+          ch.statusEl.textContent = `Running (+${queued} queued)`;
+        } else if (isRunning) {
+          ch.statusEl.textContent = 'Running';
+        } else if (queued > 0) {
+          ch.statusEl.textContent = `Queued: ${queued}`;
         } else {
-          elements.screencastDetail.textContent = '';
+          ch.statusEl.textContent = 'Idle';
+        }
+        if (isRunning && p.running.file) {
+          ch.detailEl.textContent = truncate(p.running.file.split('/').pop(), 30);
+        } else {
+          ch.detailEl.textContent = '';
         }
       } else {
-        elements.screencastStatus.textContent = 'Idle';
-        elements.screencastDetail.textContent = '';
+        ch.statusEl.textContent = result.status;
+        ch.detailEl.textContent = result.detail || '';
       }
-    } else {
-      elements.screencastStatus.textContent = 'Idle';
-      elements.screencastDetail.textContent = '';
-    }
+      ch.statusEl.classList.toggle('idle', ch.statusEl.textContent === ch.idleText);
+    });
 
-    // Tmux
-    if (tmux?.tmux) {
-      if (tmux.tmux.capturing) {
-        const captures = tmux.tmux.captures || 0;
-        const sessions = tmux.tmux.sessions || [];
-        const elapsed = tmux.tmux.window_elapsed_seconds || 0;
-        elements.tmuxStatus.textContent = `${elapsed}s (${captures} captures)`;
-        if (sessions.length > 0) {
-          elements.tmuxDetail.textContent = sessions.join(', ');
-        } else {
-          elements.tmuxDetail.textContent = '';
-        }
-      } else {
-        elements.tmuxStatus.textContent = 'Idle';
-        elements.tmuxDetail.textContent = '';
-      }
-    } else if (tmux) {
-      elements.tmuxStatus.textContent = 'Idle';
-      elements.tmuxDetail.textContent = '';
-    } else {
-      elements.tmuxStatus.textContent = 'Waiting...';
-      elements.tmuxDetail.textContent = '';
-    }
-
-    // Audio
-    if (primary.audio) {
-      const hits = primary.audio.threshold_hits || 0;
-      const willSave = primary.audio.will_save ? ' (saving)' : '';
-      elements.audioStatus.textContent = `${hits} hits${willSave}`;
-      elements.audioDetail.textContent = '';
-    } else {
-      elements.audioStatus.textContent = 'Idle';
-      elements.audioDetail.textContent = '';
-    }
-
-    // Activity
-    if (primary.activity) {
-      const idleMs = primary.activity.idle_time_ms || 0;
-      if (primary.activity.power_save) {
-        elements.activityStatus.textContent = 'Power save';
-      } else if (primary.activity.screen_locked) {
-        elements.activityStatus.textContent = 'Locked';
-      } else if (primary.activity.sink_muted) {
-        elements.activityStatus.textContent = 'Muted';
-      } else {
-        elements.activityStatus.textContent = `Idle: ${Math.floor(idleMs/1000)}s`;
-      }
-      elements.activityDetail.textContent = '';
-    } else {
-      elements.activityStatus.textContent = 'Idle';
-      elements.activityDetail.textContent = '';
-    }
-
-    // Helper for describe/transcribe status (running is an object {file, ref}, not array)
-    function updateProcessorStatus(processor, statusEl, detailEl) {
-      if (!processor) return;
-
-      const isRunning = !!processor.running;
-      const queued = processor.queued?.length || 0;
-
-      if (isRunning && queued > 0) {
-        statusEl.textContent = `Running (+${queued} queued)`;
-      } else if (isRunning) {
-        statusEl.textContent = 'Running';
-      } else if (queued > 0) {
-        statusEl.textContent = `Queued: ${queued}`;
-      } else {
-        statusEl.textContent = 'Idle';
-      }
-
-      // Show current file being processed
-      if (isRunning && processor.running.file) {
-        const file = processor.running.file.split('/').pop();
-        detailEl.textContent = truncate(file, 30);
-      } else {
-        detailEl.textContent = '';
-      }
-    }
-
-    if (primary.describe) {
-      updateProcessorStatus(primary.describe, elements.describeStatus, elements.describeDetail);
-    } else {
-      elements.describeStatus.textContent = 'Idle';
-      elements.describeDetail.textContent = '';
-    }
-    if (primary.transcribe) {
-      updateProcessorStatus(primary.transcribe, elements.transcribeStatus, elements.transcribeDetail);
-    } else {
-      elements.transcribeStatus.textContent = 'Idle';
-      elements.transcribeDetail.textContent = '';
-    }
+    updateStatusSummary();
   }
 
   // Update observers
@@ -1163,6 +2003,13 @@
       const nameEl = document.createElement('div');
       nameEl.className = 'observer-host-name';
       nameEl.textContent = host;
+      const statusIcon = document.createElement('span');
+      statusIcon.className = 'status-indicator ' + (anyActive ? 'active' : 'stale');
+      statusIcon.setAttribute('aria-label', anyActive ? 'active' : 'stale');
+      nameEl.prepend(statusIcon);
+      nameEl.style.display = 'flex';
+      nameEl.style.alignItems = 'center';
+      nameEl.style.gap = '0.4em';
       card.appendChild(nameEl);
 
       const platform = streams[0]?.data?.platform || '';
@@ -1193,6 +2040,14 @@
         modeEl.textContent = data.mode || '—';
         row.appendChild(modeEl);
 
+        if (stale) {
+          const badgeEl = document.createElement('span');
+          badgeEl.className = 'stale-badge';
+          badgeEl.setAttribute('aria-label', 'stale — not responding');
+          badgeEl.textContent = 'stale';
+          row.appendChild(badgeEl);
+        }
+
         card.appendChild(row);
       }
 
@@ -1206,28 +2061,58 @@
 
     if (activeAgents.length === 0) {
       elements.cortexSection.classList.add('hidden');
+      updateAllQuiet();
+      updateStatusSummary();
       return;
     }
 
     elements.cortexSection.classList.remove('hidden');
 
-    const html = activeAgents.map(agent => {
-      const stateIcon = agent.event === 'thinking' ? '~' :
-                       (agent.event === 'tool_start' || agent.event === 'tool_end') ? '#' : 'o';
+    const container = elements.cortexGrid;
+    const existingByKey = new Map();
+    for (const child of Array.from(container.children)) {
+      const k = child.getAttribute('data-key');
+      if (k) existingByKey.set(k, child);
+    }
+    const newKeys = new Set(activeAgents.map(a => a.agent_id));
+    for (const [k, child] of existingByKey) {
+      if (!newKeys.has(k)) container.removeChild(child);
+    }
+    for (const agent of activeAgents) {
+      const key = agent.agent_id;
+      let card = existingByKey.get(key);
+      if (!card) {
+        card = document.createElement('div');
+        card.className = 'activity-card agent-active';
+        card.setAttribute('data-key', key);
+        const idEl = document.createElement('div');
+        idEl.className = 'activity-card-id';
+        card.appendChild(idEl);
+        const nameEl = document.createElement('div');
+        nameEl.className = 'activity-card-name';
+        card.appendChild(nameEl);
+        const stateEl = document.createElement('div');
+        stateEl.className = 'activity-card-state';
+        card.appendChild(stateEl);
+        const elapsedEl = document.createElement('div');
+        elapsedEl.className = 'activity-card-elapsed';
+        card.appendChild(elapsedEl);
+        const providerEl = document.createElement('div');
+        providerEl.className = 'activity-card-provider';
+        card.appendChild(providerEl);
+        container.appendChild(card);
+      }
+      const stateLabel = agent.event === 'thinking' ? 'Thinking...' :
+                        (agent.event === 'tool_start' || agent.event === 'tool_end') ? 'Working...' : 'Running...';
       const elapsed = agent.elapsed_seconds ? formatElapsed(agent.elapsed_seconds) : '0s';
-
-      return `
-        <div class="activity-card agent-active" data-agent-id="${agent.agent_id}">
-          <div class="activity-card-id">...${getAgentId(agent.agent_id)}</div>
-          <div class="activity-card-name">${agent.name || 'default'}</div>
-          <div class="activity-card-state">${stateIcon} ${agent.event || 'unknown'}</div>
-          <div class="activity-card-elapsed">${elapsed}</div>
-          <div class="activity-card-provider">${agent.provider || 'unknown'}</div>
-        </div>
-      `;
-    }).join('');
-
-    elements.cortexGrid.innerHTML = html;
+      card.children[0].textContent = '...' + getAgentId(agent.agent_id);
+      card.children[1].textContent = agent.name || 'default';
+      card.children[2].textContent = stateLabel;
+      card.children[3].textContent = elapsed;
+      card.children[4].textContent = agent.provider || 'unknown';
+    }
+    updateAllQuiet();
+    updateStatusSummary();
   }
 
   // Update importer grid
@@ -1236,40 +2121,96 @@
 
     if (activeImports.length === 0) {
       elements.importerSection.classList.add('hidden');
+      updateAllQuiet();
+      updateStatusSummary();
       return;
     }
 
     elements.importerSection.classList.remove('hidden');
 
-    const html = activeImports.map(imp => {
+    const container = elements.importerGrid;
+    const existingByKey = new Map();
+    for (const child of Array.from(container.children)) {
+      const k = child.getAttribute('data-key');
+      if (k) existingByKey.set(k, child);
+    }
+    const newKeys = new Set(activeImports.map(i => i.import_id));
+    for (const [k, child] of existingByKey) {
+      if (!newKeys.has(k)) container.removeChild(child);
+    }
+    for (const imp of activeImports) {
+      const key = imp.import_id;
       const isError = imp.event === 'error';
+      let card = existingByKey.get(key);
+      if (!card) {
+        card = document.createElement('div');
+        card.setAttribute('data-key', key);
+        const idEl = document.createElement('div');
+        idEl.className = 'activity-card-id';
+        card.appendChild(idEl);
+        const nameEl = document.createElement('div');
+        nameEl.className = 'activity-card-name';
+        card.appendChild(nameEl);
+        const stateEl = document.createElement('div');
+        stateEl.className = 'activity-card-state';
+        card.appendChild(stateEl);
+        const errorEl = document.createElement('div');
+        errorEl.className = 'activity-card-error';
+        card.appendChild(errorEl);
+        const retryWrap = document.createElement('div');
+        retryWrap.style.marginTop = '0.3em';
+        const retryBtn = document.createElement('button');
+        retryBtn.setAttribute('data-action', 'retry');
+        retryBtn.style.cssText = 'padding: 0.15em 0.5em; font-size: 0.78em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #3b82f6; cursor: pointer;';
+        retryBtn.textContent = 'Retry';
+        retryWrap.appendChild(retryBtn);
+        card.appendChild(retryWrap);
+        const progressWrap = document.createElement('div');
+        progressWrap.className = 'activity-card-progress';
+        const progressBar = document.createElement('div');
+        progressBar.className = 'activity-card-progress-bar';
+        progressWrap.appendChild(progressBar);
+        card.appendChild(progressWrap);
+        const elapsedEl = document.createElement('div');
+        elapsedEl.className = 'activity-card-elapsed';
+        card.appendChild(elapsedEl);
+        const providerEl = document.createElement('div');
+        providerEl.className = 'activity-card-provider';
+        card.appendChild(providerEl);
+        container.appendChild(card);
+      }
+
       const cardClass = isError ? 'import-error' : 'import-active';
+      card.className = 'activity-card ' + cardClass;
       const progress = imp.stage === 'initialization' ? 25 :
                       imp.stage === 'transcribing' ? 50 :
                       imp.stage === 'segmenting' ? 75 : 90;
       const elapsed = imp.elapsed_ms ? formatDuration(imp.elapsed_ms) : '0s';
+      const humanStage = imp.stage === 'initialization' ? 'Starting...' :
+                         imp.stage === 'transcribing' ? 'Transcribing audio...' :
+                         imp.stage === 'segmenting' ? 'Organizing segments...' : 'Processing...';
 
-      let errorHtml = '';
       if (isError && imp.error) {
-        errorHtml = `<div class="activity-card-error">${truncate(imp.error, 40)}</div>`;
+        card.children[3].textContent = truncate(imp.error, 40);
+        card.children[3].style.display = '';
+        card.children[4].style.display = '';
+        card.children[4].querySelector('button').setAttribute('data-import-id', imp.import_id);
+      } else {
+        card.children[3].textContent = '';
+        card.children[3].style.display = 'none';
+        card.children[4].style.display = 'none';
       }
 
-      return `
-        <div class="activity-card ${cardClass}" data-import-id="${imp.import_id}">
-          <div class="activity-card-id">...${getAgentId(imp.import_id)}</div>
-          <div class="activity-card-name">${truncate(imp.input_file || 'import', 20)}</div>
-          <div class="activity-card-state">${isError ? '! ' : ''}${imp.stage || 'processing'}</div>
-          ${errorHtml}
-          <div class="activity-card-progress">
-            <div class="activity-card-progress-bar" style="width: ${progress}%"></div>
-          </div>
-          <div class="activity-card-elapsed">${elapsed}</div>
-          <div class="activity-card-provider">${imp.file_type || 'unknown'}</div>
-        </div>
-      `;
-    }).join('');
-
-    elements.importerGrid.innerHTML = html;
+      card.children[0].textContent = '...' + getAgentId(imp.import_id);
+      card.children[1].textContent = truncate(imp.input_file || 'import', 20);
+      card.children[2].textContent = (isError ? '! ' : '') + humanStage;
+      card.children[2].setAttribute('data-internal-stage', imp.stage || 'processing');
+      card.children[5].children[0].style.width = progress + '%';
+      card.children[6].textContent = elapsed;
+      card.children[7].textContent = imp.file_type || 'unknown';
+    }
+    updateAllQuiet();
+    updateStatusSummary();
   }
 
   function handleDreamEvent(msg) {
@@ -1291,6 +2232,8 @@
   function updateDreamCard() {
     if (!state.dreamActive || !state.dream) {
       elements.dreamCard.classList.add('hidden');
+      updateAllQuiet();
+      updateStatusSummary();
       return;
     }
 
@@ -1298,32 +2241,44 @@
     const d = state.dream;
 
     // Info fields
-    const infoParts = [];
-    if (d.mode) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Mode</div><div>${d.mode}</div></div>`);
-    if (d.day) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Day</div><div>${d.day}</div></div>`);
-    if (d.facet) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Facet</div><div>${d.facet}</div></div>`);
-    if (d.segment) infoParts.push(`<div class="dream-info-item"><div class="dream-info-label">Segment</div><div>${d.segment}</div></div>`);
-    elements.dreamInfo.innerHTML = infoParts.join('');
+    renderInfoItems(elements.dreamInfo, [
+      { label: 'mode', value: d.mode || null },
+      { label: 'day', value: d.day || null },
+      { label: 'facet', value: d.facet || null },
+      { label: 'segment', value: d.segment || null },
+    ]);
 
     // Progress bars
-    let progressHtml = '';
+    const progressItems = [];
     if (d.agents_total > 0) {
-      const pct = Math.round((d.agents_completed || 0) / d.agents_total * 100);
-      progressHtml += `
-        <div class="dream-progress">
-          <div class="dream-progress-label">Agents: ${d.agents_completed || 0} / ${d.agents_total}</div>
-          <div class="dream-progress-bar"><div class="dream-progress-fill" style="width:${pct}%"></div></div>
-        </div>`;
+      progressItems.push({ label: 'Agents: ' + (d.agents_completed || 0) + ' / ' + d.agents_total, pct: Math.round((d.agents_completed || 0) / d.agents_total * 100) });
     }
     if (d.segments_total > 0) {
-      const pct = Math.round((d.segments_completed || 0) / d.segments_total * 100);
-      progressHtml += `
-        <div class="dream-progress">
-          <div class="dream-progress-label">Segments: ${d.segments_completed || 0} / ${d.segments_total}</div>
-          <div class="dream-progress-bar"><div class="dream-progress-fill" style="width:${pct}%"></div></div>
-        </div>`;
+      progressItems.push({ label: 'Segments: ' + (d.segments_completed || 0) + ' / ' + d.segments_total, pct: Math.round((d.segments_completed || 0) / d.segments_total * 100) });
     }
-    elements.dreamProgress.innerHTML = progressHtml;
+    const progContainer = elements.dreamProgress;
+    while (progContainer.children.length > progressItems.length) {
+      progContainer.removeChild(progContainer.lastChild);
+    }
+    progressItems.forEach((item, i) => {
+      let wrap = progContainer.children[i];
+      if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.className = 'dream-progress';
+        const label = document.createElement('div');
+        label.className = 'dream-progress-label';
+        wrap.appendChild(label);
+        const bar = document.createElement('div');
+        bar.className = 'dream-progress-bar';
+        const fill = document.createElement('div');
+        fill.className = 'dream-progress-fill';
+        bar.appendChild(fill);
+        wrap.appendChild(bar);
+        progContainer.appendChild(wrap);
+      }
+      wrap.children[0].textContent = item.label;
+      wrap.children[1].children[0].style.width = item.pct + '%';
+    });
 
     // Current agents
     if (d.current_agents && d.current_agents.length > 0) {
@@ -1331,6 +2286,9 @@
     } else {
       elements.dreamAgents.textContent = '';
     }
+
+    updateAllQuiet();
+    updateStatusSummary();
   }
 
   function handleSyncEvent(msg) {
@@ -1345,18 +2303,33 @@
     // Show when there's queued work or active upload
     if (!s || (s.queue_size === 0 && !s.segment)) {
       elements.syncCard.classList.add('hidden');
+      if (elements.trustIndicator) {
+        elements.trustIndicator.textContent = '🔒 All data stored locally on this machine';
+      }
+      updateAllQuiet();
+      updateStatusSummary();
       return;
     }
 
     elements.syncCard.classList.remove('hidden');
 
-    const infoParts = [];
-    if (s.host) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Host</div><div>${s.host}</div></div>`);
-    if (s.platform) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Platform</div><div>${s.platform}</div></div>`);
-    infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Queue</div><div>${s.queue_size}</div></div>`);
-    if (s.state) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">State</div><div>${s.state}${s.confirm_attempt ? ' (' + s.confirm_attempt + ')' : ''}</div></div>`);
-    if (s.segment) infoParts.push(`<div class="sync-info-item"><div class="sync-info-label">Segment</div><div>${s.segment}</div></div>`);
-    elements.syncInfo.innerHTML = infoParts.join('');
+    renderInfoItems(elements.syncInfo, [
+      { label: 'host', value: s.host || null },
+      { label: 'platform', value: s.platform || null },
+      { label: 'queue', value: String(s.queue_size) },
+      { label: 'state', value: s.state ? s.state + (s.confirm_attempt ? ' (' + s.confirm_attempt + ')' : '') : null },
+      { label: 'segment', value: s.segment || null },
+    ]);
+    if (elements.trustIndicator) {
+      if (s && s.host) {
+        elements.trustIndicator.textContent = '🔒 All data stored locally · Syncing to ' + s.host;
+      } else {
+        elements.trustIndicator.textContent = '🔒 All data stored locally on this machine';
+      }
+    }
+
+    updateAllQuiet();
+    updateStatusSummary();
   }
 
   const LOG_BUFFER_SIZE = 50;
@@ -1366,6 +2339,8 @@
 
     const name = msg.name || 'unknown';
     const record = { ts: msg.ts || Date.now(), stream: msg.stream || 'stdout', line: msg.line || '' };
+    state.logTotalCount++;
+    state.lastLogTs = record.ts;
 
     // Check if this is a new service before adding to buffer
     const isNew = !state.serviceLogs.has(name);
@@ -1384,30 +2359,65 @@
         message: record.line.replace(/^\S+\s+\[\S+\]\s+/, '').slice(0, 120),
         ts: record.ts
       });
+      state.logErrorCount++;
+      elements.logErrorBadge.textContent = state.logErrorCount + ' error' + (state.logErrorCount > 1 ? 's' : '');
+      elements.logErrorBadge.classList.remove('hidden');
+      if (state.logsCollapsed) {
+        state.logsCollapsed = false;
+        document.querySelector('.logs-card').classList.remove('logs-collapsed');
+        elements.logsCollapseIndicator.textContent = '▼ Hide';
+        document.querySelector('.logs-header').setAttribute('aria-expanded', 'true');
+        renderLogs();
+        state.lastLogFilter = null;
+      }
     }
 
     // Update service filter dropdown if new service
     if (isNew) {
       const opt = document.createElement('option');
       opt.value = name;
-      opt.textContent = name;
+      opt.textContent = serviceName(name);
       elements.logServiceFilter.appendChild(opt);
     }
 
-    renderLogs();
+    renderLogs(name, record);
+    updateLogsBadge();
   }
 
-  function renderLogs() {
+  function renderLogs(newService, newRecord) {
     if (state.deepLinkMode) return;
     const serviceFilter = elements.logServiceFilter.value;
     const streamFilter = elements.logStreamFilter.value;
     const viewport = elements.logsViewport;
+    const filterKey = serviceFilter + ':' + streamFilter;
+
+    // Incremental append: when following, filters unchanged, and we have a new record
+    if (newRecord && state.logFollow && state.lastLogFilter === filterKey && viewport.children.length > 0) {
+      const serviceMatch = serviceFilter === 'all' || serviceFilter === newService;
+      const streamMatch = streamFilter === 'all' || streamFilter === newRecord.stream;
+      if (serviceMatch && streamMatch) {
+        if (serviceFilter === 'all' && !viewport.querySelector(`[data-svc="${CSS.escape(newService)}"]`)) {
+          const header = document.createElement('div');
+          header.className = 'logs-service-header';
+          header.setAttribute('data-svc', newService);
+          header.textContent = '── ' + serviceName(newService) + ' ──';
+          viewport.appendChild(header);
+        }
+        const line = document.createElement('div');
+        line.className = newRecord.stream === 'stderr' ? 'logs-line stderr' : newRecord.stream === 'log' ? 'logs-line log' : 'logs-line';
+        line.textContent = newRecord.line;
+        viewport.appendChild(line);
+        viewport.scrollTop = viewport.scrollHeight;
+        return;
+      }
+    }
+
+    state.lastLogFilter = filterKey;
 
     // Check if user has scrolled away from bottom before updating
     const wasAtBottom = state.logFollow && (viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 50);
 
-    let html = '';
-    // Get services to display, sorted alphabetically
+    const fragment = document.createDocumentFragment();
     const services = serviceFilter === 'all'
       ? Array.from(state.serviceLogs.keys()).sort()
       : (state.serviceLogs.has(serviceFilter) ? [serviceFilter] : []);
@@ -1417,15 +2427,22 @@
       const filtered = streamFilter === 'all' ? lines : lines.filter(l => l.stream === streamFilter);
       if (filtered.length === 0) continue;
 
-      html += `<div class="logs-service-header">── ${svc} ──</div>`;
+      const header = document.createElement('div');
+      header.className = 'logs-service-header';
+      header.setAttribute('data-svc', svc);
+      header.textContent = '── ' + serviceName(svc) + ' ──';
+      fragment.appendChild(header);
+
       for (const rec of filtered) {
-        const cls = rec.stream === 'stderr' ? 'logs-line stderr' : rec.stream === 'log' ? 'logs-line log' : 'logs-line';
-        const escaped = rec.line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        html += `<div class="${cls}">${escaped}</div>`;
+        const line = document.createElement('div');
+        line.className = rec.stream === 'stderr' ? 'logs-line stderr' : rec.stream === 'log' ? 'logs-line log' : 'logs-line';
+        line.textContent = rec.line;
+        fragment.appendChild(line);
       }
     }
 
-    viewport.innerHTML = html;
+    viewport.textContent = '';
+    viewport.appendChild(fragment);
 
     // Auto-scroll if following
     if (wasAtBottom || state.logFollow) {
@@ -1436,6 +2453,10 @@
   // Event handlers by tract
   function handleSupervisorEvent(msg) {
     if (msg.event === 'status') {
+      if (!state.connected) {
+        state.connected = true;
+      }
+
       // Update running services
       if (msg.services) {
         state.services.clear();
@@ -1530,6 +2551,18 @@
 
     // Remove finished/error agents after delay
     if (msg.event === 'finish' || msg.event === 'error') {
+      state.lastAgentFinishTs = msg.ts || Date.now();
+      if (msg.event === 'error') {
+        state.recentErrors.push({
+          type: 'agent',
+          id: agentId,
+          name: msg.name || existing.name || 'unknown',
+          error: msg.error || 'Unknown error',
+          ts: Date.now()
+        });
+        if (state.recentErrors.length > 50) state.recentErrors.shift();
+        updateErrorSummary();
+      }
       setTimeout(() => {
         state.agents.delete(agentId);
         updateCortexGrid();
@@ -1558,7 +2591,8 @@
         file_type: msg.file_type,
         stage: msg.stage,
         event: 'started',
-        elapsed_ms: 0
+        elapsed_ms: 0,
+        lastSeen: Date.now()
       });
     } else if (msg.event === 'status') {
       const existing = state.imports.get(importId) || {};
@@ -1566,7 +2600,8 @@
         ...existing,
         stage: msg.stage,
         elapsed_ms: msg.elapsed_ms,
-        event: 'status'
+        event: 'status',
+        lastSeen: Date.now()
       });
     } else if (msg.event === 'completed') {
       const existing = state.imports.get(importId) || {};
@@ -1585,8 +2620,20 @@
       state.imports.set(importId, {
         ...existing,
         event: 'error',
-        error: msg.error || 'Unknown error'
+        error: msg.error || 'Unknown error',
+        lastSeen: Date.now()
       });
+
+      state.recentErrors.push({
+        type: 'import',
+        id: importId,
+        name: msg.input_file || existing.input_file || 'unknown',
+        error: msg.error || 'Unknown error',
+        stage: existing.stage || msg.stage || 'unknown',
+        ts: Date.now()
+      });
+      if (state.recentErrors.length > 50) state.recentErrors.shift();
+      updateErrorSummary();
 
       // Keep error visible longer
       setTimeout(() => {
@@ -1600,6 +2647,7 @@
 
   // Main event handler
   function handleEvent(msg) {
+    state.lastEventTs = Date.now();
     const tract = msg.tract;
     if (tract === 'supervisor') handleSupervisorEvent(msg);
     else if (tract === 'cortex') handleCortexEvent(msg);
@@ -1613,6 +2661,26 @@
   // Log controls
   elements.logServiceFilter.addEventListener('change', renderLogs);
   elements.logStreamFilter.addEventListener('change', renderLogs);
+  function toggleLogsCollapse() {
+    state.logsCollapsed = !state.logsCollapsed;
+    const card = document.querySelector('.logs-card');
+    const header = document.querySelector('.logs-header');
+    card.classList.toggle('logs-collapsed', state.logsCollapsed);
+    header.setAttribute('aria-expanded', String(!state.logsCollapsed));
+    elements.logsCollapseIndicator.textContent = state.logsCollapsed ? '▶ Show' : '▼ Hide';
+    if (!state.logsCollapsed) renderLogs();
+  }
+  document.querySelector('.logs-header').addEventListener('click', (e) => {
+    if (state.deepLinkMode || e.target.closest('.logs-controls')) return;
+    toggleLogsCollapse();
+  });
+  document.querySelector('.logs-header').addEventListener('keydown', (e) => {
+    if (state.deepLinkMode || e.target.closest('.logs-controls')) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleLogsCollapse();
+    }
+  });
   elements.logFollowBtn.addEventListener('click', () => {
     state.logFollow = !state.logFollow;
     elements.logFollowBtn.classList.toggle('active', state.logFollow);
@@ -1622,13 +2690,52 @@
   });
   elements.logClearBtn.addEventListener('click', () => {
     state.serviceLogs.clear();
+    state.logTotalCount = 0;
+    state.logErrorCount = 0;
+    state.lastLogTs = null;
+    state.lastLogFilter = null;
+    elements.logErrorBadge.textContent = '';
+    elements.logErrorBadge.classList.add('hidden');
     elements.logServiceFilter.innerHTML = '<option value="all">All Services</option>';
+    updateLogsBadge();
     renderLogs();
+  });
+  elements.vitalsCheckBtn.addEventListener('click', () => {
+    elements.vitalsCheckBtn.textContent = 'Checking...';
+    elements.vitalsCheckBtn.disabled = true;
+    fetch('/app/health/api/info')
+      .then(r => r.json())
+      .then(info => {
+        state.localHost = info.hostname;
+        updateObserve();
+        elements.vitalsCheckBtn.textContent = 'Check now';
+        elements.vitalsCheckBtn.disabled = false;
+      })
+      .catch(() => {
+        elements.vitalsCheckBtn.textContent = 'Check now';
+        elements.vitalsCheckBtn.disabled = false;
+      });
+  });
+  elements.logExportBtn.addEventListener('click', () => {
+    const content = elements.logsViewport.textContent;
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'solstone-logs-' + new Date().toISOString().slice(0, 19).replace(/:/g, '') + '.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   });
 
   // Deep-link: display log file content if ?log= param is present
   const deepLinkLog = new URLSearchParams(window.location.search).get('log');
   if (deepLinkLog) {
+    state.logsCollapsed = false;
+    document.querySelector('.logs-card').classList.remove('logs-collapsed');
+    elements.logsCollapseIndicator.textContent = '▼ Hide';
+    document.querySelector('.logs-header').setAttribute('aria-expanded', 'true');
     const viewport = elements.logsViewport;
     const logsCard = viewport.closest('.logs-card');
     const logsTitle = logsCard.querySelector('.logs-title');
@@ -1638,6 +2745,7 @@
     const dashboard = document.querySelector('.health-dashboard');
     dashboard.querySelectorAll('.vitals-bar, .observe-card, .observers-card, .activity-grids, .dream-card, .sync-card').forEach(el => el.style.display = 'none');
     state.deepLinkMode = true;
+    elements.logsSummaryBadge.style.display = 'none';
 
     // Replace header with log file context
     logsTitle.textContent = 'LOG FILE';
@@ -1675,6 +2783,78 @@
   }
 
   // Listen to all Callosum events
-  window.appEvents.listen('*', handleEvent);
+  if (window.appEvents) {
+    window.appEvents.listen('*', handleEvent);
+  }
+
+  function sweepStale() {
+    const cutoff = Date.now() - 5 * 60 * 1000;
+    let changed = false;
+    state.agents.forEach((agent, id) => {
+      if ((agent.ts || 0) < cutoff) {
+        state.agents.delete(id);
+        changed = true;
+      }
+    });
+    if (changed) updateCortexGrid();
+
+    changed = false;
+    state.imports.forEach((imp, id) => {
+      if ((imp.lastSeen || 0) < cutoff) {
+        state.imports.delete(id);
+        changed = true;
+      }
+    });
+    if (changed) updateImporterGrid();
+  }
+
+  function updateConnectionHealth() {
+    const el = elements.connectionIndicator;
+    if (!state.lastEventTs) {
+      el.textContent = '';
+      el.className = 'connection-indicator';
+      return;
+    }
+    const ago = Math.floor((Date.now() - state.lastEventTs) / 1000);
+    if (ago >= 60) {
+      el.textContent = `⚠ Disconnected (${formatElapsed(ago)})`;
+      el.className = 'connection-indicator disconnected';
+    } else if (ago >= 30) {
+      el.textContent = `Stale (${formatElapsed(ago)})`;
+      el.className = 'connection-indicator stale';
+    } else {
+      el.textContent = `Updated ${formatElapsed(ago)} ago`;
+      el.className = 'connection-indicator';
+    }
+  }
+
+  // Sweep stale agents and imports every 60s
+  let staleSweepTimer = setInterval(sweepStale, 60000);
+
+  // Connection health indicator — updated every 5s
+  let connectionHealthTimer = setInterval(updateConnectionHealth, 5000);
+
+  // Pause intervals when tab is hidden
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      clearInterval(staleSweepTimer);
+      staleSweepTimer = null;
+      clearInterval(connectionHealthTimer);
+      connectionHealthTimer = null;
+      if (elapsedTimer) {
+        clearInterval(elapsedTimer);
+        elapsedTimer = null;
+      }
+    } else {
+      sweepStale();
+      updateConnectionHealth();
+      if (state.agents.size > 0) {
+        updateElapsed();
+        startElapsedTimer();
+      }
+      staleSweepTimer = setInterval(sweepStale, 60000);
+      connectionHealthTimer = setInterval(updateConnectionHealth, 5000);
+    }
+  });
 })();
 </script>

@@ -46,3 +46,14 @@ def get_log():
 @health_bp.route("/api/info")
 def api_info():
     return jsonify({"hostname": stream_name(host=socket.gethostname())})
+
+
+@health_bp.post("/api/retry-import")
+def retry_import():
+    data = request.get_json(silent=True) or {}
+    if not data.get("import_id"):
+        return jsonify(error="Missing import_id"), 400
+    return jsonify(
+        status="not_implemented",
+        message="Import retry will be available in a future update",
+    ), 501

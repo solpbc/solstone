@@ -23,16 +23,16 @@ def test_queued_item_basic():
 
     assert item.file_path == path
     assert item.queued_at > 0
-    assert item.remote is None
+    assert item.observer is None
 
 
-def test_queued_item_with_remote():
-    """Test QueuedItem stores remote context."""
+def test_queued_item_with_observer():
+    """Test QueuedItem stores observer context."""
     path = Path("/tmp/test.flac")
-    item = QueuedItem(path, remote="my-remote")
+    item = QueuedItem(path, observer="my-observer")
 
     assert item.file_path == path
-    assert item.remote == "my-remote"
+    assert item.observer == "my-observer"
 
 
 # --- HandlerQueue Tests ---
@@ -72,16 +72,16 @@ def test_handler_queue_enqueue_duplicate():
     assert queue.queue_size() == 1
 
 
-def test_handler_queue_enqueue_with_remote():
-    """Test enqueue preserves remote context."""
+def test_handler_queue_enqueue_with_observer():
+    """Test enqueue preserves observer context."""
     queue = HandlerQueue("test")
     path = Path("/tmp/test.flac")
 
-    queue.enqueue(path, remote="my-remote")
+    queue.enqueue(path, observer="my-observer")
 
     assert queue.queue_size() == 1
     item = queue.pop_next()
-    assert item.remote == "my-remote"
+    assert item.observer == "my-observer"
 
 
 def test_handler_queue_pop_next():

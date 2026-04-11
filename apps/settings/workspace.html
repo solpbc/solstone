@@ -3,7 +3,7 @@
 .settings-wrap {
   font-family: system-ui, -apple-system, sans-serif;
   display: flex;
-  min-height: calc(100vh - var(--facet-bar-height, 60px) - 40px);
+  min-height: calc(100vh - var(--facet-bar-height, 60px) - var(--app-bar-height, 60px) - 40px);
   max-width: 1200px;
   margin: 0 auto;
   padding: 1em;
@@ -28,8 +28,6 @@
 .settings-nav-label {
   font-size: 0.75em;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   color: #888;
   padding: 0 0.75em;
   margin-bottom: 0.5em;
@@ -600,8 +598,6 @@ input:checked + .slider:before {
   font-size: 0.75em;
   color: #888;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .log-row {
@@ -671,6 +667,13 @@ input:checked + .slider:before {
 .provider-row .settings-field {
   flex: 1;
   margin-bottom: 0;
+}
+
+.storage-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1em;
+  text-align: center;
 }
 
 .provider-key-warning {
@@ -870,8 +873,6 @@ input:checked + .slider:before {
 .context-group-label {
   font-size: 0.75em;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   color: #888;
   margin-bottom: 0.5em;
   padding-left: 0.25em;
@@ -1031,8 +1032,6 @@ input:checked + .slider:before {
 .importance-section-header {
   font-size: 0.8em;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   margin-bottom: 0.5em;
   padding-left: 0.25em;
   display: flex;
@@ -1219,8 +1218,6 @@ input:checked + .slider:before {
 .insight-source-label {
   font-size: 0.7em;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   color: #888;
   padding: 0.5em 0.5em 0.25em;
 }
@@ -1589,6 +1586,45 @@ input:checked + .slider:before {
   font-size: 0.85em;
 }
 
+/* Keyboard focus indicators */
+.settings-nav-item:focus-visible,
+.setup-btn:focus-visible,
+.save-color-btn:focus-visible,
+.settings-mode-btn:focus-visible,
+.settings-preset-btn:focus-visible,
+.password-toggle:focus-visible,
+.activities-add-custom-btn:focus-visible,
+.log-more-btn:focus-visible,
+.color-close:focus-visible,
+.color-swatch:focus-visible,
+.field-display:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Active nav item needs contrasting focus ring since it already has a colored background */
+.settings-nav-item.active:focus-visible {
+  outline-color: #333;
+}
+
+/* Toggle switches */
+.toggle-switch:focus-visible {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+/* Remove default focus outline for mouse users - only show for keyboard */
+.settings-nav-item:focus:not(:focus-visible),
+.setup-btn:focus:not(:focus-visible),
+.save-color-btn:focus:not(:focus-visible),
+.field-display:focus:not(:focus-visible),
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .settings-wrap {
@@ -1608,93 +1644,133 @@ input:checked + .slider:before {
     max-width: none;
   }
 }
+
+@media (max-width: 480px) {
+  .provider-row {
+    flex-direction: column;
+  }
+
+  .storage-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-field input,
+  .settings-field select,
+  .settings-field textarea {
+    font-size: 16px;
+  }
+}
 </style>
 
 <div class="settings-wrap">
   <!-- Mobile nav dropdown -->
   <div class="settings-nav-mobile">
     <select class="settings-nav-select" id="navSelect">
-      <optgroup label="Journal">
-        <option value="profile">Profile</option>
-        <option value="providers">Providers</option>
-        <option value="apikeys">API Keys</option>
-        <option value="transcription">Transcription</option>
-        <option value="observer">Observer</option>
-        <option value="vision">Vision</option>
-        <option value="insights">Insights</option>
-        <option value="security">Security</option>
-        <option value="sync">Sync</option>
-        <option value="storage">Storage</option>
-        <option value="support">Support</option>
-        <option value="agent">Agent Identity</option>
+      <optgroup label="identity">
+        <option value="profile">profile</option>
+        <option value="agent">agent identity</option>
       </optgroup>
-      <optgroup label="Facet" id="navSelectFacetGroup" style="display:none">
-        <option value="facet-appearance">Appearance</option>
-        <option value="facet-activities">Activities</option>
-        <option value="facet-activity">Activity Log</option>
+      <optgroup label="AI">
+        <option value="providers">providers</option>
+        <option value="apikeys">API keys</option>
+        <option value="transcription">transcription</option>
+        <option value="insights">insights</option>
+      </optgroup>
+      <optgroup label="capture">
+        <option value="observer">observer</option>
+        <option value="vision">vision</option>
+      </optgroup>
+      <optgroup label="data">
+        <option value="security">security</option>
+        <option value="sync">sync</option>
+        <option value="storage">storage</option>
+      </optgroup>
+      <optgroup label="help">
+        <option value="support">support</option>
+        <option value="facets">facets</option>
+      </optgroup>
+      <optgroup label="facet" id="navSelectFacetGroup" style="display:none">
+        <option value="facet-appearance">appearance</option>
+        <option value="facet-activities">activities</option>
+        <option value="facet-activity">activity log</option>
       </optgroup>
     </select>
   </div>
 
   <!-- Desktop nav sidebar -->
-  <nav class="settings-nav" id="settingsNav">
+  <nav class="settings-nav" id="settingsNav" role="tablist" aria-label="settings sections" aria-orientation="vertical">
     <div class="settings-nav-group">
-      <div class="settings-nav-label">Journal</div>
-      <button class="settings-nav-item active" data-section="profile">Profile</button>
-      <button class="settings-nav-item" data-section="agent">Agent Identity</button>
-      <button class="settings-nav-item" data-section="providers">Providers</button>
-      <button class="settings-nav-item" data-section="apikeys">API Keys</button>
-      <button class="settings-nav-item" data-section="transcription">Transcription</button>
-      <button class="settings-nav-item" data-section="observer">Observer</button>
-      <button class="settings-nav-item" data-section="vision">Vision</button>
-      <button class="settings-nav-item" data-section="insights">Insights</button>
-      <button class="settings-nav-item" data-section="security">Security</button>
-      <button class="settings-nav-item" data-section="sync">Sync</button>
-      <button class="settings-nav-item" data-section="storage">Storage</button>
-      <button class="settings-nav-item" data-section="support">Support</button>
+      <div class="settings-nav-label">identity</div>
+      <button class="settings-nav-item active" data-section="profile" id="tab-profile" role="tab" aria-selected="true" aria-controls="section-profile" tabindex="0">profile</button>
+      <button class="settings-nav-item" data-section="agent" id="tab-agent" role="tab" aria-selected="false" aria-controls="section-agent" tabindex="-1">agent identity</button>
+    </div>
+    <div class="settings-nav-group">
+      <div class="settings-nav-label">AI</div>
+      <button class="settings-nav-item" data-section="providers" id="tab-providers" role="tab" aria-selected="false" aria-controls="section-providers" tabindex="-1">providers</button>
+      <button class="settings-nav-item" data-section="apikeys" id="tab-apikeys" role="tab" aria-selected="false" aria-controls="section-apikeys" tabindex="-1">API keys</button>
+      <button class="settings-nav-item" data-section="transcription" id="tab-transcription" role="tab" aria-selected="false" aria-controls="section-transcription" tabindex="-1">transcription</button>
+      <button class="settings-nav-item" data-section="insights" id="tab-insights" role="tab" aria-selected="false" aria-controls="section-insights" tabindex="-1">insights</button>
+    </div>
+    <div class="settings-nav-group">
+      <div class="settings-nav-label">capture</div>
+      <button class="settings-nav-item" data-section="observer" id="tab-observer" role="tab" aria-selected="false" aria-controls="section-observer" tabindex="-1">observer</button>
+      <button class="settings-nav-item" data-section="vision" id="tab-vision" role="tab" aria-selected="false" aria-controls="section-vision" tabindex="-1">vision</button>
+    </div>
+    <div class="settings-nav-group">
+      <div class="settings-nav-label">data</div>
+      <button class="settings-nav-item" data-section="security" id="tab-security" role="tab" aria-selected="false" aria-controls="section-security" tabindex="-1">security</button>
+      <button class="settings-nav-item" data-section="sync" id="tab-sync" role="tab" aria-selected="false" aria-controls="section-sync" tabindex="-1">sync</button>
+      <button class="settings-nav-item" data-section="storage" id="tab-storage" role="tab" aria-selected="false" aria-controls="section-storage" tabindex="-1">storage</button>
+    </div>
+    <div class="settings-nav-group">
+      <div class="settings-nav-label">help</div>
+      <button class="settings-nav-item" data-section="support" id="tab-support" role="tab" aria-selected="false" aria-controls="section-support" tabindex="-1">support</button>
+      <button class="settings-nav-item" data-section="facets" id="tab-facets" role="tab" aria-selected="false" aria-controls="section-facets" tabindex="-1">facets</button>
     </div>
     <div class="settings-nav-group" id="facetNavGroup" style="display:none">
-      <div class="settings-nav-label" id="facetNavLabel">Facet</div>
-      <button class="settings-nav-item" data-section="facet-appearance">Appearance</button>
-      <button class="settings-nav-item" data-section="facet-activities">Activities</button>
-      <button class="settings-nav-item" data-section="facet-activity">Activity Log</button>
+      <div class="settings-nav-label" id="facetNavLabel">facet</div>
+      <button class="settings-nav-item" data-section="facet-appearance" id="tab-facet-appearance" role="tab" aria-selected="false" aria-controls="section-facet-appearance" tabindex="-1">appearance</button>
+      <button class="settings-nav-item" data-section="facet-activities" id="tab-facet-activities" role="tab" aria-selected="false" aria-controls="section-facet-activities" tabindex="-1">activities</button>
+      <button class="settings-nav-item" data-section="facet-activity" id="tab-facet-activity" role="tab" aria-selected="false" aria-controls="section-facet-activity" tabindex="-1">activity log</button>
     </div>
   </nav>
 
   <!-- Content panels -->
   <div class="settings-content">
     <!-- Profile Section -->
-    <section class="settings-section active" id="section-profile">
-      <h2>Profile</h2>
+    <section class="settings-section active" id="section-profile" role="tabpanel" aria-labelledby="tab-profile">
+      <h2>profile</h2>
       <p class="settings-section-desc">Your identity information used in AI templates and transcription.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <!-- Setup prompt (shown when no facets) -->
       <div class="setup-section" id="setupSection" style="display:none">
-        <h3>Welcome to solstone</h3>
+        <h3>welcome to solstone</h3>
         <p>Create your first facet to start organizing your journal.</p>
         <button class="setup-btn" id="createPersonalBtn">Create Personal Facet</button>
       </div>
 
       <div class="settings-field">
-        <label for="field-name">Full Name</label>
+        <label for="field-name">full name</label>
         <input type="text" id="field-name" data-section="identity" data-key="name" placeholder="Your full name">
         <small>Your full legal or formal name</small>
       </div>
 
       <div class="settings-field">
-        <label for="field-preferred">Preferred Name</label>
+        <label for="field-preferred">preferred name</label>
         <input type="text" id="field-preferred" data-section="identity" data-key="preferred" placeholder="Your preferred name">
         <small>Preferred name or nickname to be used when addressing you</small>
       </div>
 
       <div class="settings-field">
-        <label for="field-bio">Bio</label>
+        <label for="field-bio">bio</label>
         <textarea id="field-bio" data-section="identity" data-key="bio" rows="2" placeholder="e.g., a software engineer interested in AI"></textarea>
         <small>Brief description of yourself used in AI templates</small>
       </div>
 
       <div class="settings-field">
-        <label for="field-pronouns">Pronouns</label>
+        <label for="field-pronouns">pronouns</label>
         <select id="field-pronouns" data-section="identity" data-key="pronouns">
           <option value="">Select pronouns...</option>
           <option value="she/her/her/herself">she/her/hers/herself</option>
@@ -1708,19 +1784,19 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field">
-        <label for="field-aliases">Aliases</label>
+        <label for="field-aliases">aliases</label>
         <input type="text" id="field-aliases" data-section="identity" data-key="aliases" placeholder="e.g., nickname1, nickname2">
         <small>Comma-separated alternative names that may appear in transcripts</small>
       </div>
 
       <div class="settings-field">
-        <label for="field-emails">Email Addresses</label>
+        <label for="field-emails">email addresses</label>
         <input type="text" id="field-emails" data-section="identity" data-key="email_addresses" placeholder="e.g., work@company.com, personal@example.com">
         <small>Comma-separated email addresses for participant detection</small>
       </div>
 
       <div class="settings-field">
-        <label for="field-timezone">Home Timezone</label>
+        <label for="field-timezone">home timezone</label>
         <input type="text" id="field-timezone" data-section="identity" data-key="timezone" list="timezone-list" placeholder="e.g., America/New_York">
         <datalist id="timezone-list">
           <option value="America/New_York">
@@ -1755,25 +1831,28 @@ input:checked + .slider:before {
         </datalist>
         <small>IANA timezone identifier</small>
       </div>
+      </form>
     </section>
 
     <!-- Providers Section -->
-    <section class="settings-section" id="section-providers">
-      <h2>Providers</h2>
+    <section class="settings-section" id="section-providers" role="tabpanel" aria-labelledby="tab-providers">
+      <h2>providers</h2>
       <p class="settings-section-desc">Configure AI providers separately for generation (text analysis) and cogitate (tool-calling agents).</p>
 
-      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">Generate</h3>
+      <form class="settings-form" onsubmit="return false;">
+
+      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">generate</h3>
       <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Text generation for analysis, extraction, and transcription tasks.</p>
       <div class="provider-row">
         <div class="settings-field">
-          <label for="field-generate-provider">Provider</label>
+          <label for="field-generate-provider">provider</label>
           <select id="field-generate-provider">
             <!-- Populated dynamically from registry -->
           </select>
           <small></small>
         </div>
         <div class="settings-field">
-          <label for="field-generate-tier">Tier</label>
+          <label for="field-generate-tier">tier</label>
           <select id="field-generate-tier">
             <option value="1">Best - Most capable</option>
             <option value="2">Average - Balanced</option>
@@ -1782,7 +1861,7 @@ input:checked + .slider:before {
           <small></small>
         </div>
         <div class="settings-field">
-          <label for="field-generate-backup">Backup</label>
+          <label for="field-generate-backup">backup</label>
           <select id="field-generate-backup">
             <!-- Populated dynamically from registry -->
           </select>
@@ -1795,18 +1874,18 @@ input:checked + .slider:before {
         <a href="#" id="generateProviderKeyLink">Configure in API Keys</a>
       </div>
 
-      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">Cogitate</h3>
+      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">cogitate</h3>
       <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Tool-calling agents for interactive chat, daily briefings, and complex reasoning.</p>
       <div class="provider-row">
         <div class="settings-field">
-          <label for="field-cogitate-provider">Provider</label>
+          <label for="field-cogitate-provider">provider</label>
           <select id="field-cogitate-provider">
             <!-- Populated dynamically from registry -->
           </select>
           <small></small>
         </div>
         <div class="settings-field">
-          <label for="field-cogitate-tier">Tier</label>
+          <label for="field-cogitate-tier">tier</label>
           <select id="field-cogitate-tier">
             <option value="1">Best - Most capable</option>
             <option value="2">Average - Balanced</option>
@@ -1815,7 +1894,7 @@ input:checked + .slider:before {
           <small></small>
         </div>
         <div class="settings-field">
-          <label for="field-cogitate-backup">Backup</label>
+          <label for="field-cogitate-backup">backup</label>
           <select id="field-cogitate-backup">
             <!-- Populated dynamically from registry -->
           </select>
@@ -1824,12 +1903,47 @@ input:checked + .slider:before {
       </div>
       <div class="provider-row" style="max-width:16em">
         <div class="settings-field">
-          <label for="field-cogitate-auth">Auth</label>
+          <label for="field-cogitate-auth">auth</label>
           <select id="field-cogitate-auth">
             <option value="platform">Platform Account</option>
             <option value="api_key">API Key</option>
           </select>
           <small>How the CLI authenticates with the provider</small>
+        </div>
+      </div>
+      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">google backend</h3>
+      <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">How solstone connects to Google AI. Auto-detect works for most users.</p>
+      <div class="provider-row">
+        <div class="settings-field">
+          <label for="field-google-backend">backend</label>
+          <select id="field-google-backend">
+            <option value="auto">Auto-detect</option>
+            <option value="aistudio">AI Studio</option>
+            <option value="vertex">Vertex AI</option>
+          </select>
+          <small>Auto-detect probes your key on first use</small>
+        </div>
+      </div>
+      <div id="vertexFields" style="display:none">
+        <div class="provider-row">
+          <div class="settings-field" style="flex:1" id="vertex-creds-field">
+            <label>service account</label>
+            <div id="vertex-creds-status" style="margin-bottom:0.4em">
+              <span id="vertex-creds-email" style="color:#666;font-size:0.9em">not configured</span>
+            </div>
+            <div id="vertex-creds-actions">
+              <button type="button" id="btn-vertex-creds-file" onclick="document.getElementById('vertex-creds-file-input').click()" style="margin-right:0.4em">Choose file</button>
+              <button type="button" id="btn-vertex-creds-paste" onclick="toggleVertexCredsPaste()">Paste JSON</button>
+              <button type="button" id="btn-vertex-creds-remove" onclick="removeVertexCreds()" style="display:none;color:#c33">Remove</button>
+            </div>
+            <input type="file" id="vertex-creds-file-input" accept=".json" style="display:none" onchange="uploadVertexCredsFile(this)">
+            <textarea id="vertex-creds-paste-input" rows="6" style="display:none;width:100%;margin-top:0.5em;font-family:monospace;font-size:0.85em" placeholder="Paste service account JSON here"></textarea>
+            <div id="vertex-creds-paste-actions" style="display:none;margin-top:0.4em">
+              <button type="button" onclick="submitVertexCredsPaste()">Save</button>
+              <button type="button" onclick="cancelVertexCredsPaste()" style="margin-left:0.4em">Cancel</button>
+            </div>
+            <small>JSON credentials for Vertex AI authentication</small>
+          </div>
         </div>
       </div>
       <div id="cogitateProviderKeyWarning" class="provider-key-warning" style="display:none">
@@ -1849,18 +1963,21 @@ input:checked + .slider:before {
           <div id="contextGroups">Loading...</div>
         </div>
       </div>
+      </form>
     </section>
 
     <!-- API Keys Section -->
-    <section class="settings-section" id="section-apikeys">
-      <h2>API Keys</h2>
+    <section class="settings-section" id="section-apikeys" role="tabpanel" aria-labelledby="tab-apikeys">
+      <h2>API keys</h2>
       <p class="settings-section-desc">Configure API keys for AI providers. Keys are stored in your journal config.</p>
+
+      <form class="settings-form" onsubmit="return false;">
       <div style="margin-bottom: 1em;">
         <button type="button" id="revalidateAllKeys" class="btn-secondary" onclick="revalidateAllKeys()">Re-validate All Keys</button>
         <span id="revalidateStatus" style="margin-left: 0.5em; font-size: 0.85em;"></span>
       </div>
 
-      <div class="settings-field">
+      <div id="googleApiKeyField" class="settings-field">
         <label for="field-env-google">Google AI (Gemini)</label>
         <div class="password-wrap">
           <input type="password" id="field-env-google" data-section="env" data-key="GOOGLE_API_KEY" placeholder="Enter API key">
@@ -1913,15 +2030,18 @@ input:checked + .slider:before {
         </div>
         <small>Import audio from Plaud recorder. Log into the web portal and extract token from browser console.</small>
       </div>
+      </form>
     </section>
 
     <!-- Transcription Section -->
-    <section class="settings-section" id="section-transcription">
-      <h2>Transcription</h2>
+    <section class="settings-section" id="section-transcription" role="tabpanel" aria-labelledby="tab-transcription">
+      <h2>transcription</h2>
       <p class="settings-section-desc">Speech-to-text backend and processing settings.</p>
 
+      <form class="settings-form" onsubmit="return false;">
+
       <div class="settings-field">
-        <label for="field-transcribe-backend">Backend</label>
+        <label for="field-transcribe-backend">backend</label>
         <select id="field-transcribe-backend">
           <!-- Options populated dynamically from /api/transcribe -->
         </select>
@@ -1938,7 +2058,7 @@ input:checked + .slider:before {
       <!-- Whisper-specific settings -->
       <fieldset id="whisper-settings" class="backend-settings">
         <div class="settings-field">
-          <label for="field-whisper-device">Device</label>
+          <label for="field-whisper-device">device</label>
           <select id="field-whisper-device">
             <option value="auto" selected>Auto - Detect GPU if available</option>
             <option value="cpu">CPU - Use processor only</option>
@@ -1948,7 +2068,7 @@ input:checked + .slider:before {
         </div>
 
         <div class="settings-field">
-          <label for="field-whisper-model">Model</label>
+          <label for="field-whisper-model">model</label>
           <select id="field-whisper-model">
             <option value="tiny.en">Tiny - Fastest</option>
             <option value="base.en">Base</option>
@@ -1961,7 +2081,7 @@ input:checked + .slider:before {
         </div>
 
         <div class="settings-field">
-          <label for="field-whisper-compute">Compute Type</label>
+          <label for="field-whisper-compute">compute type</label>
           <select id="field-whisper-compute">
             <option value="default" selected>Default - Auto-select</option>
             <option value="float32">Float32 - Highest precision</option>
@@ -1975,7 +2095,7 @@ input:checked + .slider:before {
       <!-- Rev.ai-specific settings -->
       <fieldset id="revai-settings" class="backend-settings" style="display:none">
         <div class="settings-field">
-          <label for="field-revai-model">Model</label>
+          <label for="field-revai-model">model</label>
           <select id="field-revai-model">
             <option value="fusion" selected>Fusion - Best quality (default)</option>
             <option value="machine">Machine - Fast automated</option>
@@ -2001,7 +2121,7 @@ input:checked + .slider:before {
             <input type="checkbox" id="field-transcribe-enrich" data-section="transcribe" data-key="enrich">
             <span class="slider"></span>
           </label>
-          <label for="field-transcribe-enrich" class="toggle-label" style="cursor: pointer;">Enrich Transcripts</label>
+          <label for="field-transcribe-enrich" class="toggle-label" style="cursor: pointer;">enrich transcripts</label>
         </div>
         <small>Use AI to extract topics, correct transcription errors, and add descriptions</small>
       </div>
@@ -2012,7 +2132,7 @@ input:checked + .slider:before {
             <input type="checkbox" id="field-transcribe-preserve" data-section="transcribe" data-key="preserve_all">
             <span class="slider"></span>
           </label>
-          <label for="field-transcribe-preserve" class="toggle-label" style="cursor: pointer;">Preserve Silent Recordings</label>
+          <label for="field-transcribe-preserve" class="toggle-label" style="cursor: pointer;">preserve silent recordings</label>
         </div>
         <small>Keep audio files even when no speech is detected</small>
       </div>
@@ -2023,24 +2143,27 @@ input:checked + .slider:before {
             <input type="checkbox" id="field-transcribe-noise-upgrade" data-section="transcribe" data-key="noise_upgrade">
             <span class="slider"></span>
           </label>
-          <label for="field-transcribe-noise-upgrade" class="toggle-label" style="cursor: pointer;">Noise Upgrade</label>
+          <label for="field-transcribe-noise-upgrade" class="toggle-label" style="cursor: pointer;">noise upgrade</label>
         </div>
         <small>Automatically use Rev.ai for noisy recordings (requires Rev.ai token)</small>
       </div>
+      </form>
     </section>
 
     <!-- Observer Section -->
-    <section class="settings-section" id="section-observer">
-      <h2>Observer</h2>
+    <section class="settings-section" id="section-observer" role="tabpanel" aria-labelledby="tab-observer">
+      <h2>observer</h2>
       <p class="settings-section-desc">Configure capture behavior for the observer service.</p>
 
-      <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Terminal Capture</h3>
+      <form class="settings-form" onsubmit="return false;">
+
+      <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">terminal capture</h3>
       <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
         When your screen is idle, the observer can capture terminal content from active tmux sessions.
       </p>
 
       <div class="settings-field">
-        <label>Enable Terminal Capture</label>
+        <label for="field-tmux-enabled">enable terminal capture</label>
         <div style="display: flex; align-items: center; gap: 1em;">
           <label class="toggle-switch toggle-positive">
             <input type="checkbox" id="field-tmux-enabled">
@@ -2051,7 +2174,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field" id="tmuxCaptureIntervalField">
-        <label for="field-tmux-capture-interval">Capture Interval (seconds)</label>
+        <label for="field-tmux-capture-interval">capture interval (seconds)</label>
         <input type="number" id="field-tmux-capture-interval" style="max-width: 100px;">
         <small id="tmuxCaptureIntervalHelp">How often to capture terminal content</small>
       </div>
@@ -2059,15 +2182,18 @@ input:checked + .slider:before {
       <p style="color: #888; font-size: 0.85em; margin-top: 1.5em; padding: 0.75em; background: #f8f9fa; border-radius: 4px;">
         Changes take effect on next observer restart.
       </p>
+      </form>
     </section>
 
     <!-- Vision Section -->
-    <section class="settings-section" id="section-vision">
-      <h2>Vision</h2>
+    <section class="settings-section" id="section-vision" role="tabpanel" aria-labelledby="tab-vision">
+      <h2>vision</h2>
       <p class="settings-section-desc">Screen analysis settings for observe-describe.</p>
 
+      <form class="settings-form" onsubmit="return false;">
+
       <div class="settings-field">
-        <label for="field-max-extractions">Max Extractions (of 300 possible frames)</label>
+        <label for="field-max-extractions">max extractions (of 300 possible frames)</label>
         <input type="number" id="field-max-extractions" min="5" max="100" value="20" style="max-width: 100px;">
         <small>Maximum frames to extract detailed content from per 5 minute screen segment (big impact on token usage)</small>
       </div>
@@ -2100,17 +2226,20 @@ input:checked + .slider:before {
           <div id="visionCategoryGroups">Loading...</div>
         </div>
       </div>
+      </form>
     </section>
 
     <!-- Insights Section -->
-    <section class="settings-section" id="section-insights">
-      <h2>Insights</h2>
+    <section class="settings-section" id="section-insights" role="tabpanel" aria-labelledby="tab-insights">
+      <h2>insights</h2>
       <p class="settings-section-desc">Configure which AI insights run and whether they extract events to your timeline.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <!-- Segment Insights -->
       <div class="insights-group expanded" id="segmentInsightsGroup">
         <div class="insights-group-header" id="segmentInsightsHeader">
-          <span><span class="insights-group-title">Segment Insights</span><span class="insights-group-count" id="segmentInsightsCount"></span></span>
+          <span><span class="insights-group-title">segment insights</span><span class="insights-group-count" id="segmentInsightsCount"></span></span>
           <span class="insights-group-toggle">&#9660;</span>
         </div>
         <div class="insights-group-body" id="segmentInsightsBody">
@@ -2122,7 +2251,7 @@ input:checked + .slider:before {
       <!-- Daily Insights -->
       <div class="insights-group expanded" id="dailyInsightsGroup">
         <div class="insights-group-header" id="dailyInsightsHeader">
-          <span><span class="insights-group-title">Daily Insights</span><span class="insights-group-count" id="dailyInsightsCount"></span></span>
+          <span><span class="insights-group-title">daily insights</span><span class="insights-group-count" id="dailyInsightsCount"></span></span>
           <span class="insights-group-toggle">&#9660;</span>
         </div>
         <div class="insights-group-body" id="dailyInsightsBody">
@@ -2130,15 +2259,18 @@ input:checked + .slider:before {
           <div id="dailyInsightsList">Loading...</div>
         </div>
       </div>
+      </form>
     </section>
 
     <!-- Security Section -->
-    <section class="settings-section" id="section-security">
-      <h2>Security</h2>
+    <section class="settings-section" id="section-security" role="tabpanel" aria-labelledby="tab-security">
+      <h2>security</h2>
       <p class="settings-section-desc">Authentication and access control.</p>
 
+      <form class="settings-form" onsubmit="return false;">
+
       <div class="settings-field">
-        <label for="field-password">Web Password</label>
+        <label for="field-password">web password</label>
         <div class="password-wrap">
           <input type="password" id="field-password" data-section="convey" data-key="password" placeholder="Enter password to protect web access">
           <button type="button" class="password-toggle" id="passwordToggle" title="Show password">
@@ -2147,12 +2279,15 @@ input:checked + .slider:before {
         </div>
         <small>Set a password to protect the web interface. Leave empty to allow unauthenticated localhost access.</small>
       </div>
+      </form>
     </section>
 
     <!-- Sync Section -->
-    <section class="settings-section" id="section-sync">
-      <h2>Sync</h2>
+    <section class="settings-section" id="section-sync" role="tabpanel" aria-labelledby="tab-sync">
+      <h2>sync</h2>
       <p class="settings-section-desc">Configure automatic syncing of recordings from external devices.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <div id="plaudSyncCard">
         <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Plaud</h3>
@@ -2161,7 +2296,7 @@ input:checked + .slider:before {
         </p>
 
         <div class="settings-field" id="plaudSyncField">
-          <label>Hourly Sync</label>
+          <label for="field-plaud-sync-enabled">hourly sync</label>
           <div style="display: flex; align-items: center; gap: 1em;">
             <label class="toggle-switch toggle-positive">
               <input type="checkbox" id="field-plaud-sync-enabled">
@@ -2183,7 +2318,7 @@ input:checked + .slider:before {
         </p>
 
         <div class="settings-field" id="granolaSyncField">
-          <label>Hourly Sync</label>
+          <label for="field-granola-sync-enabled">hourly sync</label>
           <div style="display: flex; align-items: center; gap: 1em;">
             <label class="toggle-switch toggle-positive">
               <input type="checkbox" id="field-granola-sync-enabled">
@@ -2195,13 +2330,13 @@ input:checked + .slider:before {
       </div>
 
       <div id="obsidianSyncCard">
-        <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Obsidian Vault</h3>
+        <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Obsidian vault</h3>
         <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
           Automatically sync new and updated notes from your vault.
         </p>
 
         <div class="settings-field" id="obsidianSyncField">
-          <label>Hourly Sync</label>
+          <label for="field-obsidian-sync-enabled">hourly sync</label>
           <div style="display: flex; align-items: center; gap: 1em;">
             <label class="toggle-switch toggle-positive">
               <input type="checkbox" id="field-obsidian-sync-enabled">
@@ -2211,15 +2346,18 @@ input:checked + .slider:before {
           </div>
         </div>
       </div>
+      </form>
     </section>
 
     <!-- Storage Section -->
-    <section class="settings-section" id="section-storage">
-      <h2>Storage</h2>
+    <section class="settings-section" id="section-storage" role="tabpanel" aria-labelledby="tab-storage">
+      <h2>storage</h2>
       <p class="settings-section-desc">Manage raw media retention and view storage usage.</p>
 
+      <form class="settings-form" onsubmit="return false;">
+
       <div id="storageSummaryCard" style="background: #f8f8f8; border-radius: 8px; padding: 1em 1.25em; margin-bottom: 1.5em;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1em; text-align: center;">
+        <div class="storage-summary-grid">
           <div>
             <div style="font-size: 1.5em; font-weight: 600;" id="storageSummaryRaw">—</div>
             <div style="font-size: 0.85em; color: #666;">Raw Media</div>
@@ -2237,7 +2375,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field" id="retentionModeField">
-        <label>Retention Mode</label>
+        <label>retention mode</label>
         <small>Controls how long raw media files (audio, video, screen diffs) are kept after processing.</small>
         <div id="retentionModeSelector" style="display: flex; gap: 0.5em; margin-top: 0.5em;">
           <button type="button" class="settings-mode-btn" data-mode="keep">Keep Forever</button>
@@ -2247,7 +2385,7 @@ input:checked + .slider:before {
       </div>
 
       <div class="settings-field" id="retentionDaysField" style="display: none;">
-        <label>Days to Keep</label>
+        <label for="retentionDaysInput">days to keep</label>
         <small>Raw media older than this will be eligible for cleanup.</small>
         <div style="display: flex; gap: 0.5em; align-items: center; margin-top: 0.5em;">
           <button type="button" class="settings-preset-btn" data-days="7">7</button>
@@ -2273,12 +2411,15 @@ input:checked + .slider:before {
         <button type="button" id="cleanupNowBtn" class="action-button" style="background: #dc3545; color: white; border: none; padding: 0.6em 1.2em; border-radius: 6px; cursor: pointer; font-size: 0.9em;">Clean Up Now</button>
         <small style="display: block; margin-top: 0.5em; color: #666;">Manually purge raw media older than a specified number of days.</small>
       </div>
+      </form>
     </section>
 
     <!-- Support Section -->
-    <section class="settings-section" id="section-support">
-      <h2>Support</h2>
+    <section class="settings-section" id="section-support" role="tabpanel" aria-labelledby="tab-support">
+      <h2>support</h2>
       <p class="settings-section-desc">Configure how your sol communicates with sol pbc support.</p>
+
+      <form class="settings-form" onsubmit="return false;">
 
       <div class="settings-field">
         <div class="toggle-container" style="justify-content: flex-start; gap: 1em;">
@@ -2286,7 +2427,7 @@ input:checked + .slider:before {
             <input type="checkbox" id="field-support-enabled" data-section="support" data-key="enabled">
             <span class="slider"></span>
           </label>
-          <label for="field-support-enabled" class="toggle-label" style="cursor: pointer;">Support Agent</label>
+          <label for="field-support-enabled" class="toggle-label" style="cursor: pointer;">support agent</label>
         </div>
         <small>When enabled, your sol can file and track support tickets on your behalf. You always review and approve before anything is sent.</small>
       </div>
@@ -2297,7 +2438,7 @@ input:checked + .slider:before {
             <input type="checkbox" id="field-support-proactive" data-section="support" data-key="proactive">
             <span class="slider"></span>
           </label>
-          <label for="field-support-proactive" class="toggle-label" style="cursor: pointer;">Proactive Detection</label>
+          <label for="field-support-proactive" class="toggle-label" style="cursor: pointer;">proactive detection</label>
         </div>
         <small>Detect repeated errors and suggest filing a support ticket. No data is sent — only a local notification.</small>
       </div>
@@ -2308,37 +2449,50 @@ input:checked + .slider:before {
             <input type="checkbox" id="field-support-anonymous" data-section="support" data-key="anonymous_feedback">
             <span class="slider"></span>
           </label>
-          <label for="field-support-anonymous" class="toggle-label" style="cursor: pointer;">Anonymous Feedback</label>
+          <label for="field-support-anonymous" class="toggle-label" style="cursor: pointer;">anonymous feedback</label>
         </div>
         <small>Strip installation identifiers when submitting feedback.</small>
       </div>
 
       <div class="settings-field">
-        <label for="field-support-portal-url">Portal URL</label>
+        <label for="field-support-portal-url">portal URL</label>
         <input type="text" id="field-support-portal-url" data-section="support" data-key="portal_url" placeholder="https://support.solpbc.org">
         <small>Support portal endpoint. Change this if you run your own portal.</small>
+      </div>
+      </form>
+    </section>
+
+    <!-- Facets Section (journal-level, not per-facet) -->
+    <section class="settings-section" id="section-facets" role="tabpanel" aria-labelledby="tab-facets">
+      <h2>facets</h2>
+      <p class="settings-section-desc">Manage muted facets. Muted facets are hidden from the facet bar but retain all their data.</p>
+
+      <div id="mutedFacetsList">
+        <p class="text-muted">Loading...</p>
       </div>
     </section>
 
     <!-- Agent Identity Section -->
-    <section class="settings-section" id="section-agent">
-      <h2>Agent Identity</h2>
+    <section class="settings-section" id="section-agent" role="tabpanel" aria-labelledby="tab-agent">
+      <h2>agent identity</h2>
       <p class="settings-section-desc">Your assistant's name and identity.</p>
 
+      <form class="settings-form" onsubmit="return false;">
+
       <div class="settings-field">
-        <label for="field-agent-name">Agent Name</label>
+        <label for="field-agent-name">agent name</label>
         <input type="text" id="field-agent-name" placeholder="sol">
         <small>The name your assistant uses to identify itself</small>
       </div>
 
       <div class="settings-field">
-        <label>Status</label>
+        <label>status</label>
         <span id="agent-name-status" class="field-display">default</span>
         <small>How the name was set: default, chosen, self-named, or deferred</small>
       </div>
 
       <div class="settings-field">
-        <label>Named Date</label>
+        <label>named date</label>
         <span id="agent-named-date" class="field-display">—</span>
         <small>When the name was last changed</small>
       </div>
@@ -2347,12 +2501,13 @@ input:checked + .slider:before {
         <button class="setup-btn" id="resetAgentName" style="background: var(--text-muted); font-size: 0.85em; padding: 0.4em 1em;">Reset to Default</button>
         <small>Reset the agent name back to "sol"</small>
       </div>
+      </form>
     </section>
 
     <!-- Facet Appearance Section -->
-    <section class="settings-section" id="section-facet-appearance" data-requires-facet>
+    <section class="settings-section" id="section-facet-appearance" data-requires-facet role="tabpanel" aria-labelledby="tab-facet-appearance">
       <div class="facet-header">
-        <h2>Appearance</h2>
+        <h2>appearance</h2>
         <div class="toggle-container">
           <span class="toggle-label" id="toggleLabel">Active</span>
           <label class="toggle-switch">
@@ -2364,32 +2519,32 @@ input:checked + .slider:before {
       <p class="settings-section-desc">Customize how this facet appears in the interface.</p>
 
       <div class="settings-field">
-        <label>Title</label>
+        <label for="facetTitleInput">title</label>
         <div class="editable-field" id="facetTitleField">
           <span class="field-display" id="facetTitleDisplay">Loading...</span>
           <input type="text" class="field-input" id="facetTitleInput" style="display:none">
         </div>
-        <small>Double-click to edit</small>
+        <small id="facetTitleField-hint">Double-click or press Enter to edit</small>
       </div>
 
       <div class="settings-field">
-        <label>Description</label>
+        <label for="facetDescInput">description</label>
         <div class="editable-field" id="facetDescField">
           <span class="field-display" id="facetDescDisplay">No description set</span>
           <textarea class="field-input" id="facetDescInput" rows="3" style="display:none"></textarea>
         </div>
-        <small>Double-click to edit</small>
+        <small id="facetDescField-hint">Double-click or press Enter to edit</small>
       </div>
 
       <div class="settings-field">
-        <label>Icon</label>
+        <label for="emojiInput">icon</label>
         <div class="emoji-display" id="emojiDisplay">&#128230;</div>
         <input type="text" id="emojiInput" class="emoji-input" maxlength="4" placeholder="Paste emoji" style="display:none">
         <small>Click to change emoji</small>
       </div>
 
       <div class="settings-field">
-        <label>Theme Color</label>
+        <label>theme color</label>
         <div class="color-picker-trigger" id="colorTrigger">
           <div class="color-preview" id="colorPreview"></div>
           <span id="colorHexDisplay">#667eea</span>
@@ -2399,8 +2554,8 @@ input:checked + .slider:before {
     </section>
 
     <!-- Facet Activities Section -->
-    <section class="settings-section" id="section-facet-activities" data-requires-facet>
-      <h2>Activities</h2>
+    <section class="settings-section" id="section-facet-activities" data-requires-facet role="tabpanel" aria-labelledby="tab-facet-activities">
+      <h2>activities</h2>
       <p class="settings-section-desc">Configure which activities are tracked for this facet.</p>
 
       <!-- Attached Activities -->
@@ -2430,24 +2585,24 @@ input:checked + .slider:before {
       </div>
 
       <!-- Custom Activity Modal -->
-      <div id="customActivityModal" class="color-modal">
+      <div id="customActivityModal" class="color-modal" role="dialog" aria-modal="true" aria-labelledby="customActivityHeading">
         <div class="color-modal-content" style="max-width: 400px;">
           <span class="color-close" id="customActivityClose">&times;</span>
-          <h3>Add Custom Activity</h3>
+          <h3 id="customActivityHeading">add custom activity</h3>
           <div class="settings-field">
-            <label for="customActivityName">Name</label>
+            <label for="customActivityName">name</label>
             <input type="text" id="customActivityName" placeholder="e.g., Research">
           </div>
           <div class="settings-field">
-            <label for="customActivityDesc">Description</label>
+            <label for="customActivityDesc">description</label>
             <textarea id="customActivityDesc" rows="2" placeholder="Brief description of this activity"></textarea>
           </div>
           <div class="settings-field">
-            <label for="customActivityIcon">Icon (emoji)</label>
+            <label for="customActivityIcon">icon (emoji)</label>
             <input type="text" id="customActivityIcon" placeholder="e.g., 🔬" maxlength="4" style="max-width: 100px;">
           </div>
           <div class="settings-field">
-            <label for="customActivityInstructions">Instructions <span style="font-weight:normal;color:#888;">(optional)</span></label>
+            <label for="customActivityInstructions">instructions <span style="font-weight:normal;color:#888;">(optional)</span></label>
             <textarea id="customActivityInstructions" rows="2" placeholder="Detection hints and level guidance for the AI agent"></textarea>
           </div>
           <button class="save-color-btn" id="saveCustomActivityBtn">Add Activity</button>
@@ -2456,8 +2611,8 @@ input:checked + .slider:before {
     </section>
 
     <!-- Facet Activity Section -->
-    <section class="settings-section" id="section-facet-activity" data-requires-facet>
-      <h2>Activity Log</h2>
+    <section class="settings-section" id="section-facet-activity" data-requires-facet role="tabpanel" aria-labelledby="tab-facet-activity">
+      <h2>activity log</h2>
       <p class="settings-section-desc">Recent actions and changes to this facet.</p>
 
       <div class="log-panel">
@@ -2475,20 +2630,20 @@ input:checked + .slider:before {
 </div>
 
 <!-- Color Picker Modal -->
-<div id="colorPickerModal" class="color-modal">
+<div id="colorPickerModal" class="color-modal" role="dialog" aria-modal="true" aria-labelledby="colorPickerHeading">
   <div class="color-modal-content">
     <span class="color-close">&times;</span>
-    <h3>Choose Theme Color</h3>
+    <h3 id="colorPickerHeading">choose theme color</h3>
     <div class="color-swatches" id="colorSwatches"></div>
     <div class="custom-color">
-      <label>Custom Color:</label>
+      <label for="customColorInput">custom color:</label>
       <div class="color-input-group">
         <input type="color" id="customColorPicker" value="#667eea">
         <input type="text" id="customColorInput" placeholder="#667eea" maxlength="7">
       </div>
     </div>
     <div class="color-preview-section">
-      <h4>Preview</h4>
+      <h4>preview</h4>
       <div class="modal-preview-pill" id="modalPreview">
         <span class="modal-preview-emoji" id="modalPreviewEmoji">&#128230;</span>
         <span class="modal-preview-title" id="modalPreviewTitle">Facet</span>
@@ -2499,14 +2654,14 @@ input:checked + .slider:before {
 </div>
 
 <!-- Cleanup Confirmation Modal -->
-<div id="cleanupModal" class="color-modal">
+<div id="cleanupModal" class="color-modal" role="dialog" aria-modal="true" aria-labelledby="cleanupHeading">
   <div class="color-modal-content" style="max-width: 480px;">
     <span class="color-close" id="cleanupModalClose">&times;</span>
-    <h3>Clean Up Raw Media</h3>
+    <h3 id="cleanupHeading">clean up raw media</h3>
     <p style="color: #666; font-size: 0.9em; margin-bottom: 1em;">Delete raw media files (audio, video, screen captures) from segments older than the specified number of days.</p>
 
     <div class="settings-field" style="margin-bottom: 1em;">
-      <label>Older Than</label>
+      <label for="cleanupDaysInput">older than</label>
       <div style="display: flex; gap: 0.5em; align-items: center;">
         <input type="number" id="cleanupDaysInput" min="1" value="30" style="width: 5em; padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px;">
         <span style="color: #666;">days</span>
@@ -2514,7 +2669,7 @@ input:checked + .slider:before {
     </div>
 
     <div class="settings-field" style="margin-bottom: 1em;">
-      <label>Stream Filter (optional)</label>
+      <label for="cleanupStreamFilter">stream filter (optional)</label>
       <select id="cleanupStreamFilter" style="padding: 0.4em 0.6em; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
         <option value="">All streams</option>
       </select>
@@ -2536,13 +2691,63 @@ input:checked + .slider:before {
 // ========== STATE ==========
 let configData = null;
 let facetConfig = null;
-let saveTimeout = null;
+const saveTimeouts = new Map();
 let logNextCursor = null;
 let insightsData = null;
 let keyValidationData = {};
 
+// ========== MODAL ACCESSIBILITY ==========
+function setupModalAccessibility(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+
+  modal._openAccessible = function(triggerEl) {
+    this._triggerEl = triggerEl || document.activeElement;
+    const focusable = this.querySelectorAll('input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    this._focusableEls = Array.from(focusable);
+    if (this._focusableEls.length) {
+      requestAnimationFrame(() => this._focusableEls[0].focus());
+    }
+  };
+
+  modal._closeAccessible = function() {
+    this.style.display = 'none';
+    if (this._triggerEl && typeof this._triggerEl.focus === 'function') {
+      this._triggerEl.focus();
+    }
+  };
+
+  // Focus trap and Escape key
+  modal.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      modal._closeAccessible();
+      return;
+    }
+    if (e.key === 'Tab' && modal._focusableEls && modal._focusableEls.length) {
+      const first = modal._focusableEls[0];
+      const last = modal._focusableEls[modal._focusableEls.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+  });
+}
+
+setupModalAccessibility('colorPickerModal');
+setupModalAccessibility('customActivityModal');
+setupModalAccessibility('cleanupModal');
+
 // ========== NAVIGATION ==========
-const VALID_SECTIONS = ['profile', 'agent', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'sync', 'storage', 'support', 'facet-appearance', 'facet-activities', 'facet-activity'];
+const VALID_SECTIONS = ['profile', 'agent', 'providers', 'apikeys', 'transcription', 'observer', 'vision', 'insights', 'security', 'sync', 'storage', 'support', 'facets', 'facet-appearance', 'facet-activities', 'facet-activity'];
 
 function switchSection(sectionId, updateHash = true) {
   // Validate section exists
@@ -2557,7 +2762,10 @@ function switchSection(sectionId, updateHash = true) {
 
   // Update nav items
   document.querySelectorAll('.settings-nav-item').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.section === sectionId);
+    const isActive = btn.dataset.section === sectionId;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    btn.setAttribute('tabindex', isActive ? '0' : '-1');
   });
 
   // Update mobile select
@@ -2567,6 +2775,10 @@ function switchSection(sectionId, updateHash = true) {
   document.querySelectorAll('.settings-section').forEach(section => {
     section.classList.toggle('active', section.id === 'section-' + sectionId);
   });
+
+  if (sectionId === 'facets') {
+    loadMutedFacets();
+  }
 
   // Update URL hash
   if (updateHash) {
@@ -2587,9 +2799,116 @@ function switchSection(sectionId, updateHash = true) {
   }
 }
 
+// ========== MUTED FACETS ==========
+async function loadMutedFacets() {
+  const container = document.getElementById('mutedFacetsList');
+  try {
+    const response = await fetch('/app/settings/api/facets/muted');
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+
+    const facets = data.facets || [];
+    if (facets.length === 0) {
+      container.innerHTML = '<p class="text-muted">No muted facets.</p>';
+      return;
+    }
+
+    container.innerHTML = '';
+    facets.forEach(facet => {
+      const row = document.createElement('div');
+      row.className = 'settings-field';
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.justifyContent = 'space-between';
+
+      const info = document.createElement('div');
+      info.style.display = 'flex';
+      info.style.alignItems = 'center';
+      info.style.gap = '0.5em';
+
+      if (facet.emoji) {
+        const emoji = document.createElement('span');
+        emoji.textContent = facet.emoji;
+        info.appendChild(emoji);
+      }
+
+      const title = document.createElement('span');
+      title.textContent = facet.title;
+      info.appendChild(title);
+
+      if (facet.color) {
+        const swatch = document.createElement('span');
+        swatch.style.display = 'inline-block';
+        swatch.style.width = '12px';
+        swatch.style.height = '12px';
+        swatch.style.borderRadius = '50%';
+        swatch.style.backgroundColor = facet.color;
+        swatch.style.marginLeft = '0.25em';
+        info.appendChild(swatch);
+      }
+
+      const btn = document.createElement('button');
+      btn.className = 'setup-btn';
+      btn.style.fontSize = '0.85em';
+      btn.style.padding = '0.3em 0.8em';
+      btn.textContent = 'Unmute';
+      btn.onclick = async () => {
+        btn.disabled = true;
+        btn.textContent = 'Unmuting...';
+        try {
+          const res = await fetch(`/app/settings/api/facet/${facet.name}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ muted: false })
+          });
+          const result = await res.json();
+          if (result.error) throw new Error(result.error);
+          row.remove();
+          if (container.children.length === 0) {
+            container.innerHTML = '<p class="text-muted">No muted facets.</p>';
+          }
+          notifySuccess('Unmuted', `${facet.title} will appear in the facet bar on reload.`);
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = 'Unmute';
+          notifyError('Error', 'Failed to unmute facet');
+        }
+      };
+
+      row.appendChild(info);
+      row.appendChild(btn);
+      container.appendChild(row);
+    });
+  } catch (err) {
+    container.innerHTML = '<p class="text-muted">Failed to load muted facets.</p>';
+  }
+}
+
 // Desktop nav clicks
 document.querySelectorAll('.settings-nav-item').forEach(btn => {
   btn.addEventListener('click', () => switchSection(btn.dataset.section));
+});
+
+// Keyboard navigation for settings nav tabs
+document.getElementById('settingsNav').addEventListener('keydown', (e) => {
+  if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
+  e.preventDefault();
+
+  const tabs = Array.from(document.querySelectorAll('.settings-nav-item'));
+  const visibleTabs = tabs.filter(t => t.offsetParent !== null);
+  const currentIndex = visibleTabs.indexOf(document.activeElement);
+  if (currentIndex === -1) return;
+
+  let newIndex;
+  switch (e.key) {
+    case 'ArrowDown': newIndex = (currentIndex + 1) % visibleTabs.length; break;
+    case 'ArrowUp': newIndex = (currentIndex - 1 + visibleTabs.length) % visibleTabs.length; break;
+    case 'Home': newIndex = 0; break;
+    case 'End': newIndex = visibleTabs.length - 1; break;
+  }
+
+  visibleTabs[newIndex].focus();
+  switchSection(visibleTabs[newIndex].dataset.section);
 });
 
 // Mobile select change
@@ -2797,7 +3116,11 @@ function updateEnvStatus(fieldId, isJournalConfigured, isSystemConfigured) {
         validationSpan.className = 'key-validation-status';
         if (validation.valid) {
           validationSpan.className += ' key-status-valid';
-          validationSpan.textContent = ' ✓ Valid';
+          let validText = ' ✓ Valid';
+          if (providerName === 'google' && validation.backend) {
+            validText += validation.backend === 'vertex' ? ' (Vertex AI)' : ' (AI Studio)';
+          }
+          validationSpan.textContent = validText;
         } else {
           validationSpan.className += ' key-status-invalid';
           const errMsg = validation.error || 'Invalid';
@@ -2856,8 +3179,10 @@ function handleFieldChange(el) {
 }
 
 function saveField(el, section, key, value) {
-  clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(async () => {
+  const timeoutKey = el?.id || `${section}:${key}`;
+  clearTimeout(saveTimeouts.get(timeoutKey));
+  saveTimeouts.set(timeoutKey, setTimeout(async () => {
+    saveTimeouts.delete(timeoutKey);
     try {
       const runtimeEnv = configData?.runtime_env || {};
       const response = await fetch('api/config', {
@@ -2906,7 +3231,7 @@ function saveField(el, section, key, value) {
       console.error('Save error:', err);
       if (el) showFieldStatus(el, 'error', err.message);
     }
-  }, 500);
+  }, 500));
 }
 
 // Store original helper text and timeout per field
@@ -3020,6 +3345,20 @@ function setupDoubleTapEdit(fieldId, displayId, inputId, configKey) {
     }
   };
 
+  display.setAttribute('tabindex', '0');
+  display.setAttribute('role', 'button');
+  display.setAttribute('aria-describedby', fieldId + '-hint');
+
+  display.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === 'F2') {
+      e.preventDefault();
+      display.style.display = 'none';
+      input.style.display = 'block';
+      input.focus();
+      input.select();
+    }
+  };
+
   input.onblur = () => {
     const value = input.value.trim();
     if (configKey === 'description' || value) {
@@ -3065,6 +3404,16 @@ function setupEmojiPicker() {
   };
 }
 
+function colorName(hex) {
+  const names = {
+    '#007bff': 'Blue', '#28a745': 'Green', '#17a2b8': 'Teal',
+    '#ffc107': 'Yellow', '#6f42c1': 'Purple', '#fd7e14': 'Orange',
+    '#e83e8c': 'Pink', '#6c757d': 'Gray', '#20c997': 'Mint',
+    '#ff5722': 'Red-Orange', '#9c27b0': 'Deep Purple', '#795548': 'Brown'
+  };
+  return names[hex.toLowerCase()] || hex;
+}
+
 function setupColorPicker() {
   const modal = document.getElementById('colorPickerModal');
   const trigger = document.getElementById('colorTrigger');
@@ -3078,7 +3427,7 @@ function setupColorPicker() {
 
   // Populate swatches
   const colors = ['#007bff','#28a745','#17a2b8','#ffc107','#6f42c1','#fd7e14','#e83e8c','#6c757d','#20c997','#ff5722','#9c27b0','#795548'];
-  swatches.innerHTML = colors.map(c => `<div class="color-swatch" data-color="${c}" style="background:${c}"></div>`).join('');
+  swatches.innerHTML = colors.map(c => `<div class="color-swatch" role="button" tabindex="0" aria-label="${colorName(c)}" data-color="${c}" style="background:${c}"></div>`).join('');
 
   swatches.onclick = (e) => {
     if (e.target.classList.contains('color-swatch')) {
@@ -3087,14 +3436,36 @@ function setupColorPicker() {
     }
   };
 
+  swatches.onkeydown = (e) => {
+    if (!e.target.classList.contains('color-swatch')) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      selectedColor = e.target.dataset.color;
+      updateColorUI(selectedColor);
+    }
+    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
+      e.preventDefault();
+      const all = [...swatches.querySelectorAll('.color-swatch')];
+      const idx = all.indexOf(e.target);
+      const cols = Math.floor(swatches.clientWidth / all[0].offsetWidth) || 4;
+      let next = idx;
+      if (e.key === 'ArrowRight') next = Math.min(idx + 1, all.length - 1);
+      if (e.key === 'ArrowLeft') next = Math.max(idx - 1, 0);
+      if (e.key === 'ArrowDown') next = Math.min(idx + cols, all.length - 1);
+      if (e.key === 'ArrowUp') next = Math.max(idx - cols, 0);
+      all[next].focus();
+    }
+  };
+
   trigger.onclick = () => {
     selectedColor = facetConfig?.color || '#667eea';
     updateColorUI(selectedColor);
     modal.style.display = 'block';
+    modal._openAccessible(trigger);
   };
 
-  closeBtn.onclick = () => modal.style.display = 'none';
-  modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+  closeBtn.onclick = () => modal._closeAccessible();
+  modal.onclick = (e) => { if (e.target === modal) modal._closeAccessible(); };
 
   picker.oninput = () => { selectedColor = picker.value; updateColorUI(selectedColor); };
   hexInput.oninput = () => {
@@ -3109,7 +3480,7 @@ function setupColorPicker() {
       document.getElementById('colorPreview').style.backgroundColor = selectedColor;
       document.getElementById('colorHexDisplay').textContent = selectedColor;
       saveFacetField('color', selectedColor, null);
-      modal.style.display = 'none';
+      modal._closeAccessible();
     }
   };
 
@@ -3222,11 +3593,11 @@ function formatLogDay(day) {
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().slice(0,10).replace(/-/g,'');
 
-  if (day === todayStr) return 'Today';
-  if (day === yesterdayStr) return 'Yesterday';
+  if (day === todayStr) return 'today';
+  if (day === yesterdayStr) return 'yesterday';
 
   const d = new Date(day.slice(0,4) + '-' + day.slice(4,6) + '-' + day.slice(6,8));
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase();
 }
 
 document.getElementById('logMoreBtn').onclick = () => {
@@ -3300,6 +3671,19 @@ function notifyError(title, message) {
   }
 }
 
+function notifySuccess(title, message) {
+  if (window.AppServices?.notifications) {
+    window.AppServices.notifications.show({
+      app: 'settings',
+      icon: '\u2705',
+      title,
+      message,
+      dismissible: true,
+      autoDismiss: 3000
+    });
+  }
+}
+
 let reloadPrompted = false;
 function promptReload() {
   if (reloadPrompted) return;
@@ -3368,6 +3752,19 @@ function populateProviders(data) {
   if (authSelect && data.auth) {
     authSelect.value = data.auth[cogitateProvider] || 'platform';
   }
+
+  // Set Google backend selector
+  const backendSelect = document.getElementById('field-google-backend');
+  if (backendSelect) {
+    backendSelect.value = data.google_backend || 'auto';
+  }
+  // Show/hide vertex fields
+  const vertexFields = document.getElementById('vertexFields');
+  if (vertexFields) {
+    vertexFields.style.display = (data.google_backend === 'vertex') ? '' : 'none';
+  }
+  // Populate vertex credentials status
+  updateVertexCredsUI(data.vertex_credentials_configured, data.vertex_credentials_email);
 
   // Update status text
   document.getElementById('providerStatus').textContent = '';
@@ -3690,6 +4087,133 @@ document.getElementById('field-cogitate-auth')?.addEventListener('change', async
     showFieldStatus(authSelect, 'error', err.message);
   }
 });
+
+// Google backend change handler
+document.getElementById('field-google-backend')?.addEventListener('change', async function() {
+  const value = this.value;
+  try {
+    const response = await fetch('api/providers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ google_backend: value })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    providersData = result;
+    showFieldStatus(this, 'saved');
+    const vf = document.getElementById('vertexFields');
+    if (vf) vf.style.display = value === 'vertex' ? '' : 'none';
+    const vc = document.getElementById('vertexCredentials');
+    if (vc) vc.style.display = value === 'vertex' ? '' : 'none';
+    const gk = document.getElementById('googleApiKeyField');
+    if (gk) gk.style.display = value === 'vertex' ? 'none' : '';
+  } catch (err) {
+    console.error('Error saving google backend:', err);
+    showFieldStatus(this, 'error', err.message);
+  }
+});
+
+// Vertex SA credentials handlers
+function updateVertexCredsUI(configured, email) {
+  const emailEl = document.getElementById('vertex-creds-email');
+  const removeBtn = document.getElementById('btn-vertex-creds-remove');
+  const fileBtn = document.getElementById('btn-vertex-creds-file');
+  const pasteBtn = document.getElementById('btn-vertex-creds-paste');
+  if (configured && email) {
+    emailEl.textContent = email;
+    emailEl.style.color = '#2a7';
+    removeBtn.style.display = '';
+    fileBtn.style.display = 'none';
+    pasteBtn.style.display = 'none';
+  } else {
+    emailEl.textContent = 'not configured';
+    emailEl.style.color = '#666';
+    removeBtn.style.display = 'none';
+    fileBtn.style.display = '';
+    pasteBtn.style.display = '';
+  }
+  // Hide paste area
+  document.getElementById('vertex-creds-paste-input').style.display = 'none';
+  document.getElementById('vertex-creds-paste-actions').style.display = 'none';
+}
+
+function toggleVertexCredsPaste() {
+  const ta = document.getElementById('vertex-creds-paste-input');
+  const actions = document.getElementById('vertex-creds-paste-actions');
+  const show = ta.style.display === 'none';
+  ta.style.display = show ? '' : 'none';
+  actions.style.display = show ? '' : 'none';
+  if (show) { ta.value = ''; ta.focus(); }
+}
+
+function cancelVertexCredsPaste() {
+  document.getElementById('vertex-creds-paste-input').style.display = 'none';
+  document.getElementById('vertex-creds-paste-actions').style.display = 'none';
+}
+
+async function saveVertexCreds(jsonString) {
+  const field = document.getElementById('vertex-creds-field');
+  const small = field?.querySelector('small');
+  try {
+    // Basic client-side JSON validation
+    const parsed = JSON.parse(jsonString);
+    const required = ['type', 'project_id', 'client_email', 'private_key'];
+    const missing = required.filter(f => !parsed[f]);
+    if (missing.length) {
+      showFieldStatus(document.getElementById('btn-vertex-creds-file'), 'error', `Missing: ${missing.join(', ')}`);
+      return;
+    }
+
+    const response = await fetch('api/providers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vertex_credentials: jsonString })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    providersData = result;
+    updateVertexCredsUI(result.vertex_credentials_configured, result.vertex_credentials_email);
+    showFieldStatus(document.getElementById('btn-vertex-creds-remove'), 'saved', result.vertex_credentials_email || 'saved');
+  } catch (err) {
+    console.error('Error saving vertex credentials:', err);
+    showFieldStatus(document.getElementById('btn-vertex-creds-file') || small?.parentElement?.querySelector('button'), 'error', err.message);
+  }
+}
+
+function uploadVertexCredsFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    saveVertexCreds(e.target.result);
+  };
+  reader.readAsText(file);
+  input.value = ''; // reset so same file can be re-selected
+}
+
+function submitVertexCredsPaste() {
+  const ta = document.getElementById('vertex-creds-paste-input');
+  if (!ta.value.trim()) return;
+  saveVertexCreds(ta.value.trim());
+}
+
+async function removeVertexCreds() {
+  try {
+    const response = await fetch('api/providers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vertex_credentials: '' })
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    providersData = result;
+    updateVertexCredsUI(false, '');
+    showFieldStatus(document.getElementById('btn-vertex-creds-file'), 'saved', 'credentials removed');
+  } catch (err) {
+    console.error('Error removing vertex credentials:', err);
+    showFieldStatus(document.getElementById('btn-vertex-creds-remove'), 'error', err.message);
+  }
+}
 
 // ========== TRANSCRIPTION ==========
 // Backend metadata loaded from API
@@ -4048,7 +4572,7 @@ function populateVision(data) {
 }
 
 const IMPORTANCE_LEVELS = ['high', 'normal', 'low', 'ignore'];
-const IMPORTANCE_LABELS = { high: 'High Priority', normal: 'Normal', low: 'Low Priority', ignore: 'Ignored' };
+const IMPORTANCE_LABELS = { high: 'high priority', normal: 'normal', low: 'low priority', ignore: 'ignored' };
 
 function renderVisionCategories(data) {
   const container = document.getElementById('visionCategoryGroups');
@@ -4515,7 +5039,7 @@ function renderInsightsList(insights) {
   // Group by source
   const groups = {};
   for (const insight of insights) {
-    const source = insight.source === 'system' ? 'System' : (insight.app || 'App');
+    const source = insight.source === 'system' ? 'system' : (insight.app || 'app');
     if (!groups[source]) groups[source] = [];
     groups[source].push(insight);
   }
@@ -4865,15 +5389,19 @@ async function removeActivity(activityId) {
 // Custom activity modal
 document.getElementById('addCustomActivityBtn').addEventListener('click', () => {
   document.getElementById('customActivityModal').style.display = 'block';
+  document.getElementById('customActivityModal')._openAccessible(document.getElementById('addCustomActivityBtn'));
   document.getElementById('customActivityName').value = '';
   document.getElementById('customActivityDesc').value = '';
   document.getElementById('customActivityIcon').value = '';
   document.getElementById('customActivityInstructions').value = '';
-  document.getElementById('customActivityName').focus();
 });
 
 document.getElementById('customActivityClose').addEventListener('click', () => {
-  document.getElementById('customActivityModal').style.display = 'none';
+  document.getElementById('customActivityModal')._closeAccessible();
+});
+
+document.getElementById('customActivityModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('customActivityModal')) document.getElementById('customActivityModal')._closeAccessible();
 });
 
 document.getElementById('saveCustomActivityBtn').addEventListener('click', async () => {
@@ -4898,7 +5426,7 @@ document.getElementById('saveCustomActivityBtn').addEventListener('click', async
     const result = await response.json();
     if (result.error) throw new Error(result.error);
 
-    document.getElementById('customActivityModal').style.display = 'none';
+    document.getElementById('customActivityModal')._closeAccessible();
     await loadActivities(window.selectedFacet);
   } catch (err) {
     console.error('Error adding custom activity:', err);
@@ -4973,12 +5501,6 @@ if (resetAgentBtn) {
     }
   });
 }
-
-// Close modal on outside click
-window.addEventListener('click', (e) => {
-  const modal = document.getElementById('customActivityModal');
-  if (e.target === modal) modal.style.display = 'none';
-});
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -5168,6 +5690,7 @@ function setupStorageListeners() {
 function openCleanupModal() {
   const modal = document.getElementById('cleanupModal');
   modal.style.display = 'flex';
+  modal._openAccessible(document.getElementById('cleanupNowBtn'));
   resetCleanupPreview();
 
   // Populate stream filter
@@ -5184,7 +5707,7 @@ function openCleanupModal() {
 }
 
 function closeCleanupModal() {
-  document.getElementById('cleanupModal').style.display = 'none';
+  document.getElementById('cleanupModal')._closeAccessible();
 }
 
 function resetCleanupPreview() {
@@ -5299,6 +5822,16 @@ loadSync();
 loadStorage();
 setupAutoSave();
 setupStorageListeners();
+
+// Enter-to-save for auto-save text inputs inside forms
+document.querySelectorAll('.settings-form input[data-section][type="text"], .settings-form input[data-section][type="number"], .settings-form input[data-section][type="password"]').forEach(input => {
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+    }
+  });
+});
 
 // If facet is selected on load, load its config
 if (window.selectedFacet) {

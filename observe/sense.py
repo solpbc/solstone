@@ -32,17 +32,17 @@ logger = logging.getLogger(__name__)
 class QueuedItem:
     """Item in a handler queue with context for deferred processing."""
 
-    __slots__ = ("file_path", "queued_at", "remote", "meta")
+    __slots__ = ("file_path", "queued_at", "observer", "meta")
 
     def __init__(
         self,
         file_path: Path,
-        remote: Optional[str] = None,
+        observer: Optional[str] = None,
         meta: Optional[Dict[str, Any]] = None,
     ):
         self.file_path = file_path
         self.queued_at = time.time()
-        self.remote = remote
+        self.observer = observer
         self.meta = meta
 
 
@@ -65,13 +65,13 @@ class HandlerQueue:
     def enqueue(
         self,
         file_path: Path,
-        remote: Optional[str] = None,
+        observer: Optional[str] = None,
         meta: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Add file to queue if not already present. Returns True if queued."""
         queued_paths = [item.file_path for item in self.queue]
         if file_path not in queued_paths:
-            self.queue.append(QueuedItem(file_path, remote, meta))
+            self.queue.append(QueuedItem(file_path, observer, meta))
             return True
         return False
 
@@ -154,8 +154,8 @@ class FileSensor:
         self.segment_day: Dict[str, str] = {}
         # Track batch origin: {segment_key: True} for segments from batch mode
         self.segment_batch: Dict[str, bool] = {}
-        # Track remote origin: {segment_key: remote_name} for remote observer segments
-        self.segment_remote: Dict[str, str] = {}
+        # Track observer origin: {segment_key: observer_name} for observer segments
+        self.segment_observer: Dict[str, str] = {}
         # Track handler errors per segment: {segment_key: [error_strings]}
         self.segment_errors: Dict[str, list[str]] = {}
         # Track stream identity per segment: {segment_key: stream_name}
@@ -202,7 +202,7 @@ class FileSensor:
         day: Optional[str] = None,
         batch: bool = False,
         segment: Optional[str] = None,
-        remote: Optional[str] = None,
+        observer: Optional[str] = None,
         meta: Optional[Dict[str, Any]] = None,
         cpu_fallback: bool = False,
     ):
@@ -217,7 +217,7 @@ class FileSensor:
             day: Day string (YYYYMMDD), extracted from path if not provided
             batch: Whether this is from batch processing mode
             segment: Segment key, extracted from path if not provided
-            remote: Remote name for REMOTE_NAME env var
+            observer: Observer name for OBSERVER_NAME env var
             meta: Optional metadata dict (facet, setting, host, platform, etc.)
                   to pass to handlers via SEGMENT_META env var
             cpu_fallback: If True, this is a retry after GPU failure (adds --cpu,
@@ -257,7 +257,7 @@ class FileSensor:
                 # Check if this handler uses serialized execution
                 handler_queue = self.handler_queues.get(handler_name)
                 if handler_queue and not handler_queue.can_start():
-                    if handler_queue.enqueue(file_path, remote=remote, meta=meta):
+                    if handler_queue.enqueue(file_path, observer=observer, meta=meta):
                         logger.info(
                             f"Queueing {file_path.name} for {handler_name} "
                             f"(queue size: {handler_queue.queue_size()})"
@@ -283,8 +283,8 @@ class FileSensor:
                 event_fields["day"] = day
             if segment:
                 event_fields["segment"] = segment
-            if remote:
-                event_fields["remote"] = remote
+            if observer:
+                event_fields["observer"] = observer
             if segment and segment in self.segment_stream:
                 event_fields["stream"] = self.segment_stream[segment]
             self.callosum.emit("observe", "detected", **event_fields)
@@ -308,12 +308,12 @@ class FileSensor:
             f"Spawning {handler_name}{fallback_note} for {file_path.name}: {' '.join(cmd)}"
         )
 
-        # Build environment with segment and remote context for handlers
+        # Build environment with segment and observer context for handlers
         env = os.environ.copy()
         if segment:
             env["SOL_SEGMENT"] = segment
-        if remote:
-            env["REMOTE_NAME"] = remote
+        if observer:
+            env["OBSERVER_NAME"] = observer
         if meta:
             env["SEGMENT_META"] = json.dumps(meta)
 
@@ -458,7 +458,7 @@ class FileSensor:
                         item.file_path,
                         handler_name,
                         command,
-                        remote=item.remote,
+                        observer=item.observer,
                         meta=item.meta,
                     )
 
@@ -474,7 +474,7 @@ class FileSensor:
         duration = int(time.time() - self.segment_start_time[segment])
         day = self.segment_day.get(segment)
         batch = self.segment_batch.get(segment, False)
-        remote = self.segment_remote.get(segment)
+        observer = self.segment_observer.get(segment)
         errors = self.segment_errors.get(segment)
         stream = self.segment_stream.get(segment)
 
@@ -486,8 +486,8 @@ class FileSensor:
             }
             if batch:
                 event_fields["batch"] = True
-            if remote:
-                event_fields["remote"] = remote
+            if observer:
+                event_fields["observer"] = observer
             if stream:
                 event_fields["stream"] = stream
             if errors:
@@ -521,8 +521,8 @@ class FileSensor:
             del self.segment_day[segment]
         if segment in self.segment_batch:
             del self.segment_batch[segment]
-        if segment in self.segment_remote:
-            del self.segment_remote[segment]
+        if segment in self.segment_observer:
+            del self.segment_observer[segment]
         if segment in self.segment_stream:
             del self.segment_stream[segment]
         if segment in self.segment_errors:
@@ -558,7 +558,7 @@ class FileSensor:
         self,
         file_path: Path,
         segment: Optional[str] = None,
-        remote: Optional[str] = None,
+        observer: Optional[str] = None,
         meta: Optional[Dict[str, Any]] = None,
     ):
         """Route file to appropriate handler.
@@ -566,7 +566,7 @@ class FileSensor:
         Args:
             file_path: Path to the file to process
             segment: Optional segment key for tracking
-            remote: Optional remote name for REMOTE_NAME env var
+            observer: Optional observer name for OBSERVER_NAME env var
             meta: Optional metadata dict for SEGMENT_META env var
         """
         if not file_path.exists():
@@ -581,7 +581,7 @@ class FileSensor:
                 handler_name,
                 command,
                 segment=segment,
-                remote=remote,
+                observer=observer,
                 meta=meta,
             )
 
@@ -597,7 +597,7 @@ class FileSensor:
         day = message.get("day")
         segment = message.get("segment")
         files = message.get("files", [])
-        remote = message.get("remote")  # Optional: set for remote observer uploads
+        observer = message.get("observer")  # Optional: set for observer uploads
         meta = message.get("meta")  # Optional: metadata dict (facet, setting, etc.)
         stream = message.get("stream")  # Optional: stream identity from observer
 
@@ -634,8 +634,8 @@ class FileSensor:
                 self.segment_files[segment] = set()
                 self.segment_start_time[segment] = time.time()
                 self.segment_day[segment] = day
-                if remote:
-                    self.segment_remote[segment] = remote
+                if observer:
+                    self.segment_observer[segment] = observer
             for file_path in file_paths:
                 # Only track files that will be processed (match a pattern)
                 if self._match_pattern(file_path):
@@ -643,7 +643,7 @@ class FileSensor:
 
         # Process each file (pass segment context for env vars)
         for file_path in file_paths:
-            self._handle_file(file_path, segment=segment, remote=remote, meta=meta)
+            self._handle_file(file_path, segment=segment, observer=observer, meta=meta)
 
         # If no files matched any handler patterns, emit observed immediately
         # (e.g., tmux-only segments with just .jsonl files)
@@ -685,6 +685,9 @@ class FileSensor:
                         "file": rel_file,
                         "ref": handler_proc.managed.ref,
                     }
+                    handler_status["running"]["duration_seconds"] = int(
+                        now - handler_proc.started_at
+                    )
 
                 # Queued items with age
                 if handler_queue.queue_size() > 0:
@@ -699,6 +702,13 @@ class FileSensor:
                             {"file": rel_file, "age_seconds": int(now - item.queued_at)}
                         )
                     handler_status["queued"] = queued_list
+
+                if handler_queue.queue_size() > 0:
+                    handler_status["max_age_seconds"] = int(
+                        now - min(item.queued_at for item in handler_queue.queue)
+                    )
+                elif handler_status:
+                    handler_status["max_age_seconds"] = 0
 
                 # Add section if any activity for this handler
                 if handler_status:

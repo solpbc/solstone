@@ -7,7 +7,7 @@
  *
  * Features:
  * - Catches window errors and unhandled promise rejections
- * - Updates status icon to red with red glow on error
+ * - Adds error glow to status icon via .error class
  * - Displays error log at bottom of viewport
  * - Provides modal for manual error display via window.showError()
  */
@@ -27,6 +27,17 @@
   // Log error to bottom panel
   function logError(text) {
     if (errorLog) {
+      if (!document.getElementById('error-log-dismiss')) {
+        var btn = document.createElement('button');
+        btn.id = 'error-log-dismiss';
+        btn.textContent = 'clear';
+        btn.setAttribute('aria-label', 'dismiss error log');
+        btn.onclick = function() {
+          errorLog.innerHTML = '';
+          errorLog.style.display = 'none';
+        };
+        errorLog.insertAdjacentElement('afterbegin', btn);
+      }
       errorLog.insertAdjacentHTML(
         'beforeend',
         escapeHtml(text) + '<br>'
@@ -38,7 +49,6 @@
   // Mark status icon as error state (red with glow)
   function markError() {
     if (statusIcon) {
-      statusIcon.textContent = '🔴';
       statusIcon.classList.add('error');
     }
   }

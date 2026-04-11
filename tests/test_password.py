@@ -6,28 +6,18 @@
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 
 import pytest
 from werkzeug.security import check_password_hash
 
 from convey import create_app
+from tests.conftest import copytree_tracked
 
 
 @pytest.fixture
-def journal_dir(tmp_path, monkeypatch):
-    """Copy test fixture to temp dir for mutation tests."""
-    src = Path(__file__).resolve().parent / "fixtures" / "journal"
-    dst = tmp_path / "journal"
-    shutil.copytree(src, dst, symlinks=True)
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(dst))
-    return dst
-
-
-@pytest.fixture
-def client(journal_dir):
-    app = create_app(str(journal_dir))
+def client(journal_copy):
+    app = create_app(str(journal_copy))
     app.config["TESTING"] = True
     return app.test_client()
 
@@ -44,16 +34,16 @@ class TestLogin:
     def test_wrong_password(self, client):
         resp = client.post("/login", data={"password": "wrong"})
         assert resp.status_code == 200
-        assert b"Invalid password" in resp.data
+        assert b"incorrect password. passwords are case-sensitive." in resp.data
 
-    def test_no_password_configured(self, journal_dir, monkeypatch):
-        config = _read_config(journal_dir)
+    def test_no_password_configured(self, journal_copy):
+        config = _read_config(journal_copy)
         config["convey"].pop("password_hash", None)
         config["convey"].pop("password", None)
-        (journal_dir / "config" / "journal.json").write_text(
+        (journal_copy / "config" / "journal.json").write_text(
             json.dumps(config, indent=2)
         )
-        app = create_app(str(journal_dir))
+        app = create_app(str(journal_copy))
         app.config["TESTING"] = True
         client = app.test_client()
         resp = client.get("/login")
@@ -65,7 +55,7 @@ class TestMigration:
         """Plaintext password is hashed and old key removed on app creation."""
         src = Path(__file__).resolve().parent / "fixtures" / "journal"
         dst = tmp_path / "journal"
-        shutil.copytree(src, dst, symlinks=True)
+        copytree_tracked(src, dst)
         config_path = dst / "config" / "journal.json"
         config = json.loads(config_path.read_text())
         config["convey"].pop("password_hash", None)
@@ -84,7 +74,7 @@ class TestMigration:
         """Empty plaintext password is removed, not hashed."""
         src = Path(__file__).resolve().parent / "fixtures" / "journal"
         dst = tmp_path / "journal"
-        shutil.copytree(src, dst, symlinks=True)
+        copytree_tracked(src, dst)
         config_path = dst / "config" / "journal.json"
         config = json.loads(config_path.read_text())
         config["convey"].pop("password_hash", None)
@@ -98,14 +88,14 @@ class TestMigration:
         assert "password" not in config["convey"]
         assert "password_hash" not in config["convey"]
 
-    def test_already_migrated_skipped(self, journal_dir):
+    def test_already_migrated_skipped(self, journal_copy):
         """If password_hash exists, migration is a no-op."""
-        config_before = _read_config(journal_dir)
+        config_before = _read_config(journal_copy)
         hash_before = config_before["convey"]["password_hash"]
 
-        create_app(str(journal_dir))
+        create_app(str(journal_copy))
 
-        config_after = _read_config(journal_dir)
+        config_after = _read_config(journal_copy)
         assert config_after["convey"]["password_hash"] == hash_before
 
 
@@ -119,7 +109,7 @@ class TestSettingsAPI:
         assert "password_hash" not in convey
         assert convey.get("has_password") is True
 
-    def test_put_hashes_password(self, client, journal_dir):
+    def test_put_hashes_password(self, client, journal_copy):
         """PUT with convey.password hashes before writing to disk."""
         resp = client.put(
             "/app/settings/api/config",
@@ -127,13 +117,13 @@ class TestSettingsAPI:
             content_type="application/json",
         )
         assert resp.status_code == 200
-        config = _read_config(journal_dir)
+        config = _read_config(journal_copy)
         assert "password" not in config["convey"]
         assert check_password_hash(config["convey"]["password_hash"], "new-secret")
 
-    def test_put_empty_password_skipped(self, client, journal_dir):
+    def test_put_empty_password_skipped(self, client, journal_copy):
         """PUT with empty password does not overwrite existing hash."""
-        config_before = _read_config(journal_dir)
+        config_before = _read_config(journal_copy)
         hash_before = config_before["convey"]["password_hash"]
 
         resp = client.put(
@@ -142,5 +132,5 @@ class TestSettingsAPI:
             content_type="application/json",
         )
         assert resp.status_code == 200
-        config_after = _read_config(journal_dir)
+        config_after = _read_config(journal_copy)
         assert config_after["convey"]["password_hash"] == hash_before

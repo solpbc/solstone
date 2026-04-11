@@ -909,7 +909,7 @@ class TestCheckRemoteHealth:
             mock_get.return_value = mock_response
 
             success, message = check_remote_health(
-                "http://server.local:8000/app/remote/ingest/abc12345xyz"
+                "http://server.local:8000/app/observer/ingest/abc12345xyz"
             )
 
             assert success is True
@@ -926,7 +926,7 @@ class TestCheckRemoteHealth:
             mock_get.return_value = mock_response
 
             success, message = check_remote_health(
-                "http://server.local:8000/app/remote/ingest/badkey"
+                "http://server.local:8000/app/observer/ingest/badkey"
             )
 
             assert success is False
@@ -944,7 +944,7 @@ class TestCheckRemoteHealth:
             mock_get.return_value = mock_response
 
             success, message = check_remote_health(
-                "http://server.local:8000/app/remote/ingest/revokedkey"
+                "http://server.local:8000/app/observer/ingest/revokedkey"
             )
 
             assert success is False
@@ -964,7 +964,7 @@ class TestCheckRemoteHealth:
             mock_get.return_value = mock_response
 
             success, message = check_remote_health(
-                "http://server.local:8000/app/remote/ingest/badkey"
+                "http://server.local:8000/app/observer/ingest/badkey"
             )
 
             assert success is False
@@ -980,7 +980,7 @@ class TestCheckRemoteHealth:
             )
 
             success, message = check_remote_health(
-                "http://server.local:8000/app/remote/ingest/key123"
+                "http://server.local:8000/app/observer/ingest/key123"
             )
 
             assert success is False
@@ -994,7 +994,7 @@ class TestCheckRemoteHealth:
             mock_get.side_effect = requests.exceptions.Timeout("timed out")
 
             success, message = check_remote_health(
-                "http://server.local:8000/app/remote/ingest/key123",
+                "http://server.local:8000/app/observer/ingest/key123",
                 timeout=5.0,
             )
 
@@ -1011,7 +1011,7 @@ class TestCheckRemoteHealth:
             )
 
             success, message = check_remote_health(
-                "http://nonexistent.invalid/app/remote/ingest/key123"
+                "http://nonexistent.invalid/app/observer/ingest/key123"
             )
 
             assert success is False

@@ -10,7 +10,7 @@ navigable chain with human-readable identity.
 Naming convention (separator is '.'):
     Local observer:   {hostname}           e.g. "archon"  (domain stripped: archon.local -> archon)
     Local tmux:       {hostname}.tmux      e.g. "archon.tmux"
-    Remote observer:  {remote_name}        e.g. "laptop"  (domain stripped: laptop.local -> laptop)
+    Observer:         {observer_name}      e.g. "laptop"  (domain stripped: laptop.local -> laptop)
     Import (Apple):   import.apple
     Import (Plaud):   import.plaud
     Import (generic): import.audio
@@ -63,20 +63,20 @@ def _strip_hostname(name: str) -> str:
 def stream_name(
     *,
     host: str | None = None,
-    remote: str | None = None,
+    observer: str | None = None,
     import_source: str | None = None,
     qualifier: str | None = None,
 ) -> str:
     """Derive canonical stream name from source characteristics.
 
-    Exactly one of host, remote, or import_source must be provided.
+    Exactly one of host, observer, or import_source must be provided.
 
     Parameters
     ----------
     host : str, optional
         Local hostname (e.g., "archon").
-    remote : str, optional
-        Remote observer name (e.g., "laptop").
+    observer : str, optional
+        Observer name (e.g., "laptop").
     import_source : str, optional
         Import source type (e.g., "apple", "plaud", "audio", "text").
     qualifier : str, optional
@@ -94,12 +94,12 @@ def stream_name(
     """
     if host:
         base = _strip_hostname(host)
-    elif remote:
-        base = _strip_hostname(remote)
+    elif observer:
+        base = _strip_hostname(observer)
     elif import_source:
         base = f"import.{import_source}"
     else:
-        raise ValueError("stream_name requires host, remote, or import_source")
+        raise ValueError("stream_name requires host, observer, or import_source")
 
     # Sanitize: lowercase, replace spaces/slashes with dash, strip
     name = base.lower().strip()

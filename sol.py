@@ -40,33 +40,29 @@ COMMANDS: dict[str, str] = {
     # think package - daily processing and analysis
     "import": "think.importers.cli",
     "dream": "think.dream",
-    "planner": "think.planner",
     "indexer": "think.indexer",
     "supervisor": "think.supervisor",
     "schedule": "think.scheduler",
-    "detect-created": "think.detect_created",
     "top": "think.top",
     "health": "think.health_cli",
-    "callosum": "think.callosum",
     "notify": "think.notify_cli",
+    "password": "think.password_cli",
     "streams": "think.streams",
+    "segment": "think.segment",
     "journal-stats": "think.journal_stats",
-    "config": "think.config_cli",
-    "formatter": "think.formatters",
     # observe package - multimodal capture
     "transcribe": "observe.transcribe",
     "describe": "observe.describe",
     "sense": "observe.sense",
     "sync": "observe.sync",
     "transfer": "observe.transfer",
-    "remote": "observe.remote_cli",
+    "observer": "observe.observer_cli",
     # AI agents (talent package)
     "agents": "think.agents",
     "cortex": "think.cortex",
     "talent": "think.talent_cli",
     "call": "think.call",
     "engage": "think.engage",
-    "help": "think.help_cli",
     "chat": "think.chat_cli",
     "heartbeat": "think.heartbeat",
     # convey package - web UI
@@ -98,13 +94,11 @@ GROUPS: dict[str, list[str]] = {
     "Think (daily processing)": [
         "import",
         "dream",
-        "planner",
         "indexer",
         "supervisor",
         "schedule",
         "top",
         "health",
-        "callosum",
         "notify",
         "heartbeat",
     ],
@@ -115,13 +109,12 @@ GROUPS: dict[str, list[str]] = {
         "sense",
         "sync",
         "transfer",
-        "remote",
+        "observer",
     ],
     "Talent (AI agents)": [
         "agents",
         "cortex",
         "talent",
-        "call",
         "engage",
     ],
     "Convey (web UI)": [
@@ -131,13 +124,12 @@ GROUPS: dict[str, list[str]] = {
         "maint",
     ],
     "Specialized tools": [
-        "config",
+        "password",
         "streams",
+        "segment",
         "journal-stats",
-        "formatter",
-        "detect-created",
     ],
-    "Help": ["help", "chat"],
+    "Help": ["chat"],
 }
 
 
@@ -186,6 +178,21 @@ def print_help() -> None:
                 module = COMMANDS[cmd]
                 print(f"  {cmd:16} {module}")
         print()
+
+    # Print call sub-apps
+    try:
+        from think.call import call_app
+
+        print("Apps (sol call <app>):")
+        for group in call_app.registered_groups:
+            name = group.name or ""
+            help_text = group.typer_instance.info.help
+            if not isinstance(help_text, str):
+                help_text = ""
+            print(f"  call {name:16} {help_text}")
+        print()
+    except Exception:
+        pass
 
     # Print aliases if any
     if ALIASES:
@@ -294,6 +301,13 @@ def main() -> None:
 
         path, _source = get_journal_info()
         print(path)
+        return
+
+    # Root command — print repo root for scripting: SOL=$(sol root)
+    if cmd == "root":
+        from think.utils import get_project_root
+
+        print(get_project_root())
         return
 
     # Resolve command to module path

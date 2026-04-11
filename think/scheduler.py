@@ -473,6 +473,7 @@ def collect_status() -> list[dict[str, Any]]:
             "last_run": last_run,
             "due": _is_due(entry, state_entry, now),
         }
+        entry_status["next_run"] = _compute_next_run(entry, state_entry, now)
         if entry["every"] == "daily" and _daily_time:
             entry_status["daily_time"] = _daily_time
         if entry["every"] == "weekly":
@@ -482,6 +483,26 @@ def collect_status() -> list[dict[str, Any]]:
                 entry_status["weekly_time"] = _weekly_time
         result.append(entry_status)
     return result
+
+
+def _compute_next_run(entry: dict, state_entry: dict | None, now: datetime) -> int:
+    """Compute next run time as epoch milliseconds."""
+    every = entry["every"]
+    if every == "hourly":
+        mark = _hour_mark(now)
+        nxt = mark if _is_due(entry, state_entry, now) else mark + timedelta(hours=1)
+    elif every == "daily":
+        mark = _compute_daily_mark(now, _daily_time)
+        nxt = mark if _is_due(entry, state_entry, now) else mark + timedelta(days=1)
+    elif every == "weekly":
+        weekly_day_val = _parse_weekly_day(_weekly_day)
+        if weekly_day_val is None:
+            weekly_day_val = 6
+        mark = _compute_weekly_mark(now, weekly_day_val, _weekly_time)
+        nxt = mark if _is_due(entry, state_entry, now) else mark + timedelta(weeks=1)
+    else:
+        return int(now.timestamp() * 1000)
+    return int(nxt.timestamp() * 1000)
 
 
 # ---------------------------------------------------------------------------

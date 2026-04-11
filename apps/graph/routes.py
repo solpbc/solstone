@@ -48,8 +48,10 @@ def api_graph():
     min_strength = request.args.get("min_strength", type=float, default=0.0)
     limit = request.args.get("limit", type=int, default=100)
 
-    # Default to 90 days if no since provided
-    if not since:
+    # "all" means no date filter; default to 90 days if not specified
+    if since == "all":
+        since = None
+    elif not since:
         since = (date.today() - timedelta(days=90)).strftime("%Y%m%d")
 
     # Get ranked entities
@@ -109,13 +111,15 @@ def api_graph():
         )
 
         # Map edge entity names to node IDs
-        name_to_id = _build_name_to_node_id(conn, {n["id"] for n in nodes})
+        node_ids = {n["id"] for n in nodes}
+        name_to_id = _build_name_to_node_id(
+            conn, node_ids, since=since, facet=facet
+        )
         edges = []
         for e in explicit_edges + co_occurrence_edges:
             from_id = name_to_id.get(e["from_name"], e["from_name"])
             to_id = name_to_id.get(e["to_name"], e["to_name"])
             # Only include edges where both endpoints are visible nodes
-            node_ids = {n["id"] for n in nodes}
             if from_id in node_ids and to_id in node_ids:
                 e["from"] = from_id
                 e["to"] = to_id
@@ -228,6 +232,7 @@ def _get_co_occurrence_edges(
     explicit_edges: list[dict[str, Any]],
     facet: str | None,
     since: str | None,
+    limit: int = 2000,
 ) -> list[dict[str, Any]]:
     """Find co-occurrence edges: entity pairs sharing paths, minus explicit edges."""
     if not node_names:
@@ -264,6 +269,9 @@ def _get_co_occurrence_edges(
         params.append(since)
 
     where = " AND ".join(where_parts)
+    params.append(limit)
+    # NOTE: A composite index on entity_signals(path, entity_name) would
+    # significantly improve this self-join. See schema in think/indexer/journal.py.
     rows = conn.execute(
         f"""
         SELECT s1.entity_name, s2.entity_name, COUNT(DISTINCT s1.path) as freq
@@ -274,6 +282,8 @@ def _get_co_occurrence_edges(
         WHERE {where}
         GROUP BY s1.entity_name, s2.entity_name
         HAVING freq >= 2
+        ORDER BY freq DESC
+        LIMIT ?
         """,
         params,
     ).fetchall()
@@ -299,6 +309,8 @@ def _get_co_occurrence_edges(
 def _build_name_to_node_id(
     conn: sqlite3.Connection,
     node_ids: set[str],
+    since: str | None = None,
+    facet: str | None = None,
 ) -> dict[str, str]:
     """Map signal entity_names to node IDs (entity_ids) for edge matching.
 
@@ -329,12 +341,25 @@ def _build_name_to_node_id(
         entity_dicts.append(d)
 
     # Collect all names that may appear as edge endpoints
+    where_parts: list[str] = []
+    params: list[Any] = []
+    if since:
+        where_parts.append("day>=?")
+        params.append(since)
+    if facet:
+        where_parts.append("facet=?")
+        params.append(facet.lower())
+
     entity_name_rows = conn.execute(
-        "SELECT DISTINCT entity_name FROM entity_signals"
+        f"SELECT DISTINCT entity_name FROM entity_signals"
+        f"{' WHERE ' + ' AND '.join(where_parts) if where_parts else ''}",
+        params,
     ).fetchall()
     target_name_rows = conn.execute(
-        "SELECT DISTINCT target_name FROM entity_signals "
-        "WHERE target_name IS NOT NULL AND target_name != ''"
+        f"SELECT DISTINCT target_name FROM entity_signals "
+        f"WHERE target_name IS NOT NULL AND target_name != ''"
+        f"{' AND ' + ' AND '.join(where_parts) if where_parts else ''}",
+        params,
     ).fetchall()
     all_names = list(
         {r[0] for r in entity_name_rows} | {r[0] for r in target_name_rows}

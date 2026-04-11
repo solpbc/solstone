@@ -385,6 +385,18 @@ class CortexService:
                             _req = self.agent_requests.get(agent.agent_id)
                         if _req and "name" not in event:
                             event["name"] = _req.get("name", "")
+                        # Inject display mode for triage agent finish events
+                        if event.get("event") == "finish" and _req:
+                            try:
+                                from apps.home.events import TRIAGE_AGENT_NAMES
+                                from convey.triage import compute_display_mode
+
+                                if _req.get("name", "") in TRIAGE_AGENT_NAMES:
+                                    event["display"] = compute_display_mode(
+                                        event.get("result", "")
+                                    )
+                            except Exception:
+                                pass  # Display is cosmetic; don't break finish handling
 
                         # Append to JSONL file
                         with open(agent.log_path, "a") as f:

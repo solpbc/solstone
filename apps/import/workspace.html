@@ -22,6 +22,9 @@
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  font: inherit;
+  color: inherit;
+  text-align: left;
 }
 
 .import-source-card:hover {
@@ -72,7 +75,7 @@
   margin-top: 1rem;
 }
 
-.import-step:first-child {
+.import-steps-list > li:first-child .import-step {
   border-top: none;
   margin-top: 0;
   padding-top: 0;
@@ -89,8 +92,6 @@
   color: #0f4c81;
   font-size: 0.78rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   margin-bottom: 0.5rem;
 }
 
@@ -156,6 +157,11 @@
 .import-upload-area.dragover {
   border-color: #0f4c81;
   background: #edf5ff;
+}
+
+.import-upload-area:focus-visible {
+  outline: 2px solid #0f4c81;
+  outline-offset: 2px;
 }
 
 .import-upload-area p {
@@ -370,7 +376,8 @@
 .spinner { display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; margin-left:6px; }
 .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
 .modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:800px; max-height:80vh; overflow:auto; position:relative; }
-.close { position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; }
+.close { position:absolute; top:10px; right:15px; cursor:pointer; background:none; border:none; font:inherit; font-size:24px; padding:0; }
+.modal-content h3 { margin: 0 0 0.75em 0; font-size: 1.1rem; }
 .confirm-fields { display: flex; gap: 1em; flex-wrap: wrap; margin-top: 0.5em; }
 .confirm-field { display: flex; flex-direction: column; flex: 1 1 180px; min-width: 180px; }
 .confirm-field label { font-size: 0.9em; color: #666; margin-bottom: 0.25em; }
@@ -378,7 +385,7 @@
 .confirm-field select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; background: white; }
 .modal-actions { margin-top: 1em; display: flex; justify-content: flex-end; }
 
-.import-list { margin-top: 2em; }
+.import-list { margin-top: 2em; overflow-x: auto; }
 .import-list h2 { margin: 0; }
 .import-table { width: 100%; border-collapse: collapse; }
 .import-table th { background: #f5f5f5; text-align: left; padding: 8px; border-bottom: 2px solid #ddd; font-size: 0.9em; }
@@ -411,25 +418,96 @@
   font-size: 0.9rem;
 }
 
-@media (max-width: 980px) {
-  .import-source-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.import-source-card:focus-visible {
+  outline: 2px solid #0f4c81;
+  outline-offset: 2px;
 }
 
-@media (max-width: 720px) {
+.import-table tbody tr:focus-visible {
+  outline: 2px solid #0f4c81;
+  outline-offset: -2px;
+  background: #f0f4ff;
+}
+
+.import-steps-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
   .import-source-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .import-guided-flow,
   .modal-content {
     padding: 1rem;
   }
+
+  .import-table th:nth-child(4),
+  .import-table td:nth-child(4),
+  .import-table th:nth-child(7),
+  .import-table td:nth-child(7),
+  .import-table th:nth-child(9),
+  .import-table td:nth-child(9) {
+    display: none;
+  }
+
+  .import-table th,
+  .import-table td {
+    padding: 6px 4px;
+    font-size: 0.85em;
+  }
+
+  .import-table tr[tabindex] {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .import-source-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .import-table th:nth-child(2),
+  .import-table td:nth-child(2),
+  .import-table th:nth-child(4),
+  .import-table td:nth-child(4),
+  .import-table th:nth-child(5),
+  .import-table td:nth-child(5),
+  .import-table th:nth-child(7),
+  .import-table td:nth-child(7),
+  .import-table th:nth-child(8),
+  .import-table td:nth-child(8),
+  .import-table th:nth-child(9),
+  .import-table td:nth-child(9) {
+    display: none;
+  }
+
+  .import-table th,
+  .import-table td {
+    padding: 8px 4px;
+  }
+
+  .import-table tr[tabindex] {
+    min-height: 44px;
+  }
 }
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 @keyframes spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .import-status.running::before {
+        animation: none;
+        opacity: 1;
+    }
+    .spinner {
+        animation: none;
+        border-top-color: #fff;
+        opacity: 0.7;
+    }
+}
 </style>
 <div class="workspace-content-wide">
   <div id="importGrid" class="import-source-grid"></div>
@@ -447,9 +525,10 @@
   </div>
 </div>
 
-<div id="detectModal" class="modal">
+<div id="detectModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="detectModalTitle">
   <div class="modal-content">
-    <span class="close">&times;</span>
+    <h3 id="detectModalTitle">Confirm import details</h3>
+    <button class="close" type="button" aria-label="Close" onclick="closeDetectModal()">&times;</button>
     <div class="confirm-fields">
       <div class="confirm-field">
         <label for="timestampInput">Timestamp</label>
@@ -503,6 +582,8 @@ let currentGuidedSaved = null;
 let importEvents = {};
 let importsCache = [];
 let currentSourceFilter = '';
+let currentPage = 1;
+let totalImports = 0;
 
 function escapeHtml(str) {
   if (str === null || str === undefined) {
@@ -582,11 +663,11 @@ async function loadSourceGrid() {
       ? 'showQuickImport()'
       : `navigateTo(&quot;guide/${source.name}&quot;)`;
     return `
-      <div class="import-source-card" onclick="${clickHandler}">
-        <div class="import-source-card-emoji">${source.emoji || ''}</div>
+      <button type="button" class="import-source-card" onclick="${clickHandler}">
+        <div class="import-source-card-emoji" aria-label="${escapeHtml(source.display_name)}">${source.emoji || ''}</div>
         <div class="import-source-card-name">${escapeHtml(source.display_name)}</div>
         <div class="import-source-card-desc">${escapeHtml(source.description || '')}</div>
-      </div>
+      </button>
     `;
   }).join('');
 }
@@ -595,13 +676,48 @@ function showQuickImport() {
   navigateTo('guide/quick');
 }
 
+let previousDetectFocus = null;
+let detectFocusTrapHandler = null;
+
 function showDetect(res) {
   document.getElementById('timestampInput').value = res.timestamp || '';
   document.getElementById('savedPath').value = res.path;
   const defaultFacet = res.facet || window.selectedFacet || '';
   loadFacets(defaultFacet);
   settingInput.value = res.setting || '';
+  previousDetectFocus = document.activeElement;
   document.getElementById('detectModal').style.display = 'block';
+  document.getElementById('timestampInput').focus();
+  detectFocusTrapHandler = function(e) {
+    if (e.key !== 'Tab') return;
+    const modal = document.getElementById('detectModal');
+    const focusable = Array.from(
+      modal.querySelectorAll('button, [href], input, select, textarea, [tabindex="0"]')
+    ).filter(el => el.offsetParent !== null && el.tabIndex >= 0 && !el.disabled);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+  document.addEventListener('keydown', detectFocusTrapHandler);
+}
+
+function closeDetectModal() {
+  document.getElementById('detectModal').style.display = 'none';
+  if (detectFocusTrapHandler) {
+    document.removeEventListener('keydown', detectFocusTrapHandler);
+    detectFocusTrapHandler = null;
+  }
+  if (previousDetectFocus && previousDetectFocus.isConnected) {
+    previousDetectFocus.focus();
+  }
+  previousDetectFocus = null;
 }
 
 function formatFileSize(bytes) {
@@ -702,9 +818,7 @@ function getImportById(importId) {
   return importsCache.find(item => item.timestamp === importId) || null;
 }
 
-function buildHistoryHeader(imports) {
-  const entryTotal = imports.reduce((sum, imp) => sum + (imp.entries_written || 0), 0);
-  const entityTotal = imports.reduce((sum, imp) => sum + (imp.entities_seeded || 0), 0);
+function buildHistoryHeader(total, totalEntriesWritten, totalEntitiesSeeded) {
   const sourceOptions = [
     '<option value="">All sources</option>',
     ...cachedSources.map(source => {
@@ -715,7 +829,7 @@ function buildHistoryHeader(imports) {
 
   return `
     <div class="import-history-header">
-      <div class="import-history-summary">${imports.length} imports total, ${entryTotal} entries imported, ${entityTotal} entities found</div>
+      <div class="import-history-summary">${total} imports total, ${totalEntriesWritten} entries imported, ${totalEntitiesSeeded} entities found</div>
       <div class="import-history-filters">
         <label for="importSourceFilter">Source</label>
         <select id="importSourceFilter">
@@ -726,18 +840,89 @@ function buildHistoryHeader(imports) {
   `;
 }
 
+function renderImportRow(imp) {
+  const importedAt = imp.imported_at ? new Date(imp.imported_at * 1000).toLocaleString() : new Date(imp.created_at * 1000).toLocaleString();
+  const targetDay = imp.target_day ? imp.target_day.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : '-';
+
+  let statusClass;
+  let statusText;
+  let statusDetail = '';
+  if (imp.status === 'success') {
+    statusClass = 'success';
+    statusText = 'Completed';
+  } else if (imp.status === 'failed') {
+    statusClass = 'failed';
+    statusText = 'Failed';
+    if (imp.error) {
+      const errorStage = imp.error_stage ? ` (${capitalizeStage(imp.error_stage)})` : '';
+      statusDetail = `<div class="progress-detail">${escapeHtml(imp.error)}${escapeHtml(errorStage)}</div>`;
+    }
+  } else if (imp.status === 'running') {
+    statusClass = 'running';
+    statusText = 'Running';
+  } else {
+    statusClass = 'pending';
+    statusText = 'Pending';
+  }
+
+  const sourceCell = imp.source_type
+    ? renderSourceDisplay(imp.source_type, imp.source_display || sourceMetadataByName[imp.source_type]?.display_name || imp.original_filename || '-')
+    : renderSourceDisplay('', imp.original_filename || '-', imp.original_filename || '-');
+  const statsText = formatImportStats(imp.entries_written, imp.entities_seeded);
+
+  let html = `<tr data-import-id="${imp.timestamp}" data-facet="${imp.facet || ''}" data-source-type="${imp.source_type || ''}" tabindex="0" role="link" onclick="window.location.href='/app/import/${imp.timestamp}'" onkeydown="if(event.key==='Enter')window.location.href='/app/import/${imp.timestamp}'">`;
+  html += `<td class="nowrap">${importedAt}</td>`;
+  html += `<td>${escapeHtml(imp.original_filename || 'Unknown')}</td>`;
+  html += `<td class="source-cell">${sourceCell}</td>`;
+  html += `<td class="file-size nowrap">${formatFileSize(imp.file_size || 0)}</td>`;
+  html += '<td class="nowrap">';
+  if (imp.target_day) {
+    html += `<a href="/calendar/${imp.target_day}" class="timestamp-link" onclick="event.stopPropagation();">${targetDay}</a>`;
+  } else {
+    html += '-';
+  }
+  html += '</td>';
+  html += `<td class="status-cell"><span class="import-status ${statusClass}">${statusText}</span>${statusDetail}</td>`;
+  html += `<td class="files-cell">${imp.total_files_created || 0}</td>`;
+  html += `<td class="stats-cell import-stats-cell">${statsText}</td>`;
+  html += `<td class="duration-cell">${formatDuration(imp.duration_minutes)}</td>`;
+  html += '</tr>';
+  return html;
+}
+
+function scrollToGrid() {
+  const grid = document.getElementById('importGrid');
+  if (grid) {
+    grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const firstCard = grid.querySelector('.import-source-card');
+    if (firstCard) firstCard.focus();
+  }
+}
+
 async function loadImports() {
+  currentPage = 1;
   await loadSourceGrid();
-  fetch('/app/import/api/list').then(r => r.json()).then(imports => {
-    importsCache = imports || [];
+  try {
+    const response = await fetch('/app/import/api/list?page=1&per_page=25');
+    const data = await response.json();
+    const imports = data.imports || [];
+    importsCache = imports;
+    totalImports = data.total;
     const container = document.getElementById('importListContent');
 
-    if (!imports || imports.length === 0) {
-      container.innerHTML = '<div class="no-imports">No imports found</div>';
+    if (imports.length === 0) {
+      container.innerHTML = `
+        <div class="no-imports">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">📥</div>
+          <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 0.25rem;">No imports yet</div>
+          <div>Import your data from any supported source above.</div>
+          <div style="margin-top: 0.75rem;"><a href="#" onclick="scrollToGrid(); return false;" style="color: #0f4c81; font-weight: 600;">Choose a source →</a></div>
+        </div>
+      `;
       return;
     }
 
-    let html = buildHistoryHeader(imports);
+    let html = buildHistoryHeader(data.total, data.total_entries_written, data.total_entities_seeded);
     html += '<table class="import-table">';
     html += '<thead><tr>';
     html += '<th>Imported At</th>';
@@ -752,55 +937,19 @@ async function loadImports() {
     html += '</tr></thead><tbody>';
 
     imports.forEach(imp => {
-      const importedAt = imp.imported_at ? new Date(imp.imported_at * 1000).toLocaleString() : new Date(imp.created_at * 1000).toLocaleString();
-      const targetDay = imp.target_day ? imp.target_day.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : '-';
-
-      let statusClass;
-      let statusText;
-      let statusDetail = '';
-      if (imp.status === 'success') {
-        statusClass = 'success';
-        statusText = 'Completed';
-      } else if (imp.status === 'failed') {
-        statusClass = 'failed';
-        statusText = 'Failed';
-        if (imp.error) {
-          const errorStage = imp.error_stage ? ` (${capitalizeStage(imp.error_stage)})` : '';
-          statusDetail = `<div class="progress-detail">${escapeHtml(imp.error)}${escapeHtml(errorStage)}</div>`;
-        }
-      } else if (imp.status === 'running') {
-        statusClass = 'running';
-        statusText = 'Running';
-      } else {
-        statusClass = 'pending';
-        statusText = 'Pending';
-      }
-
-      const sourceCell = imp.source_type
-        ? renderSourceDisplay(imp.source_type, imp.source_display || sourceMetadataByName[imp.source_type]?.display_name || imp.original_filename || '-')
-        : renderSourceDisplay('', imp.original_filename || '-', imp.original_filename || '-');
-      const statsText = formatImportStats(imp.entries_written, imp.entities_seeded);
-
-      html += `<tr data-import-id="${imp.timestamp}" data-facet="${imp.facet || ''}" data-source-type="${imp.source_type || ''}" onclick="window.location.href='/app/import/${imp.timestamp}'">`;
-      html += `<td class="nowrap">${importedAt}</td>`;
-      html += `<td>${escapeHtml(imp.original_filename || 'Unknown')}</td>`;
-      html += `<td class="source-cell">${sourceCell}</td>`;
-      html += `<td class="file-size nowrap">${formatFileSize(imp.file_size || 0)}</td>`;
-      html += '<td class="nowrap">';
-      if (imp.target_day) {
-        html += `<a href="/calendar/${imp.target_day}" class="timestamp-link" onclick="event.stopPropagation();">${targetDay}</a>`;
-      } else {
-        html += '-';
-      }
-      html += '</td>';
-      html += `<td class="status-cell"><span class="import-status ${statusClass}">${statusText}</span>${statusDetail}</td>`;
-      html += `<td class="files-cell">${imp.total_files_created || 0}</td>`;
-      html += `<td class="stats-cell import-stats-cell">${statsText}</td>`;
-      html += `<td class="duration-cell">${formatDuration(imp.duration_minutes)}</td>`;
-      html += '</tr>';
+      html += renderImportRow(imp);
     });
 
     html += '</tbody></table>';
+    if (data.page < data.pages) {
+      html += `
+        <div id="importLoadMore" style="text-align: center; margin: 1.5rem 0;">
+          <button class="import-primary-btn" onclick="loadMoreImports()">
+            Load More (${importsCache.length} of ${data.total} shown)
+          </button>
+        </div>
+      `;
+    }
     container.innerHTML = html;
 
     const sourceFilter = document.getElementById('importSourceFilter');
@@ -812,9 +961,51 @@ async function loadImports() {
     }
 
     filterImportsByFacet(window.selectedFacet);
-  }).catch(() => {
-    document.getElementById('importListContent').innerHTML = '<div class="no-imports">Error loading imports</div>';
-  });
+  } catch (err) {
+    document.getElementById('importListContent').innerHTML = `
+      <div class="no-imports">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚠️</div>
+        <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 0.25rem;">Couldn't load your import history</div>
+        <div>This might be temporary.</div>
+        <div style="margin-top: 0.75rem;"><button class="import-primary-btn" onclick="loadImports()">Retry</button></div>
+      </div>
+    `;
+  }
+}
+
+async function loadMoreImports() {
+  currentPage++;
+  try {
+    const response = await fetch(`/app/import/api/list?page=${currentPage}&per_page=25`);
+    const data = await response.json();
+
+    importsCache = importsCache.concat(data.imports || []);
+
+    const tbody = document.querySelector('.import-table tbody');
+    if (tbody) {
+      let rowsHtml = '';
+      (data.imports || []).forEach(imp => {
+        rowsHtml += renderImportRow(imp);
+      });
+      tbody.insertAdjacentHTML('beforeend', rowsHtml);
+    }
+
+    const loadMoreContainer = document.getElementById('importLoadMore');
+    if (loadMoreContainer) {
+      if (data.page < data.pages) {
+        loadMoreContainer.innerHTML = `
+          <button class="import-primary-btn" onclick="loadMoreImports()">
+            Load More (${importsCache.length} of ${data.total} shown)
+          </button>`;
+      } else {
+        loadMoreContainer.remove();
+      }
+    }
+
+    filterImportsByFacet(window.selectedFacet);
+  } catch (err) {
+    console.error('Failed to load more imports:', err);
+  }
 }
 
 function filterImportsByFacet(facetName) {
@@ -843,7 +1034,7 @@ function filterImportsByFacet(facetName) {
       noMatchEl.className = 'no-imports no-imports-filtered';
       container.appendChild(noMatchEl);
     }
-    noMatchEl.textContent = `No imports for ${facetTitle}`;
+    noMatchEl.innerHTML = '<div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div><div>No imports match this filter.</div>';
     noMatchEl.style.display = '';
   } else {
     const noMatchEl = container.querySelector('.no-imports-filtered');
@@ -955,7 +1146,7 @@ async function loadGuidedFlow(sourceName) {
     const response = await fetch(`/app/import/api/guide/${sourceName}`);
     if (response.ok) {
       const markdown = await response.text();
-      guideHtml = `<div class="import-step"><div class="import-step-number">Step 1</div><div class="import-guide-content">${marked.parse(markdown, { breaks: true, gfm: true })}</div></div>`;
+      guideHtml = `<li><div class="import-step"><div class="import-step-number">Step 1</div><div class="import-guide-content">${marked.parse(markdown, { breaks: true, gfm: true })}</div></div></li>`;
     }
   }
 
@@ -964,42 +1155,44 @@ async function loadGuidedFlow(sourceName) {
       <h3 class="import-guide-title">${source.emoji || ''} ${escapeHtml(source.display_name)}</h3>
       <p class="import-guide-subtitle">${escapeHtml(source.description || '')}</p>
     </div>
+    <form id="guidedImportForm" onsubmit="return false;"><ol class="import-steps-list">
     ${guideHtml}
-    <div class="import-step">
-      <div class="import-step-number">Step 2</div>
-      ${source.input_type === 'path_input' ? `
-        <h4>${escapeHtml(source.upload_prompt || 'Paste the full path to your folder')}</h4>
-        <input id="guidedPathInput" class="import-path-input" type="text"
-          placeholder="${escapeHtml(source.upload_prompt || 'Paste the full path to your folder')}" />
-        <div id="guidedPathStatus" style="margin-top: 0.5em; font-size: 0.9em; color: #666;"></div>
-      ` : `
-        <h4>Upload your export</h4>
-        <div class="import-upload-area" id="guidedDropArea">
-          <p>${escapeHtml(source.upload_prompt || 'Select a file to import')}</p>
-          <div class="import-upload-help">${escapeHtml(source.accept ? `Accepted: ${source.accept}` : 'Any supported file')}</div>
-          <input id="guidedFileInput" type="file" accept="${escapeHtml(source.accept || '')}" style="display:none" />
-          <div id="guidedFileLabel" class="import-file-label"></div>
+      <li><div class="import-step">
+        <div class="import-step-number">Step 2</div>
+        ${source.input_type === 'path_input' ? `
+          <h4>${escapeHtml(source.upload_prompt || 'Paste the full path to your folder')}</h4>
+          <input id="guidedPathInput" class="import-path-input" type="text"
+            placeholder="${escapeHtml(source.upload_prompt || 'Paste the full path to your folder')}" />
+          <div id="guidedPathStatus" style="margin-top: 0.5em; font-size: 0.9em; color: #666;"></div>
+        ` : `
+          <h4>Upload your export</h4>
+          <div class="import-upload-area" id="guidedDropArea" role="button" tabindex="0" aria-label="Choose file to upload">
+            <p>${escapeHtml(source.upload_prompt || 'Select a file to import')}</p>
+            <div class="import-upload-help">${escapeHtml(source.accept ? `Accepted: ${source.accept}` : 'Any supported file')}</div>
+            <input id="guidedFileInput" type="file" accept="${escapeHtml(source.accept || '')}" style="display:none" />
+            <div id="guidedFileLabel" class="import-file-label"></div>
+          </div>
+        `}
+        <div id="guidedDedupNotice"></div>
+      </div></li>
+      <li><div class="import-step">
+        <div class="import-step-number">Step 3</div>
+        <h4>Configure and start</h4>
+        <div class="import-inline-fields">
+          <div class="confirm-field">
+            <label for="guidedFacetSelect">Facet</label>
+            <select id="guidedFacetSelect"><option value="">None</option></select>
+          </div>
+          <div class="confirm-field">
+            <label for="guidedSettingInput">Setting</label>
+            <input id="guidedSettingInput" placeholder="e.g. Weekly planning" />
+          </div>
         </div>
-      `}
-      <div id="guidedDedupNotice"></div>
-    </div>
-    <div class="import-step">
-      <div class="import-step-number">Step 3</div>
-      <h4>Configure and start</h4>
-      <div class="import-inline-fields">
-        <div class="confirm-field">
-          <label for="guidedFacetSelect">Facet</label>
-          <select id="guidedFacetSelect"><option value="">None</option></select>
+        <div class="import-action-row">
+          <button id="guidedStartBtn" class="import-primary-btn" type="submit">Start Import</button>
         </div>
-        <div class="confirm-field">
-          <label for="guidedSettingInput">Setting</label>
-          <input id="guidedSettingInput" placeholder="e.g. Weekly planning" />
-        </div>
-      </div>
-      <div class="import-action-row">
-        <button id="guidedStartBtn" class="import-primary-btn" type="button">Start Import</button>
-      </div>
-    </div>
+      </div></li>
+    </ol></form>
   `;
 
   loadFacets(window.selectedFacet || '', document.getElementById('guidedFacetSelect'));
@@ -1010,6 +1203,13 @@ async function loadGuidedFlow(sourceName) {
     checkDefaultPath(sourceName);
   }
   document.getElementById('guidedStartBtn').addEventListener('click', () => startGuidedImport(source));
+  const guidedForm = document.getElementById('guidedImportForm');
+  if (guidedForm) {
+    guidedForm.addEventListener('submit', e => {
+      e.preventDefault();
+      document.getElementById('guidedStartBtn').click();
+    });
+  }
 }
 
 async function checkDefaultPath(sourceName) {
@@ -1047,31 +1247,33 @@ function renderQuickImportFlow() {
       <p class="import-guide-subtitle">Paste text or drop a file, then confirm the detected timestamp in the modal.</p>
     </div>
     <form id="importForm">
-      <div class="import-step">
-        <div class="import-step-number">Step 1</div>
-        <div class="import-upload-area" id="dropArea">
-          <p>Drag file here or click to select</p>
-          <input id="fileInput" type="file" style="display:none" />
-          <div id="fileLabel" class="import-file-label"></div>
-        </div>
-      </div>
-      <div class="import-step">
-        <div class="import-step-number">Step 2</div>
-        <textarea id="pasteText" class="import-paste-text" placeholder="Paste text here..."></textarea>
-        <div class="import-inline-fields">
-          <div class="confirm-field">
-            <label for="quickFacetSelect">Facet</label>
-            <select id="quickFacetSelect"><option value="">None</option></select>
+      <ol class="import-steps-list">
+        <li><div class="import-step">
+          <div class="import-step-number">Step 1</div>
+          <div class="import-upload-area" id="dropArea" role="button" tabindex="0" aria-label="Choose file to upload">
+            <p>Drag file here or click to select</p>
+            <input id="fileInput" type="file" style="display:none" />
+            <div id="fileLabel" class="import-file-label"></div>
           </div>
-          <div class="confirm-field">
-            <label for="quickSettingInput">Setting</label>
-            <input id="quickSettingInput" placeholder="e.g. Paste from notes app" />
+        </div></li>
+        <li><div class="import-step">
+          <div class="import-step-number">Step 2</div>
+          <textarea id="pasteText" class="import-paste-text" placeholder="Paste text here..."></textarea>
+          <div class="import-inline-fields">
+            <div class="confirm-field">
+              <label for="quickFacetSelect">Facet</label>
+              <select id="quickFacetSelect"><option value="">None</option></select>
+            </div>
+            <div class="confirm-field">
+              <label for="quickSettingInput">Setting</label>
+              <input id="quickSettingInput" placeholder="e.g. Paste from notes app" />
+            </div>
           </div>
-        </div>
-        <div class="import-action-row">
-          <button type="submit" id="validateBtn" class="import-primary-btn">Validate</button>
-        </div>
-      </div>
+          <div class="import-action-row">
+            <button type="submit" id="validateBtn" class="import-primary-btn">Validate</button>
+          </div>
+        </div></li>
+      </ol>
     </form>
   `;
 
@@ -1095,6 +1297,12 @@ function setupGuidedUploadArea() {
   };
 
   dropArea.onclick = () => fileInput.click();
+  dropArea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
   ['dragenter', 'dragover'].forEach(eventName => {
     dropArea.addEventListener(eventName, event => {
       event.preventDefault();
@@ -1133,6 +1341,12 @@ function setupQuickImportForm() {
 
   currentFile = null;
   dropArea.onclick = () => fileInput.click();
+  dropArea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
   ['dragenter', 'dragover'].forEach(ev => dropArea.addEventListener(ev, e => {
     e.preventDefault();
     dropArea.classList.add('dragover');
@@ -1414,7 +1628,6 @@ startBtn.addEventListener('click', async () => {
   const path = document.getElementById('savedPath').value;
   const facet = facetSelect.value;
   const setting = settingInput.value.trim();
-  const detectModal = document.getElementById('detectModal');
 
   if (!ts) {
     if (window.showError) showError('Timestamp is required before starting the import.');
@@ -1450,7 +1663,7 @@ startBtn.addEventListener('click', async () => {
 
     startBtn.disabled = false;
     startBtn.textContent = originalText;
-    detectModal.style.display = 'none';
+    closeDetectModal();
     importEvents[ts] = {
       import_id: ts,
       event: 'started',
@@ -1467,15 +1680,17 @@ startBtn.addEventListener('click', async () => {
   }
 });
 
-document.querySelector('.close').onclick = () => {
-  document.getElementById('detectModal').style.display = 'none';
-};
-
 window.onclick = e => {
   if (e.target === document.getElementById('detectModal')) {
-    document.getElementById('detectModal').style.display = 'none';
+    closeDetectModal();
   }
 };
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && document.getElementById('detectModal').style.display === 'block') {
+    closeDetectModal();
+  }
+});
 
 function loadFacets(defaultValue = null, selectEl = null) {
   const select = selectEl || document.getElementById('facetSelect');

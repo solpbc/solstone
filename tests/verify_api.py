@@ -155,25 +155,25 @@ ENDPOINTS = [
         "params": {},
         "status": 404,
     },
-    # apps/remote/routes.py
+    # apps/observer/routes.py
     {
-        "app": "remote",
+        "app": "observer",
         "name": "list",
-        "path": "/app/remote/api/list",
+        "path": "/app/observer/api/list",
         "params": {},
         "status": 200,
     },
     {
-        "app": "remote",
-        "name": "remote-key",
-        "path": "/app/remote/api/example-key/key",
+        "app": "observer",
+        "name": "observer-key",
+        "path": "/app/observer/api/example-key/key",
         "params": {},
         "status": 404,
     },
     {
-        "app": "remote",
+        "app": "observer",
         "name": "ingest-day",
-        "path": "/app/remote/ingest/example-key/segments/20260304",
+        "path": "/app/observer/ingest/example-key/segments/20260304",
         "params": {},
         "status": 401,
     },
@@ -417,7 +417,7 @@ def normalize(data: Any, journal_path: str) -> Any:
             return {
                 item_key: (
                     0
-                    if item_key in {"mtime", "created_at"}
+                    if item_key in {"mtime", "created_at", "file_mtime"}
                     and isinstance(item_value, (int, float))
                     else (
                         round(item_value, 1)
@@ -550,13 +550,16 @@ def update_all(client: Any, journal_path: str) -> int:
 class _HttpClient:
     """Minimal requests-like object for endpoint fetching."""
 
-    def __init__(self, base_url: str) -> None:
+    def __init__(self, base_url: str, password: str | None = None) -> None:
         self.base_url = base_url.rstrip("/")
+        self._auth = ("", password) if password else None
 
     def get(self, path: str, query_string: dict[str, Any] | None = None):
         import requests
 
-        return requests.get(f"{self.base_url}{path}", params=query_string)
+        return requests.get(
+            f"{self.base_url}{path}", params=query_string, auth=self._auth
+        )
 
 
 def _resolve_journal_path() -> str:
@@ -590,12 +593,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--base-url",
         help="Use HTTP mode against this base URL instead of Flask test client",
     )
+    parser.add_argument(
+        "--password",
+        help="Password for Basic Auth in HTTP mode",
+    )
     return parser.parse_args(argv)
 
 
-def make_client(base_url: str | None) -> Any:
+def make_client(base_url: str | None, password: str | None = None) -> Any:
     if base_url:
-        return _HttpClient(base_url)
+        return _HttpClient(base_url, password=password)
     journal_path = _resolve_journal_path()
     app = create_app(journal_path)
     app.config["TESTING"] = True
@@ -615,7 +622,7 @@ def resolve_journal_for_mode(base_url: str | None) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    client = make_client(args.base_url)
+    client = make_client(args.base_url, password=args.password)
     journal_path = resolve_journal_for_mode(args.base_url)
 
     if args.command == "verify":

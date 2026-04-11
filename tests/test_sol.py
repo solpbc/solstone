@@ -216,6 +216,20 @@ class TestMain:
         assert path != ""
         assert path.endswith("/journal")
 
+    def test_main_root_command(self, monkeypatch, capsys):
+        """Test 'root' command prints the project root directory."""
+        monkeypatch.setattr(sys, "argv", ["sol", "root"])
+
+        sol.main()
+
+        captured = capsys.readouterr()
+        path = captured.out.strip()
+        assert path != ""
+        # root should NOT end with /journal — that's --path
+        assert not path.endswith("/journal")
+        # should be a parent of the journal path
+        assert path.endswith("/solstone") or "/solstone" in path
+
     def test_main_unknown_command_exits(self, monkeypatch):
         """Test that unknown command exits with code 1."""
         monkeypatch.setattr(sys, "argv", ["sol", "unknown-command"])
@@ -244,27 +258,6 @@ class TestMain:
         assert "--day" in captured_argv
         assert "20250101" in captured_argv
 
-    def test_main_help_command_with_question_dispatches(self, monkeypatch):
-        """Test 'help' with extra args dispatches to help module."""
-        monkeypatch.setattr(sys, "argv", ["sol", "help", "how", "do", "I", "search"])
-
-        captured_argv = []
-
-        def mock_main():
-            captured_argv.extend(sys.argv)
-
-        mock_module = MagicMock()
-        mock_module.main = mock_main
-
-        with patch("importlib.import_module", return_value=mock_module):
-            with pytest.raises(SystemExit):
-                sol.main()
-
-        assert captured_argv[0] == "sol help"
-        assert "how" in captured_argv
-        assert "search" in captured_argv
-
-
 class TestCommandRegistry:
     """Tests for command registry completeness."""
 
@@ -283,6 +276,6 @@ class TestCommandRegistry:
 
     def test_critical_commands_registered(self):
         """Test that critical commands are registered."""
-        critical = ["import", "agents", "dream", "indexer", "transcribe", "help"]
+        critical = ["import", "agents", "dream", "indexer", "transcribe"]
         for cmd in critical:
             assert cmd in sol.COMMANDS, f"Critical command '{cmd}' not registered"

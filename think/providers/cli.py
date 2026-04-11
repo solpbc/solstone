@@ -444,6 +444,41 @@ def build_cogitate_env(env_key: str) -> dict[str, str]:
     env = os.environ.copy()
     if auth_mode == "platform":
         env.pop(env_key, None)
+
+    # Vertex AI / AI Studio: set backend env vars for Google provider
+    if env_key == "GOOGLE_API_KEY":
+        providers_config = config.get("providers", {})
+        google_backend = providers_config.get("google_backend", "auto")
+
+        # Determine effective backend
+        if google_backend in ("aistudio", "vertex"):
+            effective_backend = google_backend
+        else:
+            api_key = os.getenv("GOOGLE_API_KEY", "")
+            if api_key:
+                from think.providers.google import _detect_backend
+
+                effective_backend = _detect_backend(api_key)
+            else:
+                effective_backend = "aistudio"
+
+        if effective_backend == "vertex":
+            env["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
+            # Vertex uses SA credentials, not API key — always strip
+            env.pop("GOOGLE_API_KEY", None)
+            # SA credentials: set GOOGLE_APPLICATION_CREDENTIALS
+            creds_path = providers_config.get("vertex_credentials")
+            if creds_path and os.path.exists(creds_path):
+                env["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
+            # else: GOOGLE_APPLICATION_CREDENTIALS may be inherited from env
+        else:
+            # AI Studio: clear any inherited Vertex env vars so the CLI
+            # doesn't accidentally run in Vertex mode.
+            for vkey in (
+                "GOOGLE_APPLICATION_CREDENTIALS",
+                "GOOGLE_GENAI_USE_VERTEXAI",
+            ):
+                env.pop(vkey, None)
     return env
 
 

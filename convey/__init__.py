@@ -77,6 +77,36 @@ def _migrate_password_hash() -> None:
     os.chmod(config_path, 0o600)
 
 
+def _migrate_setup_completed() -> None:
+    """Infer setup.completed_at and set trust_localhost for existing installs.
+
+    Legacy migration: handles journals where password_hash was set via
+    'sol password set' CLI before web onboarding existed. Web onboarding
+    now writes all config atomically in init_finalize(), so this path is
+    only reached for pre-existing journals.
+    """
+    from think.utils import get_config, get_journal
+
+    config = get_config()
+
+    if not config.get("convey", {}).get("password_hash"):
+        return
+    if config.get("setup", {}).get("completed_at"):
+        return
+
+    from think.utils import now_ms
+
+    config.setdefault("setup", {})["completed_at"] = now_ms()
+    config.setdefault("convey", {})["trust_localhost"] = True
+
+    config_path = Path(get_journal()) / "config" / "journal.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.chmod(config_path, 0o600)
+
+
 def create_app(journal: str = "") -> Flask:
     """Create and configure the Convey Flask application."""
     app = Flask(
@@ -98,6 +128,7 @@ def create_app(journal: str = "") -> Flask:
 
     app.secret_key = _get_or_create_secret()
     _migrate_password_hash()
+    _migrate_setup_completed()
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
     # Register root blueprint (login, logout, /, favicon)

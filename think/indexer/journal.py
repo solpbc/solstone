@@ -15,6 +15,7 @@ then indexed with metadata fields for filtering (day, facet, agent).
 Raw audio/screen transcripts are formattable but not indexed by default.
 """
 
+import calendar
 import json
 import logging
 import math
@@ -22,7 +23,7 @@ import os
 import re
 import sqlite3
 import time
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +35,8 @@ from think.formatters import (
     get_formatter,
     load_jsonl,
 )
-from think.utils import DATE_RE, get_journal, now_ms
+from think.markdown import format_markdown
+from think.utils import DATE_RE, get_journal, now_ms, segment_key, segment_parse
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +82,8 @@ SCHEMA = [
         facet UNINDEXED,
         agent UNINDEXED,
         stream UNINDEXED,
-        idx UNINDEXED
+        idx UNINDEXED,
+        time_bucket UNINDEXED
     )
     """,
     """
@@ -811,6 +814,39 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     for statement in SCHEMA:
         conn.execute(statement)
 
+    # Detect old schema missing time_bucket — FTS5 cannot ALTER, must rebuild
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='chunks'"
+    ).fetchone()
+    if row and "time_bucket" not in row[0]:
+        logger.warning(
+            "Schema migration: rebuilding chunks table to add time_bucket column"
+        )
+        conn.execute("DROP TABLE IF EXISTS chunks")
+        conn.execute("DROP TABLE IF EXISTS files")
+        for statement in SCHEMA:
+            conn.execute(statement)
+
+
+def _time_bucket(rel: str) -> str:
+    """Derive time bucket from a journal-relative path.
+
+    Returns 'morning' (06-11), 'afternoon' (12-16), 'evening' (17-20),
+    'night' (21-05), or '' for non-segment content.
+    """
+    start_time, _ = segment_parse(rel)
+    if start_time is None:
+        return ""
+    hour = start_time.hour
+    if 6 <= hour <= 11:
+        return "morning"
+    elif 12 <= hour <= 16:
+        return "afternoon"
+    elif 17 <= hour <= 20:
+        return "evening"
+    else:
+        return "night"
+
 
 def get_journal_index(journal: str | None = None) -> tuple[sqlite3.Connection, str]:
     """Return SQLite connection for the journal index.
@@ -902,6 +938,16 @@ def index_file(journal: str, file_path: str, verbose: bool = False) -> bool:
     # Update file mtime
     conn.execute("REPLACE INTO files(path, mtime) VALUES (?, ?)", (rel_path, mtime))
 
+    # Regenerate segment chunk if file is in a segment
+    parts = rel_path.replace("\\", "/").split("/")
+    if len(parts) >= 4 and segment_key(parts[2]):
+        rel_segment = "/".join(parts[:3])
+        seg_dir = os.path.join(journal, rel_segment)
+        conn.execute("DELETE FROM chunks WHERE path=?", (rel_segment,))
+        if os.path.isdir(seg_dir):
+            seg_stream = _extract_stream(journal, rel_segment + "/dummy")
+            _index_segment_chunks(conn, seg_dir, rel_segment, seg_stream, verbose)
+
     conn.commit()
     conn.close()
 
@@ -917,7 +963,6 @@ def _extract_stream(journal: str, rel: str) -> str | None:
     Returns stream name string or None for non-segment paths or pre-stream segments.
     """
     from think.streams import read_segment_stream
-    from think.utils import segment_key
 
     parts = rel.replace("\\", "/").split("/")
     # Segment paths: parts[0]=day, parts[1]=stream, parts[2]=segment, parts[3+]=file
@@ -979,9 +1024,62 @@ def _index_file(
             continue
 
         conn.execute(
-            "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (content, rel, day, facet, agent, stream, idx),
+            "INSERT INTO chunks(content, path, day, facet, agent, stream, idx, time_bucket) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (content, rel, day, facet, agent, stream, idx, _time_bucket(rel)),
         )
+
+
+def _index_segment_chunks(
+    conn: sqlite3.Connection,
+    segment_dir: str,
+    rel_segment: str,
+    stream: str | None,
+    verbose: bool,
+) -> int:
+    """Index concatenated markdown content for one segment."""
+    segment_path = Path(segment_dir)
+    agent_files = sorted(
+        [
+            *segment_path.glob("agents/*.md"),
+            *segment_path.glob("agents/*/*.md"),
+        ],
+        key=lambda path: str(path),
+    )
+    if not agent_files:
+        return 0
+
+    content = "\n\n---\n\n".join(
+        path.read_text(encoding="utf-8") for path in agent_files
+    )
+    chunks, _meta = format_markdown(content)
+    day = rel_segment.replace("\\", "/").split("/")[0]
+
+    inserted = 0
+    for idx, chunk in enumerate(chunks):
+        chunk_content = chunk.get("markdown", "")
+        if not chunk_content:
+            continue
+        conn.execute(
+            "INSERT INTO chunks(content, path, day, facet, agent, stream, idx, time_bucket) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                chunk_content,
+                rel_segment,
+                day,
+                "",
+                "segment",
+                stream,
+                idx,
+                _time_bucket(rel_segment),
+            ),
+        )
+        inserted += 1
+
+    if verbose:
+        logger.info(
+            "  %s segment chunks, path=%s, stream=%s", inserted, rel_segment, stream
+        )
+
+    return inserted
 
 
 def _is_historical_day(rel_path: str) -> bool:
@@ -1344,9 +1442,9 @@ def _index_entity_search_chunks(conn: sqlite3.Connection) -> int:
                     )
 
                 conn.execute(
-                    "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (content, path, day, facet, "entity", "", idx),
+                    "INSERT INTO chunks(content, path, day, facet, agent, stream, idx, time_bucket) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (content, path, day, facet, "entity", "", idx, ""),
                 )
                 count += 1
         else:
@@ -1356,9 +1454,9 @@ def _index_entity_search_chunks(conn: sqlite3.Connection) -> int:
                 identity["created_at"]
             )
             conn.execute(
-                "INSERT INTO chunks(content, path, day, facet, agent, stream, idx) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (content, path, day, "", "entity", "", 0),
+                "INSERT INTO chunks(content, path, day, facet, agent, stream, idx, time_bucket) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (content, path, day, "", "entity", "", 0, ""),
             )
             count += 1
 
@@ -1612,6 +1710,35 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
         "%s indexed, %s removed in %.2f seconds", len(to_index), len(removed), elapsed
     )
 
+    # Index segment-level concatenated chunks
+    affected_segments: set[str] = set()
+    for rel, _path, _mtime in to_index:
+        parts = rel.replace("\\", "/").split("/")
+        if len(parts) >= 4 and segment_key(parts[2]):
+            affected_segments.add("/".join(parts[:3]))
+    for rel in removed:
+        parts = rel.replace("\\", "/").split("/")
+        if len(parts) >= 4 and segment_key(parts[2]):
+            affected_segments.add("/".join(parts[:3]))
+
+    seg_count = 0
+    for rel_segment in sorted(affected_segments):
+        segment_dir = os.path.join(journal, rel_segment)
+        conn.execute("DELETE FROM chunks WHERE path=?", (rel_segment,))
+        if os.path.isdir(segment_dir):
+            stream = _extract_stream(journal, rel_segment + "/dummy")
+            seg_count += _index_segment_chunks(
+                conn, segment_dir, rel_segment, stream, verbose
+            )
+
+    if affected_segments:
+        conn.commit()
+        logger.info(
+            "%s segment chunks indexed for %s segments",
+            seg_count,
+            len(affected_segments),
+        )
+
     consolidate_segment_entities(journal, full=full)
     entity_changed = scan_entities(journal, conn, verbose=verbose, full=full)
     signal_changed = scan_signals(journal, conn, verbose=verbose, full=full)
@@ -1629,17 +1756,203 @@ def scan_journal(journal: str, verbose: bool = False, full: bool = False) -> boo
     return bool(to_index or removed or entity_changed or signal_changed)
 
 
-def sanitize_fts_query(query: str) -> str:
-    """Sanitize query for FTS5: keep alphanumeric, spaces, quotes, apostrophes, and *.
+# Compiled patterns for temporal extraction (checked against unquoted text only)
+_TEMPORAL_PATTERNS: list[tuple[re.Pattern, str]] = []
 
-    This allows FTS5 operators (OR, AND, NOT), quoted phrases, and prefix
-    matching while preventing syntax errors from special characters.
+
+def _build_temporal_patterns():
+    """Build compiled regex patterns for temporal date references.
+
+    Each entry is (compiled_regex, handler_name). Longer patterns are listed
+    first so "last monday" is tried before "last week".
     """
+    days = "monday|tuesday|wednesday|thursday|friday|saturday|sunday"
+    patterns = [
+        # "over the weekend" / "on the weekend"
+        (r"\b(?:over|on)\s+the\s+weekend\b", "weekend"),
+        # "last monday" through "last sunday"
+        (rf"\blast\s+({days})\b", "last_day"),
+        # Multi-word phrases
+        (r"\blast\s+week\b", "last_week"),
+        (r"\bthis\s+week\b", "this_week"),
+        (r"\blast\s+month\b", "last_month"),
+        (r"\bthis\s+month\b", "this_month"),
+        # Single words
+        (r"\byesterday\b", "yesterday"),
+        (r"\btoday\b", "today"),
+    ]
+    return [(re.compile(p, re.IGNORECASE), name) for p, name in patterns]
+
+
+_TEMPORAL_PATTERNS = _build_temporal_patterns()
+
+
+def extract_temporal_references(
+    query: str, reference_date: datetime | None = None
+) -> tuple[str, str | None, str | None]:
+    """Extract temporal date references from a query string.
+
+    Scans unquoted portions of the query for temporal phrases like "yesterday",
+    "last week", "last Monday", etc. Returns the query with the temporal phrase
+    removed, plus day_from/day_to as YYYYMMDD strings.
+
+    Only the first temporal match is used. Content inside double quotes is
+    never matched.
+
+    Args:
+        query: Raw query string.
+        reference_date: Pin "today" for testability. Defaults to datetime.now().
+
+    Returns:
+        Tuple of (cleaned_query, day_from, day_to). day_from/day_to are None
+        if no temporal reference was found.
+    """
+    if not query:
+        return query, None, None
+
+    ref = reference_date or datetime.now()
+
+    # Split into quoted and unquoted segments to protect quoted content.
+    # re.split with a capturing group keeps the delimiters in the list.
+    segments = re.split(r'("(?:[^"]*)")', query)
+
+    best_match: tuple[int, int, str, re.Match] | None = None
+
+    # Scan unquoted segments only and keep the earliest match in query order.
+    for i, seg in enumerate(segments):
+        if i % 2 == 1:  # odd indices are quoted segments
+            continue
+        for pattern, handler in _TEMPORAL_PATTERNS:
+            m = pattern.search(seg)
+            if not m:
+                continue
+            candidate = (i, m.start(), handler, m)
+            if best_match is None:
+                best_match = candidate
+                continue
+            best_i, best_start, _, _ = best_match
+            if i < best_i or (i == best_i and m.start() < best_start):
+                best_match = candidate
+
+    if best_match:
+        seg_idx, _, handler, match = best_match
+        seg = segments[seg_idx]
+        # Remove the matched text from this segment
+        segments[seg_idx] = seg[: match.start()] + seg[match.end() :]
+        cleaned = "".join(segments).strip()
+        # Collapse multiple spaces
+        cleaned = re.sub(r"\s{2,}", " ", cleaned)
+        day_from, day_to = _resolve_temporal(handler, match, ref)
+        return cleaned, day_from, day_to
+
+    return query, None, None
+
+
+def _resolve_temporal(
+    handler: str, match: re.Match, ref: datetime
+) -> tuple[str | None, str | None]:
+    """Resolve a temporal handler + match into (day_from, day_to) YYYYMMDD strings."""
+    fmt = "%Y%m%d"
+
+    if handler == "yesterday":
+        d = ref - timedelta(days=1)
+        s = d.strftime(fmt)
+        return s, s
+
+    if handler == "today":
+        s = ref.strftime(fmt)
+        return s, s
+
+    if handler == "last_week":
+        # Monday of this week, then back 7 days
+        mon_this = ref - timedelta(days=ref.weekday())
+        mon_last = mon_this - timedelta(days=7)
+        sun_last = mon_last + timedelta(days=6)
+        return mon_last.strftime(fmt), sun_last.strftime(fmt)
+
+    if handler == "this_week":
+        mon = ref - timedelta(days=ref.weekday())
+        sun = mon + timedelta(days=6)
+        return mon.strftime(fmt), sun.strftime(fmt)
+
+    if handler == "last_month":
+        first_this = ref.replace(day=1)
+        last_prev = first_this - timedelta(days=1)
+        first_prev = last_prev.replace(day=1)
+        return first_prev.strftime(fmt), last_prev.strftime(fmt)
+
+    if handler == "this_month":
+        first = ref.replace(day=1)
+        last_day = calendar.monthrange(ref.year, ref.month)[1]
+        last = ref.replace(day=last_day)
+        return first.strftime(fmt), last.strftime(fmt)
+
+    if handler == "last_day":
+        # "last monday" etc. — match group 1 is the day name
+        day_name = match.group(1).lower()
+        day_map = {
+            "monday": 0,
+            "tuesday": 1,
+            "wednesday": 2,
+            "thursday": 3,
+            "friday": 4,
+            "saturday": 5,
+            "sunday": 6,
+        }
+        target = day_map[day_name]
+        days_back = (ref.weekday() - target) % 7
+        if days_back == 0:
+            days_back = 7  # "last Monday" on a Monday = a week ago
+        d = ref - timedelta(days=days_back)
+        s = d.strftime(fmt)
+        return s, s
+
+    if handler == "weekend":
+        # Most recent Saturday-Sunday
+        weekday = ref.weekday()
+        if weekday >= 5:  # Sat=5, Sun=6
+            sat = ref - timedelta(days=(weekday - 5))
+        else:
+            sat = ref - timedelta(days=(weekday + 2))
+        sun = sat + timedelta(days=1)
+        return sat.strftime(fmt), sun.strftime(fmt)
+
+    return None, None  # unreachable
+
+
+def sanitize_fts_query(
+    query: str, reference_date: datetime | None = None
+) -> tuple[str, str | None, str | None]:
+    """Sanitize query for FTS5 and extract temporal date references.
+
+    Extracts temporal phrases (yesterday, last week, etc.) from the query,
+    then sanitizes the remaining text for FTS5: keeps alphanumeric, spaces,
+    quotes, apostrophes, and *.
+
+    For plain multi-word queries (no explicit operators or quotes), produces
+    a NEAR-proximity formulation with AND fallback:
+        NEAR(term1 term2, 10) OR (term1 AND term2)
+
+    Returns:
+        Tuple of (sanitized_query, day_from, day_to) where day_from/day_to
+        are YYYYMMDD strings or None.
+    """
+    # Extract temporal references before sanitization
+    query, day_from, day_to = extract_temporal_references(query, reference_date)
+
     result = re.sub(r"[^a-zA-Z0-9\s\"'*]", " ", query)
     # Remove all quotes if unbalanced
     if result.count('"') % 2:
         result = result.replace('"', "")
-    return result
+    # NEAR formulation for plain multi-word queries
+    words = result.split()
+    has_operators = any(word in ("AND", "OR", "NOT") for word in words)
+    has_quotes = '"' in result
+    if len(words) > 1 and not has_operators and not has_quotes:
+        near_terms = " ".join(words)
+        and_terms = " AND ".join(words)
+        result = f"NEAR({near_terms}, 10) OR ({and_terms})"
+    return result, day_from, day_to
 
 
 def _build_where_clause(
@@ -1650,6 +1963,7 @@ def _build_where_clause(
     facet: str | None = None,
     agent: str | None = None,
     stream: str | None = None,
+    time_bucket: str | None = None,
 ) -> tuple[str, list[Any]]:
     """Build WHERE clause and params for FTS5 search.
 
@@ -1661,15 +1975,22 @@ def _build_where_clause(
         facet: Filter by facet name
         agent: Filter by agent
         stream: Filter by stream name
+        time_bucket: Filter by time of day bucket (morning, afternoon, evening, night)
 
     Returns:
         Tuple of (where_clause, params)
     """
     params: list[Any] = []
 
+    extracted_from: str | None = None
+    extracted_to: str | None = None
+
     if query:
-        sanitized = sanitize_fts_query(query)
-        where_clause = f"chunks MATCH '{sanitized}'"
+        sanitized, extracted_from, extracted_to = sanitize_fts_query(query)
+        if sanitized:
+            where_clause = f"chunks MATCH '{sanitized}'"
+        else:
+            where_clause = "1=1"
     else:
         where_clause = "1=1"
 
@@ -1683,6 +2004,13 @@ def _build_where_clause(
         if day_to:
             where_clause += " AND day<=?"
             params.append(day_to)
+    elif extracted_from or extracted_to:
+        if extracted_from:
+            where_clause += " AND day>=?"
+            params.append(extracted_from)
+        if extracted_to:
+            where_clause += " AND day<=?"
+            params.append(extracted_to)
     if facet:
         where_clause += " AND facet=?"
         params.append(facet.lower())
@@ -1692,6 +2020,9 @@ def _build_where_clause(
     if stream:
         where_clause += " AND stream=?"
         params.append(stream)
+    if time_bucket:
+        where_clause += " AND time_bucket=?"
+        params.append(time_bucket)
 
     return where_clause, params
 
@@ -1707,6 +2038,7 @@ def search_journal(
     facet: str | None = None,
     agent: str | None = None,
     stream: str | None = None,
+    time_bucket: str | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
     """Search the journal index.
 
@@ -1721,6 +2053,7 @@ def search_journal(
         facet: Filter by facet name
         agent: Filter by agent (e.g., "flow", "event", "news")
         stream: Filter by stream name
+        time_bucket: Filter by time of day (morning, afternoon, evening, night)
 
     Returns:
         Tuple of (total_count, results) where each result has:
@@ -1731,7 +2064,7 @@ def search_journal(
     """
     conn, _ = get_journal_index()
     where_clause, params = _build_where_clause(
-        query, day, day_from, day_to, facet, agent, stream
+        query, day, day_from, day_to, facet, agent, stream, time_bucket
     )
 
     # Get total count
@@ -1789,6 +2122,7 @@ def search_counts(
     facet: str | None = None,
     agent: str | None = None,
     stream: str | None = None,
+    time_bucket: str | None = None,
 ) -> dict[str, Any]:
     """Get aggregated counts for a search query.
 
@@ -1802,6 +2136,7 @@ def search_counts(
         facet: Filter by facet name
         agent: Filter by agent
         stream: Filter by stream name
+        time_bucket: Filter by time of day (morning, afternoon, evening, night)
 
     Returns:
         Dict with:
@@ -1815,7 +2150,7 @@ def search_counts(
 
     conn, _ = get_journal_index()
     where_clause, params = _build_where_clause(
-        query, day, day_from, day_to, facet, agent, stream
+        query, day, day_from, day_to, facet, agent, stream, time_bucket
     )
 
     rows = conn.execute(

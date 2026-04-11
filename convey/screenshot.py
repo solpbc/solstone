@@ -34,6 +34,7 @@ def screenshot(
     script: str | None = None,
     facet: str | None = None,
     delay: int = 0,
+    password: str | None = None,
 ) -> None:
     """
     Capture screenshot of a Convey view.
@@ -48,6 +49,7 @@ def screenshot(
         script: Optional JavaScript to execute before taking screenshot
         facet: Optional facet to select (use "all" for all-facet mode)
         delay: Milliseconds to wait after page load before screenshot (default: 0)
+        password: Optional password for Basic Auth
     """
     # Ensure route has leading slash
     if not route.startswith("/"):
@@ -60,7 +62,10 @@ def screenshot(
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        context = browser.new_context(viewport={"width": width, "height": height})
+        context_kwargs: dict = {"viewport": {"width": width, "height": height}}
+        if password:
+            context_kwargs["http_credentials"] = {"username": "", "password": password}
+        context = browser.new_context(**context_kwargs)
 
         # Set facet selection cookie if specified
         if facet:
@@ -158,6 +163,10 @@ def main() -> None:
         default=None,
         help="Delay in ms after page load (default: 500 if route has #fragment, else 0)",
     )
+    parser.add_argument(
+        "--password",
+        help="Password for Basic Auth",
+    )
 
     args = setup_cli(parser)
 
@@ -191,6 +200,7 @@ def main() -> None:
         script=args.script,
         facet=args.facet,
         delay=args.delay,
+        password=args.password,
     )
 
 

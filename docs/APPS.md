@@ -588,7 +588,7 @@ from apps.utils import log_app_action
 
 **Facet-scoped vs journal-level:**
 - Pass a facet name for facet-specific actions (todos, entities, etc.)
-- Pass `facet=None` for journal-level actions (settings, remote observers, etc.)
+- Pass `facet=None` for journal-level actions (settings, observers, etc.)
 
 Log after successful mutations, not attempts.
 
@@ -639,6 +639,8 @@ Apps can access and control facet selection through a uniform API:
 
 **See implementation:** `convey/static/app.js` - Facet switching logic and event dispatch
 
+**Disabled mode:** On apps with `facets.disabled: true`, the facet bar is visible but inert — pills render without interactivity or tab stops. The container is marked `aria-hidden="true"` so screen readers skip it. The bar remains visually present as always-visible chrome.
+
 ### WebSocket Events (Client-Side)
 
 `window.appEvents` API defined in `convey/static/websocket.js`:
@@ -671,7 +673,7 @@ def handle_action():
 - If Callosum disconnected, message is dropped (with debug logging)
 - Returns `True` if queued, `False` if bridge not started or queue full
 
-**Reference implementations:** `apps/import/routes.py`, `apps/remote/routes.py`
+**Reference implementations:** `apps/import/routes.py`, `apps/observer/routes.py`
 
 ---
 

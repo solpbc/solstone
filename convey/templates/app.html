@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -37,23 +37,29 @@
 {% set _ = body_classes.append('has-app-bar') %}
 {% if app_registry.apps[app].date_nav_enabled() and day %}{% set _ = body_classes.append('has-date-nav') %}{% endif %}
 <body{% if body_classes %} class="{{ body_classes|join(' ') }}"{% endif %}>
+<script>
+// Restore sidebar state before first paint to prevent FOUC
+(function(){try{var s=localStorage.getItem('solstone:menu-state');if(s==='full'&&window.innerWidth<=768)document.body.classList.add('menu-full');else if(s==='all')document.body.classList.add('menu-all');}catch(e){}})();
+</script>
+<a href="#main-content" class="skip-link">skip to content</a>
 <!-- Corner Tags (screen region detection) -->
-<div class="corner-tags">
-  <div class="corner-tag corner-tag-tl"></div>
-  <div class="corner-tag corner-tag-tr"></div>
-  <div class="corner-tag corner-tag-bl"></div>
-  <div class="corner-tag corner-tag-br"></div>
+<div class="corner-tags" aria-hidden="true">
+  <div class="corner-tag corner-tag-tl" aria-hidden="true"></div>
+  <div class="corner-tag corner-tag-tr" aria-hidden="true"></div>
+  <div class="corner-tag corner-tag-bl" aria-hidden="true"></div>
+  <div class="corner-tag corner-tag-br" aria-hidden="true"></div>
 </div>
 
 <!-- Menu Bar -->
 {% include "menu_bar.html" %}
 
 <!-- Facet Bar (top) -->
-<div class="facet-bar{% if not app_registry.apps[app].facets_enabled() %} facets-disabled{% endif %}">
-  <div id="hamburger">☰</div>
+<nav class="facet-bar{% if not app_registry.apps[app].facets_enabled() %} facets-disabled{% endif %}" aria-label="facets">
+  <button id="hamburger" aria-label="toggle navigation" aria-expanded="false">☰</button>
   <div class="facet-pills-container"></div>
-  <div class="status-icon">🟢<span id="quiet-notif-badge" class="quiet-notif-badge" style="display:none"></span></div>
-</div>
+  <button class="status-icon" aria-expanded="false" aria-controls="status-pane" aria-label="system status: connecting"><svg class="status-indicator status-indicator--connecting" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="24 8"/></svg><span id="quiet-notif-badge" class="quiet-notif-badge" style="display:none"></span></button>
+  <span id="status-live-region" role="status" class="visually-hidden"></span>
+</nav>
 
 <!-- Date Nav (centered below facet bar) -->
 {% if app_registry.apps[app].date_nav_enabled() and day %}
@@ -64,18 +70,20 @@
 {% include "status_pane.html" %}
 
 <!-- Notification Center -->
-<div class="notification-center" id="notification-center"></div>
+<div class="notification-center" id="notification-center" role="log" aria-live="polite" aria-label="notifications"></div>
 
 <!-- Conversation Panel (universal chrome) -->
 {% include "conversation_panel.html" %}
 
 <!-- Main Content -->
-<div class="workspace">
+<main id="main-content" class="workspace">
+  <h1 class="visually-hidden">{{ app_registry.apps[app].label }}</h1>
   {% include app_registry.apps[app].get_workspace_template() %}
-</div>
+</main>
 
 <!-- App JavaScript (includes AppServices framework) -->
 <script src="{{ url_for('root.static', filename='app.js') }}"></script>
+<script src="{{ vendor_lib('marked') }}"></script>
 
 <script>
 (function() {
@@ -85,6 +93,46 @@
   // inline-vs-panel decision, backdrop blur with aruco marker exclusion.
 
   const appBar = document.getElementById('appBar');
+  function sanitizeAgentHtml(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const allowedTags = new Set([
+      'p', 'strong', 'em', 'code', 'pre', 'ul', 'ol', 'li', 'a',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'br', 'hr'
+    ]);
+    const allowedAttributes = {
+      a: new Set(['href'])
+    };
+
+    Array.from(doc.body.querySelectorAll('*')).forEach(function(el) {
+      const tagName = el.tagName.toLowerCase();
+      if (!allowedTags.has(tagName)) {
+        el.replaceWith(doc.createTextNode(el.textContent || ''));
+        return;
+      }
+
+      Array.from(el.attributes).forEach(function(attr) {
+        if (!allowedAttributes[tagName] || !allowedAttributes[tagName].has(attr.name)) {
+          el.removeAttribute(attr.name);
+        }
+      });
+
+      if (tagName === 'a') {
+        const href = el.getAttribute('href');
+        if (!href || !/^(https?:\/\/|mailto:)/.test(href)) {
+          el.removeAttribute('href');
+        }
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+      }
+    });
+
+    return doc.body.innerHTML;
+  }
+
+  function renderAgentContent(content) {
+    return sanitizeAgentHtml(marked.parse(content, { breaks: true, gfm: true }));
+  }
+
   const backdrop = document.getElementById('conversationBackdrop');
   const msgArea = document.getElementById('conversationMessages');
   const responsePanel = document.getElementById('chatBarResponsePanel');
@@ -94,6 +142,7 @@
   const input = document.getElementById('chatMessageInput');
   const form = document.getElementById('chatInputForm');
   const sendBtn = document.getElementById('chatBarSend');
+  const expandBtn = document.getElementById('chatExpandBtn');
   const STORE_KEY = 'solstone:conversationState';
 
   if (!input || !form) return;
@@ -105,6 +154,8 @@
   let messages = [];
   let savedScrollTop = 0;
   let pendingMessage = null;
+  let previouslyFocusedElement = null;
+  let panelFocusTrapHandler = null;
 
   // --- State persistence ---
   function save() {
@@ -143,10 +194,17 @@
   function renderMessages() {
     if (!msgArea) return;
     msgArea.innerHTML = '';
-    for (const m of messages) {
+    var lastIdx = messages.length - 1;
+    for (var i = 0; i <= lastIdx; i++) {
+      var m = messages[i];
       const d = document.createElement('div');
       d.className = 'conversation-message ' + m.role;
-      d.textContent = m.content;
+      if (m.role === 'error' && i === lastIdx) d.setAttribute('role', 'alert');
+      if (m.role === 'agent') {
+        d.innerHTML = renderAgentContent(m.content);
+      } else {
+        d.textContent = m.content;
+      }
       msgArea.appendChild(d);
     }
   }
@@ -154,13 +212,38 @@
   // --- Panel open/close ---
   function openPanel() {
     if (panelOpen) return;
+    previouslyFocusedElement = document.activeElement;
     panelOpen = true;
+    if (expandBtn) expandBtn.setAttribute('aria-label', 'collapse conversation');
+    if (expandBtn) expandBtn.setAttribute('aria-expanded', 'true');
     appBar.classList.remove('app-bar--dismissing');
     appBar.classList.add('app-bar--focused');
+    appBar.setAttribute('role', 'dialog');
+    appBar.setAttribute('aria-modal', 'true');
     backdrop.classList.add('visible');
     renderMessages();
+    document.querySelector('.facet-bar')?.setAttribute('aria-hidden', 'true');
+    document.querySelector('.menu-bar')?.setAttribute('aria-hidden', 'true');
+    document.getElementById('main-content')?.setAttribute('aria-hidden', 'true');
     responsePanel.style.display = 'none';
     input.focus();
+    panelFocusTrapHandler = function(e) {
+      if (e.key !== 'Tab') return;
+      var focusable = Array.from(
+        appBar.querySelectorAll('button, textarea, [tabindex="0"]')
+      ).filter(function(el) { return el.offsetParent !== null && el.tabIndex >= 0 && !el.disabled; });
+      if (focusable.length === 0) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', panelFocusTrapHandler);
     requestAnimationFrame(() => {
       if (!msgArea) return;
       if (savedScrollTop > 0) {
@@ -175,12 +258,29 @@
   function closePanel() {
     if (!panelOpen) return;
     panelOpen = false;
+    if (expandBtn) expandBtn.setAttribute('aria-label', 'expand conversation');
+    if (expandBtn) expandBtn.setAttribute('aria-expanded', 'false');
     save();
     appBar.classList.add('app-bar--dismissing');
     backdrop.classList.remove('visible');
+    document.querySelector('.facet-bar')?.removeAttribute('aria-hidden');
+    document.querySelector('.menu-bar')?.removeAttribute('aria-hidden');
+    document.getElementById('main-content')?.removeAttribute('aria-hidden');
+    if (panelFocusTrapHandler) {
+      document.removeEventListener('keydown', panelFocusTrapHandler);
+      panelFocusTrapHandler = null;
+    }
+    if (previouslyFocusedElement && previouslyFocusedElement.isConnected) {
+      previouslyFocusedElement.focus();
+    } else {
+      input.focus();
+    }
+    previouslyFocusedElement = null;
 
     function onDone() {
       appBar.classList.remove('app-bar--focused', 'app-bar--dismissing');
+      appBar.setAttribute('role', 'region');
+      appBar.removeAttribute('aria-modal');
       responsePanel.style.display = '';
     }
     appBar.addEventListener('animationend', onDone, { once: true });
@@ -212,13 +312,6 @@
   // Save state before navigation
   window.addEventListener('pagehide', save);
 
-  // --- Inline vs panel heuristic ---
-  function isOneLiner(text) {
-    if (!text) return true;
-    return text.length < 120 && !text.includes('\n') &&
-      (text.match(/[.!?]/g) || []).length <= 1;
-  }
-
   // --- Backdrop click = dismiss ---
   backdrop.addEventListener('click', closePanel);
 
@@ -227,6 +320,25 @@
     if (panelOpen) return;
     if (e.target.closest('textarea, button')) return;
     openPanel();
+  });
+
+  // --- Explicit expand/collapse button ---
+  if (expandBtn) {
+    expandBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (panelOpen) {
+        closePanel();
+      } else {
+        openPanel();
+      }
+    });
+  }
+
+  // --- Escape to collapse panel ---
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && panelOpen) {
+      closePanel();
+    }
   });
 
   // --- Textarea auto-resize + debounced save ---
@@ -267,7 +379,7 @@
         if (messages[i].role === 'agent') { last = messages[i]; break; }
       }
       if (last && inlineResp) {
-        inlineResp.textContent = last.content;
+        inlineResp.innerHTML = renderAgentContent(last.content);
         inlineResp.style.display = '';
         dismissBtn.style.display = '';
         appBar.classList.add('app-bar--glance');
@@ -298,24 +410,30 @@
             input.focus();
           }
 
-          function recoverDeliver(resp, panelHint, errMsg) {
+          function recoverDeliver(resp, display, errMsg) {
             if (resolved) return;
             resolved = true;
             var content = errMsg || resp;
             if (content) {
-              messages.push({ role: 'agent', content: content, ts: Date.now() });
+              messages.push({ role: errMsg ? 'error' : 'agent', content: content, ts: Date.now() });
             }
             pendingMessage = null;
 
+            // Multi-turn conversations always use panel — after the first exchange,
+            // the conversation has enough context that panel view is more appropriate.
             var userCount = messages.filter(function(m) { return m.role === 'user'; }).length;
-            var shouldInline = userCount === 1 && !panelHint && isOneLiner(resp) && !errMsg;
+            var shouldInline = userCount === 1 && display === 'inline' && !errMsg;
 
             if (panelOpen) {
               renderMessages();
               msgArea.scrollTop = msgArea.scrollHeight;
             } else if (shouldInline) {
               thinking.style.display = 'none';
-              inlineResp.textContent = content;
+              if (errMsg) {
+                inlineResp.textContent = content;
+              } else {
+                inlineResp.innerHTML = renderAgentContent(content);
+              }
               inlineResp.style.display = content ? '' : 'none';
               dismissBtn.style.display = content ? '' : 'none';
               if (!content) appBar.classList.remove('app-bar--glance');
@@ -334,22 +452,21 @@
               if (msg.agent_id === agentId) {
                 if (recoveryWatchdog) { clearTimeout(recoveryWatchdog); recoveryWatchdog = null; }
                 recoveryWatchdog = setTimeout(function() {
-                  recoverDeliver('', false, 'request timed out. try again.');
+                  recoverDeliver('', 'panel', 'request timed out. the server took too long to respond. try a shorter question, or check if solstone services are running.');
                 }, 180000);
               }
               if (msg.agent_id === agentId && msg.event === 'finish') {
                 var resp = msg.result || '';
-                var panelHint = resp.length >= 120 || resp.includes('\n') || resp.split('. ').length > 2;
-                recoverDeliver(resp, panelHint, null);
+                recoverDeliver(resp, msg.display || 'panel', null);
               } else if (msg.agent_id === agentId && msg.event === 'error') {
-                recoverDeliver('', false, 'something went wrong. try again.');
+                recoverDeliver('', 'panel', 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
               }
             });
           }
 
           // Start watchdog for recovery
           recoveryWatchdog = setTimeout(function() {
-            recoverDeliver('', false, 'request timed out. try again.');
+            recoverDeliver('', 'panel', 'request timed out. the server took too long to respond. try a shorter question, or check if solstone services are running.');
           }, 180000);
 
           // Check GET immediately in case agent already finished
@@ -361,8 +478,7 @@
               if (recoveryWatchdog) { clearTimeout(recoveryWatchdog); recoveryWatchdog = null; }
               var data = await r.json();
               var resp = data.response || '';
-              var panelHint = !!data.panel;
-              recoverDeliver(resp, panelHint, null);
+              recoverDeliver(resp, data.display || 'panel', null);
             }
             // If 404, agent still running — keep WS subscription active
           } catch (err) {
@@ -410,24 +526,75 @@
         });
       }
 
-      if (cmd.includes('sol call journal search')) return 'searching your journal\u2026';
+      if (cmd.includes('sol call journal search')) {
+        var query = extractArg(cmd, '--query');
+        if (query) return 'searching: ' + query.substring(0, 50) + '\u2026';
+        return 'searching your journal\u2026';
+      }
       if (cmd.includes('sol call journal events') || cmd.includes('sol call calendar list')) return 'looking up events\u2026';
       if (cmd.includes('sol call navigate')) return 'navigating\u2026';
       if (cmd.includes('sol call transcripts')) return 'reading transcripts\u2026';
-      if (cmd.includes('sol call journal read')) return 'reading your notes\u2026';
+      if (cmd.includes('sol call entity') || cmd.includes('sol call entities')) {
+        var entityDetail = extractArg(cmd, '--query')
+          || extractArg(cmd, 'intelligence')
+          || extractArg(cmd, 'observations')
+          || extractArg(cmd, 'observe');
+        if (entityDetail) return 'looking up: ' + entityDetail.substring(0, 50) + '\u2026';
+      }
+      if (cmd.includes('sol call journal read')) {
+        var identifier = extractArg(cmd, '--id') || extractArg(cmd, '--date');
+        if (identifier) return 'reading: ' + identifier.substring(0, 50) + '\u2026';
+        return 'reading your notes\u2026';
+      }
       if (cmd.includes('sol call journal agents')) return 'checking daily insights\u2026';
       return 'working\u2026';
     }
     return null;
   }
 
+  function extractArg(cmd, flag) {
+    if (!cmd || !flag) return '';
+    var singleQuoted = cmd.match(new RegExp(flag + "\\s+'([^']+)'"));
+    if (singleQuoted && singleQuoted[1]) return singleQuoted[1];
+    var doubleQuoted = cmd.match(new RegExp(flag + '\\s+"([^"]+)"'));
+    if (doubleQuoted && doubleQuoted[1]) return doubleQuoted[1];
+    var unquoted = cmd.match(new RegExp(flag + '\\s+(\\S+)'));
+    if (unquoted && unquoted[1]) return unquoted[1];
+    return '';
+  }
+
+  var announceTimer = null;
+
   function updateThinkingLabel(text) {
     var barEl = document.getElementById('chatBarThinking');
     var panelEl = document.getElementById('panelThinking');
     [barEl, panelEl].forEach(function(el) {
       if (!el) return;
-      el.innerHTML = '<span class="chat-bar-thinking-dot"></span> ' + text;
+      var visual = el.querySelector('[aria-hidden="true"]');
+      var announce = el.querySelector('.thinking-announce');
+      if (!visual) {
+        visual = document.createElement('span');
+        visual.setAttribute('aria-hidden', 'true');
+        el.innerHTML = '';
+        el.appendChild(visual);
+      }
+      if (!announce) {
+        announce = document.createElement('span');
+        announce.className = 'visually-hidden thinking-announce';
+        el.appendChild(announce);
+      }
+      visual.innerHTML = '<span class="chat-bar-thinking-dot"></span> ' + text;
     });
+    if (announceTimer) clearTimeout(announceTimer);
+    announceTimer = setTimeout(function() {
+      var delayedBarEl = document.getElementById('chatBarThinking');
+      var delayedPanelEl = document.getElementById('panelThinking');
+      [delayedBarEl, delayedPanelEl].forEach(function(el) {
+        if (!el) return;
+        var announce = el.querySelector('.thinking-announce');
+        if (announce) announce.textContent = text;
+      });
+    }, 500);
   }
 
   // --- Form submit ---
@@ -451,7 +618,8 @@
       var td = document.createElement('div');
       td.className = 'conversation-message agent thinking';
       td.id = 'panelThinking';
-      td.innerHTML = '<span class="chat-bar-thinking-dot"></span> thinking\u2026';
+      td.setAttribute('aria-live', 'assertive');
+      td.innerHTML = '<span aria-hidden="true"><span class="chat-bar-thinking-dot"></span> thinking\u2026</span><span class="visually-hidden thinking-announce">thinking\u2026</span>';
       msgArea.appendChild(td);
       msgArea.scrollTop = msgArea.scrollHeight;
     } else {
@@ -473,6 +641,7 @@
       if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
       if (timerTimeout) { clearTimeout(timerTimeout); timerTimeout = null; }
       if (watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
+      if (announceTimer) { clearTimeout(announceTimer); announceTimer = null; }
       var pt = document.getElementById('panelThinking');
       if (pt) pt.remove();
       thinking.style.display = 'none';
@@ -480,21 +649,27 @@
       input.focus();
     }
 
-    function deliverResult(resp, panelHint, errMsg) {
+    function deliverResult(resp, display, errMsg) {
       var content = errMsg || resp;
       if (content) {
-        messages.push({ role: 'agent', content: content, ts: Date.now() });
+        messages.push({ role: errMsg ? 'error' : 'agent', content: content, ts: Date.now() });
       }
       pendingMessage = null;
 
+      // Multi-turn conversations always use panel — after the first exchange,
+      // the conversation has enough context that panel view is more appropriate.
       var userCount = messages.filter(function(m) { return m.role === 'user'; }).length;
-      var shouldInline = userCount === 1 && !panelHint && isOneLiner(resp) && !errMsg;
+      var shouldInline = userCount === 1 && display === 'inline' && !errMsg;
 
       if (panelOpen) {
         renderMessages();
         msgArea.scrollTop = msgArea.scrollHeight;
       } else if (shouldInline) {
-        inlineResp.textContent = content;
+        if (errMsg) {
+          inlineResp.textContent = content;
+        } else {
+          inlineResp.innerHTML = renderAgentContent(content);
+        }
         inlineResp.style.display = content ? '' : 'none';
         dismissBtn.style.display = content ? '' : 'none';
         if (!content) appBar.classList.remove('app-bar--glance');
@@ -509,7 +684,7 @@
     function startWatchdog(agentId) {
       if (watchdogTimer) clearTimeout(watchdogTimer);
       watchdogTimer = setTimeout(function() {
-        deliverResult('', false, 'request timed out. try again.');
+        deliverResult('', 'panel', 'request timed out. the server took too long to respond. try a shorter question, or check if solstone services are running.');
       }, 180000);
     }
 
@@ -526,14 +701,14 @@
       });
 
       if (!r.ok) {
-        deliverResult('', false, 'something went wrong. try again.');
+        deliverResult('', 'panel', 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
         return;
       }
 
       var data = await r.json();
       var agentId = data.agent_id;
       if (!agentId) {
-        deliverResult('', false, 'something went wrong. try again.');
+        deliverResult('', 'panel', 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
         return;
       }
 
@@ -544,16 +719,18 @@
       timerTimeout = setTimeout(function() {
         timerInterval = setInterval(function() {
           var elapsed = Math.round((Date.now() - thinkingStarted) / 1000);
-          var suffix = ' <span class="thinking-elapsed">' + elapsed + 's</span>';
+          var suffix = ' <span class="thinking-elapsed" aria-hidden="true">' + elapsed + 's</span>';
           var barEl = document.getElementById('chatBarThinking');
           var panelEl = document.getElementById('panelThinking');
           [barEl, panelEl].forEach(function(el) {
             if (!el) return;
-            var existing = el.querySelector('.thinking-elapsed');
+            var visual = el.querySelector('[aria-hidden="true"]');
+            if (!visual) visual = el;
+            var existing = visual.querySelector('.thinking-elapsed');
             if (existing) {
               existing.textContent = elapsed + 's';
             } else {
-              el.insertAdjacentHTML('beforeend', suffix);
+              visual.insertAdjacentHTML('beforeend', suffix);
             }
           });
         }, 1000);
@@ -565,31 +742,24 @@
       // Subscribe to cortex events for this agent
       if (window.appEvents) {
         cleanupCortex = window.appEvents.listen('cortex', function(msg) {
-          // Update thinking label on any progress event
-          var label = getProgressLabel(msg);
-          if (label) updateThinkingLabel(label);
-
-          // Reset inactivity watchdog on any event for our agent
+          // Reset inactivity watchdog and update thinking label for our agent
           if (msg.agent_id === agentId) {
+            var label = getProgressLabel(msg);
+            if (label) updateThinkingLabel(label);
             startWatchdog(agentId);
           }
 
           // Handle finish/error for our agent
           if (msg.agent_id === agentId && msg.event === 'finish') {
             var resp = msg.result || '';
-            var panelHint = (
-              resp.length >= 120 ||
-              resp.includes('\n') ||
-              resp.split('. ').length > 2
-            );
-            deliverResult(resp, panelHint, null);
+            deliverResult(resp, msg.display || 'panel', null);
           } else if (msg.agent_id === agentId && msg.event === 'error') {
-            deliverResult('', false, 'something went wrong. try again.');
+            deliverResult('', 'panel', 'something went wrong. the server returned an unexpected response. try sending your message again, or check the health page if it keeps happening.');
           }
         });
       }
     } catch (err) {
-      deliverResult('', false, 'connection error. try again.');
+      deliverResult('', 'panel', 'connection lost. couldn\'t reach the server. try sending your message again, or check if solstone services are running.');
     }
   };
 })();
@@ -618,7 +788,7 @@
 <!-- Error Modal -->
 <div id="errorModal" class="modal">
   <div class="modal-content">
-    <span class="close">&times;</span>
+    <button class="close" aria-label="close">&times;</button>
     <pre id="errorMessage"></pre>
   </div>
 </div>

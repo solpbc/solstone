@@ -134,7 +134,7 @@ def test_journal_level_log_directory_created(test_facet):
 
     # Log a journal-level action
     log_app_action(
-        app="remote",
+        app="observer",
         facet=None,
         action="observer_create",
         params={"name": "test-observer"},

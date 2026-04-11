@@ -950,6 +950,57 @@ class TestCollectStatus:
         assert "last_run" in status[0]
         assert "due" in status[0]
 
+    def test_next_run_hourly(self, journal_path):
+        import think.scheduler as mod
+
+        mod._entries = {"a": {"cmd": ["sol", "x"], "every": "hourly"}}
+        mod._state = {"a": {"last_run": datetime(2026, 2, 17, 14, 5).timestamp()}}
+
+        with _fake_now(datetime(2026, 2, 17, 14, 30)):
+            status = mod.collect_status()
+
+        expected = int(datetime(2026, 2, 17, 15, 0).timestamp() * 1000)
+        assert status[0]["next_run"] == expected
+
+    def test_next_run_daily(self, journal_path):
+        import think.scheduler as mod
+
+        mod._daily_time = "03:00"
+        mod._entries = {"a": {"cmd": ["sol", "x"], "every": "daily"}}
+        mod._state = {"a": {"last_run": datetime(2026, 2, 17, 3, 30).timestamp()}}
+
+        with _fake_now(datetime(2026, 2, 17, 4, 0)):
+            status = mod.collect_status()
+
+        expected = int(datetime(2026, 2, 18, 3, 0).timestamp() * 1000)
+        assert status[0]["next_run"] == expected
+
+    def test_next_run_weekly(self, journal_path):
+        import think.scheduler as mod
+
+        mod._weekly_day = "sunday"
+        mod._weekly_time = "03:00"
+        mod._entries = {"a": {"cmd": ["sol", "x"], "every": "weekly"}}
+        mod._state = {"a": {"last_run": datetime(2026, 3, 22, 3, 30).timestamp()}}
+
+        with _fake_now(datetime(2026, 3, 22, 4, 0)):
+            status = mod.collect_status()
+
+        expected = int(datetime(2026, 3, 29, 3, 0).timestamp() * 1000)
+        assert status[0]["next_run"] == expected
+
+    def test_next_run_when_due(self, journal_path):
+        import think.scheduler as mod
+
+        mod._entries = {"a": {"cmd": ["sol", "x"], "every": "hourly"}}
+        mod._state = {}
+
+        with _fake_now(datetime(2026, 2, 17, 14, 30)):
+            status = mod.collect_status()
+
+        expected = int(datetime(2026, 2, 17, 14, 0).timestamp() * 1000)
+        assert status[0]["next_run"] == expected
+
 
 class TestHeartbeatSchedule:
     """Tests for heartbeat schedule registration and daily firing."""

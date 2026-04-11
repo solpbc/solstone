@@ -6,13 +6,14 @@ import json
 import logging
 import os
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict
 
 from observe.sense import scan_day as sense_scan_day
 from observe.utils import VIDEO_EXTENSIONS, load_analysis_frames
 from think.agents import scan_day as generate_scan_day
+from think.stats_schema import DAY_FIELDS, SCHEMA_VERSION, validate as validate_stats
 from think.utils import day_dirs, get_journal, setup_cli
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,16 @@ class JournalStats:
             files.extend(agents_dir.glob("*.md"))
             files.extend(agents_dir.glob("*/*.json"))
             files.extend(agents_dir.glob("*/*.md"))
+
+        # Check facet event files for this day
+        journal_root = day_dir.parent
+        day = day_dir.name
+        facets_dir = journal_root / "facets"
+        if facets_dir.is_dir():
+            for facet_name in os.listdir(facets_dir):
+                event_file = facets_dir / facet_name / "events" / f"{day}.jsonl"
+                if event_file.is_file():
+                    files.append(event_file)
 
         if not files:
             return 0.0
@@ -337,7 +348,7 @@ class JournalStats:
             "heatmap_data": {"weekday": weekday, "hours": heatmap_hours},
         }
 
-    def scan_all_tokens(self, journal_path: Path) -> None:
+    def scan_all_tokens(self, journal_path: Path, use_cache: bool = True) -> None:
         """Scan all token usage files in the tokens directory.
 
         Reads daily *.jsonl files (one JSON object per line).
@@ -346,8 +357,30 @@ class JournalStats:
         if not tokens_dir.is_dir():
             return
 
+        today = datetime.now(timezone.utc).strftime("%Y%m%d")
+
         # Scan JSONL files only
         for token_file in tokens_dir.glob("*.jsonl"):
+            day = token_file.stem
+            cache_file = token_file.parent / f"{day}.tokens_cache.json"
+
+            if use_cache and day != today and cache_file.exists():
+                try:
+                    if cache_file.stat().st_mtime > token_file.stat().st_mtime:
+                        with open(cache_file, encoding="utf-8") as f:
+                            cached = json.load(f)
+                        self.token_usage[day] = cached
+                        for model, counts in cached.items():
+                            if model not in self.token_totals:
+                                self.token_totals[model] = {}
+                            for token_type, count in counts.items():
+                                if token_type not in self.token_totals[model]:
+                                    self.token_totals[model][token_type] = 0
+                                self.token_totals[model][token_type] += count
+                        continue
+                except Exception as e:
+                    logger.debug(f"Token cache load failed for {token_file}: {e}")
+
             try:
                 with open(token_file, "r", encoding="utf-8") as f:
                     for line in f:
@@ -365,10 +398,15 @@ class JournalStats:
                 logger.warning(f"Error reading token file {token_file}: {e}")
                 continue
 
+            if use_cache and day != today:
+                try:
+                    with open(cache_file, "w", encoding="utf-8") as f:
+                        json.dump(self.token_usage.get(day, {}), f)
+                except Exception as e:
+                    logger.debug(f"Token cache save failed for {token_file}: {e}")
+
     def _process_token_entry(self, data: dict) -> None:
         """Process a single token usage entry (expects normalized format)."""
-        from datetime import datetime, timezone
-
         # Extract date from timestamp
         timestamp = data.get("timestamp")
         if not timestamp:
@@ -449,7 +487,7 @@ class JournalStats:
                     self._save_day_cache(day_dir, day_data)
 
         # Scan tokens directory once after all days are processed
-        self.scan_all_tokens(Path(journal))
+        self.scan_all_tokens(Path(journal), use_cache=use_cache)
 
         if verbose:
             cache_status = (
@@ -466,27 +504,46 @@ class JournalStats:
 
     def to_dict(self) -> dict:
         """Return a dictionary with all collected statistics."""
+        days = {
+            day: {field: stats.get(field, 0) for field in DAY_FIELDS}
+            for day, stats in self.days.items()
+        }
         return {
-            "days": self.days,
-            "totals": dict(self.totals),
-            "total_transcript_duration": self.total_transcript_duration,
-            "total_percept_duration": self.total_percept_duration,
-            "agent_counts": dict(self.agent_counts),
-            "agent_minutes": {k: round(v, 2) for k, v in self.agent_minutes.items()},
-            "agent_counts_by_day": self.agent_counts_by_day,
-            "facet_counts": dict(self.facet_counts),
-            "facet_minutes": {k: round(v, 2) for k, v in self.facet_minutes.items()},
-            "facet_counts_by_day": self.facet_counts_by_day,
+            "schema_version": SCHEMA_VERSION,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "day_count": len(self.days),
+            "days": days,
+            "totals": {
+                **dict(self.totals),
+                "total_transcript_duration": self.total_transcript_duration,
+                "total_percept_duration": self.total_percept_duration,
+            },
             "heatmap": self.heatmap,
-            "token_usage_by_day": self.token_usage,
-            "token_totals_by_model": self.token_totals,
+            "tokens": {
+                "by_day": self.token_usage,
+                "by_model": self.token_totals,
+            },
+            "agents": {
+                "counts": dict(self.agent_counts),
+                "minutes": {k: round(v, 2) for k, v in self.agent_minutes.items()},
+                "counts_by_day": self.agent_counts_by_day,
+            },
+            "facets": {
+                "counts": dict(self.facet_counts),
+                "minutes": {k: round(v, 2) for k, v in self.facet_minutes.items()},
+                "counts_by_day": self.facet_counts_by_day,
+            },
         }
 
     def save_json(self, journal: str) -> None:
         """Write full statistics to ``stats.json`` in ``journal``."""
+        data = self.to_dict()
+        errors = validate_stats(data)
+        if errors:
+            raise ValueError(f"Stats validation failed: {'; '.join(errors)}")
         path = os.path.join(journal, "stats.json")
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(self.to_dict(), f, indent=2)
+            json.dump(data, f, indent=2)
 
 
 def main() -> None:

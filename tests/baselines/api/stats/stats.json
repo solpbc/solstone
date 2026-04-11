@@ -1,4 +1,5 @@
 {
+  "file_mtime": 0,
   "generators": {
     "daily_schedule": {
       "color": "#455a64",
@@ -243,7 +244,7 @@
     },
     "sense": {
       "color": "#ff6f00",
-      "description": "Unified segment understanding — density, content type, entities, facets, speakers, and routing recommendations in a single pass",
+      "description": "Unified segment understanding \u2014 density, content type, entities, facets, speakers, and routing recommendations in a single pass",
       "load": {
         "agents": false,
         "percepts": true,
@@ -309,300 +310,401 @@
     }
   },
   "stats": {
-    "agent_counts": {
-      "activity": 2,
-      "flow": 11,
-      "meetings": 8
-    },
-    "agent_counts_by_day": {
-      "20240101": {
+    "agents": {
+      "counts": {
         "activity": 2,
-        "meetings": 1
+        "flow": 11,
+        "meetings": 8
       },
-      "20260304": {
-        "flow": 4
+      "counts_by_day": {
+        "20240101": {
+          "activity": 2,
+          "meetings": 1
+        },
+        "20260304": {
+          "flow": 4
+        },
+        "20260305": {
+          "flow": 1,
+          "meetings": 1
+        },
+        "20260306": {
+          "flow": 2,
+          "meetings": 1
+        },
+        "20260307": {
+          "flow": 2,
+          "meetings": 1
+        },
+        "20260308": {
+          "meetings": 1
+        },
+        "20260309": {
+          "flow": 2
+        },
+        "20260310": {
+          "meetings": 3
+        }
       },
-      "20260305": {
-        "flow": 1,
-        "meetings": 1
-      },
-      "20260306": {
-        "flow": 2,
-        "meetings": 1
-      },
-      "20260307": {
-        "flow": 2,
-        "meetings": 1
-      },
-      "20260308": {
-        "meetings": 1
-      },
-      "20260309": {
-        "flow": 2
-      },
-      "20260310": {
-        "meetings": 3
+      "minutes": {
+        "activity": 180.0,
+        "flow": 1979.0,
+        "meetings": 570.0
       }
     },
-    "agent_minutes": {
-      "activity": 180.0,
-      "flow": 1979.0,
-      "meetings": 570.0
-    },
+    "day_count": 60,
     "days": {
       "20240101": {
-        "audio_duration": 44.0,
-        "audio_segments": 6,
-        "audio_sessions": 2,
-        "day_bytes": 39028,
-        "outputs_pending": 9,
+        "day_bytes": 38312,
+        "outputs_pending": 3,
         "outputs_processed": 2,
         "pending_segments": 0,
-        "screen_duration": 0.0,
-        "screen_frames": 0,
-        "screen_sessions": 1
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 1,
+        "transcript_duration": 44.0,
+        "transcript_segments": 6,
+        "transcript_sessions": 2
       },
       "20240102": {
-        "audio_duration": 29.0,
-        "audio_segments": 3,
-        "audio_sessions": 1,
-        "day_bytes": 38591,
-        "outputs_pending": 11,
+        "day_bytes": 38210,
+        "outputs_pending": 4,
         "outputs_processed": 1,
         "pending_segments": 0,
-        "screen_duration": 23.1,
-        "screen_frames": 3,
-        "screen_sessions": 1
+        "percept_duration": 23.1,
+        "percept_frames": 3,
+        "percept_sessions": 1,
+        "transcript_duration": 29.0,
+        "transcript_segments": 3,
+        "transcript_sessions": 1
       },
       "20250101": {
-        "audio_duration": 0.0,
-        "day_bytes": 68855,
-        "outputs_pending": 12,
-        "outputs_processed": 0,
-        "pending_segments": 0,
-        "screen_duration": 0.0
-      },
-      "20250103": {
-        "audio_duration": 0.0,
-        "day_bytes": 3991,
-        "outputs_pending": 12,
-        "outputs_processed": 0,
-        "pending_segments": 0,
-        "screen_duration": 0.0
-      },
-      "20250104": {
-        "audio_duration": 0.0,
-        "day_bytes": 12058,
-        "outputs_pending": 12,
-        "outputs_processed": 0,
-        "pending_segments": 0,
-        "screen_duration": 0.0
-      },
-      "20250107": {
-        "audio_duration": 0.0,
-        "day_bytes": 4017,
-        "outputs_pending": 12,
-        "outputs_processed": 0,
-        "pending_segments": 0,
-        "screen_duration": 0.0
-      },
-      "20250108": {
-        "audio_duration": 0.0,
-        "day_bytes": 12025,
-        "outputs_pending": 12,
-        "outputs_processed": 0,
-        "pending_segments": 0,
-        "screen_duration": 0.0
-      },
-      "20250110": {
-        "day_bytes": 15854,
-        "outputs_pending": 11,
+        "day_bytes": 241,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
-      "20250124": {
-        "audio_duration": 0.0,
-        "day_bytes": 776,
-        "outputs_pending": 12,
+      "20250103": {
+        "day_bytes": 33,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20250104": {
+        "day_bytes": 0,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20250107": {
+        "day_bytes": 33,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20250108": {
+        "day_bytes": 0,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20250110": {
+        "day_bytes": 0,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20250124": {
+        "day_bytes": 499,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260101": {
         "day_bytes": 24508,
-        "outputs_pending": 11,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
         "transcript_duration": 1557.0,
         "transcript_segments": 38,
         "transcript_sessions": 8
       },
       "20260130": {
-        "audio_duration": 0.0,
-        "day_bytes": 275,
-        "outputs_pending": 12,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260216": {
-        "audio_duration": 0.0,
-        "day_bytes": 397,
-        "outputs_pending": 12,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260217": {
-        "audio_duration": 0.0,
-        "day_bytes": 320,
-        "outputs_pending": 12,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260218": {
-        "audio_duration": 0.0,
-        "day_bytes": 120,
-        "outputs_pending": 12,
+        "day_bytes": 280,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260219": {
-        "audio_duration": 0.0,
-        "day_bytes": 240,
-        "outputs_pending": 12,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260220": {
-        "audio_duration": 0.0,
-        "day_bytes": 0,
-        "outputs_pending": 12,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260221": {
-        "audio_duration": 0.0,
-        "day_bytes": 160,
-        "outputs_pending": 12,
+        "day_bytes": 280,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260222": {
-        "audio_duration": 0.0,
-        "day_bytes": 80,
-        "outputs_pending": 12,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260223": {
-        "audio_duration": 0.0,
-        "day_bytes": 120,
-        "outputs_pending": 12,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260224": {
-        "audio_duration": 0.0,
-        "day_bytes": 160,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260225": {
-        "audio_duration": 0.0,
-        "day_bytes": 120,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260226": {
-        "audio_duration": 0.0,
-        "day_bytes": 80,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260227": {
-        "audio_duration": 0.0,
-        "day_bytes": 80,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260228": {
-        "audio_duration": 0.0,
-        "day_bytes": 120,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260301": {
-        "audio_duration": 0.0,
-        "day_bytes": 80,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260302": {
-        "audio_duration": 0.0,
-        "day_bytes": 637,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260303": {
-        "audio_duration": 0.0,
-        "day_bytes": 240,
-        "outputs_pending": 11,
+        "day_bytes": 280,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260304": {
-        "audio_duration": 250.0,
-        "audio_segments": 15,
-        "audio_sessions": 3,
-        "day_bytes": 44511,
-        "outputs_pending": 9,
+        "day_bytes": 45578,
+        "outputs_pending": 3,
         "outputs_processed": 2,
         "pending_segments": 0,
-        "screen_duration": 0.0,
-        "screen_frames": 0,
-        "screen_sessions": 3
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 3,
+        "transcript_duration": 250.0,
+        "transcript_segments": 15,
+        "transcript_sessions": 3
       },
       "20260305": {
-        "audio_duration": 175.0,
-        "audio_segments": 12,
-        "audio_sessions": 3,
-        "day_bytes": 41560,
-        "outputs_pending": 10,
+        "day_bytes": 42276,
+        "outputs_pending": 4,
         "outputs_processed": 1,
         "pending_segments": 0,
-        "screen_duration": 0.0,
-        "screen_frames": 0,
-        "screen_sessions": 3
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 3,
+        "transcript_duration": 175.0,
+        "transcript_segments": 12,
+        "transcript_sessions": 3
       },
       "20260306": {
-        "day_bytes": 62860,
-        "outputs_pending": 9,
+        "day_bytes": 61500,
+        "outputs_pending": 3,
         "outputs_processed": 2,
         "pending_segments": 0,
         "percept_duration": 0.0,
@@ -613,40 +715,44 @@
         "transcript_sessions": 4
       },
       "20260307": {
-        "audio_duration": 160.0,
-        "audio_segments": 11,
-        "audio_sessions": 2,
-        "day_bytes": 38153,
-        "outputs_pending": 10,
+        "day_bytes": 38800,
+        "outputs_pending": 4,
         "outputs_processed": 1,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 160.0,
+        "transcript_segments": 11,
+        "transcript_sessions": 2
       },
       "20260308": {
-        "audio_duration": 140.0,
-        "audio_segments": 9,
-        "audio_sessions": 2,
-        "day_bytes": 39213,
-        "outputs_pending": 9,
+        "day_bytes": 39229,
+        "outputs_pending": 3,
         "outputs_processed": 2,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 140.0,
+        "transcript_segments": 9,
+        "transcript_sessions": 2
       },
       "20260309": {
-        "audio_duration": 170.0,
-        "audio_segments": 12,
-        "audio_sessions": 3,
-        "day_bytes": 41937,
-        "outputs_pending": 10,
+        "day_bytes": 41954,
+        "outputs_pending": 4,
         "outputs_processed": 1,
         "pending_segments": 0,
-        "screen_duration": 0.0,
-        "screen_frames": 0,
-        "screen_sessions": 3
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 3,
+        "transcript_duration": 170.0,
+        "transcript_segments": 12,
+        "transcript_sessions": 3
       },
       "20260310": {
-        "day_bytes": 53726,
-        "outputs_pending": 9,
+        "day_bytes": 53384,
+        "outputs_pending": 3,
         "outputs_processed": 2,
         "pending_segments": 0,
         "percept_duration": 0.0,
@@ -657,215 +763,370 @@
         "transcript_sessions": 3
       },
       "20260311": {
-        "day_bytes": 483,
-        "outputs_pending": 11,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260312": {
-        "day_bytes": 520,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260314": {
-        "day_bytes": 160,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260315": {
-        "day_bytes": 483,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260316": {
-        "day_bytes": 160,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260317": {
-        "day_bytes": 403,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260318": {
-        "day_bytes": 360,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260319": {
-        "day_bytes": 120,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260320": {
-        "day_bytes": 350,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260321": {
-        "day_bytes": 660,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260322": {
-        "day_bytes": 746,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260323": {
-        "day_bytes": 0,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260326": {
-        "day_bytes": 792,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260327": {
-        "day_bytes": 3300,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260331": {
-        "day_bytes": 884,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260402": {
-        "day_bytes": 1201,
-        "outputs_pending": 11,
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260403": {
-        "day_bytes": 1056,
-        "outputs_pending": 11,
+        "day_bytes": 0,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260404": {
-        "day_bytes": 878,
+        "day_bytes": 282,
         "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
       "20260405": {
-        "day_bytes": 528,
+        "day_bytes": 282,
         "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
         "percept_duration": 0.0,
-        "transcript_duration": 0.0
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       },
-      "20990101": {
-        "audio_duration": 0.0,
-        "day_bytes": 0,
-        "outputs_pending": 12,
+      "20260406": {
+        "day_bytes": 282,
+        "outputs_pending": 5,
         "outputs_processed": 0,
         "pending_segments": 0,
-        "screen_duration": 0.0
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20260407": {
+        "day_bytes": 1563,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20260408": {
+        "day_bytes": 1274,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20260409": {
+        "day_bytes": 660,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20260410": {
+        "day_bytes": 942,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20260411": {
+        "day_bytes": 1544,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
+      },
+      "20990101": {
+        "day_bytes": 282,
+        "outputs_pending": 5,
+        "outputs_processed": 0,
+        "pending_segments": 0,
+        "percept_duration": 0.0,
+        "percept_frames": 0,
+        "percept_sessions": 0,
+        "transcript_duration": 0.0,
+        "transcript_segments": 0,
+        "transcript_sessions": 0
       }
     },
-    "facet_counts": {
-      "capulet": 5,
-      "montague": 8,
-      "personal": 1,
-      "verona": 5,
-      "work": 2
-    },
-    "facet_counts_by_day": {
-      "20240101": {
+    "facets": {
+      "counts": {
+        "capulet": 5,
+        "montague": 8,
         "personal": 1,
+        "verona": 5,
         "work": 2
       },
-      "20260304": {
-        "capulet": 2,
-        "montague": 2
+      "counts_by_day": {
+        "20240101": {
+          "personal": 1,
+          "work": 2
+        },
+        "20260304": {
+          "capulet": 2,
+          "montague": 2
+        },
+        "20260305": {
+          "montague": 1,
+          "verona": 1
+        },
+        "20260306": {
+          "capulet": 1,
+          "montague": 1,
+          "verona": 1
+        },
+        "20260307": {
+          "capulet": 1,
+          "montague": 2
+        },
+        "20260308": {
+          "verona": 1
+        },
+        "20260309": {
+          "montague": 1,
+          "verona": 1
+        },
+        "20260310": {
+          "capulet": 1,
+          "montague": 1,
+          "verona": 1
+        }
       },
-      "20260305": {
-        "montague": 1,
-        "verona": 1
-      },
-      "20260306": {
-        "capulet": 1,
-        "montague": 1,
-        "verona": 1
-      },
-      "20260307": {
-        "capulet": 1,
-        "montague": 2
-      },
-      "20260308": {
-        "verona": 1
-      },
-      "20260309": {
-        "montague": 1,
-        "verona": 1
-      },
-      "20260310": {
-        "capulet": 1,
-        "montague": 1,
-        "verona": 1
+      "minutes": {
+        "capulet": 390.0,
+        "montague": 810.0,
+        "personal": 60.0,
+        "verona": 1319.0,
+        "work": 150.0
       }
     },
-    "facet_minutes": {
-      "capulet": 390.0,
-      "montague": 810.0,
-      "personal": 60.0,
-      "verona": 1319.0,
-      "work": 150.0
-    },
+    "generated_at": "2026-04-11T19:22:18.320923+00:00",
     "heatmap": [
       [
         0.0,
@@ -1050,93 +1311,538 @@
         0.0
       ]
     ],
-    "token_totals_by_model": {
-      "claude-sonnet-4-5": {
-        "cached_tokens": 7000,
-        "input_tokens": 29400,
-        "output_tokens": 10500,
-        "reasoning_tokens": 1400,
-        "total_tokens": 39900
+    "schema_version": 2,
+    "tokens": {
+      "by_day": {
+        "20250823": {
+          "claude-sonnet-4-5-20250929": {
+            "input_tokens": 24000,
+            "output_tokens": 7200,
+            "total_tokens": 31200
+          },
+          "gemini-2.5-flash": {
+            "cached_tokens": 3450,
+            "input_tokens": 21850,
+            "output_tokens": 7256,
+            "reasoning_tokens": 2139,
+            "total_tokens": 29345
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 312,
+            "output_tokens": 81,
+            "reasoning_tokens": 0,
+            "total_tokens": 393
+          },
+          "gpt-5": {
+            "input_tokens": 8400,
+            "output_tokens": 2770,
+            "reasoning_tokens": 500,
+            "total_tokens": 11170
+          },
+          "models/gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 1143,
+            "output_tokens": 373,
+            "reasoning_tokens": 3267,
+            "total_tokens": 4783
+          },
+          "models/gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 60,
+            "output_tokens": 5,
+            "reasoning_tokens": 0,
+            "total_tokens": 65
+          }
+        },
+        "20250824": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "reasoning_tokens": 0,
+            "total_tokens": 150
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        "20250825": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 200,
+            "output_tokens": 100,
+            "reasoning_tokens": 0,
+            "total_tokens": 300
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        "20250826": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 500,
+            "output_tokens": 250,
+            "reasoning_tokens": 0,
+            "total_tokens": 750
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        "20250827": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 1130,
+            "output_tokens": 415,
+            "reasoning_tokens": 3246,
+            "total_tokens": 4791
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 60,
+            "output_tokens": 5,
+            "reasoning_tokens": 0,
+            "total_tokens": 65
+          }
+        },
+        "20250828": {},
+        "20250905": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 1270,
+            "output_tokens": 591,
+            "reasoning_tokens": 3355,
+            "total_tokens": 5216
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 60,
+            "output_tokens": 5,
+            "reasoning_tokens": 0,
+            "total_tokens": 65
+          }
+        },
+        "20250908": {},
+        "20250909": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 1518,
+            "output_tokens": 642,
+            "reasoning_tokens": 5004,
+            "total_tokens": 7164
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 84,
+            "output_tokens": 7,
+            "reasoning_tokens": 0,
+            "total_tokens": 91
+          }
+        },
+        "20250914": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 1348,
+            "output_tokens": 654,
+            "reasoning_tokens": 1365,
+            "total_tokens": 3367
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 24,
+            "output_tokens": 2,
+            "reasoning_tokens": 0,
+            "total_tokens": 26
+          }
+        },
+        "20250915": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 474,
+            "output_tokens": 218,
+            "reasoning_tokens": 662,
+            "total_tokens": 1354
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 12,
+            "output_tokens": 1,
+            "reasoning_tokens": 0,
+            "total_tokens": 13
+          }
+        },
+        "20250916": {
+          "gemini-2.5-flash": {
+            "input_tokens": 348,
+            "output_tokens": 153,
+            "reasoning_tokens": 1307,
+            "total_tokens": 1808
+          },
+          "gemini-2.5-flash-lite": {
+            "input_tokens": 24,
+            "output_tokens": 2,
+            "total_tokens": 26
+          }
+        },
+        "20250919": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 200,
+            "output_tokens": 100,
+            "reasoning_tokens": 0,
+            "total_tokens": 300
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        "20250920": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "reasoning_tokens": 0,
+            "total_tokens": 150
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        "20250926": {
+          "gemini-2.5-flash": {
+            "input_tokens": 174,
+            "output_tokens": 79,
+            "reasoning_tokens": 648,
+            "total_tokens": 901
+          },
+          "gemini-2.5-flash-lite": {
+            "input_tokens": 12,
+            "output_tokens": 1,
+            "total_tokens": 13
+          }
+        },
+        "20250927": {},
+        "20251003": {},
+        "20251004": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 1000,
+            "output_tokens": 500,
+            "reasoning_tokens": 0,
+            "total_tokens": 1500
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
+            "total_tokens": 0
+          }
+        },
+        "20251005": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 1274,
+            "output_tokens": 636,
+            "reasoning_tokens": 559,
+            "total_tokens": 2469
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 12,
+            "output_tokens": 1,
+            "reasoning_tokens": 0,
+            "total_tokens": 13
+          }
+        },
+        "20251006": {},
+        "20251011": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 0,
+            "input_tokens": 2685,
+            "output_tokens": 1137,
+            "reasoning_tokens": 4666,
+            "total_tokens": 8488
+          },
+          "gemini-2.5-flash-lite": {
+            "cached_tokens": 0,
+            "input_tokens": 70,
+            "output_tokens": 7,
+            "reasoning_tokens": 0,
+            "total_tokens": 77
+          }
+        },
+        "20251012": {
+          "gemini-2.5-flash": {
+            "cached_tokens": 300,
+            "input_tokens": 2144,
+            "output_tokens": 824,
+            "reasoning_tokens": 553,
+            "total_tokens": 3371
+          },
+          "gemini-2.5-flash-lite": {
+            "input_tokens": 5,
+            "output_tokens": 1,
+            "total_tokens": 6
+          },
+          "gpt-5": {
+            "cached_tokens": 200,
+            "input_tokens": 1000,
+            "output_tokens": 500,
+            "reasoning_tokens": 100,
+            "requests": 1,
+            "total_tokens": 1500
+          }
+        },
+        "20251015": {
+          "gemini-2.5-flash": {
+            "input_tokens": 830,
+            "output_tokens": 260,
+            "reasoning_tokens": 2691,
+            "total_tokens": 3781
+          },
+          "gemini-2.5-flash-lite": {
+            "input_tokens": 34,
+            "output_tokens": 4,
+            "total_tokens": 38
+          }
+        },
+        "20251024": {},
+        "20260210": {},
+        "20260214": {
+          "gemini-2.5-flash-lite": {
+            "input_tokens": 106,
+            "output_tokens": 10,
+            "total_tokens": 116
+          },
+          "gemini-3-flash-preview": {
+            "input_tokens": 144,
+            "output_tokens": 36,
+            "total_tokens": 979
+          }
+        },
+        "20260216": {
+          "gemini-2.5-flash-lite": {
+            "input_tokens": 53,
+            "output_tokens": 5,
+            "total_tokens": 58
+          },
+          "gemini-3-flash-preview": {
+            "input_tokens": 72,
+            "output_tokens": 18,
+            "total_tokens": 494
+          }
+        },
+        "20260217": {
+          "gemini-2.5-flash-lite": {
+            "input_tokens": 265,
+            "output_tokens": 25,
+            "total_tokens": 290
+          },
+          "gemini-3-flash-preview": {
+            "input_tokens": 360,
+            "output_tokens": 90,
+            "total_tokens": 2426
+          }
+        },
+        "20260221": {},
+        "20260304": {},
+        "20260305": {
+          "claude-sonnet-4-5": {
+            "cached_tokens": 1000,
+            "input_tokens": 4200,
+            "output_tokens": 1500,
+            "reasoning_tokens": 200,
+            "total_tokens": 5700
+          },
+          "gemini-2.5-flash": {
+            "cached_tokens": 500,
+            "input_tokens": 2500,
+            "output_tokens": 800,
+            "reasoning_tokens": 0,
+            "total_tokens": 3300
+          }
+        },
+        "20260306": {
+          "claude-sonnet-4-5": {
+            "cached_tokens": 1000,
+            "input_tokens": 4200,
+            "output_tokens": 1500,
+            "reasoning_tokens": 200,
+            "total_tokens": 5700
+          },
+          "gemini-2.5-flash": {
+            "cached_tokens": 500,
+            "input_tokens": 2500,
+            "output_tokens": 800,
+            "reasoning_tokens": 0,
+            "total_tokens": 3300
+          }
+        },
+        "20260307": {
+          "claude-sonnet-4-5": {
+            "cached_tokens": 1000,
+            "input_tokens": 4200,
+            "output_tokens": 1500,
+            "reasoning_tokens": 200,
+            "total_tokens": 5700
+          },
+          "gemini-2.5-flash": {
+            "cached_tokens": 500,
+            "input_tokens": 2500,
+            "output_tokens": 800,
+            "reasoning_tokens": 0,
+            "total_tokens": 3300
+          }
+        },
+        "20260308": {
+          "claude-sonnet-4-5": {
+            "cached_tokens": 1000,
+            "input_tokens": 4200,
+            "output_tokens": 1500,
+            "reasoning_tokens": 200,
+            "total_tokens": 5700
+          },
+          "gemini-2.5-flash": {
+            "cached_tokens": 500,
+            "input_tokens": 2500,
+            "output_tokens": 800,
+            "reasoning_tokens": 0,
+            "total_tokens": 3300
+          }
+        },
+        "20260309": {},
+        "20260310": {
+          "claude-sonnet-4-5": {
+            "cached_tokens": 1000,
+            "input_tokens": 4200,
+            "output_tokens": 1500,
+            "reasoning_tokens": 200,
+            "total_tokens": 5700
+          },
+          "gemini-2.5-flash": {
+            "cached_tokens": 500,
+            "input_tokens": 2500,
+            "output_tokens": 800,
+            "reasoning_tokens": 0,
+            "total_tokens": 3300
+          }
+        },
+        "20260315": {
+          "gemini-2.5-flash-lite": {
+            "input_tokens": 318,
+            "output_tokens": 30,
+            "total_tokens": 348
+          },
+          "gemini-3-flash-preview": {
+            "input_tokens": 432,
+            "output_tokens": 108,
+            "reasoning_tokens": 2568,
+            "total_tokens": 3108
+          }
+        },
+        "20260316": {
+          "gemini-2.5-flash-lite": {
+            "input_tokens": 159,
+            "output_tokens": 15,
+            "total_tokens": 174
+          },
+          "gemini-3-flash-preview": {
+            "input_tokens": 216,
+            "output_tokens": 54,
+            "reasoning_tokens": 1267,
+            "total_tokens": 1537
+          }
+        },
+        "20260318": {
+          "gemini-2.5-flash-lite": {
+            "input_tokens": 106,
+            "output_tokens": 10,
+            "total_tokens": 116
+          },
+          "gemini-3-flash-preview": {
+            "input_tokens": 144,
+            "output_tokens": 36,
+            "reasoning_tokens": 826,
+            "total_tokens": 1006
+          }
+        },
+        "20260319": {
+          "gemini-2.5-flash-lite": {
+            "input_tokens": 53,
+            "output_tokens": 5,
+            "total_tokens": 58
+          },
+          "gemini-3-flash-preview": {
+            "input_tokens": 72,
+            "output_tokens": 18,
+            "reasoning_tokens": 437,
+            "total_tokens": 527
+          }
+        }
       },
-      "claude-sonnet-4-5-20250929": {
-        "input_tokens": 24000,
-        "output_tokens": 7200,
-        "total_tokens": 31200
-      },
-      "clean-format-test": {
-        "input_tokens": 100,
-        "output_tokens": 50,
-        "total_tokens": 150
-      },
-      "gemini-2.5-flash": {
-        "cached_tokens": 7250,
-        "input_tokens": 60161,
-        "output_tokens": 22106,
-        "reasoning_tokens": 30081,
-        "total_tokens": 110298
-      },
-      "gemini-2.5-flash-lite": {
-        "cached_tokens": 0,
-        "input_tokens": 2198,
-        "output_tokens": 258,
-        "reasoning_tokens": 0,
-        "total_tokens": 2456
-      },
-      "gemini-3-flash-preview": {
-        "input_tokens": 1944,
-        "output_tokens": 486,
-        "reasoning_tokens": 5098,
-        "total_tokens": 13556
-      },
-      "gpt-5": {
-        "cached_tokens": 200,
-        "input_tokens": 9400,
-        "output_tokens": 3270,
-        "reasoning_tokens": 600,
-        "requests": 1,
-        "total_tokens": 12670
-      },
-      "models/gemini-2.5-flash": {
-        "cached_tokens": 0,
-        "input_tokens": 1143,
-        "output_tokens": 373,
-        "reasoning_tokens": 3267,
-        "total_tokens": 4783
-      },
-      "models/gemini-2.5-flash-lite": {
-        "cached_tokens": 0,
-        "input_tokens": 60,
-        "output_tokens": 5,
-        "reasoning_tokens": 0,
-        "total_tokens": 65
-      }
-    },
-    "token_usage_by_day": {
-      "20250823": {
+      "by_model": {
+        "claude-sonnet-4-5": {
+          "cached_tokens": 5000,
+          "input_tokens": 21000,
+          "output_tokens": 7500,
+          "reasoning_tokens": 1000,
+          "total_tokens": 28500
+        },
         "claude-sonnet-4-5-20250929": {
           "input_tokens": 24000,
           "output_tokens": 7200,
           "total_tokens": 31200
         },
         "gemini-2.5-flash": {
-          "cached_tokens": 3450,
-          "input_tokens": 21850,
-          "output_tokens": 7256,
-          "reasoning_tokens": 2139,
-          "total_tokens": 29345
+          "cached_tokens": 6250,
+          "input_tokens": 49645,
+          "output_tokens": 17915,
+          "reasoning_tokens": 26195,
+          "total_tokens": 91705
         },
         "gemini-2.5-flash-lite": {
           "cached_tokens": 0,
-          "input_tokens": 312,
-          "output_tokens": 81,
+          "input_tokens": 1769,
+          "output_tokens": 217,
           "reasoning_tokens": 0,
-          "total_tokens": 393
+          "total_tokens": 1986
+        },
+        "gemini-3-flash-preview": {
+          "input_tokens": 1440,
+          "output_tokens": 360,
+          "reasoning_tokens": 5098,
+          "total_tokens": 10077
         },
         "gpt-5": {
-          "input_tokens": 8400,
-          "output_tokens": 2770,
-          "reasoning_tokens": 500,
-          "total_tokens": 11170
+          "cached_tokens": 200,
+          "input_tokens": 9400,
+          "output_tokens": 3270,
+          "reasoning_tokens": 600,
+          "requests": 1,
+          "total_tokens": 12670
         },
         "models/gemini-2.5-flash": {
           "cached_tokens": 0,
@@ -1152,669 +1858,19 @@
           "reasoning_tokens": 0,
           "total_tokens": 65
         }
-      },
-      "20250824": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 1454,
-          "output_tokens": 679,
-          "reasoning_tokens": 528,
-          "total_tokens": 2661
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 12,
-          "output_tokens": 1,
-          "reasoning_tokens": 0,
-          "total_tokens": 13
-        }
-      },
-      "20250825": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 200,
-          "output_tokens": 100,
-          "reasoning_tokens": 0,
-          "total_tokens": 300
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "reasoning_tokens": 0,
-          "total_tokens": 0
-        }
-      },
-      "20250826": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 500,
-          "output_tokens": 250,
-          "reasoning_tokens": 0,
-          "total_tokens": 750
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "reasoning_tokens": 0,
-          "total_tokens": 0
-        }
-      },
-      "20250827": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 1130,
-          "output_tokens": 415,
-          "reasoning_tokens": 3246,
-          "total_tokens": 4791
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 60,
-          "output_tokens": 5,
-          "reasoning_tokens": 0,
-          "total_tokens": 65
-        }
-      },
-      "20250829": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 200,
-          "output_tokens": 100,
-          "reasoning_tokens": 0,
-          "total_tokens": 300
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "reasoning_tokens": 0,
-          "total_tokens": 0
-        }
-      },
-      "20250905": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 1270,
-          "output_tokens": 591,
-          "reasoning_tokens": 3355,
-          "total_tokens": 5216
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 60,
-          "output_tokens": 5,
-          "reasoning_tokens": 0,
-          "total_tokens": 65
-        }
-      },
-      "20250906": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 674,
-          "output_tokens": 328,
-          "reasoning_tokens": 709,
-          "total_tokens": 1711
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 12,
-          "output_tokens": 1,
-          "reasoning_tokens": 0,
-          "total_tokens": 13
-        }
-      },
-      "20250909": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 1518,
-          "output_tokens": 642,
-          "reasoning_tokens": 5004,
-          "total_tokens": 7164
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 84,
-          "output_tokens": 7,
-          "reasoning_tokens": 0,
-          "total_tokens": 91
-        }
-      },
-      "20250910": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 300,
-          "output_tokens": 150,
-          "reasoning_tokens": 0,
-          "total_tokens": 450
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "reasoning_tokens": 0,
-          "total_tokens": 0
-        }
-      },
-      "20250914": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 1348,
-          "output_tokens": 654,
-          "reasoning_tokens": 1365,
-          "total_tokens": 3367
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 24,
-          "output_tokens": 2,
-          "reasoning_tokens": 0,
-          "total_tokens": 26
-        }
-      },
-      "20250915": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 474,
-          "output_tokens": 218,
-          "reasoning_tokens": 662,
-          "total_tokens": 1354
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 12,
-          "output_tokens": 1,
-          "reasoning_tokens": 0,
-          "total_tokens": 13
-        }
-      },
-      "20250916": {
-        "gemini-2.5-flash": {
-          "input_tokens": 348,
-          "output_tokens": 153,
-          "reasoning_tokens": 1307,
-          "total_tokens": 1808
-        },
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 24,
-          "output_tokens": 2,
-          "total_tokens": 26
-        }
-      },
-      "20250917": {
-        "gemini-2.5-flash": {
-          "input_tokens": 174,
-          "output_tokens": 80,
-          "reasoning_tokens": 657,
-          "total_tokens": 911
-        },
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 12,
-          "output_tokens": 1,
-          "total_tokens": 13
-        }
-      },
-      "20250919": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 200,
-          "output_tokens": 100,
-          "reasoning_tokens": 0,
-          "total_tokens": 300
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "reasoning_tokens": 0,
-          "total_tokens": 0
-        }
-      },
-      "20250920": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 100,
-          "output_tokens": 50,
-          "reasoning_tokens": 0,
-          "total_tokens": 150
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "reasoning_tokens": 0,
-          "total_tokens": 0
-        }
-      },
-      "20250921": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 800,
-          "output_tokens": 400,
-          "reasoning_tokens": 0,
-          "total_tokens": 1200
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "reasoning_tokens": 0,
-          "total_tokens": 0
-        }
-      },
-      "20250926": {
-        "gemini-2.5-flash": {
-          "input_tokens": 174,
-          "output_tokens": 79,
-          "reasoning_tokens": 648,
-          "total_tokens": 901
-        },
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 12,
-          "output_tokens": 1,
-          "total_tokens": 13
-        }
-      },
-      "20250928": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 200,
-          "output_tokens": 100,
-          "reasoning_tokens": 0,
-          "total_tokens": 300
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "reasoning_tokens": 0,
-          "total_tokens": 0
-        }
-      },
-      "20251004": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 1000,
-          "output_tokens": 500,
-          "reasoning_tokens": 0,
-          "total_tokens": 1500
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 0,
-          "output_tokens": 0,
-          "reasoning_tokens": 0,
-          "total_tokens": 0
-        }
-      },
-      "20251005": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 1274,
-          "output_tokens": 636,
-          "reasoning_tokens": 559,
-          "total_tokens": 2469
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 12,
-          "output_tokens": 1,
-          "reasoning_tokens": 0,
-          "total_tokens": 13
-        }
-      },
-      "20251007": {
-        "gemini-2.5-flash": {
-          "input_tokens": 174,
-          "output_tokens": 79,
-          "reasoning_tokens": 636,
-          "total_tokens": 889
-        },
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 12,
-          "output_tokens": 1,
-          "total_tokens": 13
-        }
-      },
-      "20251011": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 0,
-          "input_tokens": 2685,
-          "output_tokens": 1137,
-          "reasoning_tokens": 4666,
-          "total_tokens": 8488
-        },
-        "gemini-2.5-flash-lite": {
-          "cached_tokens": 0,
-          "input_tokens": 70,
-          "output_tokens": 7,
-          "reasoning_tokens": 0,
-          "total_tokens": 77
-        }
-      },
-      "20251012": {
-        "gemini-2.5-flash": {
-          "cached_tokens": 300,
-          "input_tokens": 2144,
-          "output_tokens": 824,
-          "reasoning_tokens": 553,
-          "total_tokens": 3371
-        },
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 5,
-          "output_tokens": 1,
-          "total_tokens": 6
-        },
-        "gpt-5": {
-          "cached_tokens": 200,
-          "input_tokens": 1000,
-          "output_tokens": 500,
-          "reasoning_tokens": 100,
-          "requests": 1,
-          "total_tokens": 1500
-        }
-      },
-      "20251013": {
-        "gemini-2.5-flash": {
-          "input_tokens": 296,
-          "output_tokens": 101,
-          "reasoning_tokens": 948,
-          "total_tokens": 1345
-        },
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 5,
-          "output_tokens": 1,
-          "total_tokens": 6
-        }
-      },
-      "20251015": {
-        "gemini-2.5-flash": {
-          "input_tokens": 830,
-          "output_tokens": 260,
-          "reasoning_tokens": 2691,
-          "total_tokens": 3781
-        },
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 34,
-          "output_tokens": 4,
-          "total_tokens": 38
-        }
-      },
-      "20251016": {
-        "clean-format-test": {
-          "input_tokens": 100,
-          "output_tokens": 50,
-          "total_tokens": 150
-        }
-      },
-      "20251025": {
-        "gemini-2.5-flash": {
-          "input_tokens": 1344,
-          "output_tokens": 624,
-          "reasoning_tokens": 408,
-          "total_tokens": 2376
-        },
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 5,
-          "output_tokens": 1,
-          "total_tokens": 6
-        }
-      },
-      "20260211": {
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 212,
-          "output_tokens": 20,
-          "total_tokens": 232
-        },
-        "gemini-3-flash-preview": {
-          "input_tokens": 288,
-          "output_tokens": 72,
-          "total_tokens": 2021
-        }
-      },
-      "20260214": {
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 106,
-          "output_tokens": 10,
-          "total_tokens": 116
-        },
-        "gemini-3-flash-preview": {
-          "input_tokens": 144,
-          "output_tokens": 36,
-          "total_tokens": 979
-        }
-      },
-      "20260215": {
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 106,
-          "output_tokens": 10,
-          "total_tokens": 116
-        },
-        "gemini-3-flash-preview": {
-          "input_tokens": 144,
-          "output_tokens": 36,
-          "total_tokens": 977
-        }
-      },
-      "20260216": {
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 53,
-          "output_tokens": 5,
-          "total_tokens": 58
-        },
-        "gemini-3-flash-preview": {
-          "input_tokens": 72,
-          "output_tokens": 18,
-          "total_tokens": 494
-        }
-      },
-      "20260217": {
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 265,
-          "output_tokens": 25,
-          "total_tokens": 290
-        },
-        "gemini-3-flash-preview": {
-          "input_tokens": 360,
-          "output_tokens": 90,
-          "total_tokens": 2426
-        }
-      },
-      "20260222": {
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 53,
-          "output_tokens": 5,
-          "total_tokens": 58
-        },
-        "gemini-3-flash-preview": {
-          "input_tokens": 72,
-          "output_tokens": 18,
-          "total_tokens": 481
-        }
-      },
-      "20260305": {
-        "claude-sonnet-4-5": {
-          "cached_tokens": 1000,
-          "input_tokens": 4200,
-          "output_tokens": 1500,
-          "reasoning_tokens": 200,
-          "total_tokens": 5700
-        },
-        "gemini-2.5-flash": {
-          "cached_tokens": 500,
-          "input_tokens": 2500,
-          "output_tokens": 800,
-          "reasoning_tokens": 0,
-          "total_tokens": 3300
-        }
-      },
-      "20260306": {
-        "claude-sonnet-4-5": {
-          "cached_tokens": 1000,
-          "input_tokens": 4200,
-          "output_tokens": 1500,
-          "reasoning_tokens": 200,
-          "total_tokens": 5700
-        },
-        "gemini-2.5-flash": {
-          "cached_tokens": 500,
-          "input_tokens": 2500,
-          "output_tokens": 800,
-          "reasoning_tokens": 0,
-          "total_tokens": 3300
-        }
-      },
-      "20260307": {
-        "claude-sonnet-4-5": {
-          "cached_tokens": 1000,
-          "input_tokens": 4200,
-          "output_tokens": 1500,
-          "reasoning_tokens": 200,
-          "total_tokens": 5700
-        },
-        "gemini-2.5-flash": {
-          "cached_tokens": 500,
-          "input_tokens": 2500,
-          "output_tokens": 800,
-          "reasoning_tokens": 0,
-          "total_tokens": 3300
-        }
-      },
-      "20260308": {
-        "claude-sonnet-4-5": {
-          "cached_tokens": 1000,
-          "input_tokens": 4200,
-          "output_tokens": 1500,
-          "reasoning_tokens": 200,
-          "total_tokens": 5700
-        },
-        "gemini-2.5-flash": {
-          "cached_tokens": 500,
-          "input_tokens": 2500,
-          "output_tokens": 800,
-          "reasoning_tokens": 0,
-          "total_tokens": 3300
-        }
-      },
-      "20260309": {
-        "claude-sonnet-4-5": {
-          "cached_tokens": 1000,
-          "input_tokens": 4200,
-          "output_tokens": 1500,
-          "reasoning_tokens": 200,
-          "total_tokens": 5700
-        },
-        "gemini-2.5-flash": {
-          "cached_tokens": 500,
-          "input_tokens": 2500,
-          "output_tokens": 800,
-          "reasoning_tokens": 0,
-          "total_tokens": 3300
-        }
-      },
-      "20260310": {
-        "claude-sonnet-4-5": {
-          "cached_tokens": 1000,
-          "input_tokens": 4200,
-          "output_tokens": 1500,
-          "reasoning_tokens": 200,
-          "total_tokens": 5700
-        },
-        "gemini-2.5-flash": {
-          "cached_tokens": 500,
-          "input_tokens": 2500,
-          "output_tokens": 800,
-          "reasoning_tokens": 0,
-          "total_tokens": 3300
-        }
-      },
-      "20260311": {
-        "claude-sonnet-4-5": {
-          "cached_tokens": 1000,
-          "input_tokens": 4200,
-          "output_tokens": 1500,
-          "reasoning_tokens": 200,
-          "total_tokens": 5700
-        },
-        "gemini-2.5-flash": {
-          "cached_tokens": 500,
-          "input_tokens": 2500,
-          "output_tokens": 800,
-          "reasoning_tokens": 0,
-          "total_tokens": 3300
-        }
-      },
-      "20260315": {
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 318,
-          "output_tokens": 30,
-          "total_tokens": 348
-        },
-        "gemini-3-flash-preview": {
-          "input_tokens": 432,
-          "output_tokens": 108,
-          "reasoning_tokens": 2568,
-          "total_tokens": 3108
-        }
-      },
-      "20260316": {
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 159,
-          "output_tokens": 15,
-          "total_tokens": 174
-        },
-        "gemini-3-flash-preview": {
-          "input_tokens": 216,
-          "output_tokens": 54,
-          "reasoning_tokens": 1267,
-          "total_tokens": 1537
-        }
-      },
-      "20260318": {
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 106,
-          "output_tokens": 10,
-          "total_tokens": 116
-        },
-        "gemini-3-flash-preview": {
-          "input_tokens": 144,
-          "output_tokens": 36,
-          "reasoning_tokens": 826,
-          "total_tokens": 1006
-        }
-      },
-      "20260319": {
-        "gemini-2.5-flash-lite": {
-          "input_tokens": 53,
-          "output_tokens": 5,
-          "total_tokens": 58
-        },
-        "gemini-3-flash-preview": {
-          "input_tokens": 72,
-          "output_tokens": 18,
-          "reasoning_tokens": 437,
-          "total_tokens": 527
-        }
       }
     },
-    "total_percept_duration": 0.0,
-    "total_transcript_duration": 2487.0,
     "totals": {
-      "audio_duration": 968.0,
-      "audio_segments": 68,
-      "audio_sessions": 16,
-      "day_bytes": 557976,
-      "outputs_pending": 585,
+      "day_bytes": 439558,
+      "outputs_pending": 286,
       "outputs_processed": 14,
       "pending_segments": 0,
-      "percept_frames": 0,
-      "percept_sessions": 6,
-      "screen_duration": 23.1,
-      "screen_frames": 3,
-      "screen_sessions": 11,
-      "transcript_segments": 104,
-      "transcript_sessions": 15
+      "percept_frames": 3,
+      "percept_sessions": 17,
+      "total_percept_duration": 23.1,
+      "total_transcript_duration": 3455.0,
+      "transcript_segments": 172,
+      "transcript_sessions": 31
     }
   }
 }

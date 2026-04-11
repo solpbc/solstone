@@ -399,8 +399,8 @@
       "kg_edge_count": 1,
       "name": "Balthasar Davi",
       "observation_depth": 2,
-      "recency": 0.5,
-      "score": 63.5,
+      "recency": 0.4,
+      "score": 63.3,
       "type": "person"
     },
     {
@@ -412,8 +412,8 @@
       "kg_edge_count": 1,
       "name": "Mesh Routing",
       "observation_depth": 3,
-      "recency": 0.5,
-      "score": 65.5,
+      "recency": 0.4,
+      "score": 65.3,
       "type": "project"
     },
     {
@@ -425,8 +425,8 @@
       "kg_edge_count": 0,
       "name": "Verona Ventures",
       "observation_depth": 2,
-      "recency": 0.5,
-      "score": 58.5,
+      "recency": 0.4,
+      "score": 58.3,
       "type": "company"
     },
     {
@@ -438,8 +438,8 @@
       "kg_edge_count": 1,
       "name": "Capulet Industries",
       "observation_depth": 0,
-      "recency": 0.5,
-      "score": 23.4,
+      "recency": 0.4,
+      "score": 23.2,
       "type": "company"
     },
     {
@@ -452,7 +452,7 @@
       "name": "Mercutio Escalus",
       "observation_depth": 3,
       "recency": 0.5,
-      "score": 88.6,
+      "score": 88.4,
       "type": "person"
     },
     {
@@ -465,7 +465,7 @@
       "name": "Tybalt Capulet",
       "observation_depth": 4,
       "recency": 0.5,
-      "score": 91.6,
+      "score": 91.4,
       "type": "person"
     },
     {
@@ -478,7 +478,7 @@
       "name": "Juliet Capulet",
       "observation_depth": 2,
       "recency": 0.5,
-      "score": 92.6,
+      "score": 92.4,
       "type": "person"
     },
     {
@@ -490,8 +490,8 @@
       "kg_edge_count": 1,
       "name": "Schema Bridge",
       "observation_depth": 2,
-      "recency": 0.5,
-      "score": 63.5,
+      "recency": 0.4,
+      "score": 63.3,
       "type": "project"
     },
     {
@@ -504,7 +504,7 @@
       "name": "Romeo Montague",
       "observation_depth": 2,
       "recency": 0.5,
-      "score": 53.6,
+      "score": 53.4,
       "type": "person"
     },
     {
@@ -517,7 +517,7 @@
       "name": "Rosaline Prince",
       "observation_depth": 2,
       "recency": 0.5,
-      "score": 63.6,
+      "score": 63.4,
       "type": "person"
     },
     {
@@ -529,8 +529,8 @@
       "kg_edge_count": 2,
       "name": "Montague Tech",
       "observation_depth": 3,
-      "recency": 0.5,
-      "score": 74.5,
+      "recency": 0.4,
+      "score": 74.3,
       "type": "company"
     },
     {
@@ -543,7 +543,7 @@
       "name": "Prince Escalus",
       "observation_depth": 2,
       "recency": 0.5,
-      "score": 76.6,
+      "score": 76.4,
       "type": "person"
     },
     {
@@ -556,7 +556,7 @@
       "name": "Verona Platform",
       "observation_depth": 3,
       "recency": 0.5,
-      "score": 109.6,
+      "score": 109.4,
       "type": "project"
     },
     {
@@ -569,7 +569,7 @@
       "name": "Nurse Angela",
       "observation_depth": 2,
       "recency": 0.5,
-      "score": 68.6,
+      "score": 68.4,
       "type": "person"
     },
     {
@@ -582,7 +582,7 @@
       "name": "Paris Duke",
       "observation_depth": 2,
       "recency": 0.5,
-      "score": 54.6,
+      "score": 54.4,
       "type": "person"
     },
     {
@@ -595,7 +595,7 @@
       "name": "Benvolio Montague",
       "observation_depth": 3,
       "recency": 0.5,
-      "score": 74.6,
+      "score": 74.4,
       "type": "person"
     },
     {
@@ -608,7 +608,7 @@
       "name": "Friar Lawrence",
       "observation_depth": 2,
       "recency": 0.5,
-      "score": 78.6,
+      "score": 78.4,
       "type": "person"
     }
   ],

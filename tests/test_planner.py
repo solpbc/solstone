@@ -44,16 +44,3 @@ def test_generate_plan(monkeypatch):
     monkeypatch.setattr("think.models.generate", mock_generate)
     result = mod.generate_plan("do something")
     assert result == "plan"
-
-
-def test_planner_main(tmp_path, monkeypatch, capsys):
-    sys.modules.pop("think.planner", None)
-    mod = importlib.import_module("think.planner")
-    monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
-    monkeypatch.setattr(mod, "generate_plan", lambda *a, **k: "ok")
-    task = tmp_path / "t.txt"
-    task.write_text("hi")
-    monkeypatch.setattr("sys.argv", ["sol planner", str(task)])
-    mod.main()
-    out = capsys.readouterr().out.strip()
-    assert out == "ok"

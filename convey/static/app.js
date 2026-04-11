@@ -61,6 +61,7 @@
     if (facet.color) {
       pill.style.setProperty('--pill-color', facet.color);
       pill.style.setProperty('--pill-bg', hexToRgba(facet.color, 0.2));
+      pill.style.setProperty('--pill-bg-rest', hexToRgba(facet.color, 0.08));
     }
 
     if (isSelected) {
@@ -76,6 +77,7 @@
       pill.style.borderColor = '';
       pill.title = `Click to filter by ${facet.title}`;
     }
+    pill.setAttribute('aria-pressed', String(isSelected));
     pill.style.boxShadow = '';
   }
 
@@ -100,23 +102,87 @@
     facetPillsContainer.innerHTML = '';
 
     // Check if facets are disabled for this app
-    const facetsDisabled = document.querySelector('.facet-bar')?.classList.contains('facets-disabled');
+    const facetBar = document.querySelector('.facet-bar');
+    const facetsDisabled = facetBar?.classList.contains('facets-disabled');
+    if (facetsDisabled) {
+      facetPillsContainer.setAttribute('aria-hidden', 'true');
+      facetPillsContainer.removeAttribute('role');
+      facetPillsContainer.removeAttribute('aria-label');
+    } else if (activeFacets.length === 0) {
+      facetPillsContainer.removeAttribute('aria-hidden');
+      facetPillsContainer.removeAttribute('role');
+      facetPillsContainer.removeAttribute('aria-label');
+
+      if (facetBar) {
+        const statusText = 'no facets configured';
+        const existingStatus = document.querySelector('.facet-filter-status');
+        if (existingStatus) {
+          existingStatus.textContent = statusText;
+        } else {
+          const statusEl = document.createElement('span');
+          statusEl.className = 'facet-filter-status visually-hidden';
+          statusEl.setAttribute('aria-live', 'polite');
+          statusEl.setAttribute('aria-atomic', 'true');
+          statusEl.textContent = statusText;
+          facetBar.appendChild(statusEl);
+        }
+      }
+
+      const emptyState = document.createElement('span');
+      emptyState.className = 'facet-empty-state';
+      emptyState.textContent = 'no facets yet \u2014 ';
+
+      const createBtn = document.createElement('button');
+      createBtn.className = 'facet-empty-create';
+      createBtn.textContent = 'create one';
+      createBtn.onclick = () => openFacetCreateModal();
+
+      emptyState.appendChild(createBtn);
+      facetPillsContainer.appendChild(emptyState);
+      return;
+    } else {
+      facetPillsContainer.setAttribute('role', 'toolbar');
+      facetPillsContainer.setAttribute('aria-label', 'facet filter');
+      facetPillsContainer.removeAttribute('aria-hidden');
+    }
 
     // Find selected facet data and apply theme
     const selectedFacetData = window.selectedFacet ? activeFacets.find(f => f.name === window.selectedFacet) : null;
+
+    if (!facetsDisabled && facetBar) {
+      const statusText = selectedFacetData
+        ? 'filtered to ' + selectedFacetData.title
+        : 'viewing all facets';
+      const existingStatus = document.querySelector('.facet-filter-status');
+      if (existingStatus) {
+        existingStatus.textContent = statusText;
+      } else {
+        const statusEl = document.createElement('span');
+        statusEl.className = 'facet-filter-status visually-hidden';
+        statusEl.setAttribute('aria-live', 'polite');
+        statusEl.setAttribute('aria-atomic', 'true');
+        statusEl.textContent = statusText;
+        facetBar.appendChild(statusEl);
+      }
+    }
+
     if (!facetsDisabled) {
       applyFacetTheme(selectedFacetData);
+
+      const allLabel = document.createElement('span');
+      allLabel.className = 'facet-all-label';
+      allLabel.textContent = 'all';
+      allLabel.setAttribute('aria-hidden', 'true');
+      if (selectedFacetData) {
+        allLabel.style.display = 'none';
+      }
+      facetPillsContainer.appendChild(allLabel);
     }
 
     // Facet pills
     activeFacets.forEach(facet => {
-      const pill = document.createElement('div');
+      const pill = document.createElement('button');
       pill.className = 'facet-pill';
-
-      // Add muted class if facet is muted
-      if (facet.muted) {
-        pill.classList.add('muted');
-      }
 
       if (facet.emoji) {
         const emojiContainer = document.createElement('div');
@@ -133,6 +199,7 @@
           const badge = document.createElement('span');
           badge.className = 'facet-badge';
           badge.textContent = count;
+          badge.setAttribute('aria-label', count + ' pending');
           emojiContainer.appendChild(badge);
         }
 
@@ -148,6 +215,7 @@
       if (!facetsDisabled) {
         const isSelected = window.selectedFacet === facet.name;
         applyPillStyle(pill, facet, isSelected);
+        pill.tabIndex = isSelected ? 0 : -1;
 
         // Click to select, or click again to deselect (show all facets)
         pill.onclick = () => {
@@ -166,15 +234,30 @@
       facetPillsContainer.appendChild(pill);
     });
 
+    // Ensure at least one pill is tabbable (handles null selection and stale facet names)
+    if (!facetsDisabled && !facetPillsContainer.querySelector('.facet-pill[tabindex="0"]')) {
+      const firstPill = facetPillsContainer.querySelector('.facet-pill');
+      if (firstPill) firstPill.tabIndex = 0;
+    }
+
     // Add "+" button to create new facets (only in settings app)
     const currentApp = window.location.pathname.split('/')[2];
     if (!facetsDisabled && currentApp === 'settings') {
-      const addButton = document.createElement('div');
+      const addButton = document.createElement('button');
       addButton.className = 'facet-add-pill';
       addButton.textContent = '+';
       addButton.title = 'Create new facet';
+      addButton.setAttribute('aria-label', 'add facet');
       addButton.onclick = () => openFacetCreateModal();
       facetPillsContainer.appendChild(addButton);
+    }
+
+    // Re-apply dynamic badge counts that survived in memory
+    const badgeSvc = window.AppServices?.badges?.facet;
+    if (badgeSvc) {
+      for (const name of Object.keys(badgeSvc._data)) {
+        badgeSvc._render(name);
+      }
     }
   }
 
@@ -192,6 +275,21 @@
     const selectedFacetData = window.selectedFacet ? activeFacets.find(f => f.name === window.selectedFacet) : null;
     applyFacetTheme(selectedFacetData);
 
+    const statusEl = document.querySelector('.facet-filter-status');
+    if (statusEl) {
+      if (window.selectedFacet) {
+        const facetData = activeFacets.find(f => f.name === window.selectedFacet);
+        statusEl.textContent = 'filtered to ' + (facetData ? facetData.title : window.selectedFacet);
+      } else {
+        statusEl.textContent = 'viewing all facets';
+      }
+    }
+
+    const allLabel = container.querySelector('.facet-all-label');
+    if (allLabel) {
+      allLabel.style.display = window.selectedFacet ? 'none' : '';
+    }
+
     // Update each pill
     pills.forEach((pill, index) => {
       const facet = activeFacets[index];
@@ -199,7 +297,14 @@
 
       const isSelected = window.selectedFacet === facet.name;
       applyPillStyle(pill, facet, isSelected);
+      pill.tabIndex = isSelected ? 0 : -1;
     });
+
+    // Ensure at least one pill is tabbable (handles null selection and stale facet names)
+    if (!container.querySelector('.facet-pill[tabindex="0"]')) {
+      const firstPill = container.querySelector('.facet-pill');
+      if (firstPill) firstPill.tabIndex = 0;
+    }
   }
 
   // Handle facet selection
@@ -248,6 +353,12 @@
     let touchedItem = null;
     let touchDragActive = false;
     let isDragging = false;
+
+    // Resolve the movable DOM node: if the item is inside a wrapper (e.g. <li>),
+    // move the wrapper; otherwise move the item directly.
+    function movable(item) {
+      return item.parentElement === container ? item : item.parentElement;
+    }
 
     // Helper: Get current order and trigger callback
     function triggerReorder() {
@@ -343,10 +454,10 @@
       if (draggedIndex !== -1 && targetIndex !== -1 && draggedIndex !== targetIndex) {
         if (draggedIndex < targetIndex) {
           // Moving down/right: insert after target
-          container.insertBefore(draggedItem, target.nextSibling);
+          container.insertBefore(movable(draggedItem), movable(target).nextSibling);
         } else {
           // Moving up/left: insert before target
-          container.insertBefore(draggedItem, target);
+          container.insertBefore(movable(draggedItem), movable(target));
         }
       }
     });
@@ -429,9 +540,9 @@
 
         if (draggedIndex !== -1 && targetIndex !== -1 && draggedIndex !== targetIndex) {
           if (draggedIndex < targetIndex) {
-            container.insertBefore(touchedItem, target.nextSibling);
+            container.insertBefore(movable(touchedItem), movable(target).nextSibling);
           } else {
-            container.insertBefore(touchedItem, target);
+            container.insertBefore(movable(touchedItem), movable(target));
           }
         }
       }
@@ -474,10 +585,10 @@
 
   // Reorder menu items based on starred status
   function reorderMenuItems() {
-    const menuBar = document.querySelector('.menu-bar');
-    if (!menuBar) return;
+    const menuItemsContainer = document.querySelector('.menu-bar .menu-items');
+    if (!menuItemsContainer) return;
 
-    const menuItems = Array.from(menuBar.querySelectorAll('.menu-item'));
+    const menuItems = Array.from(menuItemsContainer.querySelectorAll('.menu-item'));
 
     // Separate starred and unstarred items
     const starredItems = menuItems.filter(item =>
@@ -492,11 +603,13 @@
 
     // Update DOM order
     orderedItems.forEach(item => {
-      menuBar.appendChild(item);
+      menuItemsContainer.appendChild(item);
     });
 
     // Update separator
     updateLastStarredSeparator();
+    // Refresh scroll shadows after visibility changes
+    updateScrollShadows();
   }
 
   // Toggle star status for an app
@@ -521,6 +634,7 @@
     // Update DOM
     menuItem.dataset.starred = newStarredStatus;
     starToggle.textContent = newStarredStatus ? '★' : '☆';
+    starToggle.setAttribute('aria-pressed', String(newStarredStatus));
 
     // Reorder menu items to reflect new grouping
     reorderMenuItems();
@@ -556,6 +670,7 @@
       }
       menuItem.dataset.starred = !newStarredStatus;
       starToggle.textContent = !newStarredStatus ? '★' : '☆';
+      starToggle.setAttribute('aria-pressed', String(!newStarredStatus));
       reorderMenuItems();
     }
   }
@@ -581,14 +696,60 @@
     }
   }
 
+  // Update scroll overflow shadow indicators on .menu-items
+  function updateScrollShadows() {
+    const menuItems = document.querySelector('.menu-bar .menu-items');
+    if (!menuItems) return;
+    const { scrollTop, scrollHeight, clientHeight } = menuItems;
+    menuItems.classList.toggle('scroll-shadow-top', scrollTop > 0);
+    menuItems.classList.toggle('scroll-shadow-bottom', scrollTop + clientHeight < scrollHeight - 1);
+  }
+
+  // Persist sidebar state to localStorage
+  function saveMenuState() {
+    const state = document.body.classList.contains('menu-full') ? 'full' :
+                  document.body.classList.contains('menu-all') ? 'all' : 'minimal';
+    try { localStorage.setItem('solstone:menu-state', state); } catch (e) {}
+  }
+
   // Initialize
   function init() {
+    // Keyboard reorder state
+    let movingItem = null;       // The .menu-item being moved, or null
+    let originalNextSibling = null; // For cancel: restore position
+    let originalAriaLabel = null;   // For restoring drag handle's aria-label
+    let saveAppOrder = null;
+    let announceReorder = () => {};
+    let getMenuItems = () => [];
+    let getPositionText = () => '';
+    let getAppLabel = item => item?.dataset.appName || '';
+    let exitMoveMode = () => {};
+    let cancelMoveMode = () => {};
+    let canMove = () => false;
+    const mobileQuery = window.matchMedia('(max-width: 768px)');
+
     // window.selectedFacet already initialized by server (see app.html)
     // Load facet chooser
     loadFacetChooser();
 
     // Load starred apps
     loadStarredApps();
+
+    // Restore sidebar UI state (body class set by inline FOUC script; update controls here)
+    {
+      if (document.body.classList.contains('menu-all')) {
+        const exp = document.querySelector('.menu-expander');
+        if (exp) {
+          exp.textContent = '«';
+          exp.setAttribute('aria-expanded', 'true');
+          exp.setAttribute('aria-label', 'show fewer apps');
+        }
+      }
+      if (mobileQuery.matches && document.body.classList.contains('menu-full')) {
+        const ham = document.getElementById('hamburger');
+        if (ham) ham.setAttribute('aria-expanded', 'true');
+      }
+    }
 
     // Setup facet pill drag-and-drop
     const facetPillsContainer = document.querySelector('.facet-pills-container');
@@ -629,31 +790,161 @@
           }
         }
       });
+
+      // Keyboard navigation for facet pills (toolbar pattern)
+      facetPillsContainer.addEventListener('keydown', (e) => {
+        const pill = e.target.closest('.facet-pill');
+        if (!pill) return;
+
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const pills = Array.from(facetPillsContainer.querySelectorAll('.facet-pill'));
+          const currentIndex = pills.indexOf(pill);
+          let nextIndex;
+          if (e.key === 'ArrowRight') {
+            nextIndex = (currentIndex + 1) % pills.length;
+          } else {
+            nextIndex = (currentIndex - 1 + pills.length) % pills.length;
+          }
+          // Update roving tabindex
+          pill.tabIndex = -1;
+          pills[nextIndex].tabIndex = 0;
+          pills[nextIndex].focus();
+        }
+      });
     }
 
     // Hamburger and menu-bar elements
     const hamburger = document.getElementById('hamburger');
     const menuBar = document.querySelector('.menu-bar');
+    let menuBackdrop = null;
+    let focusTrapHandler = null;
+
+    function getVisibleMenuLinks() {
+      return Array.from(menuBar.querySelectorAll('.menu-item-link'))
+        .filter(link => link.closest('.menu-item').offsetHeight > 0);
+    }
+
+    function activateMenuSubControls(link) {
+      menuBar.querySelectorAll('.star-toggle, .drag-handle').forEach(el => { el.tabIndex = -1; });
+      const item = link.closest('.menu-item');
+      const star = item.querySelector('.star-toggle');
+      const drag = item.querySelector('.drag-handle');
+      if (star) star.tabIndex = 0;
+      if (drag) drag.tabIndex = 0;
+    }
+
+    function normalizeRovingTabindex() {
+      const activeLink = menuBar.querySelector('.menu-item-link[tabindex="0"]');
+      if (activeLink && activeLink.closest('.menu-item').offsetHeight > 0) return;
+      const visibleLinks = getVisibleMenuLinks();
+      if (visibleLinks.length === 0) return;
+      if (activeLink) activeLink.tabIndex = -1;
+      const currentLink = visibleLinks.find(l => l.closest('.menu-item').classList.contains('current'));
+      const newActive = currentLink || visibleLinks[0];
+      newActive.tabIndex = 0;
+      activateMenuSubControls(newActive);
+    }
 
     // Hamburger menu interactions
     if (hamburger && menuBar) {
-      // Click to toggle menu
+      function openMobileMenu() {
+        document.body.classList.add('menu-full');
+        hamburger.setAttribute('aria-expanded', 'true');
+
+        // Create backdrop lazily, reuse thereafter
+        if (!menuBackdrop) {
+          menuBackdrop = document.createElement('div');
+          menuBackdrop.className = 'menu-backdrop';
+          menuBackdrop.addEventListener('click', closeMobileMenu);
+          document.body.appendChild(menuBackdrop);
+        }
+        // Trigger transition by deferring the class add
+        requestAnimationFrame(() => menuBackdrop.classList.add('visible'));
+
+        // Focus current menu item, or first if none
+        const focusTarget = menuBar.querySelector('.menu-item.current .menu-item-link')
+                         || menuBar.querySelector('.menu-item-link');
+        if (focusTarget) {
+          focusTarget.focus();
+          activateMenuSubControls(focusTarget);
+        }
+
+        // Focus trap + Escape handler
+        focusTrapHandler = (e) => {
+          if (e.key === 'Escape') {
+            closeMobileMenu();
+            return;
+          }
+          if (e.key !== 'Tab') return;
+
+          const focusable = Array.from(
+            menuBar.querySelectorAll('.menu-item-link, .star-toggle, .drag-handle')
+          ).filter(el => el.offsetParent !== null && el.tabIndex >= 0);
+          if (focusable.length === 0) return;
+
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        };
+        document.addEventListener('keydown', focusTrapHandler);
+
+        saveMenuState();
+        updateScrollShadows();
+        setTimeout(updateScrollShadows, 350);
+      }
+
+      function closeMobileMenu() {
+        document.body.classList.remove('menu-full');
+        hamburger.setAttribute('aria-expanded', 'false');
+
+        if (menuBackdrop) menuBackdrop.classList.remove('visible');
+
+        if (focusTrapHandler) {
+          document.removeEventListener('keydown', focusTrapHandler);
+          focusTrapHandler = null;
+        }
+
+        hamburger.focus();
+        saveMenuState();
+        updateScrollShadows();
+        setTimeout(updateScrollShadows, 350);
+      }
+
       hamburger.addEventListener('click', (e) => {
         e.stopPropagation();
         // If menu-all is active, remove it before toggling to menu-full
         if (document.body.classList.contains('menu-all')) {
           document.body.classList.remove('menu-all');
           const menuExpander = document.querySelector('.menu-expander');
-          if (menuExpander) menuExpander.textContent = '⏷';
+          if (menuExpander) {
+            menuExpander.textContent = '›';
+            menuExpander.setAttribute('aria-expanded', 'false');
+            menuExpander.setAttribute('aria-label', 'show all apps');
+          }
         }
-        document.body.classList.toggle('menu-full');
+
+        if (mobileQuery.matches) {
+          if (document.body.classList.contains('menu-full')) {
+            closeMobileMenu();
+          } else {
+            openMobileMenu();
+          }
+        }
       });
 
       // Close menu when clicking outside
       document.addEventListener('click', (e) => {
         if (document.body.classList.contains('menu-full')) {
           if (!menuBar.contains(e.target) && !hamburger.contains(e.target)) {
-            document.body.classList.remove('menu-full');
+            closeMobileMenu();
           }
         }
         // Also close menu-all when clicking outside
@@ -661,7 +952,30 @@
           const menuExpander = document.querySelector('.menu-expander');
           if (!menuBar.contains(e.target) && (!menuExpander || !menuExpander.contains(e.target))) {
             document.body.classList.remove('menu-all');
-            if (menuExpander) menuExpander.textContent = '⏷';
+            if (menuExpander) {
+              menuExpander.textContent = '›';
+              menuExpander.setAttribute('aria-expanded', 'false');
+              menuExpander.setAttribute('aria-label', 'show all apps');
+            }
+            saveMenuState();
+            updateScrollShadows();
+            setTimeout(updateScrollShadows, 350);
+          }
+        }
+      });
+
+      mobileQuery.addEventListener('change', (e) => {
+        if (!e.matches) {
+          document.body.classList.remove('menu-full');
+          hamburger.setAttribute('aria-expanded', 'false');
+          saveMenuState();
+
+          if (menuBackdrop) {
+            menuBackdrop.classList.remove('visible');
+          }
+          if (focusTrapHandler) {
+            document.removeEventListener('keydown', focusTrapHandler);
+            focusTrapHandler = null;
           }
         }
       });
@@ -670,13 +984,157 @@
       menuBar.addEventListener('click', (e) => {
         const starToggle = e.target.closest('.star-toggle');
         if (starToggle) {
-          e.preventDefault();
-          e.stopPropagation();
           const appName = starToggle.dataset.appName;
           if (appName) {
             toggleAppStar(appName);
+            setTimeout(normalizeRovingTabindex, 350);
           }
         }
+      });
+
+      // Keyboard reorder: Enter/Space on drag handle enters move mode
+      menuBar.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const handle = e.target.closest('.drag-handle');
+        if (!handle) return;
+        e.preventDefault();
+
+        // Only in menu-full mode (matches mouse drag constraint)
+        if (!document.body.classList.contains('menu-full')) return;
+
+        const item = handle.closest('.menu-item');
+        if (!item || !menuItemsContainer) return;
+
+        if (movingItem) {
+          // Already moving - Enter confirms
+          if (e.key === 'Enter' || e.key === ' ') {
+            const items = getMenuItems();
+            const order = items.map(i => i.dataset.appName);
+            saveAppOrder(order);
+            updateLastStarredSeparator();
+            const label = getAppLabel(movingItem);
+            exitMoveMode(movingItem, `${label}, dropped, ${getPositionText(movingItem)}`);
+          }
+        } else {
+          // Enter move mode
+          movingItem = item;
+          originalNextSibling = item.nextElementSibling;
+          originalAriaLabel = handle.getAttribute('aria-label');
+          item.classList.add('reordering');
+          const label = getAppLabel(item);
+          handle.setAttribute('aria-label', `moving ${label}, use arrow keys to reorder, Enter to confirm, Escape to cancel`);
+          announceReorder(`${label}, grabbed, ${getPositionText(item)}`);
+        }
+      });
+
+      // Keyboard reorder: arrow keys move, Escape cancels
+      menuBar.addEventListener('keydown', (e) => {
+        if (!movingItem) return;
+
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          cancelMoveMode();
+          return;
+        }
+
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          e.stopPropagation();
+          const direction = e.key === 'ArrowUp' ? -1 : 1;
+
+          if (!canMove(movingItem, direction)) {
+            const label = getAppLabel(movingItem);
+            announceReorder(`${label}, cannot move ${direction === -1 ? 'up' : 'down'}, boundary reached`);
+            return;
+          }
+
+          const items = getMenuItems();
+          const index = items.indexOf(movingItem);
+          const targetIndex = index + direction;
+          const target = items[targetIndex];
+
+          if (direction === 1) {
+            menuItemsContainer.insertBefore(movingItem, target.nextElementSibling);
+          } else {
+            menuItemsContainer.insertBefore(movingItem, target);
+          }
+
+          const label = getAppLabel(movingItem);
+          announceReorder(`${label}, ${getPositionText(movingItem)}`);
+
+          // Keep focus on the drag handle
+          const handle = movingItem.querySelector('.drag-handle');
+          if (handle) handle.focus();
+        }
+      });
+
+      // Cancel keyboard reorder on focus loss
+      document.addEventListener('focusin', (e) => {
+        if (!movingItem) return;
+        // If focus moved outside the moving item's drag handle, cancel
+        const handle = movingItem.querySelector('.drag-handle');
+        if (e.target !== handle) {
+          cancelMoveMode();
+        }
+      });
+
+      // Roving tabindex for menu item navigation
+      menuBar.addEventListener('keydown', (e) => {
+        if (movingItem) return;
+        const link = e.target.closest('.menu-item-link');
+        if (!link) return;
+
+        // Open submenu on Enter or ArrowRight if one exists
+        if (e.key === 'Enter' || e.key === 'ArrowRight') {
+          if (link.getAttribute('aria-haspopup') === 'true' && !document.body.classList.contains('menu-full')) {
+            e.preventDefault();
+            const appName = link.closest('.menu-item').dataset.appName;
+            AppServices.submenus._open(appName);
+            AppServices.submenus._keyboardOpen = true;
+            const firstItem = document.querySelector(`#menu-submenu-${appName} [role="menuitem"]`);
+            if (firstItem) firstItem.focus();
+            return;
+          }
+        }
+
+        let nextIndex;
+        const links = getVisibleMenuLinks();
+        const currentIndex = links.indexOf(link);
+        if (currentIndex === -1) return;
+
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+          nextIndex = (currentIndex + 1) % links.length;
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+          nextIndex = (currentIndex - 1 + links.length) % links.length;
+        } else if (e.key === 'Home') {
+          nextIndex = 0;
+        } else if (e.key === 'End') {
+          nextIndex = links.length - 1;
+        } else {
+          return;
+        }
+
+        e.preventDefault();
+        link.tabIndex = -1;
+        links[nextIndex].tabIndex = 0;
+        activateMenuSubControls(links[nextIndex]);
+        links[nextIndex].focus();
+      });
+
+      // Initialize sub-controls for the active menu item
+      const activeMenuLink = menuBar.querySelector('.menu-item-link[tabindex="0"]');
+      if (activeMenuLink) activateMenuSubControls(activeMenuLink);
+
+      menuBar.addEventListener('focusin', (e) => {
+        const subControl = e.target.closest('.star-toggle, .drag-handle');
+        if (!subControl) return;
+        const link = subControl.closest('.menu-item')?.querySelector('.menu-item-link');
+        if (!link) return;
+        const currentActive = menuBar.querySelector('.menu-item-link[tabindex="0"]');
+        if (currentActive && currentActive !== link) currentActive.tabIndex = -1;
+        link.tabIndex = 0;
+        activateMenuSubControls(link);
       });
     }
 
@@ -687,20 +1145,30 @@
         e.stopPropagation();
         document.body.classList.toggle('menu-all');
 
-        // Update arrow direction
-        if (document.body.classList.contains('menu-all')) {
-          menuExpander.textContent = '⏶'; // Up arrow when menu-all
-        } else {
-          menuExpander.textContent = '⏷'; // Down arrow when menu-minimal
-        }
+        const isExpanded = document.body.classList.contains('menu-all');
+        menuExpander.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+        menuExpander.setAttribute('aria-label', isExpanded ? 'show fewer apps' : 'show all apps');
+        menuExpander.textContent = isExpanded ? '«' : '›';
+        saveMenuState();
+        updateScrollShadows();
+        setTimeout(updateScrollShadows, 350);
+        setTimeout(normalizeRovingTabindex, 350);
       });
+    }
+
+    // Scroll shadow listeners
+    const menuItemsScroll = document.querySelector('.menu-bar .menu-items');
+    if (menuItemsScroll) {
+      menuItemsScroll.addEventListener('scroll', updateScrollShadows, { passive: true });
+      window.addEventListener('resize', updateScrollShadows);
+      updateScrollShadows();
     }
 
     // App ordering via drag-and-drop
     const menuItemsContainer = document.querySelector('.menu-bar .menu-items');
     if (menuItemsContainer) {
       // Helper: Save app order to config with starred/unstarred grouping
-      async function saveAppOrder(order) {
+      saveAppOrder = async function(order) {
         try {
           // Separate into starred and unstarred groups
           const starredOrder = order.filter(name => starredApps.includes(name));
@@ -732,7 +1200,78 @@
             });
           }
         }
-      }
+      };
+
+      // Persistent live region for keyboard reorder announcements
+      const reorderLiveRegion = document.createElement('div');
+      reorderLiveRegion.setAttribute('aria-live', 'assertive');
+      reorderLiveRegion.setAttribute('aria-atomic', 'true');
+      reorderLiveRegion.className = 'visually-hidden';
+      document.body.appendChild(reorderLiveRegion);
+
+      announceReorder = function(message) {
+        reorderLiveRegion.textContent = '';
+        // Force screen reader to re-announce by clearing then setting
+        requestAnimationFrame(() => {
+          reorderLiveRegion.textContent = message;
+        });
+      };
+
+      getMenuItems = function() {
+        return Array.from(menuItemsContainer.querySelectorAll('.menu-item'));
+      };
+
+      getPositionText = function(item) {
+        const items = getMenuItems();
+        const index = items.indexOf(item);
+        return `position ${index + 1} of ${items.length}`;
+      };
+
+      getAppLabel = function(item) {
+        const label = item.querySelector('.label');
+        return label ? label.textContent.trim() : item.dataset.appName;
+      };
+
+      exitMoveMode = function(item, announce) {
+        if (!item) return;
+        item.classList.remove('reordering');
+        const handle = item.querySelector('.drag-handle');
+        if (handle && originalAriaLabel) {
+          handle.setAttribute('aria-label', originalAriaLabel);
+        }
+        if (handle) handle.focus();
+        if (announce) announceReorder(announce);
+        movingItem = null;
+        originalNextSibling = null;
+        originalAriaLabel = null;
+      };
+
+      cancelMoveMode = function() {
+        if (!movingItem) return;
+        // Restore original position
+        const container = movingItem.closest('.menu-items');
+        if (originalNextSibling) {
+          container.insertBefore(movingItem, originalNextSibling);
+        } else {
+          container.appendChild(movingItem);
+        }
+        updateLastStarredSeparator();
+        const label = getAppLabel(movingItem);
+        exitMoveMode(movingItem, `${label}, reorder cancelled`);
+      };
+
+      canMove = function(item, direction) {
+        const items = getMenuItems();
+        const index = items.indexOf(item);
+        const targetIndex = index + direction; // -1 for up, +1 for down
+        if (targetIndex < 0 || targetIndex >= items.length) return false;
+
+        const itemIsStarred = starredApps.includes(item.dataset.appName);
+        const targetIsStarred = starredApps.includes(items[targetIndex].dataset.appName);
+
+        // Cannot cross starred/unstarred boundary
+        return itemIsStarred === targetIsStarred;
+      };
 
       // Setup drag-and-drop using shared helper with boundary constraints
       setupDragDrop({
@@ -809,16 +1348,16 @@
     modal.className = 'facet-create-modal';
     modal.innerHTML = `
       <div class="facet-create-content">
-        <h3>Create New Facet</h3>
+        <h3>create new facet</h3>
         <div class="facet-create-field">
-          <label for="facetCreateTitle">Title</label>
+          <label for="facetCreateTitle">title</label>
           <input type="text" id="facetCreateTitle" placeholder="e.g., Work Projects" autofocus>
           <div class="facet-create-slug" id="facetCreateSlug"></div>
           <div class="facet-create-error" id="facetCreateError"></div>
         </div>
         <div class="facet-create-buttons">
-          <button class="facet-create-cancel" id="facetCreateCancel">Cancel</button>
-          <button class="facet-create-submit" id="facetCreateSubmit" disabled>Create</button>
+          <button class="facet-create-cancel" id="facetCreateCancel">cancel</button>
+          <button class="facet-create-submit" id="facetCreateSubmit" disabled>create</button>
         </div>
       </div>
     `;
@@ -917,7 +1456,7 @@
     if (!title) return;
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Creating...';
+    submitBtn.textContent = 'creating...';
 
     try {
       const response = await fetch('/app/settings/api/facet', {
@@ -960,7 +1499,7 @@
       errorDisplay.textContent = error.message;
       errorDisplay.classList.add('visible');
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Create';
+      submitBtn.textContent = 'create';
     }
   }
 
@@ -1003,6 +1542,7 @@ window.AppServices = {
     _history: JSON.parse(localStorage.getItem('solstone:notification_history') || '[]'),
     _nextId: 1,
     _container: null,
+    _dismissTimers: {},
 
     /**
      * Show a persistent notification card
@@ -1039,7 +1579,7 @@ window.AppServices = {
 
       // Auto-dismiss timer
       if (notif.autoDismiss) {
-        setTimeout(() => this.dismiss(notif.id), notif.autoDismiss);
+        this._startDismissTimer(notif);
       }
 
       return notif.id;
@@ -1050,6 +1590,7 @@ window.AppServices = {
      * @param {number} id - Notification ID
      */
     dismiss(id) {
+      this._clearDismissTimer(id);
       this._stack = this._stack.filter(n => n.id !== id);
       this._render();
     },
@@ -1059,6 +1600,7 @@ window.AppServices = {
      * @param {string} appName - App name
      */
     dismissApp(appName) {
+      this._stack.filter(n => n.app === appName).forEach(n => this._clearDismissTimer(n.id));
       this._stack = this._stack.filter(n => n.app !== appName);
       this._render();
     },
@@ -1067,8 +1609,54 @@ window.AppServices = {
      * Dismiss all notifications
      */
     dismissAll() {
+      Object.keys(this._dismissTimers).forEach(id => this._clearDismissTimer(id));
       this._stack = [];
       this._render();
+    },
+
+    _startDismissTimer(notif) {
+      // Clear any existing timer for this notification
+      if (this._dismissTimers[notif.id]) {
+        clearTimeout(this._dismissTimers[notif.id]);
+      }
+      this._dismissTimers[notif.id] = setTimeout(() => {
+        delete this._dismissTimers[notif.id];
+        this.dismiss(notif.id);
+      }, notif.autoDismiss);
+
+      // Reset the progress bar animation
+      const card = this._container && this._container.querySelector(`.notification-card[data-id="${notif.id}"]`);
+      if (card) {
+        const bar = card.querySelector('.notification-countdown');
+        if (bar) {
+          bar.style.animation = 'none';
+          // Force reflow to restart animation
+          bar.offsetHeight;
+          bar.style.animation = '';
+          bar.style.animationDuration = notif.autoDismiss + 'ms';
+        }
+      }
+    },
+
+    _pauseDismissTimer(id) {
+      if (this._dismissTimers[id]) {
+        clearTimeout(this._dismissTimers[id]);
+        delete this._dismissTimers[id];
+      }
+      const card = this._container && this._container.querySelector(`.notification-card[data-id="${id}"]`);
+      if (card) {
+        const bar = card.querySelector('.notification-countdown');
+        if (bar) {
+          bar.style.animationPlayState = 'paused';
+        }
+      }
+    },
+
+    _clearDismissTimer(id) {
+      if (this._dismissTimers[id]) {
+        clearTimeout(this._dismissTimers[id]);
+        delete this._dismissTimers[id];
+      }
     },
 
     /**
@@ -1228,10 +1816,14 @@ window.AppServices = {
         }
       }
 
+      if (n.autoDismiss) {
+        card.setAttribute('tabindex', '0');
+      }
+
       const relativeTime = this._getRelativeTime(n.timestamp);
       card.innerHTML = `
         <div class="notification-header">
-          <span class="notification-app-icon">${n.icon}</span>
+          <span class="notification-app-icon">${window.AppServices._escapeHtml(n.icon)}</span>
           <span class="notification-app-name">${window.AppServices._escapeHtml(n.app)}</span>
           ${n.dismissible ? `<button class="notification-close" onclick="event.preventDefault(); event.stopPropagation(); window.AppServices.notifications.dismiss(${n.id});">×</button>` : ''}
         </div>
@@ -1243,10 +1835,28 @@ window.AppServices = {
         <div class="notification-footer">
           <span class="notification-time">${relativeTime}</span>
         </div>
+        ${n.autoDismiss ? `<div class="notification-countdown" style="animation-duration: ${n.autoDismiss}ms"></div>` : ''}
       `;
 
       // Attach click handler
       this._attachClickHandler(card, n);
+
+      if (n.autoDismiss) {
+        const self = this;
+        card.addEventListener('mouseenter', () => self._pauseDismissTimer(n.id));
+        card.addEventListener('focusin', () => self._pauseDismissTimer(n.id));
+        card.addEventListener('mouseleave', () => {
+          if (card.matches(':focus-within')) return;
+          const notif = self._stack.find(s => s.id === n.id);
+          if (notif) self._startDismissTimer(notif);
+        });
+        card.addEventListener('focusout', (e) => {
+          if (!card.contains(e.relatedTarget) && !card.matches(':hover')) {
+            const notif = self._stack.find(s => s.id === n.id);
+            if (notif) self._startDismissTimer(notif);
+          }
+        });
+      }
 
       return card;
     },
@@ -1430,6 +2040,8 @@ window.AppServices = {
    */
   submenus: {
     _data: {},  // {appName: [items]}
+    _openSubmenu: null,  // {appName, submenu, menuItem, menuItemLink} | null
+    _keyboardOpen: false,
 
     /**
      * Set entire submenu for an app (replaces existing)
@@ -1495,6 +2107,50 @@ window.AppServices = {
       return this._data[appName] || [];
     },
 
+    _closeAll() {
+      if (this._openSubmenu) {
+        this._openSubmenu.submenu.classList.remove('visible');
+        this._openSubmenu.menuItemLink.setAttribute('aria-expanded', 'false');
+        this._openSubmenu = null;
+      }
+      this._keyboardOpen = false;
+    },
+
+    _open(appName) {
+      this._closeAll();
+      const menuItem = document.querySelector(`.menu-item[data-app-name="${appName}"]`);
+      if (!menuItem) return;
+      const submenu = document.getElementById(`menu-submenu-${appName}`);
+      if (!submenu) return;
+      const menuItemLink = menuItem.querySelector('.menu-item-link');
+      // Position
+      const rect = menuItem.getBoundingClientRect();
+      submenu.style.position = 'fixed';
+      submenu.style.top = rect.top + 'px';
+      submenu.style.left = rect.right + 'px';
+      // Show
+      submenu.classList.add('visible');
+      if (menuItemLink) menuItemLink.setAttribute('aria-expanded', 'true');
+      this._openSubmenu = { appName, submenu, menuItem, menuItemLink };
+    },
+
+    _updateAriaOnLink(appName) {
+      const menuItem = document.querySelector(`.menu-item[data-app-name="${appName}"]`);
+      if (!menuItem) return;
+      const link = menuItem.querySelector('.menu-item-link');
+      if (!link) return;
+      const hasSubmenu = document.getElementById(`menu-submenu-${appName}`);
+      if (hasSubmenu) {
+        link.setAttribute('aria-haspopup', 'true');
+        if (!link.hasAttribute('aria-expanded')) {
+          link.setAttribute('aria-expanded', 'false');
+        }
+      } else {
+        link.removeAttribute('aria-haspopup');
+        link.removeAttribute('aria-expanded');
+      }
+    },
+
     /**
      * Render submenu for an app
      * @private
@@ -1519,9 +2175,20 @@ window.AppServices = {
         existing.remove();
       }
 
+      // Clear stale open state if re-rendering the currently open submenu
+      if (this._openSubmenu && this._openSubmenu.appName === appName) {
+        const menuItemLink = menuItem.querySelector('.menu-item-link');
+        if (menuItemLink) menuItemLink.setAttribute('aria-expanded', 'false');
+        this._openSubmenu = null;
+        this._keyboardOpen = false;
+      }
+
       // Get items for this app
       const items = this._data[appName];
-      if (!items || items.length === 0) return;
+      if (!items || items.length === 0) {
+        this._updateAriaOnLink(appName);
+        return;
+      }
 
       // Sort by order
       const sorted = [...items].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -1531,11 +2198,18 @@ window.AppServices = {
       submenu.className = 'menu-submenu';
       submenu.id = existingId;
       submenu.dataset.appName = appName;
+      submenu.setAttribute('role', 'menu');
+      const appLabel = menuItem.querySelector('.label');
+      if (appLabel) {
+        submenu.setAttribute('aria-label', appLabel.textContent.trim() + ' submenu');
+      }
 
       // Create items
       sorted.forEach(item => {
         const link = document.createElement('a');
         link.className = 'menu-submenu-item';
+        link.setAttribute('role', 'menuitem');
+        link.tabIndex = -1;
         link.href = item.href || '#';
 
         if (item.facet) {
@@ -1569,46 +2243,73 @@ window.AppServices = {
       // Append to body instead of menu item
       document.body.appendChild(submenu);
 
-      // Position submenu on hover
-      const positionSubmenu = () => {
-        const rect = menuItem.getBoundingClientRect();
-        submenu.style.position = 'fixed';
-        submenu.style.top = rect.top + 'px';
-        submenu.style.left = rect.right + 'px';
-      };
-
       // Show/hide on hover
       menuItem.addEventListener('mouseenter', () => {
-        // Only show when menu is not full (labels not visible)
         if (document.body.classList.contains('menu-full')) {
           return;
         }
-        positionSubmenu();
-        submenu.classList.add('visible');
+        AppServices.submenus._open(appName);
       });
 
       menuItem.addEventListener('mouseleave', (e) => {
-        // Check if moving to submenu
+        if (AppServices.submenus._keyboardOpen) return;
         const related = e.relatedTarget;
-        if (related && submenu.contains(related)) {
+        // Look up current submenu DOM (not stale closure ref) to handle re-renders
+        const currentSubmenu = document.getElementById(`menu-submenu-${appName}`);
+        if (related && currentSubmenu && currentSubmenu.contains(related)) {
           return;
         }
-        submenu.classList.remove('visible');
+        AppServices.submenus._closeAll();
       });
 
       submenu.addEventListener('mouseleave', (e) => {
-        // Check if moving back to menu item
+        if (AppServices.submenus._keyboardOpen) return;
         const related = e.relatedTarget;
         if (related && menuItem.contains(related)) {
           return;
         }
-        submenu.classList.remove('visible');
+        AppServices.submenus._closeAll();
       });
 
-      // Keep submenu visible while hovering it
       submenu.addEventListener('mouseenter', () => {
         submenu.classList.add('visible');
       });
+
+      // Keyboard navigation within submenu
+      submenu.addEventListener('keydown', (e) => {
+        const items = Array.from(submenu.querySelectorAll('[role="menuitem"]'));
+        const currentIndex = items.indexOf(document.activeElement);
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const next = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+          items[next].focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prev = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+          items[prev].focus();
+        } else if (e.key === 'Escape' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const parentLink = menuItem.querySelector('.menu-item-link');
+          AppServices.submenus._closeAll();
+          if (parentLink) parentLink.focus();
+        } else if (e.key === 'Tab') {
+          AppServices.submenus._closeAll();
+          // Don't preventDefault — let natural tab order proceed
+        }
+      });
+
+      // Close on focus loss
+      submenu.addEventListener('focusout', () => {
+        requestAnimationFrame(() => {
+          const active = document.activeElement;
+          if (!submenu.contains(active) && active !== menuItem.querySelector('.menu-item-link')) {
+            AppServices.submenus._closeAll();
+          }
+        });
+      });
+
+      this._updateAriaOnLink(appName);
     }
   },
 
@@ -1676,22 +2377,23 @@ window.AppServices = {
         const iconContainer = menuItem.querySelector('.icon');
         if (!iconContainer) return;
 
-        // Remove existing badge
-        const existing = iconContainer.querySelector('.menu-badge');
-        if (existing) {
-          existing.remove();
+        // Find or create badge element
+        let badge = iconContainer.querySelector('.menu-badge');
+        const count = this._data[appName];
+        if (!count || count <= 0) {
+          if (badge) badge.remove();
+          return;
         }
 
-        // Get count for this app
-        const count = this._data[appName];
-        if (!count || count <= 0) return;
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'menu-badge';
+          badge.setAttribute('aria-live', 'polite');
+          iconContainer.appendChild(badge);
+        }
 
-        // Create badge element
-        const badge = document.createElement('span');
-        badge.className = 'menu-badge';
         badge.textContent = count;
-
-        iconContainer.appendChild(badge);
+        badge.setAttribute('aria-label', count + ' notifications');
       }
     },
 
@@ -1772,6 +2474,7 @@ window.AppServices = {
         }
 
         badge.textContent = count;
+        badge.setAttribute('aria-label', count + ' pending');
         badge.style.display = '';
       }
     }

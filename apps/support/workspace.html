@@ -7,12 +7,13 @@
     padding-bottom: 0.5rem;
   }
   .support-nav button {
+    position: relative;
     background: none;
     border: none;
     padding: 0.5rem 1rem;
     cursor: pointer;
     font-size: 0.9rem;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
     border-bottom: 2px solid transparent;
     transition: all 0.15s;
   }
@@ -34,21 +35,21 @@
     transition: background 0.1s;
   }
   .support-ticket:hover { background: var(--card-bg, #fafafa); }
+  .support-ticket:focus-visible { outline: 2px solid var(--facet-color, #3b82f6); outline-offset: 2px; }
   .support-ticket-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.25rem;
   }
-  .support-ticket-id { font-size: 0.8rem; color: var(--muted, #888); }
+  .support-ticket-id { font-size: 0.8rem; color: var(--muted, #595959); }
   .support-ticket-subject { font-weight: 600; }
-  .support-ticket-meta { font-size: 0.8rem; color: var(--muted, #888); margin-top: 0.25rem; }
+  .support-ticket-meta { font-size: 0.8rem; color: var(--muted, #595959); margin-top: 0.25rem; }
   .support-status {
     font-size: 0.75rem;
     padding: 0.15rem 0.5rem;
     border-radius: 4px;
     font-weight: 600;
-    text-transform: uppercase;
   }
   .support-status-open { background: #e3f2fd; color: #1565c0; }
   .support-status-in-progress { background: #fff3e0; color: #e65100; }
@@ -63,7 +64,7 @@
     border: none;
     cursor: pointer;
     font-size: 0.9rem;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
     padding: 0;
     margin-bottom: 1rem;
   }
@@ -73,7 +74,7 @@
     padding: 0.75rem 1rem;
     margin-bottom: 0.75rem;
   }
-  .support-message-meta { font-size: 0.8rem; color: var(--muted, #888); margin-bottom: 0.25rem; }
+  .support-message-meta { font-size: 0.8rem; color: var(--muted, #595959); margin-bottom: 0.25rem; }
   .support-reply-form { margin-top: 1rem; }
   .support-reply-form textarea {
     width: 100%;
@@ -122,7 +123,7 @@
     margin-bottom: 0.75rem;
   }
   .support-help-card h3 { margin: 0 0 0.5rem 0; font-size: 1rem; }
-  .support-help-card p { margin: 0; font-size: 0.9rem; color: var(--muted, #888); }
+  .support-help-card p { margin: 0; font-size: 0.9rem; color: var(--muted, #595959); }
 
   /* Buttons */
   .support-btn {
@@ -146,12 +147,53 @@
   .support-empty {
     text-align: center;
     padding: 3rem 1rem;
-    color: var(--muted, #888);
   }
+  .support-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+  .support-empty-heading {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+  .support-empty-hint {
+    font-size: 0.9rem;
+    color: var(--muted, #595959);
+    margin-bottom: 1.5rem;
+  }
+  .support-empty-action {
+    background: var(--facet-color, #3b82f6);
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1.25rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .support-empty-action:hover { opacity: 0.9; }
+
+  .support-tab-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: var(--facet-color, #3b82f6);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    line-height: 1.1rem;
+    border-radius: 1rem;
+    text-align: center;
+    display: none;
+  }
+
   .support-disabled {
     text-align: center;
     padding: 3rem 1rem;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
   }
 
   .support-status-msg {
@@ -161,6 +203,17 @@
   }
   .support-status-msg.success { color: #2e7d32; }
   .support-status-msg.error { color: #c62828; }
+  .support-field-error {
+    font-size: 0.8rem;
+    color: #c62828;
+    margin-top: 0.25rem;
+    display: none;
+  }
+  .support-keyboard-hint {
+    font-size: 0.8rem;
+    color: var(--muted, #595959);
+    margin-left: 0.5rem;
+  }
 
   /* Attachments */
   .support-attachments {
@@ -171,7 +224,7 @@
     display: flex;
     align-items: center;
     gap: 0.35rem;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
     margin-top: 0.15rem;
   }
   .support-drop-zone {
@@ -179,7 +232,7 @@
     border-radius: 8px;
     padding: 1rem;
     text-align: center;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
     font-size: 0.85rem;
     margin-top: 0.75rem;
     transition: all 0.15s;
@@ -190,6 +243,7 @@
     background: rgba(59, 130, 246, 0.04);
     color: var(--text, #222);
   }
+  .support-drop-zone:focus-visible { outline: 2px solid var(--facet-color, #3b82f6); outline-offset: 2px; }
   .support-drop-zone input[type="file"] { display: none; }
   .support-file-list {
     margin-top: 0.5rem;
@@ -204,7 +258,7 @@
   .support-file-entry .remove-file {
     background: none;
     border: none;
-    color: var(--muted, #888);
+    color: var(--muted, #595959);
     cursor: pointer;
     font-size: 0.9rem;
     padding: 0 0.25rem;
@@ -221,6 +275,163 @@
     font-size: 0.9rem;
   }
   .support-announcements h4 { margin: 0 0 0.25rem 0; font-size: 0.9rem; }
+
+  /* Diagnostics */
+  .support-diagnostics-desc {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.9rem;
+    color: var(--muted, #595959);
+  }
+  .support-diagnostics-loading {
+    display: none;
+    font-size: 0.85rem;
+    color: var(--muted, #595959);
+    margin-top: 0.75rem;
+    animation: support-diagnostics-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes support-diagnostics-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .support-diagnostics-results {
+    display: none;
+    margin-top: 0.75rem;
+  }
+  .support-diagnostics-summary {
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+  }
+  .support-diagnostics-section {
+    border: 1px solid var(--border, #e0e0e0);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+  }
+  .support-diagnostics-section summary {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .support-diagnostics-section .support-diagnostics-body {
+    padding: 0.25rem 0.75rem 0.5rem;
+    font-size: 0.85rem;
+  }
+  .support-diagnostics-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.2rem 0;
+    gap: 1rem;
+  }
+  .support-diagnostics-row .support-diagnostics-label {
+    color: var(--muted, #595959);
+  }
+  .support-diagnostics-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.35rem;
+    vertical-align: middle;
+  }
+  .support-diagnostics-dot.support-diagnostics-running { background: #2e7d32; }
+  .support-diagnostics-dot.support-diagnostics-stopped { background: #c62828; }
+  .support-diagnostics-dot.support-diagnostics-unknown { background: #9e9e9e; }
+  .support-diagnostics-error {
+    display: none;
+    font-size: 0.85rem;
+    color: #c62828;
+    margin-top: 0.75rem;
+  }
+
+  /* ── Responsive: General ── */
+  .support-nav {
+    flex-wrap: wrap;
+  }
+  .support-ticket-subject,
+  .support-message,
+  .support-help-card p {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  /* ── Responsive: Tablet (≤768px) ── */
+  @media (max-width: 768px) {
+    .support-nav button {
+      padding: 0.5rem 1rem;
+      min-height: 44px;
+    }
+    .support-detail-back {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+    }
+    .support-ticket-header {
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .support-diagnostics-section summary {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
+    .support-drop-zone {
+      padding: 1.25rem;
+      min-height: 44px;
+    }
+  }
+
+  /* ── Responsive: Mobile (≤375px) ── */
+  @media (max-width: 375px) {
+    #support-root {
+      overflow-x: hidden;
+    }
+    .support-nav {
+      flex-direction: column;
+    }
+    .support-nav button {
+      min-height: 44px;
+      width: 100%;
+      text-align: left;
+      padding: 0.625rem 1rem;
+    }
+    .support-ticket-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .support-btn,
+    .support-empty-action {
+      width: 100%;
+    }
+    .support-detail-back {
+      min-height: 44px;
+    }
+    .support-help-card {
+      padding: 0.75rem;
+    }
+    .support-diagnostics-section .support-diagnostics-body {
+      padding: 0.25rem 0.5rem 0.5rem;
+    }
+    .support-empty {
+      padding: 2rem 0.75rem;
+    }
+    .support-drop-zone {
+      padding: 1.5rem 1rem;
+    }
+    .support-keyboard-hint {
+      display: block;
+      margin-left: 0;
+      margin-top: 0.25rem;
+    }
+    .support-feedback-options {
+      flex-wrap: wrap;
+    }
+    .support-diagnostics-row {
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+  }
 </style>
 
 <div class="workspace-content" id="support-root">
@@ -234,51 +445,60 @@
     <div id="support-announcements-banner" class="support-announcements" style="display:none;"></div>
 
     <!-- Navigation tabs -->
-    <nav class="support-nav">
-      <button class="active" data-section="tickets">Active Tickets</button>
-      <button data-section="feedback">Feedback</button>
-      <button data-section="help">Help &amp; Guidance</button>
+    <nav class="support-nav" role="tablist" aria-label="support sections">
+      <button type="button" role="tab" id="tab-tickets" class="active" data-section="tickets" aria-selected="true" aria-controls="section-tickets" tabindex="0">active tickets</button>
+      <button type="button" role="tab" id="tab-feedback" data-section="feedback" aria-selected="false" aria-controls="section-feedback" tabindex="-1">feedback</button>
+      <button type="button" role="tab" id="tab-help" data-section="help" aria-selected="false" aria-controls="section-help" tabindex="-1">help &amp; guidance</button>
     </nav>
 
     <!-- Section: Active Tickets -->
-    <div id="section-tickets" class="support-section active">
+    <div id="section-tickets" class="support-section active" role="tabpanel" aria-labelledby="tab-tickets">
       <div id="tickets-list"></div>
       <div id="ticket-detail" class="support-detail"></div>
     </div>
 
     <!-- Section: Feedback -->
-    <div id="section-feedback" class="support-section">
-      <p style="margin-bottom:1rem;">Share your impressions, ideas, or anything on your mind. Your feedback shapes the product.</p>
+    <div id="section-feedback" class="support-section" role="tabpanel" aria-labelledby="tab-feedback">
+      <p style="margin-bottom:1rem;">💬 Share your impressions, ideas, or anything on your mind. Your feedback shapes the product.</p>
       <div class="support-feedback-form">
-        <textarea id="feedback-text" placeholder="What's on your mind?"></textarea>
-        <div class="support-feedback-options">
-          <label><input type="checkbox" id="feedback-anonymous"> Submit anonymously</label>
-        </div>
-        <button class="support-btn" id="feedback-submit">Send Feedback</button>
-        <div id="feedback-status" class="support-status-msg"></div>
+        <form id="feedback-form" novalidate>
+          <label for="feedback-text">your feedback</label>
+          <textarea id="feedback-text" placeholder="What's on your mind?" required></textarea>
+          <div class="support-field-error" id="feedback-error">please write something before sending</div>
+          <div class="support-feedback-options">
+            <label><input type="checkbox" id="feedback-anonymous"> Submit anonymously</label>
+          </div>
+          <button class="support-btn" id="feedback-submit" type="submit">send feedback</button>
+          <span class="support-keyboard-hint">ctrl+enter to send</span>
+          <div id="feedback-status" class="support-status-msg"></div>
+        </form>
       </div>
     </div>
 
     <!-- Section: Help & Guidance -->
-    <div id="section-help" class="support-section">
+    <div id="section-help" class="support-section" role="tabpanel" aria-labelledby="tab-help">
       <div class="support-help-card">
-        <h3>🛟 Getting Help</h3>
+        <h3>🛟 getting help</h3>
         <p>Just say "I need help" or "something's not working" in the chat bar. Your sol will handle everything — searching for answers, running diagnostics, and filing a ticket if needed.</p>
       </div>
       <div class="support-help-card">
-        <h3>🔍 Search the Knowledge Base</h3>
+        <h3>🔍 search the knowledge base</h3>
         <p>Run <code>sol call support search "your question"</code> to find answers in our knowledge base before filing a ticket.</p>
       </div>
       <div class="support-help-card">
-        <h3>🩺 Run Diagnostics</h3>
-        <p>Run <code>sol call support diagnose</code> to check your system health locally — no data is sent anywhere.</p>
+        <h3>🩺 run diagnostics</h3>
+        <p class="support-diagnostics-desc">Check your system health locally — no data is sent anywhere.</p>
+        <button class="support-btn" id="diagnostics-btn" onclick="window._supportRunDiagnostics()">run diagnostics</button>
+        <div class="support-diagnostics-loading" id="diagnostics-loading">running diagnostics…</div>
+        <div class="support-diagnostics-error" id="diagnostics-error"></div>
+        <div class="support-diagnostics-results" id="diagnostics-results"></div>
       </div>
       <div class="support-help-card">
-        <h3>📢 Announcements</h3>
+        <h3>📢 announcements</h3>
         <p>Run <code>sol call support announcements</code> to check for product updates and known issues.</p>
       </div>
       <div class="support-help-card">
-        <h3>🔒 Privacy</h3>
+        <h3>🔒 privacy</h3>
         <p>Nothing leaves your device without your explicit approval. You review every ticket before it's sent and can edit or redact anything. Journal content is never included unless you attach it yourself.</p>
       </div>
     </div>
@@ -287,19 +507,51 @@
 
 <script>
 (function() {
+  let ticketCount = 0;
+
   // Tab navigation
+  function activateTab(sectionName) {
+    document.querySelectorAll('.support-nav button').forEach(b => {
+      const isActive = b.dataset.section === sectionName;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      b.setAttribute('tabindex', isActive ? '0' : '-1');
+    });
+    document.querySelectorAll('.support-section').forEach(s => s.classList.remove('active'));
+    document.getElementById('section-' + sectionName).classList.add('active');
+    // Reset ticket detail when switching to tickets
+    if (sectionName === 'tickets') {
+      document.getElementById('ticket-detail').classList.remove('active');
+      document.getElementById('tickets-list').style.display = '';
+    }
+    // Update tab badge visibility
+    const badge = document.getElementById('tab-tickets-badge');
+    if (badge) {
+      badge.style.display = (sectionName !== 'tickets' && ticketCount > 0) ? '' : 'none';
+    }
+  }
+
   document.querySelectorAll('.support-nav button').forEach(btn => {
     btn.addEventListener('click', function() {
-      document.querySelectorAll('.support-nav button').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.support-section').forEach(s => s.classList.remove('active'));
-      this.classList.add('active');
-      document.getElementById('section-' + this.dataset.section).classList.add('active');
-      // Reset ticket detail when switching to tickets
-      if (this.dataset.section === 'tickets') {
-        document.getElementById('ticket-detail').classList.remove('active');
-        document.getElementById('tickets-list').style.display = '';
-      }
+      activateTab(this.dataset.section);
     });
+  });
+
+  document.querySelector('.support-nav').addEventListener('keydown', function(e) {
+    const tabs = [...this.querySelectorAll('button')];
+    const current = tabs.indexOf(e.target);
+    if (current === -1) return;
+    let next;
+    if (e.key === 'ArrowRight') {
+      next = (current + 1) % tabs.length;
+    } else if (e.key === 'ArrowLeft') {
+      next = (current - 1 + tabs.length) % tabs.length;
+    } else {
+      return;
+    }
+    e.preventDefault();
+    tabs[next].focus();
+    activateTab(tabs[next].dataset.section);
   });
 
   // Load tickets
@@ -318,13 +570,22 @@
       const tickets = await resp.json();
 
       if (!tickets.length) {
-        list.innerHTML = '<div class="support-empty"><p>No tickets yet.</p><p style="font-size:0.85rem;">File one by saying "I need help" in the chat bar, or use <code>sol call support create</code>.</p></div>';
+        ticketCount = 0;
+        list.innerHTML = '<div class="support-empty">' +
+          '<div class="support-empty-icon">🛟</div>' +
+          '<div class="support-empty-heading">no tickets yet — that\'s a good thing</div>' +
+          '<div class="support-empty-hint">if something comes up, check the help tab for ways to get support</div>' +
+          '<button class="support-empty-action" id="empty-help-btn">browse help &amp; guidance</button>' +
+        '</div>';
+        const helpBtn = document.getElementById('empty-help-btn');
+        if (helpBtn) helpBtn.addEventListener('click', () => activateTab('help'));
+        activateTab('help');
         return;
       }
 
       list.innerHTML = tickets.map(t => {
         const statusClass = 'support-status-' + (t.status || 'open').replace(/[^a-z-]/g, '');
-        return `<div class="support-ticket" data-id="${t.id}">
+        return `<div class="support-ticket" data-id="${t.id}" tabindex="0" role="button">
           <div class="support-ticket-header">
             <span class="support-ticket-subject">${esc(t.subject || 'Untitled')}</span>
             <span class="support-status ${statusClass}">${esc(t.status || 'open')}</span>
@@ -341,8 +602,36 @@
       list.querySelectorAll('.support-ticket').forEach(el => {
         el.addEventListener('click', () => openTicket(parseInt(el.dataset.id)));
       });
+      list.querySelectorAll('.support-ticket').forEach(el => {
+        el.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openTicket(parseInt(el.dataset.id));
+          }
+        });
+      });
+      // Update ticket count and inject badge
+      ticketCount = tickets.length;
+      let badge = document.getElementById('tab-tickets-badge');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.id = 'tab-tickets-badge';
+        badge.className = 'support-tab-badge';
+        document.getElementById('tab-tickets').appendChild(badge);
+      }
+      badge.textContent = ticketCount;
+      // Show badge if user already switched away from tickets tab
+      const activeTab = document.querySelector('.support-nav button.active');
+      badge.style.display = (activeTab && activeTab.dataset.section !== 'tickets') ? '' : 'none';
     } catch (e) {
-      list.innerHTML = '<div class="support-empty"><p>Unable to load tickets.</p></div>';
+      list.innerHTML = '<div class="support-empty">' +
+        '<div class="support-empty-icon">⚠️</div>' +
+        '<div class="support-empty-heading">unable to load tickets</div>' +
+        '<div class="support-empty-hint">check your connection and try refreshing</div>' +
+        '<button class="support-empty-action" id="retry-tickets-btn">try again</button>' +
+      '</div>';
+      const retryBtn = document.getElementById('retry-tickets-btn');
+      if (retryBtn) retryBtn.addEventListener('click', () => loadTickets());
     }
   }
 
@@ -369,7 +658,7 @@
 
       const msgs = t.messages || [];
       if (msgs.length) {
-        html += '<h3 style="margin-top:1.5rem;">Thread</h3>';
+        html += '<h3 style="margin-top:1.5rem;">thread</h3>';
         msgs.forEach(m => {
           let attachHtml = '';
           const atts = m.attachments || [];
@@ -390,17 +679,22 @@
 
       if (t.status !== 'resolved') {
         html += `<div class="support-reply-form">
-          <textarea id="reply-text" placeholder="Write a reply..."></textarea>
-          <div class="support-drop-zone" id="attach-zone">
-            <input type="file" id="attach-input" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.pdf,.txt,.csv,.html,.md,.xml,.json">
-            Drop files here or click to attach (max 10 MB each, up to 5 files)
-          </div>
-          <div class="support-file-list" id="attach-file-list"></div>
-          <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
-            <button class="support-btn" id="reply-submit">Send Reply</button>
-            <button class="support-btn support-btn-secondary" id="attach-only-submit" style="display:none;">Upload Files Only</button>
-          </div>
-          <div id="reply-status" class="support-status-msg"></div>
+          <form id="reply-form" novalidate>
+            <label for="reply-text">your reply</label>
+            <textarea id="reply-text" placeholder="Write a reply..." required></textarea>
+            <div class="support-field-error" id="reply-error">please write something before sending</div>
+            <div class="support-drop-zone" id="attach-zone" role="button" tabindex="0" aria-label="Attach files — drop files here or click to browse">
+              <input type="file" id="attach-input" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.pdf,.txt,.csv,.html,.md,.xml,.json">
+              Drop files here or click to attach (max 10 MB each, up to 5 files)
+            </div>
+            <div class="support-file-list" id="attach-file-list"></div>
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:center;">
+              <button class="support-btn" id="reply-submit" type="submit">send reply</button>
+              <button class="support-btn support-btn-secondary" id="attach-only-submit" type="button" style="display:none;">upload files only</button>
+              <span class="support-keyboard-hint">ctrl+enter to send</span>
+            </div>
+            <div id="reply-status" class="support-status-msg"></div>
+          </form>
         </div>`;
       }
 
@@ -411,6 +705,8 @@
         detail.innerHTML = '';
         list.style.display = '';
       });
+      const backBtn = document.getElementById('back-to-list');
+      if (backBtn) backBtn.focus();
 
       // -- Attachment handling --
       let pendingFiles = [];
@@ -460,6 +756,12 @@
 
       if (zone) {
         zone.addEventListener('click', () => fileInput && fileInput.click());
+        zone.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileInput && fileInput.click();
+          }
+        });
         zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
         zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
         zone.addEventListener('drop', e => {
@@ -493,11 +795,20 @@
         return uploaded;
       }
 
+      const replyForm = document.getElementById('reply-form');
+      const replyError = document.getElementById('reply-error');
+      const replyText = document.getElementById('reply-text');
       const replyBtn = document.getElementById('reply-submit');
-      if (replyBtn) {
-        replyBtn.addEventListener('click', async () => {
-          const text = document.getElementById('reply-text').value.trim();
-          if (!text && !pendingFiles.length) return;
+      if (replyForm) {
+        replyForm.addEventListener('submit', async e => {
+          e.preventDefault();
+          const text = replyText.value.trim();
+          if (!text && !pendingFiles.length) {
+            replyError.style.display = 'block';
+            replyText.focus();
+            return;
+          }
+          replyError.style.display = 'none';
           replyBtn.disabled = true;
           if (attachOnlyBtn) attachOnlyBtn.disabled = true;
           const status = document.getElementById('reply-status');
@@ -522,11 +833,20 @@
             document.getElementById('reply-text').value = '';
             setTimeout(() => openTicket(id), 500);
           } catch (e) {
-            status.textContent = e.message || 'Failed to send.';
+            status.textContent = "couldn't send your reply — check your connection and try again";
             status.className = 'support-status-msg error';
           }
           replyBtn.disabled = false;
           if (attachOnlyBtn) attachOnlyBtn.disabled = false;
+        });
+        replyText.addEventListener('input', () => {
+          replyError.style.display = 'none';
+        });
+        replyText.addEventListener('keydown', e => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            replyForm.requestSubmit();
+          }
         });
       }
 
@@ -553,17 +873,37 @@
         });
       }
     } catch (e) {
-      detail.innerHTML = '<p>Failed to load ticket.</p>';
+      detail.innerHTML = '<div class="support-empty">' +
+        '<div class="support-empty-icon">⚠️</div>' +
+        '<div class="support-empty-heading">couldn\'t load this ticket</div>' +
+        '<div class="support-empty-hint">try going back and selecting it again</div>' +
+        '<button class="support-empty-action" id="error-back-btn">back to tickets</button>' +
+      '</div>';
+      const errorBackBtn = document.getElementById('error-back-btn');
+      if (errorBackBtn) errorBackBtn.addEventListener('click', () => {
+        detail.classList.remove('active');
+        detail.innerHTML = '';
+        list.style.display = '';
+      });
     }
   }
 
   // Feedback submission
-  document.getElementById('feedback-submit').addEventListener('click', async function() {
-    const text = document.getElementById('feedback-text').value.trim();
-    if (!text) return;
+  const feedbackForm = document.getElementById('feedback-form');
+  const feedbackError = document.getElementById('feedback-error');
+  const feedbackTextEl = document.getElementById('feedback-text');
+  feedbackForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const text = feedbackTextEl.value.trim();
+    if (!text) {
+      feedbackError.style.display = 'block';
+      feedbackTextEl.focus();
+      return;
+    }
+    feedbackError.style.display = 'none';
     const anon = document.getElementById('feedback-anonymous').checked;
     const status = document.getElementById('feedback-status');
-    this.disabled = true;
+    document.getElementById('feedback-submit').disabled = true;
 
     try {
       const resp = await fetch('/app/support/api/feedback', {
@@ -574,31 +914,47 @@
       if (resp.ok) {
         status.textContent = 'Thanks for your feedback!';
         status.className = 'support-status-msg success';
-        document.getElementById('feedback-text').value = '';
+        feedbackTextEl.value = '';
       } else {
         throw new Error('Failed');
       }
     } catch (e) {
-      status.textContent = 'Failed to submit feedback.';
+      status.textContent = "couldn't send your feedback — try again in a moment";
       status.className = 'support-status-msg error';
     }
-    this.disabled = false;
+    document.getElementById('feedback-submit').disabled = false;
+  });
+  feedbackTextEl.addEventListener('input', () => {
+    feedbackError.style.display = 'none';
+  });
+  feedbackTextEl.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      feedbackForm.requestSubmit();
+    }
   });
 
   // Load announcements
   async function loadAnnouncements() {
+    const banner = document.getElementById('support-announcements-banner');
     try {
       const resp = await fetch('/app/support/api/announcements');
       if (!resp.ok) return;
       const items = await resp.json();
       if (!items.length) return;
-      const banner = document.getElementById('support-announcements-banner');
       banner.style.display = '';
       const icons = {'known-issue': '⚠️', 'maintenance': '🔧', 'info': '📢'};
       banner.innerHTML = items.map(a =>
         `<div><h4>${icons[a.type] || '📢'} ${esc(a.title || '')}</h4><p style="margin:0;font-size:0.85rem;">${esc((a.content || '').slice(0, 200))}</p></div>`
       ).join('');
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      console.warn('Failed to load announcements:', e);
+      banner.style.display = '';
+      banner.style.background = 'none';
+      banner.style.border = 'none';
+      banner.style.padding = '0.5rem 0';
+      banner.innerHTML = '<p style="margin:0;font-size:0.8rem;color:var(--muted,#595959);">couldn\'t load announcements</p>';
+    }
   }
 
   // Helpers
@@ -632,6 +988,114 @@
     if (s < 86400) return Math.floor(s / 3600) + 'h ago';
     return Math.floor(s / 86400) + 'd ago';
   }
+
+  // Diagnostics
+  function runDiagnostics() {
+    const btn = document.getElementById('diagnostics-btn');
+    const loading = document.getElementById('diagnostics-loading');
+    const results = document.getElementById('diagnostics-results');
+    const errorEl = document.getElementById('diagnostics-error');
+
+    btn.disabled = true;
+    results.style.display = 'none';
+    results.innerHTML = '';
+    errorEl.style.display = 'none';
+    errorEl.innerHTML = '';
+    loading.style.display = '';
+
+    fetch('/app/support/api/diagnostics')
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        loading.style.display = 'none';
+        renderDiagnostics(data, results);
+        results.style.display = '';
+        btn.disabled = false;
+      })
+      .catch(function(err) {
+        loading.style.display = 'none';
+        errorEl.innerHTML = esc('Could not run diagnostics: ' + err.message) +
+          '<br><span style="color:var(--muted,#595959);">Try the CLI instead: <code>sol call support diagnose</code></span>';
+        errorEl.style.display = '';
+        btn.disabled = false;
+      });
+  }
+
+  function renderDiagnostics(data, container) {
+    var html = '';
+
+    // Summary line
+    var services = data.services || {};
+    var serviceNames = Object.keys(services);
+    var runningCount = serviceNames.filter(function(k) { return services[k] === 'running'; }).length;
+    var errorCount = (data.recent_errors || []).length;
+    html += '<div class="support-diagnostics-summary">' +
+      esc(runningCount + ' of ' + serviceNames.length + ' services running') +
+      (errorCount > 0 ? ', ' + esc(errorCount + ' recent error' + (errorCount !== 1 ? 's' : '')) : ', no recent errors') +
+      '</div>';
+
+    // Version + Platform section
+    var versionPlatformRows = '';
+    if (data.version) {
+      versionPlatformRows += '<div class="support-diagnostics-row"><span class="support-diagnostics-label">version</span><span>' + esc(String(data.version)) + '</span></div>';
+    }
+    if (data.platform) {
+      var p = data.platform;
+      if (p.system) versionPlatformRows += '<div class="support-diagnostics-row"><span class="support-diagnostics-label">system</span><span>' + esc(String(p.system)) + ' ' + esc(String(p.release || '')) + '</span></div>';
+      if (p.machine) versionPlatformRows += '<div class="support-diagnostics-row"><span class="support-diagnostics-label">machine</span><span>' + esc(String(p.machine)) + '</span></div>';
+      if (p.python) versionPlatformRows += '<div class="support-diagnostics-row"><span class="support-diagnostics-label">python</span><span>' + esc(String(p.python)) + '</span></div>';
+    }
+    if (versionPlatformRows) {
+      html += '<details class="support-diagnostics-section"><summary>version &amp; platform</summary>' +
+        '<div class="support-diagnostics-body">' + versionPlatformRows + '</div></details>';
+    }
+
+    // Services section
+    if (serviceNames.length > 0) {
+      var svcRows = '';
+      serviceNames.forEach(function(name) {
+        var status = services[name] || 'unknown';
+        var dotClass = status === 'running' ? 'support-diagnostics-running' : status === 'stopped' ? 'support-diagnostics-stopped' : 'support-diagnostics-unknown';
+        svcRows += '<div class="support-diagnostics-row"><span class="support-diagnostics-label">' + esc(String(name)) + '</span>' +
+          '<span><span class="support-diagnostics-dot ' + dotClass + '"></span>' + esc(String(status)) + '</span></div>';
+      });
+      html += '<details class="support-diagnostics-section"><summary>services</summary>' +
+        '<div class="support-diagnostics-body">' + svcRows + '</div></details>';
+    }
+
+    // Recent errors section
+    if (data.recent_errors && data.recent_errors.length > 0) {
+      var errRows = '';
+      data.recent_errors.forEach(function(e) {
+        errRows += '<div style="padding:0.2rem 0;"><strong>' + esc(String(e.service || 'unknown')) + '</strong>: ' +
+          esc(String(e.message || '')) + '</div>';
+      });
+      html += '<details class="support-diagnostics-section" open><summary>recent errors (' + esc(String(data.recent_errors.length)) + ')</summary>' +
+        '<div class="support-diagnostics-body">' + errRows + '</div></details>';
+    }
+
+    // Config section
+    if (data.config && Object.keys(data.config).length > 0) {
+      var cfgRows = '';
+      Object.keys(data.config).forEach(function(key) {
+        cfgRows += '<div class="support-diagnostics-row"><span class="support-diagnostics-label">' + esc(String(key)) + '</span>' +
+          '<span>' + esc(String(data.config[key])) + '</span></div>';
+      });
+      html += '<details class="support-diagnostics-section"><summary>config</summary>' +
+        '<div class="support-diagnostics-body">' + cfgRows + '</div></details>';
+    }
+
+    // If nothing rendered beyond summary
+    if (!versionPlatformRows && serviceNames.length === 0 && (!data.recent_errors || data.recent_errors.length === 0) && (!data.config || Object.keys(data.config).length === 0)) {
+      html += '<div style="font-size:0.85rem;color:var(--muted,#595959);">No diagnostic data available.</div>';
+    }
+
+    container.innerHTML = html;
+  }
+
+  window._supportRunDiagnostics = runDiagnostics;
 
   // Init
   loadTickets();

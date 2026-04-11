@@ -56,6 +56,12 @@ h1 {
   color: #721c24;
 }
 
+.stats-freshness {
+  color: #888;
+  font-size: 0.85em;
+  margin: -0.5em 0 1em;
+}
+
 /* Stats grid */
 .stats-grid {
   display: grid;
@@ -81,8 +87,6 @@ h1 {
   font-size: 0.9em;
   color: #666;
   margin: 0 0 0.5em 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .stat-value {
@@ -167,10 +171,17 @@ h1 {
   font-size: 1.5em;
 }
 
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .chart {
   height: 300px;
   position: relative;
   margin-top: 1.5em;
+  padding-bottom: 24px;
 }
 
 .bar-chart {
@@ -221,6 +232,8 @@ h1 {
   padding: 2em;
   height: 100%;
   display: flex;
+  flex-direction: column;
+  gap: 0.5em;
   align-items: center;
   justify-content: center;
 }
@@ -293,7 +306,6 @@ h1 {
 
 /* Model selector */
 .model-select {
-  float: right;
   padding: 0.4em 0.8em;
   font-size: 0.85em;
   border: 1px solid #e0e0e0;
@@ -315,6 +327,18 @@ h1 {
   box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Stacked bar styles */
 .bar-stack {
   display: flex;
@@ -332,15 +356,27 @@ h1 {
 }
 
 .stack-segment.input {
-  background: #667eea;
+  background: #2171b5;
 }
 
 .stack-segment.reasoning {
-  background: #9b59b6;
+  background: #e6550d;
+  background-image: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.3) 3px, rgba(255,255,255,0.3) 6px);
 }
 
 .stack-segment.output {
-  background: #e91e63;
+  background: #31a354;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.3) 1px, transparent 1px);
+  background-size: 6px 6px;
+}
+
+.stack-segment.audio {
+  background: #2171b5;
+}
+
+.stack-segment.screen {
+  background: #e6550d;
+  background-image: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.3) 3px, rgba(255,255,255,0.3) 6px);
 }
 
 .bar-stack:hover .stack-segment {
@@ -385,11 +421,52 @@ h1 {
   .bar-value {
     font-size: 0.7em;
   }
+  .bar-label {
+    display: none;
+  }
+  .bar:first-child .bar-label,
+  .bar:last-child .bar-label {
+    display: block;
+  }
+}
+
+@media (max-width: 480px) {
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .chart {
+    height: 200px;
+  }
+  .chart-section {
+    padding: 1em;
+  }
+  .bar {
+    min-width: 6px;
+  }
+  .bar-value {
+    display: none;
+  }
+  .heatmap-section {
+    display: none;
+  }
+  .model-select {
+    min-height: 44px;
+  }
+  .progress-section {
+    grid-template-columns: 1fr;
+  }
+  .token-legend {
+    flex-wrap: wrap;
+    gap: 0.5em;
+  }
 }
 </style>
 
 <div class="dashboard" data-stats-url="{{ url_for('app:stats.stats_data') }}">
   <h1>Journal Dashboard</h1>
+
+  <p id="statsFreshness" class="stats-freshness"></p>
 
   <div id="notice"></div>
 
@@ -401,13 +478,16 @@ h1 {
   <div id="mainContent" style="display: none;">
     <div id="statsGrid" class="stats-grid"></div>
     <div id="progressSection" class="progress-section"></div>
+    <div id="repairSection"></div>
 
     <div class="chart-section">
-      <h2>Token Activity (Last 30 Days)
+      <div class="chart-header">
+        <h2>Token Activity (Last 30 Days)</h2>
+        <label for="modelSelector" class="sr-only">Filter by model</label>
         <select id="modelSelector" class="model-select">
           <option value="">Select Model...</option>
         </select>
-      </h2>
+      </div>
       <div class="chart" id="tokenChart"></div>
     </div>
 
@@ -430,8 +510,6 @@ h1 {
       <h2>Events (Last 30 Days)</h2>
       <div class="chart" id="eventsChart"></div>
     </div>
-
-    <div id="repairSection"></div>
   </div>
 </div>
 

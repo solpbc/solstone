@@ -78,6 +78,11 @@ def truncated_echo(text: str, max_bytes: int = 16384) -> None:
         sys.stdout.write("\n")
 
 
+def get_project_root() -> str:
+    """Return the absolute path to the solstone repository root."""
+    return str(Path(__file__).resolve().parent.parent)
+
+
 def get_journal_info() -> tuple[str, str]:
     """Return the journal path and its source.
 
@@ -91,8 +96,7 @@ def get_journal_info() -> tuple[str, str]:
     if override:
         return override, "override"
 
-    project_root = Path(__file__).resolve().parent.parent
-    journal = str(project_root / "journal")
+    journal = str(Path(get_project_root()) / "journal")
     return journal, "project"
 
 

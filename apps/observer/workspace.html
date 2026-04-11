@@ -1,0 +1,1110 @@
+<style>
+.observer-card {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1em;
+  margin-bottom: 1em;
+}
+.observer-card.disconnected {
+  background: #f8f9fa;
+  border-color: #ced4da;
+}
+.observer-card.stale {
+  background: #fff9e6;
+  border-color: #ffc107;
+}
+.observer-card.revoked {
+  background: #f0f0f0;
+  border-color: #ccc;
+}
+.observer-card.revoked .observer-name {
+  text-decoration: line-through;
+  color: #5a6268;
+}
+.observer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5em;
+}
+.observer-name {
+  font-weight: bold;
+  font-size: 1.1em;
+}
+.observer-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1em;
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+.observer-status.connected {
+  background: #d4edda;
+  color: #155724;
+}
+.observer-status.connected::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #28a745;
+}
+.observer-status.connected::after {
+  content: '✓';
+  font-weight: bold;
+}
+.observer-status.disconnected {
+  background: #f8d7da;
+  color: #721c24;
+}
+.observer-status.disconnected::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #dc3545;
+}
+.observer-status.stale {
+  background: #fff3cd;
+  color: #856404;
+}
+.observer-status.stale::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffc107;
+}
+.observer-status.stale::after {
+  content: '⚠';
+}
+.observer-status.disconnected::after {
+  content: '✗';
+  font-weight: bold;
+}
+.observer-status.revoked {
+  background: #e9ecef;
+  color: #6c757d;
+}
+.observer-status.revoked::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #6c757d;
+}
+.observer-status.revoked::after {
+  content: '—';
+}
+.observer-stats {
+  font-size: 0.9em;
+  color: #666;
+  margin-bottom: 0.5em;
+}
+.observer-stats dl {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.5em;
+}
+.observer-stats dl > div {
+  display: flex;
+  gap: 0.3em;
+}
+.observer-stats dt {
+  color: #999;
+}
+.observer-stats dt::after {
+  content: ':';
+}
+.observer-stats dd {
+  margin: 0;
+}
+.observer-actions {
+  display: flex;
+  gap: 8px;
+}
+.observer-actions button {
+  padding: 8px 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.9em;
+  min-height: 44px;
+}
+.observer-actions button:hover {
+  background: #f0f0f0;
+}
+.observer-actions button.danger {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+.observer-actions button.danger:hover {
+  background: #f8d7da;
+}
+
+/* Add observer form */
+.add-observer-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1.5em;
+}
+.add-observer-form input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1em;
+}
+.add-observer-form button {
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  min-height: 44px;
+}
+.add-observer-form button:hover {
+  background: #0056b3;
+}
+.add-observer-form button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* Observer key modal */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+}
+.modal-content {
+  background: white;
+  margin: 10% auto;
+  padding: 1.5em;
+  border-radius: 8px;
+  max-width: 600px;
+  position: relative;
+}
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 24px;
+  color: #666;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-close:hover {
+  color: #333;
+}
+.modal h3 {
+  margin-top: 0;
+  margin-bottom: 1em;
+}
+.command-box {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 1em;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9em;
+  overflow-x: auto;
+  margin: 1em 0;
+  position: relative;
+}
+.command-box code {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  background: #444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8em;
+  min-height: 44px;
+  min-width: 44px;
+}
+.copy-btn:hover {
+  background: #555;
+}
+.copy-btn.copied {
+  background: #28a745;
+}
+#revealKeyBtn {
+  right: 60px;
+}
+.credential-label {
+  font-weight: bold;
+  font-size: 0.85em;
+  color: #333;
+  margin-bottom: 0.25em;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1em;
+}
+.modal-actions button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.no-observers {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #666;
+}
+.no-observers-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+.no-observers-text {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+.no-observers-hint {
+  font-size: 0.9rem;
+  color: #999;
+  margin-bottom: 1.5rem;
+}
+.no-observers-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  min-height: 44px;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.no-observers-action:hover {
+  background: #1976D2;
+}
+
+.section-title {
+  margin-bottom: 1em;
+  color: #333;
+}
+
+/* Add observer toggle */
+.add-observer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1em;
+  min-height: 44px;
+  margin-bottom: 1em;
+}
+.add-observer-toggle:hover {
+  background: #0056b3;
+}
+.add-observer-toggle .toggle-indicator {
+  font-size: 0.75em;
+}
+
+/* Collapsed state for add-observer section */
+.add-observer-section.collapsed .add-observer-form,
+.add-observer-section.collapsed .section-title {
+  display: none;
+}
+
+/* ── Responsive: Tablet (≤768px) ── */
+@media (max-width: 768px) {
+  .add-observer-toggle {
+    width: 100%;
+  }
+  .add-observer-form {
+    flex-direction: column;
+  }
+  .add-observer-form input,
+  .add-observer-form button {
+    width: 100%;
+  }
+  .observer-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .modal-content {
+    margin: 16px;
+    max-width: calc(100vw - 32px);
+  }
+}
+
+/* ── Responsive: Mobile (≤480px) ── */
+@media (max-width: 480px) {
+  .observer-stats dl {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .observer-actions {
+    flex-wrap: wrap;
+  }
+  .command-box {
+    max-width: 100%;
+  }
+}
+
+/* ── Error container ── */
+.ws-error-container {
+  display: none;
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+  color: #856404;
+  padding: 12px 16px;
+  margin-bottom: 1em;
+  border-radius: 4px;
+  position: relative;
+  font-size: 0.95em;
+  line-height: 1.4;
+}
+.ws-error-container[style*="display: flex"] {
+  display: flex !important;
+  flex-direction: column;
+  gap: 8px;
+}
+.ws-error-message {
+  flex: 1;
+}
+.ws-error-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ws-error-retry {
+  background: #856404;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 0.9em;
+  min-height: 44px;
+}
+.ws-error-retry:hover {
+  background: #6d5303;
+}
+.ws-error-dismiss {
+  background: transparent;
+  border: 1px solid #856404;
+  color: #856404;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.9em;
+  min-height: 44px;
+}
+.ws-error-dismiss:hover {
+  background: rgba(133, 100, 4, 0.1);
+}
+.ws-error-countdown {
+  color: #997a1e;
+  font-size: 0.85em;
+}
+</style>
+
+<div class="workspace-content">
+  <div id="wsErrorContainer" class="ws-error-container" role="alert" style="display: none">
+    <div class="ws-error-message" id="wsErrorMessage"></div>
+    <div class="ws-error-actions">
+      <button type="button" class="ws-error-retry" id="wsErrorRetry" style="display: none" onclick="loadObservers()">retry now</button>
+      <span class="ws-error-countdown" id="wsErrorCountdown"></span>
+      <button type="button" class="ws-error-dismiss" onclick="clearError()">dismiss</button>
+    </div>
+  </div>
+  <section aria-label="observers">
+    <h2 class="section-title">Connected Observers</h2>
+    <div id="observersList" role="list">
+      <div class="no-observers">Loading...</div>
+    </div>
+  </section>
+
+  <button class="add-observer-toggle" id="addObserverToggle"
+          aria-expanded="false" aria-controls="addObserverSection">
+    <span class="toggle-indicator">▶</span> Add observer
+  </button>
+
+  <section class="add-observer-section collapsed" id="addObserverSection"
+           aria-label="add observer" aria-hidden="true">
+    <h2 class="section-title">add observer</h2>
+    <form class="add-observer-form" id="addObserverForm">
+      <label for="observerName">Observer name</label>
+      <input type="text" id="observerName" placeholder="e.g., laptop, desktop" maxlength="64" required>
+      <button type="submit">Add Observer</button>
+    </form>
+  </section>
+</div>
+
+<!-- Observer Key Modal (for new observers and viewing existing keys) -->
+<div id="keyModal" class="modal" role="dialog" aria-modal="true" aria-label="observer key">
+  <div class="modal-content">
+    <button type="button" class="modal-close" id="keyModalClose" aria-label="Close">&times;</button>
+    <h3 id="keyModalTitle">Observer: <span id="modalObserverName"></span></h3>
+    <p>Use these credentials in your solstone app's service settings. Bearer authentication (header) is recommended; URL path auth is legacy.</p>
+    <div class="credential-label">Server URL</div>
+    <div class="command-box">
+      <code id="serverUrlText"></code>
+      <button class="copy-btn" id="copyServerUrlBtn">Copy</button>
+    </div>
+    <div class="credential-label">Key</div>
+    <div class="command-box">
+      <code id="keyText"></code>
+      <button class="copy-btn" id="revealKeyBtn">Reveal</button>
+      <button class="copy-btn" id="copyKeyBtn">Copy</button>
+    </div>
+    <p style="font-size: 0.9em; color: #666;">
+      Keep this key secret — anyone with it can upload to your journal.
+    </p>
+    <div class="modal-actions">
+      <button id="doneBtn" style="background: #007bff; color: white; border: none;">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const observersList = document.getElementById('observersList');
+const addObserverForm = document.getElementById('addObserverForm');
+const observerNameInput = document.getElementById('observerName');
+const addObserverToggle = document.getElementById('addObserverToggle');
+const addObserverSection = document.getElementById('addObserverSection');
+const keyModal = document.getElementById('keyModal');
+const modalObserverName = document.getElementById('modalObserverName');
+const serverUrlText = document.getElementById('serverUrlText');
+const keyText = document.getElementById('keyText');
+const copyServerUrlBtn = document.getElementById('copyServerUrlBtn');
+const copyKeyBtn = document.getElementById('copyKeyBtn');
+const doneBtn = document.getElementById('doneBtn');
+const keyModalClose = document.getElementById('keyModalClose');
+const revealKeyBtn = document.getElementById('revealKeyBtn');
+let keyModalTrigger = null;
+// Error display state
+const wsErrorContainer = document.getElementById('wsErrorContainer');
+const wsErrorMessage = document.getElementById('wsErrorMessage');
+const wsErrorRetry = document.getElementById('wsErrorRetry');
+const wsErrorCountdown = document.getElementById('wsErrorCountdown');
+let errorAutoHideTimer = null;
+let countdownInterval = null;
+let lastPollTime = Date.now();
+let isFirstLoad = true;
+
+function emptyStateHTML() {
+  return `<div class="no-observers">
+    <div class="no-observers-icon">📡</div>
+    <div class="no-observers-text">no observers yet</div>
+    <div class="no-observers-hint">observers capture audio and screen from your devices</div>
+    <button class="no-observers-action" onclick="setFormCollapsed(false); document.getElementById('observerName').focus();">add an observer</button>
+  </div>`;
+}
+
+function statsHTML(observer, statusClass) {
+  return `<dl>
+    <div><dt>Last seen</dt><dd data-last-seen="${observer.last_seen || ''}" data-state="${statusClass}">${formatTimeAgo(observer.last_seen, statusClass)}</dd></div>
+    <div><dt>Segments (5-min chunks)</dt><dd>${observer.stats?.segments_received ?? 0}</dd></div>
+    <div><dt>Data</dt><dd>${formatBytes(observer.stats?.bytes_received || 0)}</dd></div>
+  </dl>`;
+}
+
+function showLocalError(message, opts = {}) {
+  wsErrorMessage.textContent = message;
+  wsErrorContainer.style.display = 'flex';
+  wsErrorRetry.style.display = opts.retry ? 'inline-block' : 'none';
+
+  // Clear any existing auto-hide timer
+  if (errorAutoHideTimer) clearTimeout(errorAutoHideTimer);
+
+  if (opts.retry) {
+    // For load errors: start countdown, no auto-hide (countdown stays until next load)
+    startCountdown();
+  } else {
+    // For action errors: auto-hide after 10 seconds, no countdown
+    if (countdownInterval) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+    wsErrorCountdown.textContent = '';
+    errorAutoHideTimer = setTimeout(clearError, 10000);
+  }
+}
+
+function clearError() {
+  wsErrorContainer.style.display = 'none';
+  wsErrorMessage.textContent = '';
+  wsErrorCountdown.textContent = '';
+  wsErrorRetry.style.display = 'none';
+  if (errorAutoHideTimer) {
+    clearTimeout(errorAutoHideTimer);
+    errorAutoHideTimer = null;
+  }
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+}
+
+function startCountdown() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  updateCountdownDisplay();
+  countdownInterval = setInterval(updateCountdownDisplay, 1000);
+}
+
+function updateCountdownDisplay() {
+  const elapsed = Math.floor((Date.now() - lastPollTime) / 1000);
+  const remaining = Math.max(0, 30 - elapsed);
+  wsErrorCountdown.textContent = remaining > 0 ? `retrying in ${remaining}s\u2026` : 'retrying\u2026';
+}
+
+let currentFullKey = null;
+let revealTimer = null;
+
+function setFormCollapsed(collapsed) {
+  if (collapsed) {
+    addObserverSection.classList.add('collapsed');
+    addObserverSection.setAttribute('aria-hidden', 'true');
+    addObserverToggle.setAttribute('aria-expanded', 'false');
+    addObserverToggle.querySelector('.toggle-indicator').textContent = '▶';
+  } else {
+    addObserverSection.classList.remove('collapsed');
+    addObserverSection.setAttribute('aria-hidden', 'false');
+    addObserverToggle.setAttribute('aria-expanded', 'true');
+    addObserverToggle.querySelector('.toggle-indicator').textContent = '▼';
+  }
+}
+
+addObserverToggle.addEventListener('click', () => {
+  const isCollapsed = addObserverSection.classList.contains('collapsed');
+  setFormCollapsed(!isCollapsed);
+  if (isCollapsed) {
+    // Focus the input when expanding
+    document.getElementById('observerName').focus();
+  }
+});
+
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatTimeAgo(timestamp, state) {
+  if (!timestamp) return 'never';
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  let text;
+  if (seconds < 60) text = 'just now';
+  else if (seconds < 3600) text = `${Math.floor(seconds / 60)} min ago`;
+  else if (seconds < 86400) text = `${Math.floor(seconds / 3600)} hours ago`;
+  else text = `${Math.floor(seconds / 86400)} days ago`;
+  if (state === 'stale') return `${text} — stale`;
+  if (state === 'disconnected') return `${text} — offline`;
+  return text;
+}
+
+function freshness(lastSeen) {
+  if (!lastSeen) return 'disconnected';
+  const elapsed = Date.now() - lastSeen;
+  if (elapsed < 30000) return 'connected';
+  if (elapsed < 120000) return 'stale';
+  return 'disconnected';
+}
+
+async function loadObservers() {
+  lastPollTime = Date.now();
+  if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+  try {
+    const response = await fetch('/app/observer/api/list');
+    const observers = await response.json();
+
+    if (isFirstLoad) {
+      if (!observers || observers.length === 0) {
+        observersList.innerHTML = emptyStateHTML();
+        isFirstLoad = false;
+        setFormCollapsed(false);
+        clearError();
+        return;
+      }
+
+      let html = '';
+      for (const observer of observers) {
+        const isRevoked = observer.revoked;
+        let statusClass, statusText, cardClass;
+
+        if (isRevoked) {
+          statusClass = 'revoked';
+          statusText = 'Revoked';
+          cardClass = 'revoked';
+        } else {
+          const state = freshness(observer.last_seen);
+          statusClass = state;
+          if (state === 'connected') statusText = 'Connected';
+          else if (state === 'stale') statusText = 'Stale';
+          else statusText = 'Disconnected';
+          cardClass = state;
+        }
+
+        html += `
+          <div class="observer-card ${cardClass}" data-key="${observer.key_prefix}" role="listitem" aria-label="${escapeHtml(observer.name)}, ${statusText}">
+            <div class="observer-header">
+              <span class="observer-name">${escapeHtml(observer.name)}</span>
+              <span class="observer-status ${statusClass}">${statusText}</span>
+            </div>
+            <div class="observer-stats">${statsHTML(observer, statusClass)}</div>
+            <div class="observer-actions">
+              ${isRevoked ? '' : `<button onclick="viewObserverKey('${observer.key_prefix}', '${escapeHtml(observer.name)}')">View Key</button>`}
+              ${isRevoked ? '' : `<button class="danger" onclick="revokeObserver('${observer.key_prefix}', '${escapeHtml(observer.name)}')">Revoke</button>`}
+            </div>
+          </div>
+        `;
+      }
+      observersList.innerHTML = html;
+      isFirstLoad = false;
+    } else {
+      // Save focus
+      const activeEl = document.activeElement;
+      let focusSelector = null;
+      if (activeEl && observersList.contains(activeEl)) {
+        const card = activeEl.closest('[data-key]');
+        if (card) {
+          const key = card.getAttribute('data-key');
+          const buttons = [...card.querySelectorAll('button')];
+          const btnIndex = buttons.indexOf(activeEl);
+          if (btnIndex >= 0) {
+            focusSelector = `[data-key="${key}"] button:nth-child(${btnIndex + 1})`;
+          }
+        }
+      }
+
+      // Save scroll
+      const scrollTop = observersList.scrollTop;
+
+      // Build lookup from API data
+      const newDataMap = new Map();
+      for (const observer of observers) {
+        newDataMap.set(observer.key_prefix, observer);
+      }
+
+      // Remove cards not in new data
+      const existingCards = observersList.querySelectorAll('[data-key]');
+      for (const card of existingCards) {
+        if (!newDataMap.has(card.getAttribute('data-key'))) {
+          card.remove();
+        }
+      }
+
+      // Update existing cards and track which keys exist in DOM
+      const existingKeys = new Set();
+      for (const card of observersList.querySelectorAll('[data-key]')) {
+        const key = card.getAttribute('data-key');
+        existingKeys.add(key);
+        const observer = newDataMap.get(key);
+        if (!observer) continue; // shouldn't happen after removal pass, but safe
+
+        const isRevoked = observer.revoked;
+        let statusClass, statusText, cardClass;
+        if (isRevoked) {
+          statusClass = 'revoked';
+          statusText = 'Revoked';
+          cardClass = 'revoked';
+        } else {
+          const state = freshness(observer.last_seen);
+          statusClass = state;
+          statusText = state === 'connected' ? 'Connected' : state === 'stale' ? 'Stale' : 'Disconnected';
+          cardClass = state;
+        }
+
+        // Update card class — replace all status classes
+        card.className = `observer-card ${cardClass}`;
+        card.setAttribute('aria-label', `${escapeHtml(observer.name)}, ${statusText}`);
+
+        // Update status badge
+        const statusEl = card.querySelector('.observer-status');
+        statusEl.className = `observer-status ${statusClass}`;
+        statusEl.textContent = statusText;
+
+        // Update name (in case it somehow changed — safe to always set)
+        card.querySelector('.observer-name').textContent = observer.name;
+
+        // Update stats
+        const statsSpans = card.querySelectorAll('.observer-stats dd');
+        if (statsSpans[0]) {
+          statsSpans[0].setAttribute('data-last-seen', observer.last_seen || '');
+          statsSpans[0].setAttribute('data-state', statusClass);
+          statsSpans[0].textContent = formatTimeAgo(observer.last_seen, statusClass);
+        }
+        if (statsSpans[1]) {
+          statsSpans[1].textContent = observer.stats?.segments_received ?? 0;
+        }
+        if (statsSpans[2]) {
+          statsSpans[2].textContent = formatBytes(observer.stats?.bytes_received || 0);
+        }
+
+        // Update actions (revoked status may have changed)
+        const actionsEl = card.querySelector('.observer-actions');
+        if (isRevoked) {
+          actionsEl.innerHTML = '';
+        } else {
+          // Only rebuild if buttons are missing (was previously revoked → now not, which shouldn't normally happen, but be safe)
+          if (actionsEl.querySelectorAll('button').length === 0) {
+            actionsEl.innerHTML = `<button onclick="viewObserverKey('${observer.key_prefix}', '${escapeHtml(observer.name)}')">View Key</button><button class="danger" onclick="revokeObserver('${observer.key_prefix}', '${escapeHtml(observer.name)}')">Revoke</button>`;
+          }
+        }
+      }
+
+      // Add new cards
+      for (const [key, observer] of newDataMap) {
+        if (existingKeys.has(key)) continue;
+
+        const isRevoked = observer.revoked;
+        let statusClass, statusText, cardClass;
+        if (isRevoked) {
+          statusClass = 'revoked'; statusText = 'Revoked'; cardClass = 'revoked';
+        } else {
+          const state = freshness(observer.last_seen);
+          statusClass = state;
+          statusText = state === 'connected' ? 'Connected' : state === 'stale' ? 'Stale' : 'Disconnected';
+          cardClass = state;
+        }
+
+        const div = document.createElement('div');
+        div.className = `observer-card ${cardClass}`;
+        div.setAttribute('data-key', key);
+        div.setAttribute('role', 'listitem');
+        div.setAttribute('aria-label', `${escapeHtml(observer.name)}, ${statusText}`);
+        div.innerHTML = `
+          <div class="observer-header">
+            <span class="observer-name">${escapeHtml(observer.name)}</span>
+            <span class="observer-status ${statusClass}">${statusText}</span>
+          </div>
+          <div class="observer-stats">${statsHTML(observer, statusClass)}</div>
+          <div class="observer-actions">
+            ${isRevoked ? '' : `<button onclick="viewObserverKey('${key}', '${escapeHtml(observer.name)}')">View Key</button>`}
+            ${isRevoked ? '' : `<button class="danger" onclick="revokeObserver('${key}', '${escapeHtml(observer.name)}')">Revoke</button>`}
+          </div>
+        `;
+        observersList.appendChild(div);
+      }
+
+      // Handle empty state transition
+      if (newDataMap.size === 0) {
+        observersList.innerHTML = emptyStateHTML();
+      } else {
+        // Remove stale "no observers" message if present
+        const noObs = observersList.querySelector('.no-observers');
+        if (noObs) noObs.remove();
+      }
+
+      // Restore scroll
+      observersList.scrollTop = scrollTop;
+
+      // Restore focus
+      if (focusSelector) {
+        const target = observersList.querySelector(focusSelector);
+        if (target) target.focus();
+      }
+    }
+
+    clearError();
+
+    // Auto-collapse form when observers exist, expand when empty
+    if (!observers || observers.length === 0) {
+      setFormCollapsed(false);
+    } else {
+      const formHasFocus = addObserverSection.contains(document.activeElement);
+      if (!formHasFocus) {
+        setFormCollapsed(true);
+      }
+    }
+  } catch (err) {
+    observersList.innerHTML = '<div class="no-observers">couldn\'t load observers</div>';
+    isFirstLoad = true;
+    showLocalError('couldn\'t load observers — the server may be unreachable. it will retry automatically, or you can retry now.', { retry: true });
+    console.error('Failed to load observers:', err);
+  }
+}
+
+function refreshTimestamps() {
+  const spans = observersList.querySelectorAll('[data-last-seen]');
+  for (const span of spans) {
+    const lastSeen = parseInt(span.getAttribute('data-last-seen'), 10);
+    if (!lastSeen) continue;
+
+    // Recompute freshness — it may have changed since last data fetch
+    const newState = freshness(lastSeen);
+    const oldState = span.getAttribute('data-state');
+
+    // Update timestamp text
+    span.textContent = formatTimeAgo(lastSeen, newState);
+    span.setAttribute('data-state', newState);
+
+    // If freshness changed, update the card's visual state too
+    if (newState !== oldState) {
+      const card = span.closest('[data-key]');
+      if (card && !card.classList.contains('revoked')) {
+        card.className = `observer-card ${newState}`;
+        const statusEl = card.querySelector('.observer-status');
+        if (statusEl) {
+          statusEl.className = `observer-status ${newState}`;
+          statusEl.textContent = newState === 'connected' ? 'Connected' : newState === 'stale' ? 'Stale' : 'Disconnected';
+        }
+        // Update aria-label
+        const nameEl = card.querySelector('.observer-name');
+        if (nameEl) {
+          const statusText = newState === 'connected' ? 'Connected' : newState === 'stale' ? 'Stale' : 'Disconnected';
+          card.setAttribute('aria-label', `${nameEl.textContent}, ${statusText}`);
+        }
+      }
+    }
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function revokeObserver(keyPrefix, name) {
+  if (!confirm(`Revoke observer "${name}"? The observer will no longer be able to upload.`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/app/observer/api/${keyPrefix}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Failed to revoke');
+    }
+
+    loadObservers();
+  } catch (err) {
+    const msg = 'couldn\'t revoke observer — the server may be unavailable. try again in a moment.';
+    if (window.showError) { showError(msg); } else { showLocalError(msg); }
+  }
+}
+
+async function viewObserverKey(keyPrefix, name) {
+  if (!confirm(`Reveal key for "${name}"?`)) return;
+  const trigger = document.querySelector(`.observer-card[data-key="${keyPrefix}"] button`);
+  try {
+    const response = await fetch(`/app/observer/api/${keyPrefix}/key`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to get key');
+    }
+
+    showKeyModal(name, data.key, trigger);
+  } catch (err) {
+    const msg = 'couldn\'t retrieve observer key — the server may be unavailable. try again in a moment.';
+    if (window.showError) { showError(msg); } else { showLocalError(msg); }
+  }
+}
+
+function showKeyModal(name, key, trigger) {
+  modalObserverName.textContent = name;
+  serverUrlText.textContent = window.location.origin;
+  currentFullKey = key;
+  keyText.textContent = key.slice(0, 8) + '••••••••••••••••';
+  revealKeyBtn.textContent = 'Reveal';
+  if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
+  keyModal.style.display = 'block';
+  keyModalTrigger = trigger || null;
+  keyModalClose.focus();
+  document.addEventListener('keydown', handleKeyModalKeys);
+}
+
+addObserverForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const name = observerNameInput.value.trim();
+  if (!name) return;
+
+  const submitBtn = addObserverForm.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+
+  try {
+    const response = await fetch('/app/observer/api/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to create observer');
+    }
+
+    // Show modal with key
+    showKeyModal(name, data.key, submitBtn);
+
+    // Clear input and reload list
+    observerNameInput.value = '';
+    loadObservers();
+    // Auto-collapse form after successful add
+    setFormCollapsed(true);
+    keyModalTrigger = addObserverToggle;
+  } catch (err) {
+    const msg = 'couldn\'t add observer — the name may already be in use. try a different name or refresh the page.';
+    if (window.showError) { showError(msg); } else { showLocalError(msg); }
+  } finally {
+    submitBtn.disabled = false;
+  }
+};
+
+function handleKeyModalKeys(e) {
+  if (e.key === 'Escape') {
+    closeKeyModal();
+    return;
+  }
+  if (e.key === 'Tab') {
+    const focusable = [...keyModal.querySelectorAll('button:not([disabled]), [tabindex="0"]')];
+    if (focusable.length === 0) return;
+    const currentIndex = focusable.indexOf(document.activeElement);
+    if (e.shiftKey) {
+      e.preventDefault();
+      focusable[currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1].focus();
+    } else {
+      e.preventDefault();
+      focusable[currentIndex >= focusable.length - 1 ? 0 : currentIndex + 1].focus();
+    }
+  }
+}
+
+function closeKeyModal() {
+  if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
+  currentFullKey = null;
+  revealKeyBtn.textContent = 'Reveal';
+  keyModal.style.display = 'none';
+  document.removeEventListener('keydown', handleKeyModalKeys);
+  if (keyModalTrigger && document.contains(keyModalTrigger)) {
+    keyModalTrigger.focus();
+  }
+  keyModalTrigger = null;
+}
+
+// Modal controls
+keyModalClose.onclick = () => closeKeyModal();
+doneBtn.onclick = () => closeKeyModal();
+
+window.onclick = (e) => {
+  if (e.target === keyModal) {
+    closeKeyModal();
+  }
+};
+
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  // Fallback for non-HTTPS contexts (local solstone instances)
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  return Promise.resolve();
+}
+
+function setupCopyBtn(btn, codeEl) {
+  btn.onclick = () => {
+    copyText(codeEl.textContent).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'Copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    }, () => {
+      btn.textContent = 'Failed';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+    });
+  };
+}
+
+setupCopyBtn(copyServerUrlBtn, serverUrlText);
+copyKeyBtn.onclick = () => {
+  if (!currentFullKey) return;
+  copyText(currentFullKey).then(() => {
+    copyKeyBtn.textContent = 'Copied!';
+    copyKeyBtn.classList.add('copied');
+    setTimeout(() => {
+      copyKeyBtn.textContent = 'Copy';
+      copyKeyBtn.classList.remove('copied');
+    }, 2000);
+  }, () => {
+    copyKeyBtn.textContent = 'Failed';
+    setTimeout(() => { copyKeyBtn.textContent = 'Copy'; }, 2000);
+  });
+};
+revealKeyBtn.onclick = () => {
+  if (!currentFullKey) return;
+  const isRevealed = keyText.textContent === currentFullKey;
+  if (isRevealed) {
+    keyText.textContent = currentFullKey.slice(0, 8) + '••••••••••••••••';
+    revealKeyBtn.textContent = 'Reveal';
+    if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
+  } else {
+    keyText.textContent = currentFullKey;
+    revealKeyBtn.textContent = 'Hide';
+    if (revealTimer) clearTimeout(revealTimer);
+    revealTimer = setTimeout(() => {
+      if (currentFullKey && keyText.textContent === currentFullKey) {
+        keyText.textContent = currentFullKey.slice(0, 8) + '••••••••••••••••';
+        revealKeyBtn.textContent = 'Reveal';
+      }
+      revealTimer = null;
+    }, 30000);
+  }
+};
+
+// Initial load
+loadObservers();
+
+// Refresh every 30 seconds to update connection status
+setInterval(loadObservers, 30000);
+setInterval(refreshTimestamps, 10000);
+</script>

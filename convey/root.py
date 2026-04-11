@@ -5,12 +5,15 @@
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 from flask import (
     Blueprint,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -18,10 +21,10 @@ from flask import (
     session,
     url_for,
 )
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from think.cluster import cluster_segments
-from think.utils import day_dirs, get_config
+from think.utils import day_dirs, get_config, get_journal
 
 
 def _get_password_hash() -> str:
@@ -34,6 +37,39 @@ def _get_password_hash() -> str:
         return ""
 
 
+def _is_setup_complete() -> bool:
+    """Check if initial setup has been completed."""
+    try:
+        config = get_config()
+        return bool(config.get("setup", {}).get("completed_at"))
+    except Exception:
+        return False
+
+
+def _check_basic_auth() -> bool:
+    """Check Basic Auth credentials against stored password hash."""
+    auth = request.authorization
+    if not auth or auth.type != "basic":
+        return False
+    password_hash = _get_password_hash()
+    if not password_hash:
+        return False
+    return check_password_hash(password_hash, auth.password or "")
+
+
+def _save_config_section(section: str, data: dict) -> dict:
+    """Merge data into a config section and write back to journal.json."""
+    config = get_config()
+    config.setdefault(section, {}).update(data)
+    config_path = Path(get_journal()) / "config" / "journal.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.chmod(config_path, 0o600)
+    return config
+
+
 bp = Blueprint(
     "root",
     __name__,
@@ -44,35 +80,53 @@ bp = Blueprint(
 
 @bp.before_app_request
 def require_login() -> Any:
+    if request.endpoint is None:
+        return None
+
     if request.endpoint in {
+        "root.init",
+        "root.init_validate_provider",
+        "root.init_observers",
+        "root.init_finalize",
         "root.login",
         "root.static",
         "root.favicon",
-        # Remote ingest endpoints use key-based auth, not session
-        "app:remote.ingest_upload",
-        "app:remote.ingest_event",
-        "app:remote.ingest_segments",
+        # Observer ingest endpoints use key-based auth, not session
+        "app:observer.ingest_upload",
+        "app:observer.ingest_event",
+        "app:observer.ingest_segments",
     }:
         return None
 
-    # Auto-bypass for localhost requests WITHOUT proxy headers
-    remote_addr = request.remote_addr
-    is_localhost = remote_addr in ("127.0.0.1", "::1", "localhost")
-
-    # Detect proxy headers that might indicate forwarded external request
-    proxy_headers = (
-        request.headers.get("X-Forwarded-For")
-        or request.headers.get("X-Real-IP")
-        or request.headers.get("X-Forwarded-Host")
-    )
-
-    if is_localhost and not proxy_headers:
-        # Genuine localhost request - auto-bypass
+    # Session cookie
+    if session.get("logged_in"):
         return None
 
-    # Otherwise require session authentication
-    if not session.get("logged_in"):
-        return redirect(url_for("root.login"))
+    # Basic Auth (per-request, no session creation)
+    if _check_basic_auth():
+        return None
+
+    # Check setup state
+    setup_complete = _is_setup_complete()
+
+    # Opt-in localhost bypass (requires completed setup + trust_localhost flag)
+    if setup_complete:
+        config = get_config()
+        if config.get("convey", {}).get("trust_localhost", False):
+            remote_addr = request.remote_addr
+            is_localhost = remote_addr in ("127.0.0.1", "::1", "localhost")
+            proxy_headers = (
+                request.headers.get("X-Forwarded-For")
+                or request.headers.get("X-Real-IP")
+                or request.headers.get("X-Forwarded-Host")
+            )
+            if is_localhost and not proxy_headers:
+                return None
+
+    # Not authenticated — redirect based on setup state
+    if not setup_complete:
+        return redirect(url_for("root.init"))
+    return redirect(url_for("root.login"))
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -91,8 +145,107 @@ def login() -> Any:
             session["logged_in"] = True
             session.permanent = True
             return redirect(url_for("root.index"))
-        error = "Invalid password"
+        error = "incorrect password. passwords are case-sensitive. if you've forgotten it, you can reset via sol password set on the command line."
     return render_template("login.html", error=error, no_password=False)
+
+
+@bp.route("/init")
+def init() -> Any:
+    if _is_setup_complete():
+        return redirect(url_for("root.index"))
+
+    config_path = str(Path(get_journal()) / "config" / "journal.json")
+    repo_path = str(Path(__file__).resolve().parent.parent)
+    return render_template(
+        "init.html",
+        config_path=config_path,
+        repo_path=repo_path,
+    )
+
+
+@bp.route("/init/validate-provider", methods=["POST"])
+def init_validate_provider() -> Any:
+    data = request.get_json(silent=True) or {}
+    key = data.get("key", "")
+
+    from think.providers import validate_key
+
+    try:
+        result = validate_key("google", key)
+    except Exception as e:
+        result = {"valid": False, "error": str(e)}
+    return jsonify(result)
+
+
+@bp.route("/init/observers")
+def init_observers() -> Any:
+    from apps.observer.utils import list_observers
+
+    observers_list = []
+    for observer in list_observers():
+        if observer.get("revoked", False):
+            continue
+        observers_list.append(
+            {
+                "key_prefix": observer.get("key", "")[:8],
+                "name": observer.get("name", ""),
+                "created_at": observer.get("created_at", 0),
+                "last_seen": observer.get("last_seen"),
+                "last_segment": observer.get("last_segment"),
+                "enabled": observer.get("enabled", True),
+                "revoked": observer.get("revoked", False),
+                "revoked_at": observer.get("revoked_at"),
+                "stats": observer.get("stats", {}),
+            }
+        )
+    return jsonify(observers_list)
+
+
+@bp.route("/init/finalize", methods=["POST"])
+def init_finalize() -> Any:
+    data = request.get_json(silent=True) or {}
+
+    password = data.get("password", "")
+    if len(password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters"}), 400
+
+    from think.utils import now_ms
+
+    hashed = generate_password_hash(password)
+
+    config = get_config()
+    config.setdefault("convey", {}).update(
+        {
+            "password_hash": hashed,
+            "trust_localhost": True,
+        }
+    )
+    config.setdefault("identity", {}).update(
+        {
+            k: v
+            for k, v in {
+                "name": data.get("name"),
+                "preferred": data.get("preferred"),
+                "timezone": data.get("timezone"),
+            }.items()
+            if v
+        }
+    )
+    gemini_key = data.get("gemini_key")
+    if gemini_key:
+        config.setdefault("env", {})["GOOGLE_API_KEY"] = gemini_key
+    config.setdefault("setup", {})["completed_at"] = now_ms()
+
+    config_path = Path(get_journal()) / "config" / "journal.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.chmod(config_path, 0o600)
+
+    session["logged_in"] = True
+    session.permanent = True
+    return jsonify({"success": True, "redirect": url_for("root.index")})
 
 
 @bp.route("/logout")

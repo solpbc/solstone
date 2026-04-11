@@ -4,8 +4,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from flask import Blueprint, jsonify
 
@@ -16,7 +19,7 @@ stats_bp = Blueprint(
     "app:stats",
     __name__,
     url_prefix="/app/stats",
-    static_folder=".",
+    static_folder="static",
     static_url_path="/static",
 )
 
@@ -34,8 +37,10 @@ def stats_data() -> Any:
         try:
             with open(stats_path, "r", encoding="utf-8") as f:
                 response["stats"] = json.load(f)
+            response["file_mtime"] = os.path.getmtime(stats_path)
         except Exception:
-            pass
+            logger.exception("Failed to read stats data")
+            response["error"] = "Failed to read stats data"
 
     response["generators"] = get_talent_configs(type="generate")
 

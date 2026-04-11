@@ -847,6 +847,15 @@ def link_import(name: str, entity_id: str) -> dict[str, Any]:
     if not entity:
         return {"error": f"Entity not found: {entity_id}"}
 
+    # Check if the name conflicts with another entity
+    all_entities = load_all_journal_entities()
+    others = [e for eid, e in all_entities.items() if eid != entity_id]
+    conflict = find_matching_entity(name, others)
+    if conflict:
+        return {
+            "error": f"Name '{name}' conflicts with entity '{conflict['id']}'"
+        }
+
     existing_aka = set(entity.get("aka", []))
     already_present = name in existing_aka
 

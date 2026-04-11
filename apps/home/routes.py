@@ -6,10 +6,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 import frontmatter
 from flask import Blueprint, jsonify, render_template
@@ -53,7 +56,7 @@ def _load_flow_md(today: str) -> tuple[str | None, float | None]:
         if flow_path.exists():
             return flow_path.read_text(), flow_path.stat().st_mtime
     except Exception:
-        pass
+        logger.warning("home: failed to load flow.md", exc_info=True)
     return None, None
 
 
@@ -93,6 +96,7 @@ def _load_pulse_md() -> tuple[str | None, dict | None, list[str]]:
                     needs.append(stripped[2:].strip())
         return post.content, post.metadata, needs
     except Exception:
+        logger.warning("home: failed to load pulse.md", exc_info=True)
         return None, None, []
 
 
@@ -147,6 +151,7 @@ def _load_briefing_md(
 
         return sections, metadata, needs_attention_items
     except Exception:
+        logger.warning("home: failed to load briefing.md", exc_info=True)
         return {}, None, []
 
 
@@ -210,7 +215,7 @@ def _load_stats(today: str) -> dict[str, Any]:
         if stats_path.exists():
             return json.loads(stats_path.read_text())
     except Exception:
-        pass
+        logger.warning("home: failed to load stats", exc_info=True)
     return {}
 
 
@@ -222,6 +227,7 @@ def _collect_todos(today: str) -> list[dict[str, Any]]:
     try:
         facets = get_facets()
     except Exception:
+        logger.warning("home: failed to get facets for todos", exc_info=True)
         return []
 
     for facet_name in facets:
@@ -248,6 +254,7 @@ def _collect_events(today: str) -> list[dict[str, Any]]:
                 event["end"] = ""
         return events
     except Exception:
+        logger.warning("home: failed to collect events", exc_info=True)
         return []
 
 
@@ -259,6 +266,7 @@ def _collect_activities(today: str) -> list[dict[str, Any]]:
     try:
         facets = get_facets()
     except Exception:
+        logger.warning("home: failed to get facets for activities", exc_info=True)
         return []
 
     now = datetime.now()
@@ -326,6 +334,7 @@ def _collect_entities_today(today: str) -> list[dict[str, Any]]:
         finally:
             conn.close()
     except Exception:
+        logger.warning("home: failed to collect entities", exc_info=True)
         return []
 
 
@@ -466,6 +475,7 @@ def _collect_routines() -> list[dict[str, Any]]:
         routines.sort(key=lambda r: r["last_run"], reverse=True)
         return routines
     except Exception:
+        logger.warning("home: failed to collect routines", exc_info=True)
         return []
 
 
@@ -497,7 +507,7 @@ def _build_pulse_context() -> dict[str, Any]:
     if pulse_content:
         narrative_content = pulse_content
         narrative_source = "pulse"
-        narrative_header = "Pulse"
+        narrative_header = "pulse"
         updated = pulse_meta.get("updated", "")
         if isinstance(updated, str):
             try:
@@ -511,7 +521,7 @@ def _build_pulse_context() -> dict[str, Any]:
     else:
         narrative_content = flow_content
         narrative_source = "flow"
-        narrative_header = "Today's Flow"
+        narrative_header = "today's flow"
         narrative_updated_at = flow_updated_at
         pulse_needs = []
 
@@ -534,12 +544,70 @@ def _build_pulse_context() -> dict[str, Any]:
                 hours = int(delta.total_seconds() / 3600)
                 last_observe_relative = f"{hours}h ago"
         except Exception:
-            pass
+            logger.warning(
+                "home: failed to compute last_observe_relative", exc_info=True
+            )
 
     # Briefing card
     briefing_sections, briefing_meta, briefing_needs = _load_briefing_md(today)
     briefing_exists = bool(briefing_sections)
     briefing_phase = _compute_briefing_phase(segment_count, now.hour, briefing_exists)
+    unseen_routines = [r for r in routines if not r["seen"]]
+    show_welcome = (
+        narrative_content is None
+        and not events
+        and not activities
+        and not todos
+        and not entities
+        and not unseen_routines
+        and not briefing_exists
+        and not attention
+        and not pulse_needs
+    )
+
+    # Section summaries for collapsed state
+    narrative_summary = ""
+    if narrative_content:
+        narrative_summary = narrative_header
+        if narrative_updated_at:
+            narrative_summary += f" — updated {narrative_updated_at}"
+
+    routines_summary = ""
+    if unseen_routines:
+        n = len(unseen_routines)
+        routines_summary = f"{n} new routine{'s' if n != 1 else ''}"
+
+    today_summary_parts = []
+    if events:
+        n = len(events)
+        today_summary_parts.append(f"{n} event{'s' if n != 1 else ''}")
+    if activities:
+        n = len(activities)
+        today_summary_parts.append(f"{n} {'activities' if n != 1 else 'activity'}")
+    today_summary = ", ".join(today_summary_parts)
+
+    needs_count = len(pulse_needs) + len(todos) + (1 if attention else 0)
+    needs_summary = ""
+    if needs_count:
+        needs_summary = (
+            f"{needs_count} item{'s' if needs_count != 1 else ''} "
+            f"need{'s' if needs_count == 1 else ''} attention"
+        )
+
+    network_summary = ""
+    if entities:
+        people = sum(1 for e in entities if e.get("entity_type") == "person")
+        others = len(entities) - people
+        if people and others:
+            network_summary = (
+                f"{people} {'people' if people != 1 else 'person'}, {others} more"
+            )
+        elif people:
+            network_summary = f"{people} {'people' if people != 1 else 'person'}"
+        else:
+            network_summary = (
+                f"{len(entities)} {'entities' if len(entities) != 1 else 'entity'}"
+            )
 
     pulse_needs_normalized = {_normalize_item(item) for item in pulse_needs}
     briefing_needs_deduped = []
@@ -592,6 +660,12 @@ def _build_pulse_context() -> dict[str, Any]:
         "briefing_needs_deduped": briefing_needs_deduped,
         "briefing_needs_shared_count": briefing_needs_shared_count,
         "briefing_needs_badge": briefing_needs_badge,
+        "show_welcome": show_welcome,
+        "narrative_summary": narrative_summary,
+        "routines_summary": routines_summary,
+        "today_summary": today_summary,
+        "needs_summary": needs_summary,
+        "network_summary": network_summary,
     }
 
 
@@ -611,6 +685,7 @@ def api_pulse():
             "placeholder_text": attention.placeholder_text,
             "context_lines": attention.context_lines,
         }
+    ctx.pop("show_welcome", None)
     ctx["now"] = ctx["now"].isoformat()
     return jsonify(ctx)
 

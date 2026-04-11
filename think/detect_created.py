@@ -124,28 +124,3 @@ def detect_created(
         return result
     except json.JSONDecodeError:
         return None
-
-
-def main():
-    """Main CLI entry point for detect_created utility."""
-    import argparse
-
-    from .utils import setup_cli
-
-    parser = argparse.ArgumentParser(
-        description="Detect creation time information from media file metadata"
-    )
-    parser.add_argument("file_path", help="Path to the media file to analyze")
-
-    args = setup_cli(parser)
-
-    result = detect_created(args.file_path)
-    if result is not None:
-        print(json.dumps(result, indent=2))
-    else:
-        print("Failed to detect creation time information", file=sys.stderr)
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

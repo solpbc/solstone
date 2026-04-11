@@ -4,6 +4,7 @@
 .day-view {
   position: relative;
   border-left: 60px solid transparent;
+  overflow-x: auto;
 }
 
 .hour-line {
@@ -25,6 +26,7 @@
   position: absolute;
   left: 0;
   right: 0;
+  min-width: 40px;
   border-radius: 4px;
   opacity: 0.9;
   display: block;
@@ -87,11 +89,28 @@
   white-space: pre-wrap;
 }
 
+.day-summary {
+  font-size: 0.9em;
+  color: #888;
+  margin-bottom: 1em;
+}
+
 .events-empty {
-  color: #666;
-  font-style: italic;
-  padding: 2em;
+  color: #888;
+  padding: 3em 2em;
   text-align: center;
+}
+.empty-icon {
+  font-size: 2em;
+  margin-bottom: 0.25em;
+}
+.empty-heading {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-bottom: 0.25em;
+}
+.empty-desc {
+  font-size: 0.9em;
 }
 
 /* Planned/anticipated events - dotted outline, faded */
@@ -109,12 +128,10 @@
   border-radius: 6px;
 }
 
-.all-day-section h4 {
+.all-day-section h2 {
   margin: 0 0 0.5em 0;
   font-size: 0.85em;
   color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .all-day-cards {
@@ -147,6 +164,23 @@
   margin-left: 0.5em;
 }
 
+.allday-expand {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4em 0.75em;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #f8f9fa;
+  color: #666;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+.allday-expand:hover {
+  background: #e9ecef;
+  color: #333;
+}
+
 /* Activities section */
 .activities-section {
   margin-top: 2em;
@@ -154,7 +188,7 @@
   border-top: 1px solid #eee;
 }
 
-.activities-section h3 {
+.activities-section h2 {
   margin: 0 0 0.75em 0;
   font-size: 1em;
   color: #555;
@@ -383,10 +417,178 @@
 .level-high { background: #2ecc71; }
 .level-medium { background: #f39c12; }
 .level-low { background: #95a5a6; }
+
+/* Focus-visible for interactive elements */
+.occ:focus-visible,
+.occ-activity:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 1px;
+}
+.all-day-card:focus-visible,
+.activity-card:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 2px;
+}
+/* Button reset for back link */
+button.activity-detail-back {
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  padding: 0.25em 0;
+  text-align: left;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.calendar-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.85em;
+  color: #888;
+  margin-bottom: 0.25em;
+}
+.breadcrumb-link {
+  color: #888;
+  text-decoration: none;
+}
+.breadcrumb-link:hover {
+  color: #555;
+  text-decoration: underline;
+}
+.breadcrumb-sep {
+  color: #ccc;
+}
+.breadcrumb-current {
+  color: #888;
+}
+.today-chip {
+  font-size: 0.8em;
+  color: #888;
+  background: #f0f0f0;
+  padding: 1px 7px;
+  border-radius: 3px;
+  text-decoration: none;
+  margin-left: 0.5em;
+  white-space: nowrap;
+}
+.today-chip:hover {
+  background: #e4e4e4;
+  color: #555;
+}
+.timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em 1em;
+  padding: 0.3em 0.5em;
+  font-size: 0.8em;
+  color: #666;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  white-space: nowrap;
+}
+.legend-dot {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Responsive: tablet */
+@media (max-width: 768px) {
+  .workspace-content-wide {
+    padding: 0.5em;
+  }
+  .all-day-cards,
+  .allday-overflow {
+    flex-direction: column;
+  }
+  .modal-content {
+    margin: 2% auto;
+    max-width: 95%;
+  }
+}
+
+/* Responsive: mobile */
+@media (max-width: 480px) {
+  .day-view {
+    border-left-width: 40px;
+    overflow-x: auto;
+  }
+  .hour-line span {
+    left: -38px;
+    font-size: 0.65em;
+  }
+  h1 {
+    font-size: 1.3em;
+  }
+  .occ {
+    min-height: 30px;
+  }
+  .all-day-card {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  .activity-card {
+    min-height: 44px;
+  }
+  .modal-content {
+    margin: 0;
+    max-width: 100%;
+    min-height: 100vh;
+    border-radius: 0;
+  }
+  .calendar-breadcrumb {
+    font-size: 0.75em;
+  }
+  .day-summary {
+    font-size: 0.8em;
+  }
+  .timeline-legend {
+    font-size: 0.7em;
+  }
+  .activities-section {
+    margin-top: 1em;
+  }
+  .ad-fields {
+    grid-template-columns: 1fr;
+  }
+  .ad-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ad-tab {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
 </style>
 
 <div class="workspace-content-wide">
+  <nav class="calendar-breadcrumb" aria-label="calendar navigation">
+    <a href="#" id="breadcrumbMonth" class="breadcrumb-link"></a>
+    <span class="breadcrumb-sep" aria-hidden="true">›</span>
+    <span class="breadcrumb-current" aria-current="page">{{ title }}</span>
+    <a href="#" id="todayChip" class="today-chip" style="display:none"></a>
+  </nav>
   <h1>{{ title }}</h1>
+  <div id="daySummary" class="day-summary"></div>
 
   <div id="dayView">
     <div id="eventsView">
@@ -397,9 +599,9 @@
 
   <div id="activityDetail" class="activity-detail" style="display:none"></div>
 
-  <div id="eventModal" class="modal">
+  <div id="eventModal" class="modal" role="dialog" aria-modal="true">
     <div class="modal-content">
-      <span class="close">&times;</span>
+      <button type="button" class="close" aria-label="Close">&times;</button>
       <div id="modalBody"></div>
     </div>
   </div>
@@ -410,10 +612,53 @@
 <script>
 (function() {
   const day = '{{ day }}';
+
+  // Breadcrumb month link
+  const monthLink = document.getElementById('breadcrumbMonth');
+  if (monthLink) {
+    const year = parseInt(day.slice(0, 4), 10);
+    const month = parseInt(day.slice(4, 6), 10) - 1;
+    const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' });
+    monthLink.textContent = monthName + ' ' + year;
+    monthLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (window.MonthPicker) MonthPicker.show();
+    });
+  }
+
+  // Today chip — show relative distance when viewing a non-today date
+  const todayChip = document.getElementById('todayChip');
+  if (todayChip) {
+    const now = new Date();
+    const todayStr = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+    if (day !== todayStr) {
+      const dayDate = new Date(parseInt(day.slice(0, 4)), parseInt(day.slice(4, 6)) - 1, parseInt(day.slice(6, 8)));
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffDays = Math.round((dayDate - today) / 86400000);
+      const abs = Math.abs(diffDays);
+      let label;
+      if (abs === 1) {
+        label = diffDays < 0 ? 'yesterday' : 'tomorrow';
+      } else if (abs <= 30) {
+        label = diffDays < 0 ? abs + ' days ago' : 'in ' + abs + ' days';
+      } else if (abs <= 90) {
+        const weeks = Math.round(abs / 7);
+        label = diffDays < 0 ? weeks + ' weeks ago' : 'in ' + weeks + ' weeks';
+      } else {
+        const months = Math.round(abs / 30);
+        label = diffDays < 0 ? months + ' months ago' : 'in ' + months + ' months';
+      }
+      todayChip.textContent = '\u21a9 today (' + label + ')';
+      todayChip.href = '/app/calendar/' + todayStr;
+      todayChip.style.display = '';
+    }
+  }
+
   let allEvents = [];
   let allActivities = [];
   let events = [];
   let activities = [];
+  let modalTrigger = null;
   let currentActivityId = null;
   const outputCache = {};
 
@@ -476,12 +721,60 @@
     return null;
   }
 
+  function renderSummary() {
+    const el = document.getElementById('daySummary');
+    const ec = events.length;
+    const ac = activities.length;
+
+    if (!ec && !ac) {
+      el.textContent = '';
+      el.style.display = 'none';
+      return;
+    }
+
+    el.style.display = '';
+
+    const parts = [];
+    if (ec) parts.push(ec === 1 ? '1 event' : `${ec} events`);
+    if (ac) parts.push(ac === 1 ? '1 activity' : `${ac} activities`);
+    const counts = parts.join(', ');
+
+    const times = []
+      .concat(events, activities)
+      .filter(x => x.startTime)
+      .map(x => new Date(x.startTime));
+
+    if (!times.length) {
+      el.textContent = counts;
+      return;
+    }
+
+    times.sort((a, b) => a - b);
+    const earliest = times[0];
+    const latest = times[times.length - 1];
+    const eh = earliest.getHours();
+    const lh = latest.getHours();
+
+    let timeLabel;
+    if (lh < 12) {
+      timeLabel = 'morning';
+    } else if (eh >= 12 && lh < 17) {
+      timeLabel = 'afternoon';
+    } else if (eh >= 17) {
+      timeLabel = 'evening';
+    } else {
+      timeLabel = `${fmtTime(earliest)} to ${fmtTime(latest)}`;
+    }
+
+    el.textContent = `${counts} — ${timeLabel}`;
+  }
+
   // ── Events rendering ──
 
   function renderEvents(list) {
     const div = document.getElementById('eventsView');
     if (!list.length && !activities.length) {
-      div.innerHTML = '<div class="events-empty">No events or activities for this day.</div>';
+      div.innerHTML = '<div class="events-empty"><div class="empty-icon">📅</div><div class="empty-heading">no events or activities</div><div class="empty-desc">nothing recorded for this day</div></div>';
       return;
     }
     if (!list.length) {
@@ -494,17 +787,26 @@
     let html = '';
 
     if (untimedEvents.length) {
-      html += '<div class="all-day-section"><h4>All Day / Scheduled</h4><div class="all-day-cards">';
+      const MAX_ALLDAY_VISIBLE = 5;
+      html += '<section class="all-day-section" aria-labelledby="all-day-heading"><h2 id="all-day-heading">all day / scheduled</h2><div class="all-day-cards">';
       untimedEvents.forEach((o, i) => {
         const idx = list.indexOf(o);
         const isPlanned = o.occurred === false;
         const cardClass = isPlanned ? 'all-day-card planned' : 'all-day-card';
-        const badge = isPlanned ? '<span class="card-badge">Planned</span>' : '';
+        const badge = isPlanned ? '<span class="card-badge">planned</span>' : '';
         const title = escapeHtml(o.title || o.summary || o.agent || 'Event');
-        html += `<div class="${cardClass}" data-index="${idx}" style="border-color:${o.color || '#6c757d'}">`;
+        if (i === MAX_ALLDAY_VISIBLE && untimedEvents.length > MAX_ALLDAY_VISIBLE) {
+          const overflow = untimedEvents.length - MAX_ALLDAY_VISIBLE;
+          html += `<button type="button" class="allday-expand" data-expanded="false" aria-expanded="false">+${overflow} more</button>`;
+          html += '<div class="allday-overflow" style="display:none;flex-wrap:wrap;gap:0.5em;width:100%">';
+        }
+        html += `<div class="${cardClass}" data-index="${idx}" tabindex="0" role="button" style="border-color:${o.color || '#6c757d'}">`;
         html += `<span class="card-title">${title}</span>${badge}</div>`;
       });
-      html += '</div></div>';
+      if (untimedEvents.length > MAX_ALLDAY_VISIBLE) {
+        html += '</div>';
+      }
+      html += '</div></section>';
     }
 
     // Collect all timed items (events + activities) for unified timeline range
@@ -531,7 +833,7 @@
     const pxPerHour = 66.7;
     const totalMinutes = (endHour - startHour) * 60;
 
-    html += `<div class='day-view' style='height:${(endHour - startHour) * pxPerHour}px'>`;
+    html += `<section class='day-view' aria-label='timeline' style='height:${(endHour - startHour) * pxPerHour}px'>`;
 
     for (let h = startHour; h <= endHour; h++) {
       const label = h === 0 ? '12am' : h < 12 ? h + 'am' : h === 12 ? '12pm' : (h - 12) + 'pm';
@@ -551,7 +853,7 @@
       const top = ((sMin - startHour * 60) / totalMinutes) * 100;
       const height = Math.max((eMin - sMin) / totalMinutes * 100, 0.4);
       const color = levelColor(a.level_avg);
-      html += `<a class='occ occ-activity' data-activity-id='${escapeHtml(a.id)}' style='top:${top}%;height:${height}%;left:0;width:100%;border-color:${color};background:${color}' title='${escapeHtml(a.icon + " " + a.name)}'>${escapeHtml(a.icon)} ${escapeHtml(a.name)}</a>`;
+      html += `<a class='occ occ-activity' data-activity-id='${escapeHtml(a.id)}' tabindex='0' role='button' style='top:${top}%;height:${height}%;left:0;width:100%;border-color:${color};background:${color}' title='${escapeHtml(a.icon + " " + a.name)}'>${escapeHtml(a.icon)} ${escapeHtml(a.name)}</a>`;
     });
 
     // Process event blocks for column layout
@@ -578,6 +880,27 @@
         isPlanned: o.occurred === false
       });
     });
+
+    // Build color legend
+    const legendPairs = [];
+    const seenAgents = new Set();
+    processedEvents.forEach(ev => {
+      if (!seenAgents.has(ev.agent)) {
+        seenAgents.add(ev.agent);
+        legendPairs.push({ label: ev.agent, color: ev.color });
+      }
+    });
+    if (timedActivities.length > 0) {
+      legendPairs.push({ label: 'activity', color: '#6c757d' });
+    }
+    let legendHtml = '';
+    if (legendPairs.length > 0) {
+      legendHtml += `<div class="timeline-legend" role="list" aria-label="timeline color legend">`;
+      legendPairs.forEach(p => {
+        legendHtml += `<span class="legend-item" role="listitem"><span class="legend-dot" style="background:${p.color}" aria-hidden="true"></span>${escapeHtml(p.label)}</span>`;
+      });
+      legendHtml += `</div>`;
+    }
 
     const eventsByAgent = {};
     agents.forEach(agent => {
@@ -626,10 +949,11 @@
       const plannedClass = event.isPlanned ? ' occ-planned' : '';
       const bgStyle = event.isPlanned ? `border-color:${event.color}` : `background:${event.color}`;
       const titlePrefix = event.isPlanned ? '▸ ' : '';
-      html += `<a class='occ${plannedClass}' data-index='${event.index}' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;${bgStyle}' title='${titlePrefix}${event.title}'></a>`;
+      html += `<a class='occ${plannedClass}' data-index='${event.index}' tabindex='0' role='button' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;${bgStyle}' title='${titlePrefix}${event.title}'></a>`;
     });
 
-    html += '</div>';
+    html += '</section>';
+    if (legendHtml) html = html.replace("<section class='day-view'", legendHtml + "<section class='day-view'");
     div.innerHTML = html;
   }
 
@@ -642,13 +966,13 @@
       return;
     }
 
-    let html = '<div class="activities-section"><h3>Activities</h3><div class="activity-cards">';
+    let html = '<section class="activities-section" aria-labelledby="activities-heading"><h2 id="activities-heading">activities</h2><div class="activity-cards">';
     list.forEach(a => {
       const dur = fmtDuration(a.duration_minutes);
       const lvl = levelLabel(a.level_avg);
       const timeStr = a.startTime ? fmtTime(a.startTime) : '';
       const color = levelColor(a.level_avg);
-      html += `<div class="activity-card" data-activity-id="${escapeHtml(a.id)}" style="border-left-color:${color}">`;
+      html += `<div class="activity-card" data-activity-id="${escapeHtml(a.id)}" tabindex="0" role="button" style="border-left-color:${color}">`;
       html += `<span class="act-icon">${escapeHtml(a.icon || '')}</span>`;
       html += `<div class="act-body">`;
       html += `<div class="act-name">${escapeHtml(a.name)}</div>`;
@@ -656,11 +980,11 @@
       html += `</div>`;
       html += `<div class="act-meta">`;
       if (timeStr) html += `<div>${timeStr}</div>`;
-      html += `<div class="act-duration">${dur}<span class="act-level level-${lvl}" title="${lvl} engagement"></span></div>`;
+      html += `<div class="act-duration">${dur}<span class="act-level level-${lvl}" aria-hidden="true"></span><span class="sr-only">${lvl} engagement</span></div>`;
       if (a.outputs.length) html += `<div>${a.outputs.length} output${a.outputs.length > 1 ? 's' : ''}</div>`;
       html += `</div></div>`;
     });
-    html += '</div></div>';
+    html += '</div></section>';
     div.innerHTML = html;
   }
 
@@ -669,6 +993,7 @@
   function openModal(idx) {
     const occ = events[idx];
     if (!occ) return;
+    modalTrigger = document.activeElement;
     const body = document.getElementById('modalBody');
     const isPlanned = occ.occurred === false;
     const agent = occ.agent ? occ.agent.charAt(0).toUpperCase() + occ.agent.slice(1) : '';
@@ -681,20 +1006,20 @@
     if (occ.startTime) {
       const when = fmtTime(occ.startTime);
       const len = fmtLength(occ.startTime, occ.endTime);
-      const timeLabel = isPlanned ? 'Scheduled' : 'Started';
+      const timeLabel = isPlanned ? 'planned' : 'started';
       html += `<div class="occ-field"><strong>${timeLabel}</strong> ${when} - ${len}</div>`;
     }
     if (occ.facet) {
-      html += `<div class="occ-field"><strong>Facet</strong> ${escapeHtml(occ.facet)}</div>`;
+      html += `<div class="occ-field"><strong>facet</strong> ${escapeHtml(occ.facet)}</div>`;
     }
     if (Array.isArray(occ.participants) && occ.participants.length > 0) {
-      const participantsLabel = isPlanned ? 'Expected' : 'Participants';
+      const participantsLabel = isPlanned ? 'expected' : 'participants';
       html += `<div class="occ-field"><strong>${participantsLabel}</strong> ${escapeHtml(occ.participants.join(', '))}</div>`;
     }
     if (isPlanned) {
       const createdOn = parseCreatedDate(occ.source);
       if (createdOn) {
-        html += `<div class="occ-field"><strong>Created</strong> ${createdOn}</div>`;
+        html += `<div class="occ-field"><strong>created</strong> ${createdOn}</div>`;
       }
     }
     if (occ.details) {
@@ -703,6 +1028,41 @@
     }
     body.innerHTML = html;
     document.getElementById('eventModal').style.display = 'block';
+    const modal = document.getElementById('eventModal');
+    const eventTitle = occ.title || occ.summary || 'Event details';
+    modal.setAttribute('aria-label', eventTitle);
+    modal.querySelector('.close').focus();
+    document.addEventListener('keydown', handleModalKeys);
+  }
+
+  function closeModal() {
+    const modal = document.getElementById('eventModal');
+    modal.style.display = 'none';
+    document.removeEventListener('keydown', handleModalKeys);
+    if (modalTrigger && document.contains(modalTrigger)) {
+      modalTrigger.focus();
+    }
+    modalTrigger = null;
+  }
+
+  function handleModalKeys(e) {
+    if (e.key === 'Escape') {
+      closeModal();
+      return;
+    }
+    if (e.key === 'Tab') {
+      const modal = document.getElementById('eventModal');
+      const focusable = [...modal.querySelectorAll('button:not([disabled]), [tabindex="0"]')];
+      if (focusable.length === 0) return;
+      const currentIndex = focusable.indexOf(document.activeElement);
+      if (e.shiftKey) {
+        e.preventDefault();
+        focusable[currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1].focus();
+      } else {
+        e.preventDefault();
+        focusable[currentIndex >= focusable.length - 1 ? 0 : currentIndex + 1].focus();
+      }
+    }
   }
 
   // ── Activity detail view ──
@@ -732,7 +1092,7 @@
       : '';
 
     let html = '';
-    html += `<div class="activity-detail-back" onclick="location.hash=''">← Back to day</div>`;
+    html += `<button type="button" class="activity-detail-back">← Back to day</button>`;
     html += `<div class="activity-detail-header">`;
     html += `<h2>${escapeHtml(a.icon || '')} ${escapeHtml(a.name)}</h2>`;
     html += `<div class="ad-subtitle">${escapeHtml(a.facet)}</div>`;
@@ -754,7 +1114,7 @@
       html += `<dt>Time</dt><dd>${timeRange}</dd>`;
     }
     html += `<dt>Duration</dt><dd>${fmtDuration(a.duration_minutes)}</dd>`;
-    html += `<dt>Engagement</dt><dd><span class="act-level level-${lvl}"></span> ${lvl}</dd>`;
+    html += `<dt>Engagement</dt><dd><span class="act-level level-${lvl}" aria-hidden="true"></span> ${lvl}</dd>`;
     html += `<dt>Segments</dt><dd>${a.segments.length}</dd>`;
     if (a.active_entities && a.active_entities.length) {
       html += `<dt>Entities</dt><dd><div class="ad-entities">`;
@@ -777,6 +1137,9 @@
     });
 
     detail.innerHTML = html;
+    detail.querySelector('.activity-detail-back').addEventListener('click', () => {
+      location.hash = '';
+    });
 
     // Tab click handler
     detail.querySelector('.ad-tabs').addEventListener('click', function(e) {
@@ -847,6 +1210,8 @@
     events = filterByFacet(allEvents);
     activities = filterByFacet(allActivities);
 
+    renderSummary();
+
     if (currentActivityId) {
       // Stay on detail if it still exists
       const hash = location.hash.slice(1);
@@ -874,6 +1239,23 @@
 
       // Click handlers
       document.getElementById('eventsView').onclick = e => {
+        const expandBtn = e.target.closest('.allday-expand');
+        if (expandBtn) {
+          const overflow = expandBtn.nextElementSibling;
+          const isExpanded = expandBtn.dataset.expanded === 'true';
+          if (isExpanded) {
+            overflow.style.display = 'none';
+            expandBtn.dataset.expanded = 'false';
+            expandBtn.setAttribute('aria-expanded', 'false');
+            expandBtn.textContent = '+' + overflow.children.length + ' more';
+          } else {
+            overflow.style.display = 'flex';
+            expandBtn.dataset.expanded = 'true';
+            expandBtn.setAttribute('aria-expanded', 'true');
+            expandBtn.textContent = 'show fewer';
+          }
+          return;
+        }
         const actEl = e.target.closest('.occ-activity');
         if (actEl) {
           e.preventDefault();
@@ -891,6 +1273,26 @@
         const card = e.target.closest('.activity-card');
         if (card) {
           location.hash = 'activity/' + card.dataset.activityId;
+        }
+      };
+
+      // Keyboard activation
+      document.getElementById('eventsView').onkeydown = e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const el = e.target.closest('.occ-activity, .occ, .all-day-card');
+          if (el) {
+            e.preventDefault();
+            el.click();
+          }
+        }
+      };
+      document.getElementById('activitiesView').onkeydown = e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const el = e.target.closest('.activity-card');
+          if (el) {
+            e.preventDefault();
+            el.click();
+          }
         }
       };
     }).catch(() => {
@@ -917,16 +1319,15 @@
   // ── Init ──
 
   window.addEventListener('facet.switch', () => {
-    // Reload to pick up facet-filtered activities
-    loadData();
+    applyFilters();
   });
 
   document.querySelector('#eventModal .close').onclick = () => {
-    document.getElementById('eventModal').style.display = 'none';
+    closeModal();
   };
   window.onclick = e => {
     const modal = document.getElementById('eventModal');
-    if (e.target === modal) modal.style.display = 'none';
+    if (e.target === modal) closeModal();
   };
 
   loadData();

@@ -60,36 +60,131 @@ _DEFAULT_MODEL = GEMINI_FLASH
 
 logger = logging.getLogger(__name__)
 
+# Backend detection cache
+_detected_backend: str | None = None
+
 
 # ---------------------------------------------------------------------------
 # Client and helper functions for generate/agenerate
 # ---------------------------------------------------------------------------
 
 
+def _probe_backend(api_key: str) -> str:
+    """Probe AI Studio endpoint to classify key type.
+
+    Returns ``"aistudio"`` when the key works against the AI Studio models
+    endpoint (HTTP 200) or ``"vertex"`` otherwise. Network errors default
+    to ``"aistudio"`` for backward compatibility.
+    """
+    try:
+        import httpx
+
+        resp = httpx.get(
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            params={"key": api_key},
+            timeout=5,
+        )
+        return "aistudio" if resp.status_code == 200 else "vertex"
+    except Exception:
+        return "aistudio"
+
+
+def _detect_backend(api_key: str) -> str:
+    """Return cached backend detection result, probing on first call."""
+    global _detected_backend
+    if _detected_backend is not None:
+        return _detected_backend
+    _detected_backend = _probe_backend(api_key)
+    return _detected_backend
+
+
+def _get_effective_backend(api_key: str) -> str:
+    """Return effective backend, checking config override before cache.
+
+    Reads ``providers.google_backend`` from journal config. Values
+    ``"aistudio"`` or ``"vertex"`` bypass detection; ``"auto"`` (the default
+    when the key is absent) uses :func:`_detect_backend`.
+    """
+    from think.utils import get_config
+
+    configured = get_config().get("providers", {}).get("google_backend", "auto")
+    if configured in ("aistudio", "vertex"):
+        return configured
+    return _detect_backend(api_key)
+
+
 def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
     """Get existing client or create new one.
 
-    Parameters
-    ----------
-    client : genai.Client, optional
-        Existing client to reuse. If not provided, creates a new one
-        using GOOGLE_API_KEY from environment.
-
-    Returns
-    -------
-    genai.Client
-        The provided client or a newly created one.
+    For Vertex AI backend, uses service account credentials from config
+    or falls back to GOOGLE_APPLICATION_CREDENTIALS env var.
+    For AI Studio / auto-detect, uses GOOGLE_API_KEY.
     """
-    if client is None:
-        api_key = os.getenv("GOOGLE_API_KEY")
+    if client is not None:
+        return client
+
+    from think.utils import get_config
+
+    config = get_config()
+    providers_config = config.get("providers", {})
+
+    http_options = types.HttpOptions(
+        retry_options=types.HttpRetryOptions(attempts=8)
+    )
+
+    api_key = os.getenv("GOOGLE_API_KEY")
+
+    # Determine backend
+    configured_backend = providers_config.get("google_backend", "auto")
+    if configured_backend == "vertex":
+        backend = "vertex"
+    elif configured_backend == "aistudio":
+        backend = "aistudio"
+    elif api_key:
+        backend = _get_effective_backend(api_key)
+    else:
+        raise ValueError("GOOGLE_API_KEY not found in environment")
+
+    if backend == "vertex":
+        creds_path = providers_config.get("vertex_credentials")
+
+        client_kwargs: dict[str, Any] = {
+            "vertexai": True,
+            "http_options": http_options,
+        }
+
+        if creds_path and os.path.exists(creds_path):
+            import json as _json
+
+            from google.oauth2.service_account import Credentials
+
+            creds = Credentials.from_service_account_file(
+                creds_path,
+                scopes=["https://www.googleapis.com/auth/cloud-platform"],
+            )
+            client_kwargs["credentials"] = creds
+            with open(creds_path, encoding="utf-8") as _f:
+                _sa_data = _json.load(_f)
+            if "project_id" in _sa_data:
+                client_kwargs["project"] = _sa_data["project_id"]
+        elif not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+            raise ValueError(
+                "Vertex AI backend requires service account credentials. "
+                "Configure in Settings or set GOOGLE_APPLICATION_CREDENTIALS."
+            )
+        # else: GOOGLE_APPLICATION_CREDENTIALS is set, SDK auto-discovers
+
+        client = genai.Client(**client_kwargs)
+    else:
+        # AI Studio path
         if not api_key:
             raise ValueError("GOOGLE_API_KEY not found in environment")
         client = genai.Client(
             api_key=api_key,
-            http_options=types.HttpOptions(
-                retry_options=types.HttpRetryOptions(attempts=8)
-            ),
+            vertexai=False,
+            http_options=http_options,
         )
+
     return client
 
 
@@ -682,15 +777,59 @@ def validate_key(api_key: str) -> dict:
     Creates a temporary client with the provided key. Never uses
     the cached client or environment variables.
 
-    Returns {"valid": True} or {"valid": False, "error": "..."}.
+    Returns {"valid": True, "backend": "aistudio"|"vertex"} or
+    {"valid": False, "error": "..."}.
+    """
+    global _detected_backend
+    try:
+        # Probe backend for this specific key (always probes, bypasses cache).
+        backend = _probe_backend(api_key)
+
+        client_kwargs = {
+            "api_key": api_key,
+            "http_options": types.HttpOptions(timeout=10000),
+            "vertexai": backend == "vertex",
+        }
+
+        client = genai.Client(**client_kwargs)
+        list(client.models.list(config={"page_size": 1}))
+        _detected_backend = backend  # only cache after successful validation
+        return {"valid": True, "backend": backend}
+    except Exception as e:
+        return {"valid": False, "error": str(e)}
+
+
+def validate_vertex_credentials(
+    creds_path: str,
+) -> dict:
+    """Validate Vertex AI service account credentials by listing models.
+
+    Creates a temporary client with the provided SA credentials.
+
+    Returns {"valid": True, "email": "..."} or {"valid": False, "error": "..."}.
     """
     try:
-        client = genai.Client(
-            api_key=api_key,
-            http_options=types.HttpOptions(timeout=10000),
+        import json as _json
+
+        from google.oauth2.service_account import Credentials
+
+        creds = Credentials.from_service_account_file(
+            creds_path,
+            scopes=["https://www.googleapis.com/auth/cloud-platform"],
         )
+        client_kwargs: dict[str, Any] = {
+            "vertexai": True,
+            "credentials": creds,
+            "http_options": types.HttpOptions(timeout=10000),
+        }
+        with open(creds_path, encoding="utf-8") as _f:
+            _sa_data = _json.load(_f)
+        if "project_id" in _sa_data:
+            client_kwargs["project"] = _sa_data["project_id"]
+
+        client = genai.Client(**client_kwargs)
         list(client.models.list(config={"page_size": 1}))
-        return {"valid": True}
+        return {"valid": True, "email": creds.service_account_email}
     except Exception as e:
         return {"valid": False, "error": str(e)}
 
@@ -700,6 +839,10 @@ __all__ = [
     "run_generate",
     "run_agenerate",
     "get_or_create_client",
+    "validate_vertex_credentials",
+    "_detect_backend",
+    "_get_effective_backend",
     "list_models",
     "validate_key",
+    "validate_vertex_credentials",
 ]

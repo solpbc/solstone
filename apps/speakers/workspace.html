@@ -87,6 +87,41 @@
   font-size: 14px;
 }
 
+.spk-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: #9ca3af;
+  padding: 48px 24px;
+  gap: 12px;
+}
+
+.spk-empty-icon svg {
+  width: 48px;
+  height: 48px;
+  stroke: #d1d5db;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.spk-empty-heading {
+  font-size: 16px;
+  font-weight: 500;
+  color: #6b7280;
+  margin: 0;
+}
+
+.spk-empty-desc {
+  font-size: 14px;
+  color: #9ca3af;
+  margin: 0;
+}
+
 .spk-detail {
   background: #fff;
   border-radius: 12px;
@@ -282,6 +317,11 @@
   background: #eab308;
 }
 
+.spk-confidence-label {
+  font-size: 11px;
+  color: #6b7280;
+}
+
 .spk-correction-original {
   text-decoration: line-through;
   color: #9ca3af;
@@ -358,8 +398,33 @@
 }
 
 .spk-status-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   background: #fee2e2;
   color: #991b1b;
+}
+
+.spk-status-dismiss {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0 0 8px;
+  opacity: 0.7;
+}
+
+.spk-status-dismiss:hover,
+.spk-status-dismiss:focus {
+  opacity: 1;
+}
+
+.spk-status-info {
+  background: #e8f4fd;
+  border: 1px solid #b3d9f2;
+  color: #1e40af;
 }
 
 .spk-speaker-count {
@@ -614,24 +679,292 @@
   color: #166534;
   margin-top: 6px;
 }
+
+/* Semantic element resets - prevent browser defaults from changing layout */
+.spk-segments-header,
+.spk-detail-title,
+.spk-speakers-title,
+.spk-sentences-title,
+.spk-speaker-entity {
+  font-size: inherit;
+  font-weight: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+/* List resets - no bullets, no margin, no padding */
+.spk-segments-list,
+.spk-speaker-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Focus-visible indicators */
+.spk-source-tab:focus-visible,
+.spk-filter-btn:focus-visible,
+.spk-btn:focus-visible,
+.spk-skip-back:focus-visible,
+.spk-speed-toggle:focus-visible,
+.spk-segment:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Banner buttons need darker ring for contrast on colored backgrounds */
+.spk-owner-btn:focus-visible,
+.spk-discovery-btn:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+/* Inputs and selects use :focus (browser convention - always show focus ring) */
+.spk-select-small:focus,
+.spk-discovery-input:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Progressive disclosure - collapsed detail */
+.spk-detail-collapsed .spk-speakers,
+.spk-detail-collapsed .spk-sentences {
+  display: none;
+}
+
+.spk-detail-summary {
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.spk-detail-summary span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spk-expand-btn {
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  margin: 8px 16px;
+  transition: background 0.15s;
+}
+
+.spk-expand-btn:hover {
+  background: #f9fafb;
+}
+
+/* Pagination - load more */
+.spk-load-more {
+  padding: 8px 16px;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.spk-load-more-btn {
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.15s;
+}
+
+.spk-load-more-btn:hover {
+  background: #f3f4f6;
+}
+
+.spk-segments-count {
+  font-weight: 400;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+@keyframes spk-spin {
+  to { transform: rotate(360deg); }
+}
+.spk-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #b3d9f2;
+  border-top-color: #1e40af;
+  border-radius: 50%;
+  animation: spk-spin 1s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+@media (max-width: 768px) {
+  .spk-wrap {
+    padding: 12px 16px;
+  }
+  .spk-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    min-height: auto;
+  }
+  .spk-segments-list {
+    max-height: 40vh;
+  }
+  .spk-detail {
+    padding: 16px;
+  }
+  .spk-discovery-clusters {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+  .spk-select-small {
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  .spk-wrap {
+    padding: 8px 12px;
+  }
+  .spk-segments-list {
+    max-height: 35vh;
+  }
+  .spk-detail {
+    padding: 12px;
+  }
+  .spk-sentence {
+    grid-template-columns: 40px 1fr auto;
+    gap: 8px;
+  }
+  .spk-discovery-clusters {
+    grid-template-columns: 1fr;
+  }
+  .spk-owner-samples {
+    grid-template-columns: 1fr;
+  }
+  .spk-owner-banner,
+  .spk-discovery-banner {
+    padding: 12px;
+  }
+  .spk-select-small {
+    min-width: 0;
+  }
+  /* Font size floor - no text below 14px on mobile */
+  .spk-source-badge,
+  .spk-confidence-label,
+  .spk-speaker-detected,
+  .spk-speaker-count,
+  .spk-review-badge,
+  .spk-segment-meta,
+  .spk-sentence-speaker,
+  .spk-owner-sample-title,
+  .spk-owner-sample-meta {
+    font-size: 14px;
+  }
+  .spk-sentence-time,
+  .spk-filter-btn,
+  .spk-btn,
+  .spk-select-small,
+  .spk-status,
+  .spk-discovery-sample-text,
+  .spk-discovery-status,
+  .spk-segments-count,
+  .spk-source-tab,
+  .spk-seeding-prompt,
+  .spk-speaker-card,
+  .spk-owner-btn,
+  .spk-discovery-cluster-title,
+  .spk-discovery-input,
+  .spk-discovery-btn,
+  .spk-detail-summary,
+  .spk-expand-btn,
+  .spk-load-more-btn {
+    font-size: 14px;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .spk-skip-back,
+  .spk-speed-toggle {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+  .spk-btn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  .spk-btn-icon {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+  .spk-filter-btn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  .spk-source-tab {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  .spk-select-small {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+  .spk-expand-btn {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+  .spk-load-more-btn {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+  .spk-owner-btn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  .spk-discovery-btn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  .spk-discovery-input {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+  .spk-status-dismiss {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px;
+  }
+}
 </style>
 
 <div class="spk-wrap">
   <div id="spkOwnerBanner" class="spk-owner-banner"></div>
-  <div id="spkDiscoveryBanner" class="spk-discovery-banner"></div>
+  <div id="spkDiscoveryBanner" class="spk-discovery-banner" aria-live="polite"></div>
   <div class="spk-layout">
-    <div class="spk-segments">
-      <div class="spk-segments-header">
+    <nav class="spk-segments" aria-label="segments">
+      <h2 class="spk-segments-header">
         Segments
+      </h2>
+      <ul class="spk-segments-list" id="spkSegmentList" role="listbox">
+        <li class="spk-empty">Loading...</li>
+      </ul>
+      <div class="spk-load-more" id="spkLoadMore" style="display: none;">
+        <button class="spk-load-more-btn" id="spkLoadMoreBtn">Load more segments</button>
       </div>
-      <div class="spk-segments-list" id="spkSegmentList">
-        <div class="spk-empty">Loading...</div>
-      </div>
-    </div>
+    </nav>
 
-    <div class="spk-detail" id="spkDetail">
-      <div class="spk-empty">
-        Select a segment to review
+    <div class="spk-detail" id="spkDetail" aria-live="polite">
+      <div class="spk-empty-state">
+        <div class="spk-empty-icon"><svg viewBox="0 0 24 24"><path d="M4 4l7.07 17 2.51-7.39L21 11.07z"></path></svg></div>
+        <p class="spk-empty-heading">ready to review</p>
+        <p class="spk-empty-desc">select a segment from the list to review speaker assignments</p>
       </div>
     </div>
   </div>
@@ -639,6 +972,70 @@
 
 <script>
 (() => {
+  const emptyIcons = {
+    segment: '<svg viewBox="0 0 24 24"><rect x="4" y="8" width="2" height="8" rx="1"></rect><rect x="8" y="5" width="2" height="14" rx="1"></rect><rect x="12" y="3" width="2" height="18" rx="1"></rect><rect x="16" y="6" width="2" height="12" rx="1"></rect><rect x="20" y="9" width="2" height="6" rx="1"></rect></svg>',
+    cursor: '<svg viewBox="0 0 24 24"><path d="M4 4l7.07 17 2.51-7.39L21 11.07z"></path></svg>',
+    people: '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
+    text: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+    audio: '<svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>'
+  };
+
+  const ERROR_MAP = [
+    { match: 'Embedding too similar to owner voice', message: "this voice sounds like yours — it can't be saved as a different speaker" },
+    { match: 'Cannot confirm unattributed sentence', message: 'this sentence needs to be assigned to a speaker first' },
+    { match: 'Can only confirm medium-confidence', message: 'this attribution is already confirmed' },
+    { match: 'Sentence embedding not found', message: 'something went wrong — try again' },
+    { match: 'No speaker labels found', message: 'something went wrong — try again' },
+    { match: 'not found in labels', message: "this sentence wasn't found — try refreshing the page" },
+    { match: 'Sentence already has a speaker', message: 'this sentence already has a speaker — use correct to change it' },
+    { match: 'is blocked', message: "that speaker is blocked and can't be used" },
+    { match: 'not found', message: "that speaker wasn't found — they may have been removed. Try refreshing the page" },
+  ];
+
+  function friendlyError(backendMessage) {
+    if (!backendMessage) return 'something went wrong — try again';
+    for (const entry of ERROR_MAP) {
+      if (backendMessage.includes(entry.match)) return entry.message;
+    }
+    return 'something went wrong — try again';
+  }
+
+  function attachAudioErrorListeners(container) {
+    container.querySelectorAll('audio').forEach(audio => {
+      audio.addEventListener('error', () => {
+        const msg = document.createElement('div');
+        msg.className = 'spk-status spk-status-error';
+        msg.setAttribute('role', 'alert');
+        msg.innerHTML = 'Couldn\'t load this audio<button class="spk-status-dismiss" aria-label="Dismiss">&times;</button>';
+        msg.querySelector('.spk-status-dismiss').addEventListener('click', (e) => {
+          e.target.closest('.spk-status-error').remove();
+        });
+        audio.parentNode.insertBefore(msg, audio.nextSibling);
+        audio.style.display = 'none';
+      });
+    });
+  }
+
+  function emptyStateHTML(icon, heading, desc) {
+    return '<div class="spk-empty-state">' +
+      '<div class="spk-empty-icon">' + icon + '</div>' +
+      '<p class="spk-empty-heading">' + heading + '</p>' +
+      '<p class="spk-empty-desc">' + desc + '</p>' +
+      '</div>';
+  }
+
+  const METHOD_DISPLAY = {
+    acoustic: 'voice match',
+    structural_single_speaker: 'only speaker',
+    structural_setting: 'setting match',
+    owner_centroid: 'voice profile match',
+    user_confirmed: 'you confirmed',
+    user_corrected: 'you corrected',
+    user_assigned: 'you assigned',
+    user_identified: 'you identified',
+    context: 'context match',
+    contextual: 'context match',
+  };
   const day = '{{ day }}';
   const segmentList = document.getElementById('spkSegmentList');
   const detailPanel = document.getElementById('spkDetail');
@@ -646,6 +1043,7 @@
   const discoveryBanner = document.getElementById('spkDiscoveryBanner');
 
   let segments = [];
+  let segmentTotal = 0;
   let selectedSegment = null;
   let selectedSource = null;
   let audioPlayer = null;
@@ -653,8 +1051,10 @@
   let reviewEntities = [];
   let hasLabels = false;
   let reviewSummary = null;
+  const statusTimers = {};
   let currentFilter = 'all';
   let playingSentenceId = null;
+  let detailExpanded = false;
   let ownerDetectionInFlight = false;
 
   checkOwnerStatus();
@@ -662,19 +1062,52 @@
 
   window.addEventListener('hashchange', () => {
     const hash = window.location.hash.slice(1);
-    if (hash) selectSegmentByKey(hash);
+    if (hash && !selectSegmentByKey(hash) && segments.length < segmentTotal) {
+      loadUntilFound(hash);
+    }
   });
 
-  discoveryBanner.addEventListener('click', e => {
-    const btn = e.target.closest('.spk-discovery-btn');
-    if (!btn) return;
+  segmentList.addEventListener('keydown', e => {
+    const item = e.target.closest('.spk-segment');
+    if (!item) return;
 
-    const card = btn.closest('.spk-discovery-cluster');
-    if (!card) return;
+    const items = [...segmentList.querySelectorAll('.spk-segment')];
+    const idx = items.indexOf(item);
 
+    function moveFocus(target) {
+      item.setAttribute('tabindex', '-1');
+      target.setAttribute('tabindex', '0');
+      target.focus();
+      target.scrollIntoView({ block: 'nearest' });
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (idx < items.length - 1) moveFocus(items[idx + 1]);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (idx > 0) moveFocus(items[idx - 1]);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      if (items.length) moveFocus(items[0]);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      if (items.length) moveFocus(items[items.length - 1]);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const seg = segments.find(s => s.key === item.dataset.key);
+      if (seg) {
+        window.location.hash = seg.key;
+        selectSegment(seg);
+      }
+    }
+  });
+
+  function submitDiscoveryName(card) {
     const clusterId = parseInt(card.dataset.clusterId, 10);
     const input = card.querySelector('.spk-discovery-input');
     const status = card.querySelector('.spk-discovery-status');
+    const btn = card.querySelector('.spk-discovery-btn');
     const name = input.value.trim();
 
     if (!name) {
@@ -718,6 +1151,13 @@
         btn.disabled = false;
         input.disabled = false;
       });
+  }
+
+  discoveryBanner.addEventListener('submit', e => {
+    e.preventDefault();
+    const card = e.target.closest('.spk-discovery-cluster');
+    if (!card) return;
+    submitDiscoveryName(card);
   });
 
   function checkOwnerStatus() {
@@ -812,6 +1252,8 @@
     document.getElementById('spkOwnerReject')?.addEventListener('click', () => {
       submitOwnerChoice('/app/speakers/api/owner/reject');
     });
+
+    attachAudioErrorListeners(ownerBanner);
   }
 
   function submitOwnerChoice(path) {
@@ -827,6 +1269,8 @@
   }
 
   function checkDiscovery() {
+    discoveryBanner.style.display = 'block';
+    discoveryBanner.innerHTML = '<div class="spk-discovery-panel"><div class="spk-discovery-title"><span class="spk-spinner"></span> Discovering new voices…</div></div>';
     fetch('/app/speakers/api/discovery/scan', { method: 'POST' })
       .then(r => r.json())
       .then(data => {
@@ -861,16 +1305,18 @@
                   <audio controls preload="metadata" src="${sample.audio_url}"></audio>
                 </div>
               `).join('')}
-              <div class="spk-discovery-form">
-                <input type="text" class="spk-discovery-input" placeholder="Enter speaker name..." />
+              <form class="spk-discovery-form">
+                <input type="text" class="spk-discovery-input" aria-label="Speaker name" placeholder="Enter speaker name..." />
                 <button class="spk-discovery-btn">Name</button>
-              </div>
+              </form>
               <div class="spk-discovery-status"></div>
             </div>
           `).join('')}
         </div>
       </div>
     `;
+
+    attachAudioErrorListeners(discoveryBanner);
   }
 
   function hideDiscovery() {
@@ -879,23 +1325,80 @@
   }
 
   function loadSegments() {
-    fetch(`/app/speakers/api/segments/${day}`)
+    const fetchLimit = Math.max(segments.length, 20);
+    fetch(`/app/speakers/api/segments/${day}?limit=${fetchLimit}&offset=0`)
       .then(r => r.json())
       .then(data => {
         segments = data.segments || [];
+        segmentTotal = data.total || 0;
         renderSegmentList();
+        updateLoadMore();
         if (window.location.hash) {
-          selectSegmentByKey(window.location.hash.slice(1));
+          const hashKey = window.location.hash.slice(1);
+          if (!selectSegmentByKey(hashKey) && segments.length < segmentTotal) {
+            loadUntilFound(hashKey);
+          }
         }
       })
       .catch(() => {
-        segmentList.innerHTML = '<div class="spk-empty">Failed to load segments</div>';
+        segmentList.innerHTML = '<li class="spk-empty">Failed to load segments</li>';
       });
+  }
+
+  function loadMoreSegments() {
+    const btn = document.getElementById('spkLoadMoreBtn');
+    if (btn) btn.disabled = true;
+    fetch(`/app/speakers/api/segments/${day}?limit=20&offset=${segments.length}`)
+      .then(r => r.json())
+      .then(data => {
+        const newSegments = data.segments || [];
+        segments = segments.concat(newSegments);
+        segmentTotal = data.total || 0;
+        renderSegmentList();
+        updateLoadMore();
+      })
+      .catch(() => {
+        if (btn) btn.disabled = false;
+      });
+  }
+
+  function loadUntilFound(key) {
+    fetch(`/app/speakers/api/segments/${day}?limit=20&offset=${segments.length}`)
+      .then(r => r.json())
+      .then(data => {
+        const newSegments = data.segments || [];
+        if (newSegments.length === 0) return;
+        segments = segments.concat(newSegments);
+        segmentTotal = data.total || 0;
+        renderSegmentList();
+        updateLoadMore();
+        if (!selectSegmentByKey(key) && segments.length < segmentTotal) {
+          loadUntilFound(key);
+        }
+      });
+  }
+
+  function updateLoadMore() {
+    const container = document.getElementById('spkLoadMore');
+    const btn = document.getElementById('spkLoadMoreBtn');
+    if (!container || !btn) return;
+
+    if (segmentTotal > 20 && segments.length < segmentTotal) {
+      container.style.display = '';
+      btn.textContent = `Load more segments (${segments.length} of ${segmentTotal})`;
+      btn.onclick = loadMoreSegments;
+    } else {
+      container.style.display = 'none';
+    }
   }
 
   function renderSegmentList() {
     if (segments.length === 0) {
-      segmentList.innerHTML = '<div class="spk-empty">No segments with embeddings found for this day</div>';
+      segmentList.innerHTML = '<li>' + emptyStateHTML(emptyIcons.segment, 'no speakers discovered today', 'solstone hasn\'t found any speaker segments for this day yet') + '</li>';
+      const header = document.querySelector('.spk-segments-header');
+      if (header) {
+        header.textContent = 'Segments';
+      }
       return;
     }
 
@@ -909,8 +1412,20 @@
       return a.key.localeCompare(b.key);
     });
 
+    const focusKey = (selectedSegment && sorted.some(s => s.key === selectedSegment.key))
+      ? selectedSegment.key
+      : sorted[0].key;
+
+    const hadFocus = segmentList.contains(document.activeElement);
+    const focusedKey = hadFocus ? document.activeElement.dataset?.key : null;
+
     segmentList.innerHTML = sorted.map(seg => `
-      <div class="spk-segment${selectedSegment?.key === seg.key ? ' active' : ''}" data-key="${seg.key}">
+      <li class="spk-segment${selectedSegment?.key === seg.key ? ' active' : ''}"
+          data-key="${seg.key}"
+          role="option"
+          tabindex="${seg.key === focusKey ? '0' : '-1'}"
+          aria-selected="${selectedSegment?.key === seg.key}"
+          aria-label="${seg.start} - ${seg.end}, ${seg.speaker_count} speaker${seg.speaker_count !== 1 ? 's' : ''}${seg.attribution_needs_review > 0 ? ', ' + seg.attribution_needs_review + ' to review' : ''}">
         <div class="spk-segment-time">
           ${seg.start} - ${seg.end}
           ${seg.speaker_count > 0 ? `<span class="spk-speaker-count">${seg.speaker_count} speakers</span>` : ''}
@@ -920,7 +1435,7 @@
           ${seg.sources.map(s => `<span class="spk-source-badge">${formatSource(s)}</span>`).join('')}
         </div>
         ${seg.attribution_needs_review > 0 ? `<div class="spk-review-badge">${seg.attribution_needs_review} to review</div>` : ''}
-      </div>
+      </li>
     `).join('');
 
     segmentList.querySelectorAll('.spk-segment').forEach(el => {
@@ -932,31 +1447,60 @@
         }
       });
     });
+
+    if (hadFocus) {
+      const restoreKey = focusedKey || focusKey;
+      const target = segmentList.querySelector(`.spk-segment[data-key="${restoreKey}"]`)
+        || segmentList.querySelector('.spk-segment');
+      if (target) target.focus();
+    }
+
+    const header = document.querySelector('.spk-segments-header');
+    if (header) {
+      if (segmentTotal > 20) {
+        header.innerHTML = `Segments <span class="spk-segments-count">${segments.length} of ${segmentTotal}</span>`;
+      } else {
+        header.textContent = 'Segments';
+      }
+    }
   }
 
   function selectSegmentByKey(key) {
     const seg = segments.find(s => s.key === key);
     if (seg) selectSegment(seg);
+    return !!seg;
   }
 
   function selectSegment(seg) {
+    const switchingSegment = !selectedSegment || selectedSegment.key !== seg.key;
     selectedSegment = seg;
     selectedSource = seg.sources[0] || null;
     currentFilter = 'all';
+    if (switchingSegment) detailExpanded = false;
     renderSegmentList();
     renderDetail(seg);
   }
 
   function renderDetail(seg) {
     if (!seg.sources.length) {
-      detailPanel.innerHTML = '<div class="spk-empty">No audio sources found</div>';
+      detailPanel.innerHTML = emptyStateHTML(emptyIcons.audio, 'no audio sources', 'this segment doesn\'t have any audio recordings');
       return;
+    }
+
+    const summaryParts = [];
+    if (seg.speaker_count > 0) {
+      summaryParts.push(`<span>${seg.speaker_count} speaker${seg.speaker_count !== 1 ? 's' : ''}</span>`);
+    }
+    if (seg.attribution_total > 0) {
+      const reviewed = seg.attribution_total - seg.attribution_needs_review;
+      summaryParts.push(`<span>${reviewed}/${seg.attribution_total} attributed</span>`);
     }
 
     let html = `
       <div class="spk-detail-header">
-        <div class="spk-detail-title">${seg.start} - ${seg.end}</div>
+        <h2 class="spk-detail-title">${seg.start} - ${seg.end}</h2>
       </div>
+      ${summaryParts.length ? `<div class="spk-detail-summary">${summaryParts.join('')}</div>` : ''}
     `;
 
     html += '<div class="spk-speakers" id="spkSpeakers"><div class="spk-empty">Loading speakers...</div></div>';
@@ -974,8 +1518,28 @@
     }
 
     html += '<div class="spk-audio-player" id="spkAudioContainer"></div>';
+
+    if (!detailExpanded) {
+      html += '<button class="spk-expand-btn" id="spkExpandBtn">Show sentences and details</button>';
+    }
+
     html += '<div class="spk-sentences" id="spkSentences"><div class="spk-empty">Loading...</div></div>';
     detailPanel.innerHTML = html;
+
+    if (!detailExpanded) {
+      detailPanel.classList.add('spk-detail-collapsed');
+    } else {
+      detailPanel.classList.remove('spk-detail-collapsed');
+    }
+
+    const expandBtn = document.getElementById('spkExpandBtn');
+    if (expandBtn) {
+      expandBtn.addEventListener('click', () => {
+        detailExpanded = true;
+        detailPanel.classList.remove('spk-detail-collapsed');
+        expandBtn.remove();
+      });
+    }
 
     detailPanel.querySelectorAll('.spk-source-tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -1019,7 +1583,7 @@
     const unmatchedCount = unmatched ? unmatched.length : 0;
 
     if (!hasMatched && !hasUnmatched) {
-      container.innerHTML = '<div class="spk-empty">No speakers in this segment</div>';
+      container.innerHTML = emptyStateHTML(emptyIcons.people, 'no speakers found', 'no speaker voices were detected in this segment');
       return;
     }
 
@@ -1028,25 +1592,25 @@
     if (unmatchedCount > 0) titleParts.push(`${unmatchedCount} unmatched`);
     const title = `Speakers (${titleParts.join(', ')})`;
 
-    let html = `<div class="spk-speakers-title">${title}</div><div class="spk-speaker-cards">`;
+    let html = `<h2 class="spk-speakers-title">${title}</h2><ul class="spk-speaker-cards">`;
     if (hasMatched) {
       matched.forEach(m => {
         html += `
-          <div class="spk-speaker-card spk-speaker-matched">
-            <span class="spk-speaker-entity">${escapeHtml(m.entity_name)}</span>
+          <li class="spk-speaker-card spk-speaker-matched">
+            <h3 class="spk-speaker-entity">${escapeHtml(m.entity_name)}</h3>
             ${m.detected_name !== m.entity_name ? `<span class="spk-speaker-detected">(${escapeHtml(m.detected_name)})</span>` : ''}
-          </div>
+          </li>
         `;
       });
     }
 
     if (hasUnmatched) {
       unmatched.forEach(name => {
-        html += `<div class="spk-speaker-card spk-speaker-unmatched">${escapeHtml(name)}</div>`;
+        html += `<li class="spk-speaker-card spk-speaker-unmatched"><h3 class="spk-speaker-entity">${escapeHtml(name)}</h3></li>`;
       });
     }
 
-    html += '</div>';
+    html += '</ul>';
     container.innerHTML = html;
   }
 
@@ -1112,14 +1676,14 @@
     const countLabel = countLabelForFilter(sentences.length, total);
 
     if (total === 0) {
-      container.innerHTML = '<div class="spk-empty">No sentences with embeddings found</div>';
+      container.innerHTML = emptyStateHTML(emptyIcons.text, 'no sentences to review', 'this segment doesn\'t have any sentences to work with yet');
       return;
     }
 
     container.innerHTML = `
-      <div class="spk-sentences-title">
+      <h2 class="spk-sentences-title">
         <span id="spkSentenceCount">${escapeHtml(countLabel)}</span>
-      </div>
+      </h2>
       <div class="spk-filter-bar">
         <button class="spk-filter-btn${currentFilter === 'all' ? ' active' : ''}" data-filter="all">All</button>
         <button class="spk-filter-btn${currentFilter === 'needs_review' ? ' active' : ''}" data-filter="needs_review">Needs Review</button>
@@ -1132,7 +1696,7 @@
         const showPrompt = seg?.speaker_count > 0 && nonOwnerTotal > 0 && (nullCount / nonOwnerTotal) > 0.5;
         return showPrompt ? `<div class="spk-seeding-prompt">This meeting has ${seg.speaker_count} named speakers but I can't match voices yet. Assigning even a few sentences will help me learn their voices for future meetings.</div>` : '';
       })()}
-      ${!hasLabels ? '<div class="spk-status spk-status-error">Not yet attributed</div>' : ''}
+      ${!hasLabels ? '<div class="spk-status spk-status-info">speakers haven\'t been identified yet — assign a few sentences to help solstone learn their voices</div>' : ''}
       ${sentences.length === 0 ? '<div class="spk-empty">No sentences match this filter</div>' : sentences.map(renderSentence).join('')}
     `;
 
@@ -1175,10 +1739,10 @@
         <div class="spk-sentence-content">
           <div class="spk-sentence-text">${escapeHtml(sentence.text)}</div>
           <div class="spk-sentence-speaker">${speakerHtml}</div>
-          <div class="spk-status-container" id="status-${sentence.id}"></div>
+          <div class="spk-status-container" id="status-${sentence.id}" role="status" aria-live="polite"></div>
         </div>
         <div class="spk-sentence-actions">
-          <button class="spk-btn spk-btn-icon spk-play-btn" title="Play from here">&#9654;</button>
+          <button class="spk-btn spk-btn-icon spk-play-btn" aria-label="Play from here" title="Play from here">&#9654;</button>
           ${actionsHtml}
         </div>
       </div>
@@ -1199,7 +1763,8 @@
 
     let html = '';
     if (dotClass) {
-      html += `<span class="spk-confidence-dot${dotClass}"></span>`;
+      html += `<span class="spk-confidence-dot${dotClass}" aria-label="${sentence.confidence} confidence"></span>`;
+      html += `<span class="spk-confidence-label">${escapeHtml(sentence.confidence)}</span>`;
     }
 
     if (sentence.is_correction && sentence.original_speaker_name) {
@@ -1211,7 +1776,7 @@
     if (sentence.needs_review) {
       html += '<span class="spk-review-state">Needs review</span>';
     } else if (sentence.method) {
-      html += `<span class="spk-review-state">${escapeHtml(sentence.method)}</span>`;
+      html += `<span class="spk-review-state">${escapeHtml(METHOD_DISPLAY[sentence.method] || sentence.method)}</span>`;
     }
 
     return html;
@@ -1219,7 +1784,7 @@
 
   function renderActions(sentence) {
     if (!hasLabels) {
-      return '<span class="spk-review-state">Not yet attributed</span>';
+      return '<span class="spk-review-state">not yet identified</span>';
     }
 
     const options = reviewEntities.map(entity => (
@@ -1228,10 +1793,11 @@
 
     if (sentence.speaker_entity_id) {
       const correctSelect = `
-        <select class="spk-select-small spk-correct-select" data-sentence-id="${sentence.id}">
+        <select class="spk-select-small spk-correct-select" aria-label="Correct attribution" data-sentence-id="${sentence.id}">
           <option value="">Correct...</option>
           ${options}
         </select>
+        <button class="spk-btn spk-btn-primary spk-apply-btn" data-sentence-id="${sentence.id}" data-action="correct" style="display:none" aria-label="Apply correction">&#10003;</button>
       `;
 
       if (sentence.confidence === 'medium') {
@@ -1245,10 +1811,11 @@
     }
 
     return `
-      <select class="spk-select-small spk-assign-select" data-sentence-id="${sentence.id}">
+      <select class="spk-select-small spk-assign-select" aria-label="Assign speaker" data-sentence-id="${sentence.id}">
         <option value="">Assign...</option>
         ${options}
       </select>
+      <button class="spk-btn spk-btn-primary spk-apply-btn" data-sentence-id="${sentence.id}" data-action="assign" style="display:none" aria-label="Apply assignment">&#10003;</button>
     `;
   }
 
@@ -1279,17 +1846,37 @@
 
     detailPanel.querySelectorAll('.spk-correct-select').forEach(select => {
       select.addEventListener('change', () => {
-        if (!select.value) return;
-        const sentenceId = parseInt(select.dataset.sentenceId, 10);
-        correctAttribution(sentenceId, select.value);
+        const applyBtn = select.nextElementSibling;
+        if (select.value) {
+          applyBtn.dataset.value = select.value;
+          applyBtn.style.display = '';
+        } else {
+          applyBtn.style.display = 'none';
+        }
       });
     });
 
     detailPanel.querySelectorAll('.spk-assign-select').forEach(select => {
       select.addEventListener('change', () => {
-        if (!select.value) return;
-        const sentenceId = parseInt(select.dataset.sentenceId, 10);
-        assignAttribution(sentenceId, select.value);
+        const applyBtn = select.nextElementSibling;
+        if (select.value) {
+          applyBtn.dataset.value = select.value;
+          applyBtn.style.display = '';
+        } else {
+          applyBtn.style.display = 'none';
+        }
+      });
+    });
+
+    detailPanel.querySelectorAll('.spk-apply-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sentenceId = parseInt(btn.dataset.sentenceId, 10);
+        const value = btn.dataset.value;
+        if (btn.dataset.action === 'correct') {
+          correctAttribution(sentenceId, value);
+        } else if (btn.dataset.action === 'assign') {
+          assignAttribution(sentenceId, value);
+        }
       });
     });
   }
@@ -1309,7 +1896,7 @@
       .then(r => r.json())
       .then(data => {
         if (data.error) {
-          showStatusBySentence(sentenceId, data.error, 'error');
+          showStatusBySentence(sentenceId, friendlyError(data.error), 'error');
           return;
         }
 
@@ -1325,7 +1912,7 @@
         loadSegments();
       })
       .catch(() => {
-        showStatusBySentence(sentenceId, 'Failed to confirm attribution', 'error');
+        showStatusBySentence(sentenceId, 'Failed to confirm attribution — try again', 'error');
       });
   }
 
@@ -1345,14 +1932,14 @@
       .then(r => r.json())
       .then(data => {
         if (data.error) {
-          showStatusBySentence(sentenceId, data.error, 'error');
+          showStatusBySentence(sentenceId, friendlyError(data.error), 'error');
           return;
         }
         loadReview(selectedSegment, selectedSource);
         loadSegments();
       })
       .catch(() => {
-        showStatusBySentence(sentenceId, 'Failed to correct attribution', 'error');
+        showStatusBySentence(sentenceId, 'Failed to correct attribution — try again', 'error');
       });
   }
 
@@ -1372,25 +1959,36 @@
       .then(r => r.json())
       .then(data => {
         if (data.error) {
-          showStatusBySentence(sentenceId, data.error, 'error');
+          showStatusBySentence(sentenceId, friendlyError(data.error), 'error');
           return;
         }
         loadReview(selectedSegment, selectedSource);
         loadSegments();
       })
       .catch(() => {
-        showStatusBySentence(sentenceId, 'Failed to assign attribution', 'error');
+        showStatusBySentence(sentenceId, 'Failed to assign attribution — try again', 'error');
       });
   }
 
   function showStatusBySentence(sentenceId, message, type) {
     const container = document.getElementById(`status-${sentenceId}`);
     if (!container) return;
-    container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}</div>`;
-    setTimeout(() => {
-      const current = document.getElementById(`status-${sentenceId}`);
-      if (current) current.innerHTML = '';
-    }, 3000);
+    if (statusTimers[sentenceId]) {
+      clearTimeout(statusTimers[sentenceId]);
+      delete statusTimers[sentenceId];
+    }
+    if (type === 'error') {
+      container.setAttribute('aria-live', 'assertive');
+      container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}<button class="spk-status-dismiss" aria-label="Dismiss" onclick="this.closest('.spk-status-container').innerHTML='';this.closest('.spk-status-container').setAttribute('aria-live','polite')">&times;</button></div>`;
+    } else {
+      container.setAttribute('aria-live', 'polite');
+      container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}</div>`;
+      statusTimers[sentenceId] = setTimeout(() => {
+        const current = document.getElementById(`status-${sentenceId}`);
+        if (current) current.innerHTML = '';
+        delete statusTimers[sentenceId];
+      }, 3000);
+    }
   }
 
   function setupAudioListeners() {
@@ -1422,6 +2020,16 @@
           row.querySelector('.spk-play-btn').innerHTML = '&#9654;';
         }
         playingSentenceId = null;
+      }
+    });
+
+    audioPlayer.addEventListener('error', () => {
+      const container = document.getElementById('spkAudioContainer');
+      if (container) {
+        container.innerHTML = '<div class="spk-status spk-status-error" role="alert">Couldn\'t load audio — the file may be missing or in an unsupported format<button class="spk-status-dismiss" aria-label="Dismiss">&times;</button></div>';
+        container.querySelector('.spk-status-dismiss')?.addEventListener('click', (e) => {
+          e.target.closest('.spk-status-error').remove();
+        });
       }
     });
 

@@ -50,6 +50,48 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   box-sizing: border-box;
 }
 
+.tr-timeline-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tr-timeline-legend {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #9ca3af;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tr-legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
 .tr-grid {
   position: absolute;
   top: 12px;
@@ -88,7 +130,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   right: 0;
   padding-right: 8px;
   transform: translateY(-50%);
-  font-size: 11px;
+  font-size: 12px;
   color: #6b7280;
 }
 
@@ -175,6 +217,26 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   border: 1px solid #facc15;
 }
 
+.tr-now-marker {
+  position: absolute;
+  left: 64px;
+  right: 0;
+  height: 0;
+  border-top: 2px solid #ef4444;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.tr-now-label {
+  position: absolute;
+  right: 4px;
+  top: -8px;
+  font-size: 12px;
+  color: #ef4444;
+  font-weight: 500;
+  line-height: 1;
+}
+
 /* Right content panel */
 .tr-content {
   padding: 24px;
@@ -203,6 +265,17 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-range-text {
   color: #6b7280;
   font-size: 14px;
+}
+
+.tr-nav-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-left: 8px;
+  display: none;
+}
+
+.tr-nav-hint.visible {
+  display: inline;
 }
 
 .tr-tabs {
@@ -236,6 +309,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   background: #3b82f6;
   border-color: #3b82f6;
   color: #fff;
+}
+
+.tr-tab:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 1px;
 }
 
 .tr-tab-pane {
@@ -356,6 +434,23 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   box-sizing: border-box;
 }
 
+.tr-zoom-timeline-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .tr-zoom-labels {
   position: absolute;
   left: 0;
@@ -372,7 +467,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   right: 0;
   padding-right: 6px;
   transform: translateY(-50%);
-  font-size: 10px;
+  font-size: 12px;
   color: #6b7280;
 }
 
@@ -410,6 +505,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-zoom-pill.tr-active {
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5), 0 2px 4px rgba(0,0,0,.12);
+}
+
+.tr-zoom-pill:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 1px;
 }
 
 .tr-zoom-pill-audio {
@@ -603,7 +703,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 }
 
 .tr-audio-player-label {
-  font-size: 11px;
+  font-size: 12px;
   color: #6b7280;
   margin-bottom: 4px;
 }
@@ -633,6 +733,16 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-entry-audio {
   border-left: 3px solid #86efac;
+}
+
+.tr-entry-audio:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: -1px;
+}
+
+.tr-entry.tr-entry-active {
+  background: #f0f9ff;
+  border-left-color: #3b82f6;
 }
 
 .tr-entry-screen {
@@ -699,7 +809,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   display: inline-block;
   padding: 2px 6px;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   background: #dbeafe;
   color: #1d4ed8;
@@ -715,7 +825,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: #6b7280;
   margin-bottom: 2px;
@@ -758,6 +868,68 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   text-align: center;
   color: #9ca3af;
   padding: 48px 24px;
+}
+
+.tr-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: #9ca3af;
+  padding: 48px 24px;
+  gap: 12px;
+}
+
+.tr-empty-icon svg {
+  width: 48px;
+  height: 48px;
+  stroke: #d1d5db;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tr-empty-heading {
+  font-size: 16px;
+  font-weight: 500;
+  color: #6b7280;
+  margin: 0;
+}
+
+.tr-empty-desc {
+  font-size: 14px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.tr-warning-notice {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+}
+
+.tr-warning-notice.visible {
+  display: flex;
+}
+
+.tr-warning-notice svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  stroke: #f59e0b;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* Markdown content styling within screen entries */
@@ -812,6 +984,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-group-header:hover {
   background: #f3f4f6;
+}
+
+.tr-group-header:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: -1px;
 }
 
 .tr-group-chevron {
@@ -881,7 +1058,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   left: 4px;
   padding: 2px 6px;
   border-radius: 4px;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 500;
   background: rgba(0,0,0,0.6);
   color: #fff;
@@ -890,12 +1067,25 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 </style>
 
 <div class="tr-wrap">
   <div class="tr-card">
     <!-- Left timeline -->
-    <div id="trTimeline" class="tr-timeline" aria-label="Day timeline (08:00-22:00)">
+    <div id="trTimeline" class="tr-timeline" aria-label="Day timeline">
+      <div class="tr-timeline-label">day</div>
       <div class="tr-grid" id="trGrid"></div>
       <div class="tr-labels" id="trLabels"></div>
       <div class="tr-segments" id="trSegments"></div>
@@ -905,10 +1095,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           <div class="tr-bumper tr-bumper-bottom" data-handle="end" title="Drag to adjust end"></div>
         </div>
       </div>
+      <div class="tr-timeline-legend">
+        <span><span class="tr-legend-dot" style="background: #86efac;"></span>audio</span>
+        <span><span class="tr-legend-dot" style="background: #facc15;"></span>screen</span>
+      </div>
     </div>
 
     <!-- Middle zoom timeline -->
     <div class="tr-zoom" id="trZoom">
+      <div class="tr-zoom-timeline-label">detail</div>
       <div class="tr-zoom-grid" id="trZoomGrid"></div>
       <div class="tr-zoom-labels" id="trZoomLabels"></div>
       <div class="tr-zoom-segments" id="trZoomSegments"></div>
@@ -919,7 +1114,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       <div class="tr-header">
         <div>
           <h2 class="tr-title">Transcripts</h2>
-          <div class="tr-range-text" id="trRangeText">Select a segment to view</div>
+          <div class="tr-range-text" id="trRangeText"></div>
+          <span class="tr-nav-hint" id="trNavHint">[ ] to navigate</span>
         </div>
         <button type="button" id="trDeleteBtn" class="tr-delete-btn" title="Delete segment">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -929,6 +1125,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         </button>
       </div>
       <div class="tr-tabs" id="trTabs"></div>
+      <div id="trWarningNotice" class="tr-warning-notice">
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        <span id="trWarningText"></span>
+      </div>
       <div class="tr-panel" id="trPanel"></div>
     </div>
   </div>
@@ -970,8 +1170,37 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   const titleEl = document.querySelector('.tr-title');
   const rangeText = document.getElementById('trRangeText');
   const tabsContainer = document.getElementById('trTabs');
+  tabsContainer.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const tabs = [...tabsContainer.querySelectorAll('.tr-tab')];
+    const idx = tabs.indexOf(e.target);
+    if (idx < 0) return;
+    const next = e.key === 'ArrowRight'
+      ? tabs[(idx + 1) % tabs.length]
+      : tabs[(idx - 1 + tabs.length) % tabs.length];
+    activateTab(next.dataset.tab);
+    next.focus();
+  });
   const panel = document.getElementById('trPanel');
   const deleteBtn = document.getElementById('trDeleteBtn');
+  const emptyIcons = {
+    day: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
+    nothing: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>',
+    transcript: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+    audio: '<svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>',
+    screen: '<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>'
+  };
+
+  function emptyStateHTML(icon, heading, desc) {
+    return '<div class="tr-empty-state">' +
+      '<div class="tr-empty-icon">' + icon + '</div>' +
+      '<p class="tr-empty-heading">' + heading + '</p>' +
+      '<p class="tr-empty-desc">' + desc + '</p>' +
+      '</div>';
+  }
+
+  panel.innerHTML = emptyStateHTML(emptyIcons.day, 'your day at a glance', 'select a segment from the timeline to view its transcript');
 
   // State
   let height = timeline.clientHeight;
@@ -980,6 +1209,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   let drag = null;
   let allSegments = [];
   let selectedSegment = null;
+  let updateNowPosition = null;
 
   // Zoom state
   let zoomHeight = zoom.clientHeight;
@@ -1411,6 +1641,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     el.setAttribute('role', 'button');
     el.setAttribute('tabindex', '0');
     el.setAttribute('aria-label', _label);
+    el.title = hhmm(startMin) + ' – ' + hhmm(endMin) + ' (' + (endMin - startMin) + ' min, ' + type + ')';
     el.addEventListener('click', e => {
       e.stopPropagation();
       const midMin = (startMin + endMin) / 2;
@@ -1531,6 +1762,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
       const pill = document.createElement('div');
       pill.className = 'tr-zoom-pill';
+      pill.setAttribute('role', 'button');
+      pill.setAttribute('tabindex', '0');
 
       if (colCount > 1) {
         const colIdx = streams.indexOf(seg.stream);
@@ -1551,6 +1784,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       } else {
         pill.classList.add('tr-zoom-pill-screen');
       }
+      const typeLabel = (hasAudio && hasScreen) ? 'audio and screen' : hasAudio ? 'audio' : 'screen';
 
       if (selectedSegment && selectedSegment.key === seg.key) {
         pill.classList.add('tr-active');
@@ -1558,16 +1792,26 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
       pill.style.top = zoomY(visStart) + 'px';
       pill.style.height = Math.max(4, zoomY(visEnd) - zoomY(visStart)) + 'px';
-      pill.title = seg.stream ? `${seg.start} - ${seg.end} (${seg.stream})` : `${seg.start} - ${seg.end}`;
+      const duration = Math.round(visEnd - visStart);
+      const typeDesc = (hasAudio && hasScreen) ? 'audio + screen' : hasAudio ? 'audio' : 'screen';
+      pill.title = seg.start + ' – ' + seg.end + ' · ' + duration + ' min · ' + typeDesc;
+      pill.setAttribute('aria-label', 'Segment ' + seg.start + ' \u2013 ' + seg.end + ', ' + typeLabel);
       pill.dataset.key = seg.key;
 
       pill.addEventListener('click', () => selectSegment(seg));
+      pill.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          selectSegment(seg);
+        }
+      });
       zoomSegments.appendChild(pill);
     });
   }
 
   function selectSegment(seg, updateHash = true) {
     selectedSegment = seg;
+    document.getElementById('trNavHint').classList.add('visible');
 
     // Update URL hash for shareable links
     if (updateHash) {
@@ -1587,6 +1831,31 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     // Load transcript content
     loadSegmentContent(seg);
+  }
+
+  // Step through segments with [ ] keys
+  function navigateSegment(delta) {
+    if (allSegments.length === 0) return;
+    let currentIdx = selectedSegment
+      ? allSegments.findIndex(s => s.key === selectedSegment.key)
+      : -1;
+    let nextIdx = currentIdx === -1
+      ? (delta > 0 ? 0 : allSegments.length - 1)
+      : currentIdx + delta;
+    if (nextIdx < 0 || nextIdx >= allSegments.length) return;
+    const seg = allSegments[nextIdx];
+    const segStart = parseTime(seg.start);
+    const segEnd = parseTime(seg.end);
+    if (segStart < range.start || segEnd > range.end) {
+      const rangeLen = range.end - range.start;
+      const segMid = (segStart + segEnd) / 2;
+      let newStart = snap(Math.max(timelineStart, segMid - rangeLen / 2));
+      newStart = Math.min(newStart, timelineEnd - rangeLen);
+      range = { start: newStart, end: newStart + rangeLen };
+      renderTimeline();
+      updateZoom();
+    }
+    selectSegment(seg);
   }
 
   // Unified timeline state
@@ -1609,6 +1878,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     frameCapture.clear();
     tabsContainer.classList.remove('visible');
     tabsContainer.innerHTML = '';
+    document.getElementById('trWarningNotice').classList.remove('visible');
     panel.innerHTML = '<div class="tr-unified-empty"><p>Loading segment...</p></div>';
 
     fetch(`/app/transcripts/api/segment/${day}/${seg.stream}/${seg.key}`)
@@ -1621,11 +1891,18 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         updateRangeText();
         buildTabBar(data);
         activateTab('transcript');
+        const warningNotice = document.getElementById('trWarningNotice');
+        if (data.warnings > 0) {
+          document.getElementById('trWarningText').textContent = data.warnings + ' warning' + (data.warnings === 1 ? '' : 's') + ' during processing';
+          warningNotice.classList.add('visible');
+        } else {
+          warningNotice.classList.remove('visible');
+        }
       })
       .catch(() => {
         tabsContainer.classList.remove('visible');
         tabsContainer.innerHTML = '';
-        panel.innerHTML = '<p>Error loading transcript.</p>';
+        panel.innerHTML = emptyStateHTML(emptyIcons.transcript, 'couldn\'t load this segment', 'something went wrong loading the transcript. try selecting the segment again, or refresh the page.');
       });
   }
 
@@ -1716,6 +1993,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
   function buildTabBar(data) {
     tabsContainer.innerHTML = '';
+    tabsContainer.setAttribute('role', 'tablist');
     tabsContainer.classList.remove('visible');
     panel.innerHTML = '';
     tabPanes = {};
@@ -1728,6 +2006,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       btn.className = 'tr-tab';
       btn.dataset.tab = tabId;
       btn.textContent = label;
+      btn.setAttribute('role', 'tab');
+      btn.id = 'tr-tab-' + tabId;
+      btn.setAttribute('aria-selected', 'false');
+      btn.setAttribute('aria-controls', 'tr-tabpanel-' + tabId);
+      btn.setAttribute('tabindex', '-1');
       btn.addEventListener('click', () => activateTab(tabId));
       tabsContainer.appendChild(btn);
     };
@@ -1752,7 +2035,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     }
 
     tabsContainer.querySelectorAll('.tr-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.tab === tabId);
+      const isActive = tab.dataset.tab === tabId;
+      tab.classList.toggle('active', isActive);
+      tab.setAttribute('aria-selected', String(isActive));
+      tab.setAttribute('tabindex', isActive ? '0' : '-1');
     });
 
     Object.values(tabPanes).forEach(pane => pane.classList.remove('active'));
@@ -1762,6 +2048,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       pane = document.createElement('div');
       pane.className = 'tr-tab-pane';
       pane.dataset.tab = tabId;
+      pane.setAttribute('role', 'tabpanel');
+      pane.setAttribute('tabindex', '0');
+      pane.id = 'tr-tabpanel-' + tabId;
+      pane.setAttribute('aria-labelledby', 'tr-tab-' + tabId);
       panel.appendChild(pane);
       tabPanes[tabId] = pane;
 
@@ -1789,7 +2079,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
             if (tabPanes[tabId] !== pane) {
               return;
             }
-            pane.innerHTML = '<p>Error loading screen entries.</p>';
+            pane.innerHTML = emptyStateHTML(emptyIcons.screen, 'couldn\'t load screen entries', 'something went wrong decoding the screen data. try selecting the segment again.');
           });
       } else if (tabId.startsWith('md-')) {
         const stem = tabId.slice(3);
@@ -1816,7 +2106,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     currentFrameIndex = -1;
 
     if (chunks.length === 0) {
-      targetEl.innerHTML = '<div class="tr-unified-empty"><p>No entries to display for this tab.</p></div>';
+      const tabType = !showScreen ? 'audio' : !showAudio ? 'screen' : 'transcript';
+      const tabEmptyMap = {
+        transcript: { icon: emptyIcons.transcript, heading: 'no transcript entries', desc: 'this segment has no transcript content' },
+        audio: { icon: emptyIcons.audio, heading: 'no audio entries', desc: 'this segment has no audio content' },
+        screen: { icon: emptyIcons.screen, heading: 'no screen entries', desc: 'this segment has no screen captures' }
+      };
+      const emptyInfo = tabEmptyMap[tabType] || tabEmptyMap.transcript;
+      targetEl.innerHTML = emptyStateHTML(emptyInfo.icon, emptyInfo.heading, emptyInfo.desc);
       return;
     }
 
@@ -1824,11 +2121,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     const displayItems = textOnlyScreen ? chunks : groupBasicScreenFrames(chunks);
     groupEntriesByIdx = new Map();
 
-    let html = '<div class="tr-unified">';
+    let html = `<div class="tr-unified" role="list" aria-label="Transcript entries, ${displayItems.length} items">`;
 
     // Audio player section (if we have audio)
     if (data.audio_file && showAudio) {
-      html += '<div class="tr-audio-players">';
+      html += '<div class="tr-audio-players" role="presentation">';
       html += '<div class="tr-audio-player">';
       html += '<div class="tr-audio-player-label">Segment Audio</div>';
       html += `<audio data-role="segment-audio" controls preload="metadata"><source src="${data.audio_file}" type="audio/flac">Your browser does not support audio.</audio>`;
@@ -1836,7 +2133,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     }
 
     if (data.media_purged && !data.audio_file && showAudio) {
-      html += '<div class="tr-purge-notice">Raw recording removed per retention policy</div>';
+      html += '<div class="tr-purge-notice" role="presentation">Raw recording removed per retention policy</div>';
     }
 
     // Render items (chunks or groups)
@@ -1847,16 +2144,17 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         html += renderScreenGroup(item, idx);
       } else if (item.type === 'audio') {
         const timeStr = item.time || '';
-        html += `<div class="tr-entry tr-entry-audio" data-idx="${idx}" data-type="audio" data-timestamp="${item.timestamp}">`;
+        html += `<div class="tr-entry tr-entry-audio" data-idx="${idx}" data-type="audio" data-timestamp="${item.timestamp}" role="listitem" tabindex="0" aria-label="Play from ${timeStr}">`;
         html += `<div class="tr-entry-time">${timeStr}</div>`;
         html += '<div class="tr-entry-content">';
+        html += '<span class="sr-only">Audio: </span>';
         if (item.speaker_label) {
           const sl = item.speaker_label;
           const dotClass = sl.confidence === 'high' ? 'tr-speaker-dot-high' : 'tr-speaker-dot-medium';
           const labelClass = sl.is_owner ? 'tr-speaker-label tr-speaker-label-owner' : 'tr-speaker-label';
           const displayName = sl.is_owner ? 'You' : escapeHtml(sl.name);
           const entityHref = '/app/entities#' + encodeURIComponent(sl.entity_id);
-          html += `<div class="${labelClass}"><span class="tr-speaker-dot ${dotClass}"></span><a href="${entityHref}">${displayName}</a></div>`;
+          html += `<div class="${labelClass}" aria-label="Speaker: ${displayName}, ${sl.confidence} confidence"><span class="tr-speaker-dot ${dotClass}"></span><a href="${entityHref}">${displayName}</a><span class="sr-only">${sl.confidence} confidence</span></div>`;
         }
         html += `<div class="tr-entry-text">${escapeHtml(item.markdown)}</div>`;
         html += '</div></div>';
@@ -1864,9 +2162,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         if (textOnlyScreen) {
           const timeStr = item.time || '';
           const markdown = item.markdown ? marked.parse(item.markdown) : 'Screen activity';
-          html += '<div class="tr-entry">';
+          html += '<div class="tr-entry" role="listitem">';
           html += `<div class="tr-entry-time">${timeStr}</div>`;
           html += '<div class="tr-entry-content">';
+          html += '<span class="sr-only">Screen: </span>';
           html += `<div class="tr-screen-text">${markdown}</div>`;
           html += '</div></div>';
         } else {
@@ -1895,6 +2194,47 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       });
     });
 
+    // Add keyboard handler for audio entries
+    targetEl.querySelectorAll('.tr-entry-audio').forEach(entry => {
+      entry.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          entry.click();
+        }
+      });
+    });
+
+    // Playback highlight: track current entry during audio playback
+    if (paneAudioEl) {
+      const baseTimestamp = chunks[0]?.timestamp || 0;
+      let activeEntry = null;
+
+      paneAudioEl.addEventListener('timeupdate', () => {
+        const currentMs = baseTimestamp + (paneAudioEl.currentTime * 1000);
+        const entries = targetEl.querySelectorAll('.tr-entry-audio[data-timestamp]');
+        let best = null;
+        for (const el of entries) {
+          const ts = parseInt(el.dataset.timestamp, 10);
+          if (ts <= currentMs) best = el;
+          else break;
+        }
+        if (best === activeEntry) return;
+        if (activeEntry) activeEntry.classList.remove('tr-entry-active');
+        activeEntry = best;
+        if (activeEntry) {
+          activeEntry.classList.add('tr-entry-active');
+          activeEntry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      });
+
+      paneAudioEl.addEventListener('ended', () => {
+        if (activeEntry) {
+          activeEntry.classList.remove('tr-entry-active');
+          activeEntry = null;
+        }
+      });
+    }
+
     // Add click handlers for enhanced screen entries to open modal
     targetEl.querySelectorAll('.tr-entry-screen').forEach(entry => {
       const thumb = entry.querySelector('.tr-entry-thumb');
@@ -1913,12 +2253,19 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       header.addEventListener('click', () => {
         const groupEl = header.parentElement;
         const isExpanded = groupEl.classList.toggle('expanded');
+        header.setAttribute('aria-expanded', String(isExpanded));
         if (!isExpanded) return;
         if (groupEl.dataset.prefetched === 'true') return;
         const groupIdx = parseInt(groupEl.dataset.idx, 10);
         if (isNaN(groupIdx)) return;
         const entries = groupEntriesByIdx.get(groupIdx) || [];
         prefetchGroupThumbnails(entries, groupEl, targetEl);
+      });
+      header.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          header.click();
+        }
       });
     });
 
@@ -2058,15 +2405,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       : `${group.startTime} - ${group.endTime}`;
     const countText = count === 1 ? '1 frame' : `${count} frames`;
 
-    let html = `<div class="tr-group" data-idx="${idx}">`;
-    html += '<div class="tr-group-header">';
+    let html = `<div class="tr-group" data-idx="${idx}" role="listitem">`;
+    html += `<div class="tr-group-header" role="button" tabindex="0" aria-expanded="false" aria-controls="tr-group-grid-${idx}">`;
     html += `<svg class="tr-group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`;
     html += `<span class="tr-group-time">${timeRange}</span>`;
     html += `<span class="tr-group-count">${countText}</span>`;
     html += '</div>';
 
     // Grid of thumbnails (hidden until expanded)
-    html += '<div class="tr-group-grid">';
+    html += `<div class="tr-group-grid" id="tr-group-grid-${idx}">`;
     for (const entry of group.entries) {
       const videoUrl = getVideoUrlForChunk(entry);
       const frameId = entry.source_ref?.frame_id;
@@ -2095,9 +2442,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     const frameId = chunk.source_ref?.frame_id;
     const frameIdx = findFrameIndex(chunk);
 
-    let html = `<div class="tr-entry tr-entry-screen" data-idx="${idx}" data-frame-idx="${frameIdx}" data-type="screen">`;
+    let html = `<div class="tr-entry tr-entry-screen" data-idx="${idx}" data-frame-idx="${frameIdx}" data-type="screen" role="listitem">`;
     html += `<div class="tr-entry-time">${timeStr}</div>`;
     html += '<div class="tr-entry-content">';
+    html += '<span class="sr-only">Screen: </span>';
 
     if (videoUrl && frameId) {
       html += `<canvas class="tr-entry-thumb loading" data-video-url="${escapeHtml(videoUrl)}" data-frame-id="${frameId}"></canvas>`;
@@ -2131,10 +2479,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     currentFrameIndex = frameIndex;
     let maskHidden = false; // Track if user has revealed masked content
+    const triggerElement = document.activeElement;
+    const prevOverflow = document.body.style.overflow;
 
     const modal = document.createElement('div');
     modal.className = 'tr-screenshot-modal';
     modal.id = 'trImageModal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Screenshot viewer');
 
     const drawFrame = (canvas, f, showMask) => {
       const videoUrl = getVideoUrlForChunk(f);
@@ -2167,7 +2520,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const hasNext = currentFrameIndex < allScreenFrames.length - 1;
 
       modal.innerHTML = `
-        <div class="tr-modal-nav${hasPrev ? '' : ' disabled'}" data-dir="prev" title="Previous frame (Left arrow)">
+        <div class="tr-modal-nav${hasPrev ? '' : ' disabled'}" data-dir="prev" title="Previous frame (Left arrow)" role="button" tabindex="${hasPrev ? '0' : '-1'}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
         </div>
         <div class="tr-modal-center">
@@ -2175,14 +2528,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
             ${monitorPos ? `<span class="tr-modal-badge tr-modal-badge-monitor">${monitorPos}</span>` : ''}
             ${category ? `<span class="tr-modal-badge tr-modal-badge-category">${escapeHtml(category)}</span>` : ''}
             ${isMasked ? '<span class="tr-modal-badge tr-modal-badge-masked" title="Click image to reveal">Masked</span>' : ''}
-            <button class="tr-modal-close" title="Close (Esc)">&times;</button>
+            <button class="tr-modal-close" title="Close (Esc)" aria-label="Close">&times;</button>
           </div>
           <div class="tr-modal-img-wrap">
             <canvas id="trModalCanvas" class="loading${isMasked ? ' tr-masked-canvas' : ''}"></canvas>
           </div>
           ${description ? `<div class="tr-modal-description">${escapeHtml(description)}</div>` : ''}
         </div>
-        <div class="tr-modal-nav${hasNext ? '' : ' disabled'}" data-dir="next" title="Next frame (Right arrow)">
+        <div class="tr-modal-nav${hasNext ? '' : ' disabled'}" data-dir="next" title="Next frame (Right arrow)" role="button" tabindex="${hasNext ? '0' : '-1'}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
         </div>
       `;
@@ -2211,12 +2564,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         currentFrameIndex = newIndex;
         maskHidden = false; // Reset mask state when navigating
         updateModalContent();
+        modal.querySelector('.tr-modal-close')?.focus();
       }
     };
 
     const closeModal = () => {
       modal.remove();
       document.removeEventListener('keydown', handleKeys);
+      document.body.style.overflow = prevOverflow;
+      if (triggerElement && document.contains(triggerElement)) triggerElement.focus();
       currentFrameIndex = -1;
     };
 
@@ -2224,6 +2580,18 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       if (e.key === 'Escape') closeModal();
       else if (e.key === 'ArrowLeft') { e.preventDefault(); navigateFrame(-1); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); navigateFrame(1); }
+      else if (e.key === 'Tab') {
+        const focusable = [...modal.querySelectorAll('button:not([disabled]), [tabindex="0"]')];
+        if (focusable.length === 0) return;
+        const currentIndex = focusable.indexOf(document.activeElement);
+        if (e.shiftKey) {
+          e.preventDefault();
+          focusable[currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1].focus();
+        } else {
+          e.preventDefault();
+          focusable[currentIndex >= focusable.length - 1 ? 0 : currentIndex + 1].focus();
+        }
+      }
     };
 
     // Event delegation for modal clicks
@@ -2236,12 +2604,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       }
     });
 
+    document.body.style.overflow = 'hidden';
     document.body.appendChild(modal);
     updateModalContent();
+    modal.querySelector('.tr-modal-close')?.focus();
     document.addEventListener('keydown', handleKeys);
   }
 
   function updateZoom() {
+    zoom.setAttribute('aria-label', 'Detail timeline (' + hhmm(range.start) + '\u2013' + hhmm(range.end) + ')');
     zoomHeight = zoom.clientHeight - 24; // account for padding
     const rangeLen = range.end - range.start;
     if (rangeLen > 0) {
@@ -2260,6 +2631,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     ppm = height / (timelineEnd - timelineStart);
     buildGrid();
     renderTimeline();
+    if (updateNowPosition) updateNowPosition();
   }).observe(timeline);
 
   new ResizeObserver(() => {
@@ -2277,14 +2649,32 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const bounds = computeTimelineBounds(data);
       timelineStart = bounds.start;
       timelineEnd = bounds.end;
+      timeline.setAttribute('aria-label', 'Day timeline (' + hhmm(timelineStart) + '\u2013' + hhmm(timelineEnd) + ')');
 
       // Recalculate pixels-per-minute with new bounds
       height = timeline.clientHeight - PADDING;
       ppm = height / (timelineEnd - timelineStart);
 
       // Set initial selection range within bounds
-      const mid = (timelineStart + timelineEnd) / 2;
-      range = { start: snap(mid - DEFAULT_LEN / 2), end: snap(mid + DEFAULT_LEN / 2) };
+      // Center on current time if viewing today, otherwise midpoint
+      const now = new Date();
+      const todayStr = String(now.getFullYear()) +
+        String(now.getMonth() + 1).padStart(2, '0') +
+        String(now.getDate()).padStart(2, '0');
+      let center;
+      if (day === todayStr) {
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        center = Math.max(timelineStart, Math.min(timelineEnd, nowMin));
+      } else {
+        center = (timelineStart + timelineEnd) / 2;
+      }
+      range = { start: snap(center - DEFAULT_LEN / 2), end: snap(center + DEFAULT_LEN / 2) };
+      if (range.start < timelineStart) {
+        range = { start: timelineStart, end: timelineStart + DEFAULT_LEN };
+      }
+      if (range.end > timelineEnd) {
+        range = { start: timelineEnd - DEFAULT_LEN, end: timelineEnd };
+      }
 
       // Build the grid and render timeline
       buildGrid();
@@ -2300,9 +2690,37 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         addSegmentIndicator('screen', s, e, 1);
       });
 
+      // Now-marker for today
+      if (day === todayStr) {
+        const marker = document.createElement('div');
+        marker.className = 'tr-now-marker';
+        marker.setAttribute('aria-label', 'Current time');
+        const lbl = document.createElement('span');
+        lbl.className = 'tr-now-label';
+        lbl.textContent = 'now';
+        marker.appendChild(lbl);
+        timeline.appendChild(marker);
+
+        updateNowPosition = function() {
+          const n = new Date();
+          const nowMin = n.getHours() * 60 + n.getMinutes();
+          if (nowMin < timelineStart || nowMin > timelineEnd) {
+            marker.style.display = 'none';
+          } else {
+            marker.style.display = '';
+            marker.style.top = y(nowMin) + 'px';
+          }
+        };
+        updateNowPosition();
+        setInterval(updateNowPosition, 60000);
+      }
+
       // Store segments and update zoom
       allSegments = data.segments || [];
       updateZoom();
+      if (allSegments.length === 0) {
+        panel.innerHTML = emptyStateHTML(emptyIcons.nothing, 'nothing captured', 'no recordings were found for this day');
+      }
 
       // Check for hash fragment to auto-select segment
       const hash = window.location.hash.slice(1);
@@ -2324,11 +2742,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     })
     .catch(err => {
       console.error('Failed to load transcript data:', err);
-      const errEl = document.createElement('div');
-      errEl.className = 'tr-zoom-empty';
-      errEl.textContent = 'Failed to load transcript data';
       zoomSegments.innerHTML = '';
-      zoomSegments.appendChild(errEl);
+      panel.innerHTML = emptyStateHTML(emptyIcons.transcript, 'couldn\'t load transcripts', 'the data service may be offline. try refreshing the page.');
     });
 
   // Handle browser back/forward
@@ -2340,6 +2755,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         selectSegment(seg, false);
       }
     }
+  });
+
+  // Keyboard navigation for segment stepping
+  document.addEventListener('keydown', (e) => {
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+    if (document.getElementById('trImageModal')) return;
+    if (e.key === ']') { e.preventDefault(); navigateSegment(1); }
+    else if (e.key === '[') { e.preventDefault(); navigateSegment(-1); }
   });
 
   // Click on timeline to set range
@@ -2430,16 +2854,18 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     // Hide delete button
     deleteBtn.classList.remove('visible');
+    document.getElementById('trNavHint').classList.remove('visible');
 
     // Clear URL hash
     history.replaceState(null, '', window.location.pathname);
 
     // Reset UI
     titleEl.textContent = 'Transcripts';
-    rangeText.textContent = 'Select a segment to view';
+    rangeText.textContent = '';
     tabsContainer.innerHTML = '';
     tabsContainer.classList.remove('visible');
-    panel.innerHTML = '';
+    document.getElementById('trWarningNotice').classList.remove('visible');
+    panel.innerHTML = emptyStateHTML(emptyIcons.day, 'your day at a glance', 'select a segment from the timeline to view its transcript');
 
     // Clear active state in zoom view
     zoomSegments.querySelectorAll('.tr-zoom-pill').forEach(pill => {
@@ -2497,7 +2923,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         });
 
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      const notice = document.createElement('div');
+      notice.className = 'tr-warning-notice visible';
+      notice.style.borderColor = '#fca5a5';
+      notice.style.background = '#fef2f2';
+      notice.style.color = '#991b1b';
+      notice.innerHTML = '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> <span>' + escapeHtml(err.message) + '</span>';
+      panel.insertBefore(notice, panel.firstChild);
+      setTimeout(() => notice.remove(), 5000);
     }
   });
 

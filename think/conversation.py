@@ -212,6 +212,7 @@ def get_recent_exchanges(
                     continue
                 try:
                     ex = json.loads(line)
+                    ex = _normalize_exchange(ex)
                     if facet and ex.get("facet") != facet:
                         continue
                     exchanges.append(ex)
@@ -250,6 +251,7 @@ def get_today_exchanges(facet: str | None = None) -> list[dict]:
                     continue
                 try:
                     ex = json.loads(line)
+                    ex = _normalize_exchange(ex)
                     ts = ex.get("ts", 0)
                     ex_day = datetime.fromtimestamp(ts / 1000).strftime("%Y%m%d")
                     if ex_day != today:
@@ -379,3 +381,13 @@ def inject_memory(user_instruction: str, memory_context: str) -> str:
         replacement = "No conversation history yet."
 
     return re.sub(pattern, replacement, user_instruction, flags=re.DOTALL)
+
+
+def _normalize_exchange(ex: dict) -> dict:
+    """Normalize legacy exchange dicts to the talent namespace."""
+    if "talent" not in ex and "muse" in ex:
+        ex["talent"] = ex["muse"]
+        # Optionally, remove the old 'muse' key if it's no longer needed in the normalized dict
+        # del ex["muse"]
+    return ex
+

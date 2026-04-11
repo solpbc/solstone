@@ -693,7 +693,7 @@ This facet-scoped structure provides true separation of concerns while enabling 
 
 Action logs record an audit trail of owner-initiated actions and agent tool calls. There are two types:
 
-- **Journal-level logs** (`config/actions/`) – actions not tied to a specific facet (settings changes, remote observer management)
+- **Journal-level logs** (`config/actions/`) – actions not tied to a specific facet (settings changes, observer management)
 - **Facet-scoped logs** (`facets/{facet}/logs/`) – actions within a specific facet (todos, entities)
 
 ### Journal Action Logs
@@ -908,7 +908,7 @@ Every segment belongs to a **stream** — a named series of segments from a sing
   - `prev_segment` – segment key of the predecessor (null for first)
   - `seq` – sequence number within the stream
 
-Stream names follow the convention: `{hostname}` for local observers, `{remote_name}` for remotes, `import.{type}` for imports (e.g., `import.apple`, `import.text`). Global stream state is tracked in the top-level `streams/` directory as `{name}.json` files.
+Stream names follow the convention: `{hostname}` for local observers, `{observer_name}` for observers, `import.{type}` for imports (e.g., `import.apple`, `import.text`). Global stream state is tracked in the top-level `streams/` directory as `{name}.json` files.
 
 Pre-stream segments (created before stream identity was added) have no `stream.json` and are handled gracefully as `None` throughout the pipeline.
 
@@ -964,7 +964,7 @@ Example transcript file:
 - `model` – model used for transcription (e.g., "medium.en", "revai-fusion")
 - `device` – device used for inference (e.g., "cuda", "cpu", "cloud")
 - `compute_type` – compute precision used (e.g., "float16", "int8", "api")
-- `remote` – remote name if transcribed from a remote source (optional)
+- `observer` – observer name if transcribed from an observer source (optional)
 - `imported` – object with import metadata for external files (optional):
   - `id` – unique import identifier
   - `facet` – facet name for entity extraction

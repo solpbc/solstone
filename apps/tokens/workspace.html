@@ -1,31 +1,31 @@
-<div class="tokens-dashboard">
+<main class="tokens-dashboard">
   <div class="loading-state" id="loading">
     <p>Loading token usage data...</p>
   </div>
 
   <div class="dashboard-content" id="dashboard" style="display: none;">
     <!-- Daily Summary Card -->
-    <div class="summary-card">
+    <section class="summary-card" aria-label="Daily summary">
       <table class="summary-table">
         <thead>
           <tr>
-            <th></th>
-            <th>Cost</th>
-            <th>Tokens</th>
-            <th>Requests</th>
-            <th>$/Seg</th>
+            <th scope="col" aria-label="Category"></th>
+            <th scope="col">Cost</th>
+            <th scope="col">Tokens</th>
+            <th scope="col">Requests</th>
+            <th scope="col">Avg / Segment</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td class="row-label">Generate</td>
+            <td class="row-label" title="Generate">Processing</td>
             <td id="generate-cost">-</td>
             <td id="generate-tokens">-</td>
             <td id="generate-requests">-</td>
             <td id="generate-seg-avg">-</td>
           </tr>
           <tr>
-            <td class="row-label">Cogitate</td>
+            <td class="row-label" title="Cogitate">Analysis</td>
             <td id="cogitate-cost">-</td>
             <td id="cogitate-tokens">-</td>
             <td id="cogitate-requests">-</td>
@@ -33,22 +33,24 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
+
+    <div id="skipped-notice" class="skipped-notice" style="display: none;" role="status"></div>
 
     <!-- By Provider -->
-    <div class="breakdown-section">
-      <h2>By Provider</h2>
+    <section class="breakdown-section" aria-labelledby="section-provider">
+      <h2 id="section-provider">By Provider</h2>
       <table class="breakdown-table" id="provider-table">
         <thead>
           <tr>
-            <th class="sortable" data-sort="provider">Provider</th>
-            <th class="sortable num" data-sort="requests">Requests</th>
-            <th class="sortable num" data-sort="tokens">Tokens</th>
-            <th class="sortable num" data-sort="input_cost">Input Cost</th>
-            <th class="sortable num" data-sort="output_cost">Output Cost</th>
-            <th class="sortable num" data-sort="cached_tokens">Cached</th>
-            <th class="sortable num" data-sort="cost">Total</th>
-            <th class="num">% of Day</th>
+            <th scope="col" class="sortable" data-sort="provider" role="button" tabindex="0" aria-sort="none">Provider</th>
+            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">Requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">Tokens</th>
+            <th scope="col" class="sortable num" data-sort="input_cost" role="button" tabindex="0" aria-sort="none">Input Cost</th>
+            <th scope="col" class="sortable num" data-sort="output_cost" role="button" tabindex="0" aria-sort="none">Output Cost</th>
+            <th scope="col" class="sortable num" data-sort="cached_tokens" role="button" tabindex="0" aria-sort="none">Cached</th>
+            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">Total</th>
+            <th scope="col" class="num">% of Day</th>
           </tr>
         </thead>
         <tbody id="provider-body">
@@ -57,20 +59,20 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
 
     <!-- By Model -->
-    <div class="breakdown-section">
-      <h2>By Model</h2>
+    <section class="breakdown-section" aria-labelledby="section-model">
+      <h2 id="section-model">By Model</h2>
       <table class="breakdown-table" id="model-table">
         <thead>
           <tr>
-            <th class="sortable" data-sort="model">Model</th>
-            <th class="sortable num" data-sort="requests">Requests</th>
-            <th class="sortable num" data-sort="tokens">Tokens</th>
-            <th class="sortable num" data-sort="cost">Total Cost</th>
-            <th class="num">% of Day</th>
-            <th class="sortable num" data-sort="avg_cost_per_request">Per-Request Avg</th>
+            <th scope="col" class="sortable" data-sort="model" role="button" tabindex="0" aria-sort="none">Model</th>
+            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">Requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">Tokens</th>
+            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">Total Cost</th>
+            <th scope="col" class="num">% of Day</th>
+            <th scope="col" class="sortable num" data-sort="avg_cost_per_request" role="button" tabindex="0" aria-sort="none">Per-Request Avg</th>
           </tr>
         </thead>
         <tbody id="model-body">
@@ -79,19 +81,19 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
 
     <!-- By Token Type -->
-    <div class="breakdown-section">
-      <h2>By Token Type</h2>
+    <section class="breakdown-section" aria-labelledby="section-token-type">
+      <h2 id="section-token-type">By Token Type</h2>
       <table class="breakdown-table" id="token-type-table">
         <thead>
           <tr>
-            <th>Token Type</th>
-            <th class="num">Total Tokens</th>
-            <th class="num">Cost</th>
-            <th class="num">% of Total Cost</th>
-            <th class="num">Avg Rate</th>
+            <th scope="col">Token Type</th>
+            <th scope="col" class="num">Total Tokens</th>
+            <th scope="col" class="num">Cost</th>
+            <th scope="col" class="num">% of Total Cost</th>
+            <th scope="col" class="num">Avg Rate</th>
           </tr>
         </thead>
         <tbody id="token-type-body">
@@ -100,23 +102,24 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
 
     <!-- By Context Prefix -->
-    <div class="breakdown-section">
-      <h2>By Context Prefix</h2>
+    <section class="breakdown-section" aria-labelledby="section-context">
+      <h2 id="section-context">By Context Prefix</h2>
       <div class="search-box">
+        <label for="context-search" class="sr-only">Filter context prefixes</label>
         <input type="text" id="context-search" placeholder="Filter contexts..." />
       </div>
       <table class="breakdown-table" id="context-table">
         <thead>
           <tr>
-            <th class="sortable" data-sort="context">Context Prefix</th>
-            <th class="sortable num" data-sort="requests">Requests</th>
-            <th class="sortable num" data-sort="tokens">Tokens</th>
-            <th class="sortable num" data-sort="cost">Total Cost</th>
-            <th class="num">% of Day</th>
-            <th>Models Used</th>
+            <th scope="col" class="sortable" data-sort="context" role="button" tabindex="0" aria-sort="none">Context Prefix</th>
+            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">Requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">Tokens</th>
+            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">Total Cost</th>
+            <th scope="col" class="num">% of Day</th>
+            <th scope="col">Models Used</th>
           </tr>
         </thead>
         <tbody id="context-body">
@@ -125,23 +128,24 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
 
     <!-- By Segment -->
-    <div class="breakdown-section">
-      <h2>By Segment</h2>
+    <section class="breakdown-section" aria-labelledby="section-segment">
+      <h2 id="section-segment">By Segment</h2>
       <div class="search-box">
+        <label for="segment-search" class="sr-only">Filter segments</label>
         <input type="text" id="segment-search" placeholder="Filter segments..." />
       </div>
       <table class="breakdown-table" id="segment-table">
         <thead>
           <tr>
-            <th class="sortable" data-sort="segment">Segment</th>
-            <th class="sortable num" data-sort="requests">Requests</th>
-            <th class="sortable num" data-sort="tokens">Tokens</th>
-            <th class="sortable num" data-sort="cost">Total Cost</th>
-            <th class="num">% of Day</th>
-            <th>Models Used</th>
+            <th scope="col" class="sortable" data-sort="segment" role="button" tabindex="0" aria-sort="none">Segment</th>
+            <th scope="col" class="sortable num" data-sort="requests" role="button" tabindex="0" aria-sort="none">Requests</th>
+            <th scope="col" class="sortable num" data-sort="tokens" role="button" tabindex="0" aria-sort="none">Tokens</th>
+            <th scope="col" class="sortable num" data-sort="cost" role="button" tabindex="0" aria-sort="none">Total Cost</th>
+            <th scope="col" class="num">% of Day</th>
+            <th scope="col">Models Used</th>
           </tr>
         </thead>
         <tbody id="segment-body">
@@ -150,15 +154,10 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </section>
 
-    <!-- Additional Info -->
-    <div class="info-section">
-      <a href="#" id="view-raw">View token log file</a> |
-      <a href="#" id="export-csv">Export day as CSV</a>
-    </div>
   </div>
-</div>
+</main>
 
 <style>
 .tokens-dashboard {
@@ -195,9 +194,9 @@
 }
 
 .summary-table th {
-  font-size: 0.8em;
+  font-size: 0.85em;
   font-weight: normal;
-  opacity: 0.7;
+  opacity: 1;
 }
 
 .summary-table th:first-child,
@@ -259,6 +258,9 @@
   font-weight: 600;
   color: #555;
   border-bottom: 2px solid #e0e0e0;
+}
+
+.breakdown-table th.sortable {
   cursor: pointer;
   user-select: none;
 }
@@ -266,6 +268,10 @@
 .breakdown-table th.sortable:hover {
   background: #e9ecef;
 }
+
+.breakdown-table th.sortable[aria-sort="ascending"]::after { content: " ▲"; }
+.breakdown-table th.sortable[aria-sort="descending"]::after { content: " ▼"; }
+.breakdown-table th.sortable[aria-sort="none"]::after { content: " ⇅"; opacity: 0.3; }
 
 .breakdown-table th.num,
 .breakdown-table td.num {
@@ -321,20 +327,109 @@
   color: #666;
 }
 
-.info-section {
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.error-state {
   text-align: center;
-  padding: 2em 0;
-  color: #666;
+  padding: 2em;
+}
+
+.error-state h2 {
+  color: #c0392b;
+  margin-bottom: 0.5em;
+  font-size: 1.1em;
+}
+
+.error-hint {
+  color: #888;
+  font-size: 0.9em;
+  margin-bottom: 1.5em;
+}
+
+.error-state button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.6em 1.8em;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.95em;
+}
+
+.error-state button:hover {
+  opacity: 0.9;
+}
+
+.skipped-notice {
+  background: rgba(102, 126, 234, 0.08);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 8px;
+  padding: 0.8em 1.2em;
+  margin-bottom: 2em;
+  color: #555;
   font-size: 0.9em;
 }
 
-.info-section a {
-  color: #667eea;
-  text-decoration: none;
+@media (max-width: 768px) {
+  .tokens-dashboard {
+    padding: 1em;
+  }
+  .summary-card {
+    padding: 1em 1.2em;
+  }
+  .summary-table td {
+    font-size: 1.1em;
+  }
+  .breakdown-section h2 {
+    font-size: 1.2em;
+  }
+  .breakdown-table th,
+  .breakdown-table td {
+    padding: 0.6em;
+  }
 }
 
-.info-section a:hover {
-  text-decoration: underline;
+@media (max-width: 480px) {
+  .tokens-dashboard {
+    padding: 0.5em;
+  }
+  .summary-card {
+    padding: 0.8em;
+  }
+  .summary-table td {
+    font-size: 1em;
+  }
+  .summary-table th {
+    font-size: 0.75em;
+  }
+  .summary-table th,
+  .summary-table td {
+    padding: 0.3em 0.5em;
+  }
+  .breakdown-table td {
+    font-size: 0.85em;
+  }
+  .breakdown-table th,
+  .breakdown-table td {
+    padding: 0.4em;
+  }
+  .breakdown-section {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -0.5em;
+    padding: 0 0.5em;
+  }
 }
 </style>
 
@@ -342,6 +437,14 @@
 // Global state
 let currentData = null;
 let currentDay = '{{ day }}';
+const sortState = {};
+
+const tableConfig = {
+  'provider-table': { dataKey: 'by_provider', render: renderProviderTable },
+  'model-table': { dataKey: 'by_model', render: renderModelTable },
+  'context-table': { dataKey: 'by_context', render: renderContextTable, filterInput: 'context-search' },
+  'segment-table': { dataKey: 'by_segment', render: renderSegmentTable, filterInput: 'segment-search' },
+};
 
 // Format numbers
 function formatCost(value) {
@@ -375,10 +478,69 @@ function formatSegmentKey(segment) {
   return `${hh}:${mm}:${ss} (${minutes}m)`;
 }
 
+// Escape HTML special characters for safe innerHTML interpolation
+function escapeHtml(val) {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // Create percent bar
 function createPercentBar(percent, color) {
+  const safeColor = /^#[0-9a-fA-F]{3,6}$/i.test(color) ? color : '#999';
   const width = Math.min(100, Math.max(0, percent * 2)); // Scale for visual effect
-  return `<span class="percent-bar" style="--bar-color: ${color}; width: ${width}px;"></span>`;
+  return `<span class="percent-bar" style="--bar-color: ${safeColor}; width: ${width}px;" aria-hidden="true"></span>`;
+}
+
+function sortData(tableId, data) {
+  const state = sortState[tableId];
+  if (!state || !data) return data;
+  return [...data].sort((a, b) => {
+    const aVal = a[state.key];
+    const bVal = b[state.key];
+    if (typeof aVal === 'number' && typeof bVal === 'number') {
+      return state.ascending ? aVal - bVal : bVal - aVal;
+    }
+    return state.ascending
+      ? String(aVal).localeCompare(String(bVal))
+      : String(bVal).localeCompare(String(aVal));
+  });
+}
+
+function handleSort(tableId, sortKey, isNumeric) {
+  const current = sortState[tableId];
+  if (current && current.key === sortKey) {
+    current.ascending = !current.ascending;
+  } else {
+    sortState[tableId] = { key: sortKey, ascending: !isNumeric };
+  }
+
+  const table = document.getElementById(tableId);
+  table.querySelectorAll('th.sortable').forEach(th => {
+    const key = th.getAttribute('data-sort');
+    if (key === sortKey) {
+      th.setAttribute('aria-sort', sortState[tableId].ascending ? 'ascending' : 'descending');
+    } else {
+      th.setAttribute('aria-sort', 'none');
+    }
+  });
+
+  rerenderTable(tableId);
+}
+
+function rerenderTable(tableId) {
+  const config = tableConfig[tableId];
+  if (!config || !currentData) return;
+  const data = sortData(tableId, currentData[config.dataKey]);
+  if (config.filterInput) {
+    const filter = document.getElementById(config.filterInput)?.value || '';
+    config.render(data, filter);
+  } else {
+    config.render(data);
+  }
 }
 
 // Get provider color
@@ -391,10 +553,31 @@ function getProviderColor(provider) {
   return colors[provider] || '#999';
 }
 
+// Get friendly model display name
+function getModelDisplayName(model) {
+  const names = {
+    'gemini-2.0-flash-001': 'Gemini Flash',
+    'gemini-2.5-flash-preview-04-17': 'Gemini 2.5 Flash',
+    'gemini-2.5-pro-preview-03-25': 'Gemini 2.5 Pro',
+    'gpt-4o-mini-2024-07-18': 'GPT-4o Mini',
+    'gpt-4.1-nano-2025-04-14': 'GPT-4.1 Nano',
+    'claude-3-5-haiku-20241022': 'Claude Haiku',
+    'claude-sonnet-4-20250514': 'Claude Sonnet',
+  };
+  return names[model] || model;
+}
+
 // Load token usage data
 async function loadTokenData(day) {
   try {
     const response = await fetch(`/app/tokens/api/usage?day=${day}`);
+    if (response.status === 401 || response.status === 403) {
+      window.location.href = '/';
+      return;
+    }
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}`);
+    }
     const data = await response.json();
     currentData = data;
     renderDashboard(data);
@@ -402,7 +585,12 @@ async function loadTokenData(day) {
     document.getElementById('dashboard').style.display = 'block';
   } catch (error) {
     console.error('Failed to load token data:', error);
-    document.getElementById('loading').innerHTML = '<p style="color: red;">Failed to load data</p>';
+    document.getElementById('loading').innerHTML =
+      '<div class="error-state">' +
+        '<h2>Unable to load token data</h2>' +
+        '<p class="error-hint">Try refreshing, or check the health dashboard if this persists.</p>' +
+        '<button onclick="document.getElementById(\'loading\').innerHTML = \'<p>Loading token usage data...</p>\'; loadTokenData(currentDay);">Retry</button>' +
+      '</div>';
   }
 }
 
@@ -424,19 +612,31 @@ function renderDashboard(data) {
   });
 
   // Render provider table
-  renderProviderTable(data.by_provider);
+  renderProviderTable(sortData('provider-table', data.by_provider));
 
   // Render model table
-  renderModelTable(data.by_model);
+  renderModelTable(sortData('model-table', data.by_model));
 
   // Render token type table
   renderTokenTypeTable(data.by_token_type);
 
   // Render context table
-  renderContextTable(data.by_context);
+  const contextFilter = document.getElementById('context-search')?.value || '';
+  renderContextTable(sortData('context-table', data.by_context), contextFilter);
 
   // Render segment table
-  renderSegmentTable(data.by_segment);
+  const segmentFilter = document.getElementById('segment-search')?.value || '';
+  renderSegmentTable(sortData('segment-table', data.by_segment), segmentFilter);
+
+  // Show/hide skipped unknown models notice
+  const skippedNotice = document.getElementById('skipped-notice');
+  const skippedCount = data.total.skipped_unknown || 0;
+  if (skippedCount > 0) {
+    skippedNotice.textContent = skippedCount + ' request' + (skippedCount === 1 ? '' : 's') + ' with unrecognized models not shown.';
+    skippedNotice.style.display = 'block';
+  } else {
+    skippedNotice.style.display = 'none';
+  }
 }
 
 // Render provider table
@@ -450,7 +650,7 @@ function renderProviderTable(providers) {
 
   tbody.innerHTML = providers.map(p => `
     <tr>
-      <td><span class="provider-${p.provider}">${p.provider}</span></td>
+      <td><span class="provider-${p.provider.toLowerCase().replace(/[^a-z0-9-]/g, '')}">${escapeHtml(p.provider)}</span></td>
       <td class="num">${formatNumber(p.requests)}</td>
       <td class="num">${formatNumber(p.tokens)}</td>
       <td class="num">${formatCost(p.input_cost)}</td>
@@ -473,7 +673,7 @@ function renderModelTable(models) {
 
   tbody.innerHTML = models.map(m => `
     <tr>
-      <td>${m.model}</td>
+      <td title="${escapeHtml(m.model)}">${escapeHtml(getModelDisplayName(m.model))}</td>
       <td class="num">${formatNumber(m.requests)}</td>
       <td class="num">${formatNumber(m.tokens)}</td>
       <td class="num cost-value">${formatCost(m.cost)}</td>
@@ -508,7 +708,7 @@ function renderTokenTypeTable(tokenTypes) {
 
     return `
       <tr>
-        <td>${label}</td>
+        <td>${escapeHtml(label)}</td>
         <td class="num">${formatNumber(data.tokens)}</td>
         <td class="num cost-value">${formatCost(data.cost)}</td>
         <td class="num">${createPercentBar(data.percent, '#667eea')} ${formatPercent(data.percent)}</td>
@@ -535,12 +735,12 @@ function renderContextTable(contexts, filter = '') {
 
   tbody.innerHTML = filteredContexts.map(c => `
     <tr>
-      <td><code>${c.context}</code></td>
+      <td><code>${escapeHtml(c.context)}</code></td>
       <td class="num">${formatNumber(c.requests)}</td>
       <td class="num">${formatNumber(c.tokens)}</td>
       <td class="num cost-value">${formatCost(c.cost)}</td>
       <td class="num">${createPercentBar(c.percent, '#667eea')} ${formatPercent(c.percent)}</td>
-      <td class="models-list">${c.models_used.join(', ')}</td>
+      <td class="models-list">${escapeHtml(c.models_used.join(', '))}</td>
     </tr>
   `).join('');
 }
@@ -565,12 +765,12 @@ function renderSegmentTable(segments, filter = '') {
     const isUnattributed = s.segment === '[unattributed]';
     return `
       <tr>
-        <td><code title="${s.segment}">${displayName}</code></td>
+        <td><code title="${escapeHtml(s.segment)}">${escapeHtml(displayName)}</code></td>
         <td class="num">${formatNumber(s.requests)}</td>
         <td class="num">${formatNumber(s.tokens)}</td>
         <td class="num cost-value">${formatCost(s.cost)}</td>
         <td class="num">${createPercentBar(s.percent, isUnattributed ? '#999' : '#667eea')} ${formatPercent(s.percent)}</td>
-        <td class="models-list">${s.models_used.join(', ')}</td>
+        <td class="models-list">${escapeHtml(s.models_used.join(', '))}</td>
       </tr>
     `;
   }).join('');
@@ -581,7 +781,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const contextSearchInput = document.getElementById('context-search');
   contextSearchInput.addEventListener('input', (e) => {
     if (currentData) {
-      renderContextTable(currentData.by_context, e.target.value);
+      renderContextTable(sortData('context-table', currentData.by_context), e.target.value);
     }
   });
 
@@ -589,20 +789,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const segmentSearchInput = document.getElementById('segment-search');
   segmentSearchInput.addEventListener('input', (e) => {
     if (currentData) {
-      renderSegmentTable(currentData.by_segment, e.target.value);
+      renderSegmentTable(sortData('segment-table', currentData.by_segment), e.target.value);
     }
   });
 
-  // View raw log file
-  document.getElementById('view-raw').addEventListener('click', (e) => {
-    e.preventDefault();
-    window.open(`/tokens/${currentDay}.jsonl`, '_blank');
-  });
+  document.querySelectorAll('.breakdown-table').forEach(table => {
+    table.querySelector('thead').addEventListener('click', e => {
+      const th = e.target.closest('th.sortable');
+      if (!th) return;
+      const tableId = table.id;
+      const sortKey = th.getAttribute('data-sort');
+      const isNumeric = th.classList.contains('num');
+      handleSort(tableId, sortKey, isNumeric);
+    });
 
-  // Export CSV (placeholder)
-  document.getElementById('export-csv').addEventListener('click', (e) => {
-    e.preventDefault();
-    alert('CSV export coming soon!');
+    table.querySelector('thead').addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const th = e.target.closest('th.sortable');
+      if (!th) return;
+      e.preventDefault();
+      const tableId = table.id;
+      const sortKey = th.getAttribute('data-sort');
+      const isNumeric = th.classList.contains('num');
+      handleSort(tableId, sortKey, isNumeric);
+    });
   });
 
   // Load initial data

@@ -1,11 +1,11 @@
-<div class="workspace-content" style="display:flex;flex-direction:column;height:calc(100vh - var(--facet-bar-height) - var(--app-bar-height) - 24px);overflow:hidden;">
+<div class="workspace-content" style="display:flex;flex-direction:column;height:calc(100vh - var(--facet-bar-height) - var(--app-bar-height) - 40px);overflow:hidden;">
   <!-- Filter controls -->
   <div class="graph-controls" id="graph-controls" style="display:none;">
     <div class="graph-controls-row">
       <div class="graph-type-filters">
-        <button class="graph-type-btn active" data-type="person" style="--btn-color:#3b82f6">Person</button>
-        <button class="graph-type-btn active" data-type="company" style="--btn-color:#22c55e">Company</button>
-        <button class="graph-type-btn active" data-type="project" style="--btn-color:#f59e0b">Project</button>
+        <button class="graph-type-btn active" data-type="person" style="--btn-color:#2563eb">Person</button>
+        <button class="graph-type-btn active" data-type="company" style="--btn-color:#16a34a">Company</button>
+        <button class="graph-type-btn active" data-type="project" style="--btn-color:#b45309">Project</button>
         <button class="graph-type-btn active" data-type="tool" style="--btn-color:#6b7280">Tool</button>
       </div>
       <div class="graph-time-filters">
@@ -15,29 +15,52 @@
         <button class="graph-time-btn" data-days="">All</button>
       </div>
       <div class="graph-strength-filter">
-        <label for="min-strength">Min strength</label>
+        <label for="min-strength" title="Filter out weaker connections — higher means only stronger relationships">Min strength</label>
         <input type="range" id="min-strength" min="0" max="500" value="0" step="5">
         <span id="min-strength-val">0</span>
       </div>
-      <div class="graph-stats" id="graph-stats"></div>
+      <div class="graph-stats" id="graph-stats" aria-live="polite"></div>
+      <button id="graph-view-toggle" class="graph-view-toggle" title="Switch between graph and list view">View as list</button>
     </div>
   </div>
 
   <!-- Graph container -->
   <div id="graph-container" style="flex:1;position:relative;min-height:0;">
-    <div class="graph-loading" id="graph-loading">Loading knowledge graph...</div>
+    <div class="graph-loading" id="graph-loading"><div class="graph-spinner"></div>Loading knowledge graph...</div>
     <div class="graph-empty" id="graph-empty" style="display:none;">
       <div class="graph-empty-icon">🕸️</div>
       <h2>Your knowledge graph builds itself from daily use</h2>
       <p>As solstone captures your meetings, conversations, and work, entities and relationships appear here automatically.</p>
+      <a href="/app/home" class="graph-empty-action">Get started with solstone →</a>
     </div>
-    <div id="graph-canvas" style="width:100%;height:100%;display:none;"></div>
+    <div class="graph-error" id="graph-error" style="display:none;">
+      <div class="graph-error-icon">⚠️</div>
+      <h2>Couldn't load the knowledge graph</h2>
+      <p>This usually means the server didn't respond. <a href="#" id="graph-retry">Try again</a></p>
+    </div>
+    <div id="graph-canvas" tabindex="0" role="img" aria-label="Knowledge graph" style="width:100%;height:100%;display:none;"></div>
+    <div id="graph-stabilize"><div id="graph-stabilize-bar"></div></div>
+    <div id="graph-reload-overlay"><div class="graph-spinner"></div></div>
+    <div id="graph-sr-summary" class="sr-only" aria-live="polite"></div>
+    <div id="graph-list" style="display:none;overflow:auto;height:100%;">
+      <table class="graph-table">
+        <thead>
+          <tr>
+            <th role="button" tabindex="0" aria-sort="none" data-col="name">Name</th>
+            <th role="button" tabindex="0" aria-sort="none" data-col="type">Type</th>
+            <th role="button" tabindex="0" aria-sort="descending" data-col="score">Score</th>
+            <th role="button" tabindex="0" aria-sort="none" data-col="connections">Connections</th>
+          </tr>
+        </thead>
+        <tbody id="graph-list-body"></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- Entity detail panel (slide-in from right) -->
-  <div class="graph-detail-panel" id="graph-detail-panel">
+  <div class="graph-detail-panel" id="graph-detail-panel" tabindex="-1" aria-label="Entity details">
     <div class="graph-detail-header">
-      <h2 id="detail-name"></h2>
+      <h2 id="detail-name" tabindex="-1"></h2>
       <button class="graph-detail-close" id="detail-close">&times;</button>
     </div>
     <div class="graph-detail-body" id="detail-body"></div>
@@ -73,9 +96,9 @@
   color: #374151;
 }
 .graph-type-btn.active {
-  background: var(--btn-color, #3b82f6);
+  background: var(--btn-color, #2563eb);
   color: white;
-  border-color: var(--btn-color, #3b82f6);
+  border-color: var(--btn-color, #2563eb);
 }
 .graph-time-btn.active {
   background: #374151;
@@ -114,7 +137,17 @@
   max-width: 450px;
   margin: 2em auto;
 }
+.graph-error {
+  text-align: center;
+  padding: 4em 2em;
+  max-width: 450px;
+  margin: 2em auto;
+}
 .graph-empty-icon {
+  font-size: 4em;
+  margin-bottom: 0.25em;
+}
+.graph-error-icon {
   font-size: 4em;
   margin-bottom: 0.25em;
 }
@@ -124,7 +157,28 @@
   font-weight: 600;
   color: #333;
 }
+.graph-error h2 {
+  margin: 0 0 0.5em 0;
+  font-size: 1.3em;
+  font-weight: 600;
+  color: #333;
+}
 .graph-empty p {
+  margin: 0;
+  color: #666;
+  line-height: 1.5;
+}
+.graph-empty-action {
+  display: inline-block;
+  margin-top: 1em;
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.graph-empty-action:hover { text-decoration: underline; }
+.graph-empty-action:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+#graph-canvas:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.graph-error p {
   margin: 0;
   color: #666;
   line-height: 1.5;
@@ -179,6 +233,7 @@
 .graph-detail-close:hover {
   color: #111827;
 }
+.graph-detail-close:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 .graph-detail-body {
   flex: 1;
   overflow-y: auto;
@@ -190,10 +245,8 @@
   margin-bottom: 1rem;
 }
 .detail-section-title {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: #6b7280;
   margin: 0 0 0.4rem 0;
 }
@@ -252,10 +305,15 @@
 }
 .detail-connected-item:last-child { border-bottom: none; }
 .detail-connected-name {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
   cursor: pointer;
   color: #2563eb;
 }
 .detail-connected-name:hover { text-decoration: underline; }
+.detail-connected-name:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 .detail-connected-rel {
   color: #9ca3af;
   font-size: 0.75rem;
@@ -279,6 +337,118 @@
   font-size: 0.85rem;
 }
 .detail-entity-link:hover { text-decoration: underline; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.graph-view-toggle {
+  background: var(--bg-secondary, #f5f5f5);
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--text-primary, #333);
+}
+.graph-view-toggle:hover {
+  background: var(--bg-tertiary, #e5e5e5);
+}
+.graph-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.graph-table th,
+.graph-table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color, #e5e5e5);
+}
+.graph-table th {
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  color: var(--text-secondary, #666);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.graph-table th:hover {
+  color: var(--text-primary, #333);
+}
+.graph-table th[aria-sort="ascending"]::after { content: " ▲"; }
+.graph-table th[aria-sort="descending"]::after { content: " ▼"; }
+.graph-table tbody tr:hover {
+  background: var(--bg-secondary, #f5f5f5);
+}
+
+/* Spinner */
+.graph-spinner { width:24px; height:24px; border:3px solid #e5e7eb; border-top-color:#2563eb; border-radius:50%; animation:graph-spin 0.8s linear infinite; margin:0 auto 0.5em; }
+.graph-spinner-sm { width:18px; height:18px; border-width:2px; }
+@keyframes graph-spin { to { transform:rotate(360deg) } }
+
+/* Stabilization progress bar */
+#graph-stabilize { position:absolute; bottom:0; left:0; right:0; height:3px; background:#e5e7eb; z-index:10; display:none; }
+#graph-stabilize-bar { height:100%; width:0; background:#2563eb; transition:width 0.1s; }
+
+/* Reload overlay */
+.graph-reloading #graph-canvas { opacity:0.4; transition:opacity 0.15s; }
+#graph-reload-overlay { display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:10; }
+.graph-reloading #graph-reload-overlay { display:block; }
+
+/* ── Responsive: Tablet (≤768px) ── */
+@media (max-width: 768px) {
+  .graph-controls-row { gap: 0.75rem; }
+  .graph-detail-panel { width: 280px; }
+}
+
+/* ── Responsive: Mobile (≤375px) ── */
+@media (max-width: 375px) {
+  .workspace-content { overflow-x: hidden; }
+
+  .graph-controls-row { gap: 0.5rem; }
+
+  .graph-type-filters,
+  .graph-time-filters,
+  .graph-strength-filter,
+  .graph-stats,
+  .graph-view-toggle { width: 100%; }
+
+  .graph-stats { margin-left: 0; }
+
+  .graph-type-btn,
+  .graph-time-btn,
+  .graph-view-toggle { min-height: 44px; padding: 0.5rem 0.75rem; }
+
+  .graph-strength-filter input[type=range] { width: 100%; height: 8px; }
+
+  .graph-detail-panel { width: 100%; max-width: 100vw; }
+
+  .graph-detail-close {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+  }
+
+  #graph-canvas { min-height: 300px; }
+
+  .graph-empty-action,
+  #graph-retry,
+  .detail-entity-link { min-height: 44px; display: inline-flex; align-items: center; }
+
+  .detail-connected-item { min-height: 44px; display: flex; align-items: center; }
+}
 </style>
 
 <script src="{{ vendor_lib('vis-network') }}"></script>
@@ -292,14 +462,24 @@
   let timeDays = 90;
   let minStrength = 0;
   let detailOpen = false;
+  let listMode = false;
+  let sortState = { column: 'score', ascending: false };
 
   // --- Color maps ---
   const TYPE_COLORS = {
-    person: '#3b82f6',
-    company: '#22c55e',
-    project: '#f59e0b',
+    person: '#2563eb',
+    company: '#16a34a',
+    project: '#b45309',
     tool: '#6b7280',
     unknown: '#a1a1aa',
+  };
+
+  const TYPE_SEEDS = {
+    person: { x: -300, y: -200 },
+    company: { x: 300, y: -200 },
+    project: { x: -300, y: 200 },
+    tool: { x: 300, y: 200 },
+    unknown: { x: 0, y: 0 },
   };
 
   const EDGE_REL_COLORS = {
@@ -315,7 +495,7 @@
 
   // --- Helpers ---
   function sinceFromDays(days) {
-    if (!days) return '';
+    if (!days) return 'all';
     const d = new Date();
     d.setDate(d.getDate() - days);
     return d.toISOString().slice(0,10).replace(/-/g,'');
@@ -337,8 +517,7 @@
     const params = new URLSearchParams();
     const facet = window.selectedFacet;
     if (facet) params.set('facet', facet);
-    const since = sinceFromDays(timeDays);
-    if (since) params.set('since', since);
+    params.set('since', sinceFromDays(timeDays));
     const types = Array.from(activeTypes).join(',');
     if (types) params.set('types', types);
     if (minStrength > 0) params.set('min_strength', minStrength);
@@ -360,18 +539,12 @@
 
   // --- Graph rendering ---
   function buildVisData(data) {
-    const maxScore = Math.max(...data.nodes.map(n => n.score), 1);
-    const scaleFactor = 30 / maxScore;
-
     const nodes = data.nodes.map(n => {
-      const size = n.is_principal
-        ? Math.max(30, 10 + n.score * scaleFactor)
-        : Math.max(10, Math.min(40, 10 + n.score * scaleFactor));
       const color = TYPE_COLORS[n.type] || TYPE_COLORS.unknown;
       return {
         id: n.id,
         label: n.name,
-        size: size,
+        value: n.is_principal ? n.score * 1.5 : n.score,
         color: {
           background: color,
           border: n.is_principal ? '#f59e0b' : color,
@@ -379,9 +552,16 @@
           hover: { background: color, border: n.is_principal ? '#f59e0b' : '#374151' },
         },
         borderWidth: n.is_principal ? 3 : 1.5,
-        font: { size: Math.max(14, Math.min(22, 10 + size * 0.3)), color: '#374151' },
+        font: { color: '#374151' },
         title: n.name + ' (' + n.type + ') — score: ' + n.score.toFixed(1),
         _data: n,
+        ...(window.selectedFacet ? {} : (() => {
+          const seed = TYPE_SEEDS[n.type] || TYPE_SEEDS.unknown;
+          return {
+            x: seed.x + (Math.random() - 0.5) * 150,
+            y: seed.y + (Math.random() - 0.5) * 150,
+          };
+        })()),
       };
     });
 
@@ -392,8 +572,8 @@
           id: 'e' + i,
           from: e.from,
           to: e.to,
-          width: 1 + Math.min(4, e.frequency * 0.5),
-          color: { color: relColor, opacity: 0.7, highlight: relColor, hover: relColor },
+          value: e.frequency,
+          color: { color: relColor, opacity: Math.min(0.9, 0.5 + e.frequency * 0.05), highlight: relColor, hover: relColor },
           arrows: { to: { enabled: true, scaleFactor: 0.5 } },
           smooth: { type: 'curvedCW', roundness: 0.15 },
           title: (e.relationship_type || 'related') + ' (' + e.frequency + ')',
@@ -403,8 +583,8 @@
           id: 'e' + i,
           from: e.from,
           to: e.to,
-          width: 1 + Math.min(3, e.frequency * 0.3),
-          color: { color: '#d1d5db', opacity: 0.5, highlight: '#9ca3af', hover: '#9ca3af' },
+          value: e.frequency,
+          color: { color: '#d1d5db', opacity: Math.min(0.8, 0.4 + e.frequency * 0.04), highlight: '#9ca3af', hover: '#9ca3af' },
           dashes: [4, 4],
           smooth: { type: 'curvedCW', roundness: 0.1 },
           title: 'co-occurrence (' + e.frequency + ')',
@@ -423,20 +603,31 @@
     const container = document.getElementById('graph-canvas');
     const loading = document.getElementById('graph-loading');
     const empty = document.getElementById('graph-empty');
+    const error = document.getElementById('graph-error');
     const controls = document.getElementById('graph-controls');
 
     loading.style.display = 'none';
+    error.style.display = 'none';
 
     if (!data.nodes || data.nodes.length === 0) {
       container.style.display = 'none';
+      document.getElementById('graph-list').style.display = 'none';
       empty.style.display = 'block';
       controls.style.display = 'none';
+      container.removeAttribute('aria-label');
+      document.getElementById('graph-sr-summary').textContent = '';
       return;
     }
 
     empty.style.display = 'none';
     container.style.display = 'block';
     controls.style.display = 'block';
+    if (listMode) {
+      container.style.display = 'none';
+      document.getElementById('graph-list').style.display = 'block';
+    } else {
+      document.getElementById('graph-list').style.display = 'none';
+    }
 
     const visData = buildVisData(data);
 
@@ -455,11 +646,12 @@
       },
       nodes: {
         shape: 'dot',
-        scaling: { min: 10, max: 40 },
+        scaling: { min: 12, max: 45, label: { enabled: true, min: 14, max: 24 } },
         borderWidth: 1.5,
         shadow: { enabled: true, size: 4, x: 1, y: 1, color: 'rgba(0,0,0,0.1)' },
       },
       edges: {
+        scaling: { min: 1, max: 5 },
         smooth: { enabled: true, type: 'curvedCW', roundness: 0.15 },
       },
       interaction: {
@@ -475,36 +667,124 @@
 
     if (network) {
       network.setData(visData);
+      network.fit({ animation: { duration: 300 } });
     } else {
-      network = new vis.Network(container, visData, options);
-
-      // Fit graph to container after stabilization
-      network.on('stabilizationIterationsDone', function() {
-        network.fit({ animation: { duration: 300 } });
-      });
-
-      // Click node → inspect
-      network.on('click', function(params) {
-        if (params.nodes.length > 0) {
-          const nodeId = params.nodes[0];
-          const nodeData = visData.nodes.get(nodeId);
-          if (nodeData && nodeData._data) {
-            showDetail(nodeData._data);
-          }
-        } else {
-          // Click canvas → dismiss
-          closeDetail();
+      requestAnimationFrame(function() {
+        // Guard against stale rAF callback if network was already created
+        if (network) {
+          network.setData(visData);
+          network.fit({ animation: { duration: 300 } });
+          return;
         }
+
+        network = new vis.Network(container, visData, options);
+        // Show stabilization progress
+        var stabilizeEl = document.getElementById('graph-stabilize');
+        stabilizeEl.style.display = 'block';
+        network.on('stabilizationProgress', function(params) {
+          var pct = (params.iterations / params.total * 100);
+          document.getElementById('graph-stabilize-bar').style.width = pct + '%';
+        });
+
+        // Fit graph to container after stabilization
+        network.on('stabilizationIterationsDone', function() {
+          document.getElementById('graph-stabilize').style.display = 'none';
+          document.getElementById('graph-stabilize-bar').style.width = '0';
+          network.fit({ animation: { duration: 300 } });
+
+          // Post-stabilization recovery guard
+          if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+            console.error('Graph canvas has zero dimensions after stabilization');
+            document.getElementById('graph-error').style.display = 'block';
+            container.style.display = 'none';
+            return;
+          }
+
+          // Check if all nodes clustered at origin (render failure)
+          var positions = network.getPositions();
+          var nodeIds = Object.keys(positions);
+          if (nodeIds.length > 0) {
+            var allAtOrigin = nodeIds.every(function(id) {
+              return Math.abs(positions[id].x) < 1 && Math.abs(positions[id].y) < 1;
+            });
+            if (allAtOrigin) {
+              console.warn('All nodes at origin after stabilization, attempting recovery fit');
+              network.fit({ animation: { duration: 300 } });
+            }
+          }
+        });
+
+        // Click node → inspect
+        network.on('click', function(params) {
+          if (params.nodes.length > 0) {
+            const nodeId = params.nodes[0];
+            const nodeData = visData.nodes.get(nodeId);
+            if (nodeData && nodeData._data) {
+              showDetail(nodeData._data);
+            }
+          } else {
+            // Click canvas → dismiss
+            closeDetail();
+          }
+        });
       });
     }
 
     // Update stats
     updateStats(data);
+    updateSrSummary(data);
+    if (listMode) renderList();
+    container.setAttribute('aria-label', 'Knowledge graph: ' + data.nodes.length + ' entities, ' + data.edges.length + ' connections');
   }
 
   function updateStats(data) {
     const el = document.getElementById('graph-stats');
-    el.textContent = data.nodes.length + ' nodes, ' + data.edges.length + ' edges';
+    el.textContent = data.nodes.length + ' entities, ' + data.edges.length + ' connections';
+  }
+
+  function updateSrSummary(data) {
+    const el = document.getElementById('graph-sr-summary');
+    if (!data.nodes || data.nodes.length === 0) {
+      el.textContent = '';
+      return;
+    }
+    const top = data.nodes.slice().sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 10);
+    const topList = top.map(n => n.name + ' (' + n.type + ')').join(', ');
+    el.textContent = 'Knowledge graph showing ' + data.nodes.length + ' entities and ' + data.edges.length + ' connections. Top entities: ' + topList + '.';
+  }
+
+  function renderList() {
+    if (!graphData || !graphData.nodes) return;
+    const tbody = document.getElementById('graph-list-body');
+
+    // Build connection count map
+    const connCount = new Map();
+    (graphData.edges || []).forEach(e => {
+      connCount.set(e.from, (connCount.get(e.from) || 0) + 1);
+      connCount.set(e.to, (connCount.get(e.to) || 0) + 1);
+    });
+
+    // Build rows with connection count
+    const rows = graphData.nodes.map(n => ({
+      name: n.name,
+      type: n.type,
+      score: n.score || 0,
+      connections: connCount.get(n.id) || 0,
+    }));
+
+    // Sort
+    const col = sortState.column;
+    const dir = sortState.ascending ? 1 : -1;
+    rows.sort((a, b) => {
+      const av = a[col], bv = b[col];
+      if (typeof av === 'string') return dir * av.localeCompare(bv);
+      return dir * ((av || 0) - (bv || 0));
+    });
+
+    // Render
+    tbody.innerHTML = rows.map(r =>
+      '<tr><td>' + escapeHtml(r.name) + '</td><td>' + escapeHtml(r.type) + '</td><td>' + r.score + '</td><td>' + r.connections + '</td></tr>'
+    ).join('');
   }
 
   // --- Detail panel ---
@@ -514,13 +794,22 @@
     const bodyEl = document.getElementById('detail-body');
 
     nameEl.textContent = nodeData.name;
-    bodyEl.innerHTML = '<div style="text-align:center;padding:2em;color:#999;">Loading...</div>';
+    bodyEl.innerHTML = '<div style="text-align:center;padding:2em;color:#999;"><div class="graph-spinner graph-spinner-sm" style="margin:0 auto 0.5em;"></div>Loading...</div>';
     panel.classList.add('open');
     detailOpen = true;
+    nameEl.focus();
 
     fetchEntity(nodeData.id).then(intel => {
       if (!intel || intel.error) {
-        bodyEl.innerHTML = '<div style="padding:1em;color:#999;">Could not load entity details.</div>';
+        bodyEl.innerHTML = '<div style="padding:1em;color:#666;">' +
+          '<strong>Couldn\'t load entity details</strong><br>' +
+          '<span style="color:#999;font-size:0.85rem;">The server may not have responded.</span><br>' +
+          '<a href="#" class="detail-retry-link" style="color:#2563eb;text-decoration:none;font-size:0.85rem;">Try again</a>' +
+          '</div>';
+        bodyEl.querySelector('.detail-retry-link').addEventListener('click', function(e) {
+          e.preventDefault();
+          showDetail(nodeData);
+        });
         return;
       }
       renderDetail(intel, nodeData);
@@ -550,7 +839,7 @@
 
     // Strength score
     html += '<div class="detail-section">';
-    html += '<div class="detail-section-title">Strength Score</div>';
+    html += '<div class="detail-section-title">strength score</div>';
     html += '<div style="font-size:1.3em;font-weight:700;color:#111827;margin-bottom:0.3rem;">' + (strength.score || 0).toFixed(1) + '</div>';
     html += '<div class="detail-score-grid">';
     html += scoreItem('Co-occurrence', strength.co_occurrence);
@@ -565,11 +854,11 @@
     const connectedNames = Object.keys(networkEntities).sort((a, b) => networkEntities[b] - networkEntities[a]).slice(0, 15);
     if (connectedNames.length > 0) {
       html += '<div class="detail-section">';
-      html += '<div class="detail-section-title">Connected Entities</div>';
+      html += '<div class="detail-section-title">connected entities</div>';
       html += '<ul class="detail-connected-list">';
       for (const name of connectedNames) {
         html += '<li class="detail-connected-item">';
-        html += '<span class="detail-connected-name" data-entity="' + escapeHtml(name) + '">' + escapeHtml(name) + '</span>';
+        html += '<button class="detail-connected-name" data-entity="' + escapeHtml(name) + '">' + escapeHtml(name) + '</button>';
         html += '<span class="detail-connected-rel">' + networkEntities[name] + ' shared</span>';
         html += '</li>';
       }
@@ -580,7 +869,7 @@
     const activity = (intel.activity || []).slice(0, 10);
     if (activity.length > 0) {
       html += '<div class="detail-section">';
-      html += '<div class="detail-section-title">Recent Activity</div>';
+      html += '<div class="detail-section-title">recent activity</div>';
       for (const a of activity) {
         html += '<div class="detail-activity-item">';
         html += '<span class="detail-activity-day">' + formatDay(a.day) + '</span>';
@@ -624,6 +913,7 @@
     document.getElementById('graph-detail-panel').classList.remove('open');
     detailOpen = false;
     if (network) network.unselectAll();
+    document.getElementById('graph-canvas').focus();
   }
 
   // --- Filter handlers ---
@@ -661,7 +951,60 @@
     reload();
   });
 
+  // --- View toggle ---
+  document.getElementById('graph-view-toggle').addEventListener('click', function() {
+    listMode = !listMode;
+    const canvas = document.getElementById('graph-canvas');
+    const list = document.getElementById('graph-list');
+    this.textContent = listMode ? 'View as graph' : 'View as list';
+    if (listMode) {
+      canvas.style.display = 'none';
+      list.style.display = 'block';
+      renderList();
+    } else {
+      list.style.display = 'none';
+      canvas.style.display = 'block';
+      if (network) network.fit();
+    }
+  });
+
+  // --- Sort handlers ---
+  document.querySelectorAll('.graph-table th').forEach(th => {
+    function doSort() {
+      const col = th.dataset.col;
+      if (sortState.column === col) {
+        sortState.ascending = !sortState.ascending;
+      } else {
+        sortState.column = col;
+        sortState.ascending = col === 'name';
+      }
+      // Update aria-sort on all headers
+      document.querySelectorAll('.graph-table th').forEach(h => {
+        h.setAttribute('aria-sort', h.dataset.col === sortState.column
+          ? (sortState.ascending ? 'ascending' : 'descending')
+          : 'none');
+      });
+      renderList();
+    }
+    th.addEventListener('click', doSort);
+    th.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        doSort();
+      }
+    });
+  });
+
   document.getElementById('detail-close').addEventListener('click', closeDetail);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && detailOpen) {
+      closeDetail();
+    }
+  });
+  document.getElementById('graph-retry').addEventListener('click', function(e) {
+    e.preventDefault();
+    reload();
+  });
 
   // --- Facet awareness ---
   window.addEventListener('facet.switch', () => {
@@ -672,14 +1015,25 @@
   let loadCount = 0;
   async function reload() {
     const thisLoad = ++loadCount;
+    // Show reload overlay if graph already rendered
+    var gc = document.getElementById('graph-container');
+    if (network) gc.classList.add('graph-reloading');
     try {
       const data = await fetchGraph();
-      if (thisLoad !== loadCount) return; // stale
+      if (thisLoad !== loadCount) { gc.classList.remove('graph-reloading'); return; } // stale
       renderGraph(data);
+      gc.classList.remove('graph-reloading');
     } catch (err) {
+      gc.classList.remove('graph-reloading');
       console.error('Graph load failed:', err);
       if (thisLoad === loadCount) {
-        document.getElementById('graph-loading').textContent = 'Failed to load graph';
+        document.getElementById('graph-loading').style.display = 'none';
+        document.getElementById('graph-empty').style.display = 'none';
+        document.getElementById('graph-error').style.display = 'block';
+        document.getElementById('graph-canvas').style.display = 'none';
+        document.getElementById('graph-list').style.display = 'none';
+        document.getElementById('graph-controls').style.display = 'none';
+        document.getElementById('graph-sr-summary').textContent = '';
       }
     }
   }

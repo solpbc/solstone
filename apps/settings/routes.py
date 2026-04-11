@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import os
 import re
 import subprocess
@@ -16,6 +17,7 @@ from flask import Blueprint, jsonify, request
 
 from apps.utils import log_app_action
 from convey import state
+from think.providers.google import validate_vertex_credentials
 from think.retention import (
     _human_bytes,
     compute_storage_summary,
@@ -24,6 +26,8 @@ from think.retention import (
 )
 from think.streams import list_streams
 from think.utils import get_config as get_journal_config
+
+logger = logging.getLogger(__name__)
 
 settings_bp = Blueprint(
     "app:settings",
@@ -70,8 +74,9 @@ def get_config() -> Any:
         config["runtime_env"] = {k: bool(os.getenv(k)) for k in API_KEY_ENV_VARS}
 
         return jsonify(config)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/config", methods=["PUT"])
@@ -274,8 +279,9 @@ def update_config() -> Any:
         return jsonify(
             {"success": True, "config": config, "key_validation": key_validation}
         )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error updating config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -317,8 +323,9 @@ def get_transcribe() -> Any:
                 "config": transcribe_config,
             }
         )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading transcribe config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -419,6 +426,18 @@ def get_providers() -> Any:
         # Get cached key validation results
         key_validation = providers_config.get("key_validation", {})
 
+        # Vertex SA credentials status (never expose secrets)
+        vertex_creds_path = providers_config.get("vertex_credentials")
+        vertex_creds_configured = False
+        vertex_creds_email = ""
+        if vertex_creds_path and Path(vertex_creds_path).exists():
+            vertex_creds_configured = True
+            try:
+                creds_data = json.loads(Path(vertex_creds_path).read_text())
+                vertex_creds_email = creds_data.get("client_email", "")
+            except Exception:
+                pass
+
         return jsonify(
             {
                 "providers": providers_list,
@@ -429,10 +448,14 @@ def get_providers() -> Any:
                 "api_keys": api_keys,
                 "auth": auth,
                 "key_validation": key_validation,
+                "google_backend": providers_config.get("google_backend", "auto"),
+                "vertex_credentials_configured": vertex_creds_configured,
+                "vertex_credentials_email": vertex_creds_email,
             }
         )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading providers")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/validate-keys", methods=["POST"])
@@ -467,6 +490,20 @@ def validate_all_keys() -> Any:
                 result["timestamp"] = datetime.now(timezone.utc).isoformat()
                 key_validation[provider] = result
 
+        # Validate vertex credentials if configured
+        providers_config = config.get("providers", {})
+        if (
+            providers_config.get("google_backend") == "vertex"
+            and providers_config.get("vertex_credentials")
+        ):
+            from think.providers.google import validate_vertex_credentials
+
+            result = validate_vertex_credentials(
+                providers_config["vertex_credentials"],
+            )
+            result["timestamp"] = datetime.now(timezone.utc).isoformat()
+            key_validation["google"] = result
+
         config["providers"]["key_validation"] = key_validation
 
         config_dir = Path(state.journal_root) / "config"
@@ -478,8 +515,11 @@ def validate_all_keys() -> Any:
         os.chmod(config_path, 0o600)
 
         return jsonify({"success": True, "key_validation": key_validation})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error validating keys")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+
+
 
 
 @settings_bp.route("/api/providers", methods=["PUT"])
@@ -689,6 +729,113 @@ def update_providers() -> Any:
                         }
                     config["providers"]["contexts"][pattern] = ctx_config
 
+        # Handle Google backend settings
+        if "google_backend" in request_data:
+            backend = request_data["google_backend"]
+            if backend not in ("auto", "aistudio", "vertex"):
+                return (
+                    jsonify(
+                        {
+                            "error": f"Invalid google_backend: {backend}. "
+                            "Must be 'auto', 'aistudio', or 'vertex'."
+                        }
+                    ),
+                    400,
+                )
+            old_val = old_providers.get("google_backend", "auto")
+            if old_val != backend:
+                changed_fields["google_backend"] = {"old": old_val, "new": backend}
+            config["providers"]["google_backend"] = backend
+
+        # Handle vertex credentials
+        if "vertex_credentials" in request_data:
+            vertex_creds_value = request_data["vertex_credentials"]
+
+            if vertex_creds_value:
+                # Parse and validate JSON structure
+                try:
+                    creds_data = (
+                        json.loads(vertex_creds_value)
+                        if isinstance(vertex_creds_value, str)
+                        else vertex_creds_value
+                    )
+                except json.JSONDecodeError:
+                    return jsonify({"error": "Invalid JSON in vertex_credentials"}), 400
+
+                required_fields = (
+                    "type",
+                    "project_id",
+                    "client_email",
+                    "private_key",
+                )
+                missing = [f for f in required_fields if f not in creds_data]
+                if missing:
+                    return (
+                        jsonify(
+                            {
+                                "error": f"Missing required fields: {', '.join(missing)}"
+                            }
+                        ),
+                        400,
+                    )
+
+                # Save credentials file
+                creds_dir = Path(state.journal_root) / ".config"
+                creds_dir.mkdir(parents=True, exist_ok=True)
+                creds_file = creds_dir / "vertex-credentials.json"
+                with open(creds_file, "w", encoding="utf-8") as f:
+                    json.dump(creds_data, f, indent=2, ensure_ascii=False)
+                    f.write("\n")
+                os.chmod(creds_file, 0o600)
+
+                # Store path in config
+                old_val = old_providers.get("vertex_credentials", "")
+                creds_path_str = str(creds_file)
+                if old_val != creds_path_str:
+                    changed_fields["vertex_credentials"] = {
+                        "old": old_val,
+                        "new": creds_path_str,
+                    }
+                config["providers"]["vertex_credentials"] = creds_path_str
+
+                # Validate credentials by attempting to list models
+                validation = validate_vertex_credentials(creds_path_str)
+
+                if not validation.get("valid"):
+                    # Still save the file, but report the error.
+                    # Don't block save - credentials may be valid with the right service account.
+                    pass
+
+                # Store validation result
+                if "key_validation" not in config["providers"]:
+                    config["providers"]["key_validation"] = {}
+                config["providers"]["key_validation"]["google_vertex"] = {
+                    **validation,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+
+            else:
+                # Remove credentials — only delete the canonical path
+                old_path = config["providers"].get("vertex_credentials")
+                if old_path:
+                    changed_fields["vertex_credentials"] = {
+                        "old": old_path,
+                        "new": None,
+                    }
+                    # Only delete the file we created, not arbitrary paths
+                    canonical = (
+                        Path(state.journal_root) / ".config" / "vertex-credentials.json"
+                    )
+                    if Path(old_path).resolve() == canonical.resolve():
+                        try:
+                            canonical.unlink(missing_ok=True)
+                        except OSError:
+                            pass
+                    config["providers"].pop("vertex_credentials", None)
+                    # Clear validation
+                    kv = config["providers"].get("key_validation", {})
+                    kv.pop("google_vertex", None)
+
         # Write back to file
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
@@ -707,8 +854,9 @@ def update_providers() -> Any:
         # Return updated providers config
         return get_providers()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving providers")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -772,8 +920,9 @@ def get_generators() -> Any:
 
         return jsonify({"segment": segment, "daily": daily})
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading generators")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/generators", methods=["PUT"])
@@ -859,8 +1008,9 @@ def update_generators() -> Any:
         # Return updated generators
         return get_generators()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving generators")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -907,8 +1057,9 @@ def get_vision() -> Any:
                 "category_defaults": category_defaults,
             }
         )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading vision config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/vision", methods=["PUT"])
@@ -1069,8 +1220,9 @@ def update_vision() -> Any:
         # Return updated vision config
         return get_vision()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving vision config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -1116,8 +1268,9 @@ def get_observe() -> Any:
 
         return jsonify(result)
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading observe config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/observe", methods=["PUT"])
@@ -1209,8 +1362,32 @@ def update_observe() -> Any:
 
         return get_observe()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving observe config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+
+
+@settings_bp.route("/api/facets/muted")
+def get_muted_facets() -> Any:
+    """List muted facets."""
+    try:
+        from think.facets import get_facets
+
+        facets = get_facets()
+        muted = [
+            {
+                "name": name,
+                "title": data.get("title", name),
+                "color": data.get("color", ""),
+                "emoji": data.get("emoji", ""),
+            }
+            for name, data in facets.items()
+            if data.get("muted", False)
+        ]
+        return jsonify({"facets": muted})
+    except Exception:
+        logger.exception("error loading muted facets")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facet", methods=["POST"])
@@ -1280,8 +1457,9 @@ def create_facet() -> Any:
 
         return jsonify({"success": True, "facet": slug, "config": config}), 201
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error creating facet")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>")
@@ -1295,8 +1473,9 @@ def get_facet_config(facet_name: str) -> Any:
             return jsonify({"error": "Facet not found"}), 404
 
         return jsonify({"facet": facet_name, "config": facets[facet_name]})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading facet config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>", methods=["PUT"])
@@ -1347,8 +1526,9 @@ def update_facet_config(facet_name: str) -> Any:
             )
 
         return jsonify({"success": True, "facet": facet_name, "config": config})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving facet config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 def _get_logs_from_dir(logs_dir: Path, cursor: str | None) -> dict:
@@ -1452,8 +1632,9 @@ def get_default_activities() -> Any:
         from think.activities import get_default_activities as _get_defaults
 
         return jsonify({"activities": _get_defaults()})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading default activities")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>/activities")
@@ -1479,8 +1660,9 @@ def get_facet_activities(facet_name: str) -> Any:
 
         return jsonify({"activities": attached, "defaults": defaults})
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading facet activities")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>/activities", methods=["POST"])
@@ -1559,8 +1741,9 @@ def add_facet_activity(facet_name: str) -> Any:
 
         return jsonify({"success": True, "activity": activity}), 201
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error adding activity")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>/activities/<activity_id>", methods=["PUT"])
@@ -1617,8 +1800,9 @@ def update_facet_activity(facet_name: str, activity_id: str) -> Any:
 
         return jsonify({"success": True, "activity": activity})
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error updating activity")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route(
@@ -1658,8 +1842,9 @@ def remove_facet_activity(facet_name: str, activity_id: str) -> Any:
 
         return jsonify({"success": True})
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error removing activity")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/sync")
@@ -1711,8 +1896,9 @@ def get_sync() -> Any:
             }
         )
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading sync config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/sync", methods=["PUT"])
@@ -1831,8 +2017,9 @@ def update_sync() -> Any:
 
         return get_sync()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving sync config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/storage")
@@ -1868,8 +2055,9 @@ def get_storage() -> Any:
                 "streams": [{"name": s.get("name", "")} for s in streams],
             }
         )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error loading storage")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/storage", methods=["PUT"])
@@ -1952,8 +2140,9 @@ def update_storage() -> Any:
             )
 
         return jsonify({"success": True, "retention": retention})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error saving retention config")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
 
 
 @settings_bp.route("/api/storage/purge", methods=["POST"])
@@ -2015,5 +2204,6 @@ def run_purge() -> Any:
             )
 
         return jsonify(response)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("error running purge")
+        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500

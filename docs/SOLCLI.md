@@ -295,7 +295,7 @@ solstone/
 |-------|----------|
 | Think (processing) | `import`, `dream`, `planner`, `indexer`, `supervisor`, `schedule`, `top`, `health`, `callosum`, `notify`, `heartbeat` |
 | Service | `service` (+ aliases `up`, `down`, `start`) |
-| Observe (capture) | `transcribe`, `describe`, `sense`, `sync`, `transfer`, `remote` |
+| Observe (capture) | `transcribe`, `describe`, `sense`, `sync`, `transfer`, `observer` |
 | Talent (AI agents) | `agents`, `cortex`, `talent`, `call`, `engage` |
 | Convey (web UI) | `convey`, `restart-convey`, `screenshot`, `maint` |
 | Specialized | `config`, `streams`, `journal-stats`, `formatter`, `detect-created` |

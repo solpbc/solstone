@@ -429,6 +429,10 @@
       "color": "#1e90ff",
       "title": "Montague Tech"
     },
+    "muted-test": {
+      "color": "",
+      "title": "Muted Test"
+    },
     "priority-test": {
       "color": "",
       "title": "Priority Test"

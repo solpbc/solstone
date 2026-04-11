@@ -16,39 +16,93 @@
   // Connection metrics
   let connectedAt = null;
   let lastMessageAt = null;
-  let isConnected = false;
+  let connectionState = 'disconnected';
+  let disconnectTimerId = null;
+  let disconnectCardId = null;
 
   // Update status icon (if present)
-  function updateStatusIcon(connected) {
+  function updateStatusIcon(state) {
     if (!statusIcon) {
       statusIcon = document.querySelector('.facet-bar .status-icon');
     }
 
     if (statusIcon) {
-      statusIcon.textContent = connected ? '🟢' : '🔴';
-      statusIcon.setAttribute('title', connected ? 'Connected' : 'Disconnected');
+      const badge = statusIcon.querySelector('#quiet-notif-badge');
+      const svgs = {
+        connected: '<svg class="status-indicator" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="#10b981"/></svg>',
+        connecting: '<svg class="status-indicator status-indicator--connecting" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="24 8"/></svg>',
+        disconnected: '<svg class="status-indicator" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 2 L14 13 L2 13 Z" fill="#ef4444"/></svg>'
+      };
+      const labels = {
+        connected: 'connected',
+        connecting: 'connecting',
+        disconnected: 'disconnected'
+      };
+
+      statusIcon.innerHTML = svgs[state] || svgs.disconnected;
+      if (badge) statusIcon.appendChild(badge);
+      statusIcon.setAttribute('title', labels[state] || state);
     }
 
-    isConnected = connected;
+    connectionState = state;
+    window.updateStatusLabel?.();
   }
 
   // Connect to WebSocket
   function connect(){
+<<<<<<< HEAD
+=======
+    updateStatusIcon('connecting');
+>>>>>>> upstream/main
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${proto}//${location.host}/ws/events`);
 
     ws.onopen = () => {
       connectedAt = Date.now();
-      lastMessageAt = null;
-      updateStatusIcon(true);
+      updateStatusIcon('connected');
       retry = 1000;
+      // Cancel disconnect notification timer if reconnected within grace period
+      if (disconnectTimerId) {
+        clearTimeout(disconnectTimerId);
+        disconnectTimerId = null;
+      }
+      // If a disconnect card is showing, dismiss it and show brief reconnected card
+      if (disconnectCardId !== null) {
+        window.AppServices?.notifications?.dismiss(disconnectCardId);
+        const reconnectedId = window.AppServices?.notifications?.show({
+          app: 'system',
+          icon: '✓',
+          title: 'reconnected',
+          message: 'all features restored',
+          dismissible: true
+        });
+        if (reconnectedId != null) {
+          setTimeout(() => window.AppServices?.notifications?.dismiss(reconnectedId), 3000);
+        }
+        disconnectCardId = null;
+      }
       console.debug('[WebSocket] Connected to /ws/events');
     };
 
     ws.onclose = () => {
       connectedAt = null;
-      lastMessageAt = null;
-      updateStatusIcon(false);
+      updateStatusIcon('disconnected');
+      // Start 5-second grace timer before showing disconnect notification
+      if (!disconnectTimerId && disconnectCardId === null) {
+        disconnectTimerId = setTimeout(() => {
+          disconnectTimerId = null;
+          const id = window.AppServices?.notifications?.show({
+            app: 'system',
+            icon: '⚠️',
+            title: 'connection lost',
+            message: 'reconnecting — some features may be delayed',
+            dismissible: false
+          });
+          if (id != null) {
+            disconnectCardId = id;
+          }
+        }, 5000);
+      }
       retry = Math.min(retry * 1.5, 15000);
       console.debug(`[WebSocket] Disconnected, reconnecting in ${retry}ms`);
       setTimeout(connect, retry);
@@ -146,7 +200,8 @@
     getMetrics(){
       const now = Date.now();
       return {
-        connected: isConnected,
+        connected: connectionState === 'connected',
+        state: connectionState,
         uptimeMs: connectedAt ? now - connectedAt : 0,
         lastMessageMs: lastMessageAt ? now - lastMessageAt : null,
         lastMessageAt: lastMessageAt,

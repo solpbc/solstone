@@ -64,11 +64,41 @@
 .pulse-section-header {
   font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   color: #94a3b8;
   margin-bottom: 0.5rem;
+  margin-top: 0;
 }
+
+/* Section collapse/expand */
+.pulse-section-toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.pulse-section-toggle::before {
+  content: "▾";
+  font-size: 0.75rem;
+  color: #94a3b8;
+  transition: transform 0.15s;
+}
+[data-section-collapsed="true"] .pulse-section-toggle::before {
+  transform: rotate(-90deg);
+}
+.pulse-section-toggle .pulse-section-header {
+  margin-bottom: 0;
+}
+.pulse-section-summary {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-left: auto;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+[data-section-collapsed="false"] .pulse-section-summary { display: none; }
+[data-section-collapsed="true"] .pulse-section-body { display: none; }
 
 /* Narrative */
 .pulse-narrative {
@@ -137,8 +167,6 @@
 .pulse-activities-label {
   font-size: 0.75rem;
   color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   margin-bottom: 0.4rem;
 }
 
@@ -254,12 +282,10 @@
 }
 
 .pulse-entity-type {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
-  text-transform: uppercase;
   font-weight: 600;
-  letter-spacing: 0.3px;
 }
 
 .pulse-entity-type.person { background: #dbeafe; color: #1d4ed8; }
@@ -287,6 +313,14 @@
 }
 [data-conversation]:hover {
   background: #f1f5f9;
+}
+[data-conversation]:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+.pulse-briefing-header:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
 }
 .pulse-tell-more {
   display: inline-block;
@@ -327,7 +361,7 @@
   content: "◆";
   color: #6366f1;
   flex-shrink: 0;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
 }
 
 .pulse-routine-name {
@@ -378,7 +412,7 @@
   margin-left: auto;
 }
 .pulse-briefing-badge {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   padding: 0.15rem 0.5rem;
   background: #fef3c7;
   color: #b45309;
@@ -410,12 +444,10 @@
   background: none;
   border: none;
   padding: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
 }
 .pulse-briefing-section-toggle::before {
   content: "▾";
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   transition: transform 0.15s;
 }
 .pulse-briefing-section[data-collapsed="true"] .pulse-briefing-section-toggle::before {
@@ -439,16 +471,126 @@
   font-size: 0.85rem;
   margin-top: 0.5rem;
 }
+
+.pulse-welcome {
+  padding: 2rem 1.5rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.pulse-welcome h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 0.75rem;
+}
+
+.pulse-welcome p {
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0 0 1rem;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.pulse-welcome a {
+  color: #6366f1;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.pulse-welcome a:hover {
+  text-decoration: underline;
+}
+
+.pulse-empty-state {
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.pulse-empty-state .pulse-empty-message {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.pulse-empty-state .pulse-empty-message a {
+  color: #6366f1;
+  text-decoration: none;
+}
+
+.pulse-empty-state .pulse-empty-message a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 768px) {
+  .pulse-dashboard {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .pulse-vitals {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .pulse-vitals-sep {
+    display: none;
+  }
+
+  .pulse-entity,
+  .pulse-facet-chip,
+  .pulse-briefing-section-toggle,
+  .pulse-section-toggle,
+  .pulse-routine-item,
+  .pulse-event,
+  .pulse-activity,
+  .pulse-needs-item {
+    min-height: 44px;
+  }
+
+  .pulse-welcome p {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 375px) {
+  .pulse-dashboard {
+    padding: 0.75rem;
+  }
+
+  .pulse-narrative,
+  .pulse-routines,
+  .pulse-today,
+  .pulse-needs,
+  .pulse-network,
+  .pulse-briefing-card,
+  .pulse-empty-state {
+    padding: 0.75rem;
+  }
+
+  .pulse-entities,
+  .pulse-facet-dist {
+    gap: 0.35rem;
+  }
+}
 </style>
 
 <div class="pulse-dashboard">
 
   <!-- Vital Signs -->
-  <div class="pulse-vitals" id="pulse-vitals">
+  <div class="pulse-vitals" id="pulse-vitals" role="status" aria-live="polite">
     {% set dot_class = 'ok' if capture_status == 'ok' else ('stale' if capture_status == 'stale' else ('offline' if capture_status == 'offline' else 'unknown')) %}
     <div class="pulse-vitals-item">
-      <span class="pulse-vitals-dot {{ dot_class }}"></span>
-      <span>Capture {{ capture_status }}</span>
+      <span class="pulse-vitals-dot {{ dot_class }}" aria-hidden="true"></span>
+      <span>capture {{ capture_status }}</span>
     </div>
     {% if segment_count > 0 %}
     <div class="pulse-vitals-sep"></div>
@@ -473,11 +615,20 @@
     </div>
   </div>
 
+  <!-- Welcome -->
+  {% if show_welcome %}
+  <div class="pulse-welcome">
+    <h2>welcome to your home page</h2>
+    <p>this is where your day comes together — narrative summaries, calendar events, tasks, routines, and the people in your network. as solstone captures and processes your day, sections will appear here automatically.</p>
+    <a href="/app/health">check system health →</a>
+  </div>
+  {% endif %}
+
   <!-- Briefing -->
   {% if briefing_exists or briefing_phase == 'pending' %}
   <div class="pulse-briefing-card" id="pulse-briefing" data-phase="{{ briefing_phase }}" data-collapsed="{{ 'false' if briefing_phase == 'morning' else 'true' }}">
-    <div class="pulse-briefing-header" onclick="toggleBriefingCard()">
-      <div class="pulse-section-header" style="margin-bottom:0">Morning Briefing</div>
+    <div class="pulse-briefing-header" role="button" tabindex="0" aria-expanded="{{ 'true' if briefing_phase == 'morning' else 'false' }}">
+      <h2 class="pulse-section-header" style="margin-bottom:0">morning briefing</h2>
       {% if briefing_needs_badge %}
       <span class="pulse-briefing-badge">{{ briefing_needs_badge }}</span>
       {% endif %}
@@ -498,12 +649,12 @@
         {% if section_key == 'needs_attention' %}
           {% if briefing_needs_deduped or briefing_needs_badge %}
           <div class="pulse-briefing-section" data-section="needs_attention" data-collapsed="false">
-            <button class="pulse-briefing-section-toggle" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">Needs Attention</button>
+            <button class="pulse-briefing-section-toggle" aria-expanded="true" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">needs attention</button>
             {% if briefing_needs_deduped %}
             <div class="pulse-briefing-section-body" data-section-key="needs_attention">
               <ul>
               {% for item in briefing_needs_deduped %}
-                <li data-conversation="What's the status of: {{ item }}">{{ item }}</li>
+                <li role="button" tabindex="0" data-conversation="What's the status of: {{ item }}">{{ item }}</li>
               {% endfor %}
               </ul>
             </div>
@@ -511,9 +662,9 @@
           </div>
           {% endif %}
         {% elif section_content %}
-          {% set section_labels = {'your_day': 'Your Day', 'yesterday': 'Yesterday', 'forward_look': 'Forward Look', 'reading': 'Reading'} %}
+          {% set section_labels = {'your_day': 'your day', 'yesterday': 'yesterday', 'forward_look': 'forward look', 'reading': 'reading'} %}
           <div class="pulse-briefing-section" data-section="{{ section_key }}" data-collapsed="false">
-            <button class="pulse-briefing-section-toggle" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">{{ section_labels[section_key] }}</button>
+            <button class="pulse-briefing-section-toggle" aria-expanded="true" onclick="toggleBriefingSection(this.parentElement); event.stopPropagation();">{{ section_labels[section_key] }}</button>
             <div class="pulse-briefing-section-body" data-section-key="{{ section_key }}"></div>
           </div>
         {% endif %}
@@ -525,29 +676,44 @@
 
   <!-- Narrative -->
   {% if narrative_content is not none %}
-  <div class="pulse-narrative" id="pulse-narrative">
-    <div class="pulse-section-header">{{ narrative_header }}</div>
-    <div class="pulse-narrative-content" id="pulse-narrative-content"></div>
-    <a href="#" class="pulse-tell-more" data-conversation="Tell me more about what's happening today">Tell me more →</a>
-    {% if narrative_updated_at %}
-    <div class="pulse-narrative-meta">Updated at {{ narrative_updated_at }}</div>
-    {% endif %}
+  <div class="pulse-narrative" id="pulse-narrative" data-section-collapsed="true">
+    <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="false" onclick="toggleSection(this.parentElement)">
+      <h2 class="pulse-section-header">{{ narrative_header }}</h2>
+      <span class="pulse-section-summary">{{ narrative_summary }}</span>
+    </div>
+    <div class="pulse-section-body">
+      <div class="pulse-narrative-content" id="pulse-narrative-content"></div>
+      <a href="#" class="pulse-tell-more" data-conversation="Tell me more about what's happening today">Tell me more →</a>
+      {% if narrative_updated_at %}
+      <div class="pulse-narrative-meta">Updated at {{ narrative_updated_at }}</div>
+      {% endif %}
+    </div>
   </div>
   {% elif segment_count > 0 %}
   <div class="pulse-narrative" id="pulse-narrative">
-    <div class="pulse-section-header">{{ narrative_header or "Today's Flow" }}</div>
+    <h2 class="pulse-section-header">{{ narrative_header or "today's flow" }}</h2>
     <div class="pulse-narrative-empty">Analysis will be available after the next processing cycle.</div>
+  </div>
+  {% endif %}
+  {% if narrative_content is none and segment_count == 0 and not show_welcome %}
+  <div class="pulse-empty-state">
+    <h2 class="pulse-section-header">today's flow</h2>
+    <div class="pulse-empty-message">no narrative yet — one will appear after solstone processes some audio. <a href="/app/health">check capture status →</a></div>
   </div>
   {% endif %}
 
   <!-- Routines -->
   {% set unseen_routines = routines|selectattr('seen', 'equalto', false)|list %}
   {% if unseen_routines %}
-  <div class="pulse-routines" id="pulse-routines">
-    <div class="pulse-section-header">Your Routines</div>
+  <div class="pulse-routines" id="pulse-routines" data-section-collapsed="true">
+    <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="false" onclick="toggleSection(this.parentElement)">
+      <h2 class="pulse-section-header">your routines</h2>
+      <span class="pulse-section-summary">{{ routines_summary }}</span>
+    </div>
+    <div class="pulse-section-body">
     <div class="pulse-routines-list">
       {% for routine in unseen_routines %}
-      <div class="pulse-routine-item" data-conversation="Show me my {{ routine.name }} from today" data-routine-click="true">
+      <div class="pulse-routine-item" role="button" tabindex="0" data-conversation="Show me my {{ routine.name }} from today" data-routine-click="true">
         <span>
           <span class="pulse-routine-name">{{ routine.name }}</span>
           <span class="pulse-routine-time">{{ routine.run_time_display }}</span>
@@ -559,18 +725,29 @@
       {% endfor %}
     </div>
     <div class="pulse-routines-more"><a href="#" data-conversation="Show me all my routine history">all routine history →</a></div>
+    </div>
+  </div>
+  {% endif %}
+  {% if not unseen_routines and routines and not show_welcome %}
+  <div class="pulse-empty-state">
+    <h2 class="pulse-section-header">your routines</h2>
+    <div class="pulse-empty-message">all caught up — no new routine results since you last checked.</div>
   </div>
   {% endif %}
 
   <!-- Today -->
   {% if events or activities %}
-  <div class="pulse-today" id="pulse-today">
-    <div class="pulse-section-header">Today</div>
+  <div class="pulse-today" id="pulse-today" data-section-collapsed="true">
+    <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="false" onclick="toggleSection(this.parentElement)">
+      <h2 class="pulse-section-header">today</h2>
+      <span class="pulse-section-summary">{{ today_summary }}</span>
+    </div>
+    <div class="pulse-section-body">
     {% if events %}
     <div class="pulse-events">
       {% for event in events %}
       {% set is_past = event.get('occurred', false) or (event.get('end', '') and event['end'] < now.strftime('%H:%M:%S')) %}
-      <div class="pulse-event{% if is_past %} past{% endif %}" data-conversation="Tell me about {{ event.get('title', 'Untitled') }} at {{ event.get('start', '')[:5] }}">
+      <div class="pulse-event{% if is_past %} past{% endif %}" role="button" tabindex="0" data-conversation="Tell me about {{ event.get('title', 'Untitled') }} at {{ event.get('start', '')[:5] }}">
         <span class="pulse-event-time">{{ event.get('start', '')[:5] }}</span>
         <span class="pulse-event-title">{{ event.get('title', 'Untitled') }}</span>
       </div>
@@ -578,10 +755,10 @@
     </div>
     {% endif %}
     {% if activities %}
-    <div class="pulse-activities-label">Recent Activity</div>
+    <div class="pulse-activities-label">recent activity</div>
     <div class="pulse-activities">
       {% for act in activities[:6] %}
-      <div class="pulse-activity" data-conversation="Tell me about {{ act.get('description', act.get('activity', '')) }}">
+      <div class="pulse-activity" role="button" tabindex="0" data-conversation="Tell me about {{ act.get('description', act.get('activity', '')) }}">
         <span class="pulse-activity-time">{{ act.get('display_time', '') }}</span>
         <span>{{ act.get('description', act.get('activity', '')) }}</span>
       </div>
@@ -595,49 +772,77 @@
       {% endfor %}
     </div>
     {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% if not events and not activities and not show_welcome %}
+  <div class="pulse-empty-state">
+    <h2 class="pulse-section-header">today</h2>
+    <div class="pulse-empty-message">no events or activity yet today.</div>
   </div>
   {% endif %}
 
   <!-- Needs You -->
   {% if attention or pulse_needs or todos %}
-  <div class="pulse-needs" id="pulse-needs">
-    <div class="pulse-section-header">Needs You</div>
+  <div class="pulse-needs" id="pulse-needs" data-section-collapsed="false">
+    <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this.parentElement)">
+      <h2 class="pulse-section-header">needs you</h2>
+      <span class="pulse-section-summary">{{ needs_summary }}</span>
+    </div>
+    <div class="pulse-section-body">
     <div class="pulse-needs-list">
       {% if attention %}
-      <div class="pulse-needs-item pulse-needs-attention" data-conversation="What happened with {{ attention.placeholder_text }}?">{{ attention.placeholder_text }}</div>
+      <div class="pulse-needs-item pulse-needs-attention" role="button" tabindex="0" data-conversation="What happened with {{ attention.placeholder_text }}?">{{ attention.placeholder_text }}</div>
       {% endif %}
       {% for item in pulse_needs %}
-      <div class="pulse-needs-item" data-conversation="What happened with {{ item }}?">{{ item }}</div>
+      <div class="pulse-needs-item" role="button" tabindex="0" data-conversation="What happened with {{ item }}?">{{ item }}</div>
       {% endfor %}
       {% for todo in todos[:7] %}
-      <div class="pulse-needs-item" data-conversation="What's the context on: {{ todo.get('text', '') }}">{{ todo.get('text', '') }}{% if todo.get('facet') %} <span style="color:#94a3b8;font-size:0.75rem">({{ todo['facet'] }})</span>{% endif %}</div>
+      <div class="pulse-needs-item" role="button" tabindex="0" data-conversation="What's the context on: {{ todo.get('text', '') }}">{{ todo.get('text', '') }}{% if todo.get('facet') %} <span style="color:#94a3b8;font-size:0.75rem">({{ todo['facet'] }})</span>{% endif %}</div>
       {% endfor %}
     </div>
     {% if todos|length > 7 %}
     <div class="pulse-needs-more"><a href="/app/todos">and {{ todos|length - 7 }} more →</a></div>
     {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% if not attention and not pulse_needs and not todos and not show_welcome %}
+  <div class="pulse-empty-state">
+    <h2 class="pulse-section-header">needs you</h2>
+    <div class="pulse-empty-message">nothing needs your attention right now.</div>
   </div>
   {% endif %}
 
   <!-- Network Pulse -->
   {% if entities %}
-  <div class="pulse-network" id="pulse-network">
-    <div class="pulse-section-header">Network Pulse</div>
+  <div class="pulse-network" id="pulse-network" data-section-collapsed="true">
+    <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="false" onclick="toggleSection(this.parentElement)">
+      <h2 class="pulse-section-header">network pulse</h2>
+      <span class="pulse-section-summary">{{ network_summary }}</span>
+    </div>
+    <div class="pulse-section-body">
     <div class="pulse-entities">
       {% for ent in entities %}
-      <div class="pulse-entity" data-conversation="What do you know about {{ ent.get('name', '') }}?">
+      <div class="pulse-entity" role="button" tabindex="0" data-conversation="What do you know about {{ ent.get('name', '') }}?">
         <span class="pulse-entity-type {{ ent.get('entity_type', 'unknown') }}">{{ ent.get('entity_type', '?')[:3] }}</span>
         <span>{{ ent.get('name', '') }}</span>
       </div>
       {% endfor %}
     </div>
     <div class="pulse-network-link"><a href="/app/graph">View full graph →</a></div>
+    </div>
+  </div>
+  {% endif %}
+  {% if not entities and not show_welcome %}
+  <div class="pulse-empty-state">
+    <h2 class="pulse-section-header">network pulse</h2>
+    <div class="pulse-empty-message">no one has appeared in today's record yet.</div>
   </div>
   {% endif %}
 
 </div>
 
-<script src="{{ vendor_lib('marked') }}"></script>
 <script>
 (function() {
   // Render narrative content with marked
@@ -694,6 +899,8 @@
         } else {
           li.setAttribute('data-conversation', promptPrefix[key] + text.substring(0, 80));
         }
+        li.setAttribute('role', 'button');
+        li.setAttribute('tabindex', '0');
       });
     });
   }
@@ -720,6 +927,36 @@
           fetch('/app/home/api/routines/seen', {method: 'POST'});
         }
         window.openConversation({ prompt: el.dataset.conversation });
+      }
+    });
+    dashboard.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var toggleEl = e.target.closest('.pulse-section-toggle');
+      if (toggleEl) {
+        e.preventDefault();
+        toggleSection(toggleEl.parentElement);
+        return;
+      }
+      var el = e.target.closest('[data-conversation]');
+      if (el && window.openConversation) {
+        e.preventDefault();
+        if (el.closest('[data-routine-click]') || el.hasAttribute('data-routine-click')) {
+          fetch('/app/home/api/routines/seen', {method: 'POST'});
+        }
+        window.openConversation({ prompt: el.dataset.conversation });
+      }
+    });
+  }
+
+  var briefingHeader = document.querySelector('.pulse-briefing-header');
+  if (briefingHeader) {
+    briefingHeader.addEventListener('click', function() {
+      toggleBriefingCard();
+    });
+    briefingHeader.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleBriefingCard();
       }
     });
   }
@@ -751,10 +988,53 @@
     var card = document.getElementById('pulse-briefing');
     if (!card || card.dataset.phase === 'pending') return;
     card.dataset.collapsed = card.dataset.collapsed === 'true' ? 'false' : 'true';
+    var header = card.querySelector('.pulse-briefing-header');
+    if (header) header.setAttribute('aria-expanded', card.dataset.collapsed === 'false' ? 'true' : 'false');
   };
 
   window.toggleBriefingSection = function(sectionEl) {
     sectionEl.dataset.collapsed = sectionEl.dataset.collapsed === 'true' ? 'false' : 'true';
+    var toggle = sectionEl.querySelector('.pulse-briefing-section-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', sectionEl.dataset.collapsed === 'false' ? 'true' : 'false');
+  };
+
+  // Section collapse/expand
+  var SECTION_IDS = ['pulse-narrative', 'pulse-routines', 'pulse-today', 'pulse-needs', 'pulse-network'];
+  var SECTION_DEFAULTS = {
+    'pulse-narrative': 'true',
+    'pulse-routines': 'true',
+    'pulse-today': 'true',
+    'pulse-needs': 'false',
+    'pulse-network': 'true'
+  };
+
+  // Restore saved section states from sessionStorage
+  (function() {
+    try {
+      var saved = JSON.parse(sessionStorage.getItem('pulse-section-state') || '{}');
+      SECTION_IDS.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el || !el.hasAttribute('data-section-collapsed')) return;
+        if (saved.hasOwnProperty(id)) {
+          el.dataset.sectionCollapsed = saved[id];
+          var toggle = el.querySelector('.pulse-section-toggle');
+          if (toggle) toggle.setAttribute('aria-expanded', saved[id] === 'false' ? 'true' : 'false');
+        }
+      });
+    } catch(e) {}
+  })();
+
+  window.toggleSection = function(container) {
+    if (!container || !container.hasAttribute('data-section-collapsed')) return;
+    var collapsed = container.dataset.sectionCollapsed === 'true' ? 'false' : 'true';
+    container.dataset.sectionCollapsed = collapsed;
+    var toggle = container.querySelector('.pulse-section-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', collapsed === 'false' ? 'true' : 'false');
+    try {
+      var saved = JSON.parse(sessionStorage.getItem('pulse-section-state') || '{}');
+      saved[container.id] = collapsed;
+      sessionStorage.setItem('pulse-section-state', JSON.stringify(saved));
+    } catch(e) {}
   };
 
   function refreshVitals() {
@@ -764,22 +1044,22 @@
         const el = document.getElementById('pulse-vitals');
         if (!el) return;
         let dotClass = data.capture_status === 'ok' ? 'ok' : (data.capture_status === 'stale' ? 'stale' : (data.capture_status === 'offline' ? 'offline' : 'unknown'));
-        let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '"></span><span>Capture ' + data.capture_status + '</span></div>';
+        let html = '<div class="pulse-vitals-item"><span class="pulse-vitals-dot ' + dotClass + '" aria-hidden="true"></span><span>capture ' + esc(data.capture_status) + '</span></div>';
         if (data.segment_count > 0) {
           html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">' + data.segment_count + ' segment' + (data.segment_count !== 1 ? 's' : '');
           if (data.duration_minutes > 0) html += ' · ' + data.duration_minutes + 'm';
           html += '</div>';
         }
         if (data.last_observe_relative) {
-          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">Last observation ' + data.last_observe_relative + '</div>';
+          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item">Last observation ' + esc(data.last_observe_relative) + '</div>';
         }
         if (data.attention) {
-          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + data.attention.placeholder_text + '</div>';
+          html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.attention.placeholder_text) + '</div>';
         }
         html += '<div style="margin-left:auto"><a href="/app/health">Health →</a></div>';
         el.innerHTML = html;
       })
-      .catch(function() {});
+      .catch(function(err) { console.error('home: refreshVitals failed', err); });
   }
 
   function refreshNarrative() {
@@ -793,9 +1073,15 @@
           if (hdr && data.narrative_header) hdr.textContent = data.narrative_header;
           const meta = document.querySelector('.pulse-narrative .pulse-narrative-meta');
           if (meta && data.narrative_updated_at) meta.textContent = 'Updated at ' + data.narrative_updated_at;
+          var summaryEl = document.querySelector('.pulse-narrative .pulse-section-summary');
+          if (summaryEl) {
+            var st = data.narrative_header || '';
+            if (data.narrative_updated_at) st += ' — updated ' + data.narrative_updated_at;
+            summaryEl.textContent = st;
+          }
         }
       })
-      .catch(function() {});
+      .catch(function(err) { console.error('home: refreshNarrative failed', err); });
   }
 
   function esc(s) {
@@ -814,22 +1100,43 @@
           if (container) container.remove();
           return;
         }
-        var html = '<div class="pulse-section-header">Your Routines</div><div class="pulse-routines-list">';
+        var wasCollapsed;
+        if (container) {
+          wasCollapsed = container.dataset.sectionCollapsed;
+        } else {
+          try {
+            var saved = JSON.parse(sessionStorage.getItem('pulse-section-state') || '{}');
+            wasCollapsed = saved['pulse-routines'] || SECTION_DEFAULTS['pulse-routines'];
+          } catch(e) {
+            wasCollapsed = SECTION_DEFAULTS['pulse-routines'];
+          }
+        }
+        var expanded = wasCollapsed === 'false' ? 'true' : 'false';
+        var summaryText = routines.length + ' new routine' + (routines.length !== 1 ? 's' : '');
+        var html = '<div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="' + expanded + '" onclick="toggleSection(this.parentElement)">';
+        html += '<h2 class="pulse-section-header">your routines</h2>';
+        html += '<span class="pulse-section-summary">' + esc(summaryText) + '</span>';
+        html += '</div>';
+        html += '<div class="pulse-section-body">';
+        html += '<div class="pulse-routines-list">';
         routines.forEach(function(r) {
           var name = esc(r.name);
-          html += '<div class="pulse-routine-item" data-conversation="Show me my ' + name + ' from today" data-routine-click="true"><span>';
+          html += '<div class="pulse-routine-item" role="button" tabindex="0" data-conversation="Show me my ' + name + ' from today" data-routine-click="true"><span>';
           html += '<span class="pulse-routine-name">' + name + '</span> ';
           html += '<span class="pulse-routine-time">' + esc(r.run_time_display) + '</span>';
           if (r.summary) html += ' <span class="pulse-routine-summary">— ' + esc(r.summary) + '</span>';
           html += '</span></div>';
         });
         html += '</div><div class="pulse-routines-more"><a href="#" data-conversation="Show me all my routine history">all routine history →</a></div>';
+        html += '</div>';
         if (container) {
           container.innerHTML = html;
+          container.dataset.sectionCollapsed = wasCollapsed;
         } else {
           var newDiv = document.createElement('div');
           newDiv.className = 'pulse-routines';
           newDiv.id = 'pulse-routines';
+          newDiv.dataset.sectionCollapsed = wasCollapsed;
           newDiv.innerHTML = html;
           var narrative = document.getElementById('pulse-narrative');
           var today = document.getElementById('pulse-today');
@@ -843,7 +1150,7 @@
           }
         }
       })
-      .catch(function() {});
+      .catch(function(err) { console.error('home: refreshRoutines failed', err); });
   }
 
   function refreshBriefing() {
@@ -864,12 +1171,13 @@
         if (data.phase === 'morning') {
           card.dataset.collapsed = 'false';
         }
+        var header = card.querySelector('.pulse-briefing-header');
+        if (header) header.setAttribute('aria-expanded', card.dataset.collapsed === 'false' ? 'true' : 'false');
 
         var summary = card.querySelector('.pulse-briefing-summary');
         if (!summary && data.summary) {
           summary = document.createElement('div');
           summary.className = 'pulse-briefing-summary';
-          var header = card.querySelector('.pulse-briefing-header');
           if (header) {
             header.insertAdjacentElement('afterend', summary);
           }
@@ -914,7 +1222,7 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
-              return '<li data-conversation="What&#39;s the status of: ' + escaped + '">' + escaped + '</li>';
+              return '<li role="button" tabindex="0" data-conversation="What&#39;s the status of: ' + escaped + '">' + escaped + '</li>';
             });
             needsBody.innerHTML = '<ul>' + items.join('') + '</ul>';
           } else if (needsBody) {
@@ -922,7 +1230,7 @@
           }
         }
       })
-      .catch(function() {});
+      .catch(function(err) { console.error('home: refreshBriefing failed', err); });
   }
 })();
 </script>

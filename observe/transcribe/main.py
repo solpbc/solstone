@@ -170,7 +170,7 @@ def _build_base_event(
     audio_path: Path,
     vad_result: VadResult,
     segment: str | None = None,
-    remote: str | None = None,
+    observer: str | None = None,
 ) -> dict:
     """Build base event dict for callosum emission.
 
@@ -178,7 +178,7 @@ def _build_base_event(
         audio_path: Path to the audio file
         vad_result: VAD result with speech detection info
         segment: Optional segment key (e.g., "143022_300")
-        remote: Optional remote name
+        observer: Optional observer name
 
     Returns:
         Event dict with common fields for observe.transcribed events
@@ -207,8 +207,8 @@ def _build_base_event(
         event["day"] = day
     if segment:
         event["segment"] = segment
-    if remote:
-        event["remote"] = remote
+    if observer:
+        event["observer"] = observer
 
     return event
 
@@ -314,7 +314,7 @@ def _statements_to_jsonl(
     base_datetime: datetime.datetime,
     model_info: dict,
     source: str | None = None,
-    remote: str | None = None,
+    observer: str | None = None,
     enrichment: dict | None = None,
     vad_result: VadResult | None = None,
     segment_meta: dict | None = None,
@@ -328,7 +328,7 @@ def _statements_to_jsonl(
         base_datetime: Base datetime for timestamp calculation
         model_info: Dict with model, device, compute_type from backend
         source: Optional source label (e.g., "mic", "sys")
-        remote: Optional remote name for metadata
+        observer: Optional observer name for metadata
         enrichment: Optional enrichment data with topics, setting, warning, and
             per-statement corrected text and emotions
         vad_result: Optional VAD result for noise detection metadata
@@ -347,8 +347,8 @@ def _statements_to_jsonl(
         "device": model_info.get("device", "unknown"),
         "compute_type": model_info.get("compute_type", "unknown"),
     }
-    if remote:
-        metadata["remote"] = remote
+    if observer:
+        metadata["observer"] = observer
 
     # Add noise detection metadata if available
     if vad_result:
@@ -457,8 +457,8 @@ def process_audio(
         logging.info(f"Already processed: {raw_path}")
         return
 
-    # Get remote name once for use in metadata and events
-    remote = os.getenv("REMOTE_NAME")
+    # Get observer name once for use in metadata and events
+    observer = os.getenv("OBSERVER_NAME")
 
     # Get segment metadata (from sense.py via SEGMENT_META env var)
     segment_meta = None
@@ -524,7 +524,7 @@ def process_audio(
         preserve_all = config.get("transcribe", {}).get("preserve_all", False)
 
         # Build base event fields (always emitted as observe.transcribed)
-        event = _build_base_event(raw_path, vad_result, segment, remote)
+        event = _build_base_event(raw_path, vad_result, segment, observer)
 
         # Handle no speech detected
         if not statements:
@@ -593,7 +593,7 @@ def process_audio(
             base_dt,
             model_info,
             source,
-            remote,
+            observer,
             enrichment,
             vad_result,
             segment_meta,
@@ -656,9 +656,9 @@ def _process_one(
 
     # Early exit if no speech detected (skip loading heavy STT model)
     if not vad_result.has_speech:
-        remote = os.getenv("REMOTE_NAME")
+        observer = os.getenv("OBSERVER_NAME")
         segment = get_segment_key(audio_path)
-        event = _build_base_event(audio_path, vad_result, segment, remote)
+        event = _build_base_event(audio_path, vad_result, segment, observer)
 
         if preserve_all:
             event["outcome"] = "preserved"

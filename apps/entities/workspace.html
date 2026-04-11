@@ -20,8 +20,6 @@
   font-size: 0.85em;
   font-weight: 600;
   color: #6c757d;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   margin-bottom: 0.75em;
   padding-bottom: 0.5em;
   border-bottom: 1px solid #e9ecef;
@@ -48,6 +46,10 @@
   border-color: var(--facet-color, #667eea);
   box-shadow: 0 2px 8px var(--facet-bg, rgba(102, 126, 234, 0.15));
 }
+.entity-card:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
 
 .entity-card-name {
   font-weight: 500;
@@ -70,7 +72,7 @@
   color: var(--facet-color, #667eea);
 }
 
-.entity-card-obs-badge,
+.entity-card-mention-badge,
 .entity-card-badge {
   position: absolute;
   top: 0;
@@ -146,6 +148,34 @@
   font-weight: 600;
   padding: 0.15em 0.5em;
   border-radius: 7px 0 6px 0;
+}
+
+/* Entity type indicator dot */
+.entity-card-type-indicator {
+  position: absolute;
+  bottom: 0.5em;
+  left: 0.75em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--type-color, #95a5a6);
+}
+
+/* Type colors */
+.entity-card-type-person { --type-color: #4a90d9; }
+.entity-card-type-company { --type-color: #e6a23c; }
+.entity-card-type-project { --type-color: #27ae60; }
+.entity-card-type-tool { --type-color: #9b59b6; }
+
+/* Detail view affordance chevron */
+.entity-card-detail-affordance {
+  position: absolute;
+  bottom: 0.3em;
+  right: 0.75em;
+  font-size: 1.1em;
+  line-height: 1;
+  color: #adb5bd;
+  pointer-events: none;
 }
 
 /* Entity detail view */
@@ -276,8 +306,6 @@
   font-size: 0.9em;
   font-weight: 600;
   color: #495057;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 /* Description section */
@@ -490,6 +518,37 @@
   background: #f8f9fa;
 }
 
+.detected-pagination {
+  display: flex;
+  gap: 0.5em;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75em 1em;
+}
+
+.detected-pagination button {
+  padding: 6px 14px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.detected-pagination button:hover {
+  background: #f5f5f5;
+}
+
+.detected-pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.detected-pagination .detected-page-info {
+  font-size: 0.8em;
+  color: #888;
+}
+
 .entity-type {
   width: 120px;
   font-weight: 500;
@@ -528,20 +587,32 @@
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
-  opacity: 0;
+  opacity: 0.4;
   transition: opacity 0.2s;
   font-size: 1em;
-  background: white;
-  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 4px;
 }
 
 tr:hover .entity-delete-btn {
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 .entity-delete-btn:hover {
   opacity: 1 !important;
+}
+
+.entity-delete-btn:focus-visible {
+  opacity: 1;
+  outline: 2px solid #dc3545;
+  outline-offset: 2px;
 }
 
 /* Section headers */
@@ -557,6 +628,13 @@ tr:hover .entity-delete-btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.entities-subtitle {
+  margin: 0;
+  padding: 0.5em 1.5em;
+  color: #6c757d;
+  font-size: 0.85em;
 }
 
 .no-entities {
@@ -580,14 +658,29 @@ tr:hover .entity-delete-btn {
   border-color: var(--facet-color, #667eea);
 }
 
-.detection-count-badge {
+.entity-card-search-count {
+  font-size: 0.8em;
+  font-weight: normal;
+  color: #888;
   margin-left: 8px;
-  background: color-mix(in srgb, var(--facet-color, #1976d2) 15%, white);
-  color: var(--facet-color, #1976d2);
+}
+
+.no-card-matches {
+  text-align: center;
+  padding: 2em 1em;
+  color: #888;
+  font-size: 0.95em;
+  display: none;
+}
+
+.mention-count-badge {
+  margin-left: 8px;
+  background: color-mix(in srgb, var(--facet-color, #667eea) 15%, white);
+  color: var(--facet-color, #667eea);
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 0.8em;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* Loading and states */
@@ -683,6 +776,9 @@ tr:hover .entity-delete-btn {
   font-weight: bold;
   cursor: pointer;
   line-height: 20px;
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .close:hover {
@@ -767,6 +863,10 @@ tr:hover .entity-delete-btn {
 .facet-relationship-row:hover {
   background: #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.facet-relationship-row:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .facet-rel-info {
@@ -918,6 +1018,107 @@ tr:hover .entity-delete-btn {
   color: #999;
   margin-bottom: 0.5em;
 }
+
+/* ── Responsive: Tablet (≤768px) ── */
+@media (max-width: 768px) {
+  .entity-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .entity-detail-header {
+    padding: 1.25em;
+  }
+
+  .entity-detail-section {
+    padding: 1.25em;
+  }
+}
+
+/* ── Responsive: Mobile (≤480px) ── */
+@media (max-width: 480px) {
+  /* Card grid: single column */
+  .entity-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Card touch targets */
+  .entity-card {
+    padding: 1em;
+    min-height: 44px;
+  }
+
+  /* Container padding tighter */
+  .entity-cards-container {
+    padding: 1em;
+  }
+
+  /* Table: horizontal scroll */
+  .entities-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Relax fixed type column width */
+  .entity-type {
+    width: auto;
+    min-width: 80px;
+  }
+
+  /* Section headers: wrap search input below title */
+  .entities-section h3 {
+    flex-wrap: wrap;
+    padding: 0.75em 1em;
+  }
+
+  .entities-subtitle {
+    padding: 0.25em 1em;
+  }
+
+  /* Search input: full width on mobile */
+  .entity-search-input {
+    width: 100%;
+    max-width: none;
+    margin-top: 0.5em;
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  /* Star button touch target */
+  .star-button {
+    width: 44px;
+    min-height: 44px;
+  }
+
+  /* Pagination button touch targets */
+  .detected-pagination button {
+    min-height: 44px;
+    padding: 8px 16px;
+  }
+
+  /* Small button touch targets */
+  .btn-sm {
+    min-height: 44px;
+    padding: 0.5em 1em;
+  }
+
+  /* Detail view: tighter padding, smaller title */
+  .entity-detail-header {
+    padding: 1em;
+  }
+
+  .entity-detail-name {
+    font-size: 1.25em;
+  }
+
+  .entity-detail-title {
+    flex-wrap: wrap;
+  }
+
+  .entity-detail-section {
+    padding: 1em;
+  }
+}
+
 </style>
 
 <div class="workspace-content">
@@ -929,12 +1130,19 @@ tr:hover .entity-delete-btn {
   <!-- Journal-wide entities view (all-facet mode) -->
   <div id="journal-entities-view" style="display: none;">
     <div class="entities-section">
+      <h3>
+        <span>your entities</span>
+        <input type="text" id="journal-entity-card-search" class="entity-search-input" placeholder="Search entities..." aria-label="Search entity cards">
+        <span id="journal-card-search-count" class="entity-card-search-count" style="display: none;"></span>
+      </h3>
+      <p class="entities-subtitle">people, places, and things across your journal</p>
       <div class="entity-cards-container">
         <div id="journal-entity-cards-content"></div>
         <div id="no-journal-entities" class="no-journal-entities" style="display: none;">
           <h2>No entities yet</h2>
           <p>Select a facet to add entities to your journal.</p>
         </div>
+        <div id="no-journal-card-matches" class="no-card-matches" style="display: none;">No entities match your search.</div>
       </div>
     </div>
   </div>
@@ -942,7 +1150,7 @@ tr:hover .entity-delete-btn {
   <!-- Journal entity detail view (all-facet mode) -->
   <div id="journal-entity-detail-view" class="entity-detail-view" style="display: none;">
     <div class="entity-detail-header">
-      <a class="entity-detail-back" onclick="navigateToList()">← Back to entities</a>
+      <a class="entity-detail-back" href="#" onclick="event.preventDefault(); navigateToList()">← Back to entities</a>
       <div class="entity-detail-title">
         <h2 class="entity-detail-name" id="journal-detail-name"></h2>
         <span class="entity-detail-type" id="journal-detail-type"></span>
@@ -957,7 +1165,7 @@ tr:hover .entity-delete-btn {
     </div>
 
     <div class="entity-detail-section">
-      <h4>Edit Entity</h4>
+      <h4>edit entity</h4>
       <div id="journal-detail-edit-error" class="error-message" style="display: none;"></div>
       <form class="entity-edit-form" id="journal-detail-edit-form">
         <div class="form-group">
@@ -971,12 +1179,12 @@ tr:hover .entity-delete-btn {
           </select>
         </div>
         <div class="form-group">
-          <label for="journal-detail-edit-akas">Alternative Names (AKAs)</label>
+          <label for="journal-detail-edit-akas">alternative names (AKAs)</label>
           <input type="text" id="journal-detail-edit-akas" placeholder="alias1, alias2, alias3">
           <small>Comma-separated list of alternative names for audio transcription</small>
         </div>
         <div class="form-actions">
-          <button type="submit" class="btn btn-primary" id="journal-detail-save-btn">Save Changes</button>
+          <button type="submit" class="btn btn-primary" id="journal-detail-save-btn">save changes</button>
         </div>
       </form>
     </div>
@@ -986,6 +1194,7 @@ tr:hover .entity-delete-btn {
         <button class="btn btn-secondary" id="journal-detail-block-btn">Block</button>
         <button class="btn btn-danger" id="journal-detail-delete-btn">Delete</button>
       </div>
+      <div id="block-action-error" class="error-message" style="display: none;"></div>
       <p style="margin-top: 0.75em; font-size: 0.85em; color: #6c757d;">
         <strong>Block</strong> hides the entity from all views but preserves data.
         <strong>Delete</strong> permanently removes the entity and all associated data.
@@ -997,11 +1206,18 @@ tr:hover .entity-delete-btn {
   <div id="entities-list-view" style="display: none;">
     <!-- Facet Entities Section (Cards) -->
     <div class="entities-section">
+      <h3 id="facet-entities-heading">
+        <span>entities</span>
+        <input type="text" id="entity-card-search" class="entity-search-input" placeholder="Search entities..." aria-label="Search entity cards">
+        <span id="facet-card-search-count" class="entity-card-search-count" style="display: none;"></span>
+      </h3>
+      <p class="entities-subtitle" id="facet-entities-subtitle">people, places, and things you're tracking</p>
       <div class="entity-cards-container">
         <div id="entity-cards-content"></div>
         <div id="no-facet-entities" class="no-entities" style="display: none;">
           No entities added to this facet yet. Star entities below to add them.
         </div>
+        <div id="no-facet-card-matches" class="no-card-matches" style="display: none;">No entities match your search.</div>
       </div>
     </div>
 
@@ -1009,9 +1225,11 @@ tr:hover .entity-delete-btn {
     <div class="entities-section">
       <div class="entities-container">
         <h3 id="all-entities-title">
-          <span>Detected Entities</span>
+          <span>detected entities</span>
           <input type="text" id="entity-search" class="entity-search-input" placeholder="Search entities...">
         </h3>
+        <p class="entities-subtitle">found by AI in the last 30 days — star to add to your journal</p>
+        <div id="detected-action-error" class="error-message" style="display: none;"></div>
         <table class="entities-table">
           <thead>
             <tr>
@@ -1024,6 +1242,7 @@ tr:hover .entity-delete-btn {
           <tbody id="all-entities-tbody">
           </tbody>
         </table>
+        <div id="detected-pagination" class="detected-pagination"></div>
       </div>
     </div>
   </div>
@@ -1031,7 +1250,7 @@ tr:hover .entity-delete-btn {
   <!-- Entity detail view -->
   <div id="entity-detail-view" class="entity-detail-view" style="display: none;">
     <div class="entity-detail-header">
-      <a class="entity-detail-back" onclick="navigateToList()">← Back to entities</a>
+      <a class="entity-detail-back" href="#" onclick="event.preventDefault(); navigateToList()">← Back to entities</a>
       <div class="entity-detail-title">
         <h2 class="entity-detail-name" id="detail-name"></h2>
         <span class="entity-detail-type" id="detail-type"></span>
@@ -1041,21 +1260,23 @@ tr:hover .entity-delete-btn {
     </div>
 
     <div class="entity-detail-section">
-      <h4>Description</h4>
+      <h4>description</h4>
       <div id="detail-description-container"></div>
+      <div id="description-save-error" class="error-message" style="display: none;"></div>
     </div>
 
     <div class="entity-detail-section">
-      <h4>Observations</h4>
+      <h4>observations</h4>
       <div id="detail-observations"></div>
     </div>
 
     <div class="entity-detach-section">
       <button class="btn" id="detail-detach-btn"></button>
     </div>
+    <div id="detach-action-error" class="error-message" style="display: none;"></div>
 
     <div class="entity-attach-section" id="detail-attach-section" style="display: none;">
-      <h4>Attach to <span id="attach-facet-name"></span></h4>
+      <h4>attach to <span id="attach-facet-name"></span></h4>
       <label class="attach-description-label">
         Description <span class="required">*</span>
         <small style="font-weight: normal; color: #6c757d;">(How does this entity relate to this facet?)</small>
@@ -1071,8 +1292,8 @@ tr:hover .entity-delete-btn {
 <div id="deleteModal" class="modal">
   <div class="modal-content">
     <div class="modal-header danger">
-      <h3>Delete Detected Entity</h3>
-      <span class="close" onclick="closeDeleteModal()">&times;</span>
+      <h3>delete detected entity</h3>
+      <button class="close" aria-label="Close" onclick="closeDeleteModal()">&times;</button>
     </div>
     <div class="modal-body">
       <div class="delete-warning">
@@ -1095,8 +1316,8 @@ tr:hover .entity-delete-btn {
 <div id="deleteJournalEntityModal" class="modal">
   <div class="modal-content">
     <div class="modal-header danger">
-      <h3>Delete Entity Permanently</h3>
-      <span class="close" onclick="closeDeleteJournalEntityModal()">&times;</span>
+      <h3>delete entity permanently</h3>
+      <button class="close" aria-label="Close" onclick="closeDeleteJournalEntityModal()">&times;</button>
     </div>
     <div class="modal-body">
       <div class="delete-warning">
@@ -1111,10 +1332,11 @@ tr:hover .entity-delete-btn {
           <li id="deleteJournalEntityObs"></li>
         </ul>
       </div>
+      <div id="delete-modal-error" class="error-message" style="display: none; margin-top: 0.5em;"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeDeleteJournalEntityModal()">Cancel</button>
-      <button id="confirmDeleteJournalEntityBtn" class="btn btn-danger" onclick="confirmDeleteJournalEntity()">Delete Permanently</button>
+      <button id="confirmDeleteJournalEntityBtn" class="btn btn-danger" onclick="confirmDeleteJournalEntity()">delete permanently</button>
     </div>
   </div>
 </div>
@@ -1122,13 +1344,37 @@ tr:hover .entity-delete-btn {
 <script>
 let currentFacet = window.selectedFacet;
 let entitiesData = null;
+let detectedPage = 1;
 let journalEntitiesData = null;  // For all-facet mode
 let currentDetailEntity = null;
 const pendingEntities = new Map(); // agent_id → { name, element }
 const pendingAgentCallbacks = new Map(); // agent_id → callback function
+const _errorTimers = {};
 
 // Standard entity types - fetched from server
 let ENTITY_TYPES = [];
+
+// Inline error helpers
+function showInlineError(elementId, message) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.textContent = message;
+  el.style.display = 'block';
+  if (_errorTimers[elementId]) clearTimeout(_errorTimers[elementId]);
+  _errorTimers[elementId] = setTimeout(() => {
+    el.style.display = 'none';
+  }, 8000);
+}
+
+function hideInlineError(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.style.display = 'none';
+  if (_errorTimers[elementId]) {
+    clearTimeout(_errorTimers[elementId]);
+    delete _errorTimers[elementId];
+  }
+}
 
 // Load entity types from server and populate UI elements
 async function loadEntityTypes() {
@@ -1144,7 +1390,7 @@ async function loadEntityTypes() {
       ENTITY_TYPES.forEach(t => {
         const opt = document.createElement('option');
         opt.value = t.name;
-        opt.textContent = t.name;
+        opt.textContent = t.name.toLowerCase();
         select.appendChild(opt);
       });
     }
@@ -1161,7 +1407,7 @@ async function loadEntityTypes() {
       ENTITY_TYPES.forEach(t => {
         const opt = document.createElement('option');
         opt.value = t.name;
-        opt.textContent = t.name;
+        opt.textContent = t.name.toLowerCase();
         select.appendChild(opt);
       });
     }
@@ -1482,6 +1728,14 @@ function renderJournalDetailView(entity) {
           // Select the facet, which will reload entities and show this entity in facet context
           window.selectFacet(facet.name);
         };
+        row.setAttribute('role', 'button');
+        row.setAttribute('tabindex', '0');
+        row.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            window.selectFacet(facet.name);
+          }
+        });
       }
 
       const info = document.createElement('div');
@@ -1506,7 +1760,7 @@ function renderJournalDetailView(entity) {
       if (isDetachedFacet) {
         const detachedBadge = document.createElement('span');
         detachedBadge.className = 'facet-rel-detached-badge';
-        detachedBadge.textContent = 'Detached';
+        detachedBadge.textContent = 'detached';
         header.appendChild(detachedBadge);
       }
 
@@ -1616,7 +1870,7 @@ document.getElementById('journal-detail-edit-form').addEventListener('submit', f
     errorEl.style.display = 'none';
     saveBtn.textContent = 'Saved!';
     setTimeout(() => {
-      saveBtn.textContent = 'Save Changes';
+      saveBtn.textContent = 'save changes';
       saveBtn.disabled = false;
     }, 1500);
   })
@@ -1624,7 +1878,7 @@ document.getElementById('journal-detail-edit-form').addEventListener('submit', f
     console.error('Error updating journal entity:', error);
     errorEl.textContent = error.message || 'Failed to save changes';
     errorEl.style.display = 'block';
-    saveBtn.textContent = 'Save Changes';
+    saveBtn.textContent = 'save changes';
     saveBtn.disabled = false;
   });
 });
@@ -1646,13 +1900,14 @@ function blockJournalEntity() {
     if (data.error) {
       throw new Error(data.error);
     }
+    hideInlineError('block-action-error');
     // Navigate back to list and reload
     navigateToList();
     loadEntities();
   })
   .catch(error => {
     console.error('Error blocking entity:', error);
-    alert('Error: ' + error.message);
+    showInlineError('block-action-error', "couldn't block entity");
     btn.disabled = false;
     btn.textContent = 'Block';
   });
@@ -1674,13 +1929,14 @@ function unblockJournalEntity() {
     if (data.error) {
       throw new Error(data.error);
     }
+    hideInlineError('block-action-error');
     // Refresh the detail view
     showJournalDetailView(entityId);
     loadEntities();  // Refresh list in background
   })
   .catch(error => {
     console.error('Error unblocking entity:', error);
-    alert('Error: ' + error.message);
+    showInlineError('block-action-error', "couldn't unblock entity");
     btn.disabled = false;
     btn.textContent = 'Unblock';
   });
@@ -1705,6 +1961,7 @@ function showDeleteJournalEntityModal() {
 }
 
 function closeDeleteJournalEntityModal() {
+  hideInlineError('delete-modal-error');
   document.getElementById('deleteJournalEntityModal').style.display = 'none';
 }
 
@@ -1724,15 +1981,16 @@ function confirmDeleteJournalEntity() {
     if (data.error) {
       throw new Error(data.error);
     }
+    hideInlineError('delete-modal-error');
     closeDeleteJournalEntityModal();
     navigateToList();
     loadEntities();
   })
   .catch(error => {
     console.error('Error deleting entity:', error);
-    alert('Error: ' + error.message);
+    showInlineError('delete-modal-error', "couldn't delete entity");
     btn.disabled = false;
-    btn.textContent = 'Delete Permanently';
+    btn.textContent = 'delete permanently';
   });
 }
 
@@ -1765,7 +2023,7 @@ function renderDetailView(entity, observations) {
       detachedBadge.className = 'entity-detail-detached-badge';
       typeEl.parentNode.insertBefore(detachedBadge, typeEl.nextSibling);
     }
-    detachedBadge.textContent = needsAttachment ? 'Not Attached' : 'Detached';
+    detachedBadge.textContent = needsAttachment ? 'not attached' : 'detached';
   } else if (detachedBadge) {
     detachedBadge.remove();
   }
@@ -2003,6 +2261,7 @@ function saveDescription(entity, newDescription) {
     if (data.success) {
       entity.description = newDescription;
       currentDetailEntity.description = newDescription;
+      hideInlineError('description-save-error');
       renderDescriptionSection(entity);
     } else {
       throw new Error(data.error || 'Failed to save');
@@ -2010,7 +2269,7 @@ function saveDescription(entity, newDescription) {
   })
   .catch(error => {
     console.error('Error saving description:', error);
-    alert('Error saving: ' + error.message);
+    showInlineError('description-save-error', "couldn't save description");
   });
 }
 
@@ -2023,6 +2282,7 @@ function detachEntity(entity) {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
+      hideInlineError('detach-action-error');
       // Go back to list view and refresh
       navigateToList();
       loadEntities();
@@ -2032,7 +2292,7 @@ function detachEntity(entity) {
   })
   .catch(error => {
     console.error('Error detaching entity:', error);
-    alert('Error: ' + error.message);
+    showInlineError('detach-action-error', "couldn't detach entity");
   });
 }
 
@@ -2049,6 +2309,7 @@ function reattachEntity(entity) {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
+      hideInlineError('detach-action-error');
       // Update local state and re-render detail view
       delete entity.detached;
       delete currentDetailEntity.detached;
@@ -2061,7 +2322,7 @@ function reattachEntity(entity) {
   })
   .catch(error => {
     console.error('Error re-attaching entity:', error);
-    alert('Error: ' + error.message);
+    showInlineError('detach-action-error', "couldn't re-attach entity");
   });
 }
 
@@ -2118,8 +2379,23 @@ document.addEventListener('DOMContentLoaded', function() {
   if (entitySearchInput) {
     entitySearchInput.addEventListener('input', function() {
       if (entitiesData) {
+        detectedPage = 1;
         renderEntities(this.value.trim());
       }
+    });
+  }
+
+  const journalCardSearch = document.getElementById('journal-entity-card-search');
+  if (journalCardSearch) {
+    journalCardSearch.addEventListener('input', function() {
+      renderJournalEntities(this.value.trim());
+    });
+  }
+
+  const facetCardSearch = document.getElementById('entity-card-search');
+  if (facetCardSearch) {
+    facetCardSearch.addEventListener('input', function() {
+      renderEntityCards(this.value.trim());
     });
   }
 
@@ -2133,6 +2409,18 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      const deleteModal = document.getElementById('deleteModal');
+      const deleteJournalModal = document.getElementById('deleteJournalEntityModal');
+      if (deleteModal.style.display === 'flex') {
+        closeDeleteModal();
+      } else if (deleteJournalModal.style.display === 'flex') {
+        closeDeleteJournalEntityModal();
+      }
+    }
+  });
 
   // Modal close on outside click
   window.onclick = function(event) {
@@ -2176,6 +2464,7 @@ function loadEntities() {
         showListView();
       }
 
+      detectedPage = 1;
       renderEntities();
     })
     .catch(error => {
@@ -2216,20 +2505,27 @@ function loadJournalEntities() {
 function renderEntities(searchTerm = '') {
   if (!entitiesData) return;
 
-  renderEntityCards();
+  const cardInput = document.getElementById('entity-card-search');
+  renderEntityCards(cardInput ? cardInput.value.trim() : '');
   renderDetectedTable(searchTerm);
 }
 
-function renderJournalEntities() {
+function renderJournalEntities(searchTerm = '') {
   const container = document.getElementById('journal-entity-cards-content');
   const noEntities = document.getElementById('no-journal-entities');
+  const countEl = document.getElementById('journal-card-search-count');
+  const noMatchEl = document.getElementById('no-journal-card-matches');
 
   container.innerHTML = '';
 
   const entities = journalEntitiesData || [];
+  const totalCount = entities.length;
+  const term = searchTerm.toLowerCase();
 
   if (entities.length === 0) {
     noEntities.style.display = 'block';
+    countEl.style.display = 'none';
+    noMatchEl.style.display = 'none';
     return;
   }
 
@@ -2251,21 +2547,26 @@ function renderJournalEntities() {
     const typeEntities = groups[type];
     if (!typeEntities || typeEntities.length === 0) return;
 
+    const filteredEntities = term
+      ? typeEntities.filter(entity => entity.name.toLowerCase().includes(term))
+      : typeEntities;
+    if (filteredEntities.length === 0) return;
+
     // Sort by activity date (most recent first)
-    typeEntities.sort((a, b) => (b.last_active_ts || 0) - (a.last_active_ts || 0));
+    filteredEntities.sort((a, b) => (b.last_active_ts || 0) - (a.last_active_ts || 0));
 
     const groupDiv = document.createElement('div');
     groupDiv.className = 'entity-type-group';
 
     const header = document.createElement('div');
     header.className = 'entity-type-header';
-    header.textContent = type;
+    header.textContent = type.toLowerCase();
     groupDiv.appendChild(header);
 
     const grid = document.createElement('div');
     grid.className = 'entity-cards-grid';
 
-    typeEntities.forEach(entity => {
+    filteredEntities.forEach(entity => {
       const card = createJournalEntityCard(entity);
       grid.appendChild(card);
     });
@@ -2273,11 +2574,40 @@ function renderJournalEntities() {
     groupDiv.appendChild(grid);
     container.appendChild(groupDiv);
   });
+
+  const matchCount = container.querySelectorAll('.entity-card').length;
+  if (term) {
+    countEl.textContent = `${matchCount} of ${totalCount} entities`;
+    countEl.style.display = '';
+    noMatchEl.style.display = matchCount === 0 && totalCount > 0 ? '' : 'none';
+  } else {
+    countEl.style.display = 'none';
+    noMatchEl.style.display = 'none';
+  }
+}
+
+function appendTypeIndicator(card, type) {
+  const slug = type ? type.toLowerCase().replace(/\s+/g, '-') : 'other';
+  card.classList.add('entity-card-type-' + slug);
+  const dot = document.createElement('span');
+  dot.className = 'entity-card-type-indicator';
+  dot.title = type || 'Other';
+  card.appendChild(dot);
+}
+
+function appendDetailAffordance(card) {
+  const chevron = document.createElement('span');
+  chevron.className = 'entity-card-detail-affordance';
+  chevron.textContent = '\u203A';
+  chevron.setAttribute('aria-hidden', 'true');
+  card.appendChild(chevron);
 }
 
 function createJournalEntityCard(entity) {
   const card = document.createElement('div');
   card.className = 'entity-card';
+  card.setAttribute('role', 'button');
+  card.setAttribute('tabindex', '0');
 
   // Principal styling for the journal owner
   if (entity.is_principal) {
@@ -2300,13 +2630,19 @@ function createJournalEntityCard(entity) {
   }
 
   card.onclick = () => navigateToEntity(entity.id);
+  card.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      navigateToEntity(entity.id);
+    }
+  });
 
-  // Observation count badge (top-right corner)
+  // Mention count badge (top-right corner)
   if (entity.total_observation_count > 0) {
     const badge = document.createElement('div');
     badge.className = 'entity-card-badge';
     badge.textContent = entity.total_observation_count;
-    badge.title = `${entity.total_observation_count} observation${entity.total_observation_count !== 1 ? 's' : ''}`;
+    badge.title = `${entity.total_observation_count} mention${entity.total_observation_count !== 1 ? 's' : ''} — observations recorded about this entity`;
     card.appendChild(badge);
   }
 
@@ -2342,12 +2678,26 @@ function createJournalEntityCard(entity) {
     card.appendChild(dotsContainer);
   }
 
+  appendTypeIndicator(card, entity.type);
+  appendDetailAffordance(card);
+
   return card;
 }
 
-function renderEntityCards() {
+function renderEntityCards(searchTerm = '') {
   const container = document.getElementById('entity-cards-content');
+
+  // Update facet heading
+  const facetHeading = document.getElementById('facet-entities-heading');
+  if (facetHeading && currentFacet) {
+    const facetTitle = (window.facetsData || []).find(f => f.name === currentFacet)?.title || currentFacet;
+    const headingSpan = facetHeading.querySelector('span');
+    if (headingSpan) headingSpan.textContent = `entities in ${facetTitle}`;
+  }
+
   const noEntities = document.getElementById('no-facet-entities');
+  const countEl = document.getElementById('facet-card-search-count');
+  const noMatchEl = document.getElementById('no-facet-card-matches');
 
   // Preserve pending cards
   const pendingCards = Array.from(container.querySelectorAll('.entity-card-pending'));
@@ -2358,9 +2708,13 @@ function renderEntityCards() {
   pendingCards.forEach(card => container.appendChild(card));
 
   const attached = entitiesData.attached || [];
+  const totalCount = attached.length;
+  const term = searchTerm.toLowerCase();
 
   if (attached.length === 0 && pendingCards.length === 0) {
     noEntities.style.display = 'block';
+    countEl.style.display = 'none';
+    noMatchEl.style.display = 'none';
     return;
   }
 
@@ -2382,21 +2736,26 @@ function renderEntityCards() {
     const entities = groups[type];
     if (!entities || entities.length === 0) return;
 
+    const filteredEntities = term
+      ? entities.filter(entity => entity.name.toLowerCase().includes(term))
+      : entities;
+    if (filteredEntities.length === 0) return;
+
     // Sort by activity date (most recent first) using server-computed timestamp
-    entities.sort((a, b) => (b.last_active_ts || 0) - (a.last_active_ts || 0));
+    filteredEntities.sort((a, b) => (b.last_active_ts || 0) - (a.last_active_ts || 0));
 
     const groupDiv = document.createElement('div');
     groupDiv.className = 'entity-type-group';
 
     const header = document.createElement('div');
     header.className = 'entity-type-header';
-    header.textContent = type;
+    header.textContent = type.toLowerCase();
     groupDiv.appendChild(header);
 
     const grid = document.createElement('div');
     grid.className = 'entity-cards-grid';
 
-    entities.forEach(entity => {
+    filteredEntities.forEach(entity => {
       const card = createEntityCard(entity);
       grid.appendChild(card);
     });
@@ -2404,11 +2763,23 @@ function renderEntityCards() {
     groupDiv.appendChild(grid);
     container.appendChild(groupDiv);
   });
+
+  const matchCount = container.querySelectorAll('.entity-card:not(.entity-card-pending)').length;
+  if (term) {
+    countEl.textContent = `${matchCount} of ${totalCount} entities`;
+    countEl.style.display = '';
+    noMatchEl.style.display = matchCount === 0 && totalCount > 0 ? '' : 'none';
+  } else {
+    countEl.style.display = 'none';
+    noMatchEl.style.display = 'none';
+  }
 }
 
 function createEntityCard(entity) {
   const card = document.createElement('div');
   card.className = 'entity-card';
+  card.setAttribute('role', 'button');
+  card.setAttribute('tabindex', '0');
 
   // Principal styling for the journal owner
   if (entity.is_principal) {
@@ -2422,13 +2793,19 @@ function createEntityCard(entity) {
   }
 
   card.onclick = () => navigateToEntity(entity.id);
+  card.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      navigateToEntity(entity.id);
+    }
+  });
 
-  // Observation count badge (top-right corner)
+  // Mention count badge (top-right corner)
   if (entity.observation_count && entity.observation_count > 0) {
     const badge = document.createElement('div');
-    badge.className = 'entity-card-obs-badge';
+    badge.className = 'entity-card-mention-badge';
     badge.textContent = entity.observation_count;
-    badge.title = `${entity.observation_count} observation${entity.observation_count > 1 ? 's' : ''}`;
+    badge.title = `${entity.observation_count} mention${entity.observation_count > 1 ? 's' : ''} — observations recorded about this entity`;
     card.appendChild(badge);
   }
 
@@ -2462,6 +2839,9 @@ function createEntityCard(entity) {
   if (meta.childNodes.length > 0) {
     card.appendChild(meta);
   }
+
+  appendTypeIndicator(card, entity.type);
+  appendDetailAffordance(card);
 
   return card;
 }
@@ -2500,9 +2880,48 @@ function renderDetectedTable(searchTerm = '') {
     filtered = filtered.filter(e => e.name.toLowerCase().includes(term));
   }
 
-  filtered.forEach(entity => {
+  // Paginate
+  const pageSize = 25;
+  const total = filtered.length;
+  const totalPages = Math.ceil(total / pageSize);
+  if (detectedPage > totalPages) detectedPage = Math.max(1, totalPages);
+  const start = (detectedPage - 1) * pageSize;
+  const end = Math.min(start + pageSize, total);
+  const pageItems = filtered.slice(start, end);
+
+  pageItems.forEach(entity => {
     const row = createDetectedRow(entity);
     tbody.appendChild(row);
+  });
+
+  renderDetectedPagination(total, start, end);
+}
+
+function renderDetectedPagination(total, start, end) {
+  const el = document.getElementById('detected-pagination');
+  if (total <= 25) {
+    el.innerHTML = '';
+    return;
+  }
+  const totalPages = Math.ceil(total / 25);
+  const prevDisabled = detectedPage <= 1 ? 'disabled' : '';
+  const nextDisabled = detectedPage >= totalPages ? 'disabled' : '';
+  el.innerHTML =
+    `<button ${prevDisabled} id="detected-prev-btn">Previous</button>` +
+    `<span class="detected-page-info">showing ${start + 1}\u2013${end} of ${total} detected entities</span>` +
+    `<button ${nextDisabled} id="detected-next-btn">Next</button>`;
+
+  const prevBtn = document.getElementById('detected-prev-btn');
+  const nextBtn = document.getElementById('detected-next-btn');
+  prevBtn.addEventListener('click', function() {
+    detectedPage--;
+    const searchInput = document.getElementById('entity-search');
+    renderDetectedTable(searchInput ? searchInput.value.trim() : '');
+  });
+  nextBtn.addEventListener('click', function() {
+    detectedPage++;
+    const searchInput = document.getElementById('entity-search');
+    renderDetectedTable(searchInput ? searchInput.value.trim() : '');
   });
 }
 
@@ -2530,11 +2949,12 @@ function createDetectedRow(entity) {
   nameCell.className = 'entity-name';
   nameCell.textContent = entity.name;
 
-  // Count badge
-  if (entity.count && entity.count > 1) {
+  // Mention count badge
+  if (entity.count && entity.count > 0) {
     const badge = document.createElement('span');
-    badge.className = 'detection-count-badge';
-    badge.textContent = `${entity.count} detections`;
+    badge.className = 'mention-count-badge';
+    badge.textContent = entity.count;
+    badge.title = `${entity.count} mention${entity.count !== 1 ? 's' : ''} — days detected in the last 30 days`;
     nameCell.appendChild(badge);
   }
   row.appendChild(nameCell);
@@ -2545,7 +2965,8 @@ function createDetectedRow(entity) {
   descCell.textContent = entity.description || '—';
 
   // Delete button
-  const deleteBtn = document.createElement('span');
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
   deleteBtn.className = 'entity-delete-btn';
   deleteBtn.textContent = '🗑️';
   deleteBtn.title = 'Delete detected entity';
@@ -2575,6 +2996,7 @@ function attachDetectedEntity(entity, button) {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
+      hideInlineError('detected-action-error');
       // Reload to get full entity data
       loadEntities();
     } else {
@@ -2583,7 +3005,7 @@ function attachDetectedEntity(entity, button) {
   })
   .catch(error => {
     console.error('Error attaching entity:', error);
-    alert('Error: ' + error.message);
+    showInlineError('detected-action-error', "couldn't attach entity");
     button.disabled = false;
     button.style.opacity = '1';
   });
@@ -2781,17 +3203,10 @@ function previewEntityDelete(entityName) {
     .then(response => response.json())
     .then(data => {
       if (data.success && data.days) {
-        if (data.days.length === 1) {
-          // Single detection - delete directly
-          removeEntityFromUI(entityName);
-          deleteEntity(entityName, true);
-          return;
-        }
-
-        // Multiple - show modal
+        hideInlineError('detected-action-error');
         const modal = document.getElementById('deleteModal');
         document.getElementById('deleteEntityName').textContent = entityName;
-        document.getElementById('deleteDaysCount').textContent = `${data.days.length} days`;
+        document.getElementById('deleteDaysCount').textContent = `${data.days.length} day${data.days.length !== 1 ? 's' : ''}`;
 
         const daysList = document.getElementById('deleteDaysList');
         daysList.innerHTML = '';
@@ -2809,7 +3224,7 @@ function previewEntityDelete(entityName) {
     })
     .catch(error => {
       console.error('Error previewing delete:', error);
-      alert('Error: ' + error.message);
+      showInlineError('detected-action-error', "couldn't load delete preview");
     });
 }
 

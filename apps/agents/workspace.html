@@ -75,8 +75,6 @@
 .section-title {
   font-size: 0.85rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: #666;
   margin-bottom: 0.75rem;
   padding-bottom: 0.25rem;
@@ -148,9 +146,10 @@
   font-size: 0.8rem;
   color: #888;
   margin: 0 0 0.5rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .agent-card-caps {
@@ -163,12 +162,12 @@
 .cap-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.1rem 0.4rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 3px;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 500;
   background: #f0f0f0;
-  color: #777;
+  color: #555;
   letter-spacing: 0.02em;
 }
 
@@ -202,7 +201,10 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   border: 1px solid rgba(0,0,0,0.1);
 }
 
@@ -249,8 +251,6 @@
   font-weight: 600;
   color: #666;
   font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .runs-table tr {
@@ -429,8 +429,6 @@
 
 .meta-label {
   font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
   color: #6b7280;
 }
 
@@ -466,6 +464,11 @@
   background: #3b82f6;
   border-color: #3b82f6;
   color: #fff;
+}
+
+.rd-tab:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
 }
 
 .rd-panel {
@@ -550,8 +553,6 @@
   font-weight: 600;
   color: #7c4dff;
   font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .event-thinking .thinking-text {
@@ -570,8 +571,6 @@
   font-weight: 600;
   color: #0288d1;
   font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .event-tool .tool-name {
@@ -613,8 +612,6 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
   margin-top: 0.4rem;
 }
 
@@ -641,8 +638,6 @@
   font-weight: 600;
   color: #d32f2f;
   font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .event-error .error-message {
@@ -682,8 +677,6 @@
   font-weight: 600;
   color: #388e3c;
   font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .event-finish .finish-result {
@@ -879,14 +872,73 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    border-top-color: #007bff;
+    opacity: 0.7;
+  }
+}
+
+.agent-card:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+  border-color: #007bff;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+}
+
+.runs-table tbody tr:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: -2px;
+  background: #f0f4ff;
+}
+
+/* Responsive: tablet */
+@media (max-width: 768px) {
+  .col-model, .col-provider, .col-output, .col-prompt {
+    display: none;
+  }
+  .runs-table {
+    font-size: 0.85rem;
+  }
+  #list-view {
+    overflow-x: auto;
+  }
+}
+
+/* Responsive: mobile */
+@media (max-width: 480px) {
+  .col-runtime, .col-facet {
+    display: none;
+  }
+  .runs-table {
+    font-size: 0.8rem;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 </style>
 
 <div class="agents-content">
+  <h2 class="sr-only">Agent Runs</h2>
   <!-- Loading state -->
-  <div id="loading-view" class="loading">
-    <div class="spinner"></div>
+  <div id="loading-view" class="loading" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
     <div>Loading agents...</div>
   </div>
+
+  <div id="agents-status" class="sr-only" role="status" aria-live="polite"></div>
 
   <!-- Card Grid View -->
   <div id="grid-view" style="display: none;">
@@ -918,16 +970,16 @@
       <thead>
         <tr>
           <th class="col-status"></th>
-          <th class="col-time">Time</th>
-          <th class="col-model">Model</th>
-          <th class="col-provider">Provider</th>
-          <th class="col-runtime">Runtime</th>
+          <th class="col-time">time</th>
+          <th class="col-model">model</th>
+          <th class="col-provider">provider</th>
+          <th class="col-runtime">runtime</th>
           <th class="col-activity" title="Thinking events">💭</th>
           <th class="col-activity" title="Tool calls">🔧</th>
           <th class="col-activity" title="Cost">💰</th>
-          <th class="col-facet">Facet</th>
-          <th class="col-output">Output</th>
-          <th class="col-prompt">Prompt</th>
+          <th class="col-facet">facet</th>
+          <th class="col-output">output</th>
+          <th class="col-prompt">prompt</th>
         </tr>
       </thead>
       <tbody id="runs-tbody"></tbody>
@@ -944,13 +996,13 @@
       <span class="crumb-current" id="crumb-run">Run 09:41</span>
     </div>
     <div id="run-detail-header-mount"></div>
-    <div id="run-detail-tabs" class="rd-tabs">
-      <button type="button" class="rd-tab active" data-tab="log">Run Log</button>
-      <button type="button" class="rd-tab" data-tab="output" id="run-detail-output-tab" style="display: none;">Output</button>
+    <div id="run-detail-tabs" class="rd-tabs" role="tablist" aria-label="run detail tabs">
+      <button type="button" class="rd-tab active" data-tab="log" id="tab-log" role="tab" aria-selected="true" aria-controls="run-detail-log-pane" tabindex="0">Run Log</button>
+      <button type="button" class="rd-tab" data-tab="output" id="tab-output" role="tab" aria-selected="false" aria-controls="run-detail-output-pane" tabindex="-1" style="display: none;">Output</button>
     </div>
     <div id="run-detail-panel" class="rd-panel">
-      <div id="run-detail-log-pane" class="rd-tab-pane active"></div>
-      <div id="run-detail-output-pane" class="rd-tab-pane"></div>
+      <div id="run-detail-log-pane" class="rd-tab-pane active" role="tabpanel" aria-labelledby="tab-log"></div>
+      <div id="run-detail-output-pane" class="rd-tab-pane" role="tabpanel" aria-labelledby="tab-output"></div>
     </div>
   </div>
 </div>
@@ -958,7 +1010,7 @@
 <script src="{{ vendor_lib('marked') }}"></script>
 
 <!-- Preview Modal -->
-<div id="preview-modal" class="modal-backdrop">
+<div id="preview-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="preview-modal-title">
   <div class="modal-content">
     <div class="modal-header">
       <h3 class="modal-title" id="preview-modal-title">Agent Prompt</h3>
@@ -982,6 +1034,8 @@
   let allRuns = [];
   let agentsMeta = {};
   let facetsMeta = {};
+  let previousPreviewFocus = null;
+  let previewFocusTrapHandler = null;
 
   // Get current day from URL path
   function getDayFromUrl() {
@@ -1014,14 +1068,16 @@
     return clean.substring(0, maxLen) + '...';
   }
 
-  // Format cost in cents with exact USD in title
+  // Format cost in USD with exact value in title
   function formatCost(costUSD) {
     if (costUSD === null || costUSD === undefined) {
       return { text: '\u2014', title: '' };
     }
-    const cents = Math.round(costUSD * 100);
     const exactUSD = '$' + costUSD.toFixed(4);
-    return { text: cents + 'c', title: exactUSD };
+    if (costUSD > 0 && costUSD < 0.01) {
+      return { text: '<$0.01', title: exactUSD };
+    }
+    return { text: '$' + costUSD.toFixed(2), title: exactUSD };
   }
 
   // Shorten model name for display
@@ -1148,6 +1204,7 @@
 
     hideAllViews();
     document.getElementById('loading-view').style.display = 'block';
+    document.getElementById('agents-status').textContent = '';
 
     try {
       const response = await fetch(`api/agents/${currentDay}`);
@@ -1158,6 +1215,8 @@
       facetsMeta = data.facets || {};
 
       renderGridView();
+      document.getElementById('agents-status').textContent =
+        allRuns.length + ' agent run' + (allRuns.length !== 1 ? 's' : '') + ' loaded';
 
       // Restore hash-based view after data load
       if (location.hash) {
@@ -1166,7 +1225,12 @@
     } catch (error) {
       console.error('Error loading agents:', error);
       document.getElementById('loading-view').innerHTML =
-        '<div class="empty-state"><div class="empty-state-text">Error loading agents</div></div>';
+        '<div class="empty-state" aria-live="polite">' +
+          '<div class="empty-state-icon">⚠️</div>' +
+          '<div class="empty-state-text">Unable to load agents</div>' +
+          '<div class="empty-state-hint">The server may be temporarily unavailable. Check your connection and try again.</div>' +
+          '<button class="back-btn" onclick="loadAgents()" style="margin-top: 1rem;">Try again</button>' +
+        '</div>';
     }
   }
 
@@ -1198,13 +1262,13 @@
 
     // Render system agents
     if (organized.system.length > 0) {
-      container.appendChild(renderSection('System Agents', organized.system));
+      container.appendChild(renderSection('system agents', organized.system));
     }
 
     // Render app agent sections
     const appNames = Object.keys(organized.apps).sort();
     for (const appName of appNames) {
-      const title = appName.charAt(0).toUpperCase() + appName.slice(1);
+      const title = appName;
       container.appendChild(renderSection(title, organized.apps[appName]));
     }
   }
@@ -1259,6 +1323,14 @@
     card.className = 'agent-card';
     card.style.borderLeftColor = agent.color;
     card.onclick = () => showRunList(agent.name);
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('aria-label', agent.title);
+    card.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      showRunList(agent.name);
+    });
 
     // Header with title and badges
     const header = document.createElement('div');
@@ -1276,14 +1348,14 @@
     if (successCount > 0) {
       const successBadge = document.createElement('span');
       successBadge.className = 'badge badge-success';
-      successBadge.textContent = successCount;
+      successBadge.textContent = '✓ ' + successCount;
       badges.appendChild(successBadge);
     }
 
     if (agent.failed_count > 0) {
       const failBadge = document.createElement('span');
       failBadge.className = 'badge badge-failed';
-      failBadge.textContent = agent.failed_count;
+      failBadge.textContent = '✗ ' + agent.failed_count;
       badges.appendChild(failBadge);
     }
 
@@ -1366,7 +1438,14 @@
           const dot = document.createElement('span');
           dot.className = 'facet-dot';
           dot.style.backgroundColor = (facet && facet.color) || '#999';
-          dot.title = (facet && facet.title) || facetName;
+          const label = (facet && facet.title) || facetName;
+          dot.setAttribute('aria-label', label);
+          dot.style.fontSize = '7px';
+          dot.style.color = 'white';
+          dot.style.fontWeight = 'bold';
+          dot.style.lineHeight = '10px';
+          dot.style.textAlign = 'center';
+          dot.appendChild(document.createTextNode(label.charAt(0).toUpperCase()));
           dots.appendChild(dot);
         }
 
@@ -1428,6 +1507,20 @@
       const row = document.createElement('tr');
       row.dataset.runId = run.id;
       row.onclick = () => showRunDetail(run.id, run.name);
+      row.setAttribute('tabindex', '0');
+      row.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          showRunDetail(run.id, run.name);
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const next = row.nextElementSibling;
+          if (next) next.focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prev = row.previousElementSibling;
+          if (prev) prev.focus();
+        }
+      });
 
       // Status
       const statusCell = document.createElement('td');
@@ -1512,6 +1605,7 @@
           const dot = document.createElement('span');
           dot.className = 'facet-dot';
           dot.style.backgroundColor = facet.color;
+          dot.setAttribute('aria-label', facet.title || run.facet);
           tag.appendChild(dot);
         }
         tag.appendChild(document.createTextNode((facet && facet.title) || run.facet));
@@ -1584,7 +1678,7 @@
     document.getElementById('run-detail-log-pane').innerHTML =
       '<div class="run-loading"><div class="spinner"></div><div>Loading run log...</div></div>';
     document.getElementById('run-detail-output-pane').innerHTML = '';
-    document.getElementById('run-detail-output-tab').style.display = 'none';
+    document.getElementById('tab-output').style.display = 'none';
     activateRunDetailTab('log');
 
     try {
@@ -1599,14 +1693,14 @@
       }
 
       if (data.error) {
-        renderRunDetailMessage(`Error: ${data.error}`);
+        renderRunDetailMessage(`Unable to load run details — ${data.error}. Go back and select the run again.`);
         return;
       }
 
       renderRunDetail(data, agentName);
     } catch (error) {
       if (currentRunId !== runId) return;
-      renderRunDetailMessage('Error loading run details');
+      renderRunDetailMessage('Unable to load run details. The server may be unreachable — check your connection and try again.');
     }
   }
 
@@ -1616,10 +1710,11 @@
     logPane.innerHTML = '';
     const msg = document.createElement('div');
     msg.className = 'run-loading';
+    msg.setAttribute('aria-live', 'polite');
     msg.textContent = message;
     logPane.appendChild(msg);
     document.getElementById('run-detail-output-pane').innerHTML = '';
-    document.getElementById('run-detail-output-tab').style.display = 'none';
+    document.getElementById('tab-output').style.display = 'none';
     activateRunDetailTab('log');
   }
 
@@ -1653,7 +1748,7 @@
       logPane.appendChild(empty);
     }
 
-    const outputTab = document.getElementById('run-detail-output-tab');
+    const outputTab = document.getElementById('tab-output');
     outputTab.style.display = data.output_file ? 'inline-flex' : 'none';
     document.getElementById('run-detail-output-pane').innerHTML = '';
     activateRunDetailTab('log');
@@ -1670,13 +1765,13 @@
     status.className = 'run-status-badge';
     if (data.status === 'running') {
       status.classList.add('status-running');
-      status.textContent = 'Running';
+      status.textContent = 'running';
     } else if (data.failed) {
       status.classList.add('status-failed');
-      status.textContent = 'Failed';
+      status.textContent = 'failed';
     } else {
       status.classList.add('status-completed');
-      status.textContent = 'Completed';
+      status.textContent = 'completed';
     }
     titleRow.appendChild(status);
 
@@ -1693,6 +1788,7 @@
         const dot = document.createElement('span');
         dot.className = 'facet-dot';
         dot.style.backgroundColor = facet.color;
+        dot.setAttribute('aria-label', (facet && facet.title) || data.facet);
         tag.appendChild(dot);
       }
       tag.appendChild(document.createTextNode((facet && facet.title) || data.facet));
@@ -1731,14 +1827,14 @@
       grid.appendChild(item);
     }
 
-    addMetaItem('Started', formatTimestamp(data.start) || '\u2014');
-    addMetaItem('Runtime', formatRuntime(data.runtime_seconds));
-    addMetaItem('Model', formatModel(data.model), data.model || '');
-    addMetaItem('Provider', data.provider || '\u2014');
-    addMetaItem('Thinking', String(data.thinking_count || 0));
-    addMetaItem('Tools', String(data.tool_count || 0));
+    addMetaItem('started', formatTimestamp(data.start) || '\u2014');
+    addMetaItem('runtime', formatRuntime(data.runtime_seconds));
+    addMetaItem('model', formatModel(data.model), data.model || '');
+    addMetaItem('provider', data.provider || '\u2014');
+    addMetaItem('thinking', String(data.thinking_count || 0));
+    addMetaItem('tools', String(data.tool_count || 0));
     const costInfo = formatCost(data.cost);
-    addMetaItem('Cost', costInfo.text, costInfo.title);
+    addMetaItem('cost', costInfo.text, costInfo.title);
 
     card.appendChild(grid);
     return card;
@@ -1748,6 +1844,8 @@
     const tabs = document.querySelectorAll('#run-detail-tabs .rd-tab');
     for (const tab of tabs) {
       tab.classList.toggle('active', tab.dataset.tab === tabId);
+      tab.setAttribute('aria-selected', tab.dataset.tab === tabId ? 'true' : 'false');
+      tab.setAttribute('tabindex', tab.dataset.tab === tabId ? '0' : '-1');
     }
 
     document.getElementById('run-detail-log-pane').classList.toggle('active', tabId === 'log');
@@ -1783,7 +1881,7 @@
       const data = await response.json();
 
       if (data.error) {
-        pane.innerHTML = `<div class="run-loading">Error: ${escapeHtml(data.error)}</div>`;
+        pane.innerHTML = `<div class="run-loading" aria-live="polite">Unable to load output — ${escapeHtml(data.error)}. Try switching tabs or reloading the page.</div>`;
         return;
       }
 
@@ -1793,7 +1891,7 @@
       if (data.format === 'md') {
         const markdown = document.createElement('div');
         markdown.className = 'rendered-markdown';
-        markdown.innerHTML = marked.parse(data.content, { breaks: true, gfm: true });
+        markdown.innerHTML = sanitizeHtml(marked.parse(data.content, { breaks: true, gfm: true }));
         container.appendChild(markdown);
       } else {
         const pre = document.createElement('pre');
@@ -1813,7 +1911,7 @@
       pane.appendChild(container);
       runOutputLoaded = true;
     } catch (error) {
-      pane.innerHTML = '<div class="run-loading">Error loading output file</div>';
+      pane.innerHTML = '<div class="run-loading" aria-live="polite">Unable to load output file. The server may be unreachable — check your connection and try again.</div>';
     } finally {
       runOutputLoading = false;
     }
@@ -1831,6 +1929,44 @@
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  // Sanitize HTML to allow only safe tags and attributes
+  function sanitizeHtml(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const allowedTags = new Set([
+      'p', 'strong', 'em', 'code', 'pre', 'ul', 'ol', 'li', 'a',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'br', 'hr',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td'
+    ]);
+    const allowedAttributes = {
+      a: new Set(['href'])
+    };
+
+    Array.from(doc.body.querySelectorAll('*')).forEach(function(el) {
+      const tagName = el.tagName.toLowerCase();
+      if (!allowedTags.has(tagName)) {
+        el.replaceWith(doc.createTextNode(el.textContent || ''));
+        return;
+      }
+
+      Array.from(el.attributes).forEach(function(attr) {
+        if (!allowedAttributes[tagName] || !allowedAttributes[tagName].has(attr.name)) {
+          el.removeAttribute(attr.name);
+        }
+      });
+
+      if (tagName === 'a') {
+        const href = el.getAttribute('href');
+        if (!href || !/^(https?:\/\/|mailto:)/.test(href)) {
+          el.removeAttribute('href');
+        }
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+      }
+    });
+
+    return doc.body.innerHTML;
   }
 
   // Render agent events as a rich interactive timeline
@@ -1888,7 +2024,7 @@
     const text = event.summary || event.content || '';
     block.innerHTML =
       '<span class="event-time">' + escapeHtml(formatTimestamp(event.ts)) + '</span>' +
-      '<span class="event-label">Thinking</span>' +
+      '<span class="event-label">thinking</span>' +
       (text ? '<div class="thinking-text">' + escapeHtml(text) + '</div>' : '');
 
     return block;
@@ -1909,7 +2045,7 @@
     const headerLine = document.createElement('div');
     headerLine.innerHTML =
       '<span class="event-time">' + escapeHtml(formatTimestamp(ts)) + '</span>' +
-      '<span class="event-label">Tool</span> ' +
+      '<span class="event-label">tool</span> ' +
       '<span class="tool-name">' + escapeHtml(toolName) + '</span>' +
       (incomplete ? '<span class="tool-incomplete-badge">did not complete</span>' : '');
 
@@ -1942,7 +2078,7 @@
       if (args && Object.keys(args).length > 0) {
         const argsLabel = document.createElement('div');
         argsLabel.className = 'tool-section-label';
-        argsLabel.textContent = 'Args';
+        argsLabel.textContent = 'args';
         details.appendChild(argsLabel);
         const argsPre = document.createElement('pre');
         argsPre.textContent = JSON.stringify(args, null, 2);
@@ -1952,7 +2088,7 @@
       if (result) {
         const resultLabel = document.createElement('div');
         resultLabel.className = 'tool-section-label';
-        resultLabel.textContent = 'Result';
+        resultLabel.textContent = 'result';
         details.appendChild(resultLabel);
         const resultPre = document.createElement('pre');
         resultPre.textContent = result;
@@ -1978,7 +2114,7 @@
 
     let html =
       '<span class="event-time">' + escapeHtml(formatTimestamp(event.ts)) + '</span>' +
-      '<span class="event-label">Error</span> ' +
+      '<span class="event-label">error</span> ' +
       '<span class="error-message">' + escapeHtml(event.error || 'Unknown error') + '</span>';
 
     if (event.trace) {
@@ -2009,13 +2145,13 @@
 
     const label = document.createElement('span');
     label.className = 'event-label';
-    label.textContent = 'Result';
+    label.textContent = 'result';
     block.appendChild(label);
 
     if (event.result && event.result.trim()) {
       const resultDiv = document.createElement('div');
       resultDiv.className = 'finish-result';
-      resultDiv.innerHTML = marked.parse(event.result, { breaks: true, gfm: true });
+      resultDiv.innerHTML = sanitizeHtml(marked.parse(event.result, { breaks: true, gfm: true }));
       block.appendChild(resultDiv);
     } else {
       const empty = document.createElement('div');
@@ -2039,6 +2175,8 @@
   // =========================================================================
   // Navigation & Preview Modal
   // =========================================================================
+
+  window.loadAgents = loadAgents;
 
   window.showGridView = function() {
     currentName = null;
@@ -2089,8 +2227,28 @@
     activateRunDetailTab(tab.dataset.tab);
   });
 
+  document.getElementById('run-detail-tabs').addEventListener('keydown', function(e) {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    const visibleTabs = Array.from(this.querySelectorAll('.rd-tab')).filter(t => t.offsetParent !== null);
+    if (visibleTabs.length === 0) return;
+    const currentIndex = visibleTabs.indexOf(document.activeElement);
+    if (currentIndex === -1) return;
+    let newIndex;
+    switch (e.key) {
+      case 'ArrowRight': newIndex = (currentIndex + 1) % visibleTabs.length; break;
+      case 'ArrowLeft': newIndex = (currentIndex - 1 + visibleTabs.length) % visibleTabs.length; break;
+      case 'Home': newIndex = 0; break;
+      case 'End': newIndex = visibleTabs.length - 1; break;
+    }
+    visibleTabs[newIndex].focus();
+    activateRunDetailTab(visibleTabs[newIndex].dataset.tab);
+  });
+
   window.showPreview = async function() {
     if (!currentName) return;
+
+    previousPreviewFocus = document.activeElement;
 
     const modal = document.getElementById('preview-modal');
     const content = document.getElementById('preview-modal-content');
@@ -2098,6 +2256,29 @@
 
     content.textContent = 'Loading...';
     modal.classList.add('show');
+
+    // Focus the close button
+    const closeBtn = modal.querySelector('.modal-close');
+    if (closeBtn) closeBtn.focus();
+
+    // Install focus trap (mirrors conversation panel pattern from app.html:230-246)
+    previewFocusTrapHandler = function(e) {
+      if (e.key !== 'Tab') return;
+      var focusable = Array.from(
+        modal.querySelectorAll('button, [href], input, select, textarea, [tabindex="0"]')
+      ).filter(function(el) { return el.offsetParent !== null && el.tabIndex >= 0 && !el.disabled; });
+      if (focusable.length === 0) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', previewFocusTrapHandler);
 
     try {
       const response = await fetch(`api/preview/${encodeURIComponent(currentName)}`);
@@ -2116,6 +2297,20 @@
 
   window.hidePreview = function() {
     document.getElementById('preview-modal').classList.remove('show');
+
+    // Remove focus trap
+    if (previewFocusTrapHandler) {
+      document.removeEventListener('keydown', previewFocusTrapHandler);
+      previewFocusTrapHandler = null;
+    }
+
+    // Restore focus (mirrors conversation panel pattern from app.html:273-278)
+    if (previousPreviewFocus && previousPreviewFocus.isConnected) {
+      previousPreviewFocus.focus();
+    } else {
+      document.getElementById('preview-btn')?.focus();
+    }
+    previousPreviewFocus = null;
   };
 
   // Close modal on backdrop click
@@ -2127,7 +2322,7 @@
 
   // Close modal on Escape
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' && document.getElementById('preview-modal').classList.contains('show')) {
       hidePreview();
     }
   });

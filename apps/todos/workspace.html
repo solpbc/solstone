@@ -17,10 +17,25 @@
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
-  padding-bottom: 0.25rem;
-  border-bottom: 2px solid;
+  padding-left: 0.5rem;
+  border-left: 4px solid;
   cursor: pointer;
   user-select: none;
+}
+
+.facet-chevron {
+  display: inline-block;
+  transition: transform 0.2s ease;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.facet-section:not(.collapsed) .facet-chevron {
+  transform: rotate(90deg);
+}
+
+.facet-emoji {
+  font-size: 0.875rem;
 }
 
 .facet-header:hover {
@@ -30,10 +45,14 @@
 .facet-title {
   font-size: 0.875rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   margin: 0;
   color: #374151;
+}
+
+.facet-pending-text {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 400;
 }
 
 .facet-count {
@@ -63,11 +82,19 @@
 }
 
 .todo-checkbox {
-  flex-shrink: 0;
   width: 1.25rem;
   height: 1.25rem;
-  cursor: pointer;
   accent-color: #2563eb;
+}
+
+.todo-checkbox-target {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 .todo-content {
@@ -85,7 +112,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #111827;
-  font-size: 0.95rem;
+  font-size: 1rem;
   cursor: text;
 }
 
@@ -95,7 +122,7 @@
   padding: 0.25rem 0.5rem;
   border: 1px solid #2563eb;
   border-radius: 4px;
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: #111827;
   outline: none;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -128,8 +155,8 @@
 }
 
 .todo-action-btn {
-  width: 2rem;
-  height: 2rem;
+  width: 2.75rem;
+  height: 2.75rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -158,6 +185,12 @@
   color: #ef4444;
 }
 
+.todo-text:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .no-todos {
   text-align: center;
   padding: 3rem 1rem;
@@ -180,6 +213,62 @@
   color: #999;
 }
 
+.todo-facet-empty {
+  padding: 0.75rem 0;
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.facet-section.collapsed .todo-facet-empty {
+  display: none;
+}
+
+.todo-add-form {
+  display: flex;
+  align-items: center;
+  padding: 0.375rem 0;
+}
+
+.todo-add-form input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 1rem;
+  color: #111827;
+  background: transparent;
+  outline: none;
+}
+
+.todo-add-form input[type="text"]:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  background: #fff;
+}
+
+.todo-add-form input[type="text"]::placeholder {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.facet-section.collapsed .todo-add-form {
+  display: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .flash-messages {
   margin-bottom: 1rem;
 }
@@ -189,12 +278,53 @@
   border-radius: 6px;
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
 }
 
 .flash-message.error {
   background: #fee2e2;
   color: #b91c1c;
   border: 1px solid #fecaca;
+}
+
+.flash-message.success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.flash-message.info {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.flash-message .flash-close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  color: inherit;
+  opacity: 0.6;
+  margin-left: 0.5rem;
+  flex-shrink: 0;
+}
+
+.flash-message .flash-close:hover {
+  opacity: 1;
+}
+
+@keyframes flashFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.flash-message.fade-out {
+  animation: flashFadeOut 0.3s ease forwards;
 }
 
 .facet-generate-btn {
@@ -224,6 +354,55 @@
   animation: none;
 }
 
+@media (min-width: 1024px) {
+  .facet-section {
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .facet-section {
+    margin-bottom: 1.25rem;
+  }
+
+  .no-todos {
+    padding: 2rem 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .facet-section {
+    margin-bottom: 1rem;
+  }
+
+  .facet-header {
+    gap: 0.375rem;
+    padding-left: 0.375rem;
+  }
+
+  .todo-row {
+    gap: 0.5rem;
+  }
+
+  .todo-actions {
+    gap: 0.125rem;
+  }
+
+  .no-todos {
+    padding: 1.5rem 0.75rem;
+  }
+
+  .no-todos-icon {
+    font-size: 2.5rem;
+  }
+
+  .todo-add-form input[type="text"] {
+    padding: 0.5rem;
+  }
+}
+
 @media (hover: none), (pointer: coarse) {
   .todo-actions {
     opacity: 1;
@@ -232,11 +411,15 @@
 </style>
 
 <div class="workspace-content">
+  <div class="flash-messages" id="flash-message-region" aria-live="polite"></div>
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="flash-messages">
         {% for category, message in messages %}
-          <div class="flash-message {{ category }}">{{ message }}</div>
+          <div class="flash-message {{ category }}" role="{% if category == 'error' %}alert{% else %}status{% endif %}">
+            <span>{{ message }}</span>
+            <button class="flash-close" aria-label="Dismiss message" onclick="this.parentElement.remove()">×</button>
+          </div>
         {% endfor %}
       </div>
     {% endif %}
@@ -247,6 +430,7 @@
       {% set facet_info = facet_map.get(facet_name, {}) %}
       {% set facet_title = facet_info.get('title', facet_name.title()) %}
       {% set facet_color = facet_info.get('color', '#6b7280') %}
+      {% set facet_emoji = facet_info.get('emoji', '') %}
       {% set incomplete_count = facet_todos | selectattr('completed', 'equalto', false) | list | length %}
       {% set total_count = facet_todos | length %}
       {% if total_count == 0 %}
@@ -260,8 +444,11 @@
       {% endif %}
 
       <div class="facet-section" data-facet="{{ facet_name }}">
-        <div class="facet-header" style="border-color: {{ facet_color }};">
+        <div class="facet-header" role="button" tabindex="0" aria-expanded="true" aria-controls="todo-list-{{ facet_name }}" style="border-color: {{ facet_color }};">
+          <span class="facet-chevron" aria-hidden="true">▸</span>
+          {% if facet_emoji %}<span class="facet-emoji" aria-hidden="true">{{ facet_emoji }}</span>{% endif %}
           <h2 class="facet-title">{{ facet_title }}</h2>
+          <span class="facet-pending-text">{% if total_count == 0 %}{% elif incomplete_count == 0 %}all done{% else %}{{ total_count - incomplete_count }} of {{ total_count }} done{% endif %}</span>
           <a href="#"
              class="facet-generate-btn"
              data-facet="{{ facet_name }}"
@@ -270,26 +457,30 @@
           <span class="facet-count">{{ count_emoji }}</span>
         </div>
 
-        <ul class="todo-list">
+        <ul class="todo-list" id="todo-list-{{ facet_name }}">
           {% for item in facet_todos %}
             <li class="todo-row {% if item.completed %}completed{% endif %}" data-todo-row>
               <form method="post" style="display: contents;">
                 <input type="hidden" name="action" value="{{ 'uncomplete' if item.completed else 'complete' }}">
                 <input type="hidden" name="facet" value="{{ facet_name }}">
                 <input type="hidden" name="index" value="{{ item.index }}">
-                <input
-                  type="checkbox"
-                  class="todo-checkbox"
-                  {% if item.completed %}checked{% endif %}
-                  data-index="{{ item.index }}"
-                  data-facet="{{ facet_name }}"
-                  data-completed="{{ 'true' if item.completed else 'false' }}"
-                >
+                <label class="todo-checkbox-target">
+                  <input
+                    type="checkbox"
+                    class="todo-checkbox"
+                    id="todo-{{ facet_name }}-{{ item.index }}"
+                    {% if item.completed %}checked{% endif %}
+                    data-index="{{ item.index }}"
+                    data-facet="{{ facet_name }}"
+                    data-completed="{{ 'true' if item.completed else 'false' }}"
+                  >
+                </label>
               </form>
 
-              <div class="todo-content">
+              <label class="todo-content" for="todo-{{ facet_name }}-{{ item.index }}">
                 <span
                   class="todo-text"
+                  tabindex="0"
                   title="{{ item.text }}"
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
@@ -297,12 +488,23 @@
                 {% if item.nudge %}
                   <span class="todo-nudge">{{ format_nudge(item.nudge) }}</span>
                 {% endif %}
-              </div>
+              </label>
 
               <div class="todo-actions">
                 <button
                   type="button"
+                  class="todo-action-btn edit"
+                  aria-label="Edit todo"
+                  title="Edit"
+                  data-index="{{ item.index }}"
+                  data-facet="{{ facet_name }}"
+                >
+                  ✏️
+                </button>
+                <button
+                  type="button"
                   class="todo-action-btn move"
+                  aria-label="Move to another day"
                   title="Move to another day"
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
@@ -314,6 +516,7 @@
                 <button
                   type="button"
                   class="todo-action-btn cancel"
+                  aria-label="Cancel todo"
                   title="Cancel"
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
@@ -324,14 +527,27 @@
             </li>
           {% endfor %}
         </ul>
+        <form class="todo-add-form" method="post" data-facet="{{ facet_name }}">
+          <input type="hidden" name="action" value="add">
+          <label for="todo-add-{{ facet_name }}" class="sr-only">Add a todo to {{ facet_title }}</label>
+          <input type="text" id="todo-add-{{ facet_name }}" name="text" placeholder="add a todo..." autocomplete="off">
+        </form>
+        {% if facet_todos | length == 0 %}
+        <div class="todo-facet-empty" data-facet-empty="{{ facet_name }}">no todos in {{ facet_title }} for today</div>
+        {% endif %}
       </div>
     {% endfor %}
   {% else %}
-    <div class="no-todos">
+    <section class="no-todos" role="status">
       <div class="no-todos-icon">✅</div>
       <div class="no-todos-text">No todos for this day</div>
-      <div class="no-todos-hint">Todos appear from recordings and AI analysis</div>
-    </div>
+      <div class="no-todos-hint">Add a todo below, or use #facet to target a specific list</div>
+      <form class="todo-add-form" method="post" data-facet="">
+        <input type="hidden" name="action" value="add">
+        <label for="todo-add-standalone" class="sr-only">Add a todo</label>
+        <input type="text" id="todo-add-standalone" name="text" placeholder="add a todo... (use #work, #personal, etc.)" autocomplete="off" style="text-align: center;">
+      </form>
+    </section>
   {% endif %}
 </div>
 
@@ -341,6 +557,32 @@ document.addEventListener('DOMContentLoaded', function() {
   const currentDay = {{ day | tojson }};
   const storageKey = `todos_collapsed_${currentDay}`;
   const todayDay = {{ today_day | tojson }};
+  const workspaceContent = document.querySelector('.workspace-content');
+
+  function showMessage(text, type = 'error') {
+    const region = document.getElementById('flash-message-region');
+    const msg = document.createElement('div');
+    msg.className = 'flash-message ' + type;
+    msg.setAttribute('role', type === 'error' ? 'alert' : 'status');
+
+    const span = document.createElement('span');
+    span.textContent = text;
+    msg.appendChild(span);
+
+    const btn = document.createElement('button');
+    btn.className = 'flash-close';
+    btn.setAttribute('aria-label', 'Dismiss message');
+    btn.innerHTML = '×';
+    btn.onclick = function() { msg.remove(); };
+    msg.appendChild(btn);
+
+    region.appendChild(msg);
+
+    setTimeout(function() {
+      msg.classList.add('fade-out');
+      msg.addEventListener('animationend', function() { msg.remove(); });
+    }, 8000);
+  }
 
   // Update badges from server response
   function updateBadgesFromResponse(data, facetName) {
@@ -384,6 +626,8 @@ document.addEventListener('DOMContentLoaded', function() {
           hasVisibleSection = true;
           // Expand the section (no auto-collapse in single-facet mode)
           s.classList.remove('collapsed');
+          const header = s.querySelector('.facet-header');
+          if (header) header.setAttribute('aria-expanded', 'true');
         } else {
           s.style.display = 'none';
         }
@@ -443,6 +687,10 @@ document.addEventListener('DOMContentLoaded', function() {
       delete collapsedState[facet];
     }
 
+    const header = facetSection.querySelector('.facet-header');
+    if (header) {
+      header.setAttribute('aria-expanded', collapse ? 'false' : 'true');
+    }
     saveCollapsedState(collapsedState);
   }
 
@@ -474,6 +722,38 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
       countSpan.textContent = '*️⃣';
     }
+
+    const pendingText = facetSection.querySelector('.facet-pending-text');
+    if (pendingText) {
+      if (isEmpty) {
+        pendingText.textContent = '';
+      } else if (isAllComplete) {
+        pendingText.textContent = 'all done';
+      } else {
+        const doneCount = totalCount - incompleteCount;
+        pendingText.textContent = `${doneCount} of ${totalCount} done`;
+      }
+    }
+  }
+
+  // Show per-facet empty state if facet has no remaining todos
+  function showFacetEmptyIfNeeded(facetSection) {
+    const todoRows = facetSection.querySelectorAll('[data-todo-row]');
+    if (todoRows.length > 0) return;
+
+    let emptyEl = facetSection.querySelector('.todo-facet-empty');
+    if (emptyEl) {
+      emptyEl.style.display = '';
+    } else {
+      const facetName = facetSection.dataset.facet;
+      const facetData = window.facetsData?.find(f => f.name === facetName);
+      const facetTitle = facetData?.title || facetName;
+      emptyEl = document.createElement('div');
+      emptyEl.className = 'todo-facet-empty';
+      emptyEl.setAttribute('data-facet-empty', facetName);
+      emptyEl.textContent = `no todos in ${facetTitle} for today`;
+      facetSection.appendChild(emptyEl);
+    }
   }
 
   // Initialize collapsed state from sessionStorage (only in all-facet mode)
@@ -490,6 +770,8 @@ document.addEventListener('DOMContentLoaded', function() {
       // Collapse if: (1) stored as collapsed, OR (2) all items are complete, OR (3) facet is empty
       if (collapsedState[facet] || isAllComplete || isEmpty) {
         section.classList.add('collapsed');
+        const header = section.querySelector('.facet-header');
+        if (header) header.setAttribute('aria-expanded', 'false');
         if ((isAllComplete || isEmpty) && !collapsedState[facet]) {
           // Save the auto-collapsed state
           collapsedState[facet] = true;
@@ -499,12 +781,23 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Setup click handlers for facet headers
+  // Setup click and keyboard handlers for facet headers
   document.querySelectorAll('.facet-header').forEach(header => {
     header.addEventListener('click', (e) => {
       const facetSection = header.closest('.facet-section');
       if (facetSection) {
         toggleFacetCollapse(facetSection);
+      }
+    });
+    header.addEventListener('keydown', (e) => {
+      // Don't interfere with generate button
+      if (e.target.closest('.facet-generate-btn')) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const facetSection = header.closest('.facet-section');
+        if (facetSection) {
+          toggleFacetCollapse(facetSection);
+        }
       }
     });
   });
@@ -540,10 +833,10 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!response.ok) {
         if (response.status === 409) {
           // Guard mismatch - reload to get fresh data
-          alert(data.error || 'Todo list changed, refreshing...');
-          window.location.reload();
+          showMessage(data.error || 'Todo list changed, refreshing...', 'error');
+          setTimeout(function() { window.location.reload(); }, 1500);
         } else {
-          alert(data.error || 'Failed to move todo');
+          showMessage(data.error || 'Failed to move todo', 'error');
           button.disabled = false;
           button.textContent = originalText;
         }
@@ -557,37 +850,37 @@ document.addEventListener('DOMContentLoaded', function() {
         const facetSection = todoRow.closest('.facet-section');
         todoRow.remove();
 
-        // Update the count emoji (facet will now show ➕ if empty)
+        // Update the count emoji
         if (facetSection) {
           updateFacetCount(facetSection);
+          showFacetEmptyIfNeeded(facetSection);
         }
 
         // Update badges from response
         updateBadgesFromResponse(data, facet);
       }, 200);
     } catch (error) {
-      alert('Network error - please try again');
+      showMessage('Network error - please try again', 'error');
       button.disabled = false;
       button.textContent = originalText;
     }
   }
 
-  // Setup move functionality with native date picker
-  document.querySelectorAll('.todo-action-btn.move').forEach(button => {
-    button.addEventListener('click', (e) => {
+  // Delegated click handler for todo actions
+  workspaceContent.addEventListener('click', (e) => {
+    const moveBtn = e.target.closest('.todo-action-btn.move');
+    if (moveBtn) {
       e.stopPropagation();
 
-      const index = parseInt(button.dataset.index, 10);
-      const facet = button.dataset.facet;
-      const currentDay = button.dataset.currentDay;
+      const index = parseInt(moveBtn.dataset.index, 10);
+      const facet = moveBtn.dataset.facet;
+      const btnCurrentDay = moveBtn.dataset.currentDay;
 
-      // Create native date input positioned near the button
       const dateInput = document.createElement('input');
       dateInput.type = 'date';
-      dateInput.value = dayToInputValue(currentDay);
+      dateInput.value = dayToInputValue(btnCurrentDay);
 
-      // Position near the calendar button
-      const rect = button.getBoundingClientRect();
+      const rect = moveBtn.getBoundingClientRect();
       dateInput.style.position = 'fixed';
       dateInput.style.left = `${rect.left}px`;
       dateInput.style.top = `${rect.top}px`;
@@ -596,25 +889,20 @@ document.addEventListener('DOMContentLoaded', function() {
       dateInput.style.width = '0';
       dateInput.style.height = '0';
 
-      // Handle date selection
       dateInput.addEventListener('change', () => {
         const targetDay = inputValueToDay(dateInput.value);
-        if (targetDay && targetDay !== currentDay) {
-          moveTodo(targetDay, facet, index, button);
+        if (targetDay && targetDay !== btnCurrentDay) {
+          moveTodo(targetDay, facet, index, moveBtn);
         }
         dateInput.remove();
       });
 
-      // Handle cancel (close without selection)
       dateInput.addEventListener('blur', () => {
         setTimeout(() => dateInput.remove(), 100);
       });
 
-      // Add to DOM and trigger picker
       document.body.appendChild(dateInput);
-      // Focus first (works reliably on iOS/iPad)
       dateInput.focus();
-      // Try showPicker for desktop browsers
       if (typeof dateInput.showPicker === 'function') {
         try {
           dateInput.showPicker();
@@ -622,244 +910,269 @@ document.addEventListener('DOMContentLoaded', function() {
           // Ignore - focus() already worked on iOS
         }
       }
-    });
-  });
+      return;
+    }
 
-  // Setup cancel functionality with AJAX
-  document.querySelectorAll('.todo-action-btn.cancel').forEach(button => {
-    button.addEventListener('click', async (e) => {
+    const cancelBtn = e.target.closest('.todo-action-btn.cancel');
+    if (cancelBtn) {
       e.stopPropagation();
 
-      const index = parseInt(button.dataset.index, 10);
-      const facet = button.dataset.facet;
+      const index = parseInt(cancelBtn.dataset.index, 10);
+      const facet = cancelBtn.dataset.facet;
 
-      const todoRow = button.closest('[data-todo-row]');
-      const originalText = button.textContent;
-      button.disabled = true;
+      const todoRow = cancelBtn.closest('[data-todo-row]');
+      const originalText = cancelBtn.textContent;
+      cancelBtn.disabled = true;
 
-      try {
-        const form = new FormData();
-        form.append('action', 'cancel');
-        form.append('facet', facet);
-        form.append('index', index);
-
-        const response = await fetch(window.location.href, {
-          method: 'POST',
-          body: form
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          // Remove the todo item from the DOM with a fade-out animation
-          // (cancelled items are hidden from view)
-          todoRow.style.transition = 'opacity 0.2s ease-out';
-          todoRow.style.opacity = '0';
-          setTimeout(() => {
-            const facetSection = todoRow.closest('.facet-section');
-            todoRow.remove();
-
-            // Update the count emoji
-            if (facetSection) {
-              updateFacetCount(facetSection);
-            }
-
-            // Update badges from response
-            updateBadgesFromResponse(data, facet);
-          }, 200);
-        } else {
-          alert('Failed to cancel todo - please refresh and try again');
-          button.disabled = false;
-          button.textContent = originalText;
-        }
-      } catch (error) {
-        alert('Network error - please try again');
-        button.disabled = false;
-        button.textContent = originalText;
-      }
-    });
-  });
-
-  // Setup checkbox toggle with AJAX
-  document.querySelectorAll('.todo-checkbox').forEach(checkbox => {
-    let isCompleted = checkbox.dataset.completed === 'true';
-
-    checkbox.addEventListener('change', async (e) => {
-      e.preventDefault();
-
-      const index = parseInt(checkbox.dataset.index, 10);
-      const facet = checkbox.dataset.facet;
-
-      const todoRow = checkbox.closest('[data-todo-row]');
-      const wasChecked = checkbox.checked;
-
-      // Optimistically update UI
-      checkbox.disabled = true;
-
-      try {
-        const form = new FormData();
-        form.append('action', isCompleted ? 'uncomplete' : 'complete');
-        form.append('facet', facet);
-        form.append('index', index);
-
-        const response = await fetch(window.location.href, {
-          method: 'POST',
-          body: form
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          // Update state
-          isCompleted = !isCompleted;
-          checkbox.dataset.completed = isCompleted ? 'true' : 'false';
-
-          // Update UI
-          if (isCompleted) {
-            todoRow.classList.add('completed');
-          } else {
-            todoRow.classList.remove('completed');
-          }
-
-          // Update form action for next click
-          const actionInput = checkbox.form.querySelector('input[name="action"]');
-          actionInput.value = isCompleted ? 'uncomplete' : 'complete';
-
-          // Update facet count emoji
-          const facetSection = todoRow.closest('.facet-section');
-          if (facetSection) {
-            updateFacetCount(facetSection);
-          }
-
-          // Update badges from response
-          updateBadgesFromResponse(data, facet);
-        } else {
-          // Revert on error
-          checkbox.checked = !wasChecked;
-          alert('Failed to update todo - please refresh and try again');
-        }
-      } catch (error) {
-        // Revert on error
-        checkbox.checked = !wasChecked;
-        alert('Network error - please try again');
-      } finally {
-        checkbox.disabled = false;
-      }
-    });
-  });
-
-  // Setup double-click to edit todo text
-  document.querySelectorAll('.todo-text').forEach(span => {
-    const originalText = span.textContent;
-
-    span.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
-
-      // Create input element
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'todo-text-input';
-      input.value = originalText;
-
-      // Replace span with input
-      const content = span.parentElement;
-      content.replaceChild(input, span);
-      input.focus();
-      input.select();
-
-      let isEditing = true;
-
-      // Save function
-      const save = async () => {
-        if (!isEditing) return;
-
-        const newText = input.value.trim();
-
-        if (!newText) {
-          alert('Todo text cannot be empty');
-          input.focus();
-          return;
-        }
-
-        if (newText === originalText) {
-          // No change, just restore span
-          cancel();
-          return;
-        }
-
-        isEditing = false;
-
-        const index = parseInt(span.dataset.index, 10);
-        const facet = span.dataset.facet;
-
-        // Check if text contains a facet hashtag
-        const facetMatch = newText.match(/#([a-z][a-z0-9_-]*)/i);
-        const hasFacetChange = facetMatch && facetMatch[1].toLowerCase() !== facet;
-
-        // Save via form submission
-        const form = new FormData();
-        form.append('action', 'edit');
-        form.append('facet', facet);
-        form.append('index', index);
-        form.append('text', newText);
-
+      (async () => {
         try {
+          const form = new FormData();
+          form.append('action', 'cancel');
+          form.append('facet', facet);
+          form.append('index', index);
+
           const response = await fetch(window.location.href, {
             method: 'POST',
             body: form
           });
 
+          const data = await response.json();
+
           if (response.ok) {
-            if (hasFacetChange) {
-              // Facet changed, reload to show it in new location
-              window.location.reload();
-            } else {
-              // Same facet, just update the text in place
-              const cleanText = newText.replace(/#[a-z][a-z0-9_-]*/gi, '').trim();
-              span.textContent = cleanText;
-              span.title = cleanText;
-              content.replaceChild(span, input);
-            }
+            todoRow.style.transition = 'opacity 0.2s ease-out';
+            todoRow.style.opacity = '0';
+            setTimeout(() => {
+              const facetSection = todoRow.closest('.facet-section');
+              todoRow.remove();
+
+              if (facetSection) {
+                updateFacetCount(facetSection);
+                showFacetEmptyIfNeeded(facetSection);
+              }
+
+              updateBadgesFromResponse(data, facet);
+            }, 200);
           } else {
-            alert('Failed to update todo - please refresh and try again');
-            if (input.parentElement === content) {
-              content.replaceChild(span, input);
-            }
+            showMessage('Failed to cancel todo - please refresh and try again', 'error');
+            cancelBtn.disabled = false;
+            cancelBtn.textContent = originalText;
           }
         } catch (error) {
-          alert('Network error - please try again');
+          showMessage('Network error - please try again', 'error');
+          cancelBtn.disabled = false;
+          cancelBtn.textContent = originalText;
+        }
+      })();
+      return;
+    }
+
+    const editBtn = e.target.closest('.todo-action-btn.edit');
+    if (editBtn) {
+      e.stopPropagation();
+      e.preventDefault();
+      const todoRow = editBtn.closest('.todo-row');
+      const span = todoRow.querySelector('.todo-text');
+      if (span) startEditMode(span);
+    }
+  });
+
+  // Delegated change handler for todo checkboxes
+  workspaceContent.addEventListener('change', async (e) => {
+    const checkbox = e.target.closest('.todo-checkbox');
+    if (!checkbox) return;
+
+    e.preventDefault();
+
+    let isCompleted = checkbox.dataset.completed === 'true';
+    const index = parseInt(checkbox.dataset.index, 10);
+    const facet = checkbox.dataset.facet;
+
+    const todoRow = checkbox.closest('[data-todo-row]');
+    const wasChecked = checkbox.checked;
+
+    checkbox.disabled = true;
+
+    try {
+      const form = new FormData();
+      form.append('action', isCompleted ? 'uncomplete' : 'complete');
+      form.append('facet', facet);
+      form.append('index', index);
+
+      const response = await fetch(window.location.href, {
+        method: 'POST',
+        body: form
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        isCompleted = !isCompleted;
+        checkbox.dataset.completed = isCompleted ? 'true' : 'false';
+
+        if (isCompleted) {
+          todoRow.classList.add('completed');
+        } else {
+          todoRow.classList.remove('completed');
+        }
+
+        // Reorder: completed rows go to bottom, uncompleted rows go above completed section
+        const todoList = todoRow.closest('.todo-list');
+        if (todoList) {
+          if (isCompleted) {
+            todoList.appendChild(todoRow);
+          } else {
+            const firstCompleted = todoList.querySelector('.todo-row.completed');
+            if (firstCompleted) {
+              todoList.insertBefore(todoRow, firstCompleted);
+            }
+          }
+        }
+
+        const actionInput = checkbox.form.querySelector('input[name="action"]');
+        actionInput.value = isCompleted ? 'uncomplete' : 'complete';
+
+        const facetSection = todoRow.closest('.facet-section');
+        if (facetSection) {
+          updateFacetCount(facetSection);
+        }
+
+        updateBadgesFromResponse(data, facet);
+      } else {
+        checkbox.checked = !wasChecked;
+        showMessage('Failed to update todo - please refresh and try again', 'error');
+      }
+    } catch (error) {
+      checkbox.checked = !wasChecked;
+      showMessage('Network error - please try again', 'error');
+    } finally {
+      checkbox.disabled = false;
+    }
+  });
+
+  // Delegated dblclick handler for todo text editing
+  workspaceContent.addEventListener('dblclick', (e) => {
+    const span = e.target.closest('.todo-text');
+    if (!span) return;
+    e.stopPropagation();
+    startEditMode(span);
+  });
+
+  // Delegated keydown handler for todo text Enter-to-edit
+  workspaceContent.addEventListener('keydown', (e) => {
+    const span = e.target.closest('.todo-text');
+    if (!span) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      startEditMode(span);
+    }
+  });
+
+  function startEditMode(span) {
+    const originalText = span.textContent;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'todo-text-input';
+    input.value = originalText;
+
+    const content = span.parentElement;
+    content.replaceChild(input, span);
+    input.focus();
+    input.select();
+
+    let isEditing = true;
+
+    const cancel = () => {
+      if (!isEditing) return;
+      isEditing = false;
+      if (input.parentElement === content) {
+        content.replaceChild(span, input);
+      }
+    };
+
+    const save = async () => {
+      if (!isEditing) return;
+
+      const newText = input.value.trim();
+
+      if (!newText) {
+        cancel();
+        return;
+      }
+
+      if (newText === originalText) {
+        cancel();
+        return;
+      }
+
+      isEditing = false;
+
+      const index = parseInt(span.dataset.index, 10);
+      const facet = span.dataset.facet;
+
+      // Check if text contains a facet hashtag
+      const facetMatch = newText.match(/#([a-z][a-z0-9_-]*)/i);
+      const hasFacetChange = facetMatch && facetMatch[1].toLowerCase() !== facet;
+
+      // Save via form submission
+      const form = new FormData();
+      form.append('action', 'edit');
+      form.append('facet', facet);
+      form.append('index', index);
+      form.append('text', newText);
+
+      try {
+        const response = await fetch(window.location.href, {
+          method: 'POST',
+          body: form
+        });
+
+        if (response.ok) {
+          if (hasFacetChange) {
+            // Facet changed, reload to show it in new location
+            window.location.reload();
+          } else {
+            // Same facet, just update the text in place
+            const cleanText = newText.replace(/#[a-z][a-z0-9_-]*/gi, '').trim();
+            span.textContent = cleanText;
+            span.title = cleanText;
+            content.replaceChild(span, input);
+          }
+        } else {
+          showMessage('Failed to update todo - please refresh and try again', 'error');
           if (input.parentElement === content) {
             content.replaceChild(span, input);
           }
         }
-      };
-
-      // Cancel function
-      const cancel = () => {
-        if (!isEditing) return;
-        isEditing = false;
+      } catch (error) {
+        showMessage('Network error - please try again', 'error');
         if (input.parentElement === content) {
           content.replaceChild(span, input);
         }
-      };
+      }
+    };
 
-      // Handle Enter key
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          save();
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          cancel();
-        }
-      });
-
-      // Handle blur (click outside)
-      input.addEventListener('blur', () => {
-        setTimeout(cancel, 100);
-      });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        save();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancel();
+      }
     });
-  });
+
+    input.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (!isEditing) return;
+        const newText = input.value.trim();
+        if (!newText || newText === originalText) {
+          cancel();
+        } else {
+          save();
+        }
+      }, 100);
+    });
+  }
 
   // Listen for cortex events (agent completion)
   if (window.appEvents) {
@@ -887,7 +1200,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.textContent = '✨';
         btn.classList.remove('generating');
         delete btn.dataset.agentId;
-        alert('Todo generation failed: ' + (msg.error || 'Unknown error'));
+        showMessage('Todo generation failed: ' + (msg.error || 'Unknown error'), 'error');
       }
     });
   }
@@ -927,282 +1240,18 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.href = `/agents#${data.agent_id}`;
 
       } catch (error) {
-        alert('Failed to start todo generation');
+        showMessage('Failed to start todo generation', 'error');
         btn.textContent = '✨';
         btn.classList.remove('generating');
       }
     });
   });
 
-  // Helper to set up event handlers for a single todo row
-  function setupTodoRowHandlers(todoRow) {
-    const facetSection = todoRow.closest('.facet-section');
-
-    // Setup checkbox handler
-    const checkbox = todoRow.querySelector('.todo-checkbox');
-    if (checkbox) {
-      let isCompleted = checkbox.dataset.completed === 'true';
-
-      checkbox.addEventListener('change', async (e) => {
-        e.preventDefault();
-
-        const index = parseInt(checkbox.dataset.index, 10);
-        const facet = checkbox.dataset.facet;
-        const wasChecked = checkbox.checked;
-
-        checkbox.disabled = true;
-
-        try {
-          const form = new FormData();
-          form.append('action', isCompleted ? 'uncomplete' : 'complete');
-          form.append('facet', facet);
-          form.append('index', index);
-
-          const response = await fetch(window.location.href, {
-            method: 'POST',
-            body: form
-          });
-
-          const data = await response.json();
-
-          if (response.ok) {
-            isCompleted = !isCompleted;
-            checkbox.dataset.completed = isCompleted ? 'true' : 'false';
-
-            if (isCompleted) {
-              todoRow.classList.add('completed');
-            } else {
-              todoRow.classList.remove('completed');
-            }
-
-            const actionInput = checkbox.form.querySelector('input[name="action"]');
-            actionInput.value = isCompleted ? 'uncomplete' : 'complete';
-
-            if (facetSection) {
-              updateFacetCount(facetSection);
-            }
-
-            // Update badges from response
-            updateBadgesFromResponse(data, facet);
-          } else {
-            checkbox.checked = !wasChecked;
-            alert('Failed to update todo - please refresh and try again');
-          }
-        } catch (error) {
-          checkbox.checked = !wasChecked;
-          alert('Network error - please try again');
-        } finally {
-          checkbox.disabled = false;
-        }
-      });
-    }
-
-    // Setup cancel button handler
-    const cancelBtn = todoRow.querySelector('.todo-action-btn.cancel');
-    if (cancelBtn) {
-      cancelBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-
-        const index = parseInt(cancelBtn.dataset.index, 10);
-        const facet = cancelBtn.dataset.facet;
-        const originalText = cancelBtn.textContent;
-
-        cancelBtn.disabled = true;
-
-        try {
-          const form = new FormData();
-          form.append('action', 'cancel');
-          form.append('facet', facet);
-          form.append('index', index);
-
-          const response = await fetch(window.location.href, {
-            method: 'POST',
-            body: form
-          });
-
-          const data = await response.json();
-
-          if (response.ok) {
-            todoRow.style.transition = 'opacity 0.2s ease-out';
-            todoRow.style.opacity = '0';
-            setTimeout(() => {
-              todoRow.remove();
-
-              if (facetSection) {
-                updateFacetCount(facetSection);
-              }
-
-              // Update badges from response
-              updateBadgesFromResponse(data, facet);
-            }, 200);
-          } else {
-            alert('Failed to cancel todo - please refresh and try again');
-            cancelBtn.disabled = false;
-            cancelBtn.textContent = originalText;
-          }
-        } catch (error) {
-          alert('Network error - please try again');
-          cancelBtn.disabled = false;
-          cancelBtn.textContent = originalText;
-        }
-      });
-    }
-
-    // Setup move button handler
-    const moveBtn = todoRow.querySelector('.todo-action-btn.move');
-    if (moveBtn) {
-      moveBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-
-        const index = parseInt(moveBtn.dataset.index, 10);
-        const facet = moveBtn.dataset.facet;
-        const btnCurrentDay = moveBtn.dataset.currentDay;
-
-        const dateInput = document.createElement('input');
-        dateInput.type = 'date';
-        dateInput.value = dayToInputValue(btnCurrentDay);
-
-        const rect = moveBtn.getBoundingClientRect();
-        dateInput.style.position = 'fixed';
-        dateInput.style.left = `${rect.left}px`;
-        dateInput.style.top = `${rect.top}px`;
-        dateInput.style.opacity = '0';
-        dateInput.style.pointerEvents = 'none';
-        dateInput.style.width = '0';
-        dateInput.style.height = '0';
-
-        dateInput.addEventListener('change', () => {
-          const targetDay = inputValueToDay(dateInput.value);
-          if (targetDay && targetDay !== btnCurrentDay) {
-            moveTodo(targetDay, facet, index, moveBtn);
-          }
-          dateInput.remove();
-        });
-
-        dateInput.addEventListener('blur', () => {
-          setTimeout(() => dateInput.remove(), 100);
-        });
-
-        document.body.appendChild(dateInput);
-        dateInput.focus();
-        if (typeof dateInput.showPicker === 'function') {
-          try {
-            dateInput.showPicker();
-          } catch (e) {
-            // Ignore
-          }
-        }
-      });
-    }
-
-    // Setup double-click to edit
-    const span = todoRow.querySelector('.todo-text');
-    if (span) {
-      const originalText = span.textContent;
-
-      span.addEventListener('dblclick', (e) => {
-        e.stopPropagation();
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'todo-text-input';
-        input.value = originalText;
-
-        const content = span.parentElement;
-        content.replaceChild(input, span);
-        input.focus();
-        input.select();
-
-        let isEditing = true;
-
-        const save = async () => {
-          if (!isEditing) return;
-
-          const newText = input.value.trim();
-
-          if (!newText) {
-            alert('Todo text cannot be empty');
-            input.focus();
-            return;
-          }
-
-          if (newText === originalText) {
-            cancel();
-            return;
-          }
-
-          isEditing = false;
-
-          const index = parseInt(span.dataset.index, 10);
-          const facet = span.dataset.facet;
-
-          const facetMatch = newText.match(/#([a-z][a-z0-9_-]*)/i);
-          const hasFacetChange = facetMatch && facetMatch[1].toLowerCase() !== facet;
-
-          const form = new FormData();
-          form.append('action', 'edit');
-          form.append('facet', facet);
-          form.append('index', index);
-          form.append('text', newText);
-
-          try {
-            const response = await fetch(window.location.href, {
-              method: 'POST',
-              body: form
-            });
-
-            if (response.ok) {
-              if (hasFacetChange) {
-                window.location.reload();
-              } else {
-                const cleanText = newText.replace(/#[a-z][a-z0-9_-]*/gi, '').trim();
-                span.textContent = cleanText;
-                span.title = cleanText;
-                content.replaceChild(span, input);
-              }
-            } else {
-              alert('Failed to update todo - please refresh and try again');
-              if (input.parentElement === content) {
-                content.replaceChild(span, input);
-              }
-            }
-          } catch (error) {
-            alert('Network error - please try again');
-            if (input.parentElement === content) {
-              content.replaceChild(span, input);
-            }
-          }
-        };
-
-        const cancel = () => {
-          if (!isEditing) return;
-          isEditing = false;
-          if (input.parentElement === content) {
-            content.replaceChild(span, input);
-          }
-        };
-
-        input.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            save();
-          } else if (e.key === 'Escape') {
-            e.preventDefault();
-            cancel();
-          }
-        });
-
-        input.addEventListener('blur', () => {
-          setTimeout(cancel, 100);
-        });
-      });
-    }
-  }
-
   // Listen for new todos added via AJAX
   window.addEventListener('todo.added', (e) => {
     const todo = e.detail;
     const facetName = todo.facet;
+    const escape = window.AppServices._escapeHtml;
 
     // Find or create facet section
     let facetSection = document.querySelector(`.facet-section[data-facet="${facetName}"]`);
@@ -1231,29 +1280,44 @@ document.addEventListener('DOMContentLoaded', function() {
         <input type="hidden" name="action" value="complete">
         <input type="hidden" name="facet" value="${facetName}">
         <input type="hidden" name="index" value="${todo.index}">
-        <input
-          type="checkbox"
-          class="todo-checkbox"
-          data-index="${todo.index}"
-          data-facet="${facetName}"
-          data-completed="false"
-        >
+        <label class="todo-checkbox-target">
+          <input
+            type="checkbox"
+            class="todo-checkbox"
+            id="todo-${facetName}-${todo.index}"
+            data-index="${todo.index}"
+            data-facet="${facetName}"
+            data-completed="false"
+          >
+        </label>
       </form>
 
-      <div class="todo-content">
+      <label class="todo-content" for="todo-${facetName}-${todo.index}">
         <span
           class="todo-text"
-          title="${todo.text.replace(/"/g, '&quot;')}"
+          tabindex="0"
+          title="${escape(todo.text)}"
           data-index="${todo.index}"
           data-facet="${facetName}"
-        >${todo.text}</span>
-        ${todo.nudge_display ? `<span class="todo-nudge">${todo.nudge_display}</span>` : ''}
-      </div>
+        >${escape(todo.text)}</span>
+        ${todo.nudge_display ? `<span class="todo-nudge">${escape(todo.nudge_display)}</span>` : ''}
+      </label>
 
       <div class="todo-actions">
         <button
           type="button"
+          class="todo-action-btn edit"
+          aria-label="Edit todo"
+          title="Edit"
+          data-index="${todo.index}"
+          data-facet="${facetName}"
+        >
+          ✏️
+        </button>
+        <button
+          type="button"
           class="todo-action-btn move"
+          aria-label="Move to another day"
           title="Move to another day"
           data-index="${todo.index}"
           data-facet="${facetName}"
@@ -1265,6 +1329,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <button
           type="button"
           class="todo-action-btn cancel"
+          aria-label="Cancel todo"
           title="Cancel"
           data-index="${todo.index}"
           data-facet="${facetName}"
@@ -1274,11 +1339,18 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
     `;
 
-    // Add to bottom of list
-    todoList.appendChild(li);
+    const firstCompleted = todoList.querySelector('.todo-row.completed');
+    if (firstCompleted) {
+      todoList.insertBefore(li, firstCompleted);
+    } else {
+      todoList.appendChild(li);
+    }
 
-    // Wire up event handlers
-    setupTodoRowHandlers(li);
+    // Hide per-facet empty state since we now have a todo
+    const facetEmpty = facetSection.querySelector('.todo-facet-empty');
+    if (facetEmpty) {
+      facetEmpty.style.display = 'none';
+    }
 
     // Update facet count
     updateFacetCount(facetSection);
@@ -1299,6 +1371,58 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
       li.style.backgroundColor = '';
     }, 300);
+  });
+
+  // Inline add-todo form handlers
+  document.querySelectorAll('.todo-add-form').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const input = form.querySelector('input[type="text"]');
+      const text = input.value.trim();
+
+      if (!text) {
+        showMessage('Todo text cannot be empty', 'error');
+        input.focus();
+        return;
+      }
+
+      const formData = new FormData(form);
+
+      // Inject #facet prefix so server routes to the correct facet
+      const facet = form.dataset.facet;
+      if (facet && !/#[a-z]/i.test(text)) {
+        formData.set('text', `#${facet} ${text}`);
+      }
+
+      try {
+        const response = await fetch(window.location.href, {
+          method: 'POST',
+          body: formData,
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.status === 'ok') {
+          // Merge counts into todo detail for the event listener
+          const detail = data.todo;
+          if (data.facet_count !== undefined) detail.facet_count = data.facet_count;
+          if (data.total_count !== undefined) detail.total_count = data.total_count;
+
+          window.dispatchEvent(new CustomEvent('todo.added', { detail }));
+
+          input.value = '';
+          input.focus();
+        } else {
+          showMessage(data.message || 'Failed to add todo', 'error');
+          input.focus();
+        }
+      } catch (error) {
+        showMessage('Unable to add todo right now', 'error');
+        input.focus();
+      }
+    });
   });
 });
 </script>

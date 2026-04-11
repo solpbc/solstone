@@ -5,73 +5,271 @@
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from think.indexer import sanitize_fts_query
-from think.indexer.journal import get_journal_index, search_journal
+from think.indexer.journal import (
+    extract_temporal_references,
+    get_journal_index,
+    search_journal,
+)
+from tests.conftest import copytree_tracked
 
 
 class TestSanitizeFtsQuery:
     """Tests for FTS5 query sanitization."""
 
     def test_simple_words(self):
-        """Simple words pass through unchanged."""
-        assert sanitize_fts_query("foo bar baz") == "foo bar baz"
+        """Simple words get NEAR proximity formulation."""
+        assert sanitize_fts_query("foo bar baz") == (
+            "NEAR(foo bar baz, 10) OR (foo AND bar AND baz)",
+            None,
+            None,
+        )
 
     def test_preserves_or_operator(self):
         """OR operator is preserved."""
-        assert sanitize_fts_query("foo OR bar") == "foo OR bar"
+        assert sanitize_fts_query("foo OR bar") == ("foo OR bar", None, None)
 
     def test_preserves_and_operator(self):
         """AND operator is preserved."""
-        assert sanitize_fts_query("foo AND bar") == "foo AND bar"
+        assert sanitize_fts_query("foo AND bar") == ("foo AND bar", None, None)
 
     def test_preserves_not_operator(self):
         """NOT operator is preserved."""
-        assert sanitize_fts_query("foo NOT bar") == "foo NOT bar"
+        assert sanitize_fts_query("foo NOT bar") == ("foo NOT bar", None, None)
 
     def test_preserves_asterisk_prefix_match(self):
         """Asterisk for prefix matching is preserved."""
-        assert sanitize_fts_query("test*") == "test*"
+        assert sanitize_fts_query("test*") == ("test*", None, None)
 
     def test_preserves_quoted_phrases(self):
         """Quoted phrases are preserved."""
-        assert sanitize_fts_query('"public benefit"') == '"public benefit"'
+        assert sanitize_fts_query('"public benefit"') == (
+            '"public benefit"',
+            None,
+            None,
+        )
 
     def test_complex_query_with_or_and_quotes(self):
         """Complex query with OR and quoted phrases."""
         result = sanitize_fts_query('solstone OR pbc OR "public benefit"')
-        assert result == 'solstone OR pbc OR "public benefit"'
+        assert result == ('solstone OR pbc OR "public benefit"', None, None)
 
     def test_dot_replaced_with_space(self):
         """Dots are replaced with spaces."""
-        assert sanitize_fts_query("config.json") == "config json"
+        assert sanitize_fts_query("config.json") == (
+            "NEAR(config json, 10) OR (config AND json)",
+            None,
+            None,
+        )
 
     def test_colon_replaced_with_space(self):
         """Colons are replaced with spaces."""
-        assert sanitize_fts_query("foo:bar") == "foo bar"
+        assert sanitize_fts_query("foo:bar") == (
+            "NEAR(foo bar, 10) OR (foo AND bar)",
+            None,
+            None,
+        )
 
     def test_special_chars_replaced_with_space(self):
         """Various special characters are replaced with spaces."""
-        assert sanitize_fts_query("a@b#c$d") == "a b c d"
+        assert sanitize_fts_query("a@b#c$d") == (
+            "NEAR(a b c d, 10) OR (a AND b AND c AND d)",
+            None,
+            None,
+        )
 
     def test_preserves_apostrophe(self):
         """Apostrophes in contractions are preserved."""
-        assert sanitize_fts_query("what's up") == "what's up"
+        assert sanitize_fts_query("what's up") == (
+            "NEAR(what's up, 10) OR (what's AND up)",
+            None,
+            None,
+        )
 
     def test_unbalanced_quote_removed(self):
         """Unbalanced quotes are removed entirely."""
-        assert sanitize_fts_query('"unbalanced') == "unbalanced"
+        assert sanitize_fts_query('"unbalanced') == ("unbalanced", None, None)
 
     def test_unbalanced_quote_removes_all(self):
         """When quotes are unbalanced, all quotes are removed."""
-        assert sanitize_fts_query('foo "bar" baz "qux') == "foo bar baz qux"
+        assert sanitize_fts_query('foo "bar" baz "qux') == (
+            "NEAR(foo bar baz qux, 10) OR (foo AND bar AND baz AND qux)",
+            None,
+            None,
+        )
 
     def test_balanced_quotes_preserved(self):
         """Balanced quotes are kept."""
-        assert sanitize_fts_query('"foo" "bar"') == '"foo" "bar"'
+        assert sanitize_fts_query('"foo" "bar"') == ('"foo" "bar"', None, None)
+
+    def test_near_two_words(self):
+        """Two plain words get NEAR proximity formulation."""
+        assert sanitize_fts_query("git commit") == (
+            "NEAR(git commit, 10) OR (git AND commit)",
+            None,
+            None,
+        )
+
+    def test_near_three_words(self):
+        """Three plain words get NEAR proximity formulation."""
+        assert sanitize_fts_query("meeting with Alice") == (
+            "NEAR(meeting with Alice, 10) OR (meeting AND with AND Alice)",
+            None,
+            None,
+        )
+
+    def test_near_with_prefix(self):
+        """Prefix matching works within NEAR formulation."""
+        assert sanitize_fts_query("test* foo") == (
+            "NEAR(test* foo, 10) OR (test* AND foo)",
+            None,
+            None,
+        )
+
+    def test_single_word_no_near(self):
+        """Single word does not get NEAR treatment."""
+        assert sanitize_fts_query("hello") == ("hello", None, None)
+
+    def test_empty_query(self):
+        """Empty query returns empty string."""
+        assert sanitize_fts_query("") == ("", None, None)
+
+    def test_near_normalizes_whitespace(self):
+        """Extra whitespace in input is normalized in NEAR output."""
+        assert sanitize_fts_query("foo  bar") == (
+            "NEAR(foo bar, 10) OR (foo AND bar)",
+            None,
+            None,
+        )
+
+
+class TestTemporalExtraction:
+    """Tests for temporal date extraction from queries."""
+
+    REF = datetime(2024, 1, 15)  # Monday
+
+    def test_yesterday(self):
+        result = sanitize_fts_query("meeting yesterday", self.REF)
+        assert result == ("meeting", "20240114", "20240114")
+
+    def test_today(self):
+        result = sanitize_fts_query("meeting today", self.REF)
+        assert result == ("meeting", "20240115", "20240115")
+
+    def test_last_week(self):
+        result = sanitize_fts_query("meeting last week", self.REF)
+        assert result == ("meeting", "20240108", "20240114")
+
+    def test_this_week(self):
+        result = sanitize_fts_query("meeting this week", self.REF)
+        assert result == ("meeting", "20240115", "20240121")
+
+    def test_last_month(self):
+        result = sanitize_fts_query("meeting last month", self.REF)
+        assert result == ("meeting", "20231201", "20231231")
+
+    def test_this_month(self):
+        result = sanitize_fts_query("meeting this month", self.REF)
+        assert result == ("meeting", "20240101", "20240131")
+
+    def test_last_monday(self):
+        # ref is Monday, so "last monday" = 7 days ago
+        result = sanitize_fts_query("meeting last Monday", self.REF)
+        assert result == ("meeting", "20240108", "20240108")
+
+    def test_last_tuesday(self):
+        result = sanitize_fts_query("meeting last Tuesday", self.REF)
+        assert result == ("meeting", "20240109", "20240109")
+
+    def test_last_wednesday(self):
+        result = sanitize_fts_query("meeting last Wednesday", self.REF)
+        assert result == ("meeting", "20240110", "20240110")
+
+    def test_last_thursday(self):
+        result = sanitize_fts_query("meeting last Thursday", self.REF)
+        assert result == ("meeting", "20240111", "20240111")
+
+    def test_last_friday(self):
+        result = sanitize_fts_query("meeting last Friday", self.REF)
+        assert result == ("meeting", "20240112", "20240112")
+
+    def test_last_saturday(self):
+        result = sanitize_fts_query("meeting last Saturday", self.REF)
+        assert result == ("meeting", "20240113", "20240113")
+
+    def test_last_sunday(self):
+        result = sanitize_fts_query("meeting last Sunday", self.REF)
+        assert result == ("meeting", "20240114", "20240114")
+
+    def test_over_the_weekend(self):
+        result = sanitize_fts_query("meeting over the weekend", self.REF)
+        assert result == ("meeting", "20240113", "20240114")
+
+    def test_on_the_weekend(self):
+        result = sanitize_fts_query("meeting on the weekend", self.REF)
+        assert result == ("meeting", "20240113", "20240114")
+
+    def test_case_insensitive(self):
+        result = sanitize_fts_query("meeting Last Monday", self.REF)
+        assert result == ("meeting", "20240108", "20240108")
+
+    def test_temporal_only_query(self):
+        """Pure temporal query produces empty FTS string + date filter."""
+        result = sanitize_fts_query("yesterday", self.REF)
+        assert result == ("", "20240114", "20240114")
+
+    def test_no_temporal_reference(self):
+        """Query without temporal words returns None dates."""
+        result = sanitize_fts_query("machine learning", self.REF)
+        assert result == (
+            "NEAR(machine learning, 10) OR (machine AND learning)",
+            None,
+            None,
+        )
+
+    def test_temporal_at_start(self):
+        result = sanitize_fts_query("yesterday meeting with Alice", self.REF)
+        assert result == (
+            "NEAR(meeting with Alice, 10) OR (meeting AND with AND Alice)",
+            "20240114",
+            "20240114",
+        )
+
+    def test_temporal_in_middle(self):
+        result = sanitize_fts_query("project last week update", self.REF)
+        assert result == (
+            "NEAR(project update, 10) OR (project AND update)",
+            "20240108",
+            "20240114",
+        )
+
+    def test_quoted_temporal_not_extracted(self):
+        """Temporal words inside quotes are not extracted."""
+        result = sanitize_fts_query('"last week" meeting', self.REF)
+        assert result == ('"last week" meeting', None, None)
+
+    def test_multiple_temporal_first_wins(self):
+        """When multiple temporal references exist, first one wins."""
+        result = sanitize_fts_query("yesterday last week meeting", self.REF)
+        assert result == (
+            "NEAR(last week meeting, 10) OR (last AND week AND meeting)",
+            "20240114",
+            "20240114",
+        )
+
+    def test_extract_temporal_references_directly(self):
+        """Test extract_temporal_references for the cleaned query."""
+        cleaned, day_from, day_to = extract_temporal_references(
+            "meeting last week", self.REF
+        )
+        assert cleaned == "meeting"
+        assert day_from == "20240108"
+        assert day_to == "20240114"
 
 
 @pytest.fixture
@@ -96,6 +294,23 @@ def journal_fixture(tmp_path):
     (segment / "agents" / "screen.md").write_text(
         "# Screen Summary\n\nViewed documentation.\n"
     )
+    # Add stream.json for segment stream metadata
+    from think.streams import write_segment_stream
+
+    write_segment_stream(str(segment), "default", None, None, 1)
+    # Add second agent file for cross-file segment testing
+    (segment / "agents" / "activity.md").write_text(
+        "# Activity Summary\n\nMet with Scott Ward about Acme deal.\n"
+    )
+
+    # Create evening segment for time_bucket testing
+    evening_segment = stream_dir / "200000_300"
+    evening_segment.mkdir()
+    (evening_segment / "agents").mkdir()
+    (evening_segment / "agents" / "screen.md").write_text(
+        "# Evening Screen\n\nReviewed evening reports.\n"
+    )
+    write_segment_stream(str(evening_segment), "default", None, None, 1)
 
     # Create facet events
     events_dir = journal / "facets" / "work" / "events"
@@ -241,6 +456,82 @@ def test_search_journal_agent_case_insensitive(journal_fixture):
     # All results should have lowercase agent in metadata
     for r in results_upper:
         assert r["metadata"]["agent"] == "event"
+
+
+def test_time_bucket_population(journal_fixture):
+    """Test that indexed chunks have correct time_bucket values."""
+    from think.indexer.journal import get_journal_index, scan_journal
+
+    scan_journal(str(journal_fixture), verbose=True, full=True)
+    conn, _ = get_journal_index(str(journal_fixture))
+
+    # Segment chunks should have correct time buckets
+    morning_rows = conn.execute(
+        "SELECT time_bucket FROM chunks WHERE agent='segment' AND path LIKE '%100000_300%'"
+    ).fetchall()
+    assert all(r[0] == "morning" for r in morning_rows)
+
+    evening_rows = conn.execute(
+        "SELECT time_bucket FROM chunks WHERE agent='segment' AND path LIKE '%200000_300%'"
+    ).fetchall()
+    assert all(r[0] == "evening" for r in evening_rows)
+
+    # Non-segment content should have empty time_bucket
+    entity_rows = conn.execute(
+        "SELECT time_bucket FROM chunks WHERE path LIKE 'entity_search:%'"
+    ).fetchall()
+    assert all(r[0] == "" for r in entity_rows)
+
+    conn.close()
+
+
+def test_search_filter_by_time_bucket(journal_fixture):
+    """Test filtering search by time_bucket."""
+    from think.indexer.journal import scan_journal, search_journal
+
+    scan_journal(str(journal_fixture), verbose=True, full=True)
+
+    # Morning filter should find 100000 segment content
+    total, results = search_journal("", time_bucket="morning")
+    assert total >= 1
+    # All segment results should be from morning segments
+    for r in results:
+        if r["metadata"]["agent"] == "segment":
+            assert "100000_300" in r["metadata"]["path"]
+
+    # Evening filter should find 200000 segment content
+    total, results = search_journal("", time_bucket="evening")
+    assert total >= 1
+    for r in results:
+        if r["metadata"]["agent"] == "segment":
+            assert "200000_300" in r["metadata"]["path"]
+
+    # Non-matching bucket should return no segment content
+    total, results = search_journal("", time_bucket="afternoon")
+    segment_results = [r for r in results if r["metadata"]["agent"] == "segment"]
+    assert len(segment_results) == 0
+
+
+def test_time_bucket_non_segment_empty(journal_fixture):
+    """Test that non-segment content (day-level agents, facet files) has empty time_bucket."""
+    from think.indexer.journal import get_journal_index, scan_journal
+
+    scan_journal(str(journal_fixture), verbose=True, full=True)
+    conn, _ = get_journal_index(str(journal_fixture))
+
+    # Day-level flow agent should have empty time_bucket
+    flow_rows = conn.execute(
+        "SELECT time_bucket FROM chunks WHERE agent='flow'"
+    ).fetchall()
+    assert all(r[0] == "" for r in flow_rows)
+
+    # Event chunks should have empty time_bucket
+    event_rows = conn.execute(
+        "SELECT time_bucket FROM chunks WHERE agent='event'"
+    ).fetchall()
+    assert all(r[0] == "" for r in event_rows)
+
+    conn.close()
 
 
 def test_get_events(journal_fixture):
@@ -989,11 +1280,9 @@ def test_scan_entities_incremental_noop():
 
 def test_scan_entities_deletion(tmp_path):
     """Verify entity rows are removed when source file is deleted."""
-    import shutil
-
     src = Path("tests/fixtures/journal")
     dst = tmp_path / "journal"
-    shutil.copytree(src, dst, symlinks=True)
+    copytree_tracked(src, dst)
     j = str(dst)
 
     from think.indexer.journal import scan_journal
@@ -1138,11 +1427,9 @@ def test_scan_signals_incremental_noop():
 
 def test_scan_signals_deletion(tmp_path):
     """Verify signal rows are removed when source file is deleted."""
-    import shutil
-
     src = Path("tests/fixtures/journal")
     dst = tmp_path / "journal"
-    shutil.copytree(src, dst, symlinks=True)
+    copytree_tracked(src, dst)
     j = str(dst)
 
     from think.indexer.journal import scan_journal
@@ -1321,3 +1608,112 @@ def test_entity_search_idempotent():
     ).fetchone()[0]
     conn.close()
     assert count1 == count2 == 40
+
+
+class TestSegmentChunks:
+    """Tests for segment-level concatenated FTS5 chunks."""
+
+    def test_segment_chunks_created(self, journal_fixture):
+        """scan_journal creates segment chunks with agent='segment'."""
+        from think.indexer.journal import get_journal_index, scan_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        conn, _ = get_journal_index(str(journal_fixture))
+        rows = conn.execute(
+            "SELECT content, path, day, facet, agent, stream FROM chunks WHERE agent='segment'"
+        ).fetchall()
+        conn.close()
+        assert len(rows) >= 1
+        content, path, day, facet, agent, stream = rows[0]
+        assert content
+        assert path == "20240101/default/100000_300"
+        assert day == "20240101"
+        assert facet == ""
+        assert agent == "segment"
+        assert stream == "default"
+
+    def test_segment_chunk_contains_all_agent_content(self, journal_fixture):
+        """Segment chunk content includes text from all agent files."""
+        from think.indexer.journal import get_journal_index, scan_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        conn, _ = get_journal_index(str(journal_fixture))
+        rows = conn.execute(
+            "SELECT content FROM chunks WHERE agent='segment'"
+        ).fetchall()
+        conn.close()
+        all_content = " ".join(r[0] for r in rows)
+        assert "Viewed documentation" in all_content
+        assert "Scott Ward" in all_content
+
+    def test_segment_chunk_searchable(self, journal_fixture):
+        """Segment chunks are searchable via search_journal."""
+        from think.indexer.journal import scan_journal, search_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        total, results = search_journal("Scott Ward")
+        assert total >= 1
+        segment_results = [r for r in results if r["metadata"]["agent"] == "segment"]
+        assert len(segment_results) >= 1
+
+    def test_segment_chunk_cross_file_search(self, journal_fixture):
+        """Search spanning multiple agent files matches segment chunk."""
+        from think.indexer.journal import scan_journal, search_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        total1, results1 = search_journal("documentation")
+        total2, results2 = search_journal("Acme deal")
+        assert total1 >= 1
+        assert total2 >= 1
+        seg1 = [r for r in results1 if r["metadata"]["agent"] == "segment"]
+        seg2 = [r for r in results2 if r["metadata"]["agent"] == "segment"]
+        assert len(seg1) >= 1
+        assert len(seg2) >= 1
+
+    def test_agent_filter_returns_only_segments(self, journal_fixture):
+        """agent='segment' filter returns only segment chunks."""
+        from think.indexer.journal import scan_journal, search_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        total, results = search_journal("", agent="segment")
+        assert total >= 1
+        for r in results:
+            assert r["metadata"]["agent"] == "segment"
+
+    def test_existing_agent_chunks_unchanged(self, journal_fixture):
+        """Segment chunks are additive — agent-level chunks still exist."""
+        from think.indexer.journal import get_journal_index, scan_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        conn, _ = get_journal_index(str(journal_fixture))
+        screen_chunks = conn.execute(
+            "SELECT count(*) FROM chunks WHERE path='20240101/default/100000_300/agents/screen.md'"
+        ).fetchone()[0]
+        activity_chunks = conn.execute(
+            "SELECT count(*) FROM chunks WHERE path='20240101/default/100000_300/agents/activity.md'"
+        ).fetchone()[0]
+        segment_chunks = conn.execute(
+            "SELECT count(*) FROM chunks WHERE agent='segment'"
+        ).fetchone()[0]
+        conn.close()
+        assert screen_chunks >= 1
+        assert activity_chunks >= 1
+        assert segment_chunks >= 1
+
+    def test_idempotent_scan(self, journal_fixture):
+        """Running scan_journal twice produces same segment chunk count."""
+        from think.indexer.journal import get_journal_index, scan_journal
+
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        conn, _ = get_journal_index(str(journal_fixture))
+        count1 = conn.execute(
+            "SELECT count(*) FROM chunks WHERE agent='segment'"
+        ).fetchone()[0]
+        conn.close()
+        scan_journal(str(journal_fixture), verbose=True, full=True)
+        conn, _ = get_journal_index(str(journal_fixture))
+        count2 = conn.execute(
+            "SELECT count(*) FROM chunks WHERE agent='segment'"
+        ).fetchone()[0]
+        conn.close()
+        assert count1 == count2

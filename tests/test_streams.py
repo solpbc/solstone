@@ -30,9 +30,9 @@ def test_stream_name_observer_tmux():
     assert stream_name(host="archon", qualifier="tmux") == "archon.tmux"
 
 
-def test_stream_name_remote():
-    """Remote name -> remote name."""
-    assert stream_name(remote="laptop") == "laptop"
+def test_stream_name_observer():
+    """Observer name -> observer name."""
+    assert stream_name(observer="laptop") == "laptop"
 
 
 def test_stream_name_import_apple():
@@ -50,23 +50,23 @@ def test_stream_name_sanitization():
     assert stream_name(host="My Host") == "my-host"
     assert stream_name(host="FOO/BAR") == "foo-bar"
     assert stream_name(host="  ARCHON  ") == "archon"
-    assert stream_name(remote="My Laptop") == "my-laptop"
+    assert stream_name(observer="My Laptop") == "my-laptop"
 
 
 def test_stream_name_hostname_stripping():
-    """Domain suffixes are stripped from hostnames and remote names."""
+    """Domain suffixes are stripped from hostnames and observer names."""
     # .local, .home, .lan etc — keep only first label
     assert stream_name(host="ja1r.local") == "ja1r"
     assert stream_name(host="archon.home") == "archon"
     assert stream_name(host="server.corp.example.com") == "server"
-    assert stream_name(remote="phone.local") == "phone"
+    assert stream_name(observer="phone.local") == "phone"
 
     # With qualifier — dot is for qualifier only
     assert stream_name(host="ja1r.local", qualifier="tmux") == "ja1r.tmux"
 
     # Simple hostnames unchanged
     assert stream_name(host="archon") == "archon"
-    assert stream_name(remote="laptop") == "laptop"
+    assert stream_name(observer="laptop") == "laptop"
 
     # IP addresses become dash-separated
     assert stream_name(host="192.168.1.1") == "192-168-1-1"

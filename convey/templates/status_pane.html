@@ -1,49 +1,67 @@
 <!-- Status Pane Component -->
-<div class="status-pane">
+<aside id="status-pane" class="status-pane" tabindex="-1" aria-label="status">
   <div class="status-pane-content">
-    <h3>websocket status</h3>
-    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px;">
-      <div>
-        <strong>status:</strong> <span id="ws-status">connecting...</span>
-      </div>
-      <div>
-        <strong>uptime:</strong> <span id="ws-uptime">-</span>
-      </div>
-      <div>
-        <strong>last message:</strong> <span id="ws-last-message">-</span>
-      </div>
+    <h3 id="status-sentence" style="margin: 0 0 8px 0;">connecting&hellip;</h3>
+    <div class="status-pane-detail" style="display: flex; flex-direction: column; gap: 4px;">
+      <span id="status-detail"></span>
     </div>
+    <details class="status-pane-technical" style="margin-top: 12px;">
+      <summary style="cursor: pointer; user-select: none;">technical details</summary>
+      <div class="status-pane-technical" style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
+        <div><strong>state:</strong> <span id="ws-status-raw">connecting</span></div>
+        <div><strong>uptime:</strong> <span id="ws-uptime-raw">-</span></div>
+        <div><strong>last message:</strong> <span id="ws-last-message-raw">-</span></div>
+      </div>
+    </details>
 
     <div id="quiet-notifs-section" style="display:none; margin-top: 16px;">
       <h3>quiet notifications</h3>
       <div id="quiet-notifs-list" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;"></div>
     </div>
 
-    <h3 style="margin-top: 16px;">recent activity <span id="notif-bell" style="cursor: pointer; font-size: 14px; margin-left: 6px; opacity: 0.5;" title="enable browser notifications">🔔</span></h3>
+    <h3 style="margin-top: 16px;">recent activity <button id="notif-bell" style="background: none; border: none; padding: 0; font: inherit; cursor: pointer; font-size: 14px; margin-left: 6px; opacity: 0.5;" title="enable browser notifications" aria-label="enable browser notifications">🔔</button></h3>
     <div id="notification-history" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
       <span style="color: #9ca3af;">no recent activity</span>
     </div>
   </div>
-</div>
+</aside>
 
 <script>
 // Status pane toggle logic
 (function(){
   const statusIcon = document.querySelector('.facet-bar .status-icon');
   const statusPane = document.querySelector('.status-pane');
+  const liveRegion = document.getElementById('status-live-region');
   let statusPaneOpen = false;
+  let _lastHistoryLen = -1;
+
+  // Shared label updater — called from here and from websocket.js
+  window.updateStatusLabel = function() {
+    if (!statusIcon) return;
+    const metrics = window.appEvents?.getMetrics?.();
+    const state = metrics?.state || 'connecting';
+    const expanded = statusIcon.getAttribute('aria-expanded') === 'true';
+    statusIcon.setAttribute('aria-label',
+      'system status: ' + state + ', ' + (expanded ? 'expanded' : 'collapsed'));
+    if (liveRegion) liveRegion.textContent = state;
+  };
 
   if (statusIcon && statusPane) {
     statusIcon.addEventListener('click', (e) => {
       e.stopPropagation();
       statusPaneOpen = !statusPaneOpen;
+      statusIcon.setAttribute('aria-expanded', statusPaneOpen ? 'true' : 'false');
+      window.updateStatusLabel();
 
       if (statusPaneOpen) {
         statusPane.classList.add('visible');
+        statusPane.focus();
         window.AppServices?.quietNotifs?.markViewed();
         renderQuietNotifs();
+        updateStatusPane();
       } else {
         statusPane.classList.remove('visible');
+        statusIcon.focus();
       }
     });
 
@@ -53,6 +71,20 @@
           !statusIcon.contains(e.target) && !statusPane.contains(e.target)) {
         statusPaneOpen = false;
         statusPane.classList.remove('visible');
+        statusIcon.setAttribute('aria-expanded', 'false');
+        window.updateStatusLabel();
+        statusIcon.focus();
+      }
+    });
+
+    // Escape to close status pane
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && statusPaneOpen) {
+        statusPaneOpen = false;
+        statusPane.classList.remove('visible');
+        statusIcon.setAttribute('aria-expanded', 'false');
+        window.updateStatusLabel();
+        statusIcon.focus();
       }
     });
   }
@@ -60,34 +92,65 @@
   // Update status pane metrics
   function updateStatusPane() {
     if (!window.appEvents) return;
+    if (!statusPaneOpen) return;
 
     const metrics = window.appEvents.getMetrics();
-    const wsStatus = document.getElementById('ws-status');
-    const wsUptime = document.getElementById('ws-uptime');
-    const wsLastMessage = document.getElementById('ws-last-message');
+    const statusSentence = document.getElementById('status-sentence');
+    const statusDetail = document.getElementById('status-detail');
+    const wsStatusRaw = document.getElementById('ws-status-raw');
+    const wsUptimeRaw = document.getElementById('ws-uptime-raw');
+    const wsLastMessageRaw = document.getElementById('ws-last-message-raw');
 
-    if (wsStatus) {
-      wsStatus.textContent = metrics.connected ? '🟢 connected' : '🔴 disconnected';
-      wsStatus.style.color = metrics.connected ? '#10b981' : '#ef4444';
-    }
-
-    if (wsUptime) {
-      if (metrics.connected) {
-        const seconds = Math.floor(metrics.uptimeMs / 1000);
-        wsUptime.textContent = formatDuration(seconds);
+    if (statusSentence) {
+      if (metrics.state === 'connected') {
+        statusSentence.textContent = 'all systems connected';
+        statusSentence.style.color = '#10b981';
+      } else if (metrics.state === 'connecting') {
+        statusSentence.textContent = 'connecting…';
+        statusSentence.style.color = '#f59e0b';
       } else {
-        wsUptime.textContent = '-';
+        statusSentence.textContent = 'connection lost — reconnecting';
+        statusSentence.style.color = '#ef4444';
       }
     }
 
-    if (wsLastMessage) {
+    if (statusDetail) {
+      if (metrics.state === 'connected') {
+        const uptimeText = `connected for ${formatDurationHuman(Math.floor(metrics.uptimeMs / 1000))}`;
+        if (metrics.lastMessageMs !== null) {
+          const seconds = Math.floor(metrics.lastMessageMs / 1000);
+          const lastUpdate = seconds === 0 ? 'just now' : `${formatDurationHuman(seconds)} ago`;
+          statusDetail.textContent = `${uptimeText} · last update ${lastUpdate}`;
+        } else {
+          statusDetail.textContent = uptimeText;
+        }
+      } else if (metrics.state === 'connecting') {
+        statusDetail.textContent = '';
+      } else {
+        statusDetail.textContent = 'some features may be delayed';
+      }
+    }
+
+    if (wsStatusRaw) {
+      wsStatusRaw.textContent = metrics.state;
+    }
+
+    if (wsUptimeRaw) {
+      if (metrics.connected) {
+        wsUptimeRaw.textContent = formatDuration(Math.floor(metrics.uptimeMs / 1000));
+      } else {
+        wsUptimeRaw.textContent = '-';
+      }
+    }
+
+    if (wsLastMessageRaw) {
       if (metrics.lastMessageMs !== null) {
         const seconds = Math.floor(metrics.lastMessageMs / 1000);
-        wsLastMessage.textContent = seconds === 0 ? 'just now' : `${formatDuration(seconds)} ago`;
+        wsLastMessageRaw.textContent = seconds === 0 ? 'just now' : `${formatDuration(seconds)} ago`;
       } else if (metrics.connected) {
-        wsLastMessage.textContent = 'no messages yet';
+        wsLastMessageRaw.textContent = 'no messages yet';
       } else {
-        wsLastMessage.textContent = '-';
+        wsLastMessageRaw.textContent = '-';
       }
     }
 
@@ -127,6 +190,8 @@
     if (!container || !window.AppServices?.notifications) return;
 
     const history = window.AppServices.notifications.getHistory();
+    if (!statusPaneOpen && history.length === _lastHistoryLen) return;
+    _lastHistoryLen = history.length;
     const escape = window.AppServices._escapeHtml;
 
     if (history.length === 0) {
@@ -166,6 +231,20 @@
     return `${hours}h ${mins}m`;
   }
 
+  function formatDurationHuman(seconds) {
+    if (seconds < 10) return 'a few seconds';
+    if (seconds < 60) return 'less than a minute';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes === 1) return 'about a minute';
+    if (minutes < 60) return minutes + ' minutes';
+    const hours = Math.floor(minutes / 60);
+    if (hours === 1) return 'about an hour';
+    if (hours < 24) return hours + ' hours';
+    const days = Math.floor(hours / 24);
+    if (days === 1) return 'about a day';
+    return days + ' days';
+  }
+
   function updateBellState() {
     const bell = document.getElementById('notif-bell');
     if (!bell || !('Notification' in window)) {
@@ -178,16 +257,19 @@
       bell.style.opacity = '1';
       bell.style.cursor = 'default';
       bell.title = 'browser notifications enabled';
+      bell.setAttribute('aria-label', 'browser notifications enabled');
     } else if (perm === 'denied') {
       bell.textContent = '🔕';
       bell.style.opacity = '0.4';
       bell.style.cursor = 'default';
       bell.title = 'notifications blocked — update in browser settings';
+      bell.setAttribute('aria-label', 'notifications blocked — update in browser settings');
     } else {
       bell.textContent = '🔔';
       bell.style.opacity = '0.5';
       bell.style.cursor = 'pointer';
       bell.title = 'enable browser notifications';
+      bell.setAttribute('aria-label', 'enable browser notifications');
     }
   }
 

@@ -4,6 +4,7 @@
 """Tests for speakers app - sentence-based embeddings."""
 
 import numpy as np
+from flask import Flask
 
 
 def test_normalize_embedding():
@@ -416,8 +417,6 @@ def test_scan_segment_embeddings_includes_speaker_data(speakers_env):
 
 def test_api_speakers_empty_when_no_speakers_json(speakers_env):
     """Test /api/speakers/ returns empty matched/unmatched when no speakers.json."""
-    from flask import Flask
-
     from apps.speakers.routes import speakers_bp
 
     env = speakers_env()
@@ -433,6 +432,26 @@ def test_api_speakers_empty_when_no_speakers_json(speakers_env):
         data = response.get_json()
         assert data["matched"] == []
         assert data["unmatched"] == []
+
+
+def test_serve_audio_sets_flac_mimetype(speakers_env, monkeypatch):
+    """Serve audio endpoint returns FLAC mimetype for sample playback."""
+    from apps.speakers.routes import speakers_bp
+    from convey import state
+
+    env = speakers_env()
+    env.create_segment("20240101", "143022_300", ["mic_audio"])
+    monkeypatch.setattr(state, "journal_root", str(env.journal))
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        response = client.get(
+            "/app/speakers/api/serve_audio/20240101/test__143022_300__mic_audio.flac"
+        )
+        assert response.status_code == 200
+        assert response.mimetype == "audio/flac"
 
 
 def test_get_journal_principal(speakers_env):
@@ -1047,3 +1066,42 @@ def test_remove_voiceprint_no_file(speakers_env):
 
     removed = _remove_voiceprint("alice_test", "20240101", "143022_300", "mic_audio", 1)
     assert removed is False
+
+
+def test_api_segments_pagination(speakers_env):
+    """Segments endpoint supports limit/offset pagination."""
+    from flask import Flask
+
+    from apps.speakers.routes import speakers_bp
+
+    env = speakers_env()
+    for i in range(25):
+        h = 8 + (i // 6)
+        m = (i % 6) * 10
+        key = f"{h:02d}{m:02d}00_300"
+        env.create_segment("20240101", key, ["mic_audio"], num_sentences=2)
+
+    app = Flask(__name__)
+    app.register_blueprint(speakers_bp)
+
+    with app.test_client() as client:
+        resp = client.get("/app/speakers/api/segments/20240101")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 25
+        assert len(data["segments"]) == 20
+
+        resp = client.get("/app/speakers/api/segments/20240101?limit=20&offset=20")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 25
+        assert len(data["segments"]) == 5
+
+        resp = client.get("/app/speakers/api/segments/20240101?limit=10&offset=5")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 25
+        assert len(data["segments"]) == 10
+
+        keys = [s["key"] for s in data["segments"]]
+        assert keys == sorted(keys)

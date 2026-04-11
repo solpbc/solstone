@@ -26,7 +26,7 @@ app.json fields (all optional):
     {
       "icon": "🏠",           # Emoji icon for menu bar (default: "📦")
       "label": "Custom Label", # Display label (default: title-cased app name)
-      "facets": {},            # Facet options: {"disabled": true} to hide, {"muted": true} to show disabled facets
+      "facets": {},            # Facet options: {"disabled": true} to hide facet bar
       "date_nav": true,        # Show date navigation bar (default: false)
       "allow_future_dates": true  # Allow future dates in month picker (default: false)
     }
@@ -68,7 +68,6 @@ class App:
     # Facet configuration (optional, default {})
     # Options:
     #   - disabled: If true, facets bar is hidden for this app
-    #   - muted: Include facets marked as disabled in facet.json
     facets_config: dict = field(default_factory=dict)
 
     # Date navigation (renders date nav below facet bar)
@@ -80,10 +79,6 @@ class App:
     def facets_enabled(self) -> bool:
         """Check if facets are enabled for this app."""
         return not self.facets_config.get("disabled", False)
-
-    def show_muted_facets(self) -> bool:
-        """Check if muted/disabled facets should be shown."""
-        return self.facets_config.get("muted", False)
 
     def date_nav_enabled(self) -> bool:
         """Check if date nav is enabled for this app."""
