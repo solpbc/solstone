@@ -29,9 +29,9 @@
     if (statusIcon) {
       const badge = statusIcon.querySelector('#quiet-notif-badge');
       const svgs = {
-        connected: '<svg class="status-indicator" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="#10b981"/></svg>',
-        connecting: '<svg class="status-indicator status-indicator--connecting" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="24 8"/></svg>',
-        disconnected: '<svg class="status-indicator" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 2 L14 13 L2 13 Z" fill="#ef4444"/></svg>'
+        connected: '<svg class="status-indicator" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="#10b981"/></svg>',
+        connecting: '<svg class="status-indicator status-indicator--connecting" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="24 8"/></svg>',
+        disconnected: '<svg class="status-indicator" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 2 L14 13 L2 13 Z" fill="#ef4444"/></svg>'
       };
       const labels = {
         connected: 'connected',
