@@ -547,16 +547,25 @@ def cmd_move(args: argparse.Namespace) -> None:
         print("\n[dry run] No changes made")
         return
 
+    verbose = getattr(args, "verbose", False)
+
+    print("\nExecuting move...")
     dst_parent.mkdir(parents=True, exist_ok=True)
+    if verbose:
+        print(f"  created directory: {dst_parent}")
     shutil.move(str(src_dir), str(dst_dir))
+    print(f"  moved directory: {src_dir.name} -> {dst_dir}")
 
     rewritten = _rewrite_events_jsonl(dst_dir, to_day, new_segment)
     if rewritten:
-        print(f"  rewrote {rewritten} events.jsonl lines")
+        print(f"  rewrote {rewritten} events.jsonl lines (day: {src_day}->{to_day}, segment: {src_segment}->{new_segment})")
+    elif verbose:
+        print("  no events.jsonl to rewrite")
 
     if succ_path:
         succ_marker = read_segment_stream(succ_path)
         if succ_marker:
+            old_prev = f"{succ_marker.get('prev_day')}/{stream}/{succ_marker.get('prev_segment')}"
             write_segment_stream(
                 succ_path,
                 succ_marker["stream"],
@@ -565,21 +574,32 @@ def cmd_move(args: argparse.Namespace) -> None:
                 succ_marker["seq"],
             )
             print(f"  patched successor {succ_day}/{stream}/{succ_seg}")
+            if verbose:
+                print(f"    prev_day: {succ_marker.get('prev_day')} -> {to_day}")
+                print(f"    prev_segment: {succ_marker.get('prev_segment')} -> {new_segment}")
+    elif verbose:
+        print("  no successor to patch (stream tail)")
 
-    rebuild_stream_state(stream)
+    summary = rebuild_stream_state(stream)
     print(f"  rebuilt stream state: {stream}")
+    if verbose:
+        print(f"    scanned {summary['segments_scanned']} segments, rebuilt {len(summary['rebuilt'])} stream(s)")
 
     if index_info["available"]:
         deleted = _delete_index_rows(journal, old_rel)
-        if any(deleted.values()):
-            print(f"  deleted index rows: {deleted}")
+        if any(deleted.values()) or verbose:
+            print(f"  deleted index rows: chunks={deleted['chunks']}, files={deleted['files']}, entities={deleted['entities']}, signals={deleted['entity_signals']}")
+        new_rel = f"{to_day}/{stream}/{new_segment}"
         indexed = _reindex_segment(journal, dst_dir)
-        if indexed:
-            print(f"  re-indexed {indexed} files")
+        print(f"  re-indexed: {indexed} files at {new_rel}")
+    elif verbose:
+        print("  index not available, skipping reindex")
 
     _touch_health_marker(src_day)
     _touch_health_marker(to_day)
     print(f"  touched health markers: {src_day}, {to_day}")
+    if verbose:
+        print(f"    dream will re-run daily agents on both days")
 
     # Post-move verify is informational — the move already completed.
     print()
@@ -826,6 +846,9 @@ def main() -> None:
     )
     p_move.add_argument(
         "--dry-run", action="store_true", help="Show plan without making changes"
+    )
+    p_move.add_argument(
+        "-v", "--verbose", action="store_true", help="Show detailed progress"
     )
 
     args = setup_cli(parser)
