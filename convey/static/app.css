@@ -719,7 +719,7 @@ body:has(.status-pane.visible) .facet-bar::after {
   width: var(--menu-bar-width-minimal);
   max-height: calc(100vh - var(--facet-bar-height));
   background: white;
-  border-right: none; /* No border on container - items have their own borders */
+  border-right: 1px solid var(--facet-border, #e5e0db); /* Container carries the border, not individual items */
   z-index: calc(var(--z-bars) + 1);  /* Above app bar */
   transition: width 0.3s ease, background 0.3s ease, box-shadow 0.3s ease, border-radius 0.3s ease;
   overflow: hidden; /* Clip all content to rounded corner */
@@ -753,7 +753,7 @@ ul.menu-items {
   position: sticky;
   left: 0;
   right: 0;
-  height: 28px;
+  height: 16px;
   pointer-events: none;
   z-index: 1;
   opacity: 0;
@@ -762,13 +762,13 @@ ul.menu-items {
 
 .menu-bar .menu-items::before {
   top: 0;
-  margin-bottom: -28px;
+  margin-bottom: -16px;
   background: linear-gradient(to bottom, rgba(0,0,0,0.06), transparent);
 }
 
 .menu-bar .menu-items::after {
   bottom: 0;
-  margin-top: -28px;
+  margin-top: -16px;
   background: linear-gradient(to top, rgba(0,0,0,0.06), transparent);
 }
 
@@ -796,7 +796,8 @@ body.menu-full .menu-bar {
   transition: background 0.2s, transform 0.3s ease, max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease, border-radius 0.3s ease;
   border-bottom: none;
   border-left: 2px solid transparent;
-  border-right: 1px solid var(--facet-border, #e5e0db); /* Always present - extends naturally with item animation */
+  border-right: none;
+  margin-top: 2px;
   color: inherit;
   white-space: nowrap;
   position: relative;
@@ -820,6 +821,7 @@ body.menu-full .menu-bar {
   opacity: 0;
   padding-top: 0;
   padding-bottom: 0;
+  margin-top: 0;
   pointer-events: none;
 }
 
@@ -998,8 +1000,8 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
 /* Visual separator after last starred app */
 .menu-bar .menu-item.last-starred {
   border-bottom: 1px solid var(--facet-border, #e5e0db);
-  padding-bottom: 10px;
-  margin-bottom: 6px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
 }
 
 /* Menu Submenus - hover pop-outs for app quick-links */
@@ -1116,7 +1118,7 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   cursor: pointer;
   color: inherit;
   border: none;
-  border-right: 1px solid var(--facet-border, #e5e0db);
+  border-right: none;
   background: var(--facet-bg, white);
   transition: background 0.2s;
   user-select: none;
