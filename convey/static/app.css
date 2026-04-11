@@ -434,6 +434,9 @@ body:has(.status-pane.visible) .facet-bar::after {
   text-align: center;
   color: inherit;
   text-decoration: none;
+  background: none;
+  border: none;
+  font: inherit;
   padding: 6px 8px;
   border-radius: 4px;
   cursor: pointer;
@@ -442,6 +445,10 @@ body:has(.status-pane.visible) .facet-bar::after {
 
 .date-nav-label:hover {
   background: rgba(0, 0, 0, 0.05);
+}
+
+.date-nav-label:active {
+  background: rgba(0, 0, 0, 0.10);
 }
 
 /* Keep date-nav stable during view transitions */
@@ -1460,6 +1467,11 @@ body.menu-all .menu-bar {
   background: transparent;
   position: relative;
   z-index: 1;
+  transition: border-color 0.2s ease;
+}
+
+.chat-bar-input:hover {
+  border-color: #bbb;
 }
 
 .chat-bar-input:focus {
