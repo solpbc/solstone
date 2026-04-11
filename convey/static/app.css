@@ -2030,6 +2030,12 @@ a.notification-card:active {
   transform: translateX(-4px) scale(0.98);
 }
 
+.notification-card--dismissing {
+  opacity: 0;
+  transform: translateX(100%);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
 @keyframes slideIn {
   from {
     opacity: 0;

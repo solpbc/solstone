@@ -1752,8 +1752,11 @@ window.AppServices = {
       // Remove cards that are no longer in visible stack
       existingCards.forEach(card => {
         const id = parseInt(card.getAttribute('data-id'));
-        if (!visibleIds.includes(id)) {
-          card.remove();
+        if (!visibleIds.includes(id) && !card.classList.contains('notification-card--dismissing')) {
+          card.classList.add('notification-card--dismissing');
+          const onEnd = () => card.remove();
+          card.addEventListener('transitionend', onEnd, { once: true });
+          setTimeout(onEnd, 250);
         }
       });
 
