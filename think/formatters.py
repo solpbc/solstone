@@ -33,11 +33,9 @@ JSONL formatters receive list[dict] entries and are responsible for:
 Markdown formatters receive str text and perform semantic chunking.
 """
 
-import argparse
 import fnmatch
 import json
 import os
-import sys
 from importlib import import_module
 from pathlib import Path
 from typing import Any, Callable
@@ -363,91 +361,3 @@ def _format_chunk_summary(chunks: list[dict], raw_chunks: list[dict] | None) -> 
             print(f'      intro: "{intro[:60]}{"..." if len(intro) > 60 else ""}"')
         print(f"      {preview[:70]}{'...' if len(preview) > 70 else ''}")
         print()
-
-
-def main() -> None:
-    """CLI entry point for sol formatter."""
-    from think.utils import setup_cli
-
-    parser = argparse.ArgumentParser(
-        description="Convert JSONL or Markdown files to formatted chunks"
-    )
-    parser.add_argument("file", help="Path to JSONL or Markdown file")
-    parser.add_argument(
-        "-f",
-        "--format",
-        choices=["json", "markdown", "summary"],
-        default="json",
-        help="Output format (default: json)",
-    )
-    parser.add_argument(
-        "-i",
-        "--index",
-        type=int,
-        help="Show only the chunk at this index",
-    )
-    parser.add_argument(
-        "--join",
-        action="store_true",
-        help="Output concatenated markdown (shorthand for --format=markdown)",
-    )
-    parser.add_argument(
-        "--context",
-        type=str,
-        help="JSON string of context to pass to formatter",
-    )
-    args = setup_cli(parser)
-
-    # --join is shorthand for --format=markdown
-    if args.join:
-        args.format = "markdown"
-
-    try:
-        context = json.loads(args.context) if args.context else None
-    except json.JSONDecodeError as e:
-        print(f"Error parsing context JSON: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    try:
-        chunks, meta = format_file(args.file, context)
-    except (ValueError, FileNotFoundError) as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    # For summary format on markdown files, get raw chunks with metadata
-    raw_chunks = None
-    if args.format == "summary" and args.file.endswith(".md"):
-        from think.markdown import chunk_markdown
-
-        text = load_markdown(args.file)
-        raw_chunks = chunk_markdown(text)
-
-    # Filter to single chunk if requested
-    if args.index is not None:
-        if 0 <= args.index < len(chunks):
-            chunks = [chunks[args.index]]
-            if raw_chunks:
-                raw_chunks = [raw_chunks[args.index]]
-        else:
-            print(
-                f"Error: Index {args.index} out of range (0-{len(chunks) - 1})",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-    if args.format == "markdown":
-        # Output concatenated markdown with header first
-        parts = []
-        if meta.get("header"):
-            parts.append(meta["header"])
-        parts.extend(chunk["markdown"] for chunk in chunks)
-        print("\n".join(parts))
-    elif args.format == "summary":
-        _format_chunk_summary(chunks, raw_chunks)
-    else:
-        # Output JSON object with metadata and chunks
-        print(json.dumps({"meta": meta, "chunks": chunks}, indent=2))
-
-
-if __name__ == "__main__":
-    main()

@@ -40,20 +40,15 @@ COMMANDS: dict[str, str] = {
     # think package - daily processing and analysis
     "import": "think.importers.cli",
     "dream": "think.dream",
-    "planner": "think.planner",
     "indexer": "think.indexer",
     "supervisor": "think.supervisor",
     "schedule": "think.scheduler",
-    "detect-created": "think.detect_created",
     "top": "think.top",
     "health": "think.health_cli",
-    "callosum": "think.callosum",
     "notify": "think.notify_cli",
     "password": "think.password_cli",
     "streams": "think.streams",
     "journal-stats": "think.journal_stats",
-    "config": "think.config_cli",
-    "formatter": "think.formatters",
     # observe package - multimodal capture
     "transcribe": "observe.transcribe",
     "describe": "observe.describe",
@@ -67,7 +62,6 @@ COMMANDS: dict[str, str] = {
     "talent": "think.talent_cli",
     "call": "think.call",
     "engage": "think.engage",
-    "help": "think.help_cli",
     "chat": "think.chat_cli",
     "heartbeat": "think.heartbeat",
     # convey package - web UI
@@ -99,13 +93,11 @@ GROUPS: dict[str, list[str]] = {
     "Think (daily processing)": [
         "import",
         "dream",
-        "planner",
         "indexer",
         "supervisor",
         "schedule",
         "top",
         "health",
-        "callosum",
         "notify",
         "heartbeat",
     ],
@@ -131,14 +123,11 @@ GROUPS: dict[str, list[str]] = {
         "maint",
     ],
     "Specialized tools": [
-        "config",
         "password",
         "streams",
         "journal-stats",
-        "formatter",
-        "detect-created",
     ],
-    "Help": ["help", "chat"],
+    "Help": ["chat"],
 }
 
 
