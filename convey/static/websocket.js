@@ -50,10 +50,7 @@
 
   // Connect to WebSocket
   function connect(){
-<<<<<<< HEAD
-=======
     updateStatusIcon('connecting');
->>>>>>> upstream/main
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${proto}//${location.host}/ws/events`);
 
