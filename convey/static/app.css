@@ -1703,7 +1703,7 @@ body.menu-all .menu-bar {
 .conversation-messages {
   display: none;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   overflow-y: auto;
   padding: 16px;
   flex: 1;
@@ -1746,7 +1746,7 @@ body.menu-all .menu-bar {
 /* Message bubbles */
 .conversation-message {
   max-width: 85%;
-  padding: 10px 14px;
+  padding: 10px 16px;
   border-radius: 16px;
   font-size: 14px;
   line-height: 1.5;
@@ -1759,6 +1759,7 @@ body.menu-all .menu-bar {
   background: var(--facet-color, #b06a1a);
   color: white;
   border-bottom-right-radius: 4px;
+  font-weight: 500;
 }
 
 .conversation-message.agent {
@@ -1772,7 +1773,7 @@ body.menu-all .menu-bar {
 }
 
 .conversation-message.agent p {
-  margin: 0 0 0.5em 0;
+  margin: 0 0 0.6em 0;
 }
 
 .conversation-message.agent p:last-child {
@@ -1809,7 +1810,7 @@ body.menu-all .menu-bar {
   background: none;
   padding: 0;
   border-radius: 0;
-  font-size: 0.85em;
+  font-size: 0.875em;
   white-space: pre;
 }
 
@@ -1817,7 +1818,7 @@ body.menu-all .menu-bar {
   border-left: 3px solid rgba(0, 0, 0, 0.15);
   margin: 0.4em 0;
   padding: 0.2em 0 0.2em 0.8em;
-  color: #4b5563;
+  color: #6b7280;
 }
 
 .conversation-message.agent h1,
@@ -1833,7 +1834,7 @@ body.menu-all .menu-bar {
 
 .conversation-message.agent h1 { font-size: 1.2em; }
 .conversation-message.agent h2 { font-size: 1.1em; }
-.conversation-message.agent h3 { font-size: 1.05em; }
+.conversation-message.agent h3 { font-size: 1.08em; }
 
 .conversation-message.agent a {
   color: #b06a1a;
@@ -1866,6 +1867,7 @@ body.menu-all .menu-bar {
   color: #1f2937;
   border-left: 4px solid #d97706;
   border-bottom-left-radius: 4px;
+  font-weight: 500;
 }
 
 .conversation-message.error::before {
