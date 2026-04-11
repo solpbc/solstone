@@ -37,6 +37,7 @@ def stats_data() -> Any:
         try:
             with open(stats_path, "r", encoding="utf-8") as f:
                 response["stats"] = json.load(f)
+            response["file_mtime"] = os.path.getmtime(stats_path)
         except Exception:
             logger.exception("Failed to read stats data")
             response["error"] = "Failed to read stats data"

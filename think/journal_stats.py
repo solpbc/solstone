@@ -6,13 +6,14 @@ import json
 import logging
 import os
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict
 
 from observe.sense import scan_day as sense_scan_day
 from observe.utils import VIDEO_EXTENSIONS, load_analysis_frames
 from think.agents import scan_day as generate_scan_day
+from think.stats_schema import DAY_FIELDS, SCHEMA_VERSION, validate as validate_stats
 from think.utils import day_dirs, get_journal, setup_cli
 
 logger = logging.getLogger(__name__)
@@ -466,27 +467,46 @@ class JournalStats:
 
     def to_dict(self) -> dict:
         """Return a dictionary with all collected statistics."""
+        days = {
+            day: {field: stats.get(field, 0) for field in DAY_FIELDS}
+            for day, stats in self.days.items()
+        }
         return {
-            "days": self.days,
-            "totals": dict(self.totals),
-            "total_transcript_duration": self.total_transcript_duration,
-            "total_percept_duration": self.total_percept_duration,
-            "agent_counts": dict(self.agent_counts),
-            "agent_minutes": {k: round(v, 2) for k, v in self.agent_minutes.items()},
-            "agent_counts_by_day": self.agent_counts_by_day,
-            "facet_counts": dict(self.facet_counts),
-            "facet_minutes": {k: round(v, 2) for k, v in self.facet_minutes.items()},
-            "facet_counts_by_day": self.facet_counts_by_day,
+            "schema_version": SCHEMA_VERSION,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "day_count": len(self.days),
+            "days": days,
+            "totals": {
+                **dict(self.totals),
+                "total_transcript_duration": self.total_transcript_duration,
+                "total_percept_duration": self.total_percept_duration,
+            },
             "heatmap": self.heatmap,
-            "token_usage_by_day": self.token_usage,
-            "token_totals_by_model": self.token_totals,
+            "tokens": {
+                "by_day": self.token_usage,
+                "by_model": self.token_totals,
+            },
+            "agents": {
+                "counts": dict(self.agent_counts),
+                "minutes": {k: round(v, 2) for k, v in self.agent_minutes.items()},
+                "counts_by_day": self.agent_counts_by_day,
+            },
+            "facets": {
+                "counts": dict(self.facet_counts),
+                "minutes": {k: round(v, 2) for k, v in self.facet_minutes.items()},
+                "counts_by_day": self.facet_counts_by_day,
+            },
         }
 
     def save_json(self, journal: str) -> None:
         """Write full statistics to ``stats.json`` in ``journal``."""
+        data = self.to_dict()
+        errors = validate_stats(data)
+        if errors:
+            raise ValueError(f"Stats validation failed: {'; '.join(errors)}")
         path = os.path.join(journal, "stats.json")
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(self.to_dict(), f, indent=2)
+            json.dump(data, f, indent=2)
 
 
 def main() -> None:

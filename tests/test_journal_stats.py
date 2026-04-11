@@ -169,12 +169,15 @@ def test_token_usage(tmp_path, monkeypatch):
 
     # Test JSON output includes token usage
     data = js.to_dict()
-    assert "token_usage_by_day" in data
-    assert "token_totals_by_model" in data
-    assert "total_transcript_duration" in data
-    assert "total_percept_duration" in data
+    assert data["schema_version"] == 2
+    assert "generated_at" in data
+    assert data["day_count"] == 2
+    assert "tokens" in data
+    assert "by_day" in data["tokens"]
+    assert "total_transcript_duration" in data["totals"]
+    assert "total_percept_duration" in data["totals"]
     assert (
-        data["token_usage_by_day"]["20240101"]["gemini-2.5-flash"]["total_tokens"]
+        data["tokens"]["by_day"]["20240101"]["gemini-2.5-flash"]["total_tokens"]
         == 495
     )
 
