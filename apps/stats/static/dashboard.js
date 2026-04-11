@@ -5,6 +5,9 @@
 const Dashboard = (function() {
   'use strict';
 
+  const EXPECTED_SCHEMA_VERSION = 2;
+  const DISPLAY_LABELS = { transcript: 'Audio', percept: 'Screen' };
+
   // DOM element factory
   function el(tag, attrs = {}, children = []) {
     const elem = document.createElement(tag);
@@ -45,6 +48,17 @@ const Dashboard = (function() {
       return (value / 1e3).toFixed(1) + 'K';
     }
     return String(Math.round(value));
+  }
+
+  function fmtRelativeTime(isoString) {
+    const seconds = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return minutes + (minutes === 1 ? ' minute ago' : ' minutes ago');
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return hours + (hours === 1 ? ' hour ago' : ' hours ago');
+    const days = Math.floor(hours / 24);
+    return days + (days === 1 ? ' day ago' : ' days ago');
   }
 
   function fmtDay(raw) {
@@ -547,6 +561,40 @@ const Dashboard = (function() {
       );
       return;
     }
+
+    // Schema version check (non-blocking warning)
+    if (stats.schema_version && stats.schema_version !== EXPECTED_SCHEMA_VERSION) {
+      document.getElementById('notice').appendChild(
+        el('div', {className: 'alert alert-warning'}, [
+          'These stats were generated with an older format. Run ',
+          el('code', {}, ['sol journal-stats']),
+          ' to regenerate.'
+        ])
+      );
+    }
+
+    // Required-field validation (blocking — stops rendering if fields missing)
+    const requiredFields = ['days', 'totals', 'heatmap', 'tokens', 'agents', 'facets'];
+    const missingFields = requiredFields.filter(f => !(f in stats));
+    if (missingFields.length > 0) {
+      document.getElementById('notice').appendChild(
+        el('div', {className: 'alert alert-error'}, [
+          'Stats data is missing required fields: ' + missingFields.join(', ') + '. ',
+          'Run ',
+          el('code', {}, ['sol journal-stats']),
+          ' to regenerate.'
+        ])
+      );
+      return;
+    }
+
+    // Freshness indicator
+    const freshnessEl = document.getElementById('statsFreshness');
+    if (freshnessEl) {
+      freshnessEl.textContent = stats.generated_at
+        ? 'Stats generated ' + fmtRelativeTime(stats.generated_at)
+        : '';
+    }
     
     // Show main content
     const main = document.getElementById('mainContent');
@@ -567,11 +615,11 @@ const Dashboard = (function() {
     const days = Object.keys(stats.days).sort();
     const totals = stats.totals || {};
     const totalDays = days.length;
-    const totalAudioHours = Math.round((stats.total_audio_duration || 0) / 3600);
-    const totalScreenHours = Math.round((stats.total_screen_duration || 0) / 3600);
+    const totalAudioHours = Math.round((stats.totals.total_transcript_duration || 0) / 3600);
+    const totalScreenHours = Math.round((stats.totals.total_percept_duration || 0) / 3600);
 
     // Calculate total tokens across all models
-    const tokenTotals = stats.token_totals_by_model || {};
+    const tokenTotals = stats.tokens.by_model || {};
     const totalTokens = Object.values(tokenTotals).reduce((sum, model) => {
       return sum + (model.total_tokens || 0);
     }, 0);
@@ -589,14 +637,14 @@ const Dashboard = (function() {
     const progressSection = document.getElementById('progressSection');
     progressSection.innerHTML = ''; // Clear existing content
     progressSection.appendChild(
-      progressCard('Audio Processing', totals.audio_sessions || 0, totals.pending_segments || 0)
+      progressCard('Audio Processing', totals.transcript_sessions || 0, totals.pending_segments || 0)
     );
     progressSection.appendChild(
       progressCard('Agent Outputs', totals.outputs_processed || 0, totals.outputs_pending || 0)
     );
     
     // Token usage setup
-    const tokenUsage = stats.token_usage_by_day || {};
+    const tokenUsage = stats.tokens.by_day || {};
     const models = Object.keys(tokenTotals).sort();
     
     // Populate model selector
@@ -633,8 +681,8 @@ const Dashboard = (function() {
     const recent = days.slice(-30);
     const hoursData = recent.map(day => {
       const dayData = stats.days[day];
-      const audioHours = (dayData.audio_duration || 0) / 3600;
-      const screenHours = (dayData.screen_duration || 0) / 3600;
+      const audioHours = (dayData.transcript_duration || 0) / 3600;
+      const screenHours = (dayData.percept_duration || 0) / 3600;
       return {
         day: day.slice(4, 6) + '/' + day.slice(6, 8),
         audio: audioHours,
@@ -654,7 +702,7 @@ const Dashboard = (function() {
     // Render Facets stacked bar chart
     buildStackedCategoryChart(
       document.getElementById('facetsChart'),
-      stats.facet_counts_by_day || {},
+      stats.facets.counts_by_day || {},
       {
         emptyIcon: '🏷️',
         emptyText: 'No facet data recorded',
@@ -665,7 +713,7 @@ const Dashboard = (function() {
     // Render Events stacked bar chart
     buildStackedCategoryChart(
       document.getElementById('eventsChart'),
-      stats.agent_counts_by_day || {},
+      stats.agents.counts_by_day || {},
       Object.assign({}, data.generators || {}, {
         emptyIcon: '⚡',
         emptyText: 'No event data recorded',

@@ -56,6 +56,12 @@ h1 {
   color: #721c24;
 }
 
+.stats-freshness {
+  color: #888;
+  font-size: 0.85em;
+  margin: -0.5em 0 1em;
+}
+
 /* Stats grid */
 .stats-grid {
   display: grid;
@@ -459,6 +465,8 @@ h1 {
 
 <div class="dashboard" data-stats-url="{{ url_for('app:stats.stats_data') }}">
   <h1>Journal Dashboard</h1>
+
+  <p id="statsFreshness" class="stats-freshness"></p>
 
   <div id="notice"></div>
 
