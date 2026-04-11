@@ -929,6 +929,7 @@
         // If menu-all is active, remove it before toggling to menu-full
         if (document.body.classList.contains('menu-all')) {
           document.body.classList.remove('menu-all');
+          AppServices.submenus._closeAll();
           const menuExpander = document.querySelector('.menu-expander');
           if (menuExpander) {
             menuExpander.textContent = '›';
