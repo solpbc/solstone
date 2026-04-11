@@ -154,6 +154,8 @@ def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
         }
 
         if creds_path and os.path.exists(creds_path):
+            import json as _json
+
             from google.oauth2.service_account import Credentials
 
             creds = Credentials.from_service_account_file(
@@ -161,6 +163,10 @@ def get_or_create_client(client: genai.Client | None = None) -> genai.Client:
                 scopes=["https://www.googleapis.com/auth/cloud-platform"],
             )
             client_kwargs["credentials"] = creds
+            with open(creds_path, encoding="utf-8") as _f:
+                _sa_data = _json.load(_f)
+            if "project_id" in _sa_data:
+                client_kwargs["project"] = _sa_data["project_id"]
         elif not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
             raise ValueError(
                 "Vertex AI backend requires service account credentials. "
@@ -803,6 +809,8 @@ def validate_vertex_credentials(
     Returns {"valid": True, "email": "..."} or {"valid": False, "error": "..."}.
     """
     try:
+        import json as _json
+
         from google.oauth2.service_account import Credentials
 
         creds = Credentials.from_service_account_file(
@@ -814,6 +822,10 @@ def validate_vertex_credentials(
             "credentials": creds,
             "http_options": types.HttpOptions(timeout=10000),
         }
+        with open(creds_path, encoding="utf-8") as _f:
+            _sa_data = _json.load(_f)
+        if "project_id" in _sa_data:
+            client_kwargs["project"] = _sa_data["project_id"]
 
         client = genai.Client(**client_kwargs)
         list(client.models.list(config={"page_size": 1}))

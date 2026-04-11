@@ -135,8 +135,18 @@ def test_validate_key_google_returns_backend_vertex():
     assert mock_cls.call_args.kwargs["api_key"] == "test-key"
 
 
-def test_validate_vertex_credentials():
+def test_validate_vertex_credentials(tmp_path):
     """validate_vertex_credentials creates SA-authenticated client."""
+    import json
+
+    sa_file = tmp_path / "sa.json"
+    sa_file.write_text(json.dumps({
+        "type": "service_account",
+        "project_id": "test-project",
+        "client_email": "test@project.iam.gserviceaccount.com",
+        "private_key": "fake",
+    }))
+
     client = Mock()
     client.models.list.return_value = [Mock()]
 
@@ -152,7 +162,7 @@ def test_validate_vertex_credentials():
             return_value=mock_creds,
         ),
     ):
-        result = think.providers.google.validate_vertex_credentials("/tmp/sa.json")
+        result = think.providers.google.validate_vertex_credentials(str(sa_file))
 
     assert result == {
         "valid": True,
@@ -160,6 +170,7 @@ def test_validate_vertex_credentials():
     }
     assert mock_cls.call_args.kwargs["vertexai"] is True
     assert mock_cls.call_args.kwargs["credentials"] is mock_creds
+    assert mock_cls.call_args.kwargs["project"] == "test-project"
     assert "api_key" not in mock_cls.call_args.kwargs
 
 
