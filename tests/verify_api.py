@@ -420,10 +420,15 @@ def normalize(data: Any, journal_path: str) -> Any:
                     if item_key in {"mtime", "created_at", "file_mtime"}
                     and isinstance(item_value, (int, float))
                     else (
-                        round(item_value, 1)
-                        if item_key in {"score", "recency"}
-                        and isinstance(item_value, float)
-                        else walk(item_value, item_key)
+                        "<TIMESTAMP>"
+                        if item_key == "generated_at"
+                        and isinstance(item_value, str)
+                        else (
+                            round(item_value, 1)
+                            if item_key in {"score", "recency"}
+                            and isinstance(item_value, float)
+                            else walk(item_value, item_key)
+                        )
                     )
                 )
                 for item_key, item_value in value.items()
