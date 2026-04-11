@@ -255,7 +255,12 @@ body:has(.status-pane.visible) .facet-bar::after {
 
 .facet-bar .status-icon {
   font-size: 20px;
-  padding: 4px;
+  padding: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   cursor: pointer;
   border-radius: 4px;
@@ -660,6 +665,7 @@ body:has(.status-pane.visible) .facet-bar::after {
 .facet-bar .facet-pills-container {
   flex: 1;
   display: flex;
+  gap: 8px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -1085,7 +1091,6 @@ body.menu-all .menu-bar {
   display: flex;
   align-items: center;
   padding: 8px 16px;
-  margin-right: 8px;
   border-radius: 20px;
   background: #f5f5f5;
   border: 1px solid var(--facet-border, #e5e0db);
@@ -1736,7 +1741,7 @@ body.menu-all .menu-bar {
 /* Notification Center */
 .notification-center {
   position: fixed;
-  top: calc(var(--facet-bar-height) + 4px);
+  top: calc(var(--facet-bar-height) + 8px);
   right: 20px;
   width: 280px;
   z-index: var(--z-notifications);
@@ -1908,7 +1913,7 @@ a.notification-card {
 /* Responsive */
 @media (max-width: 768px) {
   .notification-center {
-    top: calc(var(--facet-bar-height) + 4px);
+    top: calc(var(--facet-bar-height) + 8px);
     right: 8px;
     left: 8px;
     width: auto;
