@@ -1244,8 +1244,11 @@ body.menu-all .menu-bar {
 
 .facet-pill.selected:hover {
   background: var(--pill-color);
-  opacity: 0.9;
+  opacity: 1;
   border-color: var(--pill-color);
+  transform: translateY(0);
+  box-shadow: none;
+  filter: brightness(1.1);
 }
 
 .facet-pill.selected {
@@ -1315,10 +1318,6 @@ body.menu-all .menu-bar {
 }
 
 /* Drag-and-drop states */
-.facet-pill:active {
-  cursor: grabbing;
-}
-
 .facet-pill:active:not(.dragging) {
   transform: translateY(0);
   box-shadow: 0 1px 2px rgba(0,0,0,0.08);
