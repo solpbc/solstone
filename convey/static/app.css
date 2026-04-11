@@ -972,7 +972,7 @@ body.menu-full .menu-bar .menu-item:hover .star-toggle,
   background: none;
   border: none;
   font: inherit;
-  font-size: 20px;
+  font-size: 16px;
   min-width: 44px;
   min-height: 44px;
   align-items: center;
@@ -983,7 +983,7 @@ body.menu-full .menu-bar .menu-item:hover .star-toggle,
   transition: opacity 0.2s;
   flex-shrink: 0;
   user-select: none;
-  color: #999;
+  color: #bbb;
 }
 
 body.menu-full .menu-bar .menu-item .drag-handle {
@@ -1000,6 +1000,8 @@ body.menu-full .menu-bar .menu-item:hover .drag-handle {
 }
 
 body.menu-full .menu-bar .menu-item .drag-handle:active {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
   cursor: grabbing;
 }
 
