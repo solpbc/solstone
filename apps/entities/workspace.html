@@ -506,7 +506,7 @@
 
 .entities-table th,
 .entities-table td {
-  padding: 12px;
+  padding: 12px 1.5em;
   text-align: left;
   border-bottom: 1px solid #e9ecef;
 }
@@ -515,6 +515,9 @@
   background: #f8f9fa;
   font-weight: 600;
   color: #495057;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .entities-table tr:hover {
@@ -532,10 +535,12 @@
 .detected-pagination button {
   padding: 6px 14px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 6px;
   background: #fff;
   cursor: pointer;
   font-size: 0.9em;
+  font-family: inherit;
+  font-weight: 500;
 }
 
 .detected-pagination button:hover {
@@ -549,10 +554,11 @@
 
 .detected-pagination .detected-page-info {
   font-size: 0.8em;
-  color: #888;
+  color: #6c757d;
 }
 
 .entity-type {
+  font-size: 13px;
   width: 120px;
   font-weight: 500;
   color: #6c757d;
@@ -1239,9 +1245,9 @@ tr:hover .entity-delete-btn {
           <thead>
             <tr>
               <th></th>
-              <th class="entity-type">Type</th>
-              <th class="entity-name">Name</th>
-              <th class="entity-desc">Description</th>
+              <th class="entity-type">type</th>
+              <th class="entity-name">name</th>
+              <th class="entity-desc">description</th>
             </tr>
           </thead>
           <tbody id="all-entities-tbody">
