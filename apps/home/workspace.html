@@ -1,7 +1,8 @@
 <style>
 /* Pulse Landing Page */
 .pulse-dashboard {
-  padding: 1.5rem 2rem;
+  padding: 1.5rem 2rem 5rem;
+  background: #f9fafb;
   max-width: 1000px;
   margin: 0 auto;
   margin-left: max(0px, calc((100vw - 1000px) / 2 - var(--menu-bar-width-minimal, 60px)));
@@ -24,7 +25,7 @@
   padding: 1.25rem;
   background: #f8fafc;
   border-radius: 10px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #e2e8f0;
   flex-wrap: wrap;
 }
 
@@ -41,6 +42,8 @@
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+  position: relative;
+  top: 0px;
 }
 
 .pulse-vitals-dot.ok { background: #4ade80; }
@@ -816,7 +819,7 @@
 /* Responsive breakpoints */
 @media (max-width: 768px) {
   .pulse-dashboard {
-    padding: 1rem;
+    padding: 1rem 1rem 5rem;
     gap: 1rem;
   }
 
@@ -848,7 +851,7 @@
 
 @media (max-width: 375px) {
   .pulse-dashboard {
-    padding: 0.75rem;
+    padding: 0.75rem 0.75rem 5rem;
   }
 
   .pulse-narrative,
