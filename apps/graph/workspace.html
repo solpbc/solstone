@@ -111,8 +111,25 @@
   color: white;
   border-color: #374151;
 }
-.graph-type-btn:hover, .graph-time-btn:hover {
-  opacity: 0.85;
+.graph-type-btn:hover {
+  border-color: var(--btn-color, #2563eb);
+  color: var(--btn-color, #2563eb);
+}
+.graph-type-btn.active:hover {
+  filter: brightness(1.1);
+}
+.graph-type-btn:active {
+  transform: scale(0.96);
+}
+.graph-time-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+.graph-time-btn.active:hover {
+  background: #4b5563;
+}
+.graph-time-btn:active {
+  transform: scale(0.96);
 }
 .graph-strength-filter {
   display: flex;
