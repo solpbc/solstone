@@ -457,7 +457,7 @@ button.activity-detail-back {
   gap: 0.4em;
   font-size: 0.85em;
   color: #888;
-  margin-bottom: 0.25em;
+  margin-bottom: 0.5em;
 }
 .breadcrumb-link {
   color: #888;
@@ -467,8 +467,11 @@ button.activity-detail-back {
   color: #555;
   text-decoration: underline;
 }
+.breadcrumb-link:active {
+  color: #333;
+}
 .breadcrumb-sep {
-  color: #ccc;
+  color: #aaa;
 }
 .breadcrumb-current {
   color: #888;
@@ -477,8 +480,10 @@ button.activity-detail-back {
   font-size: 0.8em;
   color: #888;
   background: #f0f0f0;
-  padding: 1px 7px;
-  border-radius: 3px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
   text-decoration: none;
   margin-left: 0.5em;
   white-space: nowrap;
@@ -486,6 +491,10 @@ button.activity-detail-back {
 .today-chip:hover {
   background: #e4e4e4;
   color: #555;
+}
+.today-chip:active {
+  background: #d9d9d9;
+  color: #333;
 }
 .timeline-legend {
   display: flex;
@@ -556,6 +565,7 @@ button.activity-detail-back {
   }
   .calendar-breadcrumb {
     font-size: 0.75em;
+    gap: 0.3em;
   }
   .day-summary {
     font-size: 0.8em;
