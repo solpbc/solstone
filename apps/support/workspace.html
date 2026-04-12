@@ -163,10 +163,11 @@
   .support-empty-icon {
     font-size: 3rem;
     margin-bottom: 1rem;
-    opacity: 0.5;
+    opacity: 0.65;
   }
   .support-empty-heading {
     font-size: 1.1rem;
+    font-weight: 500;
     margin-bottom: 0.5rem;
   }
   .support-empty-hint {
@@ -287,6 +288,7 @@
     font-size: 0.9rem;
   }
   .support-announcements h4 { margin: 0 0 0.25rem 0; font-size: 0.9rem; }
+  .support-announcements p { margin: 0; font-size: 0.85rem; }
 
   /* Diagnostics */
   .support-diagnostics-desc {
@@ -957,7 +959,7 @@
       banner.style.display = '';
       const icons = {'known-issue': '⚠️', 'maintenance': '🔧', 'info': '📢'};
       banner.innerHTML = items.map(a =>
-        `<div><h4>${icons[a.type] || '📢'} ${esc(a.title || '')}</h4><p style="margin:0;font-size:0.85rem;">${esc((a.content || '').slice(0, 200))}</p></div>`
+        `<div><h4>${icons[a.type] || '📢'} ${esc(a.title || '')}</h4><p style="margin:0;">${esc((a.content || '').slice(0, 200))}</p></div>`
       ).join('');
     } catch (e) {
       console.warn('Failed to load announcements:', e);
