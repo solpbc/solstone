@@ -4,6 +4,7 @@
 .day-view {
   position: relative;
   border-left: 60px solid transparent;
+  border-bottom: 1px solid #eee;
   overflow-x: auto;
 }
 
@@ -185,11 +186,13 @@ h1 {
 .all-day-cards {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5em;
+  gap: 0.6em;
 }
 
 .all-day-card {
-  padding: 0.5em 0.75em;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.5em 1em;
   border-radius: 4px;
   font-size: 0.9em;
   cursor: pointer;
@@ -226,8 +229,10 @@ h1 {
 .allday-expand {
   display: inline-flex;
   align-items: center;
+  margin-left: auto;
   padding: 0.4em 0.75em;
   border: 1px solid #ddd;
+  border-left: 3px solid #dee2e6;
   border-radius: 4px;
   background: #f8f9fa;
   color: #666;
@@ -602,6 +607,7 @@ button.activity-detail-back {
   display: inline-block;
   width: 0.7em;
   height: 0.7em;
+  transform: translateY(1px);
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -910,7 +916,7 @@ button.activity-detail-back {
         if (i === MAX_ALLDAY_VISIBLE && untimedEvents.length > MAX_ALLDAY_VISIBLE) {
           const overflow = untimedEvents.length - MAX_ALLDAY_VISIBLE;
           html += `<button type="button" class="allday-expand" data-expanded="false" aria-expanded="false">+${overflow} more</button>`;
-          html += '<div class="allday-overflow" style="display:none;flex-wrap:wrap;gap:0.5em;width:100%">';
+          html += '<div class="allday-overflow" style="display:none;flex-wrap:wrap;gap:0.6em;width:100%">';
         }
         html += `<div class="${cardClass}" data-index="${idx}" tabindex="0" role="button" style="border-color:${o.color || '#6c757d'}">`;
         html += `<span class="card-title">${title}</span>${badge}</div>`;
