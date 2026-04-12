@@ -263,8 +263,11 @@
 .breakdown-table th {
   padding: 1em;
   text-align: left;
-  font-weight: 600;
-  color: #555;
+  font-weight: 500;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
   border-bottom: 2px solid var(--facet-border, #e5e0db);
 }
 
@@ -302,7 +305,11 @@
 .breakdown-table .empty-row {
   text-align: center;
   color: #999;
-  font-style: italic;
+}
+
+.breakdown-table .empty-row:hover {
+  background: transparent;
+  cursor: default;
 }
 
 .provider-openai {
@@ -333,6 +340,7 @@
 .models-list {
   font-size: 0.85em;
   color: #666;
+  line-height: 1.5;
 }
 
 .sr-only {
