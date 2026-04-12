@@ -442,7 +442,12 @@
 .nowrap { white-space: nowrap; }
 .timestamp-link { color: var(--facet-color, #0f4c81); text-decoration: none; }
 .timestamp-link:hover { text-decoration: underline; }
-.no-imports { color: #666; font-style: italic; padding: 2em; text-align: center; }
+.no-imports { color: #666; padding: 2em; text-align: center; }
+.no-imports-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.no-imports-heading { font-weight: 600; font-size: 1.05rem; margin-bottom: 0.25rem; }
+.no-imports-body { margin-bottom: 0; }
+.no-imports-body.error { color: #b91c1c; }
+.no-imports-action { margin-top: 0.75rem; }
 .import-source-inline {
   display: flex;
   align-items: center;
@@ -956,10 +961,10 @@ async function loadImports() {
     if (imports.length === 0) {
       container.innerHTML = `
         <div class="no-imports">
-          <div style="font-size: 2rem; margin-bottom: 0.5rem;">📥</div>
-          <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 0.25rem;">No imports yet</div>
-          <div>Import your data from any supported source above.</div>
-          <div style="margin-top: 0.75rem;"><a href="#" onclick="scrollToGrid(); return false;" style="color: #0f4c81; font-weight: 600;">Choose a source →</a></div>
+          <div class="no-imports-icon">📥</div>
+          <div class="no-imports-heading">No imports yet</div>
+          <div class="no-imports-body">Import your data from any supported source above.</div>
+          <div class="no-imports-action"><a href="#" onclick="scrollToGrid(); return false;" style="color: #0f4c81; font-weight: 600;">Choose a source →</a></div>
         </div>
       `;
       return;
@@ -1007,10 +1012,10 @@ async function loadImports() {
   } catch (err) {
     document.getElementById('importListContent').innerHTML = `
       <div class="no-imports">
-        <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚠️</div>
-        <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 0.25rem;">Couldn't load your import history</div>
-        <div>This might be temporary.</div>
-        <div style="margin-top: 0.75rem;"><button class="import-primary-btn" onclick="loadImports()">Retry</button></div>
+        <div class="no-imports-icon">⚠️</div>
+        <div class="no-imports-heading">Couldn't load your import history</div>
+        <div class="no-imports-body error">This might be temporary.</div>
+        <div class="no-imports-action"><button class="import-primary-btn" onclick="loadImports()">Retry</button></div>
       </div>
     `;
   }
@@ -1077,7 +1082,7 @@ function filterImportsByFacet(facetName) {
       noMatchEl.className = 'no-imports no-imports-filtered';
       container.appendChild(noMatchEl);
     }
-    noMatchEl.innerHTML = '<div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div><div>No imports match this filter.</div>';
+    noMatchEl.innerHTML = '<div class="no-imports-icon">🔍</div><div class="no-imports-body">No imports match this filter.</div>';
     noMatchEl.style.display = '';
   } else {
     const noMatchEl = container.querySelector('.no-imports-filtered');
