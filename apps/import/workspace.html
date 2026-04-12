@@ -431,14 +431,26 @@
 
 .spinner { display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; margin-left:6px; }
 .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
-.modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:800px; max-height:80vh; overflow:auto; position:relative; }
+.modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:500px; max-height:80vh; overflow:auto; position:relative; }
 .close { position:absolute; top:10px; right:15px; cursor:pointer; background:none; border:none; font:inherit; font-size:24px; padding:0; }
-.modal-content h3 { margin: 0 0 0.75em 0; font-size: 1.1rem; }
+.close:hover { color: #374151; }
+.close:active { color: #111827; }
+.modal-content h3 { margin: 0 0 0.75em 0; font-size: 1.2rem; font-weight: 600; }
 .confirm-fields { display: flex; gap: 1em; flex-wrap: wrap; margin-top: 0.5em; }
 .confirm-field { display: flex; flex-direction: column; flex: 1 1 180px; min-width: 180px; }
 .confirm-field label { font-size: 0.9em; color: #666; margin-bottom: 0.25em; }
 .confirm-field input,
 .confirm-field select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; background: white; }
+.confirm-field input:hover:not(:focus),
+.confirm-field select:hover:not(:focus) {
+  border-color: #a0aec0;
+}
+.confirm-field input:focus,
+.confirm-field select:focus {
+  outline: none;
+  border-color: #0f4c81;
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.1);
+}
 .modal-actions { margin-top: 1em; display: flex; justify-content: flex-end; }
 
 .import-list { margin-top: 2em; overflow-x: auto; }
@@ -611,7 +623,7 @@
     </div>
     <input type="hidden" id="savedPath" />
     <div class="modal-actions">
-      <button id="startBtn">Start Import</button>
+      <button id="startBtn" class="import-primary-btn">Start Import</button>
     </div>
   </div>
 </div>
