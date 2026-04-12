@@ -9,6 +9,12 @@
   gap: 1.5rem;
 }
 
+.pulse-dashboard a:focus-visible,
+.pulse-dashboard button:focus-visible,
+.pulse-dashboard [role="button"]:focus-visible {
+  outline-color: #6366f1;
+}
+
 /* Vital Signs */
 .pulse-vitals {
   display: flex;
@@ -179,6 +185,7 @@
   gap: 0.75rem;
   font-size: 0.85rem;
   color: #334155;
+  padding: 0.25rem 0.35rem;
 }
 
 .pulse-event-time {
@@ -209,6 +216,7 @@
   color: #64748b;
   display: flex;
   gap: 0.5rem;
+  padding: 0.25rem 0.35rem;
 }
 
 .pulse-activity-time {
@@ -252,6 +260,7 @@
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
+  padding: 0.25rem 0.35rem;
 }
 
 .pulse-needs-item::before {
@@ -340,7 +349,10 @@
   border-radius: 4px;
 }
 [data-conversation]:hover {
-  background: #f1f5f9;
+  background: #f8fafc;
+}
+[data-conversation]:active {
+  background: #e2e8f0;
 }
 [data-conversation]:focus-visible {
   outline: 2px solid #6366f1;
@@ -456,6 +468,7 @@
   gap: 0.5rem;
   padding: 0.25rem 0.35rem;
   cursor: pointer;
+  transition: background 0.15s ease;
 }
 
 .pulse-skill-item::before {
@@ -467,6 +480,18 @@
 
 .pulse-skill-item.is-new::before {
   content: "◆";
+}
+
+.pulse-skill-item:hover {
+  background: #f8fafc;
+  border-radius: 4px;
+}
+.pulse-skill-item:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+.pulse-skill-item:active {
+  background: #e2e8f0;
 }
 
 .pulse-skill-name {
