@@ -459,6 +459,12 @@
   opacity: 1;
 }
 
+.spk-status-dismiss:focus-visible {
+  outline: 2px solid #991b1b;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .spk-status-info {
   background: #e8f4fd;
   border: 1px solid #b3d9f2;
@@ -624,10 +630,24 @@
   color: #fff;
 }
 
+.spk-owner-btn-confirm:not(:disabled):hover { background: #15803d; }
+
+.spk-owner-btn-confirm:not(:disabled):active { background: #166534; }
+
 .spk-owner-btn-reject {
   background: #fff;
   border-color: #93c5fd;
   color: #1d4ed8;
+}
+
+.spk-owner-btn-reject:not(:disabled):hover {
+  background: #eff6ff;
+  border-color: #60a5fa;
+}
+
+.spk-owner-btn-reject:not(:disabled):active {
+  background: #dbeafe;
+  border-color: #3b82f6;
 }
 
 .spk-discovery-banner {
@@ -704,6 +724,15 @@
   border-radius: 6px;
   border: 1px solid #d1d5db;
   font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.spk-discovery-input:not(:disabled):hover { border-color: #9ca3af; }
+
+.spk-discovery-input:disabled {
+  background: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
 }
 
 .spk-discovery-btn {
@@ -715,12 +744,17 @@
   cursor: pointer;
   background: #16a34a;
   color: #fff;
+  transition: background 0.15s;
 }
 
 .spk-discovery-btn:disabled {
   opacity: 0.65;
   cursor: wait;
 }
+
+.spk-discovery-btn:not(:disabled):hover { background: #15803d; }
+
+.spk-discovery-btn:not(:disabled):active { background: #166534; }
 
 .spk-discovery-status {
   font-size: 12px;
