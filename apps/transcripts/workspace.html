@@ -33,6 +33,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-card {
   height: 100%;
   background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
   display: grid;
   --tr-day-col: 180px;
   --tr-zoom-col: 100px;
@@ -56,7 +58,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-timeline-label {
   position: absolute;
   top: 0;
-  left: 0;
+  left: 64px;
   right: 0;
   height: 12px;
   display: flex;
@@ -281,7 +283,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 /* Right content panel */
 .tr-content {
-  padding: 24px;
+  padding: 12px 24px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -468,8 +470,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-panel {
   flex: 1;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
   padding: 16px;
   overflow-y: auto;
   min-height: 0;
@@ -1002,11 +1002,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   height: 100%;
   text-align: center;
   color: #9ca3af;
-  padding: 48px 24px;
+  padding: 18vh 24px 48px;
   gap: 12px;
 }
 
