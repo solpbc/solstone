@@ -255,6 +255,11 @@
   color: #333;
 }
 
+.password-toggle:active {
+  color: #111;
+  transform: translateY(-50%) scale(0.9);
+}
+
 /* Facet appearance section */
 .facet-header {
   display: flex;
@@ -464,6 +469,11 @@ input:checked + .slider:before {
   color: #333;
 }
 
+.color-close:active {
+  color: #111;
+  transform: scale(0.9);
+}
+
 .color-modal h3 {
   margin: 0 0 1.5em 0;
   color: #333;
@@ -488,6 +498,10 @@ input:checked + .slider:before {
 .color-swatch:hover {
   transform: scale(1.1);
   border-color: #333;
+}
+
+.color-swatch:active {
+  transform: scale(0.95);
 }
 
 .color-swatch.selected {
@@ -574,6 +588,11 @@ input:checked + .slider:before {
 
 .save-color-btn:hover {
   opacity: 0.9;
+}
+
+.save-color-btn:active {
+  opacity: 0.75;
+  transform: translateY(1px);
 }
 
 /* Activity log */
@@ -1166,6 +1185,11 @@ input:checked + .slider:before {
   background: #d47e2e;
 }
 
+.setup-btn:active:not(:disabled) {
+  background: #c06e20;
+  transform: translateY(1px);
+}
+
 .setup-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
@@ -1553,6 +1577,10 @@ input:checked + .slider:before {
   background: #f0f0f0;
 }
 
+.settings-mode-btn:active:not(.active) {
+  background: #e0e0e0;
+}
+
 .settings-mode-btn.active {
   background: var(--accent, #E8923A);
   color: white;
@@ -1570,6 +1598,10 @@ input:checked + .slider:before {
 
 .settings-preset-btn:hover {
   background: #f0f0f0;
+}
+
+.settings-preset-btn:active:not(.active) {
+  background: #e0e0e0;
 }
 
 .settings-preset-btn.active {
