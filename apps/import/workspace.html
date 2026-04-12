@@ -150,22 +150,27 @@
 }
 
 .import-upload-area {
-  border: 2px dashed #99abc7;
+  border: 2px dashed color-mix(in srgb, var(--facet-color, #0f4c81) 40%, #ccc);
   border-radius: 12px;
   padding: 1.5rem;
   text-align: center;
-  background: #f8fbff;
+  background: color-mix(in srgb, var(--facet-color, #0f4c81) 4%, white);
   cursor: pointer;
   transition: border-color 0.18s ease, background 0.18s ease;
 }
 
+.import-upload-area:hover {
+  border-color: color-mix(in srgb, var(--facet-color, #0f4c81) 60%, #ccc);
+  background: color-mix(in srgb, var(--facet-color, #0f4c81) 6%, white);
+}
+
 .import-upload-area.dragover {
-  border-color: #0f4c81;
-  background: #edf5ff;
+  border-color: var(--facet-color, #0f4c81);
+  background: color-mix(in srgb, var(--facet-color, #0f4c81) 8%, white);
 }
 
 .import-upload-area:focus-visible {
-  outline: 2px solid #0f4c81;
+  outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: 2px;
 }
 
