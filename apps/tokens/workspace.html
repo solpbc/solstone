@@ -242,8 +242,8 @@
   width: 100%;
   max-width: 400px;
   padding: 0.5em 1em;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  border: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 4px;
   font-size: 0.9em;
 }
 
@@ -265,7 +265,7 @@
   text-align: left;
   font-weight: 600;
   color: #555;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid var(--facet-border, #e5e0db);
 }
 
 .breakdown-table th.sortable {
@@ -287,7 +287,7 @@
 }
 
 .breakdown-table tbody tr {
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #eee;
 }
 
 .breakdown-table tbody tr:hover {
@@ -379,8 +379,8 @@
 }
 
 .skipped-notice {
-  background: rgba(102, 126, 234, 0.08);
-  border: 1px solid rgba(102, 126, 234, 0.2);
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
   padding: 0.8em 1.2em;
   margin-bottom: 2em;
