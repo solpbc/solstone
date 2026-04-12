@@ -276,7 +276,11 @@
   color: #4b5563;
   font-size: 12px;
   cursor: pointer;
+  transition: all 0.15s;
 }
+
+.spk-filter-btn:hover:not(.active) { background: #f9fafb; border-color: #9ca3af; }
+.spk-filter-btn:active:not(.active) { background: #f3f4f6; border-color: #6b7280; }
 
 .spk-filter-btn.active {
   background: #1f2937;
@@ -383,6 +387,8 @@
   background: #e5e7eb;
 }
 
+.spk-btn-icon:active { background: #d1d5db; }
+
 .spk-btn-primary {
   background: #3b82f6;
   color: #fff;
@@ -391,6 +397,9 @@
 .spk-btn-primary:hover {
   background: #2563eb;
 }
+
+.spk-btn-primary:active { background: #1d4ed8; }
+.spk-btn-primary:disabled { opacity: 0.6; cursor: wait; }
 
 .spk-btn-secondary {
   background: #f3f4f6;
@@ -408,7 +417,10 @@
   font-size: 12px;
   background: #fff;
   min-width: 150px;
+  transition: border-color 0.15s;
 }
+
+.spk-select-small:hover { border-color: #9ca3af; }
 
 .spk-status {
   padding: 6px 10px;
@@ -840,6 +852,9 @@
   font-size: 12px;
   vertical-align: baseline;
 }
+
+@keyframes spk-fade-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+.spk-apply-btn { animation: spk-fade-in 0.15s ease; }
 
 @keyframes spk-spin {
   to { transform: rotate(360deg); }
