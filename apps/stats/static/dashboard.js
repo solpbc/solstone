@@ -213,7 +213,7 @@ const Dashboard = (function() {
       if (d.total > 0) {
         const formatted = fmtTokens(d.total);
         bar.appendChild(el('div', {className: 'bar-value'}, [formatted]));
-        bar.setAttribute('title', `${d.day.slice(4, 6)}/${d.day.slice(6, 8)} - Input: ${d.input}, Reasoning: ${d.reasoning}, Output: ${d.output}`);
+        bar.dataset.tip = `${d.day.slice(4, 6)}/${d.day.slice(6, 8)} - Input: ${d.input}, Reasoning: ${d.reasoning}, Output: ${d.output}`;
       }
 
       if (shouldLabel(i, chartData.length)) {
@@ -318,7 +318,7 @@ const Dashboard = (function() {
         bar.appendChild(el('div', {className: 'bar-value'}, [`${formatted}h`]));
         const titleParts = [`${d.day} - Audio: ${d.audio.toFixed(1)}h, Screen: ${d.screen.toFixed(1)}h`];
         if (d.bytes) titleParts.push(`Disk: ${fmtBytes(d.bytes)}`);
-        bar.setAttribute('title', titleParts.join(', '));
+        bar.dataset.tip = titleParts.join(', ');
       }
 
       if (shouldLabel(i, data.length)) {
@@ -516,7 +516,7 @@ const Dashboard = (function() {
 
       if (d.total > 0) {
         bar.appendChild(el('div', {className: 'bar-value'}, [String(d.total)]));
-        bar.setAttribute('title', tooltipParts.join('\n'));
+        bar.dataset.tip = tooltipParts.join('\n');
       }
 
       if (shouldLabel(i, chartData.length)) {
