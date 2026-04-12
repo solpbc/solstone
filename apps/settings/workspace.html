@@ -3106,7 +3106,7 @@ function updateEnvStatus(fieldId, isJournalConfigured, isSystemConfigured) {
 
     // Add validation status for provider keys
     const providerName = fieldId.replace('field-env-', '');
-    if (['google', 'openai', 'anthropic'].includes(providerName)) {
+    if (['google', 'openai', 'anthropic', 'revai', 'plaud'].includes(providerName)) {
       const validation = keyValidationData[providerName];
       const oldValidation = label.querySelector('.key-validation-status');
       if (oldValidation) oldValidation.remove();
@@ -3853,6 +3853,8 @@ async function revalidateAllKeys() {
     updateEnvStatus('field-env-google', env.GOOGLE_API_KEY, sysEnv.GOOGLE_API_KEY);
     updateEnvStatus('field-env-openai', env.OPENAI_API_KEY, sysEnv.OPENAI_API_KEY);
     updateEnvStatus('field-env-anthropic', env.ANTHROPIC_API_KEY, sysEnv.ANTHROPIC_API_KEY);
+    updateEnvStatus('field-env-revai', env.REVAI_ACCESS_TOKEN, sysEnv.REVAI_ACCESS_TOKEN);
+    updateEnvStatus('field-env-plaud', env.PLAUD_ACCESS_TOKEN, sysEnv.PLAUD_ACCESS_TOKEN);
     // Update provider warnings too
     if (providersData) {
       providersData.key_validation = keyValidationData;
