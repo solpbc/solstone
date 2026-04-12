@@ -136,6 +136,7 @@
   font-size: 0.9rem;
   line-height: 1.6;
   color: #334155;
+  max-width: 65ch;
 }
 
 .pulse-narrative-content h1 { font-size: 1.1rem; margin: 0 0 0.75rem; color: #1e293b; }
@@ -143,7 +144,7 @@
 .pulse-narrative-content p { margin: 0 0 0.5rem; }
 
 .pulse-narrative-meta {
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
   font-size: 0.75rem;
   color: #94a3b8;
 }
@@ -348,7 +349,7 @@
 }
 .pulse-tell-more {
   display: inline-block;
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
   font-size: 0.8rem;
   color: #6366f1;
   text-decoration: none;
@@ -356,6 +357,14 @@
 .pulse-tell-more:hover {
   text-decoration: underline;
   background: transparent;
+}
+.pulse-tell-more:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.pulse-tell-more:active {
+  color: #4f46e5;
 }
 
 /* Routines */
@@ -578,6 +587,7 @@
   line-height: 1.6;
   color: #334155;
   margin-top: 0.4rem;
+  max-width: 65ch;
 }
 .pulse-briefing-section-body p { margin: 0 0 0.4rem; }
 .pulse-briefing-section-body ul { margin: 0; padding-left: 1.25rem; }
@@ -814,7 +824,7 @@
     </div>
     <div class="pulse-section-body">
       <div class="pulse-narrative-content" id="pulse-narrative-content"></div>
-      <a href="#" class="pulse-tell-more" data-conversation="Tell me more about what's happening today">Tell me more →</a>
+      <a href="#" class="pulse-tell-more" data-conversation="Tell me more about what's happening today">tell me more →</a>
       {% if narrative_updated_at %}
       <div class="pulse-narrative-meta">Updated at {{ narrative_updated_at }}</div>
       {% endif %}
