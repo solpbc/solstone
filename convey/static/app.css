@@ -856,6 +856,9 @@ body.menu-full .menu-bar {
   border-left: 3px solid transparent;
   border-right: none;
   margin-top: 2px;
+  margin-left: 4px;
+  margin-right: 4px;
+  border-radius: 8px;
   color: inherit;
   white-space: nowrap;
   position: relative;
@@ -972,7 +975,7 @@ body:not(.menu-full) .menu-bar .menu-item.current {
 
 .menu-bar .menu-item .icon {
   font-size: 22px;
-  width: var(--menu-bar-width-minimal);
+  width: calc(var(--menu-bar-width-minimal) - 8px);
   display: inline-flex;
   align-items: center;
   justify-content: center;
