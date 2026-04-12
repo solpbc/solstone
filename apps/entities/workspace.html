@@ -479,6 +479,10 @@
   cursor: not-allowed;
 }
 
+.btn-primary.saved {
+  background: #16a34a;
+}
+
 .btn-secondary {
   background: #e9ecef;
   color: #495057;
@@ -1992,8 +1996,10 @@ document.getElementById('journal-detail-edit-form').addEventListener('submit', f
     }
 
     errorEl.style.display = 'none';
-    saveBtn.textContent = 'Saved!';
+    saveBtn.textContent = 'saved!';
+    saveBtn.classList.add('saved');
     setTimeout(() => {
+      saveBtn.classList.remove('saved');
       saveBtn.textContent = 'save changes';
       saveBtn.disabled = false;
     }, 1500);
@@ -2549,8 +2555,12 @@ document.addEventListener('DOMContentLoaded', function() {
   // Modal close on outside click
   window.onclick = function(event) {
     const deleteModal = document.getElementById('deleteModal');
+    const deleteJournalModal = document.getElementById('deleteJournalEntityModal');
     if (event.target == deleteModal) {
       closeDeleteModal();
+    }
+    if (event.target == deleteJournalModal) {
+      closeDeleteJournalEntityModal();
     }
   };
 });
