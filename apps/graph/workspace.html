@@ -26,17 +26,17 @@
 
   <!-- Graph container -->
   <div id="graph-container" style="flex:1;position:relative;min-height:0;">
-    <div class="graph-loading" id="graph-loading"><div class="graph-spinner"></div>Loading knowledge graph...</div>
+    <div class="graph-loading" id="graph-loading"><div class="graph-spinner"></div>loading knowledge graph...</div>
     <div class="graph-empty" id="graph-empty" style="display:none;">
       <div class="graph-empty-icon">🕸️</div>
       <h2>Your knowledge graph builds itself from daily use</h2>
       <p>As solstone captures your meetings, conversations, and work, entities and relationships appear here automatically.</p>
-      <a href="/app/home" class="graph-empty-action">Get started with solstone →</a>
+      <a href="/app/home" class="graph-empty-action">get started with solstone →</a>
     </div>
     <div class="graph-error" id="graph-error" style="display:none;">
       <div class="graph-error-icon">⚠️</div>
-      <h2>Couldn't load the knowledge graph</h2>
-      <p>This usually means the server didn't respond. <a href="#" id="graph-retry">Try again</a></p>
+      <h2>couldn't load the knowledge graph</h2>
+      <p>this usually means the server didn't respond. <a href="#" id="graph-retry">try again</a></p>
     </div>
     <div id="graph-canvas" tabindex="0" role="img" aria-label="Knowledge graph" style="width:100%;height:100%;display:none;"></div>
     <div id="graph-stabilize"><div id="graph-stabilize-bar"></div></div>
@@ -223,6 +223,7 @@
   text-align: center;
   padding: 4em;
   color: #666;
+  font-size: 0.9rem;
 }
 .graph-empty {
   text-align: center;
@@ -249,12 +250,14 @@
   font-size: 1.3em;
   font-weight: 600;
   color: #333;
+  line-height: 1.3;
 }
 .graph-error h2 {
   margin: 0 0 0.5em 0;
   font-size: 1.3em;
   font-weight: 600;
   color: #333;
+  line-height: 1.3;
 }
 .graph-empty p {
   margin: 0;
@@ -276,6 +279,11 @@
   color: #666;
   line-height: 1.5;
 }
+#graph-retry {
+  color: #2563eb;
+  text-decoration: none;
+}
+#graph-retry:hover { text-decoration: underline; }
 
 /* Detail panel */
 .graph-detail-panel {
@@ -940,7 +948,7 @@
     const bodyEl = document.getElementById('detail-body');
 
     nameEl.textContent = nodeData.name;
-    bodyEl.innerHTML = '<div style="text-align:center;padding:2em;color:#999;"><div class="graph-spinner graph-spinner-sm" style="margin:0 auto 0.5em;"></div>Loading...</div>';
+    bodyEl.innerHTML = '<div style="text-align:center;padding:2em;color:#999;"><div class="graph-spinner graph-spinner-sm" style="margin:0 auto 0.5em;"></div>loading...</div>';
     panel.classList.add('open');
     detailOpen = true;
     nameEl.focus();
@@ -948,9 +956,9 @@
     fetchEntity(nodeData.id).then(intel => {
       if (!intel || intel.error) {
         bodyEl.innerHTML = '<div style="padding:1em;color:#666;">' +
-          '<strong>Couldn\'t load entity details</strong><br>' +
-          '<span style="color:#999;font-size:0.85rem;">The server may not have responded.</span><br>' +
-          '<a href="#" class="detail-retry-link">Try again</a>' +
+          '<strong>couldn\'t load entity details</strong><br>' +
+          '<span style="color:#999;font-size:0.85rem;">the server may not have responded.</span><br>' +
+          '<a href="#" class="detail-retry-link">try again</a>' +
           '</div>';
         bodyEl.querySelector('.detail-retry-link').addEventListener('click', function(e) {
           e.preventDefault();
