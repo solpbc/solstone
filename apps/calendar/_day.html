@@ -593,8 +593,8 @@ button.activity-detail-back {
 <div class="workspace-content-wide">
   <nav class="calendar-breadcrumb" aria-label="calendar navigation">
     <a href="#" id="breadcrumbMonth" class="breadcrumb-link"></a>
-    <span class="breadcrumb-sep" aria-hidden="true">›</span>
-    <span class="breadcrumb-current" aria-current="page">{{ title }}</span>
+    <span class="breadcrumb-sep" aria-hidden="true">/</span>
+    <span class="breadcrumb-current" aria-current="page"></span>
     <a href="#" id="todayChip" class="today-chip" style="display:none"></a>
   </nav>
   <h1>{{ title }}</h1>
@@ -634,6 +634,20 @@ button.activity-detail-back {
       e.preventDefault();
       if (window.MonthPicker) MonthPicker.show();
     });
+  }
+
+  // Breadcrumb current — date without weekday
+  const dayNum = parseInt(day.slice(6, 8), 10);
+  const mod100 = dayNum % 100;
+  const suffix = (mod100 >= 11 && mod100 <= 13) ? 'th'
+    : (dayNum % 10 === 1) ? 'st'
+    : (dayNum % 10 === 2) ? 'nd'
+    : (dayNum % 10 === 3) ? 'rd' : 'th';
+  const bcMonth = new Date(parseInt(day.slice(0, 4), 10), parseInt(day.slice(4, 6), 10) - 1, 1)
+    .toLocaleString('default', { month: 'long' });
+  const bcCurrent = document.querySelector('.breadcrumb-current');
+  if (bcCurrent) {
+    bcCurrent.textContent = bcMonth + ' ' + dayNum + suffix;
   }
 
   // Today chip — show relative distance when viewing a non-today date
