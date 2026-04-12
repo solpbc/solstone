@@ -858,6 +858,80 @@
   }
 }
 
+.error-action-btn {
+  padding: 0.1em 0.4em;
+  font-size: 0.8em;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: white;
+  color: #3b82f6;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.error-action-btn:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+.error-action-btn:active:not(:disabled) {
+  background: #dbeafe;
+}
+
+.error-dismiss-btn {
+  padding: 0.1em 0.4em;
+  font-size: 0.8em;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: white;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.error-dismiss-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+.error-dismiss-btn:active {
+  background: #e5e7eb;
+}
+
+.error-advice-link {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  font-size: 1em;
+  padding: 0;
+  text-decoration: underline;
+}
+.error-advice-link:hover {
+  color: #2563eb;
+}
+.error-advice-link:active {
+  color: #1d4ed8;
+}
+
+.import-retry-btn {
+  padding: 0.15em 0.5em;
+  font-size: 0.78em;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: white;
+  color: #3b82f6;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.import-retry-btn:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+.import-retry-btn:active:not(:disabled) {
+  background: #dbeafe;
+}
+.import-retry-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media (max-width: 480px) {
   .health-dashboard {
     padding: 0.25em;
@@ -1453,12 +1527,12 @@
         actions.style.cssText = 'margin-left: auto; display: flex; gap: 0.3em;';
         const viewBtn = document.createElement('button');
         viewBtn.setAttribute('data-action', 'view-logs');
-        viewBtn.style.cssText = 'padding: 0.1em 0.4em; font-size: 0.8em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #3b82f6; cursor: pointer;';
+        viewBtn.className = 'error-action-btn';
         viewBtn.textContent = 'view logs';
         actions.appendChild(viewBtn);
         const dismissBtn = document.createElement('button');
         dismissBtn.setAttribute('data-action', 'dismiss');
-        dismissBtn.style.cssText = 'padding: 0.1em 0.4em; font-size: 0.8em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #6b7280; cursor: pointer;';
+        dismissBtn.className = 'error-dismiss-btn';
         dismissBtn.textContent = 'dismiss';
         actions.appendChild(dismissBtn);
         row.appendChild(actions);
@@ -1495,7 +1569,7 @@
       const btn = document.createElement('button');
       btn.setAttribute('data-action', 'view-logs');
       btn.setAttribute('data-service', 'cortex');
-      btn.style.cssText = 'background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;';
+      btn.className = 'error-advice-link';
       btn.textContent = 'View AI Engine logs';
       advice.appendChild(btn);
       advice.appendChild(document.createTextNode(' for details.'));
@@ -1510,7 +1584,7 @@
       const btn = document.createElement('button');
       btn.setAttribute('data-action', 'view-logs');
       btn.setAttribute('data-service', 'importer');
-      btn.style.cssText = 'background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;';
+      btn.className = 'error-advice-link';
       btn.textContent = 'view File Importer logs';
       advice.appendChild(btn);
       advice.appendChild(document.createTextNode('.'));
@@ -1524,7 +1598,7 @@
       const btn = document.createElement('button');
       btn.setAttribute('data-action', 'view-logs');
       btn.setAttribute('data-service', 'supervisor');
-      btn.style.cssText = 'background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;';
+      btn.className = 'error-advice-link';
       btn.textContent = 'View System Manager logs';
       advice.appendChild(btn);
       advice.appendChild(document.createTextNode(' for details.'));
@@ -2204,7 +2278,7 @@
         retryWrap.style.marginTop = '0.3em';
         const retryBtn = document.createElement('button');
         retryBtn.setAttribute('data-action', 'retry');
-        retryBtn.style.cssText = 'padding: 0.15em 0.5em; font-size: 0.78em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #3b82f6; cursor: pointer;';
+        retryBtn.className = 'import-retry-btn';
         retryBtn.textContent = 'Retry';
         retryWrap.appendChild(retryBtn);
         card.appendChild(retryWrap);
