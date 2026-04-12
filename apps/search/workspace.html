@@ -313,11 +313,11 @@ button.day-header {
 
 .search-empty-icon {
   font-size: 2.5rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .search-empty-text {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 /* Error state */
@@ -355,11 +355,17 @@ button.day-header {
   color: #374151;
   font-size: 0.85rem;
   cursor: pointer;
+  transition: background 0.1s ease, border-color 0.1s ease;
 }
 
 .search-error-retry:hover {
   background: #f3f4f6;
   border-color: #9ca3af;
+}
+
+.search-error-retry:active {
+  background: #e5e7eb;
+  border-color: #6b7280;
 }
 
 /* No-results suggestions */
@@ -435,8 +441,12 @@ button.day-header {
 }
 
 .search-example-chip:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: 2px;
+}
+
+.search-example-chip:active {
+  background: #d1d5db;
 }
 
 /* Loading state */
