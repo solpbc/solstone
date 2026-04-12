@@ -51,6 +51,11 @@
   outline-offset: 2px;
 }
 
+.entity-card:active {
+  background: #e9ecef;
+  transform: scale(0.98);
+}
+
 .entity-card-name {
   font-weight: 500;
   font-size: 14px;
@@ -317,6 +322,14 @@
 .entity-desc-display {
   color: #212529;
   line-height: 1.5;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.entity-desc-display:hover {
+  background: #f8f9fa;
 }
 
 .entity-desc-display.empty {
@@ -372,6 +385,12 @@
   border-radius: 6px;
   font-size: inherit;
   font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-group input:hover,
+.form-group select:hover {
+  border-color: #adb5bd;
 }
 
 .form-group input:focus,
@@ -667,11 +686,17 @@ tr:hover .entity-delete-btn {
   border-radius: 6px;
   font-size: 0.9em;
   font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.entity-search-input:hover {
+  border-color: #adb5bd;
 }
 
 .entity-search-input:focus {
   outline: none;
   border-color: var(--facet-color, #667eea);
+  box-shadow: 0 0 0 3px var(--facet-bg, rgba(102, 126, 234, 0.1));
 }
 
 .entity-card-search-count {
@@ -996,6 +1021,11 @@ tr:hover .entity-delete-btn {
   font-size: 0.95em;
   resize: vertical;
   margin-bottom: 0.75em;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.entity-attach-section textarea:hover {
+  border-color: #adb5bd;
 }
 
 .entity-attach-section textarea:focus {
@@ -1012,6 +1042,7 @@ tr:hover .entity-delete-btn {
   border-radius: 4px;
   cursor: pointer;
   font-weight: 500;
+  transition: background 0.15s;
 }
 
 .entity-attach-section .btn-attach:disabled {
@@ -1021,6 +1052,15 @@ tr:hover .entity-delete-btn {
 
 .entity-attach-section .btn-attach:not(:disabled):hover {
   background: #1864ab;
+}
+
+.entity-attach-section .btn-attach:focus-visible {
+  outline: 2px solid #1971c2;
+  outline-offset: 2px;
+}
+
+.entity-attach-section .btn-attach:not(:disabled):active {
+  background: #155d8a;
 }
 
 /* Empty journal state */

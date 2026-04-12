@@ -2557,6 +2557,10 @@ button.close {
   a.notification-card:active {
     transform: none;
   }
+
+  .entity-card:active {
+    transform: none;
+  }
 }
 
 /* Focus-visible states for keyboard navigation */
