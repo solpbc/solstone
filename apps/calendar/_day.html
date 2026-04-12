@@ -12,8 +12,8 @@
   left: 0;
   right: 0;
   border-top: 1px solid #eee;
-  font-size: 0.75em;
-  color: #777;
+  font-size: 0.8em;
+  color: #999;
 }
 
 .hour-line span {
@@ -880,7 +880,7 @@ button.activity-detail-back {
     html += `<section class='day-view' aria-label='timeline' style='height:${(endHour - startHour) * pxPerHour}px'>`;
 
     for (let h = startHour; h <= endHour; h++) {
-      const label = h === 0 ? '12am' : h < 12 ? h + 'am' : h === 12 ? '12pm' : (h - 12) + 'pm';
+      const label = h === 0 ? '12a' : h < 12 ? h + 'a' : h === 12 ? '12p' : (h - 12) + 'p';
       html += `<div class='hour-line' style='top:${((h - startHour) / (endHour - startHour)) * 100}%'><span>${label}</span></div>`;
     }
 
