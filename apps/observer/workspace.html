@@ -94,6 +94,11 @@
   border-radius: 50%;
   background: #8a8078;
 }
+
+/* ── Transition: ambient status dot ── */
+.observer-status::before {
+  transition: background-color 0.6s ease;
+}
 .observer-status.revoked::after {
   content: '—';
 }
@@ -509,6 +514,19 @@
 .ws-error-countdown {
   color: #6d5303;
   font-size: 0.85em;
+}
+
+/* ── Transitions: interactive elements ── */
+.observer-actions button,
+.add-observer-form button,
+.add-observer-toggle,
+.copy-btn,
+.modal-close,
+.modal-actions button,
+.no-observers-action,
+.ws-error-retry,
+.ws-error-dismiss {
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 </style>
 
