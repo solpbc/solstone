@@ -13,7 +13,7 @@
     padding: 0.5rem 1rem;
     cursor: pointer;
     font-size: 0.9rem;
-    color: var(--muted, #595959);
+    color: #666;
     border-bottom: 2px solid transparent;
     transition: all 0.15s;
   }
@@ -42,9 +42,9 @@
     align-items: center;
     margin-bottom: 0.25rem;
   }
-  .support-ticket-id { font-size: 0.8rem; color: var(--muted, #595959); }
+  .support-ticket-id { font-size: 0.8rem; color: #666; }
   .support-ticket-subject { font-weight: 600; }
-  .support-ticket-meta { font-size: 0.8rem; color: var(--muted, #595959); margin-top: 0.25rem; }
+  .support-ticket-meta { font-size: 0.8rem; color: #666; margin-top: 0.25rem; }
   .support-status {
     font-size: 0.75rem;
     padding: 0.15rem 0.5rem;
@@ -64,7 +64,7 @@
     border: none;
     cursor: pointer;
     font-size: 0.9rem;
-    color: var(--muted, #595959);
+    color: #666;
     padding: 0;
     margin-bottom: 1rem;
   }
@@ -74,7 +74,7 @@
     padding: 0.75rem 1rem;
     margin-bottom: 0.75rem;
   }
-  .support-message-meta { font-size: 0.8rem; color: var(--muted, #595959); margin-bottom: 0.25rem; }
+  .support-message-meta { font-size: 0.8rem; color: #666; margin-bottom: 0.25rem; }
   .support-reply-form { margin-top: 1rem; }
   .support-reply-form textarea {
     width: 100%;
@@ -123,7 +123,7 @@
     margin-bottom: 0.75rem;
   }
   .support-help-card h3 { margin: 0 0 0.5rem 0; font-size: 1rem; }
-  .support-help-card p { margin: 0; font-size: 0.9rem; color: var(--muted, #595959); }
+  .support-help-card p { margin: 0; font-size: 0.9rem; color: #666; }
 
   /* Buttons */
   .support-btn {
@@ -159,7 +159,7 @@
   }
   .support-empty-hint {
     font-size: 0.9rem;
-    color: var(--muted, #595959);
+    color: #666;
     margin-bottom: 1.5rem;
   }
   .support-empty-action {
@@ -193,7 +193,7 @@
   .support-disabled {
     text-align: center;
     padding: 3rem 1rem;
-    color: var(--muted, #595959);
+    color: #666;
   }
 
   .support-status-msg {
@@ -211,7 +211,7 @@
   }
   .support-keyboard-hint {
     font-size: 0.8rem;
-    color: var(--muted, #595959);
+    color: #666;
     margin-left: 0.5rem;
   }
 
@@ -224,7 +224,7 @@
     display: flex;
     align-items: center;
     gap: 0.35rem;
-    color: var(--muted, #595959);
+    color: #888;
     margin-top: 0.15rem;
   }
   .support-drop-zone {
@@ -232,7 +232,7 @@
     border-radius: 8px;
     padding: 1rem;
     text-align: center;
-    color: var(--muted, #595959);
+    color: #666;
     font-size: 0.85rem;
     margin-top: 0.75rem;
     transition: all 0.15s;
@@ -258,7 +258,7 @@
   .support-file-entry .remove-file {
     background: none;
     border: none;
-    color: var(--muted, #595959);
+    color: #666;
     cursor: pointer;
     font-size: 0.9rem;
     padding: 0 0.25rem;
@@ -280,12 +280,12 @@
   .support-diagnostics-desc {
     margin: 0 0 0.75rem 0;
     font-size: 0.9rem;
-    color: var(--muted, #595959);
+    color: #666;
   }
   .support-diagnostics-loading {
     display: none;
     font-size: 0.85rem;
-    color: var(--muted, #595959);
+    color: #666;
     margin-top: 0.75rem;
     animation: support-diagnostics-pulse 1.5s ease-in-out infinite;
   }
@@ -324,7 +324,7 @@
     gap: 1rem;
   }
   .support-diagnostics-row .support-diagnostics-label {
-    color: var(--muted, #595959);
+    color: #888;
   }
   .support-diagnostics-dot {
     display: inline-block;
@@ -953,7 +953,7 @@
       banner.style.background = 'none';
       banner.style.border = 'none';
       banner.style.padding = '0.5rem 0';
-      banner.innerHTML = '<p style="margin:0;font-size:0.8rem;color:var(--muted,#595959);">couldn\'t load announcements</p>';
+      banner.innerHTML = '<p style="margin:0;font-size:0.8rem;color:#666;">couldn\'t load announcements</p>';
     }
   }
 
@@ -1017,7 +1017,7 @@
       .catch(function(err) {
         loading.style.display = 'none';
         errorEl.innerHTML = esc('Could not run diagnostics: ' + err.message) +
-          '<br><span style="color:var(--muted,#595959);">Try the CLI instead: <code>sol call support diagnose</code></span>';
+          '<br><span style="color:#666;">Try the CLI instead: <code>sol call support diagnose</code></span>';
         errorEl.style.display = '';
         btn.disabled = false;
       });
@@ -1089,7 +1089,7 @@
 
     // If nothing rendered beyond summary
     if (!versionPlatformRows && serviceNames.length === 0 && (!data.recent_errors || data.recent_errors.length === 0) && (!data.config || Object.keys(data.config).length === 0)) {
-      html += '<div style="font-size:0.85rem;color:var(--muted,#595959);">No diagnostic data available.</div>';
+      html += '<div style="font-size:0.85rem;color:#666;">No diagnostic data available.</div>';
     }
 
     container.innerHTML = html;
