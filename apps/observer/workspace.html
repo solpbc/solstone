@@ -191,23 +191,9 @@
 }
 
 /* Observer key modal */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-}
-.modal-content {
-  background: white;
-  margin: 10% auto;
-  padding: 1.5em;
-  border-radius: 8px;
+#keyModal .modal-content {
   max-width: 600px;
-  position: relative;
+  padding: 1.5em;
 }
 .modal-close {
   position: absolute;
@@ -228,6 +214,14 @@
 }
 .modal-close:hover {
   color: #333;
+}
+.modal-close:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.modal-close:active {
+  color: #000;
 }
 .modal h3 {
   margin-top: 0;
@@ -265,6 +259,13 @@
 .copy-btn:hover {
   background: #555;
 }
+.copy-btn:focus-visible {
+  outline: 2px solid #80bdff;
+  outline-offset: 2px;
+}
+.copy-btn:active {
+  background: #333;
+}
 .copy-btn.copied {
   background: #28a745;
 }
@@ -287,6 +288,27 @@
   border-radius: 4px;
   cursor: pointer;
   min-height: 44px;
+}
+.modal-primary-btn {
+  background: var(--facet-color, #b06a1a);
+  color: white;
+  border: none;
+  font-weight: bold;
+}
+.modal-primary-btn:hover {
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+}
+.modal-primary-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+  outline-offset: 2px;
+}
+.modal-primary-btn:active {
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 70%, black);
+}
+.modal-warning {
+  font-size: 0.85em;
+  color: #6b7280;
+  line-height: 1.5;
 }
 
 .no-observers {
@@ -389,7 +411,7 @@
     flex-wrap: wrap;
     gap: 8px;
   }
-  .modal-content {
+  #keyModal .modal-content {
     margin: 16px;
     max-width: calc(100vw - 32px);
   }
@@ -517,11 +539,11 @@
       <button class="copy-btn" id="revealKeyBtn">Reveal</button>
       <button class="copy-btn" id="copyKeyBtn">Copy</button>
     </div>
-    <p style="font-size: 0.9em; color: #666;">
+    <p class="modal-warning">
       Keep this key secret — anyone with it can upload to your journal.
     </p>
     <div class="modal-actions">
-      <button id="doneBtn" style="background: #007bff; color: white; border: none;">Done</button>
+      <button id="doneBtn" class="modal-primary-btn">Done</button>
     </div>
   </div>
 </div>
