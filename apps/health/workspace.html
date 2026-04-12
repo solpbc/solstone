@@ -66,6 +66,8 @@
   display: flex;
   align-items: center;
   gap: 0.5em;
+  position: relative;
+  top: 1px;
 }
 
 .vitals-status.warning {
@@ -99,14 +101,16 @@
 .vitals-content {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5em;
+  gap: 2em;
   font-size: 0.95em;
+  padding-bottom: 0.75em;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .vitals-section {
   display: flex;
   flex-direction: column;
-  gap: 0.3em;
+  gap: 0.5em;
 }
 
 .vitals-label {
@@ -114,6 +118,7 @@
   color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  font-weight: 600;
 }
 
 #vitalsCheckBtn {
@@ -274,6 +279,8 @@
   align-items: center;
   gap: 0.3em;
   animation: none;
+  position: relative;
+  top: 1px;
 }
 
 .health-badge.recording {
@@ -434,9 +441,7 @@
 
 /* Activity Grids Container */
 .activity-grids {
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
+  display: contents;
 }
 
 .activity-section.hidden {
@@ -581,6 +586,10 @@
 
 .logs-card.logs-collapsed .logs-header {
   margin-bottom: 0;
+}
+
+.logs-card {
+  border-left: 4px solid #6b7280;
 }
 
 .logs-header {
