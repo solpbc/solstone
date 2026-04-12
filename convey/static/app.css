@@ -398,7 +398,7 @@ body:has(.status-pane.visible) .facet-bar::after {
 .date-nav-today {
   background: none;
   border: none;
-  padding: 4px 12px;
+  padding: 4px 16px;
   cursor: pointer;
   font-size: 15px;
   font-weight: 600;
@@ -1177,7 +1177,7 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   animation: badge-pop 0.2s ease;
   position: absolute;
   bottom: -2px;
-  right: 4px;
+  right: 8px;
   min-width: 16px;
   height: 16px;
   font-size: 11px;
@@ -1212,6 +1212,7 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   border-bottom-right-radius: 8px;
   flex-shrink: 0;  /* Never shrink - always visible at bottom */
   margin-top: auto;
+  margin-bottom: 8px;
 }
 
 
@@ -1356,6 +1357,9 @@ body.menu-all .menu-bar {
   margin-right: 6px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   user-select: none;
   pointer-events: none;
   flex-shrink: 0;      /* Never shrink the emoji */
@@ -1442,7 +1446,7 @@ body.menu-all .menu-bar {
 /* App Bar (bottom) */
 .app-bar {
   position: fixed;
-  bottom: 12px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
   width: 80%;
@@ -1761,7 +1765,7 @@ body.menu-all .menu-bar {
 @keyframes panel-expand {
   from {
     height: var(--app-bar-height);
-    bottom: 12px;
+    bottom: 16px;
     border-radius: 12px;
   }
 }
@@ -1775,7 +1779,7 @@ body.menu-all .menu-bar {
   }
   to {
     height: var(--app-bar-height);
-    bottom: 12px;
+    bottom: 16px;
     border-radius: 12px;
   }
 }
@@ -2297,6 +2301,7 @@ a.notification-card:active {
   color: #999;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .facet-add-pill:hover {
