@@ -67,9 +67,9 @@ h1 {
 /* Stats grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1.5em;
-  margin-bottom: 3em;
+  margin-bottom: 2em;
 }
 
 .stat-card {
@@ -77,22 +77,25 @@ h1 {
   border-radius: 12px;
   padding: 1.5em;
   box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid transparent;
+  transition: border-color 0.2s;
 }
 
 .stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  border-color: var(--facet-border, #e5e0db);
 }
 
 .stat-card h3 {
   font-size: 0.9em;
   color: #666;
   margin: 0 0 0.5em 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
 }
 
 .stat-value {
-  font-size: 2.5em;
+  font-size: 2em;
   font-weight: 700;
   margin: 0;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -103,10 +106,10 @@ h1 {
 }
 
 .stat-subtitle {
-  font-size: 0.9em;
+  font-size: 0.8em;
   color: #999;
   margin-top: 0.5em;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 /* Progress cards */
