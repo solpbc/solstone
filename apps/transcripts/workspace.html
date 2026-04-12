@@ -48,6 +48,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   height: 100%;
   overflow: hidden;
   touch-action: pan-y;
+  cursor: crosshair;
   padding: 12px 0;
   box-sizing: border-box;
 }
@@ -165,10 +166,20 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   cursor: grabbing;
 }
 
+.tr-sel:hover {
+  background: rgba(239, 246, 255, 0.85);
+  border-color: #a5b4fc;
+}
+
+.tr-sel:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 2px;
+}
+
 .tr-bumper {
   position: absolute;
-  left: 40px;
-  right: 40px;
+  left: 28px;
+  right: 28px;
   margin: auto;
   height: 14px;
   border: 1px solid #60a5fa;
@@ -176,6 +187,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   background: #dbeafe;
   cursor: ns-resize;
   touch-action: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .tr-bumper-top {
@@ -184,6 +196,16 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-bumper-bottom {
   bottom: -7px;
+}
+
+.tr-bumper:hover {
+  background: #bfdbfe;
+  border-color: #3b82f6;
+}
+
+.tr-bumper:active {
+  background: #93c5fd;
+  border-color: #2563eb;
 }
 
 /* Segments lane (audio/screen indicators) */
