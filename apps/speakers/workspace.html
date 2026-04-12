@@ -49,6 +49,10 @@
   background: #f9fafb;
 }
 
+.spk-segment:active {
+  background: #f3f4f6;
+}
+
 .spk-segment.active {
   background: #eff6ff;
   border-left-color: #3b82f6;
@@ -176,6 +180,11 @@
   background: #f9fafb;
 }
 
+.spk-source-tab:active:not(.active) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
 .spk-source-tab.active {
   background: #3b82f6;
   border-color: #3b82f6;
@@ -220,6 +229,11 @@
 .spk-skip-back:hover,
 .spk-speed-toggle:hover {
   background: #d1d5db;
+}
+
+.spk-skip-back:active,
+.spk-speed-toggle:active {
+  background: #9ca3af;
 }
 
 .spk-sentences {
@@ -585,6 +599,7 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s;
 }
 
 .spk-owner-btn:disabled {
@@ -725,6 +740,8 @@
 .spk-btn:focus-visible,
 .spk-skip-back:focus-visible,
 .spk-speed-toggle:focus-visible,
+.spk-expand-btn:focus-visible,
+.spk-load-more-btn:focus-visible,
 .spk-segment:focus-visible {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
@@ -781,6 +798,10 @@
   background: #f9fafb;
 }
 
+.spk-expand-btn:active {
+  background: #e5e7eb;
+}
+
 /* Pagination - load more */
 .spk-load-more {
   padding: 8px 16px;
@@ -802,6 +823,15 @@
 
 .spk-load-more-btn:hover {
   background: #f3f4f6;
+}
+
+.spk-load-more-btn:active {
+  background: #e5e7eb;
+}
+
+.spk-load-more-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
 }
 
 .spk-segments-count {
