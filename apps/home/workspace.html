@@ -71,11 +71,12 @@
 
 /* Section Headers */
 .pulse-section-header {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #94a3b8;
   margin-bottom: 0.5rem;
-  margin-top: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 /* Section collapse/expand */
@@ -84,11 +85,12 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  transition: background 0.15s ease;
 }
 .pulse-section-toggle::before {
   content: "▾";
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #64748b;
   transition: transform 0.15s;
 }
 [data-section-collapsed="true"] .pulse-section-toggle::before {
@@ -101,6 +103,7 @@
   font-size: 0.8rem;
   color: #94a3b8;
   margin-left: auto;
+  max-width: 60%;
   font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
@@ -108,6 +111,18 @@
 }
 [data-section-collapsed="false"] .pulse-section-summary { display: none; }
 [data-section-collapsed="true"] .pulse-section-body { display: none; }
+.pulse-section-toggle:hover {
+  background: #f8fafc;
+  border-radius: 6px;
+}
+.pulse-section-toggle:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.pulse-section-toggle:active {
+  background: #f1f5f9;
+}
 
 /* Narrative */
 .pulse-narrative {
