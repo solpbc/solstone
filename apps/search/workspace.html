@@ -230,14 +230,24 @@ button.day-header {
   background: #f9fafb;
   border: none;
   border-top: 1px solid #e5e7eb;
-  color: #2563eb;
+  color: var(--facet-color, #2563eb);
   font-size: 0.85rem;
   cursor: pointer;
+  transition: background 0.1s ease;
   text-align: center;
 }
 
 .show-more-btn:hover {
   background: #f3f4f6;
+}
+
+.show-more-btn:active {
+  background: #e5e7eb;
+}
+
+.show-more-btn:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
 }
 
 /* Load more days */
@@ -248,15 +258,20 @@ button.day-header {
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  color: #2563eb;
-  font-size: 0.9rem;
+  color: var(--facet-color, #2563eb);
+  font-size: 0.85rem;
   cursor: pointer;
+  transition: background 0.1s ease;
   text-align: center;
-  margin-top: 0.5rem;
+  margin-top: 0;
 }
 
 .load-more-days:hover {
   background: #f9fafb;
+}
+
+.load-more-days:active {
+  background: #f3f4f6;
 }
 
 /* Search input */
