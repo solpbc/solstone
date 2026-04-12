@@ -34,6 +34,13 @@
   text-decoration: none;
   cursor: pointer;
   transition: opacity 0.15s ease, filter 0.15s ease;
+  color: #fff;
+  font-size: 0.75em;
+  padding: 2px 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-shadow: inset 3px 0 0 rgba(0,0,0,0.15);
 }
 
 /* Activity blocks on timeline */
@@ -48,6 +55,7 @@
   overflow: hidden;
   white-space: nowrap;
   transition: opacity 0.15s ease;
+  box-shadow: none;
 }
 
 .modal {
@@ -143,6 +151,7 @@ h1 {
   opacity: 0.6;
   background: transparent !important;
   border: 2px dotted;
+  color: #555;
 }
 
 .occ:hover:not(.occ-activity) {
@@ -1067,7 +1076,7 @@ button.activity-detail-back {
       const plannedClass = event.isPlanned ? ' occ-planned' : '';
       const bgStyle = event.isPlanned ? `border-color:${event.color}` : `background:${event.color}`;
       const titlePrefix = event.isPlanned ? '▸ ' : '';
-      html += `<a class='occ${plannedClass}' data-index='${event.index}' tabindex='0' role='button' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;${bgStyle}' title='${titlePrefix}${event.title}'></a>`;
+      html += `<a class='occ${plannedClass}' data-index='${event.index}' tabindex='0' role='button' style='top:${top}%;height:${height}%;left:${left}%;width:${width}%;${bgStyle}' title='${titlePrefix}${event.title}'>${titlePrefix}${event.title}</a>`;
     });
 
     html += '</section>';
