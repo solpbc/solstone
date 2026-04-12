@@ -521,7 +521,7 @@
   padding: 16px 18px;
   border-radius: 12px;
   border: 1px solid #bfdbfe;
-  background: linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);
+  background: #eff6ff;
 }
 
 .spk-owner-panel {
@@ -609,7 +609,7 @@
   padding: 16px 18px;
   border-radius: 12px;
   border: 1px solid #bbf7d0;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  background: #f0fdf4;
 }
 
 .spk-discovery-panel {
@@ -632,7 +632,7 @@
 
 .spk-discovery-clusters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
 }
 
@@ -1251,7 +1251,7 @@
         <div class="spk-owner-samples">
           ${samples.map((sample, index) => `
             <div class="spk-owner-sample">
-              <div class="spk-owner-sample-title">Sample ${index + 1}</div>
+              <div class="spk-owner-sample-title">sample ${index + 1}</div>
               <div class="spk-owner-sample-meta">
                 ${escapeHtml(sample.day)} · ${escapeHtml(sample.stream)} · ${escapeHtml(sample.segment_key)}
               </div>
@@ -1317,7 +1317,7 @@
           ${clusters.map(cluster => `
             <div class="spk-discovery-cluster" data-cluster-id="${cluster.cluster_id}">
               <div class="spk-discovery-cluster-title">
-                Unknown speaker &middot; ${cluster.size} samples &middot; ${cluster.segment_count} segments
+                Unknown speaker <span style="font-weight: 400">&middot; ${cluster.size} samples &middot; ${cluster.segment_count} segments</span>
               </div>
               ${cluster.samples.map(sample => `
                 <div class="spk-discovery-sample">
