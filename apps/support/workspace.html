@@ -81,6 +81,8 @@
     margin-bottom: 1rem;
   }
   .support-detail-back:hover { color: var(--text, #222); }
+  .support-detail-back:active { color: #111; }
+  .support-detail-back:focus-visible { outline: 2px solid var(--facet-color, #3b82f6); outline-offset: 2px; }
   .support-message {
     border-left: 3px solid var(--facet-border, #e5e0db);
     padding: 0.75rem 1rem;
@@ -148,13 +150,16 @@
     font-size: 0.9rem;
     font-weight: 500;
   }
-  .support-btn:hover { opacity: 0.9; }
+  .support-btn:hover { filter: brightness(1.1); }
   .support-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .support-btn:active:not(:disabled) { filter: brightness(0.9); transform: translateY(1px); }
   .support-btn-secondary {
     background: transparent;
     color: var(--text, #222);
     border: 1px solid var(--facet-border, #e5e0db);
   }
+  .support-btn.support-btn-secondary:hover { background: rgba(0, 0, 0, 0.04); border-color: #bbb; filter: none; }
+  .support-btn.support-btn-secondary:active { background: rgba(0, 0, 0, 0.08); filter: none; }
 
   .support-empty {
     text-align: center;
@@ -185,7 +190,8 @@
     font-size: 0.9rem;
     font-weight: 500;
   }
-  .support-empty-action:hover { opacity: 0.9; }
+  .support-empty-action:hover { filter: brightness(1.1); }
+  .support-empty-action:active { filter: brightness(0.9); transform: translateY(1px); }
 
   .support-tab-badge {
     position: absolute;
