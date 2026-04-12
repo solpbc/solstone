@@ -261,8 +261,15 @@
     color: #666;
     font-size: 0.85rem;
     margin-top: 0.75rem;
-    transition: all 0.15s;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
     cursor: pointer;
+  }
+  .support-drop-zone:hover {
+    border-color: #bbb;
+    color: var(--text, #222);
+  }
+  .support-drop-zone:active {
+    background: rgba(0, 0, 0, 0.03);
   }
   .support-drop-zone.dragover {
     border-color: var(--facet-color, #3b82f6);
@@ -290,6 +297,7 @@
     padding: 0 0.25rem;
   }
   .support-file-entry .remove-file:hover { color: #c62828; }
+  .support-file-entry .remove-file:focus-visible { outline: 2px solid var(--facet-color, #3b82f6); outline-offset: 2px; border-radius: 2px; }
 
   /* Announcements banner */
   .support-announcements {
