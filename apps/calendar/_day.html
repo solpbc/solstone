@@ -350,10 +350,15 @@ h1 {
   cursor: pointer;
   margin-bottom: 0.75em;
   padding: 0.25em 0;
+  transition: color 0.15s ease;
 }
 
 .activity-detail-back:hover {
   color: #333;
+}
+
+.activity-detail-back:active {
+  color: #111;
 }
 
 .activity-detail-header {
@@ -426,10 +431,16 @@ h1 {
   color: #666;
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .ad-tab:hover {
   color: #333;
+}
+
+.ad-tab:active:not(.active) {
+  color: #111;
+  border-bottom-color: #aaa;
 }
 
 .ad-tab.active {
