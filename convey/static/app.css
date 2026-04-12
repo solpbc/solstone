@@ -1181,8 +1181,8 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
 .menu-badge {
   animation: badge-pop 0.2s ease;
   position: absolute;
-  bottom: -2px;
-  right: 8px;
+  top: 2px;
+  right: 6px;
   min-width: 16px;
   height: 16px;
   font-size: 11px;
