@@ -594,9 +594,18 @@
 }
 
 .logs-header:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+.logs-header:hover {
+  background: #f9fafb;
+  border-radius: 4px;
+}
+
+.logs-header:active {
+  background: #f3f4f6;
 }
 
 .logs-title {
@@ -644,6 +653,16 @@
   background: white;
 }
 
+.logs-controls select:hover {
+  border-color: #9ca3af;
+}
+
+.logs-controls select:focus {
+  outline: none;
+  border-color: var(--facet-color, #b06a1a);
+  box-shadow: 0 0 0 3px rgba(176, 106, 26, 0.1);
+}
+
 .logs-controls button {
   padding: 0.3em 0.6em;
   border: 1px solid #d1d5db;
@@ -651,12 +670,50 @@
   background: white;
   cursor: pointer;
   font-size: 0.8em;
+  transition: background 0.1s ease, border-color 0.1s ease;
 }
 
 .logs-controls button.active {
   background: #3b82f6;
   color: white;
   border-color: #3b82f6;
+}
+
+.logs-controls button:hover:not(.active) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.logs-controls button.active:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.logs-controls button:active:not(.active) {
+  background: #e5e7eb;
+}
+
+.logs-controls button.active:active {
+  background: #1d4ed8;
+}
+
+#logBackBtn {
+  padding: 0.3em 0.6em;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.8em;
+  transition: background 0.1s ease;
+}
+
+#logBackBtn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+#logBackBtn:active {
+  background: #e5e7eb;
 }
 
 .logs-viewport {
