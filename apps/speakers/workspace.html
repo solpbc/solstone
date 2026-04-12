@@ -12,14 +12,20 @@
 .spk-layout {
   display: grid;
   grid-template-columns: 320px 1fr;
-  gap: 24px;
-  min-height: 400px;
+  gap: 0;
+  min-height: calc(100vh - 260px);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
 }
 
 .spk-segments {
   background: #fff;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  border-radius: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -34,7 +40,7 @@
 }
 
 .spk-segments-list {
-  max-height: min(500px, calc(100vh - 260px));
+  flex: 1;
   overflow-y: auto;
 }
 
@@ -140,8 +146,11 @@
 
 .spk-detail {
   background: #fff;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  border-radius: 0;
+  border: none;
+  border-left: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
   padding: 20px;
 }
 
@@ -913,13 +922,15 @@
   }
   .spk-layout {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 0;
     min-height: auto;
   }
   .spk-segments-list {
     max-height: 40vh;
   }
   .spk-detail {
+    border-left: none;
+    border-top: 1px solid #e5e7eb;
     padding: 16px;
   }
   .spk-discovery-clusters {
