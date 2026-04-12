@@ -30,13 +30,22 @@
   align-items: center;
   gap: 0.5rem;
   color: #666;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
 .back-btn:hover {
   background: #f5f5f5;
   border-color: #ccc;
   color: #333;
+}
+
+.back-btn:active {
+  background: #e0e0e0;
+}
+
+.back-btn:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 2px;
 }
 
 .view-title {
@@ -238,13 +247,22 @@
   cursor: pointer;
   font-size: 0.85rem;
   color: #666;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s;
   margin-left: auto;
 }
 
 .preview-btn:hover {
   background: #e9ecef;
   border-color: #ccc;
+}
+
+.preview-btn:active {
+  background: #dee2e6;
+}
+
+.preview-btn:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 2px;
 }
 
 .runs-table {
