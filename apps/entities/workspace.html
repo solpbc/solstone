@@ -1143,7 +1143,7 @@ tr:hover .entity-delete-btn {
     <div class="entities-section">
       <h3>
         <span>your entities</span>
-        <input type="text" id="journal-entity-card-search" class="entity-search-input" placeholder="Search entities..." aria-label="Search entity cards">
+        <input type="text" id="journal-entity-card-search" class="entity-search-input" placeholder="search entities..." aria-label="Search entity cards">
         <span id="journal-card-search-count" class="entity-card-search-count" style="display: none;"></span>
       </h3>
       <p class="entities-subtitle">people, places, and things across your journal</p>
@@ -1171,7 +1171,7 @@ tr:hover .entity-delete-btn {
     </div>
 
     <div class="entity-detail-section">
-      <h4>Facets</h4>
+      <h4>facets</h4>
       <div id="journal-detail-facets"></div>
     </div>
 
@@ -1219,7 +1219,7 @@ tr:hover .entity-delete-btn {
     <div class="entities-section">
       <h3 id="facet-entities-heading">
         <span>entities</span>
-        <input type="text" id="entity-card-search" class="entity-search-input" placeholder="Search entities..." aria-label="Search entity cards">
+        <input type="text" id="entity-card-search" class="entity-search-input" placeholder="search entities..." aria-label="Search entity cards">
         <span id="facet-card-search-count" class="entity-card-search-count" style="display: none;"></span>
       </h3>
       <p class="entities-subtitle" id="facet-entities-subtitle">people, places, and things you're tracking</p>
@@ -1237,7 +1237,7 @@ tr:hover .entity-delete-btn {
       <div class="entities-container">
         <h3 id="all-entities-title">
           <span>detected entities</span>
-          <input type="text" id="entity-search" class="entity-search-input" placeholder="Search entities...">
+          <input type="text" id="entity-search" class="entity-search-input" placeholder="search entities...">
         </h3>
         <p class="entities-subtitle">found by AI in the last 30 days — star to add to your journal</p>
         <div id="detected-action-error" class="error-message" style="display: none;"></div>
@@ -1631,7 +1631,7 @@ function renderJournalDetailView(entity) {
       principalBadge = document.createElement('span');
       principalBadge.id = 'journal-detail-principal-badge';
       principalBadge.className = 'entity-detail-principal-badge';
-      principalBadge.textContent = 'You';
+      principalBadge.textContent = 'you';
       principalBadge.title = 'This is you';
       typeEl.parentNode.insertBefore(principalBadge, typeEl.nextSibling);
     }
@@ -2047,7 +2047,7 @@ function renderDetailView(entity, observations) {
       principalBadge = document.createElement('span');
       principalBadge.id = 'detail-principal-badge';
       principalBadge.className = 'entity-detail-principal-badge';
-      principalBadge.textContent = 'You';
+      principalBadge.textContent = 'you';
       principalBadge.title = 'This is your entity in this facet';
       typeEl.parentNode.insertBefore(principalBadge, typeEl.nextSibling);
     }
@@ -2626,7 +2626,7 @@ function createJournalEntityCard(entity) {
 
     const principalBadge = document.createElement('div');
     principalBadge.className = 'entity-card-principal-badge';
-    principalBadge.textContent = 'You';
+    principalBadge.textContent = 'you';
     card.appendChild(principalBadge);
   }
 
@@ -2799,7 +2799,7 @@ function createEntityCard(entity) {
     // "You" badge (top-left corner)
     const principalBadge = document.createElement('div');
     principalBadge.className = 'entity-card-principal-badge';
-    principalBadge.textContent = 'You';
+    principalBadge.textContent = 'you';
     card.appendChild(principalBadge);
   }
 
@@ -2918,9 +2918,9 @@ function renderDetectedPagination(total, start, end) {
   const prevDisabled = detectedPage <= 1 ? 'disabled' : '';
   const nextDisabled = detectedPage >= totalPages ? 'disabled' : '';
   el.innerHTML =
-    `<button ${prevDisabled} id="detected-prev-btn">Previous</button>` +
+    `<button ${prevDisabled} id="detected-prev-btn">previous</button>` +
     `<span class="detected-page-info">showing ${start + 1}\u2013${end} of ${total} detected entities</span>` +
-    `<button ${nextDisabled} id="detected-next-btn">Next</button>`;
+    `<button ${nextDisabled} id="detected-next-btn">next</button>`;
 
   const prevBtn = document.getElementById('detected-prev-btn');
   const nextBtn = document.getElementById('detected-next-btn');
