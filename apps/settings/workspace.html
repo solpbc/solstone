@@ -1641,6 +1641,45 @@ button:focus:not(:focus-visible) {
   outline: none;
 }
 
+/* Subsection & summary styles */
+.settings-subsection-title {
+  font-size: 0.95em;
+  font-weight: 600;
+  color: #374151;
+  margin: 1.5em 0 0.5em 0;
+}
+
+.settings-subsection-desc {
+  color: #666;
+  font-size: 0.85em;
+  margin: 0 0 0.75em 0;
+  line-height: 1.4;
+}
+
+.settings-summary-card {
+  background: #fafafa;
+  border: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 8px;
+  padding: 1em 1.25em;
+  margin-bottom: 1.5em;
+}
+
+.storage-stat-value {
+  font-size: 1.5em;
+  font-weight: 600;
+}
+
+.storage-stat-label {
+  font-size: 0.85em;
+  color: #666;
+}
+
+.settings-danger-section {
+  margin-top: 2em;
+  padding-top: 1.5em;
+  border-top: 1px solid var(--facet-border, #e5e0db);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .settings-wrap {
@@ -1857,8 +1896,8 @@ button:focus:not(:focus-visible) {
 
       <form class="settings-form" onsubmit="return false;">
 
-      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">generate</h3>
-      <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Text generation for analysis, extraction, and transcription tasks.</p>
+      <h3 class="settings-subsection-title">generate</h3>
+      <p class="settings-subsection-desc">Text generation for analysis, extraction, and transcription tasks.</p>
       <div class="provider-row">
         <div class="settings-field">
           <label for="field-generate-provider">provider</label>
@@ -1890,8 +1929,8 @@ button:focus:not(:focus-visible) {
         <a href="#" id="generateProviderKeyLink">Configure in API Keys</a>
       </div>
 
-      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">cogitate</h3>
-      <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Tool-calling agents for interactive chat, daily briefings, and complex reasoning.</p>
+      <h3 class="settings-subsection-title">cogitate</h3>
+      <p class="settings-subsection-desc">Tool-calling agents for interactive chat, daily briefings, and complex reasoning.</p>
       <div class="provider-row">
         <div class="settings-field">
           <label for="field-cogitate-provider">provider</label>
@@ -1927,8 +1966,8 @@ button:focus:not(:focus-visible) {
           <small>How the CLI authenticates with the provider</small>
         </div>
       </div>
-      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">google backend</h3>
-      <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">How solstone connects to Google AI. Auto-detect works for most users.</p>
+      <h3 class="settings-subsection-title">google backend</h3>
+      <p class="settings-subsection-desc">How solstone connects to Google AI. Auto-detect works for most users.</p>
       <div class="provider-row">
         <div class="settings-field">
           <label for="field-google-backend">backend</label>
@@ -2173,8 +2212,8 @@ button:focus:not(:focus-visible) {
 
       <form class="settings-form" onsubmit="return false;">
 
-      <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">terminal capture</h3>
-      <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
+      <h3 class="settings-subsection-title">terminal capture</h3>
+      <p class="settings-subsection-desc">
         When your screen is idle, the observer can capture terminal content from active tmux sessions.
       </p>
 
@@ -2306,8 +2345,8 @@ button:focus:not(:focus-visible) {
       <form class="settings-form" onsubmit="return false;">
 
       <div id="plaudSyncCard">
-        <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Plaud</h3>
-        <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
+        <h3 class="settings-subsection-title">Plaud</h3>
+        <p class="settings-subsection-desc">
           Automatically sync and import recordings from your Plaud device every hour.
         </p>
 
@@ -2328,8 +2367,8 @@ button:focus:not(:focus-visible) {
       </div>
 
       <div id="granolaSyncCard">
-        <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Granola (via muesli)</h3>
-        <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
+        <h3 class="settings-subsection-title">Granola (via muesli)</h3>
+        <p class="settings-subsection-desc">
           Automatically sync new meeting transcripts from Granola.
         </p>
 
@@ -2346,8 +2385,8 @@ button:focus:not(:focus-visible) {
       </div>
 
       <div id="obsidianSyncCard">
-        <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Obsidian vault</h3>
-        <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
+        <h3 class="settings-subsection-title">Obsidian vault</h3>
+        <p class="settings-subsection-desc">
           Automatically sync new and updated notes from your vault.
         </p>
 
@@ -2372,19 +2411,19 @@ button:focus:not(:focus-visible) {
 
       <form class="settings-form" onsubmit="return false;">
 
-      <div id="storageSummaryCard" style="background: #f8f8f8; border-radius: 8px; padding: 1em 1.25em; margin-bottom: 1.5em;">
+      <div id="storageSummaryCard" class="settings-summary-card">
         <div class="storage-summary-grid">
           <div>
-            <div style="font-size: 1.5em; font-weight: 600;" id="storageSummaryRaw">—</div>
-            <div style="font-size: 0.85em; color: #666;">Raw Media</div>
+            <div class="storage-stat-value" id="storageSummaryRaw">—</div>
+            <div class="storage-stat-label">Raw Media</div>
           </div>
           <div>
-            <div style="font-size: 1.5em; font-weight: 600;" id="storageSummaryDerived">—</div>
-            <div style="font-size: 0.85em; color: #666;">Derived Content</div>
+            <div class="storage-stat-value" id="storageSummaryDerived">—</div>
+            <div class="storage-stat-label">Derived Content</div>
           </div>
           <div>
-            <div style="font-size: 1.5em; font-weight: 600;" id="storageSummarySegments">—</div>
-            <div style="font-size: 0.85em; color: #666;">Segments</div>
+            <div class="storage-stat-value" id="storageSummarySegments">—</div>
+            <div class="storage-stat-label">Segments</div>
           </div>
         </div>
         <div style="margin-top: 0.75em; font-size: 0.8em; color: #888; text-align: center;" id="storageSummaryDetail"></div>
@@ -2423,7 +2462,7 @@ button:focus:not(:focus-visible) {
         </div>
       </div>
 
-      <div style="margin-top: 2em; padding-top: 1.5em; border-top: 1px solid #e0e0e0;">
+      <div class="settings-danger-section">
         <button type="button" id="cleanupNowBtn" class="action-button" style="background: #dc3545; color: white; border: none; padding: 0.6em 1.2em; border-radius: 6px; cursor: pointer; font-size: 0.9em;">Clean Up Now</button>
         <small style="display: block; margin-top: 0.5em; color: #666;">Manually purge raw media older than a specified number of days.</small>
       </div>
