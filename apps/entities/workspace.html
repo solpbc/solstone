@@ -214,6 +214,10 @@
   text-decoration: underline;
 }
 
+.entity-detail-back:active {
+  opacity: 0.7;
+}
+
 .entity-detail-title {
   display: flex;
   align-items: center;
@@ -466,6 +470,10 @@
   background: color-mix(in srgb, var(--facet-color, #667eea) 85%, black);
 }
 
+.btn-primary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--facet-color, #667eea) 75%, black);
+}
+
 .btn-primary:disabled {
   background: #adb5bd;
   cursor: not-allowed;
@@ -480,6 +488,10 @@
   background: #dee2e6;
 }
 
+.btn-secondary:active {
+  background: #ced4da;
+}
+
 .btn-danger {
   background: #dc3545;
   color: white;
@@ -487,6 +499,10 @@
 
 .btn-danger:hover {
   background: #c82333;
+}
+
+.btn-danger:active {
+  background: #a71d2a;
 }
 
 .btn-sm {
@@ -505,6 +521,16 @@
 
 .btn-icon:hover {
   transform: scale(1.15);
+}
+
+.btn-icon:focus-visible {
+  outline: 2px solid var(--facet-color, #667eea);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.btn-icon:active {
+  transform: scale(0.9);
 }
 
 .btn-icon.generating {
@@ -567,6 +593,15 @@
   background: #f5f5f5;
 }
 
+.detected-pagination button:focus-visible {
+  outline: 2px solid var(--facet-color, #667eea);
+  outline-offset: 2px;
+}
+
+.detected-pagination button:active:not(:disabled) {
+  background: #e9ecef;
+}
+
 .detected-pagination button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -614,6 +649,23 @@
   color: #ffc107;
 }
 
+.star-button:focus-visible {
+  outline: 2px solid var(--facet-color, #667eea);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.star-button:active {
+  transform: scale(0.9);
+  color: #ffc107;
+}
+
+.star-button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+  transform: none;
+}
+
 .entity-delete-btn {
   position: absolute;
   right: 8px;
@@ -646,6 +698,11 @@ tr:hover .entity-delete-btn {
   opacity: 1;
   outline: 2px solid #dc3545;
   outline-offset: 2px;
+}
+
+.entity-delete-btn:active {
+  opacity: 1 !important;
+  background: rgba(220, 53, 69, 0.1);
 }
 
 /* Section headers */
@@ -826,6 +883,10 @@ tr:hover .entity-delete-btn {
   color: #000;
 }
 
+.close:active {
+  transform: scale(0.9);
+}
+
 .delete-warning {
   background: #fff3cd;
   border: 1px solid #ffc107;
@@ -908,6 +969,10 @@ tr:hover .entity-delete-btn {
 .facet-relationship-row:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
+}
+
+.facet-relationship-row:active:not(.detached) {
+  background: #e9ecef;
 }
 
 .facet-rel-info {
