@@ -27,7 +27,8 @@
   padding: 12px 16px;
   border-bottom: 1px solid #e5e7eb;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
+  line-height: 1;
   color: #374151;
 }
 
@@ -56,11 +57,13 @@
 .spk-segment-time {
   font-weight: 500;
   font-size: 14px;
+  font-variant-numeric: tabular-nums;
   color: #1f2937;
 }
 
 .spk-segment-meta {
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   color: #6b7280;
   margin-top: 4px;
 }
@@ -226,7 +229,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #374151;
   margin-bottom: 12px;
@@ -459,7 +462,7 @@
 }
 
 .spk-speakers-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #374151;
   margin-bottom: 10px;
@@ -693,8 +696,6 @@
 .spk-speakers-title,
 .spk-sentences-title,
 .spk-speaker-entity {
-  font-size: inherit;
-  font-weight: inherit;
   margin: 0;
   padding: 0;
 }
@@ -796,6 +797,7 @@
   font-weight: 400;
   color: #9ca3af;
   font-size: 12px;
+  vertical-align: baseline;
 }
 
 @keyframes spk-spin {
