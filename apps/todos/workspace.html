@@ -212,27 +212,34 @@
 .no-todos {
   text-align: center;
   padding: 3rem 1rem;
-  color: #666;
+  color: #374151;
 }
 
 .no-todos-icon {
-  font-size: 3rem;
   margin-bottom: 1rem;
-  opacity: 0.5;
+  opacity: 0.7;
 }
 
 .no-todos-text {
   font-size: 1.1rem;
   margin-bottom: 0.5rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .no-todos-hint {
   font-size: 0.9rem;
-  color: #999;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.no-todos .todo-add-form input[type="text"] {
+  text-align: center;
 }
 
 .todo-facet-empty {
   padding: 0.75rem 0;
+  padding-left: calc(4px + 0.5rem);
   color: #94a3b8;
   font-style: italic;
   font-size: 0.85rem;
@@ -411,6 +418,10 @@
     padding-left: calc(4px + 0.375rem);
   }
 
+  .todo-facet-empty {
+    padding-left: calc(4px + 0.375rem);
+  }
+
   .todo-row {
     gap: 0.5rem;
   }
@@ -421,10 +432,6 @@
 
   .no-todos {
     padding: 1.5rem 0.75rem;
-  }
-
-  .no-todos-icon {
-    font-size: 2.5rem;
   }
 
   .todo-add-form input[type="text"] {
@@ -563,19 +570,24 @@
           <input type="text" id="todo-add-{{ facet_name }}" name="text" placeholder="add a todo..." autocomplete="off">
         </form>
         {% if facet_todos | length == 0 %}
-        <div class="todo-facet-empty" data-facet-empty="{{ facet_name }}">no todos in {{ facet_title }} for today</div>
+        <div class="todo-facet-empty" data-facet-empty="{{ facet_name }}">No todos in {{ facet_title }}</div>
         {% endif %}
       </div>
     {% endfor %}
   {% else %}
     <section class="no-todos" role="status">
-      <div class="no-todos-icon">✅</div>
-      <div class="no-todos-text">No todos for this day</div>
+      <div class="no-todos-icon">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="22" stroke="#9ca3af" stroke-width="2"/>
+          <path d="M15 24l6 6 12-12" stroke="#9ca3af" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="no-todos-text">No todos for today</div>
       <div class="no-todos-hint">Add a todo below, or use #facet to target a specific list</div>
       <form class="todo-add-form" method="post" data-facet="">
         <input type="hidden" name="action" value="add">
         <label for="todo-add-standalone" class="sr-only">Add a todo</label>
-        <input type="text" id="todo-add-standalone" name="text" placeholder="add a todo... (use #work, #personal, etc.)" autocomplete="off" style="text-align: center;">
+        <input type="text" id="todo-add-standalone" name="text" placeholder="add a todo... (use #work, #personal, etc.)" autocomplete="off">
       </form>
     </section>
   {% endif %}
@@ -642,7 +654,7 @@ document.addEventListener('DOMContentLoaded', function() {
       workspaceContent?.classList.remove('single-facet-mode');
       sections.forEach(s => s.style.display = '');
       if (noTodosEl) {
-        noTodosEl.querySelector('.no-todos-text').textContent = 'No todos for this day';
+        noTodosEl.querySelector('.no-todos-text').textContent = 'No todos for today';
       }
     } else {
       // Single-facet mode - hide headers, disable auto-collapse
@@ -667,7 +679,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (noTodosEl && !hasVisibleSection) {
         const facetData = window.facetsData?.find(f => f.name === facetName);
         const facetTitle = facetData?.title || facetName;
-        noTodosEl.querySelector('.no-todos-text').textContent = `No todos for ${facetTitle}`;
+        noTodosEl.querySelector('.no-todos-text').textContent = `No todos in ${facetTitle}`;
       }
     }
   }
@@ -781,7 +793,7 @@ document.addEventListener('DOMContentLoaded', function() {
       emptyEl = document.createElement('div');
       emptyEl.className = 'todo-facet-empty';
       emptyEl.setAttribute('data-facet-empty', facetName);
-      emptyEl.textContent = `no todos in ${facetTitle} for today`;
+      emptyEl.textContent = `No todos in ${facetTitle}`;
       facetSection.appendChild(emptyEl);
     }
   }
