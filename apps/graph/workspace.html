@@ -327,6 +327,7 @@
   color: #111827;
 }
 .graph-detail-close:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.graph-detail-close:active { transform: scale(0.9); }
 .graph-detail-body {
   flex: 1;
   overflow-y: auto;
@@ -342,6 +343,8 @@
   font-weight: 600;
   color: #6b7280;
   margin: 0 0 0.4rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 .detail-type-badge {
   display: inline-block;
@@ -383,6 +386,7 @@
 .detail-score-value {
   font-weight: 600;
   color: #111827;
+  font-variant-numeric: tabular-nums;
 }
 .detail-connected-list {
   list-style: none;
@@ -407,6 +411,7 @@
 }
 .detail-connected-name:hover { text-decoration: underline; }
 .detail-connected-name:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.detail-connected-name:active { opacity: 0.7; }
 .detail-connected-rel {
   color: #9ca3af;
   font-size: 0.75rem;
@@ -430,6 +435,15 @@
   font-size: 0.85rem;
 }
 .detail-entity-link:hover { text-decoration: underline; }
+.detail-entity-link:active { opacity: 0.7; }
+.detail-retry-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.detail-retry-link:hover {
+  text-decoration: underline;
+}
 .sr-only {
   position: absolute;
   width: 1px;
@@ -936,7 +950,7 @@
         bodyEl.innerHTML = '<div style="padding:1em;color:#666;">' +
           '<strong>Couldn\'t load entity details</strong><br>' +
           '<span style="color:#999;font-size:0.85rem;">The server may not have responded.</span><br>' +
-          '<a href="#" class="detail-retry-link" style="color:#2563eb;text-decoration:none;font-size:0.85rem;">Try again</a>' +
+          '<a href="#" class="detail-retry-link">Try again</a>' +
           '</div>';
         bodyEl.querySelector('.detail-retry-link').addEventListener('click', function(e) {
           e.preventDefault();
