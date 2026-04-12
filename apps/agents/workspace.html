@@ -1582,6 +1582,14 @@
           e.preventDefault();
           const prev = row.previousElementSibling;
           if (prev) prev.focus();
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          const tbody = row.closest('tbody');
+          if (tbody && tbody.firstElementChild) tbody.firstElementChild.focus();
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          const tbody = row.closest('tbody');
+          if (tbody && tbody.lastElementChild) tbody.lastElementChild.focus();
         }
       });
 
