@@ -196,8 +196,6 @@
   color: #6b7280;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
-  font-size: 1rem;
-  line-height: 1;
 }
 
 .todo-action-btn:hover {
@@ -573,7 +571,7 @@
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
                 >
-                  ✏️
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z"/></svg>
                 </button>
                 <button
                   type="button"
@@ -584,7 +582,7 @@
                   data-facet="{{ facet_name }}"
                   data-current-day="{{ day }}"
                 >
-                  📅
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><line x1="1.5" y1="6.5" x2="14.5" y2="6.5"/><line x1="5" y1="1" x2="5" y2="4"/><line x1="11" y1="1" x2="11" y2="4"/></svg>
                 </button>
 
                 <button
@@ -595,7 +593,7 @@
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
                 >
-                  🗑️
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12"/><path d="M5 4V2.5a1 1 0 011-1h4a1 1 0 011 1V4"/><path d="M3.5 4l.75 10a1.5 1.5 0 001.5 1.5h4.5a1.5 1.5 0 001.5-1.5L12.5 4"/></svg>
                 </button>
               </div>
             </li>
@@ -894,7 +892,7 @@ document.addEventListener('DOMContentLoaded', function() {
   async function moveTodo(targetDay, facet, index, button) {
     if (!targetDay) return;
 
-    const originalText = button.textContent;
+    const originalText = button.innerHTML;
     button.disabled = true;
     button.textContent = '⏳';
 
@@ -917,7 +915,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           showMessage(data.error || 'Failed to move todo', 'error');
           button.disabled = false;
-          button.textContent = originalText;
+          button.innerHTML = originalText;
         }
         return;
       }
@@ -941,7 +939,7 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (error) {
       showMessage('Network error - please try again', 'error');
       button.disabled = false;
-      button.textContent = originalText;
+      button.innerHTML = originalText;
     }
   }
 
@@ -1000,7 +998,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const facet = cancelBtn.dataset.facet;
 
       const todoRow = cancelBtn.closest('[data-todo-row]');
-      const originalText = cancelBtn.textContent;
+      const originalText = cancelBtn.innerHTML;
       cancelBtn.disabled = true;
 
       (async () => {
@@ -1034,12 +1032,12 @@ document.addEventListener('DOMContentLoaded', function() {
           } else {
             showMessage('Failed to cancel todo - please refresh and try again', 'error');
             cancelBtn.disabled = false;
-            cancelBtn.textContent = originalText;
+            cancelBtn.innerHTML = originalText;
           }
         } catch (error) {
           showMessage('Network error - please try again', 'error');
           cancelBtn.disabled = false;
-          cancelBtn.textContent = originalText;
+          cancelBtn.innerHTML = originalText;
         }
       })();
       return;
@@ -1390,7 +1388,7 @@ document.addEventListener('DOMContentLoaded', function() {
           data-index="${todo.index}"
           data-facet="${facetName}"
         >
-          ✏️
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z"/></svg>
         </button>
         <button
           type="button"
@@ -1401,7 +1399,7 @@ document.addEventListener('DOMContentLoaded', function() {
           data-facet="${facetName}"
           data-current-day="${currentDay}"
         >
-          📅
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><line x1="1.5" y1="6.5" x2="14.5" y2="6.5"/><line x1="5" y1="1" x2="5" y2="4"/><line x1="11" y1="1" x2="11" y2="4"/></svg>
         </button>
 
         <button
@@ -1412,7 +1410,7 @@ document.addEventListener('DOMContentLoaded', function() {
           data-index="${todo.index}"
           data-facet="${facetName}"
         >
-          🗑️
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12"/><path d="M5 4V2.5a1 1 0 011-1h4a1 1 0 011 1V4"/><path d="M3.5 4l.75 10a1.5 1.5 0 001.5 1.5h4.5a1.5 1.5 0 001.5-1.5L12.5 4"/></svg>
         </button>
       </div>
     `;
