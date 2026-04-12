@@ -455,6 +455,10 @@
   gap: 0.5em;
 }
 
+.activity-section-header.error {
+  color: #dc2626;
+}
+
 .idle-card {
   text-align: center;
   padding: 1.5em;
@@ -1033,7 +1037,7 @@
   </div>
 
   <div class="dashboard-card activity-section hidden" id="errorSummary">
-    <div class="activity-section-header" style="color: #dc2626;">
+    <div class="activity-section-header error">
       Recent errors
     </div>
     <div id="errorSummaryContent"></div>
@@ -1440,7 +1444,7 @@
       if (!row) {
         row = document.createElement('div');
         row.setAttribute('data-key', key);
-        row.style.cssText = 'padding: 0.3em 0; font-size: 0.85em; color: #374151; border-bottom: 1px solid #f3f4f6; display: flex; align-items: baseline; gap: 0.4em; flex-wrap: wrap;';
+        row.style.cssText = 'padding: 0.3em 0; font-size: 0.85em; color: #374151; border-bottom: 1px solid #e5e7eb; display: flex; align-items: baseline; gap: 0.4em; flex-wrap: wrap;';
 
         const info = document.createElement('span');
         row.appendChild(info);
