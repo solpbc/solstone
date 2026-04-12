@@ -1497,7 +1497,7 @@ body.menu-all .menu-bar {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--facet-bg, transparent);
+  background: var(--facet-bg, #b06a1a1a);
   transition: background-color 0.3s ease;
   pointer-events: none;
   z-index: -1;
