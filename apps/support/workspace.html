@@ -210,10 +210,13 @@
     font-weight: 600;
     min-width: 1.1rem;
     height: 1.1rem;
-    line-height: 1.1rem;
     border-radius: 1rem;
-    text-align: center;
-    display: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
   }
 
   .support-disabled {
@@ -565,7 +568,9 @@
     // Update tab badge visibility
     const badge = document.getElementById('tab-tickets-badge');
     if (badge) {
-      badge.style.display = (sectionName !== 'tickets' && ticketCount > 0) ? '' : 'none';
+      const show = sectionName !== 'tickets' && ticketCount > 0;
+      badge.style.opacity = show ? '1' : '0';
+      badge.style.pointerEvents = show ? 'auto' : 'none';
     }
   }
 
@@ -660,7 +665,9 @@
       badge.textContent = ticketCount;
       // Show badge if user already switched away from tickets tab
       const activeTab = document.querySelector('.support-nav button.active');
-      badge.style.display = (activeTab && activeTab.dataset.section !== 'tickets') ? '' : 'none';
+      const show = activeTab && activeTab.dataset.section !== 'tickets';
+      badge.style.opacity = show ? '1' : '0';
+      badge.style.pointerEvents = show ? 'auto' : 'none';
     } catch (e) {
       list.innerHTML = '<div class="support-empty">' +
         '<div class="support-empty-icon">⚠️</div>' +
