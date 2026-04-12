@@ -488,6 +488,26 @@
 .graph-table tbody tr:hover {
   background: var(--bg-secondary, #f5f5f5);
 }
+.graph-table th {
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 5;
+}
+.graph-table th:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: -2px;
+}
+.graph-table th:active {
+  color: var(--text-primary, #333);
+  background: #f3f4f6;
+}
+.graph-list-name { font-weight: 500; color: #111827; }
+.graph-table td:nth-child(2) { color: #6b7280; }
+.graph-table td:nth-child(3),
+.graph-table td:nth-child(4) { font-variant-numeric: tabular-nums; }
+.graph-table tbody tr { cursor: pointer; transition: background 0.1s; }
+.graph-table tbody tr:active { background: #e5e7eb; }
 
 /* Spinner */
 .graph-spinner { width:24px; height:24px; border:3px solid #e5e7eb; border-top-color:#2563eb; border-radius:50%; animation:graph-spin 0.8s linear infinite; margin:0 auto 0.5em; }
@@ -888,8 +908,15 @@
 
     // Render
     tbody.innerHTML = rows.map(r =>
-      '<tr><td>' + escapeHtml(r.name) + '</td><td>' + escapeHtml(r.type) + '</td><td>' + r.score + '</td><td>' + r.connections + '</td></tr>'
+      '<tr><td class="graph-list-name">' + escapeHtml(r.name) + '</td><td>' + escapeHtml(r.type) + '</td><td>' + r.score + '</td><td>' + r.connections + '</td></tr>'
     ).join('');
+    document.querySelectorAll('#graph-list-body tr').forEach(function(tr) {
+      tr.addEventListener('click', function() {
+        var name = tr.querySelector('td').textContent;
+        var node = graphData.nodes.find(function(n) { return n.name === name; });
+        if (node) showDetail(node);
+      });
+    });
   }
 
   // --- Detail panel ---
