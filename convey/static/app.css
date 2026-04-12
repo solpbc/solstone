@@ -107,7 +107,7 @@ body {
   margin-top: var(--facet-bar-height);
   padding-top: 8px;
   margin-left: var(--menu-bar-width-minimal);
-  margin-bottom: calc(var(--app-bar-height) + 56px);
+  margin-bottom: calc(var(--app-bar-height) + 80px);
 }
 
 /* Add extra top margin when date-nav is present */
@@ -297,6 +297,11 @@ body:has(.status-pane.visible) .facet-bar::after {
 /* Status indicator shapes (SVG inside .status-icon button) */
 .status-indicator {
   display: block;
+}
+
+.facet-bar .status-icon .status-indicator {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
 }
 
 .status-indicator--connecting {
