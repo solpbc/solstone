@@ -700,6 +700,10 @@ input:checked + .slider:before {
   cursor: default;
 }
 
+.log-more-btn:active:not(:disabled) {
+  background: color-mix(in srgb, var(--facet-bg, rgba(232, 146, 58, 0.1)) 80%, #000);
+}
+
 /* Providers section */
 .provider-row {
   display: flex;
@@ -897,6 +901,11 @@ input:checked + .slider:before {
 .redact-add-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.redact-add-btn:active:not(:disabled) {
+  background: color-mix(in srgb, var(--facet-bg, rgba(232, 146, 58, 0.05)) 80%, #000);
+  transform: scale(0.98);
 }
 
 .redact-validation {
@@ -1217,6 +1226,10 @@ input:checked + .slider:before {
 
 .insights-group-header:hover {
   background: #f0f0f0;
+}
+
+.insights-group-header:active {
+  background: #e4e4e4;
 }
 
 .insights-group.expanded .insights-group-header {
@@ -1560,6 +1573,11 @@ input:checked + .slider:before {
   border-color: var(--facet-color, #E8923A);
   color: var(--facet-color, #E8923A);
   background: var(--facet-bg, rgba(232, 146, 58, 0.05));
+}
+
+.activities-add-custom-btn:active {
+  background: color-mix(in srgb, var(--facet-bg, rgba(232, 146, 58, 0.05)) 80%, #000);
+  transform: scale(0.98);
 }
 
 /* Storage section */
