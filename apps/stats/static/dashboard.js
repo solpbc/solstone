@@ -596,6 +596,16 @@ const Dashboard = (function() {
       freshnessEl.textContent = stats.generated_at
         ? 'Stats generated ' + fmtRelativeTime(stats.generated_at)
         : '';
+      const refreshLink = el('a', {
+        className: 'stats-refresh',
+        href: '#'
+      }, ['refresh']);
+      refreshLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        const statsUrl = document.querySelector('.dashboard').dataset.statsUrl;
+        if (statsUrl) Dashboard.load(statsUrl);
+      });
+      freshnessEl.appendChild(refreshLink);
     }
     
     // Show main content
