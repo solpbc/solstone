@@ -110,6 +110,11 @@
   cursor: pointer;
 }
 
+.todo-checkbox-target:hover {
+  background: rgba(0,0,0,0.04);
+  border-radius: 6px;
+}
+
 .todo-content {
   flex: 1;
   min-width: 0;
@@ -127,6 +132,17 @@
   color: #111827;
   font-size: 1rem;
   cursor: text;
+}
+
+.todo-text:hover {
+  text-decoration: underline;
+  text-decoration-color: #d1d5db;
+  text-underline-offset: 2px;
+}
+
+.todo-row.completed .todo-text:hover {
+  text-decoration: line-through;
+  text-decoration-color: currentColor;
 }
 
 .todo-text-input {
@@ -351,12 +367,17 @@
   padding: 0 0.25rem;
   color: inherit;
   opacity: 0.6;
+  transition: opacity 0.15s ease;
   margin-left: 0.5rem;
   flex-shrink: 0;
 }
 
 .flash-message .flash-close:hover {
   opacity: 1;
+}
+
+.flash-message .flash-close:active {
+  transform: scale(0.9);
 }
 
 @keyframes flashFadeOut {
