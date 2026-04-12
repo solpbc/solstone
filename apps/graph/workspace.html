@@ -144,8 +144,67 @@
   font-weight: 500;
 }
 .graph-strength-filter input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
   width: 80px;
-  height: 4px;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.graph-strength-filter input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+.graph-strength-filter input[type=range]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+.graph-strength-filter input[type=range]:hover::-webkit-slider-thumb {
+  background: #1d4ed8;
+  transform: scale(1.15);
+}
+.graph-strength-filter input[type=range]:hover::-moz-range-thumb {
+  background: #1d4ed8;
+  transform: scale(1.15);
+}
+.graph-strength-filter input[type=range]:active::-webkit-slider-thumb {
+  background: #1e40af;
+  transform: scale(1.05);
+}
+.graph-strength-filter input[type=range]:active::-moz-range-thumb {
+  background: #1e40af;
+  transform: scale(1.05);
+}
+.graph-strength-filter input[type=range]:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+.graph-strength-filter input[type=range]::-webkit-slider-runnable-track {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 2px;
+}
+.graph-strength-filter input[type=range]::-moz-range-track {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 2px;
 }
 #min-strength-val {
   display: inline-block;
@@ -467,7 +526,7 @@
   .graph-time-btn,
   .graph-view-toggle { min-height: 44px; padding: 0.5rem 0.75rem; }
 
-  .graph-strength-filter input[type=range] { width: 100%; height: 8px; }
+  .graph-strength-filter input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; }
 
   .graph-detail-panel { width: 100%; max-width: 100vw; }
 
