@@ -34,7 +34,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   height: 100%;
   background: #ffffff;
   display: grid;
-  grid-template-columns: 180px 100px 1fr;
+  --tr-day-col: 180px;
+  --tr-zoom-col: 100px;
+  grid-template-columns: var(--tr-day-col) var(--tr-zoom-col) 1fr;
   overflow: hidden;
 }
 
@@ -137,7 +139,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 /* Selection box */
 .tr-sel-wrap {
   position: absolute;
-  left: 58px;
+  left: 64px;
   right: 8px;
   pointer-events: none;
   z-index: 2;
@@ -145,7 +147,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-sel {
   position: absolute;
-  left: -4px;
+  left: 0;
   right: -4px;
   height: 100%;
   background: rgba(239, 246, 255, 0.7);
@@ -184,6 +186,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 /* Segments lane (audio/screen indicators) */
 .tr-segments {
+  --seg-col-0: 8px;
+  --seg-col-1: 56px;
   position: absolute;
   left: 64px;
   right: 0;
@@ -206,6 +210,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   outline: 2px solid var(--accent, #4a9eff);
   outline-offset: 1px;
 }
+
+.tr-seg-col-0 { left: var(--seg-col-0); }
+.tr-seg-col-1 { left: var(--seg-col-1); }
 
 .tr-seg-audio {
   background: rgba(134, 239, 172, 0.6);
@@ -456,7 +463,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   left: 0;
   top: 12px;
   bottom: 12px;
-  width: 40px;
+  width: 48px;
   background: #f9fafb;
   border-right: 1px solid #e5e7eb;
   pointer-events: none;
@@ -465,7 +472,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-zoom-label {
   position: absolute;
   right: 0;
-  padding-right: 6px;
+  padding-right: 8px;
   transform: translateY(-50%);
   font-size: 12px;
   color: #6b7280;
@@ -481,7 +488,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-zoom-segments {
   position: absolute;
-  left: 44px;
+  left: 42px;
   right: 4px;
   top: 12px;
   bottom: 12px;
@@ -1633,7 +1640,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     el.className = 'tr-seg ' + (type === 'screen' ? 'tr-seg-screen' : 'tr-seg-audio');
     el.style.top = y(startMin) + 'px';
     el.style.height = Math.max(2, y(endMin) - y(startMin)) + 'px';
-    el.style.left = (column === 1 ? 56 : 8) + 'px';
+    el.classList.add(column === 1 ? 'tr-seg-col-1' : 'tr-seg-col-0');
     // Zero-padded HH:MM label
     const _h = Math.floor(startMin / 60);
     const _m = startMin % 60;
