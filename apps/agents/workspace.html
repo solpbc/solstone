@@ -98,12 +98,18 @@
   border-radius: 8px;
   padding: 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
 }
 
 .agent-card:hover {
-  border-color: #007bff;
+  border-top-color: #007bff;
+  border-right-color: #007bff;
+  border-bottom-color: #007bff;
   box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+}
+
+.agent-card:active {
+  transform: scale(0.98);
 }
 
 .agent-card-header {
@@ -890,10 +896,8 @@
 }
 
 .agent-card:focus-visible {
-  outline: 2px solid #007bff;
+  outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: 2px;
-  border-color: #007bff;
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
 }
 
 .runs-table tbody tr:focus-visible {
