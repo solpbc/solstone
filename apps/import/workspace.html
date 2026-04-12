@@ -403,6 +403,16 @@
   background: white;
 }
 
+.import-history-filters select:hover {
+  border-color: #a0aec0;
+}
+
+.import-history-filters select:focus {
+  outline: none;
+  border-color: #0f4c81;
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.1);
+}
+
 .spinner { display:inline-block; width:12px; height:12px; border:2px solid #ccc; border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; margin-left:6px; }
 .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
 .modal-content { background:white; margin:5% auto; padding:1em; border-radius:8px; max-width:800px; max-height:80vh; overflow:auto; position:relative; }
@@ -416,21 +426,21 @@
 .modal-actions { margin-top: 1em; display: flex; justify-content: flex-end; }
 
 .import-list { margin-top: 2em; overflow-x: auto; }
-.import-list h2 { margin: 0; }
+.import-list h2 { font-size: 1.15rem; font-weight: 600; margin: 0 0 0.75rem 0; color: #2f3a4c; }
 .import-table { width: 100%; border-collapse: collapse; }
-.import-table th { background: #f5f5f5; text-align: left; padding: 8px; border-bottom: 2px solid #ddd; font-size: 0.9em; }
-.import-table td { padding: 8px; border-bottom: 1px solid #eee; vertical-align: top; }
-.import-table tr:hover { background: #f9f9f9; cursor: pointer; }
-.import-status { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.85em; }
-.import-status.success { background: #d4edda; color: #155724; }
-.import-status.pending { background: #fff3cd; color: #856404; }
-.import-status.failed { background: #f8d7da; color: #721c24; }
+.import-table th { background: #f4f7fb; text-align: left; padding: 8px; border-bottom: 1px solid var(--facet-border, #e5e0db); font-size: 0.9em; }
+.import-table td { padding: 8px; border-bottom: 1px solid #edf1f7; vertical-align: top; }
+.import-table tr:hover { background: #f7f9fc; cursor: pointer; }
+.import-status { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.85em; }
+.import-status.success { background: #edf8ef; color: #1a5c2a; }
+.import-status.pending { background: #fef9e7; color: #5b4a08; }
+.import-status.failed { background: #fff0f0; color: #9b2c2c; }
 .import-status.running { background: #cfe2ff; color: #084298; display: inline-flex; align-items: center; gap: 6px; }
 .import-status.running::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #084298; animation: pulse 1.5s ease-in-out infinite; }
-.progress-detail { font-size: 0.8em; color: #666; margin-top: 2px; }
-.file-size { color: #666; font-size: 0.9em; }
+.progress-detail { font-size: 0.8em; color: #8891a0; margin-top: 2px; }
+.file-size { color: #4b5565; font-size: 0.9rem; }
 .nowrap { white-space: nowrap; }
-.timestamp-link { color: #007bff; text-decoration: none; }
+.timestamp-link { color: var(--facet-color, #0f4c81); text-decoration: none; }
 .timestamp-link:hover { text-decoration: underline; }
 .no-imports { color: #666; font-style: italic; padding: 2em; text-align: center; }
 .import-source-inline {
@@ -449,9 +459,17 @@
 }
 
 .import-table tbody tr:focus-visible {
-  outline: 2px solid #0f4c81;
+  outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: -2px;
   background: #f0f4ff;
+}
+
+.import-table tbody tr {
+  transition: background 0.1s ease;
+}
+
+.import-table tbody tr:active {
+  background: #e8edf5;
 }
 
 .import-steps-list {
