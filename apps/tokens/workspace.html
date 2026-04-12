@@ -353,7 +353,7 @@
 }
 
 .error-state h2 {
-  color: #c0392b;
+  color: #dc2626;
   margin-bottom: 0.5em;
   font-size: 1.1em;
 }
@@ -365,17 +365,28 @@
 }
 
 .error-state button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--facet-color, #b06a1a);
   color: white;
   border: none;
   padding: 0.6em 1.8em;
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.95em;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .error-state button:hover {
   opacity: 0.9;
+}
+
+.error-state button:active {
+  opacity: 0.8;
+  transform: scale(0.97);
+}
+
+.error-state button:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 2px;
 }
 
 .skipped-notice {
