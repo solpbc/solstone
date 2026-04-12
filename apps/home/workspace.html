@@ -99,6 +99,9 @@
 .pulse-section-toggle .pulse-section-header {
   margin-bottom: 0;
 }
+.pulse-briefing-header .pulse-section-header {
+  margin-bottom: 0;
+}
 .pulse-section-summary {
   font-size: 0.8rem;
   color: #94a3b8;
@@ -347,6 +350,13 @@
   outline: 2px solid #6366f1;
   outline-offset: 2px;
 }
+.pulse-briefing-header:hover {
+  background: #f8fafc;
+  border-radius: 6px;
+}
+.pulse-briefing-header:active {
+  background: #f1f5f9;
+}
 .pulse-tell-more {
   display: inline-block;
   margin-top: 0.5rem;
@@ -532,6 +542,7 @@
   align-items: center;
   gap: 0.75rem;
   cursor: pointer;
+  transition: background 0.15s ease;
 }
 .pulse-briefing-meta {
   font-size: 0.75rem;
@@ -561,9 +572,11 @@
   gap: 1rem;
 }
 .pulse-briefing-section-toggle {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -581,6 +594,33 @@
   transform: rotate(-90deg);
 }
 .pulse-briefing-section[data-collapsed="true"] .pulse-briefing-section-body { display: none; }
+.pulse-briefing-section-toggle:hover {
+  color: #334155;
+}
+.pulse-briefing-section-toggle:hover::before {
+  color: #64748b;
+}
+.pulse-briefing-section-toggle:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.pulse-briefing-section-toggle:active {
+  color: #1e293b;
+}
+
+.pulse-reading-link {
+  color: #6366f1;
+  text-decoration: none;
+}
+.pulse-reading-link:hover {
+  text-decoration: underline;
+}
+.pulse-reading-link:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
 
 .pulse-briefing-section-body {
   font-size: 0.85rem;
@@ -769,7 +809,7 @@
   {% if briefing_exists or briefing_phase == 'pending' %}
   <div class="pulse-briefing-card" id="pulse-briefing" data-phase="{{ briefing_phase }}" data-collapsed="{{ 'false' if briefing_phase == 'morning' else 'true' }}">
     <div class="pulse-briefing-header" role="button" tabindex="0" aria-expanded="{{ 'true' if briefing_phase == 'morning' else 'false' }}">
-      <h2 class="pulse-section-header" style="margin-bottom:0">morning briefing</h2>
+      <h2 class="pulse-section-header">morning briefing</h2>
       {% if briefing_needs_badge %}
       <span class="pulse-briefing-badge">{{ briefing_needs_badge }}</span>
       {% endif %}
@@ -1041,8 +1081,7 @@
           var link = document.createElement('a');
           link.href = '/app/search?agent=news&facet=' + encodeURIComponent(facetName);
           link.textContent = li.textContent;
-          link.style.color = '#6366f1';
-          link.style.textDecoration = 'none';
+          link.className = 'pulse-reading-link';
           li.textContent = '';
           li.appendChild(link);
         });
