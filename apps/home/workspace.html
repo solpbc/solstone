@@ -98,16 +98,20 @@
 }
 .pulse-section-toggle::before {
   content: "▾";
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: #64748b;
   transition: transform 0.15s;
-  width: 0.75rem;
+  width: 0.85rem;
   flex-shrink: 0;
   text-align: center;
   margin-left: -1.25rem;
+  line-height: 1;
 }
 [data-section-collapsed="true"] .pulse-section-toggle::before {
   transform: rotate(-90deg);
+}
+[data-section-collapsed="true"] > .pulse-section-toggle {
+  padding-block: 0.5rem;
 }
 [data-section-collapsed="false"] > .pulse-section-toggle {
   border-bottom: 1px solid #e2e8f0;
@@ -138,7 +142,7 @@
 [data-section-collapsed="true"] .pulse-section-body { display: none; }
 [data-section-collapsed="true"].pulse-today,
 [data-section-collapsed="true"].pulse-narrative {
-  padding: 0.75rem 1.25rem;
+  padding: 1rem 1.25rem;
 }
 .pulse-section-toggle:hover {
   background: #f8fafc;
