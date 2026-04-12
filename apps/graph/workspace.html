@@ -3,24 +3,24 @@
   <div class="graph-controls" id="graph-controls" style="display:none;">
     <div class="graph-controls-row">
       <div class="graph-type-filters">
-        <button class="graph-type-btn active" data-type="person" style="--btn-color:#2563eb">Person</button>
-        <button class="graph-type-btn active" data-type="company" style="--btn-color:#16a34a">Company</button>
-        <button class="graph-type-btn active" data-type="project" style="--btn-color:#b45309">Project</button>
-        <button class="graph-type-btn active" data-type="tool" style="--btn-color:#6b7280">Tool</button>
+        <button class="graph-type-btn active" data-type="person" style="--btn-color:#2563eb">person</button>
+        <button class="graph-type-btn active" data-type="company" style="--btn-color:#16a34a">company</button>
+        <button class="graph-type-btn active" data-type="project" style="--btn-color:#b45309">project</button>
+        <button class="graph-type-btn active" data-type="tool" style="--btn-color:#6b7280">tool</button>
       </div>
       <div class="graph-time-filters">
         <button class="graph-time-btn" data-days="7">7d</button>
         <button class="graph-time-btn" data-days="30">30d</button>
         <button class="graph-time-btn active" data-days="90">90d</button>
-        <button class="graph-time-btn" data-days="">All</button>
+        <button class="graph-time-btn" data-days="">all</button>
       </div>
       <div class="graph-strength-filter">
-        <label for="min-strength" title="Filter out weaker connections — higher means only stronger relationships">Min strength</label>
+        <label for="min-strength" title="filter out weaker connections -- higher means only stronger relationships">Min strength</label>
         <input type="range" id="min-strength" min="0" max="500" value="0" step="5">
         <span id="min-strength-val">0</span>
       </div>
       <div class="graph-stats" id="graph-stats" aria-live="polite"></div>
-      <button id="graph-view-toggle" class="graph-view-toggle" title="Switch between graph and list view">View as list</button>
+      <button id="graph-view-toggle" class="graph-view-toggle" title="switch between graph and list view">view as list</button>
     </div>
   </div>
 
@@ -118,10 +118,13 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #6b7280;
   border-left: 1px solid #e5e7eb;
   padding-left: 1rem;
+}
+.graph-strength-filter label {
+  font-weight: 500;
 }
 .graph-strength-filter input[type=range] {
   width: 80px;
@@ -134,8 +137,9 @@
 }
 .graph-stats {
   margin-left: auto;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #6b7280;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Loading / empty states */
@@ -974,7 +978,7 @@
     listMode = !listMode;
     const canvas = document.getElementById('graph-canvas');
     const list = document.getElementById('graph-list');
-    this.textContent = listMode ? 'View as graph' : 'View as list';
+    this.textContent = listMode ? 'view as graph' : 'view as list';
     if (listMode) {
       canvas.style.display = 'none';
       list.style.display = 'block';
