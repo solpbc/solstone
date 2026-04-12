@@ -584,6 +584,10 @@
   transition: transform 0.2s;
   width: 40px;
   color: #ccc;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .star-button:hover {
@@ -1111,6 +1115,9 @@ tr:hover .entity-delete-btn {
   .btn-sm {
     min-height: 44px;
     padding: 0.5em 1em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* Detail view: tighter padding, smaller title */
@@ -1238,7 +1245,7 @@ tr:hover .entity-delete-btn {
       <div class="entities-container">
         <h3 id="all-entities-title">
           <span>detected entities</span>
-          <input type="text" id="entity-search" class="entity-search-input" placeholder="search entities...">
+          <input type="text" id="entity-search" class="entity-search-input" placeholder="search entities..." aria-label="Search detected entities">
         </h3>
         <p class="entities-subtitle">found by AI in the last 30 days — star to add to your journal</p>
         <div id="detected-action-error" class="error-message" style="display: none;"></div>
