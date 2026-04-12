@@ -742,7 +742,7 @@ const Dashboard = (function() {
         const count = totals[key] || 0;
         if (count > 0) {
           repairGrid.appendChild(
-            statCard(repairLabels[key], count, '', '#f5576c')
+            statCard(repairLabels[key], count, '', '#dc2626')
           );
         }
       });
