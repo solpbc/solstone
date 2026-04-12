@@ -384,14 +384,23 @@ button.day-header {
   border: 1px solid #d1d5db;
   border-radius: 0.375rem;
   padding: 0.25rem 0.75rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   color: #4b5563;
   font-size: 0.85rem;
   cursor: pointer;
+  transition: background 0.1s ease, border-color 0.1s ease;
 }
 
 .search-noresults-suggestions button:hover {
   background: #f3f4f6;
   border-color: #9ca3af;
+}
+
+.search-noresults-suggestions button:active {
+  background: #e5e7eb;
+  border-color: #6b7280;
 }
 
 .search-agents-empty {
@@ -467,6 +476,11 @@ button.day-header {
     display: flex;
     gap: 1rem;
     flex-wrap: wrap;
+    margin-bottom: 0.25rem;
+  }
+
+  .search-input-form {
+    margin-bottom: 0.75rem;
   }
 
   .filter-section {
