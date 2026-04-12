@@ -298,6 +298,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   gap: 12px;
 }
 
+.tr-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .tr-title {
   font-size: 20px;
   font-weight: 600;
@@ -306,13 +312,13 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-range-text {
   color: #6b7280;
-  font-size: 14px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .tr-nav-hint {
   font-size: 12px;
   color: #9ca3af;
-  margin-left: 8px;
   display: none;
 }
 
@@ -322,7 +328,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-tabs {
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 0;
   border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
   display: none;
@@ -333,7 +339,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 }
 
 .tr-tab {
-  padding: 6px 14px;
+  padding: 8px;
+  margin: 0 -8px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 13px;
@@ -445,7 +452,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-panel {
   flex: 1;
   border: 1px solid #e5e7eb;
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 16px;
   overflow-y: auto;
   min-height: 0;
@@ -736,7 +743,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 12px;
+  padding: 16px;
   background: #f9fafb;
   border-radius: 12px;
   border: 1px solid #e5e7eb;
