@@ -444,16 +444,20 @@
 .graph-view-toggle {
   background: var(--bg-secondary, #f5f5f5);
   border: 1px solid var(--border-color, #e5e5e5);
-  border-radius: 4px;
+  border-radius: 6px;
   border-left: 1px solid #e5e7eb;
   padding: 4px 10px;
   padding-left: 1rem;
   font-size: 0.8rem;
   cursor: pointer;
   color: var(--text-primary, #333);
+  transition: background 0.15s, border-color 0.15s;
 }
 .graph-view-toggle:hover {
   background: var(--bg-tertiary, #e5e5e5);
+}
+.graph-view-toggle:active {
+  background: #d1d5db;
 }
 .graph-table {
   width: 100%;
