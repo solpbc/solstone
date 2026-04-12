@@ -1,22 +1,21 @@
 <style>
 .observer-card {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background: #fafafa;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
-  padding: 1em;
+  padding: 1em 1.25em;
   margin-bottom: 1em;
 }
 .observer-card.disconnected {
   background: #f8f9fa;
-  border-color: #ced4da;
 }
 .observer-card.stale {
   background: #fff9e6;
-  border-color: #ffc107;
+  border-color: #e5c35a;
 }
 .observer-card.revoked {
-  background: #f0f0f0;
-  border-color: #ccc;
+  background: #f5f3f1;
+  border-color: var(--facet-border, #e5e0db);
 }
 .observer-card.revoked .observer-name {
   text-decoration: line-through;
@@ -150,7 +149,7 @@
 .add-observer-form {
   display: flex;
   gap: 8px;
-  margin-bottom: 1.5em;
+  margin-bottom: 1em;
 }
 .add-observer-form input {
   flex: 1;
