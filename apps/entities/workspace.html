@@ -227,7 +227,7 @@
   color: #495057;
   padding: 0.25em 0.75em;
   border-radius: 20px;
-  font-size: 0.75em;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -236,7 +236,7 @@
   color: #212529;
   padding: 0.25em 0.75em;
   border-radius: 20px;
-  font-size: 0.75em;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -245,7 +245,7 @@
   color: #8b6914;
   padding: 0.25em 0.75em;
   border-radius: 20px;
-  font-size: 0.75em;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -254,7 +254,7 @@
   color: white;
   padding: 0.25em 0.75em;
   border-radius: 20px;
-  font-size: 0.75em;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -285,6 +285,7 @@
 .entity-detail-aka {
   color: #6c757d;
   font-size: 0.9em;
+  line-height: 1.4;
 }
 
 .entity-detail-indicators {
@@ -293,6 +294,7 @@
   margin-top: 0.75em;
   font-size: 0.85em;
   color: #6c757d;
+  line-height: 1.4;
 }
 
 .entity-detail-section {
@@ -423,7 +425,6 @@
 .entity-detach-section {
   padding: 1.5em;
   border-top: 1px solid #e9ecef;
-  background: #fafafa;
 }
 
 /* Buttons */
@@ -733,9 +734,9 @@ tr:hover .entity-delete-btn {
   position: fixed;
   z-index: 1000;
   left: 0;
-  top: var(--app-bar-height, 60px);
+  top: var(--facet-bar-height, 60px);
   width: 100%;
-  height: calc(100% - var(--app-bar-height, 60px));
+  height: calc(100% - var(--facet-bar-height, 60px));
   background: rgba(0,0,0,0.6);
   align-items: center;
   justify-content: center;
@@ -866,7 +867,7 @@ tr:hover .entity-delete-btn {
   padding: 0.75em 1em;
   background: #f8f9fa;
   border-radius: 8px;
-  border-left: 4px solid #888;
+  border-left: 3px solid #888;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -960,7 +961,7 @@ tr:hover .entity-delete-btn {
 
 .entity-attach-section {
   padding: 1em;
-  background: #e7f5ff;
+  background: #f0f7ff;
   border-radius: 8px;
   margin-top: 1em;
 }
