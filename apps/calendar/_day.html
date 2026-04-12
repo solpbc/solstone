@@ -139,8 +139,11 @@ h1 {
 
 .all-day-section h2 {
   margin: 0 0 0.5em 0;
-  font-size: 0.85em;
-  color: #666;
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888;
 }
 
 .all-day-cards {
@@ -199,8 +202,16 @@ h1 {
 
 .activities-section h2 {
   margin: 0 0 0.75em 0;
-  font-size: 1em;
-  color: #555;
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888;
+}
+
+.activities-section.no-timeline {
+  border-top: none;
+  margin-top: 1em;
 }
 
 .activity-cards {
@@ -999,7 +1010,9 @@ button.activity-detail-back {
       return;
     }
 
-    let html = '<section class="activities-section" aria-labelledby="activities-heading"><h2 id="activities-heading">activities</h2><div class="activity-cards">';
+    const hasTimeline = events.some(e => e.startTime);
+    const sectionClass = hasTimeline ? 'activities-section' : 'activities-section no-timeline';
+    let html = `<section class="${sectionClass}" aria-labelledby="activities-heading"><h2 id="activities-heading">activities</h2><div class="activity-cards">`;
     list.forEach(a => {
       const dur = fmtDuration(a.duration_minutes);
       const lvl = levelLabel(a.level_avg);
