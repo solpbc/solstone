@@ -470,7 +470,7 @@
   cursor: pointer;
   background: #fff;
   color: #374151;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .rd-tab:hover {
@@ -478,13 +478,17 @@
 }
 
 .rd-tab.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
+  background: var(--facet-color, #b06a1a);
+  border-color: var(--facet-color, #b06a1a);
   color: #fff;
 }
 
+.rd-tab:not(.active):active {
+  background: #e5e7eb;
+}
+
 .rd-tab:focus-visible {
-  outline: 2px solid #007bff;
+  outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: 2px;
 }
 
