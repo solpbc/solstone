@@ -1598,12 +1598,12 @@ body.menu-all .menu-bar {
   resize: none;
   border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 20px;
-  padding: 0.75em 1.25em;
+  padding: 0.6em 1.25em;
   font-family: inherit;
   font-size: 15px;
   line-height: 1.5;
   max-height: 120px;
-  min-height: 42px;
+  min-height: 38px;
   background: transparent;
   position: relative;
   z-index: 1;
