@@ -69,16 +69,17 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.1rem 0;
-  border-bottom: 1px solid #f3f4f6;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  transition: background 0.1s ease;
 }
 
 .todo-row:last-child {
   border-bottom: none;
 }
 
-.todo-row.completed {
-  opacity: 0.6;
+.todo-row:hover {
+  background: #fafbfc;
 }
 
 .todo-checkbox {
