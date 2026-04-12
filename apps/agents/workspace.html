@@ -375,6 +375,12 @@
   text-decoration: underline;
 }
 
+.crumb-link:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .crumb-sep {
   color: #999;
 }
@@ -633,6 +639,15 @@
   background: #e1f0ff;
 }
 
+.event-tool .tool-toggle:active {
+  background: #c8e1f7;
+}
+
+.event-tool .tool-toggle:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 1px;
+}
+
 .event-tool .tool-details {
   margin-top: 0.4rem;
 }
@@ -774,13 +789,14 @@
   right: 0;
   bottom: 0;
   background: rgba(0,0,0,0.5);
-  z-index: 1000;
+  z-index: var(--z-modals, 200);
 }
 
 .modal-backdrop.show {
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
 }
 
 .modal-content {
@@ -819,6 +835,16 @@
 
 .modal-close:hover {
   color: #333;
+}
+
+.modal-close:active {
+  color: #111;
+}
+
+.modal-close:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .modal-body {
