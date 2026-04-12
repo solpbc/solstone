@@ -164,7 +164,6 @@
   max-width: 1400px;
   margin: 0 auto;
   padding: 2em;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
 }
 
 .loading-state {
@@ -215,6 +214,12 @@
   opacity: 0.9;
 }
 
+.summary-table td:not(.row-label),
+.breakdown-table td.num,
+.breakdown-table td .cost-value {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
 .breakdown-section {
   margin-bottom: 3em;
 }
@@ -235,7 +240,6 @@
   padding: 0.5em 1em;
   border: 1px solid #ddd;
   border-radius: 6px;
-  font-family: inherit;
   font-size: 0.9em;
 }
 
@@ -363,7 +367,6 @@
   padding: 0.6em 1.8em;
   border-radius: 6px;
   cursor: pointer;
-  font-family: inherit;
   font-size: 0.95em;
 }
 
