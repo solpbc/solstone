@@ -858,6 +858,13 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   object-fit: cover;
   border: 1px solid #e5e7eb;
   background: #f3f4f6;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.tr-entry-thumb:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  border-color: #d1d5db;
 }
 
 .tr-entry-thumb.loading {
@@ -872,7 +879,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-entry-screen .tr-entry-content {
   display: flex;
   gap: 12px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .tr-entry-desc {
@@ -1084,6 +1091,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   outline-offset: -1px;
 }
 
+.tr-group-header:active {
+  background: #e5e7eb;
+}
+
 .tr-group-chevron {
   width: 16px;
   height: 16px;
@@ -1127,11 +1138,21 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid #e5e7eb;
-  transition: box-shadow 0.15s;
+  transition: box-shadow 0.15s, transform 0.15s;
 }
 
 .tr-group-item:hover {
   box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.tr-group-item:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 1px;
+}
+
+.tr-group-item:active {
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+  transform: scale(0.97);
 }
 
 .tr-group-item img,
@@ -2334,7 +2355,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     targetEl.querySelectorAll('.tr-entry-screen').forEach(entry => {
       const thumb = entry.querySelector('.tr-entry-thumb');
       if (thumb) {
-        thumb.style.cursor = 'pointer';
         thumb.addEventListener('click', (e) => {
           e.stopPropagation();
           const frameIdx = parseInt(entry.dataset.frameIdx, 10);
@@ -2369,6 +2389,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       item.addEventListener('click', () => {
         const frameIdx = parseInt(item.dataset.frameIdx, 10);
         if (!isNaN(frameIdx)) openImageModal(frameIdx);
+      });
+      item.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          item.click();
+        }
       });
     });
 
@@ -2518,7 +2544,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const frameIdx = findFrameIndex(entry);
 
       if (videoUrl && frameId) {
-        html += `<div class="tr-group-item" data-frame-idx="${frameIdx}" title="${escapeHtml(description)}">`;
+        html += `<div class="tr-group-item" data-frame-idx="${frameIdx}" title="${escapeHtml(description)}" role="button" tabindex="0">`;
         html += `<canvas class="loading" data-video-url="${escapeHtml(videoUrl)}" data-frame-id="${frameId}"></canvas>`;
         html += `<span class="tr-group-item-badge">${escapeHtml(category)}</span>`;
         html += '</div>';
