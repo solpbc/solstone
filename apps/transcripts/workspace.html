@@ -476,6 +476,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   overflow-x: hidden;
   font-size: 14px;
   line-height: 1.5;
+  transition: opacity 0.1s ease;
+}
+
+.tr-panel.loading {
+  opacity: 0.5;
 }
 
 .tr-panel pre {
@@ -1040,6 +1045,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   background: #fffbeb;
   border: 1px solid #fde68a;
   border-radius: 8px;
+  transition: opacity 0.3s ease;
 }
 
 .tr-warning-notice.visible {
@@ -2021,6 +2027,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     tabsContainer.innerHTML = '';
     document.getElementById('trWarningNotice').classList.remove('visible');
     panel.innerHTML = '<div class="tr-unified-empty"><p>Loading segment...</p></div>';
+    panel.classList.add('loading');
 
     fetch(`/app/transcripts/api/segment/${day}/${seg.stream}/${seg.key}`)
       .then(r => r.json())
@@ -2028,6 +2035,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         if (!selectedSegment || selectedSegment.key !== segmentToken) {
           return;
         }
+        panel.classList.remove('loading');
         segmentData = data;
         updateRangeText();
         buildTabBar(data);
@@ -2041,6 +2049,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         }
       })
       .catch(() => {
+        if (!selectedSegment || selectedSegment.key !== segmentToken) {
+          return;
+        }
+        panel.classList.remove('loading');
         tabsContainer.classList.remove('visible');
         tabsContainer.innerHTML = '';
         panel.innerHTML = emptyStateHTML(emptyIcons.transcript, 'couldn\'t load this segment', 'something went wrong loading the transcript. try selecting the segment again, or refresh the page.');
@@ -3079,7 +3091,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       notice.style.color = '#991b1b';
       notice.innerHTML = '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> <span>' + escapeHtml(err.message) + '</span>';
       panel.insertBefore(notice, panel.firstChild);
-      setTimeout(() => notice.remove(), 5000);
+      setTimeout(() => {
+        notice.style.opacity = '0';
+        setTimeout(() => notice.remove(), 300);
+      }, 5000);
     }
   });
 
