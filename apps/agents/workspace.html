@@ -271,7 +271,11 @@
 }
 
 .runs-table tbody tr:hover {
-  background: #f8f9fa;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.runs-table tbody tr:active {
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .col-status { width: 50px; text-align: center; }
@@ -901,9 +905,8 @@
 }
 
 .runs-table tbody tr:focus-visible {
-  outline: 2px solid #007bff;
+  outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: -2px;
-  background: #f0f4ff;
 }
 
 /* Responsive: tablet */
