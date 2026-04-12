@@ -14,7 +14,7 @@
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem;
   background: #f8fafc;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
@@ -48,12 +48,21 @@
 }
 
 .pulse-vitals a {
+  margin-left: auto;
   color: #6366f1;
   text-decoration: none;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 
 .pulse-vitals a:hover { text-decoration: underline; }
+.pulse-vitals a:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.pulse-vitals a:active {
+  color: #4f46e5;
+}
 
 .pulse-vitals-attention {
   color: #dc2626;
@@ -706,9 +715,7 @@
       {{ attention.placeholder_text }}
     </div>
     {% endif %}
-    <div style="margin-left:auto">
-      <a href="/app/health">Health →</a>
-    </div>
+    <a href="/app/health">health →</a>
   </div>
 
   <!-- Welcome -->
@@ -1209,7 +1216,7 @@
         if (data.attention) {
           html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.attention.placeholder_text) + '</div>';
         }
-        html += '<div style="margin-left:auto"><a href="/app/health">Health →</a></div>';
+        html += '<a href="/app/health">health →</a>';
         el.innerHTML = html;
       })
       .catch(function(err) { console.error('home: refreshVitals failed', err); });
