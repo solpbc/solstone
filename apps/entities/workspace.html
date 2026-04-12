@@ -18,24 +18,24 @@
 
 .entity-type-header {
   font-size: 0.85em;
-  font-weight: 600;
+  font-weight: 500;
   color: #6c757d;
   margin-bottom: 0.75em;
   padding-bottom: 0.5em;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--facet-border, #e5e0db);
 }
 
 .entity-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.75em;
+  gap: 0.85em 0.75em;
 }
 
 .entity-card {
   background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
-  padding: 0.75em 1em;
+  padding: 0.85em 1.15em;
   cursor: pointer;
   transition: all 0.15s;
   position: relative;
@@ -60,7 +60,7 @@
   font-weight: 500;
   font-size: 14px;
   color: #212529;
-  margin-bottom: 0.25em;
+  margin-bottom: 0.4em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -81,8 +81,8 @@
 .entity-card-mention-badge,
 .entity-card-badge {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: -1px;
+  right: -1px;
   background: color-mix(in srgb, var(--facet-color, #667eea) 25%, white);
   color: var(--facet-color, #667eea);
   font-size: 11px;
@@ -123,8 +123,8 @@
 
 .entity-card-principal-badge {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: -1px;
+  left: -1px;
   background: linear-gradient(135deg, #f0c040 0%, #d4a012 100%);
   color: white;
   font-size: 0.65em;
@@ -148,8 +148,8 @@
 
 .entity-card-blocked-badge {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: -1px;
+  left: -1px;
   background: #6b7280;
   color: white;
   font-size: 0.65em;
@@ -161,8 +161,8 @@
 /* Entity type indicator dot */
 .entity-card-type-indicator {
   position: absolute;
-  bottom: 0.5em;
-  left: 0.75em;
+  bottom: 0.65em;
+  left: 0.85em;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -178,8 +178,9 @@
 /* Detail view affordance chevron */
 .entity-card-detail-affordance {
   position: absolute;
-  bottom: 0.5em;
-  right: 0.75em;
+  top: 50%;
+  right: 0.85em;
+  transform: translateY(-50%);
   font-size: 1.1em;
   line-height: 1;
   color: #adb5bd;
