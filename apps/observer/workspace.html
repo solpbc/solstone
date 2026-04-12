@@ -32,8 +32,11 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 1em;
-  padding: 3px 10px;
+  font-size: 0.8em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 4px 10px;
   border-radius: 4px;
 }
 .observer-status.connected {
@@ -81,15 +84,15 @@
   font-weight: bold;
 }
 .observer-status.revoked {
-  background: #e9ecef;
-  color: #6c757d;
+  background: #f0ece8;
+  color: #8a8078;
 }
 .observer-status.revoked::before {
   content: '';
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #6c757d;
+  background: #8a8078;
 }
 .observer-status.revoked::after {
   content: '—';
