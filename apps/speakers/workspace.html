@@ -6,12 +6,12 @@
 .spk-wrap {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 16px 24px;
+  padding: 1.5rem 2rem 2rem;
 }
 
 .spk-layout {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 320px 1fr;
   gap: 24px;
   min-height: 400px;
 }
@@ -32,7 +32,7 @@
 }
 
 .spk-segments-list {
-  max-height: 500px;
+  max-height: min(500px, calc(100vh - 260px));
   overflow-y: auto;
 }
 
