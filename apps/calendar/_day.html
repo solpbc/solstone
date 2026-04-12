@@ -89,10 +89,18 @@
   white-space: pre-wrap;
 }
 
+h1 {
+  font-size: 1.5em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.25em 0;
+}
+
 .day-summary {
   font-size: 0.9em;
   color: #888;
   margin-bottom: 1em;
+  max-width: 65ch;
 }
 
 .events-empty {
@@ -751,8 +759,8 @@ button.activity-detail-back {
     const ac = activities.length;
 
     if (!ec && !ac) {
-      el.textContent = '';
-      el.style.display = 'none';
+      el.textContent = 'no recorded events';
+      el.style.display = '';
       return;
     }
 
