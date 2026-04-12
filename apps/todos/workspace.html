@@ -198,6 +198,15 @@
   color: #ef4444;
 }
 
+.todo-action-btn:active {
+  background: #e5e7eb;
+}
+
+.todo-action-btn.cancel:active {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
 .todo-text:focus-visible {
   outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: 2px;
@@ -360,17 +369,22 @@
 }
 
 .facet-generate-btn {
-  text-decoration: none;
   font-size: 1.1rem;
   margin-left: auto;
   margin-right: 0.5rem;
   transition: transform 0.2s;
   display: inline-block;
   cursor: pointer;
+  border: none;
+  background: transparent;
 }
 
 .facet-generate-btn:hover {
   transform: scale(1.2);
+}
+
+.facet-generate-btn:active {
+  transform: scale(0.9);
 }
 
 .facet-generate-btn.generating {
@@ -486,11 +500,12 @@
           {% if facet_emoji %}<span class="facet-emoji" aria-hidden="true">{{ facet_emoji }}</span>{% endif %}
           <h2 class="facet-title">{{ facet_title }}</h2>
           <span class="facet-pending-text">{% if total_count == 0 %}{% elif incomplete_count == 0 %}all done{% else %}{{ total_count - incomplete_count }} of {{ total_count }} done{% endif %}</span>
-          <a href="#"
+          <button type="button"
              class="facet-generate-btn"
              data-facet="{{ facet_name }}"
              data-day="{{ day }}"
-             title="Generate weekly todos with AI">✨</a>
+             title="Generate weekly todos with AI"
+             aria-label="Generate weekly todos with AI">✨</button>
           <span class="facet-count">{{ count_emoji }}</span>
         </div>
 
@@ -1250,7 +1265,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // Handle weekly todo generation buttons
   document.querySelectorAll('.facet-generate-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      e.preventDefault();
       e.stopPropagation();
 
       const day = btn.dataset.day;
@@ -1258,7 +1272,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // If already has agent_id, navigate to agents page
       if (btn.dataset.agentId) {
-        window.location.href = btn.href;
+        window.location.href = btn.dataset.agentUrl;
         return;
       }
 
@@ -1279,7 +1293,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Store agent_id for event matching and navigation
         btn.dataset.agentId = data.agent_id;
-        btn.href = `/agents#${data.agent_id}`;
+        btn.dataset.agentUrl = `/agents#${data.agent_id}`;
 
       } catch (error) {
         showMessage('Failed to start todo generation', 'error');
