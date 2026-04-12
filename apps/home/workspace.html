@@ -190,7 +190,7 @@
 
 .pulse-event-time {
   font-size: 0.8rem;
-  color: #64748b;
+  color: #94a3b8;
   min-width: 50px;
   font-variant-numeric: tabular-nums;
 }
@@ -321,7 +321,7 @@
 .pulse-entity-type {
   font-size: 0.75rem;
   padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  border-radius: 4px;
   font-weight: 600;
 }
 
@@ -330,8 +330,16 @@
 .pulse-entity-type.project { background: #fef3c7; color: #b45309; }
 .pulse-entity-type.tool { background: #f3f4f6; color: #4b5563; }
 
+.pulse-entity:hover {
+  border-color: #cbd5e1;
+}
+
+.pulse-entity[data-conversation]:hover {
+  border-radius: 6px;
+}
+
 .pulse-network-link {
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
   font-size: 0.8rem;
 }
 
@@ -444,7 +452,10 @@
   text-decoration: none;
 }
 
-.pulse-routines-more a:hover { text-decoration: underline; }
+.pulse-routines-more a:hover {
+  text-decoration: underline;
+  background: transparent;
+}
 
 /* Skills */
 .pulse-skills {
@@ -503,7 +514,7 @@
   color: #8b5cf6;
   background: #f5f3ff;
   padding: 0.1rem 0.35rem;
-  border-radius: 3px;
+  border-radius: 4px;
   white-space: nowrap;
 }
 
@@ -715,7 +726,7 @@
 
 .pulse-empty-state {
   padding: 1rem 1.25rem;
-  background: #fff;
+  background: #f8fafc;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
 }
@@ -733,6 +744,20 @@
 
 .pulse-empty-state .pulse-empty-message a:hover {
   text-decoration: underline;
+}
+
+.pulse-needs-more a:focus-visible,
+.pulse-network-link a:focus-visible,
+.pulse-empty-state .pulse-empty-message a:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.pulse-needs-more a:active,
+.pulse-network-link a:active,
+.pulse-empty-state .pulse-empty-message a:active {
+  color: #4f46e5;
 }
 
 /* Responsive breakpoints */
@@ -1063,7 +1088,7 @@
       </div>
       {% endfor %}
     </div>
-    <div class="pulse-network-link"><a href="/app/graph">View full graph →</a></div>
+    <div class="pulse-network-link"><a href="/app/graph">view full graph →</a></div>
     </div>
   </div>
   {% endif %}
