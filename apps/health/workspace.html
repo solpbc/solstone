@@ -99,9 +99,9 @@
 }
 
 .vitals-content {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2em;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 1.5em;
   font-size: 0.95em;
   padding-bottom: 0.75em;
   border-bottom: 1px solid #e5e7eb;
@@ -111,6 +111,12 @@
   display: flex;
   flex-direction: column;
   gap: 0.5em;
+  min-width: 80px;
+}
+
+.vitals-content > .vitals-section + .vitals-section {
+  border-left: 1px solid #e5e7eb;
+  padding-left: 1.5em;
 }
 
 .vitals-label {
@@ -1008,6 +1014,11 @@
 
   .vitals-content {
     gap: 0.5em;
+  }
+
+  .vitals-content > .vitals-section + .vitals-section {
+    border-left: none;
+    padding-left: 0;
   }
 
   .observe-content {
