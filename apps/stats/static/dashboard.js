@@ -356,7 +356,7 @@ const Dashboard = (function() {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const maxVal = Math.max(...data.flat()) || 1;
     
-    const heatmap = el('div', {className: 'heatmap', role: 'img', 'aria-label': 'Activity heatmap showing captures by day of week and hour'});
+    const heatmap = el('div', {className: 'heatmap', role: 'grid', 'aria-label': 'Activity heatmap showing captures by day of week and hour'});
     
     // Empty top-left corner
     heatmap.appendChild(el('div'));
@@ -378,8 +378,10 @@ const Dashboard = (function() {
         const cell = el('div', {
           className: 'heatmap-cell',
           style: {background: `rgba(102,126,234,${intensity})`},
-          title: cellTitle,
-          'aria-label': cellTitle
+          'data-tip': cellTitle,
+          'aria-label': cellTitle,
+          role: 'gridcell',
+          tabindex: '-1'
         });
         heatmap.appendChild(cell);
       }
