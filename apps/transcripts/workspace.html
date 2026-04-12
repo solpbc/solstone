@@ -365,6 +365,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   outline-offset: 1px;
 }
 
+.tr-tab:active:not(.active) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
 .tr-tab-pane {
   display: none;
   height: 100%;
@@ -439,6 +444,17 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   background: #fef2f2;
   border-color: #fecaca;
   color: #ef4444;
+}
+
+.tr-delete-btn:focus-visible {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
+}
+
+.tr-delete-btn:active {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #dc2626;
 }
 
 .tr-delete-btn.visible {
@@ -797,6 +813,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   outline-offset: -1px;
 }
 
+.tr-entry-audio:active {
+  background: #f0f9ff;
+}
+
 .tr-entry.tr-entry-active {
   background: #f0f9ff;
   border-left-color: #3b82f6;
@@ -898,12 +918,26 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   text-decoration: underline;
 }
 
+.tr-speaker-label a:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.tr-speaker-label a:active {
+  color: #1f2937;
+}
+
 .tr-speaker-label-owner {
   color: #4f46e5;
 }
 
 .tr-speaker-label-owner a {
   color: #4f46e5;
+}
+
+.tr-speaker-label-owner a:active {
+  color: #3730a3;
 }
 
 .tr-speaker-dot {
