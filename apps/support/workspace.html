@@ -99,11 +99,15 @@
     font: inherit;
     resize: vertical;
     box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
+  .support-reply-form textarea:hover { border-color: #bbb; }
   .support-reply-form textarea:focus {
     outline: none;
     border-color: var(--facet-color, #3b82f6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
   }
+  .support-reply-form label, .support-feedback-form label { display: block; margin-bottom: 0.35rem; }
 
   /* Feedback */
   .support-feedback-form textarea {
@@ -116,10 +120,13 @@
     resize: vertical;
     margin-bottom: 0.5rem;
     box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
+  .support-feedback-form textarea:hover { border-color: #bbb; }
   .support-feedback-form textarea:focus {
     outline: none;
     border-color: var(--facet-color, #3b82f6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
   }
   .support-feedback-options {
     display: flex;
@@ -302,6 +309,7 @@
     font-size: 0.9rem;
     color: #666;
   }
+  .support-section-intro { font-size: 0.9rem; color: #666; margin-bottom: 1rem; line-height: 1.5; }
   .support-diagnostics-loading {
     display: none;
     font-size: 0.85rem;
@@ -479,7 +487,7 @@
 
     <!-- Section: Feedback -->
     <div id="section-feedback" class="support-section" role="tabpanel" aria-labelledby="tab-feedback">
-      <p style="margin-bottom:1rem;">💬 Share your impressions, ideas, or anything on your mind. Your feedback shapes the product.</p>
+      <p class="support-section-intro">💬 Share your impressions, ideas, or anything on your mind. Your feedback shapes the product.</p>
       <div class="support-feedback-form">
         <form id="feedback-form" novalidate>
           <label for="feedback-text">your feedback</label>
