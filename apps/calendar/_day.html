@@ -105,11 +105,10 @@ h1 {
 
 .events-empty {
   color: #888;
-  padding: 3em 2em;
+  padding: 1.5em 2em 3em;
   text-align: center;
 }
 .empty-icon {
-  font-size: 2em;
   margin-bottom: 0.25em;
 }
 .empty-heading {
@@ -119,6 +118,8 @@ h1 {
 }
 .empty-desc {
   font-size: 0.9em;
+  color: #aaa;
+  margin-top: 0.5em;
 }
 
 /* Planned/anticipated events - dotted outline, faded */
@@ -806,7 +807,7 @@ button.activity-detail-back {
   function renderEvents(list) {
     const div = document.getElementById('eventsView');
     if (!list.length && !activities.length) {
-      div.innerHTML = '<div class="events-empty"><div class="empty-icon">📅</div><div class="empty-heading">no events or activities</div><div class="empty-desc">nothing recorded for this day</div></div>';
+      div.innerHTML = '<div class="events-empty"><div class="empty-icon"><svg width="32" height="32" viewBox="0 0 32 32" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="24" height="22" rx="3"/><line x1="10" y1="3" x2="10" y2="9"/><line x1="22" y1="3" x2="22" y2="9"/><line x1="4" y1="14" x2="28" y2="14"/><line x1="11" y1="19" x2="11" y2="19.01"/><line x1="16" y1="19" x2="16" y2="19.01"/><line x1="21" y1="19" x2="21" y2="19.01"/><line x1="11" y1="24" x2="11" y2="24.01"/><line x1="16" y1="24" x2="16" y2="24.01"/></svg></div><div class="empty-heading">no events or activities</div><div class="empty-desc">nothing recorded for this day</div></div>';
       return;
     }
     if (!list.length) {
