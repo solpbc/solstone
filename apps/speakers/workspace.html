@@ -257,7 +257,7 @@
 .spk-filter-btn {
   padding: 6px 10px;
   border: 1px solid #d1d5db;
-  border-radius: 999px;
+  border-radius: 6px;
   background: #fff;
   color: #4b5563;
   font-size: 12px;
@@ -400,6 +400,7 @@
   padding: 6px 10px;
   border-radius: 4px;
   font-size: 12px;
+  line-height: 1.5;
   margin-top: 8px;
 }
 
@@ -772,7 +773,7 @@
   font-size: 13px;
   color: #374151;
   cursor: pointer;
-  margin: 8px 16px;
+  margin: 8px 0;
   transition: background 0.15s;
 }
 
@@ -1704,9 +1705,9 @@
         <span id="spkSentenceCount">${escapeHtml(countLabel)}</span>
       </h2>
       <div class="spk-filter-bar">
-        <button class="spk-filter-btn${currentFilter === 'all' ? ' active' : ''}" data-filter="all">All</button>
-        <button class="spk-filter-btn${currentFilter === 'needs_review' ? ' active' : ''}" data-filter="needs_review">Needs Review</button>
-        <button class="spk-filter-btn${currentFilter === 'corrections' ? ' active' : ''}" data-filter="corrections">Corrections</button>
+        <button class="spk-filter-btn${currentFilter === 'all' ? ' active' : ''}" data-filter="all">all</button>
+        <button class="spk-filter-btn${currentFilter === 'needs_review' ? ' active' : ''}" data-filter="needs_review">needs review</button>
+        <button class="spk-filter-btn${currentFilter === 'corrections' ? ' active' : ''}" data-filter="corrections">corrections</button>
       </div>
       ${(() => {
         const seg = selectedSegment;
