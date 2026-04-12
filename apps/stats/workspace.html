@@ -246,14 +246,6 @@ h1 {
 }
 
 /* Heatmap */
-.heatmap-section {
-  background: white;
-  border-radius: 12px;
-  padding: 2em;
-  margin-bottom: 2em;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-}
-
 .heatmap {
   display: grid;
   grid-template-columns: 40px repeat(24, 1fr);
@@ -268,6 +260,7 @@ h1 {
   align-items: center;
   justify-content: flex-end;
   padding-right: 8px;
+  font-weight: 600;
 }
 
 .heatmap-cell {
@@ -293,8 +286,9 @@ h1 {
 
 .heatmap-hour {
   text-align: center;
-  font-size: 0.7em;
+  font-size: 0.75em;
   color: #999;
+  font-weight: 500;
 }
 
 
@@ -450,7 +444,7 @@ h1 {
   .bar-value {
     display: none;
   }
-  .heatmap-section {
+  #heatmapSection {
     display: none;
   }
   .model-select {
@@ -499,7 +493,7 @@ h1 {
       <div class="chart" id="audioChart"></div>
     </div>
 
-    <div class="heatmap-section">
+    <div class="chart-section" id="heatmapSection">
       <h2>Activity Heatmap</h2>
       <div id="heatmap"></div>
     </div>
