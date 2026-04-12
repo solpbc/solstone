@@ -319,6 +319,14 @@
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
+.slider:hover {
+  opacity: 0.85;
+}
+
+.slider:hover:before {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
 input:checked + .slider {
   background-color: #6c757d;
 }
@@ -390,6 +398,16 @@ input:checked + .slider:before {
   background: #f5f5f5;
 }
 
+.emoji-display:active {
+  transform: scale(0.95);
+}
+
+.emoji-display:focus-visible {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
 .emoji-input {
   width: 100%;
   max-width: 200px;
@@ -416,6 +434,11 @@ input:checked + .slider:before {
 .color-picker-trigger:hover {
   background: #f5f5f5;
   border-color: #999;
+}
+
+.color-picker-trigger:focus-visible {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
 }
 
 .color-preview {
@@ -964,6 +987,16 @@ input:checked + .slider:before {
   min-width: 80px;
 }
 
+.context-select:hover {
+  border-color: #bbb;
+}
+
+.context-select:focus {
+  border-color: var(--facet-color, #E8923A);
+  box-shadow: 0 0 0 3px var(--facet-bg, rgba(232, 146, 58, 0.1));
+  outline: none;
+}
+
 .context-action {
   width: 1.5em;
   text-align: center;
@@ -1388,6 +1421,12 @@ input:checked + .slider:before {
   cursor: default;
 }
 
+.insight-toggle input:focus-visible + .slider {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
+  border-radius: 20px;
+}
+
 /* Activities section */
 .activities-section {
   border: 1px solid var(--facet-border, #e5e0db);
@@ -1549,6 +1588,16 @@ input:checked + .slider:before {
   cursor: default;
 }
 
+.activity-chip:active:not(.activity-chip-attached) {
+  background: #d0d0d0;
+  transform: scale(0.97);
+}
+
+.activity-chip:focus-visible {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
+}
+
 .activity-chip-icon {
   font-size: 1.1em;
 }
@@ -1660,6 +1709,18 @@ input:checked + .slider:before {
   font-size: 0.85em;
 }
 
+.stream-override-select:hover,
+.stream-override-days:hover {
+  border-color: #999;
+}
+
+.stream-override-select:focus,
+.stream-override-days:focus {
+  border-color: var(--facet-color, #E8923A);
+  box-shadow: 0 0 0 3px var(--facet-bg, rgba(232, 146, 58, 0.1));
+  outline: none;
+}
+
 /* Keyboard focus indicators */
 .settings-nav-item:focus-visible,
 .setup-btn:focus-visible,
@@ -1684,7 +1745,7 @@ button:focus-visible {
 }
 
 /* Toggle switches */
-.toggle-switch:focus-visible {
+.toggle-switch input:focus-visible + .slider {
   outline: 2px solid var(--facet-color, #E8923A);
   outline-offset: 2px;
   border-radius: 12px;
@@ -1695,6 +1756,8 @@ button:focus-visible {
 .setup-btn:focus:not(:focus-visible),
 .save-color-btn:focus:not(:focus-visible),
 .field-display:focus:not(:focus-visible),
+.color-picker-trigger:focus:not(:focus-visible),
+.emoji-display:focus:not(:focus-visible),
 button:focus:not(:focus-visible) {
   outline: none;
 }
@@ -2732,14 +2795,14 @@ button:focus:not(:focus-visible) {
 
       <div class="settings-field">
         <label for="emojiInput">icon</label>
-        <div class="emoji-display" id="emojiDisplay">&#128230;</div>
+        <div class="emoji-display" id="emojiDisplay" tabindex="0" role="button">&#128230;</div>
         <input type="text" id="emojiInput" class="emoji-input" maxlength="4" placeholder="Paste emoji" style="display:none">
         <small>Click to change emoji</small>
       </div>
 
       <div class="settings-field">
         <label>theme color</label>
-        <div class="color-picker-trigger" id="colorTrigger">
+        <div class="color-picker-trigger" id="colorTrigger" tabindex="0" role="button">
           <div class="color-preview" id="colorPreview"></div>
           <span id="colorHexDisplay">#667eea</span>
         </div>
@@ -5428,7 +5491,7 @@ function renderActivities(data) {
     defaultsList.innerHTML = defaults.map(d => {
       const isAttached = attachedIds.has(d.id);
       return `
-        <span class="activity-chip ${isAttached ? 'activity-chip-attached' : ''}" data-id="${d.id}" ${isAttached ? '' : 'title="Click to add"'}>
+        <span class="activity-chip ${isAttached ? 'activity-chip-attached' : ''}" data-id="${d.id}" ${isAttached ? '' : 'tabindex="0" role="button" title="Click to add"'}>
           <span class="activity-chip-icon">${d.icon || '📌'}</span>
           <span>${escapeHtml(d.name)}</span>
         </span>
