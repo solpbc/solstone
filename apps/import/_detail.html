@@ -57,10 +57,16 @@
 .import-content-summary { margin-bottom: 1em; padding: 0.75em 1em; background: #f0f7ff; border-radius: 4px; font-size: 0.95em; }
 .import-content-controls { display: flex; gap: 0.75em; margin-bottom: 1em; }
 .import-content-search { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; }
+.import-content-search:hover:not(:focus) { border-color: #a0aec0; }
+.import-content-search:focus { outline: none; border-color: #0f4c81; box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.1); }
 .import-content-month { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; background: #fff; }
+.import-content-month:hover:not(:focus) { border-color: #a0aec0; }
+.import-content-month:focus { outline: none; border-color: #0f4c81; box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.1); }
 .import-content-items { }
 .import-content-item { border: 1px solid #e5e5e5; border-radius: 4px; margin-bottom: 0.5em; cursor: pointer; transition: border-color 0.15s; }
 .import-content-item:hover { border-color: var(--facet-color, #0f4c81); }
+.import-content-item:active { border-color: #0056b3; background: #f8f9fa; }
+.import-content-item:focus-visible { outline: 2px solid var(--facet-color, #b06a1a); outline-offset: 2px; }
 .import-content-item-header { padding: 0.75em 1em; display: flex; align-items: center; gap: 0.5em; }
 .import-content-item-title { font-weight: 600; flex: 1; }
 .import-content-item-date { color: #888; font-size: 0.85em; white-space: nowrap; }
@@ -88,6 +94,8 @@
 .import-content-pagination button:hover { background: #f5f5f5; }
 .import-content-pagination button.active { background: var(--facet-color, #0f4c81); color: #fff; border-color: var(--facet-color, #0f4c81); }
 .import-content-pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+.import-content-pagination button { transition: background 0.1s ease; }
+.import-content-pagination button:active:not(:disabled):not(.active) { background: #e5e7eb; }
 .import-content-month-header { font-weight: 600; color: #555; padding: 0.75em 0 0.25em; border-bottom: 1px solid #e5e5e5; margin-bottom: 0.5em; margin-top: 0.75em; font-size: 0.9em; }
 .import-content-month-header:first-child { margin-top: 0; }
 .import-content-item-meta { padding: 0 1em 0.25em; font-size: 0.8em; color: #888; }
@@ -278,7 +286,7 @@ function renderContentItems(items) {
     const date = item.date ? `${item.date.slice(0, 4)}-${item.date.slice(4, 6)}-${item.date.slice(6, 8)}` : '';
     const calLink = item.date ? `/app/calendar/${item.date}` : '';
     html += `
-      <div class="import-content-item" data-item-id="${item.id}">
+      <div class="import-content-item" data-item-id="${item.id}" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleContentItem(this)}">
         <div class="import-content-item-header" onclick="toggleContentItem(this.parentElement)">
           <span class="import-content-item-type">${typeLabel}</span>
           <span class="import-content-item-title">${escapeContentHtml(item.title)}</span>
