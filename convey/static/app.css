@@ -161,7 +161,10 @@ body.has-date-nav .workspace {
   }
 
   .app-bar {
-    width: calc(100% - 16px) !important;
+    left: 8px;
+    right: 8px;
+    max-width: none;
+    width: auto;
   }
 
   .menu-backdrop {
@@ -1458,9 +1461,12 @@ body.menu-all .menu-bar {
 .app-bar {
   position: fixed;
   bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80%;
+  left: var(--menu-bar-width-minimal);
+  right: 0;
+  width: auto;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
   z-index: var(--z-bars);
   min-height: var(--app-bar-height);
   padding: 0;
@@ -1797,7 +1803,10 @@ body.menu-all .menu-bar {
 
 @media (max-width: 768px) {
   .app-bar.app-bar--focused {
-    width: calc(100% - 16px);
+    left: 8px;
+    right: 8px;
+    max-width: none;
+    width: auto;
   }
 }
 
