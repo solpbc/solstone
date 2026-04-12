@@ -76,7 +76,11 @@ def get_config() -> Any:
         return jsonify(config)
     except Exception:
         logger.exception("error loading config")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/config", methods=["PUT"])
@@ -232,6 +236,26 @@ def update_config() -> Any:
                     else:
                         config["providers"]["key_validation"].pop(provider, None)
 
+            # Validate service tokens (Rev.ai, Plaud) — not AI providers,
+            # so they use their own validators instead of think.providers.
+            SERVICE_TOKEN_VALIDATORS = {
+                "REVAI_ACCESS_TOKEN": ("revai", "observe.transcribe.revai"),
+                "PLAUD_ACCESS_TOKEN": ("plaud", "think.importers.plaud"),
+            }
+            for env_var in changed_fields:
+                if env_var in SERVICE_TOKEN_VALIDATORS:
+                    val_key, module_path = SERVICE_TOKEN_VALIDATORS[env_var]
+                    new_val = data.get(env_var, "")
+                    if new_val:
+                        import importlib
+
+                        mod = importlib.import_module(module_path)
+                        result = mod.validate_token(new_val)
+                        result["timestamp"] = datetime.now(timezone.utc).isoformat()
+                        config["providers"]["key_validation"][val_key] = result
+                    else:
+                        config["providers"]["key_validation"].pop(val_key, None)
+
         # Write back to file
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
@@ -281,7 +305,11 @@ def update_config() -> Any:
         )
     except Exception:
         logger.exception("error updating config")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
@@ -325,7 +353,11 @@ def get_transcribe() -> Any:
         )
     except Exception:
         logger.exception("error loading transcribe config")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
@@ -455,7 +487,11 @@ def get_providers() -> Any:
         )
     except Exception:
         logger.exception("error loading providers")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/validate-keys", methods=["POST"])
@@ -490,11 +526,25 @@ def validate_all_keys() -> Any:
                 result["timestamp"] = datetime.now(timezone.utc).isoformat()
                 key_validation[provider] = result
 
+        # Validate service tokens (Rev.ai, Plaud)
+        SERVICE_TOKEN_VALIDATORS = {
+            "REVAI_ACCESS_TOKEN": ("revai", "observe.transcribe.revai"),
+            "PLAUD_ACCESS_TOKEN": ("plaud", "think.importers.plaud"),
+        }
+        for env_var, (val_key, module_path) in SERVICE_TOKEN_VALIDATORS.items():
+            api_key = env_config.get(env_var, "")
+            if api_key:
+                import importlib
+
+                mod = importlib.import_module(module_path)
+                result = mod.validate_token(api_key)
+                result["timestamp"] = datetime.now(timezone.utc).isoformat()
+                key_validation[val_key] = result
+
         # Validate vertex credentials if configured
         providers_config = config.get("providers", {})
-        if (
-            providers_config.get("google_backend") == "vertex"
-            and providers_config.get("vertex_credentials")
+        if providers_config.get("google_backend") == "vertex" and providers_config.get(
+            "vertex_credentials"
         ):
             from think.providers.google import validate_vertex_credentials
 
@@ -517,9 +567,11 @@ def validate_all_keys() -> Any:
         return jsonify({"success": True, "key_validation": key_validation})
     except Exception:
         logger.exception("error validating keys")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
-
-
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/providers", methods=["PUT"])
@@ -772,9 +824,7 @@ def update_providers() -> Any:
                 if missing:
                     return (
                         jsonify(
-                            {
-                                "error": f"Missing required fields: {', '.join(missing)}"
-                            }
+                            {"error": f"Missing required fields: {', '.join(missing)}"}
                         ),
                         400,
                     )
@@ -856,7 +906,11 @@ def update_providers() -> Any:
 
     except Exception:
         logger.exception("error saving providers")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
@@ -922,7 +976,11 @@ def get_generators() -> Any:
 
     except Exception:
         logger.exception("error loading generators")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/generators", methods=["PUT"])
@@ -1010,7 +1068,11 @@ def update_generators() -> Any:
 
     except Exception:
         logger.exception("error saving generators")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
@@ -1059,7 +1121,11 @@ def get_vision() -> Any:
         )
     except Exception:
         logger.exception("error loading vision config")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/vision", methods=["PUT"])
@@ -1222,7 +1288,11 @@ def update_vision() -> Any:
 
     except Exception:
         logger.exception("error saving vision config")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
@@ -1270,7 +1340,11 @@ def get_observe() -> Any:
 
     except Exception:
         logger.exception("error loading observe config")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/observe", methods=["PUT"])
@@ -1364,7 +1438,11 @@ def update_observe() -> Any:
 
     except Exception:
         logger.exception("error saving observe config")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/facets/muted")
@@ -1387,7 +1465,11 @@ def get_muted_facets() -> Any:
         return jsonify({"facets": muted})
     except Exception:
         logger.exception("error loading muted facets")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/facet", methods=["POST"])
@@ -1459,7 +1541,11 @@ def create_facet() -> Any:
 
     except Exception:
         logger.exception("error creating facet")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>")
@@ -1475,7 +1561,11 @@ def get_facet_config(facet_name: str) -> Any:
         return jsonify({"facet": facet_name, "config": facets[facet_name]})
     except Exception:
         logger.exception("error loading facet config")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>", methods=["PUT"])
@@ -1528,7 +1618,11 @@ def update_facet_config(facet_name: str) -> Any:
         return jsonify({"success": True, "facet": facet_name, "config": config})
     except Exception:
         logger.exception("error saving facet config")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 def _get_logs_from_dir(logs_dir: Path, cursor: str | None) -> dict:
@@ -1634,7 +1728,11 @@ def get_default_activities() -> Any:
         return jsonify({"activities": _get_defaults()})
     except Exception:
         logger.exception("error loading default activities")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>/activities")
@@ -1662,7 +1760,11 @@ def get_facet_activities(facet_name: str) -> Any:
 
     except Exception:
         logger.exception("error loading facet activities")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>/activities", methods=["POST"])
@@ -1743,7 +1845,11 @@ def add_facet_activity(facet_name: str) -> Any:
 
     except Exception:
         logger.exception("error adding activity")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/facet/<facet_name>/activities/<activity_id>", methods=["PUT"])
@@ -1802,7 +1908,11 @@ def update_facet_activity(facet_name: str, activity_id: str) -> Any:
 
     except Exception:
         logger.exception("error updating activity")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route(
@@ -1844,7 +1954,11 @@ def remove_facet_activity(facet_name: str, activity_id: str) -> Any:
 
     except Exception:
         logger.exception("error removing activity")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/sync")
@@ -1898,7 +2012,11 @@ def get_sync() -> Any:
 
     except Exception:
         logger.exception("error loading sync config")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/sync", methods=["PUT"])
@@ -2019,7 +2137,11 @@ def update_sync() -> Any:
 
     except Exception:
         logger.exception("error saving sync config")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/storage")
@@ -2057,7 +2179,11 @@ def get_storage() -> Any:
         )
     except Exception:
         logger.exception("error loading storage")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/storage", methods=["PUT"])
@@ -2142,7 +2268,11 @@ def update_storage() -> Any:
         return jsonify({"success": True, "retention": retention})
     except Exception:
         logger.exception("error saving retention config")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500
 
 
 @settings_bp.route("/api/storage/purge", methods=["POST"])
@@ -2206,4 +2336,8 @@ def run_purge() -> Any:
         return jsonify(response)
     except Exception:
         logger.exception("error running purge")
-        return jsonify({"error": "something went wrong — try again, and if it persists, check the health dashboard"}), 500
+        return jsonify(
+            {
+                "error": "something went wrong — try again, and if it persists, check the health dashboard"
+            }
+        ), 500

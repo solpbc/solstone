@@ -75,6 +75,25 @@ def has_token() -> bool:
         return False
 
 
+def validate_token(token: str) -> dict:
+    """Validate a Rev.ai access token by hitting the account endpoint.
+
+    Returns {"valid": True} or {"valid": False, "error": "..."}.
+    Never raises.
+    """
+    try:
+        resp = requests.get(
+            f"{API_BASE}/account",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return {"valid": True}
+        return {"valid": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+    except Exception as e:
+        return {"valid": False, "error": str(e)}
+
+
 def submit_job(
     token: str,
     media_path: Path,
