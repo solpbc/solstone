@@ -1184,19 +1184,20 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
 .menu-badge {
   animation: badge-pop 0.2s ease;
   position: absolute;
-  top: 2px;
-  right: 6px;
-  min-width: 16px;
-  height: 16px;
+  top: -2px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
   font-size: 11px;
   font-weight: 600;
   background: #ef4444;
   color: white;
-  border-radius: 8px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 3px;
+  padding: 0 4px;
+  box-shadow: 0 0 0 2px white;
   line-height: 1;
 }
 
