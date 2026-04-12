@@ -39,13 +39,13 @@ const Dashboard = (function() {
   function fmtTokens(num) {
     const value = Number(num);
     if (value >= 1e9) {
-      return (value / 1e9).toFixed(1) + 'B';
+      return (value / 1e9).toFixed(1) + '\u2009B';
     }
     if (value >= 1e6) {
-      return (value / 1e6).toFixed(1) + 'M';
+      return (value / 1e6).toFixed(1) + '\u2009M';
     }
     if (value >= 1e3) {
-      return (value / 1e3).toFixed(1) + 'K';
+      return (value / 1e3).toFixed(1) + '\u2009K';
     }
     return String(Math.round(value));
   }
