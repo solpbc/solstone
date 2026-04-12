@@ -25,7 +25,7 @@
   </div>
 
   <!-- Graph container -->
-  <div id="graph-container" style="flex:1;position:relative;min-height:0;">
+  <div id="graph-container" style="flex:1;position:relative;min-height:200px;">
     <div class="graph-loading" id="graph-loading"><div class="graph-spinner"></div>loading knowledge graph...</div>
     <div class="graph-empty" id="graph-empty" style="display:none;">
       <div class="graph-empty-icon">🕸️</div>
@@ -549,10 +549,12 @@
 @media (max-width: 768px) {
   .graph-controls-row { gap: 0.75rem; }
   .graph-detail-panel { width: 280px; }
+  .graph-stats { margin-left: 0; }
+  .graph-strength-filter { flex: 1; }
 }
 
-/* ── Responsive: Mobile (≤375px) ── */
-@media (max-width: 375px) {
+/* ── Responsive: Mobile (≤480px) ── */
+@media (max-width: 480px) {
   .workspace-content { overflow-x: hidden; }
 
   .graph-controls-row { gap: 0.5rem; }
