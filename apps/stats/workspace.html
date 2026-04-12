@@ -212,6 +212,28 @@ h1 {
   filter: brightness(1.1);
 }
 
+.bar::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75em;
+  white-space: pre;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 20;
+}
+
+.bar:hover::after {
+  opacity: 1;
+}
+
 .bar-label {
   position: absolute;
   bottom: -20px;
