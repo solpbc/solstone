@@ -85,7 +85,7 @@
 .todo-checkbox {
   width: 1.25rem;
   height: 1.25rem;
-  accent-color: #2563eb;
+  accent-color: var(--facet-color, #b06a1a);
 }
 
 .todo-checkbox-target {
@@ -121,12 +121,12 @@
   flex: 1;
   min-width: 0;
   padding: 0.25rem 0.5rem;
-  border: 1px solid #2563eb;
+  border: 1px solid var(--facet-color, #b06a1a);
   border-radius: 4px;
   font-size: 1rem;
   color: #111827;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--facet-color, #b06a1a) 10%, transparent);
 }
 
 .todo-row.completed .todo-text {
@@ -187,9 +187,14 @@
 }
 
 .todo-text:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+.todo-checkbox:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 2px;
 }
 
 .no-todos {
@@ -244,8 +249,8 @@
 }
 
 .todo-add-form input[type="text"]:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: var(--facet-color, #b06a1a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--facet-color, #b06a1a) 10%, transparent);
   background: #fff;
 }
 
@@ -1367,7 +1372,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Visual feedback - fast background fade
-    li.style.backgroundColor = 'rgba(37, 99, 235, 0.15)';
+    const facetColor = getComputedStyle(document.documentElement).getPropertyValue('--facet-color').trim() || '#b06a1a';
+    li.style.backgroundColor = `color-mix(in srgb, ${facetColor} 15%, transparent)`;
     li.style.transition = 'background-color 0.3s ease-out';
     setTimeout(() => {
       li.style.backgroundColor = '';
