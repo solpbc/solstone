@@ -251,13 +251,20 @@
 .todo-add-form input[type="text"] {
   flex: 1;
   min-width: 0;
+  margin-left: calc(2.75rem + 0.75rem);
   padding: 0.375rem 0.5rem;
   border: 1px solid transparent;
   border-radius: 4px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: #111827;
   background: transparent;
   outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.todo-add-form input[type="text"]:hover:not(:focus) {
+  border-color: #d1d5db;
+  background: #fafbfc;
 }
 
 .todo-add-form input[type="text"]:focus {
@@ -422,6 +429,7 @@
 
   .todo-add-form input[type="text"] {
     padding: 0.5rem;
+    margin-left: calc(2.75rem + 0.5rem);
   }
 }
 
