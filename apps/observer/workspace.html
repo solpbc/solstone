@@ -167,7 +167,7 @@
 }
 .add-observer-form button {
   padding: 8px 16px;
-  background: #007bff;
+  background: var(--facet-color, #b06a1a);
   color: white;
   border: none;
   border-radius: 4px;
@@ -176,7 +176,14 @@
   min-height: 44px;
 }
 .add-observer-form button:hover {
-  background: #0056b3;
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+}
+.add-observer-form button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+  outline-offset: 2px;
+}
+.add-observer-form button:active {
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 70%, black);
 }
 .add-observer-form button:disabled {
   background: #ccc;
@@ -307,7 +314,7 @@
   justify-content: center;
   padding: 8px 16px;
   min-height: 44px;
-  background: #2196F3;
+  background: var(--facet-color, #b06a1a);
   color: white;
   border: none;
   border-radius: 4px;
@@ -315,7 +322,14 @@
   font-size: 0.95rem;
 }
 .no-observers-action:hover {
-  background: #1976D2;
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+}
+.no-observers-action:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+  outline-offset: 2px;
+}
+.no-observers-action:active {
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 70%, black);
 }
 
 .section-title {
@@ -329,7 +343,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #007bff;
+  background: var(--facet-color, #b06a1a);
   color: white;
   border: none;
   border-radius: 4px;
@@ -340,7 +354,14 @@
   margin-bottom: 1em;
 }
 .add-observer-toggle:hover {
-  background: #0056b3;
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+}
+.add-observer-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+  outline-offset: 2px;
+}
+.add-observer-toggle:active {
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 70%, black);
 }
 .add-observer-toggle .toggle-indicator {
   font-size: 0.75em;
