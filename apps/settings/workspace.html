@@ -6,13 +6,13 @@
   min-height: calc(100vh - var(--facet-bar-height, 60px) - var(--app-bar-height, 60px) - 40px);
   max-width: 1200px;
   margin: 0 auto;
-  padding: 1em;
-  gap: 2em;
+  padding: 1em 1em 1em 0.5em;
+  gap: 1.5em;
 }
 
 /* Left navigation */
 .settings-nav {
-  width: 200px;
+  width: 180px;
   flex-shrink: 0;
   position: sticky;
   top: calc(var(--facet-bar-height, 60px) + 1em);
@@ -22,14 +22,16 @@
 }
 
 .settings-nav-group {
-  margin-bottom: 1.5em;
+  margin-bottom: 1.25em;
 }
 
 .settings-nav-label {
   font-size: 0.75em;
   font-weight: 600;
   color: #888;
-  padding: 0 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0 0.75em 0.25em 0.75em;
   margin-bottom: 0.5em;
 }
 
@@ -48,7 +50,11 @@
 }
 
 .settings-nav-item:hover {
-  background: #f0f0f0;
+  background: rgba(0,0,0,0.05);
+}
+
+.settings-nav-item:active:not(.active) {
+  background: #e4e4e4;
 }
 
 .settings-nav-item.active {
