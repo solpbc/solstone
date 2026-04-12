@@ -237,25 +237,31 @@ button.day-header {
 /* Search input */
 .search-input-form {
   margin-bottom: 1rem;
+  max-width: 640px;
 }
 
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem;
-  font-size: 1.1rem;
-  border: 2px solid #e5e7eb;
+  font-size: 1rem;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
   box-sizing: border-box;
 }
 
 .search-input:focus {
-  border-color: #2563eb;
+  border-color: var(--facet-color, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.search-input:hover:not(:focus) {
+  border-color: #d1d5db;
 }
 
 .search-input::placeholder {
-  color: #9ca3af;
+  color: #aaa;
 }
 
 /* Empty state */
