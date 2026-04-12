@@ -245,6 +245,20 @@
   border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 4px;
   font-size: 0.9em;
+  transition: border-color 0.2s ease;
+}
+
+.search-box input:hover {
+  border-color: #bbb;
+}
+
+.search-box input:focus-visible {
+  border-color: var(--facet-color, #b06a1a);
+  outline: none;
+}
+
+.search-box input::placeholder {
+  color: #999;
 }
 
 .breakdown-table {
@@ -305,6 +319,7 @@
 
 .breakdown-table tbody tr {
   border-bottom: 1px solid #eee;
+  transition: background 0.1s ease;
 }
 
 .breakdown-table tbody tr:hover {
