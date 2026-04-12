@@ -23,11 +23,13 @@
 
 /* Vitals Bar (Full Width) */
 .vitals-bar {
+  display: flex;
+  flex-direction: column;
   background: #f9fafb;
   color: #374151;
   border-radius: 12px;
   padding: 0.75em 1em;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   transition: background 0.5s ease;
 }
 
@@ -108,8 +110,34 @@
 }
 
 .vitals-label {
+  font-size: 0.75em;
   color: #6b7280;
-  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#vitalsCheckBtn {
+  margin-left: 0.5em;
+  padding: 0.15em 0.5em;
+  font-size: 0.8em;
+  font-weight: 500;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: white;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+#vitalsCheckBtn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+#vitalsCheckBtn:active:not(:disabled) {
+  background: #e5e7eb;
+}
+#vitalsCheckBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .vitals-value {
@@ -767,7 +795,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4em;
-  float: right;
+  align-self: flex-end;
+  margin-top: 0.5em;
 }
 
 #cortexGrid .activity-card-id,
@@ -854,9 +883,10 @@
 
 @media (max-width: 375px) {
   .trust-indicator {
-    float: none;
-    text-align: center;
+    display: block;
+    width: 100%;
     font-size: 0.7em;
+    text-align: center;
   }
 }
 </style>
@@ -872,7 +902,7 @@
         <span class="skeleton" style="width: 120px; height: 1em;">&nbsp;</span>
       </div>
       <span class="connection-indicator" id="connectionIndicator"></span>
-      <button id="vitalsCheckBtn" style="margin-left: 0.5em; padding: 0.15em 0.5em; font-size: 0.75em; border: 1px solid #e5e7eb; border-radius: 4px; background: white; color: #6b7280; cursor: pointer;">Check now</button>
+      <button id="vitalsCheckBtn">Check now</button>
     </div>
     <div class="vitals-content">
       <div class="vitals-section">
