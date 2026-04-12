@@ -30,7 +30,7 @@
 }
 
 .spk-segments-header {
-  padding: 20px 16px 12px 19px;
+  padding: 20px 16px 12px 16px;
   margin: 0;
   border-bottom: 1px solid #e5e7eb;
   font-weight: 600;
@@ -46,22 +46,25 @@
 
 .spk-segment {
   padding: 12px 16px;
-  border-bottom: 1px solid #e5e7eb;
+  background-image: linear-gradient(#e5e7eb, #e5e7eb);
+  background-size: calc(100% - 32px) 1px;
+  background-position: center bottom;
+  background-repeat: no-repeat;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background-color 0.15s;
   border-left: 3px solid transparent;
 }
 
 .spk-segment:hover {
-  background: #f9fafb;
+  background-color: #f9fafb;
 }
 
 .spk-segment:active {
-  background: #f3f4f6;
+  background-color: #f3f4f6;
 }
 
 .spk-segment.active {
-  background: #eff6ff;
+  background-color: #eff6ff;
   border-left-color: #3b82f6;
 }
 
@@ -76,7 +79,7 @@
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: #6b7280;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .spk-segment-sources {
@@ -498,13 +501,13 @@
   border-radius: 12px;
   font-size: 11px;
   color: #1d4ed8;
-  margin-left: 6px;
+  margin-left: 8px;
   font-weight: 500;
 }
 
 .spk-review-badge {
   display: inline-block;
-  margin-top: 6px;
+  margin-top: 8px;
   padding: 2px 8px;
   border-radius: 999px;
   background: #f3f4f6;
@@ -905,6 +908,7 @@
   color: #9ca3af;
   font-size: 12px;
   vertical-align: baseline;
+  line-height: 1;
 }
 
 @keyframes spk-fade-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
