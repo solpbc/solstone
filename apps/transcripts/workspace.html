@@ -228,11 +228,22 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   box-shadow: 0 1px 1px rgba(0,0,0,.04);
   pointer-events: auto;
   cursor: pointer;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
 }
 
 .tr-seg:focus-visible {
   outline: 2px solid var(--accent, #4a9eff);
   outline-offset: 1px;
+}
+
+.tr-seg:hover {
+  filter: brightness(0.92);
+  box-shadow: 0 2px 4px rgba(0,0,0,.10);
+}
+
+.tr-seg:active {
+  filter: brightness(0.88);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
 }
 
 .tr-seg-col-0 { left: var(--seg-col-0); }
@@ -537,12 +548,17 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 }
 
 .tr-zoom-pill.tr-active {
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5), 0 2px 4px rgba(0,0,0,.12);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.5), 0 2px 4px rgba(0,0,0,.12);
 }
 
 .tr-zoom-pill:focus-visible {
   outline: 2px solid var(--accent, #4a9eff);
   outline-offset: 1px;
+}
+
+.tr-zoom-pill:active {
+  filter: brightness(0.90);
+  transform: scale(0.98);
 }
 
 .tr-zoom-pill-audio {
