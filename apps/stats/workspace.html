@@ -291,11 +291,45 @@ h1 {
   background: #f0f0f0;
   transition: transform 0.2s;
   cursor: default;
+  position: relative;
 }
 
 .heatmap-cell:hover {
   transform: scale(1.2);
   z-index: 10;
+}
+
+.heatmap-cell::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 20;
+}
+
+.heatmap-cell:hover::after {
+  opacity: 1;
+}
+
+.heatmap-cell:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 1px;
+  transform: scale(1.2);
+  z-index: 10;
+}
+
+.heatmap-cell:focus-visible::after {
+  opacity: 1;
 }
 
 .heatmap-header {
