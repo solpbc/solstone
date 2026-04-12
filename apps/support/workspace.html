@@ -43,18 +43,19 @@
     padding: 1rem;
     margin-bottom: 0.75rem;
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
   }
   .support-ticket:hover { background: rgba(0, 0, 0, 0.03); }
+  .support-ticket:active { background: rgba(0, 0, 0, 0.06); }
   .support-ticket:focus-visible { outline: 2px solid var(--facet-color, #3b82f6); outline-offset: 2px; }
   .support-ticket-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
   }
-  .support-ticket-id { font-size: 0.8rem; color: #666; }
-  .support-ticket-subject { font-weight: 600; }
+  .support-ticket-id { font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', monospace; font-size: 0.78rem; letter-spacing: 0.02em; color: #666; }
+  .support-ticket-subject { font-weight: 500; }
   .support-ticket-meta { font-size: 0.8rem; color: #666; margin-top: 0.25rem; }
   .support-status {
     font-size: 0.75rem;
