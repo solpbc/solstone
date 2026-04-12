@@ -1682,6 +1682,87 @@ button:focus:not(:focus-visible) {
   color: #666;
 }
 
+/* Button variants */
+.btn-secondary {
+  padding: 0.5em 1em;
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-secondary:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.btn-secondary:active {
+  background: #e5e7eb;
+}
+
+.action-button-danger {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.6em 1.2em;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.15s;
+}
+
+.action-button-danger:hover {
+  background: #c82333;
+}
+
+.action-button-danger:active {
+  background: #b21f2d;
+}
+
+.cleanup-preview-btn {
+  padding: 0.5em 1em;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cleanup-preview-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.cleanup-preview-btn:active {
+  background: #e5e7eb;
+}
+
+.cleanup-confirm-btn {
+  padding: 0.5em 1em;
+  border: none;
+  border-radius: 6px;
+  background: #dc3545;
+  color: white;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cleanup-confirm-btn:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.cleanup-confirm-btn:active:not(:disabled) {
+  background: #b21f2d;
+}
+
+.cleanup-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .settings-danger-section {
   margin-top: 2em;
   padding-top: 1.5em;
@@ -2471,7 +2552,7 @@ button:focus:not(:focus-visible) {
       </div>
 
       <div class="settings-danger-section">
-        <button type="button" id="cleanupNowBtn" class="action-button" style="background: #dc3545; color: white; border: none; padding: 0.6em 1.2em; border-radius: 6px; cursor: pointer; font-size: 0.9em;">Clean Up Now</button>
+        <button type="button" id="cleanupNowBtn" class="action-button-danger">Clean Up Now</button>
         <small style="display: block; margin-top: 0.5em; color: #666;">Manually purge raw media older than a specified number of days.</small>
       </div>
       </form>
@@ -2744,8 +2825,8 @@ button:focus:not(:focus-visible) {
     </div>
 
     <div style="display: flex; gap: 0.75em; justify-content: flex-end;">
-      <button type="button" id="cleanupPreviewBtn" style="padding: 0.5em 1em; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer;">Preview</button>
-      <button type="button" id="cleanupConfirmBtn" style="padding: 0.5em 1em; border: none; border-radius: 4px; background: #dc3545; color: white; cursor: pointer;" disabled>Delete Files</button>
+      <button type="button" id="cleanupPreviewBtn" class="cleanup-preview-btn">Preview</button>
+      <button type="button" id="cleanupConfirmBtn" class="cleanup-confirm-btn" disabled>Delete Files</button>
     </div>
   </div>
 </div>
