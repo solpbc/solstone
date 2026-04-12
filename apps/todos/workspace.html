@@ -1,4 +1,11 @@
 <style>
+.workspace-content {
+  min-height: calc(100vh - var(--facet-bar-height) - var(--date-nav-height) - var(--app-bar-height) - 40px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .facet-section {
   margin-bottom: 1.5rem;
 }
@@ -104,6 +111,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  margin-top: -1px;
   min-width: 2.75rem;
   min-height: 2.75rem;
   flex-shrink: 0;
@@ -258,6 +266,7 @@
 
 .no-todos .todo-add-form input[type="text"] {
   text-align: center;
+  margin-left: 0;
 }
 
 .todo-facet-empty {
@@ -281,7 +290,7 @@
 .todo-add-form input[type="text"] {
   flex: 1;
   min-width: 0;
-  margin-left: calc(2.75rem + 0.75rem);
+  margin-left: calc(4px + 0.5rem + 2.75rem + 0.75rem);
   padding: 0.375rem 0.5rem;
   border: 1px solid transparent;
   border-radius: 4px;
@@ -470,7 +479,7 @@
 
   .todo-add-form input[type="text"] {
     padding: 0.5rem;
-    margin-left: calc(2.75rem + 0.5rem);
+    margin-left: calc(4px + 0.375rem + 2.75rem + 0.5rem);
   }
 }
 
