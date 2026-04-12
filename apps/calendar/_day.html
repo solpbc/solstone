@@ -178,8 +178,9 @@ h1 {
 /* All-day section for untimed events */
 .all-day-section {
   margin-bottom: 1.5em;
-  padding: 0.75em;
+  padding: 0.75em 0.75em 1em;
   background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
   border-radius: 6px;
 }
 
@@ -195,13 +196,14 @@ h1 {
 .all-day-cards {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6em;
+  gap: 0.75em;
+  align-items: center;
 }
 
 .all-day-card {
   flex: 1 1 0;
   min-width: 0;
-  padding: 0.5em 1em;
+  padding: 0.6em 1.2em;
   border-radius: 4px;
   font-size: 0.9em;
   cursor: pointer;
@@ -211,7 +213,7 @@ h1 {
 }
 
 .all-day-card.planned {
-  border-style: dotted;
+  border-left-style: dotted;
   opacity: 0.7;
 }
 
@@ -601,8 +603,10 @@ button.activity-detail-back {
 .timeline-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5em 1em;
-  padding: 0.3em 0.5em;
+  gap: 0.5em 1.5em;
+  padding: 0.5em 0.5em;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 0.5em;
   font-size: 0.8em;
   color: #666;
 }
@@ -629,6 +633,7 @@ button.activity-detail-back {
   .all-day-cards,
   .allday-overflow {
     flex-direction: column;
+    align-items: stretch;
   }
   .modal-content {
     margin: 2% auto;
@@ -925,7 +930,7 @@ button.activity-detail-back {
         if (i === MAX_ALLDAY_VISIBLE && untimedEvents.length > MAX_ALLDAY_VISIBLE) {
           const overflow = untimedEvents.length - MAX_ALLDAY_VISIBLE;
           html += `<button type="button" class="allday-expand" data-expanded="false" aria-expanded="false">+${overflow} more</button>`;
-          html += '<div class="allday-overflow" style="display:none;flex-wrap:wrap;gap:0.6em;width:100%">';
+          html += '<div class="allday-overflow" style="display:none;flex-wrap:wrap;gap:0.75em;width:100%">';
         }
         html += `<div class="${cardClass}" data-index="${idx}" tabindex="0" role="button" style="border-color:${o.color || '#6c757d'}">`;
         html += `<span class="card-title">${title}</span>${badge}</div>`;
