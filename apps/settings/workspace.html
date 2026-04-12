@@ -232,6 +232,12 @@
   padding-right: 3em;
 }
 
+#section-apikeys .password-wrap input {
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', monospace;
+  font-size: 0.9em;
+  letter-spacing: 0.02em;
+}
+
 .password-toggle {
   position: absolute;
   right: 0.5em;
@@ -264,7 +270,7 @@
 }
 
 .toggle-label {
-  font-weight: 600;
+  font-weight: 500;
   font-size: 0.95em;
   color: #333;
   min-width: 60px;
@@ -415,8 +421,9 @@ input:checked + .slider:before {
 }
 
 .color-picker-trigger span {
-  font-family: monospace;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', monospace;
   font-size: 1em;
+  letter-spacing: 0.03em;
   font-weight: 600;
 }
 
@@ -519,8 +526,9 @@ input:checked + .slider:before {
   padding: 0.6em 0.75em;
   border: 2px solid #ddd;
   border-radius: 8px;
-  font-family: monospace;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', monospace;
   font-size: 1em;
+  letter-spacing: 0.03em;
 }
 
 .color-preview-section {
@@ -2553,7 +2561,7 @@ button:focus:not(:focus-visible) {
       </div>
 
       <div class="settings-field">
-        <button class="setup-btn" id="resetAgentName" style="background: var(--text-muted); font-size: 0.85em; padding: 0.4em 1em;">Reset to Default</button>
+        <button class="setup-btn" id="resetAgentName" style="background: #6c757d; font-size: 0.85em; padding: 0.4em 1em;">Reset to Default</button>
         <small>Reset the agent name back to "sol"</small>
       </div>
       </form>
