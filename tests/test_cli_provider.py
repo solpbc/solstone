@@ -5,7 +5,7 @@
 
 import asyncio
 import os
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, mock_open, patch
 
 import pytest
 
@@ -721,3 +721,115 @@ class TestBuildCogitateEnv:
             env = build_cogitate_env("ANTHROPIC_API_KEY")
         assert "GOOGLE_GENAI_USE_VERTEXAI" not in env
         assert env["ANTHROPIC_API_KEY"] == "sk-ant"
+
+    def test_vertex_backend_sets_project_and_location(self):
+        """Vertex backend exposes project context for Gemini CLI subprocesses."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "vertex_credentials": "/tmp/fake-sa.json",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("os.path.exists", return_value=True),
+            patch(
+                "builtins.open",
+                mock_open(
+                    read_data='{"type": "service_account", "project_id": "my-gcp-project"}'
+                ),
+            ),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
+        assert env["GOOGLE_APPLICATION_CREDENTIALS"] == "/tmp/fake-sa.json"
+        assert env["GOOGLE_CLOUD_PROJECT"] == "my-gcp-project"
+        assert env["GOOGLE_CLOUD_LOCATION"] == "global"
+        assert "GOOGLE_API_KEY" not in env
+
+    def test_vertex_backend_missing_creds_no_project(self):
+        """Vertex backend still sets location without explicit SA credentials."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GOOGLE_CLOUD_PROJECT" not in env
+        assert env["GOOGLE_CLOUD_LOCATION"] == "global"
+
+    def test_vertex_backend_invalid_sa_json_no_project(self):
+        """Invalid SA JSON logs and skips project configuration."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "vertex_credentials": "/tmp/fake-sa.json",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("os.path.exists", return_value=True),
+            patch("builtins.open", mock_open(read_data="not json")),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GOOGLE_CLOUD_PROJECT" not in env
+        assert env["GOOGLE_CLOUD_LOCATION"] == "global"
+
+    def test_vertex_backend_sa_missing_project_id(self):
+        """Missing project_id in SA JSON leaves project env unset."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "vertex_credentials": "/tmp/fake-sa.json",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("os.path.exists", return_value=True),
+            patch(
+                "builtins.open",
+                mock_open(
+                    read_data=(
+                        '{"type": "service_account", "client_email": "bot@example.com"}'
+                    )
+                ),
+            ),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GOOGLE_CLOUD_PROJECT" not in env
+        assert env["GOOGLE_CLOUD_LOCATION"] == "global"
+
+    def test_aistudio_clears_project_and_location(self):
+        """AI Studio clears inherited Vertex project context."""
+        config = {
+            "providers": {
+                "google_backend": "aistudio",
+                "auth": {"google": "api_key"},
+            }
+        }
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "GOOGLE_API_KEY": "gk-test",
+                    "GOOGLE_CLOUD_LOCATION": "us-central1",
+                    "GOOGLE_CLOUD_PROJECT": "inherited-proj",
+                },
+                clear=True,
+            ),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GOOGLE_CLOUD_PROJECT" not in env
+        assert "GOOGLE_CLOUD_LOCATION" not in env

@@ -470,12 +470,30 @@ def build_cogitate_env(env_key: str) -> dict[str, str]:
             creds_path = providers_config.get("vertex_credentials")
             if creds_path and os.path.exists(creds_path):
                 env["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
+                # Project context lets the Gemini CLI use Vertex instead of
+                # falling back to AI Studio auth.
+                try:
+                    with open(creds_path, encoding="utf-8") as _f:
+                        _sa_data = json.load(_f)
+                    if "project_id" in _sa_data:
+                        env["GOOGLE_CLOUD_PROJECT"] = _sa_data["project_id"]
+                    else:
+                        LOG.warning(
+                            "SA credentials at %s missing project_id", creds_path
+                        )
+                except (OSError, json.JSONDecodeError) as exc:
+                    LOG.warning(
+                        "Could not read project_id from %s: %s", creds_path, exc
+                    )
             # else: GOOGLE_APPLICATION_CREDENTIALS may be inherited from env
+            env["GOOGLE_CLOUD_LOCATION"] = "global"
         else:
             # AI Studio: clear any inherited Vertex env vars so the CLI
             # doesn't accidentally run in Vertex mode.
             for vkey in (
                 "GOOGLE_APPLICATION_CREDENTIALS",
+                "GOOGLE_CLOUD_LOCATION",
+                "GOOGLE_CLOUD_PROJECT",
                 "GOOGLE_GENAI_USE_VERTEXAI",
             ):
                 env.pop(vkey, None)
