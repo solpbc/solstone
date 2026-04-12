@@ -246,7 +246,7 @@
 
 /* Observe Card (Prominent) */
 .observe-card {
-  border-left: 4px solid #10b981;
+  border-left: 4px solid #22c55e;
 }
 
 .card-header {
@@ -327,6 +327,10 @@
   text-decoration: underline;
 }
 
+.observe-empty a:active {
+  color: #059669;
+}
+
 .observe-section {
   display: flex;
   flex-direction: column;
@@ -382,16 +386,17 @@
   flex-direction: column;
   gap: 0.4em;
   border: 2px solid transparent;
+  border-left: 4px solid transparent;
 }
 
 .observer-host-card.active {
   background: #f3f4f6;
-  border-left: 4px solid #22c55e;
+  border-left-color: #22c55e;
 }
 
 .observer-host-card.stale {
   background: #fefce8;
-  border-left: 4px solid #f59e0b;
+  border-left-color: #f59e0b;
 }
 
 .observer-host-name {
@@ -410,7 +415,7 @@
   align-items: center;
   gap: 8px;
   padding: 2px 0;
-  font-size: 11px;
+  font-size: 0.7em;
 }
 
 .observer-stream-qualifier {
@@ -424,7 +429,7 @@
 
 .stale-badge {
   color: #6b7280;
-  font-size: 11px;
+  font-size: 0.7em;
 }
 
 /* Activity Grids Container */
@@ -834,6 +839,7 @@
 
   .observe-content {
     grid-template-columns: repeat(3, 1fr);
+    gap: 0.75em;
   }
 
   .observers-grid {
