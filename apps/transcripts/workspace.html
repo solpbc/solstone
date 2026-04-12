@@ -1375,6 +1375,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       this.videos = new Map();
       // Pending thumbnail promises per frame
       this.pendingThumbs = new Map();
+      this.warnedUrls = new Set();
     }
 
     // Load video and wait for metadata
@@ -1399,13 +1400,28 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           entry.height = video.videoHeight;
           resolve(entry);
         };
-        video.onerror = () => reject(new Error(`Failed to load video: ${url}`));
+        video.onerror = () => {
+          const mediaError = video.error;
+          if (mediaError?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+            const entry = this.videos.get(url);
+            entry.unsupported = true;
+            entry.ready = true;
+            if (!this.warnedUrls.has(url)) {
+              this.warnedUrls.add(url);
+              console.warn(`Video format not supported by this browser: ${url}`);
+            }
+            resolve(entry);
+            return;
+          }
+          reject(new Error(`Failed to load video: ${url}`));
+        };
         video.src = url;
       });
 
       this.videos.set(url, {
         video,
         ready: false,
+        unsupported: false,
         width: 0,
         height: 0,
         promise,
@@ -1442,6 +1458,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     async captureThumbnail(videoUrl, frameId, width, height) {
       const entry = await this.loadVideo(videoUrl);
+      if (entry.unsupported) return null;
       const cacheKey = `${videoUrl}|${frameId}`;
 
       if (entry.thumbs.has(frameId)) {
@@ -1457,18 +1474,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         const timestamp = Math.max(0, frameId - 1);
         await this._seekTo(video, timestamp);
 
-        let bitmap = null;
-        try {
-          if (width && height) {
-            bitmap = await createImageBitmap(video, {
-              resizeWidth: width,
-              resizeHeight: height,
-              resizeQuality: 'high'
-            });
-          } else {
-            bitmap = await createImageBitmap(video);
-          }
-        } catch (err) {
+        let bitmap;
+        if (width && height) {
+          bitmap = await createImageBitmap(video, {
+            resizeWidth: width,
+            resizeHeight: height,
+            resizeQuality: 'high'
+          });
+        } else {
           bitmap = await createImageBitmap(video);
         }
 
@@ -1493,8 +1506,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     }
 
     async captureFullFrame(videoUrl, frameId) {
+      const entry = await this.loadVideo(videoUrl);
+      if (entry.unsupported) return null;
       return this._withVideoQueue(videoUrl, async () => {
-        const entry = await this.loadVideo(videoUrl);
         const video = entry.video;
         const timestamp = Math.max(0, frameId - 1);
         await this._seekTo(video, timestamp);
@@ -1524,6 +1538,67 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       }
       this.videos.clear();
       this.pendingThumbs.clear();
+      this.warnedUrls.clear();
+    }
+
+    _drawUnsupportedPlaceholder(canvas, width, height) {
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#f3f4f6';
+      ctx.fillRect(0, 0, width, height);
+
+      const minDim = Math.min(width, height);
+      const iconWidth = minDim * 0.42;
+      const iconHeight = iconWidth * 0.68;
+      const radius = Math.max(4, iconWidth * 0.08);
+      const strokeWidth = Math.max(2, minDim * 0.03);
+      const standHeight = Math.max(6, iconHeight * 0.22);
+      const textSize = Math.max(10, Math.min(height > 120 ? 24 : 14, width / (height > 120 ? 9 : 12)));
+      const gap = Math.max(10, height * 0.06);
+      const totalHeight = iconHeight + standHeight + gap + textSize;
+      const iconX = (width - iconWidth) / 2;
+      const iconY = Math.max(height * 0.14, (height - totalHeight) / 2);
+
+      ctx.strokeStyle = '#9ca3af';
+      ctx.lineWidth = strokeWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(iconX + radius, iconY);
+      ctx.lineTo(iconX + iconWidth - radius, iconY);
+      ctx.quadraticCurveTo(iconX + iconWidth, iconY, iconX + iconWidth, iconY + radius);
+      ctx.lineTo(iconX + iconWidth, iconY + iconHeight - radius);
+      ctx.quadraticCurveTo(iconX + iconWidth, iconY + iconHeight, iconX + iconWidth - radius, iconY + iconHeight);
+      ctx.lineTo(iconX + radius, iconY + iconHeight);
+      ctx.quadraticCurveTo(iconX, iconY + iconHeight, iconX, iconY + iconHeight - radius);
+      ctx.lineTo(iconX, iconY + radius);
+      ctx.quadraticCurveTo(iconX, iconY, iconX + radius, iconY);
+      ctx.stroke();
+
+      const standY = iconY + iconHeight + standHeight * 0.45;
+      const standWidth = iconWidth * 0.28;
+      ctx.beginPath();
+      ctx.moveTo(width / 2, iconY + iconHeight);
+      ctx.lineTo(width / 2, standY);
+      ctx.moveTo(width / 2 - standWidth / 2, standY);
+      ctx.lineTo(width / 2 + standWidth / 2, standY);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(iconX + iconWidth * 0.18, iconY + iconHeight * 0.2);
+      ctx.lineTo(iconX + iconWidth * 0.82, iconY + iconHeight * 0.84);
+      ctx.stroke();
+
+      ctx.fillStyle = '#6b7280';
+      ctx.font = `${textSize}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText('Format not supported', width / 2, standY + gap * 0.55);
+
+      canvas.classList.remove('loading');
     }
 
     // Draw thumbnail to canvas (no overlays - those are only for full frame view)
@@ -1533,7 +1608,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       try {
         const thumb = await this.captureThumbnail(videoUrl, frameId, width, height);
         if (!thumb) {
-          canvas.classList.remove('loading');
+          this._drawUnsupportedPlaceholder(canvas, width || 120, height || 68);
           return false;
         }
 
@@ -1559,7 +1634,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       try {
         const bitmap = await this.captureFullFrame(videoUrl, frameId);
         if (!bitmap) {
-          canvas.classList.remove('loading');
+          this._drawUnsupportedPlaceholder(canvas, 640, 360);
           return false;
         }
 
