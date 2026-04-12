@@ -1200,6 +1200,7 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
 /* Menu expander (down arrow below last visible app icon) */
 .menu-bar .menu-expander {
   min-width: 44px;
+  width: 44px;
   min-height: 44px;
   display: flex;
   align-items: center;
@@ -1210,14 +1211,17 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   color: inherit;
   border: none;
   border-right: none;
+  border-top: 1px solid var(--facet-border, #e5e0db);
+  padding-top: 8px;
   background: var(--facet-bg, white);
   transition: background 0.2s;
   user-select: none;
   position: relative;
-  border-bottom-right-radius: 8px;
+  border-radius: 8px;
   flex-shrink: 0;  /* Never shrink - always visible at bottom */
   margin-top: auto;
   margin-bottom: 12px;
+  align-self: center;
 }
 
 
