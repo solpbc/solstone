@@ -428,6 +428,7 @@
   font-size: 12px;
   line-height: 1.5;
   margin-top: 8px;
+  transition: opacity 0.3s ease;
 }
 
 .spk-status-success {
@@ -688,6 +689,7 @@
   border-radius: 10px;
   border: 1px solid #bbf7d0;
   background: rgba(255, 255, 255, 0.8);
+  transition: opacity 0.3s ease;
 }
 
 .spk-discovery-cluster-title {
@@ -1239,10 +1241,13 @@
           loadReview(selectedSegment, selectedSource);
         }
         setTimeout(() => {
-          card.remove();
-          if (!discoveryBanner.querySelector('.spk-discovery-cluster')) {
-            hideDiscovery();
-          }
+          card.style.opacity = '0';
+          setTimeout(() => {
+            card.remove();
+            if (!discoveryBanner.querySelector('.spk-discovery-cluster')) {
+              hideDiscovery();
+            }
+          }, 300);
         }, 3000);
       })
       .catch(() => {
@@ -2084,7 +2089,11 @@
       container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}</div>`;
       statusTimers[sentenceId] = setTimeout(() => {
         const current = document.getElementById(`status-${sentenceId}`);
-        if (current) current.innerHTML = '';
+        if (current) {
+          const msg = current.querySelector('.spk-status');
+          if (msg) msg.style.opacity = '0';
+          setTimeout(() => { current.innerHTML = ''; }, 300);
+        }
         delete statusTimers[sentenceId];
       }, 3000);
     }
