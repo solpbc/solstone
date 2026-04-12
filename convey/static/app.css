@@ -795,7 +795,7 @@ body:has(.status-pane.visible) .facet-bar::after {
 ul.menu-items {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 8px 0 4px;
 }
 
 .menu-bar .menu-items::-webkit-scrollbar {
@@ -1213,7 +1213,7 @@ body.menu-full .menu-bar .menu-item .drag-handle:active {
   border-bottom-right-radius: 8px;
   flex-shrink: 0;  /* Never shrink - always visible at bottom */
   margin-top: auto;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 
