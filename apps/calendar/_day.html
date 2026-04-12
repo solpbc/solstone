@@ -182,6 +182,7 @@ h1 {
   cursor: pointer;
   border-left: 3px solid #dee2e6;
   background: white;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .all-day-card.planned {
@@ -199,6 +200,16 @@ h1 {
   margin-left: 0.5em;
 }
 
+.all-day-card:hover {
+  background: #f8f9fa;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.all-day-card:active {
+  background: #f0f1f3;
+  box-shadow: none;
+}
+
 .allday-expand {
   display: inline-flex;
   align-items: center;
@@ -209,11 +220,17 @@ h1 {
   color: #666;
   font-size: 0.85em;
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .allday-expand:hover {
   background: #e9ecef;
   color: #333;
+}
+
+.allday-expand:active {
+  background: #dee2e6;
+  color: #111;
 }
 
 /* Activities section */
@@ -257,6 +274,10 @@ h1 {
 
 .activity-card:hover {
   background: #e9ecef;
+}
+
+.activity-card:active {
+  background: #dee2e6;
 }
 
 .activity-card .act-icon {
