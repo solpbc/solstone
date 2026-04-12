@@ -781,6 +781,7 @@ body:has(.status-pane.visible) .facet-bar::after {
   transition: width 0.3s ease, background 0.3s ease, box-shadow 0.3s ease, border-radius 0.3s ease;
   overflow: hidden; /* Clip all content to rounded corner */
   border-bottom-right-radius: 8px;
+  box-shadow: 1px 0 3px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
 }
@@ -1243,6 +1244,7 @@ body.menu-all .menu-bar .menu-item[data-starred="false"] {
 /* Keep sidebar narrow in menu-all state (icons only) */
 body.menu-all .menu-bar {
   width: var(--menu-bar-width-minimal);
+  box-shadow: 1px 0 3px rgba(0, 0, 0, 0.04);
 }
 
 .facet-pill {
