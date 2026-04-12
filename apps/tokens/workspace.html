@@ -274,10 +274,24 @@
 .breakdown-table th.sortable {
   cursor: pointer;
   user-select: none;
+  transition: background 0.15s ease;
 }
 
 .breakdown-table th.sortable:hover {
   background: #e9ecef;
+}
+
+.breakdown-table th.sortable:active {
+  background: #dee2e6;
+}
+
+.breakdown-table th.sortable:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: -2px;
+}
+
+.breakdown-table th.sortable::after {
+  transition: opacity 0.15s ease;
 }
 
 .breakdown-table th.sortable[aria-sort="ascending"]::after { content: " ▲"; }
