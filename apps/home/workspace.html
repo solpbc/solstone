@@ -591,18 +591,21 @@
 }
 
 .pulse-welcome {
-  padding: 2rem 1.5rem;
+  padding: 2rem;
   background: #fff;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
-  text-align: center;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .pulse-welcome h2 {
-  font-size: 1rem;
+  font-size: 1.15rem;
   font-weight: 600;
   color: #1e293b;
   margin: 0 0 0.75rem;
+  letter-spacing: -0.01em;
 }
 
 .pulse-welcome p {
@@ -610,19 +613,29 @@
   color: #475569;
   line-height: 1.6;
   margin: 0 0 1rem;
-  max-width: 480px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .pulse-welcome a {
   color: #6366f1;
   text-decoration: none;
   font-size: 0.85rem;
+  font-weight: 500;
+  margin-top: 0.5rem;
+  display: inline-block;
 }
 
 .pulse-welcome a:hover {
   text-decoration: underline;
+}
+
+.pulse-welcome a:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.pulse-welcome a:active {
+  color: #4f46e5;
 }
 
 .pulse-empty-state {
