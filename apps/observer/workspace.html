@@ -127,15 +127,16 @@
 }
 .observer-actions button {
   padding: 8px 16px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 4px;
   background: white;
   cursor: pointer;
   font-size: 0.9em;
+  font-weight: 500;
   min-height: 44px;
 }
 .observer-actions button:hover {
-  background: #f0f0f0;
+  background: rgba(0,0,0,0.05);
 }
 .observer-actions button.danger {
   color: #dc3545;
@@ -143,6 +144,12 @@
 }
 .observer-actions button.danger:hover {
   background: #f8d7da;
+}
+.observer-actions button:active {
+  background: rgba(0,0,0,0.08);
+}
+.observer-actions button.danger:active {
+  background: #f1b0b7;
 }
 
 /* Add observer form */
