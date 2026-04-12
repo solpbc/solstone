@@ -10,6 +10,7 @@
 .search-sidebar {
   width: 200px;
   flex-shrink: 0;
+  padding-top: 0.45rem;
 }
 
 .search-sidebar h3 {
@@ -22,7 +23,12 @@
 }
 
 .filter-section {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.filter-section:not(:last-child) {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.75rem;
 }
 
 .filter-list {
@@ -487,6 +493,11 @@ button.day-header {
     flex: 1;
     min-width: 150px;
     margin-bottom: 0.5rem;
+  }
+
+  .filter-section:not(:last-child) {
+    border-bottom: none;
+    padding-bottom: 0;
   }
 
   .filter-list {
