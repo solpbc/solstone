@@ -74,6 +74,10 @@
   text-decoration: underline;
 }
 
+.import-back-link:active {
+  color: #0a3b65;
+}
+
 .import-step {
   border-top: 1px solid #edf1f7;
   padding-top: 1rem;
@@ -234,10 +238,15 @@
   cursor: pointer;
   color: #5b4a08;
   white-space: nowrap;
+  transition: background 0.1s ease;
 }
 
 .import-dedup-notice button:hover {
   background: #fef3c7;
+}
+
+.import-dedup-notice button:active {
+  background: #fde68a;
 }
 
 .import-paste-text {
@@ -280,6 +289,7 @@
   border: none;
   border-radius: 10px;
   cursor: pointer;
+  transition: background 0.1s ease;
 }
 
 .import-primary-btn:hover {
@@ -290,6 +300,10 @@
   background: #c4ccd7;
   color: #5b6473;
   cursor: not-allowed;
+}
+
+.import-primary-btn:active:not(:disabled) {
+  background: #083050;
 }
 
 .import-secondary-btn {
@@ -305,10 +319,15 @@
   border-radius: 10px;
   cursor: pointer;
   text-decoration: none;
+  transition: background 0.1s ease;
 }
 
 .import-secondary-btn:hover {
   background: #f7f9fc;
+}
+
+.import-secondary-btn:active {
+  background: #edf1f7;
 }
 
 .import-progress-panel {
