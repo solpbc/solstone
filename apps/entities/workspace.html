@@ -799,13 +799,16 @@ tr:hover .entity-delete-btn {
 }
 
 .entities-loading {
-  text-align: center;
-  padding: 4em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
   color: #666;
 }
 
 .spinner {
-  display: inline-block;
+  display: block;
   width: 40px;
   height: 40px;
   border: 4px solid #f0f0f0;
@@ -2569,7 +2572,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function loadEntities() {
   // Hide all views and show loading
   hideAllViews();
-  document.getElementById('entities-loading').style.display = 'block';
+  document.getElementById('entities-loading').style.display = 'flex';
 
   if (!currentFacet) {
     // All-facet mode: load journal entities
