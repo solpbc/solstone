@@ -229,6 +229,7 @@
 .breakdown-table td.num,
 .breakdown-table td .cost-value {
   font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 .breakdown-section {
@@ -376,13 +377,23 @@
   color: #cd7f32;
 }
 
+.percent-track {
+  display: inline-block;
+  width: 100px;
+  height: 1em;
+  background: #f0f0f0;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-right: 0.5em;
+  overflow: hidden;
+}
+
 .percent-bar {
   display: inline-block;
   height: 1em;
   background: linear-gradient(90deg, var(--bar-color) 0%, var(--bar-color) 100%);
   border-radius: 3px;
-  margin-right: 0.5em;
-  vertical-align: middle;
+  min-width: 2px;
 }
 
 .cost-value {
@@ -580,8 +591,8 @@ function escapeHtml(val) {
 // Create percent bar
 function createPercentBar(percent, color) {
   const safeColor = /^#[0-9a-fA-F]{3,6}$/i.test(color) ? color : '#999';
-  const width = Math.min(100, Math.max(0, percent * 2)); // Scale for visual effect
-  return `<span class="percent-bar" style="--bar-color: ${safeColor}; width: ${width}px;" aria-hidden="true"></span>`;
+  const width = Math.min(100, Math.max(0, percent * 2));
+  return `<span class="percent-track" aria-hidden="true"><span class="percent-bar" style="--bar-color: ${safeColor}; width: ${width}px;"></span></span>`;
 }
 
 function sortData(tableId, data) {
