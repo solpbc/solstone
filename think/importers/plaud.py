@@ -43,6 +43,36 @@ def make_session() -> requests.Session:
     return s
 
 
+def validate_token(token: str) -> dict:
+    """Validate a Plaud access token by listing files with limit=1.
+
+    Returns {"valid": True} or {"valid": False, "error": "..."}.
+    Never raises.
+    """
+    try:
+        resp = requests.get(
+            f"{API_BASE}/file/simple/web",
+            headers={
+                "accept": "application/json, text/plain, */*",
+                "authorization": f"bearer {token}",
+                "app-platform": "web",
+            },
+            params={"skip": 0, "limit": 1, "is_trash": 2},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return {
+                "valid": False,
+                "error": f"HTTP {resp.status_code}: {resp.text[:200]}",
+            }
+        data = resp.json()
+        if data.get("status") != 0:
+            return {"valid": False, "error": f"API error: status {data.get('status')}"}
+        return {"valid": True}
+    except Exception as e:
+        return {"valid": False, "error": str(e)}
+
+
 def get_temp_url(
     session: requests.Session, token: str, file_hash: str
 ) -> Optional[str]:

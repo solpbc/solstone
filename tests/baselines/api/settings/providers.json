@@ -349,6 +349,14 @@
       "tier": 3,
       "type": "generate"
     },
+    "talent.system.skills": {
+      "disabled": false,
+      "group": "Think",
+      "label": "Skill Observer",
+      "schedule": "activity",
+      "tier": 2,
+      "type": "generate"
+    },
     "talent.system.speaker_attribution": {
       "disabled": false,
       "group": "Think",
@@ -437,6 +445,52 @@
   },
   "google_backend": "auto",
   "key_validation": {},
+  "provider_status": {
+    "anthropic": {
+      "cogitate_cli": "claude",
+      "cogitate_cli_found": false,
+      "cogitate_ready": false,
+      "configured": false,
+      "generate_ready": false,
+      "issues": [
+        "ANTHROPIC_API_KEY not set",
+        "claude CLI not found on PATH"
+      ]
+    },
+    "google": {
+      "cogitate_cli": "gemini",
+      "cogitate_cli_found": false,
+      "cogitate_ready": false,
+      "configured": false,
+      "generate_ready": false,
+      "issues": [
+        "GOOGLE_API_KEY not set",
+        "gemini CLI not found on PATH"
+      ]
+    },
+    "ollama": {
+      "cogitate_cli": "opencode",
+      "cogitate_cli_found": false,
+      "cogitate_ready": false,
+      "configured": false,
+      "generate_ready": false,
+      "issues": [
+        "Ollama not reachable at http://localhost:11434",
+        "opencode CLI not found on PATH"
+      ]
+    },
+    "openai": {
+      "cogitate_cli": "codex",
+      "cogitate_cli_found": false,
+      "cogitate_ready": false,
+      "configured": false,
+      "generate_ready": false,
+      "issues": [
+        "OPENAI_API_KEY not set",
+        "codex CLI not found on PATH"
+      ]
+    }
+  },
   "providers": [
     {
       "env_key": "",

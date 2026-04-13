@@ -57,7 +57,7 @@
 <nav class="facet-bar{% if not app_registry.apps[app].facets_enabled() %} facets-disabled{% endif %}" aria-label="facets">
   <button id="hamburger" aria-label="toggle navigation" aria-expanded="false">☰</button>
   <div class="facet-pills-container"></div>
-  <button class="status-icon" aria-expanded="false" aria-controls="status-pane" aria-label="system status: connecting"><svg class="status-indicator status-indicator--connecting" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="24 8"/></svg><span id="quiet-notif-badge" class="quiet-notif-badge" style="display:none"></span></button>
+  <button class="status-icon" aria-expanded="false" aria-controls="status-pane" aria-label="system status: connecting"><svg class="status-indicator status-indicator--connecting" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="24 8"/></svg><span id="quiet-notif-badge" class="quiet-notif-badge" style="display:none"></span></button>
   <span id="status-live-region" role="status" class="visually-hidden"></span>
 </nav>
 
@@ -284,7 +284,7 @@
       responsePanel.style.display = '';
     }
     appBar.addEventListener('animationend', onDone, { once: true });
-    setTimeout(onDone, 300); // fallback
+    setTimeout(onDone, 260); // fallback
   }
 
   // Expose for websocket navigate handler
@@ -346,7 +346,7 @@
   input.addEventListener('input', function() {
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-    sendBtn.style.display = input.value.trim() ? '' : 'none';
+    sendBtn.classList.toggle('visible', !!input.value.trim());
     clearTimeout(inputSaveTimer);
     inputSaveTimer = setTimeout(save, 300);
   });
@@ -364,7 +364,7 @@
       input.value = saved.inputText;
       input.style.height = 'auto';
       input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-      sendBtn.style.display = input.value.trim() ? '' : 'none';
+      sendBtn.classList.toggle('visible', !!input.value.trim());
     }
 
     // Restore cursor position
@@ -381,7 +381,7 @@
       if (last && inlineResp) {
         inlineResp.innerHTML = renderAgentContent(last.content);
         inlineResp.style.display = '';
-        dismissBtn.style.display = '';
+        dismissBtn.classList.add('visible');
         appBar.classList.add('app-bar--glance');
       }
     }
@@ -393,7 +393,7 @@
         pendingMessage = saved.pendingMessage;
         thinking.style.display = '';
         inlineResp.style.display = 'none';
-        dismissBtn.style.display = 'none';
+        dismissBtn.classList.remove('visible');
         appBar.classList.add('app-bar--glance');
 
         (async function() {
@@ -435,7 +435,7 @@
                 inlineResp.innerHTML = renderAgentContent(content);
               }
               inlineResp.style.display = content ? '' : 'none';
-              dismissBtn.style.display = content ? '' : 'none';
+              dismissBtn.classList.toggle('visible', !!content);
               if (!content) appBar.classList.remove('app-bar--glance');
             } else {
               thinking.style.display = 'none';
@@ -499,8 +499,7 @@
     appBar.classList.remove('app-bar--glance');
     thinking.style.display = 'none';
     inlineResp.style.display = 'none';
-    dismissBtn.style.display = 'none';
-    clearConversation();
+    dismissBtn.classList.remove('visible');
   });
 
   // --- Enter to submit, shift+enter for newline ---
@@ -583,7 +582,9 @@
         announce.className = 'visually-hidden thinking-announce';
         el.appendChild(announce);
       }
+      visual.style.opacity = '0';
       visual.innerHTML = '<span class="chat-bar-thinking-dot"></span> ' + text;
+      requestAnimationFrame(function() { visual.style.opacity = '1'; });
     });
     if (announceTimer) clearTimeout(announceTimer);
     announceTimer = setTimeout(function() {
@@ -608,7 +609,7 @@
     // Clear input
     input.value = '';
     input.style.height = '';
-    sendBtn.style.display = 'none';
+    sendBtn.classList.remove('visible');
     input.disabled = true;
     save();
 
@@ -626,7 +627,7 @@
       // Show thinking in inline response area
       thinking.style.display = '';
       inlineResp.style.display = 'none';
-      dismissBtn.style.display = 'none';
+      dismissBtn.classList.remove('visible');
       appBar.classList.add('app-bar--glance');
     }
 
@@ -671,7 +672,7 @@
           inlineResp.innerHTML = renderAgentContent(content);
         }
         inlineResp.style.display = content ? '' : 'none';
-        dismissBtn.style.display = content ? '' : 'none';
+        dismissBtn.classList.toggle('visible', !!content);
         if (!content) appBar.classList.remove('app-bar--glance');
       } else {
         appBar.classList.remove('app-bar--glance');
@@ -731,6 +732,10 @@
               existing.textContent = elapsed + 's';
             } else {
               visual.insertAdjacentHTML('beforeend', suffix);
+              requestAnimationFrame(function() {
+                var el = visual.querySelector('.thinking-elapsed');
+                if (el) el.style.opacity = '0.6';
+              });
             }
           });
         }, 1000);

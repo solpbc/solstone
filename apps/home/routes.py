@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +20,7 @@ from flask import Blueprint, jsonify, render_template
 from convey.apps import _resolve_attention
 from convey.bridge import get_cached_state
 from think.awareness import get_current
-from think.facets import get_facets
+from think.facets import get_enabled_facets, get_facets
 from think.indexer.journal import get_journal_index
 from think.utils import get_journal
 
@@ -405,6 +405,36 @@ def _save_routines_state(state: dict[str, Any]) -> None:
         raise
 
 
+def _load_skills_state() -> dict[str, Any]:
+    """Load skills seen state from skills/state.json."""
+    state_path = Path(get_journal()) / "skills" / "state.json"
+    if not state_path.exists():
+        return {}
+    try:
+        with open(state_path, encoding="utf-8") as f:
+            raw = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _save_skills_state(state: dict[str, Any]) -> None:
+    """Persist skills seen state to skills/state.json."""
+    skills_dir = Path(get_journal()) / "skills"
+    skills_dir.mkdir(parents=True, exist_ok=True)
+    state_path = skills_dir / "state.json"
+
+    fd, tmp_path = tempfile.mkstemp(dir=skills_dir, suffix=".tmp", prefix=".state_")
+    tmp_file = Path(tmp_path)
+    try:
+        with open(fd, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+        tmp_file.replace(state_path)
+    except BaseException:
+        tmp_file.unlink(missing_ok=True)
+        raise
+
+
 def _collect_routines() -> list[dict[str, Any]]:
     """Collect recent routine outputs for display."""
     from think.routines import get_config as get_routines_config
@@ -479,6 +509,96 @@ def _collect_routines() -> list[dict[str, Any]]:
         return []
 
 
+def _collect_skills() -> list[dict[str, Any]]:
+    """Collect mature skills from all enabled facets."""
+    try:
+        journal = Path(get_journal())
+        state = _load_skills_state()
+        last_seen = state.get("skills_last_seen")
+        last_seen_dt = datetime.fromisoformat(last_seen) if last_seen else None
+
+        skills = []
+        for facet_name in get_enabled_facets():
+            skills_dir = journal / "facets" / facet_name / "skills"
+            if not skills_dir.exists():
+                continue
+
+            # Read patterns.jsonl for mature skills (skill_generated: true)
+            patterns_path = skills_dir / "patterns.jsonl"
+            if not patterns_path.exists():
+                continue
+
+            mature_ids = set()
+            try:
+                with open(patterns_path, encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            pattern = json.loads(line)
+                            if pattern.get("skill_generated"):
+                                mature_ids.add(pattern.get("id", ""))
+                        except json.JSONDecodeError:
+                            continue
+            except OSError:
+                continue
+
+            for skill_id in sorted(mature_ids):
+                skill_path = skills_dir / f"{skill_id}.md"
+                if not skill_path.exists():
+                    continue
+                try:
+                    post = frontmatter.load(str(skill_path))
+                    meta = post.metadata
+
+                    summary = meta.get("activity_type", "")
+                    typical_time = meta.get("typical_time", "")
+                    if typical_time:
+                        summary = f"{summary} · {typical_time}" if summary else typical_time
+
+                    observations = meta.get("observations", 0)
+                    last_seen_str = meta.get("last_seen", "")
+
+                    try:
+                        mtime_dt = datetime.fromtimestamp(skill_path.stat().st_mtime)
+                    except OSError:
+                        mtime_dt = None
+
+                    seen = (
+                        last_seen_dt is not None
+                        and mtime_dt is not None
+                        and mtime_dt <= last_seen_dt
+                    )
+
+                    skills.append(
+                        {
+                            "id": skill_id,
+                            "name": meta.get("name", skill_id),
+                            "facet": facet_name,
+                            "summary": summary,
+                            "observations": observations,
+                            "last_seen": last_seen_str,
+                            "content": post.content,
+                            "seen": seen,
+                        }
+                    )
+                except Exception:
+                    logger.warning(
+                        "home: failed to load skill %s/%s",
+                        facet_name,
+                        skill_id,
+                        exc_info=True,
+                    )
+                    continue
+
+        skills.sort(key=lambda s: s.get("last_seen", ""), reverse=True)
+        return skills
+    except Exception:
+        logger.warning("home: failed to collect skills", exc_info=True)
+        return []
+
+
 def _build_pulse_context() -> dict[str, Any]:
     """Build the full Pulse page context."""
     today = _today()
@@ -530,6 +650,7 @@ def _build_pulse_context() -> dict[str, Any]:
     todos = _collect_todos(today)
     entities = _collect_entities_today(today)
     routines = _collect_routines()
+    skills = _collect_skills()
 
     last_observe_relative = None
     if last_observe_ts:
@@ -553,6 +674,7 @@ def _build_pulse_context() -> dict[str, Any]:
     briefing_exists = bool(briefing_sections)
     briefing_phase = _compute_briefing_phase(segment_count, now.hour, briefing_exists)
     unseen_routines = [r for r in routines if not r["seen"]]
+    unseen_skills = [s for s in skills if not s["seen"]]
     show_welcome = (
         narrative_content is None
         and not events
@@ -560,6 +682,7 @@ def _build_pulse_context() -> dict[str, Any]:
         and not todos
         and not entities
         and not unseen_routines
+        and not skills
         and not briefing_exists
         and not attention
         and not pulse_needs
@@ -576,6 +699,17 @@ def _build_pulse_context() -> dict[str, Any]:
     if unseen_routines:
         n = len(unseen_routines)
         routines_summary = f"{n} new routine{'s' if n != 1 else ''}"
+
+    skills_summary = ""
+    if skills:
+        new_count = len(unseen_skills)
+        total = len(skills)
+        if new_count:
+            skills_summary = f"{new_count} new, {total} total"
+        else:
+            skills_summary = f"{total} skill{'s' if total != 1 else ''}"
+
+    skills_content = {s["id"]: s["content"] for s in skills}
 
     today_summary_parts = []
     if events:
@@ -652,6 +786,9 @@ def _build_pulse_context() -> dict[str, Any]:
         "todos": todos,
         "entities": entities,
         "routines": routines,
+        "skills": skills,
+        "skills_summary": skills_summary,
+        "skills_content": skills_content,
         "briefing_sections": briefing_sections,
         "briefing_meta": briefing_meta,
         "briefing_phase": briefing_phase,
@@ -696,6 +833,15 @@ def api_routines_seen():
     state = _load_routines_state()
     state["routines_last_seen"] = datetime.utcnow().isoformat()
     _save_routines_state(state)
+    return jsonify({"ok": True})
+
+
+@home_bp.route("/api/skills/seen", methods=["POST"])
+def api_skills_seen():
+    """Mark skills as seen."""
+    state = _load_skills_state()
+    state["skills_last_seen"] = datetime.now(timezone.utc).isoformat()
+    _save_skills_state(state)
     return jsonify({"ok": True})
 
 

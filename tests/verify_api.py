@@ -414,7 +414,7 @@ def normalize(data: Any, journal_path: str) -> Any:
 
     def walk(value: Any, key: str | None = None) -> Any:
         if isinstance(value, dict):
-            return {
+            result = {
                 item_key: (
                     0
                     if item_key in {"mtime", "created_at", "file_mtime"}
@@ -433,6 +433,42 @@ def normalize(data: Any, journal_path: str) -> Any:
                 )
                 for item_key, item_value in value.items()
             }
+            if key == "provider_status":
+                for _name, status in result.items():
+                    if isinstance(status, dict) and "cogitate_cli" in status:
+                        status["cogitate_cli_found"] = False
+                        status["cogitate_ready"] = False
+                        status["configured"] = False
+                        status["generate_ready"] = False
+                        cli = status.get("cogitate_cli", "")
+                        issues = [
+                            i
+                            for i in status.get("issues", [])
+                            if "CLI not found" not in i
+                            and "not set" not in i
+                            and "not reachable" not in i
+                        ]
+                        if cli:
+                            issues.append(f"{cli} CLI not found on PATH")
+                        # Re-add generic key-not-set issues per provider
+                        env_keys = {
+                            "anthropic": "ANTHROPIC_API_KEY",
+                            "google": "GOOGLE_API_KEY",
+                            "openai": "OPENAI_API_KEY",
+                        }
+                        if _name in env_keys:
+                            issues.append(f"{env_keys[_name]} not set")
+                        if _name == "ollama":
+                            issues.append(
+                                "Ollama not reachable at http://localhost:11434"
+                            )
+                        status["issues"] = sorted(issues)
+            # Normalize env-dependent API key presence
+            if key in ("api_keys", "runtime_env"):
+                for k in result:
+                    if isinstance(result[k], bool):
+                        result[k] = False
+            return result
 
         if isinstance(value, list):
             walked = [walk(item, key) for item in value]

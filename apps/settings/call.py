@@ -260,7 +260,7 @@ def keys_validate() -> None:
 def providers_show() -> None:
     """Show provider configuration."""
     from think.models import TYPE_DEFAULTS
-    from think.providers import get_provider_list
+    from think.providers import build_provider_status, get_provider_list
 
     config = _get_config()
     providers_config = config.get("providers", {})
@@ -285,8 +285,12 @@ def providers_show() -> None:
         provider["name"]: auth_config.get(provider["name"], "platform")
         for provider in providers_list
     }
+    vertex_creds_path = providers_config.get("vertex_credentials")
+    vertex_creds_configured = bool(vertex_creds_path and Path(vertex_creds_path).exists())
+    provider_status = build_provider_status(providers_list, vertex_creds_configured)
     result = {
         "providers": providers_list,
+        "provider_status": provider_status,
         "generate": type_settings["generate"],
         "cogitate": type_settings["cogitate"],
         "api_keys": api_keys,

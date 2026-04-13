@@ -4,8 +4,10 @@
 """Tests for think.providers.cli — CLI subprocess runner infrastructure."""
 
 import asyncio
+import json
 import os
-from unittest.mock import AsyncMock, patch
+from pathlib import Path
+from unittest.mock import AsyncMock, mock_open, patch
 
 import pytest
 
@@ -321,6 +323,47 @@ class TestCLIRunnerExitCode:
 
         assert result == ""
         assert not [e for e in events if e.get("event") in ("error", "warning")]
+
+    def test_env_dict_used_directly_without_merge(self):
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+        provided_env = {"PATH": "/custom/bin"}
+        sentinel_key = "CLIRUNNER_TEST_LEAK"
+        captured_env = None
+
+        async def create_subprocess_exec(*args, **kwargs):
+            nonlocal captured_env
+            captured_env = kwargs["env"]
+            return _make_process([], [], 0)
+
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=lambda _e, _a, _c: None,
+            callback=callback,
+            aggregator=aggregator,
+            env=provided_env,
+        )
+
+        os.environ[sentinel_key] = "should-not-leak"
+        try:
+            with (
+                patch(
+                    "think.providers.cli.asyncio.create_subprocess_exec",
+                    AsyncMock(side_effect=create_subprocess_exec),
+                ),
+                patch(
+                    "think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"
+                ),
+            ):
+                asyncio.run(runner.run())
+        finally:
+            os.environ.pop(sentinel_key, None)
+
+        assert captured_env == provided_env
+        assert captured_env is provided_env
+        assert sentinel_key not in captured_env
 
 
 class TestCLIRunnerFirstEventTimeout:
@@ -721,3 +764,224 @@ class TestBuildCogitateEnv:
             env = build_cogitate_env("ANTHROPIC_API_KEY")
         assert "GOOGLE_GENAI_USE_VERTEXAI" not in env
         assert env["ANTHROPIC_API_KEY"] == "sk-ant"
+
+    def test_vertex_backend_sets_project_and_location(self):
+        """Vertex backend exposes project context for Gemini CLI subprocesses."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "vertex_credentials": "/tmp/fake-sa.json",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("os.path.exists", return_value=True),
+            patch(
+                "builtins.open",
+                mock_open(
+                    read_data='{"type": "service_account", "project_id": "my-gcp-project"}'
+                ),
+            ),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert env["GOOGLE_GENAI_USE_VERTEXAI"] == "true"
+        assert env["GOOGLE_APPLICATION_CREDENTIALS"] == "/tmp/fake-sa.json"
+        assert env["GOOGLE_CLOUD_PROJECT"] == "my-gcp-project"
+        assert env["GOOGLE_CLOUD_LOCATION"] == "global"
+        assert "GOOGLE_API_KEY" not in env
+
+    def test_vertex_backend_missing_creds_no_project(self):
+        """Vertex backend still sets location without explicit SA credentials."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GOOGLE_CLOUD_PROJECT" not in env
+        assert env["GOOGLE_CLOUD_LOCATION"] == "global"
+
+    def test_vertex_backend_invalid_sa_json_no_project(self):
+        """Invalid SA JSON logs and skips project configuration."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "vertex_credentials": "/tmp/fake-sa.json",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("os.path.exists", return_value=True),
+            patch("builtins.open", mock_open(read_data="not json")),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GOOGLE_CLOUD_PROJECT" not in env
+        assert env["GOOGLE_CLOUD_LOCATION"] == "global"
+
+    def test_vertex_backend_sa_missing_project_id(self):
+        """Missing project_id in SA JSON leaves project env unset."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "vertex_credentials": "/tmp/fake-sa.json",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("os.path.exists", return_value=True),
+            patch(
+                "builtins.open",
+                mock_open(
+                    read_data=(
+                        '{"type": "service_account", "client_email": "bot@example.com"}'
+                    )
+                ),
+            ),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GOOGLE_CLOUD_PROJECT" not in env
+        assert env["GOOGLE_CLOUD_LOCATION"] == "global"
+
+    def test_aistudio_clears_project_and_location(self):
+        """AI Studio clears inherited Vertex project context."""
+        config = {
+            "providers": {
+                "google_backend": "aistudio",
+                "auth": {"google": "api_key"},
+            }
+        }
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "GOOGLE_API_KEY": "gk-test",
+                    "GOOGLE_CLOUD_LOCATION": "us-central1",
+                    "GOOGLE_CLOUD_PROJECT": "inherited-proj",
+                },
+                clear=True,
+            ),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GOOGLE_CLOUD_PROJECT" not in env
+        assert "GOOGLE_CLOUD_LOCATION" not in env
+
+    def test_vertex_backend_sets_system_settings_path(self):
+        """Vertex backend exposes the Gemini CLI system settings path."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("think.utils.get_journal", return_value="/fake/journal"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert (
+            env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"]
+            == "/fake/journal/.config/gemini-vertex-settings.json"
+        )
+
+    def test_aistudio_backend_no_system_settings_path(self):
+        """AI Studio backend does not set Gemini CLI system settings."""
+        config = {
+            "providers": {
+                "google_backend": "aistudio",
+                "auth": {"google": "api_key"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GEMINI_CLI_SYSTEM_SETTINGS_PATH" not in env
+
+    def test_aistudio_clears_inherited_system_settings_path(self):
+        """AI Studio clears inherited Gemini CLI system settings."""
+        config = {
+            "providers": {
+                "google_backend": "aistudio",
+                "auth": {"google": "api_key"},
+            }
+        }
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "GOOGLE_API_KEY": "gk-test",
+                    "GEMINI_CLI_SYSTEM_SETTINGS_PATH": "/old/settings.json",
+                },
+                clear=True,
+            ),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GEMINI_CLI_SYSTEM_SETTINGS_PATH" not in env
+
+    def test_vertex_writes_settings_file_when_absent(self):
+        """Vertex backend creates Gemini CLI system settings when missing."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("think.utils.get_journal", return_value="/fake/journal"),
+            patch.object(Path, "exists", return_value=False),
+            patch("os.makedirs") as mock_mkdirs,
+            patch("builtins.open", mock_open()) as mock_file,
+            patch("os.chmod") as mock_chmod,
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        written = "".join(call.args[0] for call in mock_file().write.call_args_list)
+        assert env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] == (
+            "/fake/journal/.config/gemini-vertex-settings.json"
+        )
+        assert mock_mkdirs.called
+        assert mock_file.called
+        assert json.loads(written) == {
+            "security": {"auth": {"selectedType": "vertex-ai"}}
+        }
+        mock_chmod.assert_called_once_with(
+            "/fake/journal/.config/gemini-vertex-settings.json", 0o600
+        )
+
+    def test_vertex_skips_settings_write_when_exists(self):
+        """Vertex backend does not rewrite existing Gemini CLI settings."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("think.utils.get_journal", return_value="/fake/journal"),
+            patch.object(Path, "exists", return_value=True),
+            patch("builtins.open", mock_open()) as mock_file,
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] == (
+            "/fake/journal/.config/gemini-vertex-settings.json"
+        )
+        mock_file.assert_not_called()

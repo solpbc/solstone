@@ -12,49 +12,63 @@
 
 /* Left navigation */
 .settings-nav {
-  width: 200px;
+  width: 180px;
   flex-shrink: 0;
   position: sticky;
   top: calc(var(--facet-bar-height, 60px) + 1em);
   align-self: flex-start;
   max-height: calc(100vh - var(--facet-bar-height, 60px) - 2em);
   overflow-y: auto;
+  border-right: 1px solid var(--facet-border, #e5e0db);
+  padding-right: 0.75rem;
 }
 
 .settings-nav-group {
-  margin-bottom: 1.5em;
+  margin-bottom: 1.5rem;
+}
+
+.settings-nav-group + .settings-nav-group {
+  border-top: 1px solid var(--facet-border, #e5e0db);
+  padding-top: 0.75rem;
 }
 
 .settings-nav-label {
   font-size: 0.75em;
-  font-weight: 600;
-  color: #888;
-  padding: 0 0.75em;
-  margin-bottom: 0.5em;
+  font-weight: 500;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0 0.75rem 0.125rem 0.75rem;
+  margin-bottom: 0.25rem;
 }
 
 .settings-nav-item {
   display: block;
   width: 100%;
-  padding: 0.6em 0.75em;
+  padding: 0.375rem 1.25rem;
   border: none;
   background: none;
   text-align: left;
   font-size: 0.95em;
   color: #333;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: background 0.15s;
 }
 
 .settings-nav-item:hover {
-  background: #f0f0f0;
+  background: rgba(0,0,0,0.05);
+}
+
+.settings-nav-item:active:not(.active) {
+  background: #e4e4e4;
 }
 
 .settings-nav-item.active {
   background: var(--facet-color, #E8923A);
   color: white;
   font-weight: 600;
+  box-shadow: inset 3px 0 0 0 rgba(255,255,255,0.5);
 }
 
 /* Mobile nav dropdown */
@@ -78,6 +92,7 @@
   flex: 1;
   min-width: 0;
   max-width: 600px;
+  padding-bottom: calc(var(--app-bar-height, 60px) + 2em);
 }
 
 .settings-section {
@@ -95,7 +110,7 @@
 }
 
 .settings-section h2 {
-  font-size: 1.4em;
+  font-size: 1.5em;
   font-weight: 600;
   color: #333;
   margin: 0 0 0.5em 0;
@@ -103,8 +118,10 @@
 
 .settings-section-desc {
   color: #666;
-  font-size: 0.9em;
-  margin-bottom: 1.5em;
+  font-size: 0.85em;
+  margin-bottom: 1em;
+  padding-bottom: 0.75em;
+  border-bottom: 1px solid var(--facet-border, #e5e0db);
   line-height: 1.4;
 }
 
@@ -118,15 +135,15 @@
   font-weight: 600;
   color: #333;
   margin-bottom: 0.4em;
-  font-size: 0.95em;
+  font-size: 0.9em;
 }
 
 .settings-field input,
 .settings-field textarea,
 .settings-field select {
   width: 100%;
-  padding: 0.6em 0.75em;
-  border: 2px solid #ddd;
+  padding: 0.7em 0.85em;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
   font-size: 0.95em;
   font-family: inherit;
@@ -139,7 +156,13 @@
 .settings-field select:focus {
   outline: none;
   border-color: var(--facet-color, #E8923A);
-  box-shadow: 0 0 0 3px var(--facet-bg, rgba(232, 146, 58, 0.1));
+  box-shadow: 0 0 0 3px var(--facet-bg, rgba(232, 146, 58, 0.15));
+}
+
+.settings-field input:hover,
+.settings-field textarea:hover,
+.settings-field select:hover {
+  border-color: #bbb;
 }
 
 .settings-field textarea {
@@ -150,9 +173,9 @@
 .settings-field small {
   display: block;
   margin-top: 0.3em;
-  color: #666;
+  color: #999;
   font-size: 0.85em;
-  line-height: 1.4;
+  line-height: 1.5;
   transition: opacity 0.3s ease;
 }
 
@@ -220,6 +243,12 @@
   padding-right: 3em;
 }
 
+#section-apikeys .password-wrap input {
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', monospace;
+  font-size: 0.9em;
+  letter-spacing: 0.02em;
+}
+
 .password-toggle {
   position: absolute;
   right: 0.5em;
@@ -237,6 +266,11 @@
   color: #333;
 }
 
+.password-toggle:active {
+  color: #111;
+  transform: translateY(-50%) scale(0.9);
+}
+
 /* Facet appearance section */
 .facet-header {
   display: flex;
@@ -252,7 +286,7 @@
 }
 
 .toggle-label {
-  font-weight: 600;
+  font-weight: 500;
   font-size: 0.95em;
   color: #333;
   min-width: 60px;
@@ -296,6 +330,14 @@
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
+.slider:hover {
+  opacity: 0.85;
+}
+
+.slider:hover:before {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
 input:checked + .slider {
   background-color: #6c757d;
 }
@@ -322,8 +364,8 @@ input:checked + .slider:before {
 
 .editable-field .field-display {
   cursor: pointer;
-  padding: 0.6em 0.75em;
-  border: 2px solid transparent;
+  padding: 0.7em 0.85em;
+  border: 1px solid transparent;
   border-radius: 8px;
   transition: all 0.2s;
   flex: 1;
@@ -337,10 +379,14 @@ input:checked + .slider:before {
   border-color: #ddd;
 }
 
+.editable-field .field-display:active {
+  background: #ebebeb;
+}
+
 .editable-field .field-input {
   width: 100%;
-  padding: 0.6em 0.75em;
-  border: 2px solid var(--facet-color, #667eea);
+  padding: 0.7em 0.85em;
+  border: 1px solid var(--facet-color, #E8923A);
   border-radius: 8px;
   font-size: 0.95em;
   font-family: inherit;
@@ -361,6 +407,16 @@ input:checked + .slider:before {
 .emoji-display:hover {
   transform: scale(1.1);
   background: #f5f5f5;
+}
+
+.emoji-display:active {
+  transform: scale(0.95);
+}
+
+.emoji-display:focus-visible {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
+  border-radius: 12px;
 }
 
 .emoji-input {
@@ -391,6 +447,11 @@ input:checked + .slider:before {
   border-color: #999;
 }
 
+.color-picker-trigger:focus-visible {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
+}
+
 .color-preview {
   width: 40px;
   height: 40px;
@@ -399,8 +460,9 @@ input:checked + .slider:before {
 }
 
 .color-picker-trigger span {
-  font-family: monospace;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', monospace;
   font-size: 1em;
+  letter-spacing: 0.03em;
   font-weight: 600;
 }
 
@@ -441,6 +503,11 @@ input:checked + .slider:before {
   color: #333;
 }
 
+.color-close:active {
+  color: #111;
+  transform: scale(0.9);
+}
+
 .color-modal h3 {
   margin: 0 0 1.5em 0;
   color: #333;
@@ -465,6 +532,10 @@ input:checked + .slider:before {
 .color-swatch:hover {
   transform: scale(1.1);
   border-color: #333;
+}
+
+.color-swatch:active {
+  transform: scale(0.95);
 }
 
 .color-swatch.selected {
@@ -503,8 +574,9 @@ input:checked + .slider:before {
   padding: 0.6em 0.75em;
   border: 2px solid #ddd;
   border-radius: 8px;
-  font-family: monospace;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', monospace;
   font-size: 1em;
+  letter-spacing: 0.03em;
 }
 
 .color-preview-section {
@@ -526,8 +598,8 @@ input:checked + .slider:before {
   gap: 0.5em;
   padding: 0.6em 1.2em;
   border-radius: 20px;
-  border: 2px solid #667eea;
-  background: rgba(102, 126, 234, 0.1);
+  border: 2px solid #E8923A;
+  background: rgba(232, 146, 58, 0.1);
   font-weight: 500;
 }
 
@@ -538,7 +610,7 @@ input:checked + .slider:before {
 .save-color-btn {
   width: 100%;
   padding: 0.75em 1.5em;
-  background: var(--facet-color, #667eea);
+  background: var(--facet-color, #E8923A);
   color: white;
   border: none;
   border-radius: 8px;
@@ -552,16 +624,21 @@ input:checked + .slider:before {
   opacity: 0.9;
 }
 
+.save-color-btn:active {
+  opacity: 0.75;
+  transform: translateY(1px);
+}
+
 /* Activity log */
 .log-panel {
   background: #fafafa;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
 }
 
 .log-header {
   padding: 0.75em 1em;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--facet-border, #e5e0db);
   font-weight: 600;
   font-size: 0.9em;
   color: #555;
@@ -635,13 +712,13 @@ input:checked + .slider:before {
 .log-more {
   padding: 0.5em 1em;
   text-align: center;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--facet-border, #e5e0db);
 }
 
 .log-more-btn {
   background: none;
   border: none;
-  color: var(--facet-color, #667eea);
+  color: var(--facet-color, #E8923A);
   cursor: pointer;
   font-size: 0.85em;
   padding: 0.5em 1em;
@@ -649,12 +726,16 @@ input:checked + .slider:before {
 }
 
 .log-more-btn:hover {
-  background: var(--facet-bg, rgba(102, 126, 234, 0.1));
+  background: var(--facet-bg, rgba(232, 146, 58, 0.1));
 }
 
 .log-more-btn:disabled {
   color: #ccc;
   cursor: default;
+}
+
+.log-more-btn:active:not(:disabled) {
+  background: color-mix(in srgb, var(--facet-bg, rgba(232, 146, 58, 0.1)) 80%, #000);
 }
 
 /* Providers section */
@@ -708,7 +789,7 @@ input:checked + .slider:before {
 /* Context overrides collapsible section */
 .context-overrides {
   margin-top: 2em;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -719,7 +800,7 @@ input:checked + .slider:before {
   justify-content: space-between;
   padding: 0.75em 1em;
   background: #f8f8f8;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--facet-border, #e5e0db);
 }
 
 .context-overrides-title {
@@ -787,7 +868,7 @@ input:checked + .slider:before {
   flex: 1;
   font-size: 0.9em;
   padding: 0.25em 0.5em;
-  border: 1px solid var(--facet-color, #667eea);
+  border: 1px solid var(--facet-color, #E8923A);
   border-radius: 4px;
   outline: none;
 }
@@ -830,7 +911,7 @@ input:checked + .slider:before {
 }
 
 .redact-add-input:focus {
-  border-color: var(--facet-color, #667eea);
+  border-color: var(--facet-color, #E8923A);
 }
 
 .redact-add-btn {
@@ -846,14 +927,19 @@ input:checked + .slider:before {
 }
 
 .redact-add-btn:hover {
-  border-color: var(--facet-color, #667eea);
-  color: var(--facet-color, #667eea);
-  background: var(--facet-bg, rgba(102, 126, 234, 0.05));
+  border-color: var(--facet-color, #E8923A);
+  color: var(--facet-color, #E8923A);
+  background: var(--facet-bg, rgba(232, 146, 58, 0.05));
 }
 
 .redact-add-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.redact-add-btn:active:not(:disabled) {
+  background: color-mix(in srgb, var(--facet-bg, rgba(232, 146, 58, 0.05)) 80%, #000);
+  transform: scale(0.98);
 }
 
 .redact-validation {
@@ -910,6 +996,16 @@ input:checked + .slider:before {
   font-size: 0.85em;
   background: white;
   min-width: 80px;
+}
+
+.context-select:hover {
+  border-color: #bbb;
+}
+
+.context-select:focus {
+  border-color: var(--facet-color, #E8923A);
+  box-shadow: 0 0 0 3px var(--facet-bg, rgba(232, 146, 58, 0.1));
+  outline: none;
 }
 
 .context-action {
@@ -991,7 +1087,7 @@ input:checked + .slider:before {
   width: 100%;
   padding: 0.4em 0.6em;
   font-size: 0.85em;
-  border: 2px solid var(--facet-color, #667eea);
+  border: 2px solid var(--facet-color, #E8923A);
   border-radius: 4px;
   font-family: inherit;
   line-height: 1.4;
@@ -1142,6 +1238,11 @@ input:checked + .slider:before {
   background: #d47e2e;
 }
 
+.setup-btn:active:not(:disabled) {
+  background: #c06e20;
+  transform: translateY(1px);
+}
+
 .setup-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
@@ -1150,7 +1251,7 @@ input:checked + .slider:before {
 /* Insights section */
 .insights-group {
   margin-bottom: 1.5em;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -1171,8 +1272,12 @@ input:checked + .slider:before {
   background: #f0f0f0;
 }
 
+.insights-group-header:active {
+  background: #e4e4e4;
+}
+
 .insights-group.expanded .insights-group-header {
-  border-bottom-color: #e0e0e0;
+  border-bottom-color: var(--facet-border, #e5e0db);
 }
 
 .insights-group-title {
@@ -1327,9 +1432,15 @@ input:checked + .slider:before {
   cursor: default;
 }
 
+.insight-toggle input:focus-visible + .slider {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
+  border-radius: 20px;
+}
+
 /* Activities section */
 .activities-section {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -1340,7 +1451,7 @@ input:checked + .slider:before {
   justify-content: space-between;
   padding: 0.75em 1em;
   background: #f8f8f8;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--facet-border, #e5e0db);
 }
 
 .activities-title {
@@ -1488,6 +1599,16 @@ input:checked + .slider:before {
   cursor: default;
 }
 
+.activity-chip:active:not(.activity-chip-attached) {
+  background: #d0d0d0;
+  transform: scale(0.97);
+}
+
+.activity-chip:focus-visible {
+  outline: 2px solid var(--facet-color, #E8923A);
+  outline-offset: 2px;
+}
+
 .activity-chip-icon {
   font-size: 1.1em;
 }
@@ -1509,9 +1630,14 @@ input:checked + .slider:before {
 }
 
 .activities-add-custom-btn:hover {
-  border-color: var(--facet-color, #667eea);
-  color: var(--facet-color, #667eea);
-  background: var(--facet-bg, rgba(102, 126, 234, 0.05));
+  border-color: var(--facet-color, #E8923A);
+  color: var(--facet-color, #E8923A);
+  background: var(--facet-bg, rgba(232, 146, 58, 0.05));
+}
+
+.activities-add-custom-btn:active {
+  background: color-mix(in srgb, var(--facet-bg, rgba(232, 146, 58, 0.05)) 80%, #000);
+  transform: scale(0.98);
 }
 
 /* Storage section */
@@ -1529,10 +1655,14 @@ input:checked + .slider:before {
   background: #f0f0f0;
 }
 
+.settings-mode-btn:active:not(.active) {
+  background: #e0e0e0;
+}
+
 .settings-mode-btn.active {
-  background: var(--accent, #667eea);
+  background: var(--accent, #E8923A);
   color: white;
-  border-color: var(--accent, #667eea);
+  border-color: var(--accent, #E8923A);
 }
 
 .settings-preset-btn {
@@ -1548,9 +1678,13 @@ input:checked + .slider:before {
   background: #f0f0f0;
 }
 
+.settings-preset-btn:active:not(.active) {
+  background: #e0e0e0;
+}
+
 .settings-preset-btn.active {
-  border-color: var(--accent, #667eea);
-  color: var(--accent, #667eea);
+  border-color: var(--accent, #E8923A);
+  color: var(--accent, #E8923A);
 }
 
 .stream-override-row {
@@ -1586,6 +1720,18 @@ input:checked + .slider:before {
   font-size: 0.85em;
 }
 
+.stream-override-select:hover,
+.stream-override-days:hover {
+  border-color: #999;
+}
+
+.stream-override-select:focus,
+.stream-override-days:focus {
+  border-color: var(--facet-color, #E8923A);
+  box-shadow: 0 0 0 3px var(--facet-bg, rgba(232, 146, 58, 0.1));
+  outline: none;
+}
+
 /* Keyboard focus indicators */
 .settings-nav-item:focus-visible,
 .setup-btn:focus-visible,
@@ -1610,7 +1756,7 @@ button:focus-visible {
 }
 
 /* Toggle switches */
-.toggle-switch:focus-visible {
+.toggle-switch input:focus-visible + .slider {
   outline: 2px solid var(--facet-color, #E8923A);
   outline-offset: 2px;
   border-radius: 12px;
@@ -1621,8 +1767,130 @@ button:focus-visible {
 .setup-btn:focus:not(:focus-visible),
 .save-color-btn:focus:not(:focus-visible),
 .field-display:focus:not(:focus-visible),
+.color-picker-trigger:focus:not(:focus-visible),
+.emoji-display:focus:not(:focus-visible),
 button:focus:not(:focus-visible) {
   outline: none;
+}
+
+/* Subsection & summary styles */
+.settings-subsection-title {
+  font-size: 0.95em;
+  font-weight: 600;
+  color: #374151;
+  margin: 1.5em 0 0.5em 0;
+}
+
+.settings-subsection-desc {
+  color: #666;
+  font-size: 0.85em;
+  margin: 0 0 0.75em 0;
+  line-height: 1.4;
+}
+
+.settings-summary-card {
+  background: #fafafa;
+  border: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 8px;
+  padding: 1em 1.25em;
+  margin-bottom: 1.5em;
+}
+
+.storage-stat-value {
+  font-size: 1.5em;
+  font-weight: 600;
+}
+
+.storage-stat-label {
+  font-size: 0.85em;
+  color: #666;
+}
+
+/* Button variants */
+.btn-secondary {
+  padding: 0.5em 1em;
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-secondary:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.btn-secondary:active {
+  background: #e5e7eb;
+}
+
+.action-button-danger {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.6em 1.2em;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.15s;
+}
+
+.action-button-danger:hover {
+  background: #c82333;
+}
+
+.action-button-danger:active {
+  background: #b21f2d;
+}
+
+.cleanup-preview-btn {
+  padding: 0.5em 1em;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cleanup-preview-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.cleanup-preview-btn:active {
+  background: #e5e7eb;
+}
+
+.cleanup-confirm-btn {
+  padding: 0.5em 1em;
+  border: none;
+  border-radius: 6px;
+  background: #dc3545;
+  color: white;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cleanup-confirm-btn:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.cleanup-confirm-btn:active:not(:disabled) {
+  background: #b21f2d;
+}
+
+.cleanup-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-danger-section {
+  margin-top: 2em;
+  padding-top: 1.5em;
+  border-top: 1px solid var(--facet-border, #e5e0db);
 }
 
 /* Responsive */
@@ -1841,8 +2109,8 @@ button:focus:not(:focus-visible) {
 
       <form class="settings-form" onsubmit="return false;">
 
-      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">generate</h3>
-      <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Text generation for analysis, extraction, and transcription tasks.</p>
+      <h3 class="settings-subsection-title">generate</h3>
+      <p class="settings-subsection-desc">Text generation for analysis, extraction, and transcription tasks.</p>
       <div class="provider-row">
         <div class="settings-field">
           <label for="field-generate-provider">provider</label>
@@ -1874,8 +2142,8 @@ button:focus:not(:focus-visible) {
         <a href="#" id="generateProviderKeyLink">Configure in API Keys</a>
       </div>
 
-      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">cogitate</h3>
-      <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">Tool-calling agents for interactive chat, daily briefings, and complex reasoning.</p>
+      <h3 class="settings-subsection-title">cogitate</h3>
+      <p class="settings-subsection-desc">Tool-calling agents for interactive chat, daily briefings, and complex reasoning.</p>
       <div class="provider-row">
         <div class="settings-field">
           <label for="field-cogitate-provider">provider</label>
@@ -1911,8 +2179,8 @@ button:focus:not(:focus-visible) {
           <small>How the CLI authenticates with the provider</small>
         </div>
       </div>
-      <h3 style="margin:1.2em 0 0.5em 0;font-size:1em">google backend</h3>
-      <p style="color:#666;font-size:0.85em;margin:0 0 0.8em 0">How solstone connects to Google AI. Auto-detect works for most users.</p>
+      <h3 class="settings-subsection-title">google backend</h3>
+      <p class="settings-subsection-desc">How solstone connects to Google AI. Auto-detect works for most users.</p>
       <div class="provider-row">
         <div class="settings-field">
           <label for="field-google-backend">backend</label>
@@ -2157,8 +2425,8 @@ button:focus:not(:focus-visible) {
 
       <form class="settings-form" onsubmit="return false;">
 
-      <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">terminal capture</h3>
-      <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
+      <h3 class="settings-subsection-title">terminal capture</h3>
+      <p class="settings-subsection-desc">
         When your screen is idle, the observer can capture terminal content from active tmux sessions.
       </p>
 
@@ -2290,8 +2558,8 @@ button:focus:not(:focus-visible) {
       <form class="settings-form" onsubmit="return false;">
 
       <div id="plaudSyncCard">
-        <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Plaud</h3>
-        <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
+        <h3 class="settings-subsection-title">Plaud</h3>
+        <p class="settings-subsection-desc">
           Automatically sync and import recordings from your Plaud device every hour.
         </p>
 
@@ -2312,8 +2580,8 @@ button:focus:not(:focus-visible) {
       </div>
 
       <div id="granolaSyncCard">
-        <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Granola (via muesli)</h3>
-        <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
+        <h3 class="settings-subsection-title">Granola (via muesli)</h3>
+        <p class="settings-subsection-desc">
           Automatically sync new meeting transcripts from Granola.
         </p>
 
@@ -2330,8 +2598,8 @@ button:focus:not(:focus-visible) {
       </div>
 
       <div id="obsidianSyncCard">
-        <h3 style="margin: 1.5em 0 0.75em 0; font-size: 1em; color: #374151;">Obsidian vault</h3>
-        <p style="color: #666; font-size: 0.9em; margin: 0 0 1em 0;">
+        <h3 class="settings-subsection-title">Obsidian vault</h3>
+        <p class="settings-subsection-desc">
           Automatically sync new and updated notes from your vault.
         </p>
 
@@ -2356,19 +2624,19 @@ button:focus:not(:focus-visible) {
 
       <form class="settings-form" onsubmit="return false;">
 
-      <div id="storageSummaryCard" style="background: #f8f8f8; border-radius: 8px; padding: 1em 1.25em; margin-bottom: 1.5em;">
+      <div id="storageSummaryCard" class="settings-summary-card">
         <div class="storage-summary-grid">
           <div>
-            <div style="font-size: 1.5em; font-weight: 600;" id="storageSummaryRaw">—</div>
-            <div style="font-size: 0.85em; color: #666;">Raw Media</div>
+            <div class="storage-stat-value" id="storageSummaryRaw">—</div>
+            <div class="storage-stat-label">Raw Media</div>
           </div>
           <div>
-            <div style="font-size: 1.5em; font-weight: 600;" id="storageSummaryDerived">—</div>
-            <div style="font-size: 0.85em; color: #666;">Derived Content</div>
+            <div class="storage-stat-value" id="storageSummaryDerived">—</div>
+            <div class="storage-stat-label">Derived Content</div>
           </div>
           <div>
-            <div style="font-size: 1.5em; font-weight: 600;" id="storageSummarySegments">—</div>
-            <div style="font-size: 0.85em; color: #666;">Segments</div>
+            <div class="storage-stat-value" id="storageSummarySegments">—</div>
+            <div class="storage-stat-label">Segments</div>
           </div>
         </div>
         <div style="margin-top: 0.75em; font-size: 0.8em; color: #888; text-align: center;" id="storageSummaryDetail"></div>
@@ -2407,8 +2675,8 @@ button:focus:not(:focus-visible) {
         </div>
       </div>
 
-      <div style="margin-top: 2em; padding-top: 1.5em; border-top: 1px solid #e0e0e0;">
-        <button type="button" id="cleanupNowBtn" class="action-button" style="background: #dc3545; color: white; border: none; padding: 0.6em 1.2em; border-radius: 6px; cursor: pointer; font-size: 0.9em;">Clean Up Now</button>
+      <div class="settings-danger-section">
+        <button type="button" id="cleanupNowBtn" class="action-button-danger">Clean Up Now</button>
         <small style="display: block; margin-top: 0.5em; color: #666;">Manually purge raw media older than a specified number of days.</small>
       </div>
       </form>
@@ -2498,7 +2766,7 @@ button:focus:not(:focus-visible) {
       </div>
 
       <div class="settings-field">
-        <button class="setup-btn" id="resetAgentName" style="background: var(--text-muted); font-size: 0.85em; padding: 0.4em 1em;">Reset to Default</button>
+        <button class="setup-btn" id="resetAgentName" style="background: #6c757d; font-size: 0.85em; padding: 0.4em 1em;">Reset to Default</button>
         <small>Reset the agent name back to "sol"</small>
       </div>
       </form>
@@ -2538,14 +2806,14 @@ button:focus:not(:focus-visible) {
 
       <div class="settings-field">
         <label for="emojiInput">icon</label>
-        <div class="emoji-display" id="emojiDisplay">&#128230;</div>
+        <div class="emoji-display" id="emojiDisplay" tabindex="0" role="button">&#128230;</div>
         <input type="text" id="emojiInput" class="emoji-input" maxlength="4" placeholder="Paste emoji" style="display:none">
         <small>Click to change emoji</small>
       </div>
 
       <div class="settings-field">
         <label>theme color</label>
-        <div class="color-picker-trigger" id="colorTrigger">
+        <div class="color-picker-trigger" id="colorTrigger" tabindex="0" role="button">
           <div class="color-preview" id="colorPreview"></div>
           <span id="colorHexDisplay">#667eea</span>
         </div>
@@ -2681,8 +2949,8 @@ button:focus:not(:focus-visible) {
     </div>
 
     <div style="display: flex; gap: 0.75em; justify-content: flex-end;">
-      <button type="button" id="cleanupPreviewBtn" style="padding: 0.5em 1em; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer;">Preview</button>
-      <button type="button" id="cleanupConfirmBtn" style="padding: 0.5em 1em; border: none; border-radius: 4px; background: #dc3545; color: white; cursor: pointer;" disabled>Delete Files</button>
+      <button type="button" id="cleanupPreviewBtn" class="cleanup-preview-btn">Preview</button>
+      <button type="button" id="cleanupConfirmBtn" class="cleanup-confirm-btn" disabled>Delete Files</button>
     </div>
   </div>
 </div>
@@ -3106,7 +3374,7 @@ function updateEnvStatus(fieldId, isJournalConfigured, isSystemConfigured) {
 
     // Add validation status for provider keys
     const providerName = fieldId.replace('field-env-', '');
-    if (['google', 'openai', 'anthropic'].includes(providerName)) {
+    if (['google', 'openai', 'anthropic', 'revai', 'plaud'].includes(providerName)) {
       const validation = keyValidationData[providerName];
       const oldValidation = label.querySelector('.key-validation-status');
       if (oldValidation) oldValidation.remove();
@@ -3853,6 +4121,8 @@ async function revalidateAllKeys() {
     updateEnvStatus('field-env-google', env.GOOGLE_API_KEY, sysEnv.GOOGLE_API_KEY);
     updateEnvStatus('field-env-openai', env.OPENAI_API_KEY, sysEnv.OPENAI_API_KEY);
     updateEnvStatus('field-env-anthropic', env.ANTHROPIC_API_KEY, sysEnv.ANTHROPIC_API_KEY);
+    updateEnvStatus('field-env-revai', env.REVAI_ACCESS_TOKEN, sysEnv.REVAI_ACCESS_TOKEN);
+    updateEnvStatus('field-env-plaud', env.PLAUD_ACCESS_TOKEN, sysEnv.PLAUD_ACCESS_TOKEN);
     // Update provider warnings too
     if (providersData) {
       providersData.key_validation = keyValidationData;
@@ -5232,7 +5502,7 @@ function renderActivities(data) {
     defaultsList.innerHTML = defaults.map(d => {
       const isAttached = attachedIds.has(d.id);
       return `
-        <span class="activity-chip ${isAttached ? 'activity-chip-attached' : ''}" data-id="${d.id}" ${isAttached ? '' : 'title="Click to add"'}>
+        <span class="activity-chip ${isAttached ? 'activity-chip-attached' : ''}" data-id="${d.id}" ${isAttached ? '' : 'tabindex="0" role="button" title="Click to add"'}>
           <span class="activity-chip-icon">${d.icon || '📌'}</span>
           <span>${escapeHtml(d.name)}</span>
         </span>

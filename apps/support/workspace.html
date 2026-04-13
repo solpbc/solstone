@@ -1,21 +1,34 @@
 <style>
   .support-nav {
     display: flex;
-    gap: 0.25rem;
-    margin-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border, #e0e0e0);
-    padding-bottom: 0.5rem;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--facet-border, #e5e0db);
+    padding-bottom: 0;
   }
   .support-nav button {
     position: relative;
     background: none;
     border: none;
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 1.25rem;
     cursor: pointer;
     font-size: 0.9rem;
-    color: var(--muted, #595959);
-    border-bottom: 2px solid transparent;
-    transition: all 0.15s;
+    color: #666;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .support-nav button:hover:not(.active) {
+    color: var(--text, #222);
+    border-bottom-color: rgba(0, 0, 0, 0.08);
+  }
+  .support-nav button:active:not(.active) {
+    color: var(--text, #222);
+    border-bottom-color: rgba(0, 0, 0, 0.15);
+  }
+  .support-nav button:focus-visible {
+    outline: 2px solid var(--facet-color, #3b82f6);
+    outline-offset: -2px;
   }
   .support-nav button.active {
     color: var(--text, #222);
@@ -27,27 +40,28 @@
 
   /* Tickets */
   .support-ticket {
-    border: 1px solid var(--border, #e0e0e0);
+    border: 1px solid var(--facet-border, #e5e0db);
     border-radius: 8px;
     padding: 1rem;
     margin-bottom: 0.75rem;
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
   }
-  .support-ticket:hover { background: var(--card-bg, #fafafa); }
+  .support-ticket:hover { background: rgba(0, 0, 0, 0.03); }
+  .support-ticket:active { background: rgba(0, 0, 0, 0.06); }
   .support-ticket:focus-visible { outline: 2px solid var(--facet-color, #3b82f6); outline-offset: 2px; }
   .support-ticket-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
   }
-  .support-ticket-id { font-size: 0.8rem; color: var(--muted, #595959); }
-  .support-ticket-subject { font-weight: 600; }
-  .support-ticket-meta { font-size: 0.8rem; color: var(--muted, #595959); margin-top: 0.25rem; }
+  .support-ticket-id { font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Consolas', monospace; font-size: 0.78rem; letter-spacing: 0.02em; color: #666; }
+  .support-ticket-subject { font-weight: 500; }
+  .support-ticket-meta { font-size: 0.8rem; color: #666; margin-top: 0.25rem; }
   .support-status {
-    font-size: 0.75rem;
-    padding: 0.15rem 0.5rem;
+    font-size: 0.8rem;
+    padding: 0.2rem 0.5rem;
     border-radius: 4px;
     font-weight: 600;
   }
@@ -64,48 +78,57 @@
     border: none;
     cursor: pointer;
     font-size: 0.9rem;
-    color: var(--muted, #595959);
+    color: #666;
     padding: 0;
     margin-bottom: 1rem;
   }
   .support-detail-back:hover { color: var(--text, #222); }
+  .support-detail-back:active { color: #111; }
+  .support-detail-back:focus-visible { outline: 2px solid var(--facet-color, #3b82f6); outline-offset: 2px; }
   .support-message {
-    border-left: 3px solid var(--border, #e0e0e0);
+    border-left: 3px solid var(--facet-border, #e5e0db);
     padding: 0.75rem 1rem;
     margin-bottom: 0.75rem;
   }
-  .support-message-meta { font-size: 0.8rem; color: var(--muted, #595959); margin-bottom: 0.25rem; }
+  .support-message-meta { font-size: 0.8rem; color: #666; margin-bottom: 0.25rem; }
   .support-reply-form { margin-top: 1rem; }
   .support-reply-form textarea {
     width: 100%;
     min-height: 80px;
     padding: 0.75rem;
-    border: 1px solid var(--border, #e0e0e0);
+    border: 1px solid var(--facet-border, #e5e0db);
     border-radius: 6px;
     font: inherit;
     resize: vertical;
     box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
+  .support-reply-form textarea:hover { border-color: #bbb; }
   .support-reply-form textarea:focus {
     outline: none;
     border-color: var(--facet-color, #3b82f6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
   }
+  .support-reply-form label, .support-feedback-form label { display: block; margin-bottom: 0.35rem; }
 
   /* Feedback */
   .support-feedback-form textarea {
     width: 100%;
     min-height: 100px;
     padding: 0.75rem;
-    border: 1px solid var(--border, #e0e0e0);
+    border: 1px solid var(--facet-border, #e5e0db);
     border-radius: 6px;
     font: inherit;
     resize: vertical;
     margin-bottom: 0.5rem;
     box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
+  .support-feedback-form textarea:hover { border-color: #bbb; }
   .support-feedback-form textarea:focus {
     outline: none;
     border-color: var(--facet-color, #3b82f6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
   }
   .support-feedback-options {
     display: flex;
@@ -117,13 +140,13 @@
 
   /* Help */
   .support-help-card {
-    border: 1px solid var(--border, #e0e0e0);
+    border: 1px solid var(--facet-border, #e5e0db);
     border-radius: 8px;
     padding: 1rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
   }
-  .support-help-card h3 { margin: 0 0 0.5rem 0; font-size: 1rem; }
-  .support-help-card p { margin: 0; font-size: 0.9rem; color: var(--muted, #595959); }
+  .support-help-card h3 { margin: 0 0 0.35rem 0; font-size: 1rem; }
+  .support-help-card p { margin: 0; font-size: 0.9rem; color: #666; }
 
   /* Buttons */
   .support-btn {
@@ -136,13 +159,16 @@
     font-size: 0.9rem;
     font-weight: 500;
   }
-  .support-btn:hover { opacity: 0.9; }
+  .support-btn:hover { filter: brightness(1.1); }
   .support-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .support-btn:active:not(:disabled) { filter: brightness(0.9); transform: translateY(1px); }
   .support-btn-secondary {
     background: transparent;
     color: var(--text, #222);
-    border: 1px solid var(--border, #e0e0e0);
+    border: 1px solid var(--facet-border, #e5e0db);
   }
+  .support-btn.support-btn-secondary:hover { background: rgba(0, 0, 0, 0.04); border-color: #bbb; filter: none; }
+  .support-btn.support-btn-secondary:active { background: rgba(0, 0, 0, 0.08); filter: none; }
 
   .support-empty {
     text-align: center;
@@ -151,15 +177,16 @@
   .support-empty-icon {
     font-size: 3rem;
     margin-bottom: 1rem;
-    opacity: 0.5;
+    opacity: 0.65;
   }
   .support-empty-heading {
     font-size: 1.1rem;
+    font-weight: 500;
     margin-bottom: 0.5rem;
   }
   .support-empty-hint {
     font-size: 0.9rem;
-    color: var(--muted, #595959);
+    color: #666;
     margin-bottom: 1.5rem;
   }
   .support-empty-action {
@@ -172,7 +199,8 @@
     font-size: 0.9rem;
     font-weight: 500;
   }
-  .support-empty-action:hover { opacity: 0.9; }
+  .support-empty-action:hover { filter: brightness(1.1); }
+  .support-empty-action:active { filter: brightness(0.9); transform: translateY(1px); }
 
   .support-tab-badge {
     position: absolute;
@@ -184,16 +212,19 @@
     font-weight: 600;
     min-width: 1.1rem;
     height: 1.1rem;
-    line-height: 1.1rem;
     border-radius: 1rem;
-    text-align: center;
-    display: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
   }
 
   .support-disabled {
     text-align: center;
     padding: 3rem 1rem;
-    color: var(--muted, #595959);
+    color: #666;
   }
 
   .support-status-msg {
@@ -211,7 +242,7 @@
   }
   .support-keyboard-hint {
     font-size: 0.8rem;
-    color: var(--muted, #595959);
+    color: #666;
     margin-left: 0.5rem;
   }
 
@@ -224,19 +255,26 @@
     display: flex;
     align-items: center;
     gap: 0.35rem;
-    color: var(--muted, #595959);
+    color: #888;
     margin-top: 0.15rem;
   }
   .support-drop-zone {
-    border: 2px dashed var(--border, #e0e0e0);
+    border: 2px dashed var(--facet-border, #e5e0db);
     border-radius: 8px;
     padding: 1rem;
     text-align: center;
-    color: var(--muted, #595959);
+    color: #666;
     font-size: 0.85rem;
     margin-top: 0.75rem;
-    transition: all 0.15s;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
     cursor: pointer;
+  }
+  .support-drop-zone:hover {
+    border-color: #bbb;
+    color: var(--text, #222);
+  }
+  .support-drop-zone:active {
+    background: rgba(0, 0, 0, 0.03);
   }
   .support-drop-zone.dragover {
     border-color: var(--facet-color, #3b82f6);
@@ -258,12 +296,13 @@
   .support-file-entry .remove-file {
     background: none;
     border: none;
-    color: var(--muted, #595959);
+    color: #666;
     cursor: pointer;
     font-size: 0.9rem;
     padding: 0 0.25rem;
   }
   .support-file-entry .remove-file:hover { color: #c62828; }
+  .support-file-entry .remove-file:focus-visible { outline: 2px solid var(--facet-color, #3b82f6); outline-offset: 2px; border-radius: 2px; }
 
   /* Announcements banner */
   .support-announcements {
@@ -275,17 +314,19 @@
     font-size: 0.9rem;
   }
   .support-announcements h4 { margin: 0 0 0.25rem 0; font-size: 0.9rem; }
+  .support-announcements p { margin: 0; font-size: 0.85rem; }
 
   /* Diagnostics */
   .support-diagnostics-desc {
     margin: 0 0 0.75rem 0;
     font-size: 0.9rem;
-    color: var(--muted, #595959);
+    color: #666;
   }
+  .support-section-intro { font-size: 0.9rem; color: #666; margin-bottom: 1rem; line-height: 1.5; }
   .support-diagnostics-loading {
     display: none;
     font-size: 0.85rem;
-    color: var(--muted, #595959);
+    color: #666;
     margin-top: 0.75rem;
     animation: support-diagnostics-pulse 1.5s ease-in-out infinite;
   }
@@ -303,7 +344,7 @@
     margin-bottom: 0.75rem;
   }
   .support-diagnostics-section {
-    border: 1px solid var(--border, #e0e0e0);
+    border: 1px solid var(--facet-border, #e5e0db);
     border-radius: 6px;
     margin-bottom: 0.5rem;
   }
@@ -313,8 +354,10 @@
     font-size: 0.85rem;
     font-weight: 500;
   }
+  .support-diagnostics-section summary:hover { background: rgba(0, 0, 0, 0.03); }
+  .support-diagnostics-section summary:active { background: rgba(0, 0, 0, 0.06); }
   .support-diagnostics-section .support-diagnostics-body {
-    padding: 0.25rem 0.75rem 0.5rem;
+    padding: 0.5rem 0.75rem;
     font-size: 0.85rem;
   }
   .support-diagnostics-row {
@@ -324,7 +367,7 @@
     gap: 1rem;
   }
   .support-diagnostics-row .support-diagnostics-label {
-    color: var(--muted, #595959);
+    color: #888;
   }
   .support-diagnostics-dot {
     display: inline-block;
@@ -358,7 +401,7 @@
   /* ── Responsive: Tablet (≤768px) ── */
   @media (max-width: 768px) {
     .support-nav button {
-      padding: 0.5rem 1rem;
+      padding: 0.5rem 1.25rem;
       min-height: 44px;
     }
     .support-detail-back {
@@ -394,6 +437,10 @@
       width: 100%;
       text-align: left;
       padding: 0.625rem 1rem;
+      margin-bottom: 0;
+    }
+    .support-nav button:hover:not(.active) {
+      border-bottom-color: transparent;
     }
     .support-ticket-header {
       flex-direction: column;
@@ -411,7 +458,7 @@
       padding: 0.75rem;
     }
     .support-diagnostics-section .support-diagnostics-body {
-      padding: 0.25rem 0.5rem 0.5rem;
+      padding: 0.5rem 0.5rem;
     }
     .support-empty {
       padding: 2rem 0.75rem;
@@ -459,7 +506,7 @@
 
     <!-- Section: Feedback -->
     <div id="section-feedback" class="support-section" role="tabpanel" aria-labelledby="tab-feedback">
-      <p style="margin-bottom:1rem;">💬 Share your impressions, ideas, or anything on your mind. Your feedback shapes the product.</p>
+      <p class="support-section-intro">💬 Share your impressions, ideas, or anything on your mind. Your feedback shapes the product.</p>
       <div class="support-feedback-form">
         <form id="feedback-form" novalidate>
           <label for="feedback-text">your feedback</label>
@@ -527,7 +574,9 @@
     // Update tab badge visibility
     const badge = document.getElementById('tab-tickets-badge');
     if (badge) {
-      badge.style.display = (sectionName !== 'tickets' && ticketCount > 0) ? '' : 'none';
+      const show = sectionName !== 'tickets' && ticketCount > 0;
+      badge.style.opacity = show ? '1' : '0';
+      badge.style.pointerEvents = show ? 'auto' : 'none';
     }
   }
 
@@ -622,7 +671,9 @@
       badge.textContent = ticketCount;
       // Show badge if user already switched away from tickets tab
       const activeTab = document.querySelector('.support-nav button.active');
-      badge.style.display = (activeTab && activeTab.dataset.section !== 'tickets') ? '' : 'none';
+      const show = activeTab && activeTab.dataset.section !== 'tickets';
+      badge.style.opacity = show ? '1' : '0';
+      badge.style.pointerEvents = show ? 'auto' : 'none';
     } catch (e) {
       list.innerHTML = '<div class="support-empty">' +
         '<div class="support-empty-icon">⚠️</div>' +
@@ -945,7 +996,7 @@
       banner.style.display = '';
       const icons = {'known-issue': '⚠️', 'maintenance': '🔧', 'info': '📢'};
       banner.innerHTML = items.map(a =>
-        `<div><h4>${icons[a.type] || '📢'} ${esc(a.title || '')}</h4><p style="margin:0;font-size:0.85rem;">${esc((a.content || '').slice(0, 200))}</p></div>`
+        `<div><h4>${icons[a.type] || '📢'} ${esc(a.title || '')}</h4><p style="margin:0;">${esc((a.content || '').slice(0, 200))}</p></div>`
       ).join('');
     } catch (e) {
       console.warn('Failed to load announcements:', e);
@@ -953,7 +1004,7 @@
       banner.style.background = 'none';
       banner.style.border = 'none';
       banner.style.padding = '0.5rem 0';
-      banner.innerHTML = '<p style="margin:0;font-size:0.8rem;color:var(--muted,#595959);">couldn\'t load announcements</p>';
+      banner.innerHTML = '<p style="margin:0;font-size:0.8rem;color:#666;">couldn\'t load announcements</p>';
     }
   }
 
@@ -1017,7 +1068,7 @@
       .catch(function(err) {
         loading.style.display = 'none';
         errorEl.innerHTML = esc('Could not run diagnostics: ' + err.message) +
-          '<br><span style="color:var(--muted,#595959);">Try the CLI instead: <code>sol call support diagnose</code></span>';
+          '<br><span style="color:#666;">Try the CLI instead: <code>sol call support diagnose</code></span>';
         errorEl.style.display = '';
         btn.disabled = false;
       });
@@ -1089,7 +1140,7 @@
 
     // If nothing rendered beyond summary
     if (!versionPlatformRows && serviceNames.length === 0 && (!data.recent_errors || data.recent_errors.length === 0) && (!data.config || Object.keys(data.config).length === 0)) {
-      html += '<div style="font-size:0.85rem;color:var(--muted,#595959);">No diagnostic data available.</div>';
+      html += '<div style="font-size:0.85rem;color:#666;">No diagnostic data available.</div>';
     }
 
     container.innerHTML = html;

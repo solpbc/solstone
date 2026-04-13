@@ -3,40 +3,40 @@
   <div class="graph-controls" id="graph-controls" style="display:none;">
     <div class="graph-controls-row">
       <div class="graph-type-filters">
-        <button class="graph-type-btn active" data-type="person" style="--btn-color:#2563eb">Person</button>
-        <button class="graph-type-btn active" data-type="company" style="--btn-color:#16a34a">Company</button>
-        <button class="graph-type-btn active" data-type="project" style="--btn-color:#b45309">Project</button>
-        <button class="graph-type-btn active" data-type="tool" style="--btn-color:#6b7280">Tool</button>
+        <button class="graph-type-btn active" data-type="person" style="--btn-color:#2563eb">person</button>
+        <button class="graph-type-btn active" data-type="company" style="--btn-color:#16a34a">company</button>
+        <button class="graph-type-btn active" data-type="project" style="--btn-color:#b45309">project</button>
+        <button class="graph-type-btn active" data-type="tool" style="--btn-color:#6b7280">tool</button>
       </div>
       <div class="graph-time-filters">
         <button class="graph-time-btn" data-days="7">7d</button>
         <button class="graph-time-btn" data-days="30">30d</button>
         <button class="graph-time-btn active" data-days="90">90d</button>
-        <button class="graph-time-btn" data-days="">All</button>
+        <button class="graph-time-btn" data-days="">all</button>
       </div>
       <div class="graph-strength-filter">
-        <label for="min-strength" title="Filter out weaker connections — higher means only stronger relationships">Min strength</label>
+        <label for="min-strength" title="filter out weaker connections -- higher means only stronger relationships">Min strength</label>
         <input type="range" id="min-strength" min="0" max="500" value="0" step="5">
         <span id="min-strength-val">0</span>
       </div>
       <div class="graph-stats" id="graph-stats" aria-live="polite"></div>
-      <button id="graph-view-toggle" class="graph-view-toggle" title="Switch between graph and list view">View as list</button>
+      <button id="graph-view-toggle" class="graph-view-toggle" title="switch between graph and list view">view as list</button>
     </div>
   </div>
 
   <!-- Graph container -->
-  <div id="graph-container" style="flex:1;position:relative;min-height:0;">
-    <div class="graph-loading" id="graph-loading"><div class="graph-spinner"></div>Loading knowledge graph...</div>
+  <div id="graph-container" style="flex:1;position:relative;min-height:200px;">
+    <div class="graph-loading" id="graph-loading"><div class="graph-spinner"></div>loading knowledge graph...</div>
     <div class="graph-empty" id="graph-empty" style="display:none;">
       <div class="graph-empty-icon">🕸️</div>
       <h2>Your knowledge graph builds itself from daily use</h2>
       <p>As solstone captures your meetings, conversations, and work, entities and relationships appear here automatically.</p>
-      <a href="/app/home" class="graph-empty-action">Get started with solstone →</a>
+      <a href="/app/home" class="graph-empty-action">get started with solstone →</a>
     </div>
     <div class="graph-error" id="graph-error" style="display:none;">
       <div class="graph-error-icon">⚠️</div>
-      <h2>Couldn't load the knowledge graph</h2>
-      <p>This usually means the server didn't respond. <a href="#" id="graph-retry">Try again</a></p>
+      <h2>couldn't load the knowledge graph</h2>
+      <p>this usually means the server didn't respond. <a href="#" id="graph-retry">try again</a></p>
     </div>
     <div id="graph-canvas" tabindex="0" role="img" aria-label="Knowledge graph" style="width:100%;height:100%;display:none;"></div>
     <div id="graph-stabilize"><div id="graph-stabilize-bar"></div></div>
@@ -70,7 +70,7 @@
 <style>
 /* Controls bar */
 .graph-controls {
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 1rem;
   border-bottom: 1px solid #e5e7eb;
   background: #fafafa;
   flex-shrink: 0;
@@ -81,9 +81,15 @@
   gap: 1rem;
   flex-wrap: wrap;
 }
-.graph-type-filters, .graph-time-filters {
+.graph-type-filters {
   display: flex;
   gap: 0.25rem;
+}
+.graph-time-filters {
+  display: flex;
+  gap: 0.25rem;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 1rem;
 }
 .graph-type-btn, .graph-time-btn {
   padding: 0.25rem 0.6rem;
@@ -105,31 +111,122 @@
   color: white;
   border-color: #374151;
 }
-.graph-type-btn:hover, .graph-time-btn:hover {
-  opacity: 0.85;
+.graph-type-btn:hover {
+  border-color: var(--btn-color, #2563eb);
+  color: var(--btn-color, #2563eb);
+}
+.graph-type-btn.active:hover {
+  filter: brightness(1.1);
+}
+.graph-type-btn:active {
+  transform: scale(0.96);
+}
+.graph-time-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+.graph-time-btn.active:hover {
+  background: #4b5563;
+}
+.graph-time-btn:active {
+  transform: scale(0.96);
 }
 .graph-strength-filter {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #6b7280;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 1rem;
+}
+.graph-strength-filter label {
+  font-weight: 500;
 }
 .graph-strength-filter input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
   width: 80px;
-  height: 4px;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.graph-strength-filter input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+.graph-strength-filter input[type=range]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+.graph-strength-filter input[type=range]:hover::-webkit-slider-thumb {
+  background: #1d4ed8;
+  transform: scale(1.15);
+}
+.graph-strength-filter input[type=range]:hover::-moz-range-thumb {
+  background: #1d4ed8;
+  transform: scale(1.15);
+}
+.graph-strength-filter input[type=range]:active::-webkit-slider-thumb {
+  background: #1e40af;
+  transform: scale(1.05);
+}
+.graph-strength-filter input[type=range]:active::-moz-range-thumb {
+  background: #1e40af;
+  transform: scale(1.05);
+}
+.graph-strength-filter input[type=range]:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+.graph-strength-filter input[type=range]::-webkit-slider-runnable-track {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 2px;
+}
+.graph-strength-filter input[type=range]::-moz-range-track {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 2px;
+}
+#min-strength-val {
+  display: inline-block;
+  min-width: 2em;
+  text-align: right;
 }
 .graph-stats {
   margin-left: auto;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #6b7280;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Loading / empty states */
 .graph-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   text-align: center;
-  padding: 4em;
   color: #666;
+  font-size: 0.9rem;
 }
 .graph-empty {
   text-align: center;
@@ -156,12 +253,14 @@
   font-size: 1.3em;
   font-weight: 600;
   color: #333;
+  line-height: 1.3;
 }
 .graph-error h2 {
   margin: 0 0 0.5em 0;
   font-size: 1.3em;
   font-weight: 600;
   color: #333;
+  line-height: 1.3;
 }
 .graph-empty p {
   margin: 0;
@@ -183,6 +282,11 @@
   color: #666;
   line-height: 1.5;
 }
+#graph-retry {
+  color: #2563eb;
+  text-decoration: none;
+}
+#graph-retry:hover { text-decoration: underline; }
 
 /* Detail panel */
 .graph-detail-panel {
@@ -234,6 +338,7 @@
   color: #111827;
 }
 .graph-detail-close:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.graph-detail-close:active { transform: scale(0.9); }
 .graph-detail-body {
   flex: 1;
   overflow-y: auto;
@@ -249,6 +354,8 @@
   font-weight: 600;
   color: #6b7280;
   margin: 0 0 0.4rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 .detail-type-badge {
   display: inline-block;
@@ -290,6 +397,7 @@
 .detail-score-value {
   font-weight: 600;
   color: #111827;
+  font-variant-numeric: tabular-nums;
 }
 .detail-connected-list {
   list-style: none;
@@ -314,6 +422,7 @@
 }
 .detail-connected-name:hover { text-decoration: underline; }
 .detail-connected-name:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.detail-connected-name:active { opacity: 0.7; }
 .detail-connected-rel {
   color: #9ca3af;
   font-size: 0.75rem;
@@ -337,6 +446,15 @@
   font-size: 0.85rem;
 }
 .detail-entity-link:hover { text-decoration: underline; }
+.detail-entity-link:active { opacity: 0.7; }
+.detail-retry-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.detail-retry-link:hover {
+  text-decoration: underline;
+}
 .sr-only {
   position: absolute;
   width: 1px;
@@ -351,14 +469,20 @@
 .graph-view-toggle {
   background: var(--bg-secondary, #f5f5f5);
   border: 1px solid var(--border-color, #e5e5e5);
-  border-radius: 4px;
+  border-radius: 6px;
+  border-left: 1px solid #e5e7eb;
   padding: 4px 10px;
+  padding-left: 1rem;
   font-size: 0.8rem;
   cursor: pointer;
   color: var(--text-primary, #333);
+  transition: background 0.15s, border-color 0.15s;
 }
 .graph-view-toggle:hover {
   background: var(--bg-tertiary, #e5e5e5);
+}
+.graph-view-toggle:active {
+  background: #d1d5db;
 }
 .graph-table {
   width: 100%;
@@ -389,6 +513,26 @@
 .graph-table tbody tr:hover {
   background: var(--bg-secondary, #f5f5f5);
 }
+.graph-table th {
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 5;
+}
+.graph-table th:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: -2px;
+}
+.graph-table th:active {
+  color: var(--text-primary, #333);
+  background: #f3f4f6;
+}
+.graph-list-name { font-weight: 500; color: #111827; }
+.graph-table td:nth-child(2) { color: #6b7280; }
+.graph-table td:nth-child(3),
+.graph-table td:nth-child(4) { font-variant-numeric: tabular-nums; }
+.graph-table tbody tr { cursor: pointer; transition: background 0.1s; }
+.graph-table tbody tr:active { background: #e5e7eb; }
 
 /* Spinner */
 .graph-spinner { width:24px; height:24px; border:3px solid #e5e7eb; border-top-color:#2563eb; border-radius:50%; animation:graph-spin 0.8s linear infinite; margin:0 auto 0.5em; }
@@ -408,10 +552,12 @@
 @media (max-width: 768px) {
   .graph-controls-row { gap: 0.75rem; }
   .graph-detail-panel { width: 280px; }
+  .graph-stats { margin-left: 0; }
+  .graph-strength-filter { flex: 1; }
 }
 
-/* ── Responsive: Mobile (≤375px) ── */
-@media (max-width: 375px) {
+/* ── Responsive: Mobile (≤480px) ── */
+@media (max-width: 480px) {
   .workspace-content { overflow-x: hidden; }
 
   .graph-controls-row { gap: 0.5rem; }
@@ -422,13 +568,16 @@
   .graph-stats,
   .graph-view-toggle { width: 100%; }
 
+  .graph-time-filters,
+  .graph-strength-filter { border-left: none; padding-left: 0; }
+
   .graph-stats { margin-left: 0; }
 
   .graph-type-btn,
   .graph-time-btn,
   .graph-view-toggle { min-height: 44px; padding: 0.5rem 0.75rem; }
 
-  .graph-strength-filter input[type=range] { width: 100%; height: 8px; }
+  .graph-strength-filter input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; }
 
   .graph-detail-panel { width: 100%; max-width: 100vw; }
 
@@ -552,8 +701,7 @@
           hover: { background: color, border: n.is_principal ? '#f59e0b' : '#374151' },
         },
         borderWidth: n.is_principal ? 3 : 1.5,
-        font: { color: '#374151' },
-        title: n.name + ' (' + n.type + ') — score: ' + n.score.toFixed(1),
+        title: n.name + ' \u00b7 ' + n.type + ' \u00b7 score ' + n.score.toFixed(1),
         _data: n,
         ...(window.selectedFacet ? {} : (() => {
           const seed = TYPE_SEEDS[n.type] || TYPE_SEEDS.unknown;
@@ -649,6 +797,10 @@
         scaling: { min: 12, max: 45, label: { enabled: true, min: 14, max: 24 } },
         borderWidth: 1.5,
         shadow: { enabled: true, size: 4, x: 1, y: 1, color: 'rgba(0,0,0,0.1)' },
+        font: {
+          face: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+          color: '#374151',
+        },
       },
       edges: {
         scaling: { min: 1, max: 5 },
@@ -783,8 +935,15 @@
 
     // Render
     tbody.innerHTML = rows.map(r =>
-      '<tr><td>' + escapeHtml(r.name) + '</td><td>' + escapeHtml(r.type) + '</td><td>' + r.score + '</td><td>' + r.connections + '</td></tr>'
+      '<tr><td class="graph-list-name">' + escapeHtml(r.name) + '</td><td>' + escapeHtml(r.type) + '</td><td>' + r.score + '</td><td>' + r.connections + '</td></tr>'
     ).join('');
+    document.querySelectorAll('#graph-list-body tr').forEach(function(tr) {
+      tr.addEventListener('click', function() {
+        var name = tr.querySelector('td').textContent;
+        var node = graphData.nodes.find(function(n) { return n.name === name; });
+        if (node) showDetail(node);
+      });
+    });
   }
 
   // --- Detail panel ---
@@ -794,7 +953,7 @@
     const bodyEl = document.getElementById('detail-body');
 
     nameEl.textContent = nodeData.name;
-    bodyEl.innerHTML = '<div style="text-align:center;padding:2em;color:#999;"><div class="graph-spinner graph-spinner-sm" style="margin:0 auto 0.5em;"></div>Loading...</div>';
+    bodyEl.innerHTML = '<div style="text-align:center;padding:2em;color:#999;"><div class="graph-spinner graph-spinner-sm" style="margin:0 auto 0.5em;"></div>loading...</div>';
     panel.classList.add('open');
     detailOpen = true;
     nameEl.focus();
@@ -802,9 +961,9 @@
     fetchEntity(nodeData.id).then(intel => {
       if (!intel || intel.error) {
         bodyEl.innerHTML = '<div style="padding:1em;color:#666;">' +
-          '<strong>Couldn\'t load entity details</strong><br>' +
-          '<span style="color:#999;font-size:0.85rem;">The server may not have responded.</span><br>' +
-          '<a href="#" class="detail-retry-link" style="color:#2563eb;text-decoration:none;font-size:0.85rem;">Try again</a>' +
+          '<strong>couldn\'t load entity details</strong><br>' +
+          '<span style="color:#999;font-size:0.85rem;">the server may not have responded.</span><br>' +
+          '<a href="#" class="detail-retry-link">try again</a>' +
           '</div>';
         bodyEl.querySelector('.detail-retry-link').addEventListener('click', function(e) {
           e.preventDefault();
@@ -956,7 +1115,7 @@
     listMode = !listMode;
     const canvas = document.getElementById('graph-canvas');
     const list = document.getElementById('graph-list');
-    this.textContent = listMode ? 'View as graph' : 'View as list';
+    this.textContent = listMode ? 'view as graph' : 'view as list';
     if (listMode) {
       canvas.style.display = 'none';
       list.style.display = 'block';

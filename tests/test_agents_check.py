@@ -26,10 +26,10 @@ def test_run_check_writes_health_file(tmp_path, monkeypatch):
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
     monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
-    monkeypatch.setattr(agents, "_check_generate", lambda *_args: (True, "ok"))
+    monkeypatch.setattr(agents, "_check_generate", lambda *_args: ("ok", "ok"))
 
     async def mock_check_cogitate(*_args):
-        return True, "ok"
+        return "ok", "ok"
 
     monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
 
@@ -56,10 +56,11 @@ def test_run_check_writes_health_file(tmp_path, monkeypatch):
     assert "checked_at" in payload
     assert datetime.fromisoformat(payload["checked_at"]).tzinfo is not None
     assert payload["summary"]["passed"] > 0
+    assert payload["summary"]["skipped"] == 0
 
 
-def test_run_check_partial_failure_exits_zero(tmp_path, monkeypatch):
-    """_run_check exits 0 when some checks fail but no provider is fully broken."""
+def test_run_check_partial_failure_exits_one(tmp_path, monkeypatch):
+    """_run_check exits 1 when any check fails."""
     import think.agents as agents
 
     fake_registry = {"fake": object()}
@@ -74,10 +75,10 @@ def test_run_check_partial_failure_exits_zero(tmp_path, monkeypatch):
     monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
     monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
-    monkeypatch.setattr(agents, "_check_generate", lambda *_args: (True, "ok"))
+    monkeypatch.setattr(agents, "_check_generate", lambda *_args: ("ok", "ok"))
 
     async def mock_check_cogitate(*_args):
-        return False, "FAIL: timeout"
+        return "fail", "FAIL: timeout"
 
     monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
 
@@ -93,11 +94,12 @@ def test_run_check_partial_failure_exits_zero(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as exc_info:
         asyncio.run(agents._run_check(args))
 
-    assert exc_info.value.code == 0
+    assert exc_info.value.code == 1
 
     health_file = tmp_path / "health" / "agents.json"
     payload = json.loads(health_file.read_text())
     assert payload["summary"]["passed"] == 3
+    assert payload["summary"]["skipped"] == 0
     assert payload["summary"]["failed"] == 3
 
 
@@ -118,11 +120,11 @@ def test_run_check_full_provider_failure_exits_one(tmp_path, monkeypatch):
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
     monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
     monkeypatch.setattr(
-        agents, "_check_generate", lambda *_args: (False, "FAIL: key not set")
+        agents, "_check_generate", lambda *_args: ("fail", "FAIL: key not set")
     )
 
     async def mock_check_cogitate(*_args):
-        return False, "FAIL: key not set"
+        return "fail", "FAIL: key not set"
 
     monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
 
@@ -143,6 +145,7 @@ def test_run_check_full_provider_failure_exits_one(tmp_path, monkeypatch):
     health_file = tmp_path / "health" / "agents.json"
     payload = json.loads(health_file.read_text())
     assert payload["summary"]["passed"] == 0
+    assert payload["summary"]["skipped"] == 0
     assert payload["summary"]["failed"] == 6
 
 
@@ -163,10 +166,10 @@ def test_run_check_dedup_same_model(tmp_path, monkeypatch):
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
     monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
 
-    gen_mock = MagicMock(return_value=(True, "ok"))
+    gen_mock = MagicMock(return_value=("ok", "ok"))
     monkeypatch.setattr(agents, "_check_generate", gen_mock)
 
-    cog_inner = MagicMock(return_value=(True, "ok"))
+    cog_inner = MagicMock(return_value=("ok", "ok"))
 
     async def mock_check_cogitate(*args):
         return cog_inner(*args)
@@ -197,6 +200,7 @@ def test_run_check_dedup_same_model(tmp_path, monkeypatch):
     assert len(results) == 6
     assert payload["summary"]["total"] == 6
     assert payload["summary"]["passed"] == 6
+    assert payload["summary"]["skipped"] == 0
 
     non_reused = [result for result in results if "reused_from" not in result]
     reused = [result for result in results if "reused_from" in result]
@@ -225,10 +229,10 @@ def test_run_check_targeted_filters_to_configured_pairs(tmp_path, monkeypatch):
     monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
     monkeypatch.setattr("think.models.TYPE_DEFAULTS", fake_type_defaults)
     monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
-    monkeypatch.setattr(agents, "_check_generate", lambda *_args: (True, "ok"))
+    monkeypatch.setattr(agents, "_check_generate", lambda *_args: ("ok", "ok"))
 
     async def mock_check_cogitate(*_args):
-        return True, "ok"
+        return "ok", "ok"
 
     monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
 
@@ -292,7 +296,7 @@ def test_run_check_targeted_flock_dedup(tmp_path, monkeypatch):
     lock_file = open(lock_dir / "recheck.lock", "w")
     fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
-    gen_mock = MagicMock(return_value=(True, "ok"))
+    gen_mock = MagicMock(return_value=("ok", "ok"))
     monkeypatch.setattr(agents, "_check_generate", gen_mock)
 
     args = argparse.Namespace(
@@ -335,9 +339,9 @@ def test_check_generate_logs_token_usage(monkeypatch):
     log_mock = MagicMock()
     monkeypatch.setattr("think.models.log_token_usage", log_mock)
 
-    ok, msg = agents._check_generate("fake", 2, 30)
+    status, msg = agents._check_generate("fake", 2, 30)
 
-    assert ok is True
+    assert status == "ok"
     assert msg == "OK"
     log_mock.assert_called_once_with(
         model="fake-flash",
@@ -364,3 +368,203 @@ def test_cortex_start_emits_agents_check(tmp_path):
     cortex.callosum.emit.assert_any_call(
         "supervisor", "request", cmd=["sol", "agents", "check"]
     )
+
+
+def test_missing_env_key_returns_skip(monkeypatch):
+    """_check_generate returns skip status when env key is not set."""
+    import think.agents as agents
+
+    monkeypatch.setattr(
+        "think.providers.PROVIDER_METADATA",
+        {"fake": {"env_key": "FAKE_API_KEY", "label": "Fake Provider"}},
+    )
+    monkeypatch.delenv("FAKE_API_KEY", raising=False)
+
+    status, msg = agents._check_generate("fake", 2, 30)
+    assert status == "skip"
+    assert "Fake Provider not configured" in msg
+    assert "FAKE_API_KEY" in msg
+
+
+def test_cogitate_missing_binary_returns_skip(monkeypatch):
+    """_check_cogitate returns skip when CLI binary is not installed."""
+    import think.agents as agents
+    import think.providers as providers
+
+    monkeypatch.setitem(
+        providers.PROVIDER_METADATA,
+        "fake",
+        {
+            "env_key": "FAKE_API_KEY",
+            "label": "Fake Provider",
+            "cogitate_cli": "nonexistent-binary-xyz",
+        },
+    )
+    monkeypatch.setenv("FAKE_API_KEY", "test-key")
+    monkeypatch.setattr("shutil.which", lambda _: None)
+
+    status, msg = asyncio.run(agents._check_cogitate("fake", 2, 30))
+    assert status == "skip"
+    assert "nonexistent-binary-xyz CLI not installed" in msg
+
+
+def test_all_skip_exits_zero(tmp_path, monkeypatch):
+    """Exit code is 0 when all results are skipped (no fails)."""
+    import think.agents as agents
+
+    fake_registry = {"fake": object()}
+    fake_defaults = {"fake": {1: "m1", 2: "m2", 3: "m3"}}
+
+    monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
+    monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
+    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(agents, "_check_generate", lambda *_args: ("skip", "not configured"))
+
+    async def mock_check_cogitate(*_args):
+        return "skip", "not configured"
+
+    monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
+
+    args = argparse.Namespace(
+        provider=None,
+        interface=None,
+        tier=None,
+        json=False,
+        timeout=1,
+        targeted=False,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        asyncio.run(agents._run_check(args))
+
+    assert exc_info.value.code == 0
+
+    payload = json.loads((tmp_path / "health" / "agents.json").read_text())
+    assert payload["summary"]["skipped"] == 6
+    assert payload["summary"]["failed"] == 0
+    assert payload["summary"]["passed"] == 0
+    for result in payload["results"]:
+        assert result["status"] == "skip"
+        assert result["ok"] is True
+
+
+def test_mix_skip_and_fail_exits_one(tmp_path, monkeypatch):
+    """Exit code is 1 when there's a mix of skip and fail results."""
+    import think.agents as agents
+
+    fake_registry = {"fake": object()}
+    fake_defaults = {"fake": {1: "m1", 2: "m2", 3: "m3"}}
+
+    monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
+    monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
+    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(agents, "_check_generate", lambda *_args: ("skip", "not configured"))
+
+    async def mock_check_cogitate(*_args):
+        return "fail", "FAIL: broken"
+
+    monkeypatch.setattr(agents, "_check_cogitate", mock_check_cogitate)
+
+    args = argparse.Namespace(
+        provider=None,
+        interface=None,
+        tier=None,
+        json=False,
+        timeout=1,
+        targeted=False,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        asyncio.run(agents._run_check(args))
+
+    assert exc_info.value.code == 1
+
+    payload = json.loads((tmp_path / "health" / "agents.json").read_text())
+    assert payload["summary"]["skipped"] == 3
+    assert payload["summary"]["failed"] == 3
+
+
+def test_skipped_count_in_summary(tmp_path, monkeypatch):
+    """Summary total equals passed + skipped + failed."""
+    import think.agents as agents
+
+    fake_registry = {"okp": object(), "skipP": object()}
+    fake_defaults = {
+        "okp": {1: "m1", 2: "m2", 3: "m3"},
+        "skipP": {1: "s1", 2: "s2", 3: "s3"},
+    }
+
+    monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
+    monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
+    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+
+    def mock_gen(provider, tier, timeout):
+        if provider == "okp":
+            return "ok", "OK"
+        return "skip", "not configured"
+
+    monkeypatch.setattr(agents, "_check_generate", mock_gen)
+
+    async def mock_cog(provider, tier, timeout):
+        if provider == "okp":
+            return "ok", "OK"
+        return "skip", "not configured"
+
+    monkeypatch.setattr(agents, "_check_cogitate", mock_cog)
+
+    args = argparse.Namespace(
+        provider=None,
+        interface=None,
+        tier=None,
+        json=True,
+        timeout=1,
+        targeted=False,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        asyncio.run(agents._run_check(args))
+
+    assert exc_info.value.code == 0
+    payload = json.loads((tmp_path / "health" / "agents.json").read_text())
+    summary = payload["summary"]
+    assert summary["total"] == summary["passed"] + summary["skipped"] + summary["failed"]
+    assert summary["passed"] == 6
+    assert summary["skipped"] == 6
+    assert summary["failed"] == 0
+
+
+def test_status_field_in_json_output(tmp_path, monkeypatch, capsys):
+    """JSON output includes status per result and skipped in summary."""
+    import think.agents as agents
+
+    fake_registry = {"fake": object()}
+    fake_defaults = {"fake": {1: "m1", 2: "m2", 3: "m3"}}
+
+    monkeypatch.setattr("think.providers.PROVIDER_REGISTRY", fake_registry)
+    monkeypatch.setattr("think.models.PROVIDER_DEFAULTS", fake_defaults)
+    monkeypatch.setattr(agents, "get_journal", lambda: str(tmp_path))
+    monkeypatch.setattr(agents, "_check_generate", lambda *_args: ("ok", "OK"))
+
+    async def mock_cog(*_args):
+        return "ok", "OK"
+
+    monkeypatch.setattr(agents, "_check_cogitate", mock_cog)
+
+    args = argparse.Namespace(
+        provider=None,
+        interface=None,
+        tier=None,
+        json=True,
+        timeout=1,
+        targeted=False,
+    )
+
+    with pytest.raises(SystemExit):
+        asyncio.run(agents._run_check(args))
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    for result in data["results"]:
+        assert "status" in result
+        assert result["status"] in ("ok", "skip", "fail")
+    assert "skipped" in data["summary"]

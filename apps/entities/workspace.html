@@ -5,11 +5,11 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  padding: 1.5em;
+  padding: 1em 1.5em 3em;
 }
 
 .entity-type-group {
-  margin-bottom: 1.5em;
+  margin-bottom: 2em;
 }
 
 .entity-type-group:last-child {
@@ -18,26 +18,27 @@
 
 .entity-type-header {
   font-size: 0.85em;
-  font-weight: 600;
+  font-weight: 500;
   color: #6c757d;
-  margin-bottom: 0.75em;
-  padding-bottom: 0.5em;
-  border-bottom: 1px solid #e9ecef;
+  margin-bottom: 1em;
+  padding-bottom: 0.65em;
+  border-bottom: 1px solid var(--facet-border, #e5e0db);
 }
 
 .entity-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.75em;
+  gap: 1.1em 1.25em;
 }
 
 .entity-card {
   background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--facet-border, #ede9e6);
   border-radius: 8px;
-  padding: 0.75em 1em;
+  padding: 1.1em 1.2em;
   cursor: pointer;
   transition: all 0.15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   position: relative;
 }
 
@@ -51,17 +52,23 @@
   outline-offset: 2px;
 }
 
+.entity-card:active {
+  background: #e9ecef;
+  transform: scale(0.98);
+}
+
 .entity-card-name {
   font-weight: 500;
+  font-size: 14px;
   color: #212529;
-  margin-bottom: 0.25em;
+  margin-bottom: 0.4em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .entity-card-meta {
-  font-size: 0.8em;
+  font-size: 12px;
   color: #6c757d;
   display: flex;
   align-items: center;
@@ -75,24 +82,26 @@
 .entity-card-mention-badge,
 .entity-card-badge {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: -1px;
+  right: -1px;
   background: color-mix(in srgb, var(--facet-color, #667eea) 25%, white);
   color: var(--facet-color, #667eea);
-  font-size: 0.7em;
+  font-size: 11px;
   font-weight: 600;
+  line-height: 1;
   min-width: 1.4em;
   height: 1.4em;
   padding: 0 0.4em;
-  border-radius: 0 7px 0 6px;
+  border-radius: 0 8px 0 8px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .entity-card-date {
-  font-size: 0.8em;
+  font-size: 12px;
   color: #6c757d;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Pending card state */
@@ -115,14 +124,14 @@
 
 .entity-card-principal-badge {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: -1px;
+  left: -1px;
   background: linear-gradient(135deg, #f0c040 0%, #d4a012 100%);
   color: white;
   font-size: 0.65em;
   font-weight: 600;
   padding: 0.15em 0.5em;
-  border-radius: 7px 0 6px 0;
+  border-radius: 8px 0 8px 0;
 }
 
 /* Blocked card state */
@@ -140,23 +149,23 @@
 
 .entity-card-blocked-badge {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: -1px;
+  left: -1px;
   background: #6b7280;
   color: white;
   font-size: 0.65em;
   font-weight: 600;
   padding: 0.15em 0.5em;
-  border-radius: 7px 0 6px 0;
+  border-radius: 8px 0 8px 0;
 }
 
 /* Entity type indicator dot */
 .entity-card-type-indicator {
   position: absolute;
-  bottom: 0.5em;
-  left: 0.75em;
-  width: 8px;
-  height: 8px;
+  bottom: 0.65em;
+  left: 0.85em;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--type-color, #95a5a6);
 }
@@ -170,8 +179,9 @@
 /* Detail view affordance chevron */
 .entity-card-detail-affordance {
   position: absolute;
-  bottom: 0.3em;
-  right: 0.75em;
+  top: 50%;
+  right: 0.85em;
+  transform: translateY(-50%);
   font-size: 1.1em;
   line-height: 1;
   color: #adb5bd;
@@ -206,6 +216,10 @@
   text-decoration: underline;
 }
 
+.entity-detail-back:active {
+  opacity: 0.7;
+}
+
 .entity-detail-title {
   display: flex;
   align-items: center;
@@ -224,7 +238,7 @@
   color: #495057;
   padding: 0.25em 0.75em;
   border-radius: 20px;
-  font-size: 0.75em;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -233,7 +247,7 @@
   color: #212529;
   padding: 0.25em 0.75em;
   border-radius: 20px;
-  font-size: 0.75em;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -242,7 +256,7 @@
   color: #8b6914;
   padding: 0.25em 0.75em;
   border-radius: 20px;
-  font-size: 0.75em;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -251,7 +265,7 @@
   color: white;
   padding: 0.25em 0.75em;
   border-radius: 20px;
-  font-size: 0.75em;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -282,6 +296,7 @@
 .entity-detail-aka {
   color: #6c757d;
   font-size: 0.9em;
+  line-height: 1.4;
 }
 
 .entity-detail-indicators {
@@ -290,6 +305,7 @@
   margin-top: 0.75em;
   font-size: 0.85em;
   color: #6c757d;
+  line-height: 1.4;
 }
 
 .entity-detail-section {
@@ -312,6 +328,14 @@
 .entity-desc-display {
   color: #212529;
   line-height: 1.5;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.entity-desc-display:hover {
+  background: #f8f9fa;
 }
 
 .entity-desc-display.empty {
@@ -367,6 +391,12 @@
   border-radius: 6px;
   font-size: inherit;
   font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-group input:hover,
+.form-group select:hover {
+  border-color: #adb5bd;
 }
 
 .form-group input:focus,
@@ -420,7 +450,6 @@
 .entity-detach-section {
   padding: 1.5em;
   border-top: 1px solid #e9ecef;
-  background: #fafafa;
 }
 
 /* Buttons */
@@ -440,12 +469,20 @@
 }
 
 .btn-primary:hover {
-  background: #5568d3;
+  background: color-mix(in srgb, var(--facet-color, #667eea) 85%, black);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--facet-color, #667eea) 75%, black);
 }
 
 .btn-primary:disabled {
   background: #adb5bd;
   cursor: not-allowed;
+}
+
+.btn-primary.saved {
+  background: #16a34a;
 }
 
 .btn-secondary {
@@ -457,6 +494,10 @@
   background: #dee2e6;
 }
 
+.btn-secondary:active {
+  background: #ced4da;
+}
+
 .btn-danger {
   background: #dc3545;
   color: white;
@@ -464,6 +505,10 @@
 
 .btn-danger:hover {
   background: #c82333;
+}
+
+.btn-danger:active {
+  background: #a71d2a;
 }
 
 .btn-sm {
@@ -482,6 +527,16 @@
 
 .btn-icon:hover {
   transform: scale(1.15);
+}
+
+.btn-icon:focus-visible {
+  outline: 2px solid var(--facet-color, #667eea);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.btn-icon:active {
+  transform: scale(0.9);
 }
 
 .btn-icon.generating {
@@ -503,7 +558,7 @@
 
 .entities-table th,
 .entities-table td {
-  padding: 12px;
+  padding: 12px 1.5em;
   text-align: left;
   border-bottom: 1px solid #e9ecef;
 }
@@ -512,6 +567,9 @@
   background: #f8f9fa;
   font-weight: 600;
   color: #495057;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .entities-table tr:hover {
@@ -529,14 +587,25 @@
 .detected-pagination button {
   padding: 6px 14px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 6px;
   background: #fff;
   cursor: pointer;
   font-size: 0.9em;
+  font-family: inherit;
+  font-weight: 500;
 }
 
 .detected-pagination button:hover {
   background: #f5f5f5;
+}
+
+.detected-pagination button:focus-visible {
+  outline: 2px solid var(--facet-color, #667eea);
+  outline-offset: 2px;
+}
+
+.detected-pagination button:active:not(:disabled) {
+  background: #e9ecef;
 }
 
 .detected-pagination button:disabled {
@@ -546,10 +615,11 @@
 
 .detected-pagination .detected-page-info {
   font-size: 0.8em;
-  color: #888;
+  color: #6c757d;
 }
 
 .entity-type {
+  font-size: 13px;
   width: 120px;
   font-weight: 500;
   color: #6c757d;
@@ -574,11 +644,32 @@
   transition: transform 0.2s;
   width: 40px;
   color: #ccc;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .star-button:hover {
   transform: scale(1.2);
   color: #ffc107;
+}
+
+.star-button:focus-visible {
+  outline: 2px solid var(--facet-color, #667eea);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.star-button:active {
+  transform: scale(0.9);
+  color: #ffc107;
+}
+
+.star-button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+  transform: none;
 }
 
 .entity-delete-btn {
@@ -615,6 +706,11 @@ tr:hover .entity-delete-btn {
   outline-offset: 2px;
 }
 
+.entity-delete-btn:active {
+  opacity: 1 !important;
+  background: rgba(220, 53, 69, 0.1);
+}
+
 /* Section headers */
 .entities-section {
   margin-bottom: 2em;
@@ -623,7 +719,8 @@ tr:hover .entity-delete-btn {
 .entities-section h3 {
   padding: 1em 1.5em;
   margin: 0;
-  background: #f8f9fa;
+  font-size: 1em;
+  font-weight: 600;
   border-bottom: 1px solid #e9ecef;
   display: flex;
   align-items: center;
@@ -632,9 +729,10 @@ tr:hover .entity-delete-btn {
 
 .entities-subtitle {
   margin: 0;
-  padding: 0.5em 1.5em;
+  padding: 0.5em 1.5em 1.25em;
   color: #6c757d;
   font-size: 0.85em;
+  line-height: 1.4;
 }
 
 .no-entities {
@@ -651,11 +749,17 @@ tr:hover .entity-delete-btn {
   border-radius: 6px;
   font-size: 0.9em;
   font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.entity-search-input:hover {
+  border-color: #adb5bd;
 }
 
 .entity-search-input:focus {
   outline: none;
   border-color: var(--facet-color, #667eea);
+  box-shadow: 0 0 0 3px var(--facet-bg, rgba(102, 126, 234, 0.1));
 }
 
 .entity-card-search-count {
@@ -696,13 +800,16 @@ tr:hover .entity-delete-btn {
 }
 
 .entities-loading {
-  text-align: center;
-  padding: 4em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
   color: #666;
 }
 
 .spinner {
-  display: inline-block;
+  display: block;
   width: 40px;
   height: 40px;
   border: 4px solid #f0f0f0;
@@ -722,9 +829,9 @@ tr:hover .entity-delete-btn {
   position: fixed;
   z-index: 1000;
   left: 0;
-  top: var(--app-bar-height, 60px);
+  top: var(--facet-bar-height, 60px);
   width: 100%;
-  height: calc(100% - var(--app-bar-height, 60px));
+  height: calc(100% - var(--facet-bar-height, 60px));
   background: rgba(0,0,0,0.6);
   align-items: center;
   justify-content: center;
@@ -785,6 +892,10 @@ tr:hover .entity-delete-btn {
   color: #000;
 }
 
+.close:active {
+  transform: scale(0.9);
+}
+
 .delete-warning {
   background: #fff3cd;
   border: 1px solid #ffc107;
@@ -830,13 +941,13 @@ tr:hover .entity-delete-btn {
 /* Facet dots on entity cards */
 .entity-card-facet-dots {
   display: flex;
-  gap: 3px;
-  margin-top: 4px;
+  gap: 4px;
+  margin-top: 6px;
 }
 
 .entity-facet-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -855,7 +966,7 @@ tr:hover .entity-delete-btn {
   padding: 0.75em 1em;
   background: #f8f9fa;
   border-radius: 8px;
-  border-left: 4px solid #888;
+  border-left: 3px solid #888;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -867,6 +978,10 @@ tr:hover .entity-delete-btn {
 .facet-relationship-row:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
+}
+
+.facet-relationship-row:active:not(.detached) {
+  background: #e9ecef;
 }
 
 .facet-rel-info {
@@ -949,7 +1064,7 @@ tr:hover .entity-delete-btn {
 
 .entity-attach-section {
   padding: 1em;
-  background: #e7f5ff;
+  background: #f0f7ff;
   border-radius: 8px;
   margin-top: 1em;
 }
@@ -980,6 +1095,11 @@ tr:hover .entity-delete-btn {
   font-size: 0.95em;
   resize: vertical;
   margin-bottom: 0.75em;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.entity-attach-section textarea:hover {
+  border-color: #adb5bd;
 }
 
 .entity-attach-section textarea:focus {
@@ -996,6 +1116,7 @@ tr:hover .entity-delete-btn {
   border-radius: 4px;
   cursor: pointer;
   font-weight: 500;
+  transition: background 0.15s;
 }
 
 .entity-attach-section .btn-attach:disabled {
@@ -1005,6 +1126,15 @@ tr:hover .entity-delete-btn {
 
 .entity-attach-section .btn-attach:not(:disabled):hover {
   background: #1864ab;
+}
+
+.entity-attach-section .btn-attach:focus-visible {
+  outline: 2px solid #1971c2;
+  outline-offset: 2px;
+}
+
+.entity-attach-section .btn-attach:not(:disabled):active {
+  background: #155d8a;
 }
 
 /* Empty journal state */
@@ -1099,6 +1229,9 @@ tr:hover .entity-delete-btn {
   .btn-sm {
     min-height: 44px;
     padding: 0.5em 1em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* Detail view: tighter padding, smaller title */
@@ -1132,7 +1265,7 @@ tr:hover .entity-delete-btn {
     <div class="entities-section">
       <h3>
         <span>your entities</span>
-        <input type="text" id="journal-entity-card-search" class="entity-search-input" placeholder="Search entities..." aria-label="Search entity cards">
+        <input type="text" id="journal-entity-card-search" class="entity-search-input" placeholder="search entities..." aria-label="Search entity cards">
         <span id="journal-card-search-count" class="entity-card-search-count" style="display: none;"></span>
       </h3>
       <p class="entities-subtitle">people, places, and things across your journal</p>
@@ -1160,7 +1293,7 @@ tr:hover .entity-delete-btn {
     </div>
 
     <div class="entity-detail-section">
-      <h4>Facets</h4>
+      <h4>facets</h4>
       <div id="journal-detail-facets"></div>
     </div>
 
@@ -1208,7 +1341,7 @@ tr:hover .entity-delete-btn {
     <div class="entities-section">
       <h3 id="facet-entities-heading">
         <span>entities</span>
-        <input type="text" id="entity-card-search" class="entity-search-input" placeholder="Search entities..." aria-label="Search entity cards">
+        <input type="text" id="entity-card-search" class="entity-search-input" placeholder="search entities..." aria-label="Search entity cards">
         <span id="facet-card-search-count" class="entity-card-search-count" style="display: none;"></span>
       </h3>
       <p class="entities-subtitle" id="facet-entities-subtitle">people, places, and things you're tracking</p>
@@ -1226,7 +1359,7 @@ tr:hover .entity-delete-btn {
       <div class="entities-container">
         <h3 id="all-entities-title">
           <span>detected entities</span>
-          <input type="text" id="entity-search" class="entity-search-input" placeholder="Search entities...">
+          <input type="text" id="entity-search" class="entity-search-input" placeholder="search entities..." aria-label="Search detected entities">
         </h3>
         <p class="entities-subtitle">found by AI in the last 30 days — star to add to your journal</p>
         <div id="detected-action-error" class="error-message" style="display: none;"></div>
@@ -1234,9 +1367,9 @@ tr:hover .entity-delete-btn {
           <thead>
             <tr>
               <th></th>
-              <th class="entity-type">Type</th>
-              <th class="entity-name">Name</th>
-              <th class="entity-desc">Description</th>
+              <th class="entity-type">type</th>
+              <th class="entity-name">name</th>
+              <th class="entity-desc">description</th>
             </tr>
           </thead>
           <tbody id="all-entities-tbody">
@@ -1620,7 +1753,7 @@ function renderJournalDetailView(entity) {
       principalBadge = document.createElement('span');
       principalBadge.id = 'journal-detail-principal-badge';
       principalBadge.className = 'entity-detail-principal-badge';
-      principalBadge.textContent = 'You';
+      principalBadge.textContent = 'you';
       principalBadge.title = 'This is you';
       typeEl.parentNode.insertBefore(principalBadge, typeEl.nextSibling);
     }
@@ -1868,8 +2001,10 @@ document.getElementById('journal-detail-edit-form').addEventListener('submit', f
     }
 
     errorEl.style.display = 'none';
-    saveBtn.textContent = 'Saved!';
+    saveBtn.textContent = 'saved!';
+    saveBtn.classList.add('saved');
     setTimeout(() => {
+      saveBtn.classList.remove('saved');
       saveBtn.textContent = 'save changes';
       saveBtn.disabled = false;
     }, 1500);
@@ -2036,7 +2171,7 @@ function renderDetailView(entity, observations) {
       principalBadge = document.createElement('span');
       principalBadge.id = 'detail-principal-badge';
       principalBadge.className = 'entity-detail-principal-badge';
-      principalBadge.textContent = 'You';
+      principalBadge.textContent = 'you';
       principalBadge.title = 'This is your entity in this facet';
       typeEl.parentNode.insertBefore(principalBadge, typeEl.nextSibling);
     }
@@ -2425,8 +2560,12 @@ document.addEventListener('DOMContentLoaded', function() {
   // Modal close on outside click
   window.onclick = function(event) {
     const deleteModal = document.getElementById('deleteModal');
+    const deleteJournalModal = document.getElementById('deleteJournalEntityModal');
     if (event.target == deleteModal) {
       closeDeleteModal();
+    }
+    if (event.target == deleteJournalModal) {
+      closeDeleteJournalEntityModal();
     }
   };
 });
@@ -2434,7 +2573,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function loadEntities() {
   // Hide all views and show loading
   hideAllViews();
-  document.getElementById('entities-loading').style.display = 'block';
+  document.getElementById('entities-loading').style.display = 'flex';
 
   if (!currentFacet) {
     // All-facet mode: load journal entities
@@ -2615,7 +2754,7 @@ function createJournalEntityCard(entity) {
 
     const principalBadge = document.createElement('div');
     principalBadge.className = 'entity-card-principal-badge';
-    principalBadge.textContent = 'You';
+    principalBadge.textContent = 'you';
     card.appendChild(principalBadge);
   }
 
@@ -2788,7 +2927,7 @@ function createEntityCard(entity) {
     // "You" badge (top-left corner)
     const principalBadge = document.createElement('div');
     principalBadge.className = 'entity-card-principal-badge';
-    principalBadge.textContent = 'You';
+    principalBadge.textContent = 'you';
     card.appendChild(principalBadge);
   }
 
@@ -2907,9 +3046,9 @@ function renderDetectedPagination(total, start, end) {
   const prevDisabled = detectedPage <= 1 ? 'disabled' : '';
   const nextDisabled = detectedPage >= totalPages ? 'disabled' : '';
   el.innerHTML =
-    `<button ${prevDisabled} id="detected-prev-btn">Previous</button>` +
+    `<button ${prevDisabled} id="detected-prev-btn">previous</button>` +
     `<span class="detected-page-info">showing ${start + 1}\u2013${end} of ${total} detected entities</span>` +
-    `<button ${nextDisabled} id="detected-next-btn">Next</button>`;
+    `<button ${nextDisabled} id="detected-next-btn">next</button>`;
 
   const prevBtn = document.getElementById('detected-prev-btn');
   const nextBtn = document.getElementById('detected-next-btn');

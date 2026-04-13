@@ -1,7 +1,7 @@
 <!-- Status Pane Component -->
 <aside id="status-pane" class="status-pane" tabindex="-1" aria-label="status">
   <div class="status-pane-content">
-    <h3 id="status-sentence" style="margin: 0 0 8px 0;">connecting&hellip;</h3>
+    <h3 id="status-sentence">connecting&hellip;</h3>
     <div class="status-pane-detail" style="display: flex; flex-direction: column; gap: 4px;">
       <span id="status-detail"></span>
     </div>
@@ -15,11 +15,11 @@
     </details>
 
     <div id="quiet-notifs-section" style="display:none; margin-top: 16px;">
-      <h3>quiet notifications</h3>
+      <h3 style="margin-bottom: 8px;">quiet notifications</h3>
       <div id="quiet-notifs-list" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;"></div>
     </div>
 
-    <h3 style="margin-top: 16px;">recent activity <button id="notif-bell" style="background: none; border: none; padding: 0; font: inherit; cursor: pointer; font-size: 14px; margin-left: 6px; opacity: 0.5;" title="enable browser notifications" aria-label="enable browser notifications">🔔</button></h3>
+    <h3 style="margin-top: 16px;">recent activity <button id="notif-bell" title="enable browser notifications" aria-label="enable browser notifications">🔔</button></h3>
     <div id="notification-history" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
       <span style="color: #9ca3af;">no recent activity</span>
     </div>
@@ -180,7 +180,7 @@
       return `<div style="display: flex; align-items: center; gap: 8px; padding: 4px 0;">
         <span style="color: #9ca3af; font-size: 11px; flex-shrink: 0;">${timeAgo}</span>
         <code style="flex-shrink: 0; font-size: 11px;">${src}</code>
-        <span style="color: #fca5a5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${msg}</span>
+        <span style="color: #fca5a5; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${msg}</span>
       </div>`;
     }).join('');
   }
@@ -203,18 +203,16 @@
       const timeAgo = window.AppServices.notifications._getRelativeTime(n.timestamp);
 
       if (n.action) {
-        return `<a href="${escape(n.action)}" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0 -8px; border-radius: 4px; text-decoration: none; color: inherit; transition: background 0.15s;"
-          onmouseover="this.style.background='rgba(0,0,0,0.05)'"
-          onmouseout="this.style.background=''"
+        return `<a href="${escape(n.action)}" class="status-pane-history-item" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0 -8px; border-radius: 4px; text-decoration: none; color: inherit;"
           ${n.facet ? `onclick="window.selectFacet && window.selectFacet('${escape(n.facet)}')"` : ''}>
           <span style="font-size: 16px; flex-shrink: 0;">${escape(n.icon)}</span>
-          <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escape(n.title)}</span>
+          <span style="font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escape(n.title)}</span>
           <span style="color: #9ca3af; font-size: 11px; flex-shrink: 0;">${timeAgo}</span>
         </a>`;
       } else {
         return `<div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0 -8px;">
           <span style="font-size: 16px; flex-shrink: 0;">${escape(n.icon)}</span>
-          <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escape(n.title)}</span>
+          <span style="font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escape(n.title)}</span>
           <span style="color: #9ca3af; font-size: 11px; flex-shrink: 0;">${timeAgo}</span>
         </div>`;
       }
@@ -252,22 +250,17 @@
       return;
     }
     const perm = Notification.permission;
+    bell.setAttribute('data-perm', perm);
     if (perm === 'granted') {
       bell.textContent = '🔔';
-      bell.style.opacity = '1';
-      bell.style.cursor = 'default';
       bell.title = 'browser notifications enabled';
       bell.setAttribute('aria-label', 'browser notifications enabled');
     } else if (perm === 'denied') {
       bell.textContent = '🔕';
-      bell.style.opacity = '0.4';
-      bell.style.cursor = 'default';
       bell.title = 'notifications blocked — update in browser settings';
       bell.setAttribute('aria-label', 'notifications blocked — update in browser settings');
     } else {
       bell.textContent = '🔔';
-      bell.style.opacity = '0.5';
-      bell.style.cursor = 'pointer';
       bell.title = 'enable browser notifications';
       bell.setAttribute('aria-label', 'enable browser notifications');
     }

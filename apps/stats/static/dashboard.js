@@ -39,13 +39,13 @@ const Dashboard = (function() {
   function fmtTokens(num) {
     const value = Number(num);
     if (value >= 1e9) {
-      return (value / 1e9).toFixed(1) + 'B';
+      return (value / 1e9).toFixed(1) + '\u2009B';
     }
     if (value >= 1e6) {
-      return (value / 1e6).toFixed(1) + 'M';
+      return (value / 1e6).toFixed(1) + '\u2009M';
     }
     if (value >= 1e3) {
-      return (value / 1e3).toFixed(1) + 'K';
+      return (value / 1e3).toFixed(1) + '\u2009K';
     }
     return String(Math.round(value));
   }
@@ -213,7 +213,7 @@ const Dashboard = (function() {
       if (d.total > 0) {
         const formatted = fmtTokens(d.total);
         bar.appendChild(el('div', {className: 'bar-value'}, [formatted]));
-        bar.setAttribute('title', `${d.day.slice(4, 6)}/${d.day.slice(6, 8)} - Input: ${d.input}, Reasoning: ${d.reasoning}, Output: ${d.output}`);
+        bar.dataset.tip = `${d.day.slice(4, 6)}/${d.day.slice(6, 8)} - Input: ${d.input}, Reasoning: ${d.reasoning}, Output: ${d.output}`;
       }
 
       if (shouldLabel(i, chartData.length)) {
@@ -318,7 +318,7 @@ const Dashboard = (function() {
         bar.appendChild(el('div', {className: 'bar-value'}, [`${formatted}h`]));
         const titleParts = [`${d.day} - Audio: ${d.audio.toFixed(1)}h, Screen: ${d.screen.toFixed(1)}h`];
         if (d.bytes) titleParts.push(`Disk: ${fmtBytes(d.bytes)}`);
-        bar.setAttribute('title', titleParts.join(', '));
+        bar.dataset.tip = titleParts.join(', ');
       }
 
       if (shouldLabel(i, data.length)) {
@@ -356,7 +356,7 @@ const Dashboard = (function() {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const maxVal = Math.max(...data.flat()) || 1;
     
-    const heatmap = el('div', {className: 'heatmap', role: 'img', 'aria-label': 'Activity heatmap showing captures by day of week and hour'});
+    const heatmap = el('div', {className: 'heatmap', role: 'grid', 'aria-label': 'Activity heatmap showing captures by day of week and hour'});
     
     // Empty top-left corner
     heatmap.appendChild(el('div'));
@@ -378,8 +378,10 @@ const Dashboard = (function() {
         const cell = el('div', {
           className: 'heatmap-cell',
           style: {background: `rgba(102,126,234,${intensity})`},
-          title: cellTitle,
-          'aria-label': cellTitle
+          'data-tip': cellTitle,
+          'aria-label': cellTitle,
+          role: 'gridcell',
+          tabindex: '-1'
         });
         heatmap.appendChild(cell);
       }
@@ -516,7 +518,7 @@ const Dashboard = (function() {
 
       if (d.total > 0) {
         bar.appendChild(el('div', {className: 'bar-value'}, [String(d.total)]));
-        bar.setAttribute('title', tooltipParts.join('\n'));
+        bar.dataset.tip = tooltipParts.join('\n');
       }
 
       if (shouldLabel(i, chartData.length)) {
@@ -594,6 +596,16 @@ const Dashboard = (function() {
       freshnessEl.textContent = stats.generated_at
         ? 'Stats generated ' + fmtRelativeTime(stats.generated_at)
         : '';
+      const refreshLink = el('a', {
+        className: 'stats-refresh',
+        href: '#'
+      }, ['refresh']);
+      refreshLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        const statsUrl = document.querySelector('.dashboard').dataset.statsUrl;
+        if (statsUrl) Dashboard.load(statsUrl);
+      });
+      freshnessEl.appendChild(refreshLink);
     }
     
     // Show main content
@@ -742,7 +754,7 @@ const Dashboard = (function() {
         const count = totals[key] || 0;
         if (count > 0) {
           repairGrid.appendChild(
-            statCard(repairLabels[key], count, '', '#f5576c')
+            statCard(repairLabels[key], count, '', '#dc2626')
           );
         }
       });

@@ -23,20 +23,22 @@
 
 /* Vitals Bar (Full Width) */
 .vitals-bar {
+  display: flex;
+  flex-direction: column;
   background: #f9fafb;
   color: #374151;
   border-radius: 12px;
   padding: 0.75em 1em;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   transition: background 0.5s ease;
 }
 
 .status-summary {
   background: #f9fafb;
-  border-radius: 10px;
-  padding: 1em 1.5em;
-  font-size: 1.1em;
-  font-weight: 500;
+  border-radius: 12px;
+  padding: 0.75em 1.5em;
+  font-size: 1em;
+  font-weight: 400;
   color: #374151;
 }
 
@@ -95,21 +97,56 @@
 }
 
 .vitals-content {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 1.5em;
   font-size: 0.95em;
+  padding-bottom: 0.75em;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .vitals-section {
   display: flex;
   flex-direction: column;
-  gap: 0.3em;
+  gap: 0.5em;
+  min-width: 80px;
+}
+
+.vitals-content > .vitals-section + .vitals-section {
+  border-left: 1px solid #f0f1f3;
+  padding-left: 1.5em;
 }
 
 .vitals-label {
+  font-size: 0.75em;
   color: #6b7280;
-  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+#vitalsCheckBtn {
+  margin-left: 0.5em;
+  padding: 0.15em 0.5em;
+  font-size: 0.8em;
+  font-weight: 500;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: white;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+#vitalsCheckBtn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+#vitalsCheckBtn:active:not(:disabled) {
+  background: #e5e7eb;
+}
+#vitalsCheckBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .vitals-value {
@@ -117,6 +154,7 @@
   display: flex;
   align-items: center;
   gap: 0.5em;
+  min-height: 1.5em;
 }
 
 .service-dots {
@@ -218,7 +256,7 @@
 
 /* Observe Card (Prominent) */
 .observe-card {
-  border-left: 4px solid #10b981;
+  border-left: 4px solid #22c55e;
 }
 
 .card-header {
@@ -229,7 +267,7 @@
 }
 
 .card-title {
-  font-size: 1.1em;
+  font-size: 1.2em;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -237,8 +275,9 @@
 }
 
 .health-badge {
-  background: #6b7280;
-  color: white;
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
   padding: 0.2em 0.6em;
   border-radius: 12px;
   font-size: 0.75em;
@@ -246,21 +285,29 @@
   align-items: center;
   gap: 0.3em;
   animation: none;
+  position: relative;
+  top: 1px;
 }
 
 .health-badge.recording {
   background: #16a34a;
   animation: pulse 2s infinite;
+  color: white;
+  border-color: transparent;
 }
 
 .health-badge.idle {
-  background: #6b7280;
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
   animation: none;
 }
 
 .health-badge.tmux {
   background: #16a34a;
   animation: none;
+  color: white;
+  border-color: transparent;
 }
 
 @keyframes pulse {
@@ -279,9 +326,9 @@
 }
 
 .observe-empty {
-  text-align: center;
+  text-align: left;
   color: #6b7280;
-  padding: 2em 1em;
+  padding: 1em 1.5em;
   font-size: 0.95em;
 }
 
@@ -297,6 +344,10 @@
 
 .observe-empty a:hover {
   text-decoration: underline;
+}
+
+.observe-empty a:active {
+  color: #059669;
 }
 
 .observe-section {
@@ -354,16 +405,17 @@
   flex-direction: column;
   gap: 0.4em;
   border: 2px solid transparent;
+  border-left: 4px solid transparent;
 }
 
 .observer-host-card.active {
   background: #f3f4f6;
-  border-left: 4px solid #22c55e;
+  border-left-color: #22c55e;
 }
 
 .observer-host-card.stale {
   background: #fefce8;
-  border-left: 4px solid #f59e0b;
+  border-left-color: #f59e0b;
 }
 
 .observer-host-name {
@@ -382,7 +434,7 @@
   align-items: center;
   gap: 8px;
   padding: 2px 0;
-  font-size: 11px;
+  font-size: 0.7em;
 }
 
 .observer-stream-qualifier {
@@ -396,14 +448,12 @@
 
 .stale-badge {
   color: #6b7280;
-  font-size: 11px;
+  font-size: 0.7em;
 }
 
 /* Activity Grids Container */
 .activity-grids {
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
+  display: contents;
 }
 
 .activity-section.hidden {
@@ -411,30 +461,37 @@
 }
 
 .activity-section-header {
-  font-size: 1em;
+  font-size: 0.8em;
   font-weight: 600;
-  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #4b5563;
   margin-bottom: 1em;
   display: flex;
   align-items: center;
   gap: 0.5em;
 }
 
+.activity-section-header.error {
+  color: #dc2626;
+}
+
 .idle-card {
-  text-align: center;
+  text-align: left;
   padding: 1.5em;
 }
 
 .idle-card-title {
-  color: #6b7280;
-  font-weight: 600;
+  font-size: 0.9em;
+  font-weight: 500;
+  color: #9ca3af;
   margin-bottom: 0.75em;
 }
 
 .idle-card-stats {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.4em;
 }
 
@@ -457,9 +514,9 @@
   display: flex;
   flex-direction: column;
   gap: 0.5em;
-  border: 2px solid transparent;
+  border: 2px solid #e5e7eb;
   transition: all 0.3s ease;
-  min-height: 140px;
+  min-height: 120px;
 }
 
 .activity-card.agent-active {
@@ -485,7 +542,7 @@
 
 .activity-card-name {
   font-size: 0.95em;
-  font-weight: 600;
+  font-weight: 500;
   color: #111827;
   white-space: nowrap;
   overflow: hidden;
@@ -543,6 +600,10 @@
   margin-bottom: 0;
 }
 
+.logs-card {
+  border-left: 4px solid #6b7280;
+}
+
 .logs-header {
   display: flex;
   justify-content: flex-start;
@@ -554,9 +615,18 @@
 }
 
 .logs-header:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+.logs-header:hover {
+  background: #f9fafb;
+  border-radius: 4px;
+}
+
+.logs-header:active {
+  background: #f3f4f6;
 }
 
 .logs-title {
@@ -566,7 +636,7 @@
 
 .logs-summary-badge {
   color: #6b7280;
-  font-size: 0.85em;
+  font-size: 0.9em;
   font-weight: 400;
   margin-left: 0.5em;
 }
@@ -576,7 +646,7 @@
   color: white;
   padding: 0.15em 0.5em;
   border-radius: 10px;
-  font-size: 0.8em;
+  font-size: 0.85em;
   margin-left: 0.5em;
 }
 
@@ -604,6 +674,16 @@
   background: white;
 }
 
+.logs-controls select:hover {
+  border-color: #9ca3af;
+}
+
+.logs-controls select:focus {
+  outline: none;
+  border-color: var(--facet-color, #b06a1a);
+  box-shadow: 0 0 0 3px rgba(176, 106, 26, 0.1);
+}
+
 .logs-controls button {
   padding: 0.3em 0.6em;
   border: 1px solid #d1d5db;
@@ -611,6 +691,7 @@
   background: white;
   cursor: pointer;
   font-size: 0.8em;
+  transition: background 0.1s ease, border-color 0.1s ease;
 }
 
 .logs-controls button.active {
@@ -619,15 +700,55 @@
   border-color: #3b82f6;
 }
 
+.logs-controls button:hover:not(.active) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.logs-controls button.active:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.logs-controls button:active:not(.active) {
+  background: #e5e7eb;
+}
+
+.logs-controls button.active:active {
+  background: #1d4ed8;
+}
+
+#logBackBtn {
+  padding: 0.3em 0.6em;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.8em;
+  transition: background 0.1s ease;
+}
+
+#logBackBtn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+#logBackBtn:active {
+  background: #e5e7eb;
+}
+
 .logs-viewport {
-  height: 400px;
+  max-height: 400px;
+  min-height: 200px;
+  height: 40vh;
   overflow-y: auto;
   font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
   font-size: 12px;
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 0.5em;
+  border-radius: 8px;
+  padding: 0.75em 1em;
   background: #1e1e1e;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
   color: #d4d4d4;
 }
 
@@ -640,7 +761,7 @@
 .logs-service-header {
   color: #6b7280;
   padding: 0.5em 0 0.2em;
-  font-size: 11px;
+  font-size: 0.7em;
   letter-spacing: 0.5px;
 }
 
@@ -652,7 +773,7 @@
   white-space: pre-wrap;
   word-break: break-all;
   padding: 1px 0;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .logs-line.stderr {
@@ -692,7 +813,7 @@
 }
 
 .dream-progress {
-  margin-bottom: 0.5em;
+  margin-bottom: 0.75em;
 }
 
 .dream-progress-label {
@@ -718,6 +839,7 @@
 .dream-agents {
   font-size: 0.85em;
   color: #6b7280;
+  margin-top: 0.5em;
 }
 
 /* Sync Card */
@@ -761,13 +883,14 @@
   opacity: 1.0;
   color: #374151;
   padding: 0.4em 0.8em;
-  text-align: right;
+  text-align: left;
   background: #e5e7eb;
-  border-radius: 6px;
+  border-radius: 12px;
   display: inline-flex;
   align-items: center;
   gap: 0.4em;
-  float: right;
+  align-self: flex-start;
+  margin-top: 0.5em;
 }
 
 #cortexGrid .activity-card-id,
@@ -805,6 +928,7 @@
 
   .observe-content {
     grid-template-columns: repeat(3, 1fr);
+    gap: 0.75em;
   }
 
   .observers-grid {
@@ -816,6 +940,80 @@
   }
 }
 
+.error-action-btn {
+  padding: 0.1em 0.4em;
+  font-size: 0.8em;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: white;
+  color: #3b82f6;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.error-action-btn:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+.error-action-btn:active:not(:disabled) {
+  background: #dbeafe;
+}
+
+.error-dismiss-btn {
+  padding: 0.1em 0.4em;
+  font-size: 0.8em;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: white;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.error-dismiss-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+.error-dismiss-btn:active {
+  background: #e5e7eb;
+}
+
+.error-advice-link {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  font-size: 1em;
+  padding: 0;
+  text-decoration: underline;
+}
+.error-advice-link:hover {
+  color: #2563eb;
+}
+.error-advice-link:active {
+  color: #1d4ed8;
+}
+
+.import-retry-btn {
+  padding: 0.15em 0.5em;
+  font-size: 0.78em;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: white;
+  color: #3b82f6;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.import-retry-btn:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+.import-retry-btn:active:not(:disabled) {
+  background: #dbeafe;
+}
+.import-retry-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media (max-width: 480px) {
   .health-dashboard {
     padding: 0.25em;
@@ -824,6 +1022,11 @@
 
   .vitals-content {
     gap: 0.5em;
+  }
+
+  .vitals-content > .vitals-section + .vitals-section {
+    border-left: none;
+    padding-left: 0;
   }
 
   .observe-content {
@@ -854,9 +1057,10 @@
 
 @media (max-width: 375px) {
   .trust-indicator {
-    float: none;
-    text-align: center;
+    display: block;
+    width: 100%;
     font-size: 0.7em;
+    text-align: center;
   }
 }
 </style>
@@ -872,7 +1076,7 @@
         <span class="skeleton" style="width: 120px; height: 1em;">&nbsp;</span>
       </div>
       <span class="connection-indicator" id="connectionIndicator"></span>
-      <button id="vitalsCheckBtn" style="margin-left: 0.5em; padding: 0.15em 0.5em; font-size: 0.75em; border: 1px solid #e5e7eb; border-radius: 4px; background: white; color: #6b7280; cursor: pointer;">Check now</button>
+      <button id="vitalsCheckBtn">Check now</button>
     </div>
     <div class="vitals-content">
       <div class="vitals-section">
@@ -994,7 +1198,7 @@
   </div>
 
   <div class="dashboard-card activity-section hidden" id="errorSummary">
-    <div class="activity-section-header" style="color: #dc2626;">
+    <div class="activity-section-header error">
       Recent errors
     </div>
     <div id="errorSummaryContent"></div>
@@ -1401,7 +1605,7 @@
       if (!row) {
         row = document.createElement('div');
         row.setAttribute('data-key', key);
-        row.style.cssText = 'padding: 0.3em 0; font-size: 0.85em; color: #374151; border-bottom: 1px solid #f3f4f6; display: flex; align-items: baseline; gap: 0.4em; flex-wrap: wrap;';
+        row.style.cssText = 'padding: 0.3em 0; font-size: 0.85em; color: #374151; border-bottom: 1px solid #e5e7eb; display: flex; align-items: baseline; gap: 0.4em; flex-wrap: wrap;';
 
         const info = document.createElement('span');
         row.appendChild(info);
@@ -1410,12 +1614,12 @@
         actions.style.cssText = 'margin-left: auto; display: flex; gap: 0.3em;';
         const viewBtn = document.createElement('button');
         viewBtn.setAttribute('data-action', 'view-logs');
-        viewBtn.style.cssText = 'padding: 0.1em 0.4em; font-size: 0.8em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #3b82f6; cursor: pointer;';
+        viewBtn.className = 'error-action-btn';
         viewBtn.textContent = 'view logs';
         actions.appendChild(viewBtn);
         const dismissBtn = document.createElement('button');
         dismissBtn.setAttribute('data-action', 'dismiss');
-        dismissBtn.style.cssText = 'padding: 0.1em 0.4em; font-size: 0.8em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #6b7280; cursor: pointer;';
+        dismissBtn.className = 'error-dismiss-btn';
         dismissBtn.textContent = 'dismiss';
         actions.appendChild(dismissBtn);
         row.appendChild(actions);
@@ -1452,7 +1656,7 @@
       const btn = document.createElement('button');
       btn.setAttribute('data-action', 'view-logs');
       btn.setAttribute('data-service', 'cortex');
-      btn.style.cssText = 'background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;';
+      btn.className = 'error-advice-link';
       btn.textContent = 'View AI Engine logs';
       advice.appendChild(btn);
       advice.appendChild(document.createTextNode(' for details.'));
@@ -1467,7 +1671,7 @@
       const btn = document.createElement('button');
       btn.setAttribute('data-action', 'view-logs');
       btn.setAttribute('data-service', 'importer');
-      btn.style.cssText = 'background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;';
+      btn.className = 'error-advice-link';
       btn.textContent = 'view File Importer logs';
       advice.appendChild(btn);
       advice.appendChild(document.createTextNode('.'));
@@ -1481,7 +1685,7 @@
       const btn = document.createElement('button');
       btn.setAttribute('data-action', 'view-logs');
       btn.setAttribute('data-service', 'supervisor');
-      btn.style.cssText = 'background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1em; padding: 0; text-decoration: underline;';
+      btn.className = 'error-advice-link';
       btn.textContent = 'View System Manager logs';
       advice.appendChild(btn);
       advice.appendChild(document.createTextNode(' for details.'));
@@ -2161,7 +2365,7 @@
         retryWrap.style.marginTop = '0.3em';
         const retryBtn = document.createElement('button');
         retryBtn.setAttribute('data-action', 'retry');
-        retryBtn.style.cssText = 'padding: 0.15em 0.5em; font-size: 0.78em; border: 1px solid #d1d5db; border-radius: 3px; background: white; color: #3b82f6; cursor: pointer;';
+        retryBtn.className = 'import-retry-btn';
         retryBtn.textContent = 'Retry';
         retryWrap.appendChild(retryBtn);
         card.appendChild(retryWrap);

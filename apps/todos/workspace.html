@@ -1,4 +1,12 @@
 <style>
+.workspace-content {
+  min-height: calc(100vh - var(--facet-bar-height) - var(--date-nav-height) - var(--app-bar-height) - 40px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-bottom: 4rem;
+}
+
 .facet-section {
   margin-bottom: 1.5rem;
 }
@@ -21,6 +29,7 @@
   border-left: 4px solid;
   cursor: pointer;
   user-select: none;
+  transition: opacity 0.15s ease;
 }
 
 .facet-chevron {
@@ -42,6 +51,15 @@
   opacity: 0.8;
 }
 
+.facet-header:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 2px;
+}
+
+.facet-header:active {
+  opacity: 0.65;
+}
+
 .facet-title {
   font-size: 0.875rem;
   font-weight: 600;
@@ -53,15 +71,17 @@
   font-size: 0.75rem;
   color: #9ca3af;
   font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
 .facet-count {
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 .todo-list {
   list-style: none;
   padding: 0;
+  padding-left: 0.25rem;
   margin: 0;
 }
 
@@ -69,32 +89,60 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.1rem 0;
-  border-bottom: 1px solid #f3f4f6;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #d1d5db;
+  transition: background 0.1s ease;
 }
 
 .todo-row:last-child {
   border-bottom: none;
 }
 
-.todo-row.completed {
-  opacity: 0.6;
+.todo-row:hover {
+  background: #fafbfc;
 }
 
 .todo-checkbox {
   width: 1.25rem;
   height: 1.25rem;
-  accent-color: #2563eb;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1.5px solid #9ca3af;
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.todo-checkbox:checked {
+  background-color: var(--facet-color, #b06a1a);
+  border-color: var(--facet-color, #b06a1a);
+}
+
+.todo-checkbox:checked::after {
+  content: '';
+  display: block;
+  width: 5px;
+  height: 9px;
+  margin: 1px auto 0;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .todo-checkbox-target {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  margin-top: 0;
   min-width: 2.75rem;
   min-height: 2.75rem;
   flex-shrink: 0;
   cursor: pointer;
+}
+
+.todo-checkbox-target:hover {
+  background: rgba(0,0,0,0.04);
+  border-radius: 6px;
 }
 
 .todo-content {
@@ -116,16 +164,27 @@
   cursor: text;
 }
 
+.todo-text:hover {
+  text-decoration: underline;
+  text-decoration-color: #d1d5db;
+  text-underline-offset: 2px;
+}
+
+.todo-row.completed .todo-text:hover {
+  text-decoration: line-through;
+  text-decoration-color: currentColor;
+}
+
 .todo-text-input {
   flex: 1;
   min-width: 0;
   padding: 0.25rem 0.5rem;
-  border: 1px solid #2563eb;
+  border: 1px solid var(--facet-color, #b06a1a);
   border-radius: 4px;
   font-size: 1rem;
   color: #111827;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--facet-color, #b06a1a) 10%, transparent);
 }
 
 .todo-row.completed .todo-text {
@@ -135,14 +194,14 @@
 
 .todo-nudge {
   flex-shrink: 0;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #6b7280;
   font-variant-numeric: tabular-nums;
 }
 
 .todo-actions {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.375rem;
   flex-shrink: 0;
   margin-left: auto;
   opacity: 0;
@@ -164,11 +223,9 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #6b7280;
+  color: #4b5563;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
-  font-size: 1rem;
-  line-height: 1;
 }
 
 .todo-action-btn:hover {
@@ -185,36 +242,58 @@
   color: #ef4444;
 }
 
+.todo-action-btn:active {
+  background: #e5e7eb;
+}
+
+.todo-action-btn.cancel:active {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
 .todo-text:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--facet-color, #b06a1a);
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+.todo-checkbox:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 2px;
 }
 
 .no-todos {
   text-align: center;
   padding: 3rem 1rem;
-  color: #666;
+  color: #374151;
 }
 
 .no-todos-icon {
-  font-size: 3rem;
   margin-bottom: 1rem;
-  opacity: 0.5;
+  opacity: 0.7;
 }
 
 .no-todos-text {
   font-size: 1.1rem;
   margin-bottom: 0.5rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .no-todos-hint {
   font-size: 0.9rem;
-  color: #999;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.no-todos .todo-add-form input[type="text"] {
+  text-align: center;
+  margin-left: 0;
 }
 
 .todo-facet-empty {
   padding: 0.75rem 0;
+  padding-left: 0.25rem;
   color: #94a3b8;
   font-style: italic;
   font-size: 0.85rem;
@@ -233,18 +312,25 @@
 .todo-add-form input[type="text"] {
   flex: 1;
   min-width: 0;
+  margin-left: 3.25rem;
   padding: 0.375rem 0.5rem;
-  border: 1px solid transparent;
+  border: 1px solid #e5e7eb;
   border-radius: 4px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: #111827;
-  background: transparent;
+  background: #fafbfc;
   outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.todo-add-form input[type="text"]:hover:not(:focus) {
+  border-color: #d1d5db;
+  background: #fafbfc;
 }
 
 .todo-add-form input[type="text"]:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: var(--facet-color, #b06a1a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--facet-color, #b06a1a) 10%, transparent);
   background: #fff;
 }
 
@@ -278,6 +364,7 @@
   border-radius: 6px;
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
+  font-weight: 500;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -310,12 +397,17 @@
   padding: 0 0.25rem;
   color: inherit;
   opacity: 0.6;
+  transition: opacity 0.15s ease;
   margin-left: 0.5rem;
   flex-shrink: 0;
 }
 
 .flash-message .flash-close:hover {
   opacity: 1;
+}
+
+.flash-message .flash-close:active {
+  transform: scale(0.9);
 }
 
 @keyframes flashFadeOut {
@@ -328,17 +420,22 @@
 }
 
 .facet-generate-btn {
-  text-decoration: none;
   font-size: 1.1rem;
   margin-left: auto;
   margin-right: 0.5rem;
   transition: transform 0.2s;
   display: inline-block;
   cursor: pointer;
+  border: none;
+  background: transparent;
 }
 
 .facet-generate-btn:hover {
   transform: scale(1.2);
+}
+
+.facet-generate-btn:active {
+  transform: scale(0.9);
 }
 
 .facet-generate-btn.generating {
@@ -356,7 +453,7 @@
 
 @media (min-width: 1024px) {
   .facet-section {
-    max-width: 760px;
+    max-width: 900px;
     margin-left: auto;
     margin-right: auto;
   }
@@ -382,6 +479,14 @@
     padding-left: 0.375rem;
   }
 
+  .todo-list {
+    padding-left: 0.25rem;
+  }
+
+  .todo-facet-empty {
+    padding-left: 0.25rem;
+  }
+
   .todo-row {
     gap: 0.5rem;
   }
@@ -394,12 +499,9 @@
     padding: 1.5rem 0.75rem;
   }
 
-  .no-todos-icon {
-    font-size: 2.5rem;
-  }
-
   .todo-add-form input[type="text"] {
     padding: 0.5rem;
+    margin-left: 3rem;
   }
 }
 
@@ -449,11 +551,12 @@
           {% if facet_emoji %}<span class="facet-emoji" aria-hidden="true">{{ facet_emoji }}</span>{% endif %}
           <h2 class="facet-title">{{ facet_title }}</h2>
           <span class="facet-pending-text">{% if total_count == 0 %}{% elif incomplete_count == 0 %}all done{% else %}{{ total_count - incomplete_count }} of {{ total_count }} done{% endif %}</span>
-          <a href="#"
+          <button type="button"
              class="facet-generate-btn"
              data-facet="{{ facet_name }}"
              data-day="{{ day }}"
-             title="Generate weekly todos with AI">✨</a>
+             title="Generate weekly todos with AI"
+             aria-label="Generate weekly todos with AI">✨</button>
           <span class="facet-count">{{ count_emoji }}</span>
         </div>
 
@@ -499,7 +602,7 @@
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
                 >
-                  ✏️
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z"/></svg>
                 </button>
                 <button
                   type="button"
@@ -510,7 +613,7 @@
                   data-facet="{{ facet_name }}"
                   data-current-day="{{ day }}"
                 >
-                  📅
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><line x1="1.5" y1="6.5" x2="14.5" y2="6.5"/><line x1="5" y1="1" x2="5" y2="4"/><line x1="11" y1="1" x2="11" y2="4"/></svg>
                 </button>
 
                 <button
@@ -521,7 +624,7 @@
                   data-index="{{ item.index }}"
                   data-facet="{{ facet_name }}"
                 >
-                  🗑️
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12"/><path d="M5 4V2.5a1 1 0 011-1h4a1 1 0 011 1V4"/><path d="M3.5 4l.75 10a1.5 1.5 0 001.5 1.5h4.5a1.5 1.5 0 001.5-1.5L12.5 4"/></svg>
                 </button>
               </div>
             </li>
@@ -533,19 +636,24 @@
           <input type="text" id="todo-add-{{ facet_name }}" name="text" placeholder="add a todo..." autocomplete="off">
         </form>
         {% if facet_todos | length == 0 %}
-        <div class="todo-facet-empty" data-facet-empty="{{ facet_name }}">no todos in {{ facet_title }} for today</div>
+        <div class="todo-facet-empty" data-facet-empty="{{ facet_name }}">No todos in {{ facet_title }}</div>
         {% endif %}
       </div>
     {% endfor %}
   {% else %}
     <section class="no-todos" role="status">
-      <div class="no-todos-icon">✅</div>
-      <div class="no-todos-text">No todos for this day</div>
+      <div class="no-todos-icon">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="22" stroke="#9ca3af" stroke-width="2"/>
+          <path d="M15 24l6 6 12-12" stroke="#9ca3af" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="no-todos-text">No todos for today</div>
       <div class="no-todos-hint">Add a todo below, or use #facet to target a specific list</div>
       <form class="todo-add-form" method="post" data-facet="">
         <input type="hidden" name="action" value="add">
         <label for="todo-add-standalone" class="sr-only">Add a todo</label>
-        <input type="text" id="todo-add-standalone" name="text" placeholder="add a todo... (use #work, #personal, etc.)" autocomplete="off" style="text-align: center;">
+        <input type="text" id="todo-add-standalone" name="text" placeholder="add a todo... (use #work, #personal, etc.)" autocomplete="off">
       </form>
     </section>
   {% endif %}
@@ -612,7 +720,7 @@ document.addEventListener('DOMContentLoaded', function() {
       workspaceContent?.classList.remove('single-facet-mode');
       sections.forEach(s => s.style.display = '');
       if (noTodosEl) {
-        noTodosEl.querySelector('.no-todos-text').textContent = 'No todos for this day';
+        noTodosEl.querySelector('.no-todos-text').textContent = 'No todos for today';
       }
     } else {
       // Single-facet mode - hide headers, disable auto-collapse
@@ -637,7 +745,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (noTodosEl && !hasVisibleSection) {
         const facetData = window.facetsData?.find(f => f.name === facetName);
         const facetTitle = facetData?.title || facetName;
-        noTodosEl.querySelector('.no-todos-text').textContent = `No todos for ${facetTitle}`;
+        noTodosEl.querySelector('.no-todos-text').textContent = `No todos in ${facetTitle}`;
       }
     }
   }
@@ -751,7 +859,7 @@ document.addEventListener('DOMContentLoaded', function() {
       emptyEl = document.createElement('div');
       emptyEl.className = 'todo-facet-empty';
       emptyEl.setAttribute('data-facet-empty', facetName);
-      emptyEl.textContent = `no todos in ${facetTitle} for today`;
+      emptyEl.textContent = `No todos in ${facetTitle}`;
       facetSection.appendChild(emptyEl);
     }
   }
@@ -815,7 +923,7 @@ document.addEventListener('DOMContentLoaded', function() {
   async function moveTodo(targetDay, facet, index, button) {
     if (!targetDay) return;
 
-    const originalText = button.textContent;
+    const originalText = button.innerHTML;
     button.disabled = true;
     button.textContent = '⏳';
 
@@ -838,7 +946,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           showMessage(data.error || 'Failed to move todo', 'error');
           button.disabled = false;
-          button.textContent = originalText;
+          button.innerHTML = originalText;
         }
         return;
       }
@@ -862,7 +970,7 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (error) {
       showMessage('Network error - please try again', 'error');
       button.disabled = false;
-      button.textContent = originalText;
+      button.innerHTML = originalText;
     }
   }
 
@@ -921,7 +1029,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const facet = cancelBtn.dataset.facet;
 
       const todoRow = cancelBtn.closest('[data-todo-row]');
-      const originalText = cancelBtn.textContent;
+      const originalText = cancelBtn.innerHTML;
       cancelBtn.disabled = true;
 
       (async () => {
@@ -955,12 +1063,12 @@ document.addEventListener('DOMContentLoaded', function() {
           } else {
             showMessage('Failed to cancel todo - please refresh and try again', 'error');
             cancelBtn.disabled = false;
-            cancelBtn.textContent = originalText;
+            cancelBtn.innerHTML = originalText;
           }
         } catch (error) {
           showMessage('Network error - please try again', 'error');
           cancelBtn.disabled = false;
-          cancelBtn.textContent = originalText;
+          cancelBtn.innerHTML = originalText;
         }
       })();
       return;
@@ -1208,7 +1316,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // Handle weekly todo generation buttons
   document.querySelectorAll('.facet-generate-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      e.preventDefault();
       e.stopPropagation();
 
       const day = btn.dataset.day;
@@ -1216,7 +1323,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // If already has agent_id, navigate to agents page
       if (btn.dataset.agentId) {
-        window.location.href = btn.href;
+        window.location.href = btn.dataset.agentUrl;
         return;
       }
 
@@ -1237,7 +1344,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Store agent_id for event matching and navigation
         btn.dataset.agentId = data.agent_id;
-        btn.href = `/agents#${data.agent_id}`;
+        btn.dataset.agentUrl = `/agents#${data.agent_id}`;
 
       } catch (error) {
         showMessage('Failed to start todo generation', 'error');
@@ -1312,7 +1419,7 @@ document.addEventListener('DOMContentLoaded', function() {
           data-index="${todo.index}"
           data-facet="${facetName}"
         >
-          ✏️
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z"/></svg>
         </button>
         <button
           type="button"
@@ -1323,7 +1430,7 @@ document.addEventListener('DOMContentLoaded', function() {
           data-facet="${facetName}"
           data-current-day="${currentDay}"
         >
-          📅
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><line x1="1.5" y1="6.5" x2="14.5" y2="6.5"/><line x1="5" y1="1" x2="5" y2="4"/><line x1="11" y1="1" x2="11" y2="4"/></svg>
         </button>
 
         <button
@@ -1334,7 +1441,7 @@ document.addEventListener('DOMContentLoaded', function() {
           data-index="${todo.index}"
           data-facet="${facetName}"
         >
-          🗑️
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12"/><path d="M5 4V2.5a1 1 0 011-1h4a1 1 0 011 1V4"/><path d="M3.5 4l.75 10a1.5 1.5 0 001.5 1.5h4.5a1.5 1.5 0 001.5-1.5L12.5 4"/></svg>
         </button>
       </div>
     `;
@@ -1366,7 +1473,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Visual feedback - fast background fade
-    li.style.backgroundColor = 'rgba(37, 99, 235, 0.15)';
+    const facetColor = getComputedStyle(document.documentElement).getPropertyValue('--facet-color').trim() || '#b06a1a';
+    li.style.backgroundColor = `color-mix(in srgb, ${facetColor} 15%, transparent)`;
     li.style.transition = 'background-color 0.3s ease-out';
     setTimeout(() => {
       li.style.backgroundColor = '';

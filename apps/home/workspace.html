@@ -1,12 +1,20 @@
 <style>
 /* Pulse Landing Page */
 .pulse-dashboard {
-  padding: 1.5rem 2rem;
-  max-width: 900px;
+  padding: 1.5rem 2rem 5rem;
+  background: #f9fafb;
+  max-width: 1000px;
   margin: 0 auto;
+  margin-left: max(0px, calc((100vw - 1000px) / 2 - var(--menu-bar-width-minimal, 60px)));
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
+}
+
+.pulse-dashboard a:focus-visible,
+.pulse-dashboard button:focus-visible,
+.pulse-dashboard [role="button"]:focus-visible {
+  outline-color: #6366f1;
 }
 
 /* Vital Signs */
@@ -14,7 +22,7 @@
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem;
   background: #f8fafc;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
@@ -24,7 +32,7 @@
 .pulse-vitals-item {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   font-size: 0.85rem;
   color: #475569;
 }
@@ -34,6 +42,8 @@
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+  position: relative;
+  top: 0px;
 }
 
 .pulse-vitals-dot.ok { background: #4ade80; }
@@ -48,12 +58,21 @@
 }
 
 .pulse-vitals a {
+  margin-left: auto;
   color: #6366f1;
   text-decoration: none;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 
 .pulse-vitals a:hover { text-decoration: underline; }
+.pulse-vitals a:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.pulse-vitals a:active {
+  color: #4f46e5;
+}
 
 .pulse-vitals-attention {
   color: #dc2626;
@@ -62,11 +81,14 @@
 
 /* Section Headers */
 .pulse-section-header {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #94a3b8;
   margin-bottom: 0.5rem;
-  margin-top: 0;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 /* Section collapse/expand */
@@ -74,24 +96,46 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  transition: background 0.15s ease;
 }
 .pulse-section-toggle::before {
   content: "▾";
-  font-size: 0.75rem;
-  color: #94a3b8;
+  font-size: 0.85rem;
+  color: #64748b;
   transition: transform 0.15s;
+  width: 0.85rem;
+  flex-shrink: 0;
+  text-align: center;
+  margin-left: -1.25rem;
+  line-height: 1;
 }
 [data-section-collapsed="true"] .pulse-section-toggle::before {
   transform: rotate(-90deg);
 }
+[data-section-collapsed="true"] > .pulse-section-toggle {
+  padding-block: 0.5rem;
+}
+[data-section-collapsed="false"] > .pulse-section-toggle {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
+}
 .pulse-section-toggle .pulse-section-header {
   margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.pulse-briefing-header .pulse-section-header {
+  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
 }
 .pulse-section-summary {
   font-size: 0.8rem;
   color: #94a3b8;
   margin-left: auto;
+  max-width: 60%;
   font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
@@ -99,19 +143,36 @@
 }
 [data-section-collapsed="false"] .pulse-section-summary { display: none; }
 [data-section-collapsed="true"] .pulse-section-body { display: none; }
+[data-section-collapsed="true"].pulse-today,
+[data-section-collapsed="true"].pulse-narrative {
+  padding: 1rem 1.25rem;
+}
+.pulse-section-toggle:hover {
+  background: #f8fafc;
+  border-radius: 6px;
+}
+.pulse-section-toggle:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.pulse-section-toggle:active {
+  background: #f1f5f9;
+}
 
 /* Narrative */
 .pulse-narrative {
   padding: 1.25rem;
   background: #fff;
   border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #d1d5db;
 }
 
 .pulse-narrative-content {
   font-size: 0.9rem;
   line-height: 1.6;
   color: #334155;
+  max-width: 65ch;
 }
 
 .pulse-narrative-content h1 { font-size: 1.1rem; margin: 0 0 0.75rem; color: #1e293b; }
@@ -119,7 +180,7 @@
 .pulse-narrative-content p { margin: 0 0 0.5rem; }
 
 .pulse-narrative-meta {
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
   font-size: 0.75rem;
   color: #94a3b8;
 }
@@ -135,7 +196,7 @@
   padding: 1.25rem;
   background: #fff;
   border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #d1d5db;
 }
 
 .pulse-events {
@@ -151,11 +212,12 @@
   gap: 0.75rem;
   font-size: 0.85rem;
   color: #334155;
+  padding: 0.25rem 0.35rem 0.25rem 0;
 }
 
 .pulse-event-time {
   font-size: 0.8rem;
-  color: #64748b;
+  color: #94a3b8;
   min-width: 50px;
   font-variant-numeric: tabular-nums;
 }
@@ -181,6 +243,7 @@
   color: #64748b;
   display: flex;
   gap: 0.5rem;
+  padding: 0.25rem 0.35rem 0.25rem 0;
 }
 
 .pulse-activity-time {
@@ -198,7 +261,7 @@
 
 .pulse-facet-chip {
   font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
+  padding: 0.25rem 0.6rem;
   background: #f1f5f9;
   border-radius: 4px;
   color: #475569;
@@ -209,13 +272,13 @@
   padding: 1.25rem;
   background: #fff;
   border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #d1d5db;
 }
 
 .pulse-needs-list {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.65rem;
 }
 
 .pulse-needs-item {
@@ -224,22 +287,37 @@
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
+  padding: 0.35rem 0.35rem 0.35rem 0;
+}
+
+.pulse-needs-item:not(:last-child) {
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .pulse-needs-item::before {
   content: "○";
   color: #cbd5e1;
   flex-shrink: 0;
+  width: 0.75rem;
+  text-align: center;
+  margin-left: -1.25rem;
 }
 
-.pulse-needs-attention {
+.pulse-needs-item.pulse-needs-attention {
   color: #dc2626;
   font-weight: 500;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid #fecaca;
 }
 
 .pulse-needs-attention::before {
   content: "⚠";
   color: #dc2626;
+  width: 0.75rem;
+  text-align: center;
+  margin-left: -1.25rem;
+  flex-shrink: 0;
 }
 
 .pulse-needs-more {
@@ -254,6 +332,10 @@
 }
 
 .pulse-needs-more a:hover { text-decoration: underline; }
+
+.pulse-needs-item span[style] {
+  vertical-align: baseline;
+}
 
 /* Network Pulse */
 .pulse-network {
@@ -284,7 +366,7 @@
 .pulse-entity-type {
   font-size: 0.75rem;
   padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  border-radius: 4px;
   font-weight: 600;
 }
 
@@ -293,8 +375,16 @@
 .pulse-entity-type.project { background: #fef3c7; color: #b45309; }
 .pulse-entity-type.tool { background: #f3f4f6; color: #4b5563; }
 
+.pulse-entity:hover {
+  border-color: #cbd5e1;
+}
+
+.pulse-entity[data-conversation]:hover {
+  border-radius: 6px;
+}
+
 .pulse-network-link {
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
   font-size: 0.8rem;
 }
 
@@ -312,7 +402,10 @@
   border-radius: 4px;
 }
 [data-conversation]:hover {
-  background: #f1f5f9;
+  background: #f8fafc;
+}
+[data-conversation]:active {
+  background: #e2e8f0;
 }
 [data-conversation]:focus-visible {
   outline: 2px solid #6366f1;
@@ -322,9 +415,16 @@
   outline: 2px solid #6366f1;
   outline-offset: 2px;
 }
+.pulse-briefing-header:hover {
+  background: #f8fafc;
+  border-radius: 6px;
+}
+.pulse-briefing-header:active {
+  background: #f1f5f9;
+}
 .pulse-tell-more {
   display: inline-block;
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
   font-size: 0.8rem;
   color: #6366f1;
   text-decoration: none;
@@ -332,6 +432,14 @@
 .pulse-tell-more:hover {
   text-decoration: underline;
   background: transparent;
+}
+.pulse-tell-more:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.pulse-tell-more:active {
+  color: #4f46e5;
 }
 
 /* Routines */
@@ -354,7 +462,7 @@
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
-  padding: 0.25rem 0.35rem;
+  padding: 0.25rem 0.35rem 0.25rem 0;
 }
 
 .pulse-routine-item::before {
@@ -362,6 +470,9 @@
   color: #6366f1;
   flex-shrink: 0;
   font-size: 0.75rem;
+  width: 0.75rem;
+  text-align: center;
+  margin-left: -1.25rem;
 }
 
 .pulse-routine-name {
@@ -389,7 +500,120 @@
   text-decoration: none;
 }
 
-.pulse-routines-more a:hover { text-decoration: underline; }
+.pulse-routines-more a:hover {
+  text-decoration: underline;
+  background: transparent;
+}
+
+/* Skills */
+.pulse-skills {
+  padding: 1.25rem;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.pulse-skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pulse-skill-item {
+  font-size: 0.85rem;
+  color: #334155;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.25rem 0.35rem 0.25rem 0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.pulse-skill-item::before {
+  content: "◇";
+  color: #8b5cf6;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  width: 0.75rem;
+  text-align: center;
+  margin-left: -1.25rem;
+}
+
+.pulse-skill-item.is-new::before {
+  content: "◆";
+}
+
+.pulse-skill-item:hover {
+  background: #f8fafc;
+  border-radius: 4px;
+}
+.pulse-skill-item:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+.pulse-skill-item:active {
+  background: #e2e8f0;
+}
+
+.pulse-skill-name {
+  font-weight: 500;
+}
+
+.pulse-skill-badge {
+  font-size: 0.7rem;
+  color: #8b5cf6;
+  background: #f5f3ff;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.pulse-skill-facet {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  background: #f1f5f9;
+  border-radius: 4px;
+  color: #475569;
+}
+
+.pulse-skill-summary {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.pulse-skill-detail {
+  padding: 0.75rem 1rem 0.75rem 1.5rem;
+  font-size: 0.85rem;
+  color: #334155;
+  line-height: 1.6;
+  border-left: 2px solid #e2e8f0;
+  margin-left: 0.6rem;
+  margin-bottom: 0.25rem;
+}
+
+.pulse-skill-detail h1,
+.pulse-skill-detail h2,
+.pulse-skill-detail h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.pulse-skill-detail h1:first-child,
+.pulse-skill-detail h2:first-child,
+.pulse-skill-detail h3:first-child {
+  margin-top: 0;
+}
+
+.pulse-skill-detail p {
+  margin: 0.25rem 0;
+}
+
+.pulse-skill-detail ul, .pulse-skill-detail ol {
+  margin: 0.25rem 0;
+  padding-left: 1.25rem;
+}
 
 /* Briefing Card */
 .pulse-briefing-card {
@@ -405,6 +629,7 @@
   align-items: center;
   gap: 0.75rem;
   cursor: pointer;
+  transition: background 0.15s ease;
 }
 .pulse-briefing-meta {
   font-size: 0.75rem;
@@ -423,6 +648,11 @@
   color: #64748b;
   margin-top: 0.5rem;
 }
+.pulse-briefing-card[data-collapsed="false"] .pulse-briefing-header {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+}
 .pulse-briefing-card[data-collapsed="false"] .pulse-briefing-summary { display: none; }
 .pulse-briefing-card[data-collapsed="true"] .pulse-briefing-body { display: none; }
 .pulse-briefing-card[data-phase="pending"] .pulse-briefing-body { display: none; }
@@ -434,13 +664,15 @@
   gap: 1rem;
 }
 .pulse-briefing-section-toggle {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   background: none;
   border: none;
   padding: 0;
@@ -449,17 +681,49 @@
   content: "▾";
   font-size: 0.75rem;
   transition: transform 0.15s;
+  width: 0.75rem;
+  flex-shrink: 0;
+  text-align: center;
+  margin-left: -1.25rem;
 }
 .pulse-briefing-section[data-collapsed="true"] .pulse-briefing-section-toggle::before {
   transform: rotate(-90deg);
 }
 .pulse-briefing-section[data-collapsed="true"] .pulse-briefing-section-body { display: none; }
+.pulse-briefing-section-toggle:hover {
+  color: #334155;
+}
+.pulse-briefing-section-toggle:hover::before {
+  color: #64748b;
+}
+.pulse-briefing-section-toggle:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.pulse-briefing-section-toggle:active {
+  color: #1e293b;
+}
+
+.pulse-reading-link {
+  color: #6366f1;
+  text-decoration: none;
+}
+.pulse-reading-link:hover {
+  text-decoration: underline;
+}
+.pulse-reading-link:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
 
 .pulse-briefing-section-body {
   font-size: 0.85rem;
   line-height: 1.6;
   color: #334155;
   margin-top: 0.4rem;
+  max-width: 65ch;
 }
 .pulse-briefing-section-body p { margin: 0 0 0.4rem; }
 .pulse-briefing-section-body ul { margin: 0; padding-left: 1.25rem; }
@@ -473,25 +737,25 @@
 }
 
 .pulse-welcome {
-  padding: 2rem 1.5rem;
+  padding: 2rem;
   background: #fff;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
-  text-align: center;
 }
 
 .pulse-welcome h2 {
-  font-size: 1rem;
+  font-size: 1.15rem;
   font-weight: 600;
   color: #1e293b;
   margin: 0 0 0.75rem;
+  letter-spacing: -0.01em;
 }
 
 .pulse-welcome p {
   font-size: 0.9rem;
   color: #475569;
   line-height: 1.6;
-  margin: 0 0 1rem;
+  margin-bottom: 1rem;
   max-width: 480px;
   margin-left: auto;
   margin-right: auto;
@@ -501,17 +765,43 @@
   color: #6366f1;
   text-decoration: none;
   font-size: 0.85rem;
+  font-weight: 500;
+  margin-top: 0.5rem;
+  display: inline-block;
 }
 
 .pulse-welcome a:hover {
   text-decoration: underline;
 }
 
+.pulse-welcome a:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.pulse-welcome a:active {
+  color: #4f46e5;
+}
+
 .pulse-empty-state {
   padding: 1rem 1.25rem;
-  background: #fff;
+  background: #f8fafc;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
+}
+
+/* Shared left padding for indicator gutter */
+.pulse-vitals,
+.pulse-narrative,
+.pulse-today,
+.pulse-needs,
+.pulse-routines,
+.pulse-skills,
+.pulse-network,
+.pulse-briefing-card,
+.pulse-empty-state {
+  padding-left: 2rem;
 }
 
 .pulse-empty-state .pulse-empty-message {
@@ -529,10 +819,24 @@
   text-decoration: underline;
 }
 
+.pulse-needs-more a:focus-visible,
+.pulse-network-link a:focus-visible,
+.pulse-empty-state .pulse-empty-message a:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.pulse-needs-more a:active,
+.pulse-network-link a:active,
+.pulse-empty-state .pulse-empty-message a:active {
+  color: #4f46e5;
+}
+
 /* Responsive breakpoints */
 @media (max-width: 768px) {
   .pulse-dashboard {
-    padding: 1rem;
+    padding: 1rem 1rem 5rem;
     gap: 1rem;
   }
 
@@ -550,10 +854,11 @@
   .pulse-briefing-section-toggle,
   .pulse-section-toggle,
   .pulse-routine-item,
+  .pulse-skill-item,
   .pulse-event,
   .pulse-activity,
   .pulse-needs-item {
-    min-height: 44px;
+    padding-block: 10px;
   }
 
   .pulse-welcome p {
@@ -563,11 +868,12 @@
 
 @media (max-width: 375px) {
   .pulse-dashboard {
-    padding: 0.75rem;
+    padding: 0.75rem 0.75rem 5rem;
   }
 
   .pulse-narrative,
   .pulse-routines,
+  .pulse-skills,
   .pulse-today,
   .pulse-needs,
   .pulse-network,
@@ -579,6 +885,35 @@
   .pulse-entities,
   .pulse-facet-dist {
     gap: 0.35rem;
+  }
+
+  .pulse-vitals,
+  .pulse-narrative,
+  .pulse-today,
+  .pulse-needs,
+  .pulse-routines,
+  .pulse-skills,
+  .pulse-network,
+  .pulse-briefing-card,
+  .pulse-empty-state {
+    padding-left: 0.75rem;
+  }
+
+  .pulse-section-toggle::before,
+  .pulse-needs-item::before,
+  .pulse-routine-item::before,
+  .pulse-skill-item::before,
+  .pulse-briefing-section-toggle::before {
+    margin-left: 0;
+    width: auto;
+  }
+
+  .pulse-needs-item,
+  .pulse-routine-item,
+  .pulse-skill-item,
+  .pulse-event,
+  .pulse-activity {
+    padding-left: 0.35rem;
   }
 }
 </style>
@@ -610,9 +945,7 @@
       {{ attention.placeholder_text }}
     </div>
     {% endif %}
-    <div style="margin-left:auto">
-      <a href="/app/health">Health →</a>
-    </div>
+    <a href="/app/health">health →</a>
   </div>
 
   <!-- Welcome -->
@@ -628,7 +961,7 @@
   {% if briefing_exists or briefing_phase == 'pending' %}
   <div class="pulse-briefing-card" id="pulse-briefing" data-phase="{{ briefing_phase }}" data-collapsed="{{ 'false' if briefing_phase == 'morning' else 'true' }}">
     <div class="pulse-briefing-header" role="button" tabindex="0" aria-expanded="{{ 'true' if briefing_phase == 'morning' else 'false' }}">
-      <h2 class="pulse-section-header" style="margin-bottom:0">morning briefing</h2>
+      <h2 class="pulse-section-header">morning briefing</h2>
       {% if briefing_needs_badge %}
       <span class="pulse-briefing-badge">{{ briefing_needs_badge }}</span>
       {% endif %}
@@ -683,7 +1016,7 @@
     </div>
     <div class="pulse-section-body">
       <div class="pulse-narrative-content" id="pulse-narrative-content"></div>
-      <a href="#" class="pulse-tell-more" data-conversation="Tell me more about what's happening today">Tell me more →</a>
+      <a href="#" class="pulse-tell-more" data-conversation="Tell me more about what's happening today">tell me more →</a>
       {% if narrative_updated_at %}
       <div class="pulse-narrative-meta">Updated at {{ narrative_updated_at }}</div>
       {% endif %}
@@ -732,6 +1065,33 @@
   <div class="pulse-empty-state">
     <h2 class="pulse-section-header">your routines</h2>
     <div class="pulse-empty-message">all caught up — no new routine results since you last checked.</div>
+  </div>
+  {% endif %}
+
+  <!-- Skills -->
+  {% if skills %}
+  <div class="pulse-skills" id="pulse-skills" data-section-collapsed="true">
+    <div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="false" onclick="toggleSection(this.parentElement)">
+      <h2 class="pulse-section-header">your skills</h2>
+      <span class="pulse-section-summary">{{ skills_summary }}</span>
+    </div>
+    <div class="pulse-section-body">
+    <div class="pulse-skills-list">
+      {% for skill in skills %}
+      <div class="pulse-skill-item{{ ' is-new' if not skill.seen else '' }}" role="button" tabindex="0" data-skill-click="true" data-skill-id="{{ skill.id }}">
+        <span>
+          <span class="pulse-skill-name">{{ skill.name }}</span>
+          <span class="pulse-skill-badge">{{ skill.observations }} obs</span>
+          <span class="pulse-skill-facet">{{ skill.facet }}</span>
+          {% if skill.summary %}
+          <span class="pulse-skill-summary">— {{ skill.summary }}</span>
+          {% endif %}
+        </span>
+      </div>
+      <div class="pulse-skill-detail" id="skill-detail-{{ skill.id }}" style="display: none;"></div>
+      {% endfor %}
+    </div>
+    </div>
   </div>
   {% endif %}
 
@@ -830,7 +1190,7 @@
       </div>
       {% endfor %}
     </div>
-    <div class="pulse-network-link"><a href="/app/graph">View full graph →</a></div>
+    <div class="pulse-network-link"><a href="/app/graph">view full graph →</a></div>
     </div>
   </div>
   {% endif %}
@@ -848,6 +1208,7 @@
   // Render narrative content with marked
   const narrativeRaw = {{ (narrative_content or '')|tojson|safe }};
   var briefingSections = {{ briefing_sections|tojson|safe }};
+  var skillContent = {{ skills_content|default({})|tojson|safe }};
   var sectionOrder = ['your_day', 'yesterday', 'forward_look', 'reading'];
   if (narrativeRaw) {
     const el = document.getElementById('pulse-narrative-content');
@@ -872,8 +1233,7 @@
           var link = document.createElement('a');
           link.href = '/app/search?agent=news&facet=' + encodeURIComponent(facetName);
           link.textContent = li.textContent;
-          link.style.color = '#6366f1';
-          link.style.textDecoration = 'none';
+          link.className = 'pulse-reading-link';
           li.textContent = '';
           li.appendChild(link);
         });
@@ -916,10 +1276,31 @@
 
   renderBriefingSections(briefingSections);
 
+  function toggleSkillDetail(skillId) {
+    var detail = document.getElementById('skill-detail-' + skillId);
+    if (!detail) return;
+    if (detail.style.display === 'none') {
+      if (skillContent[skillId]) {
+        detail.innerHTML = marked.parse(skillContent[skillId], {breaks: true, gfm: true});
+      }
+      detail.style.display = 'block';
+    } else {
+      detail.style.display = 'none';
+    }
+  }
+
   // Click-to-converse: delegated handler for all [data-conversation] elements
   var dashboard = document.querySelector('.pulse-dashboard');
   if (dashboard) {
     dashboard.addEventListener('click', function(e) {
+      // Skill inline expansion
+      var skillEl = e.target.closest('[data-skill-click]');
+      if (skillEl && !e.target.closest('.pulse-section-toggle')) {
+        e.preventDefault();
+        toggleSkillDetail(skillEl.dataset.skillId);
+        fetch('/app/home/api/skills/seen', {method: 'POST'});
+        return;
+      }
       var el = e.target.closest('[data-conversation]');
       if (el && window.openConversation) {
         e.preventDefault();
@@ -935,6 +1316,13 @@
       if (toggleEl) {
         e.preventDefault();
         toggleSection(toggleEl.parentElement);
+        return;
+      }
+      var skillEl = e.target.closest('[data-skill-click]');
+      if (skillEl) {
+        e.preventDefault();
+        toggleSkillDetail(skillEl.dataset.skillId);
+        fetch('/app/home/api/skills/seen', {method: 'POST'});
         return;
       }
       var el = e.target.closest('[data-conversation]');
@@ -999,10 +1387,11 @@
   };
 
   // Section collapse/expand
-  var SECTION_IDS = ['pulse-narrative', 'pulse-routines', 'pulse-today', 'pulse-needs', 'pulse-network'];
+  var SECTION_IDS = ['pulse-narrative', 'pulse-routines', 'pulse-skills', 'pulse-today', 'pulse-needs', 'pulse-network'];
   var SECTION_DEFAULTS = {
     'pulse-narrative': 'true',
     'pulse-routines': 'true',
+    'pulse-skills': 'true',
     'pulse-today': 'true',
     'pulse-needs': 'false',
     'pulse-network': 'true'
@@ -1056,7 +1445,7 @@
         if (data.attention) {
           html += '<div class="pulse-vitals-sep"></div><div class="pulse-vitals-item pulse-vitals-attention">' + esc(data.attention.placeholder_text) + '</div>';
         }
-        html += '<div style="margin-left:auto"><a href="/app/health">Health →</a></div>';
+        html += '<a href="/app/health">health →</a>';
         el.innerHTML = html;
       })
       .catch(function(err) { console.error('home: refreshVitals failed', err); });
@@ -1151,6 +1540,75 @@
         }
       })
       .catch(function(err) { console.error('home: refreshRoutines failed', err); });
+  }
+
+  function refreshSkills() {
+    fetch('/app/home/api/pulse')
+      .then(r => r.json())
+      .then(data => {
+        var container = document.getElementById('pulse-skills');
+        var skills = data.skills || [];
+        var newContent = data.skills_content || {};
+        if (skills.length === 0) {
+          if (container) container.remove();
+          return;
+        }
+        // Update content map
+        Object.keys(newContent).forEach(function(k) { skillContent[k] = newContent[k]; });
+        var wasCollapsed;
+        if (container) {
+          wasCollapsed = container.dataset.sectionCollapsed;
+        } else {
+          try {
+            var saved = JSON.parse(sessionStorage.getItem('pulse-section-state') || '{}');
+            wasCollapsed = saved['pulse-skills'] || SECTION_DEFAULTS['pulse-skills'];
+          } catch(e) {
+            wasCollapsed = SECTION_DEFAULTS['pulse-skills'];
+          }
+        }
+        var expanded = wasCollapsed === 'false' ? 'true' : 'false';
+        var summaryText = data.skills_summary || (skills.length + ' skill' + (skills.length !== 1 ? 's' : ''));
+        var html = '<div class="pulse-section-toggle" role="button" tabindex="0" aria-expanded="' + expanded + '" onclick="toggleSection(this.parentElement)">';
+        html += '<h2 class="pulse-section-header">your skills</h2>';
+        html += '<span class="pulse-section-summary">' + esc(summaryText) + '</span>';
+        html += '</div>';
+        html += '<div class="pulse-section-body">';
+        html += '<div class="pulse-skills-list">';
+        skills.forEach(function(s) {
+          var name = esc(s.name);
+          var newClass = s.seen ? '' : ' is-new';
+          html += '<div class="pulse-skill-item' + newClass + '" role="button" tabindex="0" data-skill-click="true" data-skill-id="' + esc(s.id) + '"><span>';
+          html += '<span class="pulse-skill-name">' + name + '</span> ';
+          html += '<span class="pulse-skill-badge">' + (s.observations || 0) + ' obs</span> ';
+          html += '<span class="pulse-skill-facet">' + esc(s.facet) + '</span>';
+          if (s.summary) html += ' <span class="pulse-skill-summary">— ' + esc(s.summary) + '</span>';
+          html += '</span></div>';
+          html += '<div class="pulse-skill-detail" id="skill-detail-' + esc(s.id) + '" style="display: none;"></div>';
+        });
+        html += '</div>';
+        html += '</div>';
+        if (container) {
+          container.innerHTML = html;
+          container.dataset.sectionCollapsed = wasCollapsed;
+        } else {
+          var newDiv = document.createElement('div');
+          newDiv.className = 'pulse-skills';
+          newDiv.id = 'pulse-skills';
+          newDiv.dataset.sectionCollapsed = wasCollapsed;
+          newDiv.innerHTML = html;
+          var routines = document.getElementById('pulse-routines');
+          var today = document.getElementById('pulse-today');
+          if (routines) {
+            routines.parentNode.insertBefore(newDiv, routines.nextSibling);
+          } else if (today) {
+            today.parentNode.insertBefore(newDiv, today);
+          } else {
+            var dash = document.querySelector('.pulse-dashboard');
+            if (dash) dash.appendChild(newDiv);
+          }
+        }
+      })
+      .catch(function(err) { console.error('home: refreshSkills failed', err); });
   }
 
   function refreshBriefing() {

@@ -2,7 +2,7 @@
   "api_keys": {
     "gemini": false,
     "revai": false,
-    "whisper": true
+    "whisper": false
   },
   "backends": [
     {

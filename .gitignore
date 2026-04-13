@@ -11,6 +11,8 @@ logs/
 tests/fixtures/journal/agents/*/*.jsonl
 tests/fixtures/journal/tokens/*.json
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
 *.log
 *.port
 /config*.py
@@ -24,3 +26,4 @@ apps/support/portal/
 build/
 tmp/
 filter_vconic_activity.py
+sol/history.jsonl

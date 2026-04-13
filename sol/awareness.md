@@ -1,19 +1,14 @@
-as of: 2026-04-11T12:00:00Z
+as of: 2026-04-12T21:00:00
+segment: 2026-04-12: 216 segments, ~16.9 hours.
 
 ## capture
 - status: stale
-- streams: generic
+
+## calendar
+- No events found for today.
 
 ## activity
-- agent failures: morning_briefing, sense, joke_bot, decisionalizer
-- curation opportunities: active speaker cluster 18, entity duplicates for Zoey (personal) and Sunstone/Solstone
+- The identity summary indicates system health was generally stable with services running, but multiple clusters of agent failures and timeouts were observed.
 
-## entities
-- Jeremie Miller (Person): 26038 signals
-- Jaymie Oehler (Person): 2915 signals
-- Thomas Muldowney (Person): 1886 signals
-- Lis Miller (Person): 1622 signals
-- Neal Satterfield (Person): 1476 signals
-
-## partner
-- Last interaction with identity self agent: 2026-04-11 (today)
+## routines
+- No routines configured.

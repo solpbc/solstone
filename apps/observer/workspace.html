@@ -1,43 +1,54 @@
 <style>
 .observer-card {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background: #fafafa;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
-  padding: 1em;
-  margin-bottom: 1em;
-}
-.observer-card.disconnected {
-  background: #f8f9fa;
-  border-color: #ced4da;
+  padding: 1em 1.25em;
+  margin-bottom: 1.5em;
 }
 .observer-card.stale {
   background: #fff9e6;
-  border-color: #ffc107;
+  border-color: var(--facet-border, #e5e0db);
+  border-left: 3px solid #e5c35a;
 }
 .observer-card.revoked {
-  background: #f0f0f0;
-  border-color: #ccc;
+  background: #f5f3f1;
+  border-color: var(--facet-border, #e5e0db);
+  border-left: 3px solid #8a8078;
 }
 .observer-card.revoked .observer-name {
   text-decoration: line-through;
   color: #5a6268;
 }
+.observer-card.disconnected {
+  background: #fef2f2;
+  border-color: var(--facet-border, #e5e0db);
+  border-left: 3px solid #dc3545;
+}
+.observer-card.connected {
+  background: #f0fdf4;
+  border-color: var(--facet-border, #e5e0db);
+  border-left: 3px solid #28a745;
+}
 .observer-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 0.5em;
 }
 .observer-name {
-  font-weight: bold;
+  font-weight: 600;
   font-size: 1.1em;
 }
 .observer-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 1em;
-  padding: 3px 10px;
+  font-size: 0.8em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 4px 10px;
   border-radius: 4px;
 }
 .observer-status.connected {
@@ -85,15 +96,20 @@
   font-weight: bold;
 }
 .observer-status.revoked {
-  background: #e9ecef;
-  color: #6c757d;
+  background: #f0ece8;
+  color: #8a8078;
 }
 .observer-status.revoked::before {
   content: '';
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #6c757d;
+  background: #8a8078;
+}
+
+/* ── Transition: ambient status dot ── */
+.observer-status::before {
+  transition: background-color 0.6s ease;
 }
 .observer-status.revoked::after {
   content: '—';
@@ -101,20 +117,22 @@
 .observer-stats {
   font-size: 0.9em;
   color: #666;
-  margin-bottom: 0.5em;
+  margin-bottom: 1em;
 }
 .observer-stats dl {
   margin: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 0 1.5em;
+  gap: 0 2em;
 }
 .observer-stats dl > div {
   display: flex;
   gap: 0.3em;
 }
 .observer-stats dt {
-  color: #999;
+  color: #8a8078;
+  font-weight: 500;
+  font-size: 0.85em;
 }
 .observer-stats dt::after {
   content: ':';
@@ -125,18 +143,20 @@
 .observer-actions {
   display: flex;
   gap: 8px;
+  min-height: 44px;
 }
 .observer-actions button {
   padding: 8px 16px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 4px;
   background: white;
   cursor: pointer;
   font-size: 0.9em;
+  font-weight: 500;
   min-height: 44px;
 }
 .observer-actions button:hover {
-  background: #f0f0f0;
+  background: rgba(0,0,0,0.05);
 }
 .observer-actions button.danger {
   color: #dc3545;
@@ -145,12 +165,18 @@
 .observer-actions button.danger:hover {
   background: #f8d7da;
 }
+.observer-actions button:active {
+  background: rgba(0,0,0,0.08);
+}
+.observer-actions button.danger:active {
+  background: #f1b0b7;
+}
 
 /* Add observer form */
 .add-observer-form {
   display: flex;
   gap: 8px;
-  margin-bottom: 1.5em;
+  margin-bottom: 1em;
 }
 .add-observer-form input {
   flex: 1;
@@ -161,7 +187,7 @@
 }
 .add-observer-form button {
   padding: 8px 16px;
-  background: #007bff;
+  background: var(--facet-color, #b06a1a);
   color: white;
   border: none;
   border-radius: 4px;
@@ -170,7 +196,14 @@
   min-height: 44px;
 }
 .add-observer-form button:hover {
-  background: #0056b3;
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+}
+.add-observer-form button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+  outline-offset: 2px;
+}
+.add-observer-form button:active {
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 70%, black);
 }
 .add-observer-form button:disabled {
   background: #ccc;
@@ -178,23 +211,9 @@
 }
 
 /* Observer key modal */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-}
-.modal-content {
-  background: white;
-  margin: 10% auto;
-  padding: 1.5em;
-  border-radius: 8px;
+#keyModal .modal-content {
   max-width: 600px;
-  position: relative;
+  padding: 1.5em;
 }
 .modal-close {
   position: absolute;
@@ -216,6 +235,14 @@
 .modal-close:hover {
   color: #333;
 }
+.modal-close:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.modal-close:active {
+  color: #000;
+}
 .modal h3 {
   margin-top: 0;
   margin-bottom: 1em;
@@ -225,7 +252,8 @@
   color: #d4d4d4;
   padding: 1em;
   border-radius: 4px;
-  font-family: monospace;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+  letter-spacing: 0.02em;
   font-size: 0.9em;
   overflow-x: auto;
   margin: 1em 0;
@@ -252,6 +280,13 @@
 .copy-btn:hover {
   background: #555;
 }
+.copy-btn:focus-visible {
+  outline: 2px solid #80bdff;
+  outline-offset: 2px;
+}
+.copy-btn:active {
+  background: #333;
+}
 .copy-btn.copied {
   background: #28a745;
 }
@@ -259,7 +294,9 @@
   right: 60px;
 }
 .credential-label {
-  font-weight: bold;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   font-size: 0.85em;
   color: #333;
   margin-bottom: 0.25em;
@@ -275,25 +312,46 @@
   cursor: pointer;
   min-height: 44px;
 }
+.modal-primary-btn {
+  background: var(--facet-color, #b06a1a);
+  color: white;
+  border: none;
+  font-weight: bold;
+}
+.modal-primary-btn:hover {
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+}
+.modal-primary-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+  outline-offset: 2px;
+}
+.modal-primary-btn:active {
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 70%, black);
+}
+.modal-warning {
+  font-size: 0.85em;
+  color: #6b7280;
+  line-height: 1.5;
+}
 
 .no-observers {
   text-align: center;
-  padding: 3rem 1rem;
+  padding: 3em 1em;
   color: #666;
 }
 .no-observers-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+  font-size: 3em;
+  margin-bottom: 1em;
   opacity: 0.5;
 }
 .no-observers-text {
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.1em;
+  margin-bottom: 0.5em;
 }
 .no-observers-hint {
-  font-size: 0.9rem;
+  font-size: 0.85em;
   color: #999;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.5em;
 }
 .no-observers-action {
   display: inline-flex;
@@ -301,20 +359,30 @@
   justify-content: center;
   padding: 8px 16px;
   min-height: 44px;
-  background: #2196F3;
+  background: var(--facet-color, #b06a1a);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.9em;
 }
 .no-observers-action:hover {
-  background: #1976D2;
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+}
+.no-observers-action:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+  outline-offset: 2px;
+}
+.no-observers-action:active {
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 70%, black);
 }
 
 .section-title {
   margin-bottom: 1em;
   color: #333;
+  font-size: 1.1em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 /* Add observer toggle */
@@ -323,7 +391,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #007bff;
+  background: var(--facet-color, #b06a1a);
   color: white;
   border: none;
   border-radius: 4px;
@@ -331,13 +399,21 @@
   font-weight: bold;
   font-size: 1em;
   min-height: 44px;
+  margin-top: 1.5em;
   margin-bottom: 1em;
 }
 .add-observer-toggle:hover {
-  background: #0056b3;
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+}
+.add-observer-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--facet-color, #b06a1a) 85%, black);
+  outline-offset: 2px;
+}
+.add-observer-toggle:active {
+  background: color-mix(in srgb, var(--facet-color, #b06a1a) 70%, black);
 }
 .add-observer-toggle .toggle-indicator {
-  font-size: 0.75em;
+  font-size: 0.85em;
 }
 
 /* Collapsed state for add-observer section */
@@ -362,7 +438,7 @@
     flex-wrap: wrap;
     gap: 8px;
   }
-  .modal-content {
+  #keyModal .modal-content {
     margin: 16px;
     max-width: calc(100vw - 32px);
   }
@@ -422,6 +498,13 @@
 .ws-error-retry:hover {
   background: #6d5303;
 }
+.ws-error-retry:focus-visible {
+  outline: 2px solid #856404;
+  outline-offset: 2px;
+}
+.ws-error-retry:active {
+  background: #554303;
+}
 .ws-error-dismiss {
   background: transparent;
   border: 1px solid #856404;
@@ -435,9 +518,29 @@
 .ws-error-dismiss:hover {
   background: rgba(133, 100, 4, 0.1);
 }
+.ws-error-dismiss:focus-visible {
+  outline: 2px solid #856404;
+  outline-offset: 2px;
+}
+.ws-error-dismiss:active {
+  background: rgba(133, 100, 4, 0.15);
+}
 .ws-error-countdown {
-  color: #997a1e;
+  color: #6d5303;
   font-size: 0.85em;
+}
+
+/* ── Transitions: interactive elements ── */
+.observer-actions button,
+.add-observer-form button,
+.add-observer-toggle,
+.copy-btn,
+.modal-close,
+.modal-actions button,
+.no-observers-action,
+.ws-error-retry,
+.ws-error-dismiss {
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 </style>
 
@@ -464,7 +567,7 @@
 
   <section class="add-observer-section collapsed" id="addObserverSection"
            aria-label="add observer" aria-hidden="true">
-    <h2 class="section-title">add observer</h2>
+    <h2 class="section-title">Add Observer</h2>
     <form class="add-observer-form" id="addObserverForm">
       <label for="observerName">Observer name</label>
       <input type="text" id="observerName" placeholder="e.g., laptop, desktop" maxlength="64" required>
@@ -490,11 +593,11 @@
       <button class="copy-btn" id="revealKeyBtn">Reveal</button>
       <button class="copy-btn" id="copyKeyBtn">Copy</button>
     </div>
-    <p style="font-size: 0.9em; color: #666;">
+    <p class="modal-warning">
       Keep this key secret — anyone with it can upload to your journal.
     </p>
     <div class="modal-actions">
-      <button id="doneBtn" style="background: #007bff; color: white; border: none;">Done</button>
+      <button id="doneBtn" class="modal-primary-btn">Done</button>
     </div>
   </div>
 </div>

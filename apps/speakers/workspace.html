@@ -6,62 +6,80 @@
 .spk-wrap {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 16px 24px;
+  padding: 1.5rem 2rem 2rem;
 }
 
 .spk-layout {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 24px;
-  min-height: 400px;
+  grid-template-columns: 320px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 260px);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
 }
 
 .spk-segments {
   background: #fff;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  border-radius: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
 .spk-segments-header {
-  padding: 12px 16px;
+  padding: 20px 16px 12px 16px;
+  margin: 0;
   border-bottom: 1px solid #e5e7eb;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
+  line-height: 1;
   color: #374151;
 }
 
 .spk-segments-list {
-  max-height: 500px;
+  flex: 1;
   overflow-y: auto;
 }
 
 .spk-segment {
   padding: 12px 16px;
-  border-bottom: 1px solid #f3f4f6;
+  background-image: linear-gradient(#e5e7eb, #e5e7eb);
+  background-size: calc(100% - 32px) 1px;
+  background-position: center bottom;
+  background-repeat: no-repeat;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background-color 0.15s;
+  border-left: 3px solid transparent;
 }
 
 .spk-segment:hover {
-  background: #f9fafb;
+  background-color: #f9fafb;
+}
+
+.spk-segment:active {
+  background-color: #f3f4f6;
 }
 
 .spk-segment.active {
-  background: #eff6ff;
-  border-left: 3px solid #3b82f6;
+  background-color: #eff6ff;
+  border-left-color: #3b82f6;
 }
 
 .spk-segment-time {
   font-weight: 500;
   font-size: 14px;
+  font-variant-numeric: tabular-nums;
   color: #1f2937;
 }
 
 .spk-segment-meta {
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   color: #6b7280;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .spk-segment-sources {
@@ -74,10 +92,11 @@
 .spk-source-badge {
   display: inline-block;
   padding: 2px 8px;
-  background: #e5e7eb;
+  background: #d1d5db;
   border-radius: 12px;
   font-size: 11px;
   color: #4b5563;
+  font-weight: 500;
 }
 
 .spk-empty {
@@ -91,12 +110,25 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   height: 100%;
   text-align: center;
   color: #9ca3af;
-  padding: 48px 24px;
+  padding: 80px 24px 24px;
   gap: 12px;
+}
+
+.spk-segments .spk-empty-state {
+  justify-content: flex-start;
+  padding: 24px 16px;
+}
+
+.spk-detail > .spk-empty-state {
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px dashed #e5e7eb;
+  margin: 20px;
+  flex: 1;
 }
 
 .spk-empty-icon svg {
@@ -112,20 +144,25 @@
 .spk-empty-heading {
   font-size: 16px;
   font-weight: 500;
-  color: #6b7280;
+  color: #4b5563;
   margin: 0;
 }
 
 .spk-empty-desc {
   font-size: 14px;
   color: #9ca3af;
+  line-height: 1.5;
+  max-width: 36ch;
   margin: 0;
 }
 
 .spk-detail {
   background: #fff;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  border-radius: 0;
+  border: none;
+  border-left: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
   padding: 20px;
 }
 
@@ -165,6 +202,11 @@
   background: #f9fafb;
 }
 
+.spk-source-tab:active:not(.active) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
 .spk-source-tab.active {
   background: #3b82f6;
   border-color: #3b82f6;
@@ -172,7 +214,7 @@
 }
 
 .spk-audio-player {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   padding: 12px;
   background: #f9fafb;
   border-radius: 8px;
@@ -211,6 +253,11 @@
   background: #d1d5db;
 }
 
+.spk-skip-back:active,
+.spk-speed-toggle:active {
+  background: #9ca3af;
+}
+
 .spk-sentences {
   margin-top: 16px;
 }
@@ -219,7 +266,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #374151;
   margin-bottom: 12px;
@@ -246,12 +293,16 @@
 .spk-filter-btn {
   padding: 6px 10px;
   border: 1px solid #d1d5db;
-  border-radius: 999px;
+  border-radius: 6px;
   background: #fff;
   color: #4b5563;
   font-size: 12px;
   cursor: pointer;
+  transition: all 0.15s;
 }
+
+.spk-filter-btn:hover:not(.active) { background: #f9fafb; border-color: #9ca3af; }
+.spk-filter-btn:active:not(.active) { background: #f3f4f6; border-color: #6b7280; }
 
 .spk-filter-btn.active {
   background: #1f2937;
@@ -261,10 +312,11 @@
 
 .spk-sentence {
   display: grid;
-  grid-template-columns: 60px 1fr auto;
+  grid-template-columns: 48px 1fr auto;
   gap: 12px;
   padding: 12px;
   border-bottom: 1px solid #f3f4f6;
+  border-left: 3px solid transparent;
   align-items: start;
 }
 
@@ -274,12 +326,11 @@
 
 .spk-sentence.spk-playing {
   background: #eff6ff;
-  border-left: 3px solid #3b82f6;
-  margin-left: -3px;
+  border-left-color: #3b82f6;
 }
 
 .spk-sentence-time {
-  font-family: monospace;
+  font-family: ui-monospace, monospace;
   font-size: 12px;
   color: #6b7280;
   padding-top: 2px;
@@ -318,7 +369,7 @@
 }
 
 .spk-confidence-label {
-  font-size: 11px;
+  font-size: 12px;
   color: #6b7280;
 }
 
@@ -358,6 +409,8 @@
   background: #e5e7eb;
 }
 
+.spk-btn-icon:active { background: #d1d5db; }
+
 .spk-btn-primary {
   background: #3b82f6;
   color: #fff;
@@ -366,6 +419,9 @@
 .spk-btn-primary:hover {
   background: #2563eb;
 }
+
+.spk-btn-primary:active { background: #1d4ed8; }
+.spk-btn-primary:disabled { opacity: 0.6; cursor: wait; }
 
 .spk-btn-secondary {
   background: #f3f4f6;
@@ -383,13 +439,18 @@
   font-size: 12px;
   background: #fff;
   min-width: 150px;
+  transition: border-color 0.15s;
 }
+
+.spk-select-small:hover { border-color: #9ca3af; }
 
 .spk-status {
   padding: 6px 10px;
   border-radius: 4px;
   font-size: 12px;
+  line-height: 1.5;
   margin-top: 8px;
+  transition: opacity 0.3s ease;
 }
 
 .spk-status-success {
@@ -421,6 +482,12 @@
   opacity: 1;
 }
 
+.spk-status-dismiss:focus-visible {
+  outline: 2px solid #991b1b;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .spk-status-info {
   background: #e8f4fd;
   border: 1px solid #b3d9f2;
@@ -434,17 +501,19 @@
   border-radius: 12px;
   font-size: 11px;
   color: #1d4ed8;
-  margin-left: 6px;
+  margin-left: 8px;
+  font-weight: 500;
 }
 
 .spk-review-badge {
   display: inline-block;
-  margin-top: 6px;
+  margin-top: 8px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #fef3c7;
-  color: #92400e;
+  background: #f3f4f6;
+  color: #6b7280;
   font-size: 11px;
+  font-weight: 500;
 }
 
 .spk-speakers {
@@ -452,7 +521,7 @@
 }
 
 .spk-speakers-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #374151;
   margin-bottom: 10px;
@@ -461,7 +530,7 @@
 .spk-speaker-cards {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 
 .spk-speaker-card {
@@ -470,7 +539,7 @@
   gap: 6px;
   padding: 8px 12px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .spk-speaker-matched {
@@ -490,17 +559,24 @@
 }
 
 .spk-speaker-detected {
-  font-size: 11px;
-  opacity: 0.8;
+  font-size: 12px;
+}
+
+.spk-speaker-matched .spk-speaker-detected {
+  color: #15803d;
+}
+
+.spk-speaker-unmatched .spk-speaker-detected {
+  color: #6b7280;
 }
 
 .spk-owner-banner {
   display: none;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   padding: 16px 18px;
   border-radius: 12px;
   border: 1px solid #bfdbfe;
-  background: linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);
+  background: #eff6ff;
 }
 
 .spk-owner-panel {
@@ -564,6 +640,7 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s;
 }
 
 .spk-owner-btn:disabled {
@@ -576,19 +653,34 @@
   color: #fff;
 }
 
+.spk-owner-btn-confirm:not(:disabled):hover { background: #15803d; }
+
+.spk-owner-btn-confirm:not(:disabled):active { background: #166534; }
+
 .spk-owner-btn-reject {
   background: #fff;
   border-color: #93c5fd;
   color: #1d4ed8;
 }
 
+.spk-owner-btn-reject:not(:disabled):hover {
+  background: #eff6ff;
+  border-color: #60a5fa;
+}
+
+.spk-owner-btn-reject:not(:disabled):active {
+  background: #dbeafe;
+  border-color: #3b82f6;
+}
+
 .spk-discovery-banner {
   display: none;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
   padding: 16px 18px;
   border-radius: 12px;
   border: 1px solid #bbf7d0;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  background: #f0fdf4;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .spk-discovery-panel {
@@ -611,7 +703,7 @@
 
 .spk-discovery-clusters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
 }
 
@@ -620,6 +712,7 @@
   border-radius: 10px;
   border: 1px solid #bbf7d0;
   background: rgba(255, 255, 255, 0.8);
+  transition: opacity 0.3s ease;
 }
 
 .spk-discovery-cluster-title {
@@ -656,6 +749,15 @@
   border-radius: 6px;
   border: 1px solid #d1d5db;
   font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.spk-discovery-input:not(:disabled):hover { border-color: #9ca3af; }
+
+.spk-discovery-input:disabled {
+  background: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
 }
 
 .spk-discovery-btn {
@@ -667,12 +769,17 @@
   cursor: pointer;
   background: #16a34a;
   color: #fff;
+  transition: background 0.15s;
 }
 
 .spk-discovery-btn:disabled {
   opacity: 0.65;
   cursor: wait;
 }
+
+.spk-discovery-btn:not(:disabled):hover { background: #15803d; }
+
+.spk-discovery-btn:not(:disabled):active { background: #166534; }
 
 .spk-discovery-status {
   font-size: 12px;
@@ -681,13 +788,10 @@
 }
 
 /* Semantic element resets - prevent browser defaults from changing layout */
-.spk-segments-header,
 .spk-detail-title,
 .spk-speakers-title,
 .spk-sentences-title,
 .spk-speaker-entity {
-  font-size: inherit;
-  font-weight: inherit;
   margin: 0;
   padding: 0;
 }
@@ -706,6 +810,8 @@
 .spk-btn:focus-visible,
 .spk-skip-back:focus-visible,
 .spk-speed-toggle:focus-visible,
+.spk-expand-btn:focus-visible,
+.spk-load-more-btn:focus-visible,
 .spk-segment:focus-visible {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
@@ -754,7 +860,7 @@
   font-size: 13px;
   color: #374151;
   cursor: pointer;
-  margin: 8px 16px;
+  margin: 8px 0;
   transition: background 0.15s;
 }
 
@@ -762,20 +868,24 @@
   background: #f9fafb;
 }
 
+.spk-expand-btn:active {
+  background: #e5e7eb;
+}
+
 /* Pagination - load more */
 .spk-load-more {
-  padding: 8px 16px;
+  padding: 12px 16px;
   border-top: 1px solid #e5e7eb;
   text-align: center;
 }
 
 .spk-load-more-btn {
   background: none;
-  border: 1px solid #d1d5db;
+  border: none;
   border-radius: 6px;
   padding: 6px 16px;
   font-size: 13px;
-  color: #374151;
+  color: #6b7280;
   cursor: pointer;
   width: 100%;
   transition: background 0.15s;
@@ -785,11 +895,25 @@
   background: #f3f4f6;
 }
 
+.spk-load-more-btn:active {
+  background: #e5e7eb;
+}
+
+.spk-load-more-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .spk-segments-count {
   font-weight: 400;
   color: #9ca3af;
   font-size: 12px;
+  vertical-align: baseline;
+  line-height: 1;
 }
+
+@keyframes spk-fade-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+.spk-apply-btn { animation: spk-fade-in 0.15s ease; }
 
 @keyframes spk-spin {
   to { transform: rotate(360deg); }
@@ -812,13 +936,15 @@
   }
   .spk-layout {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 0;
     min-height: auto;
   }
   .spk-segments-list {
     max-height: 40vh;
   }
   .spk-detail {
+    border-left: none;
+    border-top: 1px solid #e5e7eb;
     padding: 16px;
   }
   .spk-discovery-clusters {
@@ -1140,10 +1266,13 @@
           loadReview(selectedSegment, selectedSource);
         }
         setTimeout(() => {
-          card.remove();
-          if (!discoveryBanner.querySelector('.spk-discovery-cluster')) {
-            hideDiscovery();
-          }
+          card.style.opacity = '0';
+          setTimeout(() => {
+            card.remove();
+            if (!discoveryBanner.querySelector('.spk-discovery-cluster')) {
+              hideDiscovery();
+            }
+          }, 300);
         }, 3000);
       })
       .catch(() => {
@@ -1231,7 +1360,7 @@
         <div class="spk-owner-samples">
           ${samples.map((sample, index) => `
             <div class="spk-owner-sample">
-              <div class="spk-owner-sample-title">Sample ${index + 1}</div>
+              <div class="spk-owner-sample-title">sample ${index + 1}</div>
               <div class="spk-owner-sample-meta">
                 ${escapeHtml(sample.day)} · ${escapeHtml(sample.stream)} · ${escapeHtml(sample.segment_key)}
               </div>
@@ -1297,7 +1426,7 @@
           ${clusters.map(cluster => `
             <div class="spk-discovery-cluster" data-cluster-id="${cluster.cluster_id}">
               <div class="spk-discovery-cluster-title">
-                Unknown speaker &middot; ${cluster.size} samples &middot; ${cluster.segment_count} segments
+                Unknown speaker <span style="font-weight: 400">&middot; ${cluster.size} samples &middot; ${cluster.segment_count} segments</span>
               </div>
               ${cluster.samples.map(sample => `
                 <div class="spk-discovery-sample">
@@ -1685,9 +1814,9 @@
         <span id="spkSentenceCount">${escapeHtml(countLabel)}</span>
       </h2>
       <div class="spk-filter-bar">
-        <button class="spk-filter-btn${currentFilter === 'all' ? ' active' : ''}" data-filter="all">All</button>
-        <button class="spk-filter-btn${currentFilter === 'needs_review' ? ' active' : ''}" data-filter="needs_review">Needs Review</button>
-        <button class="spk-filter-btn${currentFilter === 'corrections' ? ' active' : ''}" data-filter="corrections">Corrections</button>
+        <button class="spk-filter-btn${currentFilter === 'all' ? ' active' : ''}" data-filter="all">all</button>
+        <button class="spk-filter-btn${currentFilter === 'needs_review' ? ' active' : ''}" data-filter="needs_review">needs review</button>
+        <button class="spk-filter-btn${currentFilter === 'corrections' ? ' active' : ''}" data-filter="corrections">corrections</button>
       </div>
       ${(() => {
         const seg = selectedSegment;
@@ -1985,7 +2114,11 @@
       container.innerHTML = `<div class="spk-status spk-status-${type}">${escapeHtml(message)}</div>`;
       statusTimers[sentenceId] = setTimeout(() => {
         const current = document.getElementById(`status-${sentenceId}`);
-        if (current) current.innerHTML = '';
+        if (current) {
+          const msg = current.querySelector('.spk-status');
+          if (msg) msg.style.opacity = '0';
+          setTimeout(() => { current.innerHTML = ''; }, 300);
+        }
         delete statusTimers[sentenceId];
       }, 3000);
     }

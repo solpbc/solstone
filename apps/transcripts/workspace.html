@@ -33,19 +33,24 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-card {
   height: 100%;
   background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
   display: grid;
-  grid-template-columns: 180px 100px 1fr;
+  --tr-day-col: 200px;
+  --tr-zoom-col: 120px;
+  grid-template-columns: var(--tr-day-col) var(--tr-zoom-col) 1fr;
   overflow: hidden;
 }
 
 /* Left timeline */
 .tr-timeline {
   position: relative;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid #d1d5db;
   user-select: none;
   height: 100%;
   overflow: hidden;
   touch-action: pan-y;
+  cursor: crosshair;
   padding: 12px 0;
   box-sizing: border-box;
 }
@@ -53,9 +58,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-timeline-label {
   position: absolute;
   top: 0;
-  left: 0;
+  left: 64px;
   right: 0;
-  height: 12px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -63,8 +68,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   color: #9ca3af;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-weight: 700;
   pointer-events: none;
-  z-index: 0;
+  z-index: 3;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .tr-timeline-legend {
@@ -80,7 +87,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   font-size: 12px;
   color: #9ca3af;
   pointer-events: none;
-  z-index: 0;
+  z-index: 3;
 }
 
 .tr-legend-dot {
@@ -94,7 +101,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-grid {
   position: absolute;
-  top: 12px;
+  top: 16px;
   bottom: 12px;
   left: 0;
   right: 0;
@@ -117,7 +124,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-labels {
   position: absolute;
   left: 0;
-  top: 12px;
+  top: 16px;
   bottom: 12px;
   width: 64px;
   background: #f9fafb;
@@ -132,12 +139,13 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   transform: translateY(-50%);
   font-size: 12px;
   color: #6b7280;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Selection box */
 .tr-sel-wrap {
   position: absolute;
-  left: 58px;
+  left: 64px;
   right: 8px;
   pointer-events: none;
   z-index: 2;
@@ -145,7 +153,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-sel {
   position: absolute;
-  left: -4px;
+  left: 0;
   right: -4px;
   height: 100%;
   background: rgba(239, 246, 255, 0.7);
@@ -161,10 +169,20 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   cursor: grabbing;
 }
 
+.tr-sel:hover {
+  background: rgba(239, 246, 255, 0.85);
+  border-color: #a5b4fc;
+}
+
+.tr-sel:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 2px;
+}
+
 .tr-bumper {
   position: absolute;
-  left: 40px;
-  right: 40px;
+  left: 28px;
+  right: 28px;
   margin: auto;
   height: 14px;
   border: 1px solid #60a5fa;
@@ -172,6 +190,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   background: #dbeafe;
   cursor: ns-resize;
   touch-action: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .tr-bumper-top {
@@ -182,12 +201,24 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   bottom: -7px;
 }
 
+.tr-bumper:hover {
+  background: #bfdbfe;
+  border-color: #3b82f6;
+}
+
+.tr-bumper:active {
+  background: #93c5fd;
+  border-color: #2563eb;
+}
+
 /* Segments lane (audio/screen indicators) */
 .tr-segments {
+  --seg-col-0: 8px;
+  --seg-col-1: 56px;
   position: absolute;
   left: 64px;
   right: 0;
-  top: 12px;
+  top: 16px;
   bottom: 12px;
   pointer-events: none;
   z-index: 1;
@@ -200,6 +231,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   box-shadow: 0 1px 1px rgba(0,0,0,.04);
   pointer-events: auto;
   cursor: pointer;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
 }
 
 .tr-seg:focus-visible {
@@ -207,14 +239,27 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   outline-offset: 1px;
 }
 
+.tr-seg:hover {
+  filter: brightness(0.92);
+  box-shadow: 0 2px 4px rgba(0,0,0,.10);
+}
+
+.tr-seg:active {
+  filter: brightness(0.88);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+}
+
+.tr-seg-col-0 { left: var(--seg-col-0); }
+.tr-seg-col-1 { left: var(--seg-col-1); }
+
 .tr-seg-audio {
   background: rgba(134, 239, 172, 0.6);
-  border: 1px solid #86efac;
+  border: 1px solid #4ade80;
 }
 
 .tr-seg-screen {
   background: rgba(253, 230, 138, 0.6);
-  border: 1px solid #facc15;
+  border: 1px solid #eab308;
 }
 
 .tr-now-marker {
@@ -229,7 +274,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-now-label {
   position: absolute;
-  right: 4px;
+  left: 4px;
   top: -8px;
   font-size: 12px;
   color: #ef4444;
@@ -239,7 +284,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 /* Right content panel */
 .tr-content {
-  padding: 24px;
+  padding: 4px 24px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -256,6 +301,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   gap: 12px;
 }
 
+.tr-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .tr-title {
   font-size: 20px;
   font-weight: 600;
@@ -264,13 +315,13 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-range-text {
   color: #6b7280;
-  font-size: 14px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .tr-nav-hint {
   font-size: 12px;
   color: #9ca3af;
-  margin-left: 8px;
   display: none;
 }
 
@@ -280,7 +331,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-tabs {
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 0;
   border-bottom: 1px solid #e5e7eb;
   flex-shrink: 0;
   display: none;
@@ -291,7 +342,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 }
 
 .tr-tab {
-  padding: 6px 14px;
+  padding: 8px;
+  margin: 0 -8px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 13px;
@@ -316,6 +368,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   outline-offset: 1px;
 }
 
+.tr-tab:active:not(.active) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
 .tr-tab-pane {
   display: none;
   height: 100%;
@@ -329,6 +386,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   padding: 16px;
   line-height: 1.6;
   font-size: 14px;
+  max-width: 70ch;
 }
 
 .tr-md-content h1, .tr-md-content h2, .tr-md-content h3 {
@@ -362,7 +420,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-screen-text {
   padding: 8px 12px;
-  color: #6b7280;
+  color: #374151;
   font-size: 13px;
   border-left: 3px solid #e5e7eb;
   margin: 4px 0;
@@ -391,6 +449,17 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   color: #ef4444;
 }
 
+.tr-delete-btn:focus-visible {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
+}
+
+.tr-delete-btn:active {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #dc2626;
+}
+
 .tr-delete-btn.visible {
   display: flex;
 }
@@ -402,14 +471,17 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-panel {
   flex: 1;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
   padding: 16px;
   overflow-y: auto;
   min-height: 0;
   overflow-x: hidden;
   font-size: 14px;
   line-height: 1.5;
+  transition: opacity 0.1s ease;
+}
+
+.tr-panel.loading {
+  opacity: 0.5;
 }
 
 .tr-panel pre {
@@ -439,7 +511,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   top: 0;
   left: 0;
   right: 0;
-  height: 12px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -447,16 +519,18 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   color: #9ca3af;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-weight: 700;
   pointer-events: none;
-  z-index: 0;
+  z-index: 3;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .tr-zoom-labels {
   position: absolute;
   left: 0;
-  top: 12px;
+  top: 16px;
   bottom: 12px;
-  width: 40px;
+  width: 48px;
   background: #f9fafb;
   border-right: 1px solid #e5e7eb;
   pointer-events: none;
@@ -465,15 +539,16 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-zoom-label {
   position: absolute;
   right: 0;
-  padding-right: 6px;
+  padding-right: 8px;
   transform: translateY(-50%);
   font-size: 12px;
   color: #6b7280;
+  font-variant-numeric: tabular-nums;
 }
 
 .tr-zoom-grid {
   position: absolute;
-  top: 12px;
+  top: 16px;
   bottom: 12px;
   left: 0;
   right: 0;
@@ -481,9 +556,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-zoom-segments {
   position: absolute;
-  left: 44px;
+  left: 52px;
   right: 4px;
-  top: 12px;
+  top: 16px;
   bottom: 12px;
 }
 
@@ -504,7 +579,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 }
 
 .tr-zoom-pill.tr-active {
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5), 0 2px 4px rgba(0,0,0,.12);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.5), 0 2px 4px rgba(0,0,0,.12);
 }
 
 .tr-zoom-pill:focus-visible {
@@ -512,19 +587,24 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   outline-offset: 1px;
 }
 
+.tr-zoom-pill:active {
+  filter: brightness(0.90);
+  transform: scale(0.98);
+}
+
 .tr-zoom-pill-audio {
   background: linear-gradient(135deg, rgba(134, 239, 172, 0.8), rgba(134, 239, 172, 0.6));
-  border: 1px solid #86efac;
+  border: 1px solid #4ade80;
 }
 
 .tr-zoom-pill-screen {
   background: linear-gradient(135deg, rgba(253, 230, 138, 0.8), rgba(253, 230, 138, 0.6));
-  border: 1px solid #facc15;
+  border: 1px solid #eab308;
 }
 
 .tr-zoom-pill-both {
   background: linear-gradient(to right, rgba(134, 239, 172, 0.75), rgba(194, 234, 155, 0.7) 50%, rgba(253, 230, 138, 0.75));
-  border: 1px solid #bef264;
+  border: 1px solid #84cc16;
 }
 
 .tr-zoom-empty {
@@ -533,10 +613,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9ca3af;
-  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+  font-size: 11px;
   text-align: center;
-  padding: 16px;
+  padding: 24px;
 }
 
 /* Dragging state */
@@ -568,6 +649,16 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-modal-nav:hover {
   background: rgba(255,255,255,0.1);
   color: rgba(255,255,255,0.9);
+}
+
+.tr-modal-nav:active {
+  background: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,1);
+}
+
+.tr-modal-nav:focus-visible {
+  outline: 2px solid rgba(255,255,255,0.6);
+  outline-offset: -2px;
 }
 
 .tr-modal-nav.disabled {
@@ -625,6 +716,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   color: #fff;
   font-size: 18px;
   cursor: pointer;
+  transition: background 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -633,6 +725,15 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-modal-close:hover {
   background: rgba(255,255,255,0.3);
+}
+
+.tr-modal-close:active {
+  background: rgba(255,255,255,0.4);
+}
+
+.tr-modal-close:focus-visible {
+  outline: 2px solid rgba(255,255,255,0.6);
+  outline-offset: 2px;
 }
 
 .tr-modal-img-wrap {
@@ -660,6 +761,11 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-modal-img-wrap canvas.tr-masked-canvas {
   cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.tr-modal-img-wrap canvas.tr-masked-canvas:hover {
+  opacity: 0.9;
 }
 
 .tr-modal-badge-masked {
@@ -687,7 +793,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 12px;
+  padding: 16px;
   background: #f9fafb;
   border-radius: 12px;
   border: 1px solid #e5e7eb;
@@ -740,6 +846,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   outline-offset: -1px;
 }
 
+.tr-entry-audio:active {
+  background: #f0f9ff;
+}
+
 .tr-entry.tr-entry-active {
   background: #f0f9ff;
   border-left-color: #3b82f6;
@@ -754,7 +864,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   width: 48px;
   font-size: 12px;
   color: #6b7280;
-  font-family: monospace;
+  font-family: ui-monospace, monospace;
 }
 
 .tr-entry-content {
@@ -764,7 +874,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
 .tr-entry-text {
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .tr-entry-meta {
@@ -781,6 +891,13 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   object-fit: cover;
   border: 1px solid #e5e7eb;
   background: #f3f4f6;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.tr-entry-thumb:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  border-color: #d1d5db;
 }
 
 .tr-entry-thumb.loading {
@@ -795,14 +912,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-entry-screen .tr-entry-content {
   display: flex;
   gap: 12px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .tr-entry-desc {
   flex: 1;
   font-size: 13px;
   color: #374151;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .tr-entry-badge {
@@ -827,18 +944,28 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   gap: 4px;
   font-size: 12px;
   font-weight: 500;
-  color: #6b7280;
+  color: #374151;
   margin-bottom: 2px;
 }
 
 .tr-speaker-label a {
-  color: #6b7280;
+  color: #374151;
   text-decoration: none;
 }
 
 .tr-speaker-label a:hover {
   color: #374151;
   text-decoration: underline;
+}
+
+.tr-speaker-label a:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.tr-speaker-label a:active {
+  color: #1f2937;
 }
 
 .tr-speaker-label-owner {
@@ -849,10 +976,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   color: #4f46e5;
 }
 
+.tr-speaker-label-owner a:active {
+  color: #3730a3;
+}
+
 .tr-speaker-dot {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 
@@ -867,7 +998,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-unified-empty {
   text-align: center;
   color: #9ca3af;
-  padding: 48px 24px;
+  padding: 24px;
 }
 
 .tr-empty-state {
@@ -878,7 +1009,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   height: 100%;
   text-align: center;
   color: #9ca3af;
-  padding: 48px 24px;
+  padding: 24px;
   gap: 12px;
 }
 
@@ -893,9 +1024,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 }
 
 .tr-empty-heading {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 500;
-  color: #6b7280;
+  color: #4b5563;
   margin: 0;
 }
 
@@ -903,6 +1034,8 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   font-size: 14px;
   color: #9ca3af;
   margin: 0;
+  line-height: 1.5;
+  max-width: 32ch;
 }
 
 .tr-warning-notice {
@@ -914,7 +1047,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   color: #92400e;
   background: #fffbeb;
   border: 1px solid #fde68a;
-  border-radius: 8px;
+  border-radius: 0 0 8px 8px;
+  margin-top: auto;
+  transition: opacity 0.3s ease;
 }
 
 .tr-warning-notice.visible {
@@ -991,6 +1126,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   outline-offset: -1px;
 }
 
+.tr-group-header:active {
+  background: #e5e7eb;
+}
+
 .tr-group-chevron {
   width: 16px;
   height: 16px;
@@ -1006,19 +1145,21 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 .tr-group-time {
   font-size: 12px;
   color: #6b7280;
-  font-family: monospace;
+  font-family: ui-monospace, monospace;
   flex-shrink: 0;
+  line-height: 16px;
 }
 
 .tr-group-count {
   font-size: 12px;
   color: #9ca3af;
+  line-height: 16px;
 }
 
 .tr-group-grid {
   display: none;
   padding: 8px 12px 12px;
-  gap: 8px;
+  gap: 10px;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
 }
 
@@ -1032,11 +1173,21 @@ body.has-date-nav .workspace:has(.tr-wrap) {
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid #e5e7eb;
-  transition: box-shadow 0.15s;
+  transition: box-shadow 0.15s, transform 0.15s;
 }
 
 .tr-group-item:hover {
   box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.tr-group-item:focus-visible {
+  outline: 2px solid var(--accent, #4a9eff);
+  outline-offset: 1px;
+}
+
+.tr-group-item:active {
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+  transform: scale(0.97);
 }
 
 .tr-group-item img,
@@ -1228,6 +1379,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       this.videos = new Map();
       // Pending thumbnail promises per frame
       this.pendingThumbs = new Map();
+      this.warnedUrls = new Set();
     }
 
     // Load video and wait for metadata
@@ -1252,13 +1404,28 @@ body.has-date-nav .workspace:has(.tr-wrap) {
           entry.height = video.videoHeight;
           resolve(entry);
         };
-        video.onerror = () => reject(new Error(`Failed to load video: ${url}`));
+        video.onerror = () => {
+          const mediaError = video.error;
+          if (mediaError?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+            const entry = this.videos.get(url);
+            entry.unsupported = true;
+            entry.ready = true;
+            if (!this.warnedUrls.has(url)) {
+              this.warnedUrls.add(url);
+              console.warn(`Video format not supported by this browser: ${url}`);
+            }
+            resolve(entry);
+            return;
+          }
+          reject(new Error(`Failed to load video: ${url}`));
+        };
         video.src = url;
       });
 
       this.videos.set(url, {
         video,
         ready: false,
+        unsupported: false,
         width: 0,
         height: 0,
         promise,
@@ -1295,6 +1462,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
 
     async captureThumbnail(videoUrl, frameId, width, height) {
       const entry = await this.loadVideo(videoUrl);
+      if (entry.unsupported) return null;
       const cacheKey = `${videoUrl}|${frameId}`;
 
       if (entry.thumbs.has(frameId)) {
@@ -1310,18 +1478,14 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         const timestamp = Math.max(0, frameId - 1);
         await this._seekTo(video, timestamp);
 
-        let bitmap = null;
-        try {
-          if (width && height) {
-            bitmap = await createImageBitmap(video, {
-              resizeWidth: width,
-              resizeHeight: height,
-              resizeQuality: 'high'
-            });
-          } else {
-            bitmap = await createImageBitmap(video);
-          }
-        } catch (err) {
+        let bitmap;
+        if (width && height) {
+          bitmap = await createImageBitmap(video, {
+            resizeWidth: width,
+            resizeHeight: height,
+            resizeQuality: 'high'
+          });
+        } else {
           bitmap = await createImageBitmap(video);
         }
 
@@ -1346,8 +1510,9 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     }
 
     async captureFullFrame(videoUrl, frameId) {
+      const entry = await this.loadVideo(videoUrl);
+      if (entry.unsupported) return null;
       return this._withVideoQueue(videoUrl, async () => {
-        const entry = await this.loadVideo(videoUrl);
         const video = entry.video;
         const timestamp = Math.max(0, frameId - 1);
         await this._seekTo(video, timestamp);
@@ -1377,6 +1542,67 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       }
       this.videos.clear();
       this.pendingThumbs.clear();
+      this.warnedUrls.clear();
+    }
+
+    _drawUnsupportedPlaceholder(canvas, width, height) {
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#f3f4f6';
+      ctx.fillRect(0, 0, width, height);
+
+      const minDim = Math.min(width, height);
+      const iconWidth = minDim * 0.42;
+      const iconHeight = iconWidth * 0.68;
+      const radius = Math.max(4, iconWidth * 0.08);
+      const strokeWidth = Math.max(2, minDim * 0.03);
+      const standHeight = Math.max(6, iconHeight * 0.22);
+      const textSize = Math.max(10, Math.min(height > 120 ? 24 : 14, width / (height > 120 ? 9 : 12)));
+      const gap = Math.max(10, height * 0.06);
+      const totalHeight = iconHeight + standHeight + gap + textSize;
+      const iconX = (width - iconWidth) / 2;
+      const iconY = Math.max(height * 0.14, (height - totalHeight) / 2);
+
+      ctx.strokeStyle = '#9ca3af';
+      ctx.lineWidth = strokeWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(iconX + radius, iconY);
+      ctx.lineTo(iconX + iconWidth - radius, iconY);
+      ctx.quadraticCurveTo(iconX + iconWidth, iconY, iconX + iconWidth, iconY + radius);
+      ctx.lineTo(iconX + iconWidth, iconY + iconHeight - radius);
+      ctx.quadraticCurveTo(iconX + iconWidth, iconY + iconHeight, iconX + iconWidth - radius, iconY + iconHeight);
+      ctx.lineTo(iconX + radius, iconY + iconHeight);
+      ctx.quadraticCurveTo(iconX, iconY + iconHeight, iconX, iconY + iconHeight - radius);
+      ctx.lineTo(iconX, iconY + radius);
+      ctx.quadraticCurveTo(iconX, iconY, iconX + radius, iconY);
+      ctx.stroke();
+
+      const standY = iconY + iconHeight + standHeight * 0.45;
+      const standWidth = iconWidth * 0.28;
+      ctx.beginPath();
+      ctx.moveTo(width / 2, iconY + iconHeight);
+      ctx.lineTo(width / 2, standY);
+      ctx.moveTo(width / 2 - standWidth / 2, standY);
+      ctx.lineTo(width / 2 + standWidth / 2, standY);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(iconX + iconWidth * 0.18, iconY + iconHeight * 0.2);
+      ctx.lineTo(iconX + iconWidth * 0.82, iconY + iconHeight * 0.84);
+      ctx.stroke();
+
+      ctx.fillStyle = '#6b7280';
+      ctx.font = `${textSize}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText('Format not supported', width / 2, standY + gap * 0.55);
+
+      canvas.classList.remove('loading');
     }
 
     // Draw thumbnail to canvas (no overlays - those are only for full frame view)
@@ -1386,7 +1612,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       try {
         const thumb = await this.captureThumbnail(videoUrl, frameId, width, height);
         if (!thumb) {
-          canvas.classList.remove('loading');
+          this._drawUnsupportedPlaceholder(canvas, width || 120, height || 68);
           return false;
         }
 
@@ -1412,7 +1638,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       try {
         const bitmap = await this.captureFullFrame(videoUrl, frameId);
         if (!bitmap) {
-          canvas.classList.remove('loading');
+          this._drawUnsupportedPlaceholder(canvas, 640, 360);
           return false;
         }
 
@@ -1633,7 +1859,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     el.className = 'tr-seg ' + (type === 'screen' ? 'tr-seg-screen' : 'tr-seg-audio');
     el.style.top = y(startMin) + 'px';
     el.style.height = Math.max(2, y(endMin) - y(startMin)) + 'px';
-    el.style.left = (column === 1 ? 56 : 8) + 'px';
+    el.classList.add(column === 1 ? 'tr-seg-col-1' : 'tr-seg-col-0');
     // Zero-padded HH:MM label
     const _h = Math.floor(startMin / 60);
     const _m = startMin % 60;
@@ -1880,6 +2106,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     tabsContainer.innerHTML = '';
     document.getElementById('trWarningNotice').classList.remove('visible');
     panel.innerHTML = '<div class="tr-unified-empty"><p>Loading segment...</p></div>';
+    panel.classList.add('loading');
 
     fetch(`/app/transcripts/api/segment/${day}/${seg.stream}/${seg.key}`)
       .then(r => r.json())
@@ -1887,6 +2114,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         if (!selectedSegment || selectedSegment.key !== segmentToken) {
           return;
         }
+        panel.classList.remove('loading');
         segmentData = data;
         updateRangeText();
         buildTabBar(data);
@@ -1900,6 +2128,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
         }
       })
       .catch(() => {
+        if (!selectedSegment || selectedSegment.key !== segmentToken) {
+          return;
+        }
+        panel.classList.remove('loading');
         tabsContainer.classList.remove('visible');
         tabsContainer.innerHTML = '';
         panel.innerHTML = emptyStateHTML(emptyIcons.transcript, 'couldn\'t load this segment', 'something went wrong loading the transcript. try selecting the segment again, or refresh the page.');
@@ -2127,7 +2359,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     if (data.audio_file && showAudio) {
       html += '<div class="tr-audio-players" role="presentation">';
       html += '<div class="tr-audio-player">';
-      html += '<div class="tr-audio-player-label">Segment Audio</div>';
+      html += '<div class="tr-audio-player-label">segment audio</div>';
       html += `<audio data-role="segment-audio" controls preload="metadata"><source src="${data.audio_file}" type="audio/flac">Your browser does not support audio.</audio>`;
       html += '</div></div>';
     }
@@ -2239,7 +2471,6 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     targetEl.querySelectorAll('.tr-entry-screen').forEach(entry => {
       const thumb = entry.querySelector('.tr-entry-thumb');
       if (thumb) {
-        thumb.style.cursor = 'pointer';
         thumb.addEventListener('click', (e) => {
           e.stopPropagation();
           const frameIdx = parseInt(entry.dataset.frameIdx, 10);
@@ -2274,6 +2505,12 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       item.addEventListener('click', () => {
         const frameIdx = parseInt(item.dataset.frameIdx, 10);
         if (!isNaN(frameIdx)) openImageModal(frameIdx);
+      });
+      item.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          item.click();
+        }
       });
     });
 
@@ -2423,7 +2660,7 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       const frameIdx = findFrameIndex(entry);
 
       if (videoUrl && frameId) {
-        html += `<div class="tr-group-item" data-frame-idx="${frameIdx}" title="${escapeHtml(description)}">`;
+        html += `<div class="tr-group-item" data-frame-idx="${frameIdx}" title="${escapeHtml(description)}" role="button" tabindex="0">`;
         html += `<canvas class="loading" data-video-url="${escapeHtml(videoUrl)}" data-frame-id="${frameId}"></canvas>`;
         html += `<span class="tr-group-item-badge">${escapeHtml(category)}</span>`;
         html += '</div>';
@@ -2597,10 +2834,13 @@ body.has-date-nav .workspace:has(.tr-wrap) {
     // Event delegation for modal clicks
     modal.addEventListener('click', (e) => {
       const target = e.target.closest('.tr-modal-close, .tr-modal-nav:not(.disabled)');
-      if (!target) return;
-      if (target.classList.contains('tr-modal-close')) closeModal();
-      else if (target.classList.contains('tr-modal-nav')) {
-        navigateFrame(target.dataset.dir === 'prev' ? -1 : 1);
+      if (target) {
+        if (target.classList.contains('tr-modal-close')) closeModal();
+        else if (target.classList.contains('tr-modal-nav')) {
+          navigateFrame(target.dataset.dir === 'prev' ? -1 : 1);
+        }
+      } else if (e.target === modal || e.target.classList.contains('tr-modal-img-wrap')) {
+        closeModal();
       }
     });
 
@@ -2930,7 +3170,10 @@ body.has-date-nav .workspace:has(.tr-wrap) {
       notice.style.color = '#991b1b';
       notice.innerHTML = '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> <span>' + escapeHtml(err.message) + '</span>';
       panel.insertBefore(notice, panel.firstChild);
-      setTimeout(() => notice.remove(), 5000);
+      setTimeout(() => {
+        notice.style.opacity = '0';
+        setTimeout(() => notice.remove(), 300);
+      }, 5000);
     }
   });
 

@@ -158,7 +158,7 @@ class CLIRunner:
         callback: JSONEventCallback for emitting events.
         aggregator: ThinkingAggregator for text buffering.
         cwd: Working directory for the subprocess. Defaults to project root.
-        env: Optional environment overrides (merged with os.environ).
+        env: Optional complete environment for the subprocess (used as-is, not merged). When None, inherits os.environ.
         timeout: Subprocess timeout in seconds. Default 600.
         first_event_timeout: Timeout for first stdout line in seconds. Default 30.
     """
@@ -207,9 +207,7 @@ class CLIRunner:
 
         import os
 
-        proc_env = os.environ.copy()
-        if self.env:
-            proc_env.update(self.env)
+        proc_env = self.env if self.env is not None else os.environ.copy()
 
         LOG.info("Spawning CLI: %s (cwd=%s)", " ".join(self.cmd), self.cwd)
 
@@ -470,12 +468,45 @@ def build_cogitate_env(env_key: str) -> dict[str, str]:
             creds_path = providers_config.get("vertex_credentials")
             if creds_path and os.path.exists(creds_path):
                 env["GOOGLE_APPLICATION_CREDENTIALS"] = creds_path
+                # Project context lets the Gemini CLI use Vertex instead of
+                # falling back to AI Studio auth.
+                try:
+                    with open(creds_path, encoding="utf-8") as _f:
+                        _sa_data = json.load(_f)
+                    if "project_id" in _sa_data:
+                        env["GOOGLE_CLOUD_PROJECT"] = _sa_data["project_id"]
+                    else:
+                        LOG.warning(
+                            "SA credentials at %s missing project_id", creds_path
+                        )
+                except (OSError, json.JSONDecodeError) as exc:
+                    LOG.warning(
+                        "Could not read project_id from %s: %s", creds_path, exc
+                    )
             # else: GOOGLE_APPLICATION_CREDENTIALS may be inherited from env
+            env["GOOGLE_CLOUD_LOCATION"] = "global"
+            from think.utils import get_journal
+
+            settings_path = (
+                Path(get_journal()) / ".config" / "gemini-vertex-settings.json"
+            )
+            if not settings_path.exists():
+                os.makedirs(settings_path.parent, exist_ok=True)
+                with open(settings_path, "w", encoding="utf-8") as settings_file:
+                    json.dump(
+                        {"security": {"auth": {"selectedType": "vertex-ai"}}},
+                        settings_file,
+                    )
+                os.chmod(str(settings_path), 0o600)
+            env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = str(settings_path)
         else:
             # AI Studio: clear any inherited Vertex env vars so the CLI
             # doesn't accidentally run in Vertex mode.
             for vkey in (
+                "GEMINI_CLI_SYSTEM_SETTINGS_PATH",
                 "GOOGLE_APPLICATION_CREDENTIALS",
+                "GOOGLE_CLOUD_LOCATION",
+                "GOOGLE_CLOUD_PROJECT",
                 "GOOGLE_GENAI_USE_VERTEXAI",
             ):
                 env.pop(vkey, None)

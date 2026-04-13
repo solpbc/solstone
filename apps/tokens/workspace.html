@@ -163,23 +163,31 @@
 .tokens-dashboard {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 2em;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  padding: 1em 1.5em;
 }
 
 .loading-state {
-  text-align: center;
-  padding: 4em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
   color: #666;
 }
 
+.loading-state p {
+  font-size: 0.95em;
+  font-weight: 500;
+}
+
 .summary-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 12px;
-  padding: 1.2em 2em;
+  background: #f8f9fa;
+  color: #333;
+  border: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 8px;
+  padding: 1.5em 2em;
+  margin-top: 0.5em;
   margin-bottom: 2em;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
 .summary-table {
@@ -190,13 +198,15 @@
 .summary-table th,
 .summary-table td {
   text-align: center;
-  padding: 0.4em 1em;
+  padding: 0.6em 1em;
 }
 
 .summary-table th {
-  font-size: 0.85em;
-  font-weight: normal;
-  opacity: 1;
+  font-size: 0.8em;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .summary-table th:first-child,
@@ -205,24 +215,39 @@
 }
 
 .summary-table td {
-  font-size: 1.3em;
-  font-weight: bold;
+  font-size: 1.15em;
+  font-weight: 600;
 }
 
 .summary-table td.row-label {
   font-size: 0.95em;
-  font-weight: 600;
-  opacity: 0.9;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.summary-table td:not(.row-label),
+.breakdown-table td.num,
+.breakdown-table td .cost-value {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 .breakdown-section {
-  margin-bottom: 3em;
+  margin-top: 2.5em;
+  margin-bottom: 2em;
+}
+
+.breakdown-section:first-of-type {
+  margin-top: 1em;
 }
 
 .breakdown-section h2 {
-  font-size: 1.5em;
-  margin-bottom: 1em;
-  color: #333;
+  font-size: 1.1em;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.5em;
+  margin-bottom: 0.75em;
+  color: #374151;
 }
 
 .search-box {
@@ -233,10 +258,23 @@
   width: 100%;
   max-width: 400px;
   padding: 0.5em 1em;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-family: inherit;
+  border: 1px solid var(--facet-border, #e5e0db);
+  border-radius: 4px;
   font-size: 0.9em;
+  transition: border-color 0.2s ease;
+}
+
+.search-box input:hover {
+  border-color: #bbb;
+}
+
+.search-box input:focus-visible {
+  border-color: var(--facet-color, #b06a1a);
+  outline: none;
+}
+
+.search-box input::placeholder {
+  color: #999;
 }
 
 .breakdown-table {
@@ -255,23 +293,40 @@
 .breakdown-table th {
   padding: 1em;
   text-align: left;
-  font-weight: 600;
-  color: #555;
-  border-bottom: 2px solid #e0e0e0;
+  font-weight: 500;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+  border-bottom: 2px solid var(--facet-border, #e5e0db);
 }
 
 .breakdown-table th.sortable {
   cursor: pointer;
   user-select: none;
+  transition: background 0.15s ease;
 }
 
 .breakdown-table th.sortable:hover {
   background: #e9ecef;
 }
 
+.breakdown-table th.sortable:active {
+  background: #dee2e6;
+}
+
+.breakdown-table th.sortable:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: -2px;
+}
+
+.breakdown-table th.sortable::after {
+  transition: opacity 0.15s ease;
+}
+
 .breakdown-table th.sortable[aria-sort="ascending"]::after { content: " ▲"; }
 .breakdown-table th.sortable[aria-sort="descending"]::after { content: " ▼"; }
-.breakdown-table th.sortable[aria-sort="none"]::after { content: " ⇅"; opacity: 0.3; }
+.breakdown-table th.sortable[aria-sort="none"]::after { content: " ⇅"; opacity: 0.45; }
 
 .breakdown-table th.num,
 .breakdown-table td.num {
@@ -279,7 +334,8 @@
 }
 
 .breakdown-table tbody tr {
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #e5e7eb;
+  transition: background 0.1s ease;
 }
 
 .breakdown-table tbody tr:hover {
@@ -291,10 +347,22 @@
   color: #333;
 }
 
+.breakdown-table code {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+  font-size: 0.9em;
+  background: #f5f5f5;
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+}
+
 .breakdown-table .empty-row {
   text-align: center;
   color: #999;
-  font-style: italic;
+}
+
+.breakdown-table .empty-row:hover {
+  background: transparent;
+  cursor: default;
 }
 
 .provider-openai {
@@ -309,13 +377,23 @@
   color: #cd7f32;
 }
 
+.percent-track {
+  display: inline-block;
+  width: 100px;
+  height: 1em;
+  background: #f0f0f0;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-right: 0.5em;
+  overflow: hidden;
+}
+
 .percent-bar {
   display: inline-block;
   height: 1em;
   background: linear-gradient(90deg, var(--bar-color) 0%, var(--bar-color) 100%);
-  border-radius: 2px;
-  margin-right: 0.5em;
-  vertical-align: middle;
+  border-radius: 3px;
+  min-width: 2px;
 }
 
 .cost-value {
@@ -325,6 +403,7 @@
 .models-list {
   font-size: 0.85em;
   color: #666;
+  line-height: 1.5;
 }
 
 .sr-only {
@@ -345,7 +424,7 @@
 }
 
 .error-state h2 {
-  color: #c0392b;
+  color: #dc2626;
   margin-bottom: 0.5em;
   font-size: 1.1em;
 }
@@ -357,23 +436,33 @@
 }
 
 .error-state button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--facet-color, #b06a1a);
   color: white;
   border: none;
   padding: 0.6em 1.8em;
   border-radius: 6px;
   cursor: pointer;
-  font-family: inherit;
   font-size: 0.95em;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .error-state button:hover {
   opacity: 0.9;
 }
 
+.error-state button:active {
+  opacity: 0.8;
+  transform: scale(0.97);
+}
+
+.error-state button:focus-visible {
+  outline: 2px solid var(--facet-color, #b06a1a);
+  outline-offset: 2px;
+}
+
 .skipped-notice {
-  background: rgba(102, 126, 234, 0.08);
-  border: 1px solid rgba(102, 126, 234, 0.2);
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--facet-border, #e5e0db);
   border-radius: 8px;
   padding: 0.8em 1.2em;
   margin-bottom: 2em;
@@ -383,7 +472,7 @@
 
 @media (max-width: 768px) {
   .tokens-dashboard {
-    padding: 1em;
+    padding: 0.5em 1em;
   }
   .summary-card {
     padding: 1em 1.2em;
@@ -392,7 +481,7 @@
     font-size: 1.1em;
   }
   .breakdown-section h2 {
-    font-size: 1.2em;
+    font-size: 1em;
   }
   .breakdown-table th,
   .breakdown-table td {
@@ -402,16 +491,16 @@
 
 @media (max-width: 480px) {
   .tokens-dashboard {
-    padding: 0.5em;
+    padding: 1rem 0.5rem;
   }
   .summary-card {
     padding: 0.8em;
   }
   .summary-table td {
-    font-size: 1em;
+    font-size: 1.05em;
   }
   .summary-table th {
-    font-size: 0.75em;
+    font-size: 0.7em;
   }
   .summary-table th,
   .summary-table td {
@@ -428,7 +517,18 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     margin: 0 -0.5em;
+    margin-top: 1.5em;
     padding: 0 0.5em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breakdown-table th.sortable,
+  .breakdown-table th.sortable::after,
+  .breakdown-table tbody tr,
+  .search-box input,
+  .error-state button {
+    transition-duration: 0.01ms !important;
   }
 }
 </style>
@@ -491,8 +591,8 @@ function escapeHtml(val) {
 // Create percent bar
 function createPercentBar(percent, color) {
   const safeColor = /^#[0-9a-fA-F]{3,6}$/i.test(color) ? color : '#999';
-  const width = Math.min(100, Math.max(0, percent * 2)); // Scale for visual effect
-  return `<span class="percent-bar" style="--bar-color: ${safeColor}; width: ${width}px;" aria-hidden="true"></span>`;
+  const width = Math.min(100, Math.max(0, percent * 2));
+  return `<span class="percent-track" aria-hidden="true"><span class="percent-bar" style="--bar-color: ${safeColor}; width: ${width}px;"></span></span>`;
 }
 
 function sortData(tableId, data) {

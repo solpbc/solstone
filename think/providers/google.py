@@ -704,6 +704,7 @@ async def run_cogitate(
             "--yolo",
             "-m",
             model,
+            "--sandbox=none",
         ]
 
         # Restrict tool access unless write mode is enabled
