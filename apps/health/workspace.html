@@ -66,8 +66,6 @@
   display: flex;
   align-items: center;
   gap: 0.5em;
-  position: relative;
-  top: 1px;
 }
 
 .vitals-status.warning {
@@ -115,7 +113,7 @@
 }
 
 .vitals-content > .vitals-section + .vitals-section {
-  border-left: 1px solid #e5e7eb;
+  border-left: 1px solid #f0f1f3;
   padding-left: 1.5em;
 }
 
@@ -156,6 +154,7 @@
   display: flex;
   align-items: center;
   gap: 0.5em;
+  min-height: 1.5em;
 }
 
 .service-dots {
@@ -876,13 +875,13 @@
   opacity: 1.0;
   color: #374151;
   padding: 0.4em 0.8em;
-  text-align: right;
+  text-align: left;
   background: #e5e7eb;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
   gap: 0.4em;
-  align-self: flex-end;
+  align-self: flex-start;
   margin-top: 0.5em;
 }
 
