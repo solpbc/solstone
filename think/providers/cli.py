@@ -158,7 +158,7 @@ class CLIRunner:
         callback: JSONEventCallback for emitting events.
         aggregator: ThinkingAggregator for text buffering.
         cwd: Working directory for the subprocess. Defaults to project root.
-        env: Optional environment overrides (merged with os.environ).
+        env: Optional complete environment for the subprocess (used as-is, not merged). When None, inherits os.environ.
         timeout: Subprocess timeout in seconds. Default 600.
         first_event_timeout: Timeout for first stdout line in seconds. Default 30.
     """
@@ -207,9 +207,7 @@ class CLIRunner:
 
         import os
 
-        proc_env = os.environ.copy()
-        if self.env:
-            proc_env.update(self.env)
+        proc_env = self.env if self.env is not None else os.environ.copy()
 
         LOG.info("Spawning CLI: %s (cwd=%s)", " ".join(self.cmd), self.cwd)
 

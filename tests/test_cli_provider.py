@@ -324,6 +324,47 @@ class TestCLIRunnerExitCode:
         assert result == ""
         assert not [e for e in events if e.get("event") in ("error", "warning")]
 
+    def test_env_dict_used_directly_without_merge(self):
+        events = []
+        callback = JSONEventCallback(events.append)
+        aggregator = ThinkingAggregator(callback, model="test-model")
+        provided_env = {"PATH": "/custom/bin"}
+        sentinel_key = "CLIRUNNER_TEST_LEAK"
+        captured_env = None
+
+        async def create_subprocess_exec(*args, **kwargs):
+            nonlocal captured_env
+            captured_env = kwargs["env"]
+            return _make_process([], [], 0)
+
+        runner = CLIRunner(
+            cmd=["fakecli", "--json"],
+            prompt_text="test",
+            translate=lambda _e, _a, _c: None,
+            callback=callback,
+            aggregator=aggregator,
+            env=provided_env,
+        )
+
+        os.environ[sentinel_key] = "should-not-leak"
+        try:
+            with (
+                patch(
+                    "think.providers.cli.asyncio.create_subprocess_exec",
+                    AsyncMock(side_effect=create_subprocess_exec),
+                ),
+                patch(
+                    "think.providers.cli.shutil.which", return_value="/usr/bin/fakecli"
+                ),
+            ):
+                asyncio.run(runner.run())
+        finally:
+            os.environ.pop(sentinel_key, None)
+
+        assert captured_env == provided_env
+        assert captured_env is provided_env
+        assert sentinel_key not in captured_env
+
 
 class TestCLIRunnerFirstEventTimeout:
     def test_first_event_timeout_includes_stderr(self):
