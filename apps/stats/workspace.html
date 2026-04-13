@@ -83,7 +83,7 @@ h1 {
 /* Stats grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 1.5em;
   margin-bottom: 1.5em;
 }
@@ -393,6 +393,7 @@ h1 {
 
 .alert-repair .stats-grid {
   margin-bottom: 0;
+  grid-template-columns: repeat(2, 1fr);
 }
 
 /* Model selector */
@@ -507,6 +508,9 @@ h1 {
     padding: 1em;
   }
   .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .alert-repair .stats-grid {
     grid-template-columns: 1fr;
   }
   .heatmap {
