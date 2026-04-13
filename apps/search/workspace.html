@@ -10,7 +10,9 @@
 .search-sidebar {
   width: 200px;
   flex-shrink: 0;
+  border-right: 1px solid #e5e7eb;
   padding-left: 0.5rem;
+  padding-right: 0.75rem;
   padding-top: 0.45rem;
 }
 
@@ -24,12 +26,12 @@
 }
 
 .filter-section {
-  margin-bottom: 0.75rem;
+  margin-bottom: 1.25rem;
 }
 
 .filter-section:not(:last-child) {
   border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 0.75rem;
+  padding-bottom: 1.25rem;
 }
 
 .filter-list {
@@ -55,6 +57,7 @@
 
 .filter-item.active {
   background: #e5e7eb;
+  box-shadow: inset 3px 0 0 var(--facet-color, #b06a1a);
   font-weight: 500;
 }
 
@@ -492,7 +495,9 @@ button.day-header {
     display: flex;
     gap: 1rem;
     flex-wrap: wrap;
+    border-right: none;
     margin-bottom: 0.25rem;
+    padding-right: 0;
   }
 
   .search-input-form {
