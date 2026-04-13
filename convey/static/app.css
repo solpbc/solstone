@@ -1518,6 +1518,10 @@ body.menu-all .menu-bar {
   cursor: default;
 }
 
+.app-bar:not(.app-bar--focused) .chat-bar-input {
+  border-color: transparent;
+}
+
 /* Response panel (above input row) */
 .chat-bar-response-panel {
   max-height: 0;
