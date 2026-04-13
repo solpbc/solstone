@@ -141,15 +141,20 @@ class DailyLogWriter:
                     # Close old log
                     if not self._fh.closed:
                         self._fh.close()
-                    # Open new log for new day
-                    self._current_day = day_now
-                    self._fh = self._open_log()
-                    # Update symlinks to point to new day's file
-                    self._update_symlinks()
+                    # Open new log for new day — keep old handle on failure
+                    try:
+                        self._fh = self._open_log()
+                        self._current_day = day_now
+                        self._update_symlinks()
+                    except OSError:
+                        pass
 
-            # Write and flush
-            self._fh.write(message)
-            self._fh.flush()
+            # Write and flush — swallow disk-full so output threads survive
+            try:
+                self._fh.write(message)
+                self._fh.flush()
+            except OSError:
+                pass
 
     def close(self) -> None:
         """Close log file."""
@@ -396,28 +401,42 @@ class ManagedProcess:
         """Wait for output threads to finish and close log file.
 
         Call this after process exits to clean up resources.
+        Each step is isolated so one failure doesn't block the rest.
         """
         for thread in self._threads:
-            thread.join(timeout=1)
-        self.log_writer.close()
+            try:
+                thread.join(timeout=1)
+            except Exception:
+                pass
+
+        try:
+            self.log_writer.close()
+        except Exception:
+            pass
 
         # Emit exit event
         if self._callosum:
-            duration_ms = int((time.time() - self._start_time) * 1000)
-            self._callosum.emit(
-                "logs",
-                "exit",
-                ref=self.ref,
-                name=self.name,
-                pid=self.pid,
-                exit_code=self.returncode,
-                duration_ms=duration_ms,
-                cmd=self.cmd,
-                log_path=str(self.log_writer.path),
-            )
+            try:
+                duration_ms = int((time.time() - self._start_time) * 1000)
+                self._callosum.emit(
+                    "logs",
+                    "exit",
+                    ref=self.ref,
+                    name=self.name,
+                    pid=self.pid,
+                    exit_code=self.returncode,
+                    duration_ms=duration_ms,
+                    cmd=self.cmd,
+                    log_path=str(self.log_writer.path),
+                )
+            except Exception:
+                pass
             # Only stop callosum if we created it (not shared)
             if self._owns_callosum:
-                self._callosum.stop()
+                try:
+                    self._callosum.stop()
+                except Exception:
+                    pass
 
     @property
     def pid(self) -> int:

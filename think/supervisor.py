@@ -143,7 +143,7 @@ class TaskQueue:
             on_queue_change: Optional callback(cmd_name, running_ref, queue_entries)
                             called after queue state changes. Called outside lock.
         """
-        self._running: dict[str, str] = {}  # command_name -> ref of running task
+        self._running: dict[str, dict] = {}  # command_name -> {"ref": str, "thread": Thread}
         self._queues: dict[str, list] = {}  # command_name -> list of {refs, cmd} dicts
         self._active: dict[str, RunnerManagedProcess] = {}  # ref -> process
         self._lock = threading.Lock()
@@ -166,7 +166,8 @@ class TaskQueue:
 
         with self._lock:
             queue = list(self._queues.get(cmd_name, []))
-            running_ref = self._running.get(cmd_name)
+            entry = self._running.get(cmd_name)
+            running_ref = entry["ref"] if entry else None
 
         self._on_queue_change(cmd_name, running_ref, queue)
 
@@ -196,6 +197,16 @@ class TaskQueue:
         should_start = False
 
         with self._lock:
+            # Detect stale running state (task thread died without clearing queue)
+            if cmd_name in self._running:
+                stale = self._running[cmd_name]
+                if stale["thread"] is not None and not stale["thread"].is_alive():
+                    logging.warning(
+                        f"Clearing stale {cmd_name} queue "
+                        f"(thread dead, ref={stale['ref']})"
+                    )
+                    self._running.pop(cmd_name)
+
             if cmd_name in self._running:
                 # Command already running - queue or coalesce
                 queue = self._queues.setdefault(cmd_name, [])
@@ -220,7 +231,8 @@ class TaskQueue:
                     should_notify = True
             else:
                 # Not running - mark as running and start
-                self._running[cmd_name] = ref
+                # Thread is set to None here; _run_task registers it on entry
+                self._running[cmd_name] = {"ref": ref, "thread": None}
                 should_start = True
 
         # Notify outside lock
@@ -254,6 +266,11 @@ class TaskQueue:
             cmd_name: Command name for queue management
             day: Optional day override (YYYYMMDD) for log placement
         """
+        # Register this thread for stale-queue detection
+        with self._lock:
+            if cmd_name in self._running and self._running[cmd_name]["ref"] == refs[0]:
+                self._running[cmd_name]["thread"] = threading.current_thread()
+
         callosum = CallosumConnection()
         managed = None
         primary_ref = refs[0]
@@ -309,10 +326,18 @@ class TaskQueue:
                     exit_code=-1,
                 )
         finally:
-            if managed:
-                managed.cleanup()
+            # Each cleanup step is isolated so _process_next always runs.
+            # A disk-full or other OS error in cleanup must never stall the queue.
+            try:
+                if managed:
+                    managed.cleanup()
+            except Exception:
+                logging.exception(f"Task {cmd_name} ({primary_ref}): cleanup failed")
             self._active.pop(primary_ref, None)
-            callosum.stop()
+            try:
+                callosum.stop()
+            except Exception:
+                logging.exception(f"Task {cmd_name} ({primary_ref}): callosum stop failed")
             self._process_next(cmd_name)
 
     def _process_next(self, cmd_name: str) -> None:
@@ -328,7 +353,8 @@ class TaskQueue:
                 refs = entry["refs"]
                 next_cmd = entry["cmd"]
                 day = entry.get("day")
-                self._running[cmd_name] = refs[0]
+                # Thread is set to None here; _run_task registers it on entry
+                self._running[cmd_name] = {"ref": refs[0], "thread": None}
                 logging.info(
                     f"Dequeued task {cmd_name}: {' '.join(next_cmd)} refs={refs} "
                     f"(remaining: {len(queue)})"
