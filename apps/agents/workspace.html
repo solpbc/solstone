@@ -870,24 +870,34 @@
    ============================================================================ */
 .empty-state {
   text-align: center;
-  padding: 3rem 1rem;
+  padding: 2rem 1rem;
   color: #666;
+  min-height: calc(100vh - 300px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .empty-state-icon {
   font-size: 2.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   opacity: 0.5;
+  width: 72px;
+  height: 72px;
+  line-height: 72px;
+  background: rgba(0, 0, 0, 0.025);
+  border-radius: 50%;
 }
 
 .empty-state-text {
   font-size: 1.1rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .empty-state-hint {
-  font-size: 0.9rem;
-  color: #999;
+  font-size: 0.85rem;
+  color: #aaa;
 }
 
 /* ============================================================================
