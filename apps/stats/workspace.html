@@ -208,6 +208,7 @@ h1 {
   position: relative;
   margin-top: 1.5em;
   padding-bottom: 24px;
+  padding-top: 8px;
 }
 
 .bar-chart {
@@ -215,7 +216,7 @@ h1 {
   align-items: flex-end;
   height: 100%;
   gap: 3px;
-  padding: 0 10px;
+  padding: 0 16px;
 }
 
 .bar {
@@ -272,6 +273,12 @@ h1 {
   font-weight: 500;
   color: #333;
   white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.bar:hover .bar-value {
+  opacity: 1;
 }
 
 .empty-chart {
@@ -478,7 +485,7 @@ h1 {
   gap: 1.5em;
   margin-top: 1em;
   font-size: 0.85em;
-  justify-content: center;
+  justify-content: flex-start;
   font-weight: 500;
 }
 
