@@ -8,7 +8,7 @@
 }
 .observer-card.stale {
   background: #fff9e6;
-  border-color: #e5c35a;
+  border-color: var(--facet-border, #e5e0db);
   border-left: 3px solid #e5c35a;
 }
 .observer-card.revoked {
@@ -19,6 +19,16 @@
 .observer-card.revoked .observer-name {
   text-decoration: line-through;
   color: #5a6268;
+}
+.observer-card.disconnected {
+  background: #fef2f2;
+  border-color: var(--facet-border, #e5e0db);
+  border-left: 3px solid #dc3545;
+}
+.observer-card.connected {
+  background: #f0fdf4;
+  border-color: var(--facet-border, #e5e0db);
+  border-left: 3px solid #28a745;
 }
 .observer-header {
   display: flex;
@@ -133,6 +143,7 @@
 .observer-actions {
   display: flex;
   gap: 8px;
+  min-height: 44px;
 }
 .observer-actions button {
   padding: 8px 16px;
