@@ -4,7 +4,9 @@
 """Tests for think.providers.cli — CLI subprocess runner infrastructure."""
 
 import asyncio
+import json
 import os
+from pathlib import Path
 from unittest.mock import AsyncMock, mock_open, patch
 
 import pytest
@@ -833,3 +835,112 @@ class TestBuildCogitateEnv:
             env = build_cogitate_env("GOOGLE_API_KEY")
         assert "GOOGLE_CLOUD_PROJECT" not in env
         assert "GOOGLE_CLOUD_LOCATION" not in env
+
+    def test_vertex_backend_sets_system_settings_path(self):
+        """Vertex backend exposes the Gemini CLI system settings path."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("think.utils.get_journal", return_value="/fake/journal"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert (
+            env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"]
+            == "/fake/journal/.config/gemini-vertex-settings.json"
+        )
+
+    def test_aistudio_backend_no_system_settings_path(self):
+        """AI Studio backend does not set Gemini CLI system settings."""
+        config = {
+            "providers": {
+                "google_backend": "aistudio",
+                "auth": {"google": "api_key"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GEMINI_CLI_SYSTEM_SETTINGS_PATH" not in env
+
+    def test_aistudio_clears_inherited_system_settings_path(self):
+        """AI Studio clears inherited Gemini CLI system settings."""
+        config = {
+            "providers": {
+                "google_backend": "aistudio",
+                "auth": {"google": "api_key"},
+            }
+        }
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "GOOGLE_API_KEY": "gk-test",
+                    "GEMINI_CLI_SYSTEM_SETTINGS_PATH": "/old/settings.json",
+                },
+                clear=True,
+            ),
+            patch("think.utils.get_config", return_value=config),
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert "GEMINI_CLI_SYSTEM_SETTINGS_PATH" not in env
+
+    def test_vertex_writes_settings_file_when_absent(self):
+        """Vertex backend creates Gemini CLI system settings when missing."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("think.utils.get_journal", return_value="/fake/journal"),
+            patch.object(Path, "exists", return_value=False),
+            patch("os.makedirs") as mock_mkdirs,
+            patch("builtins.open", mock_open()) as mock_file,
+            patch("os.chmod") as mock_chmod,
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        written = "".join(call.args[0] for call in mock_file().write.call_args_list)
+        assert env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] == (
+            "/fake/journal/.config/gemini-vertex-settings.json"
+        )
+        assert mock_mkdirs.called
+        assert mock_file.called
+        assert json.loads(written) == {
+            "security": {"auth": {"selectedType": "vertex-ai"}}
+        }
+        mock_chmod.assert_called_once_with(
+            "/fake/journal/.config/gemini-vertex-settings.json", 0o600
+        )
+
+    def test_vertex_skips_settings_write_when_exists(self):
+        """Vertex backend does not rewrite existing Gemini CLI settings."""
+        config = {
+            "providers": {
+                "google_backend": "vertex",
+                "auth": {"google": "platform"},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"GOOGLE_API_KEY": "gk-test"}, clear=True),
+            patch("think.utils.get_config", return_value=config),
+            patch("think.utils.get_journal", return_value="/fake/journal"),
+            patch.object(Path, "exists", return_value=True),
+            patch("builtins.open", mock_open()) as mock_file,
+        ):
+            env = build_cogitate_env("GOOGLE_API_KEY")
+        assert env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] == (
+            "/fake/journal/.config/gemini-vertex-settings.json"
+        )
+        mock_file.assert_not_called()
