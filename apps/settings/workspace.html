@@ -92,6 +92,7 @@
   flex: 1;
   min-width: 0;
   max-width: 600px;
+  padding-bottom: calc(var(--app-bar-height, 60px) + 2em);
 }
 
 .settings-section {
@@ -109,7 +110,7 @@
 }
 
 .settings-section h2 {
-  font-size: 1.4em;
+  font-size: 1.5em;
   font-weight: 600;
   color: #333;
   margin: 0 0 0.5em 0;
@@ -118,13 +119,15 @@
 .settings-section-desc {
   color: #666;
   font-size: 0.85em;
-  margin-bottom: 1.25em;
+  margin-bottom: 1em;
+  padding-bottom: 0.75em;
+  border-bottom: 1px solid var(--facet-border, #e5e0db);
   line-height: 1.4;
 }
 
 /* Form fields */
 .settings-field {
-  margin-bottom: 1.25em;
+  margin-bottom: 1.5em;
 }
 
 .settings-field label {
@@ -170,7 +173,7 @@
 .settings-field small {
   display: block;
   margin-top: 0.3em;
-  color: #666;
+  color: #999;
   font-size: 0.85em;
   line-height: 1.5;
   transition: opacity 0.3s ease;
