@@ -36,7 +36,7 @@
 .status-summary {
   background: #f9fafb;
   border-radius: 12px;
-  padding: 1em 1.5em;
+  padding: 0.75em 1.5em;
   font-size: 1em;
   font-weight: 400;
   color: #374151;
@@ -276,8 +276,9 @@
 }
 
 .health-badge {
-  background: #6b7280;
-  color: white;
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
   padding: 0.2em 0.6em;
   border-radius: 12px;
   font-size: 0.75em;
@@ -292,16 +293,22 @@
 .health-badge.recording {
   background: #16a34a;
   animation: pulse 2s infinite;
+  color: white;
+  border-color: transparent;
 }
 
 .health-badge.idle {
-  background: #6b7280;
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
   animation: none;
 }
 
 .health-badge.tmux {
   background: #16a34a;
   animation: none;
+  color: white;
+  border-color: transparent;
 }
 
 @keyframes pulse {
@@ -806,7 +813,7 @@
 }
 
 .dream-progress {
-  margin-bottom: 0.5em;
+  margin-bottom: 0.75em;
 }
 
 .dream-progress-label {
@@ -832,6 +839,7 @@
 .dream-agents {
   font-size: 0.85em;
   color: #6b7280;
+  margin-top: 0.5em;
 }
 
 /* Sync Card */
@@ -877,7 +885,7 @@
   padding: 0.4em 0.8em;
   text-align: right;
   background: #e5e7eb;
-  border-radius: 6px;
+  border-radius: 12px;
   display: inline-flex;
   align-items: center;
   gap: 0.4em;
