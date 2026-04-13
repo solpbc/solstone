@@ -100,10 +100,40 @@ class TestEnvCollection:
 
     def test_includes_venv_in_path(self, monkeypatch, tmp_path):
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setenv("PATH", "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin")
+        monkeypatch.setattr(
+            sys, "executable", str(tmp_path / ".venv" / "bin" / "python")
+        )
 
         env = service._collect_env()
         venv_bin = str(Path(sys.executable).parent)
-        assert env["PATH"].startswith(venv_bin)
+        assert env["PATH"] == (
+            f"{venv_bin}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+        )
+
+    def test_path_fallback_when_unset(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.delenv("PATH", raising=False)
+        monkeypatch.setattr(
+            sys, "executable", str(tmp_path / ".venv" / "bin" / "python")
+        )
+
+        env = service._collect_env()
+        venv_bin = str(Path(sys.executable).parent)
+        assert env["PATH"] == f"{venv_bin}:/usr/local/bin:/usr/bin:/bin"
+
+    def test_path_deduplicates_venv_bin(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
+        monkeypatch.setattr(
+            sys, "executable", str(tmp_path / ".venv" / "bin" / "python")
+        )
+        venv_bin = str(Path(sys.executable).parent)
+        monkeypatch.setenv("PATH", f"{venv_bin}:/usr/local/bin:/usr/bin:/bin")
+
+        env = service._collect_env()
+        parts = env["PATH"].split(":")
+        assert parts[0] == venv_bin
+        assert parts.count(venv_bin) == 1
 
     def test_journal_override_not_propagated(self, monkeypatch, tmp_path):
         monkeypatch.setenv("_SOLSTONE_JOURNAL_OVERRIDE", str(tmp_path))
