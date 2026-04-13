@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 import sys
 import time
 import traceback
@@ -53,6 +54,14 @@ LOG = logging.getLogger("think.agents")
 
 # Minimum content length for transcript-based generation
 MIN_INPUT_CHARS = 50
+
+# CLI binary names for cogitate interface, per provider
+COGITATE_BINARIES: dict[str, str] = {
+    "google": "gemini",
+    "openai": "codex",
+    "anthropic": "claude",
+    "ollama": "opencode",
+}
 
 
 def setup_logging(verbose: bool = False) -> logging.Logger:
@@ -1165,14 +1174,17 @@ def scan_day(day: str) -> dict[str, list[str]]:
     return {"processed": sorted(processed), "repairable": sorted(pending)}
 
 
-def _check_generate(provider_name: str, tier: int, timeout: int) -> tuple[bool, str]:
+def _check_generate(provider_name: str, tier: int, timeout: int) -> tuple[str, str]:
     """Check generate interface for a provider."""
     from think.models import PROVIDER_DEFAULTS
     from think.providers import PROVIDER_METADATA, get_provider_module
 
     env_key = PROVIDER_METADATA[provider_name]["env_key"]
     if env_key and not os.getenv(env_key):
-        return False, f"FAIL: {env_key} not set"
+        label = PROVIDER_METADATA[provider_name]["label"]
+        # Google Vertex AI can work without GOOGLE_API_KEY, but this health check
+        # treats missing env as "not configured" for the standard API path.
+        return "skip", f"{label} not configured (no {env_key})"
 
     # For keyless providers (e.g., Ollama), check reachability instead
     if not env_key:
@@ -1180,7 +1192,7 @@ def _check_generate(provider_name: str, tier: int, timeout: int) -> tuple[bool, 
 
         result = validate_key(provider_name, "")
         if not result.get("valid"):
-            return False, f"FAIL: {result.get('error', 'unreachable')}"
+            return "skip", f"Ollama not reachable ({result.get('error', 'unreachable')})"
 
     try:
         module = get_provider_module(provider_name)
@@ -1207,18 +1219,37 @@ def _check_generate(provider_name: str, tier: int, timeout: int) -> tuple[bool, 
                     context="health.check.generate",
                     type="generate",
                 )
-            return True, "OK"
-        return False, "FAIL: empty response text"
+            return "ok", "OK"
+        return "fail", "FAIL: empty response text"
     except Exception as exc:
-        return False, f"FAIL: {exc}"
+        return "fail", f"FAIL: {exc}"
 
 
 async def _check_cogitate(
     provider_name: str, tier: int, timeout: int
-) -> tuple[bool, str]:
+) -> tuple[str, str]:
     """Check cogitate interface for a provider by running a real prompt."""
     from think.models import PROVIDER_DEFAULTS
-    from think.providers import get_provider_module
+    from think.providers import PROVIDER_METADATA, get_provider_module
+
+    # Pre-flight: check provider is configured
+    env_key = PROVIDER_METADATA[provider_name]["env_key"]
+    if env_key and not os.getenv(env_key):
+        label = PROVIDER_METADATA[provider_name]["label"]
+        return "skip", f"{label} not configured (no {env_key})"
+
+    # For keyless providers (e.g., Ollama), check reachability
+    if not env_key:
+        from think.providers import validate_key
+
+        result = validate_key(provider_name, "")
+        if not result.get("valid"):
+            return "skip", f"Ollama not reachable ({result.get('error', 'unreachable')})"
+
+    # Pre-flight: check cogitate CLI binary is installed
+    binary = COGITATE_BINARIES.get(provider_name)
+    if binary and not shutil.which(binary):
+        return "skip", f"{binary} CLI not installed"
 
     try:
         module = get_provider_module(provider_name)
@@ -1229,12 +1260,12 @@ async def _check_cogitate(
             timeout=timeout,
         )
         if result:
-            return True, "OK"
-        return False, "FAIL: empty response"
+            return "ok", "OK"
+        return "fail", "FAIL: empty response"
     except asyncio.TimeoutError:
-        return False, f"FAIL: timed out after {timeout}s"
+        return "fail", f"FAIL: timed out after {timeout}s"
     except Exception as exc:
-        return False, f"FAIL: {exc}"
+        return "fail", f"FAIL: {exc}"
 
 
 async def _run_check(args: argparse.Namespace) -> None:
@@ -1304,8 +1335,9 @@ async def _run_check(args: argparse.Namespace) -> None:
     total = 0
     passed = 0
     failed = 0
+    skipped = 0
     results = []
-    cache = {}  # (provider, model, interface) -> (ok, message, source_tier)
+    cache = {}  # (provider, model, interface) -> (status, message, source_tier)
 
     for provider_name in providers:
         for tier in tiers:
@@ -1318,21 +1350,23 @@ async def _run_check(args: argparse.Namespace) -> None:
             for interface_name in interfaces:
                 cache_key = (provider_name, model, interface_name)
                 if cache_key in cache:
-                    ok, message, source_tier = cache[cache_key]
+                    status, message, source_tier = cache[cache_key]
                     elapsed_s = 0.0
                     elapsed_s_rounded = 0.0
                     reused_from = source_tier
                 else:
                     start = time.perf_counter()
                     if interface_name == "generate":
-                        ok, message = _check_generate(provider_name, tier, args.timeout)
+                        status, message = _check_generate(
+                            provider_name, tier, args.timeout
+                        )
                     else:
-                        ok, message = await _check_cogitate(
+                        status, message = await _check_cogitate(
                             provider_name, tier, args.timeout
                         )
                     elapsed_s = time.perf_counter() - start
                     elapsed_s_rounded = round(elapsed_s, 1)
-                    cache[cache_key] = (ok, message, tier_names[tier])
+                    cache[cache_key] = (status, message, tier_names[tier])
                     reused_from = None
 
                 result = {
@@ -1340,7 +1374,8 @@ async def _run_check(args: argparse.Namespace) -> None:
                     "tier": tier_names[tier],
                     "model": model,
                     "interface": interface_name,
-                    "ok": bool(ok),
+                    "ok": status != "fail",
+                    "status": status,
                     "message": str(message),
                     "elapsed_s": elapsed_s_rounded,
                 }
@@ -1353,7 +1388,12 @@ async def _run_check(args: argparse.Namespace) -> None:
                         mark = "="
                         display_message = f"{message} (={reused_from})"
                     else:
-                        mark = "✓" if ok else "✗"
+                        if status == "ok":
+                            mark = "✓"
+                        elif status == "skip":
+                            mark = "-"
+                        else:
+                            mark = "✗"
                         display_message = str(message)
                     print(
                         f"{mark} "
@@ -1365,25 +1405,24 @@ async def _run_check(args: argparse.Namespace) -> None:
                     )
 
                 total += 1
-                if ok:
+                if status == "ok":
                     passed += 1
+                elif status == "skip":
+                    skipped += 1
                 else:
                     failed += 1
 
-    # Determine if any provider is fully failed (all checks failed)
-    provider_failed = False
-    providers_seen: dict[str, list[bool]] = {}
-    for r in results:
-        providers_seen.setdefault(r["provider"], []).append(r["ok"])
-    for ok_values in providers_seen.values():
-        if ok_values and not any(ok_values):
-            provider_failed = True
-            break
+    any_failed = any(r["status"] == "fail" for r in results)
 
     # Write results to health file
     payload = {
         "results": results,
-        "summary": {"total": total, "passed": passed, "failed": failed},
+        "summary": {
+            "total": total,
+            "passed": passed,
+            "skipped": skipped,
+            "failed": failed,
+        },
         "checked_at": datetime.now(timezone.utc).isoformat(),
     }
     health_dir = Path(get_journal()) / "health"
@@ -1395,14 +1434,19 @@ async def _run_check(args: argparse.Namespace) -> None:
             json.dumps(
                 {
                     "results": results,
-                    "summary": {"total": total, "passed": passed, "failed": failed},
+                    "summary": {
+                        "total": total,
+                        "passed": passed,
+                        "skipped": skipped,
+                        "failed": failed,
+                    },
                 },
                 indent=2,
             )
         )
     else:
-        print(f"{total} checks: {passed} passed, {failed} failed")
-    sys.exit(1 if provider_failed else 0)
+        print(f"{total} checks: {passed} passed, {skipped} skipped, {failed} failed")
+    sys.exit(1 if any_failed else 0)
 
 
 # =============================================================================

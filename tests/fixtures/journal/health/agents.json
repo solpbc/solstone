@@ -6,6 +6,7 @@
       "model": "gemini-3-pro-preview",
       "interface": "generate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 2.4
     },
@@ -15,6 +16,7 @@
       "model": "gemini-3-pro-preview",
       "interface": "cogitate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 9.0
     },
@@ -24,6 +26,7 @@
       "model": "gemini-3-flash-preview",
       "interface": "generate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 1.0
     },
@@ -33,6 +36,7 @@
       "model": "gemini-3-flash-preview",
       "interface": "cogitate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 6.2
     },
@@ -42,6 +46,7 @@
       "model": "gemini-2.5-flash-lite",
       "interface": "generate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 0.4
     },
@@ -51,6 +56,7 @@
       "model": "gemini-2.5-flash-lite",
       "interface": "cogitate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 6.2
     },
@@ -60,6 +66,7 @@
       "model": "gpt-5.2-high",
       "interface": "generate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 0.9
     },
@@ -69,6 +76,7 @@
       "model": "gpt-5.2-high",
       "interface": "cogitate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 1.5
     },
@@ -78,6 +86,7 @@
       "model": "gpt-5.2-low",
       "interface": "generate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 0.6
     },
@@ -87,6 +96,7 @@
       "model": "gpt-5.2-low",
       "interface": "cogitate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 2.3
     },
@@ -96,6 +106,7 @@
       "model": "gpt-5.2",
       "interface": "generate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 0.5
     },
@@ -105,6 +116,7 @@
       "model": "gpt-5.2",
       "interface": "cogitate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 1.1
     },
@@ -114,6 +126,7 @@
       "model": "claude-opus-4-5",
       "interface": "generate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 1.8
     },
@@ -123,6 +136,7 @@
       "model": "claude-opus-4-5",
       "interface": "cogitate",
       "ok": false,
+      "status": "fail",
       "message": "FAIL: empty response",
       "elapsed_s": 0.1
     },
@@ -132,6 +146,7 @@
       "model": "claude-sonnet-4-5",
       "interface": "generate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 1.5
     },
@@ -141,6 +156,7 @@
       "model": "claude-sonnet-4-5",
       "interface": "cogitate",
       "ok": false,
+      "status": "fail",
       "message": "FAIL: empty response",
       "elapsed_s": 0.1
     },
@@ -150,6 +166,7 @@
       "model": "claude-haiku-4-5",
       "interface": "generate",
       "ok": true,
+      "status": "ok",
       "message": "OK",
       "elapsed_s": 0.4
     },
@@ -159,6 +176,7 @@
       "model": "claude-haiku-4-5",
       "interface": "cogitate",
       "ok": false,
+      "status": "fail",
       "message": "FAIL: empty response",
       "elapsed_s": 0.1
     }
@@ -166,6 +184,7 @@
   "summary": {
     "total": 18,
     "passed": 15,
+    "skipped": 0,
     "failed": 3
   },
   "checked_at": "2026-02-14T22:59:12.800713+00:00"
