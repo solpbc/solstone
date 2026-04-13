@@ -344,3 +344,15 @@ class TestRunCogitateCommand:
 
     def test_write_mode_removes_allowed_tools(self):
         _assert_write_mode_removes_allowed_tools(self._mock_runner)
+
+    def test_sandbox_none(self):
+        provider = _google_provider()
+        MockCLIRunner = self._mock_runner()
+        with patch("think.providers.google.CLIRunner", MockCLIRunner):
+            asyncio.run(
+                provider.run_cogitate(
+                    {"prompt": "hello", "model": "gemini-2.5-flash"}, lambda e: None
+                )
+            )
+        cmd = MockCLIRunner.last_instance.cmd
+        assert "--sandbox=none" in cmd
