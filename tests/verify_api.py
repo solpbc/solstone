@@ -414,7 +414,7 @@ def normalize(data: Any, journal_path: str) -> Any:
 
     def walk(value: Any, key: str | None = None) -> Any:
         if isinstance(value, dict):
-            return {
+            result = {
                 item_key: (
                     0
                     if item_key in {"mtime", "created_at", "file_mtime"}
@@ -433,6 +433,21 @@ def normalize(data: Any, journal_path: str) -> Any:
                 )
                 for item_key, item_value in value.items()
             }
+            if key == "provider_status":
+                for _name, status in result.items():
+                    if isinstance(status, dict) and "cogitate_cli" in status:
+                        status["cogitate_cli_found"] = False
+                        status["cogitate_ready"] = False
+                        cli = status.get("cogitate_cli", "")
+                        issues = [
+                            i
+                            for i in status.get("issues", [])
+                            if "CLI not found" not in i
+                        ]
+                        if cli:
+                            issues.append(f"{cli} CLI not found on PATH")
+                        status["issues"] = sorted(issues)
+            return result
 
         if isinstance(value, list):
             walked = [walk(item, key) for item in value]

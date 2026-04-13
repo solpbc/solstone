@@ -389,13 +389,18 @@ def test_missing_env_key_returns_skip(monkeypatch):
 def test_cogitate_missing_binary_returns_skip(monkeypatch):
     """_check_cogitate returns skip when CLI binary is not installed."""
     import think.agents as agents
+    import think.providers as providers
 
-    monkeypatch.setattr(
-        "think.providers.PROVIDER_METADATA",
-        {"fake": {"env_key": "FAKE_API_KEY", "label": "Fake Provider"}},
+    monkeypatch.setitem(
+        providers.PROVIDER_METADATA,
+        "fake",
+        {
+            "env_key": "FAKE_API_KEY",
+            "label": "Fake Provider",
+            "cogitate_cli": "nonexistent-binary-xyz",
+        },
     )
     monkeypatch.setenv("FAKE_API_KEY", "test-key")
-    monkeypatch.setattr(agents, "COGITATE_BINARIES", {"fake": "nonexistent-binary-xyz"})
     monkeypatch.setattr("shutil.which", lambda _: None)
 
     status, msg = asyncio.run(agents._check_cogitate("fake", 2, 30))

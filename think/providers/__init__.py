@@ -20,6 +20,8 @@ Available providers:
 - ollama: Ollama local models
 """
 
+import os
+import shutil
 from importlib import import_module
 from types import ModuleType
 from typing import Any, Dict, List
@@ -44,22 +46,36 @@ PROVIDER_REGISTRY: Dict[str, str] = {
 # ---------------------------------------------------------------------------
 # Provider Metadata
 # ---------------------------------------------------------------------------
-# Display labels and environment variable names for each provider.
-# Used by settings UI to dynamically build provider dropdowns.
+# Display labels, environment variable names, and cogitate CLI binary names
+# for each provider. Used by settings UI, provider status, and agent health
+# checks.
 # ---------------------------------------------------------------------------
 
 PROVIDER_METADATA: Dict[str, Dict[str, Any]] = {
     "google": {
         "label": "Google (Gemini)",
         "env_key": "GOOGLE_API_KEY",
+        "cogitate_cli": "gemini",
         "vertex_env_keys": [
             "GOOGLE_GENAI_USE_VERTEXAI",
             "GOOGLE_APPLICATION_CREDENTIALS",
         ],
     },
-    "openai": {"label": "OpenAI (GPT)", "env_key": "OPENAI_API_KEY"},
-    "anthropic": {"label": "Anthropic (Claude)", "env_key": "ANTHROPIC_API_KEY"},
-    "ollama": {"label": "Ollama (Local)", "env_key": ""},
+    "openai": {
+        "label": "OpenAI (GPT)",
+        "env_key": "OPENAI_API_KEY",
+        "cogitate_cli": "codex",
+    },
+    "anthropic": {
+        "label": "Anthropic (Claude)",
+        "env_key": "ANTHROPIC_API_KEY",
+        "cogitate_cli": "claude",
+    },
+    "ollama": {
+        "label": "Ollama (Local)",
+        "env_key": "",
+        "cogitate_cli": "opencode",
+    },
 }
 
 
@@ -99,10 +115,89 @@ def get_provider_list() -> List[Dict[str, Any]]:
         - label: Display label (e.g., "Google (Gemini)")
         - env_key: Environment variable for API key
     """
-    return [
-        {"name": name, **PROVIDER_METADATA.get(name, {"label": name, "env_key": ""})}
-        for name in PROVIDER_REGISTRY
-    ]
+    providers = []
+    for name in PROVIDER_REGISTRY:
+        meta = PROVIDER_METADATA.get(name, {"label": name, "env_key": ""})
+        provider = {
+            "name": name,
+            "label": meta.get("label", name),
+            "env_key": meta.get("env_key", ""),
+        }
+        if "vertex_env_keys" in meta:
+            provider["vertex_env_keys"] = meta["vertex_env_keys"]
+        providers.append(provider)
+    return providers
+
+
+def build_provider_status(
+    providers_list: List[Dict[str, Any]],
+    vertex_creds_configured: bool = False,
+) -> Dict[str, Dict[str, Any]]:
+    """Build per-provider readiness status.
+
+    Parameters
+    ----------
+    providers_list
+        Output of get_provider_list().
+    vertex_creds_configured
+        Whether Vertex AI credentials are configured (for Google).
+
+    Returns
+    -------
+    Dict[str, Dict[str, Any]]
+        Keyed by provider name. Each entry has: configured, generate_ready,
+        cogitate_ready, cogitate_cli, cogitate_cli_found, issues.
+    """
+    status = {}
+    for provider in providers_list:
+        name = provider["name"]
+        env_key = provider.get("env_key", "")
+        meta = PROVIDER_METADATA.get(name, {})
+        cogitate_cli = meta.get("cogitate_cli", "")
+        issues: list[str] = []
+
+        if name == "ollama":
+            try:
+                import httpx
+
+                base_url = os.getenv(
+                    "OLLAMA_BASE_URL", "http://localhost:11434"
+                ).rstrip("/")
+                resp = httpx.get(f"{base_url}/api/version", timeout=2)
+                resp.raise_for_status()
+                configured = True
+            except Exception:
+                configured = False
+                base_url = os.getenv(
+                    "OLLAMA_BASE_URL", "http://localhost:11434"
+                ).rstrip("/")
+                issues.append(f"Ollama not reachable at {base_url}")
+        elif name == "google":
+            has_key = bool(os.getenv(env_key))
+            configured = has_key or vertex_creds_configured
+            if not configured:
+                issues.append(f"{env_key} not set")
+        else:
+            configured = bool(os.getenv(env_key)) if env_key else False
+            if not configured and env_key:
+                issues.append(f"{env_key} not set")
+
+        cogitate_cli_found = bool(shutil.which(cogitate_cli)) if cogitate_cli else False
+        if cogitate_cli and not cogitate_cli_found:
+            issues.append(f"{cogitate_cli} CLI not found on PATH")
+
+        generate_ready = configured
+        cogitate_ready = configured and cogitate_cli_found
+
+        status[name] = {
+            "configured": configured,
+            "generate_ready": generate_ready,
+            "cogitate_ready": cogitate_ready,
+            "cogitate_cli": cogitate_cli,
+            "cogitate_cli_found": cogitate_cli_found,
+            "issues": issues,
+        }
+    return status
 
 
 def get_provider_models(provider: str) -> list[dict]:
@@ -156,6 +251,7 @@ __all__ = [
     "PROVIDER_METADATA",
     "get_provider_module",
     "get_provider_list",
+    "build_provider_status",
     "get_provider_models",
     "validate_key",
 ]
