@@ -55,15 +55,6 @@ LOG = logging.getLogger("think.agents")
 # Minimum content length for transcript-based generation
 MIN_INPUT_CHARS = 50
 
-# CLI binary names for cogitate interface, per provider
-COGITATE_BINARIES: dict[str, str] = {
-    "google": "gemini",
-    "openai": "codex",
-    "anthropic": "claude",
-    "ollama": "opencode",
-}
-
-
 def setup_logging(verbose: bool = False) -> logging.Logger:
     """Configure logging for agent CLI."""
     level = logging.DEBUG if verbose else logging.INFO
@@ -1247,7 +1238,7 @@ async def _check_cogitate(
             return "skip", f"Ollama not reachable ({result.get('error', 'unreachable')})"
 
     # Pre-flight: check cogitate CLI binary is installed
-    binary = COGITATE_BINARIES.get(provider_name)
+    binary = PROVIDER_METADATA[provider_name].get("cogitate_cli", "")
     if binary and not shutil.which(binary):
         return "skip", f"{binary} CLI not installed"
 

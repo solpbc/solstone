@@ -386,7 +386,7 @@ def get_providers() -> Any:
             TYPE_DEFAULTS,
             get_context_registry,
         )
-        from think.providers import get_provider_list
+        from think.providers import build_provider_status, get_provider_list
         from think.talent import get_talent_configs
 
         config = get_journal_config()
@@ -470,9 +470,14 @@ def get_providers() -> Any:
             except Exception:
                 pass
 
+        provider_status = build_provider_status(
+            providers_list, vertex_creds_configured
+        )
+
         return jsonify(
             {
                 "providers": providers_list,
+                "provider_status": provider_status,
                 "generate": type_settings["generate"],
                 "cogitate": type_settings["cogitate"],
                 "contexts": contexts,

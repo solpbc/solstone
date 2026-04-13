@@ -96,6 +96,64 @@ class TestProvidersShow:
         assert payload["generate"]["provider"] == "google"
         assert payload["cogitate"]["provider"] == "openai"
 
+    def test_provider_status_key_set_cli_found(self, settings_env):
+        """Provider with key set and CLI binary found."""
+        settings_env()
+
+        with (
+            patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}),
+            patch("shutil.which", return_value="/usr/bin/codex"),
+        ):
+            result = runner.invoke(call_app, ["settings", "providers", "show"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        status = payload["provider_status"]["openai"]
+        assert status["configured"] is True
+        assert status["generate_ready"] is True
+        assert status["cogitate_ready"] is True
+        assert status["cogitate_cli"] == "codex"
+        assert status["cogitate_cli_found"] is True
+        assert status["issues"] == []
+
+    def test_provider_status_key_missing(self, settings_env):
+        """Provider with key not set."""
+        settings_env()
+
+        with (
+            patch.dict(os.environ, {}, clear=False),
+            patch("shutil.which", return_value=None),
+        ):
+            os.environ.pop("OPENAI_API_KEY", None)
+            result = runner.invoke(call_app, ["settings", "providers", "show"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        status = payload["provider_status"]["openai"]
+        assert status["configured"] is False
+        assert status["generate_ready"] is False
+        assert status["cogitate_ready"] is False
+        assert "OPENAI_API_KEY not set" in status["issues"]
+
+    def test_provider_status_key_set_cli_missing(self, settings_env):
+        """Provider with key set but CLI binary not found."""
+        settings_env()
+
+        with (
+            patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}),
+            patch("shutil.which", return_value=None),
+        ):
+            result = runner.invoke(call_app, ["settings", "providers", "show"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        status = payload["provider_status"]["anthropic"]
+        assert status["configured"] is True
+        assert status["generate_ready"] is True
+        assert status["cogitate_ready"] is False
+        assert status["cogitate_cli_found"] is False
+        assert "claude CLI not found on PATH" in status["issues"]
+
 
 class TestProvidersSetGenerate:
     def test_set_generate_provider(self, settings_env):
