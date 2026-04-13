@@ -93,7 +93,7 @@ h1 {
   border-radius: 12px;
   padding: 1.5em;
   box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-  border: 1px solid transparent;
+  border: 1px solid rgba(0,0,0,0.06);
   transition: border-color 0.2s;
 }
 
@@ -141,6 +141,7 @@ h1 {
   border-radius: 12px;
   padding: 1.5em;
   box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.06);
 }
 
 .progress-card h3 {
@@ -185,6 +186,7 @@ h1 {
   padding: 1.5em;
   margin-bottom: 2em;
   box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.06);
 }
 
 .chart-section h2 {
@@ -366,9 +368,15 @@ h1 {
 
 /* Repair alert */
 .alert-repair {
-  background: #fff3cd;
-  border: 1px solid #ffeaa7;
+  background: white;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-left: 3px solid #d4a843;
   padding: 1.5em;
+}
+
+.alert-repair .stat-card {
+  box-shadow: none;
+  border-color: transparent;
 }
 
 .alert-repair .stat-value {
