@@ -487,10 +487,25 @@ def build_cogitate_env(env_key: str) -> dict[str, str]:
                     )
             # else: GOOGLE_APPLICATION_CREDENTIALS may be inherited from env
             env["GOOGLE_CLOUD_LOCATION"] = "global"
+            from think.utils import get_journal
+
+            settings_path = (
+                Path(get_journal()) / ".config" / "gemini-vertex-settings.json"
+            )
+            if not settings_path.exists():
+                os.makedirs(settings_path.parent, exist_ok=True)
+                with open(settings_path, "w", encoding="utf-8") as settings_file:
+                    json.dump(
+                        {"security": {"auth": {"selectedType": "vertex-ai"}}},
+                        settings_file,
+                    )
+                os.chmod(str(settings_path), 0o600)
+            env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = str(settings_path)
         else:
             # AI Studio: clear any inherited Vertex env vars so the CLI
             # doesn't accidentally run in Vertex mode.
             for vkey in (
+                "GEMINI_CLI_SYSTEM_SETTINGS_PATH",
                 "GOOGLE_APPLICATION_CREDENTIALS",
                 "GOOGLE_CLOUD_LOCATION",
                 "GOOGLE_CLOUD_PROJECT",
