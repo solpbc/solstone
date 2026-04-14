@@ -3,12 +3,13 @@
 
 """Transfer observed segments between solstone instances.
 
-Provides export and import commands for creating and unpacking day archives
-containing fully-processed observation segments.
+Provides export, import, and send commands for transferring fully-processed
+observation segments between solstone instances.
 
 Usage:
     sol transfer export --day YYYYMMDD [--output PATH]
     sol transfer import --archive PATH [--dry-run]
+    sol transfer send --to HOST --key KEY [--day YYYYMMDD] [--dry-run]
 """
 
 from __future__ import annotations
@@ -18,10 +19,14 @@ import json
 import logging
 import os
 import platform
+import re
 import tarfile
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+import requests
 
 from think.callosum import callosum_send
 from think.utils import get_journal, iter_segments, now_ms, setup_cli
@@ -32,6 +37,8 @@ logger = logging.getLogger(__name__)
 
 # Archive manifest version
 MANIFEST_VERSION = 1
+RETRY_BACKOFF = [1, 5, 15]
+UPLOAD_TIMEOUT = 300
 
 
 def _get_hostname() -> str:
@@ -361,6 +368,260 @@ def import_archive(
     }
 
 
+def _normalize_url(to: str) -> str:
+    """Normalize remote URL for observer endpoints."""
+    to = to.rstrip("/")
+    if to.startswith(("http://", "https://")):
+        return to
+    return f"https://{to}"
+
+
+def _parse_day_spec(day_spec: str | None, journal_root: Path) -> list[str]:
+    """Parse a single day, day range, or default to all journal days."""
+    if day_spec is None:
+        return sorted(
+            [
+                day_dir.name
+                for day_dir in journal_root.iterdir()
+                if day_dir.is_dir() and re.match(r"^\d{8}$", day_dir.name)
+            ]
+        )
+
+    if re.match(r"^\d{8}$", day_spec):
+        return [day_spec]
+
+    if re.match(r"^\d{8}-\d{8}$", day_spec):
+        start_str, end_str = day_spec.split("-", 1)
+        start = datetime.strptime(start_str, "%Y%m%d")
+        end = datetime.strptime(end_str, "%Y%m%d")
+        if start > end:
+            raise ValueError("Invalid day format: start day must be on or before end day")
+
+        days = []
+        current = start
+        while current <= end:
+            days.append(current.strftime("%Y%m%d"))
+            current += timedelta(days=1)
+        return days
+
+    raise ValueError("Invalid day format: use YYYYMMDD or YYYYMMDD-YYYYMMDD")
+
+
+def _query_remote_segments(
+    session: requests.Session,
+    base_url: str,
+    day: str,
+) -> dict[str, dict[str, str]]:
+    """Query remote observer for existing segments on a day."""
+    url = f"{base_url}/app/observer/ingest/segments/{day}"
+    try:
+        response = session.get(url, timeout=UPLOAD_TIMEOUT)
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                entry["key"]: {
+                    file_info["name"]: file_info["sha256"]
+                    for file_info in entry.get("files", [])
+                }
+                for entry in data
+                if entry.get("key")
+            }
+        if response.status_code == 401:
+            raise ValueError("Authentication failed: invalid or missing API key")
+        if response.status_code == 403:
+            raise ValueError("Authentication failed: observer revoked or disabled")
+        logger.warning(
+            f"Remote segment query failed for {day}: "
+            f"{response.status_code} {response.text}"
+        )
+    except requests.RequestException as e:
+        logger.warning(f"Remote segment query failed for {day}: {e}")
+
+    return {}
+
+
+def _upload_segment(
+    session: requests.Session,
+    base_url: str,
+    day: str,
+    segment_key: str,
+    stream_name: str,
+    segment_path: Path,
+) -> tuple[str, int]:
+    """Upload a single segment to the remote observer."""
+    files = [
+        file_path
+        for file_path in sorted(segment_path.iterdir())
+        if file_path.is_file() and file_path.name != "stream.json"
+    ]
+    if not files:
+        return ("skip", 0)
+
+    url = f"{base_url}/app/observer/ingest"
+    data = {
+        "day": day,
+        "segment": segment_key,
+        "meta": json.dumps({"stream": stream_name}),
+    }
+
+    for attempt, delay in enumerate(RETRY_BACKOFF):
+        file_handles = []
+        files_data = []
+        try:
+            for file_path in files:
+                fh = open(file_path, "rb")
+                file_handles.append(fh)
+                files_data.append(
+                    ("files", (file_path.name, fh, "application/octet-stream"))
+                )
+
+            response = session.post(
+                url,
+                data=data,
+                files=files_data,
+                timeout=UPLOAD_TIMEOUT,
+            )
+            if response.status_code == 200:
+                status = response.json().get("status")
+                if status == "duplicate":
+                    return ("duplicate", 0)
+                return ("sent", response.json().get("bytes", 0))
+            if response.status_code == 401:
+                return ("auth_invalid", 0)
+            if response.status_code == 403:
+                return ("auth_revoked", 0)
+            if 500 <= response.status_code <= 599:
+                logger.warning(
+                    f"Upload attempt {attempt + 1} failed for "
+                    f"{day}/{stream_name}/{segment_key}: "
+                    f"{response.status_code} {response.text}"
+                )
+            else:
+                logger.warning(
+                    f"Upload rejected for {day}/{stream_name}/{segment_key}: "
+                    f"{response.status_code} {response.text}"
+                )
+                return ("error", 0)
+        except (requests.RequestException, OSError) as e:
+            logger.warning(
+                f"Upload attempt {attempt + 1} failed for "
+                f"{day}/{stream_name}/{segment_key}: {e}"
+            )
+        finally:
+            for fh in file_handles:
+                try:
+                    fh.close()
+                except Exception:
+                    pass
+
+        if attempt < len(RETRY_BACKOFF) - 1:
+            time.sleep(delay)
+
+    return ("error", 0)
+
+
+def send_segments(base_url: str, key: str, days: list[str], dry_run: bool) -> None:
+    """Send local journal segments to a remote observer."""
+    session = requests.Session()
+    session.headers["Authorization"] = f"Bearer {key}"
+
+    sent = 0
+    skipped = 0
+    failed = 0
+    bytes_total = 0
+    duplicates = 0
+
+    try:
+        journal = get_journal()
+        for day in days:
+            day_dir = Path(journal) / day
+            if not day_dir.exists():
+                logger.debug(f"Day directory not found: {day}")
+                continue
+
+            segment_entries = iter_segments(day_dir)
+            if not segment_entries:
+                continue
+
+            try:
+                remote_manifest = _query_remote_segments(session, base_url, day)
+            except ValueError as e:
+                print(str(e))
+                return
+
+            for stream_name, seg_key, seg_path in segment_entries:
+                manifest = _build_segment_manifest(seg_path)
+                local_files = {
+                    file_info["name"]: file_info["sha256"]
+                    for file_info in manifest["files"]
+                    if file_info["name"] != "stream.json"
+                }
+                remote_files = remote_manifest.get(seg_key, {})
+                if all(
+                    remote_files.get(name) == sha256
+                    for name, sha256 in local_files.items()
+                ):
+                    logger.info(f"  [skip] {day}/{stream_name}/{seg_key}")
+                    skipped += 1
+                    continue
+
+                if dry_run:
+                    logger.info(f"  [would send] {day}/{stream_name}/{seg_key}")
+                    sent += 1
+                    continue
+
+                status, bytes_sent = _upload_segment(
+                    session,
+                    base_url,
+                    day,
+                    seg_key,
+                    stream_name,
+                    seg_path,
+                )
+                if status == "sent":
+                    logger.info(
+                        f"  [sent] {day}/{stream_name}/{seg_key} ({bytes_sent} bytes)"
+                    )
+                    sent += 1
+                    bytes_total += bytes_sent
+                elif status == "duplicate":
+                    logger.info(f"  [skip] {day}/{stream_name}/{seg_key}")
+                    skipped += 1
+                    duplicates += 1
+                elif status == "skip":
+                    logger.info(f"  [skip] {day}/{stream_name}/{seg_key}")
+                    skipped += 1
+                elif status == "auth_invalid":
+                    print("Authentication failed: invalid or missing API key")
+                    return
+                elif status == "auth_revoked":
+                    print("Authentication failed: observer revoked or disabled")
+                    return
+                else:
+                    logger.info(f"  [FAILED] {day}/{stream_name}/{seg_key}")
+                    failed += 1
+    finally:
+        session.close()
+
+    total = sent + skipped + failed
+    if total == 0:
+        print("No segments found to transfer")
+        return
+
+    if dry_run:
+        print(f"\nDry run: would send {sent}, skip {skipped}")
+        return
+
+    print(
+        f"\nTransfer complete: {sent} sent, {skipped} skipped, "
+        f"{failed} failed, {bytes_total} bytes transferred"
+    )
+    if duplicates > 0:
+        print(f"  ({duplicates} duplicate segments already on remote)")
+    if sent == 0 and skipped > 0 and failed == 0:
+        print("Nothing to send - remote is up to date")
+
+
 def main() -> None:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -399,6 +660,30 @@ def main() -> None:
         help="Validate archive without extracting",
     )
 
+    # Send subcommand
+    send_parser = subparsers.add_parser(
+        "send", help="Send segments to remote observer"
+    )
+    send_parser.add_argument(
+        "--to",
+        required=True,
+        help="Remote observer URL (host:port or https://...)",
+    )
+    send_parser.add_argument(
+        "--key",
+        required=True,
+        help="Observer API key for authentication",
+    )
+    send_parser.add_argument(
+        "--day",
+        help="Day or range (YYYYMMDD or YYYYMMDD-YYYYMMDD, default: all days)",
+    )
+    send_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be sent without uploading",
+    )
+
     args = setup_cli(parser)
 
     if args.command == "export":
@@ -431,3 +716,12 @@ def main() -> None:
                     print(f"  Would deconflict: {len(v['deconflicted'])} segments")
         except ValueError as e:
             parser.error(str(e))
+
+    elif args.command == "send":
+        base_url = _normalize_url(args.to)
+        journal = get_journal()
+        try:
+            days = _parse_day_spec(args.day, Path(journal))
+        except ValueError as e:
+            parser.error(str(e))
+        send_segments(base_url, args.key, days, args.dry_run)
