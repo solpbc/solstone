@@ -3,7 +3,7 @@
 
 """CLI commands for the agent identity system.
 
-Auto-discovered by ``think.call`` and mounted as ``sol call agent ...``.
+Auto-discovered by ``think.call`` and mounted as ``sol call sol ...``.
 """
 
 import json

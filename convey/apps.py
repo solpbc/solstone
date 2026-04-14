@@ -290,6 +290,20 @@ def register_app_context(app: Flask, registry: AppRegistry) -> None:
         config = load_convey_config()
         apps_dict = apply_app_order(apps_dict, config)
 
+        # Override sol label if agent has a chosen name
+        if "sol" in apps_dict:
+            try:
+                from think.utils import get_config as _get_journal_config
+
+                journal_config = _get_journal_config()
+                agent_block = journal_config.get("agent", {})
+                if agent_block.get("name_status") in ("chosen", "self-named"):
+                    agent_name = agent_block.get("name", "").strip()
+                    if agent_name:
+                        apps_dict["sol"]["label"] = agent_name
+            except Exception:
+                pass  # Keep default label on any error
+
         # Get starred apps list
         starred_apps = config.get("apps", {}).get("starred", [])
 

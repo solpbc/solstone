@@ -1743,7 +1743,7 @@ class TestFormatLogs:
 
         assert len(chunks) == 1
         assert (
-            "**Agent:** [1765870373972](/app/agents/1765870373972)"
+            "**Agent:** [1765870373972](/app/sol/1765870373972)"
             in chunks[0]["markdown"]
         )
 

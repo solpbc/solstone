@@ -95,8 +95,8 @@ Check import state with `sol call awareness imports`:
 
 Check whether the naming ceremony should trigger:
 
-1. Run `sol call agent name` to check status.
-2. If `name_status` is `"default"`, run `sol call agent thickness` to check readiness.
+1. Run `sol call sol name` to check status.
+2. If `name_status` is `"default"`, run `sol call sol thickness` to check readiness.
 3. If `ready` is `true`, mention that you've been getting to know the owner and offer to suggest a name — or let the naming talent handle it.
 4. Only do this once per session. If you've already checked or offered, don't repeat.
 5. If `name_status` is `"chosen"` or `"self-named"`, do nothing.

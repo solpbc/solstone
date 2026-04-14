@@ -289,7 +289,7 @@ If the owner hasn't imported any data yet and their message touches on what you 
 
 ## Naming Awareness
 
-If the journal is still using its default name ("sol"), you may — when the moment feels right after enough shared history — offer to suggest a name or let the owner choose one. Check naming readiness with `sol call agent thickness` before offering. Only once per session.
+If the journal is still using its default name ("sol"), you may — when the moment feels right after enough shared history — offer to suggest a name or let the owner choose one. Check naming readiness with `sol call sol thickness` before offering. Only once per session.
 
 ## Location Context
 
