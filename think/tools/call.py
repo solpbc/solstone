@@ -981,3 +981,83 @@ def storage_summary(
         f"{summary.segments_with_raw} with raw media, "
         f"{summary.segments_purged} purged"
     )
+
+
+@app.command("merge")
+def journal_merge(
+    source: str = typer.Argument(
+        help="Path to source journal directory to merge from."
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show what would be merged without making changes.",
+    ),
+) -> None:
+    """Merge segments, entities, facets, and imports from a source journal."""
+    from think.tools.journal_merge import merge_journals
+
+    source_path = Path(source).resolve()
+
+    if not source_path.is_dir():
+        typer.echo(f"Error: '{source}' is not a directory.", err=True)
+        raise typer.Exit(1)
+
+    import re
+
+    has_day = any(
+        entry.is_dir() and re.match(r"^\d{8}$", entry.name)
+        for entry in source_path.iterdir()
+    )
+    if not has_day:
+        typer.echo(
+            f"Error: '{source}' does not appear to be a journal (no YYYYMMDD directories found).",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    summary = merge_journals(source_path, dry_run=dry_run)
+
+    action = "Would merge" if dry_run else "Merged"
+    typer.echo(f"\n{action}:")
+    typer.echo(
+        f"  Segments: {summary.segments_copied} copied, {summary.segments_skipped} skipped, {summary.segments_errored} errored"
+    )
+    typer.echo(
+        f"  Entities: {summary.entities_created} created, {summary.entities_merged} merged, {summary.entities_skipped} skipped"
+    )
+    typer.echo(
+        f"  Facets: {summary.facets_created} created, {summary.facets_merged} merged"
+    )
+    typer.echo(
+        f"  Imports: {summary.imports_copied} copied, {summary.imports_skipped} skipped"
+    )
+
+    if summary.errors:
+        typer.echo(f"\n{len(summary.errors)} errors:")
+        for error in summary.errors:
+            typer.echo(f"  - {error}")
+
+    if not dry_run:
+        subprocess.run(
+            ["sol", "indexer", "--rescan-full"],
+            check=False,
+            capture_output=True,
+        )
+
+        log_call_action(
+            facet=None,
+            action="journal_merge",
+            params={
+                "source": str(source_path),
+                "segments_copied": summary.segments_copied,
+                "entities_created": summary.entities_created,
+                "entities_merged": summary.entities_merged,
+                "facets_created": summary.facets_created,
+                "facets_merged": summary.facets_merged,
+                "imports_copied": summary.imports_copied,
+                "errors": len(summary.errors),
+            },
+        )
+
+        typer.echo("Index rebuild started.")
