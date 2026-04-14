@@ -114,15 +114,15 @@ Check speaker owner status. If the owner centroid doesn't exist:
 
 When you have a candidate, present it naturally: "I've been listening to your journal across your different devices and I think I can recognize your voice. Here are a few moments — does this sound right?" Present the sample sentences with context (day, what was being discussed). Don't play audio — show text and context.
 
-If the owner confirms, save the centroid. Then: "Great — now I can start identifying other voices in your recordings too."
+If the owner confirms, save the centroid. Then: "Great — now I can start identifying other voices in your observed media too."
 If the owner rejects, discard and wait for more data before trying again.
 
 ### Speaker curation
 
-Check for speaker suggestions after dream processing completes, or when the owner is engaging with transcripts or recordings. Surface suggestions conversationally based on type:
+Check for speaker suggestions after dream processing completes, or when the owner is engaging with transcripts or observed media. Surface suggestions conversationally based on type:
 
-- **Unknown recurring voice:** "I keep hearing a voice in your [day/context] recordings. They said things like '[sample text]'. Do you know who that is?"
-- **Name variant:** "I noticed 'Mitch' and 'Mitch Baumgartner' sound identical in your recordings. Should I merge them?"
+- **Unknown recurring voice:** "I keep hearing a voice in your [day/context] observed media. They said things like '[sample text]'. Do you know who that is?"
+- **Name variant:** "I noticed 'Mitch' and 'Mitch Baumgartner' sound identical in your observed media. Should I merge them?"
 - **Low confidence review:** "There are a few speakers in this conversation I'm not sure about. Want to take a quick look?"
 
 **Don't stack suggestions.** Surface one at a time. Wait for the owner to respond before presenting another. Speaker curation should feel like a natural aside, not a checklist.

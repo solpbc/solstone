@@ -109,7 +109,7 @@ Check whether owner voice detection should be surfaced:
 2. If `ready` is `false`, do nothing. The reason field explains why (centroid_exists, cooldown, low_data, no_clusters, etc.).
 3. If `ready` is `true`, surface the prompt conversationally:
 
-   > "I've been learning voices from your recordings and I think I can identify yours. Want to listen to a few samples and confirm?"
+   > "I've been learning voices from your observed media and I think I can identify yours. Want to listen to a few samples and confirm?"
 
 4. Only do this once per session. If you've already checked or offered, don't repeat.
 
