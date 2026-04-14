@@ -1,6 +1,8 @@
 ## system
 - [ ] 2026-04-14 agent failure: `timeline` (1776181033217) timed out (600s) at 09:37.
 - [ ] 2026-04-14 agent failure: `heartbeat` (1776147807132) timed out (600s) at 00:23.
+- [ ] 2026-04-14 agent failure: `morning_briefing` (1776185087683) timed out (600s) at 10:44.
+- [ ] 2026-04-14 agent failure: `entities:entities` (1776183145622, solstone) timed out (337s) at 10:12.
 - [x] 2026-04-13 persistent `convey` 401 Unauthorized errors during ingest. Resolved 2026-04-14.
 - [x] 2026-04-13 recurring `pulse` failures. Resolved 2026-04-14.
 - [x] 2026-04-13 agent failure: `joke_bot` (1776062390957) failed with `BrokenPipeError`. Resolved 2026-04-14.
