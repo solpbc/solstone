@@ -7,7 +7,11 @@
   "color": "#0d47a1",
   "schedule": "daily",
   "priority": 40,
-  "multi_facet": true
+  "multi_facet": true,
+  "load": {
+    "agents": True,
+    "journal": True
+  }
 }
 
 $sol_identity

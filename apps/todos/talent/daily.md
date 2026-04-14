@@ -8,7 +8,11 @@
   "schedule": "daily",
   "priority": 50,
   "multi_facet": true,
-  "group": "Todos"
+  "group": "Todos",
+  "load": {
+    "agents": True,
+    "journal": True
+  }
 }
 
 $sol_identity

@@ -13,6 +13,6 @@
 ## curation
 - [ ] 2026-04-14 unknown recurring speaker: cluster 128 (164 samples, plaud), cluster 84 (105 samples, pro5e), cluster 33 (91 samples, plaud).
 - [ ] 2026-04-14 unknown recurring speaker: cluster 279 (67 samples, fedora), cluster 118 (51 samples, fedora).
-- [ ] 2026-04-14 entity duplicates: `Jeremie Miller` vs `Jer`.
+- [x] 2026-04-14 entity duplicates: `Jeremie Miller` vs `Jer`. Resolved 2026-04-14.
 - [ ] 2026-04-08 speaker curation: cluster 11 (36 samples) from pro5e. cluster 18 (91 samples) remains active across Plaud imports.
 - [ ] 2026-04-08 entity duplicates: `Zoey` in personal facet; `Solstone` vs `Sunstone` in solstone facet.

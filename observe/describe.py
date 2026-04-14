@@ -307,12 +307,18 @@ class VideoProcessor:
                     f"{len(self.qualified_frames)} qualified"
                 )
 
+        except av.error.InvalidDataError as e:
+            logger.error(
+                f"Invalid video data error for {self.video_path}: {e}. Skipping video.",
+                exc_info=True
+            )
+            return []
         except Exception as e:
             logger.error(
-                f"Error processing video {self.video_path}: {e}", exc_info=True
+                f"Unexpected error processing video {self.video_path}: {e}",
+                exc_info=True
             )
             raise
-
         return self.qualified_frames
 
     def _dhash(self, img: Image.Image) -> int:

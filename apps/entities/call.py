@@ -13,12 +13,7 @@ from pathlib import Path
 import typer
 
 from think.entities.core import entity_slug, is_valid_entity_type
-from think.entities.journal import (
-    get_or_create_journal_entity,
-    load_journal_entity,
-    save_journal_entity,
-)
-from think.entities.loading import load_entities
+from think.entities.loading import clear_entity_loading_cache, load_entities
 from think.entities.matching import resolve_entity, validate_aka_uniqueness
 from think.entities.observations import (
     add_observation,
@@ -26,9 +21,16 @@ from think.entities.observations import (
     save_observations,
 )
 from think.entities.relationships import (
+    clear_relationship_caches,
     entity_memory_path,
     load_facet_relationship,
     save_facet_relationship,
+)
+from think.entities.journal import (
+    clear_journal_entity_cache,
+    get_or_create_journal_entity,
+    load_journal_entity,
+    save_journal_entity,
 )
 from think.entities.saving import (
     save_detected_entity,
@@ -44,14 +46,13 @@ from think.utils import get_journal, now_ms, resolve_sol_day, resolve_sol_facet
 
 app = typer.Typer(help="Entity management.")
 
-# Simple in-memory cache for entity and observation loading
-ENTITY_CACHE = {}
-OBSERVATION_CACHE = {}
 
-def clear_entity_caches():
-    """Clears the entity and observation caches."""
-    ENTITY_CACHE.clear()
-    OBSERVATION_CACHE.clear()
+def _clear_all_caches():
+    """Clear all underlying think entity caches."""
+    clear_entity_loading_cache()
+    clear_relationship_caches()
+    clear_journal_entity_cache()
+
 
 def _resolve_or_exit(facet: str, entity: str) -> dict:
     """Resolve entity or exit with CLI error."""
@@ -96,20 +97,7 @@ def list_entities(
 ) -> None:
     """List entities for a facet."""
     facet = resolve_sol_facet(facet)
-    
-    # Use cache for attached entities (day is None)
-    if day is None:
-        cache_key = (facet, day, False, False) # Default values for include_detached, include_blocked
-        if cache_key in ENTITY_CACHE:
-            # print(f"Cache HIT: entities {cache_key}") # Debugging
-            entities = ENTITY_CACHE[cache_key]
-        else:
-            # print(f"Cache MISS: entities {cache_key}") # Debugging
-            entities = load_entities(facet, day) # Original call
-            ENTITY_CACHE[cache_key] = entities
-    else:
-        # No caching for detected entities (day is provided)
-        entities = load_entities(facet, day) 
+    entities = load_entities(facet, day)
 
     if not entities:
         typer.echo("No entities found.")
@@ -164,20 +152,8 @@ def move_entity(
         if src_relationship is not None and dst_relationship is None:
             save_facet_relationship(to_facet, entity_id, src_relationship)
 
-        # Use cache for observations
-        cache_key_src = (from_facet, entity_name)
-        if cache_key_src in OBSERVATION_CACHE:
-            src_obs = OBSERVATION_CACHE[cache_key_src]
-        else:
-            src_obs = load_observations(from_facet, entity_name)
-            OBSERVATION_CACHE[cache_key_src] = src_obs
-            
-        cache_key_dst = (to_facet, entity_name)
-        if cache_key_dst in OBSERVATION_CACHE:
-            dst_obs = OBSERVATION_CACHE[cache_key_dst]
-        else:
-            dst_obs = load_observations(to_facet, entity_name)
-            OBSERVATION_CACHE[cache_key_dst] = dst_obs
+        src_obs = load_observations(from_facet, entity_name)
+        dst_obs = load_observations(to_facet, entity_name)
             
         existing_keys = {(o["content"], o.get("observed_at")) for o in dst_obs}
         merged = list(dst_obs) + [
@@ -186,9 +162,6 @@ def move_entity(
             if (o["content"], o.get("observed_at")) not in existing_keys
         ]
         save_observations(to_facet, entity_name, merged)
-        # Invalidate cache for dst_obs as it has been updated
-        if cache_key_dst in OBSERVATION_CACHE:
-            del OBSERVATION_CACHE[cache_key_dst]
 
         shutil.rmtree(str(src_dir))
     else:
@@ -413,15 +386,7 @@ def add_aka(
         return
 
     # Validate uniqueness across all entities in facet
-    # Use cache for load_entities call
-    cache_key = (facet, None, True, True) # Equivalent to day=None, include_detached=True, include_blocked=True
-    if cache_key in ENTITY_CACHE:
-        # print(f"Cache HIT: entities for aka uniqueness check {cache_key}") # Debugging
-        entities = ENTITY_CACHE[cache_key]
-    else:
-        # print(f"Cache MISS: entities for aka uniqueness check {cache_key}") # Debugging
-        entities = load_entities(facet, day=None, include_detached=True, include_blocked=True)
-        ENTITY_CACHE[cache_key] = entities
+    entities = load_entities(facet, day=None, include_detached=True, include_blocked=True)
 
     conflict = validate_aka_uniqueness(
         aka_value, entities, exclude_entity_name=resolved_name
@@ -461,16 +426,7 @@ def list_observations(
     facet = resolve_sol_facet(facet)
     resolved = _resolve_or_exit(facet, entity)
     resolved_name = resolved.get("name", "")
-    
-    # Use cache for observations
-    cache_key = (facet, resolved_name)
-    if cache_key in OBSERVATION_CACHE:
-        # print(f"Cache HIT: observations {cache_key}") # Debugging
-        obs = OBSERVATION_CACHE[cache_key]
-    else:
-        # print(f"Cache MISS: observations {cache_key}") # Debugging
-        obs = load_observations(facet, resolved_name)
-        OBSERVATION_CACHE[cache_key] = obs
+    obs = load_observations(facet, resolved_name)
 
     if not obs:
         typer.echo(f"No observations for '{resolved_name}'.")
@@ -497,13 +453,6 @@ def observe_entity(
 
     try:
         add_observation(facet, resolved_name, content, source_day)
-        
-        # Invalidate cache for this observation to ensure fresh data on next read
-        cache_key = (facet, resolved_name)
-        if cache_key in OBSERVATION_CACHE:
-            del OBSERVATION_CACHE[cache_key]
-            # print(f"Cache INVALIDATED: observations {cache_key} after add_observation") # Debugging
-
     except ValueError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1)

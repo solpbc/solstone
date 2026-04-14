@@ -98,8 +98,10 @@ def require_login() -> Any:
         "app:observer.ingest_transfer",
         "app:observer.ingest_manifest",
         "app:observer.ingest_manifest_day",
-        # Journal-source manifest endpoints use key-based auth, not session
+        # Journal-source manifest and ingest endpoints use key-based auth, not session
         "app:import.journal_source_manifest",
+        "app:import.ingest_segments",
+        "app:import.ingest_entities",
     }:
         return None
 
