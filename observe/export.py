@@ -27,8 +27,9 @@ from observe.transfer import (
     _normalize_url,
     _parse_day_spec,
 )
-from think.utils import get_journal, iter_segments, setup_cli
 from think.entities.journal import load_all_journal_entities
+from think.importers.sync import SYNCABLE_REGISTRY
+from think.utils import get_config, get_journal, iter_segments, setup_cli
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,17 @@ _FACET_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 _DAY_RE = re.compile(r"^\d{8}$")
 _DAY_JSONL_RE = re.compile(r"^\d{8}\.jsonl$")
 _DAY_MD_RE = re.compile(r"^\d{8}\.md$")
+_IMPORT_ID_RE = re.compile(r"^\d{8}_\d{6}$")
+_NEVER_TRANSFER_PATHS = frozenset(
+    {
+        "convey.password_hash",
+        "convey.secret",
+        "setup.completed_at",
+        "providers.auth",
+        "providers.key_validation",
+        "transcribe.whisper.device",
+    }
+)
 
 
 def _query_manifest(
@@ -188,6 +200,26 @@ def _classify_facet_file(relative: PurePosixPath) -> str | None:
         return "logs"
 
     return None
+
+
+def _strip_never_transfer(config: dict) -> dict:
+    """Return a deep copy of config with never-transfer fields removed."""
+    import copy as _copy
+
+    result = _copy.deepcopy(config)
+    for path in _NEVER_TRANSFER_PATHS:
+        parts = path.split(".")
+        obj = result
+        for part in parts[:-1]:
+            if isinstance(obj, dict) and part in obj:
+                obj = obj[part]
+            else:
+                break
+        else:
+            if isinstance(obj, dict):
+                obj.pop(parts[-1], None)
+    result.pop("env", None)
+    return result
 
 
 def export_segments(base_url: str, key: str, days: list[str], dry_run: bool) -> None:
@@ -613,6 +645,232 @@ def export_facets(base_url: str, key: str, dry_run: bool) -> None:
         session.close()
 
 
+def export_imports(base_url: str, key: str, dry_run: bool) -> None:
+    """Export import metadata to a remote solstone instance."""
+    session = requests.Session()
+    session.headers["Authorization"] = f"Bearer {key}"
+
+    try:
+        try:
+            remote_manifest = _query_manifest(session, base_url, key, area="imports")
+        except requests.ConnectionError:
+            print(f"Connection failed: could not reach {base_url}")
+            return
+        except ValueError as e:
+            print(str(e))
+            return
+
+        received = remote_manifest.get("received", {})
+
+        journal_root = Path(get_journal())
+        imports_dir = journal_root / "imports"
+        if not imports_dir.is_dir():
+            print("No imports directory found")
+            return
+
+        sync_state_names = {f"{name}.json" for name in SYNCABLE_REGISTRY}
+
+        to_send = []
+        new_count = 0
+        changed_count = 0
+        unchanged_count = 0
+
+        for entry in sorted(imports_dir.iterdir()):
+            if entry.is_file() and entry.name in sync_state_names:
+                continue
+            if not entry.is_dir():
+                continue
+            if not _IMPORT_ID_RE.match(entry.name):
+                continue
+
+            import_id = entry.name
+            import_json_path = entry / "import.json"
+            imported_json_path = entry / "imported.json"
+            manifest_path = entry / "content_manifest.jsonl"
+
+            if not import_json_path.exists() or not imported_json_path.exists():
+                continue
+
+            try:
+                import_json = json.loads(import_json_path.read_text(encoding="utf-8"))
+                imported_json = json.loads(
+                    imported_json_path.read_text(encoding="utf-8")
+                )
+                content_manifest = []
+                if manifest_path.exists():
+                    for line in manifest_path.read_text(encoding="utf-8").splitlines():
+                        line = line.strip()
+                        if line:
+                            content_manifest.append(json.loads(line))
+            except (json.JSONDecodeError, OSError) as exc:
+                logger.warning("Failed to read import %s: %s", import_id, exc)
+                continue
+
+            hash_input = json.dumps(
+                {
+                    "import_json": import_json,
+                    "imported_json": imported_json,
+                    "content_manifest": content_manifest,
+                },
+                sort_keys=True,
+                ensure_ascii=False,
+            ).encode()
+            content_hash = hashlib.sha256(hash_input).hexdigest()
+
+            if received.get(import_id) == content_hash:
+                unchanged_count += 1
+                continue
+
+            if import_id in received:
+                changed_count += 1
+            else:
+                new_count += 1
+
+            to_send.append(
+                {
+                    "id": import_id,
+                    "import_json": import_json,
+                    "imported_json": imported_json,
+                    "content_manifest": content_manifest,
+                }
+            )
+
+        if dry_run:
+            print(
+                f"Dry run: {new_count} new, {changed_count} changed, "
+                f"{unchanged_count} unchanged"
+            )
+            return
+
+        if not to_send:
+            print("Nothing to send - remote imports are up to date")
+            return
+
+        key_prefix = key[:8]
+        url = f"{base_url}/app/import/journal/{key_prefix}/ingest/imports"
+        for attempt, delay in enumerate(RETRY_BACKOFF):
+            try:
+                response = session.post(
+                    url, json={"imports": to_send}, timeout=UPLOAD_TIMEOUT
+                )
+                if response.status_code == 200:
+                    break
+                if response.status_code == 401:
+                    print("Authentication failed: invalid or missing API key")
+                    return
+                if response.status_code == 403:
+                    print("Authentication failed: journal source revoked or disabled")
+                    return
+                if 500 <= response.status_code <= 599:
+                    logger.warning(
+                        "Import upload attempt %s failed: %s %s",
+                        attempt + 1,
+                        response.status_code,
+                        response.text,
+                    )
+                else:
+                    print(
+                        f"Import upload failed: {response.status_code} {response.text}"
+                    )
+                    return
+            except (requests.RequestException, OSError) as e:
+                logger.warning("Import upload attempt %s failed: %s", attempt + 1, e)
+            if attempt < len(RETRY_BACKOFF) - 1:
+                time.sleep(delay)
+        else:
+            print("Import upload failed after all retries")
+            return
+
+        result = response.json()
+        errors = result.get("errors", [])
+        if errors:
+            for err in errors:
+                print(f"  Error: {err}")
+        print(
+            f"\nExport complete: {result.get('copied', 0)} copied, "
+            f"{result.get('staged', 0)} staged, "
+            f"{result.get('skipped', 0)} skipped"
+        )
+        if errors:
+            print(f"  {len(errors)} error(s)")
+    finally:
+        session.close()
+
+
+def export_config(base_url: str, key: str, dry_run: bool) -> None:
+    """Export config snapshot to a remote solstone instance."""
+    session = requests.Session()
+    session.headers["Authorization"] = f"Bearer {key}"
+
+    try:
+        try:
+            remote_manifest = _query_manifest(session, base_url, key, area="config")
+        except requests.ConnectionError:
+            print(f"Connection failed: could not reach {base_url}")
+            return
+        except ValueError as e:
+            print(str(e))
+            return
+
+        config = _strip_never_transfer(get_config())
+        content_hash = hashlib.sha256(
+            json.dumps(config, sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest()
+
+        if remote_manifest.get("last_hash") == content_hash:
+            print("Nothing to send - remote config is up to date")
+            return
+
+        if dry_run:
+            print("Dry run: config has changed, would send snapshot")
+            return
+
+        key_prefix = key[:8]
+        url = f"{base_url}/app/import/journal/{key_prefix}/ingest/config"
+        for attempt, delay in enumerate(RETRY_BACKOFF):
+            try:
+                response = session.post(
+                    url, json={"config": config}, timeout=UPLOAD_TIMEOUT
+                )
+                if response.status_code == 200:
+                    break
+                if response.status_code == 401:
+                    print("Authentication failed: invalid or missing API key")
+                    return
+                if response.status_code == 403:
+                    print("Authentication failed: journal source revoked or disabled")
+                    return
+                if 500 <= response.status_code <= 599:
+                    logger.warning(
+                        "Config upload attempt %s failed: %s %s",
+                        attempt + 1,
+                        response.status_code,
+                        response.text,
+                    )
+                else:
+                    print(
+                        f"Config upload failed: {response.status_code} {response.text}"
+                    )
+                    return
+            except (requests.RequestException, OSError) as e:
+                logger.warning("Config upload attempt %s failed: %s", attempt + 1, e)
+            if attempt < len(RETRY_BACKOFF) - 1:
+                time.sleep(delay)
+        else:
+            print("Config upload failed after all retries")
+            return
+
+        result = response.json()
+        if result.get("staged"):
+            print(
+                f"\nExport complete: config staged ({result.get('diff_fields', 0)} fields differ)"
+            )
+        elif result.get("skipped"):
+            print("Nothing to send - remote config is up to date")
+    finally:
+        session.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Export journal data to a remote solstone instance"
@@ -630,7 +888,7 @@ def main() -> None:
     parser.add_argument(
         "--only",
         default=None,
-        help="Export only specific area (segments, entities, facets)",
+        help="Export only specific area (segments, entities, facets, imports, config)",
     )
     parser.add_argument(
         "--dry-run",
@@ -654,6 +912,14 @@ def main() -> None:
         export_facets(base_url, args.key, args.dry_run)
         return
 
+    if args.only == "imports":
+        export_imports(base_url, args.key, args.dry_run)
+        return
+
+    if args.only == "config":
+        export_config(base_url, args.key, args.dry_run)
+        return
+
     if args.only is not None and args.only != "segments":
         print(f"Export of '{args.only}' is not yet implemented")
         sys.exit(0)
@@ -663,3 +929,5 @@ def main() -> None:
     if args.only is None:
         export_entities(base_url, args.key, args.dry_run)
         export_facets(base_url, args.key, args.dry_run)
+        export_imports(base_url, args.key, args.dry_run)
+        export_config(base_url, args.key, args.dry_run)

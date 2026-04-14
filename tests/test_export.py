@@ -38,7 +38,9 @@ def _set_journal_override(monkeypatch, journal_path):
     think.utils._journal_path_cache = None
 
 
-def _make_session(*, manifest_data=None, get_status=200, post_status=200, post_json=None):
+def _make_session(
+    *, manifest_data=None, get_status=200, post_status=200, post_json=None
+):
     mock = MagicMock(spec=requests.Session)
     mock.headers = {}
 
@@ -140,6 +142,92 @@ def _facet_file_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _setup_imports(tmp_path):
+    """Create test import metadata dirs in journal fixture."""
+    imports_dir = tmp_path / "imports"
+    imports_dir.mkdir(parents=True, exist_ok=True)
+
+    dir1 = imports_dir / "20260101_090000"
+    dir1.mkdir()
+    import_json_1 = {"original_filename": "cal.zip", "file_size": 100}
+    imported_json_1 = {
+        "processed_timestamp": "20260101_090000",
+        "total_files_created": 1,
+    }
+    manifest_1 = [{"id": "event-0", "title": "Test Event"}]
+    (dir1 / "import.json").write_text(json.dumps(import_json_1), encoding="utf-8")
+    (dir1 / "imported.json").write_text(json.dumps(imported_json_1), encoding="utf-8")
+    (dir1 / "content_manifest.jsonl").write_text(
+        json.dumps(manifest_1[0]) + "\n", encoding="utf-8"
+    )
+
+    dir2 = imports_dir / "20260102_100000"
+    dir2.mkdir()
+    import_json_2 = {"original_filename": "chat.zip", "file_size": 200}
+    imported_json_2 = {
+        "processed_timestamp": "20260102_100000",
+        "total_files_created": 2,
+    }
+    manifest_2 = [{"id": "conv-0", "title": "Test Convo"}]
+    (dir2 / "import.json").write_text(json.dumps(import_json_2), encoding="utf-8")
+    (dir2 / "imported.json").write_text(json.dumps(imported_json_2), encoding="utf-8")
+    (dir2 / "content_manifest.jsonl").write_text(
+        json.dumps(manifest_2[0]) + "\n", encoding="utf-8"
+    )
+
+    (imports_dir / "plaud.json").write_text('{"last_sync": 123}', encoding="utf-8")
+
+    source_dir = imports_dir / "abcd1234"
+    source_dir.mkdir()
+    (source_dir / "segments").mkdir()
+
+    return {
+        "20260101_090000": {
+            "import_json": import_json_1,
+            "imported_json": imported_json_1,
+            "content_manifest": manifest_1,
+        },
+        "20260102_100000": {
+            "import_json": import_json_2,
+            "imported_json": imported_json_2,
+            "content_manifest": manifest_2,
+        },
+    }
+
+
+def _import_hash(import_data):
+    """Compute hash matching export_imports algorithm."""
+    hash_input = json.dumps(
+        {
+            "import_json": import_data["import_json"],
+            "imported_json": import_data["imported_json"],
+            "content_manifest": import_data["content_manifest"],
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+    ).encode()
+    return hashlib.sha256(hash_input).hexdigest()
+
+
+def _setup_config(tmp_path):
+    """Create test config in journal fixture."""
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config = {
+        "identity": {"name": "Test", "preferred": "Tester", "timezone": "UTC"},
+        "convey": {
+            "password_hash": "secret_hash",
+            "secret": "secret_val",
+            "trust_localhost": True,
+        },
+        "setup": {"completed_at": 12345},
+        "env": {"KEY": "val"},
+        "retention": {"days": 30},
+    }
+    (config_dir / "journal.json").write_text(json.dumps(config), encoding="utf-8")
+    return config
+
+
 class TestExportSegments:
     def test_manifest_query_and_delta(self, tmp_path, monkeypatch):
         from observe.export import export_segments
@@ -168,7 +256,9 @@ class TestExportSegments:
         mock_session = _make_session(manifest_data=manifest_data)
 
         with patch("observe.export.requests.Session", return_value=mock_session):
-            export_segments("https://example.com", "test-key", ["20260413"], dry_run=False)
+            export_segments(
+                "https://example.com", "test-key", ["20260413"], dry_run=False
+            )
 
         assert mock_session.post.call_count == 1
         metadata = json.loads(mock_session.post.call_args.kwargs["data"]["metadata"])
@@ -183,7 +273,9 @@ class TestExportSegments:
         mock_session = _make_session(manifest_data={})
 
         with patch("observe.export.requests.Session", return_value=mock_session):
-            export_segments("https://example.com", "test-key", ["20260413"], dry_run=True)
+            export_segments(
+                "https://example.com", "test-key", ["20260413"], dry_run=True
+            )
 
         assert mock_session.post.call_count == 0
         output = capsys.readouterr().out
@@ -217,7 +309,9 @@ class TestExportSegments:
         mock_session = _make_session(manifest_data=manifest_data)
 
         with patch("observe.export.requests.Session", return_value=mock_session):
-            export_segments("https://example.com", "test-key", ["20260413"], dry_run=True)
+            export_segments(
+                "https://example.com", "test-key", ["20260413"], dry_run=True
+            )
 
         assert mock_session.post.call_count == 0
         output = capsys.readouterr().out
@@ -251,7 +345,9 @@ class TestExportSegments:
             patch("observe.export.requests.Session", return_value=mock_session),
             patch("observe.export.time.sleep") as mock_sleep,
         ):
-            export_segments("https://example.com", "test-key", ["20260413"], dry_run=False)
+            export_segments(
+                "https://example.com", "test-key", ["20260413"], dry_run=False
+            )
 
         assert mock_session.post.call_count == 3
         assert mock_sleep.called
@@ -282,7 +378,9 @@ class TestExportSegments:
         mock_session.get.side_effect = requests.ConnectionError
 
         with patch("observe.export.requests.Session", return_value=mock_session):
-            export_segments("https://example.com", "test-key", ["20260413"], dry_run=False)
+            export_segments(
+                "https://example.com", "test-key", ["20260413"], dry_run=False
+            )
 
         assert mock_session.post.call_count == 0
         assert "Connection failed" in capsys.readouterr().out
@@ -328,7 +426,9 @@ class TestExportSegments:
         mock_session = _make_session(manifest_data=manifest_data)
 
         with patch("observe.export.requests.Session", return_value=mock_session):
-            export_segments("https://example.com", "test-key", ["20260413"], dry_run=False)
+            export_segments(
+                "https://example.com", "test-key", ["20260413"], dry_run=False
+            )
 
         assert mock_session.post.call_count == 0
         assert "up to date" in capsys.readouterr().out
@@ -351,7 +451,9 @@ class TestExportSegments:
         mock_session.post.side_effect = [first, second]
 
         with patch("observe.export.requests.Session", return_value=mock_session):
-            export_segments("https://example.com", "test-key", ["20260413"], dry_run=False)
+            export_segments(
+                "https://example.com", "test-key", ["20260413"], dry_run=False
+            )
 
         assert mock_session.post.call_count == 2
         output = capsys.readouterr().out
@@ -367,7 +469,9 @@ class TestExportSegments:
         mock_session = _make_session(manifest_data={})
 
         with patch("observe.export.requests.Session", return_value=mock_session):
-            export_segments("https://example.com", "test-key", ["20260413"], dry_run=False)
+            export_segments(
+                "https://example.com", "test-key", ["20260413"], dry_run=False
+            )
 
         for call in mock_session.post.call_args_list:
             post_kwargs = call.kwargs
@@ -572,7 +676,9 @@ class TestExportFacets:
         _set_journal_override(monkeypatch, tmp_path)
 
         post_json = {"created": 1, "merged": 0, "skipped": 0, "staged": 0, "errors": []}
-        mock_session = _make_session(manifest_data={"received": {}}, post_json=post_json)
+        mock_session = _make_session(
+            manifest_data={"received": {}}, post_json=post_json
+        )
 
         with patch("observe.export.requests.Session", return_value=mock_session):
             export_facets("https://example.com", "test-key", dry_run=False)
@@ -616,8 +722,14 @@ class TestExportFacets:
                 {
                     "name": "work",
                     "files": [
-                        {"path": "entities/20260413.jsonl", "type": "detected_entities"},
-                        {"path": "entities/alice/entity.json", "type": "entity_relationship"},
+                        {
+                            "path": "entities/20260413.jsonl",
+                            "type": "detected_entities",
+                        },
+                        {
+                            "path": "entities/alice/entity.json",
+                            "type": "entity_relationship",
+                        },
                         {
                             "path": "entities/alice/observations.jsonl",
                             "type": "entity_observations",
@@ -662,7 +774,10 @@ class TestExportFacets:
         assert metadata["facets"][0]["name"] == "work"
         assert metadata["facets"][0]["files"] == [
             {"path": "entities/20260413.jsonl", "type": "detected_entities"},
-            {"path": "entities/alice/observations.jsonl", "type": "entity_observations"},
+            {
+                "path": "entities/alice/observations.jsonl",
+                "type": "entity_observations",
+            },
             {"path": "todos/20260413.jsonl", "type": "todos"},
         ]
 
@@ -681,7 +796,9 @@ class TestExportFacets:
         output = capsys.readouterr().out
         assert "personal: 2 new, 0 changed, 0 unchanged" in output
         assert "work: 5 new, 0 changed, 0 unchanged" in output
-        assert "Dry run: 7 new files, 0 changed, 0 unchanged across 2 facet(s)" in output
+        assert (
+            "Dry run: 7 new files, 0 changed, 0 unchanged across 2 facet(s)" in output
+        )
 
     def test_idempotent(self, tmp_path, monkeypatch, capsys):
         from observe.export import export_facets
@@ -696,7 +813,9 @@ class TestExportFacets:
             for file_path in sorted(facet_dir.rglob("*")):
                 if file_path.is_file():
                     rel_path = file_path.relative_to(facet_dir).as_posix()
-                    manifest_received[f"{facet_dir.name}/{rel_path}"] = _facet_file_hash(file_path)
+                    manifest_received[f"{facet_dir.name}/{rel_path}"] = (
+                        _facet_file_hash(file_path)
+                    )
         mock_session = _make_session(manifest_data={"received": manifest_received})
 
         with patch("observe.export.requests.Session", return_value=mock_session):
@@ -765,7 +884,9 @@ class TestExportFacets:
         _set_journal_override(monkeypatch, tmp_path)
 
         post_json = {"created": 1, "merged": 0, "skipped": 0, "staged": 0, "errors": []}
-        mock_session = _make_session(manifest_data={"received": {}}, post_json=post_json)
+        mock_session = _make_session(
+            manifest_data={"received": {}}, post_json=post_json
+        )
 
         with patch("observe.export.requests.Session", return_value=mock_session):
             export_facets("https://example.com", "test-key", dry_run=False)
@@ -783,21 +904,29 @@ class TestExportFacets:
         _setup_facets(tmp_path)
         events_dir = tmp_path / "facets" / "work" / "events"
         events_dir.mkdir(parents=True)
-        (events_dir / "20260413.jsonl").write_text('{"event": "ignored"}\n', encoding="utf-8")
+        (events_dir / "20260413.jsonl").write_text(
+            '{"event": "ignored"}\n', encoding="utf-8"
+        )
         _set_journal_override(monkeypatch, tmp_path)
 
         post_json = {"created": 1, "merged": 0, "skipped": 0, "staged": 0, "errors": []}
-        mock_session = _make_session(manifest_data={"received": {}}, post_json=post_json)
+        mock_session = _make_session(
+            manifest_data={"received": {}}, post_json=post_json
+        )
 
         with patch("observe.export.requests.Session", return_value=mock_session):
             export_facets("https://example.com", "test-key", dry_run=False)
 
         calls_by_facet = {
-            json.loads(call.kwargs["data"]["metadata"])["facets"][0]["name"]: call.kwargs
+            json.loads(call.kwargs["data"]["metadata"])["facets"][0][
+                "name"
+            ]: call.kwargs
             for call in mock_session.post.call_args_list
         }
         work_metadata = json.loads(calls_by_facet["work"]["data"]["metadata"])
-        uploaded_paths = [entry["path"] for entry in work_metadata["facets"][0]["files"]]
+        uploaded_paths = [
+            entry["path"] for entry in work_metadata["facets"][0]["files"]
+        ]
         assert "events/20260413.jsonl" not in uploaded_paths
 
     def test_response_errors_reported(self, tmp_path, monkeypatch, capsys):
@@ -813,7 +942,9 @@ class TestExportFacets:
             "staged": 0,
             "errors": [{"facet": "work", "error": "entity merge conflict"}],
         }
-        mock_session = _make_session(manifest_data={"received": {}}, post_json=post_json)
+        mock_session = _make_session(
+            manifest_data={"received": {}}, post_json=post_json
+        )
 
         with patch("observe.export.requests.Session", return_value=mock_session):
             export_facets("https://example.com", "test-key", dry_run=False)
@@ -821,3 +952,176 @@ class TestExportFacets:
         output = capsys.readouterr().out
         assert "entity merge conflict" in output
         assert "error" in output.lower()
+
+
+class TestExportImports:
+    def test_manifest_delta(self, tmp_path, monkeypatch):
+        from observe.export import export_imports
+
+        imports = _setup_imports(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        manifest_data = {
+            "received": {"20260101_090000": _import_hash(imports["20260101_090000"])}
+        }
+        post_json = {"copied": 1, "staged": 0, "skipped": 0, "errors": []}
+        mock_session = _make_session(manifest_data=manifest_data, post_json=post_json)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_imports("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 1
+        posted_data = mock_session.post.call_args.kwargs.get(
+            "json"
+        ) or mock_session.post.call_args[1].get("json")
+        posted_ids = [entry["id"] for entry in posted_data["imports"]]
+        assert posted_ids == ["20260102_100000"]
+
+    def test_dry_run(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_imports
+
+        _setup_imports(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        mock_session = _make_session(manifest_data={"received": {}})
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_imports("https://example.com", "test-key", dry_run=True)
+
+        assert mock_session.post.call_count == 0
+        output = capsys.readouterr().out
+        assert "2 new" in output
+        assert "0 changed" in output
+
+    def test_idempotent(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_imports
+
+        imports = _setup_imports(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        manifest_data = {
+            "received": {
+                import_id: _import_hash(import_data)
+                for import_id, import_data in imports.items()
+            }
+        }
+        mock_session = _make_session(manifest_data=manifest_data)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_imports("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 0
+        assert "up to date" in capsys.readouterr().out
+
+    def test_sync_state_excluded(self, tmp_path, monkeypatch):
+        from observe.export import export_imports
+
+        _setup_imports(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        mock_session = _make_session(
+            manifest_data={"received": {}},
+            post_json={"copied": 2, "staged": 0, "skipped": 0, "errors": []},
+        )
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_imports("https://example.com", "test-key", dry_run=False)
+
+        posted_data = mock_session.post.call_args.kwargs.get(
+            "json"
+        ) or mock_session.post.call_args[1].get("json")
+        posted_ids = {entry["id"] for entry in posted_data["imports"]}
+        assert "plaud.json" not in posted_ids
+
+    def test_source_dir_excluded(self, tmp_path, monkeypatch):
+        from observe.export import export_imports
+
+        _setup_imports(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        mock_session = _make_session(
+            manifest_data={"received": {}},
+            post_json={"copied": 2, "staged": 0, "skipped": 0, "errors": []},
+        )
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_imports("https://example.com", "test-key", dry_run=False)
+
+        posted_data = mock_session.post.call_args.kwargs.get(
+            "json"
+        ) or mock_session.post.call_args[1].get("json")
+        posted_ids = {entry["id"] for entry in posted_data["imports"]}
+        assert "abcd1234" not in posted_ids
+
+
+class TestExportConfig:
+    def test_config_export(self, tmp_path, monkeypatch):
+        from observe.export import export_config
+
+        _setup_config(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        mock_session = _make_session(
+            manifest_data={},
+            post_json={"staged": True, "skipped": False, "diff_fields": 3},
+        )
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_config("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 1
+
+    def test_dry_run(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_config
+
+        _setup_config(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        mock_session = _make_session(manifest_data={})
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_config("https://example.com", "test-key", dry_run=True)
+
+        assert mock_session.post.call_count == 0
+        assert "would send snapshot" in capsys.readouterr().out
+
+    def test_idempotent(self, tmp_path, monkeypatch, capsys):
+        from observe.export import _strip_never_transfer, export_config
+
+        config = _setup_config(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        stripped = _strip_never_transfer(config)
+        content_hash = hashlib.sha256(
+            json.dumps(stripped, sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest()
+        mock_session = _make_session(manifest_data={"last_hash": content_hash})
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_config("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 0
+        assert "up to date" in capsys.readouterr().out
+
+    def test_never_transfer_stripped(self, tmp_path, monkeypatch):
+        from observe.export import export_config
+
+        _setup_config(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        mock_session = _make_session(
+            manifest_data={},
+            post_json={"staged": True, "skipped": False, "diff_fields": 3},
+        )
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_config("https://example.com", "test-key", dry_run=False)
+
+        posted_data = mock_session.post.call_args.kwargs.get(
+            "json"
+        ) or mock_session.post.call_args[1].get("json")
+        posted_config = posted_data["config"]
+        assert posted_config["convey"] == {"trust_localhost": True}
+        assert "setup" in posted_config
+        assert posted_config["setup"] == {}
+        assert "env" not in posted_config

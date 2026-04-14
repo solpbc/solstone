@@ -5,14 +5,15 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import logging
 import os
 import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from flask import abort, g, jsonify, request
 from werkzeug.utils import secure_filename
@@ -43,6 +44,30 @@ _DAY_RE = re.compile(r"^\d{8}$")
 _SEGMENT_RE = re.compile(r"^\d{6}_\d+$")
 _STREAM_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 _FACET_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+_IMPORT_ID_RE = re.compile(r"^\d{8}_\d{6}$")
+
+_NEVER_TRANSFER_PATHS = frozenset(
+    {
+        "convey.password_hash",
+        "convey.secret",
+        "setup.completed_at",
+        "providers.auth",
+        "providers.key_validation",
+        "transcribe.whisper.device",
+    }
+)
+_NEVER_TRANSFER_PREFIXES = ("env.",)
+_IDENTITY_PATHS = frozenset(
+    {
+        "identity.name",
+        "identity.preferred",
+        "identity.bio",
+        "identity.pronouns",
+        "identity.aliases",
+        "identity.email_addresses",
+        "identity.timezone",
+    }
+)
 
 
 def _append_decision(log_path: Path, entry: dict) -> None:
@@ -61,6 +86,31 @@ def _write_state_atomic(state_path: Path, state_data: dict) -> None:
     except Exception:
         Path(tmp_path).unlink(missing_ok=True)
         raise
+
+
+def _flatten_config(cfg: dict, prefix: str = "") -> dict[str, Any]:
+    """Flatten a nested config dict to dot-separated paths."""
+    result: dict[str, Any] = {}
+    for key, value in cfg.items():
+        path = f"{prefix}{key}" if prefix else key
+        if isinstance(value, dict):
+            result.update(_flatten_config(value, f"{path}."))
+        else:
+            result[path] = value
+    return result
+
+
+def _is_never_transfer(path: str) -> bool:
+    if path in _NEVER_TRANSFER_PATHS:
+        return True
+    return any(path.startswith(prefix) for prefix in _NEVER_TRANSFER_PREFIXES)
+
+
+def _categorize_field(path: str) -> str:
+    """Return category for a config field path."""
+    if path in _IDENTITY_PATHS:
+        return "transferable"
+    return "preference"
 
 
 from .facet_ingest import process_facet
@@ -699,5 +749,269 @@ def register_ingest_routes(bp) -> None:
                 "skipped": skipped,
                 "staged": staged,
                 "errors": errors,
+            }
+        )
+
+    @bp.route("/journal/<key_prefix>/ingest/imports", methods=["POST"])
+    @require_journal_source
+    def ingest_imports(key_prefix: str):
+        if g.journal_source["key"][:8] != key_prefix:
+            abort(403, description="Key prefix mismatch")
+
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "Invalid JSON body"}), 400
+
+        imports = payload.get("imports")
+        if not isinstance(imports, list):
+            return jsonify({"error": "Missing imports array"}), 400
+
+        state_dir = get_state_directory(key_prefix)
+        log_path = state_dir / "imports" / "log.jsonl"
+        state_path = state_dir / "imports" / "state.json"
+        staged_dir = state_dir / "imports" / "staged"
+
+        try:
+            imports_state = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            imports_state = {}
+        if not isinstance(imports_state, dict):
+            imports_state = {}
+        received = imports_state.get("received")
+        if not isinstance(received, dict):
+            received = {}
+        imports_state = {"received": dict(received)}
+
+        journal_root = Path(state.journal_root)
+
+        copied = 0
+        skipped = 0
+        staged = 0
+        errors: list[dict[str, str]] = []
+
+        for item in imports:
+            try:
+                if not isinstance(item, dict):
+                    raise ValueError("Import item must be an object")
+
+                import_id = str(item.get("id", "")).strip()
+                if not import_id or not _IMPORT_ID_RE.match(import_id):
+                    raise ValueError(f"Invalid import id: {import_id!r}")
+
+                import_json = item.get("import_json")
+                imported_json = item.get("imported_json")
+                content_manifest = item.get("content_manifest")
+
+                if not isinstance(import_json, dict):
+                    raise ValueError("import_json must be an object")
+                if not isinstance(imported_json, dict):
+                    raise ValueError("imported_json must be an object")
+                if not isinstance(content_manifest, list):
+                    raise ValueError("content_manifest must be an array")
+
+                hash_input = json.dumps(
+                    {
+                        "import_json": import_json,
+                        "imported_json": imported_json,
+                        "content_manifest": content_manifest,
+                    },
+                    sort_keys=True,
+                    ensure_ascii=False,
+                ).encode()
+                content_hash = hashlib.sha256(hash_input).hexdigest()
+
+                if imports_state["received"].get(import_id) == content_hash:
+                    skipped += 1
+                    _append_decision(
+                        log_path,
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "action": "skipped",
+                            "item_type": "import",
+                            "item_id": import_id,
+                            "reason": "idempotent",
+                        },
+                    )
+                    continue
+
+                target_dir = journal_root / "imports" / import_id
+                if target_dir.is_dir():
+                    staged_dir.mkdir(parents=True, exist_ok=True)
+                    staged_payload = {
+                        "import_id": import_id,
+                        "import_json": import_json,
+                        "imported_json": imported_json,
+                        "content_manifest": content_manifest,
+                        "reason": "id_collision",
+                        "staged_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                    (staged_dir / f"{import_id}.json").write_text(
+                        json.dumps(staged_payload, indent=2, ensure_ascii=False) + "\n",
+                        encoding="utf-8",
+                    )
+                    staged += 1
+                    _append_decision(
+                        log_path,
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "action": "staged",
+                            "item_type": "import",
+                            "item_id": import_id,
+                            "reason": "id_collision",
+                        },
+                    )
+                else:
+                    target_dir.mkdir(parents=True, exist_ok=True)
+                    (target_dir / "import.json").write_text(
+                        json.dumps(import_json, indent=2, ensure_ascii=False) + "\n",
+                        encoding="utf-8",
+                    )
+                    (target_dir / "imported.json").write_text(
+                        json.dumps(imported_json, indent=2, ensure_ascii=False) + "\n",
+                        encoding="utf-8",
+                    )
+                    lines = [
+                        json.dumps(entry, ensure_ascii=False)
+                        for entry in content_manifest
+                    ]
+                    (target_dir / "content_manifest.jsonl").write_text(
+                        "\n".join(lines) + "\n" if lines else "",
+                        encoding="utf-8",
+                    )
+                    copied += 1
+                    _append_decision(
+                        log_path,
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "action": "copied",
+                            "item_type": "import",
+                            "item_id": import_id,
+                            "reason": "new",
+                        },
+                    )
+
+                imports_state["received"][import_id] = content_hash
+            except Exception as exc:
+                import_id_str = item.get("id", "") if isinstance(item, dict) else ""
+                errors.append({"import_id": str(import_id_str), "error": str(exc)})
+
+        _write_state_atomic(state_path, imports_state)
+
+        if copied > 0:
+            source = g.journal_source
+            source.setdefault("stats", {})
+            source["stats"]["imports_received"] = (
+                source["stats"].get("imports_received", 0) + copied
+            )
+            save_journal_source(source)
+
+        return jsonify(
+            {
+                "copied": copied,
+                "skipped": skipped,
+                "staged": staged,
+                "errors": errors,
+            }
+        )
+
+    @bp.route("/journal/<key_prefix>/ingest/config", methods=["POST"])
+    @require_journal_source
+    def ingest_config(key_prefix: str):
+        if g.journal_source["key"][:8] != key_prefix:
+            abort(403, description="Key prefix mismatch")
+
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "Invalid JSON body"}), 400
+
+        source_config = payload.get("config")
+        if not isinstance(source_config, dict):
+            return jsonify({"error": "Missing config object"}), 400
+
+        state_dir = get_state_directory(key_prefix)
+        log_path = state_dir / "config" / "log.jsonl"
+        state_path = state_dir / "config" / "state.json"
+        config_dir = state_dir / "config"
+
+        try:
+            config_state = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            config_state = {}
+        if not isinstance(config_state, dict):
+            config_state = {}
+
+        content_hash = hashlib.sha256(
+            json.dumps(source_config, sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest()
+
+        if config_state.get("last_hash") == content_hash:
+            _append_decision(
+                log_path,
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "action": "skipped",
+                    "item_type": "config",
+                    "item_id": "journal.json",
+                    "reason": "idempotent",
+                },
+            )
+            return jsonify({"staged": False, "skipped": True, "reason": "idempotent"})
+
+        from think.utils import get_config
+
+        target_config = get_config()
+        source_flat = _flatten_config(source_config)
+        target_flat = _flatten_config(target_config)
+
+        all_keys = sorted(set(source_flat) | set(target_flat))
+        diff = {}
+        for key in all_keys:
+            if _is_never_transfer(key):
+                continue
+            source_val = source_flat.get(key)
+            target_val = target_flat.get(key)
+            if source_val != target_val:
+                diff[key] = {
+                    "source": source_val,
+                    "target": target_val,
+                    "category": _categorize_field(key),
+                }
+
+        config_dir.mkdir(parents=True, exist_ok=True)
+        (config_dir / "source_config.json").write_text(
+            json.dumps(source_config, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        (config_dir / "diff.json").write_text(
+            json.dumps(diff, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+        config_state["last_hash"] = content_hash
+        _write_state_atomic(state_path, config_state)
+
+        _append_decision(
+            log_path,
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "action": "staged",
+                "item_type": "config",
+                "item_id": "journal.json",
+                "reason": "config_received",
+            },
+        )
+
+        source = g.journal_source
+        source.setdefault("stats", {})
+        source["stats"]["config_received"] = (
+            source["stats"].get("config_received", 0) + 1
+        )
+        save_journal_source(source)
+
+        return jsonify(
+            {
+                "staged": True,
+                "skipped": False,
+                "diff_fields": len(diff),
             }
         )
