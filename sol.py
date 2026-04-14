@@ -55,6 +55,7 @@ COMMANDS: dict[str, str] = {
     "describe": "observe.describe",
     "sense": "observe.sense",
     "transfer": "observe.transfer",
+    "export": "observe.export",
     "observer": "observe.observer_cli",
     # AI agents (talent package)
     "agents": "think.agents",
@@ -107,6 +108,7 @@ GROUPS: dict[str, list[str]] = {
         "describe",
         "sense",
         "transfer",
+        "export",
         "observer",
     ],
     "Talent (AI agents)": [
