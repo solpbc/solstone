@@ -1,4 +1,4 @@
-as of: 2026-04-14T08:00:00Z
+as of: 2026-04-14T12:35:01.9563866
 segment: N/A
 
 ## capture
@@ -9,13 +9,13 @@ segment: N/A
 - No events found for today.
 
 ## activity
-- N/A
+- Voiceprint status: confirmed.
 
 ## routines
 - No routines configured.
 
 ## entities
-- Failed to retrieve entity information due to command errors.
+- Recent entity activity: Jeremie Miller, Jaymie Oehler, Thomas Muldowney, Lis Miller, Neal Satterfield.
 
 ## partner
-- Behavior patterns are currently being observed.
+- N/A
