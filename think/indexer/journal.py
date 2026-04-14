@@ -2312,14 +2312,16 @@ def _strength_score(
     recency: float,
     observation_depth: int,
     facet_breadth: int,
+    photo_count: int = 0,
 ) -> float:
     """Compute composite strength score from components.
 
-    Weights: kg_edge=5, co_occurrence=4, recency=3, observation_depth=2, facet_breadth=1
+    Weights: kg_edge=5, co_occurrence=4, photo_count=3 (log2), recency=3, observation_depth=2, facet_breadth=1
     """
     return round(
         5 * kg_edge_count
         + 4 * co_occurrence
+        + 3 * math.log2(photo_count + 1)
         + 3 * recency
         + 2 * observation_depth
         + 1 * facet_breadth,
@@ -2362,6 +2364,7 @@ def _compute_strength_scores(
             "facet_breadth": facet_breadth,
             "co_occurrence": 0,
             "kg_edge_count": 0,
+            "photo_count": 0,
         }
 
     # Count distinct KG relationship edges per entity (both source and target roles).
@@ -2427,6 +2430,28 @@ def _compute_strength_scores(
         if entity_name in scores:
             scores[entity_name]["co_occurrence"] = co_count
 
+    photo_where_parts: list[str] = ["signal_type='photo_cooccurrence'"]
+    photo_params: list[Any] = []
+    if facet:
+        photo_where_parts.append("facet=?")
+        photo_params.append(facet.lower())
+    if since:
+        photo_where_parts.append("day>=?")
+        photo_params.append(since)
+    photo_where = " AND ".join(photo_where_parts)
+    photo_rows = conn.execute(
+        f"""
+        SELECT entity_name, COUNT(*) as photo_count
+        FROM entity_signals
+        WHERE {photo_where}
+        GROUP BY entity_name
+        """,
+        photo_params,
+    ).fetchall()
+    for entity_name, photo_count in photo_rows:
+        if entity_name in scores:
+            scores[entity_name]["photo_count"] = photo_count
+
     obs_rows = conn.execute(
         "SELECT entity_id, observation_count FROM entities WHERE source='observation'"
     ).fetchall()
@@ -2466,6 +2491,7 @@ def get_entity_strength(
                     "recency": 0.0,
                     "facet_breadth": 0,
                     "observation_depth": 0,
+                    "photo_count": 0,
                 }
 
             r = results[key]
@@ -2479,6 +2505,7 @@ def get_entity_strength(
             r["facet_breadth"] = max(
                 r["facet_breadth"], components.get("facet_breadth", 0)
             )
+            r["photo_count"] = max(r["photo_count"], components.get("photo_count", 0))
             last_day = components.get("last_day", "")
             if last_day and last_day > r.get("_last_day", ""):
                 r["_last_day"] = last_day
@@ -2504,6 +2531,7 @@ def get_entity_strength(
                 r["recency"],
                 r["observation_depth"],
                 r["facet_breadth"],
+                photo_count=r["photo_count"],
             )
 
         ranked = sorted(results.values(), key=lambda x: x["score"], reverse=True)
@@ -2823,6 +2851,7 @@ def get_entity_intelligence(
         max_co = 0
         max_breadth = 0
         best_last_day = ""
+        photo_count = 0
 
         if signal_names:
             placeholders_s = ",".join("?" for _ in signal_names)
@@ -2843,6 +2872,12 @@ def get_entity_intelligence(
                 total_appearance = stat_row[0]
                 best_last_day = stat_row[1] or ""
                 max_breadth = stat_row[2]
+
+            photo_row = conn.execute(
+                f"SELECT COUNT(*) FROM entity_signals WHERE signal_type='photo_cooccurrence' AND entity_name IN ({placeholders_s}){facet_filter}",
+                signal_names + facet_params,
+            ).fetchone()
+            photo_count = photo_row[0] if photo_row else 0
 
             # KG edge count for this entity
             kg_facet_filter = " AND facet=?" if facet else ""
@@ -2887,7 +2922,12 @@ def get_entity_intelligence(
 
         strength = {
             "score": _strength_score(
-                max_kg_edges, max_co, recency, obs_depth, max_breadth
+                max_kg_edges,
+                max_co,
+                recency,
+                obs_depth,
+                max_breadth,
+                photo_count=photo_count,
             ),
             "kg_edge_count": max_kg_edges,
             "co_occurrence": max_co,
@@ -2895,6 +2935,7 @@ def get_entity_intelligence(
             "recency": recency,
             "facet_breadth": max_breadth,
             "observation_depth": obs_depth,
+            "photo_count": photo_count,
         }
 
         return {
