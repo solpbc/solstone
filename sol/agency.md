@@ -6,11 +6,10 @@
 - [x] 2026-04-13 persistent `convey` 401 Unauthorized errors during ingest. Resolved 2026-04-14.
 - [x] 2026-04-13 recurring `pulse` failures. Resolved 2026-04-14.
 - [x] 2026-04-13 agent failure: `joke_bot` (1776062390957) failed with `BrokenPipeError`. Resolved 2026-04-14.
-- [x] 2026-04-12 agent failures: evening cluster (21:07-22:16) including `entities:entity_observer` (bluesky) timeout and `todos:daily`, `morning_briefing`, `facet_newsletter` failures. Resolved 2026-04-14.
-- [x] 2026-04-12 agent failure: `entities:entity_observer` (solstone) timed out (600s) at 11:33. Resolved 2026-04-14.
 
 ## curation
 - [ ] 2026-04-14 unknown recurring speaker: cluster 125 (163 samples, plaud), cluster 83 (105 samples, pro5e), cluster 145 (95 samples, plaud).
 - [ ] 2026-04-14 unknown recurring speaker: cluster 36 (91 samples, plaud), cluster 278 (67 samples, fedora).
+- [ ] 2026-04-14 entity duplicates: `Jeremie Miller` vs `Jer`.
 - [ ] 2026-04-08 speaker curation: cluster 11 (36 samples) from pro5e. cluster 18 (91 samples) remains active across Plaud imports.
 - [ ] 2026-04-08 entity duplicates: `Zoey` in personal facet; `Solstone` vs `Sunstone` in solstone facet.
