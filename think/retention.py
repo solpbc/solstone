@@ -6,8 +6,8 @@
 Manages the lifecycle of raw media files (layer 1 captures) in journal segments.
 Three retention modes:
 - keep: retain raw media indefinitely
-- days: delete raw media after N days, once processing is complete
-- processed: delete raw media as soon as processing completes (default)
+- days: delete raw media after N days, once processing is complete (default: 7)
+- processed: delete raw media as soon as processing completes
 
 Safety invariant: never delete raw media from segments that haven't finished
 processing. All completion checks must pass before any deletion.
@@ -142,8 +142,8 @@ def _get_completion_files(segment_path: Path) -> list[Path]:
 class RetentionPolicy:
     """Retention policy for a single scope (global or per-stream)."""
 
-    mode: str = "processed"  # "keep", "days", or "processed"
-    days: int | None = None
+    mode: str = "days"  # "keep", "days", or "processed"
+    days: int | None = 7
 
     def is_eligible(self, segment_age_days: int) -> bool:
         """Check if a segment's raw media should be purged under this policy."""
@@ -175,8 +175,8 @@ def load_retention_config() -> RetentionConfig:
     config = get_config()
     retention = config.get("retention", {})
 
-    mode = retention.get("raw_media", "processed")
-    days = retention.get("raw_media_days")
+    mode = retention.get("raw_media", "days")
+    days = retention.get("raw_media_days", 7)
     default = RetentionPolicy(mode=mode, days=days)
 
     per_stream: dict[str, RetentionPolicy] = {}

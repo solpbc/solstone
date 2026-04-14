@@ -950,6 +950,118 @@ def purge(
         )
 
 
+@retention_app.command()
+def config(
+    mode: str | None = typer.Option(
+        None, "--mode", help="Retention mode: keep, days, or processed."
+    ),
+    days: int | None = typer.Option(
+        None, "--days", help="Days to retain (required when mode is 'days')."
+    ),
+    stream: str | None = typer.Option(
+        None, "--stream", help="Apply to a specific stream instead of global."
+    ),
+    clear: bool = typer.Option(
+        False, "--clear", help="Clear per-stream override (requires --stream)."
+    ),
+) -> None:
+    """Show or update retention configuration."""
+    import os
+
+    from think.retention import load_retention_config
+    from think.utils import get_config, get_journal
+
+    if mode is None and days is None and not clear:
+        cfg = load_retention_config()
+        result = {
+            "default": {"mode": cfg.default.mode, "days": cfg.default.days},
+            "per_stream": {
+                name: {"mode": policy.mode, "days": policy.days}
+                for name, policy in cfg.per_stream.items()
+            },
+        }
+        typer.echo(json.dumps(result, indent=2))
+        return
+
+    if clear:
+        if not stream:
+            typer.echo("--clear requires --stream", err=True)
+            raise typer.Exit(1)
+        if mode is not None or days is not None:
+            typer.echo("--clear cannot be combined with --mode or --days", err=True)
+            raise typer.Exit(1)
+
+    if mode is not None and mode not in ("keep", "days", "processed"):
+        typer.echo(
+            f"Invalid mode: {mode}. Must be keep, days, or processed.", err=True
+        )
+        raise typer.Exit(1)
+
+    if mode == "days" and days is None:
+        typer.echo("--days is required when mode is 'days'.", err=True)
+        raise typer.Exit(1)
+
+    if days is not None and days < 1:
+        typer.echo("--days must be a positive integer.", err=True)
+        raise typer.Exit(1)
+
+    journal_config = get_config()
+    retention = journal_config.setdefault("retention", {})
+
+    if clear:
+        ps = retention.get("per_stream", {})
+        if stream in ps:
+            del ps[stream]
+            if not ps:
+                retention.pop("per_stream", None)
+        log_call_action(
+            facet=None,
+            action="retention_config",
+            params={"stream": stream, "clear": True},
+        )
+    elif stream:
+        ps = retention.setdefault("per_stream", {})
+        entry = ps.setdefault(stream, {})
+        if mode is not None:
+            entry["raw_media"] = mode
+        if days is not None:
+            entry["raw_media_days"] = days
+        log_call_action(
+            facet=None,
+            action="retention_config",
+            params={"stream": stream, "mode": mode, "days": days},
+        )
+    else:
+        if mode is not None:
+            retention["raw_media"] = mode
+        if days is not None:
+            retention["raw_media_days"] = days
+        log_call_action(
+            facet=None,
+            action="retention_config",
+            params={"mode": mode, "days": days},
+        )
+
+    config_dir = Path(get_journal()) / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_path = config_dir / "journal.json"
+
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(journal_config, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.chmod(config_path, 0o600)
+
+    cfg = load_retention_config()
+    result = {
+        "default": {"mode": cfg.default.mode, "days": cfg.default.days},
+        "per_stream": {
+            name: {"mode": policy.mode, "days": policy.days}
+            for name, policy in cfg.per_stream.items()
+        },
+    }
+    typer.echo(json.dumps(result, indent=2))
+
+
 @app.command(name="storage-summary")
 def storage_summary(
     json_output: bool = typer.Option(False, "--json", help="Output as JSON."),

@@ -153,8 +153,8 @@ Fields:
 
 The `retention` block controls automatic cleanup of layer 1 raw media (audio recordings, video captures, screen diffs) while preserving all layer 2 extracts and layer 3 agent outputs. Three modes control when raw media is deleted:
 
-- `"keep"` – retain raw media indefinitely (default)
-- `"days"` – delete raw media after `raw_media_days` days, once the segment has finished processing
+- `"keep"` – retain raw media indefinitely
+- `"days"` – delete raw media after `raw_media_days` days, once the segment has finished processing (default: 7 days)
 - `"processed"` – delete raw media as soon as the segment has finished processing
 
 ```json
@@ -176,8 +176,8 @@ The `retention` block controls automatic cleanup of layer 1 raw media (audio rec
 ```
 
 Fields:
-- `raw_media` (string) – Retention mode: `"keep"`, `"days"`, or `"processed"`. Default: `"processed"`.
-- `raw_media_days` (integer or null) – Number of days to retain raw media when mode is `"days"`. Required when `raw_media` is `"days"`, ignored otherwise.
+- `raw_media` (string) – Retention mode: `"keep"`, `"days"`, or `"processed"`. Default: `"days"`.
+- `raw_media_days` (integer or null) – Number of days to retain raw media when mode is `"days"`. Default: `7`. Required when `raw_media` is `"days"`, ignored otherwise.
 - `per_stream` (object) – Per-stream overrides keyed by stream name. Each entry supports `raw_media` and `raw_media_days`. Omitted fields inherit from the global retention settings.
 
 "Raw media" means layer 1 capture files only: audio files (`.flac`, `.opus`, `.ogg`, `.m4a`, `.wav`), video files (`.webm`, `.mov`, `.mp4`), and screen diffs (`monitor_*_diff.png`).
