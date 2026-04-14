@@ -4,7 +4,7 @@
 """Export journal data to a remote solstone instance.
 
 Usage:
-    sol export --to HOST --key KEY [--only segments] [--dry-run] [--day YYYYMMDD]
+    sol export --to HOST --key KEY [--only TYPE] [--dry-run] [--day YYYYMMDD]
 """
 
 from __future__ import annotations
@@ -13,9 +13,10 @@ import argparse
 import hashlib
 import json
 import logging
+import re
 import sys
 import time
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import requests
@@ -32,6 +33,10 @@ from think.entities.journal import load_all_journal_entities
 logger = logging.getLogger(__name__)
 
 UPLOAD_TIMEOUT = 300
+_FACET_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+_DAY_RE = re.compile(r"^\d{8}$")
+_DAY_JSONL_RE = re.compile(r"^\d{8}\.jsonl$")
+_DAY_MD_RE = re.compile(r"^\d{8}\.md$")
 
 
 def _query_manifest(
@@ -143,6 +148,46 @@ def _upload_segment(
             time.sleep(delay)
 
     return ("error", 0)
+
+
+def _classify_facet_file(relative: PurePosixPath) -> str | None:
+    """Classify a facet file by its relative path, returning the ingest type or None."""
+    parts = relative.parts
+
+    if parts == ("facet.json",):
+        return "facet_json"
+
+    if len(parts) >= 2 and parts[0] == "entities":
+        if len(parts) == 3 and parts[2] == "entity.json":
+            return "entity_relationship"
+        if len(parts) == 3 and parts[2] == "observations.jsonl":
+            return "entity_observations"
+        if len(parts) == 2 and _DAY_JSONL_RE.match(parts[1]):
+            return "detected_entities"
+        return None
+
+    if len(parts) >= 2 and parts[0] == "activities":
+        if parts == ("activities", "activities.jsonl"):
+            return "activity_config"
+        if len(parts) == 2 and _DAY_JSONL_RE.match(parts[1]):
+            return "activity_records"
+        if len(parts) >= 4 and _DAY_RE.match(parts[1]):
+            return "activity_output"
+        return None
+
+    if len(parts) == 2 and parts[0] == "todos" and _DAY_JSONL_RE.match(parts[1]):
+        return "todos"
+
+    if len(parts) == 2 and parts[0] == "calendar" and _DAY_JSONL_RE.match(parts[1]):
+        return "calendar"
+
+    if len(parts) == 2 and parts[0] == "news" and _DAY_MD_RE.match(parts[1]):
+        return "news"
+
+    if len(parts) == 2 and parts[0] == "logs" and _DAY_JSONL_RE.match(parts[1]):
+        return "logs"
+
+    return None
 
 
 def export_segments(base_url: str, key: str, days: list[str], dry_run: bool) -> None:
@@ -364,6 +409,210 @@ def export_entities(base_url: str, key: str, dry_run: bool) -> None:
         session.close()
 
 
+def export_facets(base_url: str, key: str, dry_run: bool) -> None:
+    session = requests.Session()
+    session.headers["Authorization"] = f"Bearer {key}"
+
+    try:
+        try:
+            remote_manifest = _query_manifest(session, base_url, key, area="facets")
+        except requests.ConnectionError:
+            print(f"Connection failed: could not reach {base_url}")
+            return
+        except ValueError as e:
+            print(str(e))
+            return
+
+        received = remote_manifest.get("received", {})
+
+        facets_dir = Path(get_journal()) / "facets"
+        if not facets_dir.is_dir():
+            print("No facets found to export")
+            return
+
+        facet_names = sorted(
+            d.name
+            for d in facets_dir.iterdir()
+            if d.is_dir() and _FACET_NAME_RE.match(d.name) and (d / "facet.json").is_file()
+        )
+        if not facet_names:
+            print("No facets found to export")
+            return
+
+        total_new = 0
+        total_changed = 0
+        total_unchanged = 0
+        total_facets_sent = 0
+        total_facets_failed = 0
+        total_facets_skipped = 0
+        total_errors = 0
+
+        key_prefix = key[:8]
+        url = f"{base_url}/app/import/journal/{key_prefix}/ingest/facets"
+
+        for facet_name in facet_names:
+            facet_path = facets_dir / facet_name
+
+            classified_files = []
+            for abs_path in sorted(facet_path.rglob("*"), key=lambda path: path.as_posix()):
+                if not abs_path.is_file():
+                    continue
+                relative = PurePosixPath(abs_path.relative_to(facet_path))
+                file_type = _classify_facet_file(relative)
+                if file_type is None:
+                    continue
+                classified_files.append((str(relative), file_type, abs_path))
+
+            if not classified_files:
+                continue
+
+            new_files = []
+            changed_files = []
+            unchanged_count = 0
+
+            for rel_path, file_type, abs_path in classified_files:
+                content_hash = hashlib.sha256(abs_path.read_bytes()).hexdigest()
+                manifest_key = f"{facet_name}/{rel_path}"
+                remote_hash = received.get(manifest_key)
+                if remote_hash == content_hash:
+                    unchanged_count += 1
+                elif remote_hash is not None:
+                    changed_files.append((rel_path, file_type, abs_path))
+                else:
+                    new_files.append((rel_path, file_type, abs_path))
+
+            to_send = new_files + changed_files
+            total_new += len(new_files)
+            total_changed += len(changed_files)
+            total_unchanged += unchanged_count
+
+            if not to_send:
+                total_facets_skipped += 1
+                continue
+
+            if dry_run:
+                print(
+                    f"  {facet_name}: {len(new_files)} new, "
+                    f"{len(changed_files)} changed, {unchanged_count} unchanged"
+                )
+                total_facets_sent += 1
+                continue
+
+            metadata = {
+                "facets": [
+                    {
+                        "name": facet_name,
+                        "files": [
+                            {"path": rel_path, "type": file_type}
+                            for rel_path, file_type, _ in to_send
+                        ],
+                    }
+                ]
+            }
+
+            for attempt, delay in enumerate(RETRY_BACKOFF):
+                file_handles = []
+                files_data = []
+                try:
+                    for file_idx, (_, _, abs_path) in enumerate(to_send):
+                        fh = open(abs_path, "rb")
+                        file_handles.append(fh)
+                        files_data.append(
+                            (
+                                f"files_0_{file_idx}",
+                                (abs_path.name, fh, "application/octet-stream"),
+                            )
+                        )
+
+                    response = session.post(
+                        url,
+                        data={"metadata": json.dumps(metadata)},
+                        files=files_data,
+                        timeout=UPLOAD_TIMEOUT,
+                    )
+                    if response.status_code == 200:
+                        result = response.json()
+                        errors = result.get("errors", [])
+                        total_errors += len(errors)
+                        if errors:
+                            for err in errors:
+                                print(f"  Error ({facet_name}): {err}")
+                        logger.info(
+                            "  [sent] %s: %s created, %s merged, %s staged",
+                            facet_name,
+                            result.get("created", 0),
+                            result.get("merged", 0),
+                            result.get("staged", 0),
+                        )
+                        total_facets_sent += 1
+                        break
+                    if response.status_code == 401:
+                        print("Authentication failed: invalid or missing API key")
+                        return
+                    if response.status_code == 403:
+                        print("Authentication failed: journal source revoked or disabled")
+                        return
+                    if 500 <= response.status_code <= 599:
+                        logger.warning(
+                            "Facet upload attempt %s failed for %s: %s %s",
+                            attempt + 1,
+                            facet_name,
+                            response.status_code,
+                            response.text,
+                        )
+                    else:
+                        logger.warning(
+                            "Facet upload rejected for %s: %s %s",
+                            facet_name,
+                            response.status_code,
+                            response.text,
+                        )
+                        total_facets_failed += 1
+                        break
+                except (requests.RequestException, OSError) as e:
+                    logger.warning(
+                        "Facet upload attempt %s failed for %s: %s",
+                        attempt + 1,
+                        facet_name,
+                        e,
+                    )
+                finally:
+                    for fh in file_handles:
+                        try:
+                            fh.close()
+                        except Exception:
+                            pass
+
+                if attempt < len(RETRY_BACKOFF) - 1:
+                    time.sleep(delay)
+            else:
+                logger.warning("Facet upload failed after all retries for %s", facet_name)
+                total_facets_failed += 1
+
+        if dry_run:
+            if total_new + total_changed == 0:
+                print("Nothing to send - remote facets are up to date")
+            else:
+                print(
+                    f"\nDry run: {total_new} new files, {total_changed} changed, "
+                    f"{total_unchanged} unchanged across {total_facets_sent} facet(s)"
+                )
+            return
+
+        if total_facets_sent == 0 and total_facets_failed == 0:
+            print("Nothing to send - remote facets are up to date")
+            return
+
+        print(
+            f"\nFacet export complete: {total_facets_sent} sent, "
+            f"{total_facets_skipped} skipped, {total_facets_failed} failed"
+        )
+        if total_errors:
+            print(f"  {total_errors} error(s)")
+    finally:
+        session.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Export journal data to a remote solstone instance"
@@ -381,7 +630,7 @@ def main() -> None:
     parser.add_argument(
         "--only",
         default=None,
-        help="Export only specific area (segments, entities)",
+        help="Export only specific area (segments, entities, facets)",
     )
     parser.add_argument(
         "--dry-run",
@@ -401,6 +650,10 @@ def main() -> None:
         export_entities(base_url, args.key, args.dry_run)
         return
 
+    if args.only == "facets":
+        export_facets(base_url, args.key, args.dry_run)
+        return
+
     if args.only is not None and args.only != "segments":
         print(f"Export of '{args.only}' is not yet implemented")
         sys.exit(0)
@@ -409,3 +662,4 @@ def main() -> None:
     export_segments(base_url, args.key, days, args.dry_run)
     if args.only is None:
         export_entities(base_url, args.key, args.dry_run)
+        export_facets(base_url, args.key, args.dry_run)

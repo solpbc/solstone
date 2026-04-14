@@ -105,6 +105,41 @@ def _entity_hash(entity: dict) -> str:
     ).hexdigest()
 
 
+def _setup_facets(tmp_path):
+    """Create test facets in journal fixture."""
+    facets_dir = tmp_path / "facets"
+
+    work_dir = facets_dir / "work"
+    work_dir.mkdir(parents=True)
+    (work_dir / "facet.json").write_text('{"title": "Work"}', encoding="utf-8")
+
+    ent_dir = work_dir / "entities" / "alice"
+    ent_dir.mkdir(parents=True)
+    (ent_dir / "entity.json").write_text('{"id": "alice"}', encoding="utf-8")
+    (ent_dir / "observations.jsonl").write_text('{"text": "obs1"}\n', encoding="utf-8")
+
+    det_dir = work_dir / "entities"
+    (det_dir / "20260413.jsonl").write_text('{"entity": "test"}\n', encoding="utf-8")
+
+    todo_dir = work_dir / "todos"
+    todo_dir.mkdir(parents=True)
+    (todo_dir / "20260413.jsonl").write_text('{"task": "do stuff"}\n', encoding="utf-8")
+
+    personal_dir = facets_dir / "personal"
+    personal_dir.mkdir(parents=True)
+    (personal_dir / "facet.json").write_text('{"title": "Personal"}', encoding="utf-8")
+
+    news_dir = personal_dir / "news"
+    news_dir.mkdir(parents=True)
+    (news_dir / "20260413.md").write_text("# News\nHello world\n", encoding="utf-8")
+
+    return facets_dir
+
+
+def _facet_file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 class TestExportSegments:
     def test_manifest_query_and_delta(self, tmp_path, monkeypatch):
         from observe.export import export_segments
@@ -297,26 +332,6 @@ class TestExportSegments:
 
         assert mock_session.post.call_count == 0
         assert "up to date" in capsys.readouterr().out
-
-    def test_only_not_implemented(self, capsys):
-        from observe.export import main
-
-        mock_args = MagicMock()
-        mock_args.to = "host"
-        mock_args.key = "testkey"
-        mock_args.only = "facets"
-        mock_args.dry_run = False
-        mock_args.day = None
-
-        with (
-            patch("sys.argv", ["sol export", "--to", "host", "--key", "testkey", "--only", "facets"]),
-            patch("observe.export.setup_cli", return_value=mock_args),
-        ):
-            with pytest.raises(SystemExit) as excinfo:
-                main()
-
-        assert excinfo.value.code == 0
-        assert "not yet implemented" in capsys.readouterr().out
 
     def test_upload_error_isolation(self, tmp_path, monkeypatch, capsys):
         from observe.export import export_segments
@@ -547,3 +562,262 @@ class TestExportEntities:
         output = capsys.readouterr().out
         assert "Entity bob_smith: invalid type" in output
         assert "1 error" in output
+
+
+class TestExportFacets:
+    def test_full_export(self, tmp_path, monkeypatch):
+        from observe.export import export_facets
+
+        _setup_facets(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        post_json = {"created": 1, "merged": 0, "skipped": 0, "staged": 0, "errors": []}
+        mock_session = _make_session(manifest_data={"received": {}}, post_json=post_json)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_facets("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 2
+
+        calls_by_facet = {}
+        for call in mock_session.post.call_args_list:
+            metadata = json.loads(call.kwargs["data"]["metadata"])
+            facet = metadata["facets"][0]["name"]
+            calls_by_facet[facet] = call.kwargs
+
+        assert set(calls_by_facet) == {"personal", "work"}
+
+        personal_files = calls_by_facet["personal"]["files"]
+        assert [entry[0] for entry in personal_files] == ["files_0_0", "files_0_1"]
+        personal_metadata = json.loads(calls_by_facet["personal"]["data"]["metadata"])
+        assert personal_metadata == {
+            "facets": [
+                {
+                    "name": "personal",
+                    "files": [
+                        {"path": "facet.json", "type": "facet_json"},
+                        {"path": "news/20260413.md", "type": "news"},
+                    ],
+                }
+            ]
+        }
+
+        work_files = calls_by_facet["work"]["files"]
+        assert [entry[0] for entry in work_files] == [
+            "files_0_0",
+            "files_0_1",
+            "files_0_2",
+            "files_0_3",
+            "files_0_4",
+        ]
+        work_metadata = json.loads(calls_by_facet["work"]["data"]["metadata"])
+        assert work_metadata == {
+            "facets": [
+                {
+                    "name": "work",
+                    "files": [
+                        {"path": "entities/20260413.jsonl", "type": "detected_entities"},
+                        {"path": "entities/alice/entity.json", "type": "entity_relationship"},
+                        {
+                            "path": "entities/alice/observations.jsonl",
+                            "type": "entity_observations",
+                        },
+                        {"path": "facet.json", "type": "facet_json"},
+                        {"path": "todos/20260413.jsonl", "type": "todos"},
+                    ],
+                }
+            ]
+        }
+
+    def test_delta_mixed(self, tmp_path, monkeypatch):
+        from observe.export import export_facets
+
+        facets_dir = _setup_facets(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        work_dir = facets_dir / "work"
+        personal_dir = facets_dir / "personal"
+        manifest_data = {
+            "received": {
+                "work/facet.json": _facet_file_hash(work_dir / "facet.json"),
+                "work/entities/alice/entity.json": _facet_file_hash(
+                    work_dir / "entities" / "alice" / "entity.json"
+                ),
+                "work/entities/alice/observations.jsonl": "stale-hash",
+                "work/todos/20260413.jsonl": "stale-hash",
+                "personal/facet.json": _facet_file_hash(personal_dir / "facet.json"),
+                "personal/news/20260413.md": _facet_file_hash(
+                    personal_dir / "news" / "20260413.md"
+                ),
+            }
+        }
+        post_json = {"created": 0, "merged": 1, "skipped": 0, "staged": 0, "errors": []}
+        mock_session = _make_session(manifest_data=manifest_data, post_json=post_json)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_facets("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 1
+        metadata = json.loads(mock_session.post.call_args.kwargs["data"]["metadata"])
+        assert metadata["facets"][0]["name"] == "work"
+        assert metadata["facets"][0]["files"] == [
+            {"path": "entities/20260413.jsonl", "type": "detected_entities"},
+            {"path": "entities/alice/observations.jsonl", "type": "entity_observations"},
+            {"path": "todos/20260413.jsonl", "type": "todos"},
+        ]
+
+    def test_dry_run(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_facets
+
+        _setup_facets(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        mock_session = _make_session(manifest_data={"received": {}})
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_facets("https://example.com", "test-key", dry_run=True)
+
+        assert mock_session.post.call_count == 0
+        output = capsys.readouterr().out
+        assert "personal: 2 new, 0 changed, 0 unchanged" in output
+        assert "work: 5 new, 0 changed, 0 unchanged" in output
+        assert "Dry run: 7 new files, 0 changed, 0 unchanged across 2 facet(s)" in output
+
+    def test_idempotent(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_facets
+
+        facets_dir = _setup_facets(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        manifest_received = {}
+        for facet_dir in sorted((facets_dir).iterdir()):
+            if not facet_dir.is_dir():
+                continue
+            for file_path in sorted(facet_dir.rglob("*")):
+                if file_path.is_file():
+                    rel_path = file_path.relative_to(facet_dir).as_posix()
+                    manifest_received[f"{facet_dir.name}/{rel_path}"] = _facet_file_hash(file_path)
+        mock_session = _make_session(manifest_data={"received": manifest_received})
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_facets("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 0
+        assert "up to date" in capsys.readouterr().out
+
+    def test_error_isolation(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_facets
+
+        _setup_facets(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        mock_session = _make_session(manifest_data={"received": {}})
+        first = MagicMock(status_code=400, text="bad request")
+        second = MagicMock(status_code=200, text="ok")
+        second.json.return_value = {
+            "created": 1,
+            "merged": 0,
+            "skipped": 0,
+            "staged": 0,
+            "errors": [],
+        }
+        mock_session.post.side_effect = [first, second]
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_facets("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 2
+        output = capsys.readouterr().out
+        assert "1 sent" in output
+        assert "1 failed" in output
+
+    def test_new_facet_vs_changed(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_facets
+
+        facets_dir = _setup_facets(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        work_dir = facets_dir / "work"
+        manifest_data = {
+            "received": {
+                f"work/{file_path.relative_to(work_dir).as_posix()}": "stale-hash"
+                for file_path in sorted(work_dir.rglob("*"))
+                if file_path.is_file()
+            }
+        }
+        mock_session = _make_session(manifest_data=manifest_data)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_facets("https://example.com", "test-key", dry_run=True)
+
+        assert mock_session.post.call_count == 0
+        output = capsys.readouterr().out
+        assert "personal: 2 new, 0 changed, 0 unchanged" in output
+        assert "work: 0 new, 5 changed, 0 unchanged" in output
+
+    def test_skips_invalid_facet_names(self, tmp_path, monkeypatch):
+        from observe.export import export_facets
+
+        _setup_facets(tmp_path)
+        bad_dir = tmp_path / "facets" / "BadName"
+        bad_dir.mkdir(parents=True)
+        (bad_dir / "facet.json").write_text('{"title": "Bad"}', encoding="utf-8")
+        _set_journal_override(monkeypatch, tmp_path)
+
+        post_json = {"created": 1, "merged": 0, "skipped": 0, "staged": 0, "errors": []}
+        mock_session = _make_session(manifest_data={"received": {}}, post_json=post_json)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_facets("https://example.com", "test-key", dry_run=False)
+
+        assert mock_session.post.call_count == 2
+        posted_facets = {
+            json.loads(call.kwargs["data"]["metadata"])["facets"][0]["name"]
+            for call in mock_session.post.call_args_list
+        }
+        assert posted_facets == {"personal", "work"}
+
+    def test_skips_events_directory(self, tmp_path, monkeypatch):
+        from observe.export import export_facets
+
+        _setup_facets(tmp_path)
+        events_dir = tmp_path / "facets" / "work" / "events"
+        events_dir.mkdir(parents=True)
+        (events_dir / "20260413.jsonl").write_text('{"event": "ignored"}\n', encoding="utf-8")
+        _set_journal_override(monkeypatch, tmp_path)
+
+        post_json = {"created": 1, "merged": 0, "skipped": 0, "staged": 0, "errors": []}
+        mock_session = _make_session(manifest_data={"received": {}}, post_json=post_json)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_facets("https://example.com", "test-key", dry_run=False)
+
+        calls_by_facet = {
+            json.loads(call.kwargs["data"]["metadata"])["facets"][0]["name"]: call.kwargs
+            for call in mock_session.post.call_args_list
+        }
+        work_metadata = json.loads(calls_by_facet["work"]["data"]["metadata"])
+        uploaded_paths = [entry["path"] for entry in work_metadata["facets"][0]["files"]]
+        assert "events/20260413.jsonl" not in uploaded_paths
+
+    def test_response_errors_reported(self, tmp_path, monkeypatch, capsys):
+        from observe.export import export_facets
+
+        _setup_facets(tmp_path)
+        _set_journal_override(monkeypatch, tmp_path)
+
+        post_json = {
+            "created": 1,
+            "merged": 0,
+            "skipped": 0,
+            "staged": 0,
+            "errors": [{"facet": "work", "error": "entity merge conflict"}],
+        }
+        mock_session = _make_session(manifest_data={"received": {}}, post_json=post_json)
+
+        with patch("observe.export.requests.Session", return_value=mock_session):
+            export_facets("https://example.com", "test-key", dry_run=False)
+
+        output = capsys.readouterr().out
+        assert "entity merge conflict" in output
+        assert "error" in output.lower()
