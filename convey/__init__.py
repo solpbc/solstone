@@ -18,6 +18,7 @@ from jinja2 import ChoiceLoader, FileSystemLoader
 from apps import AppRegistry
 
 from . import state
+from . import system
 from .apps import register_app_context
 from .bridge import emit, register_websocket
 from .config import bp as config_bp
@@ -139,6 +140,9 @@ def create_app(journal: str = "") -> Flask:
 
     # Register triage API blueprint (universal chat bar)
     app.register_blueprint(triage_bp)
+
+    # Register system health API blueprint
+    app.register_blueprint(system.bp)
 
     # Initialize and register app system
     registry = AppRegistry()
