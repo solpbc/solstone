@@ -14,6 +14,7 @@ from pathlib import Path
 from flask import abort, g, request
 
 from apps.utils import get_app_storage_path
+from convey import state
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,9 @@ STATE_AREAS = ("segments", "entities", "facets", "imports", "config")
 
 
 def is_valid_journal_source_name(name: str) -> bool:
-    return bool(name) and name not in {".", ".."} and "/" not in name and "\\" not in name
+    return (
+        bool(name) and name not in {".", ".."} and "/" not in name and "\\" not in name
+    )
 
 
 def generate_key() -> str:
@@ -96,6 +99,10 @@ def create_state_directory(journal_root: Path, key_prefix: str) -> Path:
         area_dir.mkdir(parents=True, exist_ok=True)
         (area_dir / "state.json").write_text("{}", encoding="utf-8")
     return state_dir
+
+
+def get_state_directory(key_prefix: str) -> Path:
+    return Path(state.journal_root) / "imports" / key_prefix
 
 
 def require_journal_source(f):

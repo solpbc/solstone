@@ -9,17 +9,9 @@ import time
 from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, abort, g, jsonify, render_template, request
 from werkzeug.utils import secure_filename
 
-from .journal_sources import (
-    create_state_directory,
-    find_journal_source_by_name,
-    generate_key,
-    is_valid_journal_source_name,
-    list_journal_sources,
-    save_journal_source,
-)
 from apps.utils import log_app_action
 from convey import emit, state
 from media import MEDIA_EXTENSIONS
@@ -36,6 +28,18 @@ from think.importers.utils import (
     write_import_metadata,
 )
 from think.utils import now_ms
+
+from .journal_sources import (
+    STATE_AREAS,
+    create_state_directory,
+    find_journal_source_by_name,
+    generate_key,
+    get_state_directory,
+    is_valid_journal_source_name,
+    list_journal_sources,
+    require_journal_source,
+    save_journal_source,
+)
 
 import_bp = Blueprint(
     "app:import",
@@ -929,3 +933,18 @@ def api_journal_source_status(name: str) -> Any:
             "stats": source.get("stats", {}),
         }
     )
+
+
+@import_bp.route("/journal/<key_prefix>/manifest/<area>")
+@require_journal_source
+def journal_source_manifest(key_prefix: str, area: str) -> Any:
+    if g.journal_source["key"][:8] != key_prefix:
+        abort(403, description="Key prefix mismatch")
+    if area not in STATE_AREAS:
+        abort(404, description="Unknown manifest area")
+    state_path = get_state_directory(key_prefix) / area / "state.json"
+    try:
+        data = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        data = {}
+    return jsonify(data)
