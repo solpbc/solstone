@@ -176,7 +176,7 @@ The `retention` block controls automatic cleanup of layer 1 raw media (audio rec
 ```
 
 Fields:
-- `raw_media` (string) – Retention mode: `"keep"`, `"days"`, or `"processed"`. Default: `"keep"`.
+- `raw_media` (string) – Retention mode: `"keep"`, `"days"`, or `"processed"`. Default: `"processed"`.
 - `raw_media_days` (integer or null) – Number of days to retain raw media when mode is `"days"`. Required when `raw_media` is `"days"`, ignored otherwise.
 - `per_stream` (object) – Per-stream overrides keyed by stream name. Each entry supports `raw_media` and `raw_media_days`. Omitted fields inherit from the global retention settings.
 
