@@ -90,7 +90,7 @@ Before deep-mining every entity, scan the day's content to find which entities a
 
 1. Check knowledge graph: `sol call journal read knowledge_graph`
 2. Check events: `sol call journal events -f FACET`
-3. From these sources, identify which attached entities were active today
+3. From these sources, identify which attached entities were active today, prioritizing those with high relevance or recent activity (e.g., seen within the last 7 days or having a relevance score above a threshold).
 4. Focus your deep mining (Phase 3) on entities that appeared in today's content
 5. For entities NOT mentioned today, skip — no content means no new observations
 
