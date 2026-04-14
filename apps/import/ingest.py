@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 _DAY_RE = re.compile(r"^\d{8}$")
 _SEGMENT_RE = re.compile(r"^\d{6}_\d+$")
 _STREAM_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+_FACET_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
 def _append_decision(log_path: Path, entry: dict) -> None:
@@ -60,6 +61,9 @@ def _write_state_atomic(state_path: Path, state_data: dict) -> None:
     except Exception:
         Path(tmp_path).unlink(missing_ok=True)
         raise
+
+
+from .facet_ingest import process_facet
 
 
 def register_ingest_routes(bp) -> None:
@@ -557,6 +561,143 @@ def register_ingest_routes(bp) -> None:
                 "created": created,
                 "staged": staged,
                 "skipped": skipped,
+                "errors": errors,
+            }
+        )
+
+    @bp.route("/journal/<key_prefix>/ingest/facets", methods=["POST"])
+    @require_journal_source
+    def ingest_facets(key_prefix: str):
+        if g.journal_source["key"][:8] != key_prefix:
+            abort(403, description="Key prefix mismatch")
+
+        metadata_raw = request.form.get("metadata")
+        if not metadata_raw:
+            return jsonify({"error": "Missing metadata"}), 400
+
+        try:
+            metadata = json.loads(metadata_raw)
+        except json.JSONDecodeError:
+            return jsonify({"error": "Invalid metadata JSON"}), 400
+
+        if not isinstance(metadata, dict):
+            return jsonify({"error": "Invalid metadata JSON"}), 400
+
+        facets = metadata.get("facets")
+        if not isinstance(facets, list):
+            return jsonify({"error": "Missing facets array"}), 400
+
+        state_dir = get_state_directory(key_prefix)
+        entities_state_path = state_dir / "entities" / "state.json"
+        facets_state_path = state_dir / "facets" / "state.json"
+        log_path = state_dir / "facets" / "log.jsonl"
+        staged_dir = state_dir / "facets" / "staged"
+
+        try:
+            entities_state = json.loads(entities_state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            entities_state = {}
+        if not isinstance(entities_state, dict):
+            entities_state = {}
+        id_map = entities_state.get("id_map")
+        if not isinstance(id_map, dict):
+            id_map = {}
+
+        try:
+            facets_state = json.loads(facets_state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            facets_state = {}
+        if not isinstance(facets_state, dict):
+            facets_state = {}
+        received = facets_state.get("received")
+        if not isinstance(received, dict):
+            received = {}
+        facets_state = {"received": dict(received)}
+
+        created = 0
+        merged = 0
+        skipped = 0
+        staged = 0
+        errors: list[dict[str, str]] = []
+        written_facets: set[str] = set()
+
+        for facet_idx, facet in enumerate(facets):
+            if not isinstance(facet, dict):
+                return jsonify({"error": "Facet metadata must be an object"}), 400
+
+            facet_name = str(facet.get("name", "")).strip()
+            files = facet.get("files")
+            if not facet_name:
+                return jsonify({"error": "Facet name is required"}), 400
+            if not _FACET_NAME_RE.match(facet_name):
+                return jsonify({"error": "Invalid facet name"}), 400
+            if not isinstance(files, list):
+                return jsonify({"error": "Facet files must be an array"}), 400
+
+            file_bytes: list[bytes] = []
+            normalized_files: list[dict[str, str]] = []
+            for file_idx, file_meta in enumerate(files):
+                if not isinstance(file_meta, dict):
+                    return jsonify({"error": "Facet file metadata must be an object"}), 400
+
+                path_value = file_meta.get("path")
+                type_value = file_meta.get("type")
+                if not isinstance(path_value, str) or not isinstance(type_value, str):
+                    return (
+                        jsonify({"error": "Facet file metadata must include path and type"}),
+                        400,
+                    )
+
+                upload = request.files.get(f"files_{facet_idx}_{file_idx}")
+                if upload is None:
+                    return (
+                        jsonify(
+                            {
+                                "error": (
+                                    f"Missing uploaded file for facet {facet_idx} file {file_idx}"
+                                )
+                            }
+                        ),
+                        400,
+                    )
+
+                file_bytes.append(upload.read())
+                normalized_files.append({"path": path_value, "type": type_value})
+
+            facet_result = process_facet(
+                facet_name=facet_name,
+                files=normalized_files,
+                file_data=file_bytes,
+                journal_root=Path(state.journal_root),
+                id_map=id_map,
+                log_path=log_path,
+                staged_dir=staged_dir,
+                received=facets_state["received"],
+            )
+            created += facet_result["created"]
+            merged += facet_result["merged"]
+            skipped += facet_result["skipped"]
+            staged += facet_result["staged"]
+            errors.extend(facet_result["errors"])
+            if facet_result["wrote_files"]:
+                written_facets.add(facet_name)
+
+        _write_state_atomic(facets_state_path, facets_state)
+
+        if written_facets:
+            source = g.journal_source
+            source.setdefault("stats", {})
+            source["stats"]["facets_received"] = (
+                source["stats"].get("facets_received", 0) + len(written_facets)
+            )
+            save_journal_source(source)
+
+        return jsonify(
+            {
+                "created": created,
+                "merged": merged,
+                "skipped": skipped,
+                "staged": staged,
                 "errors": errors,
             }
         )
