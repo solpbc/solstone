@@ -150,9 +150,9 @@
       </div>
     </section>
 
-    <section class="init-section disabled" id="section-recordings">
-      <h3>5. your recordings</h3>
-      <p class="section-hint">choose how long to keep raw audio and screen recordings. you can change this anytime in settings.</p>
+    <section class="init-section disabled" id="section-observed-media">
+      <h3>5. your observed media</h3>
+      <p class="section-hint">choose how long to keep observed audio and screen media. you can change this anytime in settings.</p>
       <div class="field-group">
         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
           <button type="button" class="settings-mode-btn active" data-mode="days" onclick="setRetentionMode('days')">keep N days</button>
@@ -218,7 +218,7 @@
     let detectedTimezone = '';
 
     function unlockSections() {
-      ['section-identity', 'section-provider', 'section-observers', 'section-recordings', 'section-finalize'].forEach(id => {
+      ['section-identity', 'section-provider', 'section-observers', 'section-observed-media', 'section-finalize'].forEach(id => {
         const section = document.getElementById(id);
         section.classList.remove('disabled');
         section.querySelectorAll('input[disabled]').forEach(inp => inp.disabled = false);
@@ -289,14 +289,14 @@
     }
 
     function setRetentionMode(mode) {
-      document.querySelectorAll('#section-recordings .settings-mode-btn').forEach(btn => {
+      document.querySelectorAll('#section-observed-media .settings-mode-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.mode === mode);
       });
       document.getElementById('retention-days-field').style.display = mode === 'days' ? 'flex' : 'none';
     }
 
     function setRetentionDays(days) {
-      document.querySelectorAll('#section-recordings .settings-preset-btn').forEach(btn => {
+      document.querySelectorAll('#section-observed-media .settings-preset-btn').forEach(btn => {
         btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
       });
       document.getElementById('retention-days-input').value = days;
@@ -304,7 +304,7 @@
 
     function setRetentionDaysCustom(value) {
       const days = parseInt(value) || 7;
-      document.querySelectorAll('#section-recordings .settings-preset-btn').forEach(btn => {
+      document.querySelectorAll('#section-observed-media .settings-preset-btn').forEach(btn => {
         btn.classList.toggle('active', parseInt(btn.dataset.days) === days);
       });
     }
@@ -319,7 +319,7 @@
             preferred: document.getElementById('preferred').value.trim(),
             timezone: detectedTimezone,
             gemini_key: document.getElementById('gemini-key').value.trim(),
-            retention_mode: (document.querySelector('#section-recordings .settings-mode-btn.active') || {}).dataset?.mode || 'days',
+            retention_mode: (document.querySelector('#section-observed-media .settings-mode-btn.active') || {}).dataset?.mode || 'days',
             retention_days: parseInt(document.getElementById('retention-days-input').value) || 7
           })
         });
