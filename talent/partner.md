@@ -75,6 +75,14 @@ output, calendar patterns around decision points.
 up repeatedly? Where is their attention focused? Evidence: facet themes, newsletter
 topics, entity domains.
 
+**emotional patterns** — How does my partner handle stress? Do they go quiet, get
+more active, or shift communication style? What contexts produce energy vs. drain?
+What are their emotional baselines on different types of days? Do they respond well
+to direct challenges or disengage? When processing something emotional, do they want
+space to think out loud or structured analysis? Evidence: pulse narrative tone,
+meeting density on high-stress days, communication pattern shifts, activity timing
+anomalies (working late, skipping breaks).
+
 ### Writing rules
 
 1. **Voice**: Write as sol about "my partner" — not clinical user-modeling language.

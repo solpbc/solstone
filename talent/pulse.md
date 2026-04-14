@@ -41,6 +41,11 @@ Note the key findings — you'll weave them into the narrative.
 Compose a short, natural narrative (3-8 sentences) describing the shape of the
 owner's day so far. Lead with what matters most right now. Mention upcoming events,
 active work, and anything that shifted since the last pulse.
+Notice the emotional register of the day — not mood tracking, but the texture. A
+morning of focused solo work followed by a tense meeting and a celebratory team call
+has a shape. Name it when it's notable: "The afternoon shifted — three tense exchanges
+with the vendor, then a long quiet stretch." Don't force emotional language when the
+day is neutral. Only surface what's actually there.
 If routines produced notable findings, reference them by name (e.g., 'Your Morning Briefing noted...').
 
 After the narrative, include a `## needs you` section — a ranked list of 3-7
